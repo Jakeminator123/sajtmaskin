@@ -5,6 +5,8 @@ import { useEffect, useMemo } from "react";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import {
   derivePreviewLifecycleState,
+  isPreviewBuildErrorBlocking,
+  type PreviewBuildErrorState,
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import {
@@ -33,7 +35,7 @@ type Params = {
   currentPreviewUrl: string | null;
   currentPreviewUrlRef: MutableRefObject<string | null>;
   lastActiveVersionIdRef: MutableRefObject<string | null>;
-  previewBuildError: { stage: string; message: string } | null;
+  previewBuildError: PreviewBuildErrorState | null;
   previewPending: boolean;
   previewSessionRecovering: boolean;
   serverProjectChatId: string | null;
@@ -251,7 +253,8 @@ export function useBuilderPreviewVersionSync({
     () =>
       derivePreviewLifecycleState({
         previewBuildErrorStage: previewBuildError?.stage ?? null,
-        hasPreviewBuildError: Boolean(previewBuildError),
+        // `info` notices (unverified client-rendered page) keep the preview live.
+        hasPreviewBuildError: isPreviewBuildErrorBlocking(previewBuildError),
         previewSessionRecovering,
         previewPending,
         currentPreviewUrl,

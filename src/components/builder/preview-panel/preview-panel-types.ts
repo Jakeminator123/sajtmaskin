@@ -1,6 +1,9 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { ShadcnInsertHandler } from "@/lib/builder/shadcn-insert";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import type {
+  PreviewBuildErrorState,
+  PreviewLifecycleState,
+} from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
@@ -105,7 +108,7 @@ export interface PreviewPanelProps {
   awaitingInputQuestion?: string | null;
   awaitingInputOptions?: string[];
   /** Last SSE preview/build failure for this session (cleared on `preview-ready` or version change). */
-  previewBuildError?: { stage: string; message: string } | null;
+  previewBuildError?: PreviewBuildErrorState | null;
   /** `npm run build` result in the tier-2 preview runtime after dev; separate from dev-preview. */
   previewProdBuild?: { verified: boolean; logSnippet?: string } | null;
   previewPending?: boolean;

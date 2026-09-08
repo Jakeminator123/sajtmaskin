@@ -9,8 +9,6 @@ import {
   classifyFollowUpIntent,
   collectFollowUpClarificationAnswer,
   hasDesignFollowUpSignal,
-  persistFollowUpClarification,
-  resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "./follow-up-clarification";
 
@@ -31,7 +29,6 @@ describe("follow-up clarification intent classification", () => {
       "tre sidor med sortiment, om-oss, kontakt och ett kontaktformulär längst ner.";
 
     expect(classifyFollowUpIntent(message)).toBe("clear-redesign");
-    expect(resolveFollowUpClarification(message)).toBeNull();
   });
 
   it("does NOT trigger redesign on legitimate add-section follow-ups (QW-3)", () => {
@@ -107,20 +104,20 @@ describe("follow-up clarification intent classification", () => {
     "byt logotyperna",
     "fix the headers",
     "update the footers",
-  ])("does NOT block a clear follow-up with a specific target: %s", (prompt) => {
+  ])("classifies a clear follow-up with a specific target as non-ambiguous: %s", (prompt) => {
     expect(classifyFollowUpIntent(prompt)).not.toBe("ambiguous-followup");
-    expect(resolveFollowUpClarification(prompt)).toBeNull();
   });
 
   it("does NOT treat English adjective 'marginal' as a layout target", () => {
     // Bugbot: bare `marginal(?:…)?` lät "fix marginal issues" slippa förbi.
     expect(classifyFollowUpIntent("fix marginal issues")).toBe("ambiguous-followup");
-    expect(resolveFollowUpClarification("fix marginal issues")?.reason).toBe(
-      "followup_edit_underspecified",
-    );
     expect(classifyFollowUpIntent("ändra marginalerna")).not.toBe("ambiguous-followup");
   });
 
+  // `ambiguous-followup` is telemetry/intent only since 2026-09-05 — it no
+  // longer stops the turn with a clarification card (prod chat 28af0778:
+  // "känns småfelaktigt fixa.. grafiken e ful" got "Tydlig redesign?" as an
+  // option and the user's request was dropped).
   it.each([
     "förbättra den",
     "fixa designen",
@@ -128,11 +125,9 @@ describe("follow-up clarification intent classification", () => {
     "can you improve it",
     "make it better",
     "polish the design",
-  ])("still blocks a vague underspecified follow-up: %s", (prompt) => {
+    "känns småfelaktigt fixa.. grafiken e ful",
+  ])("still classifies a vague underspecified follow-up: %s", (prompt) => {
     expect(classifyFollowUpIntent(prompt)).toBe("ambiguous-followup");
-    expect(resolveFollowUpClarification(prompt)?.reason).toBe(
-      "followup_edit_underspecified",
-    );
   });
 
   it("does NOT treat noun-without-verb as clear-redesign (Fix B)", () => {
@@ -774,43 +769,6 @@ describe("collectFollowUpClarificationAnswer", () => {
     expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), null)).toBeNull();
   });
 
-  it("roundtrips: persistFollowUpClarification writes a marker the collector can consume", async () => {
-    const clarification = resolveFollowUpClarification("Kan du förbättra den lite?");
-    expect(clarification).not.toBeNull();
-
-    const persisted: Array<{
-      role: string;
-      content: string;
-      uiParts?: Array<Record<string, unknown>>;
-    }> = [];
-    await persistFollowUpClarification({
-      chatId: "chat_1",
-      message: originalPrompt,
-      clarification: clarification!,
-      addMessage: async (_chatId, role, content, _parent, uiParts) => {
-        persisted.push({ role, content, uiParts });
-        return null;
-      },
-    });
-
-    expect(persisted).toHaveLength(2);
-    const messages = persisted.map((entry) => ({
-      role: entry.role as "user" | "assistant",
-      content: entry.content,
-      ui_parts: entry.uiParts ?? null,
-    }));
-    const result = collectFollowUpClarificationAnswer(
-      messages,
-      clarification!.options[0],
-    );
-
-    expect(result).toEqual({
-      sourceUserMessage: originalPrompt,
-      question: clarification!.question,
-      answer: clarification!.options[0],
-      consumed: true,
-    });
-  });
 });
 
 describe("classifyFollowUpClarificationAnswerIntent", () => {

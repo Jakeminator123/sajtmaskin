@@ -29,7 +29,8 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Build profile | Produktprofil som resolvas till en default build-modell; aktuell lista ägs av modellmanifestet. |
 | `phaseRouting` | Produktens modellval per runtimefas; ägs av `config/ai_models/manifest.json`. |
 | Prompt-assist | Knappen bredvid **Plan** som förbättrar ett utkast i chattfältet; inte Deep Brief eller Orkestrering. |
-| Klargörande frågor | Canned follow-up-frågor från `resolveFollowUpClarification` efter regex/keyword-klassning (`classifyFollowUpIntent`). |
+| Klargörande frågor | Blockerande frågekort i chatten (`tool:awaiting-input`). Används av F3-fortsättning (`f3-continuation.ts`) och kontraktsfrågor. Det gamla scope-kortet för följdprompter ("Tydlig redesign?" efter regex-klassning) togs bort 2026-09-05; `classifyFollowUpIntent` är numera bara intent-/telemetrisignal och följdprompter genererar alltid. |
+| Turn-sammanfattning | Deterministisk klartext-sammanfattning av en generationsomgång (`src/lib/gen/stream/turn-summary.ts`): vad som byggdes/ändrades, byggblock, autofixar, vad som inte tillämpades. Läggs sist i assistentmeddelandet och strömmas som SSE `turn-summary`. Ingen LLM. |
 | Capability | Intentnyckel för en förmåga, till exempel `auth`, `payments` eller `site-search`; capability styr valet, inte Dossier-gruppen. |
 | Capability source | Delad signal i init/follow-up: breda `InferredCapabilities` kompletteras med `detectFollowUpCapabilities` för named dossier-capabilities; båda når `requestedDossierCapabilities` före selection. |
 | Dossier | En konkret, återanvändbar implementation av en capability: manifest + LLM-instruktioner + eventuella filer, dependencies, env-kontrakt och exports (`data/dossiers/{hard,soft}/`). |
