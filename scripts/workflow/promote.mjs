@@ -16,12 +16,19 @@
  * Grenen skapas direkt via GitHubs refs-API från `origin/preview`, så
  * kommandot rör aldrig din lokala checkout eller dina ostagade ändringar.
  *
- * Kommandot **mergar aldrig**. Det öppnar PR:en och skriver ut vad som
- * återstår; mergegrinden ägs av `.cursor/rules/pr-merge.mdc` och kräver
+ * Kommandot **mergar aldrig till master**. Det öppnar PR:en och skriver ut vad
+ * som återstår; mergegrinden ägs av `.cursor/rules/pr-merge.mdc` och kräver
  * fortfarande gröna checks, review och din uttryckliga bekräftelse.
  *
  * Förvarning: rör diffen en CI-trust root (`manualMergePathPrefixes`) varnar
  * kommandot redan här — 2026-09-08 upptäcktes det först i review-window.
+ *
+ * Synk: controllern squash-mergar, så masters nya commit finns inte i preview
+ * efteråt. Utan åtgärd räknar nästa promote redan släppta commits igen och
+ * stoppas av kravet att head innehåller aktuell master (extern review
+ * 2026-09-08). Saknar preview masters tip mergar kommandot därför först
+ * master → preview serverside (innehållsneutralt efter en squash-promote) och
+ * fortsätter sedan.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -133,6 +140,15 @@ export function selectPromoteHighlights(commits) {
   return commits.filter((commit) => !MERGE_COMMIT_RE.test(commit.subject));
 }
 
+/**
+ * Efter synk-mergen kan `master..preview` bestå av enbart en merge-commit medan
+ * träden är identiska — då finns inget att släppa. Släpp bara när preview både
+ * ligger före master och faktiskt har ett annat träd.
+ */
+export function hasContentToPromote(commits, treeDiffers) {
+  return commits.length > 0 && treeDiffers;
+}
+
 export function buildPromoteTitle(commits, date) {
   const highlights = selectPromoteHighlights(commits);
   if (highlights.length === 1) {
@@ -213,6 +229,59 @@ function gh(args) {
   return execFileSync("gh", args, { cwd: REPO_ROOT, encoding: "utf8" }).trim();
 }
 
+/** Innehåller origin/preview redan origin/masters tip? */
+function stagingContainsProduction() {
+  try {
+    execFileSync(
+      "git",
+      ["merge-base", "--is-ancestor", `origin/${PRODUCTION_BRANCH}`, `origin/${STAGING_BRANCH}`],
+      { cwd: REPO_ROOT, stdio: "ignore" },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Merga master → preview serverside via GitHubs merges-API. Efter en
+ * squash-promote är träden identiska, så mergen är innehållsneutral; har
+ * master fått en hotfix följer den med till staging, vilket är avsikten.
+ * Kommandot rör aldrig din lokala checkout. Protect preview kräver PR för
+ * pushar — anropet går på din egen behörighet (ägaren har bypass); saknas den
+ * skrivs receptet för PR-vägen ut i stället.
+ */
+function syncStagingWithProduction(baseSha) {
+  console.log(
+    `[promote] origin/${STAGING_BRANCH} saknar origin/${PRODUCTION_BRANCH} (${baseSha.slice(0, 8)}) — mergar ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside så att nästa promote-head innehåller master.`,
+  );
+  try {
+    gh([
+      "api",
+      "-X",
+      "POST",
+      "repos/{owner}/{repo}/merges",
+      "-f",
+      `base=${STAGING_BRANCH}`,
+      "-f",
+      `head=${PRODUCTION_BRANCH}`,
+      "-f",
+      `commit_message=sync: ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} efter promote (${baseSha.slice(0, 8)})`,
+      "--jq",
+      ".sha // empty",
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      [
+        `kunde inte merga ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside: ${message}`,
+        `Alternativ: öppna en PR från ${PRODUCTION_BRANCH} mot ${STAGING_BRANCH} och merga den med MERGE-commit (inte squash), kör sedan promote igen.`,
+      ].join("\n"),
+    );
+  }
+  console.log(`[promote] ${STAGING_BRANCH} innehåller nu ${PRODUCTION_BRANCH}.`);
+}
+
 function today() {
   // Lokalt datum, inte UTC: grennamnet läses av en människa i PR-listan.
   const now = new Date();
@@ -226,7 +295,7 @@ function main() {
 
   git(["fetch", "origin", PRODUCTION_BRANCH, STAGING_BRANCH]);
   const baseSha = git(["rev-parse", `origin/${PRODUCTION_BRANCH}`]);
-  const headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
+  let headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
 
   if (baseSha === headSha) {
     console.log(
@@ -235,12 +304,37 @@ function main() {
     return;
   }
 
+  // Squash-merge lämnar ett hål: masters nya commit finns inte i preview. Utan
+  // synk räknar `master..preview` redan släppta ändringar igen och nästa
+  // promote-PR stoppas av kravet att head innehåller aktuell master.
+  if (!stagingContainsProduction()) {
+    if (options.dryRun) {
+      // Commitlista, head och trädjämförelse gäller först efter synken; att
+      // fortsätta här skulle visa exakt det fel synken finns för att rätta.
+      console.log(
+        `[promote] --dry-run: origin/${STAGING_BRANCH} saknar origin/${PRODUCTION_BRANCH} (${baseSha.slice(0, 8)}). En riktig körning mergar först ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside och räknar sedan om. Kör utan --dry-run, eller merga ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} (merge-commit, inte squash) och prova igen.`,
+      );
+      return;
+    }
+    syncStagingWithProduction(baseSha);
+    git(["fetch", "origin", STAGING_BRANCH]);
+    headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
+  }
+
   const commits = parseCommitLines(
-    git(["log", "--oneline", "--no-decorate", `origin/${PRODUCTION_BRANCH}..origin/${STAGING_BRANCH}`]),
+    git([
+      "log",
+      "--oneline",
+      "--no-decorate",
+      `origin/${PRODUCTION_BRANCH}..origin/${STAGING_BRANCH}`,
+    ]),
   );
-  if (commits.length === 0) {
+  const treeDiffers =
+    git(["rev-parse", `origin/${PRODUCTION_BRANCH}^{tree}`]) !==
+    git(["rev-parse", `origin/${STAGING_BRANCH}^{tree}`]);
+  if (!hasContentToPromote(commits, treeDiffers)) {
     console.log(
-      `[promote] inget att promota — origin/${STAGING_BRANCH} ligger inte före origin/${PRODUCTION_BRANCH}.`,
+      `[promote] inget att promota — origin/${STAGING_BRANCH} har inget innehåll utöver origin/${PRODUCTION_BRANCH}.`,
     );
     return;
   }
@@ -253,20 +347,26 @@ function main() {
   const branch = buildPromoteBranchName(date, existing);
   const title = buildPromoteTitle(commits, date);
 
-  console.log(`[promote] ${commits.length} commit(s) från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`);
+  console.log(
+    `[promote] ${commits.length} commit(s) från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`,
+  );
   for (const commit of selectPromoteHighlights(commits)) {
     console.log(`  ${commit.sha.slice(0, 8)} ${commit.subject}`);
   }
 
   // Samma fail-closed parser som verify:pr (`-z`, kastar på trasig post) och
   // både gammalt och nytt namn vid rename — controllern läser previous_filename.
+  // Två punkter (träd mot träd), inte tre: efter en squash-promote ligger
+  // merge-basen före den släppta koden och tre punkter skulle räkna redan
+  // släppta trust roots igen.
   const changedPaths = parseGitNameStatus(
     git([
       "diff",
       "--name-status",
       "-z",
       "-M",
-      `origin/${PRODUCTION_BRANCH}...origin/${STAGING_BRANCH}`,
+      `origin/${PRODUCTION_BRANCH}`,
+      `origin/${STAGING_BRANCH}`,
     ]),
   );
   const prefixes = manualMergePrefixesFromPolicy(
@@ -290,7 +390,9 @@ function main() {
 
   if (options.dryRun) {
     console.log(`\n[promote] --dry-run: skulle skapa grenen ${branch} vid ${headSha.slice(0, 8)}`);
-    console.log(`[promote] --dry-run: skulle öppna PR "${title}" (${STAGING_BRANCH} → ${PRODUCTION_BRANCH})`);
+    console.log(
+      `[promote] --dry-run: skulle öppna PR "${title}" (${STAGING_BRANCH} → ${PRODUCTION_BRANCH})`,
+    );
     return;
   }
 
@@ -340,9 +442,14 @@ function main() {
       "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
     );
   }
+  console.log("");
+  console.log(
+    `  Efter merge: kör \`npm run promote\` igen — den mergar då ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} så staging innehåller squash-commiten (annars räknas släppta ändringar igen nästa gång).`,
+  );
 }
 
-const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const invokedDirectly =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   try {
     main();

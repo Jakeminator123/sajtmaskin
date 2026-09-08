@@ -45,7 +45,7 @@ const PERIODS = [
 const EVENT_LABEL: Record<KostnadsfriAdminPayload["recent"][number]["event"], string> = {
   besok: "Besökte länken",
   verifierad: "Angav rätt lösenord",
-  skapad: "Skapade webbplats",
+  skapad: "Slutförde formuläret",
 };
 
 const EVENT_TONE: Record<
@@ -296,7 +296,11 @@ export function KostnadsfriSection() {
             </div>
             {result.warning && (
               <Alert variant={result.warning.level === "error" ? "destructive" : "default"}>
-                <AlertTitle>Kontroll mot databasen</AlertTitle>
+                <AlertTitle>
+                  {result.warning.level === "error"
+                    ? "Uppgifterna nedan går inte att skicka"
+                    : "Kontroll mot databasen"}
+                </AlertTitle>
                 <AlertDescription>{result.warning.message}</AlertDescription>
               </Alert>
             )}
@@ -312,24 +316,35 @@ export function KostnadsfriSection() {
               </div>
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Lösenord</p>
-                <div className="flex items-center gap-2">
-                  <code className="bg-background flex-1 rounded border px-2 py-1.5 font-mono text-xs">
-                    {result.invite.password}
-                  </code>
-                  <CopyButton value={result.invite.password} label="lösenord" />
-                </div>
+                {/* Never hand out credentials the verify route will reject: a saved
+                    row with its own password or an expired page wins over the
+                    derived password, so the derived one is hidden in that case. */}
+                {result.warning?.level === "error" ? (
+                  <p className="text-muted-foreground rounded border border-dashed px-2 py-1.5 text-xs">
+                    Dolt — gäller inte för den här sluggen (se rutan ovan).
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <code className="bg-background flex-1 rounded border px-2 py-1.5 font-mono text-xs">
+                      {result.invite.password}
+                    </code>
+                    <CopyButton value={result.invite.password} label="lösenord" />
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <CopyButton
-                value={`Hej!\n\nHär är er kostnadsfria webbsida från Sajtmaskin:\n${result.invite.url}\n\nLösenord: ${result.invite.password}\n`}
-                label="mejltext"
-              />
-              <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                <Mail className="h-3.5 w-3.5" /> Kopierar en färdig mejltext med länk och lösenord.
-                Mejlet skickas manuellt — det finns ingen utskickare.
-              </span>
-            </div>
+            {result.warning?.level !== "error" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <CopyButton
+                  value={`Hej!\n\nHär är er kostnadsfria webbsida från Sajtmaskin:\n${result.invite.url}\n\nLösenord: ${result.invite.password}\n`}
+                  label="mejltext"
+                />
+                <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
+                  <Mail className="h-3.5 w-3.5" /> Kopierar en färdig mejltext med länk och
+                  lösenord. Mejlet skickas manuellt — det finns ingen utskickare.
+                </span>
+              </div>
+            )}
           </div>
         )}
       </SectionCard>
@@ -375,7 +390,7 @@ export function KostnadsfriSection() {
                 icon={KeyRound}
               />
               <StatCard
-                label="Skapade webbplatser"
+                label="Slutförda formulär"
                 value={totals.started}
                 hint={periodLabel}
                 icon={Rocket}
@@ -402,9 +417,9 @@ export function KostnadsfriSection() {
                       <TableHead className="text-right">Rätt lösenord</TableHead>
                       <TableHead
                         className="text-right"
-                        title="Räknas server-side när wizarden skapat sin prompt-handoff."
+                        title="Räknas server-side när wizarden skapat sin prompt-handoff — före buildern. Säger inte om en sajt faktiskt genererades."
                       >
-                        Skapade
+                        Formulär klara
                       </TableHead>
                       <TableHead>Senast</TableHead>
                       <TableHead className="text-right">Status</TableHead>
