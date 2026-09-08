@@ -20,6 +20,8 @@
     "workflow:contract": "node scripts/workflow/check-contract.mjs",
     "verify:pr": "node scripts/workflow/verify-pr.mjs",
     "verify:pr:plan": "node scripts/workflow/verify-pr.mjs --plan",
+    "promote": "node scripts/workflow/promote.mjs",
+    "promote:dry": "node scripts/workflow/promote.mjs --dry-run",
     "preview-host:verify": "npm --prefix preview-host ci --no-audit --no-fund && npm --prefix preview-host run check && npm --prefix preview-host run test:guards && npm --prefix preview-host run test:patch",
     "sync:derived": "npm run docs:generate && npm run dossiers:capability-map:write && npm run canvas:build",
     "docs:generate": "node --import tsx scripts/docs/generate-contract-docs.mjs",
