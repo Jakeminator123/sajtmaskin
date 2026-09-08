@@ -552,6 +552,7 @@ describe("POST product-postcheck", () => {
       expect.objectContaining({
         captureEnabled: true,
         filesRevision: "rev_a",
+        versionNumber: 1,
       }),
     );
     expect(finishLiveReviewSession).toHaveBeenCalled();

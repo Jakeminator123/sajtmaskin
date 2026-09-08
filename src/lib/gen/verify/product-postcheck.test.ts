@@ -25,10 +25,14 @@ vi.mock("@/lib/gen/preview/session-store", () => ({
 vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   fetchPreviewHostReadinessVerdict: fetchPreviewHostReadinessVerdictMock,
 }));
-vi.mock("@/lib/gen/verify/live-review", () => ({
-  isLiveReviewEnabled: isLiveReviewEnabledMock,
-  persistLiveReviewJpeg: persistLiveReviewJpegMock,
-}));
+vi.mock("@/lib/gen/verify/live-review", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./live-review")>();
+  return {
+    ...actual,
+    isLiveReviewEnabled: isLiveReviewEnabledMock,
+    persistLiveReviewJpeg: persistLiveReviewJpegMock,
+  };
+});
 
 import {
   evaluateBrowserRuntimeIssues,
@@ -48,6 +52,7 @@ import {
   resolveCrawlDeadlineMs,
   runProductPostcheck,
   selectCrawlRoutes,
+  shouldPersistPostcheckScreenshots,
   shouldIgnoreConsoleError,
   shouldIgnoreFailedRequest,
   shouldIgnoreHttpStatus,
@@ -1515,6 +1520,45 @@ describe("runProductPostcheck browser-startpunkt", () => {
   });
 });
 
+describe("shouldPersistPostcheckScreenshots", () => {
+  it("skippar upload på follow-up utan sensor", () => {
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: true,
+        versionNumber: 2,
+        warnings: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("behåller upload på v1 och på follow-up med sensor", () => {
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: true,
+        versionNumber: 1,
+        warnings: [],
+      }),
+    ).toBe(true);
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: true,
+        versionNumber: 2,
+        warnings: [{ code: "broken_image", message: "Bilden laddade inte" }],
+      }),
+    ).toBe(true);
+  });
+
+  it("skippar upload när capture är av", () => {
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: false,
+        versionNumber: 1,
+        warnings: [],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("runProductPostcheck screenshot best-effort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1779,6 +1823,91 @@ describe("runProductPostcheck screenshot best-effort", () => {
 
     expect(result.skippedReason).toBe("preview_superseded");
     expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+  });
+
+  it("laddar inte upp live-review-JPEG på follow-up utan sensor (followup_no_sensor)", async () => {
+    // Preview 2026-09-08 (chat 4a2aa301): v2/v3 laddade upp blobbar och
+    // raderade dem sedan vid followup_no_sensor, men meta.screenshots
+    // pekade kvar på de raderade URL:erna.
+    persistLiveReviewJpegMock
+      .mockResolvedValueOnce("https://blob.example/desktop.jpg")
+      .mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Follow-up", h1: "Hero", bodyText: "Ingen sensor." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Follow-up", h1: "Hero", bodyText: "Ingen sensor." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v2",
+      versionNumber: 2,
+      captureEnabled: true,
+    });
+
+    expect(result.skipped).toBe(false);
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+    expect(result.screenshots).toBeNull();
+  });
+
+  it("laddar upp live-review-JPEG på follow-up när en sensor slagit", async () => {
+    persistLiveReviewJpegMock
+      .mockResolvedValueOnce("https://blob.example/desktop.jpg")
+      .mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Follow-up", h1: "Hero", bodyText: "Trasig bild." },
+        {
+          anchors: [],
+          images: [{ src: "broken.jpg", alt: "x", naturalWidth: 0, complete: true }],
+          ctas: [],
+          forms: [],
+        },
+        false,
+        [],
+        { title: "Follow-up", h1: "Hero", bodyText: "Trasig bild." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v2",
+      versionNumber: 2,
+      captureEnabled: true,
+    });
+
+    expect(result.warnings.some((warning) => warning.code === "broken_image")).toBe(true);
+    expect(persistLiveReviewJpegMock).toHaveBeenCalledTimes(2);
+    expect(result.screenshots).toEqual({
+      desktopUrl: "https://blob.example/desktop.jpg",
+      mobileUrl: "https://blob.example/mobile.jpg",
+    });
   });
 
   it("env-flaggan ensam räcker inte för capture", async () => {

@@ -16,7 +16,9 @@ import {
 } from "@/lib/gen/preview/preview-host-client";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
+  isChatFollowUpVersion,
   persistLiveReviewJpeg,
+  shouldRunLiveReview,
   type LiveReviewResult,
   type LiveReviewScreenshotSet,
   type ProductDomSummary,
@@ -1293,6 +1295,25 @@ async function persistCapturedScreenshots(params: {
   return { desktopUrl, mobileUrl };
 }
 
+/**
+ * Blob-upload är bara meningsfull när live review faktiskt ska köra.
+ * Follow-up utan sensor (`followup_no_sensor`) raderar bilderna efteråt —
+ * då ska URL:erna aldrig persisteras (preview 2026-09-08, chat `4a2aa301`).
+ */
+export function shouldPersistPostcheckScreenshots(params: {
+  captureEnabled: boolean;
+  versionNumber?: number | null;
+  warnings: readonly Pick<ProductPostcheckWarning, "code" | "message">[];
+}): boolean {
+  if (!params.captureEnabled) return false;
+  return shouldRunLiveReview({
+    enabled: true,
+    skipped: false,
+    findings: params.warnings,
+    isFollowUp: isChatFollowUpVersion(params.versionNumber),
+  }).run;
+}
+
 export async function runProductPostcheck(params: {
   previewUrl: string;
   chatId: string;
@@ -1303,6 +1324,7 @@ export async function runProductPostcheck(params: {
   filesRevision?: string | null;
   previewSessionId?: string | null;
   lifecycleToken?: string | null;
+  versionNumber?: number | null;
 }): Promise<ProductPostcheckResult> {
   const startedAt = Date.now();
   const previewUrl = params.previewUrl.trim();
@@ -1835,7 +1857,11 @@ export async function runProductPostcheck(params: {
         ),
       );
     }
-    const screenshots = captureEnabled
+    const screenshots = shouldPersistPostcheckScreenshots({
+      captureEnabled,
+      versionNumber: params.versionNumber,
+      warnings,
+    })
       ? await persistCapturedScreenshots({
           chatId: params.chatId,
           versionId: params.versionId,
