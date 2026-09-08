@@ -497,6 +497,62 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     );
   });
 
+  // Proven 2026-09-08, chat 4a2aa301…: validate-images rewrote files_json
+  // (same versionId, new files_revision) while the first boot was still
+  // installing. The second /preview-session took /update because the patch
+  // lane bailed on !manifest.running — host went ready → stop → reload → boot
+  // again (+13s). Same-version rewrite + host still on that version must patch.
+  it("patches a same-version revision bump while the host is still booting", async () => {
+    const livePayload = await primeLiveSession("version-v1", [file("app/page.tsx", PAGE_V1)]);
+    await touchPreviewSessionAsync({
+      chatId: "chat-patch",
+      previewSessionId: "ps-live",
+      previewUrl: PREVIEW_URL,
+      versionId: "version-v1",
+      filesRevision: "revision-n",
+      tier2Provider: "preview_host",
+      writeIntent: "authoritative",
+    });
+    mockManifest("version-v1", livePayload, false);
+    mockPatchOk("version-v1");
+
+    const pageFixed =
+      "export default function Page(){return <main>ersatt unsplash</main>;}";
+    const result = await startPreviewSession([file("app/page.tsx", pageFixed)], {
+      appProjectId: "proj-patch",
+      chatId: "chat-patch",
+      versionIdForSession: "version-v1",
+      filesRevisionForSession: "revision-n-plus-1",
+      skipProjectScaffold: true,
+      skipRepair: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePreviewHostSession).not.toHaveBeenCalled();
+    expect(patchPreviewHostSession).toHaveBeenCalledOnce();
+    const patchArgs = patchPreviewHostSession.mock.calls[0]?.[0];
+    expect(patchArgs.versionId).toBe("version-v1");
+    expect(patchArgs.expectedBaseVersionId).toBe("version-v1");
+    expect(patchArgs.files?.["app/page.tsx"]).toBe(pageFixed);
+    expect(getActivePreviewSession("chat-patch")).toMatchObject({
+      versionId: "version-v1",
+      filesRevision: "revision-n-plus-1",
+    });
+    expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "preview_followup_lane",
+        lane: "patch",
+        versionId: "version-v1",
+        baseVersionId: "version-v1",
+      }),
+    );
+    if (result.ok) {
+      expect(result.result.startOutcome).toBe("resumed");
+      expect(result.result.runtimeReady).toBe(false);
+      expect(result.result.filesRevision).toBe("revision-n-plus-1");
+    }
+  });
+
   it("falls back to a full update when a structural path changed", async () => {
     const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
     // Host holds a different .env.local than the one this follow-up would push

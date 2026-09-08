@@ -636,6 +636,7 @@ async function routeRequest(req, res) {
           versionId: validated.versionId,
           mutationRevision: patchOutcome.mutationRevision,
           expectedPreviousMutationRevision: patchOutcome.rollback.mutationRevision ?? null,
+          previousVersionId: patchOutcome.rollback.versionId ?? null,
         });
     if (patchResult.mode === "error") {
       // Finding #3 (FEL-5): the workspace patch did not land. Roll the session

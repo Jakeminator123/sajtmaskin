@@ -1,0 +1,226 @@
+/**
+ * Regression: same-version file rewrite (image repair / files_revision bump)
+ * while the first boot is still in flight must hot-write the new files and
+ * must NOT queue a second full boot.
+ *
+ * Proven 2026-09-08, chat 4a2aa301-c337-44e6-9939-9b65a3f872a5: /update during
+ * npm install went ready → stop → iframe reload → second boot (+13s).
+ *
+ *   node scripts/test-patch-during-boot.mjs
+ */
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createRequire } from "node:module";
+
+const dataDir = mkdtempSync(join(tmpdir(), "preview-host-patch-during-boot-"));
+process.env.PREVIEW_HOST_DATA_DIR = dataDir;
+process.env.HOST = "127.0.0.1";
+process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
+
+const require = createRequire(import.meta.url);
+const store = require("../src/store.js");
+const runtime = require("../src/runtime.js");
+
+const PAGE_V1 = "export default function Page(){return <main>broken unsplash</main>;}";
+const PAGE_V2 = "export default function Page(){return <main>fixed unsplash</main>;}";
+const chatId = "chat-boot-patch";
+const sessionId = "session-boot-patch";
+const previewSessionId = "ps-boot-patch";
+const lifecycleToken = "life-boot-patch";
+const versionId = "version-v1";
+
+function seedSession(filesJson, extras = {}) {
+  const now = new Date().toISOString();
+  const session = {
+    sessionId,
+    previewSessionId,
+    lifecycleToken,
+    chatId,
+    versionId,
+    previewUrl: `http://127.0.0.1/${chatId}`,
+    status: "starting",
+    lastAction: "start",
+    changeClass: "fresh",
+    startOutcome: "fresh",
+    readinessState: "starting",
+    readinessError: null,
+    mutationRevision: 1,
+    filesJson,
+    createdAt: now,
+    updatedAt: now,
+    sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    ...extras,
+  };
+  store.writeStoreAtomicSync({
+    sessions: { [sessionId]: session },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+  return session;
+}
+
+function workspacePage() {
+  return readFileSync(join(runtime.__testing.workspaceDirForChat(chatId), "app/page.tsx"), "utf8");
+}
+
+try {
+  // 1) Same-version rewrite while booting: write files, do not queue restart.
+  {
+    seedSession({
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+    });
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      running: false,
+      booting: true,
+    });
+    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 9 }));
+    runtime.__testing.takeRestartBootsQueuedForTesting();
+
+    const result = runtime.applyRuntimePatch(chatId, {
+      files: { "app/page.tsx": PAGE_V2 },
+      removedPaths: [],
+      versionId,
+      previousVersionId: versionId,
+      mutationRevision: 2,
+      expectedPreviousMutationRevision: 1,
+    });
+
+    assert.equal(result.mode, "patched");
+    assert.equal(result.reason, "boot_in_flight");
+    assert.equal(
+      runtime.__testing.takeRestartBootsQueuedForTesting(),
+      0,
+      "same-version patch during boot must not queue a second full boot",
+    );
+    assert.equal(workspacePage(), PAGE_V2, "workspace must hold the rewritten file");
+    runtime.__testing.setBootRunnerForTesting(null);
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+  }
+
+  // 2) Dead / not-booting runtime still queues a boot (do not leave files
+  //    on disk with no process).
+  {
+    seedSession({
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+    });
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      running: false,
+      booting: false,
+    });
+    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 9 }));
+    runtime.__testing.takeRestartBootsQueuedForTesting();
+
+    const result = runtime.applyRuntimePatch(chatId, {
+      files: { "app/page.tsx": PAGE_V2 },
+      removedPaths: [],
+      versionId,
+      previousVersionId: versionId,
+      mutationRevision: 2,
+      expectedPreviousMutationRevision: 1,
+    });
+
+    assert.equal(result.mode, "booted");
+    assert.equal(result.reason, "runtime_not_running");
+    assert.equal(
+      runtime.__testing.takeRestartBootsQueuedForTesting(),
+      1,
+      "a dead runtime must still get a boot from the merged filesJson",
+    );
+    runtime.__testing.setBootRunnerForTesting(null);
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+  }
+
+  // 3) Follow-up to a NEW versionId while booting still restarts (FEL-4).
+  {
+    seedSession({
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+    });
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      running: false,
+      booting: true,
+    });
+    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 9 }));
+    runtime.__testing.takeRestartBootsQueuedForTesting();
+
+    const result = runtime.applyRuntimePatch(chatId, {
+      files: { "app/page.tsx": PAGE_V2 },
+      removedPaths: [],
+      versionId: "version-v2",
+      previousVersionId: versionId,
+      mutationRevision: 2,
+      expectedPreviousMutationRevision: 1,
+    });
+
+    assert.equal(result.mode, "booted");
+    assert.equal(result.reason, "runtime_not_running");
+    assert.equal(
+      runtime.__testing.takeRestartBootsQueuedForTesting(),
+      1,
+      "a new versionId during boot must still force a restart boot",
+    );
+    runtime.__testing.setBootRunnerForTesting(null);
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+  }
+
+  // 4) In-flight boot must adopt a same-version patch (mutationRevision
+  //    advanced, lastAction=patch) instead of throwing PREVIEW_LIFECYCLE_SUPERSEDED.
+  {
+    const bootSnapshot = seedSession({
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+    });
+    const patchedStore = store.readStoreSync();
+    patchedStore.sessions[sessionId].mutationRevision = 2;
+    patchedStore.sessions[sessionId].lastAction = "patch";
+    patchedStore.sessions[sessionId].filesJson = {
+      ...patchedStore.sessions[sessionId].filesJson,
+      "app/page.tsx": PAGE_V2,
+    };
+    store.writeStoreAtomicSync(patchedStore);
+
+    const adopted = runtime.__testing.assertCurrentSessionLifecycle(bootSnapshot);
+    assert.equal(adopted.mutationRevision, 2);
+    assert.equal(adopted.lastAction, "patch");
+    assert.equal(adopted.filesJson["app/page.tsx"], PAGE_V2);
+    assert.equal(adopted.lifecycleToken, lifecycleToken);
+    assert.equal(adopted.versionId, versionId);
+
+    assert.throws(
+      () =>
+        runtime.__testing.assertCurrentSessionLifecycle({
+          ...bootSnapshot,
+          lifecycleToken: "life-other",
+        }),
+      (err) => err && err.code === "PREVIEW_LIFECYCLE_SUPERSEDED",
+    );
+    assert.throws(
+      () =>
+        runtime.__testing.assertCurrentSessionLifecycle({
+          ...bootSnapshot,
+          versionId: "version-other",
+        }),
+      (err) => err && err.code === "PREVIEW_LIFECYCLE_SUPERSEDED",
+    );
+  }
+
+  console.log("[test-patch-during-boot] All guards green.");
+} finally {
+  runtime.__testing.setBootRunnerForTesting(null);
+  runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+  rmSync(dataDir, { recursive: true, force: true });
+}

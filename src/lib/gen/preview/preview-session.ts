@@ -264,7 +264,8 @@ export async function tryPatchPreviewSession(params: {
  *
  * 1. the patch lane flag is on,
  * 2. the host still serves the exact base version our session pointer claims
- *    (`files-manifest` reports `versionId` + `running`),
+ *    (`files-manifest` reports `versionId`; `running` is required except for
+ *    a same-version rewrite while that version is still booting),
  * 3. the diff has no structural/dependency path and is small enough
  *    ({@link planPreviewPatch}),
  * 4. the host accepts the patch under its own base-version lock and echoes the
@@ -306,7 +307,17 @@ async function tryFollowUpPatchLane(params: {
   // No manifest = older host without the route, an unusable session, or a
   // network blip. All of them mean "we do not know what is live" -> update.
   if (!manifest) return fallBackToUpdate("manifest_unavailable");
-  if (!manifest.running) return fallBackToUpdate("runtime_not_running");
+  // Same-version rewrite (image repair / files_revision bump) while the host
+  // is still cold-booting that version: `running` is false but the VM already
+  // holds `baseVersionId`. Bailing here used to force `/update` → stop+reboot
+  // of a boot that was about to become ready (2026-09-08). A genuine follow-up
+  // to a *new* versionId, or a host that is not on our base, still updates.
+  if (!manifest.running) {
+    const sameVersionRewrite =
+      params.versionId === params.baseVersionId &&
+      manifest.versionId === params.baseVersionId;
+    if (!sameVersionRewrite) return fallBackToUpdate("runtime_not_running");
+  }
   if (manifest.versionId !== params.baseVersionId) {
     return fallBackToUpdate("host_version_mismatch", `host=${manifest.versionId ?? "none"}`);
   }

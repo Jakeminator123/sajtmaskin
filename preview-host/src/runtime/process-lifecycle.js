@@ -57,13 +57,43 @@ function sameSessionLifecycle(stored, snapshot) {
   );
 }
 
-function assertCurrentSessionLifecycle(session) {
+/**
+ * A same-version `/patch` during an in-flight boot advances mutationRevision
+ * and lastAction=patch but keeps sessionId + lifecycleToken + versionId.
+ * The boot must adopt that snapshot (latest filesJson) instead of aborting
+ * as PREVIEW_LIFECYCLE_SUPERSEDED — otherwise the 2026-09-08 image-repair
+ * rewrite cannot land without a second full boot.
+ */
+function isSameVersionPatchAdoption(stored, snapshot) {
+  return Boolean(
+    stored &&
+    snapshot &&
+    stored.sessionId === snapshot.sessionId &&
+    (stored.lifecycleToken ?? null) === (snapshot.lifecycleToken ?? null) &&
+    stored.versionId === snapshot.versionId &&
+    stored.lastAction === "patch" &&
+    (readMutationRevision(stored) ?? 0) > (readMutationRevision(snapshot) ?? 0),
+  );
+}
+
+function sameSessionLifecycleOrAdoptedPatch(stored, snapshot) {
+  return sameSessionLifecycle(stored, snapshot) || isSameVersionPatchAdoption(stored, snapshot);
+}
+
+function currentSessionOrAdoptedPatch(session) {
   const current = findSessionByChatId(readStoreSync(), getSessionChatId(session));
-  if (!sameSessionLifecycle(current, session)) {
+  if (sameSessionLifecycleOrAdoptedPatch(current, session)) return current;
+  return null;
+}
+
+function assertCurrentSessionLifecycle(session) {
+  const current = currentSessionOrAdoptedPatch(session);
+  if (!current) {
     const error = new Error("Preview session lifecycle was superseded during runtime boot.");
     error.code = "PREVIEW_LIFECYCLE_SUPERSEDED";
     throw error;
   }
+  return current;
 }
 
 /** Read at call time so guard tests can shrink the deadline without reloading the module. */
@@ -271,7 +301,14 @@ async function probeReadinessAfterPatch({
  */
 function applyRuntimePatch(
   chatId,
-  { files, removedPaths, versionId, mutationRevision, expectedPreviousMutationRevision } = {},
+  {
+    files,
+    removedPaths,
+    versionId,
+    mutationRevision,
+    expectedPreviousMutationRevision,
+    previousVersionId,
+  } = {},
 ) {
   const changed = files && typeof files === "object" ? files : {};
   const removed = Array.isArray(removedPaths) ? removedPaths : [];
@@ -281,18 +318,39 @@ function applyRuntimePatch(
     return { mode: "restarted", reason: "structural_change" };
   }
   const runtimeState = getRuntimeStateForChat(chatId);
+  const previousVersion =
+    typeof previousVersionId === "string" && previousVersionId.trim()
+      ? previousVersionId.trim()
+      : "";
+  const nextVersion = typeof versionId === "string" && versionId.trim() ? versionId.trim() : "";
+  const sameVersionRewrite = Boolean(previousVersion && nextVersion && previousVersion === nextVersion);
   if (!runtimeState.running || runtimeState.booting) {
-    // Not running / still cold-booting -> a plain non-restart boot would dedupe
-    // to an in-flight boot that may have already snapshotted the pre-patch
-    // filesJson, so the VM could come up serving stale files even though the
-    // session was advanced.
+    // Same-version rewrite while the first boot is still in flight (`running`
+    // is false, `booting` is true): write the new files into the workspace.
+    // session.filesJson is already merged by the route. The in-flight boot
+    // adopts the advanced mutationRevision and re-reads filesJson before
+    // spawn, so Next compiles the rewrite on first request — no stop+reboot
+    // (2026-09-08 ready → stop → reload).
     //
-    // FEL-4: even when the OLD dev process is still alive (`running === true`)
-    // but a restart boot is already in flight (`booting === true`), a hot file
-    // write races that boot — the boot may rewrite the whole workspace from a
-    // pre-patch snapshot and clobber the patched files. In both cases force a
-    // restart boot: ensureRuntimeForChat waits for any in-flight boot to finish,
-    // then re-boots from the merged filesJson the caller already committed.
+    // FEL-4 still applies when a live process exists AND a restart is in
+    // flight (`running && booting`): a hot write can be clobbered by that
+    // boot's workspace snapshot. A dead runtime (`!running && !booting`)
+    // still needs a boot. A new versionId during boot still restarts.
+    if (sameVersionRewrite && runtimeState.booting && !runtimeState.running) {
+      try {
+        patchWorkspaceFiles(chatId, changed, removed);
+      } catch (error) {
+        return {
+          mode: "error",
+          reason: error instanceof Error ? error.message : "Workspace patch write failed.",
+        };
+      }
+      return { mode: "patched", reason: "boot_in_flight" };
+    }
+    // Not running / still cold-booting a *different* version, or a restart
+    // already in flight against a live process -> force a restart boot.
+    // ensureRuntimeForChat waits for any in-flight boot to finish, then
+    // re-boots from the merged filesJson the caller already committed.
     queueRuntimeBoot(chatId, { restart: true });
     return {
       mode: "booted",
@@ -709,7 +767,9 @@ function isLiveBoot(sessionId, bootId) {
 function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
   const chatId = getSessionChatId(session);
   const latest = findSessionByChatId(readStoreSync(), chatId);
-  if (!sameSessionLifecycle(latest, session) || latest.versionId !== session.versionId) return false;
+  if (!sameSessionLifecycleOrAdoptedPatch(latest, session) || latest.versionId !== session.versionId) {
+    return false;
+  }
   const tracked = runtimeChildren.get(session.sessionId);
   if (!tracked || tracked.child?.exitCode !== null) return false;
   if (runtimePort != null && tracked.port !== runtimePort) return false;
@@ -735,7 +795,9 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   // stopTrackedRuntime flushes logs asynchronously. A destroy/new start may
   // win while that await is pending; fence immediately before spawning so the
   // old lifecycle cannot leak a dev server after its session was removed.
-  assertCurrentSessionLifecycle(session);
+  // Adopt a same-version patch that landed during the stop so the tracked
+  // receipt matches the store (mutationRevision) before the child starts.
+  session = assertCurrentSessionLifecycle(session);
   clearStaleNextDevLock(workspaceDir);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
@@ -902,7 +964,7 @@ async function bootRuntimeForSession(session, options = {}) {
       "Retry from the builder after fixing the project, or wait for the failure window to expire.",
     ].join(" ");
     await updateSessionById(session.sessionId, (stored) => {
-      if (!sameSessionLifecycle(stored, session)) return;
+      if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       stored.status = "error";
       stored.runtimeBootFailureVersionId = session.versionId;
@@ -920,7 +982,7 @@ async function bootRuntimeForSession(session, options = {}) {
   }
 
   await updateSessionById(session.sessionId, (stored) => {
-    if (!sameSessionLifecycle(stored, session)) return;
+    if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
     stored.status = "starting";
     // A start request writes `starting` before it queues the boot. Treat that
     // as an explicit retry and give the same version a fresh exit budget.
@@ -949,7 +1011,7 @@ async function bootRuntimeForSession(session, options = {}) {
     const chatId = getSessionChatId(session);
     const isPrewarm = session.prewarm === true;
     const runBoot = async () => {
-      assertCurrentSessionLifecycle(session);
+      session = assertCurrentSessionLifecycle(session);
       const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
       patchNextConfigForPreviewBasePath(workspaceDir);
       const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
@@ -961,12 +1023,16 @@ async function bootRuntimeForSession(session, options = {}) {
         session.previewSessionId,
         session.filesJson,
       );
-      assertCurrentSessionLifecycle(session);
+      // Re-read after install: a same-version patch may have landed while npm
+      // ran. Write the adopted filesJson so spawn does not boot the pre-patch
+      // snapshot, then continue this boot (no stop+reload).
+      session = assertCurrentSessionLifecycle(session);
+      writeWorkspaceFiles(chatId, session.filesJson);
       await spawnDevServer(session, workspaceDir, runtimePort);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
-        if (!sameSessionLifecycle(stored, session)) return;
+        if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
         if (stored.versionId !== session.versionId) return;
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
@@ -1070,7 +1136,7 @@ async function bootRuntimeForSession(session, options = {}) {
         // outer catch, which sets status "error" and keeps the hold in place.
         await readiness;
         await updateSessionById(session.sessionId, (stored) => {
-          if (!sameSessionLifecycle(stored, session)) return;
+          if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
           if (stored.versionId !== session.versionId || stored.prewarm === true) return;
           stored.prewarmReplacementPending = false;
           stored.status = "warm_project";
@@ -1114,7 +1180,7 @@ async function bootRuntimeForSession(session, options = {}) {
     // guard refuses the very boot the update asked for.
     let failure = { timestamps: [], failed: false };
     await updateSessionById(session.sessionId, (stored) => {
-      if (!sameSessionLifecycle(stored, session)) return;
+      if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       failure = classifyRuntimeBootFailureLoop({
         timestamps: bootFailureTimestampsForSession(stored),
@@ -1279,10 +1345,19 @@ function ensureRuntimeForChat(chatId, options = {}) {
   return run;
 }
 
+let restartBootsQueuedForTesting = 0;
+
 function queueRuntimeBoot(chatId, options = {}) {
+  if (options.restart === true) restartBootsQueuedForTesting += 1;
   void ensureRuntimeForChat(chatId, options).catch(() => {
     // Failure is already written into session/log state by bootRuntimeForSession.
   });
+}
+
+function takeRestartBootsQueuedForTesting() {
+  const count = restartBootsQueuedForTesting;
+  restartBootsQueuedForTesting = 0;
+  return count;
 }
 
 function getRuntimeStateForChat(chatId) {
@@ -1487,6 +1562,9 @@ module.exports = {
   applyRuntimePatch,
   promoteTrackedRuntimeReceipt,
   runtimeExitOwnsStoredSession,
+  assertCurrentSessionLifecycle,
+  isSameVersionPatchAdoption,
+  takeRestartBootsQueuedForTesting,
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,

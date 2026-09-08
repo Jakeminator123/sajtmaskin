@@ -16,7 +16,7 @@
     "test:next-source-contract": "node scripts/test-preview-proxy-contract.mjs --next-source-only",
     "test:swap-reload": "node scripts/test-runtime-swap-reload.mjs",
     "test:inspect-parent-allowlist": "node scripts/test-inspect-parent-allowlist.mjs",
-    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && node scripts/test-session-lifecycle-race.mjs && node scripts/test-binary-workspace-materialization.mjs && npm run test:inspect-parent-allowlist && npm run test:proxy-contract && npm run test:swap-reload"
+    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && node scripts/test-patch-during-boot.mjs && node scripts/test-session-lifecycle-race.mjs && node scripts/test-binary-workspace-materialization.mjs && npm run test:inspect-parent-allowlist && npm run test:proxy-contract && npm run test:swap-reload"
   },
   "dependencies": {
     "acorn": "^8.16.0",
