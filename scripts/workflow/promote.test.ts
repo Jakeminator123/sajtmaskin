@@ -1,11 +1,17 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { parseGitNameStatus } from "./path-impact.mjs";
 import {
   PRODUCTION_BRANCH,
   STAGING_BRANCH,
   buildPromoteBody,
   buildPromoteBranchName,
   buildPromoteTitle,
+  findManualMergePaths,
+  manualMergePrefixesFromPolicy,
   parseCommitLines,
   parsePromoteArgs,
   parseRemoteBranchNames,
@@ -82,6 +88,92 @@ describe("parseRemoteBranchNames", () => {
       "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\trefs/heads/promote/2026-09-08",
     );
     expect(buildPromoteBranchName("2026-09-08", existing)).toBe("promote/2026-09-08-2");
+  });
+});
+
+describe("manualMergePrefixesFromPolicy", () => {
+  // Cursor-review på #1305: förvarningen måste läsa samma policy som
+  // controllern — masters — inte checkoutens. Samma fallback som
+  // trusted-review-window.mjs när nyckeln saknas; trasig lista ska kasta,
+  // inte tyst bli tom (då försvinner varningen).
+  it("läser prefixlistan ur policy-JSON", () => {
+    expect(
+      manualMergePrefixesFromPolicy(
+        JSON.stringify({ manualMergePathPrefixes: [".github/workflows/", "scripts/ci/"] }),
+      ),
+    ).toEqual([".github/workflows/", "scripts/ci/"]);
+  });
+
+  it("faller tillbaka på controllerns default när nyckeln saknas", () => {
+    expect(manualMergePrefixesFromPolicy(JSON.stringify({ trunk: "master" }))).toEqual([
+      ".github/workflows/",
+    ]);
+  });
+
+  it("kastar på trasig lista i stället för att tyst tömma varningen", () => {
+    expect(() =>
+      manualMergePrefixesFromPolicy(JSON.stringify({ manualMergePathPrefixes: "scripts/ci/" })),
+    ).toThrow(/stränglista/);
+    expect(() => manualMergePrefixesFromPolicy("")).toThrow();
+  });
+
+  it("hänger ihop med den fail-closed name-status-parsern från verify:pr", () => {
+    // Rename ger båda namnen; controllern läser previous_filename.
+    const paths = parseGitNameStatus(
+      ["M\0src/app.ts", "R100\0scripts/ci/old.mjs\0scripts/other/new.mjs", ""].join("\0"),
+    );
+    expect(findManualMergePaths(paths, [".github/workflows/", "scripts/ci/"])).toEqual([
+      "scripts/ci/old.mjs",
+    ]);
+  });
+});
+
+describe("findManualMergePaths", () => {
+  it("hittar sökvägar som börjar med ett prefix", () => {
+    expect(
+      findManualMergePaths(["src/app.ts", ".github/workflows/ci.yml"], [".github/workflows/"]),
+    ).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("ger tom lista utan träff", () => {
+    expect(findManualMergePaths(["src/app.ts"], [".github/workflows/"])).toEqual([]);
+  });
+
+  it("deduplicerar och sorterar", () => {
+    expect(
+      findManualMergePaths(
+        [
+          "config/agent-workflow.json",
+          ".github/workflows/ci.yml",
+          "config/agent-workflow.json",
+        ],
+        ["config/agent-workflow.json", ".github/workflows/"],
+      ),
+    ).toEqual([".github/workflows/ci.yml", "config/agent-workflow.json"]);
+  });
+
+  it("matchar exakt fil-prefix och katalogprefix", () => {
+    expect(
+      findManualMergePaths(
+        ["config/agent-workflow.json", "config/other.json"],
+        ["config/agent-workflow.json"],
+      ),
+    ).toEqual(["config/agent-workflow.json"]);
+    expect(
+      findManualMergePaths(
+        [".github/workflows/ci.yml", ".github/CODEOWNERS"],
+        [".github/workflows/"],
+      ),
+    ).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("klassar den riktiga policyns agent-workflow.json som träff", () => {
+    const prefixes = manualMergePrefixesFromPolicy(
+      readFileSync(resolve(process.cwd(), "config/agent-workflow.json"), "utf8"),
+    );
+    expect(findManualMergePaths(["config/agent-workflow.json", "README.md"], prefixes)).toEqual([
+      "config/agent-workflow.json",
+    ]);
   });
 });
 
@@ -171,5 +263,26 @@ describe("buildPromoteBody", () => {
     // promote-headen, inte på del-PR:arna mot preview.
     expect(body).not.toContain("- [x]");
     expect(body).toContain("- [ ] P0/P1 = 0");
+  });
+
+  it("utelämnar bootstrap-sektionen när inga trust-root-träffar finns", () => {
+    expect(body).not.toContain("## Bootstrap-godkännande krävs");
+  });
+
+  it("lägger till omarkerad bootstrap-sektion när trust-root-träffar finns", () => {
+    const withHits = buildPromoteBody({
+      commits,
+      baseSha: "95b8f29bbcd36a8c66b9d3aed751d5cb48c1d55a",
+      headSha: "6c1022e5a5262d6f0967aa87cd0b82a062d6b80e",
+      branch: "promote/2026-09-08",
+      date: "2026-09-08",
+      manualMergePaths: ["config/agent-workflow.json"],
+    });
+    expect(withHits).toContain("## Bootstrap-godkännande krävs");
+    expect(withHits).toContain("`config/agent-workflow.json`");
+    expect(withHits).toContain(
+      "- [ ] Ägaren har uttryckligen godkänt infrastruktur-bootstrapen i chatten",
+    );
+    expect(withHits).not.toContain("- [x]");
   });
 });
