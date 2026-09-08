@@ -14,6 +14,8 @@ const {
   LOOPBACK,
   activePreviewSocketCount,
   activeVerifyChatKeys,
+  clearHotPatchWritten,
+  markHotPatchWritten,
   markPendingPreviewClientReload,
   requestPreviewClientReload,
   signalPreviewClientReloadAfterHotPatch,
@@ -240,16 +242,16 @@ async function probeReadinessAfterPatch({
         previewSessionId,
         `Readiness confirmed after hot patch (version ${versionId}).`,
       );
-      // Same pending-reload generation as a runtime swap. Live HMR viewers
-      // are ACKed so Fast Refresh is not followed by a document reload;
-      // everyone else stays pending until their next HMR connect.
+      // Same pending-reload generation as a runtime swap. Only documents
+      // registered after the workspace write are ACKed as already fresh;
+      // pre-write sockets (live, stub, or zombie) get reloadPage.
       const signaled = signalPreviewClientReloadAfterHotPatch(chatId);
       await appendRuntimeLog(
         previewSessionId,
         signaled.sent > 0
           ? `Signaled preview client reload after hot patch (${signaled.sent} open socket(s)).`
-          : signaled.liveCount > 0
-            ? `Hot patch ready; live HMR viewer(s) left to Fast Refresh (${signaled.liveCount}).`
+          : signaled.freshCount > 0
+            ? `Hot patch ready; post-write document(s) already fresh (${signaled.freshCount}).`
             : "Hot patch ready; reload pending until HMR reconnects.",
       );
     }
@@ -314,6 +316,7 @@ function applyRuntimePatch(
   }
   try {
     patchWorkspaceFiles(chatId, changed, removed);
+    markHotPatchWritten(chatId);
   } catch (error) {
     // Surface the failure so the patch route can roll the session back (the
     // dev process is still serving the pre-patch files). ENOSPC messages flow
@@ -1485,6 +1488,7 @@ function clearRuntimeStateForTesting(chatId, sessionId) {
   inflightBootByChat.delete(chatId);
   bootChainByChat.delete(chatId);
   queuedRestartBootByChat.delete(chatId);
+  clearHotPatchWritten(chatId);
 }
 
 function setBootRunnerForTesting(runner) {

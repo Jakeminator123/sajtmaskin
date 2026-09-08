@@ -943,6 +943,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
         candidateGenerationToken: candidateStillPending
           ? candidateGenerationToken
           : null,
@@ -978,6 +979,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
         registerPreviewSocket(info.chatId, socket, {
           handshakeComplete: true,
           viewerId: previewViewerId,
+          documentId: hmrIdentity?.documentId ?? null,
         });
         return true;
       }
@@ -996,6 +998,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
         registerPreviewSocket(info.chatId, socket, {
           handshakeComplete: true,
           viewerId: previewViewerId,
+          documentId: hmrIdentity?.documentId ?? null,
         });
         return true;
       }
@@ -1028,6 +1031,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
       });
       return true;
     }
@@ -1043,6 +1047,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
       });
       return true;
     }
@@ -1053,6 +1058,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
   registerPreviewSocket(info.chatId, socket, {
     viewerId: previewViewerId,
+    documentId: hmrIdentity?.documentId ?? null,
     candidateGenerationToken,
     candidateDocumentId,
   });

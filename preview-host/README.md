@@ -33,10 +33,13 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
   sockets (HMR-stub eller reconnect). Preview-URL:en är stabil, så utan reload
   hydrerar klienten gammal JS mot den nya processens HTML. Saknas socket är
   signalen pending tills HMR reconnectar.
-- En hot patch som bekräftar readiness ska använda samma pending-reload för
-  viewers utan levande HMR-socket. Handshake-klar HMR lämnas åt Fast Refresh
-  (ingen extra document-reload). Saknas socket är signalen pending tills
-  reconnect, samma som runtime-byte.
+- En hot patch som bekräftar readiness ska använda samma pending-reload.
+  Bekräftelse är att viewerns dokument laddades efter patch-skrivningen
+  (`registeredAt` / HMR-URL `id=`), inte att en socket ser live ut. Sockets
+  registrerade före skrivningen — inklusive host-stub när HMR-proxyn är av
+  och halvöppna/zombie-sockets — får `reloadPage`. Bara sockets/dokument
+  registrerade efter skrivningen ACK:as utan extra reload. Saknas socket är
+  signalen pending tills reconnect.
 - Prewarm är opt-in, får inte exponera skelettet publikt och måste deployas på
   hosten före aktivering i huvudappen.
 - Saknade lokala TypeScript-, ESLint- eller Next-binaries är toolingfel, inte

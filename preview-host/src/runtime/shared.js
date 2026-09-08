@@ -117,6 +117,10 @@ const activePreviewSocketsByChat = new Map();
 // Generationen måste överleva default install (10 min) + readiness (upp till
 // 10 min på Fly); 20 min är en hård backstop även om budgeten inte förbrukas.
 const pendingPreviewClientReloadByChat = new Map();
+// Cutoff for hot-patch freshness: a viewer is confirmed only when its
+// document (HMR socket) registered after this write time. Handshake-complete
+// stubs and half-open sockets are not evidence that Fast Refresh applied.
+const lastHotPatchWrittenAtByChat = new Map();
 const PREVIEW_CLIENT_RELOAD_PENDING_MS = 20 * 60 * 1000;
 const PREVIEW_CLIENT_RELOAD_PAYLOAD = JSON.stringify({
   type: "reloadPage",
@@ -150,6 +154,7 @@ function markPendingPreviewClientReload(chatId) {
   const state = {
     generationToken: `smg_${randomUUID()}`,
     acknowledgedViewerIds: new Set(),
+    acknowledgedDocumentIds: new Set(),
     signaledSockets: new WeakSet(),
     anonymousDelivered: false,
     timeoutId: null,
@@ -170,10 +175,17 @@ function getPendingPreviewClientReloadToken(chatId) {
   return pendingPreviewClientReloadByChat.get(chatId)?.generationToken ?? null;
 }
 
-function hasPendingPreviewClientReload(chatId, viewerId = null) {
+function hasPendingPreviewClientReload(chatId, viewerId = null, documentId = null) {
   if (!chatId) return false;
   const state = pendingPreviewClientReloadByChat.get(chatId);
   if (!state) return false;
+  if (
+    typeof documentId === "string" &&
+    documentId &&
+    state.acknowledgedDocumentIds?.has(documentId)
+  ) {
+    return false;
+  }
   if (typeof viewerId === "string" && viewerId) {
     return !state.acknowledgedViewerIds.has(viewerId);
   }
@@ -191,7 +203,55 @@ function acknowledgePreviewClientReload(chatId, viewerId, generationToken) {
   return true;
 }
 
-function requestPreviewClientReload(chatId) {
+function acknowledgePreviewClientDocument(chatId, documentId, generationToken) {
+  if (!chatId || typeof documentId !== "string" || !documentId) return false;
+  const state = pendingPreviewClientReloadByChat.get(chatId);
+  if (!state || state.generationToken !== generationToken) return false;
+  state.acknowledgedDocumentIds.add(documentId);
+  return true;
+}
+
+function markHotPatchWritten(chatId, at = Date.now()) {
+  if (!chatId) return;
+  const ts = typeof at === "number" ? at : Number(at);
+  lastHotPatchWrittenAtByChat.set(chatId, Number.isFinite(ts) ? ts : Date.now());
+}
+
+function getHotPatchWrittenAt(chatId) {
+  if (!chatId) return null;
+  return lastHotPatchWrittenAtByChat.get(chatId) ?? null;
+}
+
+function clearHotPatchWritten(chatId) {
+  if (!chatId) return;
+  lastHotPatchWrittenAtByChat.delete(chatId);
+}
+
+function resolvePreviewSocketDocumentId(options = {}) {
+  if (typeof options.documentId === "string" && options.documentId) {
+    return options.documentId;
+  }
+  if (typeof options.candidateDocumentId === "string" && options.candidateDocumentId) {
+    return options.candidateDocumentId;
+  }
+  return null;
+}
+
+function resolvePreviewSocketRegisteredAt(options = {}) {
+  const parsed = typeof options.registeredAt === "number"
+    ? options.registeredAt
+    : Number(options.registeredAt);
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function isPreviewSocketFreshAfterPatch(registration, patchedAt) {
+  if (patchedAt == null || !Number.isFinite(patchedAt)) return false;
+  const registeredAt = Number(registration?.registeredAt);
+  if (!Number.isFinite(registeredAt)) return false;
+  return registeredAt > patchedAt;
+}
+
+function requestPreviewClientReload(chatId, options = {}) {
   if (!chatId) return { sent: 0 };
   const sockets = activePreviewSocketsByChat.get(chatId);
   if (!sockets || sockets.size === 0) return { sent: 0 };
@@ -202,6 +262,9 @@ function requestPreviewClientReload(chatId) {
     return { sent: 0 };
   }
   const pendingState = pendingPreviewClientReloadByChat.get(chatId) ?? null;
+  const patchedAt = options.skipFreshAfterPatch === true
+    ? lastHotPatchWrittenAtByChat.get(chatId)
+    : null;
   let sent = 0;
   for (const [socket, registration] of [...sockets]) {
     try {
@@ -212,8 +275,11 @@ function requestPreviewClientReload(chatId) {
       // handshake. A WS data frame before downstream HTTP 101 corrupts the
       // upgrade, so broadcasts must skip them until proxyReq's upgrade event.
       if (registration.handshakeComplete !== true) continue;
+      if (isPreviewSocketFreshAfterPatch(registration, patchedAt)) continue;
       const viewerId = registration.viewerId;
+      const documentId = registration.documentId;
       if (pendingState) {
+        if (documentId && pendingState.acknowledgedDocumentIds?.has(documentId)) continue;
         if (viewerId && pendingState.acknowledgedViewerIds.has(viewerId)) continue;
         if (!viewerId && pendingState.anonymousDelivered === true) continue;
         // A new document can open HMR before its streamed HTML has finished
@@ -256,9 +322,13 @@ function registerPreviewSocket(chatId, socket, options = {}) {
   }
   const viewerId =
     typeof options.viewerId === "string" && options.viewerId ? options.viewerId : null;
+  const documentId = resolvePreviewSocketDocumentId(options);
   sockets.set(socket, {
     handshakeComplete: options.handshakeComplete === true,
     viewerId,
+    documentId,
+    registeredAt: resolvePreviewSocketRegisteredAt(options),
+    stub: options.stub === true || (options.stub !== false && !isHmrProxyEnabled()),
     candidateGenerationToken:
       typeof options.candidateGenerationToken === "string"
         ? options.candidateGenerationToken
@@ -281,7 +351,7 @@ function registerPreviewSocket(chatId, socket, options = {}) {
   // `proxy.ws` — writing a frame there would corrupt the upgrade.
   if (
     options.handshakeComplete === true &&
-    hasPendingPreviewClientReload(chatId, viewerId)
+    hasPendingPreviewClientReload(chatId, viewerId, documentId)
   ) {
     requestPreviewClientReload(chatId);
   }
@@ -293,7 +363,13 @@ function markPreviewSocketHandshakeComplete(chatId, socket) {
   const registration = sockets?.get(socket);
   if (!registration) return false;
   registration.handshakeComplete = true;
-  if (hasPendingPreviewClientReload(chatId, registration.viewerId)) {
+  if (
+    hasPendingPreviewClientReload(
+      chatId,
+      registration.viewerId,
+      registration.documentId,
+    )
+  ) {
     requestPreviewClientReload(chatId);
   }
   return true;
@@ -318,74 +394,152 @@ function activePreviewSocketCount(chatId) {
 }
 
 /**
- * Handshake-complete preview sockets still attached to this chat. A live
- * HMR socket is the only evidence Fast Refresh *could* have applied a hot
- * patch during the readiness wait — we cannot verify that it did.
+ * Viewers whose HMR socket registered after the last successful hot-patch
+ * write. Only that timestamp proves the document loaded the patched files —
+ * handshake-complete stubs and half-open sockets do not.
  */
-function listLivePreviewHmrViewers(chatId) {
+function listFreshPreviewHmrViewers(chatId) {
   const viewerIds = [];
-  let anonymousLive = false;
-  let liveCount = 0;
-  if (!chatId) return { viewerIds, anonymousLive, liveCount };
+  const documentIds = [];
+  let anonymousFresh = false;
+  let freshCount = 0;
+  const empty = {
+    viewerIds,
+    documentIds,
+    anonymousFresh,
+    freshCount,
+    anonymousLive: false,
+    liveCount: 0,
+  };
+  if (!chatId) return empty;
   const sockets = activePreviewSocketsByChat.get(chatId);
-  if (!sockets) return { viewerIds, anonymousLive, liveCount };
-  const seen = new Set();
+  if (!sockets) return empty;
+  const patchedAt = lastHotPatchWrittenAtByChat.get(chatId);
+  const seenViewers = new Set();
+  const seenDocuments = new Set();
   for (const [socket, registration] of sockets) {
-    if (!registration || registration.handshakeComplete !== true) continue;
+    if (!registration) continue;
     if (socket && socket.destroyed === true) continue;
-    liveCount += 1;
+    if (!isPreviewSocketFreshAfterPatch(registration, patchedAt)) continue;
+    freshCount += 1;
+    const documentId =
+      typeof registration.documentId === "string" && registration.documentId
+        ? registration.documentId
+        : null;
+    if (documentId && !seenDocuments.has(documentId)) {
+      seenDocuments.add(documentId);
+      documentIds.push(documentId);
+    }
     const viewerId =
       typeof registration.viewerId === "string" && registration.viewerId
         ? registration.viewerId
         : null;
     if (!viewerId) {
-      anonymousLive = true;
+      anonymousFresh = true;
       continue;
     }
-    if (seen.has(viewerId)) continue;
-    seen.add(viewerId);
+    if (seenViewers.has(viewerId)) continue;
+    seenViewers.add(viewerId);
     viewerIds.push(viewerId);
   }
-  return { viewerIds, anonymousLive, liveCount };
+  return {
+    viewerIds,
+    documentIds,
+    anonymousFresh,
+    freshCount,
+    anonymousLive: anonymousFresh,
+    liveCount: freshCount,
+  };
 }
 
-function acknowledgeLivePreviewHmrViewers(chatId, generationToken) {
-  const live = listLivePreviewHmrViewers(chatId);
+function acknowledgeFreshPreviewHmrViewers(chatId, generationToken) {
+  const fresh = listFreshPreviewHmrViewers(chatId);
   let acknowledged = 0;
-  for (const viewerId of live.viewerIds) {
+  for (const documentId of fresh.documentIds) {
+    if (acknowledgePreviewClientDocument(chatId, documentId, generationToken)) {
+      acknowledged += 1;
+    }
+  }
+  for (const viewerId of fresh.viewerIds) {
     if (acknowledgePreviewClientReload(chatId, viewerId, generationToken)) {
       acknowledged += 1;
     }
   }
-  if (live.anonymousLive) {
+  if (fresh.anonymousFresh) {
     const state = pendingPreviewClientReloadByChat.get(chatId);
     if (state && state.generationToken === generationToken) {
       state.anonymousDelivered = true;
       acknowledged += 1;
     }
   }
-  return { ...live, acknowledged };
+  return { ...fresh, acknowledged };
+}
+
+function acknowledgeSignaledHotPatchViewers(chatId, generationToken) {
+  const state = pendingPreviewClientReloadByChat.get(chatId);
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  if (!state || state.generationToken !== generationToken || !sockets) return 0;
+  let acknowledged = 0;
+  for (const [socket, registration] of sockets) {
+    if (!state.signaledSockets.has(socket) || !registration) continue;
+    if (registration.documentId) {
+      acknowledgePreviewClientDocument(
+        chatId,
+        registration.documentId,
+        generationToken,
+      );
+    }
+    if (registration.viewerId) {
+      if (
+        acknowledgePreviewClientReload(
+          chatId,
+          registration.viewerId,
+          generationToken,
+        )
+      ) {
+        acknowledged += 1;
+      }
+    }
+  }
+  return acknowledged;
+}
+
+// Older name: "live" used to mean handshake-complete. That included host
+// stubs and zombies. Freshness is document-loaded-after-write.
+function listLivePreviewHmrViewers(chatId) {
+  return listFreshPreviewHmrViewers(chatId);
+}
+
+function acknowledgeLivePreviewHmrViewers(chatId, generationToken) {
+  return acknowledgeFreshPreviewHmrViewers(chatId, generationToken);
 }
 
 /**
  * After a hot patch the Next process is still the same, so the restart-path
- * reload never runs. Viewers without a live HMR socket keep the previous
- * document under the stable preview URL. Mark the same pending generation as
- * a runtime swap, ACK handshake-complete HMR viewers (avoid a document reload
- * when Fast Refresh could already have applied the files), and broadcast to
- * everyone still pending — including a late reconnect that arrives after
- * idle/proxy death.
+ * reload never runs. Confirmation is a document that loaded after the
+ * workspace write — not a handshake-complete socket. Mark the same pending
+ * generation as a runtime swap, ACK only post-write sockets/documents, send
+ * reloadPage to every pre-write socket (live, stub, or zombie), and leave
+ * absent viewers pending until their next HMR connect.
  */
 function signalPreviewClientReloadAfterHotPatch(chatId) {
   if (!chatId) {
-    return { sent: 0, liveCount: 0, pendingAnonymous: false, generationToken: null };
+    return {
+      sent: 0,
+      freshCount: 0,
+      liveCount: 0,
+      pendingAnonymous: false,
+      generationToken: null,
+    };
   }
   const generationToken = markPendingPreviewClientReload(chatId);
-  const live = acknowledgeLivePreviewHmrViewers(chatId, generationToken);
-  const signaled = requestPreviewClientReload(chatId);
+  const fresh = acknowledgeFreshPreviewHmrViewers(chatId, generationToken);
+  const signaled = requestPreviewClientReload(chatId, { skipFreshAfterPatch: true });
+  acknowledgeSignaledHotPatchViewers(chatId, generationToken);
   return {
     sent: signaled.sent,
-    liveCount: live.liveCount,
+    freshCount: fresh.freshCount,
+    liveCount: fresh.freshCount,
     pendingAnonymous: hasPendingPreviewClientReload(chatId),
     generationToken,
   };
@@ -858,15 +1012,22 @@ module.exports = {
   markPreviewSocketHandshakeComplete,
   clearPreviewSocketCandidate,
   activePreviewSocketCount,
+  listFreshPreviewHmrViewers,
+  acknowledgeFreshPreviewHmrViewers,
   listLivePreviewHmrViewers,
   acknowledgeLivePreviewHmrViewers,
   signalPreviewClientReloadAfterHotPatch,
+  markHotPatchWritten,
+  getHotPatchWrittenAt,
+  clearHotPatchWritten,
+  isPreviewSocketFreshAfterPatch,
   markPendingPreviewClientReload,
   getPendingPreviewClientReloadToken,
   clearPendingPreviewClientReload,
   requestPreviewClientReload,
   hasPendingPreviewClientReload,
   acknowledgePreviewClientReload,
+  acknowledgePreviewClientDocument,
   PREVIEW_CLIENT_RELOAD_PENDING_MS,
   nowIso,
   getSessionChatId,
