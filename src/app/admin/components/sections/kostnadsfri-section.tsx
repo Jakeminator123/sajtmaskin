@@ -224,6 +224,16 @@ export function KostnadsfriSection() {
         </Alert>
       )}
 
+      {data?.truncated && (
+        <Alert>
+          <AlertTitle>Statistiken är avhuggen</AlertTitle>
+          <AlertDescription>
+            Perioden har fler händelser än servern räknar (5 000). Siffrorna nedan är en undre
+            gräns — välj en kortare period för exakta tal.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <SectionCard
         title="Skapa länk"
         description="Skriv företagsnamnet. Slug och lösenord räknas fram från namnet och seeden, så samma namn ger alltid samma länk och lösenord — även utan att spara något."
@@ -390,7 +400,12 @@ export function KostnadsfriSection() {
                       <TableHead className="text-right">Besök</TableHead>
                       <TableHead className="text-right">Unika</TableHead>
                       <TableHead className="text-right">Rätt lösenord</TableHead>
-                      <TableHead className="text-right">Skapade</TableHead>
+                      <TableHead
+                        className="text-right"
+                        title="Rapporteras från besökarens webbläsare när wizarden är klar; kan inte verifieras server-side."
+                      >
+                        Skapade
+                      </TableHead>
                       <TableHead>Senast</TableHead>
                       <TableHead className="text-right">Status</TableHead>
                     </TableRow>

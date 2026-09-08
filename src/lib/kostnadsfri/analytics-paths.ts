@@ -33,6 +33,16 @@ export function kostnadsfriEventPath(
 }
 
 /**
+ * `verifierad` is written only by the verify route after a correct password.
+ * A browser beacon must never be able to record it, or the admin column
+ * "Rätt lösenord" could be forged by anyone who knows the path convention.
+ * (`besok` and `skapad` are client-reported by design and read as such.)
+ */
+export function isServerOnlyKostnadsfriPath(path: string): boolean {
+  return parseKostnadsfriAnalyticsPath(path)?.event === "verifierad";
+}
+
+/**
  * Reverse of the two builders above. Returns `null` for anything that is not a
  * kostnadsfri path, including deeper or unknown sub-paths.
  */

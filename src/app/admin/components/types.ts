@@ -39,6 +39,8 @@ export interface KostnadsfriAdminPayload {
   days: number;
   /** False when neither KOSTNADSFRI_PASSWORD_SEED nor KOSTNADSFRI_API_KEY is set. */
   configured: boolean;
+  /** True when the period exceeded the server's row cap — counts are a lower bound. */
+  truncated: boolean;
   pages: {
     slug: string;
     companyName: string;

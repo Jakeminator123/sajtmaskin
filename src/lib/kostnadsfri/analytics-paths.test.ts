@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isServerOnlyKostnadsfriPath,
   kostnadsfriEventPath,
   kostnadsfriVisitPath,
   parseKostnadsfriAnalyticsPath,
@@ -25,6 +26,14 @@ describe("kostnadsfri analytics paths", () => {
       slug: "ikea-ab",
       event: "besok",
     });
+  });
+
+  it("marks only `verifierad` as server-only", () => {
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "verifierad"))).toBe(true);
+    expect(isServerOnlyKostnadsfriPath("/kostnadsfri/ikea-ab/verifierad/")).toBe(true);
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toBe(false);
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriVisitPath("ikea-ab"))).toBe(false);
+    expect(isServerOnlyKostnadsfriPath("/builder")).toBe(false);
   });
 
   it("ignores unrelated and malformed paths", () => {

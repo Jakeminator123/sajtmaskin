@@ -90,13 +90,22 @@ export interface KostnadsfriVisitRow {
   userAgent: string | null;
 }
 
-/** Hard cap so a bot hammering the prefix cannot make the admin page unbounded. */
+/**
+ * Hard cap so a bot hammering the prefix cannot make the admin page unbounded.
+ * Counts are aggregated in application code over the newest rows only, so when
+ * the cap is hit the result is a lower bound — `truncated` tells the UI.
+ */
 const VISIT_ROW_LIMIT = 5000;
 
 export async function getKostnadsfriVisitStats(
   days: number,
   recentLimit = 100,
-): Promise<{ perSlug: KostnadsfriSlugStats[]; recent: KostnadsfriVisitRow[] }> {
+): Promise<{
+  perSlug: KostnadsfriSlugStats[];
+  recent: KostnadsfriVisitRow[];
+  /** True when the period had more rows than the cap — counts are then incomplete. */
+  truncated: boolean;
+}> {
   assertDbConfigured();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
@@ -178,5 +187,5 @@ export async function getKostnadsfriVisitStats(
     .map(({ visitorKeys, ...stats }) => ({ ...stats, uniqueVisitors: visitorKeys.size }))
     .sort((a, b) => (a.lastSeen < b.lastSeen ? 1 : -1));
 
-  return { perSlug, recent };
+  return { perSlug, recent, truncated: rows.length >= VISIT_ROW_LIMIT };
 }

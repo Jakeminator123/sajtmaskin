@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
       pages,
       stats: visits.perSlug,
       recent: visits.recent,
+      truncated: visits.truncated,
     });
   } catch (error) {
     console.error("[API/admin/kostnadsfri] Failed to load:", error);

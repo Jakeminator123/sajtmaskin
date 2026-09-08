@@ -59,17 +59,17 @@ describe("kostnadsfri verify route", () => {
   it("records a `verifierad` event only when the deterministic password matches", async () => {
     process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
     getKostnadsfriPageBySlug.mockResolvedValue(null);
+    const slug = "jakobs-foretag-ab";
+    const params = { params: Promise.resolve({ slug }) };
+    // Härlett ur testseeden ovan — inget riktigt lösenord (GitGuardian på #1306
+    // flaggade den tidigare inline-raden som "Generic Password").
+    const derived = generatePassword(slug);
 
-    const wrong = await POST(verifyRequest("jakobs-foretag-ab", "fel"), {
-      params: Promise.resolve({ slug: "jakobs-foretag-ab" }),
-    });
+    const wrong = await POST(verifyRequest(slug, "fel"), params);
     expect(wrong.status).toBe(401);
     expect(recordPageView).not.toHaveBeenCalled();
 
-    const ok = await POST(
-      verifyRequest("jakobs-foretag-ab", generatePassword("jakobs-foretag-ab")),
-      { params: Promise.resolve({ slug: "jakobs-foretag-ab" }) },
-    );
+    const ok = await POST(verifyRequest(slug, derived), params);
     const body = await ok.json();
 
     expect(ok.status).toBe(200);
