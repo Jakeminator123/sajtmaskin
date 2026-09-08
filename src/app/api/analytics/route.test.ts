@@ -48,6 +48,21 @@ describe("POST /api/analytics", () => {
     expect(res.status).toBe(400);
   });
 
+  it("refuses the server-only kostnadsfri funnel events from the browser", async () => {
+    const { recordPageView } = await import("@/lib/db/services/analytics");
+    for (const path of ["/kostnadsfri/ikea-ab/verifierad", "/kostnadsfri/ikea-ab/skapad"]) {
+      const res = await POST(
+        new NextRequest("http://localhost/api/analytics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        }),
+      );
+      expect(res.status).toBe(400);
+    }
+    expect(recordPageView).not.toHaveBeenCalled();
+  });
+
   it("returns 429 when the pageview bucket is exhausted", async () => {
     withRateLimit.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: "Too many requests" }), { status: 429 }),

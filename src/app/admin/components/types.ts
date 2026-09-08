@@ -34,6 +34,57 @@ export interface AnalyticsStats {
   topReferrers: { referrer: string; count: DbCount }[];
 }
 
+/** `GET /api/admin/kostnadsfri`. */
+export interface KostnadsfriAdminPayload {
+  days: number;
+  /** False when neither KOSTNADSFRI_PASSWORD_SEED nor KOSTNADSFRI_API_KEY is set. */
+  configured: boolean;
+  /** True when the period exceeded the server's row cap — counts are a lower bound. */
+  truncated: boolean;
+  pages: {
+    slug: string;
+    companyName: string;
+    industry: string | null;
+    website: string | null;
+    contactEmail: string | null;
+    contactName: string | null;
+    status: string;
+    createdAt: string;
+    expiresAt: string | null;
+    consumedAt: string | null;
+  }[];
+  stats: {
+    slug: string;
+    visits: number;
+    uniqueVisitors: number;
+    verified: number;
+    started: number;
+    firstSeen: string;
+    lastSeen: string;
+  }[];
+  recent: {
+    slug: string;
+    event: "besok" | "verifierad" | "skapad";
+    at: string;
+    userEmail: string | null;
+    userId: string | null;
+    sessionId: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+  }[];
+}
+
+/** `POST /api/admin/kostnadsfri`. */
+export interface KostnadsfriInvitePayload {
+  invite: { slug: string; companyName: string; password: string; url: string };
+  saved: boolean;
+  /**
+   * Set when a saved DB row (or a failed lookup) changes what the shown link
+   * and password actually do. `error` = the shown values will not work as-is.
+   */
+  warning?: { level: "error" | "info"; message: string };
+}
+
 export interface DatabaseStats {
   database: {
     users: DbCount;
