@@ -19,10 +19,15 @@
  * Kommandot **mergar aldrig**. Det öppnar PR:en och skriver ut vad som
  * återstår; mergegrinden ägs av `.cursor/rules/pr-merge.mdc` och kräver
  * fortfarande gröna checks, review och din uttryckliga bekräftelse.
+ *
+ * Förvarning: rör diffen en CI-trust root (`manualMergePathPrefixes`) varnar
+ * kommandot redan här — 2026-09-08 upptäcktes det först i review-window.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { loadWorkflowInputs } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -82,6 +87,34 @@ export function parseRemoteBranchNames(stdout) {
     .filter(Boolean);
 }
 
+/**
+ * `git diff --name-status -M`-rader → alla berörda sökvägar.
+ * Rename/copy ger både gammalt och nytt namn, samma som review-window.
+ */
+export function parseNameStatusLines(stdout) {
+  const paths = [];
+  for (const line of String(stdout ?? "").split(/\r?\n/)) {
+    const parts = line.split("\t").map((part) => part.trim()).filter(Boolean);
+    if (parts.length < 2) continue;
+    const [status, first, second] = parts;
+    paths.push(first);
+    if (/^[RC]/.test(status) && second) paths.push(second);
+  }
+  return paths;
+}
+
+/** Sökvägar som börjar med något CI-trust-prefix; sorterade och unika. */
+export function findManualMergePaths(paths, prefixes) {
+  const prefixList = prefixes ?? [];
+  return [
+    ...new Set(
+      (paths ?? [])
+        .map((path) => String(path))
+        .filter((path) => prefixList.some((prefix) => path.startsWith(prefix))),
+    ),
+  ].sort();
+}
+
 /** `<sha> <rubrik>`-rader från `git log --oneline` → strukturerade commits. */
 export function parseCommitLines(stdout) {
   return String(stdout ?? "")
@@ -108,12 +141,35 @@ export function buildPromoteTitle(commits, date) {
   return `promote: ${highlights.length} ändringar från preview till master (${date})`;
 }
 
-export function buildPromoteBody({ commits, baseSha, headSha, branch, date }) {
+export function buildPromoteBody({
+  commits,
+  baseSha,
+  headSha,
+  branch,
+  date,
+  manualMergePaths = /** @type {string[]} */ ([]),
+}) {
   const highlights = selectPromoteHighlights(commits);
   const list =
     highlights.length > 0
       ? highlights.map((c) => `- \`${c.sha.slice(0, 8)}\` ${c.subject}`).join("\n")
       : "- (inga icke-merge-commits)";
+
+  const bootstrap =
+    manualMergePaths.length > 0
+      ? [
+          "## Bootstrap-godkännande krävs",
+          "",
+          "Den vanliga review-window/merge:execute-controllern vägrar denna PR eftersom den rör CI-trust roots:",
+          "",
+          ...manualMergePaths.map((path) => `- \`${path}\``),
+          "",
+          "Kräver separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt `docs/runbooks/agent-workflow.md`.",
+          "",
+          "- [ ] Ägaren har uttryckligen godkänt infrastruktur-bootstrapen i chatten",
+          "",
+        ]
+      : [];
 
   return [
     "## Vad ändras?",
@@ -127,6 +183,7 @@ export function buildPromoteBody({ commits, baseSha, headSha, branch, date }) {
     "",
     list,
     "",
+    ...bootstrap,
     "## Verifiering",
     "",
     `- [ ] Required GitHub-checks gröna på promote-headen (inte bara på del-PR:arna mot \`${STAGING_BRANCH}\`)`,
@@ -195,11 +252,35 @@ function main() {
   );
   const branch = buildPromoteBranchName(date, existing);
   const title = buildPromoteTitle(commits, date);
-  const body = buildPromoteBody({ commits, baseSha, headSha, branch, date });
 
   console.log(`[promote] ${commits.length} commit(s) från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`);
   for (const commit of selectPromoteHighlights(commits)) {
     console.log(`  ${commit.sha.slice(0, 8)} ${commit.subject}`);
+  }
+
+  const changedPaths = parseNameStatusLines(
+    git([
+      "diff",
+      "--name-status",
+      "-M",
+      `origin/${PRODUCTION_BRANCH}...origin/${STAGING_BRANCH}`,
+    ]),
+  );
+  const prefixes = loadWorkflowInputs(REPO_ROOT).policy.manualMergePathPrefixes ?? [];
+  const manualMergePaths = findManualMergePaths(changedPaths, prefixes);
+  const body = buildPromoteBody({ commits, baseSha, headSha, branch, date, manualMergePaths });
+
+  if (manualMergePaths.length > 0) {
+    console.log("");
+    console.log(
+      "⚠ Denna promote rör CI-trust roots och kräver ditt bootstrap-godkännande (review-window/merge:execute vägrar):",
+    );
+    for (const path of manualMergePaths) {
+      console.log(`  ${path}`);
+    }
+    console.log(
+      "Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
+    );
   }
 
   if (options.dryRun) {
@@ -249,6 +330,11 @@ function main() {
   console.log("   2. Kör en bugkoll på diffen mot produktion och triagera fynden.");
   console.log("   3. Posta merge:ready-kommentaren, sätt sedan labeln (i den ordningen).");
   console.log("   4. Merga först efter uttrycklig bekräftelse — se .cursor/rules/pr-merge.mdc.");
+  if (manualMergePaths.length > 0) {
+    console.log(
+      "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
+    );
+  }
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
