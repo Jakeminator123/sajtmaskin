@@ -23,14 +23,14 @@ flowchart TD
   M --> R["npm run promote"]
   R --> S["kortlivad promote/datum-gren"]
   S --> T["PR mot master"]
-  T --> W{"CI-trust root i diffen?"}
-  W -- "ja" --> X["Ägargodkänd infrastruktur-bootstrap"]
+  T --> W{"CI-trust root i diffen?<br/>promote varnar"}
   W -- "nej" --> D["review-window + merge:ready"]
-  X --> D
   D --> H["Uttryckligt mergeuppdrag"]
   H --> H2["Varning: master = produktion"]
   H2 --> H3["Extra bekräftelse i samma chatt"]
   H3 --> I["merge:execute squash-mergar"]
+  W -- "ja" --> X["Bootstrap-spår: controllern vägrar.<br/>Ägaren godkänner uttryckligen och<br/>squash-mergar själv med expected head"]
+  X --> K
   I --> K["CI på nya master"]
   K --> J["tidy visar FRI"]
 ```
@@ -69,7 +69,7 @@ implementation.
 | `review-window` / `merge:execute` | 7 min, sign-off och betrodd squash. Bara PR mot trunk — alltså promote-PR:en, inte preview. | [`trusted-review-window.mjs`](../../scripts/ci/trusted-review-window.mjs) (`targetsTrunk`) + [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc) |
 | `manualMergePathPrefixes` / bootstrap | CI-trust roots går inte genom vanlig `merge:execute`. | [`config/agent-workflow.json`](../../config/agent-workflow.json) + avsnittet [Särskilt spår för CI-trust roots](#särskilt-spår-för-ci-trust-roots) |
 | `delete_branch_on_merge` + slaskgren | Auto-delete tar `promote/<datum>`, inte `preview`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (GitHub-inställningen `delete_branch_on_merge` har ingen fil-owner) |
-| Dependabot `target-branch` | Beroendebumpar landar på `preview` och följer samma två steg. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
+| Dependabot `target-branch` | Beroendebumpar landar på `preview` och följer samma två steg. Dependabot läser filen från default-grenen `master`, så raden gäller först när `dependabot.yml` promotats dit. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
 | Lokal `pre-push` | Stoppar push om `verify:pr --plan` är rött. | [`install-git-hooks.mjs`](../../scripts/dev/install-git-hooks.mjs) + [`verify-pr.mjs`](../../scripts/workflow/verify-pr.mjs) |
 | CI tung / light | Required checks på varje head: tung för ready runtime, högrisk och `master`; explicit light-kvitto för safe docs och vanliga drafts. | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) + [`ci-scope.mjs`](../../scripts/workflow/ci-scope.mjs) / [`path-impact.mjs`](../../scripts/workflow/path-impact.mjs) |
 
