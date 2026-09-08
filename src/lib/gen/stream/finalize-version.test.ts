@@ -601,6 +601,50 @@ export default function Page() {
     expect(filesJson).not.toContain(deadUrl);
   });
 
+  describe("turn summary", () => {
+    const codeOnly =
+      '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
+
+    it("appends a plain-language summary to the persisted message and returns it for the stream", async () => {
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent: codeOnly,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        originalPrompt: "Bygg en landningssida för Acme",
+      });
+
+      expect(result.turnSummary).toMatch(/^Klart — jag har byggt en första version/);
+      expect(result.turnSummary).toContain('"Bygg en landningssida för Acme"');
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      const persisted = call?.[1] as string;
+      expect(persisted.trimEnd().endsWith(result.turnSummary as string)).toBe(true);
+      // The code itself is untouched by the summary.
+      expect(result.contentForVersion).not.toContain("Klart — jag har byggt");
+    });
+
+    it("skips the summary when the model already explained itself in the RAW stream (Bugbot #1292)", async () => {
+      // Prose precedes the code; the pipeline may rebuild `contentForVersion`
+      // from files and lose it, so the check must read `accumulatedContent`.
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent:
+          "Jag har byggt en landningssida med hero, tjänster och kontaktformulär för Acme.\n\n" +
+          codeOnly,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(result.turnSummary).toBeNull();
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[1] as string).not.toContain("Klart — jag har byggt");
+    });
+  });
+
   describe("thinking persistence", () => {
     it("forwards accumulatedThinking into the draft persist call (new version path)", async () => {
       await finalizeAndSaveVersion({

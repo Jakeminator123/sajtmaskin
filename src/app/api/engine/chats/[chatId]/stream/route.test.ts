@@ -798,83 +798,48 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     delegatedPost.mockImplementation(realModule.POST);
   });
 
-  it("asks for clarification when a follow-up sounds like a new site request", async () => {
+  // 2026-09-05: the canned scope-clarification card was removed. Vague or
+  // "new site"-sounding follow-ups generate directly instead of stopping the
+  // turn with "Tydlig redesign?" options (prod chat 28af0778).
+  it.each([
+    "Bygg en ny hemsida for samma kund",
+    "Kan du förbättra den lite?",
+    "känns småfelaktigt fixa.. grafiken e ful",
+  ])("does NOT stop a follow-up on a scope clarification: %s", async (message) => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated follow-up</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+
     const response = await POST(
       new Request("https://example.com/api/engine/chats/chat_1/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Bygg en ny hemsida for samma kund",
-        }),
+        body: JSON.stringify({ message }),
       }),
       { params: Promise.resolve({ chatId: "chat_1" }) },
     );
 
     expect(response.status).toBe(200);
-    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
 
     const events = await readSseEvents(response);
-    const toolCallEvent = events.find((event) => event.event === "tool-call");
-    const doneEvent = events.find((event) => event.event === "done");
-
-    expect(events.find((event) => event.event === "chatId")?.data).toEqual({
-      id: "chat_1",
-    });
-    expect(toolCallEvent?.data).toMatchObject({
-      toolName: "askClarifyingQuestion",
-      args: expect.objectContaining({
-        kind: "scope",
-        blocking: true,
-      }),
-    });
-    expect(doneEvent?.data).toMatchObject({
-      chatId: "chat_1",
-      versionId: null,
-      messageId: null,
-      previewUrl: null,
+    expect(
+      events.find(
+        (event) =>
+          event.event === "tool-call" &&
+          (event.data as { toolName?: string })?.toolName === "askClarifyingQuestion",
+      ),
+    ).toBeUndefined();
+    expect(events.find((event) => event.event === "done")?.data).not.toMatchObject({
       awaitingInput: true,
-      awaitingInputPrompt:
-        "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
-      reason: "followup_redesign_ambiguous",
     });
-  });
-
-  it("asks for clarification when a follow-up edit request is too vague", async () => {
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/chat_1/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Kan du förbättra den lite?",
-        }),
-      }),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-
-    expect(response.status).toBe(200);
-    expect(createGenerationPipeline).not.toHaveBeenCalled();
-
-    const events = await readSseEvents(response);
-    const toolCallEvent = events.find((event) => event.event === "tool-call");
-    const doneEvent = events.find((event) => event.event === "done");
-
-    expect(toolCallEvent?.data).toMatchObject({
-      toolName: "askClarifyingQuestion",
-      args: expect.objectContaining({
-        question: "Vad vill du att jag fokuserar på i nästa ändring?",
-        kind: "scope",
-        blocking: true,
-      }),
-    });
-    expect(doneEvent?.data).toMatchObject({
-      chatId: "chat_1",
-      versionId: null,
-      messageId: null,
-      previewUrl: null,
-      awaitingInput: true,
-      awaitingInputPrompt: "Vad vill du att jag fokuserar på i nästa ändring?",
-      reason: "followup_edit_underspecified",
-    });
+    const pipelinePrompt = (
+      createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+    ).prompt;
+    expect(pipelinePrompt).toContain(message);
   });
 
   it("persists the rematched scaffold when a follow-up round generates", async () => {
@@ -1683,34 +1648,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     );
   });
 
-  it("still persists the assistant clarification when user message persistence fails", async () => {
-    addMessage
-      .mockRejectedValueOnce(new Error("write user failed"))
-      .mockResolvedValueOnce(null);
-
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/chat_1/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Kan du förbättra den lite?",
-        }),
-      }),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-
-    expect(response.status).toBe(200);
-    expect(addMessage).toHaveBeenCalledTimes(2);
-    expect(addMessage.mock.calls[0]?.slice(0, 3)).toEqual([
-      "chat_1",
-      "user",
-      "Kan du förbättra den lite?",
-    ]);
-    expect(addMessage.mock.calls[1]?.[0]).toBe("chat_1");
-    expect(addMessage.mock.calls[1]?.[1]).toBe("assistant");
-    expect(addMessage.mock.calls[1]?.[2]).toBe("Vad vill du att jag fokuserar på i nästa ändring?");
-  });
-
   // 5-4 / F1: the clear-redesign delta-brief is generated (tryGenerateServerAutoBrief)
   // but must actually reach orchestrate. Before the fix `metaBrief` was computed,
   // logged, then dropped — orchestrate fell back to the snapshot brief.
@@ -1770,12 +1707,11 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   });
 
   // Prod chat e8bd3ba6: a follow-up scope clarification threw away the user's
-  // original detailed prompt. Turn 1 stops on the clarification and persists a
-  // `followUpClarification` marker with the source prompt; turn 2 (the
-  // quick-reply option) must rebuild the generation prompt from BOTH the
-  // original request and the chosen option — and must not stop on a second
-  // clarification.
-  describe("follow-up scope clarification retry (prod chat e8bd3ba6)", () => {
+  // original detailed prompt. The card itself is retired (2026-09-05), but
+  // chats that still have a pending `followUpClarification` marker must be
+  // able to answer it: turn 2 (the quick-reply option) rebuilds the
+  // generation prompt from BOTH the original request and the chosen option.
+  describe("legacy follow-up scope clarification answer (prod chat e8bd3ba6)", () => {
     const originalDetailedPrompt =
       "Bygg bort felet där sidan laddas om två gånger vid start på vår sajt. " +
       "Det verkar vara ett hydration-problem i Next.js: konsolen visar en hydration mismatch " +
@@ -1784,7 +1720,14 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?";
     const chosenOption = "Förfina nuvarande design";
 
-    it("turn 1: stops on the clarification and persists the marker with the source prompt", async () => {
+    it("turn 1 (retired card): the bug report generates directly instead of asking about redesign", async () => {
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Hydration fixed</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+
       const response = await POST(
         new Request("https://example.com/api/engine/chats/chat_1/stream", {
           method: "POST",
@@ -1795,27 +1738,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       );
 
       expect(response.status).toBe(200);
-      expect(createGenerationPipeline).not.toHaveBeenCalled();
-
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
       const events = await readSseEvents(response);
-      expect(events.find((event) => event.event === "done")?.data).toMatchObject({
+      expect(events.find((event) => event.event === "done")?.data).not.toMatchObject({
         awaitingInput: true,
-        awaitingInputPrompt: clarificationQuestion,
-        reason: "followup_redesign_ambiguous",
-      });
-
-      // The assistant clarification row carries the machine-readable marker
-      // + the ORIGINAL prompt so the answering turn can recover it.
-      const assistantCall = addMessage.mock.calls.find((call) => call[1] === "assistant");
-      expect(assistantCall?.[2]).toBe(clarificationQuestion);
-      const uiPart = (assistantCall?.[4] as Array<Record<string, unknown>>)?.[0];
-      expect(uiPart).toMatchObject({
-        type: "tool:awaiting-input",
-        output: expect.objectContaining({
-          followUpClarification: true,
-          sourceUserMessage: originalDetailedPrompt,
-          options: expect.arrayContaining([chosenOption]),
-        }),
       });
     });
 

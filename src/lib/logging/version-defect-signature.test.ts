@@ -42,6 +42,23 @@ describe("classifyVersionDefectKind", () => {
     expect(classifyVersionDefectKind({ category: "preview", message: "session hibernated" })).toBe(
       "other",
     );
+    // Ett empty-body-verdikt (klientrenderad sida) är inte ett byggfel och får
+    // inte räknas in i compile-hinken (prod chat 28af0778).
+    expect(
+      classifyVersionDefectKind({
+        category: "preview",
+        message:
+          "Runtime served HTML with an empty body for 90000ms (not ready): HTTP 200 HTML but body text still empty (compiling or blank page)",
+        meta: { source: "preview_readiness_probe", readinessFailureKind: "empty_body" },
+      }),
+    ).toBe("other");
+    expect(
+      classifyVersionDefectKind({
+        category: "preview",
+        message: "Runtime is serving a Next.js build error overlay (not ready): Module not found",
+        meta: { source: "preview_readiness_probe", readinessFailureKind: "build_error_overlay" },
+      }),
+    ).toBe("compile");
   });
 
   it("mappar kompilerings- och env-kategorier", () => {

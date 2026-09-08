@@ -12,6 +12,7 @@ import {
   handleProgressEvent,
   handleThinkingEvent,
   handleToolCallEvent,
+  handleTurnSummaryEvent,
 } from "./stream-handlers-content";
 import { handleDoneEvent } from "./stream-handlers-done";
 import {
@@ -113,6 +114,10 @@ export async function handleSseStream(
           }
           case "content": {
             handleContentEvent(data, state, ctx, contentDeps);
+            break;
+          }
+          case "turn-summary": {
+            handleTurnSummaryEvent(data, state, ctx, contentDeps);
             break;
           }
           case "parts": {

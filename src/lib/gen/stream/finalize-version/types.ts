@@ -129,6 +129,13 @@ export interface FinalizeResult {
   tier2PreviewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
+  /**
+   * Plain-language account of the turn (`turn-summary.ts`), already appended
+   * to the persisted assistant message. Post-finalize streams it as the last
+   * `content` chunk so the live chat shows the same text the reload will.
+   * `null` when the model wrote its own prose or there was nothing to say.
+   */
+  turnSummary?: string | null;
   preflight: PreviewPreflightSummary;
   /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;

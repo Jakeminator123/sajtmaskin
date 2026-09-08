@@ -36,7 +36,6 @@ import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { DEFAULT_MODEL_ID, getBuildProfileId } from "@/lib/models/catalog";
 import { resolveModelSelection } from "@/lib/models/selection";
-import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
@@ -46,11 +45,8 @@ import {
 } from "@/lib/gen/stream/generation-lock";
 import {
   FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
-  buildAwaitingClarificationStream,
   classifyFollowUpClarificationAnswerIntent,
   collectFollowUpClarificationAnswer,
-  persistFollowUpClarification,
-  resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/follow-up-intent-router";
@@ -60,7 +56,6 @@ import {
   safeUsageOwnerId,
   setLlmUsageContext,
 } from "@/lib/observability/llm-usage";
-import { createSSEHeaders } from "@/lib/streaming";
 import {
   getAppProjectByIdForRequest,
   getEngineChatByIdForRequest,
@@ -459,11 +454,6 @@ export async function handleMessageStreamRequest(
         // turn 2.
         const followUpIntentMessage =
           followUpClarificationAnswer?.sourceUserMessage ?? message;
-        // A consumed clarification answer must never stop the turn again with
-        // a new scope question — the user just answered one.
-        const skipFollowUpClarification =
-          skipIntentClassification ||
-          followUpClarificationAnswer !== null;
         // Backoffice 2.0 fas 6: strategy-aware classification. Default
         // manifest config is "keyword", so this resolves to the exact same
         // deterministic result as before; only an explicit `small-llm` opt-in
@@ -522,42 +512,14 @@ export async function handleMessageStreamRequest(
             modifyReferenceMatches: followUpCapabilityDetection.modifyReferenceMatches,
           });
         }
-        const followUpClarification =
-          hasFollowUpBase && !skipFollowUpClarification
-            ? resolveFollowUpClarification(message)
-            : null;
-        if (followUpClarification) {
-          devLogAppend("latest", {
-            type: "site.message.awaiting_input",
-            chatId,
-            reason: followUpClarification.reason,
-            promptPreview: message.slice(0, 160),
-          });
-          await persistFollowUpClarification({
-            chatId,
-            message,
-            clarification: followUpClarification,
-            addMessage: (targetChatId, role, content, _parentMessageId, uiParts) =>
-              chatRepo.addMessage(targetChatId, role, content, undefined, uiParts),
-          });
-          return attachSessionCookie(
-            new Response(
-              wrapStreamForPromptToDoneMetric(
-                buildAwaitingClarificationStream({
-                  chatId,
-                  clarification: followUpClarification,
-                }),
-                {
-                  kind: "followup",
-                  promptStartedAt,
-                  signal: req.signal,
-                  chatId,
-                },
-              ),
-              { headers: createSSEHeaders() },
-            ),
-          );
-        }
+        // Follow-ups no longer stop on a canned scope-clarification card
+        // ("Vad vill du att jag fokuserar på…" / "…riktig redesign?"). Prod
+        // chats 28af0778 and e8bd3ba6 got that card for "fixa.. grafiken e
+        // ful" and a hydration bug report — irrelevant questions that dropped
+        // the user's context. `ambiguous-*` intents now generate directly and
+        // stay design-locked (build-dynamic-context treats everything except
+        // `clear-redesign` as keep-current-design); the assistant summary at
+        // the end of the turn is where interpretation gets communicated.
 
         // Delta-brief for clear-redesign follow-ups (see
         // `runClearRedesignDeltaBriefPhase` — also writes back to

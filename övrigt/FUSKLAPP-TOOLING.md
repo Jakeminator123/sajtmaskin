@@ -64,7 +64,6 @@ allowlist: bara branchar som står där deployar överhuvudtaget.
 | `https://sajtmaskin.vercel.app` | `master` | production | öppen |
 | `https://preview.sajtmaskin.se` | `preview` | preview | Vercel-inloggning |
 | `sajtmaskin-git-preview-jakeminator123s-projects.vercel.app` | `preview` | preview | Vercel-inloggning |
-| `sajtmaskin-env-pre-production-…vercel.app` | `ema` | pre-production | Vercel-inloggning |
 | `https://vm-fly-jakem.fly.dev` | — | — | delas av alla miljöer |
 | `https://openclaw-sajtagenten.onrender.com` | — | — | token + device pairing |
 

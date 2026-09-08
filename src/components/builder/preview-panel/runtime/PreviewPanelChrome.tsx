@@ -3,19 +3,24 @@
 import {
   AlertCircle,
   CircleCheck,
+  Info,
   Loader2,
   Plus,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  previewBuildErrorTitle,
+  type PreviewBuildErrorState,
+} from "@/lib/builder/preview-lifecycle";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
 import { cn } from "@/lib/utils";
 
 interface PreviewPanelChromeProps {
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
-  previewBuildError?: { stage: string; message: string } | null;
+  previewBuildError?: PreviewBuildErrorState | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
@@ -89,22 +94,7 @@ export function PreviewPanelChrome({
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
       {previewBuildError ? (
-        <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle className="text-sm text-rose-100">
-            {previewBuildError.stage === "sandbox_disabled"
-              ? "Tier-2-preview inte tillgänglig"
-              : `Tier-2 / build: ${previewBuildError.stage}`}
-          </AlertTitle>
-          <AlertDescription
-            className={cn(
-              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
-              previewBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
-            )}
-          >
-            {previewBuildError.message}
-          </AlertDescription>
-        </Alert>
+        <PreviewBuildErrorBanner error={previewBuildError} />
       ) : null}
 
       {previewProdBuild && !previewBuildError ? (
@@ -333,5 +323,71 @@ export function PreviewPanelChrome({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Preview failure/notice banner. The end user is a site owner: the heading
+ * says what happened, the body says what to do, and raw host/log output is
+ * only reachable behind "Visa teknisk detalj". An `info`-severity notice
+ * (readiness probe could not verify a client-rendered page) is styled as a
+ * neutral note, not as a failure — the preview below it is still live.
+ */
+export function PreviewBuildErrorBanner({ error }: { error: PreviewBuildErrorState }) {
+  const [showDetail, setShowDetail] = useState(false);
+  const isInfo = error.severity === "info";
+  const detail = error.detail?.trim() || null;
+  const detailId = `preview-build-error-detail-${error.stage}`;
+
+  return (
+    <Alert
+      variant={isInfo ? "default" : "destructive"}
+      className={cn(
+        "mx-4 mt-2",
+        isInfo
+          ? "border-sky-900/45 bg-sky-950/25 text-sky-50"
+          : "border-rose-900/55 bg-rose-950/45 text-rose-50",
+      )}
+      data-testid="preview-build-error-banner"
+      data-severity={isInfo ? "info" : "error"}
+    >
+      {isInfo ? (
+        <Info className="h-4 w-4 text-sky-300" />
+      ) : (
+        <AlertCircle className="h-4 w-4" />
+      )}
+      <AlertTitle className={cn("text-sm", isInfo ? "text-sky-100" : "text-rose-100")}>
+        {previewBuildErrorTitle(error)}
+      </AlertTitle>
+      <AlertDescription
+        className={cn(
+          "space-y-1.5 text-[12px] leading-snug",
+          isInfo ? "text-sky-200/90" : "text-rose-200/95",
+        )}
+      >
+        <p>{error.message}</p>
+        {detail ? (
+          <div>
+            <button
+              type="button"
+              className="text-[11px] underline underline-offset-2 opacity-80 hover:opacity-100"
+              aria-expanded={showDetail}
+              aria-controls={detailId}
+              onClick={() => setShowDetail((value) => !value)}
+            >
+              {showDetail ? "Dölj teknisk detalj" : "Visa teknisk detalj"}
+            </button>
+            {showDetail ? (
+              <pre
+                id={detailId}
+                className="mt-1 max-h-36 overflow-y-auto rounded border border-current/20 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap opacity-90"
+              >
+                {detail}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
+      </AlertDescription>
+    </Alert>
   );
 }

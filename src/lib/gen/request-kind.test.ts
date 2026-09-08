@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  classifyFollowUpIntent,
-  resolveFollowUpClarification,
-} from "@/lib/providers/own-engine/follow-up-clarification";
+import { classifyFollowUpIntent } from "@/lib/providers/own-engine/follow-up-clarification";
 import {
   classifyRequestKind,
   requestKindClassificationFields,
@@ -218,7 +215,6 @@ describe("build-vs-question path (today's follow-up classifiers)", () => {
     ].map((message) => ({
       message,
       followUpIntent: classifyFollowUpIntent(message),
-      clarification: resolveFollowUpClarification(message)?.reason ?? null,
       requestKind: classifyRequestKind(message).kind,
       questionShape: classifyRequestKind(message).questionShape,
     }));
@@ -227,49 +223,42 @@ describe("build-vs-question path (today's follow-up classifiers)", () => {
       {
         message: "vad är klockan i Paris",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "unclassified",
         questionShape: "qa-hint-no-mark",
       },
       {
         message: "vad är klockan i Paris?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "qa-or-score",
         questionShape: "qa-or-score",
       },
       {
         message: "varför blev sidan blå?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "qa-or-score",
         questionShape: "qa-or-score",
       },
       {
         message: "hur lägger jag till en kontaktform?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "unclassified",
         questionShape: "qa-hint-blocked-by-verb",
       },
       {
         message: "vad kostar det här?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "qa-or-score",
         questionShape: "qa-or-score",
       },
       {
         message: "kan du lägga till en footer?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "unclassified",
         questionShape: "none",
       },
       {
         message: "går det att byta färg?",
         followUpIntent: "neutral",
-        clarification: null,
         requestKind: "micro-edit",
         questionShape: "none",
       },

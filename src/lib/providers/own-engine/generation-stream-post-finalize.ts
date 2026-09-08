@@ -224,6 +224,15 @@ export async function runOwnEngineStreamPostFinalize(params: {
   let previewRuntimeOutcome: boolean | null = previewBlocked ? false : null;
   let bootedFilesRevision: string | null = finalized.version.files_revision;
 
+  // Plain-language turn summary (turn-summary.ts). Its own event — not a
+  // `content` delta — so the client appends it verbatim as a trailing
+  // paragraph instead of running it through the stream-merge heuristics.
+  // Sent before `done` so it belongs to this assistant turn; the persisted
+  // message already carries the same text, so reload and live view agree.
+  if (finalized.turnSummary) {
+    safeEnqueue(enc.encode(formatSSEEvent("turn-summary", { text: finalized.turnSummary })));
+  }
+
   // `done` confirms that version persistence/finalize finished. Live preview is a separate
   // post-done phase and only becomes canonical on `preview-ready` (or explicit GET status/routes).
   safeEnqueue(
