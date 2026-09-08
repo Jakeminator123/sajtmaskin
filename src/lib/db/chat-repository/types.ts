@@ -6,6 +6,7 @@ import {
 export interface Chat {
   id: string;
   project_id: string;
+  /** Unpopulated column — see `engineChats.title` in schema.ts. */
   title: string | null;
   model: string;
   system_prompt: string | null;

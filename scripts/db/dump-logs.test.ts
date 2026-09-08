@@ -70,3 +70,16 @@ describe("dump-logs.mjs telemetry kind", () => {
     );
   });
 });
+
+describe("dump-logs.mjs chats kind", () => {
+  it("resolves title via app_projects.name and first user prompt, not the empty column", () => {
+    const chatsBlock = dumpLogsSource.match(
+      /chats:\s*\{[\s\S]*?\n  \},\n  llmusage:/,
+    )?.[0];
+    expect(chatsBlock, "chats kind block").toBeDefined();
+    expect(chatsBlock).toContain("chatDisplayTitleSql");
+    expect(chatsBlock).toContain("app_projects");
+    expect(chatsBlock).toContain("firstUserPromptLateralSql");
+    expect(dumpLogsSource).toContain("chat-display-title.mjs");
+  });
+});
