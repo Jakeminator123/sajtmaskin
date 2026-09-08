@@ -149,6 +149,15 @@ export function hasContentToPromote(commits, treeDiffers) {
   return commits.length > 0 && treeDiffers;
 }
 
+/**
+ * Var commitlistan börjar: vid senaste synk-mergen (master → preview) när en
+ * sådan finns, annars vid master. Squash-promote gör att previews commits
+ * före synken redan är släppta även om de inte är förfäder till master.
+ */
+export function commitRangeStart(syncMergeSha, productionRef) {
+  return syncMergeSha || productionRef;
+}
+
 export function buildPromoteTitle(commits, date) {
   const highlights = selectPromoteHighlights(commits);
   if (highlights.length === 1) {
@@ -244,6 +253,34 @@ function stagingContainsProduction() {
 }
 
 /**
+ * Senaste merge-commit på previews first-parent-linje vars andra förälder
+ * ligger i master — dvs. en synk `master → preview`. Null om ingen finns.
+ */
+function findLatestSyncMerge() {
+  const merges = git([
+    "rev-list",
+    "--first-parent",
+    "--merges",
+    `origin/${PRODUCTION_BRANCH}..origin/${STAGING_BRANCH}`,
+  ])
+    .split(/\r?\n/)
+    .filter(Boolean);
+  for (const sha of merges) {
+    try {
+      execFileSync(
+        "git",
+        ["merge-base", "--is-ancestor", `${sha}^2`, `origin/${PRODUCTION_BRANCH}`],
+        { cwd: REPO_ROOT, stdio: "ignore" },
+      );
+      return sha;
+    } catch {
+      // inte en synk-merge — fortsätt
+    }
+  }
+  return null;
+}
+
+/**
  * Merga master → preview serverside via GitHubs merges-API. Efter en
  * squash-promote är träden identiska, så mergen är innehållsneutral; har
  * master fått en hotfix följer den med till staging, vilket är avsikten.
@@ -321,13 +358,14 @@ function main() {
     headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
   }
 
+  // Efter en squash-promote finns previews enskilda commits kvar i historiken
+  // men inte på master (som bara har squash-commiten). `master..preview` skulle
+  // därför lista redan släppt arbete. Räkna i stället från senaste synk-mergen:
+  // allt före den är squashat in i master.
+  const syncMerge = findLatestSyncMerge();
+  const rangeStart = commitRangeStart(syncMerge, `origin/${PRODUCTION_BRANCH}`);
   const commits = parseCommitLines(
-    git([
-      "log",
-      "--oneline",
-      "--no-decorate",
-      `origin/${PRODUCTION_BRANCH}..origin/${STAGING_BRANCH}`,
-    ]),
+    git(["log", "--oneline", "--no-decorate", `${rangeStart}..origin/${STAGING_BRANCH}`]),
   );
   const treeDiffers =
     git(["rev-parse", `origin/${PRODUCTION_BRANCH}^{tree}`]) !==

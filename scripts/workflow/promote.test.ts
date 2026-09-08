@@ -10,6 +10,7 @@ import {
   buildPromoteBody,
   buildPromoteBranchName,
   buildPromoteTitle,
+  commitRangeStart,
   findManualMergePaths,
   hasContentToPromote,
   manualMergePrefixesFromPolicy,
@@ -200,6 +201,17 @@ describe("selectPromoteHighlights", () => {
     expect(selectPromoteHighlights(commits).map((c: { sha: string }) => c.sha)).toEqual([
       "bbbbbbb",
     ]);
+  });
+});
+
+describe("commitRangeStart", () => {
+  // Cursor-review på #1308: efter synken är master ancestor, men previews
+  // squashade commits ligger kvar i `master..preview`. Listan ska börja vid
+  // synk-mergen när den finns.
+  it("börjar vid synk-mergen när en sådan finns, annars vid master", () => {
+    expect(commitRangeStart("abc123", "origin/master")).toBe("abc123");
+    expect(commitRangeStart(null, "origin/master")).toBe("origin/master");
+    expect(commitRangeStart("", "origin/master")).toBe("origin/master");
   });
 });
 
