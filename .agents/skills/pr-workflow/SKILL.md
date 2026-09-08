@@ -67,9 +67,16 @@ Head-grenen får **aldrig** vara `preview`: repot har `delete_branch_on_merge`,
 så en promote med staging som head raderar staging vid merge. Det hände
 2026-09-08 och grenen fick återskapas manuellt.
 
-Kommandot mergar aldrig. Efter PR:en gäller `pr-merge.mdc` som vanligt: gröna
-required checks på promote-headen, bugkoll och triage, sign-off före label, och
-uttrycklig ägarbekräftelse efter produktionsvarningen.
+Kommandot mergar aldrig till `master`. Efter PR:en gäller `pr-merge.mdc` som
+vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
+före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
+
+Controllern squash-mergar, så masters nya commit finns inte i `preview`
+efteråt. Saknar `preview` masters tip mergar `npm run promote` därför först
+`master → preview` serverside (innehållsneutralt efter en squash-promote) innan
+den räknar commits — annars listas redan släppta ändringar igen och nästa
+promote-PR stoppas av kravet att head innehåller aktuell `master`. Kör
+kommandot en gång efter varje promote-merge för att stänga hålet direkt.
 
 ## 5. Merge och städ
 

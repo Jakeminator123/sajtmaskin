@@ -10,7 +10,9 @@ import {
   buildPromoteBody,
   buildPromoteBranchName,
   buildPromoteTitle,
+  commitRangeStart,
   findManualMergePaths,
+  hasContentToPromote,
   manualMergePrefixesFromPolicy,
   parseCommitLines,
   parsePromoteArgs,
@@ -72,10 +74,7 @@ describe("parseRemoteBranchNames", () => {
       "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\trefs/heads/promote/2026-09-08",
       "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3\trefs/heads/promote/2026-09-08-2",
     ].join("\n");
-    expect(parseRemoteBranchNames(stdout)).toEqual([
-      "promote/2026-09-08",
-      "promote/2026-09-08-2",
-    ]);
+    expect(parseRemoteBranchNames(stdout)).toEqual(["promote/2026-09-08", "promote/2026-09-08-2"]);
   });
 
   it("ger tom lista när remoten inte har någon promote-gren", () => {
@@ -142,11 +141,7 @@ describe("findManualMergePaths", () => {
   it("deduplicerar och sorterar", () => {
     expect(
       findManualMergePaths(
-        [
-          "config/agent-workflow.json",
-          ".github/workflows/ci.yml",
-          "config/agent-workflow.json",
-        ],
+        ["config/agent-workflow.json", ".github/workflows/ci.yml", "config/agent-workflow.json"],
         ["config/agent-workflow.json", ".github/workflows/"],
       ),
     ).toEqual([".github/workflows/ci.yml", "config/agent-workflow.json"]);
@@ -179,7 +174,9 @@ describe("findManualMergePaths", () => {
 
 describe("parseCommitLines", () => {
   it("plockar sha och rubrik ur git log --oneline", () => {
-    expect(parseCommitLines("6c1022e5a Builder-feedback\nc27f22d18 docs(decisions): preview")).toEqual([
+    expect(
+      parseCommitLines("6c1022e5a Builder-feedback\nc27f22d18 docs(decisions): preview"),
+    ).toEqual([
       { sha: "6c1022e5a", subject: "Builder-feedback" },
       { sha: "c27f22d18", subject: "docs(decisions): preview" },
     ]);
@@ -204,6 +201,39 @@ describe("selectPromoteHighlights", () => {
     expect(selectPromoteHighlights(commits).map((c: { sha: string }) => c.sha)).toEqual([
       "bbbbbbb",
     ]);
+  });
+});
+
+describe("commitRangeStart", () => {
+  // Cursor-review på #1308: efter synken är master ancestor, men previews
+  // squashade commits ligger kvar i `master..preview`. Listan ska börja vid
+  // synk-mergen när den finns.
+  it("börjar vid synk-mergen när en sådan finns, annars vid master", () => {
+    expect(commitRangeStart("abc123", "origin/master")).toBe("abc123");
+    expect(commitRangeStart(null, "origin/master")).toBe("origin/master");
+    expect(commitRangeStart("", "origin/master")).toBe("origin/master");
+  });
+});
+
+describe("hasContentToPromote", () => {
+  // Extern review 2026-09-08: squash-promote lämnar masters commit utanför
+  // preview. Efter synk-mergen kan `master..preview` bestå av bara en
+  // merge-commit med identiskt träd — det är inget släpp.
+  const onlySync = parseCommitLines("aaaaaaa Merge branch 'master' into preview");
+  const real = parseCommitLines("aaaaaaa sync: master → preview\nbbbbbbb fix: riktig ändring");
+
+  it("släpper inte när träden är identiska, oavsett commits", () => {
+    expect(hasContentToPromote(onlySync, false)).toBe(false);
+    expect(hasContentToPromote(real, false)).toBe(false);
+  });
+
+  it("släpper när preview ligger före och trädet skiljer sig", () => {
+    expect(hasContentToPromote(real, true)).toBe(true);
+    expect(hasContentToPromote(onlySync, true)).toBe(true);
+  });
+
+  it("släpper inte när preview inte ligger före master alls", () => {
+    expect(hasContentToPromote([], true)).toBe(false);
   });
 });
 
