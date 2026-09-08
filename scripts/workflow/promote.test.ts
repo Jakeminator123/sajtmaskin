@@ -8,6 +8,7 @@ import {
   buildPromoteTitle,
   parseCommitLines,
   parsePromoteArgs,
+  parseRemoteBranchNames,
   selectPromoteHighlights,
 } from "./promote.mjs";
 
@@ -52,6 +53,35 @@ describe("buildPromoteBranchName", () => {
     expect(
       buildPromoteBranchName("2026-09-08", ["promote/2026-09-08", "promote/2026-09-08-2"]),
     ).toBe("promote/2026-09-08-3");
+  });
+});
+
+describe("parseRemoteBranchNames", () => {
+  // Bugbot på #1301: kollisionskontrollen läste tidigare lokala
+  // refs/remotes/origin/promote/*, som aldrig hämtas — en promote-gren från en
+  // tidigare körning var osynlig och refs-API:t svarade "Reference already
+  // exists". Listan måste komma från remoten.
+  it("plockar grennamnen ur git ls-remote --heads", () => {
+    const stdout = [
+      "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\trefs/heads/promote/2026-09-08",
+      "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3\trefs/heads/promote/2026-09-08-2",
+    ].join("\n");
+    expect(parseRemoteBranchNames(stdout)).toEqual([
+      "promote/2026-09-08",
+      "promote/2026-09-08-2",
+    ]);
+  });
+
+  it("ger tom lista när remoten inte har någon promote-gren", () => {
+    expect(parseRemoteBranchNames("")).toEqual([]);
+    expect(parseRemoteBranchNames(null)).toEqual([]);
+  });
+
+  it("hänger ihop med namngivningen: en befintlig fjärrgren ger nytt namn", () => {
+    const existing = parseRemoteBranchNames(
+      "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\trefs/heads/promote/2026-09-08",
+    );
+    expect(buildPromoteBranchName("2026-09-08", existing)).toBe("promote/2026-09-08-2");
   });
 });
 

@@ -60,6 +60,28 @@ export function buildPromoteBranchName(date, existingBranches = []) {
   throw new Error(`kunde inte hitta ett ledigt grennamn för ${base}`);
 }
 
+/**
+ * `<sha>\trefs/heads/<namn>`-rader från `git ls-remote` → grennamn.
+ *
+ * Kollisionskontrollen måste fråga REMOTEN, inte lokala
+ * `refs/remotes/origin/promote/*`: kommandot hämtar bara `master` och
+ * `preview`, och `gh api` skapar ingen lokal tracking-ref för grenen den
+ * lägger upp. En promote-gren från en tidigare körning — eller från ett omtag
+ * efter att `gh pr create` fallerat — vore därför osynlig, och refs-API:t
+ * skulle svara "Reference already exists".
+ */
+export function parseRemoteBranchNames(stdout) {
+  return String(stdout ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = /\srefs\/heads\/(.+)$/.exec(line);
+      return match ? match[1].trim() : null;
+    })
+    .filter(Boolean);
+}
+
 /** `<sha> <rubrik>`-rader från `git log --oneline` → strukturerade commits. */
 export function parseCommitLines(stdout) {
   return String(stdout ?? "")
@@ -166,10 +188,11 @@ function main() {
     return;
   }
 
-  const existing = git(["for-each-ref", "--format=%(refname:strip=3)", `refs/remotes/origin/${PROMOTE_BRANCH_PREFIX}`])
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  // Auktoritativ lista direkt från remoten; kastar hellre än gissar tomt, så en
+  // nätverksmiss aldrig kan maskera en befintlig gren och ge en krock.
+  const existing = parseRemoteBranchNames(
+    git(["ls-remote", "--heads", "origin", `${PROMOTE_BRANCH_PREFIX}*`]),
+  );
   const branch = buildPromoteBranchName(date, existing);
   const title = buildPromoteTitle(commits, date);
   const body = buildPromoteBody({ commits, baseSha, headSha, branch, date });
