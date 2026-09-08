@@ -36,6 +36,65 @@ const {
   patchWorkspaceFiles,
   writeWorkspaceFiles,
 } = require("./workspace-files.js");
+
+const INSTALL_OWNED_LOCKFILES = new Set([
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "pnpm-lock.yml",
+  "yarn.lock",
+]);
+
+function isInstallOwnedLockfile(relPath) {
+  return INSTALL_OWNED_LOCKFILES.has(String(relPath || "").replace(/\\/g, "/"));
+}
+
+/**
+ * After npm install, rewrite the workspace only when a same-version /patch
+ * advanced mutationRevision while install ran. A blanket writeWorkspaceFiles
+ * here would replace next.config.* with the raw filesJson copy and wipe the
+ * basePath injection from patchNextConfigForPreviewBasePath (every `_next`
+ * asset 404s) — and it used to run on every boot, even without a patch.
+ *
+ * Uses patchWorkspaceFiles (diff only) so an npm-regenerated lockfile that
+ * is not in the workspace manifest is left alone. Lockfile keys in filesJson
+ * are skipped: npm owns those on disk after install.
+ */
+function refreshWorkspaceAfterAdoptedPatch(chatId, workspaceDir, bootSnapshot, adoptedSession) {
+  const beforeRev = readMutationRevision(bootSnapshot);
+  const afterRev = readMutationRevision(adoptedSession);
+  if ((afterRev ?? 0) <= (beforeRev ?? 0)) {
+    return { rewritten: false, changedFiles: 0, removedPaths: 0 };
+  }
+  const adopted =
+    adoptedSession?.filesJson && typeof adoptedSession.filesJson === "object"
+      ? adoptedSession.filesJson
+      : {};
+  const previous =
+    bootSnapshot?.filesJson && typeof bootSnapshot.filesJson === "object"
+      ? bootSnapshot.filesJson
+      : {};
+  const changed = {};
+  const removed = [];
+  for (const [relPath, content] of Object.entries(adopted)) {
+    if (isInstallOwnedLockfile(relPath)) continue;
+    if (previous[relPath] !== content) changed[relPath] = content;
+  }
+  for (const relPath of Object.keys(previous)) {
+    if (isInstallOwnedLockfile(relPath)) continue;
+    if (!Object.prototype.hasOwnProperty.call(adopted, relPath)) removed.push(relPath);
+  }
+  if (Object.keys(changed).length > 0 || removed.length > 0) {
+    patchWorkspaceFiles(chatId, changed, removed);
+  }
+  // Always re-inject basePath after a rewrite: the adopted next.config (if
+  // any) is the raw filesJson copy. Idempotent when the file was not touched.
+  patchNextConfigForPreviewBasePath(workspaceDir);
+  return {
+    rewritten: true,
+    changedFiles: Object.keys(changed).length,
+    removedPaths: removed.length,
+  };
+}
 const { runInstallCommand } = require("./package-install.js");
 // Ingen load-cykel: storage-cleanup kräver denna modul enbart via en lazy
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
@@ -1030,10 +1089,17 @@ async function bootRuntimeForSession(session, options = {}) {
         session.filesJson,
       );
       // Re-read after install: a same-version patch may have landed while npm
-      // ran. Write the adopted filesJson so spawn does not boot the pre-patch
-      // snapshot, then continue this boot (no stop+reload).
+      // ran. Only rewrite when mutationRevision actually advanced — a full
+      // writeWorkspaceFiles here used to clobber the pre-install basePath
+      // injection on every boot (Bugbot on #1314).
+      const sessionBeforeAdopt = session;
       session = assertCurrentSessionLifecycle(session);
-      writeWorkspaceFiles(chatId, session.filesJson);
+      refreshWorkspaceAfterAdoptedPatch(
+        chatId,
+        workspaceDir,
+        sessionBeforeAdopt,
+        session,
+      );
       await spawnDevServer(session, workspaceDir, runtimePort);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
@@ -1570,6 +1636,7 @@ module.exports = {
   runtimeExitOwnsStoredSession,
   assertCurrentSessionLifecycle,
   isSameVersionPatchAdoption,
+  refreshWorkspaceAfterAdoptedPatch,
   takeRestartBootsQueuedForTesting,
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,

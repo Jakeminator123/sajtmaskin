@@ -318,6 +318,99 @@ try {
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
   }
 
+  // 6) Bugbot #1314: after-install refresh must not rewrite the workspace on
+  //    a plain boot (that wiped next.config basePath). A mid-install
+  //    same-version adopt writes only the diff and re-injects basePath.
+  {
+    const { existsSync, writeFileSync: writeFile } = await import("node:fs");
+    const workspaceDir = runtime.__testing.workspaceDirForChat(chatId);
+    const nextConfigPath = join(workspaceDir, "next.config.ts");
+    const lockPath = join(workspaceDir, "package-lock.json");
+    const nextConfigSource = [
+      "import type { NextConfig } from \"next\";",
+      "const config: NextConfig = { reactStrictMode: true };",
+      "export default config;",
+      "",
+    ].join("\n");
+    const filesBefore = {
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+      "next.config.ts": nextConfigSource,
+    };
+
+    runtime.__testing.writeFilesIntoWorkspace(workspaceDir, filesBefore);
+    const injected = runtime.__testing.patchNextConfigForPreviewBasePath(workspaceDir);
+    assert.equal(injected.applied, true);
+    const configAfterInject = readFileSync(nextConfigPath, "utf8");
+    assert.match(configAfterInject, /SAJTMASKIN_PREVIEW_BASE_PATH/);
+    writeFile(lockPath, "{\"name\":\"npm-regenerated\"}\n", "utf8");
+    writeFile(nextConfigPath, `${configAfterInject}\n/* install-was-here */\n`, "utf8");
+
+    const bootSnapshot = {
+      sessionId,
+      chatId,
+      lifecycleToken,
+      versionId,
+      mutationRevision: 1,
+      lastAction: "start",
+      filesJson: filesBefore,
+    };
+    const noPatch = runtime.__testing.refreshWorkspaceAfterAdoptedPatch(
+      chatId,
+      workspaceDir,
+      bootSnapshot,
+      bootSnapshot,
+    );
+    assert.equal(noPatch.rewritten, false, "plain boot must not rewrite after install");
+    const configAfterNoPatch = readFileSync(nextConfigPath, "utf8");
+    assert.match(configAfterNoPatch, /SAJTMASKIN_PREVIEW_BASE_PATH/);
+    assert.match(configAfterNoPatch, /install-was-here/);
+    assert.equal(readFileSync(lockPath, "utf8"), "{\"name\":\"npm-regenerated\"}\n");
+
+    const adopted = {
+      ...bootSnapshot,
+      mutationRevision: 2,
+      lastAction: "patch",
+      filesJson: {
+        ...filesBefore,
+        "app/page.tsx": PAGE_V2,
+        "package-lock.json": "{\"name\":\"stale-from-filesJson\"}\n",
+      },
+    };
+    const patched = runtime.__testing.refreshWorkspaceAfterAdoptedPatch(
+      chatId,
+      workspaceDir,
+      bootSnapshot,
+      adopted,
+    );
+    assert.equal(patched.rewritten, true);
+    assert.equal(patched.changedFiles, 1);
+    assert.equal(readFileSync(join(workspaceDir, "app/page.tsx"), "utf8"), PAGE_V2);
+    const configAfterAdopt = readFileSync(nextConfigPath, "utf8");
+    assert.match(
+      configAfterAdopt,
+      /SAJTMASKIN_PREVIEW_BASE_PATH/,
+      "mid-install adopt must re-apply basePath after the rewrite",
+    );
+    assert.equal(
+      readFileSync(lockPath, "utf8"),
+      "{\"name\":\"npm-regenerated\"}\n",
+      "npm-regenerated lockfile must not be overwritten from filesJson",
+    );
+
+    runtime.__testing.writeFilesIntoWorkspace(workspaceDir, {
+      "package.json": filesBefore["package.json"],
+      "app/page.tsx": PAGE_V2,
+      "next.config.ts": nextConfigSource,
+    });
+    assert.equal(
+      existsSync(lockPath),
+      true,
+      "writeFilesIntoWorkspace must not delete a lockfile that is not in the manifest",
+    );
+    assert.equal(readFileSync(lockPath, "utf8"), "{\"name\":\"npm-regenerated\"}\n");
+  }
+
   console.log("[test-patch-during-boot] All guards green.");
 } finally {
   runtime.__testing.setBootRunnerForTesting(null);
