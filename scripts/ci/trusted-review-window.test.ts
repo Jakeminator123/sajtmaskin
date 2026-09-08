@@ -1616,7 +1616,7 @@ describe("check workflow provenance", () => {
 describe("trusted review-window check decisions", () => {
   it("publicerar aldrig required check på PR mot annan base än trunk", () => {
     expect(targetsTrunk({ base: { ref: "master" } }, { trunk: "master" } as never)).toBe(true);
-    expect(targetsTrunk({ base: { ref: "ema" } }, { trunk: "master" } as never)).toBe(false);
+    expect(targetsTrunk({ base: { ref: "preview" } }, { trunk: "master" } as never)).toBe(false);
   });
 
   it("kräver required checks men låter saknat reviewkvitto bara noteras", () => {
@@ -2448,7 +2448,7 @@ describe("trusted review-window controller", () => {
     const client = {
       async request(path: string, options: { method?: string } = {}) {
         if (path === "/pulls/9") {
-          return { base: { ref: "ema" }, head: { sha: HEAD } };
+          return { base: { ref: "preview" }, head: { sha: HEAD } };
         }
         if (options.method === "POST" || options.method === "PATCH") writes += 1;
         throw new Error(`unexpected ${path}`);
@@ -2459,7 +2459,7 @@ describe("trusted review-window controller", () => {
       prNumber: 9,
       policy: integrationPolicy() as never,
     });
-    expect(result).toEqual({ conclusion: "ignored", reason: "base ema" });
+    expect(result).toEqual({ conclusion: "ignored", reason: "base preview" });
     expect(writes).toBe(0);
   });
 

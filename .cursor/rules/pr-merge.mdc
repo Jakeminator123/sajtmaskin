@@ -26,7 +26,7 @@ och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
 - Head- eller base-SHA ändrad efter review/sign-off.
 
 P2/nits blockerar inte när de är fixade, loggade eller konkret avfärdade.
-EmaCodeHero har base `ema` och kräver ägarens beslut.
+PR:er från `EmaCodeHero` mergas aldrig av en agent; ägaren beslutar per PR.
 
 ## Författaren efter varje head-SHA
 
