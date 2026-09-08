@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const launchCaptureBrowserMock = vi.hoisted(() => vi.fn());
 const applyCaptureRequestGateMock = vi.hoisted(() => vi.fn(async () => {}));
+const detectAndPruneChromiumCoreDumpsMock = vi.hoisted(() =>
+  vi.fn(() => ({ count: 0, totalMb: 0 })),
+);
 const getActivePreviewSessionAsyncMock = vi.hoisted(() => vi.fn());
 const fetchPreviewHostReadinessVerdictMock = vi.hoisted(() => vi.fn());
 const isLiveReviewEnabledMock = vi.hoisted(() => vi.fn(() => false));
@@ -14,6 +17,7 @@ const persistLiveReviewJpegMock = vi.hoisted(() =>
 vi.mock("@/lib/capture/browser", () => ({
   launchCaptureBrowser: launchCaptureBrowserMock,
   applyCaptureRequestGate: applyCaptureRequestGateMock,
+  detectAndPruneChromiumCoreDumps: detectAndPruneChromiumCoreDumpsMock,
 }));
 vi.mock("@/lib/gen/preview/session-store", () => ({
   getActivePreviewSessionAsync: getActivePreviewSessionAsyncMock,
@@ -849,6 +853,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    detectAndPruneChromiumCoreDumpsMock.mockReturnValue({ count: 0, totalMb: 0 });
     isLiveReviewEnabledMock.mockReturnValue(false);
     getActivePreviewSessionAsyncMock.mockResolvedValue(null);
     fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
@@ -877,6 +882,32 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(launchCaptureBrowserMock).toHaveBeenCalledTimes(1);
     expect(result.skipped).toBe(false);
     expect(result.skippedReason).toBeNull();
+  });
+
+  it("ytar en Chromium-core-dump under körningen som warning, inte bakom passed", async () => {
+    // Preview 2026-09-08 (chat 4a2aa301): v1 loggade passed + live review pass
+    // medan core.chromium.29 skrevs i samma lambda. Utan warning försvinner
+    // kraschen bakom product_postcheck.summary passed.
+    detectAndPruneChromiumCoreDumpsMock.mockReturnValue({ count: 1, totalMb: 385 });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(detectAndPruneChromiumCoreDumpsMock).toHaveBeenCalledWith("product-postcheck");
+    expect(result.skipped).toBe(false);
+    expect(result.productBlocked).toBe(false);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "browser_crashed",
+          message: "Chromium core dump detected (385 MB) during product-postcheck",
+        }),
+      ]),
+    );
+    expect(result.warningCount).toBe(result.warnings.length);
   });
 
   it("lägger SSRF-grinden på båda viewporterna", async () => {
@@ -1487,6 +1518,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
 describe("runProductPostcheck screenshot best-effort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    detectAndPruneChromiumCoreDumpsMock.mockReturnValue({ count: 0, totalMb: 0 });
     isLiveReviewEnabledMock.mockReturnValue(true);
     persistLiveReviewJpegMock.mockResolvedValue("https://blob.example/live-review.jpg");
     getActivePreviewSessionAsyncMock.mockResolvedValue(null);

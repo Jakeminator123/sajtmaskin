@@ -1,6 +1,10 @@
 import type { Browser, Page, Response as PlaywrightResponse } from "playwright-core";
 import { load } from "cheerio";
-import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
+import {
+  applyCaptureRequestGate,
+  detectAndPruneChromiumCoreDumps,
+  launchCaptureBrowser,
+} from "@/lib/capture/browser";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
   classifyPreviewPageProbe,
@@ -31,7 +35,14 @@ export type ProductPostcheckWarningCode =
   | "hydration_dom_loss"
   | "console_error"
   | "request_failed"
-  | "http_error";
+  | "http_error"
+  /**
+   * Chromium skrev en core dump under den här körningen. Advisory — sajten
+   * kan fortfarande ha passerat DOM-kontrollen (preview 2026-09-08,
+   * chat `4a2aa301`). Samma namn som skip-orsaken när processen dog före
+   * navigering, men här som warning så kraschen inte försvinner bakom `passed`.
+   */
+  | "browser_crashed";
 
 // Re-export so existing verify/postcheck callers keep a stable import path.
 export {
@@ -1330,6 +1341,11 @@ export async function runProductPostcheck(params: {
   let desktopLeftStartUrl = false;
   let desktopServerCtaBaseline: ServerCtaBaseline = { labels: [] };
   let mobileServerCtaBaseline: ServerCtaBaseline = { labels: [] };
+  let settled: ProductPostcheckResult | undefined;
+  const settle = (result: ProductPostcheckResult): ProductPostcheckResult => {
+    settled = result;
+    return result;
+  };
 
   const attachRuntimeListeners = (target: Page, viewport: "desktop" | "mobile") => {
     // Listeners MUST be registered before page.goto — a post-nav listener
@@ -1478,18 +1494,20 @@ export async function runProductPostcheck(params: {
     }
     if (readinessDecision.action === "warn") {
       if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
-        return skippedResult(
-          "preview_superseded",
-          Date.now() - startedAt,
-          previewUrl,
-          routesChecked,
+        return settle(
+          skippedResult(
+            "preview_superseded",
+            Date.now() - startedAt,
+            previewUrl,
+            routesChecked,
+          ),
         );
       }
       const message =
         readinessDecision.code === "preview_boot_page"
           ? PREVIEW_BOOT_PAGE_MESSAGE
           : PREVIEW_PROBE_UNREADABLE_MESSAGE;
-      return {
+      return settle({
         ok: true,
         skipped: false,
         skippedReason: null,
@@ -1499,7 +1517,7 @@ export async function runProductPostcheck(params: {
         durationMs: Date.now() - startedAt,
         checkedUrl: previewUrl,
         routesChecked,
-      };
+      });
     }
 
     const snapshot = await page.evaluate<DomSnapshot, string>(
@@ -1808,11 +1826,13 @@ export async function runProductPostcheck(params: {
     // starting filesRevision. A same-version replacement must discard N
     // instead of attaching N+1 DOM/readiness to N's durable evidence.
     if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
-      return skippedResult(
-        "preview_superseded",
-        Date.now() - startedAt,
-        previewUrl,
-        routesChecked,
+      return settle(
+        skippedResult(
+          "preview_superseded",
+          Date.now() - startedAt,
+          previewUrl,
+          routesChecked,
+        ),
       );
     }
     const screenshots = captureEnabled
@@ -1825,7 +1845,7 @@ export async function runProductPostcheck(params: {
           mobile: mobileJpeg,
         }).catch(() => null)
       : null;
-    return {
+    return settle({
       ok: true,
       skipped: false,
       skippedReason: null,
@@ -1838,14 +1858,16 @@ export async function runProductPostcheck(params: {
       routesChecked,
       screenshots,
       domSummary,
-    };
+    });
   } catch (err) {
     if (err instanceof PreviewTargetSupersededError) {
-      return skippedResult(
-        "preview_superseded",
-        Date.now() - startedAt,
-        previewUrl,
-        routesChecked,
+      return settle(
+        skippedResult(
+          "preview_superseded",
+          Date.now() - startedAt,
+          previewUrl,
+          routesChecked,
+        ),
       );
     }
     // A render-fatal crash may already be visible even though a later phase
@@ -1876,15 +1898,17 @@ export async function runProductPostcheck(params: {
     const warnings = [...runtimeEval.warnings, ...browserEval.warnings];
     if (runtimeEval.productBlocked) {
       if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
-        return skippedResult(
-          "preview_superseded",
-          Date.now() - startedAt,
-          previewUrl,
-          routesChecked,
+        return settle(
+          skippedResult(
+            "preview_superseded",
+            Date.now() - startedAt,
+            previewUrl,
+            routesChecked,
+          ),
         );
       }
       console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
-      return {
+      return settle({
         ok: true,
         skipped: false,
         skippedReason: null,
@@ -1894,7 +1918,7 @@ export async function runProductPostcheck(params: {
         durationMs: Date.now() - startedAt,
         checkedUrl: previewUrl,
         routesChecked,
-      };
+      });
     }
     const reason = productPostcheckSkipReasonFromError(err);
     // Advisory-fynd som hann samlas in innan felet följer INTE med en skip.
@@ -1903,10 +1927,20 @@ export async function runProductPostcheck(params: {
     // halvkörd kontroll ska rapportera "kördes inte", inte en delmängd som
     // läses som täckning. `routesChecked` visar hur långt den kom.
     console.warn("[product-postcheck] skipped:", err);
-    return skippedResult(reason, Date.now() - startedAt, previewUrl, routesChecked);
+    return settle(skippedResult(reason, Date.now() - startedAt, previewUrl, routesChecked));
   } finally {
     await mobilePage?.close().catch(() => {});
     await page?.close().catch(() => {});
     await browser?.close().catch(() => {});
+    const dump = detectAndPruneChromiumCoreDumps("product-postcheck");
+    if (dump.count > 0 && settled && !settled.skipped) {
+      settled.warnings.push(
+        warning(
+          "browser_crashed",
+          `Chromium core dump detected (${dump.totalMb} MB) during product-postcheck`,
+        ),
+      );
+      settled.warningCount = settled.warnings.length;
+    }
   }
 }
