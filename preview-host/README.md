@@ -32,7 +32,11 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
 - Ett runtime-byte under en öppen iframe ska signalera `reloadPage` på preview-
   sockets (HMR-stub eller reconnect). Preview-URL:en är stabil, så utan reload
   hydrerar klienten gammal JS mot den nya processens HTML. Saknas socket är
-  signalen en no-op.
+  signalen pending tills HMR reconnectar.
+- En hot patch som bekräftar readiness ska använda samma pending-reload för
+  viewers utan levande HMR-socket. Handshake-klar HMR lämnas åt Fast Refresh
+  (ingen extra document-reload). Saknas socket är signalen pending tills
+  reconnect, samma som runtime-byte.
 - Prewarm är opt-in, får inte exponera skelettet publikt och måste deployas på
   hosten före aktivering i huvudappen.
 - Saknade lokala TypeScript-, ESLint- eller Next-binaries är toolingfel, inte

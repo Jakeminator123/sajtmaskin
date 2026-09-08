@@ -317,6 +317,80 @@ function activePreviewSocketCount(chatId) {
   return activePreviewSocketsByChat.get(chatId)?.size ?? 0;
 }
 
+/**
+ * Handshake-complete preview sockets still attached to this chat. A live
+ * HMR socket is the only evidence Fast Refresh *could* have applied a hot
+ * patch during the readiness wait — we cannot verify that it did.
+ */
+function listLivePreviewHmrViewers(chatId) {
+  const viewerIds = [];
+  let anonymousLive = false;
+  let liveCount = 0;
+  if (!chatId) return { viewerIds, anonymousLive, liveCount };
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  if (!sockets) return { viewerIds, anonymousLive, liveCount };
+  const seen = new Set();
+  for (const [socket, registration] of sockets) {
+    if (!registration || registration.handshakeComplete !== true) continue;
+    if (socket && socket.destroyed === true) continue;
+    liveCount += 1;
+    const viewerId =
+      typeof registration.viewerId === "string" && registration.viewerId
+        ? registration.viewerId
+        : null;
+    if (!viewerId) {
+      anonymousLive = true;
+      continue;
+    }
+    if (seen.has(viewerId)) continue;
+    seen.add(viewerId);
+    viewerIds.push(viewerId);
+  }
+  return { viewerIds, anonymousLive, liveCount };
+}
+
+function acknowledgeLivePreviewHmrViewers(chatId, generationToken) {
+  const live = listLivePreviewHmrViewers(chatId);
+  let acknowledged = 0;
+  for (const viewerId of live.viewerIds) {
+    if (acknowledgePreviewClientReload(chatId, viewerId, generationToken)) {
+      acknowledged += 1;
+    }
+  }
+  if (live.anonymousLive) {
+    const state = pendingPreviewClientReloadByChat.get(chatId);
+    if (state && state.generationToken === generationToken) {
+      state.anonymousDelivered = true;
+      acknowledged += 1;
+    }
+  }
+  return { ...live, acknowledged };
+}
+
+/**
+ * After a hot patch the Next process is still the same, so the restart-path
+ * reload never runs. Viewers without a live HMR socket keep the previous
+ * document under the stable preview URL. Mark the same pending generation as
+ * a runtime swap, ACK handshake-complete HMR viewers (avoid a document reload
+ * when Fast Refresh could already have applied the files), and broadcast to
+ * everyone still pending — including a late reconnect that arrives after
+ * idle/proxy death.
+ */
+function signalPreviewClientReloadAfterHotPatch(chatId) {
+  if (!chatId) {
+    return { sent: 0, liveCount: 0, pendingAnonymous: false, generationToken: null };
+  }
+  const generationToken = markPendingPreviewClientReload(chatId);
+  const live = acknowledgeLivePreviewHmrViewers(chatId, generationToken);
+  const signaled = requestPreviewClientReload(chatId);
+  return {
+    sent: signaled.sent,
+    liveCount: live.liveCount,
+    pendingAnonymous: hasPendingPreviewClientReload(chatId),
+    generationToken,
+  };
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -784,6 +858,9 @@ module.exports = {
   markPreviewSocketHandshakeComplete,
   clearPreviewSocketCandidate,
   activePreviewSocketCount,
+  listLivePreviewHmrViewers,
+  acknowledgeLivePreviewHmrViewers,
+  signalPreviewClientReloadAfterHotPatch,
   markPendingPreviewClientReload,
   getPendingPreviewClientReloadToken,
   clearPendingPreviewClientReload,

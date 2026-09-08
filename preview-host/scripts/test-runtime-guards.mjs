@@ -2179,6 +2179,246 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
+// Hot patch leaves the Next process alive, so the restart-path reload never
+// runs. Readiness-after-patch must reuse the same pending-reload machinery
+// for viewers without a live HMR socket (prod 2026-09-08, chat 4a2aa301:
+// CSS-only Fast Edit Lane, iframe stayed on v2 until a manual version click).
+{
+  const {
+    probeReadinessAfterPatch,
+    setRuntimeStateForTesting,
+    clearRuntimeStateForTesting,
+    registerPreviewSocket,
+    clearPendingPreviewClientReload,
+    hasPendingPreviewClientReload,
+  } = runtime.__testing;
+
+  const readyHtml =
+    "<!doctype html><html><body><main>Current preview rendered enough meaningful text for readiness.</main></body></html>";
+
+  function fakePreviewSocket() {
+    const socket = new EventEmitter();
+    socket.writes = [];
+    socket.destroyed = false;
+    socket.writable = true;
+    socket.write = (buf) => {
+      socket.writes.push(Buffer.from(buf));
+      return true;
+    };
+    return socket;
+  }
+
+  function wroteReloadPage(socket) {
+    return socket.writes.some((buf) => /reloadPage/.test(buf.toString("utf8")));
+  }
+
+  function seedHotPatchSession(chatId, versionId) {
+    const session = {
+      sessionId: `sess-${chatId}`,
+      previewSessionId: `ps-${chatId}`,
+      chatId,
+      versionId,
+      lifecycleToken: `life-${chatId}`,
+      mutationRevision: 2,
+      readinessState: "starting",
+      readinessError: null,
+      previewUrl: `http://localhost/${chatId}`,
+      status: "running",
+      lastAction: "patch",
+      sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      filesJson: { "app/globals.css": "body{color:red}" },
+    };
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(
+      join(dataDir, "preview-host-store.json"),
+      JSON.stringify({
+        sessions: { [session.sessionId]: session },
+        logs: {},
+        previewSessionToSession: { [session.previewSessionId]: session.sessionId },
+      }),
+      "utf8",
+    );
+    return session;
+  }
+
+  async function runSuccessfulProbe(chatId, session) {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(readyHtml, {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    try {
+      await probeReadinessAfterPatch({
+        chatId,
+        sessionId: session.sessionId,
+        previewSessionId: session.previewSessionId,
+        versionId: session.versionId,
+        lifecycleToken: session.lifecycleToken,
+        mutationRevision: session.mutationRevision,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  }
+
+  const deadHmrChat = "guard-hot-patch-no-hmr";
+  const deadHmrSession = seedHotPatchSession(deadHmrChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: deadHmrChat,
+    sessionId: deadHmrSession.sessionId,
+    previewSessionId: deadHmrSession.previewSessionId,
+    lifecycleToken: deadHmrSession.lifecycleToken,
+    mutationRevision: deadHmrSession.mutationRevision,
+    runtimePort: 4310,
+    running: true,
+  });
+  await runSuccessfulProbe(deadHmrChat, deadHmrSession);
+  check(
+    "hot patch readiness without an HMR socket leaves a pending viewer reload",
+    hasPendingPreviewClientReload(deadHmrChat, "viewer-stale-iframe"),
+  );
+  const lateAfterPatch = fakePreviewSocket();
+  registerPreviewSocket(deadHmrChat, lateAfterPatch, {
+    handshakeComplete: true,
+    viewerId: "viewer-stale-iframe",
+  });
+  check(
+    "late HMR reconnect after hot patch receives reloadPage (no live socket at patch time)",
+    wroteReloadPage(lateAfterPatch),
+  );
+  clearRuntimeStateForTesting(deadHmrChat, deadHmrSession.sessionId);
+  clearPendingPreviewClientReload(deadHmrChat);
+
+  const liveHmrChat = "guard-hot-patch-live-hmr";
+  const liveHmrSession = seedHotPatchSession(liveHmrChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: liveHmrChat,
+    sessionId: liveHmrSession.sessionId,
+    previewSessionId: liveHmrSession.previewSessionId,
+    lifecycleToken: liveHmrSession.lifecycleToken,
+    mutationRevision: liveHmrSession.mutationRevision,
+    runtimePort: 4311,
+    running: true,
+  });
+  const liveHmrSocket = fakePreviewSocket();
+  registerPreviewSocket(liveHmrChat, liveHmrSocket, {
+    handshakeComplete: true,
+    viewerId: "viewer-live-hmr",
+  });
+  await runSuccessfulProbe(liveHmrChat, liveHmrSession);
+  check(
+    "hot patch does not document-reload a viewer that still has live HMR",
+    liveHmrSocket.writes.length === 0 && !wroteReloadPage(liveHmrSocket),
+  );
+  check(
+    "live HMR viewer is ACKed so a later HMR ping cannot loop reloadPage",
+    !hasPendingPreviewClientReload(liveHmrChat, "viewer-live-hmr"),
+  );
+  const otherViewerPending =
+    hasPendingPreviewClientReload(liveHmrChat, "viewer-other-tab");
+  check(
+    "ACKing the live HMR viewer does not consume a different viewer's generation",
+    otherViewerPending,
+  );
+  liveHmrSocket.emit("close");
+  const liveHmrPing = fakePreviewSocket();
+  registerPreviewSocket(liveHmrChat, liveHmrPing, {
+    handshakeComplete: true,
+    viewerId: "viewer-live-hmr",
+  });
+  check(
+    "live HMR viewer reconnect after ACK does not receive a second reloadPage",
+    liveHmrPing.writes.length === 0,
+  );
+  clearRuntimeStateForTesting(liveHmrChat, liveHmrSession.sessionId);
+  clearPendingPreviewClientReload(liveHmrChat);
+
+  const mixedChat = "guard-hot-patch-mixed";
+  const mixedSession = seedHotPatchSession(mixedChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: mixedChat,
+    sessionId: mixedSession.sessionId,
+    previewSessionId: mixedSession.previewSessionId,
+    lifecycleToken: mixedSession.lifecycleToken,
+    mutationRevision: mixedSession.mutationRevision,
+    runtimePort: 4312,
+    running: true,
+  });
+  const mixedLive = fakePreviewSocket();
+  registerPreviewSocket(mixedChat, mixedLive, {
+    handshakeComplete: true,
+    viewerId: "viewer-mixed-live",
+  });
+  await runSuccessfulProbe(mixedChat, mixedSession);
+  const mixedLate = fakePreviewSocket();
+  registerPreviewSocket(mixedChat, mixedLate, {
+    handshakeComplete: true,
+    viewerId: "viewer-mixed-dead",
+  });
+  check(
+    "mixed viewers: live HMR is not reloaded, dead viewer is",
+    !wroteReloadPage(mixedLive) &&
+      wroteReloadPage(mixedLate) &&
+      !hasPendingPreviewClientReload(mixedChat, "viewer-mixed-live") &&
+      hasPendingPreviewClientReload(mixedChat, "viewer-mixed-dead"),
+  );
+  clearRuntimeStateForTesting(mixedChat, mixedSession.sessionId);
+  clearPendingPreviewClientReload(mixedChat);
+
+  const failedChat = "guard-hot-patch-failed-readiness";
+  const failedSession = seedHotPatchSession(failedChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: failedChat,
+    sessionId: failedSession.sessionId,
+    previewSessionId: failedSession.previewSessionId,
+    lifecycleToken: failedSession.lifecycleToken,
+    mutationRevision: failedSession.mutationRevision,
+    runtimePort: 4313,
+    running: true,
+  });
+  const previousReadyMax = process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+  const previousConnectMax = process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "80";
+  process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = "40";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("ECONNREFUSED simulated after hot patch");
+  };
+  try {
+    await probeReadinessAfterPatch({
+      chatId: failedChat,
+      sessionId: failedSession.sessionId,
+      previewSessionId: failedSession.previewSessionId,
+      versionId: failedSession.versionId,
+      lifecycleToken: failedSession.lifecycleToken,
+      mutationRevision: failedSession.mutationRevision,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousReadyMax === undefined) delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    else process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    if (previousConnectMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = previousConnectMax;
+    }
+  }
+  const failedLate = fakePreviewSocket();
+  registerPreviewSocket(failedChat, failedLate, {
+    handshakeComplete: true,
+    viewerId: "viewer-failed",
+  });
+  check(
+    "failed hot-patch readiness does not mark a pending viewer reload",
+    failedLate.writes.length === 0 && !hasPendingPreviewClientReload(failedChat, "viewer-failed"),
+  );
+  clearRuntimeStateForTesting(failedChat, failedSession.sessionId);
+  clearPendingPreviewClientReload(failedChat);
+}
+
 {
   const { waitForReady } = runtime.__testing;
   const previousConnectMax = process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;

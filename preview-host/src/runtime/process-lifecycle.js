@@ -16,6 +16,7 @@ const {
   activeVerifyChatKeys,
   markPendingPreviewClientReload,
   requestPreviewClientReload,
+  signalPreviewClientReloadAfterHotPatch,
   appendRuntimeLog,
   findSessionByChatId,
   getSessionChatId,
@@ -238,6 +239,18 @@ async function probeReadinessAfterPatch({
       await appendRuntimeLog(
         previewSessionId,
         `Readiness confirmed after hot patch (version ${versionId}).`,
+      );
+      // Same pending-reload generation as a runtime swap. Live HMR viewers
+      // are ACKed so Fast Refresh is not followed by a document reload;
+      // everyone else stays pending until their next HMR connect.
+      const signaled = signalPreviewClientReloadAfterHotPatch(chatId);
+      await appendRuntimeLog(
+        previewSessionId,
+        signaled.sent > 0
+          ? `Signaled preview client reload after hot patch (${signaled.sent} open socket(s)).`
+          : signaled.liveCount > 0
+            ? `Hot patch ready; live HMR viewer(s) left to Fast Refresh (${signaled.liveCount}).`
+            : "Hot patch ready; reload pending until HMR reconnects.",
       );
     }
   } catch (err) {
