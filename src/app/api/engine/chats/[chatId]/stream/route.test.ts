@@ -13,16 +13,7 @@ const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
-const resolveFollowUpPreviousBase = vi.hoisted(() =>
-  vi.fn(async (chatId: string, engineBaseVersionId?: string | null) => {
-    const files = await resolveFollowUpPreviousFiles(chatId, engineBaseVersionId);
-    return {
-      files,
-      versionId: files.length > 0 ? (engineBaseVersionId ?? "ver_resolved") : null,
-      selectedDossierEnvKeys: files.length > 0 ? ["RESEND_API_KEY"] : [],
-    };
-  }),
-);
+const resolveFollowUpPreviousBase = vi.hoisted(() => vi.fn());
 const resolveChatPreferredVersionId = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -656,6 +647,17 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         language: "tsx",
       },
     ]);
+    resolveFollowUpPreviousBase.mockImplementation(
+      async (chatId: string, engineBaseVersionId?: string | null) => {
+        const files = await resolveFollowUpPreviousFiles(chatId, engineBaseVersionId);
+        const list = Array.isArray(files) ? files : [];
+        return {
+          files: list,
+          versionId: list.length > 0 ? (engineBaseVersionId ?? "ver_resolved") : null,
+          selectedDossierEnvKeys: list.length > 0 ? ["RESEND_API_KEY"] : [],
+        };
+      },
+    );
     // 5-2: default server-preferred version. Only consulted when a request
     // carries BOTH engineBaseVersionId and engineLatestKnownVersionId (the
     // stale-base gate); the other tests below never send the latter so the
@@ -877,6 +879,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     );
 
     expect(response.status).toBe(200);
+    await readSseEvents(response);
     expect(updateChatScaffoldId).toHaveBeenCalledWith("chat_1", "scaffold_1");
   });
 
