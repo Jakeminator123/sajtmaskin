@@ -9,6 +9,10 @@ import {
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
 import type { MessageOptions, SendMessageOutcome } from "@/lib/hooks/chat/types";
+import {
+  previewHandoffKey,
+  rememberAppliedPreviewHandoffKey,
+} from "./builder-page-preview-helpers";
 
 export type VersionLike = {
   versionId?: string | null;
@@ -55,6 +59,7 @@ type UseBuilderCallbacksArgs = {
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
   lastPreviewHandoffKeyRef?: MutableRefObject<string | null>;
+  appliedPreviewHandoffKeysRef?: MutableRefObject<Set<string>>;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsVersionPanelCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -67,6 +72,7 @@ export function useBuilderCallbacks({
   effectiveVersionsList,
   bumpPreviewRefreshToken,
   lastPreviewHandoffKeyRef,
+  appliedPreviewHandoffKeysRef,
   setCurrentPreviewUrl,
   setSelectedVersionId,
   setIsVersionPanelCollapsed,
@@ -128,10 +134,11 @@ export function useBuilderCallbacks({
         if (next) {
           setCurrentPreviewUrl(next);
           bumpPreviewRefreshToken();
-          const normalized = normalizePreviewUrl(next);
-          if (lastPreviewHandoffKeyRef && normalized) {
-            lastPreviewHandoffKeyRef.current = `${versionId}:${normalized}`;
+          const key = previewHandoffKey(versionId, next);
+          if (lastPreviewHandoffKeyRef && key) {
+            lastPreviewHandoffKeyRef.current = key;
           }
+          rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
           return;
         }
         setCurrentPreviewUrl(null);
@@ -143,9 +150,11 @@ export function useBuilderCallbacks({
       if (explicit) {
         setCurrentPreviewUrl(explicit);
         bumpPreviewRefreshToken();
-        if (lastPreviewHandoffKeyRef) {
-          lastPreviewHandoffKeyRef.current = `${versionId}:${explicit}`;
+        const key = previewHandoffKey(versionId, explicit);
+        if (lastPreviewHandoffKeyRef && key) {
+          lastPreviewHandoffKeyRef.current = key;
         }
+        rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
         return;
       }
       const legacy = normalizePreviewUrl(
@@ -157,15 +166,18 @@ export function useBuilderCallbacks({
       if (legacy) {
         setCurrentPreviewUrl(legacy);
         bumpPreviewRefreshToken();
-        if (lastPreviewHandoffKeyRef) {
-          lastPreviewHandoffKeyRef.current = `${versionId}:${legacy}`;
+        const key = previewHandoffKey(versionId, legacy);
+        if (lastPreviewHandoffKeyRef && key) {
+          lastPreviewHandoffKeyRef.current = key;
         }
+        rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
       }
     },
     [
       effectiveVersionsList,
       bumpPreviewRefreshToken,
       lastPreviewHandoffKeyRef,
+      appliedPreviewHandoffKeysRef,
       setCurrentPreviewUrl,
       setSelectedVersionId,
     ],

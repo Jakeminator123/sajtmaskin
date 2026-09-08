@@ -44,7 +44,7 @@ type Params = {
   serverProjectPreviewOverrideUrl: string | null;
   serverProjectPreviewOverrideVersionId: string | null;
   applyPreviewHandoff: ApplyPreviewHandoff;
-  lastPreviewHandoffKeyRef: MutableRefObject<string | null>;
+  appliedPreviewHandoffKeysRef: MutableRefObject<Set<string>>;
   setClearedPreviewVersionId: Dispatch<SetStateAction<string | null>>;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setPreviewPending: Dispatch<SetStateAction<boolean>>;
@@ -78,7 +78,7 @@ export function useBuilderPreviewVersionSync({
   serverProjectPreviewOverrideUrl,
   serverProjectPreviewOverrideVersionId,
   applyPreviewHandoff,
-  lastPreviewHandoffKeyRef,
+  appliedPreviewHandoffKeysRef,
   setClearedPreviewVersionId,
   setCurrentPreviewUrl,
   setPreviewPending,
@@ -254,15 +254,15 @@ export function useBuilderPreviewVersionSync({
 
     // Same reused VM URL after a version advance (hot patch / Fast Edit Lane).
     // The URL-diff branch above is a no-op, so without a handoff the iframe
-    // keeps the previous document and waits for HMR. The latch bumps at most
-    // once and noops if stream/bootstrap/version-select already applied this
-    // pair — including when HMR already did the visual job via a prior bump.
+    // keeps the previous document and waits for HMR. Compare the applied-key
+    // *set* (not the latest latch): follow-up-done flickers activeVersionId
+    // v3→v2→v3 on the same URL, and a latest-key compare would bump twice.
     if (
       shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
         nextDemoUrl,
         currentPreviewUrl,
         versionId: activeVersionId,
-        lastAppliedKey: lastPreviewHandoffKeyRef.current,
+        appliedKeys: appliedPreviewHandoffKeysRef.current,
       })
     ) {
       applyPreviewHandoff({ url: nextDemoUrl, versionId: activeVersionId });
@@ -270,7 +270,7 @@ export function useBuilderPreviewVersionSync({
         setPreviewPending(false);
       }
     }
-  }, [activeVersionId, latestVersionId, selectedVersionId, chat, currentPreviewUrl, effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, currentPreviewUrlRef, lastPreviewHandoffKeyRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending, applyPreviewHandoff]);
+  }, [activeVersionId, latestVersionId, selectedVersionId, chat, currentPreviewUrl, effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, currentPreviewUrlRef, appliedPreviewHandoffKeysRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending, applyPreviewHandoff]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(
     () =>

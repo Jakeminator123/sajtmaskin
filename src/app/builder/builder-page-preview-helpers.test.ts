@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   pickVersionPreviewUrl,
+  previewHandoffKey,
+  rememberAppliedPreviewHandoffKey,
   shouldHandoffUnchangedPreviewUrlOnVersionAdvance,
   shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
@@ -298,35 +300,59 @@ describe("shouldRetainLiveTier2DuringAsyncPersist", () => {
 describe("shouldHandoffUnchangedPreviewUrlOnVersionAdvance", () => {
   const liveUrl = "https://demo.fly.dev/chat-123";
 
-  it("handoffs when a new version reuses the same live preview URL (hot-patch / Fast Edit Lane)", () => {
-    expect(
-      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
-        nextDemoUrl: liveUrl,
-        currentPreviewUrl: liveUrl,
-        versionId: "v3",
-        lastAppliedKey: `v2:${liveUrl}`,
-      }),
-    ).toBe(true);
+  function countBumps(versionIds: string[], initiallyApplied: string[]): number {
+    const applied = new Set(initiallyApplied);
+    let bumps = 0;
+    for (const versionId of versionIds) {
+      if (
+        shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+          nextDemoUrl: liveUrl,
+          currentPreviewUrl: liveUrl,
+          versionId,
+          appliedKeys: applied,
+        })
+      ) {
+        bumps += 1;
+        rememberAppliedPreviewHandoffKey(applied, previewHandoffKey(versionId, liveUrl));
+      }
+    }
+    return bumps;
+  }
+
+  it("handoffs once when a new version was never applied (hot-patch / Fast Edit Lane, no SSE URL)", () => {
+    expect(countBumps(["v3"], [previewHandoffKey("v2", liveUrl)!])).toBe(1);
   });
 
-  it("noops once the versionId:url latch already applied this pair (stream/bootstrap/select)", () => {
+  it("gives 0 bumps for the follow-up-done flicker v3(SSE) → v2 → v3 on the same URL", () => {
+    // SSE preview-ready already applied v3:url. v2:url was applied by that
+    // version's own preview-ready. activeVersionId then flickers v3→v2→v3
+    // while `/versions` catches up (selectedVersionId guard). A latest-key
+    // latch would bump twice; the applied-key set must not.
+    const initiallyApplied = [
+      previewHandoffKey("v2", liveUrl)!,
+      previewHandoffKey("v3", liveUrl)!,
+    ];
+    expect(countBumps(["v2", "v3"], initiallyApplied)).toBe(0);
+  });
+
+  it("noops once the versionId:url pair is already in the applied set", () => {
     expect(
       shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
         nextDemoUrl: liveUrl,
         currentPreviewUrl: liveUrl,
         versionId: "v3",
-        lastAppliedKey: `v3:${liveUrl}`,
+        appliedKeys: new Set([previewHandoffKey("v3", liveUrl)!]),
       }),
     ).toBe(false);
   });
 
-  it("does not invent a bump on first paint when the latch was never set", () => {
+  it("does not invent a bump on first paint when no pair has been applied yet", () => {
     expect(
       shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
         nextDemoUrl: liveUrl,
         currentPreviewUrl: liveUrl,
         versionId: "v2",
-        lastAppliedKey: null,
+        appliedKeys: new Set(),
       }),
     ).toBe(false);
   });
@@ -337,7 +363,7 @@ describe("shouldHandoffUnchangedPreviewUrlOnVersionAdvance", () => {
         nextDemoUrl: "https://demo.fly.dev/chat-456",
         currentPreviewUrl: liveUrl,
         versionId: "v3",
-        lastAppliedKey: `v2:${liveUrl}`,
+        appliedKeys: new Set([previewHandoffKey("v2", liveUrl)!]),
       }),
     ).toBe(false);
   });
@@ -348,7 +374,7 @@ describe("shouldHandoffUnchangedPreviewUrlOnVersionAdvance", () => {
         nextDemoUrl: "https://app.example/api/preview-render?id=1",
         currentPreviewUrl: "https://app.example/api/preview-render?id=1",
         versionId: "v3",
-        lastAppliedKey: "v2:https://app.example/api/preview-render?id=1",
+        appliedKeys: new Set(["v2:https://app.example/api/preview-render?id=1"]),
       }),
     ).toBe(false);
   });
