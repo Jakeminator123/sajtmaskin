@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { loadWorkflowInputs } from "./path-impact.mjs";
+import { parseGitNameStatus } from "./path-impact.mjs";
 import {
   PRODUCTION_BRANCH,
   STAGING_BRANCH,
@@ -8,8 +11,8 @@ import {
   buildPromoteBranchName,
   buildPromoteTitle,
   findManualMergePaths,
+  manualMergePrefixesFromPolicy,
   parseCommitLines,
-  parseNameStatusLines,
   parsePromoteArgs,
   parseRemoteBranchNames,
   selectPromoteHighlights,
@@ -88,29 +91,40 @@ describe("parseRemoteBranchNames", () => {
   });
 });
 
-describe("parseNameStatusLines", () => {
-  it("plockar M/A/D och båda namnen vid rename/copy", () => {
-    const stdout = [
-      "M\tsrc/app.ts",
-      "A\tdocs/nytt.md",
-      "D\told/bort.md",
-      "R100\tscripts/ci/old.mjs\tscripts/ci/new.mjs",
-      "C75\tconfig/agent-workflow.json\tconfig/agent-workflow.copy.json",
-    ].join("\n");
-    expect(parseNameStatusLines(stdout)).toEqual([
-      "src/app.ts",
-      "docs/nytt.md",
-      "old/bort.md",
-      "scripts/ci/old.mjs",
-      "scripts/ci/new.mjs",
-      "config/agent-workflow.json",
-      "config/agent-workflow.copy.json",
+describe("manualMergePrefixesFromPolicy", () => {
+  // Cursor-review på #1305: förvarningen måste läsa samma policy som
+  // controllern — masters — inte checkoutens. Samma fallback som
+  // trusted-review-window.mjs när nyckeln saknas; trasig lista ska kasta,
+  // inte tyst bli tom (då försvinner varningen).
+  it("läser prefixlistan ur policy-JSON", () => {
+    expect(
+      manualMergePrefixesFromPolicy(
+        JSON.stringify({ manualMergePathPrefixes: [".github/workflows/", "scripts/ci/"] }),
+      ),
+    ).toEqual([".github/workflows/", "scripts/ci/"]);
+  });
+
+  it("faller tillbaka på controllerns default när nyckeln saknas", () => {
+    expect(manualMergePrefixesFromPolicy(JSON.stringify({ trunk: "master" }))).toEqual([
+      ".github/workflows/",
     ]);
   });
 
-  it("tål tom och null-input utan att kasta", () => {
-    expect(parseNameStatusLines("")).toEqual([]);
-    expect(parseNameStatusLines(null)).toEqual([]);
+  it("kastar på trasig lista i stället för att tyst tömma varningen", () => {
+    expect(() =>
+      manualMergePrefixesFromPolicy(JSON.stringify({ manualMergePathPrefixes: "scripts/ci/" })),
+    ).toThrow(/stränglista/);
+    expect(() => manualMergePrefixesFromPolicy("")).toThrow();
+  });
+
+  it("hänger ihop med den fail-closed name-status-parsern från verify:pr", () => {
+    // Rename ger båda namnen; controllern läser previous_filename.
+    const paths = parseGitNameStatus(
+      ["M\0src/app.ts", "R100\0scripts/ci/old.mjs\0scripts/other/new.mjs", ""].join("\0"),
+    );
+    expect(findManualMergePaths(paths, [".github/workflows/", "scripts/ci/"])).toEqual([
+      "scripts/ci/old.mjs",
+    ]);
   });
 });
 
@@ -154,7 +168,9 @@ describe("findManualMergePaths", () => {
   });
 
   it("klassar den riktiga policyns agent-workflow.json som träff", () => {
-    const prefixes = loadWorkflowInputs().policy.manualMergePathPrefixes;
+    const prefixes = manualMergePrefixesFromPolicy(
+      readFileSync(resolve(process.cwd(), "config/agent-workflow.json"), "utf8"),
+    );
     expect(findManualMergePaths(["config/agent-workflow.json", "README.md"], prefixes)).toEqual([
       "config/agent-workflow.json",
     ]);

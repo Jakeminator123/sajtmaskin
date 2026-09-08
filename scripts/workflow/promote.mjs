@@ -27,7 +27,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadWorkflowInputs } from "./path-impact.mjs";
+import { parseGitNameStatus } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -88,19 +88,19 @@ export function parseRemoteBranchNames(stdout) {
 }
 
 /**
- * `git diff --name-status -M`-rader → alla berörda sökvägar.
- * Rename/copy ger både gammalt och nytt namn, samma som review-window.
+ * Prefixlistan controllern faktiskt använder. `review-window` kör
+ * default-branch-kod och läser MASTERS policy, så förvarningen måste läsa
+ * samma fil från `origin/master` — inte checkoutens (som kan vara preview
+ * med en ännu inte promotad ändring). Samma fallback som controllern.
  */
-export function parseNameStatusLines(stdout) {
-  const paths = [];
-  for (const line of String(stdout ?? "").split(/\r?\n/)) {
-    const parts = line.split("\t").map((part) => part.trim()).filter(Boolean);
-    if (parts.length < 2) continue;
-    const [status, first, second] = parts;
-    paths.push(first);
-    if (/^[RC]/.test(status) && second) paths.push(second);
+export function manualMergePrefixesFromPolicy(policyJson) {
+  const policy = JSON.parse(String(policyJson ?? ""));
+  const prefixes = policy?.manualMergePathPrefixes;
+  if (prefixes === undefined) return [".github/workflows/"];
+  if (!Array.isArray(prefixes) || prefixes.some((prefix) => typeof prefix !== "string")) {
+    throw new Error("manualMergePathPrefixes i origin/master-policyn är inte en stränglista");
   }
-  return paths;
+  return prefixes;
 }
 
 /** Sökvägar som börjar med något CI-trust-prefix; sorterade och unika. */
@@ -258,15 +258,20 @@ function main() {
     console.log(`  ${commit.sha.slice(0, 8)} ${commit.subject}`);
   }
 
-  const changedPaths = parseNameStatusLines(
+  // Samma fail-closed parser som verify:pr (`-z`, kastar på trasig post) och
+  // både gammalt och nytt namn vid rename — controllern läser previous_filename.
+  const changedPaths = parseGitNameStatus(
     git([
       "diff",
       "--name-status",
+      "-z",
       "-M",
       `origin/${PRODUCTION_BRANCH}...origin/${STAGING_BRANCH}`,
     ]),
   );
-  const prefixes = loadWorkflowInputs(REPO_ROOT).policy.manualMergePathPrefixes ?? [];
+  const prefixes = manualMergePrefixesFromPolicy(
+    git(["show", `origin/${PRODUCTION_BRANCH}:config/agent-workflow.json`]),
+  );
   const manualMergePaths = findManualMergePaths(changedPaths, prefixes);
   const body = buildPromoteBody({ commits, baseSha, headSha, branch, date, manualMergePaths });
 
