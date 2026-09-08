@@ -5,6 +5,9 @@ version: 2
 # går till preview, produktion uppdateras via promote-PR" — beroendebumpar är
 # arbete som alla andra och ska testas i staging först. Ändra bara den här
 # raden tillsammans med default-basen; de två måste beskriva samma flöde.
+# OBS: Dependabot läser den här filen från repots default-branch (`master`).
+# En ändring här gäller alltså först när den promotats till master; på preview
+# ensam har den ingen effekt.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
