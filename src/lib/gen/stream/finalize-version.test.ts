@@ -124,12 +124,14 @@ vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
 
 const chatHasImportedRepoVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   addAssistantMessageAndUpdateExistingVersion,
   updateChatOrchestrationSnapshot,
   getChatOrchestrationSnapshot,
   getLatestVersion,
+  getVersionById,
   getKnownBrokenImageReplacements,
   addMessage,
   deleteEngineMessage,
@@ -254,6 +256,8 @@ describe("finalizeAndSaveVersion", () => {
     chatHasImportedRepoVersion.mockResolvedValue(false);
     getLatestVersion.mockReset();
     getLatestVersion.mockResolvedValue(null);
+    getVersionById.mockReset();
+    getVersionById.mockResolvedValue(null);
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
@@ -1683,6 +1687,71 @@ export default function Page() {
       ]),
       { rejectSignificantShrinks: true, rejectDroppedStructuralElements: true },
     );
+  });
+
+  it("uses passed previousSelectedDossierEnvKeys and never reads latest", async () => {
+    getLatestVersion.mockResolvedValue({
+      id: "ver_failed",
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    });
+    getVersionById.mockResolvedValue({
+      id: "ver_old",
+      selected_dossier_env_keys: ["STRIPE_SECRET_KEY"],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      previousFiles: [
+        {
+          path: "src/app/page.tsx",
+          content: "export default function PreviousPage() { return <div>Previous</div>; }",
+          language: "tsx",
+        },
+      ],
+      previousVersionId: "ver_old",
+      previousSelectedDossierEnvKeys: ["RESEND_API_KEY"],
+    });
+
+    expect(getLatestVersion).not.toHaveBeenCalled();
+    expect(getVersionById).not.toHaveBeenCalled();
+    expect(result.selectedDossierEnvKeys).toEqual(["RESEND_API_KEY"]);
+  });
+
+  it("loads env keys via getVersionById(previousVersionId), not getLatestVersion", async () => {
+    getLatestVersion.mockResolvedValue({
+      id: "ver_failed",
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    });
+    getVersionById.mockResolvedValue({
+      id: "ver_old",
+      selected_dossier_env_keys: ["RESEND_API_KEY"],
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      previousFiles: [
+        {
+          path: "src/app/page.tsx",
+          content: "export default function PreviousPage() { return <div>Previous</div>; }",
+          language: "tsx",
+        },
+      ],
+      previousVersionId: "ver_old",
+    });
+
+    expect(getVersionById).toHaveBeenCalledWith("ver_old");
+    expect(getLatestVersion).not.toHaveBeenCalled();
+    expect(result.selectedDossierEnvKeys).toEqual(["RESEND_API_KEY"]);
   });
 
   it("skips merge and scaffold import checks for non-scaffold first generations", async () => {

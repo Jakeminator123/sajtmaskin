@@ -13,6 +13,16 @@ const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
+const resolveFollowUpPreviousBase = vi.hoisted(() =>
+  vi.fn(async (chatId: string, engineBaseVersionId?: string | null) => {
+    const files = await resolveFollowUpPreviousFiles(chatId, engineBaseVersionId);
+    return {
+      files,
+      versionId: files.length > 0 ? (engineBaseVersionId ?? "ver_resolved") : null,
+      selectedDossierEnvKeys: files.length > 0 ? ["RESEND_API_KEY"] : [],
+    };
+  }),
+);
 const resolveChatPreferredVersionId = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -242,6 +252,7 @@ vi.mock("@/lib/gen/orchestrate", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({
   resolveFollowUpPreviousFiles,
+  resolveFollowUpPreviousBase,
   resolveChatPreferredVersionId,
 }));
 
@@ -354,6 +365,8 @@ vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
       chatId: string;
       engineModel: string;
       previousFiles?: Array<{ path: string; content?: string; language?: string }>;
+      previousVersionId?: string | null;
+      previousSelectedDossierEnvKeys?: string[];
       pipeline: { prompt: string; systemPrompt: string; model?: string; abortSignal?: AbortSignal };
     }) => {
       const pipelineStream = createGenerationPipeline({
@@ -389,6 +402,8 @@ vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
                       accumulatedContent,
                       model: input.engineModel ?? "gpt-5.4",
                       previousFiles: input.previousFiles ?? [],
+                      previousVersionId: input.previousVersionId ?? null,
+                      previousSelectedDossierEnvKeys: input.previousSelectedDossierEnvKeys,
                     },
                   });
                   controller.enqueue(encoder.encode(
@@ -996,6 +1011,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     );
 
     expect(response.status).toBe(200);
+    expect(resolveFollowUpPreviousBase).toHaveBeenCalledWith("chat_1", "ver_selected");
     expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
     // 5-2 (changed assumption): a bare engineBaseVersionId — without the
     // companion engineLatestKnownVersionId signal — is still honoured and is
@@ -1166,6 +1182,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(402);
     expect(getVersionsByChat).toHaveBeenCalledWith("chat_1");
+    expect(resolveFollowUpPreviousBase).toHaveBeenCalled();
     expect(resolveFollowUpPreviousFiles).toHaveBeenCalled();
     expect(prepareCredits).toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
@@ -1577,6 +1594,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
               path: "src/app/page.tsx",
             }),
           ],
+          previousVersionId: "ver_resolved",
+          previousSelectedDossierEnvKeys: ["RESEND_API_KEY"],
         }),
       }),
     );

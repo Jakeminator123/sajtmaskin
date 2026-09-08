@@ -119,6 +119,10 @@ export async function runPreflightPhase(params: {
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   previousFiles?: CodeFile[];
+  /** Same resolved base as `previousFiles`. See `FinalizeParams.previousVersionId`. */
+  previousVersionId?: string | null;
+  /** Keys from that same base row. When set, skip any version re-read. */
+  previousSelectedDossierEnvKeys?: string[];
   contentForVersion: string;
   onProgress?: FinalizeProgressCallback;
   /**
@@ -149,6 +153,8 @@ export async function runPreflightPhase(params: {
     routePlan,
     orchestrationContract,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     onProgress,
     selectedDossiers,
     removedDossiers,
@@ -255,14 +261,10 @@ export async function runPreflightPhase(params: {
     } catch {
       orchestrationSnapshot = null;
     }
-    try {
-      const version = await chatRepo.getLatestVersion(chatId);
-      persistedEnvKeys = Array.isArray(version?.selected_dossier_env_keys)
-        ? version.selected_dossier_env_keys
-        : null;
-    } catch {
-      persistedEnvKeys = null;
-    }
+    persistedEnvKeys = await resolvePersistedEnvKeysFromPreviousBase({
+      previousSelectedDossierEnvKeys,
+      previousVersionId,
+    });
   }
   const dossierEnvScope = resolveDossierEnvScopeForFinalize({
     selectedDossiers,
@@ -543,4 +545,26 @@ export async function runPreflightPhase(params: {
     crossFileStubs,
     stepTelemetry,
   };
+}
+
+async function resolvePersistedEnvKeysFromPreviousBase(params: {
+  previousSelectedDossierEnvKeys?: string[];
+  previousVersionId?: string | null;
+}): Promise<string[] | null> {
+  if (params.previousSelectedDossierEnvKeys !== undefined) {
+    return params.previousSelectedDossierEnvKeys.filter(
+      (key): key is string => typeof key === "string" && key.length > 0,
+    );
+  }
+  if (!params.previousVersionId) return null;
+  try {
+    const previousVersion = await chatRepo.getVersionById(params.previousVersionId);
+    return Array.isArray(previousVersion?.selected_dossier_env_keys)
+      ? previousVersion.selected_dossier_env_keys.filter(
+          (key): key is string => typeof key === "string" && key.length > 0,
+        )
+      : null;
+  } catch {
+    return null;
+  }
 }

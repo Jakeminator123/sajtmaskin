@@ -75,6 +75,16 @@ export interface FinalizeParams {
   logNote?: string;
   /** For follow-up: merge generated files against previous version instead of scaffold base */
   previousFiles?: CodeFile[];
+  /**
+   * Version id that `previousFiles` were resolved from (explicit/preferred/latest).
+   * Preflight uses this for env-key fallback — never `getLatestVersion(chatId)`.
+   */
+  previousVersionId?: string | null;
+  /**
+   * `selected_dossier_env_keys` from that same base row. When set (including
+   * `[]`), preflight must not read another version.
+   */
+  previousSelectedDossierEnvKeys?: string[];
   /** Optional callback for emitting progress SSE events during finalization */
   onProgress?: FinalizeProgressCallback;
   /** SSE `meta` from own-engine stream — persisted on chat after save (K-019). */

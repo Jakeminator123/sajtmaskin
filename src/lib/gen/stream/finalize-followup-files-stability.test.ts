@@ -9,7 +9,23 @@
  * env.example inject) the same way finalize-preflight does, without the
  * preview-html / sanity side paths.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  getPreferredVersion: vi.fn(),
+  getLatestVersion: vi.fn(),
+  getVersionById: vi.fn(),
+  getKnownBrokenImageReplacements: vi.fn(),
+  updateVersionFiles: vi.fn(),
+}));
+
+import {
+  getKnownBrokenImageReplacements,
+  getLatestVersion,
+  getPreferredVersion,
+  getVersionById,
+} from "@/lib/db/chat-repository-pg";
+import { resolveFollowUpPreviousBase } from "@/lib/gen/version-manager";
 
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
@@ -177,5 +193,65 @@ describe("CSS-only follow-up files_json stability (prod 2026-09-08)", () => {
 
     expect(filesByPath(v2)["env.example"]).toBe(filesByPath(v1)["env.example"]);
     expect(filesByPath(v2)[".env.local"]).toBe(filesByPath(v1)[".env.local"]);
+  });
+
+  it("inherits only the resolved older base keys {A}, not latest failed {A,B}", async () => {
+    vi.mocked(getKnownBrokenImageReplacements).mockResolvedValue({});
+    vi.mocked(getPreferredVersion).mockResolvedValue({
+      id: "ver_failed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([{ path: "app/page.tsx", content: "failed", language: "tsx" }]),
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    } as never);
+    vi.mocked(getLatestVersion).mockResolvedValue({
+      id: "ver_failed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([{ path: "app/page.tsx", content: "failed", language: "tsx" }]),
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    } as never);
+
+    const resend = getDossierById("resend-contact-form");
+    expect(resend).not.toBeNull();
+    const v1 = await persistLikeFinalize({
+      generatedFiles: [
+        PAGE,
+        { path: "app/globals.css", content: GLOBALS_V1, language: "css" },
+        CONTACT_FORM,
+        CONTACT_ROUTE,
+      ],
+      selectedDossiers: resend ? [resend] : [],
+    });
+
+    vi.mocked(getVersionById).mockResolvedValue({
+      id: "ver_old",
+      chat_id: "chat_1",
+      files_json: JSON.stringify(v1),
+      selected_dossier_env_keys: ["RESEND_API_KEY"],
+    } as never);
+
+    const base = await resolveFollowUpPreviousBase("chat_1", "ver_old");
+    expect(base.versionId).toBe("ver_old");
+    expect(base.selectedDossierEnvKeys).toEqual(["RESEND_API_KEY"]);
+    expect(base.files).toEqual(v1);
+    expect(vi.mocked(getLatestVersion)).not.toHaveBeenCalled();
+
+    const leakedLatest = await persistLikeFinalize({
+      generatedFiles: [{ path: "app/globals.css", content: GLOBALS_V2, language: "css" }],
+      previousFiles: v1,
+      selectedDossiers: [],
+      persistedEnvKeys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    });
+    expect(filesByPath(leakedLatest)["env.example"]).toMatch(/^STRIPE_SECRET_KEY=/m);
+
+    const v2 = await persistLikeFinalize({
+      generatedFiles: [{ path: "app/globals.css", content: GLOBALS_V2, language: "css" }],
+      previousFiles: base.files,
+      selectedDossiers: [],
+      persistedEnvKeys: base.selectedDossierEnvKeys,
+    });
+    expect(filesByPath(v2)["env.example"]).toMatch(/^RESEND_API_KEY=/m);
+    expect(filesByPath(v2)["env.example"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
+    expect(filesByPath(v2)[".env.local"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
+    expect(changedPaths(filesByPath(v1), filesByPath(v2))).toEqual(["app/globals.css"]);
   });
 });
