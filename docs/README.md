@@ -29,7 +29,7 @@ policies kan äga olika beslut.
 | Varför strejkar lokal generation?                 | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)                                                          |
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
-| Hur går lokalt agentarbete säkert till master?    | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json)   |
+| Hur går lokalt agentarbete säkert till preview och vidare till produktion? | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json) |
 | Hur provisionerar jag warm-cachen?                | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)                                                                  |
 | Varför ser merge-grinden ut så?                   | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                                                                        |
 | Hur körs automatisk PR-granskning?                | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md)                                            |

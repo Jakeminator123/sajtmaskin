@@ -5,7 +5,7 @@
 - Base-SHA:
 - Ursprungsagent: <!-- Cursor bc-<uuid>, Codex-tråd eller "lokal session <namn>". Skriv "människa" om ingen agent skrev diffen. Fältet finns för att utfall, fynd och kvarvarande arbete ska kunna lämnas tillbaka till den som faktiskt skrev PR:n; Cursors egen footer räcker inte eftersom den bara finns på cloud-agenternas PR:er. -->
 
-- [ ] Branchen innehåller aktuell `master`; ingen direktpush eller force-push
+- [ ] Branchen innehåller aktuell `preview` (base för vanliga PR:ar; promote-PR:ar mot `master` skapas av `npm run promote`); ingen direktpush eller force-push
 - [ ] Arbets-worktreet behålls tills PR:n är mergad eller stängd
 
 ## Påverkan från `npm run verify:pr -- --plan`
@@ -32,8 +32,10 @@ Körda riktade kontroller:
 - Kvarvarande risk:
 - Återställning/rollback:
 
-> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. När alla
-> checks utom `review-window` och alla reviewfynd är klara: posta först
+> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. PR mot
+> `preview` mergas när required checks är gröna och fynden triagerade. Bara PR
+> mot `master` (promote) har `review-window`: när alla andra checks och
+> reviewfynd är klara, posta först
 > `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, …` som kommentar och
 > sätt sedan labeln. `review-window` blir grön först efter sin betrodda
 > live-validering; båda SHA:na måste fortfarande vara aktuella.
