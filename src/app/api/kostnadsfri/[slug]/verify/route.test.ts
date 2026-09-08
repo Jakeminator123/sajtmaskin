@@ -2,33 +2,50 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
+const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
+}));
+
+vi.mock("@/lib/db/services/analytics", () => ({
+  recordPageView,
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
   verifyPassword: vi.fn(() => false),
 }));
 
+// `after()` needs a request scope in Next; run the callback inline in tests.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: (cb: () => unknown) => void cb() };
+});
+
 import { POST } from "./route";
+import { generatePassword } from "@/lib/kostnadsfri";
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
   delete process.env.KOSTNADSFRI_API_KEY;
 });
 
+function verifyRequest(slug: string, password: string) {
+  return new NextRequest(`http://localhost/api/kostnadsfri/${slug}/verify`, {
+    method: "POST",
+    body: JSON.stringify({ password }),
+    headers: { "content-type": "application/json", "x-real-ip": "10.0.0.1" },
+  });
+}
+
 describe("kostnadsfri verify route", () => {
   it("returns a generic 503 when deterministic verification is not configured", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
-    const req = new NextRequest("http://localhost/api/kostnadsfri/acme/verify", {
-      method: "POST",
-      body: JSON.stringify({ password: "secret" }),
-      headers: { "content-type": "application/json" },
-    });
 
-    const res = await POST(req, { params: Promise.resolve({ slug: "acme" }) });
+    const res = await POST(verifyRequest("acme", "secret"), {
+      params: Promise.resolve({ slug: "acme" }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -36,5 +53,33 @@ describe("kostnadsfri verify route", () => {
       success: false,
       error: "Länkverifiering är inte konfigurerad.",
     });
+    expect(recordPageView).not.toHaveBeenCalled();
+  });
+
+  it("records a `verifierad` event only when the deterministic password matches", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    getKostnadsfriPageBySlug.mockResolvedValue(null);
+    const slug = "jakobs-foretag-ab";
+    const params = { params: Promise.resolve({ slug }) };
+    // Härlett ur testseeden ovan — inget riktigt lösenord (GitGuardian på #1306
+    // flaggade den tidigare inline-raden som "Generic Password").
+    const derived = generatePassword(slug);
+
+    const wrong = await POST(verifyRequest(slug, "fel"), params);
+    expect(wrong.status).toBe(401);
+    expect(recordPageView).not.toHaveBeenCalled();
+
+    const ok = await POST(verifyRequest(slug, derived), params);
+    const body = await ok.json();
+
+    expect(ok.status).toBe(200);
+    expect(body.companyData.companyName).toBe("Jakobs Foretag AB");
+    expect(recordPageView).toHaveBeenCalledWith(
+      "/kostnadsfri/jakobs-foretag-ab/verifierad",
+      undefined,
+      undefined,
+      "10.0.0.1",
+      undefined,
+    );
   });
 });

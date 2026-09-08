@@ -29,6 +29,7 @@ describe("admin navigation", () => {
       "/admin",
       "/admin/statistik",
       "/admin/genereringar",
+      "/admin/kostnadsfri",
       "/admin/data",
       "/admin/miljo",
       "/admin/loggar",

@@ -8,6 +8,7 @@ import { requireAdminAccess } from "@/lib/auth/admin";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { isServerOnlyKostnadsfriPath } from "@/lib/kostnadsfri/analytics-paths";
 import { withRateLimit } from "@/lib/rate-limit";
 import { after, NextRequest, NextResponse } from "next/server";
 
@@ -35,6 +36,11 @@ async function handlePOST(req: NextRequest) {
 
     if (!path || typeof path !== "string") {
       return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
+    }
+    // Server-authored funnel events (kostnadsfri "verifierad") may not be
+    // planted from the browser; they would forge the admin console's counts.
+    if (isServerOnlyKostnadsfriPath(path)) {
+      return NextResponse.json({ success: false, error: "Path not allowed" }, { status: 400 });
     }
 
     const sessionId = getSessionIdFromRequest(req);

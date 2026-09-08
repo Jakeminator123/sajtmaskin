@@ -48,7 +48,6 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
 
   // Try to load from DB (for pre-created pages with extra data)
   let companyName = companyNameFromSlug(slug);
-  let hasDbRecord = false;
   let expiredReason: string | null = null;
   let openclawConfig: KostnadsfriOpenClawConfig | null = null;
 
@@ -61,7 +60,6 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
         expiredReason = access.reason ?? "Länken är inte längre giltig.";
       } else {
         companyName = page.company_name;
-        hasDbRecord = true;
         openclawConfig = extractKostnadsfriOpenClawConfig(
           page.extra_data as Record<string, unknown> | null,
         );
@@ -86,7 +84,6 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
     <KostnadsfriPage
       slug={slug}
       companyName={companyName}
-      hasDbRecord={hasDbRecord}
       openclawConfig={openclawConfig}
     />
   );
