@@ -1297,17 +1297,20 @@ async function persistCapturedScreenshots(params: {
 
 /**
  * Blob-upload är bara meningsfull när live review faktiskt ska köra.
- * Follow-up utan sensor (`followup_no_sensor`) raderar bilderna efteråt —
- * då ska URL:erna aldrig persisteras (preview 2026-09-08, chat `4a2aa301`).
+ * `liveReviewAllowed` är `resolveLiveReviewAccess.allow` från routen
+ * (fail-closed: flag/grant/edit). Hårdkodat `enabled: true` släppte igenom
+ * `flag_off`/`grant_off`/`edit_off` så bilderna laddades upp, raderades och
+ * URL:erna skrevs ändå till meta (PR #1318, /logg 2026-09-08).
  */
 export function shouldPersistPostcheckScreenshots(params: {
   captureEnabled: boolean;
+  liveReviewAllowed: boolean;
   versionNumber?: number | null;
   warnings: readonly Pick<ProductPostcheckWarning, "code" | "message">[];
 }): boolean {
   if (!params.captureEnabled) return false;
   return shouldRunLiveReview({
-    enabled: true,
+    enabled: params.liveReviewAllowed,
     skipped: false,
     findings: params.warnings,
     isFollowUp: isChatFollowUpVersion(params.versionNumber),
@@ -1325,6 +1328,7 @@ export async function runProductPostcheck(params: {
   previewSessionId?: string | null;
   lifecycleToken?: string | null;
   versionNumber?: number | null;
+  liveReviewAllowed?: boolean;
 }): Promise<ProductPostcheckResult> {
   const startedAt = Date.now();
   const previewUrl = params.previewUrl.trim();
@@ -1859,6 +1863,7 @@ export async function runProductPostcheck(params: {
     }
     const screenshots = shouldPersistPostcheckScreenshots({
       captureEnabled,
+      liveReviewAllowed: params.liveReviewAllowed === true,
       versionNumber: params.versionNumber,
       warnings,
     })

@@ -174,6 +174,7 @@ describe("POST product-postcheck", () => {
     });
     beginLiveReviewSession.mockResolvedValue({
       captureEnabled: false,
+      allowed: false,
       claim: null,
       earlyResult: { status: "skipped", reason: "flag_off" },
       chatId: "chat_1",
@@ -415,6 +416,8 @@ describe("POST product-postcheck", () => {
       filesRevision: "rev_n",
       previewSessionId: "ps_n",
       lifecycleToken: "life_n",
+      versionNumber: undefined,
+      liveReviewAllowed: false,
     });
     const { timeoutMs } = runProductPostcheck.mock.calls[0][0] as { timeoutMs: number };
     expect(timeoutMs).toBeGreaterThan(270_000);
@@ -498,6 +501,7 @@ describe("POST product-postcheck", () => {
     setF2ProductPostcheck(true);
     beginLiveReviewSession.mockResolvedValue({
       captureEnabled: true,
+      allowed: true,
       claim: { kind: "acquired" },
       earlyResult: null,
       chatId: "chat_1",
@@ -553,6 +557,7 @@ describe("POST product-postcheck", () => {
         captureEnabled: true,
         filesRevision: "rev_a",
         versionNumber: 1,
+        liveReviewAllowed: true,
       }),
     );
     expect(finishLiveReviewSession).toHaveBeenCalled();
@@ -562,6 +567,49 @@ describe("POST product-postcheck", () => {
     );
     expect(setLlmUsageContext).toHaveBeenCalledWith(
       expect.objectContaining({ versionId: "v1" }),
+    );
+  });
+
+  it("flag_off och grant_off skickar liveReviewAllowed: false till postcheck", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({
+      version: { id: "v1", version_number: 1, files_revision: "rev_n" },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 4,
+      checkedUrl: "http://127.0.0.1:3000/chat_1",
+      screenshots: null,
+    });
+
+    await POST(req({ versionId: "v1", previewUrl: "http://127.0.0.1:3000/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(runProductPostcheck).toHaveBeenCalledWith(
+      expect.objectContaining({ liveReviewAllowed: false, captureEnabled: false }),
+    );
+
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: false,
+      allowed: false,
+      claim: null,
+      earlyResult: { status: "skipped", reason: "grant_off" },
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_n",
+      userId: "user_1",
+    });
+    runProductPostcheck.mockClear();
+    await POST(req({ versionId: "v1", previewUrl: "http://127.0.0.1:3000/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(runProductPostcheck).toHaveBeenCalledWith(
+      expect.objectContaining({ liveReviewAllowed: false, captureEnabled: false }),
     );
   });
 

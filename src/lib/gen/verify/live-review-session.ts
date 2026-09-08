@@ -29,6 +29,12 @@ import type {
 
 export interface LiveReviewSession {
   captureEnabled: boolean;
+  /**
+   * `resolveLiveReviewAccess.allow` — fail-closed flag/grant/edit.
+   * Inte samma sak som `captureEnabled` (claim/cache kan stänga capture
+   * även när åtkomst finns).
+   */
+  allowed: boolean;
   claim: ClaimedLiveReview | null;
   earlyResult: LiveReviewResult | null;
   chatId: string;
@@ -80,6 +86,7 @@ export async function beginLiveReviewSession(
   });
   const base = {
     captureEnabled: false,
+    allowed: access.allow,
     claim: null,
     earlyResult: null as LiveReviewResult | null,
     chatId: input.chatId,

@@ -1525,16 +1525,18 @@ describe("shouldPersistPostcheckScreenshots", () => {
     expect(
       shouldPersistPostcheckScreenshots({
         captureEnabled: true,
+        liveReviewAllowed: true,
         versionNumber: 2,
         warnings: [],
       }),
     ).toBe(false);
   });
 
-  it("behåller upload på v1 och på follow-up med sensor", () => {
+  it("behåller upload på v1 och på follow-up med sensor när åtkomst finns", () => {
     expect(
       shouldPersistPostcheckScreenshots({
         captureEnabled: true,
+        liveReviewAllowed: true,
         versionNumber: 1,
         warnings: [],
       }),
@@ -1542,16 +1544,37 @@ describe("shouldPersistPostcheckScreenshots", () => {
     expect(
       shouldPersistPostcheckScreenshots({
         captureEnabled: true,
+        liveReviewAllowed: true,
         versionNumber: 2,
         warnings: [{ code: "broken_image", message: "Bilden laddade inte" }],
       }),
     ).toBe(true);
   });
 
+  it("skippar upload vid flag_off och grant_off även om capture är på", () => {
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: true,
+        liveReviewAllowed: false,
+        versionNumber: 1,
+        warnings: [],
+      }),
+    ).toBe(false);
+    expect(
+      shouldPersistPostcheckScreenshots({
+        captureEnabled: true,
+        liveReviewAllowed: false,
+        versionNumber: 2,
+        warnings: [{ code: "broken_image", message: "Bilden laddade inte" }],
+      }),
+    ).toBe(false);
+  });
+
   it("skippar upload när capture är av", () => {
     expect(
       shouldPersistPostcheckScreenshots({
         captureEnabled: false,
+        liveReviewAllowed: true,
         versionNumber: 1,
         warnings: [],
       }),
@@ -1663,7 +1686,9 @@ describe("runProductPostcheck screenshot best-effort", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      versionNumber: 1,
       captureEnabled: true,
+      liveReviewAllowed: true,
     });
 
     expect(result.skipped).toBe(false);
@@ -1825,6 +1850,44 @@ describe("runProductPostcheck screenshot best-effort", () => {
     expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
   });
 
+  it("laddar inte upp live-review-JPEG vid flag_off eller grant_off", async () => {
+    persistLiveReviewJpegMock
+      .mockResolvedValueOnce("https://blob.example/desktop.jpg")
+      .mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Init", h1: "Hero", bodyText: "Åtkomst av." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Init", h1: "Hero", bodyText: "Åtkomst av." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      versionNumber: 1,
+      captureEnabled: true,
+      liveReviewAllowed: false,
+    });
+
+    expect(result.skipped).toBe(false);
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+    expect(result.screenshots).toBeNull();
+  });
+
   it("laddar inte upp live-review-JPEG på follow-up utan sensor (followup_no_sensor)", async () => {
     // Preview 2026-09-08 (chat 4a2aa301): v2/v3 laddade upp blobbar och
     // raderade dem sedan vid followup_no_sensor, men meta.screenshots
@@ -1858,6 +1921,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
       versionId: "v2",
       versionNumber: 2,
       captureEnabled: true,
+      liveReviewAllowed: true,
     });
 
     expect(result.skipped).toBe(false);
@@ -1900,6 +1964,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
       versionId: "v2",
       versionNumber: 2,
       captureEnabled: true,
+      liveReviewAllowed: true,
     });
 
     expect(result.warnings.some((warning) => warning.code === "broken_image")).toBe(true);
