@@ -261,7 +261,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@ai-sdk/react": "3.0.274",
+    "@ai-sdk/react": "3.0.280",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.3",
     "@types/canvas-confetti": "^1.9.0",
@@ -270,7 +270,7 @@
     "@types/node": "^22.20.1",
     "@types/pg": "^8.20.4",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^5.2.0",
     "ajv": "^8.20.0",
@@ -278,7 +278,7 @@
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.4",
     "eslint-config-prettier": "^10.1.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^28.1.0",
