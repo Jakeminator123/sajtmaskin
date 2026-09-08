@@ -90,11 +90,12 @@ docs/plans/archived/**
 # stället för att låta operativ status och historik konkurrera i varje sökning.
 BUG-SWARM-BACKLOG.md
 
-# --- Ägarens experiment- och inputyta ---
-# `övrigt/` blandar spårad mental modell (FUSKLAPP, OPENCLAW-BUILDER) med
-# ägarens experiment. Den är INTE gitignorerad. Utanför sök med flit — läs
-# riktat när ägaren pekar ut en fil. Lägg den inte i .cursorignore (blockerar
-# Read) och inte i .gitignore (skulle släcka de spårade filerna).
+# --- Ägarens lokala yta ---
+# `övrigt/` är ägarens egen yta för fusklappar, experiment och input som inte
+# hör till repot. Nya filer där är gitignorerade (`övrigt/*`) och inget i
+# repot refererar dit längre — agentdokumentationen bor i docs/. Utanför sök
+# med flit; läs riktat bara när ägaren pekar ut en fil. Inte i .cursorignore:
+# det blockerar Read och är reserverat för direkt skadligt innehåll.
 övrigt/
 
 # --- Lokal scratch ---

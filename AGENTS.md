@@ -8,7 +8,7 @@ relevanta owner; läs inte en fast dokumentstack.
 | När | Läs |
 |---|---|
 | Okänd produktyta | `docs/README.md`, sedan högst relevant modell eller kodkarta |
-| Byggblock/dossiers | `övrigt/FUSKLAPP-BYGGBLOCK.md` (koden vinner) |
+| Byggblock/dossiers | `docs/llm/dossier-cheatsheet.md` (koden vinner) |
 | Kodändring | närliggande kod, tester och matchande `.cursor/rules/*.mdc` |
 | Terminologi/bugg | sök exakt term eller `SM-###`; läs inte hela glossaryn/kön |
 | Env/DB | relevant del av `config/env-policy.json` eller `docs/ENV.md` |

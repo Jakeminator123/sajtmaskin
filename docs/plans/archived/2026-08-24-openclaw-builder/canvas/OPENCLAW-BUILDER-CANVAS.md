@@ -1,3 +1,8 @@
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG § Väntar på ägarbeslut](../../../../../BUG-SWARM-BACKLOG.md)
+
 # OpenClaw Builder Canvas
 
 ![OpenClaw Builder Canvas](openclaw-builder-canvas.svg)

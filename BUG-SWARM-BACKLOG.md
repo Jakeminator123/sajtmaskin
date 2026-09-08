@@ -108,6 +108,7 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Före D4. |
 | P2 | Ska högst en hard dossier väljas per promptrunda? | Nästa dossier-härdning. |
 | P2 | Ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production? | Verifiera aktuell env före nästa flaggändring. |
+| P3 | OpenClaw Builder: starta som projektledande byggagent, eller skrota? Underlag (proposal 2026-08-24, ingen produktionskod) är parkerat i [`docs/plans/archived/2026-08-24-openclaw-builder/`](docs/plans/archived/2026-08-24-openclaw-builder/README.md). | Fritt — när ägaren tar fram det för Cursor-agenter. |
 | P2 | Ska en pending dossier ersätta modellbyggd kod för samma capability, fråga användaren eller samexistera? | Nästa F3-vägändring. |
 | P2 | Ska `stream_ended_without_version` återbetalas när text levererats men ingen version sparats? | Före MVP-leverans. |
 | P2 | Ska `BuildPlanCard` visas normalt, och vilket kontrakt gäller när alla versioner är failed? | Före MVP/nästa versionsläsändring. |
