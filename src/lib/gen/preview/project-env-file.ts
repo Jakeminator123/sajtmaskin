@@ -38,6 +38,9 @@ import {
   type PreviewLifecycleStage,
 } from "@/lib/gen/preview/env-local";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 
 export const PROJECT_ENV_FILE_PATH = "env.example";
 /**
@@ -140,6 +143,99 @@ const DOSSIER_SCOPE_HEADER_F3 =
  */
 export interface DossierEnvScope {
   envVars: Array<{ key: string; purpose?: string }>;
+}
+
+function purposeForInheritedEnvKey(key: string): string | undefined {
+  for (const dossier of getAllDossiers()) {
+    for (const envVar of dossier.envVars ?? []) {
+      if (envVar.key === key && typeof envVar.purpose === "string" && envVar.purpose.trim()) {
+        return envVar.purpose.trim();
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Build the env.example / `.env.local` dossier scope from this-round
+ * dossiers plus keys inherited from a previous version. Shared by init and
+ * follow-up so a visual tweak does not rebuild env artifacts from a blank
+ * slate (prod 2026-09-08, CSS-only follow-up).
+ */
+export function buildDossierEnvScope(params: {
+  selectedDossiers?: ReadonlyArray<{
+    envVars?: ReadonlyArray<{ key?: string; purpose?: string }>;
+  }>;
+  inheritedEnvKeys?: readonly string[] | null;
+}): DossierEnvScope {
+  const envVars: Array<{ key: string; purpose?: string }> = [];
+  const seen = new Set<string>();
+
+  const add = (rawKey: string, purpose?: string) => {
+    const key = rawKey.trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    const trimmedPurpose = typeof purpose === "string" ? purpose.trim() : "";
+    envVars.push(trimmedPurpose ? { key, purpose: trimmedPurpose } : { key });
+  };
+
+  for (const dossier of params.selectedDossiers ?? []) {
+    for (const envVar of dossier.envVars ?? []) {
+      if (typeof envVar?.key === "string") add(envVar.key, envVar.purpose);
+    }
+  }
+  for (const rawKey of params.inheritedEnvKeys ?? []) {
+    if (typeof rawKey !== "string") continue;
+    const key = rawKey.trim();
+    if (!key) continue;
+    add(key, purposeForInheritedEnvKey(key));
+  }
+
+  return { envVars };
+}
+
+/**
+ * Resolve the persist-time dossier env scope for finalize. Init uses this
+ * round's selection; follow-up unions that with the chat snapshot, files
+ * present in the previous version, and persisted `selected_dossier_env_keys`.
+ * Removed dossiers (and their keys) are dropped so an explicit removal still
+ * shrinks the artifacts.
+ */
+export function resolveDossierEnvScopeForFinalize(params: {
+  selectedDossiers?: readonly DossierEntry[];
+  removedDossiers?: readonly DossierEntry[];
+  previousFiles?: ReadonlyArray<{ path?: unknown }> | null;
+  orchestrationSnapshot?: unknown;
+  persistedEnvKeys?: readonly string[] | null;
+}): DossierEnvScope {
+  const removedIds = new Set((params.removedDossiers ?? []).map((dossier) => dossier.id));
+  const removedKeys = new Set(
+    (params.removedDossiers ?? []).flatMap((dossier) =>
+      (dossier.envVars ?? [])
+        .map((envVar) => (typeof envVar.key === "string" ? envVar.key.trim() : ""))
+        .filter((key) => key.length > 0),
+    ),
+  );
+
+  const fromSnapshotAndPresence = resolveSelectedDossiersWithVersionPresence({
+    snapshot: params.orchestrationSnapshot,
+    versionFiles: params.previousFiles,
+  }).map((selected) => selected.entry);
+
+  const byId = new Map<string, DossierEntry>();
+  for (const dossier of [...fromSnapshotAndPresence, ...(params.selectedDossiers ?? [])]) {
+    if (!dossier?.id || removedIds.has(dossier.id)) continue;
+    byId.set(dossier.id, dossier);
+  }
+
+  const inheritedEnvKeys = (params.persistedEnvKeys ?? [])
+    .map((key) => (typeof key === "string" ? key.trim() : ""))
+    .filter((key) => key.length > 0 && !removedKeys.has(key));
+
+  return buildDossierEnvScope({
+    selectedDossiers: [...byId.values()],
+    inheritedEnvKeys,
+  });
 }
 
 /** Provenance layers that describe THIS project (never a catalog dump). */

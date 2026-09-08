@@ -249,6 +249,11 @@ export interface FinalizeFastPathResult {
     file: string;
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
+  /**
+   * Env keys used for this persist (this-round ∪ inherited). See
+   * `FinalizeResult.selectedDossierEnvKeys`.
+   */
+  selectedDossierEnvKeys: string[];
   /** See `FinalizeResult.crossFileStubs`. */
   crossFileStubs: Array<{
     sourceFile: string;

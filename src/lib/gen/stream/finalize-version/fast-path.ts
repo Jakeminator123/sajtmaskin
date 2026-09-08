@@ -540,6 +540,7 @@ export async function runFinalizeFastPath(params: {
     verifierBlockingFindings,
     rejectedShrinks: preflightOutcome.rejectedShrinks,
     rejectedStructural: preflightOutcome.rejectedStructural,
+    selectedDossierEnvKeys: preflightOutcome.selectedDossierEnvKeys,
     crossFileStubs: preflightOutcome.crossFileStubs,
     // Fas 3 (RepairGate): hand the run's ledger out so post-finalize repair
     // lanes (server-verify / build-error repair) dedupe against LLM repairs

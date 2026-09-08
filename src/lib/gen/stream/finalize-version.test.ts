@@ -123,11 +123,13 @@ vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
 }));
 
 const chatHasImportedRepoVersion = vi.hoisted(() => vi.fn());
+const getLatestVersion = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   addAssistantMessageAndUpdateExistingVersion,
   updateChatOrchestrationSnapshot,
   getChatOrchestrationSnapshot,
+  getLatestVersion,
   getKnownBrokenImageReplacements,
   addMessage,
   deleteEngineMessage,
@@ -250,6 +252,8 @@ describe("finalizeAndSaveVersion", () => {
     getKnownBrokenImageReplacements.mockReset();
     chatHasImportedRepoVersion.mockReset();
     chatHasImportedRepoVersion.mockResolvedValue(false);
+    getLatestVersion.mockReset();
+    getLatestVersion.mockResolvedValue(null);
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();

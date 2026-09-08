@@ -325,6 +325,37 @@ describe("buildCompleteProject", () => {
     expect(emptyScopedFiles.find((file) => file.path === ".env.local")).toBeUndefined();
   });
 
+  it("keeps original tsconfig bytes when mergeTsconfigWithBaseline is a no-op", () => {
+    const first = buildCompleteProject([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+    ]);
+    const tsconfig = first.find((file) => file.path === "tsconfig.json");
+    expect(tsconfig).toBeDefined();
+
+    const second = buildCompleteProject([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+      tsconfig!,
+    ]);
+    expect(second.find((file) => file.path === "tsconfig.json")?.content).toBe(tsconfig!.content);
+  });
+
+  it("keeps a pipeline-authored .env.local when the new scoped body is empty", () => {
+    const existing = {
+      path: ".env.local",
+      content: `${PIPELINE_ENV_LOCAL_MARKER}\nRESEND_API_KEY=re_placeholder_preview_not_a_real_key\n`,
+      language: "text" as const,
+    };
+    const files = buildCompleteProject(
+      [
+        { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+        existing,
+      ],
+      undefined,
+      { lifecycleStage: "design", selectedDossierEnvKeys: [] },
+    );
+    expect(files.find((file) => file.path === ".env.local")?.content).toBe(existing.content);
+  });
+
   it("ships a standard .gitignore that ignores .env* but keeps env.example tracked", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
