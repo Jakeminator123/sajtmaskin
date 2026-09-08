@@ -5,6 +5,7 @@ import {
   FileText,
   Key,
   LayoutDashboard,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: "Genereringar",
     description: "Självkostnad, användardebitering och påslag per AI-generering.",
     icon: Coins,
+    kind: "write",
+  },
+  {
+    href: "/admin/kostnadsfri",
+    label: "Kostnadsfri",
+    description: "Skapa mejllänkar med lösenord och se vilka företag som besökt sin länk.",
+    icon: Link2,
     kind: "write",
   },
   {

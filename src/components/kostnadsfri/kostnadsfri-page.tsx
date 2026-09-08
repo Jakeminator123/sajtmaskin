@@ -7,6 +7,7 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -22,6 +23,11 @@ declare global {
  * 2. MiniWizard (3-step wizard with pre-filled data)
  * 3. ThinkingSpinner (animated loader while generating prompt)
  * 4. Redirect to /builder with promptId
+ *
+ * The landing-page visit is recorded by the global AnalyticsTracker; the
+ * password step is recorded server-side by the verify route; the completed
+ * wizard is recorded here as `/kostnadsfri/<slug>/skapad` so the admin console
+ * can follow each invited company through the funnel.
  */
 
 type Phase = "password" | "wizard" | "thinking" | "done";
@@ -29,15 +35,22 @@ type Phase = "password" | "wizard" | "thinking" | "done";
 interface KostnadsfriPageProps {
   slug: string;
   companyName: string;
-  /** Whether a DB record exists for this slug (enriched data available) */
-  hasDbRecord?: boolean;
   openclawConfig?: KostnadsfriOpenClawConfig | null;
+}
+
+function recordWizardCompleted(slug: string) {
+  // Fire-and-forget beacon through the same endpoint as the page-view tracker.
+  void fetch("/api/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: kostnadsfriEventPath(slug, "skapad") }),
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 export function KostnadsfriPage({
   slug,
   companyName,
-  hasDbRecord: _hasDbRecord,
   openclawConfig = null,
 }: KostnadsfriPageProps) {
   const router = useRouter();
@@ -113,6 +126,8 @@ export function KostnadsfriPage({
           throw new Error("No promptId returned");
         }
 
+        recordWizardCompleted(slug);
+
         // Small delay so the spinner animation feels intentional
         await new Promise((resolve) => setTimeout(resolve, 3000));
 
@@ -131,7 +146,7 @@ export function KostnadsfriPage({
         setPhase("wizard");
       }
     },
-    [router, companyName],
+    [router, companyName, slug],
   );
 
   return (

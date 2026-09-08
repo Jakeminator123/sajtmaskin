@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { verifyPassword } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { recordPageView } from "@/lib/db/services/analytics";
 import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
 import {
   extractCompanyData,
@@ -9,6 +11,7 @@ import {
   isPageAccessible,
   verifyDeterministicPassword,
 } from "@/lib/kostnadsfri";
+import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 
 /**
  * POST /api/kostnadsfri/[slug]/verify — Verify password for a kostnadsfri page
@@ -19,7 +22,24 @@ import {
  *
  * This means ANY slug works without pre-creation.
  * Rate-limited to 5 attempts per hour per IP.
+ *
+ * A successful verification is recorded as a `page_views` row at
+ * `/kostnadsfri/<slug>/verifierad` so the admin console can see which invited
+ * companies actually got past the gate (see lib/kostnadsfri/analytics-paths).
  */
+
+function recordVerified(request: NextRequest, slug: string) {
+  const sessionId = getSessionIdFromRequest(request) || undefined;
+  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for") || undefined;
+  const userAgent = request.headers.get("user-agent") || undefined;
+  after(async () => {
+    try {
+      await recordPageView(kostnadsfriEventPath(slug, "verifierad"), sessionId, undefined, ip, userAgent);
+    } catch (error) {
+      console.error("[API/kostnadsfri/verify] Failed to record verification:", error);
+    }
+  });
+}
 
 const verifySchema = z.object({
   password: z.string().min(1, "Password is required"),
@@ -103,6 +123,7 @@ export async function POST(
         );
       }
 
+      recordVerified(request, slug);
       return NextResponse.json({
         success: true,
         companyData: extractCompanyData(page),
@@ -125,6 +146,7 @@ export async function POST(
     }
 
     // Success — return slug-derived company data
+    recordVerified(request, slug);
     return NextResponse.json({
       success: true,
       companyData: companyDataFromSlug(slug),
