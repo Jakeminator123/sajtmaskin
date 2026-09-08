@@ -97,7 +97,7 @@
     "**/migrations/**"
   ],
   "pathGroups": {
-    "docs": ["**/*.md", "**/*.mdx", "docs/**", "övrigt/OPENCLAW-BUILDER/**"],
+    "docs": ["**/*.md", "**/*.mdx", "docs/**"],
     "controlPlane": ["docs/schemas/**", "config/control-plane/**", "config/backoffice/**"],
     "agent": [
       "AGENTS.md",

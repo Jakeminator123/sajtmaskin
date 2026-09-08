@@ -8,6 +8,7 @@ import { requireAdminAccess } from "@/lib/auth/admin";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { isServerOnlyKostnadsfriPath } from "@/lib/kostnadsfri/analytics-paths";
 import { withRateLimit } from "@/lib/rate-limit";
 import { after, NextRequest, NextResponse } from "next/server";
 
@@ -36,6 +37,12 @@ async function handlePOST(req: NextRequest) {
     if (!path || typeof path !== "string") {
       return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
     }
+    // Server-authored funnel events (kostnadsfri "verifierad"/"skapad") may not
+    // be planted from the browser — also not by the page-view tracker on a 404
+    // at that URL; they would forge the admin console's counts.
+    if (isServerOnlyKostnadsfriPath(path)) {
+      return NextResponse.json({ success: false, error: "Path not allowed" }, { status: 400 });
+    }
 
     const sessionId = getSessionIdFromRequest(req);
     const ipAddress = req.headers.get("x-real-ip") || "unknown";
@@ -44,7 +51,14 @@ async function handlePOST(req: NextRequest) {
     after(async () => {
       try {
         const user = await getCurrentUser(req);
-        await recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
+        await recordPageView(
+          path,
+          sessionId || undefined,
+          user?.id,
+          ipAddress,
+          userAgent,
+          referrer,
+        );
       } catch (error) {
         console.error("[API/analytics] Error recording page view:", error);
       }
@@ -76,8 +90,7 @@ export async function GET(req: NextRequest) {
     }
 
     const rawDays = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);
-    const days =
-      Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
+    const days = Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
     const stats = await getAnalyticsStats(days);
 
     return NextResponse.json({

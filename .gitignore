@@ -228,6 +228,13 @@ _template_refs/
 # `out/` täcks redan ovan; `downloads/` gjorde det inte — ignorera hela trädet.
 templates_v0/
 
+# övrigt/ är Jakobs lokala yta för fusklappar, experiment och input som inte
+# hör till repot. Inget i mappen är spårat längre (#1303): agentdokumentationen
+# bor i docs/, OpenClaw-planpaketet i docs/plans/archived/. Nya repo-dokument
+# hör hemma i docs/, inte här; behöver något ändå spåras från övrigt/ krävs
+# ett medvetet `git add -f`.
+övrigt/*
+
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 Arkitektur och teknikstack.pdf

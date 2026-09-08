@@ -20,6 +20,11 @@ rollen eller kör `/scout`, `/builder` eller `/steward`.
 - `preview` är produktens staging (`preview.sajtmaskin.se`). Promovera till
   `master` med extra bekräftelse. Rör inte `*BRA*`; gamla restore-tips hör i
   `archive/`.
+- Säger Jakob något i stil med «merga preview till master/main», «släpp till
+  produktion» eller «promota»: kör `npm run promote`. Det öppnar promote-PR:en
+  från en kortlivad `promote/<datum>`-gren — använd **aldrig** `preview` som
+  head-gren, då raderar `delete_branch_on_merge` staging vid merge (hände
+  2026-09-08). Kommandot mergar inte; grinden i `pr-merge.mdc` gäller som vanligt.
 - Rör aldrig `*BRA*` eller `rescue/*`.
 - Branchprefix (`fix/` …) är inte obligatoriskt.
 - Worktree är valfritt för parallellt arbete — se `agent-worktree.mdc`.

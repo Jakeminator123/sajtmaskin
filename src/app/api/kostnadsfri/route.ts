@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
 import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
-import { generateSlug, generatePassword } from "@/lib/kostnadsfri";
-import { getAppBaseUrl } from "@/lib/app-url";
+import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 
 /**
@@ -69,15 +68,17 @@ export async function POST(request: NextRequest) {
     } =
       validation.data;
 
-    // Generate slug
-    const slug = generateSlug(companyName);
-
-    if (!slug) {
-      return NextResponse.json(
-        { success: false, error: "Could not generate a valid slug from company name" },
-        { status: 400 },
-      );
+    // Slug + password (explicit or deterministic from slug + seed) + link
+    let invite;
+    try {
+      invite = buildKostnadsfriInvite(companyName, { password: explicitPassword });
+    } catch (error) {
+      if (error instanceof KostnadsfriInviteError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+      }
+      throw error;
     }
+    const { slug, password, url } = invite;
 
     // Check if slug already exists
     const existing = await getKostnadsfriPageBySlug(slug);
@@ -87,9 +88,6 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
-
-    // Use explicit password or auto-generate from slug + seed
-    const password = explicitPassword || generatePassword(slug);
 
     // Hash password
     const passwordHash = hashPassword(password);
@@ -113,10 +111,6 @@ export async function POST(request: NextRequest) {
       extraData: openclawConfig ? { openclaw: openclawConfig } : undefined,
       expiresAt,
     });
-
-    // Build the full URL
-    const baseUrl = getAppBaseUrl();
-    const url = `${baseUrl}/kostnadsfri/${slug}`;
 
     return NextResponse.json({
       success: true,

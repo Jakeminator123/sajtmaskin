@@ -33,8 +33,9 @@ kodkartan när ett ansvar flyttar; skapa inte en parallell sökvägstabell här.
 ## Dokumentation
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsrouter.
-2. [`övrigt/FUSKLAPP-BYGGBLOCK.md`](övrigt/FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida
-   (inga poolantal; koden vinner vid drift).
+2. [`docs/llm/dossier-cheatsheet.md`](docs/llm/dossier-cheatsheet.md) — Byggblock/dossiers på en sida
+   (koden vinner vid drift; full modell i
+   [`docs/contracts/dossier-system.md`](docs/contracts/dossier-system.md)).
 3. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
    — stabil huvudloop.
 4. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) —
@@ -52,5 +53,7 @@ Canonical owner och dokumentationsnivåer definieras i
 per ändringstyp finns i [`.cursor/rules/workflow.mdc`](.cursor/rules/workflow.mdc).
 Lokal Cursor- och tokenhygien:
 [`.cursor/README.md`](.cursor/README.md#tokenhygien-i-praktiken).
-Manuella underhållsknappar (scratch, worktrees, env) som CI _inte_ kör:
-[`övrigt/UNDERHALL.md`](övrigt/UNDERHALL.md).
+Manuella underhållsknappar som CI _inte_ kör: städ i
+[`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md), worktrees i
+[`docs/runbooks/git-worktree.md`](docs/runbooks/git-worktree.md), env i
+[`docs/ENV.md`](docs/ENV.md).

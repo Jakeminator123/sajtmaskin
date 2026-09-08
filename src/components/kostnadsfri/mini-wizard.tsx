@@ -31,7 +31,7 @@ import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 // ── Constants ────────────────────────────────────────────────────
 
 const INDUSTRY_OPTIONS = [
-  { id: "cafe", label: "Cafe/Konditori", icon: "☕" },
+  { id: "cafe", label: "Café/Konditori", icon: "☕" },
   { id: "restaurant", label: "Restaurang/Bar", icon: "🍽️" },
   { id: "retail", label: "Butik/Detaljhandel", icon: "🛍️" },
   { id: "tech", label: "Tech/IT-företag", icon: "💻" },
@@ -51,7 +51,7 @@ const PURPOSE_OPTIONS = [
   { id: "inform", label: "Informera", icon: "📚", desc: "Dela kunskap" },
   { id: "brand", label: "Varumärke", icon: "⭐", desc: "Bygga identitet" },
   { id: "booking", label: "Bokningar", icon: "📅", desc: "Ta emot bokningar" },
-  { id: "conversion", label: "Konvertering", icon: "📈", desc: "Oka konvertering" },
+  { id: "conversion", label: "Konvertering", icon: "📈", desc: "Öka konvertering" },
   { id: "rebrand", label: "Rebrand", icon: "🔄", desc: "Ny identitet" },
 ];
 
@@ -177,14 +177,16 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
   const stepConfig = [
     { icon: Building2, label: "Om er" },
-    { icon: Target, label: "Era mal" },
+    { icon: Target, label: "Era mål" },
     { icon: Palette, label: "Design" },
   ];
 
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 px-4 py-8 backdrop-blur-sm">
+    // z-[60]: the Sajtagenten teaser/bubble (OpenClawChat) is fixed at z-50 and
+    // used to sit on top of the wizard footer, stealing the click on "Nästa".
+    <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/90 px-4 py-8 backdrop-blur-sm">
       <div className="relative w-full max-w-2xl rounded-2xl border border-gray-800/60 bg-gray-950 shadow-2xl">
         {/* Progress bar */}
         <div className="flex items-center justify-between border-b border-gray-800/60 px-6 py-4">
@@ -252,7 +254,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               {/* Company name (pre-filled, read-only) */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                  Foretagsnamn
+                  Företagsnamn
                 </label>
                 <input
                   type="text"
@@ -319,7 +321,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Beskriv vad ni gor och vad som gor er unika..."
+                  placeholder="Beskriv vad ni gör och vad som gör er unika..."
                   rows={3}
                   className={INPUT_CLASS + " resize-none"}
                 />
@@ -331,16 +333,16 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h2 className="mb-1 text-xl font-bold text-white">Era mal</h2>
+                <h2 className="mb-1 text-xl font-bold text-white">Era mål</h2>
                 <p className="text-sm text-gray-400">
-                  Vad vill ni uppna med er nya webbplats?
+                  Vad vill ni uppnå med er nya webbplats?
                 </p>
               </div>
 
               {/* Purposes */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">
-                  Huvudsakligt syfte (valj en eller flera)
+                  Huvudsakligt syfte (välj en eller flera)
                 </label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {PURPOSE_OPTIONS.map((opt) => {
@@ -367,7 +369,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               {/* Target audience */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                  Malgrupp
+                  Målgrupp
                 </label>
                 <input
                   type="text"
@@ -381,12 +383,12 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               {/* USP */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                  Vad gor er unika? (USP)
+                  Vad gör er unika? (USP)
                 </label>
                 <textarea
                   value={usp}
                   onChange={(e) => setUsp(e.target.value)}
-                  placeholder="Vad skiljer er fran konkurrenterna?"
+                  placeholder="Vad skiljer er från konkurrenterna?"
                   rows={2}
                   className={INPUT_CLASS + " resize-none"}
                 />
@@ -400,7 +402,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               <div>
                 <h2 className="mb-1 text-xl font-bold text-white">Design</h2>
                 <p className="text-sm text-gray-400">
-                  Valj stil och farger for er webbplats
+                  Välj stil och färger för er webbplats
                 </p>
               </div>
 
@@ -430,7 +432,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               {/* Color palette */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">
-                  Fargpalett
+                  Färgpalett
                 </label>
                 <ColorPalettePicker
                   selectedPalette={selectedPalette}
@@ -461,7 +463,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               disabled={!canProceed()}
               className="flex items-center gap-1.5 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-brand-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Nasta
+              Nästa
               <ArrowRight className="h-4 w-4" />
             </button>
           ) : (

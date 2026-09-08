@@ -11,8 +11,7 @@ policies kan äga olika beslut.
 | Vilken produktvision styr arbetet?                | [`övergripande-vision-och-mål.md`](övergripande-vision-och-mål.md)                                                              |
 | Vad är huvudflödet?                               | [`architecture/system-overview.md`](architecture/system-overview.md)                                                            |
 | Hur hänger begreppen ihop?                        | [`concepts/mental-model.md`](concepts/mental-model.md)                                                                          |
-| Byggblock/dossiers på en sida                     | [`../övrigt/FUSKLAPP-BYGGBLOCK.md`](../övrigt/FUSKLAPP-BYGGBLOCK.md)                                                            |
-| GitHub/Vercel/Fly/Supabase på en sida             | [`../övrigt/FUSKLAPP-TOOLING.md`](../övrigt/FUSKLAPP-TOOLING.md)                                                                |
+| Byggblock/dossiers på en sida                     | [`llm/dossier-cheatsheet.md`](llm/dossier-cheatsheet.md)                                                                        |
 | Var bor koden?                                    | [`architecture/code-map.md`](architecture/code-map.md)                                                                          |
 | Hur fungerar init och follow-up?                  | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)                                                              |
 | Hur skiljer sig designläge och integrationsbygge? | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                                                                                |
@@ -30,7 +29,7 @@ policies kan äga olika beslut.
 | Varför strejkar lokal generation?                 | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)                                                          |
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
-| Hur går lokalt agentarbete säkert till master?    | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json)   |
+| Hur går lokalt agentarbete säkert till preview och vidare till produktion? | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json) |
 | Hur provisionerar jag warm-cachen?                | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)                                                                  |
 | Varför ser merge-grinden ut så?                   | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                                                                        |
 | Hur körs automatisk PR-granskning?                | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md)                                            |
@@ -38,7 +37,7 @@ policies kan äga olika beslut.
 | Vad applicerar DB-migrationerna?                  | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                                                                        |
 | Hur aktiveras varumärkta användar-URL:er?         | [`runbooks/branded-user-urls.md`](runbooks/branded-user-urls.md)                                                                |
 | Var hamnar appens console-loggar?                 | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)                                                                  |
-| Vilka manuella underhållsknappar?                 | [`../övrigt/UNDERHALL.md`](../övrigt/UNDERHALL.md)                                                                              |
+| Vilka manuella underhållsknappar?                 | [`runbooks/hygiene.md`](runbooks/hygiene.md)                                                                                    |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
 

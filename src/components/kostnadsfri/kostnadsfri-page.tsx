@@ -22,6 +22,11 @@ declare global {
  * 2. MiniWizard (3-step wizard with pre-filled data)
  * 3. ThinkingSpinner (animated loader while generating prompt)
  * 4. Redirect to /builder with promptId
+ *
+ * The landing-page visit is recorded by the global AnalyticsTracker; the
+ * password step by the verify route and the completed wizard by
+ * `POST /api/prompts` (`kostnadsfriSlug`) — both server-side, so the admin
+ * console's funnel cannot be inflated from the browser.
  */
 
 type Phase = "password" | "wizard" | "thinking" | "done";
@@ -29,15 +34,12 @@ type Phase = "password" | "wizard" | "thinking" | "done";
 interface KostnadsfriPageProps {
   slug: string;
   companyName: string;
-  /** Whether a DB record exists for this slug (enriched data available) */
-  hasDbRecord?: boolean;
   openclawConfig?: KostnadsfriOpenClawConfig | null;
 }
 
 export function KostnadsfriPage({
   slug,
   companyName,
-  hasDbRecord: _hasDbRecord,
   openclawConfig = null,
 }: KostnadsfriPageProps) {
   const router = useRouter();
@@ -99,6 +101,8 @@ export function KostnadsfriPage({
             prompt,
             source: "kostnadsfri",
             projectId: project.id,
+            // Lets the server record the "skapad" funnel step for this slug.
+            kostnadsfriSlug: slug,
           }),
         });
 
@@ -131,25 +135,17 @@ export function KostnadsfriPage({
         setPhase("wizard");
       }
     },
-    [router, companyName],
+    [router, companyName, slug],
   );
 
   return (
     <div className="min-h-screen bg-black">
       {phase === "password" && (
-        <PasswordGate
-          slug={slug}
-          companyName={companyName}
-          onSuccess={handlePasswordSuccess}
-        />
+        <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
       )}
 
       {phase === "wizard" && companyData && (
-        <MiniWizard
-          companyData={companyData}
-          onComplete={handleWizardComplete}
-          error={error}
-        />
+        <MiniWizard companyData={companyData} onComplete={handleWizardComplete} error={error} />
       )}
 
       {(phase === "thinking" || phase === "done") && (

@@ -90,6 +90,7 @@ Detta är testkö, inte bekräftade buggar. Fulla körvägar finns i
 | Socket loss | Det är okänt vilken genereringsendpoint som tappar anslutningen. | Samla HAR/SSE och namnge exakt endpoint innan buggrad skapas. |
 | OpenClaw health | En 502 följdes av 200 och kan ha varit cold start. | Korrelera nästa träff med Vercel runtime-logg i samma tidsfönster. |
 | Analytics/consent | Initiering före consent är inte app-brett verifierad. | Auditera genererad sajt och skapa säkerhetsrad endast vid konkret förtidig init. |
+| CI-flake quality-core | Master-push-run `34229404191` (2026-09-08) fick steget `Test` i jobbet `quality-core` avbrutet efter ~6,5 min (13:04:22→13:10:56 UTC) medan den parallella dispatch-körningen `34229423527` på samma SHA gick grönt på ~20 min. Lokalt har `src/components/builder/preview-panel/PreviewPanelDossiers.env-races.test.tsx` timeoutat under full Vitest-last men gått grönt isolerat. Hypotes: samma test flakar under last; obevisat. | Nästa hängande eller avbrutna `quality-core`: läs vilken testfil Vitest stod i (loggen), kör filen isolerat och under full last. Samma fil → skapa SM-rad med fix (fake timers/timeout-bound). |
 
 Landingens tidigare ”kortet ligger 65 px lågt”-hypotes är inte längre giltig
 evidens efter ombyggnaden i #1136. Ny visuell avvikelse kräver ny mätning.
@@ -108,6 +109,7 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Före D4. |
 | P2 | Ska högst en hard dossier väljas per promptrunda? | Nästa dossier-härdning. |
 | P2 | Ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production? | Verifiera aktuell env före nästa flaggändring. |
+| P3 | OpenClaw Builder: starta som projektledande byggagent, eller skrota? Underlag (proposal 2026-08-24, ingen produktionskod) är parkerat i [`docs/plans/archived/2026-08-24-openclaw-builder/`](docs/plans/archived/2026-08-24-openclaw-builder/README.md). | Fritt — när ägaren tar fram det för Cursor-agenter. |
 | P2 | Ska en pending dossier ersätta modellbyggd kod för samma capability, fråga användaren eller samexistera? | Nästa F3-vägändring. |
 | P2 | Ska `stream_ended_without_version` återbetalas när text levererats men ingen version sparats? | Före MVP-leverans. |
 | P2 | Ska `BuildPlanCard` visas normalt, och vilket kontrakt gäller när alla versioner är failed? | Före MVP/nästa versionsläsändring. |
