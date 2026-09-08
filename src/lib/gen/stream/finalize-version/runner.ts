@@ -453,10 +453,15 @@ export async function finalizeAndSaveVersion(
   // Plain-language account of the turn for the chat (see turn-summary.ts).
   // Appended to the persisted MESSAGE only — `contentForVersion` (the code)
   // is what the rest of the pipeline keeps reading. Skipped when the model
-  // itself explained its work outside the code blocks.
-  const turnSummary = hasModelProseSummary(contentForVersion)
-    ? null
-    : buildTurnSummary({
+  // itself explained its work outside the code blocks. The prose check must
+  // look at the RAW stream (`accumulatedContent`): autofix/parse/merge can
+  // rebuild `contentForVersion` from files, and the live chat holds the raw
+  // stream — checking only the rebuilt text would append a second summary
+  // under the model's own (Bugbot on #1292).
+  const turnSummary =
+    hasModelProseSummary(accumulatedContent) || hasModelProseSummary(contentForVersion)
+      ? null
+      : buildTurnSummary({
         generationMode: buildSpec?.generationMode === "followUp" ? "followUp" : "init",
         repairPassIndex,
         userPrompt: originalPrompt ?? null,

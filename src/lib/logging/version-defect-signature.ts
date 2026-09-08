@@ -148,8 +148,12 @@ export function classifyVersionDefectKind(input: VersionDefectInput): VersionDef
 
   // Readiness-sonden rapporterar Next byggfel-överlägg under den generiska
   // `preview`-kategorin; det som skiljer den från annan preview-diagnostik är
-  // källan i metan.
+  // källan i metan. Ett `empty_body`-verdikt (klientrenderad sida som den
+  // JS-lösa sonden inte kan se) är dock inget kompileringsfel — det får inte
+  // räknas in i compile-hinken (prod chat 28af0778: 7 sådana rader).
   if (category === "preview" && metaString(input.meta, "source") === "preview_readiness_probe") {
+    const readinessFailureKind = metaString(input.meta, "readinessFailureKind");
+    if (readinessFailureKind === "empty_body") return "other";
     return "compile";
   }
 
