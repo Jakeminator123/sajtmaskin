@@ -157,3 +157,34 @@ export function shouldRetainLiveTier2DuringAsyncPersist(params: {
   if (nextDemoUrl === currentPreviewUrl) return false;
   return isTier2LivePreviewUrl(currentPreviewUrl);
 }
+
+/**
+ * Same stable VM URL after the session advanced to a new version (Fast Edit
+ * Lane hot patch). Version-sync only handoffs when the URL *changes*, so a
+ * reused previewUrl never reloads the iframe and waits for HMR. Call
+ * `applyPreviewHandoff` when this is true — the versionId:url latch bumps
+ * at most once and noops if stream/bootstrap/version-select already applied
+ * this exact pair.
+ *
+ * First paint (`lastAppliedKey === null`) must not invent a bump: the iframe
+ * is already showing this URL. A later genuine Vn→Vn+1 at the same URL still
+ * returns true because the latch then holds `Vn:url`.
+ */
+export function shouldHandoffUnchangedPreviewUrlOnVersionAdvance(params: {
+  nextDemoUrl: string | null;
+  currentPreviewUrl: string | null;
+  versionId: string | null;
+  lastAppliedKey: string | null;
+}): boolean {
+  const next = normalizePreviewUrl(params.nextDemoUrl);
+  const current = normalizePreviewUrl(params.currentPreviewUrl);
+  const versionId =
+    typeof params.versionId === "string" && params.versionId.trim()
+      ? params.versionId.trim()
+      : "";
+  if (!next || !current || !versionId) return false;
+  if (next !== current) return false;
+  if (!isTier2LivePreviewUrl(next)) return false;
+  if (params.lastAppliedKey === null) return false;
+  return params.lastAppliedKey !== `${versionId}:${next}`;
+}

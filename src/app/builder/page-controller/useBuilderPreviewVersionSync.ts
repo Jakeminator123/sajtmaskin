@@ -17,6 +17,7 @@ import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier"
 import type { ChatData, VersionSummary } from "../useBuilderDerivedState";
 import {
   pickVersionPreviewUrl,
+  shouldHandoffUnchangedPreviewUrlOnVersionAdvance,
   shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
   shouldRetainLiveTier2DuringAsyncPersist,
@@ -43,6 +44,7 @@ type Params = {
   serverProjectPreviewOverrideUrl: string | null;
   serverProjectPreviewOverrideVersionId: string | null;
   applyPreviewHandoff: ApplyPreviewHandoff;
+  lastPreviewHandoffKeyRef: MutableRefObject<string | null>;
   setClearedPreviewVersionId: Dispatch<SetStateAction<string | null>>;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setPreviewPending: Dispatch<SetStateAction<boolean>>;
@@ -76,6 +78,7 @@ export function useBuilderPreviewVersionSync({
   serverProjectPreviewOverrideUrl,
   serverProjectPreviewOverrideVersionId,
   applyPreviewHandoff,
+  lastPreviewHandoffKeyRef,
   setClearedPreviewVersionId,
   setCurrentPreviewUrl,
   setPreviewPending,
@@ -246,8 +249,28 @@ export function useBuilderPreviewVersionSync({
       if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
         setPreviewPending(false);
       }
+      return;
     }
-  }, [activeVersionId, latestVersionId, selectedVersionId, chat, currentPreviewUrl, effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, currentPreviewUrlRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending, applyPreviewHandoff]);
+
+    // Same reused VM URL after a version advance (hot patch / Fast Edit Lane).
+    // The URL-diff branch above is a no-op, so without a handoff the iframe
+    // keeps the previous document and waits for HMR. The latch bumps at most
+    // once and noops if stream/bootstrap/version-select already applied this
+    // pair — including when HMR already did the visual job via a prior bump.
+    if (
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl,
+        currentPreviewUrl,
+        versionId: activeVersionId,
+        lastAppliedKey: lastPreviewHandoffKeyRef.current,
+      })
+    ) {
+      applyPreviewHandoff({ url: nextDemoUrl, versionId: activeVersionId });
+      if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
+        setPreviewPending(false);
+      }
+    }
+  }, [activeVersionId, latestVersionId, selectedVersionId, chat, currentPreviewUrl, effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, currentPreviewUrlRef, lastPreviewHandoffKeyRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending, applyPreviewHandoff]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(
     () =>

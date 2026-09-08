@@ -6,6 +6,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
   it("prefers preview URL for own-engine rows over shim demoUrl argument", () => {
     const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();
+    const lastPreviewHandoffKeyRef = { current: "ver_0:https://old.sandbox.vercel.run" };
     const { result } = renderHook(() =>
       useBuilderCallbacks({
         chatId: "chat_1",
@@ -21,6 +22,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
           },
         ],
         bumpPreviewRefreshToken,
+        lastPreviewHandoffKeyRef,
         setCurrentPreviewUrl,
         setSelectedVersionId: vi.fn(),
         setIsVersionPanelCollapsed: vi.fn(),
@@ -33,6 +35,9 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
 
     expect(setCurrentPreviewUrl).toHaveBeenCalledWith("https://proj-abc.sandbox.vercel.run");
     expect(bumpPreviewRefreshToken).toHaveBeenCalled();
+    expect(lastPreviewHandoffKeyRef.current).toBe(
+      "ver_1:https://proj-abc.sandbox.vercel.run",
+    );
   });
 
   it("sets null for own-engine when preview URL is missing so bootstrap can take over", () => {

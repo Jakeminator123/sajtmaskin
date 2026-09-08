@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
@@ -54,6 +54,7 @@ type UseBuilderCallbacksArgs = {
   ) => Promise<SendMessageOutcome>;
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
+  lastPreviewHandoffKeyRef?: MutableRefObject<string | null>;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsVersionPanelCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -65,6 +66,7 @@ export function useBuilderCallbacks({
   sendMessage,
   effectiveVersionsList,
   bumpPreviewRefreshToken,
+  lastPreviewHandoffKeyRef,
   setCurrentPreviewUrl,
   setSelectedVersionId,
   setIsVersionPanelCollapsed,
@@ -126,6 +128,10 @@ export function useBuilderCallbacks({
         if (next) {
           setCurrentPreviewUrl(next);
           bumpPreviewRefreshToken();
+          const normalized = normalizePreviewUrl(next);
+          if (lastPreviewHandoffKeyRef && normalized) {
+            lastPreviewHandoffKeyRef.current = `${versionId}:${normalized}`;
+          }
           return;
         }
         setCurrentPreviewUrl(null);
@@ -137,6 +143,9 @@ export function useBuilderCallbacks({
       if (explicit) {
         setCurrentPreviewUrl(explicit);
         bumpPreviewRefreshToken();
+        if (lastPreviewHandoffKeyRef) {
+          lastPreviewHandoffKeyRef.current = `${versionId}:${explicit}`;
+        }
         return;
       }
       const legacy = normalizePreviewUrl(
@@ -148,9 +157,18 @@ export function useBuilderCallbacks({
       if (legacy) {
         setCurrentPreviewUrl(legacy);
         bumpPreviewRefreshToken();
+        if (lastPreviewHandoffKeyRef) {
+          lastPreviewHandoffKeyRef.current = `${versionId}:${legacy}`;
+        }
       }
     },
-    [effectiveVersionsList, bumpPreviewRefreshToken, setCurrentPreviewUrl, setSelectedVersionId],
+    [
+      effectiveVersionsList,
+      bumpPreviewRefreshToken,
+      lastPreviewHandoffKeyRef,
+      setCurrentPreviewUrl,
+      setSelectedVersionId,
+    ],
   );
 
   const handleToggleVersionPanel = useCallback(() => {

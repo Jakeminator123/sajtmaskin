@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   pickVersionPreviewUrl,
+  shouldHandoffUnchangedPreviewUrlOnVersionAdvance,
   shouldPreserveUserRouteNavigation,
   shouldRetainLastGoodPreviewOnVersionChange,
   shouldRetainLiveTier2DuringAsyncPersist,
@@ -289,6 +290,65 @@ describe("shouldRetainLiveTier2DuringAsyncPersist", () => {
         activeVersionHasOwnPreview: false,
         nextDemoUrl: staleFallback,
         currentPreviewUrl: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldHandoffUnchangedPreviewUrlOnVersionAdvance", () => {
+  const liveUrl = "https://demo.fly.dev/chat-123";
+
+  it("handoffs when a new version reuses the same live preview URL (hot-patch / Fast Edit Lane)", () => {
+    expect(
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl: liveUrl,
+        currentPreviewUrl: liveUrl,
+        versionId: "v3",
+        lastAppliedKey: `v2:${liveUrl}`,
+      }),
+    ).toBe(true);
+  });
+
+  it("noops once the versionId:url latch already applied this pair (stream/bootstrap/select)", () => {
+    expect(
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl: liveUrl,
+        currentPreviewUrl: liveUrl,
+        versionId: "v3",
+        lastAppliedKey: `v3:${liveUrl}`,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not invent a bump on first paint when the latch was never set", () => {
+    expect(
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl: liveUrl,
+        currentPreviewUrl: liveUrl,
+        versionId: "v2",
+        lastAppliedKey: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not handoff when the URL actually changed (set-url path owns that)", () => {
+    expect(
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl: "https://demo.fly.dev/chat-456",
+        currentPreviewUrl: liveUrl,
+        versionId: "v3",
+        lastAppliedKey: `v2:${liveUrl}`,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not handoff a shim or missing URL", () => {
+    expect(
+      shouldHandoffUnchangedPreviewUrlOnVersionAdvance({
+        nextDemoUrl: "https://app.example/api/preview-render?id=1",
+        currentPreviewUrl: "https://app.example/api/preview-render?id=1",
+        versionId: "v3",
+        lastAppliedKey: "v2:https://app.example/api/preview-render?id=1",
       }),
     ).toBe(false);
   });
