@@ -71,10 +71,11 @@ const COLOR_MODE_OPTIONS: Array<{ value: ColorModeChoice; label: string }> = [
   { value: "dark", label: "Mörkt" },
 ];
 
-// "Av" först så temaraden följer samma vänster-är-neutralt-mönster som
-// övriga rader ("Auto" först).
+// "Auto" (value `off`) först så temaraden följer exakt samma
+// vänster-är-neutralt-mönster som övriga rader — inget "Av" som stack ut och
+// fick färgraden att kännas som ett på/av-reglage i stället för ett val.
 const THEME_CHIP_OPTIONS: Array<{ value: DesignTheme; label: string }> = [
-  { value: "off", label: "Av" },
+  { value: "off", label: "Auto" },
   ...DESIGN_THEME_OPTIONS.filter((option) => option.value !== "off"),
 ];
 
@@ -127,7 +128,7 @@ function ChoiceChipRow<T extends string>({
               {swatch ? (
                 <span
                   aria-hidden="true"
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10 ring-inset dark:ring-white/15"
                   style={{ backgroundColor: swatch }}
                 />
               ) : null}
