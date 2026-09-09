@@ -95,6 +95,25 @@ verktyg och ska skyddas av samma hostnyckel i icke-lokal miljö.
 4. Aktivera eventuella andra hostfunktioner först när båda sidor stödjer samma
    kontrakt.
 
+### Deploy till Fly
+
+Hosten är Fly-appen `vm-fly-jakem` (`fly.toml`, Dockerfile, remote builder).
+Vercel deployar inte hosten — en mergad hoständring är inte live förrän någon
+kör deployen från ett träd som innehåller den.
+
+```powershell
+fly version            # winget install Fly.flyctl  (eller https://fly.io/docs/flyctl/install/)
+fly auth whoami        # annars: fly auth login
+npm --prefix preview-host run deploy
+fly status -a vm-fly-jakem
+curl.exe -s https://vm-fly-jakem.fly.dev/health
+```
+
+Icke-interaktivt (CI/agent) ersätts inloggningen av `FLY_API_TOKEN` i miljön.
+Deployen är en rolling update av en maskin: pågående dev-runtimes stoppas och
+återskapas vid nästa anrop från `/data`-storen, så kör den när inga
+genereringar pågår.
+
 Hemligheter och miljöklassificering dokumenteras i
 [`../docs/ENV.md`](../docs/ENV.md). Runtimeflödet finns i
 [`../docs/architecture/system-overview.md`](../docs/architecture/system-overview.md)
