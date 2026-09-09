@@ -168,7 +168,7 @@ describe.skipIf(!target.url)("wizard_runs ACL/RLS migration mot riktig Postgres"
     ]);
 
     const policy = await client.query<{ roles: string[] }>(`
-      SELECT roles
+      SELECT roles::text[] AS roles
       FROM pg_policies
       WHERE schemaname = '${schema}'
         AND tablename = 'wizard_runs'

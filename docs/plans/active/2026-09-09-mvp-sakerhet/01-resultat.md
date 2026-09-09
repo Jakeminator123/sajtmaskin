@@ -67,6 +67,13 @@ fann inget. Två temporära lokala auditloggar städades bort. `tidy` kunde inte
 läsa remote-rapport via gh, så inga remote-brancher rördes. Inga loggar,
 installationsfiler, credentials eller andra scratchartefakter ingår i diffen.
 
+CI-uppföljning på PR #1325: första körningen passerade 10 085 vanliga tester
+och 54 stabilitetskontrakt, build, lint, typecheck, Backoffice och host.
+Databas-lanen passerade 67/68; det nya testets policyassertion fick `name[]`
+som sträng från node-postgres. Frågan castar nu till `text[]`, som drivern
+avkodar som array. Alla klient-DML-nekanden och backend-CRUD hade redan
+passerat; migrationens innehåll ändras inte. Ny head inväntar grön CI.
+
 ## Driftbevis och releaseordning
 
 1. **Gemensamt Redis:** verifiera att Vercel preview och production använder
