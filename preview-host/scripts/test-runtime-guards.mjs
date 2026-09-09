@@ -1568,6 +1568,99 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("in-slot purge completes without deadlocking", inSlot.purgedCache === true);
 }
 
+// 15b. Install slot pool: `PREVIEW_HOST_INSTALL_CONCURRENCY` admits N shared
+//      installs at once (default 1 = the old serialized queue), cache purges
+//      stay exclusive at any concurrency, a rejecting task releases its slot,
+//      and garbage/oversized env values fall back to safe bounds.
+{
+  const { runInInstallSlot, installSlotStateForTesting } = runtime.__testing;
+  const previousConcurrency = process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+  const restoreConcurrency = () => {
+    if (previousConcurrency === undefined) delete process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+    else process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = previousConcurrency;
+  };
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const tracked = (log, name, ms, { fail = false } = {}) => async () => {
+    log.active += 1;
+    log.maxActive = Math.max(log.maxActive, log.active);
+    log.order.push(`${name}:start`);
+    await sleep(ms);
+    log.active -= 1;
+    log.order.push(`${name}:end`);
+    if (fail) throw new Error(`${name} failed`);
+    return name;
+  };
+
+  try {
+    // (a) Default (unset) keeps the serialized behaviour.
+    delete process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+    check("default install concurrency is 1", installSlotStateForTesting().concurrency === 1);
+    const single = { active: 0, maxActive: 0, order: [] };
+    await Promise.all([
+      runInInstallSlot(tracked(single, "a", 20)),
+      runInInstallSlot(tracked(single, "b", 20)),
+    ]);
+    check("default concurrency never overlaps installs", single.maxActive === 1);
+
+    // (b) Concurrency 2 admits two installs, never three.
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "2";
+    check("env raises install concurrency to 2", installSlotStateForTesting().concurrency === 2);
+    const dual = { active: 0, maxActive: 0, order: [] };
+    const results = await Promise.all([
+      runInInstallSlot(tracked(dual, "a", 30)),
+      runInInstallSlot(tracked(dual, "b", 30)),
+      runInInstallSlot(tracked(dual, "c", 30)),
+    ]);
+    check("concurrency 2 overlaps exactly two installs", dual.maxActive === 2);
+    check("concurrency 2 completes every install", results.join(",") === "a,b,c");
+
+    // (c) Exclusive purge waits for every in-flight install and blocks later
+    //     shared installs until it is done (head-of-line, no starvation).
+    const mixed = { active: 0, maxActive: 0, order: [] };
+    const s1 = runInInstallSlot(tracked(mixed, "s1", 30));
+    const s2 = runInInstallSlot(tracked(mixed, "s2", 30));
+    await sleep(5); // s1 + s2 are now both running
+    const purge = runInInstallSlot(
+      async () => {
+        mixed.order.push("purge");
+        check("exclusive purge runs with no shared install active", mixed.active === 0);
+      },
+      { exclusive: true },
+    );
+    const s3 = runInInstallSlot(tracked(mixed, "s3", 5));
+    await Promise.all([s1, s2, purge, s3]);
+    check(
+      "exclusive purge waits for both installs and gates the later one",
+      mixed.order.join(",") === "s1:start,s2:start,s1:end,s2:end,purge,s3:start,s3:end",
+    );
+
+    // (d) A rejecting task releases its slot; the pool never wedges.
+    const failing = { active: 0, maxActive: 0, order: [] };
+    const rejected = await runInInstallSlot(tracked(failing, "boom", 5, { fail: true })).then(
+      () => false,
+      () => true,
+    );
+    check("rejecting install propagates its error", rejected === true);
+    const afterFailure = await runInInstallSlot(tracked(failing, "next", 5));
+    check("slot is released after a rejecting install", afterFailure === "next");
+    const idle = installSlotStateForTesting();
+    check(
+      "pool is idle after the burst",
+      idle.active === 0 && idle.exclusiveActive === false && idle.waiting === 0,
+    );
+
+    // (e) Garbage and oversized values are bounded.
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "0";
+    check("concurrency 0 falls back to 1", installSlotStateForTesting().concurrency === 1);
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "abc";
+    check("non-numeric concurrency falls back to 1", installSlotStateForTesting().concurrency === 1);
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "999";
+    check("oversized concurrency is capped at 8", installSlotStateForTesting().concurrency === 8);
+  } finally {
+    restoreConcurrency();
+  }
+}
+
 // 16. Boot-failure cap (P2 crash-loop without error surface):
 //     When install/boot fails, splash refresh + status traffic used to call
 //     ensureRuntimeForChat forever. After N failures for the same version the

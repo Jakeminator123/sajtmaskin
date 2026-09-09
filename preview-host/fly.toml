@@ -2,17 +2,23 @@
 app = "vm-fly-jakem"
 primary_region = "arn"
 # M#fly1: `npm install` OOM-dödades under parallella boots (Fly-loggar
-# 2026-07-02). Swap gör att minnestoppar blir inbromsning i stället för
-# dödade processer; grundorsaken (parallella installs) serialiseras i
-# runtime.js (installQueue) och idle-runtimes stoppas av idle-reapern.
+# 2026-07-02, 8 GB-maskin). Swap gör att minnestoppar blir inbromsning i
+# stället för dödade processer; grundorsaken (parallella installs) begränsas i
+# runtime/shared.js (install-slot-poolen, PREVIEW_HOST_INSTALL_CONCURRENCY) och
+# idle-runtimes stoppas av idle-reapern.
 swap_size_mb = 2048
 
 [build]
   dockerfile = "Dockerfile"
 
+# Kapacitet för ~10 samtidiga kunder (2026-09-09). `shared-cpu-4x`/8 GB toppade
+# på 3,2 GB RAM och 2,1 kärnor med 1–2 samtidiga previews; tio `next dev` +
+# installs ryms inte, och shared-vCPU sustainar ~0,25 kärna när burst-balansen
+# är slut. `performance` ger hela kärnor. Måste matcha maskinen (`fly scale vm`)
+# — annars nedgraderar nästa `fly deploy` tyst tillbaka.
 [[vm]]
-  memory = "8gb"
-  cpus = 4
+  size = "performance-4x"
+  memory = "16gb"
 
 [env]
   HOST = "0.0.0.0"
@@ -47,6 +53,9 @@ swap_size_mb = 2048
   # PNPM_CONFIG_* convention.
   XDG_DATA_HOME = "/data/package-caches/xdg-data"
   XDG_CACHE_HOME = "/data/package-caches/xdg-cache"
+  # Två samtidiga installs (boot + verify eller två chattar). Kräver 16 GB —
+  # sätt tillbaka till "1" (eller ta bort) om maskinen skalas ner.
+  PREVIEW_HOST_INSTALL_CONCURRENCY = "2"
   PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
   # After next dev is spawned: fail splash if the port never accepts HTTP.
   # The 600s ceiling still covers install + a slow first compile that does listen.

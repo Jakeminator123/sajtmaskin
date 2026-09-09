@@ -196,7 +196,9 @@ async function directorySizeBytes(targetPath) {
  * path, where reclaiming space matters more than a warm cache.
  */
 async function cleanupPackageCaches(options = {}) {
-  return runInInstallSlot(() => cleanupPackageCachesUnqueued(options));
+  // Exclusive: waits for every in-flight install and blocks new ones while the
+  // cache tree is removed, also when PREVIEW_HOST_INSTALL_CONCURRENCY > 1.
+  return runInInstallSlot(() => cleanupPackageCachesUnqueued(options), { exclusive: true });
 }
 
 /**

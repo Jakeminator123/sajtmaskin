@@ -179,7 +179,7 @@ Praktisk rekommendation:
   | Corepack | `COREPACK_HOME` | `/data/package-caches/corepack` |
   | XDG-fallback | `XDG_DATA_HOME`, `XDG_CACHE_HOME` | `/data/package-caches/xdg-*` |
 
-  Cachen städas av `cleanupPreviewHostStorage` och tar samma kö som installs, så en bakgrundsstädning aldrig river cachen mitt under en pågående install. Storleksgränsen styrs av `PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES` (default 6 GB; 0 = obegränsat). Akut tömning: `POST /admin/cleanup?purgeCaches=1`. Diskläget syns i `GET /admin/storage` (som numera går igenom volymen en gång, asynkront).
+  Cachen städas av `cleanupPreviewHostStorage` och tar en exklusiv slot i samma pool som installs, så en bakgrundsstädning aldrig river cachen mitt under en pågående install. Antalet samtidiga installs (boot + verify) styrs av `PREVIEW_HOST_INSTALL_CONCURRENCY` (default `1` = seriell kö; tak 8; `fly.toml` sätter `2` på `performance-4x`/16 GB). Höj bara med RAM-marginal — varje install kan toppa 1–2 GB och 2026-07-02 OOM-dödades parallella installs på 8 GB. Storleksgränsen styrs av `PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES` (default 6 GB; 0 = obegränsat). Akut tömning: `POST /admin/cleanup?purgeCaches=1`. Diskläget syns i `GET /admin/storage` (som numera går igenom volymen en gång, asynkront).
 - Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.

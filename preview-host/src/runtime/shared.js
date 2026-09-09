@@ -72,30 +72,94 @@ const VERIFY_OUTPUT_CAP_BY_STAGE = {
 const runtimeChildren = new Map();
 const inflightBootByChat = new Map();
 const activeVerifyChatKeys = new Set();
-// Global install-kö (M#fly1): npm/pnpm/yarn install är den minnestyngsta fasen
-// på VM:en. Verify-jobb är redan serialiserade sinsemellan (verifyQueue), men
-// live-boot-installs för OLIKA chattar kunde köra parallellt med varandra och
-// med verify-lanens install — Fly-loggarna 2026-07-02 visar `npm install`
-// OOM-dödad två gånger under exakt det mönstret. Alla installs (boot + verify)
-// går nu genom en gemensam kö med concurrency 1; fingerprint-oförändrade boots
-// rör aldrig kön (de skippar install helt).
-let installQueue = Promise.resolve();
+// Global install-slots (M#fly1): npm/pnpm/yarn install är den minnestyngsta
+// fasen på VM:en. Verify-jobb är redan serialiserade sinsemellan (verifyQueue),
+// men live-boot-installs för OLIKA chattar kunde köra parallellt med varandra
+// och med verify-lanens install — Fly-loggarna 2026-07-02 visar `npm install`
+// OOM-dödad två gånger under exakt det mönstret (8 GB-maskin). Alla installs
+// (boot + verify) går genom samma slot-pool; fingerprint-oförändrade boots rör
+// aldrig poolen (de skippar install helt).
+//
+// Antalet samtidiga installs styrs av `PREVIEW_HOST_INSTALL_CONCURRENCY`
+// (default 1 = exakt det gamla serialiserade beteendet). Höj bara när maskinen
+// har RAM för det: varje install kan toppa på 1–2 GB, så på 16 GB är 2 rimligt.
+// Värdet läses per förfrågan så att ett env-byte inte kräver kodändring.
+//
+// Package-cache-purgar tar en EXKLUSIV slot: de väntar in alla pågående
+// installs och blockerar nya tills de är klara, oavsett concurrency. Cachen är
+// delat muterbart tillstånd, och en `rm -rf` som landar mellan npm:s "läs
+// tarball ur cachen" och "packa upp" failar installen med ett falskt
+// ENOENT/EINTEGRITY som ser ut som ett trasigt projekt. Bakgrundssvepet (var
+// 10 min), det opportunistiska svepet och `POST /admin/cleanup` går alla på
+// timer eller operatörsinfall, så utan detta kunde de slå mitt i en install.
+const INSTALL_CONCURRENCY_MAX = 8;
+let installSlotsActive = 0;
+let installSlotExclusiveActive = false;
+const installSlotWaiters = [];
+
+function installConcurrency() {
+  const parsed = parseInt(process.env.PREVIEW_HOST_INSTALL_CONCURRENCY ?? "1", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(parsed, INSTALL_CONCURRENCY_MAX);
+}
+
+function installSlotCanStart(waiter) {
+  if (installSlotExclusiveActive) return false;
+  if (waiter.exclusive) return installSlotsActive === 0;
+  return installSlotsActive < installConcurrency();
+}
+
+// FIFO with head-of-line blocking: an exclusive waiter at the head stops new
+// shared installs from starting, so a purge can never be starved by a steady
+// stream of installs, and shared waiters behind it keep their order.
+function pumpInstallSlots() {
+  while (installSlotWaiters.length > 0 && installSlotCanStart(installSlotWaiters[0])) {
+    const next = installSlotWaiters.shift();
+    if (next.exclusive) installSlotExclusiveActive = true;
+    else installSlotsActive += 1;
+    next.resolve();
+  }
+}
+
+function acquireInstallSlot(exclusive) {
+  return new Promise((resolve) => {
+    installSlotWaiters.push({ exclusive, resolve });
+    pumpInstallSlots();
+  }).then(() => {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (exclusive) installSlotExclusiveActive = false;
+      else installSlotsActive -= 1;
+      pumpInstallSlots();
+    };
+  });
+}
 
 /**
- * Runs `task` in the global install slot: it waits for the in-flight install
- * and holds off the next one.
- *
- * Package-cache purges have to take the same slot as installs. The cache is
- * shared mutable state, and an `rm -rf` landing between npm's "read tarball
- * from cache" and "unpack it" fails the install with a bogus ENOENT/EINTEGRITY
- * that looks like a broken project. The background sweep (every 10 min), the
- * opportunistic sweep and `POST /admin/cleanup` all run on timers or operator
- * whim, so without this they were free to fire mid-install.
+ * Runs `task` in an install slot. Shared (default) slots admit up to
+ * `PREVIEW_HOST_INSTALL_CONCURRENCY` tasks at once; `{ exclusive: true }`
+ * waits for every in-flight task and runs alone. A rejecting task releases
+ * its slot and propagates the error; the pool itself never wedges.
  */
-function runInInstallSlot(task) {
-  const next = installQueue.catch(() => undefined).then(task);
-  installQueue = next.catch(() => undefined);
-  return next;
+async function runInInstallSlot(task, { exclusive = false } = {}) {
+  const release = await acquireInstallSlot(exclusive);
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
+
+/** Test/observability hook: current occupancy of the install slot pool. */
+function installSlotStateForTesting() {
+  return {
+    concurrency: installConcurrency(),
+    active: installSlotsActive,
+    exclusiveActive: installSlotExclusiveActive,
+    waiting: installSlotWaiters.length,
+  };
 }
 // Öppna preview-sockets (proxied HMR-WS eller host-hållna stubbar) per chat.
 // En öppen socket ≈ en öppen iframe — idle-reapern stoppar aldrig en runtime
@@ -1053,6 +1117,7 @@ module.exports = {
   inflightBootByChat,
   activeVerifyChatKeys,
   runInInstallSlot,
+  installSlotStateForTesting,
   registerPreviewSocket,
   markPreviewSocketHandshakeComplete,
   clearPreviewSocketCandidate,

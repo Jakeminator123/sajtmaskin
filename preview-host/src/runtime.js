@@ -67,6 +67,7 @@ module.exports = {
     runtimeExitOwnsStoredSession: processLifecycle.runtimeExitOwnsStoredSession,
     sanitizedEnv: shared.sanitizedEnv,
     runInInstallSlot: shared.runInInstallSlot,
+    installSlotStateForTesting: shared.installSlotStateForTesting,
     cleanupPackageCachesUnqueued: storageCleanup.cleanupPackageCachesUnqueued,
     setBeforeWorkspaceSweepForTesting: storageCleanup.setBeforeWorkspaceSweepForTesting,
     PACKAGE_CACHE_DIR: shared.PACKAGE_CACHE_DIR,

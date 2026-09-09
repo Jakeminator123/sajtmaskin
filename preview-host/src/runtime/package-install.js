@@ -686,10 +686,11 @@ function isPeerDependencyInstallFailure(output) {
 }
 
 async function runInstallCommandWithFallback(workspaceDir, install) {
-  // Serialisera ALLA installs (live-boot + verify) genom en global kö så att
-  // två tunga `npm install` aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret
-  // i Fly-loggarna 2026-07-02). Kön håller inga andra lås medan den väntar,
-  // så den kan inte deadlocka mot verifyQueue (som bara väntar på den härifrån).
+  // ALLA installs (live-boot + verify) går genom den globala slot-poolen så att
+  // fler tunga `npm install` än `PREVIEW_HOST_INSTALL_CONCURRENCY` (default 1)
+  // aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret i Fly-loggarna
+  // 2026-07-02). Poolen håller inga andra lås medan den väntar, så den kan inte
+  // deadlocka mot verifyQueue (som bara väntar på den härifrån).
   return runInInstallSlot(() =>
     runInstallCommandWithFallbackUnqueued(workspaceDir, install),
   );
