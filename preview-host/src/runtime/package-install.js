@@ -23,7 +23,7 @@ const {
 } = require("./shared.js");
 // Ingen cykel: storage-cleanup kräver bara shared + prewarm-leases vid load
 // (dess enda beroende åt detta håll är en lazy require av process-lifecycle).
-const { cleanupPackageCachesUnqueued } = require("./storage-cleanup.js");
+const { cleanupPackageCaches } = require("./storage-cleanup.js");
 
 // Hård tidsgräns per install-försök (M#fly1-härdning): med den globala
 // install-kön får ett enda hängt `npm install` (t.ex. ett genererat
@@ -685,19 +685,16 @@ function isPeerDependencyInstallFailure(output) {
   );
 }
 
-async function runInstallCommandWithFallback(workspaceDir, install) {
-  // ALLA installs (live-boot + verify) går genom den globala slot-poolen så att
-  // fler tunga `npm install` än `PREVIEW_HOST_INSTALL_CONCURRENCY` (default 1)
-  // aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret i Fly-loggarna
-  // 2026-07-02). Poolen håller inga andra lås medan den väntar, så den kan inte
-  // deadlocka mot verifyQueue (som bara väntar på den härifrån).
-  return runInInstallSlot(() =>
-    runInstallCommandWithFallbackUnqueued(workspaceDir, install),
-  );
+// Injectable shell runner for the install attempts, so the guard tests can
+// drive the ENOSPC purge/retry coordination without a real package manager.
+// Production uses the real `runShellCommand`.
+let installShellRunner = runShellCommand;
+
+function setInstallShellRunnerForTesting(runner) {
+  installShellRunner = typeof runner === "function" ? runner : runShellCommand;
 }
 
-async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
-  ensurePackageCacheDirs();
+async function runInstallCommandWithFallback(workspaceDir, install) {
   clearWorkspaceNpmLogs(workspaceDir);
   const npmLogsDir = ensureNpmLogsDir(workspaceDir);
   // Generated projects keep TypeScript/ESLint in devDependencies. Force every
@@ -710,16 +707,30 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     NPM_CONFIG_OMIT: "",
     ...(npmLogsDir ? { NPM_CONFIG_LOGS_DIR: npmLogsDir } : {}),
   });
+  // ALLA installs (live-boot + verify) går genom den globala slot-poolen så att
+  // fler tunga `npm install` än `PREVIEW_HOST_INSTALL_CONCURRENCY` (default 1)
+  // aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret i Fly-loggarna
+  // 2026-07-02). Poolen håller inga andra lås medan den väntar, så den kan inte
+  // deadlocka mot verifyQueue (som bara väntar på den härifrån).
+  //
+  // Sloten hålls per FÖRSÖK, inte över hela installen: bara en körande
+  // pakethanterare belastar RAM, och ENOSPC-purgen mellan två försök måste
+  // kunna ta en EXKLUSIV slot utan att vänta in den slot anroparen själv håller.
   const runAttempt = async (command) => {
     const startedAt = Date.now();
-    const result = await runShellCommand(command, {
-      cwd: workspaceDir,
-      stdio: ["ignore", "pipe", "pipe"],
-      env,
-      // Fail-fast: en hängd install får inte blockera den globala install-kön
-      // (alla senare boots/verifies) tills VM-omstart.
-      timeoutMs: INSTALL_TIMEOUT_MS > 0 ? INSTALL_TIMEOUT_MS : undefined,
-      timeoutLabel: `Install (${command})`,
+    const result = await runInInstallSlot(() => {
+      // Inne i sloten: en exklusiv purge kan inte hinna emellan mkdir och
+      // pakethanterarens första cacheläsning.
+      ensurePackageCacheDirs();
+      return installShellRunner(command, {
+        cwd: workspaceDir,
+        stdio: ["ignore", "pipe", "pipe"],
+        env,
+        // Fail-fast: en hängd install får inte blockera den globala install-kön
+        // (alla senare boots/verifies) tills VM-omstart.
+        timeoutMs: INSTALL_TIMEOUT_MS > 0 ? INSTALL_TIMEOUT_MS : undefined,
+        timeoutLabel: `Install (${command})`,
+      });
     });
     return {
       ...result,
@@ -750,9 +761,12 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     // låta en senare klassificering försöka läsa ut det ur en omskriven text
     // där npm:s ursprungliga ENOSPC-rad kan ha fallit bort.
     diskFullDetected = true;
-    // Unqueued: we are inside the install slot already (see the doc comment on
-    // `cleanupPackageCachesUnqueued`).
-    const purge = await cleanupPackageCachesUnqueued({ force: true });
+    // Exklusiv purge — och vi håller ingen slot här, eftersom primärförsöket
+    // släppte sin delade slot när det returnerade. Rensningen väntar därför in
+    // pågående syskon-installs i stället för att `rm -rf`:a cachen mitt under
+    // deras tarball-uppackning (falskt ENOENT/EINTEGRITY vid concurrency > 1),
+    // och kan inte deadlocka genom att vänta in sig själv.
+    const purge = await cleanupPackageCaches({ force: true });
     const retryStartedAt = Date.now();
     const retried = await runAttempt(install.command);
     if (retried.exitCode === 0) {
@@ -1097,4 +1111,5 @@ module.exports = {
   tryShareNodeModules,
   runInstallCommand,
   setBootInstallRunnersForTesting,
+  setInstallShellRunnerForTesting,
 };

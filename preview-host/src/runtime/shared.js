@@ -92,6 +92,11 @@ const activeVerifyChatKeys = new Set();
 // ENOENT/EINTEGRITY som ser ut som ett trasigt projekt. Bakgrundssvepet (var
 // 10 min), det opportunistiska svepet och `POST /admin/cleanup` går alla på
 // timer eller operatörsinfall, så utan detta kunde de slå mitt i en install.
+//
+// Därför tar en install en slot per FÖRSÖK i stället för över hela sitt
+// retry-förlopp: ENOSPC-purgen mellan två försök ska kunna vara exklusiv, och
+// en anropare som redan håller en delad slot skulle antingen deadlocka (vänta
+// in sig själv) eller — som före denna ändring — purga utan exklusivitet.
 const INSTALL_CONCURRENCY_MAX = 8;
 let installSlotsActive = 0;
 let installSlotExclusiveActive = false;
