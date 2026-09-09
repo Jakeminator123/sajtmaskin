@@ -65,6 +65,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Must stay above the `asyncUtilTimeout` set in `vitest.setup.ts`, or a
+    // slow `waitFor` dies on a bare "test timed out" instead of testing-
+    // library's message naming what it never found. Only a hung or failing
+    // test spends this budget.
+    testTimeout: 15_000,
     // Den lokala PR-spegeln kör exakt samma filer som CI, men lämnar CPU/IO
     // till OS och andra worktrees. CI behåller full workerpool, alla gröna
     // loggar och bail=0 för komplett feldiagnostik i GitHub Actions.
