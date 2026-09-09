@@ -1,6 +1,15 @@
 "use client";
 
-import { type CSSProperties, type ComponentType, type ReactNode, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ComponentType,
+  type ReactNode,
+  createContext,
+  useContext,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   Brush,
   Check,
@@ -102,24 +111,36 @@ interface ChoiceSectionProps {
   children: ReactNode;
 }
 
+// Radix ger `type="single"` rollen `radiogroup`, och en radiogroup utan
+// tillgängligt namn är ett axe-fel (`aria-input-field-name`). Sektionsrubriken
+// ÄR namnet, så den delas ned till kontrollen i stället för att varje rad
+// upprepar sin etikett i en egen `aria-label`.
+const ChoiceSectionLabelContext = createContext<string | undefined>(undefined);
+
 /**
  * One row of the control panel: a quiet icon + uppercase label header, then
  * the control itself. Sections stack inside the card with hairline dividers so
  * the panel reads as one designed surface rather than a flat list of rows.
  */
 function ChoiceSection({ icon: Icon, label, trailing, children }: ChoiceSectionProps) {
+  const labelId = useId();
   return (
     <section className="py-3.5 first:pt-3 last:pb-3">
       <div className="mb-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="text-primary/80 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <p className="text-foreground/85 text-[11px] font-semibold tracking-[0.08em] uppercase">
+          <p
+            id={labelId}
+            className="text-foreground/85 text-[11px] font-semibold tracking-[0.08em] uppercase"
+          >
             {label}
           </p>
         </div>
         {trailing}
       </div>
-      {children}
+      <ChoiceSectionLabelContext.Provider value={labelId}>
+        {children}
+      </ChoiceSectionLabelContext.Provider>
     </section>
   );
 }
@@ -169,6 +190,7 @@ function ChoiceChipRow<T extends string>({
   disabled = false,
   swatchFor,
 }: ChoiceChipRowProps<T>) {
+  const sectionLabelId = useContext(ChoiceSectionLabelContext);
   return (
     // shadcn ToggleGroup (single-select) i stället för handrullade <button>:
     // konsekvent fokus-/hover-/vald-tillstånd, tangentbordsnavigering och
@@ -178,6 +200,7 @@ function ChoiceChipRow<T extends string>({
     // ignorerar det så exakt ett val alltid är aktivt, precis som förr.
     <ToggleGroup
       type="single"
+      aria-labelledby={sectionLabelId}
       value={value}
       onValueChange={(next) => {
         if (next) onChange(next as T);
@@ -209,7 +232,12 @@ function ChoiceChipRow<T extends string>({
                 style={{ backgroundColor: swatch }}
               >
                 <Check
-                  className="h-2.5 w-2.5 text-white opacity-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] transition-opacity duration-150 group-data-[state=on]:opacity-100"
+                  // `size-2.5` och inte `h-2.5 w-2.5`: toggle-varianten sätter
+                  // `[&_svg:not([class*='size-'])]:size-4`, så utan en
+                  // size-klass tvingas checken till 16px i en 16px-swatch.
+                  // Skuggan ligger runtom, inte bara under, så den vita
+                  // markören håller kant även på ljusa nyanser (Äng/Senap).
+                  className="size-2.5 text-white opacity-0 drop-shadow-[0_0_1px_rgba(0,0,0,0.85)] transition-opacity duration-150 group-data-[state=on]:opacity-100"
                   strokeWidth={3}
                   aria-hidden="true"
                 />
