@@ -29,7 +29,7 @@ import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
 import {
   resolveChatPreferredVersionId,
-  resolveFollowUpPreviousFiles,
+  resolveFollowUpPreviousBase,
 } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
@@ -333,7 +333,8 @@ export async function handleMessageStreamRequest(
           engineChat.orchestration_snapshot ?? null,
         );
 
-        const previousFiles = await resolveFollowUpPreviousFiles(chatId, metaEngineBaseVersionId);
+        const previousBase = await resolveFollowUpPreviousBase(chatId, metaEngineBaseVersionId);
+        const previousFiles = previousBase.files;
 
         // 5-2 stale-base gate — mirrors finalize-design's `stale_design_version`
         // 409 (finalize-design/route.ts). A follow-up must not silently build
@@ -797,6 +798,10 @@ export async function handleMessageStreamRequest(
           designReferences,
           promptOrchestration,
           previousFiles,
+          previousVersionId: hasFollowUpBase ? previousBase.versionId : null,
+          previousSelectedDossierEnvKeys: hasFollowUpBase
+            ? previousBase.selectedDossierEnvKeys
+            : undefined,
           hasFollowUpBase,
           existingRoutePaths,
           existingShellRoutePaths,

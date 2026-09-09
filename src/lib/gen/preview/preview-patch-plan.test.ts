@@ -76,6 +76,22 @@ describe("planPreviewPatch", () => {
     expect(plan).toEqual({ ok: false, reason: "structural_change" });
   });
 
+  it("accepts a CSS-only change when tsconfig and env artifacts are unchanged", () => {
+    const files = {
+      ...BASE_FILES,
+      "tsconfig.json": '{"compilerOptions":{"strict":true}}',
+      "env.example": "# RESEND_API_KEY=\n",
+    };
+    const plan = planPreviewPatch({
+      hostFileHashes: manifestOf(files),
+      nextFiles: { ...files, "app/globals.css": "body{background:#2a1840}" },
+    });
+
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(Object.keys(plan.changedFiles)).toEqual(["app/globals.css"]);
+  });
+
   it("rejects a changed .env.local (Next reads env only at boot)", () => {
     const plan = planPreviewPatch({
       hostFileHashes: manifestOf(BASE_FILES),
