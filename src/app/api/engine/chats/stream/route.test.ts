@@ -348,7 +348,8 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   looksLikeIncompleteJson: vi.fn(),
 }));
 
-import { resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
+import { acquireUserGenerationLock, resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
+import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { POST, maxDuration, runtime } from "./route";
 
 const realHandleCreateChatStreamPost = (
@@ -816,6 +817,21 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // means the orchestration default (true) applies; `false` would mean a
     // fast lane came back.
     expect(orchestrationInput.embeddingScaffoldMatch ?? true).toBe(true);
+  });
+
+  it("rejects a second chat for the account before brief, provider, or prewarm work", async () => {
+    expect(await acquireUserGenerationLock("user_1")).toMatchObject({ status: "acquired" });
+    const response = await POST(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Build another site" }),
+    }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: "generation_in_progress" });
+    expect(createChat).not.toHaveBeenCalled();
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   it("does NOT prewarm when create credits are rejected", async () => {

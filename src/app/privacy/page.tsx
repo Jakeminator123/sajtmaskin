@@ -24,15 +24,14 @@ export default function PrivacyPage() {
           Integritetspolicy
         </h1>
         <p className="text-muted-foreground mb-10 text-sm">
-          Senast uppdaterad: {new Date().toISOString().split("T")[0]}
+          Senast uppdaterad: 2026-09-09
         </p>
 
         <div className="prose-sm space-y-8">
           <Section title="1. Personuppgiftsansvarig">
             <p>
-              Pretty Good AB, org.nr DG97 (&quot;vi&quot;, &quot;oss&quot;) är
-              personuppgiftsansvarig för behandlingen av dina personuppgifter i samband med
-              användningen av Sajtmaskin.
+              Pretty Good AB (&quot;vi&quot;, &quot;oss&quot;) är personuppgiftsansvarig för
+              behandlingen av dina personuppgifter i samband med användningen av Sajtmaskin.
             </p>
             <p>
               Kontakt:{" "}
@@ -74,13 +73,21 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="4. Tredjepartstjänster">
-            <p>Vi delar uppgifter med följande tredjeparter:</p>
+            <p>
+              Beroende på vilka funktioner du använder kan uppgifter behandlas av följande
+              leverantörer:
+            </p>
             <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
               <li>
                 <strong className="text-foreground">Stripe</strong> – betalningshantering
               </li>
               <li>
-                <strong className="text-foreground">Vercel</strong> – hosting och deployment
+                <strong className="text-foreground">Supabase</strong> – databas för konton,
+                projekt och tjänstedata
+              </li>
+              <li>
+                <strong className="text-foreground">Vercel</strong> – hosting, deployment,
+                fillagring samt webb- och prestandaanalys
               </li>
               <li>
                 <strong className="text-foreground">Google OAuth</strong> – inloggning (valfritt)
@@ -90,22 +97,38 @@ export default function PrivacyPage() {
                 repo-import (valfritt)
               </li>
               <li>
-                <strong className="text-foreground">AI-modeller</strong> (OpenAI/Anthropic via v0) –
-                för generering av webbinnehåll
+                <strong className="text-foreground">OpenAI och Anthropic</strong> –
+                AI-bearbetning i Sajtmaskins egen genereringsmotor
+              </li>
+              <li>
+                <strong className="text-foreground">Upstash</strong> – hastighetsbegränsning och
+                cache när tjänsten är konfigurerad för det
+              </li>
+              <li>
+                <strong className="text-foreground">Resend</strong> – e-postleverans när en
+                e-postfunktion används
+              </li>
+              <li>
+                <strong className="text-foreground">D-ID</strong> – avatarfunktion när den är
+                aktiverad
               </li>
             </ul>
           </Section>
 
           <Section title="5. Cookies" id="cookies">
-            <p>Vi använder cookies för:</p>
+            <p>Vi använder cookies och lokal lagring för:</p>
             <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
               <li>
                 <strong className="text-foreground">Nödvändiga cookies:</strong> Sessionshantering
                 och autentisering
               </li>
               <li>
-                <strong className="text-foreground">Analyscookies:</strong> Anonymiserad
-                användningsstatistik (med ditt samtycke)
+                <strong className="text-foreground">Lokal lagring:</strong> Spara valet du gör i
+                cookie-bannern på din enhet
+              </li>
+              <li>
+                <strong className="text-foreground">Trafik- och prestandamätning:</strong> Samlas
+                in genom Sajtmaskins egen analys samt Vercel Analytics och Speed Insights
               </li>
             </ul>
             <p>Du kan hantera dina cookieinställningar via vår cookie-banner.</p>
@@ -125,9 +148,14 @@ export default function PrivacyPage() {
 
           <Section title="7. Lagring och säkerhet">
             <p>
-              Personuppgifter lagras inom EU/EES. Vi vidtar lämpliga tekniska och organisatoriska
-              åtgärder för att skydda dina uppgifter, inklusive kryptering, åtkomstkontroll och
-              regelbundna säkerhetsgranskningar.
+              Sajtmaskins produktionsdatabas hos Supabase är konfigurerad i regionen us-east-1 i
+              USA. Andra leverantörer kan behandla eller lagra uppgifter i andra regioner beroende
+              på tjänst och konfiguration. För integrationer som du ansluter till en genererad sajt
+              styrs lagringsregionen av den leverantör och konfiguration som du väljer.
+            </p>
+            <p>
+              Åtkomst till produktionsdata styrs med behörighetskontroller. Vi begränsar de
+              uppgifter som skickas till en leverantör till vad den aktuella funktionen behöver.
             </p>
           </Section>
 
@@ -142,7 +170,7 @@ export default function PrivacyPage() {
             <p>
               Frågor om personuppgiftsbehandling:
               <br />
-              Pretty Good AB (DG97)
+              Pretty Good AB
               <br />
               E-post:{" "}
               <a href="mailto:support@sajtmaskin.se" className="text-primary hover:underline">

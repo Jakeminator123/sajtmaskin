@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { runWithGenerationWork } from "./generation-work";
 import { parseSSEBuffer } from "./sse-parser";
 import { computeStreamPhaseTiming, createCodeGenSSEStream } from "./stream-format";
 
@@ -687,6 +688,32 @@ describe("computeStreamPhaseTiming", () => {
       reasoningMs: 9_000,
       outputMs: 0,
       durationMs: 10_000,
+    });
+  });
+});
+
+
+describe("provider execution cancellation", () => {
+  it("keeps execution pending after cancel until the provider iterator actually exits", async () => {
+    let finishProvider!: () => void;
+    const provider = new Promise<void>((resolve) => { finishProvider = resolve; });
+    const abortController = new AbortController();
+    const executionFinished = vi.fn();
+    await runWithGenerationWork(async (completion) => {
+      const stream = createCodeGenSSEStream({
+        fullStream: (async function* () {
+          await provider;
+          yield { type: "abort" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 7 }),
+      }, { abortController });
+      const execution = completion()!.then(executionFinished);
+      await stream.cancel("client disconnected");
+      expect(abortController.signal.aborted).toBe(true);
+      expect(executionFinished).not.toHaveBeenCalled();
+      finishProvider();
+      await execution;
+      expect(executionFinished).toHaveBeenCalledOnce();
     });
   });
 });

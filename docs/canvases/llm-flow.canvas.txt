@@ -63,18 +63,18 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "a0426d351",
+    "commit": "e4a5803",
     "commitDate": "2026-09-09",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 3,
+    "openP1": 7,
     "openP2": 5,
     "openP3": 1,
-    "blocked": 0,
-    "shaky": 4,
+    "blocked": 1,
+    "shaky": 3,
     "evalExactHitPct": null
   },
   "processes": [
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 4,
+      "churn": 5,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 4 commits / 14d"
+      "note": "Aktiv: 5 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -125,9 +125,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "Inga oppna signaler"
+      "note": "1 commits / 14d"
     },
     {
       "name": "ai_models",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 11,
+      "churn": 10,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -182,20 +182,20 @@ const DATA: CanvasData = {
     },
     {
       "name": "Preview och versioner",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 5,
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 8,
       "openByPrio": {
         "P0": 0,
-        "P1": 3,
+        "P1": 6,
         "P2": 2,
         "P3": 0,
         "other": 0
       },
-      "churn": 12,
+      "churn": 13,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "5 oppna backlog-rader (P0:0 P1:3 P2:2 P3:0)"
+      "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
     {
       "name": "Eval",
@@ -210,17 +210,17 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 1,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "Inga oppna signaler"
+      "note": "1 commits / 14d"
     }
   ],
   "shaky": [
     {
       "name": "Preview och versioner",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "5 oppna backlog-rader (P0:0 P1:3 P2:2 P3:0)"
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
     {
       "name": "ai_models",
@@ -242,6 +242,26 @@ const DATA: CanvasData = {
     }
   ],
   "topOpenRisks": [
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "`SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projekts filer."
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-078` `wizard_runs` kan läsas och ändras via publika databasroller; en egen aktiv rad kan kringgå wizardav…"
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-079` Google-koppling aktiverar lösenordet från en overifierad förregistrering."
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-081` Parallella genereringar i olika chattar kan passera samma fria/saldobaserade förkontroll innan AI-ko…"
+    },
     {
       "prio": "P1",
       "blocker": false,

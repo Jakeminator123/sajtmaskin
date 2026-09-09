@@ -86,6 +86,15 @@ describe("scripts/db/run-migrations resolveMigrationRunOrder", () => {
     expect(createIdx).toBeLessThan(alterIdx);
   });
 
+  it("hardens wizard_runs after the original table migration", () => {
+    const order = resolveMigrationRunOrder([...MIGRATION_ORDER]);
+    const createIdx = order.indexOf("add-wizard-runs.sql");
+    const hardenIdx = order.indexOf("harden-wizard-runs-access.sql");
+    expect(createIdx).toBeGreaterThanOrEqual(0);
+    expect(hardenIdx).toBeGreaterThanOrEqual(0);
+    expect(createIdx).toBeLessThan(hardenIdx);
+  });
+
   it("throws when an on-disk migration is not registered in the manifest", () => {
     expect(() =>
       resolveMigrationRunOrder([...MIGRATION_ORDER, "add-some-new-thing.sql"]),
@@ -126,6 +135,14 @@ describe("scripts/db/db-init.mjs migration ordering is single-sourced", () => {
 
   it("does not re-introduce a divergent local migration order", () => {
     expect(dbInitSrc).not.toMatch(/const\s+dependencyOrder\s*=/);
+  });
+
+  it("creates the local service_role before applying security migrations", () => {
+    const createRoleIdx = dbInitSrc.indexOf("CREATE ROLE service_role NOLOGIN");
+    const applyMigrationsIdx = dbInitSrc.indexOf("await applySqlMigrations()");
+    expect(createRoleIdx).toBeGreaterThanOrEqual(0);
+    expect(applyMigrationsIdx).toBeGreaterThanOrEqual(0);
+    expect(createRoleIdx).toBeLessThan(applyMigrationsIdx);
   });
 });
 

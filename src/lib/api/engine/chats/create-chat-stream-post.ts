@@ -1,3 +1,4 @@
+import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
@@ -7,7 +8,7 @@ import {
   runWithLlmUsageContext,
   setLlmUsageContext,
 } from "@/lib/observability/llm-usage";
-import { prepareCredits } from "@/lib/credits/server";
+import { prepareGenerationCredits } from "@/lib/credits/generation-admission";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
@@ -89,6 +90,7 @@ import {
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
+  bindUserGenerationLockToResponse,
   chatGenerationLockFailureResponse,
   releaseChatGenerationLock,
   type ChatGenerationLock,
@@ -139,7 +141,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
     // Etablerar ägarkontexten för HELA genereringen: brief, scaffold-embeddings,
     // codegen, verifier och RepairGate hamnar på rätt chat/användare utan att
     // varje mellanliggande funktion behöver bära id:n.
-    runWithLlmUsageContext({}, async () => {
+    runWithGenerationWork((generationComplete) => runWithLlmUsageContext({}, async () => {
       const requestStartedAt = Date.now();
       const requestId = req.headers.get("x-vercel-id") || "unknown";
       const session = ensureSessionIdFromRequest(req);
@@ -152,6 +154,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         return response;
       };
       let acquiredGenerationLock: ChatGenerationLock | null = null;
+      let acquiredUserGenerationLock: ChatGenerationLock | null = null;
+      const runGeneration = async () => {
       try {
         const botError = requireNotBot(req);
         if (botError) return attachSessionCookie(botError);
@@ -235,14 +239,16 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           imageGenerations: resolvedImageGenerations,
           attachmentsCount: requestAttachments.length,
         };
-        const creditCheck = await prepareCredits(req, "prompt.create", creditContext, {
+        const creditCheck = await prepareGenerationCredits(req, "prompt.create", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
         });
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
         }
-        // `prepareCredits` is only an eligibility check. Prewarm is deliberately
+        acquiredUserGenerationLock = creditCheck.generationLock;
+        // `prepareGenerationCredits` holds account admission through the response.
+        // Pricing is still only an eligibility check. Prewarm is deliberately
         // lease-bound by the canonical rate-limit subject (verified user, else
         // trusted IP; never the rotatable guest cookie), so an aborted stream
         // cannot repeatedly consume host install capacity before settlement.
@@ -1128,6 +1134,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           attachSessionCookie,
         });
       }
-    }),
+      };
+      const response = await runGeneration();
+      return bindUserGenerationLockToResponse(
+        response, acquiredUserGenerationLock, req.signal, generationComplete(),
+      );
+    })),
   );
 }

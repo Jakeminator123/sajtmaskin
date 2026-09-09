@@ -40,7 +40,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
-| Cache / rate limit | `REDIS_URL`, `UPSTASH_REDIS_REST_URL` + token | Cache kan degradera utan Redis. Rate limiting använder Upstash REST när det finns; i produktion failar rate-limitade routes stängt om REST saknas, om du inte explicit sätter `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD=true` för nödläge/dev-lik deploy. |
+| Cache / genereringslås / rate limit | `REDIS_URL` (alternativt `KV_URL`), `UPSTASH_REDIS_REST_URL` + token | Create/follow-up kräver fungerande Redis i preview/production och svarar 503 om kontolåset inte kan tas. Miljöer som delar användare och credits i samma databas måste använda samma Redis-backend för kontolåset; miljöprefixen för vanliga cache-/chatnycklar är fortsatt separata. Upstash REST används separat för rate limiting; `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` kringgår inte kontolåset. |
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (media + **platform embeddings** under `embeddings/*.json`). Lokalt: embeddings-cache på disk; CI syncar via public URL i `config/embeddings-blob-manifest.json`. Backoffice-knapparna (Pipeline Health + scaffold-wizard) kör generate med `--require-blob` så saknad token inte ser ut som en lyckad publicering. Streamlit laddar `.env` sedan `.env.local` (local vinner), samma ordning som embeddings-skripten. |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |

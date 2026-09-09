@@ -1,8 +1,10 @@
 /**
  * Follow-up chat stream handler (own-engine). Split out of the former
  * `chat-message-stream-post.ts` monolith — the phase/turn modules in this
- * folder hold the extracted steps; execution order is unchanged.
+ * folder hold the extracted steps. Account admission precedes paid intent,
+ * brief, and generation work.
  */
+import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { NextResponse } from "next/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
@@ -12,7 +14,7 @@ import {
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
-import { prepareCredits } from "@/lib/credits/server";
+import { prepareGenerationCredits } from "@/lib/credits/generation-admission";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { isShellPageContent } from "@/lib/gen/build-spec";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
@@ -39,6 +41,7 @@ import { resolveModelSelection } from "@/lib/models/selection";
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
+  bindUserGenerationLockToResponse,
   chatGenerationLockFailureResponse,
   releaseChatGenerationLock,
   type ChatGenerationLock,
@@ -96,8 +99,9 @@ export async function handleMessageStreamRequest(
     }
     return response;
   };
-  const runHandler = async () => {
+  const runHandler = () => runWithGenerationWork(async (generationComplete) => {
     let acquiredGenerationLock: ChatGenerationLock | null = null;
+    let acquiredUserGenerationLock: ChatGenerationLock | null = null;
     try {
       const response = await runWithLlmUsageContext({ sessionId }, async () => {
         const promptStartedAt = Date.now();
@@ -422,6 +426,35 @@ export async function handleMessageStreamRequest(
         if (f3GateResult instanceof Response) {
           return f3GateResult;
         }
+        const creditContext = {
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          attachmentsCount: requestAttachments.length,
+        };
+        const creditCheck = await prepareGenerationCredits(req, "prompt.refine", creditContext, {
+          sessionId,
+          allowFreeGeneration: !metaPlanMode,
+        });
+        if (!creditCheck.ok) {
+          // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
+          // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
+          // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
+          if (metaPlanMode) {
+            recordPlanModeCreditGateRejectedDetached({
+              chatId,
+              sessionId,
+              userId: usageOwnerId,
+              appProjectId: metaAppProjectId,
+              modelTier: resolvedModelTier,
+              status: creditCheck.response.status,
+              cost: creditCheck.cost,
+              promptChars: message.length,
+            });
+          }
+          return attachSessionCookie(creditCheck.response);
+        }
+        acquiredUserGenerationLock = creditCheck.generationLock;
         const { fileDerivedTier3BuildSpec, f3ResolvedBaseVersionId } = f3GateResult;
         // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`
         // drives routing + orchestration decisions in this function;
@@ -629,34 +662,6 @@ export async function handleMessageStreamRequest(
           { signal: req.signal },
         );
 
-        const creditContext = {
-          modelId: resolvedModelId,
-          thinking: resolvedThinking,
-          imageGenerations: resolvedImageGenerations,
-          attachmentsCount: requestAttachments.length,
-        };
-        const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, {
-          sessionId,
-          allowFreeGeneration: !metaPlanMode,
-        });
-        if (!creditCheck.ok) {
-          // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
-          // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
-          // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
-          if (metaPlanMode) {
-            recordPlanModeCreditGateRejectedDetached({
-              chatId,
-              sessionId,
-              userId: usageOwnerId,
-              appProjectId: metaAppProjectId,
-              modelTier: resolvedModelTier,
-              status: creditCheck.response.status,
-              cost: creditCheck.cost,
-              promptChars: message.length,
-            });
-          }
-          return attachSessionCookie(creditCheck.response);
-        }
         // The host enforces this opaque subject lease before it creates a
         // prewarm session. The digest reuses rate-limit.ts identity (verified
         // user, else trusted IP), never the rotatable guest cookie.
@@ -835,14 +840,28 @@ export async function handleMessageStreamRequest(
         });
       }
     });
-      return bindChatGenerationLockToResponse(response, acquiredGenerationLock);
+      return bindUserGenerationLockToResponse(
+        bindChatGenerationLockToResponse(response, acquiredGenerationLock),
+        acquiredUserGenerationLock,
+        req.signal,
+        generationComplete(),
+      );
     } catch (err) {
       if (acquiredGenerationLock) {
         await releaseChatGenerationLock(acquiredGenerationLock).catch(() => {});
       }
+      if (acquiredUserGenerationLock) {
+        const lock = acquiredUserGenerationLock;
+        const completion = generationComplete();
+        if (completion) {
+          void completion.then(() => releaseChatGenerationLock(lock));
+        } else {
+          await releaseChatGenerationLock(lock);
+        }
+      }
       throw err;
     }
-  };
+  });
 
   return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);
 }
