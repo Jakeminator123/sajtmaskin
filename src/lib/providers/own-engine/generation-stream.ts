@@ -1,3 +1,4 @@
+import { trackGenerationWork } from "@/lib/gen/stream/generation-work";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/stream/sse-parser";
@@ -239,6 +240,7 @@ export function createOwnEngineGenerationStream(
       pipelineReader.cancel().catch(() => {});
     },
     async start(controller) {
+      return trackGenerationWork(async () => {
       const enc = new TextEncoder();
       let sseBuffer = "";
       let accumulatedContent = "";
@@ -1050,6 +1052,7 @@ export function createOwnEngineGenerationStream(
         }
         safeClose();
       }
+      });
     },
   });
 }

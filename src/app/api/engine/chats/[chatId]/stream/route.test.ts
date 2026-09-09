@@ -462,7 +462,7 @@ import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 
-import { resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
+import { acquireUserGenerationLock, resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
 import { POST, maxDuration, runtime } from "./route";
 
 describe("POST /api/engine/chats/[chatId]/stream", () => {
@@ -934,6 +934,21 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect.anything(),
       { rejectIfNegativeFixedCommit: true },
     );
+  });
+
+  it("rejects follow-up while another chat holds account admission, before paid work", async () => {
+    expect(await acquireUserGenerationLock("user_1")).toMatchObject({ status: "acquired" });
+    const response = await POST(new Request("https://example.com/api/engine/chats/chat_1/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Gör en tydlig redesign av hela sajten" }),
+    }), { params: Promise.resolve({ chatId: "chat_1" }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: "generation_in_progress" });
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+    expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
   // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag

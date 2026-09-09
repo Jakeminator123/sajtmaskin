@@ -1,3 +1,4 @@
+import { trackGenerationWork } from "./generation-work";
 import {
   createBuilderStreamEvent,
   type BuilderStreamEvent,
@@ -294,6 +295,7 @@ export function createCodeGenSSEStream(
 
   return new ReadableStream({
     async start(controller) {
+      return trackGenerationWork(async () => {
       const streamStartedAt = Date.now();
       /**
        * Per-anrops-förbrukning för codegen. `done`-eventet driver fortfarande
@@ -870,6 +872,7 @@ export function createCodeGenSSEStream(
           // already closed
         }
       }
+      });
     },
     cancel() {
       options.abortController?.abort();

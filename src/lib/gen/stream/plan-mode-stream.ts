@@ -1,3 +1,4 @@
+import { trackGenerationWork } from "./generation-work";
 import {
   createBuilderStreamEvent,
   type BuilderMetaPayload,
@@ -89,6 +90,7 @@ export function createPlanModeStream(params: {
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
+      return trackGenerationWork(async () => {
       const encoder = new TextEncoder();
       pipelineReader = pipelineStream.getReader();
       const reader = pipelineReader;
@@ -280,6 +282,7 @@ export function createPlanModeStream(params: {
           // already closed
         }
       }
+      });
     },
 
     cancel(reason) {

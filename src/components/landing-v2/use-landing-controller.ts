@@ -8,7 +8,6 @@ import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
 import {
   use3DTilt,
-  useHonestCounter,
   usePrefersReducedMotion,
   useRotatingText,
   useSaveData,
@@ -43,16 +42,6 @@ export function useLandingController({
   const [inputValue, setInputValue] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const websitesCounter = useHonestCounter(
-    2480,
-    41,
-    "41 sajter live just nu. Varje ny version ger oss bättre signaler om vad som faktiskt konverterar.",
-  )
-  const usersCounter = useHonestCounter(
-    850,
-    28,
-    "28 företagare kör redan skarpt. Nästa våg handlar om fler bokningar, fler leads och bättre uppföljning.",
-  )
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
 
@@ -195,8 +184,6 @@ export function useLandingController({
     inputValue,
     setInputValue,
     isSubmitting,
-    websitesCounter,
-    usersCounter,
     rotatingType,
     headlineTilt,
     preloadHowItWorksScene,

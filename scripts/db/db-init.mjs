@@ -808,14 +808,12 @@ async function run() {
     for (const q of setupQueries) await pool.query(q);
     for (const q of schemaQueries) await pool.query(q);
     for (const q of cascadeQueries) await pool.query(q);
-    await applySqlMigrations();
-    await pool.query(updatedAtFunction);
-    for (const q of updatedAtTriggers) await pool.query(q);
 
-    // Vanilla postgres:16 (CI) has no Supabase `service_role`. CREATE POLICY
-    // … TO postgres, service_role needs the role to exist. NOLOGIN: emulate
-    // the name for policy grants; do not grant login. Testers keep connecting
-    // as `postgres`. Idempotent — a no-op on Supabase where the role exists.
+    // Vanilla postgres:16 (CI) has no Supabase `service_role`. Create the
+    // compatibility role before migrations so security migrations can retain
+    // its table grants and RLS policy in the same step that revokes client
+    // access. NOLOGIN only emulates Supabase's role name; tests connect as
+    // `postgres` and SET ROLE explicitly. No-op on Supabase.
     await pool.query(`
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
@@ -823,6 +821,10 @@ async function run() {
         END IF;
       END $$;
     `);
+
+    await applySqlMigrations();
+    await pool.query(updatedAtFunction);
+    for (const q of updatedAtTriggers) await pool.query(q);
 
     const rlsQueries = buildRlsQueries();
     for (const q of rlsQueries) {

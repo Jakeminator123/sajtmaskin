@@ -10,7 +10,7 @@ policy och promotion; preview-hosten konsumerar ett bestämt filsnapshot.
 | --- | --- |
 | Projekt, chat och persisterade versioner | Sessioner, workspace och runtimeprocess |
 | BuildSpec och F2/F3-policy | Start, update, hibernate, destroy och cleanup |
-| RenderGate-/ReleaseGate-beslut | Isolerade verify-resultat och runtime-status |
+| RenderGate-/ReleaseGate-beslut | Verify-resultat i separat workspace och runtime-status |
 | `files_json` som versionsartefakt | Materialisering av exakt mottaget filsnapshot |
 
 `chatId` är preview-lanens runtime-/pathnyckel. `projectId` accepteras endast som
@@ -66,6 +66,9 @@ npm run smoke
 
 Starta därefter tjänsten med `npm start` och verifiera `GET /health`.
 
+`npm run test:release` kontrollerar byggmetadata, den riktiga health-routen och
+deployens Git-snapshot utan att kontakta Fly.
+
 ## Primära endpoints
 
 - `POST /preview/session/start`
@@ -109,10 +112,71 @@ fly status -a vm-fly-jakem
 curl.exe -s https://vm-fly-jakem.fly.dev/health
 ```
 
+Deploykommandot hittar `fly` eller `flyctl` på PATH, hämtar full Git-SHA och
+bygger från ett tillfälligt snapshot av den commitens hostfiler. Ändrade eller
+nya build-inputfiler måste först committas; orelaterade lokala filer och
+`node_modules` skickas inte. `npm --prefix preview-host run deploy -- --dry-run`
+kontrollerar samma snapshot lokalt utan Fly-anrop. Docker använder `npm ci`
+med hostens lockfil. Basbilden är fortfarande en rörlig Node-tag: samma
+käll-SHA är inte ett löfte om identisk image-digest.
+
+Wrappern skickar `PREVIEW_HOST_BUILD_SHA` som Docker build-arg. En direkt
+Docker/Fly-build utan full SHA misslyckas; en manuellt angiven SHA är byggarens
+uppgift, inte en oberoende attestering. Imagen innehåller `build-release.json`
+och OCI-labeln `org.opencontainers.image.revision`. Health läser bara den
+inbakade filen, aldrig huvudappens SHA eller runtime-env:
+
+```json
+{"release":{"sourceSha":"<40 tecken Git-SHA>","status":"identified"}}
+```
+
+Lokal start eller saknad/ogiltig metadata ger `sourceSha: null` och
+`status: "unknown"`; `ok: true` betyder endast att hostens health-rout svarar.
+Efter en godkänd deploy: jämför `release.sourceSha` med den avsedda commitens
+`git rev-parse HEAD`, kontrollera att alla aktiva Fly-maskiner kör samma image
+och spara release-/image-id från Fly tillsammans med health-svaret.
+En saknad SHA, mismatch eller blandade maskinversioner är ofullständigt
+releasebevis. SHA-fältet bevisar varken funktion, säkerhet eller tenantisolering.
+
 Icke-interaktivt (CI/agent) ersätts inloggningen av `FLY_API_TOKEN` i miljön.
 Deployen är en rolling update av en maskin: pågående dev-runtimes stoppas och
 återskapas vid nästa anrop från `/data`-storen, så kör den när inga
 genereringar pågår.
+
+### Öppen lanseringsblocker: projektisolering
+
+Nuvarande host är **inte en sandbox mellan projekt**. `spawnNpm` och
+`runCommand` startar install-, verify- och dev-processer på samma host med
+separata `cwd`-mappar men samma OS-identitet, filsystem och loopbacknät.
+En lokal kontroll med två syntetiska projekt och en sentinel-fil bekräftade
+att A kunde läsa B:s fil. Env-filtrering, processgrupper, filvalidering och
+en eventuell gemensam non-root-användare skapar ingen tenantgräns.
+Oberoende projekt med obetrodd kod får därför inte betraktas som isolerade
+på den delade hosten. Full isolering är fortsatt en öppen P1 före sådan launch.
+
+En försvarbar lösning kräver en separat VM eller en granskad container-sandbox
+per projekt/livscykel, inklusive install och verify. Gästens skrivbara mount
+ska bara innehålla dess eget workspace; andra projekt, hostens store,
+kontrollplansnycklar, container-socket och muterbara delade paketcache får inte
+vara tillgängliga. Nätpolicy måste skilja gäster från varandra och från
+kontrollplanets loopback-/privata endpoints. Resursgränser och destroy måste
+ägas av kontrollplanet utanför gästen. Detta kräver arkitekturval, infrastruktur
+och verifierad driftsättning; det ryms inte i en env- eller Docker-USER-fix.
+
+Acceptans i en disponibel testmiljö, endast med syntetiska data:
+
+1. Starta A och B samtidigt genom den riktiga install-, verify- och dev-vägen.
+   Skapa olika slumpade sentinel-filer i båda projekten och i hostens teststore.
+2. Från A: försök läsa/skriva B och hoststore via absoluta/relativa sökvägar,
+   symlänkar och `/proc`-processvägar. Alla försök ska nekas; B ska vara oförändrat.
+3. Från A: försök nå B:s runtime och kontrollplanet direkt via loopback/privat
+   nät, läsa en syntetisk hosthemlighet och signalera B:s process. Alla försök
+   ska nekas. Godkänd preview-proxy och paketinstallation ska fortfarande fungera.
+4. Kontrollera att timeout, resursöverlast, restart, hibernate och destroy för A
+   varken stoppar B eller lämnar A:s processer/mounts åt nästa tenant.
+5. Kör på den avsedda plattformen och spara käll-SHA, image-id, policykonfiguration
+   och faktiska nekanden. Gröna lokala tester på den delade hosten kan inte
+   godkänna en ännu odriftsatt sandboxarkitektur.
 
 Hemligheter och miljöklassificering dokumenteras i
 [`../docs/ENV.md`](../docs/ENV.md). Runtimeflödet finns i

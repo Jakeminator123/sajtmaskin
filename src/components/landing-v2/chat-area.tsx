@@ -38,8 +38,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
     inputValue,
     setInputValue,
     isSubmitting,
-    websitesCounter,
-    usersCounter,
     rotatingType,
     headlineTilt,
     preloadHowItWorksScene,
@@ -155,36 +153,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
             <HowItWorksLazy steps={landingJourneySteps} />
           </div>
-        </section>
-
-        {/* ━━━ HONEST COUNTER STRIP ━━━ */}
-        <section className="px-6 py-14 border-t border-b border-border/15 bg-secondary/20">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-10 md:gap-20">
-            {[websitesCounter, usersCounter].map((counter, idx) => (
-              <div key={idx} className="flex flex-col items-center">
-                {idx > 0 && <div className="hidden md:block absolute w-px h-12 bg-border/30" style={{ marginLeft: "-5rem" }} />}
-                <div className="text-center" ref={counter.ref}>
-                  <p className="text-3xl md:text-4xl font-(--font-heading) text-primary transition-all duration-300">
-                    {/* Inget "+"-suffix: räknaren går direkt till det ärliga värdet. */}
-                    <span>{counter.count.toLocaleString("sv-SE")}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {idx === 0 ? "Webbplatser skapade" : "Aktiva f\u00f6retagare"}
-                  </p>
-                  {counter.phase === "honest" && (
-                    <p className="text-xs mt-2.5 max-w-[280px] leading-relaxed animate-fade-up text-muted-foreground italic">
-                      {counter.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {websitesCounter.phase === "honest" && (
-            <p className="text-center text-xs text-muted-foreground/50 mt-6 animate-fade-up" style={{ animationDelay: "0.3s" }}>
-              Vi v&auml;xer med riktiga f&ouml;retag i ryggen &mdash; varje sajt &auml;r byggd f&ouml;r att driva aff&auml;rer, inte bara finnas.
-            </p>
-          )}
         </section>
 
         {/* ━━━ INTEGRATIONS SHOWCASE ━━━ */}

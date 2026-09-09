@@ -2,6 +2,8 @@
 
 const { URL } = require("node:url");
 const { randomUUID } = require("node:crypto");
+const { readReleaseIdentity } = require("../release.js");
+const releaseIdentity = readReleaseIdentity();
 const {
   readStoreSync,
   withStoreLock,
@@ -91,6 +93,7 @@ async function routeRequest(req, res) {
     return json(res, 200, {
       ok: true,
       service: "preview-host",
+      release: releaseIdentity,
       ts: nowIso(),
       sessions: Object.keys(data.sessions).length,
     });
