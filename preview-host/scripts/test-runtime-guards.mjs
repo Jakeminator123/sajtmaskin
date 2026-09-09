@@ -2180,9 +2180,9 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
 }
 
 // Hot patch leaves the Next process alive, so the restart-path reload never
-// runs. Confirmation is a document that loaded after the workspace write —
-// not a handshake-complete socket (stubs when HMR proxy is off, and
-// half-open/zombie sockets, used to be ACK'd as "live HMR").
+// runs. Confirmation is an HTML document served after the workspace write
+// (`servedAt` per documentId), not a handshake-complete or recently
+// reconnected HMR socket.
 {
   const {
     probeReadinessAfterPatch,
@@ -2270,6 +2270,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   const DOC_FRESH = "smd_22222222-2222-4222-8222-222222222222";
   const DOC_STUB = "smd_33333333-3333-4333-8333-333333333333";
   const DOC_RELOADED = "smd_44444444-4444-4444-8444-444444444444";
+  const DOC_RECONNECT = "smd_55555555-5555-4555-8555-555555555555";
 
   function restoreHmrProxyEnv() {
     if (previousHmrProxy === undefined) delete process.env.SAJTMASKIN_PREVIEW_HMR_PROXY;
@@ -2294,6 +2295,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     handshakeComplete: true,
     viewerId: "viewer-live-hmr",
     documentId: DOC_PREWRITE,
+    servedAt: 1_000,
     registeredAt: 1_000,
     stub: false,
   });
@@ -2326,7 +2328,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   clearRuntimeStateForTesting(liveHmrChat, liveHmrSession.sessionId);
   clearPendingPreviewClientReload(liveHmrChat);
 
-  // (ii) Socket registered after the write (document loaded the patched files) → ACK, no reload.
+  // (ii)/(b) Document served after the write → ACK, no reload.
   const freshChat = "guard-hot-patch-postwrite-fresh";
   const freshSession = seedHotPatchSession(freshChat, "v3");
   setRuntimeStateForTesting({
@@ -2345,16 +2347,17 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     handshakeComplete: true,
     viewerId: "viewer-postwrite-fresh",
     documentId: DOC_FRESH,
+    servedAt: 2_000,
     registeredAt: 2_000,
     stub: false,
   });
   await runSuccessfulProbe(freshChat, freshSession);
   check(
-    "post-write document is not document-reloaded after hot patch",
+    "document served after the write is not document-reloaded after hot patch",
     freshSocket.writes.length === 0 && !wroteReloadPage(freshSocket),
   );
   check(
-    "post-write document is ACKed as already fresh",
+    "document served after the write is ACKed as already fresh",
     !hasPendingPreviewClientReload(freshChat, "viewer-postwrite-fresh", DOC_FRESH),
   );
   check(
@@ -2382,6 +2385,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     handshakeComplete: true,
     viewerId: "viewer-stub",
     documentId: DOC_STUB,
+    servedAt: 1_000,
     registeredAt: 1_000,
   });
   markHotPatchWritten(stubChat, 2_000);
@@ -2393,6 +2397,66 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   clearRuntimeStateForTesting(stubChat, stubSession.sessionId);
   clearPendingPreviewClientReload(stubChat);
   restoreHmrProxyEnv();
+
+  // (a) Old document (servedAt < T0) whose HMR socket reconnects between
+  // write and readiness must not be treated as fresh.
+  const reconnectChat = "guard-hot-patch-stale-doc-reconnect";
+  const reconnectSession = seedHotPatchSession(reconnectChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: reconnectChat,
+    sessionId: reconnectSession.sessionId,
+    previewSessionId: reconnectSession.previewSessionId,
+    lifecycleToken: reconnectSession.lifecycleToken,
+    mutationRevision: reconnectSession.mutationRevision,
+    runtimePort: 4317,
+    running: true,
+  });
+  process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
+  markHotPatchWritten(reconnectChat, 1_000);
+  const reconnectSocket = fakePreviewSocket();
+  registerPreviewSocket(reconnectChat, reconnectSocket, {
+    handshakeComplete: true,
+    viewerId: "viewer-stale-reconnect",
+    documentId: DOC_RECONNECT,
+    servedAt: 500,
+    registeredAt: 1_500,
+    stub: false,
+  });
+  await runSuccessfulProbe(reconnectChat, reconnectSession);
+  check(
+    "pre-write document whose HMR socket reconnects after the write still receives reloadPage",
+    wroteReloadPage(reconnectSocket),
+  );
+  clearRuntimeStateForTesting(reconnectChat, reconnectSession.sessionId);
+  clearPendingPreviewClientReload(reconnectChat);
+  restoreHmrProxyEnv();
+
+  // (c) Socket without a document id is never ACK'd as fresh.
+  const noDocChat = "guard-hot-patch-no-document-id";
+  const noDocSession = seedHotPatchSession(noDocChat, "v3");
+  setRuntimeStateForTesting({
+    chatId: noDocChat,
+    sessionId: noDocSession.sessionId,
+    previewSessionId: noDocSession.previewSessionId,
+    lifecycleToken: noDocSession.lifecycleToken,
+    mutationRevision: noDocSession.mutationRevision,
+    runtimePort: 4318,
+    running: true,
+  });
+  markHotPatchWritten(noDocChat, 1_000);
+  const noDocSocket = fakePreviewSocket();
+  registerPreviewSocket(noDocChat, noDocSocket, {
+    handshakeComplete: true,
+    viewerId: "viewer-no-document",
+    registeredAt: 2_000,
+  });
+  await runSuccessfulProbe(noDocChat, noDocSession);
+  check(
+    "socket without a document id is not ACK'd as fresh and receives reloadPage",
+    wroteReloadPage(noDocSocket),
+  );
+  clearRuntimeStateForTesting(noDocChat, noDocSession.sessionId);
+  clearPendingPreviewClientReload(noDocChat);
 
   // (iv) Late reconnect with no socket at signal time → reloadPage as before.
   const deadHmrChat = "guard-hot-patch-no-hmr";
@@ -2443,6 +2507,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     handshakeComplete: true,
     viewerId: "viewer-reloaded-first",
     documentId: DOC_RELOADED,
+    servedAt: 1_000,
     registeredAt: 1_000,
   });
   markHotPatchWritten(reloadedChat, 2_000);

@@ -17,6 +17,7 @@ const {
   getSessionChatId,
   hasPendingPreviewClientReload,
   isHmrProxyEnabled,
+  markPreviewDocumentServed,
   markPreviewSocketHandshakeComplete,
   registerPreviewSocket,
   requestPreviewClientReload,
@@ -110,15 +111,18 @@ script.remove();
 
 function createPendingPreviewDocument(chatId, sessionId) {
   const documentId = `smd_${randomUUID()}`;
+  const servedAt = Date.now();
   pendingPreviewDocuments.set(documentId, {
     chatId,
     sessionId,
+    servedAt,
     reloadToken: getPendingPreviewClientReloadToken(chatId),
     provisionalViewerId: null,
     viewerId: null,
     downstreamFinished: false,
     timeoutId: null,
   });
+  markPreviewDocumentServed(chatId, documentId, servedAt);
   return documentId;
 }
 

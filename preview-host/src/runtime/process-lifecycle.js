@@ -15,6 +15,7 @@ const {
   activePreviewSocketCount,
   activeVerifyChatKeys,
   clearHotPatchWritten,
+  clearPreviewDocumentServedAt,
   markHotPatchWritten,
   markPendingPreviewClientReload,
   requestPreviewClientReload,
@@ -243,8 +244,8 @@ async function probeReadinessAfterPatch({
         `Readiness confirmed after hot patch (version ${versionId}).`,
       );
       // Same pending-reload generation as a runtime swap. Only documents
-      // registered after the workspace write are ACKed as already fresh;
-      // pre-write sockets (live, stub, or zombie) get reloadPage.
+      // served after the workspace write are ACKed as already fresh;
+      // pre-write / unknown documents (live, stub, or zombie) get reloadPage.
       const signaled = signalPreviewClientReloadAfterHotPatch(chatId);
       await appendRuntimeLog(
         previewSessionId,
@@ -1489,6 +1490,7 @@ function clearRuntimeStateForTesting(chatId, sessionId) {
   bootChainByChat.delete(chatId);
   queuedRestartBootByChat.delete(chatId);
   clearHotPatchWritten(chatId);
+  clearPreviewDocumentServedAt(chatId);
 }
 
 function setBootRunnerForTesting(runner) {
