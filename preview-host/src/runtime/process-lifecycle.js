@@ -14,8 +14,12 @@ const {
   LOOPBACK,
   activePreviewSocketCount,
   activeVerifyChatKeys,
+  clearHotPatchWritten,
+  clearPreviewDocumentServedAt,
+  markHotPatchWritten,
   markPendingPreviewClientReload,
   requestPreviewClientReload,
+  signalPreviewClientReloadAfterHotPatch,
   appendRuntimeLog,
   findSessionByChatId,
   getSessionChatId,
@@ -338,6 +342,18 @@ async function probeReadinessAfterPatch({
         previewSessionId,
         `Readiness confirmed after hot patch (version ${versionId}).`,
       );
+      // Same pending-reload generation as a runtime swap. Only documents
+      // served after the workspace write are ACKed as already fresh;
+      // pre-write / unknown documents (live, stub, or zombie) get reloadPage.
+      const signaled = signalPreviewClientReloadAfterHotPatch(chatId);
+      await appendRuntimeLog(
+        previewSessionId,
+        signaled.sent > 0
+          ? `Signaled preview client reload after hot patch (${signaled.sent} open socket(s)).`
+          : signaled.freshCount > 0
+            ? `Hot patch ready; post-write document(s) already fresh (${signaled.freshCount}).`
+            : "Hot patch ready; reload pending until HMR reconnects.",
+      );
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown readiness failure";
@@ -428,6 +444,7 @@ function applyRuntimePatch(
   }
   try {
     patchWorkspaceFiles(chatId, changed, removed);
+    markHotPatchWritten(chatId);
   } catch (error) {
     // Surface the failure so the patch route can roll the session back (the
     // dev process is still serving the pre-patch files). ENOSPC messages flow
@@ -1634,6 +1651,8 @@ function clearRuntimeStateForTesting(chatId, sessionId) {
   inflightBootByChat.delete(chatId);
   bootChainByChat.delete(chatId);
   queuedRestartBootByChat.delete(chatId);
+  clearHotPatchWritten(chatId);
+  clearPreviewDocumentServedAt(chatId);
 }
 
 function setBootRunnerForTesting(runner) {

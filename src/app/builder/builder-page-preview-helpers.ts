@@ -157,3 +157,51 @@ export function shouldRetainLiveTier2DuringAsyncPersist(params: {
   if (nextDemoUrl === currentPreviewUrl) return false;
   return isTier2LivePreviewUrl(currentPreviewUrl);
 }
+
+/** `versionId:url` key used by the preview handoff latch and the applied-key set. */
+export function previewHandoffKey(
+  versionId: string | null | undefined,
+  url: string | null | undefined,
+): string | null {
+  const id =
+    typeof versionId === "string" && versionId.trim() ? versionId.trim() : "";
+  const normalized = normalizePreviewUrl(url);
+  if (!id || !normalized) return null;
+  return `${id}:${normalized}`;
+}
+
+export function rememberAppliedPreviewHandoffKey(
+  appliedKeys: Set<string> | null | undefined,
+  key: string | null | undefined,
+): void {
+  if (!appliedKeys || !key) return;
+  appliedKeys.add(key);
+}
+
+/**
+ * Same stable VM URL after the session advanced to a new version (Fast Edit
+ * Lane hot patch). Version-sync only handoffs when the URL *changes*, so a
+ * reused previewUrl never reloads the iframe and waits for HMR.
+ *
+ * Compare against the *set* of already applied `versionId:url` keys for this
+ * chat — not only the latest latch. Follow-up-done flickers
+ * `activeVersionId` v3→v2→v3 (~1s while `/versions` catches up). A latest-key
+ * compare would bump twice; the set noops both steps when SSE already applied
+ * v3 and v2's own preview-ready applied v2. A genuinely new pair still bumps
+ * once. Empty set = first paint: do not invent a bump.
+ */
+export function shouldHandoffUnchangedPreviewUrlOnVersionAdvance(params: {
+  nextDemoUrl: string | null;
+  currentPreviewUrl: string | null;
+  versionId: string | null;
+  appliedKeys: ReadonlySet<string>;
+}): boolean {
+  const next = normalizePreviewUrl(params.nextDemoUrl);
+  const current = normalizePreviewUrl(params.currentPreviewUrl);
+  const key = previewHandoffKey(params.versionId, next);
+  if (!next || !current || !key) return false;
+  if (next !== current) return false;
+  if (!isTier2LivePreviewUrl(next)) return false;
+  if (params.appliedKeys.size === 0) return false;
+  return !params.appliedKeys.has(key);
+}

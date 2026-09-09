@@ -97,6 +97,7 @@ export function useBuilderPageController() {
     applyPreviewHandoff,
     currentPreviewUrlRef,
     lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
   } = usePreviewHandoff({
     currentPreviewUrl,
     setCurrentPreviewUrl,
@@ -436,6 +437,7 @@ export function useBuilderPageController() {
     setCurrentPreviewUrl(null);
     currentPreviewUrlRef.current = null;
     lastPreviewHandoffKeyRef.current = null;
+    appliedPreviewHandoffKeysRef.current.clear();
     setPreviewRefreshToken(0);
     resetPreviewForNewChat();
   }, [
@@ -444,6 +446,7 @@ export function useBuilderPageController() {
     resetPreviewForNewChat,
     currentPreviewUrlRef,
     lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
   ]);
 
   // ── Chat messaging ───────────────────────────────────────────────────
@@ -550,6 +553,8 @@ export function useBuilderPageController() {
     sendMessage,
     effectiveVersionsList: derived.effectiveVersionsList,
     bumpPreviewRefreshToken,
+    lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setSelectedVersionId: state.setSelectedVersionId,
     setIsVersionPanelCollapsed: state.setIsVersionPanelCollapsed,
@@ -746,6 +751,7 @@ export function useBuilderPageController() {
     serverProjectPreviewOverrideUrl,
     serverProjectPreviewOverrideVersionId,
     applyPreviewHandoff,
+    appliedPreviewHandoffKeysRef,
     setClearedPreviewVersionId,
     setCurrentPreviewUrl,
     setPreviewPending,

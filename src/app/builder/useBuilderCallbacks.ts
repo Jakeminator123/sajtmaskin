@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
@@ -9,6 +9,10 @@ import {
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
 import type { MessageOptions, SendMessageOutcome } from "@/lib/hooks/chat/types";
+import {
+  previewHandoffKey,
+  rememberAppliedPreviewHandoffKey,
+} from "./builder-page-preview-helpers";
 
 export type VersionLike = {
   versionId?: string | null;
@@ -54,6 +58,8 @@ type UseBuilderCallbacksArgs = {
   ) => Promise<SendMessageOutcome>;
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
+  lastPreviewHandoffKeyRef?: MutableRefObject<string | null>;
+  appliedPreviewHandoffKeysRef?: MutableRefObject<Set<string>>;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsVersionPanelCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -65,6 +71,8 @@ export function useBuilderCallbacks({
   sendMessage,
   effectiveVersionsList,
   bumpPreviewRefreshToken,
+  lastPreviewHandoffKeyRef,
+  appliedPreviewHandoffKeysRef,
   setCurrentPreviewUrl,
   setSelectedVersionId,
   setIsVersionPanelCollapsed,
@@ -126,6 +134,11 @@ export function useBuilderCallbacks({
         if (next) {
           setCurrentPreviewUrl(next);
           bumpPreviewRefreshToken();
+          const key = previewHandoffKey(versionId, next);
+          if (lastPreviewHandoffKeyRef && key) {
+            lastPreviewHandoffKeyRef.current = key;
+          }
+          rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
           return;
         }
         setCurrentPreviewUrl(null);
@@ -137,6 +150,11 @@ export function useBuilderCallbacks({
       if (explicit) {
         setCurrentPreviewUrl(explicit);
         bumpPreviewRefreshToken();
+        const key = previewHandoffKey(versionId, explicit);
+        if (lastPreviewHandoffKeyRef && key) {
+          lastPreviewHandoffKeyRef.current = key;
+        }
+        rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
         return;
       }
       const legacy = normalizePreviewUrl(
@@ -148,9 +166,21 @@ export function useBuilderCallbacks({
       if (legacy) {
         setCurrentPreviewUrl(legacy);
         bumpPreviewRefreshToken();
+        const key = previewHandoffKey(versionId, legacy);
+        if (lastPreviewHandoffKeyRef && key) {
+          lastPreviewHandoffKeyRef.current = key;
+        }
+        rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef?.current, key);
       }
     },
-    [effectiveVersionsList, bumpPreviewRefreshToken, setCurrentPreviewUrl, setSelectedVersionId],
+    [
+      effectiveVersionsList,
+      bumpPreviewRefreshToken,
+      lastPreviewHandoffKeyRef,
+      appliedPreviewHandoffKeysRef,
+      setCurrentPreviewUrl,
+      setSelectedVersionId,
+    ],
   );
 
   const handleToggleVersionPanel = useCallback(() => {

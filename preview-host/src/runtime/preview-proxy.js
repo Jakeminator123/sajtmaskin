@@ -17,6 +17,7 @@ const {
   getSessionChatId,
   hasPendingPreviewClientReload,
   isHmrProxyEnabled,
+  markPreviewDocumentServed,
   markPreviewSocketHandshakeComplete,
   registerPreviewSocket,
   requestPreviewClientReload,
@@ -110,15 +111,18 @@ script.remove();
 
 function createPendingPreviewDocument(chatId, sessionId) {
   const documentId = `smd_${randomUUID()}`;
+  const servedAt = Date.now();
   pendingPreviewDocuments.set(documentId, {
     chatId,
     sessionId,
+    servedAt,
     reloadToken: getPendingPreviewClientReloadToken(chatId),
     provisionalViewerId: null,
     viewerId: null,
     downstreamFinished: false,
     timeoutId: null,
   });
+  markPreviewDocumentServed(chatId, documentId, servedAt);
   return documentId;
 }
 
@@ -943,6 +947,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
         candidateGenerationToken: candidateStillPending
           ? candidateGenerationToken
           : null,
@@ -978,6 +983,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
         registerPreviewSocket(info.chatId, socket, {
           handshakeComplete: true,
           viewerId: previewViewerId,
+          documentId: hmrIdentity?.documentId ?? null,
         });
         return true;
       }
@@ -996,6 +1002,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
         registerPreviewSocket(info.chatId, socket, {
           handshakeComplete: true,
           viewerId: previewViewerId,
+          documentId: hmrIdentity?.documentId ?? null,
         });
         return true;
       }
@@ -1028,6 +1035,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
       });
       return true;
     }
@@ -1043,6 +1051,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       registerPreviewSocket(info.chatId, socket, {
         handshakeComplete: true,
         viewerId: previewViewerId,
+        documentId: hmrIdentity?.documentId ?? null,
       });
       return true;
     }
@@ -1053,6 +1062,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
   registerPreviewSocket(info.chatId, socket, {
     viewerId: previewViewerId,
+    documentId: hmrIdentity?.documentId ?? null,
     candidateGenerationToken,
     candidateDocumentId,
   });
