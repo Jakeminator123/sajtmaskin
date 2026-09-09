@@ -252,6 +252,11 @@ async function routeRequest(req, res) {
         runtimeState.running &&
         session.prewarm !== true &&
         session.prewarmReplacementPending !== true,
+      // In-memory boot chain (`inflightBootByChat`), not persisted `status`.
+      // The app only hot-patches a same-version rewrite when this is true;
+      // a dead runtime (`running=false`, `booting=false`) must take `/update`
+      // so the boot-failure budget is reset.
+      booting: runtimeState.booting === true,
       hashAlgorithm: "sha256",
       fileCount: Object.keys(files).length,
       files,

@@ -137,6 +137,10 @@ module.exports = {
     setBootRunnerForTesting: processLifecycle.setBootRunnerForTesting,
     setBeforeIdleLifecycleCheckForTesting:
       processLifecycle.setBeforeIdleLifecycleCheckForTesting,
+    setAfterRuntimeStopBeforeSpawnForTesting:
+      processLifecycle.setAfterRuntimeStopBeforeSpawnForTesting,
+    setSpawnDevServerChildForTesting: processLifecycle.setSpawnDevServerChildForTesting,
+    getTrackedRuntimeReceiptForTesting: processLifecycle.getTrackedRuntimeReceiptForTesting,
     setVerifyRunnersForTesting: verifyJobs.setVerifyRunnersForTesting,
     setBootInstallRunnersForTesting: packageInstall.setBootInstallRunnersForTesting,
   },

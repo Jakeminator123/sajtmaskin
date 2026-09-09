@@ -411,9 +411,126 @@ try {
     assert.equal(readFileSync(lockPath, "utf8"), "{\"name\":\"npm-regenerated\"}\n");
   }
 
+  // 7) Patch between stop and spawn: spawnDevServer must return the adopted
+  //    session so runBoot's waitForReady stamps ready for that revision.
+  //    boot_in_flight skips the patch probe — without this return,
+  //    preview_success stays pending.
+  {
+    const { EventEmitter } = await import("node:events");
+    const { createServer: createHttpServer } = await import("node:http");
+    const { once } = await import("node:events");
+    const bootSnapshot = seedSession({
+      "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+      "app/page.tsx": PAGE_V1,
+    });
+    runtime.__testing.setBootInstallRunnersForTesting({
+      installRunner: async () => ({
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "test install",
+        usedFallback: false,
+        peerConflictDetected: false,
+      }),
+    });
+
+    let readyServer = null;
+    runtime.__testing.setAfterRuntimeStopBeforeSpawnForTesting(() => {
+      const patched = store.readStoreSync();
+      patched.sessions[sessionId].mutationRevision = 2;
+      patched.sessions[sessionId].lastAction = "patch";
+      patched.sessions[sessionId].filesJson = {
+        ...patched.sessions[sessionId].filesJson,
+        "app/page.tsx": PAGE_V2,
+      };
+      store.writeStoreAtomicSync(patched);
+    });
+    runtime.__testing.setSpawnDevServerChildForTesting(async ({ runtimePort }) => {
+      readyServer = createHttpServer((_req, res) => {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(
+          "<!doctype html><html><body><main>adopted same-version preview is ready for clients now</main></body></html>",
+        );
+      });
+      readyServer.listen(runtimePort, "127.0.0.1");
+      await once(readyServer, "listening");
+      const child = runtime.__testing.createFakeRuntimeChildForTesting();
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      return child;
+    });
+
+    try {
+      await runtime.__testing.bootRuntimeForSession(bootSnapshot);
+      let readySession = null;
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        readySession = store.readStoreSync().sessions[sessionId];
+        if (readySession?.readinessState === "ready") break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.equal(
+        readySession?.readinessState,
+        "ready",
+        "boot must stamp ready for the session adopted between stop and spawn",
+      );
+      assert.equal(readySession?.mutationRevision, 2);
+      assert.equal(readySession?.readinessError, null);
+      assert.equal(readySession?.versionId, versionId);
+
+      const tracked = runtime.__testing.getTrackedRuntimeReceiptForTesting(sessionId);
+      assert.equal(
+        tracked?.mutationRevision,
+        2,
+        "tracked receipt must match the adopted patch revision",
+      );
+      assert.equal(tracked?.versionId, versionId);
+
+      const { createServer } = require("../src/server/create-server.js");
+      const host = createServer();
+      host.listen(0, "127.0.0.1");
+      await once(host, "listening");
+      const address = host.address();
+      assert.ok(address && typeof address !== "string");
+      try {
+        const status = await fetch(
+          `http://127.0.0.1:${address.port}/preview/session/${encodeURIComponent(previewSessionId)}/status`,
+        );
+        const body = await status.json();
+        assert.equal(status.status, 200, body.message ?? "status should succeed");
+        assert.equal(body.readinessState, "ready");
+        assert.equal(
+          body.httpReady,
+          true,
+          "status/heartbeat receipt must be green (preview_success) for the adopted revision",
+        );
+        assert.equal(body.mutationRevision, 2);
+        assert.equal(body.versionId, versionId);
+        assert.equal(body.running, true);
+      } finally {
+        await new Promise((resolve) => {
+          host.close(() => resolve());
+          host.closeAllConnections?.();
+        });
+      }
+    } finally {
+      runtime.__testing.setAfterRuntimeStopBeforeSpawnForTesting(null);
+      runtime.__testing.setSpawnDevServerChildForTesting(null);
+      runtime.__testing.setBootInstallRunnersForTesting();
+      runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+      if (readyServer) {
+        await new Promise((resolve) => {
+          readyServer.close(() => resolve());
+          readyServer.closeAllConnections?.();
+        });
+      }
+    }
+  }
+
   console.log("[test-patch-during-boot] All guards green.");
 } finally {
   runtime.__testing.setBootRunnerForTesting(null);
+  runtime.__testing.setAfterRuntimeStopBeforeSpawnForTesting(null);
+  runtime.__testing.setSpawnDevServerChildForTesting(null);
   runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
   rmSync(dataDir, { recursive: true, force: true });
 }

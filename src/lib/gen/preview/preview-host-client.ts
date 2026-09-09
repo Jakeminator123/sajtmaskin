@@ -448,6 +448,13 @@ export type PreviewHostFilesManifest = {
   versionId: string | null;
   /** Public running state — same prewarm-aware rule as `/status`. */
   running: boolean;
+  /**
+   * In-memory boot in flight (`inflightBootByChat`). Older hosts omit this;
+   * missing/`false` must not be treated as "booting" — the patch lane then
+   * falls back to `/update` so a dead runtime still resets the boot-failure
+   * budget.
+   */
+  booting?: boolean;
   /** `path -> sha256 hex of the stored content`. */
   files: Record<string, string>;
 };
@@ -489,6 +496,7 @@ export async function fetchPreviewHostFilesManifest(
       previewSessionId: sid,
       versionId: nonEmptyString(body.versionId),
       running: body.running === true,
+      ...(typeof body.booting === "boolean" ? { booting: body.booting } : {}),
       files,
     };
   } catch {

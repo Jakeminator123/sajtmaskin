@@ -242,6 +242,10 @@ const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 let nextRuntimeBootId = 1;
 let beforeIdleLifecycleCheckForTesting = null;
+/** Fires after `stopTrackedRuntime` and before the spawn-time lifecycle adopt. */
+let afterRuntimeStopBeforeSpawnForTesting = null;
+/** Optional factory that replaces `spawnNpm` so guards can avoid a real Next child. */
+let spawnDevServerChildForTesting = null;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -860,39 +864,49 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   // stopTrackedRuntime flushes logs asynchronously. A destroy/new start may
   // win while that await is pending; fence immediately before spawning so the
   // old lifecycle cannot leak a dev server after its session was removed.
+  if (afterRuntimeStopBeforeSpawnForTesting) {
+    await afterRuntimeStopBeforeSpawnForTesting(session);
+  }
   // Adopt a same-version patch that landed during the stop so the tracked
   // receipt matches the store (mutationRevision) before the child starts.
+  // Return this snapshot so runBoot's waitForReady / readiness writes use it
+  // instead of the pre-stop session (strict sameSessionLifecycle would skip
+  // the ready stamp and leave preview_success pending).
   session = assertCurrentSessionLifecycle(session);
   clearStaleNextDevLock(workspaceDir);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
   const runId = runIdResolverFromSession(session);
-  const child = spawnNpm(
-    ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
-    {
-      cwd: workspaceDir,
-      stdio: ["ignore", "pipe", "pipe"],
-      // Required by stopChildProcessTree's negative-PID signaling on POSIX.
-      // Keep Windows attached so taskkill /t remains the tree owner there.
-      detached: process.platform !== "win32",
-      env: sanitizedEnv({
-        PORT: String(runtimePort),
-        HOSTNAME: LOOPBACK,
-        SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
-        // Default-on: tystar webpack-HMR-WS i preview-VM så Chrome-konsolen
-        // inte spammas med "WebSocket connection ... failed". Hot-reload
-        // tappas men sajten reload:as ändå vid varje generation. Sätt till
-        // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
-        // direkt). Fast Edit Lane Fas 4: när HMR-proxyn är på tvingar vi
-        // DISABLE_HMR=false så Next behåller HMR-pluginen och emitterar events
-        // som proxyn vidarebefordrar (true hot reload utan iframe-reload).
-        SAJTMASKIN_PREVIEW_DISABLE_HMR: isHmrProxyEnabled()
-          ? "false"
-          : (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true"),
-        ...(runId ? { SAJTMASKIN_PREVIEW_RUN_ID: runId } : {}),
-      }),
-    },
-  );
+  const child = spawnDevServerChildForTesting
+    ? await Promise.resolve(
+        spawnDevServerChildForTesting({ session, workspaceDir, runtimePort }),
+      )
+    : spawnNpm(
+        ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
+        {
+          cwd: workspaceDir,
+          stdio: ["ignore", "pipe", "pipe"],
+          // Required by stopChildProcessTree's negative-PID signaling on POSIX.
+          // Keep Windows attached so taskkill /t remains the tree owner there.
+          detached: process.platform !== "win32",
+          env: sanitizedEnv({
+            PORT: String(runtimePort),
+            HOSTNAME: LOOPBACK,
+            SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
+            // Default-on: tystar webpack-HMR-WS i preview-VM så Chrome-konsolen
+            // inte spammas med "WebSocket connection ... failed". Hot-reload
+            // tappas men sajten reload:as ändå vid varje generation. Sätt till
+            // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
+            // direkt). Fast Edit Lane Fas 4: när HMR-proxyn är på tvingar vi
+            // DISABLE_HMR=false så Next behåller HMR-pluginen och emitterar events
+            // som proxyn vidarebefordrar (true hot reload utan iframe-reload).
+            SAJTMASKIN_PREVIEW_DISABLE_HMR: isHmrProxyEnabled()
+              ? "false"
+              : (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true"),
+            ...(runId ? { SAJTMASKIN_PREVIEW_RUN_ID: runId } : {}),
+          }),
+        },
+      );
 
   const tracked = {
     child,
@@ -997,6 +1011,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     session.previewSessionId,
     `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
   );
+  return session;
 }
 
 async function bootRuntimeForSession(session, options = {}) {
@@ -1100,7 +1115,7 @@ async function bootRuntimeForSession(session, options = {}) {
         sessionBeforeAdopt,
         session,
       );
-      await spawnDevServer(session, workspaceDir, runtimePort);
+      session = await spawnDevServer(session, workspaceDir, runtimePort);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
@@ -1140,7 +1155,7 @@ async function bootRuntimeForSession(session, options = {}) {
         void readiness
           .then(() =>
             updateSessionById(session.sessionId, (stored) => {
-              if (!sameSessionLifecycle(stored, session)) return;
+              if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "ready";
@@ -1161,7 +1176,7 @@ async function bootRuntimeForSession(session, options = {}) {
             const tail = runtimeOutputTail(tracked);
             const withTail = tail ? `${message}\nLast Next.js output:\n${tail}` : message;
             return updateSessionById(session.sessionId, (stored) => {
-              if (!sameSessionLifecycle(stored, session)) return;
+              if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
@@ -1629,6 +1644,25 @@ function setBeforeIdleLifecycleCheckForTesting(hook) {
   beforeIdleLifecycleCheckForTesting = typeof hook === "function" ? hook : null;
 }
 
+function setAfterRuntimeStopBeforeSpawnForTesting(hook) {
+  afterRuntimeStopBeforeSpawnForTesting = typeof hook === "function" ? hook : null;
+}
+
+function setSpawnDevServerChildForTesting(factory) {
+  spawnDevServerChildForTesting = typeof factory === "function" ? factory : null;
+}
+
+function getTrackedRuntimeReceiptForTesting(sessionId) {
+  const tracked = runtimeChildren.get(sessionId);
+  if (!tracked) return null;
+  return {
+    mutationRevision: readMutationRevision(tracked),
+    versionId: tracked.versionId ?? null,
+    lifecycleToken: tracked.lifecycleToken ?? null,
+    bootId: tracked.bootId ?? null,
+  };
+}
+
 module.exports = {
   probeReadinessAfterPatch,
   applyRuntimePatch,
@@ -1661,4 +1695,7 @@ module.exports = {
   clearRuntimeStateForTesting,
   setBootRunnerForTesting,
   setBeforeIdleLifecycleCheckForTesting,
+  setAfterRuntimeStopBeforeSpawnForTesting,
+  setSpawnDevServerChildForTesting,
+  getTrackedRuntimeReceiptForTesting,
 };
