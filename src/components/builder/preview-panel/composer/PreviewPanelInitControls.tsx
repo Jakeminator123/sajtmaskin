@@ -21,6 +21,7 @@ import {
   type DesignTheme,
 } from "@/lib/builder/theme-presets";
 import { Slider } from "@/components/ui/slider";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
 const BUILD_TARGET_OPTIONS: Array<{ value: BuildTargetChoice; label: string }> = [
@@ -107,22 +108,35 @@ function ChoiceChipRow<T extends string>({
       <p className="text-muted-foreground/80 mb-1.5 text-xs font-medium tracking-wide uppercase">
         {label}
       </p>
-      <div className="flex flex-wrap gap-1.5">
+      {/* shadcn ToggleGroup (single-select) i stället för handrullade <button>:
+          konsekvent fokus-/hover-/vald-tillstånd, tangentbordsnavigering och
+          a11y utan egen styling. `spacing` > 0 håller chippen som separata
+          piller så raden radbryts snyggt även med många val (t.ex. färgerna).
+          Radix avmarkerar vid klick på ett redan aktivt val (tomt `next`) — vi
+          ignorerar det så exakt ett val alltid är aktivt, precis som förr. */}
+      <ToggleGroup
+        type="single"
+        value={value}
+        onValueChange={(next) => {
+          if (next) onChange(next as T);
+        }}
+        disabled={disabled}
+        variant="outline"
+        size="sm"
+        spacing={1.5}
+        className="w-full flex-wrap justify-start"
+      >
         {options.map((option) => {
-          const selected = option.value === value;
           const swatch = swatchFor?.(option.value) ?? null;
           return (
-            <button
+            <ToggleGroupItem
               key={option.value}
-              type="button"
-              aria-pressed={selected}
-              disabled={disabled}
-              onClick={() => onChange(option.value)}
+              value={option.value}
+              aria-label={option.label}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50",
-                selected
-                  ? "border-primary/60 bg-primary/15 text-foreground"
-                  : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-primary/40 hover:bg-secondary/70 hover:text-foreground",
+                "h-8 gap-1.5 rounded-full border-border/60 px-3 text-xs font-normal text-muted-foreground",
+                "hover:border-primary/40 hover:bg-secondary/70 hover:text-foreground",
+                "data-[state=on]:border-primary/60 data-[state=on]:bg-primary/15 data-[state=on]:text-foreground",
               )}
             >
               {swatch ? (
@@ -133,10 +147,10 @@ function ChoiceChipRow<T extends string>({
                 />
               ) : null}
               {option.label}
-            </button>
+            </ToggleGroupItem>
           );
         })}
-      </div>
+      </ToggleGroup>
     </div>
   );
 }
@@ -226,7 +240,9 @@ export function PreviewPanelInitControls({
           <p className="text-muted-foreground/80 text-xs font-medium tracking-wide uppercase">
             Antal sidor
           </p>
-          <span className="text-foreground text-xs font-medium">{pageCountLabel}</span>
+          <span className="border-border/60 bg-secondary/40 text-foreground rounded-full border px-2 py-0.5 text-xs font-medium tabular-nums">
+            {pageCountLabel}
+          </span>
         </div>
         <Slider
           aria-label="Antal sidor"
