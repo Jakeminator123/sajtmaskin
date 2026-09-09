@@ -1560,12 +1560,195 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     order.join(",") === "install:start,install:end,purge",
   );
 
-  // ...while the ENOSPC path inside an install purges WITHOUT the slot, since
-  // it already holds it. Queuing there would deadlock the whole VM.
-  const inSlot = await runInInstallSlot(async () =>
-    runtime.__testing.cleanupPackageCachesUnqueued({ force: true }),
-  );
-  check("in-slot purge completes without deadlocking", inSlot.purgedCache === true);
+  // ...and an install's own ENOSPC purge is queued the same way (15c), so no
+  // caller can reach the cache tree without the exclusive slot.
+}
+
+// 15b. Install slot pool: `PREVIEW_HOST_INSTALL_CONCURRENCY` admits N shared
+//      installs at once (default 1 = the old serialized queue), cache purges
+//      stay exclusive at any concurrency, a rejecting task releases its slot,
+//      and garbage/oversized env values fall back to safe bounds.
+{
+  const { runInInstallSlot, installSlotStateForTesting } = runtime.__testing;
+  const previousConcurrency = process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+  const restoreConcurrency = () => {
+    if (previousConcurrency === undefined) delete process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+    else process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = previousConcurrency;
+  };
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const tracked = (log, name, ms, { fail = false } = {}) => async () => {
+    log.active += 1;
+    log.maxActive = Math.max(log.maxActive, log.active);
+    log.order.push(`${name}:start`);
+    await sleep(ms);
+    log.active -= 1;
+    log.order.push(`${name}:end`);
+    if (fail) throw new Error(`${name} failed`);
+    return name;
+  };
+
+  try {
+    // (a) Default (unset) keeps the serialized behaviour.
+    delete process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+    check("default install concurrency is 1", installSlotStateForTesting().concurrency === 1);
+    const single = { active: 0, maxActive: 0, order: [] };
+    await Promise.all([
+      runInInstallSlot(tracked(single, "a", 20)),
+      runInInstallSlot(tracked(single, "b", 20)),
+    ]);
+    check("default concurrency never overlaps installs", single.maxActive === 1);
+
+    // (b) Concurrency 2 admits two installs, never three.
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "2";
+    check("env raises install concurrency to 2", installSlotStateForTesting().concurrency === 2);
+    const dual = { active: 0, maxActive: 0, order: [] };
+    const results = await Promise.all([
+      runInInstallSlot(tracked(dual, "a", 30)),
+      runInInstallSlot(tracked(dual, "b", 30)),
+      runInInstallSlot(tracked(dual, "c", 30)),
+    ]);
+    check("concurrency 2 overlaps exactly two installs", dual.maxActive === 2);
+    check("concurrency 2 completes every install", results.join(",") === "a,b,c");
+
+    // (c) Exclusive purge waits for every in-flight install and blocks later
+    //     shared installs until it is done (head-of-line, no starvation).
+    const mixed = { active: 0, maxActive: 0, order: [] };
+    const s1 = runInInstallSlot(tracked(mixed, "s1", 30));
+    const s2 = runInInstallSlot(tracked(mixed, "s2", 30));
+    await sleep(5); // s1 + s2 are now both running
+    const purge = runInInstallSlot(
+      async () => {
+        mixed.order.push("purge");
+        check("exclusive purge runs with no shared install active", mixed.active === 0);
+      },
+      { exclusive: true },
+    );
+    const s3 = runInInstallSlot(tracked(mixed, "s3", 5));
+    await Promise.all([s1, s2, purge, s3]);
+    check(
+      "exclusive purge waits for both installs and gates the later one",
+      mixed.order.join(",") === "s1:start,s2:start,s1:end,s2:end,purge,s3:start,s3:end",
+    );
+
+    // (d) A rejecting task releases its slot; the pool never wedges.
+    const failing = { active: 0, maxActive: 0, order: [] };
+    const rejected = await runInInstallSlot(tracked(failing, "boom", 5, { fail: true })).then(
+      () => false,
+      () => true,
+    );
+    check("rejecting install propagates its error", rejected === true);
+    const afterFailure = await runInInstallSlot(tracked(failing, "next", 5));
+    check("slot is released after a rejecting install", afterFailure === "next");
+    const idle = installSlotStateForTesting();
+    check(
+      "pool is idle after the burst",
+      idle.active === 0 && idle.exclusiveActive === false && idle.waiting === 0,
+    );
+
+    // (e) Garbage and oversized values are bounded.
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "0";
+    check("concurrency 0 falls back to 1", installSlotStateForTesting().concurrency === 1);
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "abc";
+    check("non-numeric concurrency falls back to 1", installSlotStateForTesting().concurrency === 1);
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "999";
+    check("oversized concurrency is capped at 8", installSlotStateForTesting().concurrency === 8);
+  } finally {
+    restoreConcurrency();
+  }
+}
+
+// 15c. ENOSPC retry vs. a sibling install (regression, PR #1324 review):
+//      the disk-full purge inside an install must NOT drop the shared package
+//      cache while another install is reading it. The install therefore holds
+//      its slot per ATTEMPT and queues the purge as exclusive. Also asserts two
+//      simultaneous ENOSPC installs cannot deadlock each other's purge.
+{
+  const { setInstallShellRunnerForTesting, NPM_CACHE_DIR } = runtime.__testing;
+  const previousConcurrency = process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const sentinel = join(NPM_CACHE_DIR, "_cacache", "sibling-tarball.bin");
+  const writeSentinel = () => {
+    mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
+    writeFileSync(sentinel, "tarball");
+  };
+  const installFor = (command) => ({
+    command,
+    successLabel: `${command} passed.`,
+    fallbackCommand: null,
+    fallbackLogLabel: null,
+    alwaysAllowFallback: false,
+  });
+  const NO_SPACE_OUTPUT = "npm ERR! nospc ENOSPC: no space left on device, write";
+
+  try {
+    process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = "2";
+
+    // (a) A hits ENOSPC and purges; B is mid-install and must keep its cache.
+    writeSentinel();
+    let diskFullAttempts = 0;
+    let cacheSeenBySiblingAtEnd = null;
+    setInstallShellRunnerForTesting(async (command) => {
+      if (command === "sibling-install") {
+        // Long enough that an unqueued purge would land inside this window.
+        await sleep(80);
+        cacheSeenBySiblingAtEnd = existsSync(sentinel);
+        return { exitCode: 0, output: "ok" };
+      }
+      diskFullAttempts += 1;
+      if (diskFullAttempts === 1) return { exitCode: 1, output: NO_SPACE_OUTPUT };
+      return { exitCode: 0, output: "ok" };
+    });
+
+    const siblingDir = join(dataDir, "enospc-sibling");
+    const diskFullDir = join(dataDir, "enospc-diskfull");
+    mkdirSync(siblingDir, { recursive: true });
+    mkdirSync(diskFullDir, { recursive: true });
+
+    const [diskFullResult, siblingResult] = await Promise.all([
+      runtime.__testing.runInstallCommandWithFallback(diskFullDir, installFor("disk-full-install")),
+      runtime.__testing.runInstallCommandWithFallback(siblingDir, installFor("sibling-install")),
+    ]);
+
+    check(
+      "ENOSPC purge does not drop the cache under a sibling install",
+      cacheSeenBySiblingAtEnd === true,
+    );
+    check("sibling install still passes", siblingResult.passed === true);
+    check("disk-full install recovers on the retry", diskFullResult.passed === true);
+    check("disk-full retry actually re-ran the command", diskFullAttempts === 2);
+    check("ENOSPC purge emptied the cache", !existsSync(sentinel));
+
+    // (b) Two simultaneous ENOSPC installs each queue an exclusive purge. If a
+    //     purge ever waited on a slot its own install holds, this would hang.
+    writeSentinel();
+    const attemptsByCommand = new Map();
+    setInstallShellRunnerForTesting(async (command) => {
+      const seen = (attemptsByCommand.get(command) ?? 0) + 1;
+      attemptsByCommand.set(command, seen);
+      await sleep(10);
+      if (seen === 1) return { exitCode: 1, output: NO_SPACE_OUTPUT };
+      return { exitCode: 0, output: "ok" };
+    });
+    const bothPurging = Promise.all([
+      runtime.__testing.runInstallCommandWithFallback(diskFullDir, installFor("both-a")),
+      runtime.__testing.runInstallCommandWithFallback(siblingDir, installFor("both-b")),
+    ]);
+    const settled = await Promise.race([
+      bothPurging.then((results) => results.every((r) => r.passed)),
+      sleep(5000).then(() => "timeout"),
+    ]);
+    check("two simultaneous ENOSPC purges do not deadlock", settled === true);
+
+    const idle = runtime.__testing.installSlotStateForTesting();
+    check(
+      "install pool is idle after the ENOSPC runs",
+      idle.active === 0 && idle.exclusiveActive === false && idle.waiting === 0,
+    );
+  } finally {
+    setInstallShellRunnerForTesting(null);
+    if (previousConcurrency === undefined) delete process.env.PREVIEW_HOST_INSTALL_CONCURRENCY;
+    else process.env.PREVIEW_HOST_INSTALL_CONCURRENCY = previousConcurrency;
+  }
 }
 
 // 16. Boot-failure cap (P2 crash-loop without error surface):

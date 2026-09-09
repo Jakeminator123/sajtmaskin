@@ -196,18 +196,19 @@ async function directorySizeBytes(targetPath) {
  * path, where reclaiming space matters more than a warm cache.
  */
 async function cleanupPackageCaches(options = {}) {
-  return runInInstallSlot(() => cleanupPackageCachesUnqueued(options));
+  // Exclusive: waits for every in-flight install and blocks new ones while the
+  // cache tree is removed, also when PREVIEW_HOST_INSTALL_CONCURRENCY > 1.
+  return runInInstallSlot(() => purgePackageCachesInSlot(options), { exclusive: true });
 }
 
 /**
- * Cache cleanup for callers that ALREADY hold the install slot.
- *
- * The ENOSPC retry inside `runInstallCommandWithFallbackUnqueued` is the only
- * such caller: it runs between two install attempts of its own install, so
- * going through `runInInstallSlot` there would wait on a slot it is itself
- * holding — a deadlock that would hang the queue for every later boot.
+ * The purge itself. Module-private on purpose: every caller must come through
+ * `cleanupPackageCaches` so the exclusive slot is always held. The ENOSPC retry
+ * in `runInstallCommandWithFallback` used to call this directly while holding
+ * only a SHARED slot, which removed the cache from under a sibling install and
+ * failed it with a bogus ENOENT/EINTEGRITY once concurrency rose above 1.
  */
-async function cleanupPackageCachesUnqueued({ force = false } = {}) {
+async function purgePackageCachesInSlot({ force = false } = {}) {
   const result = { purgedCache: false, cacheBytesBefore: 0, removedNpmLogs: 0 };
   if (!fs.existsSync(PACKAGE_CACHE_DIR)) return result;
 
@@ -375,7 +376,6 @@ module.exports = {
   destroyChatWorkspace,
   directorySizeBytes,
   cleanupPackageCaches,
-  cleanupPackageCachesUnqueued,
   cleanupPreviewHostStorage,
   withNoSpaceCleanupRetry,
   describePackageCacheStorage,
