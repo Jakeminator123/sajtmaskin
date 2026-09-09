@@ -40,6 +40,65 @@ const {
   patchWorkspaceFiles,
   writeWorkspaceFiles,
 } = require("./workspace-files.js");
+
+const INSTALL_OWNED_LOCKFILES = new Set([
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "pnpm-lock.yml",
+  "yarn.lock",
+]);
+
+function isInstallOwnedLockfile(relPath) {
+  return INSTALL_OWNED_LOCKFILES.has(String(relPath || "").replace(/\\/g, "/"));
+}
+
+/**
+ * After npm install, rewrite the workspace only when a same-version /patch
+ * advanced mutationRevision while install ran. A blanket writeWorkspaceFiles
+ * here would replace next.config.* with the raw filesJson copy and wipe the
+ * basePath injection from patchNextConfigForPreviewBasePath (every `_next`
+ * asset 404s) — and it used to run on every boot, even without a patch.
+ *
+ * Uses patchWorkspaceFiles (diff only) so an npm-regenerated lockfile that
+ * is not in the workspace manifest is left alone. Lockfile keys in filesJson
+ * are skipped: npm owns those on disk after install.
+ */
+function refreshWorkspaceAfterAdoptedPatch(chatId, workspaceDir, bootSnapshot, adoptedSession) {
+  const beforeRev = readMutationRevision(bootSnapshot);
+  const afterRev = readMutationRevision(adoptedSession);
+  if ((afterRev ?? 0) <= (beforeRev ?? 0)) {
+    return { rewritten: false, changedFiles: 0, removedPaths: 0 };
+  }
+  const adopted =
+    adoptedSession?.filesJson && typeof adoptedSession.filesJson === "object"
+      ? adoptedSession.filesJson
+      : {};
+  const previous =
+    bootSnapshot?.filesJson && typeof bootSnapshot.filesJson === "object"
+      ? bootSnapshot.filesJson
+      : {};
+  const changed = {};
+  const removed = [];
+  for (const [relPath, content] of Object.entries(adopted)) {
+    if (isInstallOwnedLockfile(relPath)) continue;
+    if (previous[relPath] !== content) changed[relPath] = content;
+  }
+  for (const relPath of Object.keys(previous)) {
+    if (isInstallOwnedLockfile(relPath)) continue;
+    if (!Object.prototype.hasOwnProperty.call(adopted, relPath)) removed.push(relPath);
+  }
+  if (Object.keys(changed).length > 0 || removed.length > 0) {
+    patchWorkspaceFiles(chatId, changed, removed);
+  }
+  // Always re-inject basePath after a rewrite: the adopted next.config (if
+  // any) is the raw filesJson copy. Idempotent when the file was not touched.
+  patchNextConfigForPreviewBasePath(workspaceDir);
+  return {
+    rewritten: true,
+    changedFiles: Object.keys(changed).length,
+    removedPaths: removed.length,
+  };
+}
 const { runInstallCommand } = require("./package-install.js");
 // Ingen load-cykel: storage-cleanup kräver denna modul enbart via en lazy
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
@@ -61,13 +120,43 @@ function sameSessionLifecycle(stored, snapshot) {
   );
 }
 
-function assertCurrentSessionLifecycle(session) {
+/**
+ * A same-version `/patch` during an in-flight boot advances mutationRevision
+ * and lastAction=patch but keeps sessionId + lifecycleToken + versionId.
+ * The boot must adopt that snapshot (latest filesJson) instead of aborting
+ * as PREVIEW_LIFECYCLE_SUPERSEDED — otherwise the 2026-09-08 image-repair
+ * rewrite cannot land without a second full boot.
+ */
+function isSameVersionPatchAdoption(stored, snapshot) {
+  return Boolean(
+    stored &&
+    snapshot &&
+    stored.sessionId === snapshot.sessionId &&
+    (stored.lifecycleToken ?? null) === (snapshot.lifecycleToken ?? null) &&
+    stored.versionId === snapshot.versionId &&
+    stored.lastAction === "patch" &&
+    (readMutationRevision(stored) ?? 0) > (readMutationRevision(snapshot) ?? 0),
+  );
+}
+
+function sameSessionLifecycleOrAdoptedPatch(stored, snapshot) {
+  return sameSessionLifecycle(stored, snapshot) || isSameVersionPatchAdoption(stored, snapshot);
+}
+
+function currentSessionOrAdoptedPatch(session) {
   const current = findSessionByChatId(readStoreSync(), getSessionChatId(session));
-  if (!sameSessionLifecycle(current, session)) {
+  if (sameSessionLifecycleOrAdoptedPatch(current, session)) return current;
+  return null;
+}
+
+function assertCurrentSessionLifecycle(session) {
+  const current = currentSessionOrAdoptedPatch(session);
+  if (!current) {
     const error = new Error("Preview session lifecycle was superseded during runtime boot.");
     error.code = "PREVIEW_LIFECYCLE_SUPERSEDED";
     throw error;
   }
+  return current;
 }
 
 /** Read at call time so guard tests can shrink the deadline without reloading the module. */
@@ -157,6 +246,10 @@ const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 let nextRuntimeBootId = 1;
 let beforeIdleLifecycleCheckForTesting = null;
+/** Fires after `stopTrackedRuntime` and before the spawn-time lifecycle adopt. */
+let afterRuntimeStopBeforeSpawnForTesting = null;
+/** Optional factory that replaces `spawnNpm` so guards can avoid a real Next child. */
+let spawnDevServerChildForTesting = null;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -220,8 +313,14 @@ async function probeReadinessAfterPatch({
   lifecycleToken,
   mutationRevision,
 }) {
-  const { runtimePort } = getRuntimeStateForChat(chatId);
-  if (!runtimePort || !sessionId || !versionId) return;
+  const runtimeState = getRuntimeStateForChat(chatId);
+  // Defense for the same stale-port hole as the route skip: a persisted
+  // session.runtimePort is the previous child. While `booting && !running`
+  // there is no tracked process, so using that port probes a dead listener
+  // and can overwrite the in-flight boot's later `ready` with `failed`.
+  if (runtimeState.booting || !runtimeState.running || !runtimeState.runtimePort) return;
+  const runtimePort = runtimeState.runtimePort;
+  if (!sessionId || !versionId) return;
   const probeLifecycle = {
     sessionId,
     lifecycleToken: lifecycleToken ?? null,
@@ -287,7 +386,14 @@ async function probeReadinessAfterPatch({
  */
 function applyRuntimePatch(
   chatId,
-  { files, removedPaths, versionId, mutationRevision, expectedPreviousMutationRevision } = {},
+  {
+    files,
+    removedPaths,
+    versionId,
+    mutationRevision,
+    expectedPreviousMutationRevision,
+    previousVersionId,
+  } = {},
 ) {
   const changed = files && typeof files === "object" ? files : {};
   const removed = Array.isArray(removedPaths) ? removedPaths : [];
@@ -297,18 +403,39 @@ function applyRuntimePatch(
     return { mode: "restarted", reason: "structural_change" };
   }
   const runtimeState = getRuntimeStateForChat(chatId);
+  const previousVersion =
+    typeof previousVersionId === "string" && previousVersionId.trim()
+      ? previousVersionId.trim()
+      : "";
+  const nextVersion = typeof versionId === "string" && versionId.trim() ? versionId.trim() : "";
+  const sameVersionRewrite = Boolean(previousVersion && nextVersion && previousVersion === nextVersion);
   if (!runtimeState.running || runtimeState.booting) {
-    // Not running / still cold-booting -> a plain non-restart boot would dedupe
-    // to an in-flight boot that may have already snapshotted the pre-patch
-    // filesJson, so the VM could come up serving stale files even though the
-    // session was advanced.
+    // Same-version rewrite while the first boot is still in flight (`running`
+    // is false, `booting` is true): write the new files into the workspace.
+    // session.filesJson is already merged by the route. The in-flight boot
+    // adopts the advanced mutationRevision and re-reads filesJson before
+    // spawn, so Next compiles the rewrite on first request — no stop+reboot
+    // (2026-09-08 ready → stop → reload).
     //
-    // FEL-4: even when the OLD dev process is still alive (`running === true`)
-    // but a restart boot is already in flight (`booting === true`), a hot file
-    // write races that boot — the boot may rewrite the whole workspace from a
-    // pre-patch snapshot and clobber the patched files. In both cases force a
-    // restart boot: ensureRuntimeForChat waits for any in-flight boot to finish,
-    // then re-boots from the merged filesJson the caller already committed.
+    // FEL-4 still applies when a live process exists AND a restart is in
+    // flight (`running && booting`): a hot write can be clobbered by that
+    // boot's workspace snapshot. A dead runtime (`!running && !booting`)
+    // still needs a boot. A new versionId during boot still restarts.
+    if (sameVersionRewrite && runtimeState.booting && !runtimeState.running) {
+      try {
+        patchWorkspaceFiles(chatId, changed, removed);
+      } catch (error) {
+        return {
+          mode: "error",
+          reason: error instanceof Error ? error.message : "Workspace patch write failed.",
+        };
+      }
+      return { mode: "patched", reason: "boot_in_flight" };
+    }
+    // Not running / still cold-booting a *different* version, or a restart
+    // already in flight against a live process -> force a restart boot.
+    // ensureRuntimeForChat waits for any in-flight boot to finish, then
+    // re-boots from the merged filesJson the caller already committed.
     queueRuntimeBoot(chatId, { restart: true });
     return {
       mode: "booted",
@@ -726,7 +853,9 @@ function isLiveBoot(sessionId, bootId) {
 function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
   const chatId = getSessionChatId(session);
   const latest = findSessionByChatId(readStoreSync(), chatId);
-  if (!sameSessionLifecycle(latest, session) || latest.versionId !== session.versionId) return false;
+  if (!sameSessionLifecycleOrAdoptedPatch(latest, session) || latest.versionId !== session.versionId) {
+    return false;
+  }
   const tracked = runtimeChildren.get(session.sessionId);
   if (!tracked || tracked.child?.exitCode !== null) return false;
   if (runtimePort != null && tracked.port !== runtimePort) return false;
@@ -752,37 +881,49 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   // stopTrackedRuntime flushes logs asynchronously. A destroy/new start may
   // win while that await is pending; fence immediately before spawning so the
   // old lifecycle cannot leak a dev server after its session was removed.
-  assertCurrentSessionLifecycle(session);
+  if (afterRuntimeStopBeforeSpawnForTesting) {
+    await afterRuntimeStopBeforeSpawnForTesting(session);
+  }
+  // Adopt a same-version patch that landed during the stop so the tracked
+  // receipt matches the store (mutationRevision) before the child starts.
+  // Return this snapshot so runBoot's waitForReady / readiness writes use it
+  // instead of the pre-stop session (strict sameSessionLifecycle would skip
+  // the ready stamp and leave preview_success pending).
+  session = assertCurrentSessionLifecycle(session);
   clearStaleNextDevLock(workspaceDir);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
   const runId = runIdResolverFromSession(session);
-  const child = spawnNpm(
-    ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
-    {
-      cwd: workspaceDir,
-      stdio: ["ignore", "pipe", "pipe"],
-      // Required by stopChildProcessTree's negative-PID signaling on POSIX.
-      // Keep Windows attached so taskkill /t remains the tree owner there.
-      detached: process.platform !== "win32",
-      env: sanitizedEnv({
-        PORT: String(runtimePort),
-        HOSTNAME: LOOPBACK,
-        SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
-        // Default-on: tystar webpack-HMR-WS i preview-VM så Chrome-konsolen
-        // inte spammas med "WebSocket connection ... failed". Hot-reload
-        // tappas men sajten reload:as ändå vid varje generation. Sätt till
-        // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
-        // direkt). Fast Edit Lane Fas 4: när HMR-proxyn är på tvingar vi
-        // DISABLE_HMR=false så Next behåller HMR-pluginen och emitterar events
-        // som proxyn vidarebefordrar (true hot reload utan iframe-reload).
-        SAJTMASKIN_PREVIEW_DISABLE_HMR: isHmrProxyEnabled()
-          ? "false"
-          : (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true"),
-        ...(runId ? { SAJTMASKIN_PREVIEW_RUN_ID: runId } : {}),
-      }),
-    },
-  );
+  const child = spawnDevServerChildForTesting
+    ? await Promise.resolve(
+        spawnDevServerChildForTesting({ session, workspaceDir, runtimePort }),
+      )
+    : spawnNpm(
+        ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
+        {
+          cwd: workspaceDir,
+          stdio: ["ignore", "pipe", "pipe"],
+          // Required by stopChildProcessTree's negative-PID signaling on POSIX.
+          // Keep Windows attached so taskkill /t remains the tree owner there.
+          detached: process.platform !== "win32",
+          env: sanitizedEnv({
+            PORT: String(runtimePort),
+            HOSTNAME: LOOPBACK,
+            SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
+            // Default-on: tystar webpack-HMR-WS i preview-VM så Chrome-konsolen
+            // inte spammas med "WebSocket connection ... failed". Hot-reload
+            // tappas men sajten reload:as ändå vid varje generation. Sätt till
+            // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
+            // direkt). Fast Edit Lane Fas 4: när HMR-proxyn är på tvingar vi
+            // DISABLE_HMR=false så Next behåller HMR-pluginen och emitterar events
+            // som proxyn vidarebefordrar (true hot reload utan iframe-reload).
+            SAJTMASKIN_PREVIEW_DISABLE_HMR: isHmrProxyEnabled()
+              ? "false"
+              : (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true"),
+            ...(runId ? { SAJTMASKIN_PREVIEW_RUN_ID: runId } : {}),
+          }),
+        },
+      );
 
   const tracked = {
     child,
@@ -887,6 +1028,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     session.previewSessionId,
     `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
   );
+  return session;
 }
 
 async function bootRuntimeForSession(session, options = {}) {
@@ -919,7 +1061,7 @@ async function bootRuntimeForSession(session, options = {}) {
       "Retry from the builder after fixing the project, or wait for the failure window to expire.",
     ].join(" ");
     await updateSessionById(session.sessionId, (stored) => {
-      if (!sameSessionLifecycle(stored, session)) return;
+      if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       stored.status = "error";
       stored.runtimeBootFailureVersionId = session.versionId;
@@ -937,7 +1079,7 @@ async function bootRuntimeForSession(session, options = {}) {
   }
 
   await updateSessionById(session.sessionId, (stored) => {
-    if (!sameSessionLifecycle(stored, session)) return;
+    if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
     stored.status = "starting";
     // A start request writes `starting` before it queues the boot. Treat that
     // as an explicit retry and give the same version a fresh exit budget.
@@ -966,7 +1108,7 @@ async function bootRuntimeForSession(session, options = {}) {
     const chatId = getSessionChatId(session);
     const isPrewarm = session.prewarm === true;
     const runBoot = async () => {
-      assertCurrentSessionLifecycle(session);
+      session = assertCurrentSessionLifecycle(session);
       const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
       patchNextConfigForPreviewBasePath(workspaceDir);
       const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
@@ -978,12 +1120,23 @@ async function bootRuntimeForSession(session, options = {}) {
         session.previewSessionId,
         session.filesJson,
       );
-      assertCurrentSessionLifecycle(session);
-      await spawnDevServer(session, workspaceDir, runtimePort);
+      // Re-read after install: a same-version patch may have landed while npm
+      // ran. Only rewrite when mutationRevision actually advanced — a full
+      // writeWorkspaceFiles here used to clobber the pre-install basePath
+      // injection on every boot (Bugbot on #1314).
+      const sessionBeforeAdopt = session;
+      session = assertCurrentSessionLifecycle(session);
+      refreshWorkspaceAfterAdoptedPatch(
+        chatId,
+        workspaceDir,
+        sessionBeforeAdopt,
+        session,
+      );
+      session = await spawnDevServer(session, workspaceDir, runtimePort);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
-        if (!sameSessionLifecycle(stored, session)) return;
+        if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
         if (stored.versionId !== session.versionId) return;
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
@@ -1019,7 +1172,7 @@ async function bootRuntimeForSession(session, options = {}) {
         void readiness
           .then(() =>
             updateSessionById(session.sessionId, (stored) => {
-              if (!sameSessionLifecycle(stored, session)) return;
+              if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "ready";
@@ -1040,7 +1193,7 @@ async function bootRuntimeForSession(session, options = {}) {
             const tail = runtimeOutputTail(tracked);
             const withTail = tail ? `${message}\nLast Next.js output:\n${tail}` : message;
             return updateSessionById(session.sessionId, (stored) => {
-              if (!sameSessionLifecycle(stored, session)) return;
+              if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
@@ -1087,7 +1240,7 @@ async function bootRuntimeForSession(session, options = {}) {
         // outer catch, which sets status "error" and keeps the hold in place.
         await readiness;
         await updateSessionById(session.sessionId, (stored) => {
-          if (!sameSessionLifecycle(stored, session)) return;
+          if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
           if (stored.versionId !== session.versionId || stored.prewarm === true) return;
           stored.prewarmReplacementPending = false;
           stored.status = "warm_project";
@@ -1131,7 +1284,7 @@ async function bootRuntimeForSession(session, options = {}) {
     // guard refuses the very boot the update asked for.
     let failure = { timestamps: [], failed: false };
     await updateSessionById(session.sessionId, (stored) => {
-      if (!sameSessionLifecycle(stored, session)) return;
+      if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       failure = classifyRuntimeBootFailureLoop({
         timestamps: bootFailureTimestampsForSession(stored),
@@ -1296,10 +1449,19 @@ function ensureRuntimeForChat(chatId, options = {}) {
   return run;
 }
 
+let restartBootsQueuedForTesting = 0;
+
 function queueRuntimeBoot(chatId, options = {}) {
+  if (options.restart === true) restartBootsQueuedForTesting += 1;
   void ensureRuntimeForChat(chatId, options).catch(() => {
     // Failure is already written into session/log state by bootRuntimeForSession.
   });
+}
+
+function takeRestartBootsQueuedForTesting() {
+  const count = restartBootsQueuedForTesting;
+  restartBootsQueuedForTesting = 0;
+  return count;
 }
 
 function getRuntimeStateForChat(chatId) {
@@ -1501,11 +1663,34 @@ function setBeforeIdleLifecycleCheckForTesting(hook) {
   beforeIdleLifecycleCheckForTesting = typeof hook === "function" ? hook : null;
 }
 
+function setAfterRuntimeStopBeforeSpawnForTesting(hook) {
+  afterRuntimeStopBeforeSpawnForTesting = typeof hook === "function" ? hook : null;
+}
+
+function setSpawnDevServerChildForTesting(factory) {
+  spawnDevServerChildForTesting = typeof factory === "function" ? factory : null;
+}
+
+function getTrackedRuntimeReceiptForTesting(sessionId) {
+  const tracked = runtimeChildren.get(sessionId);
+  if (!tracked) return null;
+  return {
+    mutationRevision: readMutationRevision(tracked),
+    versionId: tracked.versionId ?? null,
+    lifecycleToken: tracked.lifecycleToken ?? null,
+    bootId: tracked.bootId ?? null,
+  };
+}
+
 module.exports = {
   probeReadinessAfterPatch,
   applyRuntimePatch,
   promoteTrackedRuntimeReceipt,
   runtimeExitOwnsStoredSession,
+  assertCurrentSessionLifecycle,
+  isSameVersionPatchAdoption,
+  refreshWorkspaceAfterAdoptedPatch,
+  takeRestartBootsQueuedForTesting,
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,
@@ -1529,4 +1714,7 @@ module.exports = {
   clearRuntimeStateForTesting,
   setBootRunnerForTesting,
   setBeforeIdleLifecycleCheckForTesting,
+  setAfterRuntimeStopBeforeSpawnForTesting,
+  setSpawnDevServerChildForTesting,
+  getTrackedRuntimeReceiptForTesting,
 };

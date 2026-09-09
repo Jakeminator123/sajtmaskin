@@ -80,6 +80,7 @@ describe("beginLiveReviewSession", () => {
       { flagEnabled: false, editEnabled: true, claimRun },
     );
     expect(session.captureEnabled).toBe(false);
+    expect(session.allowed).toBe(false);
     expect(session.earlyResult).toEqual(skippedLiveReviewResult("flag_off"));
     expect(claimRun).not.toHaveBeenCalled();
   });
@@ -96,6 +97,7 @@ describe("beginLiveReviewSession", () => {
       },
       { flagEnabled: true, editEnabled: true, claimRun },
     );
+    expect(session.allowed).toBe(false);
     expect(session.earlyResult).toEqual(skippedLiveReviewResult("grant_off"));
     expect(claimRun).not.toHaveBeenCalled();
   });
@@ -119,6 +121,7 @@ describe("beginLiveReviewSession", () => {
       },
     );
     expect(session.captureEnabled).toBe(true);
+    expect(session.allowed).toBe(true);
     expect(session.claim?.kind).toBe("acquired");
     expect(readGrant).not.toHaveBeenCalled();
     expect(claimRun).toHaveBeenCalledTimes(1);
@@ -231,6 +234,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: false,
+        allowed: true,
         claim: { kind: "in_flight", row: acquired().row },
         earlyResult: null,
         chatId: "chat_1",
@@ -261,6 +265,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired(),
         earlyResult: null,
         chatId: "chat_1",
@@ -313,6 +318,7 @@ describe("finishLiveReviewSession", () => {
     const finishingN = finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
         earlyResult: null,
         chatId: "chat_1",
@@ -370,6 +376,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired({ row: { filesRevision: "rev_n" } }),
         earlyResult: null,
         chatId: "chat_1",
@@ -407,6 +414,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired(),
         earlyResult: null,
         chatId: "chat_1",
@@ -448,6 +456,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired(),
         earlyResult: null,
         chatId: "chat_1",
@@ -484,6 +493,7 @@ describe("finishLiveReviewSession", () => {
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
+        allowed: true,
         claim: acquired(),
         earlyResult: null,
         chatId: "chat_1",

@@ -104,6 +104,8 @@ export async function runFinalizeFastPath(params: {
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   previousFiles?: CodeFile[];
+  previousVersionId?: string | null;
+  previousSelectedDossierEnvKeys?: string[];
   onProgress?: FinalizeProgressCallback;
   contentForVersion: string;
   finalizePath: FinalizePathPolicy;
@@ -172,6 +174,8 @@ export async function runFinalizeFastPath(params: {
     routePlan,
     orchestrationContract,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     onProgress,
     finalizePath,
     repairPassIndex,
@@ -440,6 +444,8 @@ export async function runFinalizeFastPath(params: {
     routePlan,
     orchestrationContract,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     contentForVersion,
     onProgress,
     selectedDossiers,
@@ -540,6 +546,7 @@ export async function runFinalizeFastPath(params: {
     verifierBlockingFindings,
     rejectedShrinks: preflightOutcome.rejectedShrinks,
     rejectedStructural: preflightOutcome.rejectedStructural,
+    selectedDossierEnvKeys: preflightOutcome.selectedDossierEnvKeys,
     crossFileStubs: preflightOutcome.crossFileStubs,
     // Fas 3 (RepairGate): hand the run's ledger out so post-finalize repair
     // lanes (server-verify / build-error repair) dedupe against LLM repairs

@@ -252,6 +252,11 @@ async function routeRequest(req, res) {
         runtimeState.running &&
         session.prewarm !== true &&
         session.prewarmReplacementPending !== true,
+      // In-memory boot chain (`inflightBootByChat`), not persisted `status`.
+      // The app only hot-patches a same-version rewrite when this is true;
+      // a dead runtime (`running=false`, `booting=false`) must take `/update`
+      // so the boot-failure budget is reset.
+      booting: runtimeState.booting === true,
       hashAlgorithm: "sha256",
       fileCount: Object.keys(files).length,
       files,
@@ -636,6 +641,7 @@ async function routeRequest(req, res) {
           versionId: validated.versionId,
           mutationRevision: patchOutcome.mutationRevision,
           expectedPreviousMutationRevision: patchOutcome.rollback.mutationRevision ?? null,
+          previousVersionId: patchOutcome.rollback.versionId ?? null,
         });
     if (patchResult.mode === "error") {
       // Finding #3 (FEL-5): the workspace patch did not land. Roll the session
@@ -661,11 +667,19 @@ async function routeRequest(req, res) {
         message: patchResult.reason ?? "Preview-host failed to apply the patch.",
       });
     }
-    if (patchResult.mode === "patched") {
+    if (patchResult.mode === "patched" && patchResult.reason !== "boot_in_flight") {
       // Hot patch = no boot, so nothing else would ever re-evaluate readiness
       // for the version we just pinned. Fire-and-forget (the response must not
       // wait out a 180s readiness deadline); every write inside is bound to
       // this exact version.
+      //
+      // `boot_in_flight` is not a hot patch: there is no tracked child yet,
+      // so getRuntimeStateForChat would fall back to the persisted
+      // session.runtimePort (the PREVIOUS runtime). Probing that dead port
+      // (2026-09-08 flipped 4293↔4294) waitForReady:ar tills deadline och
+      // stämplar sedan denna version failed — versionId/mutationRevision är
+      // oförändrade efter booten, så sameSessionLifecycle släpper igenom.
+      // Den pågående booten äger readiness.
       void probeReadinessAfterPatch({
         chatId: patchOutcome.chatId,
         sessionId: patchOutcome.sessionId,

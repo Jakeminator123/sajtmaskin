@@ -31,7 +31,10 @@ import { warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
-import { injectProjectEnvFileIntoFilesJson } from "@/lib/gen/preview/project-env-file";
+import {
+  injectProjectEnvFileIntoFilesJson,
+  resolveDossierEnvScopeForFinalize,
+} from "@/lib/gen/preview/project-env-file";
 import { mergeGeneratedProjectFiles } from "../finalize-merge";
 import {
   runFinalizePreflight,
@@ -84,6 +87,11 @@ export interface PreflightPhaseResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /**
+   * Env keys used for this persist (this-round dossiers ∪ previous version).
+   * Threaded to the version row so the next follow-up inherits the same scope.
+   */
+  selectedDossierEnvKeys: string[];
+  /**
    * Cross-file imports that resolved to missing files. The checker either
    * stubs them or rewires obvious sibling-name mistakes; post-finalize
    * persists a `warning`-level diagnostics row for both cases.
@@ -111,6 +119,10 @@ export async function runPreflightPhase(params: {
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   previousFiles?: CodeFile[];
+  /** Same resolved base as `previousFiles`. See `FinalizeParams.previousVersionId`. */
+  previousVersionId?: string | null;
+  /** Keys from that same base row. When set, skip any version re-read. */
+  previousSelectedDossierEnvKeys?: string[];
   contentForVersion: string;
   onProgress?: FinalizeProgressCallback;
   /**
@@ -141,6 +153,8 @@ export async function runPreflightPhase(params: {
     routePlan,
     orchestrationContract,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     onProgress,
     selectedDossiers,
     removedDossiers,
@@ -234,17 +248,31 @@ export async function runPreflightPhase(params: {
     buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
   // This scope owns both persisted env artifacts: the visible `env.example`
   // and the pipeline-authored `.env.local` needed by preflight verification.
-  // F2 can include selected mock values; F3 retains selected safe values only.
-  // Preview rebuilds its runtime env separately and projectEnvVars remain
-  // outside files_json.
-  const dossierEnvScope = {
-    envVars: (selectedDossiers ?? []).flatMap((dossier) =>
-      (dossier.envVars ?? []).map((envVar) => ({
-        key: envVar.key,
-        purpose: envVar.purpose,
-      })),
-    ),
-  };
+  // Follow-up rounds often have an empty this-round dossier pick (visual
+  // tweaks). Inherit from the chat snapshot, previous files, and the
+  // previous version's selected_dossier_env_keys so the artifacts stay
+  // byte-stable. Preview still rebuilds its runtime `.env.local` separately;
+  // stored project values never enter files_json.
+  let orchestrationSnapshot: unknown = null;
+  let persistedEnvKeys: string[] | null = null;
+  if (previousFiles && previousFiles.length > 0) {
+    try {
+      orchestrationSnapshot = await chatRepo.getChatOrchestrationSnapshot(chatId);
+    } catch {
+      orchestrationSnapshot = null;
+    }
+    persistedEnvKeys = await resolvePersistedEnvKeysFromPreviousBase({
+      previousSelectedDossierEnvKeys,
+      previousVersionId,
+    });
+  }
+  const dossierEnvScope = resolveDossierEnvScopeForFinalize({
+    selectedDossiers,
+    removedDossiers,
+    previousFiles,
+    orchestrationSnapshot,
+    persistedEnvKeys,
+  });
   const projectEnvLocalOptions = {
     lifecycleStage: envLifecycleStage,
     selectedDossierEnvKeys: dossierEnvScope.envVars.map((envVar) => envVar.key),
@@ -513,7 +541,30 @@ export async function runPreflightPhase(params: {
     scaffoldRetry,
     rejectedShrinks,
     rejectedStructural,
+    selectedDossierEnvKeys: dossierEnvScope.envVars.map((envVar) => envVar.key),
     crossFileStubs,
     stepTelemetry,
   };
+}
+
+async function resolvePersistedEnvKeysFromPreviousBase(params: {
+  previousSelectedDossierEnvKeys?: string[];
+  previousVersionId?: string | null;
+}): Promise<string[] | null> {
+  if (params.previousSelectedDossierEnvKeys !== undefined) {
+    return params.previousSelectedDossierEnvKeys.filter(
+      (key): key is string => typeof key === "string" && key.length > 0,
+    );
+  }
+  if (!params.previousVersionId) return null;
+  try {
+    const previousVersion = await chatRepo.getVersionById(params.previousVersionId);
+    return Array.isArray(previousVersion?.selected_dossier_env_keys)
+      ? previousVersion.selected_dossier_env_keys.filter(
+          (key): key is string => typeof key === "string" && key.length > 0,
+        )
+      : null;
+  } catch {
+    return null;
+  }
 }

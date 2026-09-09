@@ -152,6 +152,8 @@ export interface GenerationStreamParams {
   urlMap: UrlMap;
   commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   previousFiles?: CodeFile[];
+  previousVersionId?: string | null;
+  previousSelectedDossierEnvKeys?: string[];
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
   /** When set, repair replaces this version in-place instead of creating a new one. */
@@ -208,6 +210,8 @@ export function createOwnEngineGenerationStream(
     urlMap,
     commitCredits,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
@@ -682,6 +686,8 @@ export function createOwnEngineGenerationStream(
             typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
         },
         previousFiles,
+        previousVersionId,
+        previousSelectedDossierEnvKeys,
         onProgress: emitProgress,
         lineageHash,
         targetVersionId,
