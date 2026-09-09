@@ -269,6 +269,7 @@ export interface GenerationBillingRowPayload {
   versionId: string;
   versionNumber: number | null;
   chatId: string;
+  /** Resolved display title (stored column is unpopulated). */
   chatTitle: string | null;
   projectId: string | null;
   projectName: string | null;

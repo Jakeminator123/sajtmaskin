@@ -595,6 +595,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       filesRevision,
       previewSessionId: boundTarget.previewSessionId,
       lifecycleToken: boundTarget.lifecycleToken,
+      versionNumber: scopedVersion.version.version_number,
+      liveReviewAllowed: liveReviewSession.allowed === true,
     });
 
     if (!(await isTargetCurrent().catch(() => false))) {

@@ -45,6 +45,7 @@ import {
   LATEST_PRODUCT_POSTCHECK_JOIN,
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
+import { chatDisplayTitleSql, firstUserPromptLateralSql } from "./lib/chat-display-title.mjs";
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -185,7 +186,37 @@ const KIND_SPECS = {
   chats: {
     table: "engine_chats",
     chatColumn: "id",
+    // `engine_chats.title` is never written. The selected `title` is the
+    // display fallback: stored title → `app_projects.name` → first user prompt.
     columns: ["id", "title", "model", "scaffold_id", "project_id", "created_at", "updated_at"],
+    buildQuery: ({ chatId: chat, limit: max }) => {
+      const params = [];
+      const where = [];
+      if (chat) {
+        params.push(chat);
+        where.push(`c.id = $${params.length}`);
+      }
+      params.push(max);
+      return {
+        sql: `
+          SELECT
+            c.id,
+            ${chatDisplayTitleSql()} AS title,
+            c.model,
+            c.scaffold_id,
+            c.project_id,
+            c.created_at,
+            c.updated_at
+          FROM engine_chats c
+          LEFT JOIN app_projects p ON p.id = c.project_id
+          ${firstUserPromptLateralSql("c.id")}
+          ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+          ORDER BY c.created_at DESC
+          LIMIT $${params.length}
+        `,
+        params,
+      };
+    },
   },
   llmusage: {
     table: "llm_usage",
