@@ -38,6 +38,33 @@ describe("ChatOutputCollapseBar", () => {
 
     const button = screen.getByRole("button", { name: "Visa chatten (4 meddelanden)" });
     expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(button.getAttribute("title")).toBe("Visa chatten (4 meddelanden)");
+    expect(screen.getByText("4 meddelanden")).toBeTruthy();
+  });
+
+  it("visar synlig enhet så räknaren inte kan tas för versionsantal", () => {
+    const { rerender } = render(
+      <ChatOutputCollapseBar
+        isCollapsed={false}
+        onToggle={vi.fn()}
+        messageCount={6}
+        isStreaming={false}
+      />,
+    );
+
+    expect(screen.getByText("6 meddelanden")).toBeTruthy();
+    expect(screen.queryByText("6", { exact: true })).toBeNull();
+
+    rerender(
+      <ChatOutputCollapseBar
+        isCollapsed={false}
+        onToggle={vi.fn()}
+        messageCount={1}
+        isStreaming={false}
+      />,
+    );
+
+    expect(screen.getByText("1 meddelande")).toBeTruthy();
   });
 
   it("visar att en generering pågår även när utdata är nedfällt", () => {

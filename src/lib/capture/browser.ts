@@ -231,25 +231,73 @@ async function pruneLeakedPlaywrightProfilesBestEffort(
  */
 const CHROMIUM_CORE_DUMP_PREFIX = "core.chromium.";
 
-function pruneChromiumCoreDumpsBestEffort(): number {
+export type ChromiumCoreDumpDetection = {
+  count: number;
+  totalMb: number;
+};
+
+function listChromiumCoreDumpsBestEffort(): Array<{ filePath: string; mb: number }> {
   try {
     const tmp = os.tmpdir();
     const entries = fs.readdirSync(tmp, { withFileTypes: true });
-    let pruned = 0;
+    const dumps: Array<{ filePath: string; mb: number }> = [];
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       if (!entry.name.startsWith(CHROMIUM_CORE_DUMP_PREFIX)) continue;
+      const filePath = path.join(tmp, entry.name);
+      let mb = 0;
       try {
-        fs.rmSync(path.join(tmp, entry.name), { force: true });
-        pruned += 1;
+        mb = Math.round(fs.statSync(filePath).size / 1_048_576);
       } catch {
-        // En låst/försvunnen fil får inte stoppa resten av svepet.
+        mb = 0;
       }
+      dumps.push({ filePath, mb });
     }
-    return pruned;
+    return dumps;
   } catch {
-    return 0;
+    return [];
   }
+}
+
+function removeChromiumCoreDumpBestEffort(filePath: string): boolean {
+  try {
+    fs.rmSync(filePath, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function pruneChromiumCoreDumpsBestEffort(): number {
+  let pruned = 0;
+  for (const dump of listChromiumCoreDumpsBestEffort()) {
+    if (removeChromiumCoreDumpBestEffort(dump.filePath)) pruned += 1;
+  }
+  return pruned;
+}
+
+/**
+ * Core-dump som skrivs UNDER en capture-körning ska loggas och prunas i samma
+ * invocation — inte vänta till nästa launch. Preview 2026-09-08 (chat
+ * `4a2aa301`): v1 skrev `core.chromium.29` (385 MB) men loggade `passed`; v2
+ * såg dumpen först och hade dött på `/tmp`-slut utan pruningen.
+ * Fail-open — svepet får aldrig stoppa en capture.
+ */
+export function detectAndPruneChromiumCoreDumps(context: string): ChromiumCoreDumpDetection {
+  const dumps = listChromiumCoreDumpsBestEffort();
+  if (dumps.length === 0) return { count: 0, totalMb: 0 };
+  let pruned = 0;
+  let totalMb = 0;
+  for (const dump of dumps) {
+    console.error(
+      `[capture-browser] Chromium core dump detected (${dump.mb} MB) during ${context}`,
+    );
+    if (removeChromiumCoreDumpBestEffort(dump.filePath)) {
+      pruned += 1;
+      totalMb += dump.mb;
+    }
+  }
+  return { count: pruned, totalMb };
 }
 
 /**
