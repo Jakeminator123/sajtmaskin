@@ -229,3 +229,68 @@ describe("useBuilderDeployActions — handleConfirmDeploy aborts deploy on a fai
     expect(findDeployCall(fetchMock)).toBeTruthy();
   });
 });
+
+// Prod 2026-09-08 (chat 4a2aa301): `done` selected the new version before the
+// `/versions` refetch contained it, so the fresh-version guard cleared the
+// selection and `activeVersionId` flickered v3 → v2 → v3. The done path must
+// register the id as freshly created BEFORE selecting it.
+describe("useBuilderDeployActions — handleGenerationComplete fresh-version grace", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("marks the completed versionId as pending-created before selecting it", async () => {
+    const order: string[] = [];
+    const pendingCreatedVersionRef: { current: { id: string; ts: number } | null } = {
+      current: null,
+    };
+    const setSelectedVersionId = vi.fn((id: unknown) => {
+      order.push(`select:${String(id)}:pending=${pendingCreatedVersionRef.current?.id ?? "none"}`);
+    });
+    const { result } = renderHook(() =>
+      useBuilderDeployActions(makeArgs({ pendingCreatedVersionRef, setSelectedVersionId })),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerationComplete({ chatId: "chat_1", versionId: "ver_3" });
+    });
+
+    expect(pendingCreatedVersionRef.current?.id).toBe("ver_3");
+    expect(order).toEqual(["select:ver_3:pending=ver_3"]);
+  });
+
+  it("only marks + selects when the user was on the latest version and the stream asks for that", async () => {
+    const pendingCreatedVersionRef: { current: { id: string; ts: number } | null } = {
+      current: null,
+    };
+    const setSelectedVersionId = vi.fn();
+    const { result } = renderHook(() =>
+      useBuilderDeployActions(
+        makeArgs({
+          pendingCreatedVersionRef,
+          setSelectedVersionId,
+          selectedVersionIdRef: { current: "ver_1" },
+          latestVersionIdRef: { current: "ver_2" },
+        }),
+      ),
+    );
+
+    await act(async () => {
+      await result.current.handleGenerationComplete({
+        chatId: "chat_1",
+        versionId: "ver_3",
+        onlySelectVersionIfWasLatest: true,
+      });
+    });
+
+    expect(setSelectedVersionId).not.toHaveBeenCalled();
+    expect(pendingCreatedVersionRef.current).toBeNull();
+  });
+});
