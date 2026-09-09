@@ -38,9 +38,10 @@ import {
   type PreviewLifecycleStage,
 } from "@/lib/gen/preview/env-local";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
-import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { getAllDossiers, getDossiersByCapability } from "@/lib/gen/dossiers/registry";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { readRemovedCapabilitiesFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 
 export const PROJECT_ENV_FILE_PATH = "env.example";
 /**
@@ -194,12 +195,30 @@ export function buildDossierEnvScope(params: {
   return { envVars };
 }
 
+function envKeysForCapabilities(capabilities: ReadonlySet<string>): Set<string> {
+  const keys = new Set<string>();
+  for (const capability of capabilities) {
+    for (const dossier of getDossiersByCapability(capability)) {
+      for (const envVar of dossier.envVars ?? []) {
+        const key = typeof envVar.key === "string" ? envVar.key.trim() : "";
+        if (key) keys.add(key);
+      }
+    }
+  }
+  return keys;
+}
+
 /**
  * Resolve the persist-time dossier env scope for finalize. Init uses this
  * round's selection; follow-up unions that with the chat snapshot, files
  * present in the previous version, and persisted `selected_dossier_env_keys`.
  * Removed dossiers (and their keys) are dropped so an explicit removal still
  * shrinks the artifacts.
+ *
+ * Snapshot `requestedCapabilities` can lag behind a "ta bort Stripe"
+ * tombstone (`removedCapabilities`). Subtract that tombstone here — not in
+ * `snapshot-selection.ts`, which readiness/F3 still read as raw snapshot
+ * intent. Persisted base-row keys for a tombstoned capability are dropped too.
  */
 export function resolveDossierEnvScopeForFinalize(params: {
   selectedDossiers?: readonly DossierEntry[];
@@ -209,13 +228,20 @@ export function resolveDossierEnvScopeForFinalize(params: {
   persistedEnvKeys?: readonly string[] | null;
 }): DossierEnvScope {
   const removedIds = new Set((params.removedDossiers ?? []).map((dossier) => dossier.id));
-  const removedKeys = new Set(
-    (params.removedDossiers ?? []).flatMap((dossier) =>
+  const removedCapabilities = new Set(readRemovedCapabilitiesFromSnapshot(params.orchestrationSnapshot));
+  for (const dossier of params.removedDossiers ?? []) {
+    const capability =
+      typeof dossier.capability === "string" ? dossier.capability.trim().toLowerCase() : "";
+    if (capability) removedCapabilities.add(capability);
+  }
+  const removedKeys = new Set<string>([
+    ...envKeysForCapabilities(removedCapabilities),
+    ...(params.removedDossiers ?? []).flatMap((dossier) =>
       (dossier.envVars ?? [])
         .map((envVar) => (typeof envVar.key === "string" ? envVar.key.trim() : ""))
         .filter((key) => key.length > 0),
     ),
-  );
+  ]);
 
   const fromSnapshotAndPresence = resolveSelectedDossiersWithVersionPresence({
     snapshot: params.orchestrationSnapshot,
@@ -225,6 +251,9 @@ export function resolveDossierEnvScopeForFinalize(params: {
   const byId = new Map<string, DossierEntry>();
   for (const dossier of [...fromSnapshotAndPresence, ...(params.selectedDossiers ?? [])]) {
     if (!dossier?.id || removedIds.has(dossier.id)) continue;
+    const capability =
+      typeof dossier.capability === "string" ? dossier.capability.trim().toLowerCase() : "";
+    if (capability && removedCapabilities.has(capability)) continue;
     byId.set(dossier.id, dossier);
   }
 

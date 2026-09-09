@@ -92,6 +92,7 @@ async function persistLikeFinalize(params: {
   previousFiles?: CodeFile[];
   selectedDossiers?: DossierEntry[];
   persistedEnvKeys?: string[] | null;
+  orchestrationSnapshot?: unknown;
 }): Promise<CodeFile[]> {
   const merge = mergeGeneratedProjectFiles({
     chatId: "chat_followup_stability",
@@ -105,6 +106,7 @@ async function persistLikeFinalize(params: {
     selectedDossiers: params.selectedDossiers,
     previousFiles: params.previousFiles,
     persistedEnvKeys: params.persistedEnvKeys,
+    orchestrationSnapshot: params.orchestrationSnapshot,
   });
   const completed = buildCompleteProject(
     JSON.parse(merge.filesJson) as CodeFile[],
@@ -253,5 +255,61 @@ describe("CSS-only follow-up files_json stability (prod 2026-09-08)", () => {
     expect(filesByPath(v2)["env.example"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
     expect(filesByPath(v2)[".env.local"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
     expect(changedPaths(filesByPath(v1), filesByPath(v2))).toEqual(["app/globals.css"]);
+  });
+
+  it("does not resurrect Stripe keys from a snapshot that still lists payments after removal", async () => {
+    const resend = getDossierById("resend-contact-form");
+    expect(resend).not.toBeNull();
+
+    const v1 = await persistLikeFinalize({
+      generatedFiles: [
+        PAGE,
+        { path: "app/globals.css", content: GLOBALS_V1, language: "css" },
+        CONTACT_FORM,
+        CONTACT_ROUTE,
+      ],
+      selectedDossiers: resend ? [resend] : [],
+    });
+    const v1ByPath = filesByPath(v1);
+    expect(v1ByPath["env.example"]).toMatch(/^RESEND_API_KEY=/m);
+    expect(v1ByPath["env.example"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
+
+    const persistedEnvKeys = [
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
+      "CONTACT_EMAIL_TO",
+      "STRIPE_SECRET_KEY",
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    ];
+    const staleRequested = {
+      requestedCapabilities: ["payments", "contact-form"],
+      briefSummary: { requestedCapabilities: ["payments", "contact-form"] },
+    };
+
+    const resurrected = await persistLikeFinalize({
+      generatedFiles: [{ path: "app/globals.css", content: GLOBALS_V2, language: "css" }],
+      previousFiles: v1,
+      selectedDossiers: [],
+      persistedEnvKeys,
+      orchestrationSnapshot: staleRequested,
+    });
+    expect(filesByPath(resurrected)["env.example"]).toMatch(/^STRIPE_SECRET_KEY=/m);
+
+    const v2 = await persistLikeFinalize({
+      generatedFiles: [{ path: "app/globals.css", content: GLOBALS_V2, language: "css" }],
+      previousFiles: v1,
+      selectedDossiers: [],
+      persistedEnvKeys,
+      orchestrationSnapshot: {
+        ...staleRequested,
+        removedCapabilities: ["payments"],
+      },
+    });
+    const v2ByPath = filesByPath(v2);
+    expect(v2ByPath["env.example"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
+    expect(v2ByPath["env.example"]).not.toMatch(/^NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=/m);
+    expect(v2ByPath[".env.local"]).not.toMatch(/^STRIPE_SECRET_KEY=/m);
+    expect(v2ByPath["env.example"]).toBe(v1ByPath["env.example"]);
+    expect(changedPaths(v1ByPath, v2ByPath)).toEqual(["app/globals.css"]);
   });
 });

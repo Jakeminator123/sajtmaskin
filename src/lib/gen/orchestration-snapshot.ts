@@ -319,6 +319,22 @@ export function mergePersistedOrchestrationSnapshots(
 /** Snapshot key holding the deferred ("Planerad") integration capabilities. */
 export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
 export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
+export const REMOVED_CAPABILITIES_SNAPSHOT_KEY = "removedCapabilities";
+
+/**
+ * Durable capability-removal tombstone on the chat snapshot.
+ * Same source `buildFollowUpContract` / muted-capability readers use.
+ * Does not rewrite `requestedCapabilities` — callers subtract this set.
+ */
+export function readRemovedCapabilitiesFromSnapshot(
+  snapshot: unknown,
+): string[] {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  return readStringArraySnapshotKey(
+    snapshot as Record<string, unknown>,
+    REMOVED_CAPABILITIES_SNAPSHOT_KEY,
+  );
+}
 
 /**
  * Deferred integration capabilities persisted on the snapshot — capabilities
@@ -330,7 +346,7 @@ export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 export function readMutedCapabilitiesFromSnapshot(
   snapshot: Record<string, unknown> | null | undefined,
 ): string[] {
-  const removed = new Set(readStringArraySnapshotKey(snapshot, "removedCapabilities"));
+  const removed = new Set(readRemovedCapabilitiesFromSnapshot(snapshot));
   return readStringArraySnapshotKey(snapshot, MUTED_CAPABILITIES_SNAPSHOT_KEY).filter(
     (capability) => !removed.has(capability),
   );
@@ -391,7 +407,7 @@ export function readF3ApprovedFromSnapshot(snapshot: Record<string, unknown> | n
   capabilities: string[];
   providers: string[];
 } {
-  const removed = readStringArraySnapshotKey(snapshot, "removedCapabilities");
+  const removed = readRemovedCapabilitiesFromSnapshot(snapshot);
   const capabilities = readStringArraySnapshotKey(snapshot, F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY);
   const providers = readStringArraySnapshotKey(snapshot, F3_APPROVED_PROVIDERS_SNAPSHOT_KEY);
   if (removed.length === 0) {

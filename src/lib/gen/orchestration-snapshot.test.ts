@@ -9,9 +9,26 @@ import {
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
+  readRemovedCapabilitiesFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
+
+describe("readRemovedCapabilitiesFromSnapshot", () => {
+  it("reads the durable tombstone and lowercases", () => {
+    expect(
+      readRemovedCapabilitiesFromSnapshot({
+        removedCapabilities: ["Payments", "  AUTH  "],
+      }),
+    ).toEqual(["payments", "auth"]);
+  });
+
+  it("returns [] for missing or non-array values", () => {
+    expect(readRemovedCapabilitiesFromSnapshot(null)).toEqual([]);
+    expect(readRemovedCapabilitiesFromSnapshot({})).toEqual([]);
+    expect(readRemovedCapabilitiesFromSnapshot({ removedCapabilities: "payments" })).toEqual([]);
+  });
+});
 
 describe("deferred integrations (mutedCapabilities)", () => {
   it("survives a later round that defers nothing", () => {

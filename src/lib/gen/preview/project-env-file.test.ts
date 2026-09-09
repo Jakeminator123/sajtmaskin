@@ -403,4 +403,38 @@ describe("buildDossierEnvScope / resolveDossierEnvScopeForFinalize", () => {
     });
     expect(scope.envVars.map((envVar) => envVar.key)).not.toContain("RESEND_API_KEY");
   });
+
+  it("drops snapshot-selected and persisted keys for a tombstoned capability", () => {
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      previousFiles: [
+        { path: "components/contact-form.tsx" },
+        { path: "app/api/contact/route.ts" },
+      ],
+      persistedEnvKeys: [
+        "RESEND_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      ],
+      orchestrationSnapshot: {
+        requestedCapabilities: ["payments", "contact-form"],
+        removedCapabilities: ["Payments"],
+      },
+    });
+    const keys = scope.envVars.map((envVar) => envVar.key);
+    expect(keys).toEqual(expect.arrayContaining(["RESEND_API_KEY"]));
+    expect(keys).not.toContain("STRIPE_SECRET_KEY");
+    expect(keys).not.toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  });
+
+  it("still inherits Stripe keys from a snapshot that lists payments without a tombstone", () => {
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      persistedEnvKeys: ["STRIPE_SECRET_KEY"],
+      orchestrationSnapshot: {
+        requestedCapabilities: ["payments"],
+      },
+    });
+    expect(scope.envVars.map((envVar) => envVar.key)).toContain("STRIPE_SECRET_KEY");
+  });
 });
