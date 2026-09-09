@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Grace window for a version this client just created (generation `done`,
@@ -102,11 +102,28 @@ export function useBuilderVersionSelectionSync({
     }
   }, [chatId, chatExternalProjectId, externalProjectId, setExternalProjectId]);
 
-  // Reset selected version on chat change
+  // Mirror for effects that must read the current selection without
+  // re-running on every selection change (the chat-change reset below).
+  // Declared before its readers so it commits first in the same effect pass.
+  const selectedVersionIdRef = useRef<string | null>(selectedVersionId);
   useEffect(() => {
-    setSelectedVersionId(null);
+    selectedVersionIdRef.current = selectedVersionId;
+  }, [selectedVersionId]);
+
+  // Reset selected version on chat change. A brand-new chat sets `chatId` and
+  // selects its first version in the same tick (stream `done` → `setChatId` +
+  // `handleGenerationComplete`); that selection is grace-marked and must
+  // survive — only a selection carried over from ANOTHER chat is stale.
+  useEffect(() => {
+    const current = selectedVersionIdRef.current;
+    if (
+      !current ||
+      !isPendingCreatedVersionFresh(pendingCreatedVersionRef.current, current)
+    ) {
+      setSelectedVersionId(null);
+    }
     setExternalProjectId(null);
-  }, [chatId, setSelectedVersionId, setExternalProjectId]);
+  }, [chatId, pendingCreatedVersionRef, setSelectedVersionId, setExternalProjectId]);
 
   // Fresh-version guard. A selection pointing at an id the `/versions` list
   // does not know is normally stale (deleted/foreign version) and is cleared.
@@ -116,18 +133,36 @@ export function useBuilderVersionSelectionSync({
   // has landed. Without the grace window the guard cleared that selection on
   // the next render and `activeVersionId` fell back to the stale latest —
   // the v3 → v2 → v3 flicker seen in prod 2026-09-08 (chat 4a2aa301).
+  //
+  // The window is re-evaluated when it expires, not only when deps change:
+  // SWR hands back the same list reference while nothing changed, so without
+  // the timer a version that never reached `/versions` (persist failed) would
+  // stay selected indefinitely.
   useEffect(() => {
     if (!selectedVersionId) return;
     if (!versionIdSet.has(selectedVersionId)) {
-      if (isPendingCreatedVersionFresh(pendingCreatedVersionRef.current, selectedVersionId)) {
+      const pending = pendingCreatedVersionRef.current;
+      if (isPendingCreatedVersionFresh(pending, selectedVersionId)) {
         // Freshly created version — versions refetch in flight; don't bounce.
-        return;
+        // Re-check at expiry in case the list never catches up.
+        const remainingMs = Math.max(0, pending!.ts + FRESH_VERSION_GRACE_MS - Date.now()) + 1;
+        const timer = setTimeout(() => {
+          if (
+            selectedVersionIdRef.current === selectedVersionId &&
+            !versionIdSet.has(selectedVersionId) &&
+            !isPendingCreatedVersionFresh(pendingCreatedVersionRef.current, selectedVersionId)
+          ) {
+            setSelectedVersionId(null);
+          }
+        }, remainingMs);
+        return () => clearTimeout(timer);
       }
       setSelectedVersionId(null);
     } else if (pendingCreatedVersionRef.current?.id === selectedVersionId) {
       // The refetch landed; the id is now canonical.
       pendingCreatedVersionRef.current = null;
     }
+    return undefined;
   }, [selectedVersionId, versionIdSet, pendingCreatedVersionRef, setSelectedVersionId]);
 
   // ChatId URL sync
