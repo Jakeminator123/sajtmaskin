@@ -7,6 +7,10 @@ import {
   QUICK_EDIT_APPLIED_EVENT_NAME,
   readQuickEditAppliedEventPayload,
 } from "@/lib/builder/quick-edit-applied-event";
+import {
+  markPendingCreatedVersion,
+  type PendingCreatedVersionRef,
+} from "./useBuilderVersionSelectionSync";
 
 type FilesSavedInfo = {
   versionId?: string;
@@ -22,7 +26,7 @@ type Params = {
   previewRefreshToken: number;
   filesContextKeyRef: MutableRefObject<string | null>;
   promptFetchDoneRef: MutableRefObject<string | null>;
-  pendingCreatedVersionRef: MutableRefObject<{ id: string; ts: number } | null>;
+  pendingCreatedVersionRef: PendingCreatedVersionRef;
   mutateVersions: () => unknown;
   onVersionStatusRefresh: () => void;
   onPreviewSessionMeta: (
@@ -172,7 +176,7 @@ export function useBuilderFilesContext({
       if (info?.versionId) {
         // M#sel1: register the fresh id BEFORE selecting, so the versionIdSet
         // guard tolerates it while the mutateVersions refetch is in flight.
-        pendingCreatedVersionRef.current = { id: info.versionId, ts: Date.now() };
+        markPendingCreatedVersion(pendingCreatedVersionRef, info.versionId);
         setSelectedVersionId(info.versionId);
         // If the live preview was patched in place (same preview session, new
         // version + URL), thread the session meta and mark the new version's

@@ -549,7 +549,7 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Read-only karta över agenternas selektiva kontext och local→PR→master-flöde. AGENTS.md är tunn ingång, .agents/skills äger detaljerade recept, .cursor äger regler/routrar/hooks, .codex äger Codex-profiler och config/agent-workflow.json äger maskinvärden. Glossaryn är den mänskliga termägaren.",
+      "summary": "Read-only karta över agenternas selektiva kontext och local→PR→preview→promote→master-flöde. AGENTS.md är tunn ingång, .agents/skills äger detaljerade recept, .cursor äger regler/routrar/hooks, .codex äger Codex-profiler och config/agent-workflow.json äger maskinvärden. Glossaryn är den mänskliga termägaren.",
       "canonicalPaths": [
         "AGENTS.md",
         ".agents/skills/",
