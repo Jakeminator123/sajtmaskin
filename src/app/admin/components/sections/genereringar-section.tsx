@@ -208,7 +208,7 @@ export function GenereringarSection() {
       </div>
       {reconcileMessage && <p className="text-muted-foreground text-sm">{reconcileMessage}</p>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
         <StatCard label="Genereringar" value={data?.summary.generations ?? 0} icon={WandSparkles} />
         <StatCard
           label="Beräknad självkostnad"
@@ -220,6 +220,12 @@ export function GenereringarSection() {
           label="Efter påslag"
           value={formatSek(data?.summary.billableOre ?? 0)}
           hint="Värdet före avrundning till credits"
+          icon={Coins}
+        />
+        <StatCard
+          label="Marginal"
+          value={formatSek((data?.summary.billableOre ?? 0) - (data?.summary.providerCostOre ?? 0))}
+          hint="Debiterat minus självkostnad"
           icon={Coins}
         />
         <StatCard label="Credits dragna" value={data?.summary.creditsCharged ?? 0} icon={Coins} />
@@ -364,7 +370,7 @@ export function GenereringarSection() {
 
       <SectionCard
         title="Användare"
-        description="Summerad självkostnad och debitering för vald period."
+        description="Summerad självkostnad, debiterat belopp och marginal för vald period."
         icon={Users}
       >
         <DataState
@@ -381,6 +387,8 @@ export function GenereringarSection() {
                   <TableHead>Användare</TableHead>
                   <TableHead className="text-right">Genereringar</TableHead>
                   <TableHead className="text-right">Självkostnad</TableHead>
+                  <TableHead className="text-right">Debiterat</TableHead>
+                  <TableHead className="text-right">Marginal</TableHead>
                   <TableHead className="text-right">Gratis</TableHead>
                   <TableHead className="text-right">Credits</TableHead>
                 </TableRow>
@@ -396,6 +404,8 @@ export function GenereringarSection() {
                     </TableCell>
                     <TableCell className="text-right">{formatCount(user.generations)}</TableCell>
                     <TableCell className="text-right">{formatSek(user.providerCostOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.billableOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.marginOre)}</TableCell>
                     <TableCell className="text-right">
                       {formatCount(user.freeGenerations)}
                     </TableCell>

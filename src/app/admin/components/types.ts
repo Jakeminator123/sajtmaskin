@@ -319,6 +319,8 @@ export interface GenerationBillingPayload {
     email: string | null;
     generations: number;
     providerCostOre: number;
+    billableOre: number;
+    marginOre: number;
     creditsCharged: number;
     freeGenerations: number;
   }>;

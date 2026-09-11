@@ -826,6 +826,43 @@ export type AdminGenerationBillingRow = {
   updatedAt: string;
 };
 
+export type GenerationBillingUserSummary = {
+  userId: string | null;
+  name: string;
+  email: string | null;
+  generations: number;
+  providerCostOre: number;
+  billableOre: number;
+  marginOre: number;
+  creditsCharged: number;
+  freeGenerations: number;
+};
+
+export function mapGenerationBillingUserSummary(row: {
+  userId: string | null;
+  name: string;
+  email: string | null;
+  generations: number;
+  providerCostOre: number;
+  billableOre: number;
+  creditsCharged: number;
+  freeGenerations: number;
+}): GenerationBillingUserSummary {
+  const providerCostOre = Number(row.providerCostOre);
+  const billableOre = Number(row.billableOre);
+  return {
+    userId: row.userId,
+    name: row.name,
+    email: row.email,
+    generations: Number(row.generations),
+    providerCostOre,
+    billableOre,
+    marginOre: billableOre - providerCostOre,
+    creditsCharged: Number(row.creditsCharged),
+    freeGenerations: Number(row.freeGenerations),
+  };
+}
+
 export async function getGenerationBillingAdminData(
   days: number,
   limit = 200,
@@ -915,6 +952,7 @@ export async function getGenerationBillingAdminData(
         u.email,
         COUNT(*)::integer AS generations,
         COALESCE(SUM(gb.provider_cost_ore), 0)::integer AS "providerCostOre",
+        COALESCE(SUM(gb.billable_ore), 0)::integer AS "billableOre",
         COALESCE(SUM(gb.credits_charged), 0)::integer AS "creditsCharged",
         COUNT(*) FILTER (WHERE gb.free_generation_applied)::integer AS "freeGenerations"
       FROM generation_billings gb
@@ -1002,17 +1040,12 @@ export async function getGenerationBillingAdminData(
     email: string | null;
     generations: number;
     providerCostOre: number;
+    billableOre: number;
     creditsCharged: number;
     freeGenerations: number;
   };
   const usersSummary = ((usersResult as unknown as { rows?: UserSummaryRow[] }).rows ?? []).map(
-    (row) => ({
-      ...row,
-      generations: Number(row.generations),
-      providerCostOre: Number(row.providerCostOre),
-      creditsCharged: Number(row.creditsCharged),
-      freeGenerations: Number(row.freeGenerations),
-    }),
+    (row) => mapGenerationBillingUserSummary(row),
   );
 
   return {

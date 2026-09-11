@@ -3,7 +3,7 @@ import { calculateModelCost } from "@/lib/billing/model-cost";
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 
-const { buildGenerationQuote, resolveGenerationChargeDecision } =
+const { buildGenerationQuote, mapGenerationBillingUserSummary, resolveGenerationChargeDecision } =
   await import("./generation-billing");
 
 function usageRow(overrides: Record<string, unknown> = {}) {
@@ -317,6 +317,62 @@ describe("resolveGenerationChargeDecision", () => {
       status: "needs_reconciliation",
       freeGenerationApplied: true,
       shouldClaimFreeGeneration: false,
+    });
+  });
+});
+
+describe("mapGenerationBillingUserSummary", () => {
+  const user = {
+    userId: "user_1",
+    name: "Ada",
+    email: "ada@example.com",
+    generations: 1,
+    creditsCharged: 0,
+    freeGenerations: 1,
+  };
+
+  it("shows negative margin when a free generation has cost but no billable", () => {
+    expect(
+      mapGenerationBillingUserSummary({
+        ...user,
+        providerCostOre: 180,
+        billableOre: 0,
+      }),
+    ).toMatchObject({
+      providerCostOre: 180,
+      billableOre: 0,
+      marginOre: -180,
+    });
+  });
+
+  it("does not count pending or unpriced defaults as revenue", () => {
+    expect(
+      mapGenerationBillingUserSummary({
+        ...user,
+        generations: 2,
+        freeGenerations: 0,
+        providerCostOre: 0,
+        billableOre: 0,
+      }),
+    ).toMatchObject({
+      billableOre: 0,
+      marginOre: 0,
+    });
+  });
+
+  it("keeps öre as integers for a charged user", () => {
+    expect(
+      mapGenerationBillingUserSummary({
+        ...user,
+        creditsCharged: 14,
+        freeGenerations: 0,
+        providerCostOre: 1500,
+        billableOre: 4200,
+      }),
+    ).toMatchObject({
+      providerCostOre: 1500,
+      billableOre: 4200,
+      marginOre: 2700,
     });
   });
 });
