@@ -11,6 +11,14 @@ function completeBlock(path: string): string {
 }
 
 describe("GenerationSummary — fence-balans (F9)", () => {
+  it.each(['```tsx file="app/page.tsx"', 'tsx file="app/page.tsx"', '```'])(
+    "hides an incomplete file header before its code body arrives: %s",
+    (header) => {
+      render(<GenerationSummary content={`Jag bygger startsidan.\n${header}`} />);
+      expect(screen.getByTestId("generation-summary-prose").textContent).toBe("Jag bygger startsidan.");
+    },
+  );
+
   it("renderar ingen kodvägg när ett oavslutat block följer på kompletta block", () => {
     const content = [
       "Här kommer sidorna du bad om.",

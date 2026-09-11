@@ -14,6 +14,33 @@ vi.mock("@streamdown/code", () => ({
 }));
 
 describe("MessageList", () => {
+  it("keeps completed review panels inside the shared details while their warning stays visible", () => {
+    render(<MessageList chatId="chat_review" messages={[{
+      id: "assistant_review", role: "assistant", content: "Menyn är uppdaterad.",
+      uiParts: [{ type: "tool:quality-gate", toolName: "Quality gate", state: "output-available",
+        output: { passed: true, designAdvisory: true, checks: [
+          { check: "typecheck", passed: false, advisory: true, exitCode: 1, output: "TS2322" },
+        ] } }],
+    }]} />);
+    expect(screen.getAllByTestId("generation-surface")).toHaveLength(1);
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText("Quality gate")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getAllByText("Quality gate").length).toBeGreaterThan(0);
+  });
+
+  it("uses the assistant surface for repair progress without a second guessed phase indicator", () => {
+    render(<MessageList chatId="chat_repair" isStreaming messages={[
+      { id: "repair_prompt", role: "user", content: "Rätta syntaxfelet.",
+        uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }] },
+      { id: "repair_answer", role: "assistant", content: "", isStreaming: true },
+    ]} />);
+    expect(screen.getByText("Automatisk reparation")).toBeTruthy();
+    expect(screen.getAllByTestId("generation-surface")).toHaveLength(1);
+    expect(screen.queryByText("LLM tänker")).toBeNull();
+    expect(screen.queryByText("Automatisk kodreparation pågår")).toBeNull();
+  });
+
   it("renders current engine progress prominently while the assistant is streaming", () => {
     const messages: ChatMessage[] = [
       {
@@ -104,7 +131,9 @@ describe("MessageList", () => {
     render(<MessageList chatId="chat_newer_turn" messages={messages} isStreaming />);
 
     expect(screen.getAllByText("Arbetar med din sajt")).toHaveLength(1);
-    expect(screen.getByText("Slutsteg (1)")).toBeTruthy();
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces[0].getAttribute("data-active")).toBe("false");
+    expect(surfaces[1].getAttribute("data-active")).toBe("true");
   });
 
   it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {
