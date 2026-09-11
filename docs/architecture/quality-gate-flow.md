@@ -116,14 +116,15 @@ F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
   (chat `5d809cc1`) publicerade en advisory-promotad version och Vercel-bygget
   föll på exakt de advisory-klassade felen; 14 av 19 fallna typechecks under
   40 dagar var advisory.
-- **`.next/`-diagnostik räknas inte.** Verify-lanens `tsc` kan plocka upp Nexts
-  egna genererade `.next/dev/types/routes.d.ts` (den genererade `tsconfig.json`
-  inkluderar globben, Next-paritet) och rapportera `TS1005`-syntaxfel som aldrig
-  är användarkod. `normalizeTypecheckResult` (`quality-gate-checks.ts`), anropad
-  i `runQualityGateChecks` så alla gate-vägar delar den, viker en typecheck vars
-  enda diagnostik ligger under `.next/` till pass; `isAdvisorySafeTypecheckOutput`
-  klassificerar bara de kvarvarande användarraderna. Prod 40 d: 15 av 63
-  tsc-träffar (signatur `9bf13221eb3e`) var detta brus.
+- **Bevisat ofarligt `.next/`-brus räknas inte.** Verify-lanens `tsc` kan
+  plocka upp en stale `.next/dev/types/routes.d.ts` (`TS1005`; den genererade
+  `tsconfig.json` inkluderar globben, Next-paritet). `normalizeTypecheckResult`
+  (`quality-gate-checks.ts`), anropad i `runQualityGateChecks` så alla
+  gate-vägar delar den, viker bara det brusets typecheck till pass.
+  Nexts egna route-validatorer under `.next/types/app/**` (t.ex. `TS2344`
+  PageProps) är riktiga fel och förblir fail. `isAdvisorySafeTypecheckOutput`
+  klassificerar de kvarvarande raderna. Prod 40 d: 15 av 63 tsc-träffar
+  (signatur `9bf13221eb3e`) var `routes.d.ts`/`TS1005`-bruset.
 - F3: auktoritativ VM-ReleaseGate på en lease-skyddad filesnapshot. En ny
   `integrations`-rad med samma `files_json` som F2-föräldern skapas när F3
   inte kräver codegen; gaten får aldrig promota F2-raden. `passed` räcker inte:
