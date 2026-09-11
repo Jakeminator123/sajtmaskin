@@ -22,7 +22,6 @@ import {
 } from "@/components/ai-elements/plan";
 import { BuildPlanCard } from "@/components/builder/chat/BuildPlanCard";
 import {
-  AgentLogCard,
   CompactToolParts,
   StructuredToolParts,
   getLatestEnvRequirement as getLatestEnvRequirementFromTooling,
@@ -39,7 +38,10 @@ import {
 } from "@/lib/gen/stream/f3-continuation";
 import { GenerationSummary } from "@/components/builder/chat/GenerationSummary";
 import { VersionFeedback } from "@/components/builder/chat/VersionFeedback";
-import { Streamdown, type Components, type ExtraProps } from "streamdown";
+import { Streamdown } from "streamdown";
+import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
+import { GenerationSurface } from "./GenerationSurface";
+import { isGenerationReviewPart } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
@@ -57,44 +59,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type AnchorHTMLAttributes,
-  type ReactNode,
 } from "react";
-
-/**
- * Streamdown 2.x renders inline links inside a wrapper that, in
- * combination with the link-safety modal portal, occasionally injects
- * block-level elements inside `<p>` tags during hydration ("nested
- * `<a>`/`<div>` inside `<p>`" warning in console). We don't need the
- * link-safety popup or fancy preview affordance for assistant messages,
- * so render a plain anchor instead. This is the documented escape
- * hatch: the `components` prop forwards ReactMarkdown's component
- * override map straight through.
- *
- * Streamdown's `Components` intersects a per-tag prop map with a string
- * index signature — those two shapes are incompatible under strict
- * function checks, so we cast the override map once.
- *
- * If/when Streamdown ships an explicit `linkPreview={false}` toggle
- * this override can be replaced.
- */
-const STREAMDOWN_PLAIN_COMPONENTS = {
-  a: ({
-    children,
-    href,
-    ...rest
-  }: AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps) => (
-    <a
-      {...rest}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline underline-offset-2"
-    >
-      {children}
-    </a>
-  ),
-} as Components;
 
 interface MessageListProps {
   chatId: string | null;
@@ -436,7 +401,21 @@ const MessageListComponent = ({
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
           const compactToolParts = showStructuredParts
             ? []
-            : toolParts.filter((part) => isActionableToolPart(part.tool));
+            : toolParts.filter((part) => isActionableToolPart(part.tool) || isGenerationReviewPart(part));
+          const reviewToolParts = compactToolParts.filter(isGenerationReviewPart);
+          const actionToolParts = compactToolParts.filter((part) => !isGenerationReviewPart(part));
+          const renderCompactTools = (parts: typeof compactToolParts) => parts.length > 0 ? (
+            <CompactToolParts
+              messageId={message.id}
+              toolParts={parts}
+              pendingReply={pendingReply}
+              hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
+              pendingQuickReplyKey={pendingQuickReplyKey}
+              onQuickReply={sendQuickReply}
+              quickReplyDisabled={quickReplyDisabled}
+              lifecycleStage={lifecycleStage}
+            />
+          ) : null;
           const agentLogItems = showStructuredParts ? [] : buildAgentLogItemsFromTooling(toolParts);
           const measuredActiveAgentLogLabel = showStructuredParts || hasUserAfterCurrentMessage
             ? null
@@ -451,10 +430,6 @@ const MessageListComponent = ({
           const currentTurnIsActive =
             !hasUserAfterCurrentMessage &&
             Boolean(message.isStreaming || activeAgentLogLabel);
-          const showAgentLogActivity =
-            !showStructuredParts &&
-            message.role === "assistant" &&
-            (currentTurnIsActive || agentLogItems.length > 0);
           const planParts = showStructuredParts
             ? message.parts.filter(
                 (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
@@ -481,8 +456,7 @@ const MessageListComponent = ({
           const hasStructuredParts =
             showStructuredParts &&
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
-          const hasVisibleTooling =
-            showAgentLogActivity || compactToolParts.length > 0 || toolParts.length > 0;
+          const hasVisibleTooling = toolParts.length > 0;
           const rawMessage = externalMessages[messageIndex];
           // Auto-repair prompts are a real "user" turn in the DB (see
           // isAutoRepairPromptMessage) but must never look like something the
@@ -503,8 +477,8 @@ const MessageListComponent = ({
               }
             >
               <Message from={isSyntheticSystemPrompt ? "system" : message.role}>
-              <MessageContent>
-                {message.role === "assistant" && reasoningPart && (
+              <MessageContent className={message.role === "assistant" && !showStructuredParts ? "w-full max-w-full" : undefined}>
+                {showStructuredParts && message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
                     <ReasoningContent>
@@ -534,31 +508,6 @@ const MessageListComponent = ({
                         sendQuickReply(messageId, optionIndex, option, options)
                       }
                       quickReplyDisabled={quickReplyDisabled}
-                    />
-                  )}
-
-                {showAgentLogActivity && (
-                  <AgentLogCard
-                    items={agentLogItems}
-                    activeLabel={activeAgentLogLabel}
-                    isActive={currentTurnIsActive}
-                  />
-                )}
-
-                {!showStructuredParts &&
-                  message.role === "assistant" &&
-                  compactToolParts.length > 0 && (
-                    <CompactToolParts
-                      messageId={message.id}
-                      toolParts={compactToolParts}
-                      pendingReply={pendingReply}
-                      hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
-                      pendingQuickReplyKey={pendingQuickReplyKey}
-                      onQuickReply={async (messageId, optionIndex, option, options) =>
-                        sendQuickReply(messageId, optionIndex, option, options)
-                      }
-                      quickReplyDisabled={quickReplyDisabled}
-                      lifecycleStage={lifecycleStage}
                     />
                   )}
 
@@ -615,7 +564,20 @@ const MessageListComponent = ({
                   ))}
 
                 {message.role === "assistant" ? (
-                  textContent ? (
+                  !showStructuredParts ? (
+                    <GenerationSurface
+                      content={textContent}
+                      reasoning={reasoningPart?.reasoning}
+                      isStreaming={Boolean(message.isStreaming)}
+                      isActive={currentTurnIsActive}
+                      activeLabel={activeAgentLogLabel}
+                      awaitingReply={pendingReply?.messageId === message.id && f3AutoContinueKey !== pendingReply.key}
+                      items={agentLogItems}
+                      toolParts={toolParts}
+                      reviews={renderCompactTools(reviewToolParts)}
+                      actions={renderCompactTools(actionToolParts)}
+                    />
+                  ) : textContent ? (
                     hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
@@ -787,65 +749,8 @@ const MessageListComponent = ({
 
 export const MessageList = memo(MessageListComponent);
 
-/**
- * Best-effort phase guess for the auto-repair status line.
- *
- * The repair pipeline does not currently emit per-phase SSE events to
- * this component, so we derive a phase label from elapsed wall-clock
- * since the user-message rendered. Numbers are calibrated against the
- * observed Snickar Anders timings (see logs/generationslogg/20260419-235205):
- *   reasoning ~10s, output ~40s, autofix ~5s, verifier ~3-5s,
- *   quality-gate ~30-40s. Total around 100-150s.
- *
- * The label is intentionally hedged ("ungefär") — when the model takes
- * substantially longer (e.g. max-tier with thinking can spend 6 min on
- * reasoning alone) the phase shown will lag reality, but at least the
- * elapsed counter is honest.
- */
-function describeRepairPhase(elapsedSec: number): string {
-  if (elapsedSec < 12) return "LLM tänker";
-  if (elapsedSec < 50) return "Skriver kod";
-  if (elapsedSec < 60) return "Autofix";
-  if (elapsedSec < 100) return "Verifierar";
-  return "Slutför";
-}
-
-function RepairProgressIndicator() {
-  const [elapsedSec, setElapsedSec] = useState(0);
-  useEffect(() => {
-    const startedAt = Date.now();
-    const interval = setInterval(() => {
-      const next = Math.floor((Date.now() - startedAt) / 1000);
-      setElapsedSec(next);
-      // Cap at 5 min — by then either the chat has moved on or
-      // something is clearly stuck and we shouldn't keep counting.
-      if (next > 300) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-  const phase = describeRepairPhase(elapsedSec);
-  return (
-    <div
-      className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
-      aria-live="polite"
-    >
-      <Loader2 className="h-3 w-3 animate-spin" />
-      <span>Automatisk kodreparation pågår</span>
-      <span className="text-muted-foreground/70">·</span>
-      <span className="text-foreground/80">{phase}</span>
-      <span className="text-muted-foreground/70">·</span>
-      <span className="tabular-nums">{elapsedSec}s</span>
-    </div>
-  );
-}
-
-/**
- * Renders an auto-repair prompt (Spår 03 Steg 4) as a collapsed system row —
- * never as a user bubble, since the user never typed it. Kept expandable so
- * the actual repair instruction is still available for debugging. While the
- * repair round is still streaming, a live progress indicator replaces the
- * static "kördes" label so the user sees that work is in flight.
- */
+/** The assistant surface owns repair progress; this row only identifies the
+ * synthetic instruction, without a second spinner or guessed phase timer. */
 function AutoRepairMessageRow({
   content,
   isInProgress,
@@ -856,8 +761,7 @@ function AutoRepairMessageRow({
   return (
     <SyntheticSystemPromptRow
       content={content}
-      idleLabel="Automatisk reparation kördes"
-      progress={isInProgress ? <RepairProgressIndicator /> : null}
+      idleLabel={isInProgress ? "Automatisk reparation" : "Automatisk reparation kördes"}
     />
   );
 }
@@ -879,25 +783,21 @@ function F3KickMessageRow({ content }: { content: string }) {
 function SyntheticSystemPromptRow({
   content,
   idleLabel,
-  progress,
 }: {
   content: string;
   idleLabel: string;
-  progress?: ReactNode;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const lineCount = content.split("\n").length;
 
   return (
     <div className="space-y-2">
-      {progress ?? (
-        <div
-          className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
-          aria-live="polite"
-        >
-          <span>{idleLabel}</span>
-        </div>
-      )}
+      <div
+        className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+        aria-live="polite"
+      >
+        <span>{idleLabel}</span>
+      </div>
       {isExpanded ? (
         <div className="space-y-2">
           <MessageResponse>
@@ -1019,5 +919,3 @@ function dedupeSources(sources: Array<{ url: string; title?: string }>) {
   });
   return Array.from(seen.values());
 }
-
-

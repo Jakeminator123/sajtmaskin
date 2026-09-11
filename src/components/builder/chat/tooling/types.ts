@@ -110,6 +110,14 @@ export type QualityGateSummary = {
   qualityGateAdvisory?: boolean;
   advisoryChecks?: string[];
   skipped: boolean;
+  /** Verification stopped with the version pending; requires attention. */
+  retryPending?: boolean;
+  /**
+   * Gate skipped in the client because the SERVER owns the verify lane
+   * (integration versions). Verification is still running — the version is not
+   * done, so the chat surface must not read this as a finished generation.
+   */
+  serverOwned?: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
   verifyLaneDurationMs: number | null;

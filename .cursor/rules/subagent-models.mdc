@@ -15,6 +15,28 @@ tillåtna lista. Kopiera inte en gammal slug. En ogiltig slug får inte tyst
 | Luna | GPT-5.6 Luna | mekanisk sök, indexering, verifierbara read-only-svärmar |
 | Terra | GPT-5.6 Terra | avgränsad lågrisk med deterministiskt facit |
 
+## ChatGPT i webbläsaren: draft → ready
+
+Vid arbete från ChatGPT i webbläsaren (chatgpt.com) är en oberoende
+**GPT-5.6 Sol med `high` reasoning** standard för bugggranskning och vägen
+från draft till ready for review. Detta är Jakobs stående modellmandat;
+fråga inte igen bara för att Grok-valet i tabellen saknas i den miljön.
+Välj uttryckligen sessionens Sol-modell (här `gpt-5.6-sol`) och `high`.
+Om Sol saknas: redovisa hindret, byt inte modell tyst.
+
+1. Låt en separat readonly-agent granska aktuell head mot aktuell base.
+   Författaren får inte granska sitt eget arbete som oberoende agent.
+2. Åtgärda eller konkret triagera fynd; verifiera berörda delar. Ny head
+   eller base kräver uppföljning på den nya diffen och tidigare fynd.
+3. Dokumentera modell, reasoning, head/base-SHA, fynd och triage i PR:n.
+   När arbetet är klart, inga blockerande fynd återstår och draftprofilens
+   checks är gröna: markera ready for review så att full CI kan starta.
+4. Ready for review är inte mergeklar. Fulla required checks, Vercel och
+   review-/sign-off-grinden i `pr-merge.mdc` gäller fortfarande. Merge kräver
+   ett separat uttryckligt mergeuppdrag.
+
+## Övriga modellregler
+
 Produktens sajtmodeller (Premium m.m.) påverkas inte. Godnatt följer sina
 profiler.
 
