@@ -18,14 +18,18 @@ const HOOK = resolve(process.cwd(), ".cursor/hooks/heredoc-guard.mjs");
 function ask(
   command: string,
   platform = "win32",
-  shell = "/bin/bash",
+  shell = "",
 ): { permission: string; agent_message?: string } {
   // `SHELL` is pinned too, so the runner's own login shell never decides the
-  // verdict — a CI box with SHELL=/bin/zsh must behave like a laptop with bash.
+  // verdict — a CI box with SHELL=/bin/zsh must behave like a laptop with pwsh.
+  // Default is empty: that is what pwsh on Windows actually exports (verified).
+  const env: NodeJS.ProcessEnv = { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform };
+  if (shell) env.SHELL = shell;
+  else delete env.SHELL;
   const stdout = execFileSync(process.execPath, [HOOK], {
     input: JSON.stringify({ command }),
     encoding: "utf8",
-    env: { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform, SHELL: shell },
+    env,
   });
   return JSON.parse(stdout);
 }
@@ -52,9 +56,22 @@ describe("heredoc-guard hook", () => {
   it("allows a heredoc where the shell is not PowerShell", () => {
     // The project's hooks travel to the Linux cloud agent image, where a
     // heredoc is valid shell and denying it would block correct code.
-    expect(ask(COMMIT_HEREDOC, "linux").permission).toBe("allow");
-    expect(ask("cat <<EOF > out.txt\ntext\nEOF", "linux").permission).toBe("allow");
+    expect(ask(COMMIT_HEREDOC, "linux", "/bin/bash").permission).toBe("allow");
+    expect(ask("cat <<EOF > out.txt\ntext\nEOF", "linux", "/bin/bash").permission).toBe("allow");
     expect(ask(COMMIT_HEREDOC, "darwin", "/bin/zsh").permission).toBe("allow");
+    // Linux without SHELL at all (minimal container) is still not PowerShell.
+    expect(ask(COMMIT_HEREDOC, "linux").permission).toBe("allow");
+  });
+
+  it("allows a heredoc in Git Bash on Windows — SHELL names a POSIX shell", () => {
+    // Extern granskning: win32 antogs alltid vara pwsh. Verifierat 2026-09-11:
+    // pwsh exporterar inte SHELL på Windows, Git Bash sätter /usr/bin/bash.
+    expect(ask(COMMIT_HEREDOC, "win32", "/usr/bin/bash").permission).toBe("allow");
+    expect(ask(COMMIT_HEREDOC, "win32", "C:\\Program Files\\Git\\usr\\bin\\bash.exe").permission).toBe(
+      "allow",
+    );
+    // …och pwsh på Windows (tom SHELL) nekar fortfarande.
+    expect(ask(COMMIT_HEREDOC, "win32").permission).toBe("deny");
   });
 
   it("still denies on Linux/mac when the shell itself is PowerShell", () => {

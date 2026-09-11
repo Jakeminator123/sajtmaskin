@@ -41,7 +41,7 @@ describe("mcp-secret-read-guard hook", () => {
     expect(ask({ file_path: MCP_PATH, content: CLEAN }).permission).toBe("allow");
   });
 
-  it("känner igen sökvägen oavsett separator och skiftläge", () => {
+  it("känner igen sökvägen oavsett separator, skiftläge och om den är relativ", () => {
     expect(ask({ file_path: "/home/x/sajtmaskin/.cursor/mcp.json", content: CLEAN }).permission).toBe(
       "allow",
     );
@@ -49,6 +49,15 @@ describe("mcp-secret-read-guard hook", () => {
     expect(ask({ file_path: "/home/x/sajtmaskin/.Cursor/MCP.json", content: dirty }).permission).toBe(
       "deny",
     );
+    // Extern granskning: suffixmatch på "/.cursor/mcp.json" släppte en relativ
+    // sökväg utan inledande slash rakt igenom — allow trots secret.
+    expect(ask({ file_path: ".cursor/mcp.json", content: dirty }).permission).toBe("deny");
+    expect(ask({ file_path: ".cursor\\mcp.json", content: dirty }).permission).toBe("deny");
+    // …men inte en fil som bara råkar heta likadant i en annan mapp.
+    expect(ask({ file_path: "fixtures/not-cursor/mcp.json", content: dirty }).permission).toBe(
+      "allow",
+    );
+    expect(ask({ file_path: "my.cursor/mcp.json", content: dirty }).permission).toBe("allow");
   });
 
   it("nekar när mcp.json bär en auth-header, och namnger fältet men inte värdet", () => {

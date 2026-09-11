@@ -141,18 +141,24 @@ function heredocOpener(segment) {
  * Is the shell that will run this command PowerShell?
  *
  * The hook process is spawned by Cursor, not by the shell, so it cannot ask
- * the shell directly. Two signals are available and they cover the real cases:
- *   - win32: this repo pins pwsh 7 as the terminal profile
- *     (`.vscode/settings.json`), so Windows means PowerShell here;
- *   - elsewhere: `$SHELL` names the user's shell. A pwsh-on-Linux user has it
- *     set to `.../pwsh`, and bash/zsh users do not.
- * The residual — pwsh chosen per-terminal on Linux without `$SHELL` — is rare,
- * and the hook is fail-open: the worst case is pwsh's own parse error, which
- * was the status quo before this hook existed.
+ * the shell directly. `$SHELL` is the one signal that survives, and it points
+ * in opposite directions on the two platforms — both verified 2026-09-11:
+ *   - win32: pwsh does NOT set `SHELL`; Git Bash / MSYS sets `/usr/bin/bash`.
+ *     So Windows means PowerShell (the repo pins pwsh 7) UNLESS `SHELL` names
+ *     a POSIX shell — then it is Git Bash and a heredoc is valid.
+ *   - elsewhere: bash/zsh users have `SHELL=/bin/bash|zsh`; a pwsh-on-Linux
+ *     user has `SHELL=…/pwsh`. WSL runs the hook inside Linux, so it lands here.
+ * The residual — pwsh chosen per-terminal without `$SHELL` reflecting it — is
+ * rare, and the hook is fail-open: the worst case is pwsh's own parse error,
+ * which was the status quo before this hook existed.
  */
+const PWSH_SHELL_RE = /(?:^|[\\/])(?:pwsh|powershell)(?:\.exe)?$/iu;
+const POSIX_SHELL_RE = /(?:^|[\\/])(?:ba|z|da|k|fi)?sh(?:\.exe)?$/iu;
+
 export function isPowerShellHost({ platform, shell }) {
-  if (platform === "win32") return true;
-  return /(?:^|[\\/])(?:pwsh|powershell)(?:\.exe)?$/iu.test(String(shell ?? "").trim());
+  const named = String(shell ?? "").trim();
+  if (platform === "win32") return !POSIX_SHELL_RE.test(named);
+  return PWSH_SHELL_RE.test(named);
 }
 
 export function decide(

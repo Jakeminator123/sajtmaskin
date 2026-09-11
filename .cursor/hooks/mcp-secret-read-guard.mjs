@@ -32,11 +32,14 @@ import { readFileSync } from "node:fs";
 import { checkMcpSecrets } from "../../scripts/dev/doctor.mjs";
 import { writeHookResponse } from "./hook-io.mjs";
 
-const GUARDED_SUFFIX = "/.cursor/mcp.json";
+// Anchored on a separator OR start of string: Cursor documents `file_path` as
+// absolute, but a relative `.cursor/mcp.json` must not slip past the guard on
+// a technicality (extern granskning, impact 6/10). Separator-agnostic and
+// case-insensitive so `C:\…\.Cursor\MCP.json` is the same file.
+const GUARDED_PATH_RE = /(?:^|[\\/])\.cursor[\\/]mcp\.json$/iu;
 
 export function isGuardedPath(filePath) {
-  if (typeof filePath !== "string") return false;
-  return filePath.replace(/\\/g, "/").toLowerCase().endsWith(GUARDED_SUFFIX);
+  return typeof filePath === "string" && GUARDED_PATH_RE.test(filePath.trim());
 }
 
 export function decide(input) {
