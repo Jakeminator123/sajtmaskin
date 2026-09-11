@@ -47,7 +47,13 @@ describe("LanyardExperience", () => {
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
 
-    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+    const dialog = screen.getByRole("dialog", { name: "Cookie-inställningar" });
+    expect(dialog).toBeTruthy();
+    expect(dialog.className).toContain("bg-[#05070a]");
+    expect(dialog.className).toContain("z-[200]");
+    expect(dialog.className).not.toContain("bg-background/55");
+    expect(dialog.className).not.toContain("bg-background/70");
+    expect(dialog.className).not.toContain("bg-background ");
     expect(screen.getByRole("button", { name: "Acceptera alla" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Endast nödvändiga" })).toBeTruthy();
   });
@@ -73,7 +79,8 @@ describe("LanyardExperience", () => {
     await waitFor(() => {
       expect(screen.getByTestId("lanyard-static")).toBeTruthy();
     });
-    expect(screen.getByTestId("lanyard-static").className).toContain("overflow-hidden");
+    expect(screen.getByTestId("lanyard-static").className).toContain("overflow-visible");
+    expect(screen.getByTestId("lanyard-static").querySelector("img")).toBeTruthy();
     expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 
