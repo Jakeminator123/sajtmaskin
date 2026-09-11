@@ -54,7 +54,7 @@ hållas i synk; **Databashälsa-sidan i backofficen flaggar drift**.
 fortsätter dev-servern att starta ändå. Allt loggas i audit-NDJSON.
 Detta speglar mönstret som redan finns för `db:init.mjs`.
 
-**I CI (push till master):** `prod-migrations-apply` kör
+**I CI (push till `master` eller `preview`):** `prod-migrations-apply` kör
 `npm run db:perf-indexes` mot prod och `db-schema-parity` kör samma sak
 mot dev — båda idempotenta, så varje re-run är en no-op. Vercel-deployen
 själv kör fortfarande ingen DB-DDL (designval: en oavsiktlig deploy ska

@@ -43,8 +43,22 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
-/** Bas som "mergad" mäts mot. */
-export const BASE_REF = "origin/master";
+/**
+ * Baser som ancestry ("finns innehållet redan i en landad gren?") mäts mot.
+ * `preview` är leveransbasen; `master` är produktion.
+ *
+ * Varför båda: preview ligger normalt långt före master, så en branch vars
+ * commits faktiskt finns i preview var inte ancestor av master och räknades
+ * som omergad ända till promote.
+ *
+ * Ancestry är INTE squash-vägen. En squash-merge skriver en ny commit och
+ * bevarar ingen ancestry mot någon bas — den branchen städas av
+ * `isExactMergedPr` (mergad GitHub-PR med samma branch och head-SHA), inte
+ * härifrån. De två bevisen är med flit skilda.
+ */
+export const LANDED_REFS = Object.freeze(["origin/preview", "origin/master"]);
+/** Bakåtkompatibel alias: primär leveransbas. */
+export const BASE_REF = "origin/preview";
 /** Remote-brancher äldre än detta rapporteras som gamla (aldrig raderas). */
 export const STALE_AFTER_DAYS = 30;
 
@@ -275,6 +289,18 @@ function gitLines(args, root, opts) {
 }
 
 /**
+ * Är `ref` ancestor av preview eller master? Enbart ancestry — en
+ * squash-mergad branch svarar `false` här och bevisas i stället av
+ * `isExactMergedPr`.
+ */
+export function isMergedIntoLandedBase(ref, root) {
+  if (!ref) return false;
+  return LANDED_REFS.some(
+    (base) => git(["merge-base", "--is-ancestor", ref, base], root, { allowFail: true }) !== null,
+  );
+}
+
+/**
  * Parsa `git worktree list --porcelain`. Första posten är alltid huvudträdet.
  *
  * @param {string[]} lines
@@ -399,8 +425,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   const localDelete = [];
   for (const row of rows) {
     const [name, track = ""] = row.split("\t");
-    const mergedIntoBase =
-      git(["merge-base", "--is-ancestor", name, BASE_REF], root, { allowFail: true }) !== null;
+    const mergedIntoBase = isMergedIntoLandedBase(name, root);
     const branchHead = git(["rev-parse", name], root, { allowFail: true });
     const verdict = classifyLocalBranch({
       name,
@@ -441,10 +466,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   if (worktrees.length > 1) {
     for (const wt of worktrees.slice(1)) {
       const dirty = isWorktreeDirty(git(["status", "--porcelain"], wt.path, { allowFail: true }));
-      const merged =
-        wt.branch !== null &&
-        git(["merge-base", "--is-ancestor", wt.branch, BASE_REF], root, { allowFail: true }) !==
-          null;
+      const merged = isMergedIntoLandedBase(wt.branch, root);
       const branchHead = wt.branch
         ? git(["rev-parse", wt.branch], root, { allowFail: true })
         : null;

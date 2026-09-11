@@ -101,9 +101,9 @@ const FAKE_GIT = [
   "",
 ].join("\n");
 
-// Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
-// dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
-// ett schema koden lämnat bakom sig".
+// Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master eller
+// preview, dev av dessa hooks när den grenen dras hem. Går de sönder tyst är
+// vi tillbaka i "kör mot ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("hittar Git Bash på Windows när git är installerat", () => {
     if (process.platform === "win32" && spawnSync("git", ["--version"]).status === 0) {

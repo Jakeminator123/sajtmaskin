@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BASE_REF,
+  LANDED_REFS,
   PR_LIFECYCLE_API_ARGS,
   STALE_AFTER_DAYS,
   classifyLocalBranch,
@@ -21,6 +23,13 @@ import {
  * misstag radera arbete, så en regel som glider ska falla här och inte i ett
  * git-repo någon förlorat en branch i.
  */
+describe("LANDED_REFS", () => {
+  it("räknar preview och master som landade baser", () => {
+    expect(LANDED_REFS).toEqual(["origin/preview", "origin/master"]);
+    expect(BASE_REF).toBe("origin/preview");
+  });
+});
+
 describe("isProtectedBranch", () => {
   it("skyddar permanenta checkouter, ägarens backuper och botens brancher", () => {
     for (const name of [

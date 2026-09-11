@@ -25,7 +25,7 @@
  * npm: `npm run worktree:setup -- <path>` · `npm run worktree:link -- <path>` ·
  * `npm run worktree:remove -- <path>`
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
   lstatSync,
@@ -39,7 +39,12 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BASE_REF, isExactMergedPr, isProtectedBranch, loadPrLifecycle } from "../dev/tidy.mjs";
+import {
+  isExactMergedPr,
+  isMergedIntoLandedBase,
+  isProtectedBranch,
+  loadPrLifecycle,
+} from "../dev/tidy.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -652,10 +657,6 @@ function commandRemove(targetPath, { force }) {
   }
 
   const dirty = parseDirtyEntries(git(["-C", plan.worktreePath, "status", "--porcelain"]));
-  const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", headSha, BASE_REF], {
-    cwd: REPO_ROOT,
-    stdio: "ignore",
-  });
   const lifecycleDecision = classifyRemovalLifecycle({
     branch,
     headSha,
@@ -663,7 +664,7 @@ function commandRemove(targetPath, { force }) {
     force,
     discardReason: process.env.SAJTMASKIN_DISCARD_REASON ?? "",
     lifecycle,
-    mergedIntoBase: ancestry.status === 0,
+    mergedIntoBase: isMergedIntoLandedBase(headSha, REPO_ROOT),
   });
   if (!lifecycleDecision.ok) {
     console.error(

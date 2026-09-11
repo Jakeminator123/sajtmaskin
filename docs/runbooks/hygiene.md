@@ -85,7 +85,7 @@ Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är
 
 | Yta             | Policy                                                                                                                                                                                                                                       |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                                          |
+| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/preview` eller `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                    |
 | Skyddade namn   | `master`, `main`, `preview`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                                               |
 | Worktrees       | `git worktree prune` på avregistrerade poster, plus en **klassning av levande worktrees**: varje sekundär yta rapporteras som `FRI` eller `behåll` med skäl. `tidy` raderar aldrig en katalog — det gör `npm run worktree:remove`. Se nedan. |
 | `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                                                 |
@@ -109,7 +109,9 @@ En worktree är en **pågående session**: agenten som äger den har sin `workin
 | Exakt merge är bevisad     | Git-ancestry eller mergad PR med samma branch + head-SHA |
 
 Det GitHub-bundna beviset behövs för squash-merge, där feature-committen
-avsiktligt inte blir ancestor till `master`. Faller ett enda villkor blir svaret
+avsiktligt inte blir ancestor till **någon** bas — varken `preview` eller
+`master`. Ancestry och PR-head-SHA är därför två skilda bevis, inte varandras
+reserv. Faller ett enda villkor blir svaret
 `behåll`, med skälet utskrivet. Svarar inte `gh` behandlas **alla** som upptagna
 — «vet inte» är inte «ledig». Huvudcheckouten och skyddade branchnamn (`BRA`,
 `rescue/*`, …) klassas aldrig som fria.

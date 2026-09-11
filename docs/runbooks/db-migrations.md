@@ -76,7 +76,7 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 
 | Jobb                      | När                                                                       | Vad                                                                                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prod-migrations-apply`   | Push till master eller manuell dispatch (**aldrig** på PR)                | Kör `run-migrations.ts` mot prod. Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge |
+| `prod-migrations-apply`   | Push till `master` eller `preview`, eller manuell dispatch (**aldrig** på PR) | Kör `run-migrations.ts` mot prod. Preview delar prod-Postgres, så apply måste ske när koden landar på staging — inte först vid promote. Idempotent. Gate:at bakom `quality` + `schema-drift`. På **preview** föregås applyn av den additiva grinden nedan |
 | `prod-migrations-applied` | `needs: prod-migrations-apply`                                            | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt                                                                                                                        |
 | `db-schema-parity`        | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity`                                                                                      |
 
@@ -86,7 +86,7 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 
 Cron-körningen finns för att fånga drift som uppstår **mellan** pushar. Rött = skriv en migration (aldrig dashboard-DDL). Lokalt: `npm run db:schema-parity`.
 
-Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till master. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
+Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till `master` eller `preview`. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
 
 ### Secret-kravet
 
@@ -97,6 +97,50 @@ Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod
 
 Prod-secret injiceras bara på trusted events; PR-kod inklusive forkar ser aldrig prod-creds.
 
+## Preview delar prod-databasen — den additiva grinden
+
+`config/db-targets.json`: Vercel **Preview och Production läser samma
+prod-Postgres**. Bara Development är en egen databas. Det ger en risk som inte
+finns på `master`: `preview` ligger normalt tiotals commits före produktionen,
+så en migration som landar på staging träffar den databas den **gamla**
+produktionskoden fortfarande läser.
+
+- **Additiv DDL** (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`,
+  `CREATE INDEX IF NOT EXISTS`) är ofarlig där. Gammal kod rör inte det nya.
+- **Brytande DDL** är det inte. Tas något bort, byter typ eller byter namn går
+  produktionen sönder innan någon har promoverat.
+
+Därför begränsas den automatiska preview-vägen till det additiva:
+`npm run db:migrate:additive-check`
+([`scripts/db/check-additive-migrations.mjs`](../../scripts/db/check-additive-migrations.mjs))
+kör i `prod-migrations-apply` **före** applyn, men bara på push till `preview`.
+Den läser prod-ledgern, granskar enbart **pending** migrationer och failar rött
+på `DROP TABLE`, `DROP COLUMN`, `RENAME`, `ALTER COLUMN … TYPE`,
+`SET NOT NULL`, `DROP DEFAULT`, `TRUNCATE` och `DELETE FROM`.
+
+Utanför listan med flit, eftersom drop-och-återskapa är själva idiomet och ett
+falsklarm skulle göra grinden till något man stänger av: `DROP POLICY`,
+`DROP TRIGGER`, `DROP FUNCTION`, `DROP INDEX`, `DROP CONSTRAINT` och
+backfill-`UPDATE`. Kommentarer och stränglitteraler maskeras, men en
+`DO $$ … $$`-kropp granskas — inklusive dynamisk `EXECUTE '…'`.
+
+`master` gate:as inte: promoten **är** det medvetna beslutet, och där byter kod
+och schema plats samtidigt.
+
+**Blir grinden röd på preview:** migrationen är brytande. Välj medvetet.
+
+1. `npm run promote` — kod och schema byter samtidigt. Normalvägen.
+2. `npm run db:migrate:prod` lokalt, med vetskapen att produktionen är trasig
+   fram till promoten. Bara när du vill det.
+3. Skriv om migrationen additivt (expand nu, contract efter promote).
+
 ## Race mot deploy
 
 Vill du ha helt race-fritt (migrera FÖRE deploy): gate:a Vercel-deployen bakom `prod-migrations-apply` separat. En additiv `ADD COLUMN`-migration parallellt med deploy är annars ofarlig.
+
+**Känd, medvetet kvarlämnad lucka:** Vercel-deployen är inte gate:ad bakom
+`prod-migrations-apply` — varken på `master` eller `preview`. De körs parallellt.
+Med den additiva grinden ovan är det ofarligt per definition: additiv DDL kan
+inte bryta någon av sidorna, oavsett vem som hinner först. Luckan är alltså
+tolererad, inte oupptäckt. Vill man stänga den helt är åtgärden den i stycket
+ovan.
