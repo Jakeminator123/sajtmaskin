@@ -392,3 +392,77 @@ describe("isLatestGateVerdictAdvisory (bugbot medium #518 — degraded-emit on r
     expect(isLatestGateVerdictAdvisory(logs)).toBe(false);
   });
 });
+
+/**
+ * Review #1329 (cursor[bot], 95%/impact 8): server-verify's F2 advisory promote
+ * (`verify-run.ts`) writes `quality-gate:typecheck-advisory` and NO preflight
+ * row. Reading only `preflight:quality-gate` left the publish gate open for
+ * every repaired F2 version — the exact class of prod `5d809cc1`.
+ */
+describe("resolveLatestGateAdvisoryChecks — server-verify writer form", () => {
+  it("treats the server-verify advisory row as a typecheck advisory (writer-form repro)", () => {
+    const logs = [
+      makeLog({
+        category: "quality-gate:typecheck-advisory",
+        level: "warning",
+        meta: { advisory: true, advisoryChecks: ["typecheck"], failedChecks: ["typecheck"] },
+      }),
+    ];
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual(["typecheck"]);
+    expect(isLatestGateVerdictAdvisory(logs)).toBe(true);
+  });
+
+  it("still blocks on the no-op variant (advisoryPromoted: false, no advisoryChecks)", () => {
+    const logs = [
+      makeLog({
+        category: "quality-gate:typecheck-advisory",
+        level: "info",
+        meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
+      }),
+    ];
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual(["typecheck"]);
+  });
+
+  it("a later clean preflight pass (post-repair repass) clears a server-verify advisory", () => {
+    const logs = [
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "info",
+        created_at: at("2026-09-10T15:20:00.000Z"),
+        meta: { passed: true, repass: true },
+      }),
+      makeLog({
+        category: "quality-gate:typecheck-advisory",
+        level: "warning",
+        created_at: at("2026-09-10T15:06:00.000Z"),
+        meta: { advisory: true, advisoryChecks: ["typecheck"] },
+      }),
+    ];
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual([]);
+  });
+
+  it("a later server-verify advisory wins over an older clean preflight pass", () => {
+    const logs = [
+      makeLog({
+        category: "quality-gate:typecheck-advisory",
+        level: "warning",
+        created_at: at("2026-09-10T15:20:00.000Z"),
+        meta: { advisory: true, advisoryChecks: ["typecheck"] },
+      }),
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "info",
+        created_at: at("2026-09-10T15:06:00.000Z"),
+        meta: { passed: true },
+      }),
+    ];
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual(["typecheck"]);
+  });
+
+  it("ignores unrelated quality-gate:* per-check rows (only the advisory summary counts)", () => {
+    const logs = [
+      makeLog({ category: "quality-gate:typecheck", level: "error", meta: { output: "x" } }),
+    ];
+    expect(resolveLatestGateAdvisoryChecks(logs)).toEqual([]);
+  });
+});

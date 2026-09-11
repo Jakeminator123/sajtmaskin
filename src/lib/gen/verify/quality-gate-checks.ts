@@ -159,14 +159,93 @@ const RENDER_RISK_TS_CODES = new Set([
 const TS_CODE_RE = /\bTS(\d{4,5})\b/g;
 
 /**
+ * A tsc diagnostic line whose source file lives under Next's own `.next/`
+ * output — `.next/types/**` or `.next/dev/types/**` (`routes.d.ts` etc.). The
+ * generated project's `tsconfig.json` includes those globs (Next parity: `next
+ * dev` writes them back if removed), so the verify lane's `tsc --noEmit` can
+ * pick up a stale or half-written generated type file and report syntax errors
+ * (`TS1005 ',' expected`) that have nothing to do with the user's code and can
+ * never occur in Vercel's fresh `next build`. Prod 2026-08/09: 15 of 63 tsc
+ * hits (defect signature `9bf13221eb3e`, 6 chats) were exactly this — each one
+ * turned a clean site into a "klar med varningar" advisory. They are noise for
+ * both preview and publish and must not count as a typecheck failure.
+ *
+ * Matches `.next/…`, `./.next/…` and Windows separators; the trailing `(` is
+ * the `file(line,col)` position tsc prints.
+ */
+const GENERATED_NEXT_TYPES_DIAGNOSTIC_RE = /^\s*(?:\.[\\/])?\.next[\\/][^\s(]*\(\d+,\d+\):\s*error\s+TS\d{4,5}\b/;
+
+function isGeneratedNextTypesDiagnosticLine(line: string): boolean {
+  return GENERATED_NEXT_TYPES_DIAGNOSTIC_RE.test(line);
+}
+
+function isTscDiagnosticLine(line: string): boolean {
+  return /\berror\s+TS\d{4,5}\b/.test(line);
+}
+
+/**
+ * Typecheck output with every diagnostic that originates in `.next/` removed
+ * (a diagnostic's continuation lines are indented and carry no `error TSxxxx`,
+ * so they are dropped together with their header line). Non-diagnostic lines
+ * (summary, command echo) are kept verbatim.
+ */
+export function stripGeneratedNextTypeDiagnostics(output: string): string {
+  const kept: string[] = [];
+  let dropping = false;
+  for (const line of output.split(/\r?\n/)) {
+    if (isTscDiagnosticLine(line)) {
+      dropping = isGeneratedNextTypesDiagnosticLine(line);
+      if (!dropping) kept.push(line);
+      continue;
+    }
+    if (dropping && /^\s+\S/.test(line)) continue;
+    dropping = false;
+    kept.push(line);
+  }
+  return kept.join("\n");
+}
+
+/**
+ * True when a failing typecheck output has at least one tsc diagnostic and
+ * EVERY diagnostic originates in `.next/` generated types — i.e. the failure is
+ * environmental noise, not a user-code defect. Callers treat such a result as a
+ * passed typecheck (see `normalizeTypecheckResult`).
+ */
+export function typecheckFailsOnlyInGeneratedNextTypes(output: string): boolean {
+  const diagnostics = output.split(/\r?\n/).filter(isTscDiagnosticLine);
+  if (diagnostics.length === 0) return false;
+  return diagnostics.every(isGeneratedNextTypesDiagnosticLine);
+}
+
+/**
+ * Fold `.next/`-only typecheck noise into a pass so no gate path (client
+ * `quality-gate` route, `server-verify`, post-repair) reads it as a failure or
+ * an advisory. A result that still has user-code diagnostics after the strip is
+ * returned unchanged (with the full original output, so repair prompts keep
+ * every line). Idempotent; non-typecheck rows pass through.
+ */
+export function normalizeTypecheckResult<
+  T extends { check: string; passed: boolean; output?: string | null; exitCode?: number },
+>(result: T): T {
+  if (result.check !== "typecheck" || result.passed) return result;
+  const output = result.output ?? "";
+  if (!typecheckFailsOnlyInGeneratedNextTypes(output)) return result;
+  return { ...result, passed: true, exitCode: 0 };
+}
+
+/**
  * True when a failing typecheck output contains ONLY advisory-safe diagnostics
- * (no module/export-resolution codes, and at least one parseable TS code).
- * Fail-closed: unparseable output (no TS codes found) is NOT advisory-safe —
- * we cannot prove the failure class, so the gate stays hard as before.
+ * (no module/export-resolution codes, and at least one parseable TS code) once
+ * `.next/` generated-type noise is ignored. Fail-closed: unparseable output (no
+ * TS codes found) is NOT advisory-safe — we cannot prove the failure class, so
+ * the gate stays hard as before. An output whose only diagnostics are `.next/`
+ * noise is advisory-safe by construction (there is no user defect to block on);
+ * `normalizeTypecheckResult` normally turns that case into a pass upstream.
  */
 export function isAdvisorySafeTypecheckOutput(output: string): boolean {
-  const codes = [...output.matchAll(TS_CODE_RE)].map((match) => `TS${match[1]}`);
-  if (codes.length === 0) return false;
+  const userOutput = stripGeneratedNextTypeDiagnostics(output);
+  const codes = [...userOutput.matchAll(TS_CODE_RE)].map((match) => `TS${match[1]}`);
+  if (codes.length === 0) return typecheckFailsOnlyInGeneratedNextTypes(output);
   return codes.every((code) => !RENDER_RISK_TS_CODES.has(code));
 }
 
