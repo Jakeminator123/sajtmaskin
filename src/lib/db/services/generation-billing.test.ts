@@ -4,6 +4,7 @@ import { calculateModelCost } from "@/lib/billing/model-cost";
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 
 const {
+  billedOreTowardAdminRevenue,
   buildGenerationQuote,
   mapGenerationBillingUserSummary,
   resolveGenerationChargeDecision,
@@ -326,69 +327,68 @@ describe("resolveGenerationChargeDecision", () => {
 });
 
 describe("summarizeGenerationBillingRows", () => {
-  const freeListPrice = {
-    status: "free_generation",
-    freeGenerationApplied: true,
+  const free = {
+    creditsCharged: 0,
+    sekPerCreditOre: 300,
     providerCostOre: 300,
-    billableOre: 600,
   };
   const paid = {
-    status: "charged",
-    freeGenerationApplied: false,
+    creditsCharged: 2,
+    sekPerCreditOre: 300,
     providerCostOre: 200,
-    billableOre: 400,
   };
 
-  it("treats a free generation's stored list price as zero revenue", () => {
-    expect(summarizeGenerationBillingRows([freeListPrice])).toEqual({
+  it("gives negative margin equal to cost when a free generation charged no credits", () => {
+    expect(summarizeGenerationBillingRows([free])).toEqual({
       providerCostOre: 300,
       billableOre: 0,
       marginOre: -300,
     });
   });
 
-  it("subtracts both costs from the paid generation's billed amount", () => {
-    expect(summarizeGenerationBillingRows([paid, freeListPrice])).toEqual({
-      providerCostOre: 500,
-      billableOre: 400,
-      marginOre: -100,
-    });
-  });
-
-  it.each([
-    { status: "pending", freeGenerationApplied: false },
-    { status: "unpriced", freeGenerationApplied: false },
-    { status: "usage_incomplete", freeGenerationApplied: false },
-    { status: "no_usage", freeGenerationApplied: false },
-    { status: "anonymous_unbilled", freeGenerationApplied: false },
-    { status: "test", freeGenerationApplied: false },
-    { status: "zero_cost", freeGenerationApplied: false },
-    { status: "needs_reconciliation", freeGenerationApplied: true },
-  ])("does not count $status as revenue when the customer was not billed", (row) => {
+  it("uses credit value after rounding, not list price", () => {
     expect(
-      summarizeGenerationBillingRows([
-        { ...row, providerCostOre: 300, billableOre: 600 },
-      ]),
-    ).toMatchObject({
-      billableOre: 0,
-      marginOre: -300,
-    });
-  });
-
-  it("keeps needs_reconciliation revenue when credits were already taken", () => {
+      billedOreTowardAdminRevenue({
+        creditsCharged: 2,
+        sekPerCreditOre: 300,
+      }),
+    ).toBe(600);
     expect(
       summarizeGenerationBillingRows([
         {
-          status: "needs_reconciliation",
-          freeGenerationApplied: false,
-          providerCostOre: 300,
-          billableOre: 600,
+          creditsCharged: 2,
+          sekPerCreditOre: 300,
+          providerCostOre: 180,
         },
       ]),
     ).toEqual({
-      providerCostOre: 300,
+      providerCostOre: 180,
       billableOre: 600,
-      marginOre: 300,
+      marginOre: 420,
+    });
+  });
+
+  it("subtracts both costs from the paid generation's credit value", () => {
+    expect(summarizeGenerationBillingRows([paid, free])).toEqual({
+      providerCostOre: 500,
+      billableOre: 600,
+      marginOre: 100,
+    });
+  });
+
+  it("does not count a test row as revenue", () => {
+    expect(
+      summarizeGenerationBillingRows([
+        {
+          creditsCharged: 0,
+          sekPerCreditOre: 300,
+          providerCostOre: 250,
+        },
+      ]),
+    ).toEqual({
+      providerCostOre: 250,
+      billableOre: 0,
+      marginOre: -250,
     });
   });
 });

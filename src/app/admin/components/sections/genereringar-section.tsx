@@ -217,15 +217,15 @@ export function GenereringarSection() {
           icon={ReceiptText}
         />
         <StatCard
-          label="Efter påslag"
+          label="Debiterat"
           value={formatSek(data?.summary.billableOre ?? 0)}
-          hint="Debiterat listvärde; gratis räknas som 0"
+          hint="Credits × radens kr/credit, inte paketpris"
           icon={Coins}
         />
         <StatCard
           label="Marginal"
           value={formatSek((data?.summary.billableOre ?? 0) - (data?.summary.providerCostOre ?? 0))}
-          hint="Debiterat minus självkostnad"
+          hint="Debiterat kreditvärde minus självkostnad"
           icon={Coins}
         />
         <StatCard label="Credits dragna" value={data?.summary.creditsCharged ?? 0} icon={Coins} />
@@ -370,7 +370,7 @@ export function GenereringarSection() {
 
       <SectionCard
         title="Användare"
-        description="Summerad självkostnad, debiterat belopp och marginal för vald period."
+        description="Självkostnad, debiterat kreditvärde och marginal för vald period."
         icon={Users}
       >
         <DataState
@@ -496,6 +496,9 @@ export function GenereringarSection() {
                   <div>
                     <span className="text-muted-foreground block text-xs">Efter påslag</span>
                     {formatSek(row.billableOre)}
+                    <span className="text-muted-foreground block text-xs">
+                      Listpris före kreditavrundning
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block text-xs">Draget</span>

@@ -92,24 +92,21 @@ describe("getGenerationBillingAdminData user totals", () => {
     });
   });
 
-  it("filters list-price billable_ore the same way in summary and user totals", async () => {
+  it("sums credit value the same way in summary and user totals", async () => {
     await getGenerationBillingAdminData(30, 50, new Date("2026-09-11T00:00:00.000Z"));
     const { summary, users } = billedQueries();
 
     expect(summary).toBeDefined();
     expect(users).toBeDefined();
     for (const sql of [summary, users]) {
-      expect(sql).toEqual(expect.stringContaining("sum("));
-      expect(sql).toMatch(/filter\s*\(\s*where\s+not/i);
-      expect(sql).toEqual(expect.stringContaining("free_generation_applied"));
-      expect(sql).toEqual(expect.stringContaining("'charged'"));
-      expect(sql).toEqual(expect.stringContaining("'charged_estimated'"));
-      expect(sql).toEqual(expect.stringContaining("'needs_reconciliation'"));
+      expect(sql).toMatch(/credits_charged\s*\*\s*(?:gb\.)?sek_per_credit_ore/);
+      expect(sql).not.toMatch(/status\s+in\s*\(/);
+      expect(sql).not.toMatch(/filter\s*\(\s*where\s+not/i);
       expect(sql).not.toMatch(/sum\([^)]*provider_cost_ore[^)]*\)\s+filter/i);
     }
   });
 
-  it("maps a free generation's filtered totals to negative margin", async () => {
+  it("maps a free generation's credit-value totals to negative margin", async () => {
     const data = await getGenerationBillingAdminData(
       30,
       50,

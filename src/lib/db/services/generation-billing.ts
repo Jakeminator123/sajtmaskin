@@ -838,35 +838,18 @@ export type GenerationBillingUserSummary = {
   freeGenerations: number;
 };
 
-/**
- * Statusar där kunden faktiskt debiterades. `billable_ore` är listpris även
- * när credits_charged är 0, så intäkt måste filtreras — inte summeras rakt av.
- */
-export const GENERATION_BILLING_REVENUE_STATUSES = [
-  "charged",
-  "charged_estimated",
-  "needs_reconciliation",
-] as const;
-
 export type GenerationBillingLedgerRow = {
-  status: string;
-  freeGenerationApplied: boolean;
-  billableOre: number;
+  creditsCharged: number;
+  sekPerCreditOre: number;
   providerCostOre: number;
 };
 
+/** Kreditvärde enligt radens snapshot — inte vad kunden betalade för paketet. */
 export function billedOreTowardAdminRevenue(row: {
-  status: string;
-  freeGenerationApplied: boolean;
-  billableOre: number;
+  creditsCharged: number;
+  sekPerCreditOre: number;
 }): number {
-  if (row.freeGenerationApplied) return 0;
-  if (
-    !(GENERATION_BILLING_REVENUE_STATUSES as readonly string[]).includes(row.status)
-  ) {
-    return 0;
-  }
-  return Number(row.billableOre);
+  return Number(row.creditsCharged) * Number(row.sekPerCreditOre);
 }
 
 export function summarizeGenerationBillingRows(
@@ -885,17 +868,10 @@ export function summarizeGenerationBillingRows(
   };
 }
 
-function billedOreRevenueSql(tableAlias?: "gb") {
-  const billable = tableAlias ? sql`gb.billable_ore` : sql`billable_ore`;
-  const free = tableAlias ? sql`gb.free_generation_applied` : sql`free_generation_applied`;
-  const status = tableAlias ? sql`gb.status` : sql`status`;
-  return sql`COALESCE(
-    SUM(${billable}) FILTER (
-      WHERE NOT ${free}
-        AND ${status} IN ('charged', 'charged_estimated', 'needs_reconciliation')
-    ),
-    0
-  )::integer`;
+function chargedCreditValueSql(tableAlias?: "gb") {
+  const credits = tableAlias ? sql`gb.credits_charged` : sql`credits_charged`;
+  const rate = tableAlias ? sql`gb.sek_per_credit_ore` : sql`sek_per_credit_ore`;
+  return sql`COALESCE(SUM(${credits} * ${rate}), 0)::integer`;
 }
 
 export function mapGenerationBillingUserSummary(row: {
@@ -997,7 +973,7 @@ export async function getGenerationBillingAdminData(
       SELECT
         COUNT(*)::integer AS generations,
         COALESCE(SUM(provider_cost_ore), 0)::integer AS "providerCostOre",
-        ${billedOreRevenueSql()} AS "billableOre",
+        ${chargedCreditValueSql()} AS "billableOre",
         COALESCE(SUM(credits_charged), 0)::integer AS "creditsCharged",
         COUNT(*) FILTER (WHERE free_generation_applied)::integer AS "freeGenerations",
         COALESCE(SUM(llm_calls), 0)::integer AS "llmCalls"
@@ -1012,7 +988,7 @@ export async function getGenerationBillingAdminData(
         u.email,
         COUNT(*)::integer AS generations,
         COALESCE(SUM(gb.provider_cost_ore), 0)::integer AS "providerCostOre",
-        ${billedOreRevenueSql("gb")} AS "billableOre",
+        ${chargedCreditValueSql("gb")} AS "billableOre",
         COALESCE(SUM(gb.credits_charged), 0)::integer AS "creditsCharged",
         COUNT(*) FILTER (WHERE gb.free_generation_applied)::integer AS "freeGenerations"
       FROM generation_billings gb
