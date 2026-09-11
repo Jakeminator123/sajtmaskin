@@ -26,7 +26,7 @@ export type { ChatAreaProps }
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export function ChatArea(props: ChatAreaProps = {}) {
-  const { expandedContent, heroPrefix, onPlayIntro } = props
+  const { expandedContent, onPlayIntro } = props
   // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
   // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
   useHashScroll()
@@ -66,7 +66,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
   }, [router])
 
   return (
-    <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-x-clip overflow-y-hidden">
       <LandingBackground
         selectedCategory={selectedCategory}
         isAuditMode={isAuditMode}
@@ -75,12 +75,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
       {/* Scrollable content */}
       <div
-        className="relative z-10 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
+        className="relative z-10 min-h-0 flex-1 touch-pan-y overflow-x-clip overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
         data-scroll-container
       >
 
         <LandingHero
-          heroPrefix={heroPrefix}
           expandedContent={expandedContent}
           onPlayIntro={onPlayIntro}
           selectedCategory={selectedCategory}

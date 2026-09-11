@@ -37,7 +37,7 @@ function RootLandingContent() {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const { user, isAuthenticated, isInitialized, fetchUser } = useAuth();
+  const { fetchUser } = useAuth();
 
   const [buildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
 
@@ -116,9 +116,6 @@ function RootLandingContent() {
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }, [pathname, router, searchParams]);
-
-  const firstName =
-    user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
 
   useEffect(() => {
     const activeEntryMode = showWizard ? "wizard" : selectedCategory ?? null;
@@ -357,33 +354,9 @@ function RootLandingContent() {
     return null;
   };
 
-  const renderHeroPrefix = () => {
-    if (!isInitialized || !isAuthenticated || !firstName) return null;
-    return (
-      <div className="animate-fade-up mb-4" style={{ animationDelay: "0.05s" }}>
-        <div className="inline-flex items-center gap-3 rounded-full border border-primary/15 bg-primary/5 px-5 py-2 backdrop-blur-xl">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
-            {firstName[0]?.toUpperCase()}
-          </div>
-          <span className="text-sm text-muted-foreground">
-            Välkommen,{" "}
-            <span className="font-medium text-foreground">{firstName}</span>
-          </span>
-          <div className="h-3.5 w-px bg-border/30" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-primary">
-              {user?.diamonds ?? 0}
-            </span>
-            <span className="text-xs text-muted-foreground">credits</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
-      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-hidden bg-background supports-[height:100dvh]:h-dvh md:overflow-hidden">
+      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-clip bg-background supports-[height:100dvh]:h-dvh">
         <Navbar
           onLoginClick={handleLoginClick}
           onRegisterClick={handleRegisterClick}
@@ -392,7 +365,6 @@ function RootLandingContent() {
           selectedCategory={selectedCategory}
           onSelectedCategoryChange={handleCategoryChange}
           expandedContent={renderExpandedContent()}
-          heroPrefix={renderHeroPrefix()}
           auditUrl={auditUrl}
           onAuditUrlChange={setAuditUrl}
           onAuditSubmit={handleAuditSubmitFromHero}

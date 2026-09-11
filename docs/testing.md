@@ -52,10 +52,8 @@ orphan-filgrinden är däremot transitivt blockerande eftersom den required chec
 
 I den tunga profilen kör `build`-jobbet `npm run build` (som i sin tur kör
 `prebuild`: `preflight:common` + `scaffolds:embeddings:check`) **utan secrets**.
-Det finns för att `next build` annars inte körs någonstans före merge:
-preview-deployer är avstängda i
-[`vercel.json`](../vercel.json) (`deploymentEnabled` bara för `master`), så första riktiga
-bygget av en ändring var prod-deployen efter merge. typecheck och lint täcker inte
+Det finns för att `next build` ska köras nyckelfritt i CI även när en Vercel
+Preview uteblir eller misslyckas. typecheck och lint täcker inte
 build-tidsfel som route-config, RSC-gränser eller prerender-fel.
 
 Bygget är verifierat nyckelfritt — behöver det plötsligt en secret är det en regression i
