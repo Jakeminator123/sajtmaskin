@@ -5,6 +5,10 @@ import {
   applyLanyardTextureCrop,
   calculateSettledCardFrame,
   getLanyardCardFaceSize,
+  lanyardIdleGust,
+  lanyardIdleVisualSway,
+  lanyardPointerProximity,
+  lanyardPointerTiltTarget,
   lanyardTextureToCss,
 } from "./lanyard-card-layout";
 
@@ -59,5 +63,50 @@ describe("lanyard card layout", () => {
     expect(face.width).toBeLessThan(LANYARD_CARD_LAYOUT.cardWidth);
     expect(face.height).toBeLessThan(LANYARD_CARD_LAYOUT.cardHeight);
     expect(face.z).toBeGreaterThan(LANYARD_CARD_LAYOUT.cardDepth / 2);
+  });
+
+  it("keeps a visible idle yaw so the front face is not locked at 0", () => {
+    const a = lanyardIdleVisualSway(0.8);
+    const b = lanyardIdleVisualSway(2.4);
+    expect(Math.abs(a.yaw)).toBeGreaterThan(0.02);
+    expect(a.yaw).not.toBeCloseTo(b.yaw, 3);
+    expect(Math.abs(a.yaw)).toBeLessThan(0.25);
+    expect(Math.abs(a.pitch)).toBeLessThan(0.08);
+  });
+
+  it("follows the pointer more on hover than when the cursor is far away", () => {
+    const hover = lanyardPointerTiltTarget({
+      pointerX: 0.8,
+      pointerY: -0.4,
+      dragged: false,
+      proximity: 1,
+    });
+    const far = lanyardPointerTiltTarget({
+      pointerX: 0.8,
+      pointerY: -0.4,
+      dragged: false,
+      proximity: 0,
+    });
+    const drag = lanyardPointerTiltTarget({
+      pointerX: 0.8,
+      pointerY: -0.4,
+      dragged: true,
+      proximity: 1,
+    });
+
+    expect(hover.y).toBeGreaterThan(0.1);
+    expect(far.y).toBe(0);
+    expect(Math.abs(drag.y)).toBeGreaterThan(Math.abs(hover.y));
+    expect(lanyardPointerProximity(0, 0, true, false)).toBe(1);
+    expect(lanyardPointerProximity(0.9, 0.9, false, false)).toBe(0);
+    expect(lanyardPointerProximity(0, 0, false, true)).toBeGreaterThan(0.7);
+  });
+
+  it("gusts reverse so idle physics keeps dangling instead of parking", () => {
+    const right = lanyardIdleGust(Math.PI / 3.4);
+    const left = lanyardIdleGust((3 * Math.PI) / 3.4);
+    expect(right.impulse.x).toBeGreaterThan(0);
+    expect(left.impulse.x).toBeLessThan(0);
+    expect(Math.abs(left.impulse.x)).toBeLessThan(0.4);
   });
 });

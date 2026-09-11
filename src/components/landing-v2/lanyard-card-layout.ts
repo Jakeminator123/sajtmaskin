@@ -118,9 +118,56 @@ export function stabilizeLanyardAngularVelocity(
   scratchEuler.setFromQuaternion(scratchQuaternion);
   return target.set(
     angularVelocity.x - scratchEuler.x * 0.3,
-    angularVelocity.y - scratchEuler.y * 0.6,
+    angularVelocity.y - scratchEuler.y * 0.24,
     angularVelocity.z - scratchEuler.z * 0.2,
   );
+}
+
+export function lanyardIdleVisualSway(elapsedSeconds: number) {
+  return {
+    pitch: Math.sin(elapsedSeconds * 0.47) * 0.045,
+    yaw: Math.sin(elapsedSeconds * 0.62) * 0.16 + Math.sin(elapsedSeconds * 0.19) * 0.05,
+  };
+}
+
+export function lanyardPointerProximity(
+  pointerX: number,
+  pointerY: number,
+  hovered: boolean,
+  pointerInside: boolean,
+) {
+  if (hovered) return 1;
+  if (!pointerInside) return 0;
+  const dist = Math.hypot(pointerX, pointerY + 0.12);
+  return Math.max(0, 1 - dist / 0.78);
+}
+
+export function lanyardPointerTiltTarget(options: {
+  pointerX: number;
+  pointerY: number;
+  dragged: boolean;
+  proximity: number;
+}) {
+  const { pointerX, pointerY, dragged, proximity } = options;
+  if (dragged) {
+    return {
+      x: Math.min(0.18, Math.max(-0.18, -pointerY * 0.1)),
+      y: Math.min(0.38, Math.max(-0.38, pointerX * 0.32)),
+    };
+  }
+  const strength = Math.min(1, Math.max(0, proximity));
+  return {
+    x: Math.min(0.1, Math.max(-0.1, -pointerY * 0.07 * strength)),
+    y: Math.min(0.22, Math.max(-0.22, pointerX * 0.18 * strength)),
+  };
+}
+
+export function lanyardIdleGust(elapsedSeconds: number) {
+  const dir = Math.sin(elapsedSeconds * 1.7) >= 0 ? 1 : -1;
+  return {
+    impulse: { x: 0.28 * dir, y: 0, z: 0.05 * dir },
+    torque: { x: 0.08 * dir, y: 0.42 * dir, z: 0.04 * dir },
+  };
 }
 
 export function calculateSettledCardFrame() {

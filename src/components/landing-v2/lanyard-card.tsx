@@ -31,6 +31,10 @@ import {
   LANYARD_CARD_LAYOUT,
   applyLanyardTextureCrop,
   getLanyardCardFaceSize,
+  lanyardIdleGust,
+  lanyardIdleVisualSway,
+  lanyardPointerProximity,
+  lanyardPointerTiltTarget,
   stabilizeLanyardAngularVelocity,
 } from "@/components/landing-v2/lanyard-card-layout"
 import { useAuthStore } from "@/lib/auth/auth-store"
@@ -230,6 +234,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const quat = useRef(new THREE.Quaternion()).current
   const euler = useRef(new THREE.Euler()).current
   const tilt = useRef({ x: 0, y: 0 }).current
+  const pointerInside = useRef(false)
+  const lastGustAt = useRef(0)
 
   const { width, height } = useThree((s) => s.size)
   const gl = useThree((s) => s.gl)
@@ -319,6 +325,22 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   useSphericalJoint(j3, card, [[0, 0, 0], [0, CARD_JOINT_Y, 0]])
 
   useEffect(() => {
+    const element = gl.domElement
+    const enter = () => {
+      pointerInside.current = true
+    }
+    const leave = () => {
+      pointerInside.current = false
+    }
+    element.addEventListener("pointerenter", enter)
+    element.addEventListener("pointerleave", leave)
+    return () => {
+      element.removeEventListener("pointerenter", enter)
+      element.removeEventListener("pointerleave", leave)
+    }
+  }, [gl])
+
+  useEffect(() => {
     if (hovered) document.body.style.cursor = dragged ? "grabbing" : "grab"
     return () => {
       document.body.style.cursor = "auto"
@@ -349,16 +371,36 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
       })
     }
 
-    // Extra lokal lutning under drag — kortet lutar in i rörelsen utan att
-    // slåss med Rapier-rotationen när kroppen är dynamisk igen.
-    const tiltStiffness = Math.min(1, delta * (dragged ? 10 : 6))
-    const targetTiltY = dragged ? THREE.MathUtils.clamp(state.pointer.x * 0.32, -0.38, 0.38) : 0
-    const targetTiltX = dragged ? THREE.MathUtils.clamp(-state.pointer.y * 0.1, -0.18, 0.18) : 0
+    // Idle-sving + subtil pointer-follow. Drag behåller den starkare lutningen.
+    const proximity = lanyardPointerProximity(
+      state.pointer.x,
+      state.pointer.y,
+      hovered,
+      pointerInside.current,
+    )
+    const pointerTilt = lanyardPointerTiltTarget({
+      pointerX: state.pointer.x,
+      pointerY: state.pointer.y,
+      dragged: Boolean(dragged),
+      proximity,
+    })
+    const idleSway = dragged ? { pitch: 0, yaw: 0 } : lanyardIdleVisualSway(state.clock.elapsedTime)
+    const tiltStiffness = Math.min(1, delta * (dragged ? 10 : 5))
+    const targetTiltX = pointerTilt.x + idleSway.pitch
+    const targetTiltY = pointerTilt.y + idleSway.yaw
     tilt.x += (targetTiltX - tilt.x) * tiltStiffness
     tilt.y += (targetTiltY - tilt.y) * tiltStiffness
     if (visual.current) {
       visual.current.rotation.x = tilt.x
       visual.current.rotation.y = tilt.y
+    }
+
+    if (!dragged && card.current && state.clock.elapsedTime - lastGustAt.current >= 2.7) {
+      lastGustAt.current = state.clock.elapsedTime
+      const gust = lanyardIdleGust(state.clock.elapsedTime)
+      card.current.wakeUp()
+      card.current.applyImpulse(gust.impulse, true)
+      card.current.applyTorqueImpulse(gust.torque, true)
     }
 
     if (fixed.current && j1.current && j2.current && j3.current && card.current && band.current) {
