@@ -1,11 +1,13 @@
 /**
- * Publik prisbild — bara priser, inget om vem som satte dem eller när.
+ * Publik prisbild — bara kundpriser, inget om vem som satte dem eller när.
  *
- * Admin-API:t får skicka `updatedAt`/`updatedBy`. Den här formen är vad
- * inloggade och utloggade besökare får från GET /api/pricing.
+ * Domänpåslag och intern USD/SEK-kurs hör inte hit: de är operatörsmarginal,
+ * inte ett pris. Kundpriset på en domän kommer från `/api/domains/check`.
+ *
+ * Admin-API:t får skicka `updatedAt`/`updatedBy` och domänknoppar. Den här
+ * formen är vad inloggade och utloggade besökare får från GET /api/pricing.
  */
 
-import { DEFAULT_DOMAIN_PRICING, type DomainPricingSettings } from "@/lib/domains/pricing";
 import {
   DEFAULT_CREDIT_ACTION_PRICES,
   isValidCreditPrice,
@@ -17,35 +19,19 @@ import {
 } from "./pricing";
 
 export type PublicPricing = {
-  domain: DomainPricingSettings;
   credits: CreditActionPrices;
 };
 
 export const FALLBACK_PUBLIC_PRICING: PublicPricing = {
-  domain: DEFAULT_DOMAIN_PRICING,
   credits: DEFAULT_CREDIT_ACTION_PRICES,
 };
 
 export function toPublicPricing(input: {
-  domain: DomainPricingSettings;
   creditActionPrices: CreditPriceOverrides;
 }): PublicPricing {
   return {
-    domain: {
-      markup: input.domain.markup,
-      usdToSek: input.domain.usdToSek,
-    },
     credits: resolveCreditActionPrices(input.creditActionPrices),
   };
-}
-
-function parseDomain(value: unknown): DomainPricingSettings | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const markup = (value as { markup?: unknown }).markup;
-  const usdToSek = (value as { usdToSek?: unknown }).usdToSek;
-  if (typeof markup !== "number" || !Number.isFinite(markup) || markup <= 0) return null;
-  if (typeof usdToSek !== "number" || !Number.isFinite(usdToSek) || usdToSek <= 0) return null;
-  return { markup, usdToSek };
 }
 
 function parseTierPrices(value: unknown): Record<ModelTier, number> | null {
@@ -97,17 +83,16 @@ function parseCredits(value: unknown): CreditActionPrices | null {
 }
 
 /**
- * Tolerant läsning av GET /api/pricing. Okända fält (t.ex. om en äldre klient
- * träffar en nyare payload) ignoreras. Trasig form → null, så anroparen kan
- * falla tillbaka på {@link FALLBACK_PUBLIC_PRICING}.
+ * Tolerant läsning av GET /api/pricing. Okända fält (t.ex. en äldre payload
+ * med `domain`) ignoreras. Trasig form → null, så anroparen kan falla
+ * tillbaka på {@link FALLBACK_PUBLIC_PRICING}.
  */
 export function parsePublicPricing(value: unknown): PublicPricing | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const domain = parseDomain(record.domain);
   const credits = parseCredits(record.credits);
-  if (!domain || !credits) return null;
-  return { domain, credits };
+  if (!credits) return null;
+  return { credits };
 }
 
 export function publicPricingToBreakdown(pricing: PublicPricing): CreditCostBreakdown {

@@ -107,6 +107,36 @@ describe("admin pricing-settings route", () => {
     });
   });
 
+  it("does not read settings when admin access is denied", async () => {
+    requireAdminAccess.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ success: false, error: "Forbidden" }), {
+        status: 403,
+      }),
+    });
+    const response = await GET(new NextRequest("http://localhost/api/admin/pricing-settings"));
+    expect(response.status).toBe(403);
+    expect(getPricingSettings).not.toHaveBeenCalled();
+  });
+
+  it("does not write settings when admin access is denied", async () => {
+    requireAdminAccess.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ success: false, error: "Forbidden" }), {
+        status: 403,
+      }),
+    });
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/admin/pricing-settings", {
+        method: "PATCH",
+        body: JSON.stringify({ creditActionPrices: { wizard: 14 } }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(response.status).toBe(403);
+    expect(updatePricingSettings).not.toHaveBeenCalled();
+  });
+
   it("maps other errors to 500 with a Swedish message", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     getPricingSettings.mockRejectedValueOnce(new Error("connection reset"));

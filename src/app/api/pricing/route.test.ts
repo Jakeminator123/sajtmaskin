@@ -28,7 +28,6 @@ describe("public pricing route", () => {
     const json = await response.json();
     expect(json).toEqual({
       success: true,
-      domain: { markup: 7, usdToSek: 9.5 },
       credits: {
         promptCreate: {
           ...DEFAULT_CREDIT_ACTION_PRICES.promptCreate,
@@ -46,6 +45,15 @@ describe("public pricing route", () => {
     expect(json).not.toHaveProperty("updatedAt");
     expect(json).not.toHaveProperty("updatedBy");
     expect(json.credits).not.toHaveProperty("updatedBy");
+    expect(json).not.toHaveProperty("domain");
+    expect(JSON.stringify(json)).not.toContain("markup");
+  });
+
+  it("fails if markup ever reappears in the public payload", async () => {
+    const response = await GET();
+    const json = await response.json();
+    expect(json).not.toHaveProperty("domain");
+    expect(JSON.stringify(json)).not.toMatch(/markup/i);
   });
 
   it("maps unexpected failures to 500", async () => {

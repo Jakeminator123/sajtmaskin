@@ -3,8 +3,8 @@ import { toPublicPricing } from "@/lib/credits/public-pricing";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 
 /**
- * Publik, effektiv prislista. Ingen aktör, ingen tidstämpel — bara det
- * som faktiskt debiteras.
+ * Publik, effektiv creditprislista. Ingen aktör, ingen tidstämpel, inget
+ * domänpåslag — bara det som faktiskt debiteras i credits.
  */
 export async function GET() {
   try {

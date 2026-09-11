@@ -16,7 +16,6 @@ describe("usePublicPricing", () => {
         ok: true,
         json: async () => ({
           success: true,
-          domain: { markup: 7, usdToSek: 9.5 },
           credits: {
             ...DEFAULT_CREDIT_ACTION_PRICES,
             deployProduction: 25,

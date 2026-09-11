@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleDollarSign, Coins, Globe, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { isValidCreditPrice, type ModelTier } from "@/lib/credits/pricing";
 import { applyMarkupSek, referenceWholesaleSek } from "@/lib/domains/pricing";
 import { CANONICAL_MODEL_IDS, MODEL_LABELS } from "@/lib/models/catalog";
-import { useAdminResource } from "../../lib/use-admin-resource";
+import { keepUnsavedDraft, keepUnsavedDrafts } from "../../lib/pricing-drafts";
 import {
   scalarCreditPatch,
   tierCreditPatch,
   type ScalarCreditField,
 } from "../../lib/pricing-patches";
+import { useAdminResource } from "../../lib/use-admin-resource";
 import {
   DataState,
   RefreshButton,
@@ -60,6 +61,29 @@ function SourceBadge({ overridden }: { overridden: boolean }) {
   );
 }
 
+/** Domänkolumnerna är NOT NULL — raden äger alltid värdet. */
+function DomainStoredBadge() {
+  return <StatusBadge tone="warn">Databas</StatusBadge>;
+}
+
+function creditDraftsFromEffective(
+  credits: PricingSettingsAdminPayload["effective"]["creditActionPrices"],
+): Record<string, string> {
+  const next: Record<string, string> = {
+    wizard: String(credits.wizard),
+    auditBasic: String(credits.auditBasic),
+    auditAdvanced: String(credits.auditAdvanced),
+    deployPreview: String(credits.deployPreview),
+    deployProduction: String(credits.deployProduction),
+    openclawTip: String(credits.openclawTip),
+  };
+  for (const tier of CANONICAL_MODEL_IDS) {
+    next[`promptCreate.${tier}`] = String(credits.promptCreate[tier] ?? "");
+    next[`promptRefine.${tier}`] = String(credits.promptRefine[tier] ?? "");
+  }
+  return next;
+}
+
 export function PriserSection() {
   const pricing = useAdminResource<PricingSettingsAdminPayload>("/api/admin/pricing-settings", {
     errorMessage: "Kunde inte hämta prisinställningarna",
@@ -78,25 +102,28 @@ export function PriserSection() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const lastCreditEffective = useRef<Record<string, string> | null>(null);
+  const lastDomainEffective = useRef<{ markup: string; usdToSek: string } | null>(null);
 
   useEffect(() => {
     const data = pricing.data;
     if (!data) return;
-    setDomainMarkup(String(data.effective.domain.markup));
-    setDomainUsdToSek(String(data.effective.domain.usdToSek));
-    const next: Record<string, string> = {};
-    const credits = data.effective.creditActionPrices;
-    next.wizard = String(credits.wizard);
-    next.auditBasic = String(credits.auditBasic);
-    next.auditAdvanced = String(credits.auditAdvanced);
-    next.deployPreview = String(credits.deployPreview);
-    next.deployProduction = String(credits.deployProduction);
-    next.openclawTip = String(credits.openclawTip);
-    for (const tier of CANONICAL_MODEL_IDS) {
-      next[`promptCreate.${tier}`] = String(credits.promptCreate[tier] ?? "");
-      next[`promptRefine.${tier}`] = String(credits.promptRefine[tier] ?? "");
-    }
-    setCreditDrafts(next);
+    const nextCredits = creditDraftsFromEffective(data.effective.creditActionPrices);
+    setCreditDrafts((current) =>
+      keepUnsavedDrafts(current, lastCreditEffective.current, nextCredits),
+    );
+    lastCreditEffective.current = nextCredits;
+
+    const nextMarkup = String(data.effective.domain.markup);
+    const nextUsd = String(data.effective.domain.usdToSek);
+    const previousDomain = lastDomainEffective.current;
+    setDomainMarkup((current) =>
+      keepUnsavedDraft(current, previousDomain?.markup ?? null, nextMarkup),
+    );
+    setDomainUsdToSek((current) =>
+      keepUnsavedDraft(current, previousDomain?.usdToSek ?? null, nextUsd),
+    );
+    lastDomainEffective.current = { markup: nextMarkup, usdToSek: nextUsd };
   }, [pricing.data]);
 
   useEffect(() => {
@@ -353,9 +380,7 @@ export function PriserSection() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <Label htmlFor="domain-markup">Påslag (X)</Label>
-                    <SourceBadge
-                      overridden={domainEffective.markup !== domainDefaults.markup}
-                    />
+                    <DomainStoredBadge />
                   </div>
                   <Input
                     id="domain-markup"
@@ -364,7 +389,8 @@ export function PriserSection() {
                     onChange={(event) => setDomainMarkup(event.target.value)}
                   />
                   <p className="text-muted-foreground text-xs">
-                    Kodens konstant: X{domainDefaults.markup.toLocaleString("sv-SE")}
+                    Standardvärde: X{domainDefaults.markup.toLocaleString("sv-SE")} —
+                    kolumnen är alltid lagrad i databasen.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -387,16 +413,14 @@ export function PriserSection() {
                       className="gap-1.5"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      Återställ till kod
+                      Återställ till standardvärde
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <Label htmlFor="domain-fx">USD till SEK</Label>
-                    <SourceBadge
-                      overridden={domainEffective.usdToSek !== domainDefaults.usdToSek}
-                    />
+                    <DomainStoredBadge />
                   </div>
                   <Input
                     id="domain-fx"
@@ -405,7 +429,8 @@ export function PriserSection() {
                     onChange={(event) => setDomainUsdToSek(event.target.value)}
                   />
                   <p className="text-muted-foreground text-xs">
-                    Kodens konstant: {domainDefaults.usdToSek.toLocaleString("sv-SE")}
+                    Standardvärde: {domainDefaults.usdToSek.toLocaleString("sv-SE")} —
+                    kolumnen är alltid lagrad i databasen.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -428,7 +453,7 @@ export function PriserSection() {
                       className="gap-1.5"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      Återställ till kod
+                      Återställ till standardvärde
                     </Button>
                   </div>
                 </div>
