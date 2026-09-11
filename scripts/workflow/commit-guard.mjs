@@ -285,8 +285,17 @@ export function decideCommitCommand(
     }
 
     // Git accepts pathspecs, --only and --include, so the staged set is not the
-    // whole truth about what a commit will capture. The verdict therefore stays
-    // conservative for both groups; only the wording distinguishes them.
+    // whole truth about what a commit will capture. Both groups are reported;
+    // only the wording distinguishes them.
+    //
+    // Ägarbeslut 2026-09-11: this used to return `ask`, which put a human
+    // prompt in front of every protected-path commit. In a PR-based flow that
+    // pause is redundant — pre-push runs `verify:pr --plan`, CI runs the full
+    // profile, and the PR is where a human actually reviews. The prompt taught
+    // the owner to click through it. It is now `allow` with the same text in
+    // `agent_message`, so the agent still learns which protected surfaces it
+    // touched and is expected to report them in the PR. The `deny` verdicts
+    // above (trunk, detached HEAD, dynamic git, --git-dir) are unchanged.
     const inCommit = impact.protectedFiles.filter((file) => staged.has(file));
     const dirtyOnly = impact.protectedFiles.filter((file) => !staged.has(file));
     const list = (paths) => paths.slice(0, 8).join(", ") || "inga";
@@ -306,18 +315,19 @@ export function decideCommitCommand(
         : "";
 
     return {
-      permission: "ask",
+      permission: "allow",
       user_message:
         `${headline}\n\n` +
         `Stage:at och skyddat: ${list(inCommit)}${dirtyLine}\n` +
         `Backoffice: ${backofficeSummary}\n\n` +
-        "Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk oberoende review innan commit. " +
+        "Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk oberoende review innan push. " +
         "Stage:a bara uppgiftens filer; en ostage:ad rad ovan är någon annans arbete tills du valt den medvetet.",
       agent_message:
-        "Shared workflow-impact policy flagged this commit. " +
+        "Shared workflow-impact policy: this commit touches protected or Backoffice-linked surfaces. " +
         `Protected and staged: ${list(inCommit)}. ` +
         `Protected but only dirty in the worktree: ${list(dirtyOnly)}. ` +
-        "Plan the exact diff, commit explicit paths only, run relevant targeted checks and report Backoffice/control-plane impact before committing.",
+        `Backoffice pages: ${backofficeSummary}. ` +
+        "Not blocked (owner decision 2026-09-11) — but report these surfaces in the PR body, run the relevant targeted checks before push, and never stage a dirty path you did not change.",
     };
   } catch (error) {
     return deny(error instanceof Error ? error.message : "okänt fel");

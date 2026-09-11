@@ -19,6 +19,21 @@ import {
   isCommitCommand,
 } from "./commit-guard.mjs";
 
+/**
+ * Ägarbeslut 2026-09-11: protected-path-träffar ger `allow` med
+ * `agent_message` i stället för `ask`. Testerna måste därför skilja en
+ * FLAGGAD allow (agenten fick veta vilka skyddade ytor som träffades) från en
+ * REN allow (inget att rapportera) — annars bevisar de bara att inget nekas.
+ */
+function flagged(verdict: { permission: string; agent_message?: string }): boolean {
+  return (
+    verdict.permission === "allow" &&
+    typeof verdict.agent_message === "string" &&
+    /protected or Backoffice-linked/u.test(verdict.agent_message)
+  );
+}
+const CLEAN_ALLOW = { permission: "allow" };
+
 describe("alias lookup fast path", () => {
   it.each([
     "echo hello",
@@ -245,12 +260,12 @@ describe("commit guard", () => {
     expect(matcher.test("echo ok")).toBe(false);
   });
 
-  it("asks for protected unstaged files included by -am", () => {
+  it("flags protected unstaged files included by -am", () => {
     const git = vi.fn((args: string[]) => {
       if (args[0] === "branch") return ["fix/test"];
       return args.includes("--cached") ? [] : ["config/agent-workflow.json"];
     });
-    expect(decideCommitCommand("git -C . commit -am 'x'", { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand("git -C . commit -am 'x'", { git }))).toBe(true);
   });
 
   it("keeps the protected source path when a commit contains a rename", () => {
@@ -263,7 +278,7 @@ describe("commit guard", () => {
       }
       return ["docs/agent-workflow.json"];
     });
-    expect(decideCommitCommand("git commit -m x", { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand("git commit -m x", { git }))).toBe(true);
     expect(git).toHaveBeenCalledWith(
       ["diff", "--cached", "--name-status", "-z"],
       commandWorkingDirectory("git commit -m x", process.cwd()),
@@ -283,8 +298,8 @@ describe("commit guard", () => {
       if (cwd === worktree) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
-    expect(decideCommitCommand("cd scripts; git commit -am x", { git }).permission).toBe("allow");
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("ask");
+    expect(decideCommitCommand("cd scripts; git commit -am x", { git })).toEqual(CLEAN_ALLOW);
+    expect(flagged(decideCommitCommand("git commit -am x", { git }))).toBe(true);
   });
 
   it("does not let a pipe carry cwd, while && and ; still do", () => {
@@ -307,21 +322,17 @@ describe("commit guard", () => {
     // Explicit aliases keep this unit test off a real `git config` subprocess.
     const aliases = new Set<string>();
     expect(
-      decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("ask");
+      flagged(decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd, aliases })),
+    ).toBe(true);
     expect(
-      decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
     expect(
-      decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
     expect(
-      decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
   });
 
   it("denies when git -C targets the trunk checkout behind an earlier cd", () => {
@@ -336,8 +347,8 @@ describe("commit guard", () => {
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
     expect(
-      decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git }).permission,
-    ).toBe("ask");
+      flagged(decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git })),
+    ).toBe(true);
   });
 
   it("does not read git commit -C as a directory", () => {
@@ -409,14 +420,14 @@ describe("commit guard", () => {
       if (args[0] === "branch") return ["fix/test"];
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
-    expect(decideCommitCommand(command, { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand(command, { git }))).toBe(true);
   });
 
-  it("allows ordinary commits on master for unprotected source", () => {
+  it("allows ordinary commits on master for unprotected source, without a flag", () => {
     const git = vi.fn((args: string[]) =>
       args[0] === "branch" ? ["master"] : ["src/components/example.tsx"],
     );
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("allow");
+    expect(decideCommitCommand("git commit -am x", { git })).toEqual(CLEAN_ALLOW);
   });
 
   it("allows the same commit only with reasoned policy break-glass", () => {
@@ -447,7 +458,7 @@ describe("commit guard", () => {
     );
     expect(decideCommitCommand("git commit -m x", { git: dirtyOnly })).toEqual(
       expect.objectContaining({
-        permission: "ask",
+        permission: "allow",
         user_message: expect.stringContaining("Inget skyddat är stage:at"),
         agent_message: expect.stringContaining("only dirty in the worktree"),
       }),
@@ -458,7 +469,7 @@ describe("commit guard", () => {
     );
     expect(decideCommitCommand("git commit -m x", { git: stagedProtected })).toEqual(
       expect.objectContaining({
-        permission: "ask",
+        permission: "allow",
         user_message: expect.stringContaining("Committen träffar skyddade"),
       }),
     );
@@ -479,7 +490,7 @@ describe("commit guard", () => {
     );
     expect(decideCommitCommand("git commit -m x", { git })).toEqual(
       expect.objectContaining({
-        permission: "ask",
+        permission: "allow",
         user_message: expect.stringContaining("Committen träffar Backoffice-kopplade ytor."),
       }),
     );
