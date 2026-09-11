@@ -135,10 +135,6 @@ function DeployNameDialogForm({
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Kostnad:</span> 20 credits för publicering
           </p>
-          <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Hosting:</span> 10 credits/månad för att hålla
-            sajten live
-          </p>
         </div>
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" onClick={onCancel} disabled={disabled}>
