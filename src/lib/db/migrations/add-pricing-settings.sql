@@ -8,42 +8,45 @@
 -- leverantörskostnad, domain_usd_to_sek_ore omvandlar registrarens USD-offert
 -- till en visad SEK-siffra.
 --
--- Heltalsenheter som resten av prisdatan: basis points (X5 = 50000) och öre
--- (11,00 kr = 1100). Seedvärdena är exakt dagens hårdkodade prisbild, så
--- migrationen ensam ändrar ingen debitering.
+-- Heltalsenheter som resten av prisdatan: basis points (X2 = 20000) och öre
+-- (11,00 kr = 1100). Migrationen ensam ändrar ingen debitering.
 
 CREATE TABLE IF NOT EXISTS pricing_settings (
   id TEXT PRIMARY KEY,
-  domain_markup_basis_points INTEGER NOT NULL DEFAULT 50000
+  domain_markup_basis_points INTEGER NOT NULL DEFAULT 20000
     CHECK (domain_markup_basis_points BETWEEN 10000 AND 100000),
   domain_usd_to_sek_ore INTEGER NOT NULL DEFAULT 1100
     CHECK (domain_usd_to_sek_ore BETWEEN 100 AND 10000),
-  -- Delmängd av CreditActionPrices. Formvalideras med zod i
-  -- src/lib/db/services/pricing-settings.ts; utelämnade eller ogiltiga fält
-  -- faller tillbaka på konstanterna i src/lib/credits/pricing.ts.
+  -- Delmängd av CreditActionPrices — BARA de fält en admin uttryckligen satt.
+  -- Formvalideras med zod i src/lib/db/services/pricing-settings.ts;
+  -- utelämnade eller ogiltiga fält faller tillbaka på konstanterna i
+  -- src/lib/credits/pricing.ts.
   credit_action_prices JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_by TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Singletonraden skapas här eftersom domänfälten är NOT NULL och behöver
+-- riktiga värden: 20000 = X2 och 1100 = 11,00 kr/USD, exakt vad koden
+-- defaultar till.
+--
+-- credit_action_prices seedas MEDVETET TOMT. Det är inte en glömd rad.
+-- Kolumnen bär bara de overrides en admin uttryckligen satt, och koden i
+-- src/lib/credits/pricing.ts äger resten. En full seed hade sett harmlös ut
+-- (värdena var identiska med konstanterna) men gett tre problem:
+--   1. Varje fält hade varit en databas-override från dag ett, så admin-UI:ts
+--      Databas/Kod-badge hade inte skilt på något och Kod-tillståndet varit
+--      oåtkomligt tills någon aktivt återställt fältet.
+--   2. En ändrad konstant hade inte slagit igenom i en seedad miljö —
+--      konstanterna hade blivit död kod som ser levande ut.
+--   3. Fallbackvägen i parseCreditActionPrices/getCreditCost hade aldrig varit
+--      den normala vägen, alltså oprövad i drift.
+-- Prisbilden är oförändrad för användarna: tomt objekt ger konstanternas
+-- värden, vilket är precis vad den fulla seeden också gav.
 INSERT INTO pricing_settings (
   id, domain_markup_basis_points, domain_usd_to_sek_ore, credit_action_prices
 )
-VALUES (
-  'default',
-  50000,
-  1100,
-  '{
-    "promptCreate": {"premium": 10, "pro": 7, "max": 10, "codex": 10, "anthropic": 10},
-    "promptRefine": {"premium": 6, "pro": 4, "max": 6, "codex": 6, "anthropic": 6},
-    "wizard": 11,
-    "auditBasic": 15,
-    "auditAdvanced": 25,
-    "deployPreview": 20,
-    "deployProduction": 20,
-    "openclawTip": 2
-  }'::jsonb
-)
+VALUES ('default', 20000, 1100, '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE pricing_settings ENABLE ROW LEVEL SECURITY;

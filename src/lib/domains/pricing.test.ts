@@ -24,6 +24,8 @@ describe("domain pricing", () => {
   it("seeds its defaults from the JSON reference data", () => {
     expect(DEFAULT_DOMAIN_PRICING.markup).toBe(DOMAIN_PRICE_MARKUP);
     expect(DEFAULT_DOMAIN_PRICING.usdToSek).toBe(USD_TO_SEK);
+    // Ägarbeslut 2026-09-11: x2. Låst här så en tyst återgång till x5 syns.
+    expect(DEFAULT_DOMAIN_PRICING.markup).toBe(2);
   });
 
   it("treats a non-positive wholesale as no price rather than a free domain", () => {
@@ -97,7 +99,7 @@ describe("operator-set pricing settings", () => {
   });
 
   it("changes the customer price when the admin markup changes", () => {
-    const before = applyMarkupSek(99, { markup: 5, usdToSek: 11 });
+    const before = applyMarkupSek(99, { markup: 2, usdToSek: 11 });
     const after = applyMarkupSek(99, { markup: 7, usdToSek: 11 });
     expect(after).toBeGreaterThan(before);
     expect(after).toBe(693);

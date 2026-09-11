@@ -3,7 +3,7 @@
  *
  * The single most important assertion here is that an ESTIMATED price can
  * never make a domain purchasable. That is the difference between showing a
- * customer "ungefär 495 kr" and charging their card 495 kr for a number no
+ * customer "ungefär 198 kr" and charging their card 198 kr for a number no
  * registrar ever quoted.
  */
 
@@ -53,7 +53,7 @@ vi.mock("@/lib/domains/dns-availability", () => ({
   checkAvailabilityViaDns: async () => null,
 }));
 
-const pricingState = { markup: 5, usdToSek: 11 };
+const pricingState = { markup: 2, usdToSek: 11 };
 
 vi.mock("@/lib/db/services/pricing-settings", () => ({
   resolvePricingSettings: async () => ({ domain: { ...pricingState } }),
@@ -69,7 +69,7 @@ beforeEach(() => {
   vercelState.available = true;
   vercelState.purchaseEnabled = true;
   vercelState.throwOnPrice = false;
-  pricingState.markup = 5;
+  pricingState.markup = 2;
   pricingState.usdToSek = 11;
 });
 
@@ -145,7 +145,7 @@ describe("resolveDomainOffer", () => {
 describe("the offer path prices from pricing_settings, like /api/vercel/domains/price", () => {
   it("gives a binding quote the same customer price as the price API", async () => {
     // Both surfaces must agree the moment an admin moves the markup off the
-    // seeded x5 — a search showing x3 while the order freezes x5 is the exact
+    // seeded x2 — a search showing x3 while the order freezes x2 is the exact
     // failure this wiring exists to prevent.
     pricingState.markup = 3;
     pricingState.usdToSek = 9;
@@ -170,23 +170,23 @@ describe("the offer path prices from pricing_settings, like /api/vercel/domains/
   });
 
   it("moves the customer price when the admin markup moves", async () => {
-    pricingState.markup = 5;
-    const atFive = (await resolveDomainOffer("mitt-bygge.com")).quote.customerSek;
+    pricingState.markup = 2;
+    const atTwo = (await resolveDomainOffer("mitt-bygge.com")).quote.customerSek;
     pricingState.markup = 7;
     const atSeven = (await resolveDomainOffer("mitt-bygge.com")).quote.customerSek;
 
-    expect(atFive).toBe(550);
+    expect(atTwo).toBe(220);
     expect(atSeven).toBe(770);
   });
 
   it("uses settings passed by the caller instead of resolving again", async () => {
     // One search answers several TLDs; they must share one snapshot rather
     // than each reading the row separately.
-    pricingState.markup = 5;
+    pricingState.markup = 2;
 
-    const offer = await resolveDomainOffer("mitt-bygge.com", { markup: 2, usdToSek: 10 });
+    const offer = await resolveDomainOffer("mitt-bygge.com", { markup: 3, usdToSek: 10 });
 
     expect(offer.quote.wholesaleSek).toBe(100);
-    expect(offer.quote.customerSek).toBe(200);
+    expect(offer.quote.customerSek).toBe(300);
   });
 });

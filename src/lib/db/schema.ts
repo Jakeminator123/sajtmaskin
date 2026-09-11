@@ -1129,11 +1129,11 @@ export const generationBillingSettings = pgTable("generation_billing_settings", 
  * visad SEK-siffra.
  *
  * Heltalsenheter gör beräkningen reproducerbar utan flyttalsdrift: basis
- * points (X5 = 50 000) och öre (11,00 SEK = 1 100).
+ * points (X2 = 20 000) och öre (11,00 SEK = 1 100).
  */
 export const pricingSettings = pgTable("pricing_settings", {
   id: text("id").primaryKey(),
-  domain_markup_basis_points: integer("domain_markup_basis_points").default(50_000).notNull(),
+  domain_markup_basis_points: integer("domain_markup_basis_points").default(20_000).notNull(),
   domain_usd_to_sek_ore: integer("domain_usd_to_sek_ore").default(1_100).notNull(),
   /** Delmängd av `CreditActionPrices`; utelämnade fält faller tillbaka på koden. */
   credit_action_prices: jsonb("credit_action_prices")
