@@ -40,6 +40,8 @@ describe("admin pricing-settings route", () => {
     expect(json.settings.creditActionPrices).toEqual({ wizard: 14 });
     expect(json.defaults.creditActionPrices).toEqual(DEFAULT_CREDIT_ACTION_PRICES);
     expect(json.defaults.domain).toEqual(DEFAULT_DOMAIN_PRICING);
+    expect(json.effective.domain).toEqual({ markup: 5, usdToSek: 11 });
+    expect(json.defaults.domain.markup).not.toBe(json.effective.domain.markup);
     expect(json.effective.creditActionPrices.wizard).toBe(14);
     expect(json.effective.creditActionPrices.auditBasic).toBe(
       DEFAULT_CREDIT_ACTION_PRICES.auditBasic,

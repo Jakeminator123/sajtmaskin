@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidCreditPrice, type ModelTier } from "@/lib/credits/pricing";
-import { applyMarkupSek, referenceWholesaleSek } from "@/lib/domains/pricing";
+import {
+  applyMarkupSek,
+  DEFAULT_DOMAIN_PRICING,
+  referenceWholesaleSek,
+} from "@/lib/domains/pricing";
 import { CANONICAL_MODEL_IDS, MODEL_LABELS } from "@/lib/models/catalog";
 import { keepUnsavedDraft, keepUnsavedDrafts } from "../../lib/pricing-drafts";
 import {
@@ -93,8 +97,8 @@ export function PriserSection() {
     { errorMessage: "Kunde inte hämta avräkningsregeln" },
   );
 
-  const [domainMarkup, setDomainMarkup] = useState("5");
-  const [domainUsdToSek, setDomainUsdToSek] = useState("11");
+  const [domainMarkup, setDomainMarkup] = useState(String(DEFAULT_DOMAIN_PRICING.markup));
+  const [domainUsdToSek, setDomainUsdToSek] = useState(String(DEFAULT_DOMAIN_PRICING.usdToSek));
   const [billingMarkup, setBillingMarkup] = useState("2");
   const [billingUsdToSek, setBillingUsdToSek] = useState("10.5");
   const [sekPerCredit, setSekPerCredit] = useState("3");

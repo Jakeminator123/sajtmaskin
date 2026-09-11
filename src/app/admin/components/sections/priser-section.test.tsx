@@ -5,7 +5,11 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CREDIT_ACTION_PRICES } from "@/lib/credits/pricing";
-import { DEFAULT_DOMAIN_PRICING } from "@/lib/domains/pricing";
+import {
+  applyMarkupSek,
+  DEFAULT_DOMAIN_PRICING,
+  referenceWholesaleSek,
+} from "@/lib/domains/pricing";
 import { useAdminResource } from "../../lib/use-admin-resource";
 import type { PricingSettingsAdminPayload } from "../types";
 import { PriserSection } from "./priser-section";
@@ -95,5 +99,13 @@ describe("PriserSection", () => {
     expect(field).toBeTruthy();
     expect(within(field as HTMLElement).getByText("Databas")).toBeTruthy();
     expect(within(field as HTMLElement).queryByText("Kod")).toBeNull();
+    expect(
+      within(field as HTMLElement).getByText(
+        new RegExp(`Standardvärde: X${DEFAULT_DOMAIN_PRICING.markup}`),
+      ),
+    ).toBeTruthy();
+    const seCustomer = applyMarkupSek(referenceWholesaleSek("se"), DEFAULT_DOMAIN_PRICING);
+    expect(screen.getByText(/Uppskattat \.se/)).toBeTruthy();
+    expect(screen.getByText(`${seCustomer.toLocaleString("sv-SE")} kr`)).toBeTruthy();
   });
 });
