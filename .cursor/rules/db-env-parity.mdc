@@ -17,7 +17,8 @@ Verifiera med `npm run db:check-target -- --expect=dev|prod`.
 
 Migrationer körs **inte** vid Vercel-deploy. Ny migration: registrera i
 `MIGRATION_ORDER`, applicera dev **och** prod (`npm run db:migrate` /
-`db:migrate:prod`) före merge. Steg och CI:
+`db:migrate:prod`) före merge. CI-jobbet `prod-migrations-apply` körs på
+push till `master` **eller** `preview` (samma prod-Postgres). Steg och CI:
 [`docs/runbooks/db-migrations.md`](../../docs/runbooks/db-migrations.md).
 
 Env på tre ställen: `.env.local`, `vercel env` för

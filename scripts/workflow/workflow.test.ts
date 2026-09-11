@@ -591,7 +591,7 @@ describe("agent workflow repository contract", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
-  it("keeps CI scope fail-closed and live credentials on trusted master", () => {
+  it("keeps CI scope fail-closed and live credentials on trusted master or preview", () => {
     const source = readFileSync(".github/workflows/ci.yml", "utf8");
     const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
@@ -626,8 +626,8 @@ describe("agent workflow repository contract", () => {
         "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
       ),
       replaceOnce(
-        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
-        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || true)",
+        "(github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+        "(github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || true)",
       ),
       replaceOnce(
         "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ !cancelled() }}",

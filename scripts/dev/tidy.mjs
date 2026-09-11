@@ -43,8 +43,14 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
-/** Bas som "mergad" mäts mot. */
-export const BASE_REF = "origin/master";
+/**
+ * Baser som "mergad" mäts mot. `preview` är leveransbasen; `master` är
+ * produktion. En squash-mergad preview-PR är inte ancestor av master, så
+ * båda måste räknas — annars ligger landade lokala brancher kvar tills promote.
+ */
+export const LANDED_REFS = Object.freeze(["origin/preview", "origin/master"]);
+/** Bakåtkompatibel alias: primär leveransbas. */
+export const BASE_REF = "origin/preview";
 /** Remote-brancher äldre än detta rapporteras som gamla (aldrig raderas). */
 export const STALE_AFTER_DAYS = 30;
 
@@ -274,6 +280,14 @@ function gitLines(args, root, opts) {
   return out ? out.split(/\r?\n/).filter((l) => l.trim()) : [];
 }
 
+/** Finns `ref` i preview eller master? Squash-merge till preview räknas. */
+export function isMergedIntoLandedBase(ref, root) {
+  if (!ref) return false;
+  return LANDED_REFS.some(
+    (base) => git(["merge-base", "--is-ancestor", ref, base], root, { allowFail: true }) !== null,
+  );
+}
+
 /**
  * Parsa `git worktree list --porcelain`. Första posten är alltid huvudträdet.
  *
@@ -399,8 +413,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   const localDelete = [];
   for (const row of rows) {
     const [name, track = ""] = row.split("\t");
-    const mergedIntoBase =
-      git(["merge-base", "--is-ancestor", name, BASE_REF], root, { allowFail: true }) !== null;
+    const mergedIntoBase = isMergedIntoLandedBase(name, root);
     const branchHead = git(["rev-parse", name], root, { allowFail: true });
     const verdict = classifyLocalBranch({
       name,
@@ -441,10 +454,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   if (worktrees.length > 1) {
     for (const wt of worktrees.slice(1)) {
       const dirty = isWorktreeDirty(git(["status", "--porcelain"], wt.path, { allowFail: true }));
-      const merged =
-        wt.branch !== null &&
-        git(["merge-base", "--is-ancestor", wt.branch, BASE_REF], root, { allowFail: true }) !==
-          null;
+      const merged = isMergedIntoLandedBase(wt.branch, root);
       const branchHead = wt.branch
         ? git(["rev-parse", wt.branch], root, { allowFail: true })
         : null;

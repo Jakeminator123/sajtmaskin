@@ -379,6 +379,9 @@ function hasExactExpression(actual, expected) {
 
 const TRUSTED_MASTER_PUSH_OR_DISPATCH =
   "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
+/** Preview uses the same prod Postgres as Production (`config/db-targets.json`). */
+const TRUSTED_PROD_DB_PUSH_OR_DISPATCH =
+  "${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const REJECT_NON_MASTER_DISPATCH =
   "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}";
 // Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
@@ -710,8 +713,10 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   }
 
   for (const jobName of ["prod-migrations-apply", "prod-migrations-applied", "db-schema-parity"]) {
-    if (!hasExactExpression(document?.jobs?.[jobName]?.if, TRUSTED_MASTER_PUSH_OR_DISPATCH)) {
-      errors.push(`${jobName} may receive live credentials only on trusted master events`);
+    if (!hasExactExpression(document?.jobs?.[jobName]?.if, TRUSTED_PROD_DB_PUSH_OR_DISPATCH)) {
+      errors.push(
+        `${jobName} may receive live credentials only on trusted master or preview events`,
+      );
     }
   }
   if (

@@ -76,7 +76,7 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 
 | Jobb                      | När                                                                       | Vad                                                                                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prod-migrations-apply`   | Push till master eller manuell dispatch (**aldrig** på PR)                | Kör `run-migrations.ts` mot prod. Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge |
+| `prod-migrations-apply`   | Push till `master` eller `preview`, eller manuell dispatch (**aldrig** på PR) | Kör `run-migrations.ts` mot prod. Preview delar prod-Postgres, så apply måste ske när koden landar på staging — inte först vid promote. Idempotent. Gate:at bakom `quality` + `schema-drift` |
 | `prod-migrations-applied` | `needs: prod-migrations-apply`                                            | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt                                                                                                                        |
 | `db-schema-parity`        | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity`                                                                                      |
 
@@ -86,7 +86,7 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 
 Cron-körningen finns för att fånga drift som uppstår **mellan** pushar. Rött = skriv en migration (aldrig dashboard-DDL). Lokalt: `npm run db:schema-parity`.
 
-Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till master. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
+Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till `master` eller `preview`. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
 
 ### Secret-kravet
 
