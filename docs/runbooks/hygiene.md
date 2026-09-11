@@ -109,7 +109,9 @@ En worktree är en **pågående session**: agenten som äger den har sin `workin
 | Exakt merge är bevisad     | Git-ancestry eller mergad PR med samma branch + head-SHA |
 
 Det GitHub-bundna beviset behövs för squash-merge, där feature-committen
-avsiktligt inte blir ancestor till `master`. Faller ett enda villkor blir svaret
+avsiktligt inte blir ancestor till **någon** bas — varken `preview` eller
+`master`. Ancestry och PR-head-SHA är därför två skilda bevis, inte varandras
+reserv. Faller ett enda villkor blir svaret
 `behåll`, med skälet utskrivet. Svarar inte `gh` behandlas **alla** som upptagna
 — «vet inte» är inte «ledig». Huvudcheckouten och skyddade branchnamn (`BRA`,
 `rescue/*`, …) klassas aldrig som fria.

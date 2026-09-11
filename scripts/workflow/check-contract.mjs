@@ -730,6 +730,32 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("prod migrations must wait for every blocking CI lane");
   }
 
+  // Preview delar prod-Postgres med Production, men `master` kan ligga långt
+  // bakom. Den automatiska preview-applyn får därför bara släppa additiv DDL —
+  // annars kan staging bryta produktionen före promote. Grinden måste ligga
+  // FÖRE apply och får aldrig vara continue-on-error.
+  const applySteps = document?.jobs?.["prod-migrations-apply"]?.steps ?? [];
+  const additiveIndex = applySteps.findIndex(
+    (step) => step.run === "npm run db:migrate:additive-check",
+  );
+  const runMigrationsIndex = applySteps.findIndex(
+    (step) => step.run === "npx tsx scripts/db/run-migrations.ts",
+  );
+  if (
+    additiveIndex === -1 ||
+    runMigrationsIndex === -1 ||
+    additiveIndex > runMigrationsIndex ||
+    !hasExactExpression(
+      applySteps[additiveIndex]?.if,
+      "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}",
+    ) ||
+    Object.hasOwn(applySteps[additiveIndex] ?? {}, "continue-on-error")
+  ) {
+    errors.push(
+      "preview apply must be blocked by the additive-only migration gate before running migrations",
+    );
+  }
+
   return errors;
 }
 

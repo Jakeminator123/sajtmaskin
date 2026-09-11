@@ -643,6 +643,13 @@ describe("agent workflow repository contract", () => {
         "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
         "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
       ),
+      // Preview delar prod-DB: utan den additiva grinden kan staging bryta
+      // produktionen före promote.
+      replaceOnce("run: npm run db:migrate:additive-check", "run: echo additive-check-skipped"),
+      replaceOnce(
+        "        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}\n        run: npm run db:migrate:additive-check",
+        "        if: ${{ steps.creds.outputs.present == 'true' }}\n        run: npm run db:migrate:additive-check\n        continue-on-error: true",
+      ),
     ];
     for (const candidate of weakened) {
       expect(evaluateCiScopeWorkflow(candidate, packageScripts).length).toBeGreaterThan(0);

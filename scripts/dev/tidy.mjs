@@ -44,9 +44,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
 /**
- * Baser som "mergad" mäts mot. `preview` är leveransbasen; `master` är
- * produktion. En squash-mergad preview-PR är inte ancestor av master, så
- * båda måste räknas — annars ligger landade lokala brancher kvar tills promote.
+ * Baser som ancestry ("finns innehållet redan i en landad gren?") mäts mot.
+ * `preview` är leveransbasen; `master` är produktion.
+ *
+ * Varför båda: preview ligger normalt långt före master, så en branch vars
+ * commits faktiskt finns i preview var inte ancestor av master och räknades
+ * som omergad ända till promote.
+ *
+ * Ancestry är INTE squash-vägen. En squash-merge skriver en ny commit och
+ * bevarar ingen ancestry mot någon bas — den branchen städas av
+ * `isExactMergedPr` (mergad GitHub-PR med samma branch och head-SHA), inte
+ * härifrån. De två bevisen är med flit skilda.
  */
 export const LANDED_REFS = Object.freeze(["origin/preview", "origin/master"]);
 /** Bakåtkompatibel alias: primär leveransbas. */
@@ -280,7 +288,11 @@ function gitLines(args, root, opts) {
   return out ? out.split(/\r?\n/).filter((l) => l.trim()) : [];
 }
 
-/** Finns `ref` i preview eller master? Squash-merge till preview räknas. */
+/**
+ * Är `ref` ancestor av preview eller master? Enbart ancestry — en
+ * squash-mergad branch svarar `false` här och bevisas i stället av
+ * `isExactMergedPr`.
+ */
 export function isMergedIntoLandedBase(ref, root) {
   if (!ref) return false;
   return LANDED_REFS.some(
