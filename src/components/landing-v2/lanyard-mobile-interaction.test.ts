@@ -223,12 +223,18 @@ describe("lanyard mobile interactions", () => {
 
     expect(experience).toContain("lanyardTextureToCss");
     expect(experience).toContain("LanyardBrandFace");
+    const stageClass = hero.match(/data-lanyard-stage[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
     expect(hero).toContain('data-lanyard-stage');
-    expect(hero).toContain("overflow-visible");
-    expect(hero).toContain("max-w-[min(100%,580px)]");
-    expect(hero).toContain("h-[300px]");
-    expect(hero).not.toContain("h-[240px]");
-    expect(hero).not.toContain("max-w-[440px]");
+    expect(stageClass).toContain("overflow-visible");
+    expect(stageClass).toContain("w-screen");
+    expect(stageClass).toContain("max-w-none");
+    expect(stageClass).toContain("h-[min(56vh,620px)]");
+    expect(stageClass).not.toContain("-translate-x-1/2");
+    expect(stageClass).not.toContain("max-w-[440px]");
+    expect(stageClass).not.toContain("max-w-[min(100%,580px)]");
+    expect(experience).toContain("createPortal");
+    expect(experience).toContain("bg-[#05070a]");
+    expect(experience).toContain("z-[200]");
   });
 
   it("drops the logged-in welcome chip and personalizes the card back instead", () => {

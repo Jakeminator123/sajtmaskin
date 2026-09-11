@@ -17,6 +17,7 @@
  */
 
 import { Component, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
 import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks"
@@ -176,8 +177,13 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
 
 function CookieFlipCard({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const { mobile, reducedMotion } = useExperienceMode()
   const dialogRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setPortalTarget(document.body)
+  }, [])
 
   // Modal-hygien (Bugbot medium + pr-ai-review F-93ef8ad7636f på #1026):
   // dialogen deklarerar aria-modal och blockerar pekaren, så den måste också
@@ -281,18 +287,16 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
     [leaving, onDone, flipMs],
   )
 
-  return (
+  const dialog = (
     <div
       ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Cookie-inställningar"
-      className={`fixed inset-0 z-[80] flex items-center justify-center p-4 transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-700 ease-out ${
         leaving
-          ? "pointer-events-none bg-transparent backdrop-blur-0"
-          : mobile
-            ? "bg-background/55 backdrop-blur-[3px]"
-            : "bg-background/70 backdrop-blur-md"
+          ? "pointer-events-none bg-transparent"
+          : "bg-[#05070a]"
       }`}
     >
       {/* "Spänd båge": kortet dras först tydligt MOT dig (bågen spänns),
@@ -357,10 +361,10 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
             }}
           >
             {/* FRAMSIDA — cookie-samtycke, samma plastkort-känsla som 3D-baksidan. */}
-            <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,#161d26_0%,#0b1016_100%)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.45)] [backface-visibility:hidden]">
+            <div className="absolute inset-0 isolate flex flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[#0b1016] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.65)] [backface-visibility:hidden]">
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light"
+                className="pointer-events-none absolute inset-0 opacity-20"
                 style={CARD_GRAIN_STYLE}
               />
               <span className="pointer-events-none absolute inset-x-8 top-0 h-16 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.16),transparent_70%)]" />
@@ -412,4 +416,6 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
       </div>
     </div>
   )
+
+  return portalTarget ? createPortal(dialog, portalTarget) : dialog
 }

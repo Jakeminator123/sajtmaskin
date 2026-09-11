@@ -51,14 +51,15 @@ export function LandingHero({
   submitPrimaryInput,
 }: LandingHeroProps) {
   return (
-    <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start px-6 pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
+    <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
         data-lanyard-stage
-        className="pointer-events-auto relative z-0 mb-1 h-[300px] w-full max-w-[min(100%,580px)] shrink-0 overflow-visible sm:h-[340px] md:h-[clamp(400px,48vh,520px)]"
+        className="pointer-events-auto relative z-0 mb-1 h-[min(56vh,620px)] w-screen max-w-none shrink-0 overflow-visible sm:h-[min(60vh,680px)] md:h-[min(64vh,720px)]"
       >
-        <LanyardExperience className="h-full overflow-visible" />
+        <LanyardExperience className="h-full w-full overflow-visible" />
       </div>
 
+      <div className="flex w-full flex-col items-center px-6">
       <div
         className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/50 border border-border/40 px-4 py-1.5 rounded-full mb-6 animate-fade-up"
         style={{ animationDelay: "0.1s" }}
@@ -292,6 +293,7 @@ export function LandingHero({
             </span>
           </div>
         ))}
+      </div>
       </div>
     </section>
   )
