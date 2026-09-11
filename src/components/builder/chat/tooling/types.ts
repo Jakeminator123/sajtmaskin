@@ -110,6 +110,8 @@ export type QualityGateSummary = {
   qualityGateAdvisory?: boolean;
   advisoryChecks?: string[];
   skipped: boolean;
+  /** Verification stopped with the version pending; requires attention. */
+  retryPending?: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
   verifyLaneDurationMs: number | null;

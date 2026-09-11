@@ -299,6 +299,7 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
     return {
       passed: true,
       skipped: true,
+      retryPending: obj.retryPending === true,
       reason: typeof obj.reason === "string" ? obj.reason : undefined,
       checks: [],
       verifyLaneDurationMs: null,

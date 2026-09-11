@@ -8,6 +8,10 @@ Projektets Codex-default är GPT-5.6 Sol med `high` reasoning för huvudtråd oc
 spawnade agenter. En explicit agentprofil vinner; Godnatt behåller Sol `xhigh`
 för investigator/reviewer och Sol `high` för worker.
 
+För ChatGPT i webbläsaren äger
+[subagent-models.mdc](../.cursor/rules/subagent-models.mdc) standarden för
+oberoende bugggranskning med Sol `high` och övergången från draft till ready.
+
 ## Behörighet
 
 Värdena ägs av `.codex/config.toml`. Ändras de där ska den här listan ändras i

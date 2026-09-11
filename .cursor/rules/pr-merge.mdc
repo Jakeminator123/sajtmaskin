@@ -5,6 +5,8 @@ alwaysApply: false
 
 # PR-grind
 
+ChatGPT-webbens draft→ready-väg: `subagent-models.mdc`.
+
 Mergeable betyder bara konfliktfri. Merga endast med uttryckligt mergeuppdrag.
 Bakgrund: `docs/runbooks/pr-merge-gate.md`.
 
@@ -99,5 +101,4 @@ på master; merga aldrig samma PR igen.
 
 ## Väntan
 
-Blockera inte chatten med watch-loopar. Gör en engångskontroll eller
-bakgrundsbevakning och återkom när reviewfönstret/checks är klara.
+Använd engångskontroll eller bakgrundsbevakning, inga blockerande watch-loopar.

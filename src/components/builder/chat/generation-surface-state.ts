@@ -18,6 +18,7 @@ export function hasGenerationWarnings(toolParts: ToolPart[]): boolean {
     return (
       (postCheck?.warnings ?? 0) > 0 ||
       postCheck?.autoFixQueued === true ||
+      qualityGate?.retryPending === true ||
       Boolean(
         qualityGate &&
         !qualityGate.skipped &&

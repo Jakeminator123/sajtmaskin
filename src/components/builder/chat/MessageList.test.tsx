@@ -27,6 +27,49 @@ describe("MessageList", () => {
     expect(screen.queryByText("Quality gate")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
     expect(screen.getAllByText("Quality gate").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Den genererade sajten behöver denna integration/)).toBeNull();
+  });
+
+  it.each([
+    [false, "Status: quality gate körs fortfarande"],
+    [true, "Status: autofix är köad efter post-check"],
+  ])("renders the actual post-check result in shared details (autofix: %s)", (autoFixQueued, status) => {
+    render(<MessageList chatId="chat_postcheck" lifecycleStage="integrations" messages={[{
+      id: "assistant_postcheck", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:post-check", state: "output-available", output: {
+        summary: { files: 3, added: 1, modified: 2, removed: 0, warnings: 1,
+          provisional: true, qualityGatePending: true, autoFixQueued },
+        demoUrl: "https://preview.example/updated",
+      } }],
+    }]} />);
+
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText("Post-check-sammanfattning")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText("Post-check-sammanfattning")).toBeTruthy();
+    expect(screen.getByText("Filer: 3")).toBeTruthy();
+    expect(screen.getByText("Varningar: 1")).toBeTruthy();
+    expect(screen.getByText(status)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Öppna preview-länk" }).getAttribute("href"))
+      .toBe("https://preview.example/updated");
+    expect(screen.queryByText(/Den genererade sajten behöver denna integration/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Visa integrationer" })).toBeNull();
+  });
+
+  it("keeps a retry-pending verification visible when its skipped gate is inside closed details", () => {
+    const reason = "Preview kunde inte synkas; versionen lämnas pending.";
+    render(<MessageList chatId="chat_hold" messages={[{
+      id: "assistant_hold", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:quality-gate", state: "output-available", output: {
+        skipped: true, retryPending: true, reason,
+      } }],
+    }]} />);
+
+    expect(screen.getByTestId("generation-surface").getAttribute("data-attention")).toBe("true");
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText(new RegExp(reason))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText(new RegExp(reason))).toBeTruthy();
   });
 
   it("uses the assistant surface for repair progress without a second guessed phase indicator", () => {
