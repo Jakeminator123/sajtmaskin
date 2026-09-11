@@ -15,7 +15,7 @@ säkerhets-/governance-lager utan explicit scope.
 - Dataförlust och tyst korruption fixas alltid.
 - Ta inte bort fungerande krypto/nyckelhantering om sparad data kan bli oläsbar.
 
-Tooling-identitet (Supabase dev≠prod, ignorerad `mcp.json`, Vercel-id):
+Tooling-identitet (Supabase dev≠prod, gitignorerad men agentläsbar `mcp.json`, Vercel-id):
 [`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
 
 ## Produkt-scope (MVP-bias)

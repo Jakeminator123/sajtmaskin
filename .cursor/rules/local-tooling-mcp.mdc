@@ -56,11 +56,10 @@ Sajtmaskins OpenClaw (`armedContinuation`, `<openclaw-action>`) bor i
 
 ## Plugins ≠ MCP-servrar
 
-`.cursor/settings.json` styr **plugins**, inte serverlistan ovan. Den filen
-anger i dag `linear: false`, `docs-canvas: true`, `supabase: true` — ingen
-`vercel`-nyckel. Vercel-plugin-verktygen (`plugin-vercel-*`) kan ändå finnas i
-sessionen; de kommer då från användarnivån, inte från projektfilen. Läs filen
-innan du påstår vad som är aktivt.
+`.cursor/settings.json` styr **plugins**, inte serverlistan ovan. Sedan
+2026-09-11: `docs-canvas` och `supabase` på, `vercel` **av** (51 skills,
+~6 200 tokens/session; åtkomsten går via `vercel`/`user-vercel` ovan). Ingen
+Linear. Läs filen innan du påstår vad som är aktivt — den här raden åldras.
 
 ## Den här maskinen
 

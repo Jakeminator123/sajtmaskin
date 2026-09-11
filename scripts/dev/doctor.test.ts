@@ -100,6 +100,19 @@ describe("doctor — secrets i mcp.json", () => {
     expect(verdict.level).toBe("warn");
   });
 
+  it("fångar nyckelnamn som bara slutar på key, och Bearer-värden", () => {
+    // Reviewfynd: `api[_-]?key` missade openai_key / private_key, och ett
+    // oskyldigt nyckelnamn med `Bearer <slump>` slank igenom.
+    expect(checkMcpSecrets({ a: { openai_key: "x" } }).level).toBe("warn");
+    expect(checkMcpSecrets({ b: { private_key: "x" } }).level).toBe("warn");
+    expect(checkMcpSecrets({ c: { apiKey: "x" } }).level).toBe("warn");
+    expect(checkMcpSecrets({ d: { note: "Bearer abcdefghijklmnop" } }).level).toBe("warn");
+    // Men inte ord som bara innehåller bokstäverna: `monkey` i en note är prosa.
+    expect(checkMcpSecrets({ e: { note: "monkey business", url: "https://x.invalid" } }).level).toBe(
+      "ok",
+    );
+  });
+
   it("läcker aldrig själva värdet i meddelandet", () => {
     const verdict = checkMcpSecrets({ z: { apiKey: "sk-superhemligt-varde" } });
     expect(verdict.message).not.toContain("superhemligt");
@@ -118,12 +131,16 @@ describe("doctor — dubblerade skills", () => {
     expect(findings[0].message).toContain("2 skills");
   });
 
-  it("hittar source-command-speglingar", () => {
+  it("hittar source-command-speglingar som warn, så --quiet visar dem", () => {
+    // Nivån är inte kosmetik: `--quiet` i predev visar bara warn/note. Ett
+    // byte till `info` hade tystat speglingarna vid varje dev-start utan att
+    // meddelandetestet märkte det.
     const findings = checkSkillDuplication({
       cursorSkills: [],
       agentSkills: [],
       commandMirrors: ["source-command-818", "source-command-logg"],
     });
+    expect(findings[0].level).toBe("warn");
     expect(findings[0].message).toContain("2 source-command");
   });
 

@@ -42,7 +42,7 @@
     "tidy": "node scripts/dev/tidy.mjs",
     "tidy:apply": "node scripts/dev/tidy.mjs --apply",
     "doctor": "node scripts/dev/doctor.mjs",
-    "doctor:soft": "node scripts/dev/doctor.mjs --quiet",
+    "doctor:soft": "node scripts/dev/doctor.mjs --quiet || echo [doctor] skipped",
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",
     "dev:fast": "node scripts/dev/dev-fast.mjs",
     "refresh-token": "node scripts/dev/refresh-token.mjs",

@@ -98,8 +98,13 @@ export function checkRtk({ binaryPresent, hooks }) {
  *
  * Matches on KEYS and on obvious token shapes in values — never prints a value.
  */
-const SECRET_KEY_RE = /(header|authorization|token|secret|api[_-]?key|password|bearer)/iu;
-const SECRET_VALUE_RE = /\b(?:sk-|ghp_|gho_|github_pat_|xox[baprs]-|eyJ[A-Za-z0-9_-]{10,})/u;
+// Heuristic, not a vault. Key names: anything that *ends in* key (openai_key,
+// private_key, apiKey) or names a credential outright. Value shapes: the
+// common vendor prefixes plus JWT and a bare `Bearer <token>`.
+const SECRET_KEY_RE =
+  /(header|authorization|token|secret|password|bearer|credential|(?:^|[_-])key$|[a-z]key$)/iu;
+const SECRET_VALUE_RE =
+  /(?:\b(?:sk-|xai-|ghp_|gho_|github_pat_|xox[baprs]-|AIza|AKIA|sbp_|npm_|eyJ[A-Za-z0-9_-]{10,})|\bBearer\s+\S{8,})/u;
 
 export function checkMcpSecrets(rawServers) {
   if (!rawServers) return { level: "ok", area: "mcp-secrets", message: "Ingen live-fil att granska" };
@@ -204,9 +209,26 @@ export function checkPluginCost(plugins) {
   };
 }
 
+/**
+ * The plugin cache on disk outlives a disable: `.cursor/settings.json` turned
+ * `vercel` off on 2026-09-11 and the 51 skills stayed cached. Reporting their
+ * cost as live would claim a session tax that is no longer paid, so disabled
+ * plugins are dropped here. Only an explicit `enabled: false` counts as off.
+ */
+function disabledPlugins() {
+  const settings = readJson(join(REPO_ROOT, ".cursor", "settings.json"));
+  return new Set(
+    Object.entries(settings?.plugins ?? {})
+      .filter(([, config]) => config?.enabled === false)
+      .map(([name]) => name),
+  );
+}
+
 function collectPlugins() {
   const cacheRoot = join(HOME, ".cursor", "plugins", "cache", "cursor-public");
+  const disabled = disabledPlugins();
   return dirNames(cacheRoot)
+    .filter((name) => !disabled.has(name))
     .map((name) => {
       const skillFiles = [];
       const walk = (dir) => {
@@ -222,9 +244,15 @@ function collectPlugins() {
         return null;
       }
       // The prompt carries each description plus its path, not the whole file.
+      // One unreadable SKILL.md must not take the whole report down: skip it.
       let bytes = 0;
       for (const file of skillFiles) {
-        const raw = readFileSync(file, "utf8");
+        let raw;
+        try {
+          raw = readFileSync(file, "utf8");
+        } catch {
+          continue;
+        }
         const frontmatter = /^---\s*([\s\S]*?)^---/m.exec(raw)?.[1] ?? "";
         const description = /^description:\s*([\s\S]*?)(?=^[a-z-]+:|$)/m.exec(frontmatter)?.[1] ?? "";
         bytes += Buffer.byteLength(description.trim()) + 90;
@@ -278,7 +306,18 @@ export function collectFindings() {
 
 function main() {
   const quiet = process.argv.includes("--quiet");
-  const findings = collectFindings();
+  let findings;
+  try {
+    findings = collectFindings();
+  } catch (error) {
+    // The promise this script makes is "never blocks dev". A crash here would
+    // break `predev`'s `&&` chain and stop `npm run dev` over a diagnostic — the
+    // exact false red the script exists to avoid. Report the crash as a finding
+    // and exit 0; the review that caught this found `readFileSync` outside `try`.
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[doctor] ! doctor: kunde inte köra alla kontroller (${message})`);
+    return;
+  }
   const actionable = findings.filter((finding) => QUIET_LEVELS.has(finding.level));
 
   if (quiet && actionable.length === 0) return;
@@ -294,5 +333,7 @@ function main() {
 }
 
 // Exit code is always 0: this reports machine-local drift that CI cannot see,
-// so failing here would be a red nobody else can reproduce.
+// so failing here would be a red nobody else can reproduce. `main` catches its
+// own failures for the same reason, and `doctor:soft` in package.json adds
+// `|| echo` as a second belt — same pattern as `hooks:install:soft`.
 if (process.argv[1] && process.argv[1].endsWith("doctor.mjs")) main();

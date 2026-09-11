@@ -471,6 +471,25 @@ describe("commit guard", () => {
     );
   });
 
+  it("har en egen rubrik när bara Backoffice triggar, utan skyddade filer", () => {
+    // Tredje läget: inget protected alls, bara en Backoffice-sida. Den gamla
+    // texten hade då påstått att «arbetskopian har skyddade ändringar».
+    const git = vi.fn((args: string[]) =>
+      args[0] === "branch" ? ["feat/x"] : ["backoffice/pages/eval_page.py"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git })).toEqual(
+      expect.objectContaining({
+        permission: "ask",
+        user_message: expect.stringContaining("Committen träffar Backoffice-kopplade ytor."),
+      }),
+    );
+    expect(decideCommitCommand("git commit -m x", { git })).not.toEqual(
+      expect.objectContaining({
+        user_message: expect.stringContaining("skyddade ändringar"),
+      }),
+    );
+  });
+
   it("denies detached HEAD before inspecting file impact", () => {
     expect(decideCommitCommand("git commit -m x", { git: vi.fn(() => []) }).permission).toBe(
       "deny",
