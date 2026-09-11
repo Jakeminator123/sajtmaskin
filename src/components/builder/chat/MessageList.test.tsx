@@ -72,6 +72,51 @@ describe("MessageList", () => {
     expect(screen.getByText(new RegExp(reason))).toBeTruthy();
   });
 
+  it("says the verification is still running when the post-check has no warnings", () => {
+    const pending: ChatMessage[] = [{
+      id: "assistant_pending", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:post-check", toolCallId: "post-check:ver-1", state: "output-available",
+        output: {
+          summary: { files: 2, added: 0, modified: 2, removed: 0, warnings: 0,
+            provisional: true, qualityGatePending: true, autoFixQueued: false },
+          demoUrl: "https://preview.example/pending",
+        } }],
+    }];
+    const { rerender } = render(<MessageList chatId="chat_pending" messages={pending} />);
+
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-verifying")).toBe("true");
+    expect(surface.getAttribute("data-attention")).toBe("false");
+    expect(screen.getByText("Verifieringen pågår")).toBeTruthy();
+    expect(screen.queryByText("Genereringen har avslutats.")).toBeNull();
+
+    rerender(<MessageList chatId="chat_pending" messages={[{
+      ...pending[0],
+      uiParts: [...(pending[0].uiParts ?? []),
+        { type: "tool:quality-gate", toolCallId: "quality-gate:ver-1", state: "output-available",
+          output: { passed: true, checks: [
+            { check: "typecheck", passed: true, exitCode: 0, output: "" },
+          ] } }],
+    }]} />);
+    expect(screen.getByTestId("generation-surface").getAttribute("data-verifying")).toBe("false");
+    expect(screen.queryByText("Verifieringen pågår")).toBeNull();
+  });
+
+  it("surfaces an available server repair without opening the details drawer", () => {
+    render(<MessageList chatId="chat_repair_offer" messages={[{
+      id: "assistant_repair_offer", role: "assistant", content: "Byggfelet är lagat.",
+      uiParts: [{ type: "tool:quality-gate", toolName: "Server repair",
+        toolCallId: "server-repair-available:ver-1", state: "output-available",
+        output: { repaired: true, status: "repair_available",
+          reason: "En serverreparation finns tillgänglig och kan accepteras i versionspanelen." } }],
+    }]} />);
+
+    expect(screen.getByText("Fix finns att acceptera i versionspanelen")).toBeTruthy();
+    expect(screen.queryByText("Serverreparation")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getAllByText("Fixen är klar – men inte applicerad ännu").length).toBeGreaterThan(0);
+  });
+
   it("uses the assistant surface for repair progress without a second guessed phase indicator", () => {
     render(<MessageList chatId="chat_repair" isStreaming messages={[
       { id: "repair_prompt", role: "user", content: "Rätta syntaxfelet.",

@@ -16,6 +16,12 @@
   border-color: color-mix(in srgb, hsl(var(--primary)) 35%, hsl(var(--border)));
 }
 
+/* Före attention-regeln: en varning vinner över pågående verifiering när båda
+   gäller, så ramen aldrig lugnar ner ett fynd som behöver ses över. */
+.surface[data-verifying="true"] {
+  border-color: color-mix(in srgb, #22d3ee 40%, hsl(var(--border)));
+}
+
 .surface[data-attention="true"] {
   border-color: color-mix(in srgb, #f59e0b 45%, hsl(var(--border)));
 }

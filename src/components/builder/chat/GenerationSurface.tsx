@@ -1,12 +1,24 @@
 "use client";
 
 import { memo, useId, useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, ChevronDown, FileCode2, Layers, MessageCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  FileCode2,
+  Layers,
+  Loader2,
+  MessageCircle,
+  Wrench,
+} from "lucide-react";
 import { Streamdown } from "streamdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { parseGenerationContent } from "./generation-content";
-import { hasGenerationWarnings } from "./generation-surface-state";
+import {
+  hasGenerationWarnings,
+  hasPendingVerification,
+  hasRepairAwaitingAccept,
+} from "./generation-surface-state";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import type { AgentLogItem, ToolPart } from "./tooling/types";
 import styles from "./GenerationSurface.module.css";
@@ -46,6 +58,8 @@ export const GenerationSurface = memo(function GenerationSurface({
     [parsed.files],
   );
   const warnings = hasGenerationWarnings(toolParts);
+  const verifying = hasPendingVerification(toolParts);
+  const repairAwaitingAccept = hasRepairAwaitingAccept(toolParts);
   const latestFailure = [...items].reverse().find((item) => item.failed);
   const attention = warnings || Boolean(latestFailure);
   const working = isActive && !awaitingReply;
@@ -54,29 +68,16 @@ export const GenerationSurface = memo(function GenerationSurface({
   const hasDetails = Boolean(
     reasoning || items.length || hasCode || reviews || (isStreaming && content),
   );
-  const title = awaitingReply
-    ? "Ditt svar behövs"
-    : working
-      ? currentFailure
-        ? "Ett byggsteg misslyckades"
-        : "Arbetar med din sajt"
-      : attention
-        ? "Kontroller att se över"
-        : "Sajtmaskin";
-  const subtitle = awaitingReply
-    ? "Svara i chatten för att fortsätta."
-    : working
-      ? activeLabel ||
-        (hasCode
-          ? "Skapar sidor och komponenter…"
-          : reasoning || content
-            ? "Tar fram ett förslag…"
-            : "Förbereder underlaget…")
-      : attention
-        ? "Se kontrollresultatet i detaljerna."
-        : hasCode
-          ? "Genereringen har avslutats."
-          : null;
+  const { title, subtitle } = resolveHeadline({
+    awaitingReply,
+    working,
+    currentFailure,
+    attention,
+    verifying,
+    activeLabel,
+    hasCode,
+    hasDraft: Boolean(reasoning || content),
+  });
 
   return (
     <Collapsible
@@ -86,6 +87,7 @@ export const GenerationSurface = memo(function GenerationSurface({
       data-testid="generation-surface"
       data-active={working}
       data-attention={attention}
+      data-verifying={verifying}
     >
       <div className={styles.track} aria-hidden />
       <div className="flex min-h-24 items-start gap-3 px-4 py-4">
@@ -101,6 +103,8 @@ export const GenerationSurface = memo(function GenerationSurface({
             </>
           ) : attention ? (
             <AlertTriangle className="size-5 text-amber-500" />
+          ) : verifying ? (
+            <Loader2 className="size-5 animate-spin text-cyan-400 motion-reduce:animate-none" />
           ) : (
             <Layers className="size-5" />
           )}
@@ -126,6 +130,23 @@ export const GenerationSurface = memo(function GenerationSurface({
       )}
       {actions && <div className="px-4 pb-3 empty:hidden">{actions}</div>}
 
+      {/* Outside the drawer on purpose: the fix is finished and one click away
+          in the version panel, so it must not depend on opening details. */}
+      {repairAwaitingAccept && (
+        <div
+          className="mx-4 mb-3 flex items-start gap-2 rounded-md border border-indigo-500/50 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-200"
+          data-testid="generation-repair-notice"
+        >
+          <Wrench className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <div className="min-w-0">
+            <p className="font-semibold">Fix finns att acceptera i versionspanelen</p>
+            <p className="text-indigo-200/80 mt-1">
+              Den lagade versionen är klar men inte applicerad än.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="border-border/60 flex min-h-12 flex-wrap items-center justify-between gap-2 border-t px-4 py-2">
         <span className="text-muted-foreground inline-flex items-center gap-2 text-xs tabular-nums">
           {files.length > 0 ? (
@@ -135,6 +156,8 @@ export const GenerationSurface = memo(function GenerationSurface({
             </>
           ) : working ? (
             "Pågår"
+          ) : verifying ? (
+            "Verifieras"
           ) : (
             ""
           )}
@@ -254,3 +277,66 @@ export const GenerationSurface = memo(function GenerationSurface({
     </Collapsible>
   );
 });
+
+/**
+ * Kortets ord, hållna utanför JSX:en eftersom tillstånden är fem: väntar på
+ * svar, arbetar, verifiering pågår, kontroller att se över och klart.
+ *
+ * Ordningen är poängen. En pågående kontroll får aldrig låna varningens ord —
+ * den är inte ett fel — men den får heller inte presenteras som avslutad. Noll
+ * varningar betydde tidigare "Genereringen har avslutats." även medan
+ * verify-lanen precis hade startat.
+ */
+function resolveHeadline({
+  awaitingReply,
+  working,
+  currentFailure,
+  attention,
+  verifying,
+  activeLabel,
+  hasCode,
+  hasDraft,
+}: {
+  awaitingReply: boolean;
+  working: boolean;
+  currentFailure: boolean;
+  attention: boolean;
+  verifying: boolean;
+  activeLabel?: string | null;
+  hasCode: boolean;
+  hasDraft: boolean;
+}): { title: string; subtitle: string | null } {
+  if (awaitingReply) {
+    return { title: "Ditt svar behövs", subtitle: "Svara i chatten för att fortsätta." };
+  }
+  if (working) {
+    return {
+      title: currentFailure ? "Ett byggsteg misslyckades" : "Arbetar med din sajt",
+      subtitle:
+        activeLabel ||
+        (hasCode
+          ? "Skapar sidor och komponenter…"
+          : hasDraft
+            ? "Tar fram ett förslag…"
+            : "Förbereder underlaget…"),
+    };
+  }
+  if (attention) {
+    return {
+      title: "Kontroller att se över",
+      subtitle: verifying
+        ? "Verifieringen är inte klar än. Se kontrollresultatet i detaljerna."
+        : "Se kontrollresultatet i detaljerna.",
+    };
+  }
+  if (verifying) {
+    return {
+      title: "Verifieringen pågår",
+      subtitle: "Ändringarna är sparade, men kontrollen är inte klar än.",
+    };
+  }
+  return {
+    title: "Sajtmaskin",
+    subtitle: hasCode ? "Genereringen har avslutats." : null,
+  };
+}

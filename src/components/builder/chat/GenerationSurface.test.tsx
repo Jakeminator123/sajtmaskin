@@ -5,7 +5,12 @@ import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { UiMessagePart } from "@/lib/builder/types";
 import type { ToolPart } from "./tooling/types";
 import { GenerationSurface } from "./GenerationSurface";
-import { hasGenerationWarnings, isGenerationReviewPart } from "./generation-surface-state";
+import {
+  hasGenerationWarnings,
+  hasPendingVerification,
+  hasRepairAwaitingAccept,
+  isGenerationReviewPart,
+} from "./generation-surface-state";
 
 vi.mock("streamdown", () => ({
   Streamdown: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -118,6 +123,78 @@ describe("GenerationSurface", () => {
     expect(screen.queryByText("Typvarningen i detalj")).toBeNull();
   });
 
+  it("never reads a pending verify-lane as finished, even with zero warnings", () => {
+    const postCheck = toolPart({
+      type: "tool:post-check",
+      toolCallId: "post-check:ver-1",
+      state: "output-available",
+      output: {
+        summary: {
+          files: 1,
+          added: 1,
+          modified: 0,
+          removed: 0,
+          warnings: 0,
+          provisional: true,
+          qualityGatePending: true,
+          autoFixQueued: false,
+        },
+      },
+    });
+    const done = { ...base, content: code, isStreaming: false, isActive: false };
+    const { rerender } = render(<GenerationSurface {...done} toolParts={[postCheck]} />);
+
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-verifying")).toBe("true");
+    // A running check is not a failure: it must not borrow the amber wording.
+    expect(surface.getAttribute("data-attention")).toBe("false");
+    expect(screen.getByText("Verifieringen pågår")).toBeTruthy();
+    expect(screen.queryByText("Genereringen har avslutats.")).toBeNull();
+    expect(screen.queryByText("Kontroller att se över")).toBeNull();
+
+    const verdict = toolPart({
+      type: "tool:quality-gate",
+      toolCallId: "quality-gate:ver-1",
+      state: "output-available",
+      output: {
+        passed: true,
+        checks: [{ check: "typecheck", passed: true, exitCode: 0, output: "" }],
+      },
+    });
+    rerender(<GenerationSurface {...done} toolParts={[postCheck, verdict]} />);
+    expect(screen.getByTestId("generation-surface").getAttribute("data-verifying")).toBe("false");
+    expect(screen.getByText("Genereringen har avslutats.")).toBeTruthy();
+    expect(screen.queryByText("Verifieringen pågår")).toBeNull();
+  });
+
+  it("keeps an available repair visible outside the closed drawer until it is handled", () => {
+    const available = toolPart({
+      type: "tool:quality-gate",
+      toolName: "Server repair",
+      toolCallId: "server-repair-available:ver-1",
+      state: "output-available",
+      output: { repaired: true, status: "repair_available", reason: "Byggfel lagat." },
+    });
+    const done = { ...base, content: code, isStreaming: false, isActive: false };
+    const { rerender } = render(
+      <GenerationSurface {...done} toolParts={[available]} reviews={<div>Serverreparation</div>} />,
+    );
+
+    expect(screen.getByTestId("generation-repair-notice")).toBeTruthy();
+    expect(screen.getByText("Fix finns att acceptera i versionspanelen")).toBeTruthy();
+    expect(screen.queryByText("Serverreparation")).toBeNull();
+
+    const applied = toolPart({
+      type: "tool:quality-gate",
+      toolName: "Server repair",
+      toolCallId: "server-repair:ver-1",
+      state: "output-available",
+      output: { repaired: true, status: "completed", newVersionId: "ver-2" },
+    });
+    rerender(<GenerationSurface {...done} toolParts={[available, applied]} />);
+    expect(screen.queryByTestId("generation-repair-notice")).toBeNull();
+  });
+
   it("shows the final prose once and only reveals raw code on request", () => {
     render(
       <GenerationSurface
@@ -185,5 +262,64 @@ describe("generation review presentation", () => {
     expect(
       hasGenerationWarnings([toolPart({ type: "tool-quality-gate", state: "input-streaming" })]),
     ).toBe(false);
+  });
+
+  it("treats a terminally provisional post-check as a warning, not as pending", () => {
+    const terminal = [
+      toolPart({
+        type: "tool-post-check",
+        state: "output-available",
+        output: {
+          summary: {
+            files: 1,
+            warnings: 0,
+            provisional: true,
+            qualityGatePending: false,
+            autoFixQueued: false,
+          },
+        },
+      }),
+    ];
+    expect(hasGenerationWarnings(terminal)).toBe(true);
+    expect(hasPendingVerification(terminal)).toBe(false);
+  });
+
+  it("keeps a server-owned gate pending — the ReleaseGate has not answered yet", () => {
+    const serverOwned = [
+      toolPart({
+        type: "tool-post-check",
+        toolCallId: "post-check:ver-9",
+        state: "output-available",
+        output: { summary: { files: 1, warnings: 0, qualityGatePending: true } },
+      }),
+      toolPart({
+        type: "tool-quality-gate",
+        toolCallId: "quality-gate:ver-9",
+        state: "output-available",
+        output: { skipped: true, serverOwned: true, reason: "ReleaseGate körs av servern." },
+      }),
+    ];
+    expect(hasPendingVerification(serverOwned)).toBe(true);
+    expect(hasGenerationWarnings(serverOwned)).toBe(false);
+  });
+
+  it("does not let the server-repair card close the pending window", () => {
+    const repairDuringVerify = [
+      toolPart({
+        type: "tool-post-check",
+        toolCallId: "post-check:ver-7",
+        state: "output-available",
+        output: { summary: { files: 1, warnings: 0, qualityGatePending: true } },
+      }),
+      toolPart({
+        type: "tool-quality-gate",
+        toolName: "Server repair",
+        toolCallId: "server-repair-available:ver-7",
+        state: "output-available",
+        output: { repaired: true, status: "repair_available" },
+      }),
+    ];
+    expect(hasPendingVerification(repairDuringVerify)).toBe(true);
+    expect(hasRepairAwaitingAccept(repairDuringVerify)).toBe(true);
   });
 });
