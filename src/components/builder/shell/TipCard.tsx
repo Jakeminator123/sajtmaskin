@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lightbulb, Loader2, RefreshCw, X } from "lucide-react";
+import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 
 type TipCardProps = {
   open: boolean;
@@ -23,6 +24,9 @@ export function TipCard({
   onRefresh,
   onClose,
 }: TipCardProps) {
+  const { pricing } = usePublicPricing();
+  const fallbackCost = pricing.credits.openclawTip;
+
   if (!open) return null;
 
   return (
@@ -62,7 +66,7 @@ export function TipCard({
 
           <div className="flex items-center justify-between gap-2 border-border/60 border-t pt-2">
             <span className="text-muted-foreground text-[11px]">
-              {cost != null ? `${cost} credits` : "2 credits/tips"}
+              {cost != null ? `${cost} credits` : `${fallbackCost} credits/tips`}
             </span>
             <Button
               variant="outline"

@@ -8,7 +8,7 @@ import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages";
-import { CREDIT_COST_BREAKDOWN } from "@/lib/credits/pricing";
+import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,6 +133,7 @@ function BuyCreditsContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAuthenticated, isInitialized, diamonds, fetchUser } = useAuth();
+  const { breakdown } = usePublicPricing();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
@@ -526,61 +527,61 @@ function BuyCreditsContent() {
                     {[
                       {
                         label: `Generering (${MODEL_LABELS.pro})`,
-                        cost: CREDIT_COST_BREAKDOWN.generatePro,
+                        cost: breakdown.generatePro,
                         icon: Wand2,
                         color: "text-brand-teal",
                       },
                       {
                         label: `Generering (${MODEL_LABELS.max})`,
-                        cost: CREDIT_COST_BREAKDOWN.generateMax,
+                        cost: breakdown.generateMax,
                         icon: Wand2,
                         color: "text-brand-teal",
                       },
                       {
                         label: `Generering (${MODEL_LABELS.premium})`,
-                        cost: CREDIT_COST_BREAKDOWN.generatePremium,
+                        cost: breakdown.generatePremium,
                         icon: Wand2,
                         color: "text-brand-teal",
                       },
                       {
                         label: `Förfining (${MODEL_LABELS.pro})`,
-                        cost: CREDIT_COST_BREAKDOWN.refinePro,
+                        cost: breakdown.refinePro,
                         icon: Zap,
                         color: "text-brand-amber",
                       },
                       {
                         label: `Förfining (${MODEL_LABELS.max})`,
-                        cost: CREDIT_COST_BREAKDOWN.refineMax,
+                        cost: breakdown.refineMax,
                         icon: Zap,
                         color: "text-brand-amber",
                       },
                       {
                         label: `Förfining (${MODEL_LABELS.premium})`,
-                        cost: CREDIT_COST_BREAKDOWN.refinePremium,
+                        cost: breakdown.refinePremium,
                         icon: Zap,
                         color: "text-brand-amber",
                       },
                       {
                         label: "Wizard-läge",
-                        cost: CREDIT_COST_BREAKDOWN.wizard,
+                        cost: breakdown.wizard,
                         icon: Sparkles,
                         color: "text-brand-blue",
                       },
                       {
                         label: "Audit (Basic)",
-                        cost: CREDIT_COST_BREAKDOWN.auditBasic,
+                        cost: breakdown.auditBasic,
                         icon: Globe,
                         color: "text-brand-warm",
                       },
                       {
                         label: "Audit (Advanced)",
-                        cost: CREDIT_COST_BREAKDOWN.auditAdvanced,
+                        cost: breakdown.auditAdvanced,
                         icon: Globe,
                         color: "text-brand-warm",
                       },
                       {
                         label: "Publicering",
-                        cost: CREDIT_COST_BREAKDOWN.deploy,
+                        cost: breakdown.deploy,
                         icon: ArrowRight,
                         color: "text-muted-foreground",
                       },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import {
   Dialog,
   DialogContent,
@@ -99,6 +100,8 @@ function DeployNameDialogForm({
   // Stays false during fetch-seed of persisted preferences. Only
   // included in the deploy payload when true.
   const [seoDirty, setSeoDirty] = useState<boolean>(false);
+  const { pricing } = usePublicPricing();
+  const deployCredits = pricing.credits.deployProduction;
 
   const canConfirm = !disabled && seoValid;
 
@@ -133,7 +136,7 @@ function DeployNameDialogForm({
         />
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1">
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Kostnad:</span> 20 credits för publicering
+            <span className="font-medium text-foreground">Kostnad:</span> {deployCredits} credits för publicering
           </p>
         </div>
         <div className="flex items-center justify-end gap-2">

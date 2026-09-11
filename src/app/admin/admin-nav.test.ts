@@ -29,6 +29,7 @@ describe("admin navigation", () => {
       "/admin",
       "/admin/statistik",
       "/admin/genereringar",
+      "/admin/priser",
       "/admin/kostnadsfri",
       "/admin/data",
       "/admin/miljo",
@@ -61,5 +62,11 @@ describe("admin navigation", () => {
   it("marks the destructive section so the menu can warn about it", () => {
     const data = ADMIN_SECTIONS.find((section) => section.href === "/admin/data");
     expect(data?.kind).toBe("danger");
+  });
+
+  it("marks the price section as write", () => {
+    const prices = ADMIN_SECTIONS.find((section) => section.href === "/admin/priser");
+    expect(prices?.kind).toBe("write");
+    expect(prices?.label).toBe("Priser");
   });
 });

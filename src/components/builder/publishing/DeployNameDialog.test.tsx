@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_CREDIT_ACTION_PRICES } from "@/lib/credits/pricing";
 import { DeployNameDialog } from "./DeployNameDialog";
 
 describe("DeployNameDialog", () => {
@@ -17,7 +18,11 @@ describe("DeployNameDialog", () => {
       />,
     );
 
-    expect(screen.getByText(/20 credits för publicering/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        `${DEFAULT_CREDIT_ACTION_PRICES.deployProduction} credits för publicering`,
+      ),
+    ).toBeTruthy();
     expect(screen.queryByText(/credits\/månad/i)).toBeNull();
     expect(screen.queryByText(/Hosting/)).toBeNull();
   });

@@ -37,6 +37,19 @@ const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
   "openclaw.tip": "Du måste vara inloggad för att använda AI-tips.",
 };
 
+/**
+ * Saldo efter en debitering som servern redan har beslutat.
+ * Klienten får inte räkna baklänges från sitt eget pris — det kan vara stale.
+ */
+export function remainingCreditsAfterCharge(input: {
+  diamonds: number;
+  cost: number;
+  charged: boolean;
+}): number {
+  if (!input.charged) return input.diamonds;
+  return Math.max(0, input.diamonds - input.cost);
+}
+
 export type CreditsEvaluation = {
   allowed: boolean;
   cost: number;

@@ -59,6 +59,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { BuilderPublishControl } from "./BuilderPublishControl";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 
 const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
   ({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID,
@@ -200,6 +201,8 @@ export function BuilderHeader(props: {
     deployDisabledReason,
     previewTools,
   } = props;
+  const { pricing } = usePublicPricing();
+  const tipCredits = pricing.credits.openclawTip;
 
   const isBusy = isAnyStreaming || isCreatingChat;
   const actionsLocked = isBusy || pipelineLocked;
@@ -532,7 +535,7 @@ export function BuilderHeader(props: {
 
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                  Tips · 2 credits per hämtning
+                  Tips · {tipCredits} credits per hämtning
                 </DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
                   checked={tipsEnabled}
