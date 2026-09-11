@@ -234,7 +234,7 @@ describe("lanyard mobile interactions", () => {
     expect(lanyard).toContain("<AdaptiveDpr />");
     expect(lanyard).toContain("dpr={[1, 1.35]}");
     expect(lanyard).toContain("<Environment resolution={64}>");
-    expect(lanyard).toContain("const bandPoints = useRef");
+    expect(lanyard).toContain("const bandPoints = useMemo");
     expect(lanyard).toContain("applyLanyardTextureCrop");
     expect(lanyard).toContain("createCardGrainTexture");
     expect(lanyard).toContain("meshPhysicalMaterial");

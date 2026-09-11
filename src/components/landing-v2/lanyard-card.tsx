@@ -98,15 +98,13 @@ function createCardGrainTexture() {
 }
 
 function CameraRig() {
-  const camera = useThree((state) => state.camera)
-  useEffect(() => {
+  const framed = useRef(false)
+  useFrame(({ camera }) => {
+    if (framed.current) return
     camera.position.set(0, CAMERA_Y, CAMERA_DISTANCE)
     camera.lookAt(0, CAMERA_LOOK_AT_Y, 0)
-    if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = CAMERA_FOV_DEGREES
-      camera.updateProjectionMatrix()
-    }
-  }, [camera])
+    framed.current = true
+  })
   return null
 }
 
@@ -244,31 +242,34 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   useEffect(() => {
     // drei's useTexture returns a shared THREE.Texture that must be cropped
     // in place — cloning would break GPU cache and the card UV mapping.
-    // eslint-disable-next-line react-hooks/immutability -- GPU texture object
     applyLanyardTextureCrop(texture, FRONT_TEXTURE_CROP, anisotropy)
   }, [texture, anisotropy])
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability -- GPU texture object
     applyLanyardTextureCrop(backTexture, BACK_TEXTURE_CROP, anisotropy)
   }, [backTexture, anisotropy])
 
   // Utjämnade punkter för ett mjukt band. Startpunkterna motsvarar en rak
   // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
-  const curve = useRef(
-    new THREE.CatmullRomCurve3([
-      new THREE.Vector3(
-        0,
-        FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT,
-        0,
-      ),
-      new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * 2, 0),
-      new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH, 0),
-      new THREE.Vector3(0, FIXED_ANCHOR_Y, 0),
-    ]),
-  ).current
+  const curve = useMemo(
+    () =>
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(
+          0,
+          FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT,
+          0,
+        ),
+        new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * 2, 0),
+        new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH, 0),
+        new THREE.Vector3(0, FIXED_ANCHOR_Y, 0),
+      ]),
+    [],
+  )
   // Återanvänd punkterna i stället för att allokera 33 nya Vector3 varje
   // frame. Det minskar GC-pauser precis när användaren trycker på canvasen.
-  const bandPoints = useRef(Array.from({ length: 19 }, () => new THREE.Vector3())).current
+  const bandPoints = useMemo(
+    () => Array.from({ length: 19 }, () => new THREE.Vector3()),
+    [],
+  )
 
   // Ge meshline-geometrin giltiga punkter direkt vid montering, och sätt en
   // manuell boundingSphere så att Three aldrig försöker beräkna den från

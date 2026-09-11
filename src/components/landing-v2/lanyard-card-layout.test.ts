@@ -49,7 +49,7 @@ describe("lanyard card layout", () => {
     expect(texture.repeat.y).toBe(LANYARD_CARD_LAYOUT.frontTexture.repeatY);
     expect(texture.offset.x).toBe(LANYARD_CARD_LAYOUT.frontTexture.offsetX);
     expect(texture.anisotropy).toBe(8);
-    expect(texture.needsUpdate).toBe(true);
+    expect(texture.version).toBeGreaterThan(0);
   });
 
   it("insets the printed faces so rounded corners do not clip the art", () => {
