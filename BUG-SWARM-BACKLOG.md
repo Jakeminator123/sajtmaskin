@@ -10,7 +10,7 @@ Regler:
 - `Aktiv kö` innehåller bara kod- eller prodverifierade fel på nuvarande `master`.
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-087`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-088`.
 - En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
   planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
@@ -59,7 +59,9 @@ De här är inte nåbara produktbuggar medan respektive flagga är av.
 
 ### `SM-007` — domänköp
 
-Flaggan förblir av. Före aktivering måste hela kedjan stängas:
+Flaggan förblir av. Domänpåslaget styrs numera av admin via `pricing_settings`;
+`config/domain-pricing.json` äger det inte längre. Själva köpvägen är oförändrad
+och fortfarande parkerad. Före aktivering måste hela kedjan stängas:
 
 1. Byt den utfasade Vercel-buy-endpointen och samla/livscykelhantera obligatorisk
    `contactInformation` med uttryckligt GDPR-beslut.
@@ -106,6 +108,7 @@ Detta är testkö, inte bekräftade buggar. Fulla körvägar finns i
 | OpenClaw health | En 502 följdes av 200 och kan ha varit cold start. | Korrelera nästa träff med Vercel runtime-logg i samma tidsfönster. |
 | Analytics/consent | Initiering före consent är inte app-brett verifierad. | Auditera genererad sajt och skapa säkerhetsrad endast vid konkret förtidig init. |
 | CI-flake quality-core | **Orsak bevisad och åtgärdad — raden kvar bara som bevakning.** Två oberoende filer föll på samma sätt: `PreviewPanelDossiers.env-races.test.tsx` (master-run `34229404191`, 2026-09-08) och `PreviewPanelF3Trigger.test.tsx` (PR #1326 run `34346616372`, 1 fail av 10 064), båda gröna isolerat och på ren rerun utan kodändring. Gemensam nämnare var inte testerna utan testing-librarys `asyncUtilTimeout`-default på 1 s, som antar att en sekund wall clock räcker för att en komponent ska sätta sig — ett antagande som håller på en tom maskin och brister när ~10 000 tester delar workerpoolen. Deadline höjd till 5 s i `vitest.setup.ts`, med `testTimeout` ovanför i `vitest.config.ts`. Verifierat: ett prov som sätter sig efter 2,5 s faller på exakt 1026 ms med gamla defaulten och passerar med den nya. | Bevakning: nästa enstaka `waitFor`-fail i `quality-core` som är grön på rerun betyder att 5 s inte räckte — höj inte blint, mät då hur långt över deadline workern låg. En `waitFor`-fail som återkommer på rerun är äkta och hör inte hit. |
+| `SM-087` | `STRIPE_PRICE_10/25/50_CREDITS` är satta lokalt med välformade id:n, men den lokala `STRIPE_SECRET_KEY` är en testnyckel och testkontot har inga aktiva priser — alla tre id:n gav 404 «No such price» direkt mot Stripes API 2026-09-11. Stripe-priser är lägesbundna, så ett live-id existerar inte för en testnyckel. Checkout saknade fallback och köpet dog med 400; fallback finns nu. **Ägaråtgärd, inte kodbugg:** kontrollera vilka värden som ligger i Vercels Preview- och Production-miljöer. Samma kombination där hade betytt att ingen kunde köpa credits. | Läs `STRIPE_PRICE_*` och `STRIPE_SECRET_KEY` i Vercel Preview och Production; bekräfta att nyckelläge och pris-id:n hör ihop (test mot test, live mot live) och att priserna faktiskt finns i det kontot. |
 
 Landingens tidigare ”kortet ligger 65 px lågt”-hypotes är inte längre giltig
 evidens efter ombyggnaden i #1136. Ny visuell avvikelse kräver ny mätning.
@@ -141,6 +144,7 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | P2 | Ska generation flyttas ur HTTP-anslutningen (`T9b`) efter mobilens frånkopplingsincident? | Nästa döda generation eller uttrycklig beställning. |
 | P2 | Ska en loop-säker Vercel Log Drain skapas (`T11`)? | Endast när ägaren kör runbooken. |
 | P2 | Ska preview-hostens Fly-maskin uppgraderas, och i så fall till vilken klass? `shared`-vCPU har enligt Flys dokumentation en baseline på 5 ms per 80 ms-period och vCPU, delad över maskinen — dagens `shared-cpu-4x` sustainar därför ~0,25 kärna när burst-balansen är slut, vilket träffar `npm install`/`tsc` rakt i previewlatensen. Månadspris i `arn` vid drift dygnet runt: nuvarande `shared-cpu-4x`/8 GB **$44**, `shared-cpu-8x`/8 GB **$47** (dubbel kvot, +$3), `performance-2x`/8 GB **$85** (~2,0 kärnor sustained), `performance-4x`/8 GB **$129**. Mer RAM utan mer CPU hjälper bara om det faktiskt är OOM/swap-tröskning. Mät throttling/burst-balans i Flys metrics före beslut. Ny datapunkt 2026-09-08 (samma host, samma kväll): sajt 1 (chat `fc197819`) ~20 min på `warm_project` innan runtimen kom upp, sajt 2 (chat `4a2aa301`) ~2 min — domänhypotesen avfärdad, throttling kvarstår som huvudspår. | Före MVP-lansering, eller vid nästa previewlatens-klagomål. |
+| P2 | Dagens intäkt är transaktionell (20 credits per publicering och credits per generering) medan den tunga kostnaden är fast kapacitet: `preview_host` på Fly går dygnet runt oberoende av kundantal. Att ha en publicerad sajt uppe kostar i praktiken ingenting inom Vercel Pro:s inkluderade nivåer. Ska intäkten flyttas till en återkommande månadsavgift för publicerad sajt, med publicering gratis inom abonnemanget och credits som inkluderad kvot plus påfyllnad? `DeployNameDialog` lovade tidigare «10 credits/månad för att hålla sajten live» utan att någon kod debiterade det; den osanna raden är borttagen — löftet fanns i UI innan beslutet var fattat. Inget abonnemangsstöd finns idag: varje Stripe-checkout är `mode: "payment"` och `users` har inga Stripe-fält. | Före nästa prissättnings-/lanseringsbeslut. |
 | P3 | Flytta stor historik till Blob och därefter eventuellt `git filter-repo`? | När PR-kön är tom och alla kloner kan ersättas. |
 | P3 | Kör produktbenchmark på 20–30 verkliga byggen? | Inför lansering/värdering. |
 
