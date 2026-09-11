@@ -205,10 +205,12 @@ export async function runQualityGateChecks(params: {
     }
   }
 
-  // `.next/`-only typecheck noise (stale generated `routes.d.ts` in the verify
-  // workspace) is folded into a pass HERE, on the single path every gate caller
-  // shares, so the client route, server-verify and post-repair never disagree
-  // on whether such a run failed. `firstFailureCheck` follows the normalized rows.
+  // Proven-harmless typecheck noise (stale generated `routes.d.ts` TS1005 in
+  // the verify workspace) is folded into a pass HERE, on the single path every
+  // gate caller shares, so the client route, server-verify and post-repair
+  // never disagree on whether such a run failed. Next `.next/types/app/**`
+  // route/props/export validators stay failures. `firstFailureCheck` follows
+  // the normalized rows.
   const results = verify.results.map((result) => normalizeTypecheckResult(result));
   const firstFailureCheck =
     verify.firstFailureCheck !== null &&

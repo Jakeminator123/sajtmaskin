@@ -159,24 +159,26 @@ const RENDER_RISK_TS_CODES = new Set([
 const TS_CODE_RE = /\bTS(\d{4,5})\b/g;
 
 /**
- * A tsc diagnostic line whose source file lives under Next's own `.next/`
- * output — `.next/types/**` or `.next/dev/types/**` (`routes.d.ts` etc.). The
- * generated project's `tsconfig.json` includes those globs (Next parity: `next
- * dev` writes them back if removed), so the verify lane's `tsc --noEmit` can
- * pick up a stale or half-written generated type file and report syntax errors
- * (`TS1005 ',' expected`) that have nothing to do with the user's code and can
- * never occur in Vercel's fresh `next build`. Prod 2026-08/09: 15 of 63 tsc
- * hits (defect signature `9bf13221eb3e`, 6 chats) were exactly this — each one
- * turned a clean site into a "klar med varningar" advisory. They are noise for
- * both preview and publish and must not count as a typecheck failure.
+ * Proven-harmless generation noise (SM-084 / `9bf13221eb3e`): a stale or
+ * half-written Next `routes.d.ts` that emits parse errors (`TS1005`). The
+ * generated project's `tsconfig.json` includes `.next/types/**` and
+ * `.next/dev/types/**` (Next parity: `next dev` writes them back if removed),
+ * so the verify lane's `tsc --noEmit` can choke on that file. Prod 2026-08/09:
+ * 15 of 63 tsc hits were exactly `TS1005` on `.next/dev/types/routes.d.ts`.
  *
- * Matches `.next/…`, `./.next/…` and Windows separators; the trailing `(` is
- * the `file(line,col)` position tsc prints.
+ * Not noise: `.next/types/app/**` (and other generated validators). Next
+ * writes those to check PageProps, layouts, route handlers and required
+ * exports. A `TS2344` there is a real app defect — folding every `.next/`
+ * diagnostic into a pass false-greened that class after #1329.
+ *
+ * Matches `.next/…`, `./.next/…` and Windows separators; optional `dev/`
+ * segment; only `routes.d.ts` + `TS1005`. Unknown shapes stay failures.
  */
-const GENERATED_NEXT_TYPES_DIAGNOSTIC_RE = /^\s*(?:\.[\\/])?\.next[\\/][^\s(]*\(\d+,\d+\):\s*error\s+TS\d{4,5}\b/;
+const HARMLESS_GENERATED_NEXT_ROUTES_TS1005_RE =
+  /^\s*(?:\.[\\/])?\.next[\\/](?:dev[\\/])?types[\\/]routes\.d\.ts\(\d+,\d+\):\s*error\s+TS1005\b/;
 
-function isGeneratedNextTypesDiagnosticLine(line: string): boolean {
-  return GENERATED_NEXT_TYPES_DIAGNOSTIC_RE.test(line);
+function isHarmlessGeneratedNextNoiseLine(line: string): boolean {
+  return HARMLESS_GENERATED_NEXT_ROUTES_TS1005_RE.test(line);
 }
 
 function isTscDiagnosticLine(line: string): boolean {
@@ -184,17 +186,18 @@ function isTscDiagnosticLine(line: string): boolean {
 }
 
 /**
- * Typecheck output with every diagnostic that originates in `.next/` removed
- * (a diagnostic's continuation lines are indented and carry no `error TSxxxx`,
- * so they are dropped together with their header line). Non-diagnostic lines
- * (summary, command echo) are kept verbatim.
+ * Typecheck output with proven-harmless `.next/**/routes.d.ts` `TS1005`
+ * diagnostics removed (a diagnostic's continuation lines are indented and
+ * carry no `error TSxxxx`, so they are dropped together with their header
+ * line). Real `.next/types/app/**` validators and all other diagnostics stay.
+ * Non-diagnostic lines (summary, command echo) are kept verbatim.
  */
 export function stripGeneratedNextTypeDiagnostics(output: string): string {
   const kept: string[] = [];
   let dropping = false;
   for (const line of output.split(/\r?\n/)) {
     if (isTscDiagnosticLine(line)) {
-      dropping = isGeneratedNextTypesDiagnosticLine(line);
+      dropping = isHarmlessGeneratedNextNoiseLine(line);
       if (!dropping) kept.push(line);
       continue;
     }
@@ -207,22 +210,25 @@ export function stripGeneratedNextTypeDiagnostics(output: string): string {
 
 /**
  * True when a failing typecheck output has at least one tsc diagnostic and
- * EVERY diagnostic originates in `.next/` generated types — i.e. the failure is
- * environmental noise, not a user-code defect. Callers treat such a result as a
- * passed typecheck (see `normalizeTypecheckResult`).
+ * EVERY diagnostic is proven-harmless `routes.d.ts` `TS1005` noise — i.e. the
+ * failure is environmental, not a user or Next-route/props/export defect.
+ * Callers treat such a result as a passed typecheck (see
+ * `normalizeTypecheckResult`).
  */
 export function typecheckFailsOnlyInGeneratedNextTypes(output: string): boolean {
   const diagnostics = output.split(/\r?\n/).filter(isTscDiagnosticLine);
   if (diagnostics.length === 0) return false;
-  return diagnostics.every(isGeneratedNextTypesDiagnosticLine);
+  return diagnostics.every(isHarmlessGeneratedNextNoiseLine);
 }
 
 /**
- * Fold `.next/`-only typecheck noise into a pass so no gate path (client
- * `quality-gate` route, `server-verify`, post-repair) reads it as a failure or
- * an advisory. A result that still has user-code diagnostics after the strip is
- * returned unchanged (with the full original output, so repair prompts keep
- * every line). Idempotent; non-typecheck rows pass through.
+ * Fold proven-harmless `routes.d.ts` `TS1005` typecheck noise into a pass so
+ * no gate path (client `quality-gate` route, `server-verify`, post-repair)
+ * reads it as a failure or an advisory. A result that still has any other
+ * diagnostic — including Next-generated route/props/export validators under
+ * `.next/types/app/**` — is returned unchanged (with the full original
+ * output, so repair prompts keep every line). Idempotent; non-typecheck rows
+ * pass through.
  */
 export function normalizeTypecheckResult<
   T extends { check: string; passed: boolean; output?: string | null; exitCode?: number },
@@ -236,11 +242,14 @@ export function normalizeTypecheckResult<
 /**
  * True when a failing typecheck output contains ONLY advisory-safe diagnostics
  * (no module/export-resolution codes, and at least one parseable TS code) once
- * `.next/` generated-type noise is ignored. Fail-closed: unparseable output (no
- * TS codes found) is NOT advisory-safe — we cannot prove the failure class, so
- * the gate stays hard as before. An output whose only diagnostics are `.next/`
- * noise is advisory-safe by construction (there is no user defect to block on);
- * `normalizeTypecheckResult` normally turns that case into a pass upstream.
+ * proven-harmless `routes.d.ts` `TS1005` noise is ignored. Fail-closed:
+ * unparseable output (no TS codes found) is NOT advisory-safe — we cannot
+ * prove the failure class, so the gate stays hard as before. An output whose
+ * only diagnostics are that noise is advisory-safe by construction (there is
+ * no user defect to block on); `normalizeTypecheckResult` normally turns that
+ * case into a pass upstream. Real Next-route validators under
+ * `.next/types/app/**` stay in the remaining output and are classified by
+ * their TS codes.
  */
 export function isAdvisorySafeTypecheckOutput(output: string): boolean {
   const userOutput = stripGeneratedNextTypeDiagnostics(output);
