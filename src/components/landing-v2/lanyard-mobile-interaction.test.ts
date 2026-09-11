@@ -261,6 +261,7 @@ describe("lanyard mobile interactions", () => {
     expect(lanyard).toContain("lanyardIdleVisualSway");
     expect(lanyard).toContain("lanyardPointerTiltTarget");
     expect(lanyard).toContain("lanyardIdleGust");
+    expect(lanyard).toContain("lanyardIdleGustIsDue");
     expect(lanyard).toContain("meshPhysicalMaterial");
     expect(lanyard).toContain("useCompactLanyardCanvas");
     expect(lanyard).not.toContain("meshBasicMaterial map={texture}");

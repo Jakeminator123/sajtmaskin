@@ -162,12 +162,24 @@ export function lanyardPointerTiltTarget(options: {
   };
 }
 
+export const LANYARD_IDLE_GUST_INTERVAL = 2.7;
+
 export function lanyardIdleGust(elapsedSeconds: number) {
   const dir = Math.sin(elapsedSeconds * 1.7) >= 0 ? 1 : -1;
   return {
     impulse: { x: 0.28 * dir, y: 0, z: 0.05 * dir },
     torque: { x: 0.08 * dir, y: 0.42 * dir, z: 0.04 * dir },
   };
+}
+
+/** Gust-klockan hålls vid `elapsed` under drag så release inte smäller ikapp. */
+export function lanyardIdleGustIsDue(
+  elapsedSeconds: number,
+  lastGustAt: number,
+  dragged: boolean,
+) {
+  if (dragged) return false;
+  return elapsedSeconds - lastGustAt >= LANYARD_IDLE_GUST_INTERVAL;
 }
 
 export function calculateSettledCardFrame() {

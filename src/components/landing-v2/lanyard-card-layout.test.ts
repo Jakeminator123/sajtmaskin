@@ -5,7 +5,9 @@ import {
   applyLanyardTextureCrop,
   calculateSettledCardFrame,
   getLanyardCardFaceSize,
+  LANYARD_IDLE_GUST_INTERVAL,
   lanyardIdleGust,
+  lanyardIdleGustIsDue,
   lanyardIdleVisualSway,
   lanyardPointerProximity,
   lanyardPointerTiltTarget,
@@ -108,5 +110,14 @@ describe("lanyard card layout", () => {
     expect(right.impulse.x).toBeGreaterThan(0);
     expect(left.impulse.x).toBeLessThan(0);
     expect(Math.abs(left.impulse.x)).toBeLessThan(0.4);
+  });
+
+  it("does not fire an idle gust on the first frame after a long drag", () => {
+    expect(lanyardIdleGustIsDue(8, 0, true)).toBe(false);
+    expect(lanyardIdleGustIsDue(8, 8, false)).toBe(false);
+    expect(lanyardIdleGustIsDue(8, 0, false)).toBe(true);
+    expect(lanyardIdleGustIsDue(8 + LANYARD_IDLE_GUST_INTERVAL + 0.01, 8, false)).toBe(
+      true,
+    );
   });
 });

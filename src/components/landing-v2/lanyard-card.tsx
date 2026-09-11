@@ -32,6 +32,7 @@ import {
   applyLanyardTextureCrop,
   getLanyardCardFaceSize,
   lanyardIdleGust,
+  lanyardIdleGustIsDue,
   lanyardIdleVisualSway,
   lanyardPointerProximity,
   lanyardPointerTiltTarget,
@@ -395,7 +396,12 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
       visual.current.rotation.y = tilt.y
     }
 
-    if (!dragged && card.current && state.clock.elapsedTime - lastGustAt.current >= 2.7) {
+    if (dragged) {
+      lastGustAt.current = state.clock.elapsedTime
+    } else if (
+      card.current &&
+      lanyardIdleGustIsDue(state.clock.elapsedTime, lastGustAt.current, false)
+    ) {
       lastGustAt.current = state.clock.elapsedTime
       const gust = lanyardIdleGust(state.clock.elapsedTime)
       card.current.wakeUp()
