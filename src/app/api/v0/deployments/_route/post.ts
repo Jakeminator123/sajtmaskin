@@ -141,11 +141,29 @@ export async function POST(req: Request) {
       // (`resolveLatestGateAdvisoryChecks`), så `canDeploy` och 409:an aldrig
       // säger olika. `precheckOnly` rapporterar i `typecheckGate` i stället för
       // att kasta, precis som `releaseGate`.
+      //
+      // Fail-closed (review #1329): grinden vilar på just den här loggen. Om
+      // läsningen kastar får vi inte anta «inga varningar» och publicera —
+      // en tom lista är exakt det som öppnar grinden. Bubbla upp som 503 så
+      // klienten kan försöka igen; credits är ännu inte reserverade och
+      // Vercel har inte anropats.
+      let versionErrorLogs: Awaited<ReturnType<typeof getEngineVersionErrorLogs>>;
+      try {
+        versionErrorLogs = await getEngineVersionErrorLogs(versionId);
+      } catch (logsErr) {
+        console.error("[deploy] Failed to read version error logs for typecheck gate:", logsErr);
+        return NextResponse.json(
+          {
+            error:
+              "Kunde inte läsa versionens verifieringslogg; publiceringen stoppades för säkerhets skull. Försök igen om en stund.",
+            code: "DEPLOY_GATE_LOGS_UNAVAILABLE",
+          },
+          { status: 503 },
+        );
+      }
       const typecheckGate = resolveDeployTypecheckAdvisoryGate({
         version: engineVersion,
-        latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(
-          await getEngineVersionErrorLogs(versionId).catch(() => []),
-        ),
+        latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(versionErrorLogs),
       });
       if (!typecheckGate.allowed && !precheckOnly) {
         return NextResponse.json(
