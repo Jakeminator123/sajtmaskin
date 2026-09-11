@@ -280,7 +280,7 @@ export async function resolvePricingSettings(): Promise<PricingSettings> {
 }
 
 export type UpdatePricingSettingsInput = {
-  /** Multiplikator, t.ex. 5 för X5. Utelämnad lämnar påslaget orört. */
+  /** Multiplikator, t.ex. 2 för X2. Utelämnad lämnar påslaget orört. */
   domainMarkup?: number;
   /** Kronor per USD, t.ex. 11. Utelämnad lämnar kursen orörd. */
   domainUsdToSek?: number;

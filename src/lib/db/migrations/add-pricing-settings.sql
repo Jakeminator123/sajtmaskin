@@ -8,12 +8,12 @@
 -- leverantörskostnad, domain_usd_to_sek_ore omvandlar registrarens USD-offert
 -- till en visad SEK-siffra.
 --
--- Heltalsenheter som resten av prisdatan: basis points (X5 = 50000) och öre
+-- Heltalsenheter som resten av prisdatan: basis points (X2 = 20000) och öre
 -- (11,00 kr = 1100). Migrationen ensam ändrar ingen debitering.
 
 CREATE TABLE IF NOT EXISTS pricing_settings (
   id TEXT PRIMARY KEY,
-  domain_markup_basis_points INTEGER NOT NULL DEFAULT 50000
+  domain_markup_basis_points INTEGER NOT NULL DEFAULT 20000
     CHECK (domain_markup_basis_points BETWEEN 10000 AND 100000),
   domain_usd_to_sek_ore INTEGER NOT NULL DEFAULT 1100
     CHECK (domain_usd_to_sek_ore BETWEEN 100 AND 10000),
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS pricing_settings (
 );
 
 -- Singletonraden skapas här eftersom domänfälten är NOT NULL och behöver
--- riktiga värden: 50000 = X5 och 1100 = 11,00 kr/USD, exakt vad koden
+-- riktiga värden: 20000 = X2 och 1100 = 11,00 kr/USD, exakt vad koden
 -- defaultar till.
 --
 -- credit_action_prices seedas MEDVETET TOMT. Det är inte en glömd rad.
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS pricing_settings (
 INSERT INTO pricing_settings (
   id, domain_markup_basis_points, domain_usd_to_sek_ore, credit_action_prices
 )
-VALUES ('default', 50000, 1100, '{}'::jsonb)
+VALUES ('default', 20000, 1100, '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE pricing_settings ENABLE ROW LEVEL SECURITY;

@@ -82,7 +82,7 @@ type Row = Parameters<typeof mapPricingSettings>[0];
 function row(overrides: Partial<Row> = {}): Row {
   return {
     id: "default",
-    domain_markup_basis_points: 50_000,
+    domain_markup_basis_points: DEFAULT_DOMAIN_PRICING.markup * 10_000,
     domain_usd_to_sek_ore: 1_100,
     credit_action_prices: {},
     updated_by: null,
@@ -340,14 +340,42 @@ describe("add-pricing-settings.sql seed", () => {
     resolve("src/lib/db/migrations/add-pricing-settings.sql"),
     "utf8",
   );
+  const schema = readFileSync(resolve("src/lib/db/schema.ts"), "utf8");
+  const domainPricingJson = JSON.parse(
+    readFileSync(resolve("config/domain-pricing.json"), "utf8"),
+  ) as { markup: number; usdToSek: { rate: number } };
 
   const insert = sql.slice(sql.indexOf("INSERT INTO pricing_settings"));
+  const expectedMarkupBasisPoints = domainPricingJson.markup * 10_000;
+  const expectedUsdToSekOre = domainPricingJson.usdToSek.rate * 100;
+  const sqlColumnDefault = Number(
+    sql.match(/domain_markup_basis_points INTEGER NOT NULL DEFAULT (\d+)/)?.[1],
+  );
+  const sqlInsertMarkup = Number(insert.match(/VALUES \('default', (\d+),/)?.[1]);
+  const schemaDefault = Number(
+    schema
+      .match(
+        /domain_markup_basis_points: integer\("domain_markup_basis_points"\)\.default\(([\d_]+)\)/,
+      )?.[1]
+      ?.replaceAll("_", ""),
+  );
+
+  it("keeps JSON, code fallback, SQL DEFAULT, SQL INSERT and schema default in phase", () => {
+    // Ägarbeslut 2026-09-11: x2. En ändring på ett av ställena men inte de
+    // andra ska bli röd — annars ser tre källor levande ut med olika pris.
+    expect(domainPricingJson.markup).toBe(2);
+    expect(DEFAULT_DOMAIN_PRICING.markup).toBe(domainPricingJson.markup);
+    expect(FALLBACK_PRICING_SETTINGS.domainMarkupBasisPoints).toBe(expectedMarkupBasisPoints);
+    expect(sqlColumnDefault).toBe(expectedMarkupBasisPoints);
+    expect(sqlInsertMarkup).toBe(expectedMarkupBasisPoints);
+    expect(schemaDefault).toBe(expectedMarkupBasisPoints);
+  });
 
   it("seeds the markup and rate the code defaults to", () => {
     // Domänfälten är NOT NULL och har inget null-kontrakt: de MÅSTE seedas,
     // och med exakt vad koden defaultar till.
-    expect(insert).toMatch(new RegExp(`\\b${DEFAULT_DOMAIN_PRICING.markup * 10_000}\\b`));
-    expect(insert).toMatch(new RegExp(`\\b${DEFAULT_DOMAIN_PRICING.usdToSek * 100}\\b`));
+    expect(insert).toMatch(new RegExp(`\\b${expectedMarkupBasisPoints}\\b`));
+    expect(insert).toMatch(new RegExp(`\\b${expectedUsdToSekOre}\\b`));
   });
 
   it("seeds credit_action_prices empty so the code owns the prices", () => {

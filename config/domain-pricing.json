@@ -1,7 +1,7 @@
 {
   "$schema-note": "Referensdata for domanpriser. Kanonisk agare av riktpriserna som visas nar ingen registrar kan lamna en bindande offert. `markup` och `usdToSek` ags INTE langre har - de ags av tabellen pricing_settings (id = 'default') och las via src/lib/db/services/pricing-settings.ts. Vardena nedan ar seed for den raden och fallback nar den inte gar att lasa. Las via src/lib/domains/pricing.ts - importera aldrig den har filen direkt fran en route.",
-  "updatedAt": "2026-08-01",
-  "markup": 5,
+  "updatedAt": "2026-09-11",
+  "markup": 2,
   "usdToSek": {
     "rate": 11,
     "updatedAt": "2026-08-01",

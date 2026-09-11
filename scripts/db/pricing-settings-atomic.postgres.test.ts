@@ -146,7 +146,7 @@ describe.skipIf(!target.url)("pricing_settings atomisk patch mot riktig Postgres
       `insert into pricing_settings (
          id, domain_markup_basis_points, domain_usd_to_sek_ore,
          credit_action_prices, updated_by
-       ) values ($1, 50000, 1100, $2::jsonb, $3)`,
+       ) values ($1, 20000, 1100, $2::jsonb, $3)`,
       [privateId, JSON.stringify({ deployPreview: KEPT_PREVIEW }), updatedBy],
     );
   }, 60_000);
