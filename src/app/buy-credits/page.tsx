@@ -7,6 +7,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
+import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages";
 import { CREDIT_COST_BREAKDOWN } from "@/lib/credits/pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
 import { Button } from "@/components/ui/button";
@@ -42,13 +43,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-
-// ─── Credit Packages ──────────────────────────────────────────────
-const PACKAGES = [
-  { id: "10_credits", name: "Starter", diamonds: 10, price: 49, popular: false, savings: 0 },
-  { id: "25_credits", name: "Popular", diamonds: 25, price: 99, popular: true, savings: 19 },
-  { id: "50_credits", name: "Pro", diamonds: 50, price: 179, popular: false, savings: 27 },
-];
 
 // ─── SajtStudio Pricing Tiers ─────────────────────────────────────
 const STUDIO_TIERS = [
@@ -441,7 +435,7 @@ function BuyCreditsContent() {
               <div className="animate-fadeIn">
                 {/* Package cards */}
                 <div className="grid gap-6 md:grid-cols-3">
-                  {PACKAGES.map((pkg) => (
+                  {CREDIT_PACKAGES.map((pkg) => (
                     <Card
                       key={pkg.id}
                       className={`hover-lift relative overflow-hidden transition-all ${
@@ -474,7 +468,7 @@ function BuyCreditsContent() {
 
                         {/* Credit count */}
                         <div className="mb-1 flex items-baseline gap-2">
-                          <span className="text-foreground text-4xl font-bold">{pkg.diamonds}</span>
+                          <span className="text-foreground text-4xl font-bold">{pkg.credits}</span>
                           <span className="text-muted-foreground text-sm">credits</span>
                         </div>
 
@@ -482,7 +476,7 @@ function BuyCreditsContent() {
                         <div className="mb-6">
                           <span className="text-foreground text-2xl font-bold">{pkg.price} kr</span>
                           <span className="text-muted-foreground ml-2 text-xs">
-                            {(pkg.price / pkg.diamonds).toFixed(1)} kr/credit
+                            {(pkg.price / pkg.credits).toFixed(1)} kr/credit
                           </span>
                         </div>
 
@@ -588,12 +582,6 @@ function BuyCreditsContent() {
                         label: "Publicering",
                         cost: CREDIT_COST_BREAKDOWN.deploy,
                         icon: ArrowRight,
-                        color: "text-muted-foreground",
-                      },
-                      {
-                        label: "Hosting (per månad)",
-                        cost: 10,
-                        icon: Globe,
                         color: "text-muted-foreground",
                       },
                     ].map((item) => (
