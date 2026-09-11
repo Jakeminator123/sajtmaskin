@@ -219,7 +219,7 @@ export function GenereringarSection() {
         <StatCard
           label="Efter påslag"
           value={formatSek(data?.summary.billableOre ?? 0)}
-          hint="Värdet före avrundning till credits"
+          hint="Debiterat listvärde; gratis räknas som 0"
           icon={Coins}
         />
         <StatCard

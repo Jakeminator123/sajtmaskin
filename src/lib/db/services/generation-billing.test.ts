@@ -3,8 +3,12 @@ import { calculateModelCost } from "@/lib/billing/model-cost";
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 
-const { buildGenerationQuote, mapGenerationBillingUserSummary, resolveGenerationChargeDecision } =
-  await import("./generation-billing");
+const {
+  buildGenerationQuote,
+  mapGenerationBillingUserSummary,
+  resolveGenerationChargeDecision,
+  summarizeGenerationBillingRows,
+} = await import("./generation-billing");
 
 function usageRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -321,51 +325,84 @@ describe("resolveGenerationChargeDecision", () => {
   });
 });
 
-describe("mapGenerationBillingUserSummary", () => {
-  const user = {
-    userId: "user_1",
-    name: "Ada",
-    email: "ada@example.com",
-    generations: 1,
-    creditsCharged: 0,
-    freeGenerations: 1,
+describe("summarizeGenerationBillingRows", () => {
+  const freeListPrice = {
+    status: "free_generation",
+    freeGenerationApplied: true,
+    providerCostOre: 300,
+    billableOre: 600,
+  };
+  const paid = {
+    status: "charged",
+    freeGenerationApplied: false,
+    providerCostOre: 200,
+    billableOre: 400,
   };
 
-  it("shows negative margin when a free generation has cost but no billable", () => {
-    expect(
-      mapGenerationBillingUserSummary({
-        ...user,
-        providerCostOre: 180,
-        billableOre: 0,
-      }),
-    ).toMatchObject({
-      providerCostOre: 180,
+  it("treats a free generation's stored list price as zero revenue", () => {
+    expect(summarizeGenerationBillingRows([freeListPrice])).toEqual({
+      providerCostOre: 300,
       billableOre: 0,
-      marginOre: -180,
+      marginOre: -300,
     });
   });
 
-  it("does not count pending or unpriced defaults as revenue", () => {
+  it("subtracts both costs from the paid generation's billed amount", () => {
+    expect(summarizeGenerationBillingRows([paid, freeListPrice])).toEqual({
+      providerCostOre: 500,
+      billableOre: 400,
+      marginOre: -100,
+    });
+  });
+
+  it.each([
+    { status: "pending", freeGenerationApplied: false },
+    { status: "unpriced", freeGenerationApplied: false },
+    { status: "usage_incomplete", freeGenerationApplied: false },
+    { status: "no_usage", freeGenerationApplied: false },
+    { status: "anonymous_unbilled", freeGenerationApplied: false },
+    { status: "test", freeGenerationApplied: false },
+    { status: "zero_cost", freeGenerationApplied: false },
+    { status: "needs_reconciliation", freeGenerationApplied: true },
+  ])("does not count $status as revenue when the customer was not billed", (row) => {
+    expect(
+      summarizeGenerationBillingRows([
+        { ...row, providerCostOre: 300, billableOre: 600 },
+      ]),
+    ).toMatchObject({
+      billableOre: 0,
+      marginOre: -300,
+    });
+  });
+
+  it("keeps needs_reconciliation revenue when credits were already taken", () => {
+    expect(
+      summarizeGenerationBillingRows([
+        {
+          status: "needs_reconciliation",
+          freeGenerationApplied: false,
+          providerCostOre: 300,
+          billableOre: 600,
+        },
+      ]),
+    ).toEqual({
+      providerCostOre: 300,
+      billableOre: 600,
+      marginOre: 300,
+    });
+  });
+});
+
+describe("mapGenerationBillingUserSummary", () => {
+  it("keeps öre as integers on already-aggregated totals", () => {
     expect(
       mapGenerationBillingUserSummary({
-        ...user,
+        userId: "user_1",
+        name: "Ada",
+        email: "ada@example.com",
         generations: 2,
-        freeGenerations: 0,
-        providerCostOre: 0,
-        billableOre: 0,
-      }),
-    ).toMatchObject({
-      billableOre: 0,
-      marginOre: 0,
-    });
-  });
-
-  it("keeps öre as integers for a charged user", () => {
-    expect(
-      mapGenerationBillingUserSummary({
-        ...user,
         creditsCharged: 14,
-        freeGenerations: 0,
+        freeGenerations: 1,
         providerCostOre: 1500,
         billableOre: 4200,
       }),

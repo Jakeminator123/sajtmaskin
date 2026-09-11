@@ -52,9 +52,9 @@ describe("admin generation billing route", () => {
           name: "Ada",
           email: "ada@example.com",
           generations: 1,
-          providerCostOre: 180,
+          providerCostOre: 300,
           billableOre: 0,
-          marginOre: -180,
+          marginOre: -300,
           creditsCharged: 0,
           freeGenerations: 1,
         },
@@ -67,8 +67,8 @@ describe("admin generation billing route", () => {
       users: [
         {
           billableOre: 0,
-          marginOre: -180,
-          providerCostOre: 180,
+          marginOre: -300,
+          providerCostOre: 300,
         },
       ],
     });

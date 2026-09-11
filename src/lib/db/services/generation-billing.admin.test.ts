@@ -40,6 +40,16 @@ function renderSql(value: unknown): string {
   return new PgDialect().sqlToQuery(value as never).sql.toLowerCase();
 }
 
+function billedQueries() {
+  const rendered = execute.mock.calls.map((call) => renderSql(call[0]));
+  return {
+    summary: rendered.find(
+      (sql) => sql.includes("count(*)") && sql.includes("from generation_billings") && !sql.includes("join"),
+    ),
+    users: rendered.find((sql) => sql.includes("group by gb.user_id")),
+  };
+}
+
 describe("getGenerationBillingAdminData user totals", () => {
   beforeEach(() => {
     execute.mockReset();
@@ -53,7 +63,7 @@ describe("getGenerationBillingAdminData user totals", () => {
               name: "Ada",
               email: "ada@example.com",
               generations: 1,
-              providerCostOre: 180,
+              providerCostOre: 300,
               billableOre: 0,
               creditsCharged: 0,
               freeGenerations: 1,
@@ -69,7 +79,7 @@ describe("getGenerationBillingAdminData user totals", () => {
           rows: [
             {
               generations: 1,
-              providerCostOre: 180,
+              providerCostOre: 300,
               billableOre: 0,
               creditsCharged: 0,
               freeGenerations: 1,
@@ -82,19 +92,24 @@ describe("getGenerationBillingAdminData user totals", () => {
     });
   });
 
-  it("sums billable_ore with the same status window as självkostnad", async () => {
+  it("filters list-price billable_ore the same way in summary and user totals", async () => {
     await getGenerationBillingAdminData(30, 50, new Date("2026-09-11T00:00:00.000Z"));
-    const usersSql = execute.mock.calls
-      .map((call) => renderSql(call[0]))
-      .find((sql) => sql.includes("group by gb.user_id"));
+    const { summary, users } = billedQueries();
 
-    expect(usersSql).toEqual(expect.stringContaining("sum(gb.provider_cost_ore)"));
-    expect(usersSql).toEqual(expect.stringContaining("sum(gb.billable_ore)"));
-    expect(usersSql).not.toMatch(/status\s+in\s*\(/);
-    expect(usersSql).not.toMatch(/status\s+not\s+in\s*\(/);
+    expect(summary).toBeDefined();
+    expect(users).toBeDefined();
+    for (const sql of [summary, users]) {
+      expect(sql).toEqual(expect.stringContaining("sum("));
+      expect(sql).toMatch(/filter\s*\(\s*where\s+not/i);
+      expect(sql).toEqual(expect.stringContaining("free_generation_applied"));
+      expect(sql).toEqual(expect.stringContaining("'charged'"));
+      expect(sql).toEqual(expect.stringContaining("'charged_estimated'"));
+      expect(sql).toEqual(expect.stringContaining("'needs_reconciliation'"));
+      expect(sql).not.toMatch(/sum\([^)]*provider_cost_ore[^)]*\)\s+filter/i);
+    }
   });
 
-  it("keeps a free generation's negative margin visible", async () => {
+  it("maps a free generation's filtered totals to negative margin", async () => {
     const data = await getGenerationBillingAdminData(
       30,
       50,
@@ -106,12 +121,16 @@ describe("getGenerationBillingAdminData user totals", () => {
         name: "Ada",
         email: "ada@example.com",
         generations: 1,
-        providerCostOre: 180,
+        providerCostOre: 300,
         billableOre: 0,
-        marginOre: -180,
+        marginOre: -300,
         creditsCharged: 0,
         freeGenerations: 1,
       },
     ]);
+    expect(data.summary).toMatchObject({
+      providerCostOre: 300,
+      billableOre: 0,
+    });
   });
 });
