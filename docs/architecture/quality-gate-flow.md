@@ -109,6 +109,9 @@ F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
   (`resolveLatestGateAdvisoryChecks` över `engine_version_error_logs`), och
   readiness speglar samma villkor som blocker
   (`typecheck-advisory-blocks-publish`) så `canDeploy` aldrig ljuger.
+  Grinden är fail-closed: kastar loggläsningen svarar deploy-POST `503
+  DEPLOY_GATE_LOGS_UNAVAILABLE` före credits och Vercel-anrop — en tom lista
+  är exakt det som öppnar grinden och får inte antas.
   Previewn, promoteringen och F3 påverkas inte. Bakgrund: prod 2026-09-10
   (chat `5d809cc1`) publicerade en advisory-promotad version och Vercel-bygget
   föll på exakt de advisory-klassade felen; 14 av 19 fallna typechecks under
