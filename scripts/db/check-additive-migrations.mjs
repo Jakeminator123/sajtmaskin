@@ -214,11 +214,13 @@ async function main() {
     { config },
     { readAppliedMigrations, diffPendingMigrations },
     { normalizeEnvUrl },
+    { resolveSslConfig, connectionStringForPg },
   ] = await Promise.all([
     import("pg"),
     import("dotenv"),
     import("./migration-ledger.mjs"),
     import("./db-target-guard.mjs"),
+    import("./db-ssl.mjs"),
   ]);
 
   // Samma källa som de andra DB-skripten, så en lokal körning verkligen
@@ -250,12 +252,13 @@ async function main() {
     }
   })();
 
+  // Policy from the original URL; stripped string to pg. Leaving sslmode=
+  // require in the URL makes current pg treat it as verify-full and ignore
+  // DB_SSL_REJECT_UNAUTHORIZED=false — that is what reddened the first
+  // preview-push after #1340.
   const pool = new Pool({
-    connectionString,
-    ssl: {
-      rejectUnauthorized:
-        process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
-    },
+    connectionString: connectionStringForPg(connectionString),
+    ssl: resolveSslConfig(connectionString),
     max: 2,
     connectionTimeoutMillis: 10_000,
   });

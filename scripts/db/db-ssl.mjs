@@ -54,3 +54,27 @@ export function resolveSslConfig(
     ),
   };
 }
+
+/**
+ * Connection string to hand to `new Pool({ connectionString })`.
+ *
+ * `pg` / `pg-connection-string` treat URL `sslmode=require` as `verify-full`.
+ * That overrides a separate `ssl: { rejectUnauthorized: false }` option, so
+ * Supabase's self-signed chain fails even when CI sets
+ * `DB_SSL_REJECT_UNAUTHORIZED=false`. Resolve the policy from the *original*
+ * URL via `resolveSslConfig`, then pass this stripped string to `pg`.
+ *
+ * @param {string | undefined} connectionString
+ * @returns {string | undefined}
+ */
+export function connectionStringForPg(connectionString) {
+  if (!connectionString) return connectionString;
+  try {
+    const url = new URL(connectionString);
+    url.searchParams.delete("sslmode");
+    url.searchParams.delete("supa");
+    return url.toString();
+  } catch {
+    return connectionString;
+  }
+}
