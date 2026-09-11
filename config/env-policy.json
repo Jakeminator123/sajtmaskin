@@ -501,7 +501,7 @@
       "key": "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify.ts`. Default ON in `development` and Vercel `preview`, default OFF in `production`. Explicit `1`/`true`/`on`/`yes` or `0`/`false`/`off`/`no` overrides the per-environment default. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
+      "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify/build-error-trigger.ts`. Default ON in every environment since 2026-09-11 (production was OFF until 40 days of prod showed 3/3 bounded repairs). Explicit `0`/`false`/`off`/`no` is the kill-switch; `1`/`true`/`on`/`yes` is a no-op. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
     },
     {
       "key": "SAJTMASKIN_METRICS_TOKEN",

@@ -25,7 +25,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const DEFAULT_BASELINE = path.join(
   __dirname,
-  "control-stats-baseline-2026-07-02.json",
+  "control-stats-baseline-2026-09-11.json",
 );
 
 function parseArgs(argv) {
@@ -64,7 +64,7 @@ function printHelp() {
       "Usage: node scripts/observability/compare-control-stats.mjs [options] [baseline.json current.json]",
       "",
       "Options:",
-      "  --baseline <path>  Baseline control-stats JSON (default committed 2026-07-02 baseline).",
+      "  --baseline <path>  Baseline control-stats JSON (default committed 2026-09-11 baseline).",
       "  --current <path>   Current control-stats JSON to compare.",
       "  --md               Print a Markdown table.",
       "  --self-test        Run internal assertions against synthetic JSON examples.",

@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import {
   resolveDeployReleaseGate,
+  resolveDeployTypecheckAdvisoryGate,
   resolveEngineVersionLifecycleStatus,
 } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/chat-readiness";
 import {
   buildReleaseGateBlocker,
+  buildTypecheckAdvisoryBlocker,
   withReadinessCategory,
 } from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
@@ -419,6 +421,21 @@ async function buildEngineReadiness(
   );
   if (releaseGateItem) {
     blockers.push(releaseGateItem);
+  }
+
+  // F2-advisory-paritet (2026-09-11): deploy-API:t 409:ar
+  // `DEPLOY_TYPECHECK_ADVISORY` för en designversion vars senaste gate-verdikt
+  // är en typecheck-advisory (renderar i preview, fäller `next build`).
+  // Samma `errorLogs` som watchdogen läser, så de två aldrig säger olika.
+  const typecheckAdvisoryItem = buildTypecheckAdvisoryBlocker(
+    resolveDeployTypecheckAdvisoryGate({
+      version,
+      latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(errorLogs),
+    }),
+    Boolean(lifecycleItem && lifecycleItem.severity === "blocker"),
+  );
+  if (typecheckAdvisoryItem) {
+    blockers.push(typecheckAdvisoryItem);
   }
 
   const files = versionFiles ?? [];

@@ -14,6 +14,7 @@ import {
 } from "./visual-qa";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  normalizeTypecheckResult,
   type QualityGateCheck,
 } from "./quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
@@ -204,10 +205,21 @@ export async function runQualityGateChecks(params: {
     }
   }
 
+  // `.next/`-only typecheck noise (stale generated `routes.d.ts` in the verify
+  // workspace) is folded into a pass HERE, on the single path every gate caller
+  // shares, so the client route, server-verify and post-repair never disagree
+  // on whether such a run failed. `firstFailureCheck` follows the normalized rows.
+  const results = verify.results.map((result) => normalizeTypecheckResult(result));
+  const firstFailureCheck =
+    verify.firstFailureCheck !== null &&
+    results.some((result) => result.check === verify.firstFailureCheck && !result.passed)
+      ? verify.firstFailureCheck
+      : (results.find((result) => !result.passed)?.check ?? null);
+
   return {
-    results: verify.results,
+    results,
     verifyLaneDurationMs: verify.durationMs,
-    firstFailureCheck: verify.firstFailureCheck,
+    firstFailureCheck,
     jobStartedAt: verify.jobStartedAt,
     jobFinishedAt: verify.jobFinishedAt,
   };

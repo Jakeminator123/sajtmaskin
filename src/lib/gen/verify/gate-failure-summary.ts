@@ -99,18 +99,37 @@ export function isLatestGateVerdictGreen(errorLogs: VersionErrorLog[]): boolean 
  * `errorLogs` is expected newest-first. A post-repair "did not pass" warning
  * (`meta.repass === true`) and a clean pass (`level:info` / `meta.passed`) both
  * return false.
+ *
+ * Two writer forms count as the latest verdict (review #1329): the client
+ * quality-gate route and post-repair write `preflight:quality-gate` with
+ * `meta.advisory` / `meta.advisoryChecks`; server-verify's F2 advisory promote
+ * (`verify-run.ts`) writes `quality-gate:typecheck-advisory` INSTEAD of a
+ * preflight row and returns. Reading only the preflight category left the
+ * publish gate (`resolveDeployTypecheckAdvisoryGate`) open for every repaired
+ * F2 version, since a repaired F2 always goes through server-verify.
  */
+const GATE_VERDICT_CATEGORIES: ReadonlySet<string> = new Set([
+  "preflight:quality-gate",
+  "quality-gate:typecheck-advisory",
+]);
+
 export function resolveLatestGateAdvisoryChecks(
   errorLogs: VersionErrorLog[],
 ): string[] {
   const latestVerdict = errorLogs.find(
-    (log) => log.category === "preflight:quality-gate",
+    (log) => typeof log.category === "string" && GATE_VERDICT_CATEGORIES.has(log.category),
   );
   if (!latestVerdict) return [];
   const explicitChecks = readLogMetaStringArray(
     latestVerdict.meta,
     "advisoryChecks",
   );
+  // The category itself names the check; server-verify's no-op variant
+  // (`advisoryPromoted: false`, no `advisoryChecks`) still means the version
+  // carries a typecheck advisory and must not publish.
+  if (latestVerdict.category === "quality-gate:typecheck-advisory") {
+    return explicitChecks.length > 0 ? explicitChecks : ["typecheck"];
+  }
   if (readLogMetaBoolean(latestVerdict.meta, "advisory") === true) {
     return explicitChecks;
   }

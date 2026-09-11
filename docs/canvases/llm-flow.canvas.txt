@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "baf048205",
+    "commit": "2e79aa33b",
     "commitDate": "2026-09-11",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 7,
-    "openP2": 7,
+    "openP1": 9,
+    "openP2": 8,
     "openP3": 1,
     "blocked": 1,
     "shaky": 3,
@@ -100,17 +100,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
-        "P1": 0,
+        "P1": 1,
         "P2": 1,
         "P3": 0,
         "other": 0
       },
       "churn": 0,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+      "note": "2 oppna backlog-rader (P0:0 P1:1 P2:1 P3:0)"
     },
     {
       "name": "prompt-core",
@@ -151,17 +151,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 1,
         "P3": 1,
         "other": 0
       },
       "churn": 1,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 10,
+      "openBugs": 13,
       "openByPrio": {
         "P0": 0,
-        "P1": 6,
-        "P2": 4,
+        "P1": 8,
+        "P2": 5,
         "P3": 0,
         "other": 0
       },
@@ -223,22 +223,22 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
     {
-      "name": "ai_models",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+      "reason": "2 oppna backlog-rader (P0:0 P1:1 P2:1 P3:0)"
+    },
+    {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "topOpenRisks": [
@@ -246,6 +246,11 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": true,
       "fynd": "`SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projekts filer."
+    },
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "`SM-083` En designversion som advisory-promotats med typfel kan publiceras till Vercel; `resolveDeployRelease…"
     },
     {
       "prio": "P1",
@@ -265,6 +270,11 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
+      "fynd": "`SM-082` `icon-component-value-fixer` skriver om `{x.icon}` även inne i attribut (`name={product.icon}` → ter…"
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
       "fynd": "`SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans: burst av postcheck/live review läcker tills …"
     },
     {
@@ -280,30 +290,20 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
+      "fynd": "`SM-084` Verify-lanens `tsc` rapporterar `TS1005`-syntaxfel från Nexts genererade `.next/dev/types/routes.d.t…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
       "fynd": "`SM-001` Repair accepterar nya filer genom att skriva över samma versions `files_json`; ingen användbar rollb…"
     },
     {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-003` Deploy-repair betraktar versionsglobal `repair_available` som bevis för att just den failade deploym…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget fortsätter därför visa ”Lä…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-033` Wizardns competitor/enrich-rutter har nått sina 25/30-sekunderstak, men saknar ovillkorlig terminal …"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-082` Sen product-postcheck/live review av en äldre version läser chattens SENASTE user-prompt som `userRe…"
     }
   ],
-  "topOpenRisksOmitted": 2,
+  "topOpenRisksOmitted": 5,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
