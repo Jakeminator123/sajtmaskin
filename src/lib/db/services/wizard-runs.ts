@@ -8,6 +8,7 @@ import {
 } from "@/lib/credits/pricing";
 import { db } from "@/lib/db/client";
 import { transactions, users, wizardRuns } from "@/lib/db/schema";
+import { resolvePricingSettings } from "./pricing-settings";
 import { assertDbConfigured } from "./shared";
 import { InsufficientCreditsError } from "./transactions";
 
@@ -40,8 +41,9 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function wizardCost(): number {
-  return getCreditCost(WIZARD_RUN_ACTION);
+async function wizardCost(): Promise<number> {
+  const pricing = await resolvePricingSettings();
+  return getCreditCost(WIZARD_RUN_ACTION, {}, pricing.creditActionPrices);
 }
 
 async function expireStaleActiveRuns(
@@ -78,7 +80,8 @@ async function startWizardRunOnce(input: {
   skipCharge?: boolean;
 }): Promise<StartedWizardRun> {
   assertDbConfigured();
-  const cost = wizardCost();
+  // Priset läses före transaktionen så låset inte hålls över ett extra anrop.
+  const cost = await wizardCost();
   const now = new Date();
 
   return db.transaction(async (tx) => {

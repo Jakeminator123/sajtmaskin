@@ -11,6 +11,7 @@ import {
   integer,
   serial,
 } from "drizzle-orm/pg-core";
+import type { CreditPriceOverrides } from "@/lib/credits/pricing";
 
 // Re-export timestamptz helper so call-sites use the correct Drizzle type.
 // All timestamp columns in this repo must be TIMESTAMPTZ (with timezone) so that
@@ -1112,6 +1113,33 @@ export const generationBillingSettings = pgTable("generation_billing_settings", 
   markup_basis_points: integer("markup_basis_points").default(20_000).notNull(),
   usd_to_sek_ore: integer("usd_to_sek_ore").default(1_050).notNull(),
   sek_per_credit_ore: integer("sek_per_credit_ore").default(300).notNull(),
+  updated_by: text("updated_by"),
+  updated_at: timestamptz("updated_at").defaultNow().notNull(),
+});
+
+/**
+ * Operatörsstyrd prisbild för domänpåslag och de fasta creditpriserna.
+ * Singleton (`id = 'default'`).
+ *
+ * Medvetet skild från `generation_billing_settings`: den ägs av den
+ * usage-baserade LLM-avräkningen och fryses per generering i
+ * `generation_billings`. De två USD/SEK-kurserna är inte samma sak —
+ * `usd_to_sek_ore` där är revisionskurs för leverantörskostnad, medan
+ * `domain_usd_to_sek_ore` här bara omvandlar registrarens USD-offert till en
+ * visad SEK-siffra.
+ *
+ * Heltalsenheter gör beräkningen reproducerbar utan flyttalsdrift: basis
+ * points (X5 = 50 000) och öre (11,00 SEK = 1 100).
+ */
+export const pricingSettings = pgTable("pricing_settings", {
+  id: text("id").primaryKey(),
+  domain_markup_basis_points: integer("domain_markup_basis_points").default(50_000).notNull(),
+  domain_usd_to_sek_ore: integer("domain_usd_to_sek_ore").default(1_100).notNull(),
+  /** Delmängd av `CreditActionPrices`; utelämnade fält faller tillbaka på koden. */
+  credit_action_prices: jsonb("credit_action_prices")
+    .$type<CreditPriceOverrides>()
+    .default(sql`'{}'::jsonb`)
+    .notNull(),
   updated_by: text("updated_by"),
   updated_at: timestamptz("updated_at").defaultNow().notNull(),
 });

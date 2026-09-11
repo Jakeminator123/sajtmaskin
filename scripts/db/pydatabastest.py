@@ -155,6 +155,9 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "wizard_runs",
     "generation_billing_settings",
     "generation_billings",
+    # Operatörsstyrd prisbild. Singleton-raden ÄR konfigurationen — töms den
+    # debiteras nästa köp på kodens defaultvärden i stället för de satta.
+    "pricing_settings",
     "domain_orders",
     "kostnadsfri_pages",
     "user_integrations",

@@ -50,6 +50,29 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
   anthropic: 6,
 };
 
+/** Fullt upplöst prislista — ett tal per debiterbar åtgärd. */
+export type CreditActionPrices = {
+  promptCreate: Record<ModelTier, number>;
+  promptRefine: Record<ModelTier, number>;
+  wizard: number;
+  auditBasic: number;
+  auditAdvanced: number;
+  deployPreview: number;
+  deployProduction: number;
+  openclawTip: number;
+};
+
+/**
+ * Delmängd av {@link CreditActionPrices}, formen `pricing_settings` lagrar.
+ * Varje utelämnat eller ogiltigt fält faller tillbaka på konstanten nedan, så
+ * en halvtrasig DB-rad aldrig kan ge `undefined` credits i en debitering.
+ */
+export type CreditPriceOverrides = {
+  [K in keyof CreditActionPrices]?: CreditActionPrices[K] extends number
+    ? number | null
+    : Partial<Record<ModelTier, number>> | null;
+};
+
 // QUALITY_TO_MODEL, MODEL_LABELS, and legacy alias mapping are
 // imported from @/lib/models/catalog (single source of truth).
 
@@ -67,6 +90,39 @@ const DEPLOY_COSTS = {
 } as const;
 
 const OPENCLAW_TIP_COST = 2;
+
+/**
+ * Defaultprislistan. Kanonisk ägare av det faktiskt debiterade priset är
+ * `pricing_settings` i databasen — den här tabellen är seed vid en tom databas
+ * och fallback när raden saknas eller inte går att läsa.
+ */
+export const DEFAULT_CREDIT_ACTION_PRICES: CreditActionPrices = {
+  promptCreate: PROMPT_CREATE_COSTS,
+  promptRefine: PROMPT_REFINE_COSTS,
+  wizard: WIZARD_COST,
+  auditBasic: AUDIT_COSTS.basic,
+  auditAdvanced: AUDIT_COSTS.advanced,
+  deployPreview: DEPLOY_COSTS.preview,
+  deployProduction: DEPLOY_COSTS.production,
+  openclawTip: OPENCLAW_TIP_COST,
+};
+
+/** Ett pris är bara användbart om det är ett icke-negativt heltal. */
+export function isValidCreditPrice(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function price(value: unknown, fallback: number): number {
+  return isValidCreditPrice(value) ? value : fallback;
+}
+
+function tierPrice(
+  overrides: Partial<Record<ModelTier, number>> | null | undefined,
+  tier: ModelTier,
+  defaults: Record<ModelTier, number>,
+): number {
+  return price(overrides?.[tier], defaults[tier]);
+}
 
 // ─── Canonical cost breakdown (single source for the pricing UI) ──
 // The buy-credits page reads these instead of hardcoding numbers, so the
@@ -103,26 +159,37 @@ function resolveModelTier(context: PricingContext = {}): ModelTier {
   return DEFAULT_MODEL_ID;
 }
 
-export function getCreditCost(action: CreditAction, context: PricingContext = {}): number {
+/**
+ * Priset för en åtgärd i credits.
+ *
+ * Ren och synkron med flit: `overrides` är redan upplösta inställningar, så
+ * varje debiteringsväg kan räkna ut sitt pris utan att först nå databasen.
+ * Utelämnad `overrides` ger dagens konstanter.
+ */
+export function getCreditCost(
+  action: CreditAction,
+  context: PricingContext = {},
+  overrides?: CreditPriceOverrides | null,
+): number {
   if (PROMPT_CREATE_ACTIONS.has(action)) {
-    return PROMPT_CREATE_COSTS[resolveModelTier(context)];
+    return tierPrice(overrides?.promptCreate, resolveModelTier(context), PROMPT_CREATE_COSTS);
   }
   if (PROMPT_REFINE_ACTIONS.has(action)) {
-    return PROMPT_REFINE_COSTS[resolveModelTier(context)];
+    return tierPrice(overrides?.promptRefine, resolveModelTier(context), PROMPT_REFINE_COSTS);
   }
   switch (action) {
     case "wizard.enrich":
-      return WIZARD_COST;
+      return price(overrides?.wizard, WIZARD_COST);
     case "deploy.preview":
-      return DEPLOY_COSTS.preview;
+      return price(overrides?.deployPreview, DEPLOY_COSTS.preview);
     case "deploy.production":
-      return DEPLOY_COSTS.production;
+      return price(overrides?.deployProduction, DEPLOY_COSTS.production);
     case "audit.basic":
-      return AUDIT_COSTS.basic;
+      return price(overrides?.auditBasic, AUDIT_COSTS.basic);
     case "audit.advanced":
-      return AUDIT_COSTS.advanced;
+      return price(overrides?.auditAdvanced, AUDIT_COSTS.advanced);
     case "openclaw.tip":
-      return OPENCLAW_TIP_COST;
+      return price(overrides?.openclawTip, OPENCLAW_TIP_COST);
     default:
       return 0;
   }

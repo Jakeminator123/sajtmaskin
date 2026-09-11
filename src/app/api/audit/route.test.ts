@@ -13,7 +13,13 @@ vi.mock("openai", () => ({ default: vi.fn() }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: vi.fn() }));
 vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
 vi.mock("@/lib/credits/pricing", () => ({
-  getCreditCost: vi.fn(() => 3),
+  getCreditCost: vi.fn(
+    (_action: string, _context?: unknown, overrides?: { auditBasic?: number } | null) =>
+      overrides?.auditBasic ?? 3,
+  ),
+}));
+vi.mock("@/lib/db/services/pricing-settings", () => ({
+  resolvePricingSettings: vi.fn(async () => ({ creditActionPrices: {} })),
 }));
 vi.mock("@/lib/webscraper", () => ({
   validateAndNormalizeUrl,
