@@ -226,6 +226,11 @@ export function mapPricingSettings(row: typeof pricingSettings.$inferSelect): Pr
   };
 }
 
+/**
+ * Skapar singletonraden om den saknas. Måste ge SAMMA rad som
+ * `add-pricing-settings.sql`, alltså domänfälten satta och `credit_action_prices`
+ * tomt — koden äger creditpriserna tills en admin uttryckligen sätter något.
+ */
 async function ensureSettings() {
   await db
     .insert(pricingSettings)
@@ -233,7 +238,7 @@ async function ensureSettings() {
       id: PRICING_SETTINGS_ID,
       domain_markup_basis_points: DEFAULT_DOMAIN_MARKUP_BASIS_POINTS,
       domain_usd_to_sek_ore: DEFAULT_DOMAIN_USD_TO_SEK_ORE,
-      credit_action_prices: DEFAULT_CREDIT_ACTION_PRICES,
+      credit_action_prices: {},
     })
     .onConflictDoNothing({ target: pricingSettings.id });
 }

@@ -10,6 +10,8 @@ const dbState = {
   lastUpdate: null as Record<string, unknown> | null,
   /** Ordningen läs/skriv skedde i, för att bevisa att låset tas först. */
   order: [] as string[],
+  /** Raden `ensureSettings()` försökte skapa. */
+  insertedValues: null as Record<string, unknown> | null,
 };
 
 vi.mock("@/lib/db/client", () => {
@@ -53,7 +55,12 @@ vi.mock("@/lib/db/client", () => {
     db: {
       select: () => readChain,
       update: () => writeChain,
-      insert: () => ({ values: () => ({ onConflictDoNothing: async () => undefined }) }),
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          dbState.insertedValues = values;
+          return { onConflictDoNothing: async () => undefined };
+        },
+      }),
       transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
     },
   };
@@ -90,6 +97,7 @@ beforeEach(() => {
   dbState.throwOnSelect = false;
   dbState.lastUpdate = null;
   dbState.order = [];
+  dbState.insertedValues = null;
   vi.restoreAllMocks();
 });
 
@@ -336,16 +344,48 @@ describe("add-pricing-settings.sql seed", () => {
   const insert = sql.slice(sql.indexOf("INSERT INTO pricing_settings"));
 
   it("seeds the markup and rate the code defaults to", () => {
-    expect(insert).toMatch(
-      new RegExp(`^\\s*${DEFAULT_DOMAIN_PRICING.markup * 10_000},\\s*$`, "m"),
-    );
-    expect(insert).toMatch(new RegExp(`^\\s*${DEFAULT_DOMAIN_PRICING.usdToSek * 100},\\s*$`, "m"));
+    // Domänfälten är NOT NULL och har inget null-kontrakt: de MÅSTE seedas,
+    // och med exakt vad koden defaultar till.
+    expect(insert).toMatch(new RegExp(`\\b${DEFAULT_DOMAIN_PRICING.markup * 10_000}\\b`));
+    expect(insert).toMatch(new RegExp(`\\b${DEFAULT_DOMAIN_PRICING.usdToSek * 100}\\b`));
   });
 
-  it("seeds exactly the current credit prices", () => {
-    // Drift here would make the database silently charge yesterday's prices.
-    const seeded = insert.match(/'(\{[\s\S]*\})'::jsonb/)?.[1];
+  it("seeds credit_action_prices empty so the code owns the prices", () => {
+    // Vänd mot det tidigare kontraktet med flit. En full seed ser harmlös ut
+    // (värdena är konstanternas) men gör varje fält till en databas-override
+    // från dag ett: admin-UI:ts Databas/Kod-badge slutar skilja på något, en
+    // ändrad konstant slår inte igenom, och fallbackvägen blir aldrig den
+    // normala. Testet finns för att ingen ska råka återinföra en full seed.
+    const seeded = insert.match(/'(\{[\s\S]*?\})'::jsonb/)?.[1];
     expect(seeded).toBeTruthy();
-    expect(JSON.parse(seeded as string)).toEqual(DEFAULT_CREDIT_ACTION_PRICES);
+    expect(JSON.parse(seeded as string)).toEqual({});
+
+    for (const field of Object.keys(DEFAULT_CREDIT_ACTION_PRICES)) {
+      expect(insert).not.toContain(field);
+    }
+  });
+
+  it("still creates the row, since the domain columns need real values", () => {
+    expect(insert).toMatch(/INSERT INTO pricing_settings/);
+    expect(insert).toMatch(/'default'/);
+    expect(insert).toMatch(/ON CONFLICT \(id\) DO NOTHING/);
+  });
+});
+
+describe("ensureSettings mirrors the migration seed", () => {
+  it("creates the row with domain values and no credit overrides", async () => {
+    // Två ställen skapar singletonraden. Gör de olika rader börjar en färsk
+    // miljö bete sig olika beroende på om migrationen eller runtime hann först.
+    dbState.rows = [];
+    dbState.insertedValues = null;
+
+    await updatePricingSettings({ updatedBy: "jakob" }).catch(() => null);
+
+    expect(dbState.insertedValues).toMatchObject({
+      id: "default",
+      domain_markup_basis_points: DEFAULT_DOMAIN_PRICING.markup * 10_000,
+      domain_usd_to_sek_ore: DEFAULT_DOMAIN_PRICING.usdToSek * 100,
+      credit_action_prices: {},
+    });
   });
 });
