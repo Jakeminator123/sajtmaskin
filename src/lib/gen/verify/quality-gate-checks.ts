@@ -186,7 +186,7 @@ function isTscDiagnosticLine(line: string): boolean {
 }
 
 /**
- * Typecheck output with proven-harmless `.next/**/routes.d.ts` `TS1005`
+ * Typecheck output with proven-harmless `.next` `routes.d.ts` `TS1005`
  * diagnostics removed (a diagnostic's continuation lines are indented and
  * carry no `error TSxxxx`, so they are dropped together with their header
  * line). Real `.next/types/app/**` validators and all other diagnostics stay.
