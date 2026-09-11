@@ -28,7 +28,7 @@ function formatUtcClock(timestamp: string | null | undefined): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// PostCheckPanel (structured only)
+// PostCheckPanel (shared by structured and compact tool rendering)
 // ---------------------------------------------------------------------------
 
 type PostCheckPanelProps = PostCheckSummary;
