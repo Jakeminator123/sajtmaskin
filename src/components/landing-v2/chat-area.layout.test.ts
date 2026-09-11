@@ -13,7 +13,10 @@ describe("ChatArea mobile document flow", () => {
     expect(scrollContainer).not.toBeNull();
     const classes = scrollContainer?.[1].split(/\s+/) ?? [];
     expect(classes).toContain("overflow-y-auto");
+    expect(classes).toContain("overflow-x-clip");
     expect(classes).not.toContain("flex");
     expect(classes).not.toContain("flex-col");
+    expect(source).toContain("overflow-x-clip overflow-y-hidden");
+    expect(source).not.toMatch(/<main className="[^"]*overflow-hidden"/);
   });
 });

@@ -223,8 +223,22 @@ describe("lanyard mobile interactions", () => {
 
     expect(experience).toContain("lanyardTextureToCss");
     expect(experience).toContain("LanyardBrandFace");
-    expect(hero).toContain("h-[240px]");
-    expect(hero).toContain("max-w-[440px]");
+    expect(hero).toContain('data-lanyard-stage');
+    expect(hero).toContain("overflow-visible");
+    expect(hero).toContain("max-w-[min(100%,580px)]");
+    expect(hero).toContain("h-[300px]");
+    expect(hero).not.toContain("h-[240px]");
+    expect(hero).not.toContain("max-w-[440px]");
+  });
+
+  it("drops the logged-in welcome chip and personalizes the card back instead", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
+    const card = readComponent("lanyard-card.tsx");
+
+    expect(page).not.toContain("Välkommen,");
+    expect(page).not.toContain("heroPrefix");
+    expect(card).toContain("resolveLanyardCardBackIdentity");
+    expect(card).toContain("createNamedCardBackTexture");
   });
 
   it("keeps the interactive canvas within a reduced adaptive render budget", () => {
@@ -237,6 +251,7 @@ describe("lanyard mobile interactions", () => {
     expect(lanyard).toContain("const bandPoints = useMemo");
     expect(lanyard).toContain("applyLanyardTextureCrop");
     expect(lanyard).toContain("createCardGrainTexture");
+    expect(lanyard).toContain("createNamedCardBackTexture");
     expect(lanyard).toContain("meshPhysicalMaterial");
     expect(lanyard).toContain("useCompactLanyardCanvas");
     expect(lanyard).not.toContain("meshBasicMaterial map={texture}");

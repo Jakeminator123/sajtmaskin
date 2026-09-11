@@ -108,10 +108,10 @@ function StaticLanyardFallback() {
     <div
       data-testid="lanyard-static"
       aria-hidden="true"
-      className="flex h-full w-full flex-col items-center justify-start overflow-hidden pt-1"
+      className="flex h-full w-full flex-col items-center justify-start overflow-visible pt-0"
     >
       <span
-        className="block h-[22%] min-h-8 w-[6px] shrink-0 rounded-full"
+        className="block h-[28%] min-h-10 w-[6px] shrink-0 rounded-full"
         style={{
           background:
             "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",

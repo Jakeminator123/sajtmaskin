@@ -17,7 +17,8 @@ export type LanyardTextureCss = {
 /**
  * Delat layoutkontrakt för 3D-kortet. Ett fullt utsträckt lodrätt rep är
  * kortets lägsta möjliga viloläge, så den beräkningen är den konservativa
- * gränsen för om hela visitkortet ryms i kameran.
+ * gränsen för om hela visitkortet ryms i kameran. Kameran tittar högt
+ * nog för att ankaret (snöret upp mot headern) ska ligga i frustumen.
  *
  * Texturerna i `public/branding/lanyard-card*.png` är kvadratiska 1024² med
  * det stående motivet i mitten. Crop-fönstret matchar kortets sidoförhållande
@@ -42,9 +43,9 @@ export const LANYARD_CARD_LAYOUT = {
   gravity: [0, -46, 0] as const,
   initialImpulse: { x: -0.85, y: 0, z: 0.2 },
   cameraDistance: 11,
-  cameraFovDegrees: 25,
+  cameraFovDegrees: 28,
   cameraY: 0,
-  cameraLookAtY: -0.32,
+  cameraLookAtY: 0.16,
   frontTexture: {
     repeatX: 0.696,
     repeatY: 1,
@@ -144,6 +145,7 @@ export function calculateSettledCardFrame() {
   const cameraTop = cameraLookAtY + cameraHalfHeight;
   const cardBottom = cardCenterY - cardHalfHeight;
   const cardTop = cardCenterY + cardHalfHeight;
+  const ropeAnchorY = fixedAnchorY;
 
   return {
     cardBottom,
@@ -151,7 +153,9 @@ export function calculateSettledCardFrame() {
     cardTop,
     cameraBottom,
     cameraTop,
+    ropeAnchorY,
     bottomMargin: cardBottom - cameraBottom,
     topMargin: cameraTop - cardTop,
+    ropeTopMargin: cameraTop - ropeAnchorY,
   };
 }

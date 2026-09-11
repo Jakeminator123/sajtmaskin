@@ -29,6 +29,8 @@ describe("lanyard card layout", () => {
     expect(frame.topMargin).toBeGreaterThan(0.2);
     expect(frame.cardCenterY).toBeLessThan(0);
     expect(frame.cardCenterY).toBeGreaterThan(frame.cameraBottom);
+    expect(frame.ropeTopMargin).toBeGreaterThan(-0.05);
+    expect(frame.cameraTop).toBeGreaterThan(LANYARD_CARD_LAYOUT.fixedAnchorY - 0.08);
   });
 
   it("mirrors Three crop windows into CSS for the 2D fallback", () => {

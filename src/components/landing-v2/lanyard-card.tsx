@@ -22,6 +22,10 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier"
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
+import {
+  createNamedCardBackTexture,
+  resolveLanyardCardBackIdentity,
+} from "@/components/landing-v2/lanyard-card-back"
 import { createCardGrainTexture } from "@/components/landing-v2/lanyard-card-grain"
 import {
   LANYARD_CARD_LAYOUT,
@@ -29,6 +33,7 @@ import {
   getLanyardCardFaceSize,
   stabilizeLanyardAngularVelocity,
 } from "@/components/landing-v2/lanyard-card-layout"
+import { useAuthStore } from "@/lib/auth/auth-store"
 
 extend({ MeshLineGeometry, MeshLineMaterial })
 
@@ -168,7 +173,7 @@ function CardBody({
         />
       </mesh>
 
-      {/* Baksida — cookie-motivet, samma fysiska yta som framsidan. */}
+      {/* Baksida — namn när inloggad, annars cookie-/varumärkestexturen. */}
       <mesh position={[0, 0, -FACE.z]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[FACE.width, FACE.height]} />
         <meshPhysicalMaterial
@@ -234,19 +239,34 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const pressInfo = useRef<{ x: number; y: number; t: number } | null>(null)
 
   const texture = useTexture(CARD_TEXTURE)
-  const backTexture = useTexture(CARD_BACK_TEXTURE)
+  const cookieBackTexture = useTexture(CARD_BACK_TEXTURE)
   const grain = useMemo(() => createCardGrainTexture(), [])
   useEffect(() => () => grain.dispose(), [grain])
 
   const anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
+  const user = useAuthStore((state) => state.user)
+  const backName = resolveLanyardCardBackIdentity(user)
+  const namedBackTexture = useMemo(() => {
+    if (!backName) return null
+    try {
+      const painted = createNamedCardBackTexture(backName)
+      painted.anisotropy = Math.max(1, anisotropy)
+      return painted
+    } catch {
+      return null
+    }
+  }, [anisotropy, backName])
+  useEffect(() => () => namedBackTexture?.dispose(), [namedBackTexture])
+
   useEffect(() => {
     // drei's useTexture returns a shared THREE.Texture that must be cropped
     // in place — cloning would break GPU cache and the card UV mapping.
     applyLanyardTextureCrop(texture, FRONT_TEXTURE_CROP, anisotropy)
   }, [texture, anisotropy])
   useEffect(() => {
-    applyLanyardTextureCrop(backTexture, BACK_TEXTURE_CROP, anisotropy)
-  }, [backTexture, anisotropy])
+    applyLanyardTextureCrop(cookieBackTexture, BACK_TEXTURE_CROP, anisotropy)
+  }, [cookieBackTexture, anisotropy])
+  const backTexture = namedBackTexture ?? cookieBackTexture
 
   // Utjämnade punkter för ett mjukt band. Startpunkterna motsvarar en rak
   // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
@@ -514,7 +534,7 @@ export function LanyardCard({
   autoSwing?: boolean
 }) {
   return (
-    <div className={`relative w-full select-none ${className}`} aria-hidden="true">
+    <div className={`relative w-full overflow-visible select-none ${className}`} aria-hidden="true">
       <Canvas
         camera={{ position: [0, CAMERA_Y, CAMERA_DISTANCE], fov: CAMERA_FOV_DEGREES }}
         gl={{ alpha: true, antialias: true }}
