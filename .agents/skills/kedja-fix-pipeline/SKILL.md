@@ -19,7 +19,7 @@ domarfasen; den återberättar inte push-, PR- eller mergegrinden.
 
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
 2. **No candidate is pushed, rebased or opened as a PR during comparison.** The WINNER is committed on its allowed `fix/kedja-<slug>-<x>` branch. If push/PR is authorised, promote it through `pr-workflow`; otherwise keep and report the local winner. Losers stay uncommitted and are torn down after their diffs are saved.
-3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
+3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`project-phase-priorities.mdc`).
 4. **Models from the canonical rule** in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc): `<luna>` only for mechanical read-only localisation; `<sol>` for repro, fixes, runner and Bugbot.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or _untracked_ entries while a junctioned `node_modules` is _ignored_. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
@@ -33,7 +33,8 @@ git worktree add ..\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/maste
 npm run worktree:setup -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
-- **Always pass the base `origin/master`.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the same published trunk, or the judging round compares diffs against different baselines.
+- **Always pass an explicit, frozen base.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the **same** published ref, or the judging round compares diffs against different baselines. Resolve it once (`git rev-parse origin/<base>`) and reuse that SHA for every candidate.
+- **Which base:** `origin/preview` for ordinary development, since that is where the winner's PR lands. Use `origin/master` when the bug is a claim about **production** — a backlog row whose evidence is «Bevis på `master`», or a prod repro. Same choice as `pr-workflow` § 1.2; the commands below write `origin/master` because backlog bugs are the common case.
 - `<slug>` = 2–4 words, kebab-case, transliterated (å→a, ä→a, ö→o).
 - One suffix per candidate: `-a`, `-b`, `-c`.
 - Run subagents with `working_directory` set to the worktree's absolute path, and say the path in the prompt too — an agent that guesses will land in the main checkout.

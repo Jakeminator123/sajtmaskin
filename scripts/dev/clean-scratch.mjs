@@ -30,6 +30,18 @@
  *   npm run clean:scratch        # dry-run (preview only)
  *   npm run clean:scratch:apply  # actually delete
  *
+ *   node scripts/dev/clean-scratch.mjs --apply --only .cursor/swarms/runs
+ *                                # prune ONE count-capped tree, nothing else
+ *
+ * Why `--only` exists: a skill that finishes a run should not sweep unrelated
+ * workspaces. `/automat` writes to `.cursor/swarms/runs` but the global apply
+ * also prunes handoffs, kedja candidate diffs, `.cursor/tmp`, `logs/` and
+ * `.env-backups`. A kedja loser diff can be the sole copy of that candidate, so
+ * losing it to an unrelated audit run is real data loss. Per-run cleanup passes
+ * `--only <its own tree>`; the global sweep stays an explicit owner action.
+ * Run it with `node`, not `npm run --`: npm eats unknown flags before they
+ * reach the script (same trap documented in `.cursor/kedja/README.md`).
+ *
  * Cross-platform: pure Node fs + one `git ls-files` call.
  */
 import { execFileSync } from "node:child_process";
@@ -286,7 +298,36 @@ export function planLogsTree(logsDir, opts = {}) {
   return { ...plan, skipped };
 }
 
-function createCleaner(root, apply) {
+/**
+ * Parse `--only <tree>` (repeatable) and validate against COUNT_TREES.
+ *
+ * Only the count-capped scratch trees are selectable. An arbitrary path would
+ * turn this into a general delete tool, and the wipe/age trees are shared
+ * surfaces that no single run owns.
+ *
+ * @param {string[]} argv
+ * @param {readonly string[]} [allowed]
+ * @returns {{ only: string[] } | { error: string }}
+ */
+export function parseOnlyTrees(argv, allowed = COUNT_TREES) {
+  /** @type {string[]} */
+  const only = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] !== "--only") continue;
+    const value = (argv[index + 1] ?? "").trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    index += 1;
+    if (!value || value.startsWith("--")) {
+      return { error: "--only kräver en yta, t.ex. --only .cursor/swarms/runs" };
+    }
+    if (!allowed.includes(value)) {
+      return { error: `--only ${value} är inte en känd scratch-yta. Välj en av: ${allowed.join(", ")}` };
+    }
+    only.push(value);
+  }
+  return { only };
+}
+
+function createCleaner(root, apply, only = []) {
   const tracked = loadTrackedSet(root);
   const removed = [];
   const skippedTracked = [];
@@ -499,12 +540,19 @@ function createCleaner(root, apply) {
   }
 
   function run() {
-    for (const t of WIPE_TREES) wipeTree(t);
-    for (const s of STRAY_TREES) wipeStray(s);
-    for (const f of WIPE_FILES) wipeFile(f);
-    for (const t of AGE_TREES) pruneByAge(t);
-    pruneLogs();
-    for (const t of COUNT_TREES) pruneByCount(t);
+    // Scoped mode touches exactly the named count-capped tree(s). The shared
+    // surfaces below are nobody's run output, so a per-run cleanup must skip
+    // them entirely rather than prune them "while it is here".
+    if (only.length > 0) {
+      for (const t of only) pruneByCount(t);
+    } else {
+      for (const t of WIPE_TREES) wipeTree(t);
+      for (const s of STRAY_TREES) wipeStray(s);
+      for (const f of WIPE_FILES) wipeFile(f);
+      for (const t of AGE_TREES) pruneByAge(t);
+      pruneLogs();
+      for (const t of COUNT_TREES) pruneByCount(t);
+    }
 
     const rel = (p) => path.relative(root, p);
     const tag = apply ? "[clean-scratch] removed" : "[clean-scratch] would remove";
@@ -512,12 +560,15 @@ function createCleaner(root, apply) {
     if (skippedTracked.length > 0) {
       console.log(`[clean-scratch] kept ${skippedTracked.length} tracked/guarded path(s).`);
     }
+    const scope = only.length > 0 ? ` scope: ${only.join(", ")} —` : "";
     console.log(
-      `[clean-scratch] done${apply ? "" : " (dry-run)"} — ` +
+      `[clean-scratch] done${apply ? "" : " (dry-run)"}${scope} — ` +
         `${removed.length} item(s) ${apply ? "removed" : "would be removed"}, ` +
         `${kept.length} kept by retention ` +
-        `(logs dirs ≤${LOGS_RETAIN_COUNT}; cursor/age newest ${RETAIN_COUNT}` +
-        `, plus <${RETAIN_DAYS}d in age-based trees).` +
+        (only.length > 0
+          ? `(newest ${RETAIN_COUNT} and younger than ${RETAIN_DAYS}d).`
+          : `(logs dirs ≤${LOGS_RETAIN_COUNT}; cursor/age newest ${RETAIN_COUNT}, ` +
+            `plus <${RETAIN_DAYS}d in age-based trees).`) +
         (apply ? "" : " Re-run with --apply to delete."),
     );
 
@@ -527,12 +578,28 @@ function createCleaner(root, apply) {
   return { run };
 }
 
-/** CLI / programmatic entry. Exported for tests that need the full runner. */
-export function runCleanScratch({ root = DEFAULT_ROOT, apply = false } = {}) {
-  return createCleaner(root, apply).run();
+/**
+ * CLI / programmatic entry. Exported for tests that need the full runner.
+ *
+ * @param {{ root?: string, apply?: boolean, only?: string[] }} [options]
+ *   `only` limits the sweep to the named COUNT_TREES surfaces; empty = full sweep.
+ */
+export function runCleanScratch({ root = DEFAULT_ROOT, apply = false, only = [] } = {}) {
+  // The CLI allowlists `--only` before it gets here, but a programmatic caller
+  // would otherwise reach `pruneByCount(path.join(root, rel))` with any path.
+  // Validating in both places keeps the deletion surface identical either way.
+  const parsed = parseOnlyTrees(only.flatMap((tree) => ["--only", tree]));
+  if ("error" in parsed) throw new Error(`[clean-scratch] ${parsed.error}`);
+  return createCleaner(root, apply, parsed.only).run();
 }
 
 // Kör bara som CLI, inte när testet importerar de rena funktionerna.
 if (process.argv[1] && process.argv[1].endsWith("clean-scratch.mjs")) {
-  runCleanScratch({ apply: process.argv.includes("--apply") });
+  const parsed = parseOnlyTrees(process.argv.slice(2));
+  if ("error" in parsed) {
+    console.error(`[clean-scratch] ${parsed.error}`);
+    process.exitCode = 1;
+  } else {
+    runCleanScratch({ apply: process.argv.includes("--apply"), only: parsed.only });
+  }
 }

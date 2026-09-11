@@ -52,7 +52,7 @@ export const STALE_AFTER_DAYS = 30;
  * Namn som aldrig får raderas, ens lokalt.
  *
  * `JAKOB_BRA_9999_INNNAN_MVP_BRA` och syskonen är ägarens frysta backuper
- * (`.cursor/rules/jakob-pre-mvp-backup.mdc`) — mönstret `BRA` täcker dem alla.
+ * (`git.mdc` + pre-push-hooken) — mönstret `BRA` täcker dem alla.
  * `rescue/*` bär räddade stashar, `dependabot/*` ägs av boten, och `preview`
  * är produktens staging.
  */

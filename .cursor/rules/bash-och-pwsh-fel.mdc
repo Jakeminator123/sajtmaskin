@@ -5,7 +5,7 @@ alwaysApply: false
 
 # PowerShell — felkatalog (requestable)
 
-Bifogas vid behov. Kort alwaysApply-stub: `bash-och-pwsh.mdc`.
+Bifogas vid behov. Kort requestable-stub: `bash-och-pwsh.mdc`.
 
 ## Vanliga felkällor (hårda fel)
 
@@ -15,7 +15,8 @@ Bifogas vid behov. Kort alwaysApply-stub: `bash-och-pwsh.mdc`.
 | `The term 'grep'/'head'/'tail'/'sed'/'awk' is not recognized` | Bash-verktyg finns inte i pwsh | `Select-String`, `Select-Object -First N` / `-Last N`, eller Cursor Grep/StrReplace |
 | Villkor på git/npm/node slår fel fastän kommandot gick bra (eller tvärtom) | `$?` speglar inte extern exit-kod tillförlitligt | Använd `$LASTEXITCODE -eq 0` för externa program (`$?` bara för rena cmdlets) |
 | `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/StrReplace för dessa App Router-mappar. **Obs:** Cursor **Glob** är undantaget, dess `glob_pattern` är glob-syntax, så `[chatId]` blir en teckenklass även där — escapa (`[[]chatId[]]`) eller använd Read med exakt sökväg |
-| `Missing file specification after redirection operator` | Bash-**heredoc** (`<<'EOF'`) — nästan alltid för ett commit-meddelande. pwsh läser `<` som omdirigering, så felet nämner varken heredocen eller fixen | Here-string: `$msg = @'` … `'@` (båda i kolumn 0), sedan `git commit -m $msg`. Blockeras numera av `.cursor/hooks/heredoc-guard.mjs` |
+| `Missing file specification after redirection operator` | Bash-**heredoc** (`<<'EOF'`) — nästan alltid för ett commit-meddelande. pwsh läser `<` som omdirigering, så felet nämner varken heredocen eller fixen | Commit: skriv meddelandet till fil och kör `git commit -F <fil>` (se nedan). Annan flerradig text: here-string `@'` … `'@` (båda i kolumn 0). Blockeras av `.cursor/hooks/heredoc-guard.mjs` på Windows |
+| `Blockerat: commit-skyddet ... dynamiskt eller aliasbaserat git-kommando` | Ett `$`-uttryck står i ett **git**-kommando, t.ex. `git commit -m $msg`. Skyddet kan inte se vad expansionen blir och nekar fail-closed | `git commit -F <fil>` — inget `$` i git-raden. Se nedan |
 | Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
 | Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
 | Trunkerad (`…`) eller tom output vid pipe till fil | PS formaterar objekt för konsolbredd | Avsluta med `| Out-String` (ev. `| Format-Table -Auto | Out-String -Width 4096`) |
@@ -26,18 +27,25 @@ Bifogas vid behov. Kort alwaysApply-stub: `bash-och-pwsh.mdc`.
 | `npx`/`npm` exit 0 + tom stdout → nollbytesfil | Samma spawn utan shell, men fail-open | Samma `shell: true` på Windows. Se `scripts/observability/dump-fixer-registry.mjs` |
 | Svenska tecken blir `├ñ` / `ÔÇö` i filer | 5.1 default-encoding är inte UTF-8 | Skriv med Cursor StrReplace eller `[System.IO.File]::WriteAllText(..., UTF8)` från **pwsh 7** |
 
-## Commit-meddelanden: mallen du minns är bash
+## Commit-meddelanden: en enda kanonisk form
 
-Den generiska instruktionen "skicka alltid commit-meddelandet via en HEREDOC" (`git commit -m "$(cat <<'EOF' … EOF)"`) är **bash** och gäller inte här. Kanonisk form:
+Den generiska instruktionen "skicka alltid commit-meddelandet via en HEREDOC"
+(`git commit -m "$(cat <<'EOF' … EOF)"`) är **bash** och gäller inte här.
+
+`-m $msg` fungerar inte heller: [`commit-guard.mjs`](../../scripts/workflow/commit-guard.mjs)
+nekar variabelexpansion inuti ett git-kommando, eftersom den inte kan avgöra vad
+expansionen blir. Kanonisk form är därför en **meddelandefil**:
+
+1. Skriv texten i ett eget steg — Cursor `Write`, eller
+   `Set-Content -Encoding utf8 .cursor/tmp/commit-msg.txt $msg`.
+2. Committa med en git-rad utan `$`:
 
 ```powershell
-$msg = @'
-kort rubrik
-
-brödtext
-'@
-git commit -m $msg
+git commit -F .cursor/tmp/commit-msg.txt
 ```
+
+Enradigt meddelande går lika bra som `git commit -m "kort rubrik"` (literal, inget `$`).
+`.cursor/tmp/` är den sanktionerade scratch-ytan och rensas av `clean:scratch`.
 
 ## Kedja kommandon
 

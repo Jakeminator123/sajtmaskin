@@ -17,7 +17,15 @@ Lokal **notis-yta** för `/logg-internet` — live prod-sessioner där agenten k
     YYYY-MM-DD_HHMM.md          # en notis-fil per session (persona, prompts, observationer, ev. logg-korsref)
 ```
 
-`npm run clean:scratch:apply` håller de tre nyaste notis-filerna i `runs/` och raderar både överskott och poster äldre än 14 dagar. Vill du behålla en observation längre: lyft den till en plan-, backlog- eller docs-rad — notis-filen är en arbetsyta, inte ett arkiv. Kör apply efter en session så taket slår till när nya filer kommer in.
+Taket är de tre nyaste notis-filerna i `runs/` **som också är yngre än 14 dagar**; både överskott och äldre poster tas bort. Vill du behålla en observation längre: lyft den till en plan-, backlog- eller docs-rad — notis-filen är en arbetsyta, inte ett arkiv.
+
+Städa efter en session med **bara den här ytan**, inte den globala svepningen:
+
+```powershell
+node scripts/dev/clean-scratch.mjs --apply --only .cursor/logg-internet/runs
+```
+
+`npm run clean:scratch:apply` rensar även handoffs, kedja-kandidater, `.cursor/tmp`, `logs/` och `.env-backups` — det är ett eget städuppdrag, inte en efterrutin för en körning.
 
 ## Kör
 

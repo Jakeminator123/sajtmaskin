@@ -10,10 +10,19 @@ import { describe, expect, it } from "vitest";
  */
 const HOOK = resolve(process.cwd(), ".cursor/hooks/heredoc-guard.mjs");
 
-function ask(command: string): { permission: string; agent_message?: string } {
+/**
+ * The guard only denies where the shell is PowerShell, so every Windows-verdict
+ * case pins the platform explicitly. Without it these assertions would flip on
+ * the Linux CI runner and on the cloud agent image.
+ */
+function ask(
+  command: string,
+  platform = "win32",
+): { permission: string; agent_message?: string } {
   const stdout = execFileSync(process.execPath, [HOOK], {
     input: JSON.stringify({ command }),
     encoding: "utf8",
+    env: { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform },
   });
   return JSON.parse(stdout);
 }
@@ -25,6 +34,23 @@ describe("heredoc-guard hook", () => {
     const verdict = ask(COMMIT_HEREDOC);
     expect(verdict.permission).toBe("deny");
     expect(verdict.agent_message).toContain("here-string");
+  });
+
+  it("points at the one commit form the other guards also allow", () => {
+    // `-m $msg` was the old advice and is denied by commit-guard's shared
+    // expansion check, so recommending it here made the two hooks contradict.
+    const verdict = ask(COMMIT_HEREDOC);
+    expect(verdict.agent_message).toContain("git commit -F");
+    // Naming `-m $msg` is fine — as the antipattern. What must never come back
+    // is recommending it, so require the explicit negative next to the mention.
+    expect(verdict.agent_message).toContain("Do NOT use `-m $msg`");
+  });
+
+  it("allows a heredoc where the shell is not PowerShell", () => {
+    // The project's hooks travel to the Linux cloud agent image, where a
+    // heredoc is valid shell and denying it would block correct code.
+    expect(ask(COMMIT_HEREDOC, "linux").permission).toBe("allow");
+    expect(ask("cat <<EOF > out.txt\ntext\nEOF", "linux").permission).toBe("allow");
   });
 
   it("denies a heredoc that is redirected mid-segment", () => {

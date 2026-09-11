@@ -241,6 +241,11 @@ export function decideCommitCommand(
     // behind an earlier `cd` into a task worktree.
     const repositories = commitTargetDirectories(command, cwd);
     const files = new Set();
+    // Tracked-but-unstaged files are inspected too (see below), but they are a
+    // different claim than "this commit touches a protected path". Keeping the
+    // two sets apart is what lets the prompt say which one it saw, instead of
+    // naming a neighbour's dirty file as if it were part of the commit.
+    const staged = new Set();
     for (const repo of repositories) {
       const branch = git(["branch", "--show-current"], repo)[0] ?? "";
       // An empty branch means detached HEAD *or* a checkout misconfigured as
@@ -266,7 +271,10 @@ export function decideCommitCommand(
       // --only and --include, so parsing only -a/--all would leave bypasses. A
       // conservative ask for an unrelated protected dirty file is preferable to
       // silently committing one through an unrecognised Git form.
-      for (const file of git(["diff", "--cached", "--name-status", "-z"], repo)) files.add(file);
+      for (const file of git(["diff", "--cached", "--name-status", "-z"], repo)) {
+        files.add(file);
+        staged.add(file);
+      }
       for (const file of git(["diff", "--name-status", "-z"], repo)) files.add(file);
     }
     if (files.size === 0) return { permission: "allow" };
@@ -276,16 +284,40 @@ export function decideCommitCommand(
       return { permission: "allow" };
     }
 
-    const protectedSummary = impact.protectedFiles.slice(0, 8).join(", ") || "inga";
+    // Git accepts pathspecs, --only and --include, so the staged set is not the
+    // whole truth about what a commit will capture. The verdict therefore stays
+    // conservative for both groups; only the wording distinguishes them.
+    const inCommit = impact.protectedFiles.filter((file) => staged.has(file));
+    const dirtyOnly = impact.protectedFiles.filter((file) => !staged.has(file));
+    const list = (paths) => paths.slice(0, 8).join(", ") || "inga";
     const backofficeSummary = impact.backofficePages.join(", ") || "ingen";
+
+    // Three distinct situations reach `ask`, and naming the wrong one is what
+    // made the old prompt read as if a neighbour's dirty file was being committed.
+    const headline =
+      inCommit.length > 0
+        ? "Committen träffar skyddade eller Backoffice-kopplade ytor."
+        : dirtyOnly.length > 0
+          ? "Inget skyddat är stage:at — men arbetskopian har skyddade ändringar som en bredare commitform skulle dra med."
+          : "Committen träffar Backoffice-kopplade ytor.";
+    const dirtyLine =
+      dirtyOnly.length > 0
+        ? `\nÄndrad i arbetskopian, ej stage:ad: ${list(dirtyOnly)}`
+        : "";
+
     return {
       permission: "ask",
       user_message:
-        "Committen träffar skyddade eller Backoffice-kopplade ytor.\n\n" +
-        `Protected: ${protectedSummary}\nBackoffice: ${backofficeSummary}\n\n` +
-        "Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk oberoende review innan commit.",
+        `${headline}\n\n` +
+        `Stage:at och skyddat: ${list(inCommit)}${dirtyLine}\n` +
+        `Backoffice: ${backofficeSummary}\n\n` +
+        "Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk oberoende review innan commit. " +
+        "Stage:a bara uppgiftens filer; en ostage:ad rad ovan är någon annans arbete tills du valt den medvetet.",
       agent_message:
-        "Shared workflow-impact policy flagged this commit. Plan the exact diff, run relevant targeted checks and report Backoffice/control-plane impact before committing.",
+        "Shared workflow-impact policy flagged this commit. " +
+        `Protected and staged: ${list(inCommit)}. ` +
+        `Protected but only dirty in the worktree: ${list(dirtyOnly)}. ` +
+        "Plan the exact diff, commit explicit paths only, run relevant targeted checks and report Backoffice/control-plane impact before committing.",
     };
   } catch (error) {
     return deny(error instanceof Error ? error.message : "okänt fel");

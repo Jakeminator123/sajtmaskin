@@ -70,7 +70,7 @@ Krav:
 - Ändra inte `maxRecipes: 3` och inte urvalsordningen mellan officiella och
   community-recept. Det är ett separat beslut.
 - Slå inte på Add-panelen som del av den här punkten — det är en produktändring
-  som kräver ägarens OK (`mvp-scope-freeze.mdc`).
+  som kräver ägarens OK (`project-phase-priorities.mdc`).
 - Skicka aldrig nyckeln till klienten. Item-proxyn
   (`src/app/api/shadcn/community/item/route.ts`) returnerar redan Pro-källkod till
   inloggade användare; **utöka inte** den ytan här. Åtkomstnivån på den proxade

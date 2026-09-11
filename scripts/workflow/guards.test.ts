@@ -435,6 +435,42 @@ describe("commit guard", () => {
     ).toBe("allow");
   });
 
+  it("säger om den skyddade filen ingår i committen eller bara är smutsig", () => {
+    // Friktionen som motiverar texten: en README-commit frågade om en skyddad
+    // fil som bara låg ändrad i arbetskopian, formulerad som om den ingick.
+    const dirtyOnly = vi.fn((args: string[]) =>
+      args[0] === "branch"
+        ? ["feat/x"]
+        : args.includes("--cached")
+          ? []
+          : ["config/agent-workflow.json"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git: dirtyOnly })).toEqual(
+      expect.objectContaining({
+        permission: "ask",
+        user_message: expect.stringContaining("Inget skyddat är stage:at"),
+        agent_message: expect.stringContaining("only dirty in the worktree"),
+      }),
+    );
+
+    const stagedProtected = vi.fn((args: string[]) =>
+      args[0] === "branch" ? ["feat/x"] : ["config/agent-workflow.json"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git: stagedProtected })).toEqual(
+      expect.objectContaining({
+        permission: "ask",
+        user_message: expect.stringContaining("Committen träffar skyddade"),
+      }),
+    );
+    expect(
+      decideCommitCommand("git commit -m x", { git: stagedProtected }),
+    ).not.toEqual(
+      expect.objectContaining({
+        user_message: expect.stringContaining("Ändrad i arbetskopian, ej stage:ad"),
+      }),
+    );
+  });
+
   it("denies detached HEAD before inspecting file impact", () => {
     expect(decideCommitCommand("git commit -m x", { git: vi.fn(() => []) }).permission).toBe(
       "deny",

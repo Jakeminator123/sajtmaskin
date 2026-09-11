@@ -2,9 +2,9 @@
 
 ## Öppna projektet
 
-File → Open Folder → repo-roten `sajtmaskin`. En Git-root.
-Inte TEMP-fönster eller ett uppgifts-worktree. MCP: `.cursor/mcp.json`.
-`sajtmaskin.code-workspace` är valfri, inte multi-root. Terminal/pwsh 7 ligger i `.vscode/settings.json`.
+File → Open Folder → repo-roten `sajtmaskin`. En Git-root, ingen
+`.code-workspace`. Inte TEMP-fönster eller ett uppgifts-worktree.
+MCP: `.cursor/mcp.json`. Terminal/pwsh 7: `.vscode/settings.json`.
 
 ## Grundprincip
 
@@ -13,21 +13,18 @@ startkontext; övriga regler/skills laddas först när beskrivning, glob eller
 explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
 backloggstacken som rutin.
 
-## Vad märker jag i mitt lokala Cursor?
+## Vad märker jag lokalt?
 
-Ja, ändringarna gäller lokalt efter att branchen med dem har hämtats. En ny
-agentkörning får den korta startkontexten och hämtar detaljer först vid behov.
+Ändringarna gäller efter att branchen hämtats.
 
 - Börja en ny chatt efter `git pull`; öppna chattar behåller gammal kontext.
-- Varje worktree följer sin branch och får nya regler först efter uppdatering.
-- Vid stale sökträffar: öppna reporoten igen och kontrollera Cursors indexstatus.
-- Sajtmaskins produktmodeller, runtime och `backoffice/` ändras inte av
-  kontextreglerna. Backoffice förblir sökbart så att följdändringar upptäcks.
+- Varje worktree följer sin branch och uppdateras separat.
+- Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
+- Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Sol-körningar använder Grok 4.6 Extra High Fast; Luna är bara för mekanisk
-read-only-sökning och Terra ett uttryckligt lågriskval. Godnatt behåller sina
-separata profiler. Detta styr subagenter, inte Cursors modellväljare eller
-produktens sajtrouting.
+Sol: Grok 4.6 Extra High Fast ur sessionens lista. Luna = mekanisk read-only,
+Terra = uttrycklig lågrisk. Godnatt har egna profiler. Styr subagenter, inte
+sajtrouting. Kopiera inte en gammal slug.
 
 ## Regler
 
@@ -43,6 +40,7 @@ globstyrda eller agent-requested.
 | Pipeline/scaffold/dossier/env | matchande globregel                                             |
 | Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
 | Subagenter                    | `subagent-models.mdc`                                           |
+| MVP-bias / ny feature         | `project-phase-priorities.mdc`                                  |
 | Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                                         |
 
 Bifoga bara den regel som äger uppgiften. `@.cursor/rules/` i sin helhet skapar
@@ -65,9 +63,9 @@ bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 - Env: sök exakt nyckel i `config/env-policy.json`/`docs/ENV.md`.
 - Runtimeinventarier: använd `docs/generated/` eller respektive registry.
 
-`BUG-SWARM-BACKLOG.md` ligger utanför semantisk indexering men är fortsatt
-läsbar och kanonisk. `övrigt/` är delvis spårad mental modell och ligger
-utanför indexet; läs den riktat, inte som sökfacit.
+`BUG-SWARM-BACKLOG.md` ligger utanför semantisk indexering men är kanonisk.
+`övrigt/` är ägarens lokala yta (gitignorerad) — inte en repo-källa. Läs den
+bara på uttrycklig pekare; nya dokument hör i `docs/`.
 
 ## Ignore-filer
 
@@ -87,3 +85,6 @@ utanför indexet; läs den riktat, inte som sökfacit.
 Före push: `npm run verify:pr -- --plan` + riktat. CI publicerar tung
 profil eller light-kvitto.
 `check:agent-context` låser den tunna startkontexten och enda skill-katalogen.
+
+`npm run doctor` läser det CI **inte** kan se: RTK-hook, live-`mcp.json`,
+dubblerade skill-rötter, plugin-kostnad. Tyst i `predev`, aldrig blockerande.

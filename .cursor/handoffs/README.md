@@ -8,7 +8,7 @@ Lokal mirror av agent-handoffs (task-prompts redo att klistras in i en Cursor Ba
   - en Cursor Background Agent (isolerad cloud-VM med egen branch)
   - en annan dev (manuellt arbete)
   - en framtida session (du själv om en vecka)
-- Status lever i planen (`docs/plans/`) eller backloggen (`BUG-SWARM-BACKLOG.md`); den lokala filen är en frusen snapshot av handoffen som den såg ut när den skapades. Ingen Linear/extern tracker.
+- Status lever i planen (`docs/plans/`) eller backloggen (`BUG-SWARM-BACKLOG.md`); den lokala filen är en frusen snapshot av handoffen som den såg ut när den skapades. Ingen extern tracker.
 - Cursor-agenter kan grep:a tidigare handoffs för att förstå pågående/öppna task-överlämningar.
 
 ## Filnamn-konvention
@@ -73,6 +73,12 @@ Handoffen ska kunna klistras direkt i Cursor Background Agent → "New Task" uta
 
 ## Rensning
 
-**Taket är tre handoffs.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste och tar bort resten oavsett ålder — se `COUNT_TREES` i `scripts/dev/clean-scratch.mjs`. `README.md` är committad och rörs aldrig.
+**Taket är tre handoffs — och 14 dagar.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste **som också är yngre än 14 dagar**. Att ligga bland de tre nyaste skyddar alltså inte en handoff som är äldre än så; se `pruneByCount` i `scripts/dev/clean-scratch.mjs`. `README.md` är committad och rörs aldrig.
+
+Rensa bara den här ytan när du städar efter eget arbete:
+
+```powershell
+node scripts/dev/clean-scratch.mjs --apply --only .cursor/handoffs
+```
 
 Radera gärna manuellt så snart en handoff är levererad; taket är ett skyddsnät, inte en ursäkt för att låta mappen växa. Historik bevaras i git (handoffen är gitignored, men det levererade arbetet ligger i commits/PR) och i ev. plan-/backlog-rad.

@@ -29,7 +29,15 @@ Sparade kandidat-diffar från `/kedja` — den stegade buggfix-pipelinen. Mappen
 
 Kan rensas när som helst — så snart vinnarens fix är mergad har diffarna inget värde.
 
-**Taket är tre körningsmappar.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste `YYYY-MM-DD_HHMM/`-mapparna och tar bort resten oavsett ålder — se `COUNT_TREES` i `scripts/dev/clean-scratch.mjs`. Det rör bara diff-arkivet här; worktrees och brancher städas av `kedja:clean` nedan.
+**Taket är tre körningsmappar — och 14 dagar.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste `YYYY-MM-DD_HHMM/`-mapparna **som också är yngre än 14 dagar**; en äldre mapp tas bort även om taket inte är nått (`pruneByCount` i `scripts/dev/clean-scratch.mjs`). En förlorardiff kan vara enda kopian av den kandidaten — flytta ut det du vill behålla innan dess.
+
+Andra kommandon ska inte rensa den här ytan. Städa den explicit:
+
+```powershell
+node scripts/dev/clean-scratch.mjs --apply --only .cursor/kedja
+```
+
+Det rör bara diff-arkivet här; worktrees och brancher städas av `kedja:clean` nedan.
 
 ## Städa upp efteråt
 

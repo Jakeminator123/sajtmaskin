@@ -96,6 +96,14 @@ Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl
 `created_at` och telemetri-blocket. Spara `created_at` — det blir tidsfönstret för Vercel.
 (Hoppa över detta steg om användaren gav `chatId`.)
 
+> **Prod-DB ≠ Production-deploy.** Vercel Preview och Production delar prod-databasen
+> (`config/db-targets.json`), och `latest-site.mjs` sorterar bara på tid — den filtrerar
+> inte på vilken deploy som skapade raden. Den «senaste sajten» kan alltså komma från
+> `preview.sajtmaskin.se`. Bekräfta miljön innan du kallar den en produktionskörning:
+> matcha `deployments`-radens `url`/`vercel_project_id` eller `created_at` mot rätt
+> deploy i steg 3. Går det inte: skriv **«miljö ej bekräftad»** i rapporten i stället
+> för «produktion». Vid tveksamhet: be om `chatId` och hoppa över gissningen.
+
 ### 2. Alla prod-DB-loggar för sajten
 
 ```powershell
@@ -143,9 +151,12 @@ node scripts/db/dump-logs.mjs --json `
   --kinds=drain --limit=100 --allow-insecure-ssl
 ```
 
-2. **Om drain-kinden returnerar minst en rad:** behandla det som console-sanningen.
-   Sök mönstren nedan i `drain`-raderna. **Kör inte** `vercel logs … --json` för
-   samma grepp — det dubblerar.
+2. **Om drain har rader som täcker körningens tidsfönster:** behandla det som
+   console-sanningen. Sök mönstren nedan i `drain`-raderna. **Kör inte**
+   `vercel logs … --json` för samma grepp — det dubblerar.
+   En rad som är äldre än körningen bevisar inte täckning: har drain rader men
+   ingen inom fönstret kring `created_at`, notera «drain aktiv men utan rader i
+   fönstret» och hämta `vercel logs` för just det fönstret.
 3. **Om drain är tom, saknas eller skippas** (`[]`, `skipped.drain`, tabell saknas,
    eller ingest inte konfigurerad): falla tillbaka till
 
@@ -225,7 +236,7 @@ upprepa inte samma 3c-mönster ur MCP/`vercel logs`.
 
 **d) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
 
-- Sök i appens runtime-loggar från (a) efter `timeout exceeded when trying to connect` och `EMAXCONNSESSION: max clients reached`. **0 träffar = poolen frisk** (normalläget; koden försvarar sig redan mot svälten).
+- Sök i appens runtime-loggar från (a) efter `timeout exceeded when trying to connect` och `EMAXCONNSESSION: max clients reached`. **0 träffar = inga sådana fel i det hämtade fönstret** — skriv så, inte «poolen är frisk». Ett begränsat eller ofullständigt loggurval kan inte bevisa frånvaro; normalläget är förvisso att koden redan försvarar sig mot svälten.
 - Valfritt live-mått (om Supabase-MCP är inloggad, **read-only**): `pg_stat_activity` — aktiva vs idle backends mot poolerns tak (Pro ~60, Free ~15 sessioner). Detta är *nuläge*, inte körningsfönstret.
 - **Tolkning — vrid inte `POSTGRES_POOL_MAX` blint, de två felen kräver MOTSATT fix:** `timeout exceeded when trying to connect` = per-instans-poolen för liten → *höj* `POSTGRES_POOL_MAX`. `EMAXCONNSESSION` = för många sessioner totalt (instanser × max) → *sänk* den / kör direkt-URL (`POSTGRES_URL_NON_POOLING`). Poolstorlek = samtidighet, **inte** hastighet — fler anslutningar gör inte queries snabbare. Mät vilket fel du har innan du ändrar; är båda 0 = lämna default (3). Bakgrund: backlog **M#db1** + `src/lib/db/client.ts`.
 
@@ -276,12 +287,17 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
 | Vercel runtime | felkluster / 5xx | MCP get_runtime_errors/logs |
 | App-console (2c) | postcheck-krasch, `/tmp`-slut, `stillMissing`, rutt-timeout, CSP — **en** källa | `--kinds=drain` om rader finns, annars `vercel logs --json` — aldrig båda |
-| DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = frisk) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
+| DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = inga träffar i fönstret) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
 | Preview (Fly) | boot/install/exit-tail | preview-host-loggar |
 
+Miljö: <Production / Preview / ej bekräftad> — <hur den bekräftades>
+Fönster: <since>–<until> (från created_at)
 Ej tillgängligt: <lista källor som saknades och varför>
 Säkerhet: <%>. Verifierat mot <källor>; inte live-kört mot X.
 ```
+
+Skriv «inga träffar i tillgängligt fönster», aldrig «inga fel finns». Redovisa
+luckor i `Ej tillgängligt` i stället för att tolka dem som friskt läge.
 
 ## Guardrails
 

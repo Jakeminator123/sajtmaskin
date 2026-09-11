@@ -73,4 +73,37 @@ describe("active documentation link checks", () => {
       },
     ]);
   });
+
+  it("rapporterar en spårad men raderad fil i stället för att krascha", async () => {
+    // `git ls-files` listar indexet, inte disken. En raderad men ostage:ad doc
+    // gav förut en rå ENOENT-stacktrace som varken namngav filens roll eller fixen.
+    const failures = await checkActiveDocLinks({
+      trackedPaths: ["README.md", "BORTTAGEN.md"],
+      readTrackedFile: async (path: string) => {
+        if (path === "BORTTAGEN.md") {
+          throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+        }
+        return "# Kvar";
+      },
+    });
+
+    expect(failures).toEqual([
+      {
+        sourcePath: "BORTTAGEN.md",
+        target: "BORTTAGEN.md",
+        reason: "tracked but deleted from disk — stage the deletion (git add <path>)",
+      },
+    ]);
+  });
+
+  it("sväljer inte ett riktigt läsfel", async () => {
+    await expect(
+      checkActiveDocLinks({
+        trackedPaths: ["README.md"],
+        readTrackedFile: async () => {
+          throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+        },
+      }),
+    ).rejects.toThrow("EACCES");
+  });
 });
