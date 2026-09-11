@@ -238,7 +238,10 @@ describe("lanyard mobile interactions", () => {
     expect(lanyard).toContain("applyLanyardTextureCrop");
     expect(lanyard).toContain("createCardGrainTexture");
     expect(lanyard).toContain("meshPhysicalMaterial");
+    expect(lanyard).toContain("useCompactLanyardCanvas");
     expect(lanyard).not.toContain("meshBasicMaterial map={texture}");
+    expect(lanyard).not.toContain("RedFormat");
+    expect(lanyard).not.toContain('emissive="#082422"');
 
     expect(journey).toContain('frameloop={sceneActive ? "always" : "never"}');
     expect(journey).toContain("setSceneActive(isNearViewport)");

@@ -22,6 +22,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier"
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
+import { createCardGrainTexture } from "@/components/landing-v2/lanyard-card-grain"
 import {
   LANYARD_CARD_LAYOUT,
   applyLanyardTextureCrop,
@@ -80,21 +81,21 @@ const FACE = getLanyardCardFaceSize()
 
 type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
-function createCardGrainTexture() {
-  const size = 256
-  const data = new Uint8Array(size * size)
-  for (let i = 0; i < data.length; i += 1) {
-    const x = i % size
-    const y = (i / size) | 0
-    data[i] = 188 + ((x * 13 + y * 37 + (x ^ y) * 5) % 55)
-  }
-  const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat)
-  texture.wrapS = THREE.RepeatWrapping
-  texture.wrapT = THREE.RepeatWrapping
-  texture.repeat.set(2.4, 3.4)
-  texture.colorSpace = THREE.NoColorSpace
-  texture.needsUpdate = true
-  return texture
+function useCompactLanyardCanvas() {
+  return useThree((state) => state.size.width < 480)
+}
+
+function LanyardLights() {
+  const compact = useCompactLanyardCanvas()
+  return (
+    <>
+      <ambientLight intensity={0.48} />
+      <directionalLight position={[3.2, 4.6, 4.2]} intensity={compact ? 1.05 : 1.15} />
+      {compact ? null : (
+        <directionalLight position={[-3.4, 1.2, 2.4]} intensity={0.35} color={ACCENT} />
+      )}
+    </>
+  )
 }
 
 function CameraRig() {
@@ -117,7 +118,10 @@ function CardBody({
   backTexture: THREE.Texture
   grain: THREE.Texture
 }) {
+  const compact = useCompactLanyardCanvas()
   const holeY = CARD_HEIGHT / 2 - 0.14
+  const faceClearcoat = compact ? 0.34 : 0.82
+  const bodyClearcoat = compact ? 0.28 : 0.55
   return (
     <>
       {/* Foliekant — ger tjocklek och metallglans när kortet snurrar. */}
@@ -141,7 +145,7 @@ function CardBody({
           metalness={0.42}
           roughness={0.46}
           roughnessMap={grain}
-          clearcoat={0.55}
+          clearcoat={bodyClearcoat}
           clearcoatRoughness={0.32}
           reflectivity={0.55}
         />
@@ -155,11 +159,9 @@ function CardBody({
           roughnessMap={grain}
           roughness={0.32}
           metalness={0.14}
-          clearcoat={0.82}
+          clearcoat={faceClearcoat}
           clearcoatRoughness={0.16}
           envMapIntensity={1.15}
-          emissive="#082422"
-          emissiveIntensity={0.18}
           toneMapped={false}
           polygonOffset
           polygonOffsetFactor={-1}
@@ -174,11 +176,9 @@ function CardBody({
           roughnessMap={grain}
           roughness={0.34}
           metalness={0.12}
-          clearcoat={0.78}
+          clearcoat={compact ? 0.3 : 0.78}
           clearcoatRoughness={0.2}
           envMapIntensity={1.05}
-          emissive="#061816"
-          emissiveIntensity={0.12}
           toneMapped={false}
           polygonOffset
           polygonOffsetFactor={-1}
@@ -524,9 +524,7 @@ export function LanyardCard({
       >
         <AdaptiveDpr />
         <CameraRig />
-        <ambientLight intensity={0.48} />
-        <directionalLight position={[3.2, 4.6, 4.2]} intensity={1.15} />
-        <directionalLight position={[-3.4, 1.2, 2.4]} intensity={0.35} color={ACCENT} />
+        <LanyardLights />
         <Physics gravity={[...CARD_GRAVITY]} timeStep={1 / 60}>
           <Band autoSwing={autoSwing} />
         </Physics>
