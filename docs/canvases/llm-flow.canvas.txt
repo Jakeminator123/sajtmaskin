@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "d00d8f59c",
+    "commit": "2e79aa33b",
     "commitDate": "2026-09-11",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 9,
-    "openP2": 6,
+    "openP2": 8,
     "openP3": 1,
     "blocked": 1,
     "shaky": 3,
@@ -185,15 +185,15 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 11,
+      "openBugs": 13,
       "openByPrio": {
         "P0": 0,
         "P1": 8,
-        "P2": 3,
+        "P2": 5,
         "P3": 0,
         "other": 0
       },
-      "churn": 12,
+      "churn": 11,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
@@ -303,7 +303,7 @@ const DATA: CanvasData = {
       "fynd": "`SM-003` Deploy-repair betraktar versionsglobal `repair_available` som bevis för att just den failade deploym…"
     }
   ],
-  "topOpenRisksOmitted": 3,
+  "topOpenRisksOmitted": 5,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

@@ -2,7 +2,6 @@
 id: gm-omrade-02-stabilitetstester
 status: done
 created: 2026-06-18
-linear: null
 parent: gm-00-master-plan
 supersedes: null
 ---

@@ -174,7 +174,7 @@ google-services.json
 .cursor/automation/input/
 .cursor/migration-archive/
 # Lokal inbox/cache för /buggrapport. BUG-SWARM-BACKLOG.md är enda buggsanning;
-# Linear eller denna katalog får aldrig ändra status på egen hand.
+# denna katalog får aldrig ändra status på egen hand. Ingen extern tracker.
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/bugs/*
 !.cursor/bugs/README.md

@@ -1,5 +1,8 @@
 {
-  // markdownlint tillför bara Problems-brus (ingen CI-grind). Av i workspace.
+  // markdownlint tillför bara Problems-brus (ingen CI-grind). Av i workspace,
+  // och tillägget ligger i extensions.json → unwantedRecommendations. Repots
+  // .markdownlint.json/.markdownlintignore togs bort 2026-09-11 av samma skäl:
+  // konfiguration för ett verktyg som inte körs blir bara en fil att underhålla.
   "markdownlint.enable": false,
 
   // ── Editor ──
@@ -19,7 +22,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "package-lock.json, .npmrc, tsconfig*.json, tsconfig.tsbuildinfo, next.config.*, next-env.d.ts, postcss.config.*, tailwind.config.*, eslint.config.*, .eslintcache, prettier.config.*, .prettierignore, knip.json, drizzle.config.*, components.json, vercel.json, vitest.*.ts, playwright*.config.ts, skills-lock.json, pyrightconfig.json, .token-status.json, requirements.*.txt, .editorconfig, .gitattributes, .node-version, .nvmrc, .tool-versions, .markdownlint.json, .markdownlintignore",
+    "package.json": "package-lock.json, .npmrc, tsconfig*.json, tsconfig.tsbuildinfo, next.config.*, next-env.d.ts, postcss.config.*, tailwind.config.*, eslint.config.*, .eslintcache, prettier.config.*, .prettierignore, knip.json, drizzle.config.*, components.json, vercel.json, vitest.*.ts, playwright*.config.ts, skills-lock.json, pyrightconfig.json, .token-status.json, requirements.*.txt, .editorconfig, .gitattributes, .node-version, .nvmrc, .tool-versions",
     ".gitignore": ".cursorignore, .cursorindexingignore"
   },
 

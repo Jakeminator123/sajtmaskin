@@ -10,32 +10,41 @@ för investigator/reviewer och Sol `high` för worker.
 
 ## Behörighet
 
-- Det här trusted personliga projektet använder den säkra interaktiva
-  standarden `approval_policy = "on-request"` och
-  `sandbox_mode = "workspace-write"`.
+Värdena ägs av `.codex/config.toml`. Ändras de där ska den här listan ändras i
+samma diff — `npm run workflow:contract` jämför filerna och blir röd annars.
+
+- `approval_policy = "on-request"` — **den enda kvarvarande grinden.** Codex
+  frågar innan ett kommando körs. Sänk den aldrig till `never`.
+- `sandbox_mode = "danger-full-access"` — ägarbeslut 2026-09-11. Codex sandbox
+  på Windows är opålitlig i den här uppsättningen; en halvt fungerande sandbox
+  ger falsk trygghet i stället för skydd. Konsekvens: skrivskyddet ligger nu
+  helt hos godkännandesteget och hos repots egna grindar (git-hooks,
+  `verify:pr`, PR-grinden) — inte hos processisolering.
+- `web_search = "live"` — färska svar prioriteras framför cachens säkerhet.
+- `model_verbosity = "low"` — Codex är sekundär agent i det här repot.
 - Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
   startad uppgift med host-managed sandbox kan fortfarande kräva värdens
   godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
-- Bredare åtkomst är ett uttryckligt undantag för den aktuella uppgiften, inte
-  projektets default. Branch-, worktree-, verifierings- och
-  destructive-action-reglerna gäller alltid.
-- Webbsökning använder `cached` som säkrare default. Autentisering och tokens
-  ligger utanför repot.
+- Branch-, worktree-, verifierings- och destructive-action-reglerna gäller
+  alltid. Autentisering och tokens ligger utanför repot.
 
 ## Så här ska projektet öppnas
 
-- Cursor: File → Open Folder på `C:\Users\jakob\dev\projects\sajtmaskin`.
-  `C:\Users\jakob\dev\projects\sajtmaskin` är läs-, test- och kontrollankare
-  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
-  `pr-workflow`, aldrig direkt i huvudcheckouten.
-- Primary folder i det sparade lokala Codex-projektet `sajtmaskin` är samma
-  repo-root: `C:\Users\jakob\dev\projects\sajtmaskin`. Registreringen gör inte
-  huvudcheckouten till en skrivyta.
-- Starta nya Codex-chattar från projektet `sajtmaskin`. Allt skrivarbete sker
-  i en egen Codex-worktree/branch per uppgift, baserad på färsk
-  `origin/master` — inte i huvudcheckouten.
-- Samma regel gäller när Cursor är stängt och Codex arbetar ensamt. Öppna då
-  Codex-worktreet i önskad editor eller terminal och arbeta färdigt där.
+Repo-roten är samma mapp för båda verktygen; skriv inte ut en maskinspecifik
+sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder
+(`.cursor/README.md`), och Codex-projektet `sajtmaskin` pekar på samma rot.
+
+**Codex är sekundär agent i det här repot.** `AGENTS.md` och `.cursor/rules/`
+äger arbetssättet; den här filen beskriver bara Codex-lagret.
+
+- **Varför Codex ändå använder worktree:** inte för att huvudcheckouten är
+  förbjuden — `AGENTS.md` säger uttryckligen att en vanlig agent jobbar i den
+  öppna checkouten. Skälet är att Cursor normalt äger huvudcheckouten samtidigt.
+  Två skrivande agenter i samma arbetskopia trampar på varandra, så Codex tar en
+  egen. Arbetar Codex ensamt och Cursor är stängt gäller `AGENTS.md` som vanligt.
+- **Bas:** följ `pr-workflow` § 1.2 — `origin/preview` för vanligt
+  utvecklingsarbete, `origin/master` bara när påståendet gäller produktion.
+- Registreringen av projektet gör inte huvudcheckouten till en skrivyta.
 - Handoff till `Local` görs bara när huvudcheckouten är verifierat ren och ingen
   annan process äger den. En branch får bara vara utcheckad i en worktree åt
   gången, och bara en aktör ansvarar för merge.

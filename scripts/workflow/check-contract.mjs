@@ -1325,6 +1325,19 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!worktreeGuard || worktreeGuard.failClosed !== true) {
     errors.push("Cursor worktree removal guard must fail closed");
   }
+  // `.cursor/mcp.json` left `.cursorignore` on an owner decision (2026-09-11)
+  // that rests on this hook existing: it denies a Read only when the file
+  // actually carries a secret-shaped field. Remove the hook and the file is
+  // readable unconditionally — the decision's premise is gone. Pin it here.
+  // It must stay fail-OPEN: it runs on every Read, and a crash that blocked
+  // every file in the editor would be far worse than the leak it prevents.
+  const beforeRead = hooks.hooks?.beforeReadFile ?? [];
+  const mcpReadGuard = beforeRead.find((hook) => /mcp-secret-read-guard\.mjs$/.test(hook.command));
+  if (!mcpReadGuard || mcpReadGuard.matcher !== "Read") {
+    errors.push("Cursor beforeReadFile must run mcp-secret-read-guard.mjs with matcher Read");
+  } else if (mcpReadGuard.failClosed === true) {
+    errors.push("mcp-secret-read-guard must fail open — it runs on every Read");
+  }
   if (!existsSync(resolve(root, ".github/pull_request_template.md"))) {
     errors.push("missing pull request template");
   } else {
@@ -1411,13 +1424,28 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     );
   }
   const codexConfig = read(root, ".codex/config.toml");
-  if (
-    !/^approval_policy\s*=\s*"on-request"\s*$/mu.test(codexConfig) ||
-    !/^sandbox_mode\s*=\s*"workspace-write"\s*$/mu.test(codexConfig) ||
-    !/^web_search\s*=\s*"cached"\s*$/mu.test(codexConfig) ||
-    /danger-full-access|web_search\s*=\s*"live"/u.test(codexConfig)
-  ) {
-    errors.push("project Codex defaults must remain interactive, workspace-scoped and cached");
+  // `approval_policy` is the one Codex control that survives an owner decision
+  // to drop the sandbox (2026-09-11): without it nothing asks before a command
+  // runs. It stays pinned. `never` is the specific value that removes the gate.
+  if (!/^approval_policy\s*=\s*"on-request"\s*$/mu.test(codexConfig)) {
+    errors.push('project Codex must keep approval_policy = "on-request" as the human gate');
+  }
+  // The other two are the owner's to choose, so pinning a value here would just
+  // go stale. What must not drift is the pair: a permission the config grants
+  // and the README still describes as something safer. That is the failure this
+  // check caught in practice, so assert coherence instead of a fixed value.
+  const codexReadme = read(root, ".codex/README.md");
+  for (const key of ["sandbox_mode", "web_search"]) {
+    const declared = new RegExp(`^${key}\\s*=\\s*"([^"]+)"\\s*$`, "mu").exec(codexConfig)?.[1];
+    if (!declared) {
+      errors.push(`.codex/config.toml must declare ${key} explicitly`);
+      continue;
+    }
+    if (!codexReadme.includes(`${key} = "${declared}"`)) {
+      errors.push(
+        `.codex/README.md must document ${key} = "${declared}" from .codex/config.toml in the same change`,
+      );
+    }
   }
   const decide818 = read(root, ".agents/skills/818-swarm-decide/SKILL.md");
   if (!decide818.includes("../pr-workflow/SKILL.md") || !decide818.includes("before writing")) {

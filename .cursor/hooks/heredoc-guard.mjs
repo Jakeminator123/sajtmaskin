@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 /**
- * Blocks bash heredocs (`<<EOF`, `<<'EOF'`, `<<-EOF`) in shell commands.
+ * Blocks bash heredocs (`<<EOF`, `<<'EOF'`, `<<-EOF`) in shell commands — but
+ * only where the shell actually is PowerShell.
  *
  * PowerShell has no heredoc. A heredoc there does not fail with "unknown
  * syntax" — it fails with `Missing file specification after redirection
  * operator`, because pwsh reads `<` as redirection. That error names neither
  * the heredoc nor the fix, so it costs a full round trip to diagnose.
+ *
+ * On Linux a heredoc is valid shell, and this project's hooks travel to the
+ * cloud agent image (`.cursor/Dockerfile`, `.cursor/environment.json`), which
+ * is Linux. Denying there would block correct code, so the SHELL decides — see
+ * `isPowerShellHost`: win32 (repo pins pwsh 7) or `$SHELL` naming pwsh.
+ * `SAJTMASKIN_SHELL_PLATFORM` overrides the platform for tests that must
+ * exercise the Windows verdict on any runner.
  *
  * Why a hook and not another rule line: `bash-och-pwsh.mdc` has said "use a
  * here-string, not `<<EOF`" from the start, and agents still emit it. The
@@ -129,7 +137,38 @@ function heredocOpener(segment) {
   return match[2];
 }
 
-export function decide(command) {
+/**
+ * Is the shell that will run this command PowerShell?
+ *
+ * The hook process is spawned by Cursor, not by the shell, so it cannot ask
+ * the shell directly. `$SHELL` is the one signal that survives, and it points
+ * in opposite directions on the two platforms — both verified 2026-09-11:
+ *   - win32: pwsh does NOT set `SHELL`; Git Bash / MSYS sets `/usr/bin/bash`.
+ *     So Windows means PowerShell (the repo pins pwsh 7) UNLESS `SHELL` names
+ *     a POSIX shell — then it is Git Bash and a heredoc is valid.
+ *   - elsewhere: bash/zsh users have `SHELL=/bin/bash|zsh`; a pwsh-on-Linux
+ *     user has `SHELL=…/pwsh`. WSL runs the hook inside Linux, so it lands here.
+ * The residual — pwsh chosen per-terminal without `$SHELL` reflecting it — is
+ * rare, and the hook is fail-open: the worst case is pwsh's own parse error,
+ * which was the status quo before this hook existed.
+ */
+const PWSH_SHELL_RE = /(?:^|[\\/])(?:pwsh|powershell)(?:\.exe)?$/iu;
+const POSIX_SHELL_RE = /(?:^|[\\/])(?:ba|z|da|k|fi)?sh(?:\.exe)?$/iu;
+
+export function isPowerShellHost({ platform, shell }) {
+  const named = String(shell ?? "").trim();
+  if (platform === "win32") return !POSIX_SHELL_RE.test(named);
+  return PWSH_SHELL_RE.test(named);
+}
+
+export function decide(
+  command,
+  { platform = shellPlatform(), shell = process.env.SHELL } = {},
+) {
+  // A heredoc is valid shell everywhere except PowerShell. Only deny where the
+  // command would actually fail.
+  if (!isPowerShellHost({ platform, shell })) return { permission: "allow" };
+
   let token = null;
   for (const segment of shellSegments(command)) {
     token = heredocOpener(segment);
@@ -143,24 +182,36 @@ export function decide(command) {
       `Blockerat: \`<<${token}\` är en bash-heredoc, och den här maskinen kör PowerShell 7.\n\n` +
       "pwsh tolkar `<` som omdirigering, så felet blir `Missing file specification after " +
       "redirection operator` — ett meddelande som varken nämner heredocen eller fixen.\n\n" +
-      "Använd en here-string i stället (`@'` och `'@` måste stå i kolumn 0):\n\n" +
-      "    $msg = @'\n" +
+      "**Commit-meddelande:** skriv texten till en fil och peka ut den. Det är den enda\n" +
+      "formen som passerar både det här skyddet och commit-/worktree-skyddet:\n\n" +
+      "    git commit -F .cursor/tmp/commit-msg.txt\n\n" +
+      "Skriv filen i ett eget steg (Cursor Write, eller `Set-Content -Encoding utf8`).\n" +
+      "Skicka **inte** meddelandet som `-m $msg`: variabelexpansion i ett git-kommando\n" +
+      "nekas av commit-skyddet.\n\n" +
+      "**Annan flerradig text i pwsh:** here-string (`@'` och `'@` i kolumn 0):\n\n" +
+      "    $text = @'\n" +
       "    rad ett\n" +
-      "\n" +
       "    rad tva\n" +
-      "    '@\n" +
-      "    git commit -m $msg\n\n" +
+      "    '@\n\n" +
       "`@'...'@` är literal, `@\"...\"@` expanderar variabler.",
     agent_message:
-      `Denied: \`<<${token}\` is a bash heredoc and this machine runs PowerShell 7 (see ` +
+      `Denied: \`<<${token}\` is a bash heredoc and this shell is PowerShell 7 (see ` +
       "`.cursor/rules/bash-och-pwsh.mdc`). pwsh reads `<` as redirection, so this would fail " +
-      "with `Missing file specification after redirection operator` rather than a useful error. " +
-      "Use a here-string: assign `$msg = @'` … `'@` (both tokens at column 0, nothing after the " +
-      "opening token) and pass `-m $msg`. Use `@'...'@` for literal text and `@\"...\"@` when you " +
-      "want variable expansion. This applies to the generic 'pass the commit message via a " +
-      "HEREDOC' template too — that template is bash and does not hold here. Do not work around " +
-      "this by hiding the heredoc behind another command.",
+      "with `Missing file specification after redirection operator` rather than a useful error.\n" +
+      "For a COMMIT MESSAGE use the single canonical form: write the message to a file in its " +
+      "own step (Write tool or `Set-Content -Encoding utf8`), then run " +
+      "`git commit -F .cursor/tmp/commit-msg.txt`. Do NOT use `-m $msg`: the commit guard denies " +
+      "variable expansion inside a git command, so that recipe is blocked by a different hook. " +
+      "For other multi-line pwsh text use a here-string (`@'` … `'@`, both tokens at column 0). " +
+      "The generic 'pass the commit message via a HEREDOC' template is bash and does not hold " +
+      "here. Do not work around this by hiding the heredoc behind another command.",
   };
+}
+
+/** Test seam: force a platform verdict on any runner. */
+function shellPlatform() {
+  const override = process.env.SAJTMASKIN_SHELL_PLATFORM;
+  return override && override.trim() ? override.trim() : process.platform;
 }
 
 let response = { permission: "allow" };

@@ -19,7 +19,11 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 | `Remove-Item -Recurse -Force` | `rm -rf` |
 | `-LiteralPath` vid `[chatId]`-liknande sökvägar | wildcard-tolkning av `[ ]` |
 
-Kedja med `;` i en kommandosträng. Oberoende kommandon: parallella verktygsanrop. Commit-meddelande: pwsh here-string (inte bash-heredoc) — se felkatalogen vid behov.
+Kedja med `;` i en kommandosträng. Oberoende kommandon: parallella verktygsanrop.
+
+**Commit-meddelande:** skriv texten till fil i ett eget steg och kör
+`git commit -F .cursor/tmp/commit-msg.txt`. Varken bash-heredoc eller
+`-m $msg` fungerar — hookarna nekar båda. Detalj: felkatalogen.
 
 **RTK:** global Cursor-hook kan komprimera Shell-output. Lita på exit code, inte på kort stdout. Aldrig manuellt `rtk git log` (merge-bug). Rå engångskörning: `RTK_DISABLED=1 …` (unix-prefix). Detaljer: `@.cursor/rules/rtk-terminal.mdc`.
 

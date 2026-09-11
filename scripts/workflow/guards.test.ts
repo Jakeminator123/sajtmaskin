@@ -19,6 +19,21 @@ import {
   isCommitCommand,
 } from "./commit-guard.mjs";
 
+/**
+ * Ägarbeslut 2026-09-11: protected-path-träffar ger `allow` med
+ * `agent_message` i stället för `ask`. Testerna måste därför skilja en
+ * FLAGGAD allow (agenten fick veta vilka skyddade ytor som träffades) från en
+ * REN allow (inget att rapportera) — annars bevisar de bara att inget nekas.
+ */
+function flagged(verdict: { permission: string; agent_message?: string }): boolean {
+  return (
+    verdict.permission === "allow" &&
+    typeof verdict.agent_message === "string" &&
+    /protected or Backoffice-linked/u.test(verdict.agent_message)
+  );
+}
+const CLEAN_ALLOW = { permission: "allow" };
+
 describe("alias lookup fast path", () => {
   it.each([
     "echo hello",
@@ -245,12 +260,12 @@ describe("commit guard", () => {
     expect(matcher.test("echo ok")).toBe(false);
   });
 
-  it("asks for protected unstaged files included by -am", () => {
+  it("flags protected unstaged files included by -am", () => {
     const git = vi.fn((args: string[]) => {
       if (args[0] === "branch") return ["fix/test"];
       return args.includes("--cached") ? [] : ["config/agent-workflow.json"];
     });
-    expect(decideCommitCommand("git -C . commit -am 'x'", { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand("git -C . commit -am 'x'", { git }))).toBe(true);
   });
 
   it("keeps the protected source path when a commit contains a rename", () => {
@@ -263,7 +278,7 @@ describe("commit guard", () => {
       }
       return ["docs/agent-workflow.json"];
     });
-    expect(decideCommitCommand("git commit -m x", { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand("git commit -m x", { git }))).toBe(true);
     expect(git).toHaveBeenCalledWith(
       ["diff", "--cached", "--name-status", "-z"],
       commandWorkingDirectory("git commit -m x", process.cwd()),
@@ -283,8 +298,8 @@ describe("commit guard", () => {
       if (cwd === worktree) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
-    expect(decideCommitCommand("cd scripts; git commit -am x", { git }).permission).toBe("allow");
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("ask");
+    expect(decideCommitCommand("cd scripts; git commit -am x", { git })).toEqual(CLEAN_ALLOW);
+    expect(flagged(decideCommitCommand("git commit -am x", { git }))).toBe(true);
   });
 
   it("does not let a pipe carry cwd, while && and ; still do", () => {
@@ -307,21 +322,17 @@ describe("commit guard", () => {
     // Explicit aliases keep this unit test off a real `git config` subprocess.
     const aliases = new Set<string>();
     expect(
-      decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("ask");
+      flagged(decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd, aliases })),
+    ).toBe(true);
     expect(
-      decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
     expect(
-      decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
     expect(
-      decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd, aliases })
-        .permission,
-    ).toBe("allow");
+      decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd, aliases }),
+    ).toEqual(CLEAN_ALLOW);
   });
 
   it("denies when git -C targets the trunk checkout behind an earlier cd", () => {
@@ -336,8 +347,8 @@ describe("commit guard", () => {
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
     expect(
-      decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git }).permission,
-    ).toBe("ask");
+      flagged(decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git })),
+    ).toBe(true);
   });
 
   it("does not read git commit -C as a directory", () => {
@@ -409,14 +420,14 @@ describe("commit guard", () => {
       if (args[0] === "branch") return ["fix/test"];
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
-    expect(decideCommitCommand(command, { git }).permission).toBe("ask");
+    expect(flagged(decideCommitCommand(command, { git }))).toBe(true);
   });
 
-  it("allows ordinary commits on master for unprotected source", () => {
+  it("allows ordinary commits on master for unprotected source, without a flag", () => {
     const git = vi.fn((args: string[]) =>
       args[0] === "branch" ? ["master"] : ["src/components/example.tsx"],
     );
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("allow");
+    expect(decideCommitCommand("git commit -am x", { git })).toEqual(CLEAN_ALLOW);
   });
 
   it("allows the same commit only with reasoned policy break-glass", () => {
@@ -433,6 +444,61 @@ describe("commit guard", () => {
         },
       }).permission,
     ).toBe("allow");
+  });
+
+  it("säger om den skyddade filen ingår i committen eller bara är smutsig", () => {
+    // Friktionen som motiverar texten: en README-commit frågade om en skyddad
+    // fil som bara låg ändrad i arbetskopian, formulerad som om den ingick.
+    const dirtyOnly = vi.fn((args: string[]) =>
+      args[0] === "branch"
+        ? ["feat/x"]
+        : args.includes("--cached")
+          ? []
+          : ["config/agent-workflow.json"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git: dirtyOnly })).toEqual(
+      expect.objectContaining({
+        permission: "allow",
+        user_message: expect.stringContaining("Inget skyddat är stage:at"),
+        agent_message: expect.stringContaining("only dirty in the worktree"),
+      }),
+    );
+
+    const stagedProtected = vi.fn((args: string[]) =>
+      args[0] === "branch" ? ["feat/x"] : ["config/agent-workflow.json"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git: stagedProtected })).toEqual(
+      expect.objectContaining({
+        permission: "allow",
+        user_message: expect.stringContaining("Committen träffar skyddade"),
+      }),
+    );
+    expect(
+      decideCommitCommand("git commit -m x", { git: stagedProtected }),
+    ).not.toEqual(
+      expect.objectContaining({
+        user_message: expect.stringContaining("Ändrad i arbetskopian, ej stage:ad"),
+      }),
+    );
+  });
+
+  it("har en egen rubrik när bara Backoffice triggar, utan skyddade filer", () => {
+    // Tredje läget: inget protected alls, bara en Backoffice-sida. Den gamla
+    // texten hade då påstått att «arbetskopian har skyddade ändringar».
+    const git = vi.fn((args: string[]) =>
+      args[0] === "branch" ? ["feat/x"] : ["backoffice/pages/eval_page.py"],
+    );
+    expect(decideCommitCommand("git commit -m x", { git })).toEqual(
+      expect.objectContaining({
+        permission: "allow",
+        user_message: expect.stringContaining("Committen träffar Backoffice-kopplade ytor."),
+      }),
+    );
+    expect(decideCommitCommand("git commit -m x", { git })).not.toEqual(
+      expect.objectContaining({
+        user_message: expect.stringContaining("skyddade ändringar"),
+      }),
+    );
   });
 
   it("denies detached HEAD before inspecting file impact", () => {
@@ -509,6 +575,117 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  // Extern granskning 2026-09-11 (8/10): `git push` är allowlistat i
+  // permissions.json, och bara GIT-hooken (som kräver hooks:install) stoppade
+  // force-push. Cursor-lagret måste vara deterministiskt på egen hand.
+  it.each([
+    "git push --force origin feat/x",
+    "git push -f",
+    "git push origin +feat/x",
+    "git push --force-with-lease origin feat/x",
+    "git push --force-with-lease=feat/x:abc origin feat/x",
+    "git push --force-if-includes",
+    "git push origin --delete feat/x",
+    "git push -d origin feat/x",
+    "git.exe push --force",
+    // Andra rundan (7/10, 8/10): kolon-refspec är delete; mirror/prune raderar
+    // allt remote som saknas lokalt; --no-verify hoppar över git-hooken.
+    "git push origin :feat/x",
+    'git push origin ":feat/x"',
+    "git push --mirror origin",
+    "git push --prune origin",
+    "git push --no-verify origin HEAD",
+  ])("denies force-push, +refspec and remote-delete: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("still lets an ordinary push reach the heavy path", () => {
+    expect(cheapShellDecision("git push")).toBeNull();
+    expect(cheapShellDecision("git push -u origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git push origin feat/x")).toBeNull();
+    // Kolon MITT i en refspec är source:dest, inte delete.
+    expect(cheapShellDecision("git push origin HEAD:feat/x")).toBeNull();
+    expect(cheapShellDecision("git push --tags")).toBeNull();
+    expect(decideWorktree("git push -u origin HEAD", { aliases: new Set() })).toEqual({
+      permission: "allow",
+    });
+  });
+
+  // Extern granskning (5/10): `git switch` allowlistat → `-f` kastade
+  // ocommitterat arbete utan fråga. Nu deny, inte bara «heavy».
+  it.each([
+    "git switch -f main",
+    "git switch --discard-changes main",
+    "git checkout -f main",
+    "git checkout --force main",
+    "git checkout --discard-changes -- .",
+  ])("denies discarding local work: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("keeps plain switch/checkout and merge-side selection allowed", () => {
+    expect(cheapShellDecision("git switch main")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git checkout feat/x")).toEqual({ permission: "allow" });
+    // --ours/--theirs resolve conflicts on named paths; not a tree-wide discard.
+    expect(cheapShellDecision("git checkout --ours src/a.ts")).toBeNull();
+    expect(decideWorktree("git checkout --ours src/a.ts", { aliases: new Set() })).toEqual({
+      permission: "allow",
+    });
+  });
+});
+
+describe("read-only git with expanded arguments", () => {
+  // Det vanligaste falska nekandet i praktiken: `$_`/`$sha` i argumenten till
+  // `git log`/`git diff`/`git show`. Ett literalt `git` + literalt read-only-
+  // subkommando kan inte bli en skrivning av vad argumenten än expanderar till.
+  it.each([
+    "git log -1 $sha",
+    "git log --oneline $from..$to",
+    "git diff $a $b",
+    "git show $ref:$path",
+    'git.exe log -1 --format="%h" $branch',
+    "git rev-parse $ref",
+    "git merge-base $a $b",
+  ])("allows: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+    expect(decideCommitCommand(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+  });
+
+  // Motprov: expansionen får inte sitta i executable, globala flaggor eller
+  // subkommandot — där kan den byta vad som körs.
+  it.each([
+    "git $sub x",
+    "$(command -v git) log -1",
+    "git -C $dir log -1",
+    "git --git-dir=$d log",
+    "git push $remote",
+    "git commit -m $msg",
+    "git ${cmd} -1",
+    // git INSIDE a substitution is a different shape: the hook does not parse
+    // `$(…)` payloads and stays conservative there.
+    'Write-Host "$(git rev-list --count $base..HEAD)"',
+    // A pwsh script block puts a keyword and `{` before `git`, so `invokesGit`
+    // does not bind it. Known limitation; write the git line on its own.
+    'foreach ($b in $branches) { git log -1 --format="%h %s" $b }',
+  ])("still denies when the git invocation itself is dynamic: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+  });
+
+  // Pre-existing hole closed 2026-09-11: git that OPENS a substitution inside a
+  // string was one opaque token and never counted as git-looking, so the whole
+  // command was allowed — including a force-push or a BRA-branch delete.
+  it.each([
+    'Write-Host "$(git push --force origin master)"',
+    'Write-Host "$(git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA)"',
+    "$x = \"$(git worktree remove ../victim --force)\"",
+    "echo `git push --force`",
+  ])("denies git hidden inside a substitution: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
   });
 });
 

@@ -37,7 +37,8 @@ push-grind. Det kompletta agent→PR-flödet finns i
 | `canvas:check`         | Matchar canvasens backlog-totals/prio/processdata Aktiv kö, och nämns inget stale `SM-###`? | Kör `npm run canvas:build` efter backlogändring.                                                  |
 | `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                                           | Se nästa avsnitt.                                                                                 |
 | `clean:orphans:dry`    | Vilka regenererbara skräpfiler _skulle_ städas?                                             | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort.                           |
-| `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas?                | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs).    |
+| `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas?                | Dry-run — `npm run clean:scratch:apply` tar bort på riktigt (behåller 3 nyaste **och** yngre än 14 dagar). Global svepning: eget städuppdrag. En enskild körning rensar bara sin egen yta med `node scripts/dev/clean-scratch.mjs --apply --only <yta>`. |
+| `doctor`               | Har min **maskin** drivit? RTK-hook, live-`mcp.json` mot mallen, dubblerade skill-rötter, plugin-kostnad. | Read-only och aldrig blockerande. Körs tyst i `predev`; kör den fullt efter en Cursor-ominstallation eller ny maskin. Fångar det CI aldrig ser, eftersom inget av det ligger i git. |
 
 ## Full dödkods-rapport (`npm run knip`)
 

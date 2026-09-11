@@ -109,8 +109,16 @@ För varje uppföljning (default 2; 1–3):
 ### 5. Notiser + ev. logg-korsref
 
 - Skriv en notis-fil: `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md` (tidsstämpel:
-  `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan. Kör sedan
-  `npm run clean:scratch:apply` så `runs/` håller 3 nyaste / raderar >14 dagar.
+  `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan. Rensa sedan **bara den
+  här ytan** så `runs/` håller 3 nyaste och yngre än 14 dagar:
+
+  ```powershell
+  node scripts/dev/clean-scratch.mjs --apply --only .cursor/logg-internet/runs
+  ```
+
+  Kör aldrig blanka `npm run clean:scratch:apply` här — den globala städningen rör
+  även handoffs, kedja-kandidater, `.cursor/tmp`, `logs/` och `.env-backups`, som
+  den här körningen inte äger. Använd `node`, inte `npm run --` (npm äter flaggan).
 - **Valfritt** (om `loggar` eller Felsökare): kör **bara** `/logg` för `chatId` och
   väv in resultatet. `/logg` äger redan drain (`--kinds=drain`) **eller**
   `vercel logs`-fallback — hämta **inte** drain/console en andra gång här. Annars

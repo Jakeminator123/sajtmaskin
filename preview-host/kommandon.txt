@@ -1,4 +1,0 @@
-cd preview-host
-npm run check
-npm run smoke
-npm start

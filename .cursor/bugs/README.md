@@ -2,7 +2,7 @@
 
 Valfri **lokal evidens-yta** för buggar — skärmdumpar, långa console-/network-dumpar och repro-anteckningar som inte ryms i en backlog-tabellcell. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
 
-> **Källan till sanning är [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md)** (repo-rot). Den här mappen är **inte** en parallell bugglista och **inte** en tracker — bara lokal arbetsyta. Ingen Linear, ingen extern issue-tjänst används.
+> **Källan till sanning är [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md)** (repo-rot). Den här mappen är **inte** en parallell bugglista och **inte** en tracker — bara lokal arbetsyta. Ingen extern issue-tjänst används.
 
 ## Syfte
 
@@ -19,14 +19,21 @@ Mappen är **inte** i `.cursorignore`, så agenter kan läsa innehållet.
 
 ## Status
 
-Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen evidens-snapshot, inte en status-källa. När en bugg fixas: flytta backlog-raden till `## Arkiv` i samma fil och radera ev. lokal evidens-fil här. `npm run clean:scratch:apply` håller de tre nyaste som skyddsnät.
+Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen evidens-snapshot, inte en status-källa. När en bugg fixas: flytta backlog-raden till `## Arkiv` i samma fil och radera ev. lokal evidens-fil här.
+
+Skyddsnätet är **tre nyaste och yngre än 14 dagar** — en äldre evidensfil tas bort även om taket inte är nått. Städa ytan explicit:
+
+```powershell
+node scripts/dev/clean-scratch.mjs --apply --only .cursor/bugs
+```
 
 ## Filnamn-konvention
 
 ```text
-YYYY-MM-DD_HHMM_M<n>_<kort-slug>.md
+YYYY-MM-DD_HHMM_SM-###_<kort-slug>.md
 ```
 
-- `M<n>` = samma källa-id som backlog-raden (manuellt rapporterad bugg).
+- `SM-###` = exakt samma id som backlog-raden. Gamla `M#`-taggar är pensionerade
+  och får inte användas i nya filer (`/buggrapport` § Stabilt ID).
 - Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
 - Slug: 3–6 ord, kebab-case, transliterera å→a, ä→a, ö→o.
