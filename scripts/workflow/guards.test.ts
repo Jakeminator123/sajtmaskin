@@ -576,6 +576,107 @@ describe("cheap read-only git path", () => {
     expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
   });
+
+  // Extern granskning 2026-09-11 (8/10): `git push` är allowlistat i
+  // permissions.json, och bara GIT-hooken (som kräver hooks:install) stoppade
+  // force-push. Cursor-lagret måste vara deterministiskt på egen hand.
+  it.each([
+    "git push --force origin feat/x",
+    "git push -f",
+    "git push origin +feat/x",
+    "git push --force-with-lease origin feat/x",
+    "git push --force-with-lease=feat/x:abc origin feat/x",
+    "git push --force-if-includes",
+    "git push origin --delete feat/x",
+    "git push -d origin feat/x",
+    "git.exe push --force",
+  ])("denies force-push, +refspec and remote-delete: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("still lets an ordinary push reach the heavy path", () => {
+    expect(cheapShellDecision("git push")).toBeNull();
+    expect(cheapShellDecision("git push -u origin HEAD")).toBeNull();
+    expect(cheapShellDecision("git push origin feat/x")).toBeNull();
+    expect(decideWorktree("git push -u origin HEAD", { aliases: new Set() })).toEqual({
+      permission: "allow",
+    });
+  });
+
+  // Extern granskning (5/10): `git switch` allowlistat → `-f` kastade
+  // ocommitterat arbete utan fråga. Nu deny, inte bara «heavy».
+  it.each([
+    "git switch -f main",
+    "git switch --discard-changes main",
+    "git checkout -f main",
+    "git checkout --force main",
+    "git checkout --discard-changes -- .",
+  ])("denies discarding local work: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("keeps plain switch/checkout and merge-side selection allowed", () => {
+    expect(cheapShellDecision("git switch main")).toEqual({ permission: "allow" });
+    expect(cheapShellDecision("git checkout feat/x")).toEqual({ permission: "allow" });
+    // --ours/--theirs resolve conflicts on named paths; not a tree-wide discard.
+    expect(cheapShellDecision("git checkout --ours src/a.ts")).toBeNull();
+    expect(decideWorktree("git checkout --ours src/a.ts", { aliases: new Set() })).toEqual({
+      permission: "allow",
+    });
+  });
+});
+
+describe("read-only git with expanded arguments", () => {
+  // Det vanligaste falska nekandet i praktiken: `$_`/`$sha` i argumenten till
+  // `git log`/`git diff`/`git show`. Ett literalt `git` + literalt read-only-
+  // subkommando kan inte bli en skrivning av vad argumenten än expanderar till.
+  it.each([
+    "git log -1 $sha",
+    "git log --oneline $from..$to",
+    "git diff $a $b",
+    "git show $ref:$path",
+    'git.exe log -1 --format="%h" $branch',
+    "git rev-parse $ref",
+    "git merge-base $a $b",
+  ])("allows: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+    expect(decideCommitCommand(command, { aliases: new Set() })).toEqual({ permission: "allow" });
+  });
+
+  // Motprov: expansionen får inte sitta i executable, globala flaggor eller
+  // subkommandot — där kan den byta vad som körs.
+  it.each([
+    "git $sub x",
+    "$(command -v git) log -1",
+    "git -C $dir log -1",
+    "git --git-dir=$d log",
+    "git push $remote",
+    "git commit -m $msg",
+    "git ${cmd} -1",
+    // git INSIDE a substitution is a different shape: the hook does not parse
+    // `$(…)` payloads and stays conservative there.
+    'Write-Host "$(git rev-list --count $base..HEAD)"',
+    // A pwsh script block puts a keyword and `{` before `git`, so `invokesGit`
+    // does not bind it. Known limitation; write the git line on its own.
+    'foreach ($b in $branches) { git log -1 --format="%h %s" $b }',
+  ])("still denies when the git invocation itself is dynamic: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+  });
+
+  // Pre-existing hole closed 2026-09-11: git that OPENS a substitution inside a
+  // string was one opaque token and never counted as git-looking, so the whole
+  // command was allowed — including a force-push or a BRA-branch delete.
+  it.each([
+    'Write-Host "$(git push --force origin master)"',
+    'Write-Host "$(git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA)"',
+    "$x = \"$(git worktree remove ../victim --force)\"",
+    "echo `git push --force`",
+  ])("denies git hidden inside a substitution: %s", (command) => {
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+  });
 });
 
 describe("hook CLI contract", () => {

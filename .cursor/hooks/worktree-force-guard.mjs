@@ -283,10 +283,16 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     const expandableTokens = shellTokens(segment.replace(/'[^']*'/gu, ""));
     const dynamicGit = hasDynamicGitExecutable(expandableTokens, aliases);
     const dequoted = segment.replace(/["'\\]/gu, "");
+    // `$(git …)` / `` `git …` `` inside a string never reached this point: the
+    // substitution was one opaque token and the prose regex requires
+    // whitespace before `git`. A `Write-Host "$(git push --force …)"` therefore
+    // ran uninspected. Treat a git that opens a substitution as git-looking so
+    // it falls into the dynamic branch below and is denied (found 2026-09-11).
     const looksLikeGit =
       gitIndex >= 0 ||
       dynamicGit ||
-      /(?:^|[\s;&|])(?:[^\s;&|/\\]+[/\\])*git(?:\.exe)?\b/iu.test(dequoted);
+      /(?:^|[\s;&|])(?:[^\s;&|/\\]+[/\\])*git(?:\.exe)?\b/iu.test(dequoted) ||
+      /(?:\$\(|`)\s*(?:[^\s;&|/\\()`]+[/\\])*git(?:\.exe)?\b/iu.test(segment);
     if (!looksLikeGit) return false;
     if (aliases === null) return true;
 
@@ -294,13 +300,36 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     if (injectsAliasEnvironment && (gitIndex >= 0 || dynamicGit)) return true;
     if (dynamicGit) return true;
 
+    const subcommand = gitSubcommand(tokens, gitIndex);
+
     // Single-quoted shell text is literal. Everything else below can change
     // the executable/subcommand after the hook has inspected the raw string.
+    //
+    // Exception (2026-09-11): a LITERAL `git` with a LITERAL read-only
+    // subcommand cannot be turned into a write by whatever its arguments
+    // expand to — `git log $sha`, `git diff $a $b`, `git show $ref:$path` stay
+    // reads no matter what `$sha` becomes. Denying those was the single most
+    // frequent false positive in practice (a `foreach` over branches with
+    // `$_` in a `git log` line). The executable and subcommand tokens are still
+    // required to be expansion-free; only the args may expand.
     const expandable = segment.replace(/'[^']*'/gu, "");
-    if (/\$\(|`|\$\{|\$[A-Za-z_]/u.test(expandable)) return true;
+    if (/\$\(|`|\$\{|\$[A-Za-z_]/u.test(expandable)) {
+      const subcommandIndex = tokens.findIndex(
+        (token, index) => index > gitIndex && token.toLowerCase() === subcommand,
+      );
+      const literalReadOnly =
+        gitIndex >= 0 &&
+        subcommand !== null &&
+        subcommandIndex > gitIndex &&
+        READ_ONLY_GIT_SUBCOMMANDS.has(subcommand) &&
+        // Everything from `git` through the subcommand itself must be literal;
+        // an expansion in a global option (`git -C $dir log`) or in the
+        // subcommand slot would let the read become something else.
+        !tokens.slice(gitIndex, subcommandIndex + 1).some((token) => SHELL_EXPANSION.test(token));
+      if (!literalReadOnly) return true;
+    }
     if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(segment)) return true;
 
-    const subcommand = gitSubcommand(tokens, gitIndex);
     return subcommand !== null && aliases.has(subcommand);
   };
   return segments.some(inspect);
@@ -453,16 +482,13 @@ function classifyGitInvocation(subcommand, args) {
   }
 
   if (subcommand === "checkout" || subcommand === "switch") {
-    if (
-      args.some(
-        (token) =>
-          token === "-f" ||
-          token === "--force" ||
-          token === "--discard-changes" ||
-          token === "--ours" ||
-          token === "--theirs",
-      )
-    ) {
+    // `-f` / `--discard-changes` throw away uncommitted work in the tree with
+    // no recovery path. With `git switch` allowlisted in permissions.json this
+    // would otherwise run without anyone seeing it (extern granskning, 5/10).
+    if (args.some((token) => token === "-f" || token === "--force" || token === "--discard-changes")) {
+      return "deny-discard";
+    }
+    if (args.some((token) => token === "--ours" || token === "--theirs")) {
       return "heavy";
     }
     const parsed = takeNamedArgs(
@@ -486,6 +512,26 @@ function classifyGitInvocation(subcommand, args) {
       )
     ) {
       return "deny-immutable";
+    }
+    // Force-push was only stopped by the GIT pre-push hook, which exists only
+    // after `npm run hooks:install`. With `git push` allowlisted in
+    // permissions.json the Cursor layer has to be deterministic about it too
+    // (extern granskning, 8/10). `--force-with-lease` is included: the repo
+    // never rewrites shared history without break-glass, and break-glass is a
+    // human running git outside the agent's shell.
+    if (
+      args.some(
+        (token) =>
+          token === "-f" ||
+          token === "--force" ||
+          token.startsWith("--force-with-lease") ||
+          token === "--force-if-includes" ||
+          token === "--delete" ||
+          token === "-d" ||
+          /^\+\S/u.test(token),
+      )
+    ) {
+      return "deny-force-push";
     }
     return "heavy";
   }
@@ -522,8 +568,37 @@ export function cheapShellDecision(command) {
   };
   walk(command);
   if (verdicts.includes("deny-immutable")) return immutableBranchDenial();
+  if (verdicts.includes("deny-force-push")) return forcePushDenial();
+  if (verdicts.includes("deny-discard")) return discardDenial();
   if (verdicts.includes("heavy")) return null;
   return { permission: "allow" };
+}
+
+export function forcePushDenial() {
+  return {
+    permission: "deny",
+    user_message:
+      "Blockerat: force-push, `+refspec` eller remote-delete via `git push`. Repot skriver aldrig om " +
+      "delad historik från agentens shell; remote-delete ägs av GitHubs delete_branch_on_merge eller " +
+      "städwrappern. Hämta remote och bevara commits. Break-glass är ett ägarbeslut utanför agenten.",
+    agent_message:
+      "Denied: force-push (-f/--force/--force-with-lease/--force-if-includes), `+refspec` or `--delete` " +
+      "on `git push`. Fetch and preserve remote commits instead. Remote branch deletion belongs to " +
+      "GitHub delete_branch_on_merge or the canonical cleanup wrapper. Do not work around this with " +
+      "another command.",
+  };
+}
+
+export function discardDenial() {
+  return {
+    permission: "deny",
+    user_message:
+      "Blockerat: `git checkout/switch -f` eller `--discard-changes` kastar ocommitterat arbete utan " +
+      "återställningsväg. Stash:a eller committa först, eller låt ägaren göra det.",
+    agent_message:
+      "Denied: `git checkout -f`, `git switch -f` and `--discard-changes` drop uncommitted work with no " +
+      "recovery path. Use `git stash` or commit first. Do not work around this with another command.",
+  };
 }
 
 export function isRawWorktreeRemove(segment) {
