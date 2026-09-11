@@ -69,8 +69,16 @@ async function simulateDanglingCard() {
     initialImpulse,
     cameraDistance,
     cameraFovDegrees,
+    cameraY,
+    cameraLookAtY,
+    gravity,
+    colliderHalfExtents,
+    cardLinearDamping,
+    cardAngularDamping,
+    ropeLinearDamping,
+    ropeAngularDamping,
   } = LANYARD_CARD_LAYOUT;
-  const world = new RAPIER.World({ x: 0, y: -40, z: 0 });
+  const world = new RAPIER.World({ x: gravity[0], y: gravity[1], z: gravity[2] });
   try {
     world.timestep = 1 / 60;
 
@@ -81,8 +89,8 @@ async function simulateDanglingCard() {
       const body = world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(0, fixedAnchorY - ropeSegmentLength * (index + 1), 0)
-          .setLinearDamping(2)
-          .setAngularDamping(2),
+          .setLinearDamping(ropeLinearDamping)
+          .setAngularDamping(ropeAngularDamping),
       );
       world.createCollider(RAPIER.ColliderDesc.ball(0.1), body);
       return body;
@@ -92,10 +100,17 @@ async function simulateDanglingCard() {
     const card = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(0, cardBodyY, 0)
-        .setLinearDamping(2.5)
-        .setAngularDamping(2.5),
+        .setLinearDamping(cardLinearDamping)
+        .setAngularDamping(cardAngularDamping),
     );
-    world.createCollider(RAPIER.ColliderDesc.cuboid(0.85, 1.2, 0.02), card);
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(
+        colliderHalfExtents[0],
+        colliderHalfExtents[1],
+        colliderHalfExtents[2],
+      ),
+      card,
+    );
 
     let previousBody = fixed;
     for (const ropeBody of ropeBodies) {
@@ -120,8 +135,8 @@ async function simulateDanglingCard() {
       0.1,
       100,
     );
-    camera.position.set(0, 0, cameraDistance);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, cameraY, cameraDistance);
+    camera.lookAt(0, cameraLookAtY, 0);
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
 
@@ -199,6 +214,19 @@ describe("lanyard mobile interactions", () => {
     expect(source).not.toContain('touchAction: runPhysics ? "none"');
   });
 
+  it("shares texture crops between the 3D card and the 2D fallback", () => {
+    const experience = readComponent("lanyard-experience.tsx");
+    const hero = readFileSync(
+      resolve(process.cwd(), "src/components/landing-v2/landing-hero.tsx"),
+      "utf8",
+    );
+
+    expect(experience).toContain("lanyardTextureToCss");
+    expect(experience).toContain("LanyardBrandFace");
+    expect(hero).toContain("h-[240px]");
+    expect(hero).toContain("max-w-[440px]");
+  });
+
   it("keeps the interactive canvas within a reduced adaptive render budget", () => {
     const lanyard = readComponent("lanyard-card.tsx");
     const journey = readComponent("how-it-works-scene.tsx");
@@ -207,6 +235,10 @@ describe("lanyard mobile interactions", () => {
     expect(lanyard).toContain("dpr={[1, 1.35]}");
     expect(lanyard).toContain("<Environment resolution={64}>");
     expect(lanyard).toContain("const bandPoints = useRef");
+    expect(lanyard).toContain("applyLanyardTextureCrop");
+    expect(lanyard).toContain("createCardGrainTexture");
+    expect(lanyard).toContain("meshPhysicalMaterial");
+    expect(lanyard).not.toContain("meshBasicMaterial map={texture}");
 
     expect(journey).toContain('frameloop={sceneActive ? "always" : "never"}');
     expect(journey).toContain("setSceneActive(isNearViewport)");

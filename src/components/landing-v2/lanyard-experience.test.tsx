@@ -74,6 +74,7 @@ describe("LanyardExperience", () => {
       expect(screen.getByTestId("lanyard-static")).toBeTruthy();
     });
     expect(screen.getByTestId("lanyard-static").className).toContain("overflow-hidden");
+    expect(screen.getByTestId("lanyard-static").querySelector("img")).toBeTruthy();
     expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 

@@ -5,10 +5,10 @@
  * hänger från toppen av hjältesektionen. Kortet svänger av sig självt och går
  * att dra/kasta med muspekaren eller touch. Byggt med @react-three/rapier för
  * fysik och meshline för själva bandet. Inga externa 3D-modeller används —
- * kortet byggs av en RoundedBox och en textur som genereras i public/branding.
+ * kortet byggs av en RoundedBox, foliekant och belysta texturytor.
  */
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import * as THREE from "three"
 import { Canvas, extend, useFrame, useThree } from "@react-three/fiber"
 import { AdaptiveDpr, Environment, Lightformer, RoundedBox, useTexture } from "@react-three/drei"
@@ -24,6 +24,8 @@ import {
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
 import {
   LANYARD_CARD_LAYOUT,
+  applyLanyardTextureCrop,
+  getLanyardCardFaceSize,
   stabilizeLanyardAngularVelocity,
 } from "@/components/landing-v2/lanyard-card-layout"
 
@@ -57,17 +59,160 @@ const {
   cardWidth: CARD_WIDTH,
   cardHeight: CARD_HEIGHT,
   cardDepth: CARD_DEPTH,
+  cardRadius: CARD_RADIUS,
   cardVisualOffsetY: CARD_VISUAL_OFFSET_Y,
+  colliderHalfExtents: COLLIDER_HALF_EXTENTS,
+  cardLinearDamping: CARD_LINEAR_DAMPING,
+  cardAngularDamping: CARD_ANGULAR_DAMPING,
+  ropeLinearDamping: ROPE_LINEAR_DAMPING,
+  ropeAngularDamping: ROPE_ANGULAR_DAMPING,
+  gravity: CARD_GRAVITY,
   initialImpulse: INITIAL_IMPULSE,
   cameraDistance: CAMERA_DISTANCE,
   cameraFovDegrees: CAMERA_FOV_DEGREES,
+  cameraY: CAMERA_Y,
+  cameraLookAtY: CAMERA_LOOK_AT_Y,
+  frontTexture: FRONT_TEXTURE_CROP,
+  backTexture: BACK_TEXTURE_CROP,
 } = LANYARD_CARD_LAYOUT
 const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT + CARD_JOINT_Y)
+const FACE = getLanyardCardFaceSize()
 
 type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
+function createCardGrainTexture() {
+  const size = 256
+  const data = new Uint8Array(size * size)
+  for (let i = 0; i < data.length; i += 1) {
+    const x = i % size
+    const y = (i / size) | 0
+    data[i] = 188 + ((x * 13 + y * 37 + (x ^ y) * 5) % 55)
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(2.4, 3.4)
+  texture.colorSpace = THREE.NoColorSpace
+  texture.needsUpdate = true
+  return texture
+}
+
+function CameraRig() {
+  const camera = useThree((state) => state.camera)
+  useEffect(() => {
+    camera.position.set(0, CAMERA_Y, CAMERA_DISTANCE)
+    camera.lookAt(0, CAMERA_LOOK_AT_Y, 0)
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.fov = CAMERA_FOV_DEGREES
+      camera.updateProjectionMatrix()
+    }
+  }, [camera])
+  return null
+}
+
+function CardBody({
+  texture,
+  backTexture,
+  grain,
+}: {
+  texture: THREE.Texture
+  backTexture: THREE.Texture
+  grain: THREE.Texture
+}) {
+  const holeY = CARD_HEIGHT / 2 - 0.14
+  return (
+    <>
+      {/* Foliekant — ger tjocklek och metallglans när kortet snurrar. */}
+      <RoundedBox
+        args={[CARD_WIDTH + 0.04, CARD_HEIGHT + 0.04, CARD_DEPTH * 0.62]}
+        radius={CARD_RADIUS + 0.012}
+        smoothness={4}
+      >
+        <meshStandardMaterial
+          color="#9aa8b8"
+          metalness={0.92}
+          roughness={0.28}
+          envMapIntensity={1.35}
+        />
+      </RoundedBox>
+
+      {/* Plastkropp */}
+      <RoundedBox args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} radius={CARD_RADIUS} smoothness={4} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color="#070b10"
+          metalness={0.42}
+          roughness={0.46}
+          roughnessMap={grain}
+          clearcoat={0.55}
+          clearcoatRoughness={0.32}
+          reflectivity={0.55}
+        />
+      </RoundedBox>
+
+      {/* Framsida — varumärkestextur som belyst yta, inte en platt dekal. */}
+      <mesh position={[0, 0, FACE.z]}>
+        <planeGeometry args={[FACE.width, FACE.height]} />
+        <meshPhysicalMaterial
+          map={texture}
+          roughnessMap={grain}
+          roughness={0.32}
+          metalness={0.14}
+          clearcoat={0.82}
+          clearcoatRoughness={0.16}
+          envMapIntensity={1.15}
+          emissive="#082422"
+          emissiveIntensity={0.18}
+          toneMapped={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
+      </mesh>
+
+      {/* Baksida — cookie-motivet, samma fysiska yta som framsidan. */}
+      <mesh position={[0, 0, -FACE.z]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[FACE.width, FACE.height]} />
+        <meshPhysicalMaterial
+          map={backTexture}
+          roughnessMap={grain}
+          roughness={0.34}
+          metalness={0.12}
+          clearcoat={0.78}
+          clearcoatRoughness={0.2}
+          envMapIntensity={1.05}
+          emissive="#061816"
+          emissiveIntensity={0.12}
+          toneMapped={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
+      </mesh>
+
+      {/* Stansat hål + metallögla */}
+      <mesh position={[0, holeY, 0]}>
+        <boxGeometry args={[0.36, 0.08, CARD_DEPTH + 0.02]} />
+        <meshPhysicalMaterial color="#030508" metalness={0.55} roughness={0.42} />
+      </mesh>
+      <mesh position={[0, holeY, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.07, 0.012, 10, 20]} />
+        <meshStandardMaterial color="#c5d0dc" metalness={1} roughness={0.22} envMapIntensity={1.4} />
+      </mesh>
+
+      {/* Metallclips ovanför kortet */}
+      <mesh position={[0, CARD_HEIGHT / 2 + 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.125, 0.028, 14, 28]} />
+        <meshStandardMaterial color="#d6dee8" metalness={1} roughness={0.18} envMapIntensity={1.5} />
+      </mesh>
+      <mesh position={[0, CARD_HEIGHT / 2 + 0.05, 0]}>
+        <boxGeometry args={[0.09, 0.15, 0.045]} />
+        <meshStandardMaterial color="#9aa8b8" metalness={1} roughness={0.26} envMapIntensity={1.25} />
+      </mesh>
+    </>
+  )
+}
+
 function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const band = useRef<THREE.Mesh>(null)
+  const visual = useRef<THREE.Group>(null)
   // `null!` — rapiers joint-hooks kräver RefObject<RapierRigidBody> utan null;
   // refs sätts av <RigidBody ref={...}> före första fysik-steget.
   const fixed = useRef<RapierRigidBody>(null!)
@@ -81,8 +226,10 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const dir = useRef(new THREE.Vector3()).current
   const quat = useRef(new THREE.Quaternion()).current
   const euler = useRef(new THREE.Euler()).current
+  const tilt = useRef({ x: 0, y: 0 }).current
 
   const { width, height } = useThree((s) => s.size)
+  const gl = useThree((s) => s.gl)
   const [dragged, setDragged] = useState<false | THREE.Vector3>(false)
   const [hovered, setHovered] = useState(false)
   // Skiljer ett snabbt "stöt till"-klick från ett drag.
@@ -90,28 +237,20 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
 
   const texture = useTexture(CARD_TEXTURE)
   const backTexture = useTexture(CARD_BACK_TEXTURE)
-  // Beskär texturen till kortets stående format (sidorna är bara mörk gradient).
-  // Fönstret är flyttat något åt vänster i bilden så att loggan/ordmärket
-  // hamnar exakt centrerat på kortet.
+  const grain = useMemo(() => createCardGrainTexture(), [])
+  useEffect(() => () => grain.dispose(), [grain])
+
+  const anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
   useEffect(() => {
     // drei's useTexture returns a shared THREE.Texture that must be cropped
     // in place — cloning would break GPU cache and the card UV mapping.
     // eslint-disable-next-line react-hooks/immutability -- GPU texture object
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.center.set(0.5, 0.5)
-    texture.repeat.set(0.74, 1)
-    texture.offset.set(0.09, 0)
-    texture.needsUpdate = true
-  }, [texture])
-  // Baksidans cookie-textur har en vit marginal runt den mörka ytan —
-  // beskär till ett centrerat fönster som bara visar den mörka kortytan.
+    applyLanyardTextureCrop(texture, FRONT_TEXTURE_CROP, anisotropy)
+  }, [texture, anisotropy])
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability -- GPU texture object
-    backTexture.colorSpace = THREE.SRGBColorSpace
-    backTexture.center.set(0.5, 0.5)
-    backTexture.repeat.set(0.56, 0.82)
-    backTexture.needsUpdate = true
-  }, [backTexture])
+    applyLanyardTextureCrop(backTexture, BACK_TEXTURE_CROP, anisotropy)
+  }, [backTexture, anisotropy])
 
   // Utjämnade punkter för ett mjukt band. Startpunkterna motsvarar en rak
   // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
@@ -189,6 +328,18 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
       })
     }
 
+    // Extra lokal lutning under drag — kortet lutar in i rörelsen utan att
+    // slåss med Rapier-rotationen när kroppen är dynamisk igen.
+    const tiltStiffness = Math.min(1, delta * (dragged ? 10 : 6))
+    const targetTiltY = dragged ? THREE.MathUtils.clamp(state.pointer.x * 0.32, -0.38, 0.38) : 0
+    const targetTiltX = dragged ? THREE.MathUtils.clamp(-state.pointer.y * 0.1, -0.18, 0.18) : 0
+    tilt.x += (targetTiltX - tilt.x) * tiltStiffness
+    tilt.y += (targetTiltY - tilt.y) * tiltStiffness
+    if (visual.current) {
+      visual.current.rotation.x = tilt.x
+      visual.current.rotation.y = tilt.y
+    }
+
     if (fixed.current && j1.current && j2.current && j3.current && card.current && band.current) {
       // Mjuk uppdatering av mellanpunkterna (clampad så bandet inte "hackar").
       ;[j1, j2].forEach((ref, i) => {
@@ -243,8 +394,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           ref={j1}
           position={[0, -ROPE_SEGMENT_LENGTH, 0]}
           colliders={false}
-          angularDamping={2}
-          linearDamping={2}
+          angularDamping={ROPE_ANGULAR_DAMPING}
+          linearDamping={ROPE_LINEAR_DAMPING}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -252,8 +403,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           ref={j2}
           position={[0, -ROPE_SEGMENT_LENGTH * 2, 0]}
           colliders={false}
-          angularDamping={2}
-          linearDamping={2}
+          angularDamping={ROPE_ANGULAR_DAMPING}
+          linearDamping={ROPE_LINEAR_DAMPING}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -261,8 +412,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           ref={j3}
           position={[0, -ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT, 0]}
           colliders={false}
-          angularDamping={2}
-          linearDamping={2}
+          angularDamping={ROPE_ANGULAR_DAMPING}
+          linearDamping={ROPE_LINEAR_DAMPING}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -271,12 +422,13 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           ref={card}
           position={[0, CARD_START_Y, 0]}
           colliders={false}
-          angularDamping={2.5}
-          linearDamping={2.5}
+          angularDamping={CARD_ANGULAR_DAMPING}
+          linearDamping={CARD_LINEAR_DAMPING}
           type={dragged ? "kinematicPosition" : "dynamic"}
         >
-          <CuboidCollider args={[0.85, 1.2, 0.02]} />
+          <CuboidCollider args={[...COLLIDER_HALF_EXTENTS]} />
           <group
+            ref={visual}
             scale={1}
             position={[0, CARD_VISUAL_OFFSET_Y, 0]}
             onPointerOver={() => setHovered(true)}
@@ -301,8 +453,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
                   const side = e.point.x >= (card.current?.translation().x ?? 0) ? 1 : -1
                   window.setTimeout(() => {
                     card.current?.wakeUp()
-                    card.current?.applyTorqueImpulse({ x: 0, y: 5.5 * side, z: 0.15 * side }, true)
-                    card.current?.applyImpulse({ x: 0, y: 0, z: -0.8 }, true)
+                    card.current?.applyTorqueImpulse({ x: 0, y: 6.2 * side, z: 0.12 * side }, true)
+                    card.current?.applyImpulse({ x: 0, y: 0, z: -0.55 }, true)
                   }, 30)
                 }
               }
@@ -332,45 +484,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
               setDragged(new THREE.Vector3(e.point.x - t.x, e.point.y - t.y, e.point.z - t.z))
             }}
           >
-            {/* Själva kortet */}
-            <RoundedBox args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} radius={0.09} smoothness={3} castShadow receiveShadow>
-              <meshPhysicalMaterial
-                color="#0a0f14"
-                metalness={0.55}
-                roughness={0.35}
-                clearcoat={0.6}
-                clearcoatRoughness={0.3}
-                reflectivity={0.6}
-              />
-            </RoundedBox>
-
-            {/* Framsida med varumärkestextur */}
-            <mesh position={[0, 0, 0.025]}>
-              <planeGeometry args={[1.5, 2.18]} />
-              <meshBasicMaterial map={texture} toneMapped={false} />
-            </mesh>
-
-            {/* Baksida — cookie-designen (som ursprungliga cookie-bannern) */}
-            <mesh position={[0, 0, -0.025]} rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[1.5, 2.18]} />
-              <meshBasicMaterial map={backTexture} toneMapped={false} />
-            </mesh>
-
-            {/* Hål/urtag högst upp */}
-            <mesh position={[0, 1.02, 0]}>
-              <boxGeometry args={[0.34, 0.09, 0.06]} />
-              <meshPhysicalMaterial color="#04070a" metalness={0.6} roughness={0.4} />
-            </mesh>
-
-            {/* Metallclips ovanför kortet */}
-            <mesh position={[0, 1.25, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.12, 0.03, 12, 24]} />
-              <meshStandardMaterial color="#cbd5e1" metalness={1} roughness={0.25} />
-            </mesh>
-            <mesh position={[0, 1.14, 0]}>
-              <boxGeometry args={[0.1, 0.16, 0.05]} />
-              <meshStandardMaterial color="#94a3b8" metalness={1} roughness={0.3} />
-            </mesh>
+            <CardBody texture={texture} backTexture={backTexture} grain={grain} />
           </group>
         </RigidBody>
       </group>
@@ -383,7 +497,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           color={ACCENT}
           depthTest={false}
           resolution={[width, height]}
-          lineWidth={0.16}
+          lineWidth={0.17}
           transparent
         />
       </mesh>
@@ -401,22 +515,24 @@ export function LanyardCard({
   return (
     <div className={`relative w-full select-none ${className}`} aria-hidden="true">
       <Canvas
-        camera={{ position: [0, 0, CAMERA_DISTANCE], fov: CAMERA_FOV_DEGREES }}
+        camera={{ position: [0, CAMERA_Y, CAMERA_DISTANCE], fov: CAMERA_FOV_DEGREES }}
         gl={{ alpha: true, antialias: true }}
         style={{ background: "transparent", touchAction: "pan-y pinch-zoom" }}
         dpr={[1, 1.35]}
         performance={{ min: 0.5, max: 1, debounce: 200 }}
       >
         <AdaptiveDpr />
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[3, 5, 4]} intensity={1.1} castShadow />
-        <Physics gravity={[0, -40, 0]} timeStep={1 / 60}>
+        <CameraRig />
+        <ambientLight intensity={0.48} />
+        <directionalLight position={[3.2, 4.6, 4.2]} intensity={1.15} />
+        <directionalLight position={[-3.4, 1.2, 2.4]} intensity={0.35} color={ACCENT} />
+        <Physics gravity={[...CARD_GRAVITY]} timeStep={1 / 60}>
           <Band autoSwing={autoSwing} />
         </Physics>
         <Environment resolution={64}>
-          <Lightformer intensity={2.4} color={ACCENT} position={[3, 2, 3]} scale={[6, 6, 1]} form="rect" />
-          <Lightformer intensity={1.6} color="#38bdf8" position={[-4, 1, 2]} scale={[5, 5, 1]} form="rect" />
-          <Lightformer intensity={1} color="#ffffff" position={[0, 4, -3]} scale={[10, 3, 1]} form="rect" />
+          <Lightformer intensity={2.6} color={ACCENT} position={[3, 2, 3]} scale={[6, 6, 1]} form="rect" />
+          <Lightformer intensity={1.5} color="#38bdf8" position={[-4, 1, 2]} scale={[5, 5, 1]} form="rect" />
+          <Lightformer intensity={1.15} color="#ffffff" position={[0, 4, -3]} scale={[10, 3, 1]} form="rect" />
         </Environment>
       </Canvas>
     </div>

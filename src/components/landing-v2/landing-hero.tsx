@@ -56,7 +56,7 @@ export function LandingHero({
       {heroPrefix}
 
       <div
-        className="pointer-events-auto -mt-6 mb-1 h-[240px] w-full max-w-[420px] shrink-0 sm:h-[280px] md:-mt-10 md:h-[clamp(300px,36vh,360px)]"
+        className="pointer-events-auto -mt-6 mb-1 h-[240px] w-full max-w-[440px] shrink-0 sm:h-[280px] md:-mt-8 md:h-[clamp(310px,38vh,380px)]"
       >
         <LanyardExperience className="h-full" />
       </div>

@@ -16,10 +16,14 @@
  * direkt på plats (med en mjuk gungning till liv).
  */
 
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { Component, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
 import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks"
+import {
+  LANYARD_CARD_LAYOUT,
+  lanyardTextureToCss,
+} from "@/components/landing-v2/lanyard-card-layout"
 
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
@@ -31,6 +35,32 @@ const CONSENT_DATE_KEY = "cookie-consent-date"
 const CARD_IMAGE = "/branding/lanyard-card.png"
 const FLIP_MS_DESKTOP = 1550
 const FLIP_MS_MOBILE = 1150
+const FRONT_TEXTURE_CSS = lanyardTextureToCss(LANYARD_CARD_LAYOUT.frontTexture)
+const CARD_GRAIN_STYLE: CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px)",
+}
+
+function LanyardBrandFace({ className = "" }: { className?: string }) {
+  return (
+    <div className={`relative overflow-hidden bg-[#070b10] ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={CARD_IMAGE}
+        alt=""
+        aria-hidden="true"
+        className="absolute max-w-none"
+        style={FRONT_TEXTURE_CSS}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light"
+        style={CARD_GRAIN_STYLE}
+      />
+      <span className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
+    </div>
+  )
+}
 
 /** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
 function useExperienceMode() {
@@ -88,14 +118,7 @@ function StaticLanyardFallback() {
           boxShadow: "0 0 14px rgba(45,212,191,0.45)",
         }}
       />
-      <div className="relative mt-1 aspect-[3/4] h-[72%] max-w-[min(60vw,220px)] shrink-0 overflow-hidden rounded-[26px] shadow-2xl ring-1 ring-primary/30">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={CARD_IMAGE}
-          alt=""
-          className="absolute left-[55%] top-1/2 w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2"
-        />
-      </div>
+      <LanyardBrandFace className="relative mt-1 aspect-[3/4] h-[72%] max-w-[min(60vw,220px)] shrink-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30" />
     </div>
   )
 }
@@ -333,12 +356,18 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
               transform: leaving && !reducedMotion ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
-            {/* FRAMSIDA — cookie-samtycke */}
-            <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[26px] border border-border/60 bg-card/95 p-6 shadow-2xl [backface-visibility:hidden]">
+            {/* FRAMSIDA — cookie-samtycke, samma plastkort-känsla som 3D-baksidan. */}
+            <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,#161d26_0%,#0b1016_100%)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.45)] [backface-visibility:hidden]">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light"
+                style={CARD_GRAIN_STYLE}
+              />
+              <span className="pointer-events-none absolute inset-x-8 top-0 h-16 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.16),transparent_70%)]" />
               {/* Litet urtag högst upp där snodden fäster */}
               <span
                 aria-hidden="true"
-                className="absolute left-1/2 top-2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-foreground/15"
+                className="absolute left-1/2 top-2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-foreground/20"
               />
               <div className="mt-3 flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -376,18 +405,8 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
               </div>
             </div>
 
-            {/* BAKSIDA — det varumärkta kortet (matchar 3D-nyckelbandet) */}
-            <div className="absolute inset-0 overflow-hidden rounded-[26px] shadow-2xl ring-1 ring-primary/30 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-              {/* Central beskärning så hela ordmärket syns (samma som 3D-kortet). */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={CARD_IMAGE || "/placeholder.svg"}
-                alt=""
-                aria-hidden="true"
-                className="absolute left-[55%] top-1/2 w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2"
-              />
-              <span className="pointer-events-none absolute inset-0 rounded-[26px] ring-1 ring-inset ring-white/5" />
-            </div>
+            {/* BAKSIDA — det varumärkta kortet (samma crop som 3D-nyckelbandet). */}
+            <LanyardBrandFace className="absolute inset-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30 [backface-visibility:hidden] [transform:rotateY(180deg)]" />
           </div>
         </div>
       </div>
