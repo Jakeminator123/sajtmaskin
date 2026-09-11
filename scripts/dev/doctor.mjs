@@ -102,20 +102,31 @@ export function checkRtk({ binaryPresent, hooks }) {
 // private_key, apiKey) or names a credential outright. Value shapes: the
 // common vendor prefixes plus JWT and a bare `Bearer <token>`.
 const SECRET_KEY_RE =
-  /(header|authorization|token|secret|password|bearer|credential|(?:^|[_-])key$|[a-z]key$)/iu;
+  /(authorization|token|secret|password|bearer|credential|(?:^|[_-])key$|[a-z]key$)/iu;
 const SECRET_VALUE_RE =
   /(?:\b(?:sk-|xai-|ghp_|gho_|github_pat_|xox[baprs]-|AIza|AKIA|sbp_|npm_|eyJ[A-Za-z0-9_-]{10,})|\bBearer\s+\S{8,})/u;
+// `headers` / `env` are where auth goes, but they are containers, not secrets:
+// `headers: { "User-Agent": "sajtmaskin" }` is fine. Flagging the container
+// itself would put a false `warn` in every predev run, so these are walked
+// and only secret-shaped children are reported.
+const CONTAINER_KEY_RE = /^(headers|env)$/iu;
 
 export function checkMcpSecrets(rawServers) {
   if (!rawServers) return { level: "ok", area: "mcp-secrets", message: "Ingen live-fil att granska" };
   const flagged = [];
-  const walk = (node, serverName) => {
+  const walk = (node, path) => {
     if (!node || typeof node !== "object") return;
     for (const [key, value] of Object.entries(node)) {
-      if (SECRET_KEY_RE.test(key)) flagged.push(`${serverName}.${key}`);
-      else if (typeof value === "string" && SECRET_VALUE_RE.test(value)) {
-        flagged.push(`${serverName}.${key}`);
-      } else if (typeof value === "object") walk(value, serverName);
+      const here = `${path}.${key}`;
+      if (CONTAINER_KEY_RE.test(key) && value && typeof value === "object") {
+        walk(value, here);
+      } else if (SECRET_KEY_RE.test(key)) {
+        flagged.push(here);
+      } else if (typeof value === "string" && SECRET_VALUE_RE.test(value)) {
+        flagged.push(here);
+      } else if (typeof value === "object") {
+        walk(value, here);
+      }
     }
   };
   for (const [name, server] of Object.entries(rawServers)) walk(server, name);

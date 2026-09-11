@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "e4a5803",
-    "commitDate": "2026-09-09",
+    "commit": "baf048205",
+    "commitDate": "2026-09-11",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 7,
-    "openP2": 5,
+    "openP2": 7,
     "openP3": 1,
     "blocked": 1,
     "shaky": 3,
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 0,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -125,9 +125,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 0,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "1 commits / 14d"
+      "note": "Inga oppna signaler"
     },
     {
       "name": "ai_models",
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 2,
+      "churn": 1,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 6,
+      "churn": 5,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 6 commits / 14d"
+      "note": "Aktiv: 5 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 8,
+      "openBugs": 10,
       "openByPrio": {
         "P0": 0,
         "P1": 6,
-        "P2": 2,
+        "P2": 4,
         "P3": 0,
         "other": 0
       },
-      "churn": 13,
+      "churn": 11,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 0,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "1 commits / 14d"
+      "note": "Inga oppna signaler"
     }
   ],
   "shaky": [
@@ -300,10 +300,10 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-077` Sen preview-boot ger ingen omverifiering: `product-postcheck.ts` klassar boot-splashen som icke-bloc…"
+      "fynd": "`SM-082` Sen product-postcheck/live review av en äldre version läser chattens SENASTE user-prompt som `userRe…"
     }
   ],
-  "topOpenRisksOmitted": 0,
+  "topOpenRisksOmitted": 2,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

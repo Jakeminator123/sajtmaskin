@@ -92,7 +92,22 @@ describe("doctor — secrets i mcp.json", () => {
       x: { url: "https://example.invalid", headers: { Authorization: "Bearer abc" } },
     });
     expect(verdict.level).toBe("warn");
-    expect(verdict.message).toContain("x.headers");
+    expect(verdict.message).toContain("x.headers.Authorization");
+  });
+
+  it("flaggar inte en ofarlig header — bara secret-formade barn", () => {
+    // Extern granskning: `header` i nyckelregexen flaggade hela containern, så
+    // `headers: { "User-Agent": … }` gav ett falskt warn vid varje predev.
+    expect(
+      checkMcpSecrets({ ok: { url: "https://x.invalid", headers: { "User-Agent": "sajtmaskin/1" } } })
+        .level,
+    ).toBe("ok");
+    const mixed = checkMcpSecrets({
+      m: { headers: { "User-Agent": "sajtmaskin/1", "X-Api-Key": "abc" } },
+    });
+    expect(mixed.level).toBe("warn");
+    expect(mixed.message).toContain("m.headers.X-Api-Key");
+    expect(mixed.message).not.toContain("User-Agent");
   });
 
   it("flaggar tokenformade värden under ett oskyldigt nyckelnamn", () => {
