@@ -181,3 +181,12 @@ describe("BREAKING_STATEMENTS", () => {
     ]);
   });
 });
+
+describe("CI SSL wiring", () => {
+  it("uses the shared pg SSL owner so sslmode=require cannot override rejectUnauthorized", () => {
+    const source = readFileSync(join("scripts", "db", "check-additive-migrations.mjs"), "utf8");
+    expect(source).toContain("connectionStringForPg(connectionString)");
+    expect(source).toContain("resolveSslConfig(connectionString)");
+    expect(source).not.toMatch(/ssl:\s*\{\s*rejectUnauthorized:/u);
+  });
+});
