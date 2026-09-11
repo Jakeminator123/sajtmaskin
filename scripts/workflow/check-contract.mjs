@@ -1325,6 +1325,19 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!worktreeGuard || worktreeGuard.failClosed !== true) {
     errors.push("Cursor worktree removal guard must fail closed");
   }
+  // `.cursor/mcp.json` left `.cursorignore` on an owner decision (2026-09-11)
+  // that rests on this hook existing: it denies a Read only when the file
+  // actually carries a secret-shaped field. Remove the hook and the file is
+  // readable unconditionally — the decision's premise is gone. Pin it here.
+  // It must stay fail-OPEN: it runs on every Read, and a crash that blocked
+  // every file in the editor would be far worse than the leak it prevents.
+  const beforeRead = hooks.hooks?.beforeReadFile ?? [];
+  const mcpReadGuard = beforeRead.find((hook) => /mcp-secret-read-guard\.mjs$/.test(hook.command));
+  if (!mcpReadGuard || mcpReadGuard.matcher !== "Read") {
+    errors.push("Cursor beforeReadFile must run mcp-secret-read-guard.mjs with matcher Read");
+  } else if (mcpReadGuard.failClosed === true) {
+    errors.push("mcp-secret-read-guard must fail open — it runs on every Read");
+  }
   if (!existsSync(resolve(root, ".github/pull_request_template.md"))) {
     errors.push("missing pull request template");
   } else {

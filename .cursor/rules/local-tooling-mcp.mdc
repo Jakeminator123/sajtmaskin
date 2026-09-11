@@ -11,8 +11,9 @@ IDE-lokal setup, inte own-engine-runtime.
 
 Cursor läser **`.cursor/mcp.json`**. Den är gitignorerad (når aldrig det
 publika repot) men **läsbar** för agenten sedan 2026-09-11 — den är enda
-beskrivningen av verktygsläget. Lägg aldrig en token i den; `npm run doctor`
-varnar om den får secret-formade fält. Mallen är
+beskrivningen av verktygsläget. Lägg aldrig en token i den: `npm run doctor`
+varnar, och `beforeReadFile`-hooken **nekar** en Read av filen så länge den
+bär ett secret-format fält. Mallen är
 [`.cursor/mcp.json.example`](../mcp.json.example) — kanonisk serverlista.
 
 | Plats | Roll |
