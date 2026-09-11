@@ -31,7 +31,7 @@ export function SiteAuditSection({
   hideUrlInput = false,
   externalSubmitSignal,
 }: SiteAuditSectionProps) {
-  const { user, isAuthenticated, updateDiamonds } = useAuth();
+  const { user, isAuthenticated, updateDiamonds, fetchUser } = useAuth();
   const { pricing } = usePublicPricing();
   const auditCosts = useMemo(
     () =>
@@ -164,9 +164,14 @@ export function SiteAuditSection({
 
       setProgress(100);
 
-      // Update local diamonds (server already deducted)
-      if (user) {
-        updateDiamonds(user.diamonds - auditCost);
+      const remaining =
+        typeof data.creditsRemaining === "number" && Number.isFinite(data.creditsRemaining)
+          ? data.creditsRemaining
+          : null;
+      if (remaining !== null) {
+        updateDiamonds(remaining);
+      } else {
+        await fetchUser();
       }
 
       // Pass result and URL to parent
@@ -179,7 +184,7 @@ export function SiteAuditSection({
       setIsLoading(false);
       setProgress(0);
     }
-  }, [auditCosts, currentUrl, isAuthenticated, onAuditComplete, onRequireAuth, setUrlValue, updateDiamonds, user]);
+  }, [auditCosts, currentUrl, fetchUser, isAuthenticated, onAuditComplete, onRequireAuth, setUrlValue, updateDiamonds, user]);
 
   return (
     <div className="w-full max-w-2xl">

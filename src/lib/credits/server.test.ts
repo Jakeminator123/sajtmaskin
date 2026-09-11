@@ -16,7 +16,7 @@ vi.mock("@/lib/db/services/transactions", () => ({
 vi.mock("@/lib/db/services/users", () => ({ isTestUser }));
 vi.mock("@/lib/db/services/pricing-settings", () => ({ resolvePricingSettings }));
 
-const { prepareCredits } = await import("./server");
+const { prepareCredits, remainingCreditsAfterCharge } = await import("./server");
 
 function account(overrides: Record<string, unknown> = {}) {
   return {
@@ -146,5 +146,24 @@ describe("prepareCredits reads the operator-set price", () => {
     const prepared = await prepareCredits(new Request("https://example.test"), "wizard.enrich");
 
     expect(prepared.cost).toBe(11);
+  });
+});
+
+describe("remainingCreditsAfterCharge", () => {
+  it("follows the server charge, not a stale client price", () => {
+    const clientGuess = 30 - 15;
+    const remaining = remainingCreditsAfterCharge({
+      diamonds: 30,
+      cost: 25,
+      charged: true,
+    });
+    expect(remaining).toBe(5);
+    expect(remaining).not.toBe(clientGuess);
+  });
+
+  it("leaves the balance unchanged when the charge was skipped", () => {
+    expect(
+      remainingCreditsAfterCharge({ diamonds: 30, cost: 25, charged: false }),
+    ).toBe(30);
   });
 });
