@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { createCreditCheckoutSession } from "@/lib/billing/stripe-credit-checkout";
 import { getPackageById } from "@/lib/billing/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -93,26 +94,10 @@ export async function POST(req: NextRequest) {
 
       const baseUrl = URLS.baseUrl;
 
-      const lineItem = packageData.priceId
-        ? { price: packageData.priceId, quantity: 1 }
-        : {
-            price_data: {
-              currency: "sek",
-              product_data: {
-                name: packageData.name,
-                description: `${packageData.diamonds} credits för SajtMaskin`,
-                images: [],
-              },
-              unit_amount: packageData.price * 100, // öre
-            },
-            quantity: 1,
-          };
-
-      const session = await stripe.checkout.sessions.create({
+      const session = await createCreditCheckoutSession(stripe, packageData, {
         mode: "payment",
         payment_method_types: ["card"],
         customer_email: user.email || undefined,
-        line_items: [lineItem],
         metadata: {
           userId: user.id,
           packageId: packageData.id,
