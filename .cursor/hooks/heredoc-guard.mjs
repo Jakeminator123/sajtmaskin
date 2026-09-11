@@ -10,9 +10,10 @@
  *
  * On Linux a heredoc is valid shell, and this project's hooks travel to the
  * cloud agent image (`.cursor/Dockerfile`, `.cursor/environment.json`), which
- * is Linux. Denying there would block correct code, so the platform decides.
- * `SAJTMASKIN_SHELL_PLATFORM` overrides it for tests that must exercise the
- * Windows verdict on any runner.
+ * is Linux. Denying there would block correct code, so the SHELL decides — see
+ * `isPowerShellHost`: win32 (repo pins pwsh 7) or `$SHELL` naming pwsh.
+ * `SAJTMASKIN_SHELL_PLATFORM` overrides the platform for tests that must
+ * exercise the Windows verdict on any runner.
  *
  * Why a hook and not another rule line: `bash-och-pwsh.mdc` has said "use a
  * here-string, not `<<EOF`" from the start, and agents still emit it. The
@@ -136,10 +137,31 @@ function heredocOpener(segment) {
   return match[2];
 }
 
-export function decide(command, { platform = shellPlatform() } = {}) {
+/**
+ * Is the shell that will run this command PowerShell?
+ *
+ * The hook process is spawned by Cursor, not by the shell, so it cannot ask
+ * the shell directly. Two signals are available and they cover the real cases:
+ *   - win32: this repo pins pwsh 7 as the terminal profile
+ *     (`.vscode/settings.json`), so Windows means PowerShell here;
+ *   - elsewhere: `$SHELL` names the user's shell. A pwsh-on-Linux user has it
+ *     set to `.../pwsh`, and bash/zsh users do not.
+ * The residual — pwsh chosen per-terminal on Linux without `$SHELL` — is rare,
+ * and the hook is fail-open: the worst case is pwsh's own parse error, which
+ * was the status quo before this hook existed.
+ */
+export function isPowerShellHost({ platform, shell }) {
+  if (platform === "win32") return true;
+  return /(?:^|[\\/])(?:pwsh|powershell)(?:\.exe)?$/iu.test(String(shell ?? "").trim());
+}
+
+export function decide(
+  command,
+  { platform = shellPlatform(), shell = process.env.SHELL } = {},
+) {
   // A heredoc is valid shell everywhere except PowerShell. Only deny where the
   // command would actually fail.
-  if (platform !== "win32") return { permission: "allow" };
+  if (!isPowerShellHost({ platform, shell })) return { permission: "allow" };
 
   let token = null;
   for (const segment of shellSegments(command)) {

@@ -18,11 +18,14 @@ const HOOK = resolve(process.cwd(), ".cursor/hooks/heredoc-guard.mjs");
 function ask(
   command: string,
   platform = "win32",
+  shell = "/bin/bash",
 ): { permission: string; agent_message?: string } {
+  // `SHELL` is pinned too, so the runner's own login shell never decides the
+  // verdict — a CI box with SHELL=/bin/zsh must behave like a laptop with bash.
   const stdout = execFileSync(process.execPath, [HOOK], {
     input: JSON.stringify({ command }),
     encoding: "utf8",
-    env: { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform },
+    env: { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform, SHELL: shell },
   });
   return JSON.parse(stdout);
 }
@@ -51,6 +54,17 @@ describe("heredoc-guard hook", () => {
     // heredoc is valid shell and denying it would block correct code.
     expect(ask(COMMIT_HEREDOC, "linux").permission).toBe("allow");
     expect(ask("cat <<EOF > out.txt\ntext\nEOF", "linux").permission).toBe("allow");
+    expect(ask(COMMIT_HEREDOC, "darwin", "/bin/zsh").permission).toBe("allow");
+  });
+
+  it("still denies on Linux/mac when the shell itself is PowerShell", () => {
+    // Extern granskning: nyckeln var OS, inte skal. pwsh på Linux fick en
+    // heredoc släppt igenom som sedan föll i pwsh ändå. `$SHELL` avgör nu.
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/bin/pwsh").permission).toBe("deny");
+    expect(ask(COMMIT_HEREDOC, "darwin", "/opt/homebrew/bin/pwsh").permission).toBe("deny");
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/local/bin/powershell").permission).toBe("deny");
+    // …men inte ett skal som bara innehåller bokstäverna.
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/bin/pwshell-compat").permission).toBe("allow");
   });
 
   it("denies a heredoc that is redirected mid-segment", () => {
