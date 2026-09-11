@@ -16,6 +16,9 @@ vi.mock("@/lib/config", () => ({
   SECRETS: { stripeSecretKey: "sk_test_x" },
   URLS: { baseUrl: "http://localhost:3000" },
 }));
+vi.mock("@/lib/db/services/transactions", () => ({
+  getTransactionByStripeSession: vi.fn(),
+}));
 
 vi.mock("stripe", async (importOriginal) => {
   const actual = await importOriginal<typeof import("stripe")>();
