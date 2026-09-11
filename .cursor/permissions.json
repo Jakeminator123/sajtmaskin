@@ -19,7 +19,8 @@
   // Därför är listan smal på skrivande kommandon och bred på läsande, och
   // varje skrivande prefix som står här har en deterministisk Cursor-hook
   // bakom sig (extern granskning 2026-09-11, 8/10 på `git push`):
-  //   - `git push`   → worktree-force-guard nekar -f/--force*/+refspec/--delete
+  //   - `git push`   → worktree-force-guard nekar -f/--force*/+refspec/:refspec/
+  //                    --delete/--mirror/--prune/--no-verify
   //   - `git switch` / `git checkout -b` → samma hook nekar -f/--discard-changes
   //   - `git commit` → commit-guard nekar trunk utan break-glass, dynamiskt git
   //   - `git branch` → bara läsformer listade; -D/-m går till klassificeraren
@@ -32,6 +33,9 @@
   //   - `node scripts/dev/` — matchade clean-scratch --apply och tidy --apply.
   //   - `node scripts/workflow/` — matchade promote.mjs (öppnar PR).
   //   - `npm run test` — matchade test:postgres, vars pretest skriver dev-schema.
+  //   - `npm run tidy` / `npm run clean:scratch` — prefixet tog med `:apply`
+  //     (andra granskningsrundan, 6/10). Dry-run går till klassificeraren;
+  //     `npm run hygiene` kör samma dry-runs och är kvar.
   //   - bara `git branch` / `volta` — tog med -D respektive `volta install`.
   // Och aldrig: `gh pr merge`, `npm run promote`, `npm run db:*`,
   // `npm run clean:*:apply`, `Remove-Item`, `vercel`, `fly`.
@@ -94,8 +98,6 @@
     "npm run doctor",
     "npm run hooks:install",
     "npm run hygiene",
-    "npm run tidy",
-    "npm run clean:scratch",
     "npm run clean:orphans:dry",
     "npm run backoffice:test",
     "npm ci",

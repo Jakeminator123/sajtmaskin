@@ -519,6 +519,11 @@ function classifyGitInvocation(subcommand, args) {
     // (extern granskning, 8/10). `--force-with-lease` is included: the repo
     // never rewrites shared history without break-glass, and break-glass is a
     // human running git outside the agent's shell.
+    //
+    // Second round (7/10, 8/10): `:branch` is the refspec spelling of delete;
+    // `--mirror` and `--prune` delete every remote ref that is missing locally;
+    // `--no-verify` skips the git pre-push hook that is the other defence line
+    // — a push that needs to dodge its own gate is the push to stop.
     if (
       args.some(
         (token) =>
@@ -528,7 +533,11 @@ function classifyGitInvocation(subcommand, args) {
           token === "--force-if-includes" ||
           token === "--delete" ||
           token === "-d" ||
-          /^\+\S/u.test(token),
+          token === "--mirror" ||
+          token === "--prune" ||
+          token === "--no-verify" ||
+          /^\+\S/u.test(token) ||
+          /^:\S/u.test(token),
       )
     ) {
       return "deny-force-push";
@@ -578,14 +587,16 @@ export function forcePushDenial() {
   return {
     permission: "deny",
     user_message:
-      "Blockerat: force-push, `+refspec` eller remote-delete via `git push`. Repot skriver aldrig om " +
-      "delad historik från agentens shell; remote-delete ägs av GitHubs delete_branch_on_merge eller " +
-      "städwrappern. Hämta remote och bevara commits. Break-glass är ett ägarbeslut utanför agenten.",
+      "Blockerat: force-push, `+refspec`, `:branch`, `--delete`, `--mirror`, `--prune` eller " +
+      "`--no-verify` via `git push`. Repot skriver aldrig om delad historik från agentens shell; " +
+      "remote-delete ägs av GitHubs delete_branch_on_merge eller städwrappern; git-hooken får inte " +
+      "hoppas över. Hämta remote och bevara commits. Break-glass är ett ägarbeslut utanför agenten.",
     agent_message:
-      "Denied: force-push (-f/--force/--force-with-lease/--force-if-includes), `+refspec` or `--delete` " +
-      "on `git push`. Fetch and preserve remote commits instead. Remote branch deletion belongs to " +
-      "GitHub delete_branch_on_merge or the canonical cleanup wrapper. Do not work around this with " +
-      "another command.",
+      "Denied: force-push (-f/--force/--force-with-lease/--force-if-includes), `+refspec`, " +
+      "`:branch` delete refspec, `--delete`/`-d`, `--mirror`, `--prune` or `--no-verify` on `git push`. " +
+      "Fetch and preserve remote commits instead. Remote branch deletion belongs to GitHub " +
+      "delete_branch_on_merge or the canonical cleanup wrapper; the pre-push hook is not optional. " +
+      "Do not work around this with another command.",
   };
 }
 

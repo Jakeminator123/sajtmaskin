@@ -590,6 +590,13 @@ describe("cheap read-only git path", () => {
     "git push origin --delete feat/x",
     "git push -d origin feat/x",
     "git.exe push --force",
+    // Andra rundan (7/10, 8/10): kolon-refspec är delete; mirror/prune raderar
+    // allt remote som saknas lokalt; --no-verify hoppar över git-hooken.
+    "git push origin :feat/x",
+    'git push origin ":feat/x"',
+    "git push --mirror origin",
+    "git push --prune origin",
+    "git push --no-verify origin HEAD",
   ])("denies force-push, +refspec and remote-delete: %s", (command) => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
@@ -600,6 +607,9 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision("git push")).toBeNull();
     expect(cheapShellDecision("git push -u origin HEAD")).toBeNull();
     expect(cheapShellDecision("git push origin feat/x")).toBeNull();
+    // Kolon MITT i en refspec är source:dest, inte delete.
+    expect(cheapShellDecision("git push origin HEAD:feat/x")).toBeNull();
+    expect(cheapShellDecision("git push --tags")).toBeNull();
     expect(decideWorktree("git push -u origin HEAD", { aliases: new Set() })).toEqual({
       permission: "allow",
     });
