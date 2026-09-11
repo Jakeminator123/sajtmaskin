@@ -583,12 +583,20 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "icon-component-value-fixer",
     category: "mechanical-jsx",
-    risk: "safe",
-    sourcePath: "src/lib/gen/autofix/pipeline.ts",
+    risk: "risky",
+    sourcePath: "src/lib/gen/autofix/rules/icon-component-value-fixer.ts",
     targetFailureMode: "Raw icon component values used as keys/render values",
-    triggers: ["key={x.icon}", "{x.icon} as JSX child"],
+    triggers: [
+      "key={x.icon}",
+      "{x.icon} as a bare JSX child, only when the file shows component icons",
+    ],
     status: "active",
     ownerPhase: "pre-syntax",
+    notes:
+      "Reclassed risky 2026-09-11: the child rewrite changes a value's type (string → " +
+      "string | JSX.Element) and used to match attribute values too, which broke a " +
+      "Vercel build (chat 5d809cc1, TS2322/TS2339/TS2604). Now child-position only " +
+      "and gated on component-icon evidence; the verifier must cover it when it fires.",
   },
   {
     id: "footer-copyright-year-fixer",

@@ -1,0 +1,92 @@
+{
+  "ok": true,
+  "baselineId": "control-stats-2026-09-11-14d",
+  "baselineFrozenAt": "2026-09-11T00:00:00.000Z",
+  "source": "docs/architecture/quality-gate-flow.md#historisk-baslinje",
+  "windowDays": 14,
+  "windowEndsAt": "2026-09-11",
+  "volume": [
+    {
+      "chats": 27,
+      "versions": 55,
+      "generations": 60,
+      "telemetry_rows": 68,
+      "error_log_rows": 430
+    }
+  ],
+  "qualityGateFirstFailure": [
+    { "first_failure": "(passed/none)", "level": "info", "n": 48 },
+    { "first_failure": "typecheck", "level": "warning", "n": 4 },
+    { "first_failure": "typecheck", "level": "error", "n": 1 }
+  ],
+  "qualityGateChecks": [
+    { "check_name": "typecheck", "failed": 5, "total": 53, "avg_ms": 4730 },
+    { "check_name": "install", "failed": 0, "total": 53, "avg_ms": 1226 },
+    { "check_name": "install-cache-share", "failed": 0, "total": 53, "avg_ms": 0 },
+    { "check_name": "build", "failed": 0, "total": 1, "avg_ms": 16213 }
+  ],
+  "qualityGateResults": [
+    { "result": "preflight_passed", "n": 43 },
+    { "result": "product_postcheck_degraded", "n": 11, "overlaid": 11 },
+    { "result": "product_blocked", "n": 11, "overlaid": 11 },
+    { "result": "(null)", "n": 2 },
+    { "result": "preflight_failed", "n": 1 }
+  ],
+  "verifierPhase": [
+    { "status": "done", "reason": "", "n": 26 },
+    { "status": "skipped", "reason": "no_verifier_signal", "n": 26 },
+    { "status": "skipped", "reason": "repair_pass", "n": 8 },
+    { "status": "(saknas)", "reason": "", "n": 8 }
+  ],
+  "serverRepairOutcomes": [],
+  "deployOutcomes": [
+    { "deploy_result": "(ingen deploy)", "n": 67 },
+    { "deploy_result": "production:building", "n": 1 }
+  ],
+  "dossierUsage": [
+    { "dossier_id": "calcom-booking", "n": 6 },
+    { "dossier_id": "resend-contact-form", "n": 5 },
+    { "dossier_id": "embla-carousel", "n": 3 },
+    { "dossier_id": "dashboard-charts", "n": 3 },
+    { "dossier_id": "interactive-game-loop", "n": 2 }
+  ],
+  "versionStates": [
+    { "verification_state": "passed", "release_state": "promoted", "n": 46 },
+    { "verification_state": "pending", "release_state": "draft", "n": 6 },
+    { "verification_state": "superseded", "release_state": "draft", "n": 2 },
+    { "verification_state": "failed", "release_state": "draft", "n": 1 }
+  ],
+  "typecheckTsCodes": {
+    "TS2322": 20,
+    "TS2345": 8,
+    "TS2604": 4,
+    "TS2724": 2,
+    "TS2300": 2
+  },
+  "derivedKpis": {
+    "qualityGatePassPct": 63.2,
+    "typecheckFirstFailureOfGateFailsPct": 100,
+    "importRelatedTypecheckErrorsPct": 5.6,
+    "importRelatedTsHits": 2,
+    "totalTsCodeHits": 36,
+    "verifierSkippedPct": 50,
+    "repairRescueRatePct": null,
+    "repairRescuedGateFailedVersions": null,
+    "repairGateFailedVersions": null,
+    "failedVersionsPct": 1.8,
+    "typecheckAdvisoryShareOfFailedGatesPct": 80,
+    "productPostcheckOverlaidVerdictsPct": 32.4
+  },
+  "_notes": {
+    "scope": "Baslinje 2: 14-dagarsfönster t.o.m. 2026-09-11, 60 genereringar och 27 chattar, mätt med `node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl`. Ersätter Fas 0-baslinjen 2026-07-02 (84 % gate-pass, 84 % importrelaterade typfel, 69 % verifier-skip, 3,6 % repair-räddning, 38 % failed). Ägaren avgör när den byts igen — den är ett mätvärde, inte en policy.",
+    "qualityGatePassPct": "43 av 68 telemetrirader med `preflight_passed` som rapporterat resultat. Raw finalize-kolumnen säger 65/68 — skillnaden är Product Postcheck-overlayen (`product_blocked` 11 + `product_postcheck_degraded` 11), som numera är kedjans största verdiktkälla.",
+    "typecheckAdvisoryShareOfFailedGatesPct": "4 av 5 gate-verdikt med `typecheck` som first_failure var warning-nivå = F2 render-first advisory (promotad utan repair). 40-dagarsfönstret: 14 av 19 (74 %). Läs ihop med `failedVersionsPct`: att 1,8 % slutar failed beror delvis på att advisory-promoteringen absorberar typfel. Från 2026-09-11 blockerar `resolveDeployTypecheckAdvisoryGate` Vercel-publicering av sådana versioner (previewn påverkas inte).",
+    "typecheckTsCodes": "Regexade ur `meta.output` på typecheck-rader. TS2604 (JSX element type has no construct signatures) är tredje vanligast i prod och kom i det mätta fallet från `icon-component-value-fixer`, som skrev om `name={product.icon}` till en ternary med `<product.icon />` — fixaren, inte modellen. 40-dagarsfönstret innehöll dessutom 15 TS1005-träffar som alla kom från `.next/dev/types/routes.d.ts` (Next-genererad fil i verify-workspacet, aldrig användarkod); de filtreras från 2026-09-11 av `normalizeTypecheckResult` och räknas inte här.",
+    "importRelatedTypecheckErrorsPct": "2 av 36 tsc-träffar (TS2724 + TS2300-klassen räknas som importrelaterade). Från 84 % i Fas 0 — den deterministiska importrepareringen (import-validator 217 fixar/29 versioner, jsx-checker 86/32 i fönstret) har löst sitt problem.",
+    "verifierSkippedPct": "34 av 68: `no_verifier_signal` 26 + `repair_pass` 8. 8 rader utan verifier-fält är äldre telemetri och räknas som ej skippade.",
+    "repairRescueRatePct": "Går inte att härleda ur control-stats (kräver gate-fail-denominator per version). 14-dagarsfönstret hade inga `serverRepairOutcomes`; 40-dagarsfönstret hade 3 körningar, alla `repaired`. Fas 0-siffran 3,6 % (1/28) ska inte återanvändas som argument.",
+    "productPostcheckOverlaidVerdictsPct": "22 av 68 telemetrirader fick sitt rapporterade resultat överlagrat av Product Postcheck (`product_blocked` 11, `product_postcheck_degraded` 11). 40-dagarsfönstret: 80 av 150 (53 %).",
+    "deployOutcomes": "1 Vercel-deploy på 14 dagar (67 rader utan deploy). Slutsatser om publiceringsvägen vilar på få observationer.",
+    "failedVersionsPct": "1 av 55 versioner. Se `typecheckAdvisoryShareOfFailedGatesPct` för varför siffran inte kan läsas som ren kvalitetsförbättring."
+  }
+}

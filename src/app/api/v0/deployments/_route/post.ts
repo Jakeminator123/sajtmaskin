@@ -25,7 +25,12 @@ import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
-import { resolveDeployReleaseGate } from "@/lib/db/engine-version-lifecycle";
+import {
+  resolveDeployReleaseGate,
+  resolveDeployTypecheckAdvisoryGate,
+} from "@/lib/db/engine-version-lifecycle";
+import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { resolveLatestGateAdvisoryChecks } from "@/lib/gen/verify/gate-failure-summary";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
@@ -126,6 +131,27 @@ export async function POST(req: Request) {
           {
             error: releaseGate.message,
             code: releaseGate.code,
+          },
+          { status: 409 },
+        );
+      }
+      // Publicera-lås för F2-advisory (2026-09-11): en designversion som
+      // promotades med typecheck-varningar renderar i previewn men fäller
+      // Vercels `next build`. Samma logg-projektion som readiness-routen läser
+      // (`resolveLatestGateAdvisoryChecks`), så `canDeploy` och 409:an aldrig
+      // säger olika. `precheckOnly` rapporterar i `typecheckGate` i stället för
+      // att kasta, precis som `releaseGate`.
+      const typecheckGate = resolveDeployTypecheckAdvisoryGate({
+        version: engineVersion,
+        latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(
+          await getEngineVersionErrorLogs(versionId).catch(() => []),
+        ),
+      });
+      if (!typecheckGate.allowed && !precheckOnly) {
+        return NextResponse.json(
+          {
+            error: typecheckGate.message,
+            code: typecheckGate.code,
           },
           { status: 409 },
         );
@@ -344,6 +370,9 @@ export async function POST(req: Request) {
           // skulle 409:a när `allowed` är false — precheck rapporterar i
           // stället så UI:t kan visa blockern tillsammans med env-status.
           releaseGate,
+          // F2-advisory-lås (2026-09-11): en skarp deploy skulle 409:a
+          // `DEPLOY_TYPECHECK_ADVISORY` — precheck rapporterar i stället.
+          typecheckGate,
           // Projektnamn-lås (Ö2 / A2): en skarp deploy med ett nytt projectName
           // skulle 409:a (`DEPLOY_DOMAIN_LOCKED_PROJECT_NAME`) när en domän är
           // kopplad — precheck rapporterar i stället så UI:t kan varna innan

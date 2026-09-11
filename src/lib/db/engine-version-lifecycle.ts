@@ -148,9 +148,55 @@ export function resolveEngineVersionVerificationSurfaceStatus(
 
 export type DeployReleaseGateResult = {
   allowed: boolean;
-  code?: "DEPLOY_VERSION_FAILED" | "DEPLOY_RELEASE_GATE_NOT_GREEN";
+  code?:
+    | "DEPLOY_VERSION_FAILED"
+    | "DEPLOY_RELEASE_GATE_NOT_GREEN"
+    | "DEPLOY_TYPECHECK_ADVISORY";
   message?: string;
 };
+
+/**
+ * Publicera-lås för F2-advisory (2026-09-11): en designversion vars SENASTE
+ * kvalitetsgrind-verdikt är en typecheck-advisory får inte publiceras till
+ * Vercel.
+ *
+ * Bakgrund: F2:s render-first-regel promotar en version trots typfel när `next
+ * dev` renderar igenom dem (`isTypecheckOnlyAdvisory`). Det är rätt för
+ * previewn i buildern — men `next build` på Vercel kör en strikt `tsc`, så
+ * VARJE kvarvarande typfel fäller hostingbygget, oavsett om det är
+ * render-riskabelt eller inte. Prod 2026-09-10 (chat `5d809cc1`): advisory-
+ * promotad version publicerades, Vercel-bygget föll på exakt de advisory-
+ * klassade felen, ingen automatik fångade det. Prod 40 d: 12 av 19 fallna
+ * typechecks advisory-promoterades.
+ *
+ * Grinden läser samma logg-projektion som watchdogen
+ * (`resolveLatestGateAdvisoryChecks` över `engine_version_error_logs`, nyast
+ * först). Den rör INTE previewn eller promoteringen — bara publish-vägen — och
+ * bara `design`-stadiet: F3/integrations gatas redan hårt av ReleaseGate.
+ *
+ * `advisoryChecks` är `[]` när det senaste verdiktet är en ren pass eller när
+ * inget verdikt finns; grinden blockerar bara på en uttrycklig `typecheck`-
+ * advisory. Efter en lyckad reparation skriver gaten ett nytt pass-verdikt och
+ * grinden öppnar igen.
+ */
+export function resolveDeployTypecheckAdvisoryGate(params: {
+  version: EngineVersionLifecycleLike | null | undefined;
+  /** Från `resolveLatestGateAdvisoryChecks(errorLogs)` — nyast först. */
+  latestGateAdvisoryChecks: readonly string[];
+}): DeployReleaseGateResult {
+  if (resolveEngineVersionLifecycleStage(params.version) === "integrations") {
+    return { allowed: true };
+  }
+  if (!params.latestGateAdvisoryChecks.includes("typecheck")) {
+    return { allowed: true };
+  }
+  return {
+    allowed: false,
+    code: "DEPLOY_TYPECHECK_ADVISORY",
+    message:
+      "Versionen har typfel som förhandsgranskningen tolererar men som fäller Vercel-bygget (next build kör en strikt typkontroll). Kör en reparation eller be om en autofix i chatten och publicera när versionen är verifierad utan varningar.",
+  };
+}
 
 /**
  * Publicera-lås (Ö1): avgör om en version får publiceras via

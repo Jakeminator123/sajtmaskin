@@ -100,6 +100,27 @@ F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
   `quality-gate-checks.ts`). Render-risk-TS-koder, build/lint och
   verifierns build-breaking-fynd är Blocker. Svar bär `vmGatePassed: false` +
   `designAdvisory` så det inte läses som solid-grön.
+- **Advisory gäller previewn, inte publiceringen.** `next build` på Vercel kör
+  en strikt `tsc`, så varje kvarvarande typfel fäller hostingbygget oavsett
+  render-risk. `resolveDeployTypecheckAdvisoryGate`
+  (`src/lib/db/engine-version-lifecycle.ts`) blockerar därför
+  `POST /api/v0/deployments` med `DEPLOY_TYPECHECK_ADVISORY` när en
+  designversions senaste gate-verdikt är en typecheck-advisory
+  (`resolveLatestGateAdvisoryChecks` över `engine_version_error_logs`), och
+  readiness speglar samma villkor som blocker
+  (`typecheck-advisory-blocks-publish`) så `canDeploy` aldrig ljuger.
+  Previewn, promoteringen och F3 påverkas inte. Bakgrund: prod 2026-09-10
+  (chat `5d809cc1`) publicerade en advisory-promotad version och Vercel-bygget
+  föll på exakt de advisory-klassade felen; 14 av 19 fallna typechecks under
+  40 dagar var advisory.
+- **`.next/`-diagnostik räknas inte.** Verify-lanens `tsc` kan plocka upp Nexts
+  egna genererade `.next/dev/types/routes.d.ts` (den genererade `tsconfig.json`
+  inkluderar globben, Next-paritet) och rapportera `TS1005`-syntaxfel som aldrig
+  är användarkod. `normalizeTypecheckResult` (`quality-gate-checks.ts`), anropad
+  i `runQualityGateChecks` så alla gate-vägar delar den, viker en typecheck vars
+  enda diagnostik ligger under `.next/` till pass; `isAdvisorySafeTypecheckOutput`
+  klassificerar bara de kvarvarande användarraderna. Prod 40 d: 15 av 63
+  tsc-träffar (signatur `9bf13221eb3e`) var detta brus.
 - F3: auktoritativ VM-ReleaseGate på en lease-skyddad filesnapshot. En ny
   `integrations`-rad med samma `files_json` som F2-föräldern skapas när F3
   inte kräver codegen; gaten får aldrig promota F2-raden. `passed` räcker inte:
@@ -147,6 +168,22 @@ Alla LLM-repair går genom `runLlmRepairGate`
 (`src/lib/gen/autofix/llm-repair-gate.ts`). Outcome-strängar ägs av
 `resolveServerRepairOutcome` i `server-verify-log-meta.ts`.
 
+Preview-VM:ens `build-error`-SSE startar repair-loopen automatiskt i **alla**
+miljöer sedan 2026-09-11 (`isAutoRepairBuildErrorEnabled` i
+`server-verify/build-error-trigger.ts`; production var av tills 40 dagars prod
+visade 3/3 budgetbundna reparationer). Kill-switch:
+`SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0`. Vercels egna byggfel repareras
+fortfarande bara på knapptryck («Publicera om med fix», Ö3) — deploy-routen kan
+inte köra en bakgrundsreparation efter svaret på serverless, och
+publiceringsgrinden ovan är avsedd att göra det fallet sällsynt.
+
+Deterministiska fixare kan själva införa fel: `icon-component-value-fixer`
+skrev fram till 2026-09-11 om `{x.icon}` även inne i attribut
+(`name={product.icon}` → ternary med `<product.icon />`), vilket gav
+TS2322/TS2339/TS2604 på korrekt modellkod och fällde ett Vercel-bygge. Den är
+nu begränsad till bara JSX-barn i filer med komponentikoner och klassad
+`risky` i `FIXER_REGISTRY`, så verifieraren täcker den när den fyrar.
+
 En version som ersätts under gaten settlas terminal-neutralt som `superseded`
 ("Ersatt"), aldrig rött `failed`.
 
@@ -172,16 +209,26 @@ fingerprint (`install-cache-share` / `install-peer-fallback` i `results[]`).
 
 ## Historisk baslinje
 
-Fryst 14-dagars KPI t.o.m. 2026-07-02 (41 chattar, 115 genereringar).
-Siffrorna ägs av
-`scripts/observability/control-stats-baseline-2026-07-02.json`.
-Jämför med `npm run stats:compare`. Prod-mätning ägs inte av den här filen.
+Baslinjen är ett mätvärde att jämföra mot, inte en policy — ägaren byter den
+när det finns skäl. Aktuell: 14-dagars KPI t.o.m. 2026-09-11 (27 chattar, 60
+genereringar), ägd av
+`scripts/observability/control-stats-baseline-2026-09-11.json`. Ta fram en
+färsk mätning med
+`node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl`
+och jämför med `npm run stats:compare -- --current <fil> --md`. Prod-mätning
+ägs inte av den här filen.
 
-| Mätvärde | Baslinje |
-| --- | --- |
-| RenderGate/ReleaseGate pass | 84 % |
-| Typecheck som first failure | 99 % av gate-fails |
-| Importrelaterade TS-fel | 84 % av felträffar |
-| Verifier skippad | 69 % (volymstyrd) |
-| Gate-failade räddade av repair | 1/28 (3,6 %) |
-| Versioner som slutar failed | 38 % |
+| Mätvärde | Fas 0 (2026-07-02) | Baslinje 2 (2026-09-11) |
+| --- | --- | --- |
+| RenderGate/ReleaseGate pass | 84 % | 63 % (Postcheck-overlay räknas som ej pass) |
+| Typecheck som first failure | 99 % av gate-fails | 100 % |
+| Importrelaterade TS-fel | 84 % av felträffar | 6 % |
+| Verifier skippad | 69 % (volymstyrd) | 50 % |
+| Typecheck-fails som advisory-promotades | — | 4/5 (40 d: 14/19) |
+| Gate-failade räddade av repair | 1/28 (3,6 %) | ej härledbar; 40 d: 3/3 repair-körningar lyckade |
+| Versioner som slutar failed | 38 % | 1,8 % (delvis absorberat av advisory) |
+
+Läs de två sista raderna ihop: färre `failed` beror till stor del på att
+advisory-promoteringen slutade kalla typfel för fel. Fas 0-siffran 3,6 % ska
+inte återanvändas som argument om repair-lagret — den mätte något annat än
+dagens loop.
