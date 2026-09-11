@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bindingHoldsComponentIcons,
   fileSuggestsComponentIcons,
+  fileSuggestsStringIcons,
   fixIconComponentValueMisuse,
 } from "./icon-component-value-fixer";
 
@@ -131,6 +133,89 @@ export const Tabs = () => tabs.map((tab) => <tab.icon key={tab.id} className="h-
     expect(result.code).toBe(code);
   });
 
+  /**
+   * Review-fynd på PR #1329 (#1): en fil med BÅDE `icon: Component` och
+   * `icon: "string"` slog på fil-global evidence och skrev om alla barn —
+   * även string-barnen, som då fick samma TS2322/TS2604 som prod-incidenten.
+   * Evidence är nu per bindning: `feature` → `features` (komponent) skrivs
+   * om, `product` → `products` (string) lämnas.
+   */
+  it("mixed file: rewrites only the binding whose array holds component icons", () => {
+    const code = `
+import { Anchor, Ship } from "lucide-react";
+
+const products = [
+  { id: "1", name: "Anchor", icon: "anchor" },
+  { id: "2", name: "Wheel", icon: "wheel" },
+];
+
+const features = [
+  { title: "Kajplats", icon: Anchor },
+  { title: "Frakt", icon: Ship },
+];
+
+export default function Page() {
+  return (
+    <>
+      <ul>
+        {products.map((product) => (
+          <li key={product.id}>
+            {product.icon}
+            <span>{product.name}</span>
+          </li>
+        ))}
+      </ul>
+      <ul>
+        {features.map((feature) => (
+          <li key={feature.title}>
+            {feature.icon}
+            <span>{feature.title}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+`;
+    const result = fixIconComponentValueMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain(
+      `{typeof feature.icon === "string" ? feature.icon : <feature.icon className="h-5 w-5" />}`,
+    );
+    // The string-icon binding is untouched: no `<product.icon`, bare child kept.
+    expect(result.code).not.toContain("<product.icon");
+    expect(result.code).toContain("            {product.icon}\n");
+  });
+
+  it("mixed file with an unresolvable binding (prop) falls back to no-op", () => {
+    const code = `
+import { Anchor } from "lucide-react";
+const nav = [{ label: "Hem", icon: "home" }];
+const featured = { title: "X", icon: Anchor };
+export function Row({ item }: { item: { icon: unknown; label: string } }) {
+  return <span>{item.icon}</span>;
+}
+`;
+    const result = fixIconComponentValueMisuse(code, "components/row.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+  });
+
+  it("unresolvable binding in a component-only file is still rewritten", () => {
+    const code = `
+import type { LucideIcon } from "lucide-react";
+type Item = { icon: LucideIcon; label: string };
+export function Row({ item }: { item: Item }) {
+  return <span>{item.icon}</span>;
+}
+`;
+    const result = fixIconComponentValueMisuse(code, "components/row.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain(
+      `<span>{typeof item.icon === "string" ? item.icon : <item.icon className="h-5 w-5" />}</span>`,
+    );
+  });
+
   it("still rewrites key={x.icon} regardless of icon type (both branches are strings)", () => {
     const code = `
 const rows = [{ title: "A", icon: "anchor" }];
@@ -161,5 +246,51 @@ describe("fileSuggestsComponentIcons", () => {
     expect(fileSuggestsComponentIcons(`const a = [{ icon: "anchor" }];`)).toBe(false);
     expect(fileSuggestsComponentIcons(`const a = [{ icon: iconName }];`)).toBe(false);
     expect(fileSuggestsComponentIcons(`<Button size="icon" />`)).toBe(false);
+  });
+});
+
+describe("fileSuggestsStringIcons", () => {
+  it("detects string literals and `string` type annotations in icon slots", () => {
+    expect(fileSuggestsStringIcons(`const a = [{ icon: "anchor" }];`)).toBe(true);
+    expect(fileSuggestsStringIcons(`const a = [{ icon: 'anchor' }];`)).toBe(true);
+    expect(fileSuggestsStringIcons("type P = { icon?: string };")).toBe(true);
+    expect(fileSuggestsStringIcons(`const a = [{ icon: Anchor }];`)).toBe(false);
+  });
+});
+
+describe("bindingHoldsComponentIcons", () => {
+  const mixed = `
+const products = [{ id: "1", icon: "anchor" }];
+const features = [{ title: "A", icon: Anchor }];
+const both = [{ title: "A", icon: Anchor }, { title: "B", icon: "ship" }];
+products.map((product) => product.icon);
+features.map(feature => feature.icon);
+both.map((entry) => entry.icon);
+`;
+
+  it("resolves the iterated array literal per binding", () => {
+    expect(bindingHoldsComponentIcons(mixed, "feature")).toBe(true);
+    expect(bindingHoldsComponentIcons(mixed, "product")).toBe(false);
+  });
+
+  it("refuses a single array that mixes component and string icons", () => {
+    expect(bindingHoldsComponentIcons(mixed, "entry")).toBe(false);
+  });
+
+  it("handles nested brackets and strings containing brackets inside the literal", () => {
+    const code = `
+const tabs = [
+  { id: "a]", tags: ["x", "y"], icon: Anchor },
+  { id: "b", tags: [], icon: Ship },
+];
+const other = [{ id: "c", icon: "wheel" }];
+tabs.map((tab) => tab.icon);
+`;
+    expect(bindingHoldsComponentIcons(code, "tab")).toBe(true);
+  });
+
+  it("falls back to the whole file when the binding is not an array iteration", () => {
+    expect(bindingHoldsComponentIcons(`type I = { icon: LucideIcon }; <b>{item.icon}</b>`, "item")).toBe(true);
+    expect(bindingHoldsComponentIcons(mixed, "item")).toBe(false);
   });
 });

@@ -17,14 +17,19 @@
  * takes the string branch), but `next build` on Vercel failed on exactly those
  * four diagnostics. The fixer had introduced the bug it was meant to prevent.
  *
- * Two guards now bound the rewrite:
+ * Three guards now bound the rewrite:
  *  - Only a bare JSX CHILD is rewritten: `{x.icon}` directly after a `>` or
  *    alone at the start of a line. Attribute values (`prop={x.icon}`) and
  *    nested expressions are never touched.
- *  - The file must show evidence that `icon` holds a COMPONENT (an uppercase
- *    identifier or a component type in an `icon:` slot). A file whose icons are
- *    string names (`icon: "anchor"`) renders `{x.icon}` correctly as text, and
- *    the ternary would only add type errors there.
+ *  - Evidence is resolved PER BINDING, not per file. For `{x.icon}` inside
+ *    `arr.map((x) => …)` the fixer looks at `arr`'s own literal: rewrite only
+ *    if that literal holds component icons and no string icons. A file that
+ *    mixes `products` (string icons) with `features` (component icons) thus
+ *    rewrites `{feature.icon}` and leaves `{product.icon}` alone.
+ *  - When the binding cannot be resolved (prop, import, non-literal), the file
+ *    as a whole must show component-icon evidence AND no string-icon evidence.
+ *    A mixed file falls back to no-op — the type checker and the repair loop
+ *    own that case; a wrong ternary would only add TS2322/TS2604.
  *
  * The `key={x.icon}` rewrite is unchanged: both ternary branches are strings,
  * so it is type-safe regardless of what `icon` holds.
@@ -42,15 +47,86 @@ const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
 const ICON_CHILD_RENDER_RE = /(>[ \t]*|^[ \t]*)\{([A-Za-z_$][\w$]*)\.icon\}/gm;
 
 /**
- * Evidence that `icon` slots in this file hold component references rather
- * than string names: `icon: SomeComponent` / `icon: Icons.foo`, or an explicit
- * component type annotation on an `icon` property.
+ * Evidence that `icon` slots hold component references rather than string
+ * names: `icon: SomeComponent` / `icon: Icons.foo`, or an explicit component
+ * type annotation on an `icon` property.
  */
 const COMPONENT_ICON_EVIDENCE_RE =
   /\bicon\??:\s*(?:[A-Z][\w.]*\s*[,;}\n)]|(?:LucideIcon|ComponentType|ElementType|FC|FunctionComponent)\b)/;
 
+/** Evidence that `icon` slots hold string names: `icon: "anchor"` etc. */
+const STRING_ICON_EVIDENCE_RE = /\bicon\??:\s*(?:["'`]|string\b)/;
+
 export function fileSuggestsComponentIcons(code: string): boolean {
   return COMPONENT_ICON_EVIDENCE_RE.test(code);
+}
+
+export function fileSuggestsStringIcons(code: string): boolean {
+  return STRING_ICON_EVIDENCE_RE.test(code);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Extract the array literal `const <name> = [ … ]` (optionally typed / `as
+ * const`) from `code`. Bracket-balanced and string-aware enough for generated
+ * data arrays. Returns null when `name` has no literal array initializer.
+ */
+function findArrayLiteral(code: string, name: string): string | null {
+  const declRe = new RegExp(
+    `\\b(?:const|let|var)\\s+${escapeRegExp(name)}\\b[^=;]*=\\s*\\[`,
+    "g",
+  );
+  const match = declRe.exec(code);
+  if (!match) return null;
+  const start = match.index + match[0].length - 1;
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = start; i < code.length; i += 1) {
+    const ch = code[i];
+    if (quote) {
+      if (ch === "\\") {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "[") depth += 1;
+    else if (ch === "]") {
+      depth -= 1;
+      if (depth === 0) return code.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve which array `itemName` iterates over: `arr.map((item) =>`,
+ * `arr.map(item =>`, `arr.map(({ …}, i)` is not resolved (destructured).
+ */
+function findIteratedArrayName(code: string, itemName: string): string | null {
+  const re = new RegExp(
+    `\\b([A-Za-z_$][\\w$]*)\\.(?:map|forEach|flatMap)\\(\\s*\\(?\\s*${escapeRegExp(itemName)}\\b`,
+  );
+  return re.exec(code)?.[1] ?? null;
+}
+
+/**
+ * Should `{itemName.icon}` be rewritten? Per-binding evidence when the source
+ * array literal is resolvable; conservative file-level fallback otherwise.
+ */
+export function bindingHoldsComponentIcons(code: string, itemName: string): boolean {
+  const arrayName = findIteratedArrayName(code, itemName);
+  const literal = arrayName ? findArrayLiteral(code, arrayName) : null;
+  const scope = literal ?? code;
+  return COMPONENT_ICON_EVIDENCE_RE.test(scope) && !STRING_ICON_EVIDENCE_RE.test(scope);
 }
 
 export function fixIconComponentValueMisuse(
@@ -66,9 +142,16 @@ export function fixIconComponentValueMisuse(
   });
 
   if (fileSuggestsComponentIcons(code)) {
+    const decisionCache = new Map<string, boolean>();
     nextCode = nextCode.replace(
       ICON_CHILD_RENDER_RE,
-      (_full, prefix: string, itemName: string) => {
+      (full, prefix: string, itemName: string) => {
+        let allowed = decisionCache.get(itemName);
+        if (allowed === undefined) {
+          allowed = bindingHoldsComponentIcons(code, itemName);
+          decisionCache.set(itemName, allowed);
+        }
+        if (!allowed) return full;
         fixed = true;
         return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}`;
       },
