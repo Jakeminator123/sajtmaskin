@@ -17,7 +17,7 @@ describe("DeployNameDialog", () => {
       />,
     );
 
-    expect(screen.getByText(/20 credits för publicering/)).toBeTruthy();
+    expect(screen.getByText(/\d+ credits för publicering/)).toBeTruthy();
     expect(screen.queryByText(/credits\/månad/i)).toBeNull();
     expect(screen.queryByText(/Hosting/)).toBeNull();
   });

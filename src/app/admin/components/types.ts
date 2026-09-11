@@ -253,6 +253,54 @@ export interface TeamStatus {
   warnings: string[];
 }
 
+/** `GET`/`PATCH /api/admin/pricing-settings`. */
+export interface PricingSettingsAdminPayload {
+  success: boolean;
+  settings: {
+    domainMarkupBasisPoints: number;
+    domainUsdToSekOre: number;
+    domain: { markup: number; usdToSek: number };
+    creditActionPrices: {
+      promptCreate?: Partial<Record<string, number>> | null;
+      promptRefine?: Partial<Record<string, number>> | null;
+      wizard?: number | null;
+      auditBasic?: number | null;
+      auditAdvanced?: number | null;
+      deployPreview?: number | null;
+      deployProduction?: number | null;
+      openclawTip?: number | null;
+    };
+    updatedAt: string | null;
+    updatedBy: string | null;
+  };
+  defaults: {
+    domain: { markup: number; usdToSek: number };
+    creditActionPrices: {
+      promptCreate: Record<string, number>;
+      promptRefine: Record<string, number>;
+      wizard: number;
+      auditBasic: number;
+      auditAdvanced: number;
+      deployPreview: number;
+      deployProduction: number;
+      openclawTip: number;
+    };
+  };
+  effective: {
+    domain: { markup: number; usdToSek: number };
+    creditActionPrices: {
+      promptCreate: Record<string, number>;
+      promptRefine: Record<string, number>;
+      wizard: number;
+      auditBasic: number;
+      auditAdvanced: number;
+      deployPreview: number;
+      deployProduction: number;
+      openclawTip: number;
+    };
+  };
+}
+
 export interface GenerationBillingSettingsPayload {
   markupBasisPoints: number;
   markupMultiplier: number;

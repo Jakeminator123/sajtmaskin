@@ -3,11 +3,13 @@ import {
   CREDIT_COST_BREAKDOWN,
   DEFAULT_CREDIT_ACTION_PRICES,
   getCreditCost,
+  resolveCreditActionPrices,
+  toCreditCostBreakdown,
   type CreditPriceOverrides,
 } from "./pricing";
 
-describe("CREDIT_COST_BREAKDOWN (pricing UI single source)", () => {
-  it("matches getCreditCost for every displayed row", () => {
+describe("CREDIT_COST_BREAKDOWN (documented UI fallback)", () => {
+  it("matches getCreditCost without overrides — the code constants, not a second live list", () => {
     expect(CREDIT_COST_BREAKDOWN.generatePremium).toBe(
       getCreditCost("prompt.create", { modelId: "premium" }),
     );
@@ -32,9 +34,34 @@ describe("CREDIT_COST_BREAKDOWN (pricing UI single source)", () => {
     expect(CREDIT_COST_BREAKDOWN.deploy).toBe(getCreditCost("deploy.production"));
   });
 
-  it("locks the Premium generate/refine costs", () => {
+  it("is derived from DEFAULT_CREDIT_ACTION_PRICES so the fallback cannot drift from the seed", () => {
+    expect(CREDIT_COST_BREAKDOWN.generatePremium).toBe(DEFAULT_CREDIT_ACTION_PRICES.promptCreate.premium);
+    expect(CREDIT_COST_BREAKDOWN.refinePremium).toBe(DEFAULT_CREDIT_ACTION_PRICES.promptRefine.premium);
+    expect(CREDIT_COST_BREAKDOWN.wizard).toBe(DEFAULT_CREDIT_ACTION_PRICES.wizard);
+    expect(CREDIT_COST_BREAKDOWN.deploy).toBe(DEFAULT_CREDIT_ACTION_PRICES.deployProduction);
+  });
+
+  it("locks the Premium generate/refine fallbacks", () => {
     expect(CREDIT_COST_BREAKDOWN.generatePremium).toBe(10);
     expect(CREDIT_COST_BREAKDOWN.refinePremium).toBe(6);
+  });
+});
+
+describe("resolveCreditActionPrices", () => {
+  it("applies stored overrides and leaves untouched actions on the constant", () => {
+    const resolved = resolveCreditActionPrices({
+      wizard: 20,
+      promptCreate: { premium: 14 },
+    });
+    expect(resolved.wizard).toBe(20);
+    expect(resolved.promptCreate.premium).toBe(14);
+    expect(resolved.promptCreate.pro).toBe(DEFAULT_CREDIT_ACTION_PRICES.promptCreate.pro);
+    expect(resolved.auditBasic).toBe(DEFAULT_CREDIT_ACTION_PRICES.auditBasic);
+    expect(toCreditCostBreakdown(resolved).generatePremium).toBe(14);
+    expect(toCreditCostBreakdown(resolved).wizard).toBe(20);
+    expect(toCreditCostBreakdown(resolved).deploy).toBe(
+      DEFAULT_CREDIT_ACTION_PRICES.deployProduction,
+    );
   });
 });
 

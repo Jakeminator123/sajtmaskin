@@ -124,21 +124,82 @@ function tierPrice(
   return price(overrides?.[tier], defaults[tier]);
 }
 
-// ─── Canonical cost breakdown (single source for the pricing UI) ──
-// The buy-credits page reads these instead of hardcoding numbers, so the
-// displayed "Vad kostar det?" table can never drift from the real charges.
+/**
+ * Dokumenterad fallback för publika ytor när GET /api/pricing inte svarar.
+ *
+ * Speglar kodkonstanterna i {@link DEFAULT_CREDIT_ACTION_PRICES} — inte den
+ * live-prislista som `pricing_settings` kan ha satt. Debiteringen går via
+ * `getCreditCost` + resolvern; den här tabellen får bara visas om anropet
+ * fallerar.
+ */
 export const CREDIT_COST_BREAKDOWN = {
-  generatePremium: PROMPT_CREATE_COSTS.premium,
-  generatePro: PROMPT_CREATE_COSTS.pro,
-  generateMax: PROMPT_CREATE_COSTS.max,
-  refinePremium: PROMPT_REFINE_COSTS.premium,
-  refinePro: PROMPT_REFINE_COSTS.pro,
-  refineMax: PROMPT_REFINE_COSTS.max,
-  wizard: WIZARD_COST,
-  auditBasic: AUDIT_COSTS.basic,
-  auditAdvanced: AUDIT_COSTS.advanced,
-  deploy: DEPLOY_COSTS.production,
-} as const;
+  generatePremium: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.premium,
+  generatePro: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.pro,
+  generateMax: DEFAULT_CREDIT_ACTION_PRICES.promptCreate.max,
+  refinePremium: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.premium,
+  refinePro: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.pro,
+  refineMax: DEFAULT_CREDIT_ACTION_PRICES.promptRefine.max,
+  wizard: DEFAULT_CREDIT_ACTION_PRICES.wizard,
+  auditBasic: DEFAULT_CREDIT_ACTION_PRICES.auditBasic,
+  auditAdvanced: DEFAULT_CREDIT_ACTION_PRICES.auditAdvanced,
+  deploy: DEFAULT_CREDIT_ACTION_PRICES.deployProduction,
+};
+
+export type CreditCostBreakdown = {
+  generatePremium: number;
+  generatePro: number;
+  generateMax: number;
+  refinePremium: number;
+  refinePro: number;
+  refineMax: number;
+  wizard: number;
+  auditBasic: number;
+  auditAdvanced: number;
+  deploy: number;
+};
+
+const MODEL_TIERS = ["premium", "pro", "max", "codex", "anthropic"] as const satisfies readonly ModelTier[];
+
+/**
+ * Fullt upplöst prislista: varje åtgärd/tier är det tal `getCreditCost` skulle
+ * debitera med de här overriden. Saknad override ger kodkonstanten.
+ */
+export function resolveCreditActionPrices(
+  overrides?: CreditPriceOverrides | null,
+): CreditActionPrices {
+  const promptCreate = {} as Record<ModelTier, number>;
+  const promptRefine = {} as Record<ModelTier, number>;
+  for (const tier of MODEL_TIERS) {
+    promptCreate[tier] = getCreditCost("prompt.create", { modelId: tier }, overrides);
+    promptRefine[tier] = getCreditCost("prompt.refine", { modelId: tier }, overrides);
+  }
+  return {
+    promptCreate,
+    promptRefine,
+    wizard: getCreditCost("wizard.enrich", {}, overrides),
+    auditBasic: getCreditCost("audit.basic", {}, overrides),
+    auditAdvanced: getCreditCost("audit.advanced", {}, overrides),
+    deployPreview: getCreditCost("deploy.preview", {}, overrides),
+    deployProduction: getCreditCost("deploy.production", {}, overrides),
+    openclawTip: getCreditCost("openclaw.tip", {}, overrides),
+  };
+}
+
+/** Platt tabellform för köpsidan — samma tal som {@link resolveCreditActionPrices}. */
+export function toCreditCostBreakdown(prices: CreditActionPrices): CreditCostBreakdown {
+  return {
+    generatePremium: prices.promptCreate.premium,
+    generatePro: prices.promptCreate.pro,
+    generateMax: prices.promptCreate.max,
+    refinePremium: prices.promptRefine.premium,
+    refinePro: prices.promptRefine.pro,
+    refineMax: prices.promptRefine.max,
+    wizard: prices.wizard,
+    auditBasic: prices.auditBasic,
+    auditAdvanced: prices.auditAdvanced,
+    deploy: prices.deployProduction,
+  };
+}
 
 // ─── Action classification ────────────────────────────────────────
 const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
