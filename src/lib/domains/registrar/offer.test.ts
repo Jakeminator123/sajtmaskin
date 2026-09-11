@@ -3,11 +3,13 @@
  *
  * The single most important assertion here is that an ESTIMATED price can
  * never make a domain purchasable. That is the difference between showing a
- * customer "ungefär 495 kr" and charging their card 495 kr for a number no
+ * customer "ungefär 198 kr" and charging their card 198 kr for a number no
  * registrar ever quoted.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { customerPriceFromUsd, fallbackCustomerPriceSek } from "@/lib/domains/pricing";
 
 const loopiaState = { configured: true, status: "OK" as string };
 const vercelState = {
@@ -51,6 +53,12 @@ vi.mock("@/lib/domains/dns-availability", () => ({
   checkAvailabilityViaDns: async () => null,
 }));
 
+const pricingState = { markup: 2, usdToSek: 11 };
+
+vi.mock("@/lib/db/services/pricing-settings", () => ({
+  resolvePricingSettings: async () => ({ domain: { ...pricingState } }),
+}));
+
 const { resolveDomainOffer } = await import("./index");
 
 beforeEach(() => {
@@ -61,6 +69,8 @@ beforeEach(() => {
   vercelState.available = true;
   vercelState.purchaseEnabled = true;
   vercelState.throwOnPrice = false;
+  pricingState.markup = 2;
+  pricingState.usdToSek = 11;
 });
 
 describe("resolveDomainOffer", () => {
@@ -129,5 +139,54 @@ describe("resolveDomainOffer", () => {
     const offer = await resolveDomainOffer("  MittBygge.COM  ");
     expect(offer.domain).toBe("mittbygge.com");
     expect(offer.tld).toBe("com");
+  });
+});
+
+describe("the offer path prices from pricing_settings, like /api/vercel/domains/price", () => {
+  it("gives a binding quote the same customer price as the price API", async () => {
+    // Both surfaces must agree the moment an admin moves the markup off the
+    // seeded x2 — a search showing x3 while the order freezes x2 is the exact
+    // failure this wiring exists to prevent.
+    pricingState.markup = 3;
+    pricingState.usdToSek = 9;
+    vercelState.priceUsd = 10;
+
+    const offer = await resolveDomainOffer("mitt-bygge.com");
+
+    expect(offer.quote.binding).toBe(true);
+    expect(offer.quote.wholesaleSek).toBe(90);
+    expect(offer.quote.customerSek).toBe(customerPriceFromUsd(10, pricingState));
+    expect(offer.quote.customerSek).toBe(270);
+  });
+
+  it("applies the admin markup to an estimated reference price too", async () => {
+    pricingState.markup = 3;
+    vercelState.throwOnPrice = true;
+
+    const offer = await resolveDomainOffer("mitt-bygge.com");
+
+    expect(offer.quote.binding).toBe(false);
+    expect(offer.quote.customerSek).toBe(fallbackCustomerPriceSek("com", pricingState));
+  });
+
+  it("moves the customer price when the admin markup moves", async () => {
+    pricingState.markup = 2;
+    const atTwo = (await resolveDomainOffer("mitt-bygge.com")).quote.customerSek;
+    pricingState.markup = 7;
+    const atSeven = (await resolveDomainOffer("mitt-bygge.com")).quote.customerSek;
+
+    expect(atTwo).toBe(220);
+    expect(atSeven).toBe(770);
+  });
+
+  it("uses settings passed by the caller instead of resolving again", async () => {
+    // One search answers several TLDs; they must share one snapshot rather
+    // than each reading the row separately.
+    pricingState.markup = 2;
+
+    const offer = await resolveDomainOffer("mitt-bygge.com", { markup: 3, usdToSek: 10 });
+
+    expect(offer.quote.wholesaleSek).toBe(100);
+    expect(offer.quote.customerSek).toBe(300);
   });
 });

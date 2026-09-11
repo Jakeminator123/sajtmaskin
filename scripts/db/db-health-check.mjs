@@ -88,6 +88,8 @@ const EXPECTED_TABLES = [
   // Usage-baserad generationskostnad + operatörsinställningar
   "generation_billing_settings",
   "generation_billings",
+  // Operatörsstyrt domänpåslag + fasta creditpriser (singleton)
+  "pricing_settings",
   // Domains
   "domain_orders",
 ];

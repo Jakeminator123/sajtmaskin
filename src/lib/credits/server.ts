@@ -4,6 +4,7 @@ import {
   createTransaction,
   getTransactionByIdempotency,
 } from "@/lib/db/services/transactions";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { isTestUser } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import {
@@ -58,7 +59,8 @@ async function evaluateCredits(
     idempotencyKey?: string | null;
   } = {},
 ): Promise<CreditsEvaluation> {
-  const cost = getCreditCost(action, context);
+  const pricing = await resolvePricingSettings();
+  const cost = getCreditCost(action, context, pricing.creditActionPrices);
   const user = await getCurrentUser(req);
 
   if (user) {

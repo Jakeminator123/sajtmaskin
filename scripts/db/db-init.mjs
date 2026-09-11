@@ -737,6 +737,7 @@ const ALL_TABLES = [
   "llm_usage",
   "generation_billing_settings",
   "generation_billings",
+  "pricing_settings",
   "openai_webhook_events",
   "vercel_log_drain_events",
 ];
