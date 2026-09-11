@@ -118,6 +118,10 @@ export const MIGRATION_ORDER = [
   // Eget filnamn — schemat skiljer sig från stängda #1251
   // (`add-product-postcheck-runs.sql`: fail-open + result-cache).
   "add-product-postcheck-run-claims.sql",
+  // Operatörsstyrd prisbild (domänpåslag + fasta creditpriser). Fristående
+  // CREATE utan beroenden; seedas med exakt dagens hårdkodade värden så
+  // migrationen i sig inte ändrar någon debitering.
+  "add-pricing-settings.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

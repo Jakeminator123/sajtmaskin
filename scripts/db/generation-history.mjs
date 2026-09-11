@@ -27,7 +27,7 @@ import {
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
 
-config({ path: ".env.local" });
+config({ path: ".env.local", quiet: true });
 warnIfProdLikeReadTarget({ commandName: "generation-history" });
 
 const argv = process.argv.slice(2);

@@ -1,3 +1,7 @@
+import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages";
+
+const starterPackage = CREDIT_PACKAGES[0];
+
 export function OrganizationJsonLd() {
   const jsonLd = {
     "@context": "https://schema.org",
@@ -27,9 +31,9 @@ export function SoftwareApplicationJsonLd() {
     url: "https://sajtmaskin.se",
     offers: {
       "@type": "Offer",
-      price: "49",
+      price: String(starterPackage.price),
       priceCurrency: "SEK",
-      description: "Startpaket med 10 credits",
+      description: `Startpaket med ${starterPackage.credits} credits`,
     },
     creator: {
       "@type": "Organization",

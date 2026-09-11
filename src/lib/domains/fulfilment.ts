@@ -27,6 +27,7 @@ import Stripe from "stripe";
 import { SECRETS } from "@/lib/config";
 import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { bindingQuoteFromSek } from "@/lib/domains/pricing";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { providersForTld, tldOf } from "@/lib/domains/registrar";
 import {
   claimDomainOrderForRegistration,
@@ -142,8 +143,11 @@ async function fulfilDomainOrderInner(
       : { status: "needs_manual_handling", reason: "registrar_unavailable" };
   }
 
-  // Re-quote: the customer's price is frozen, the registrar's is not.
-  const fresh = await provider.getQuote(domain);
+  // Re-quote: the customer's price is frozen, the registrar's is not. Same
+  // resolved pricing as the offer path, so the wholesale figure this compares
+  // against the frozen charge is not converted at a different USD/SEK rate.
+  const pricing = (await resolvePricingSettings()).domain;
+  const fresh = await provider.getQuote(domain, pricing);
   if (!fresh.quote.binding || fresh.quote.wholesaleSek === null) {
     const refunded = await refundOrder(order, "no_binding_quote_at_fulfilment");
     return refunded
@@ -174,7 +178,8 @@ async function fulfilDomainOrderInner(
     markRegistrarCalled();
     const result = await provider.register(
       domain,
-      bindingQuoteFromSek(fresh.quote.wholesaleSek, fresh.quote.periodYears ?? 1),
+      bindingQuoteFromSek(fresh.quote.wholesaleSek, fresh.quote.periodYears ?? 1, pricing),
+      pricing,
     );
     registrarOrderId = result.registrarOrderId;
   } catch (err) {

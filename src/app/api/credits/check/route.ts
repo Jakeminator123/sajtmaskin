@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { isTestUser } from "@/lib/db/services/users";
 import { getCreditCost, type CreditAction, type PricingContext } from "@/lib/credits/pricing";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 
 const VALID_ACTIONS = new Set<CreditAction>([
   "prompt.create",
@@ -69,7 +70,8 @@ export async function GET(req: NextRequest) {
       quality: (searchParams.get("quality") as PricingContext["quality"]) || null,
       target: (searchParams.get("target") as PricingContext["target"]) || null,
     };
-    const cost = getCreditCost(action, context);
+    const pricing = await resolvePricingSettings();
+    const cost = getCreditCost(action, context, pricing.creditActionPrices);
     const isGenerationAction = action === "prompt.create" || action === "prompt.refine";
     const freeGenerationEligible = isGenerationAction && executionMode === "codegen";
 

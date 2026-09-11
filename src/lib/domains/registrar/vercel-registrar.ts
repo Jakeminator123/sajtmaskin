@@ -42,7 +42,7 @@ import {
 } from "@/lib/vercel/vercel-client";
 import { bindingQuoteFromUsd, unknownQuote, USD_TO_SEK } from "@/lib/domains/pricing";
 import { FEATURES } from "@/lib/config";
-import type { DomainPriceQuote } from "@/lib/domains/pricing";
+import type { DomainPricingSettings, DomainPriceQuote } from "@/lib/domains/pricing";
 import type { RegisterResult, RegistrarProvider, RegistrarQuote } from "./types";
 
 export const vercelRegistrar: RegistrarProvider = {
@@ -62,7 +62,7 @@ export const vercelRegistrar: RegistrarProvider = {
     return isVercelConfigured() && FEATURES.useDomainPurchase;
   },
 
-  async getQuote(domain: string): Promise<RegistrarQuote> {
+  async getQuote(domain: string, settings?: DomainPricingSettings): Promise<RegistrarQuote> {
     if (!isVercelConfigured()) {
       return {
         registrar: "vercel",
@@ -83,7 +83,7 @@ export const vercelRegistrar: RegistrarProvider = {
       availabilityResult.status === "fulfilled" ? availabilityResult.value : null;
 
     const quote = price
-      ? bindingQuoteFromUsd(price.price, price.period ?? 1)
+      ? bindingQuoteFromUsd(price.price, price.period ?? 1, settings)
       : unknownQuote();
 
     const failed = priceResult.status === "rejected" && availabilityResult.status === "rejected";
@@ -96,7 +96,11 @@ export const vercelRegistrar: RegistrarProvider = {
     };
   },
 
-  async register(domain: string, binding: DomainPriceQuote): Promise<RegisterResult> {
+  async register(
+    domain: string,
+    binding: DomainPriceQuote,
+    settings?: DomainPricingSettings,
+  ): Promise<RegisterResult> {
     if (!this.canRegister()) {
       throw new Error("Vercel registrar cannot register domains in this environment");
     }
@@ -104,9 +108,10 @@ export const vercelRegistrar: RegistrarProvider = {
       throw new Error("Refusing to register without a binding registrar quote");
     }
     // Vercel prices in USD and rejects the buy when its current price differs
-    // from `expectedPrice`. Convert back through the same fixed rate the quote
-    // used so a rounding drift here cannot silently widen the accepted window.
-    const expectedPriceUsd = binding.wholesaleSek / USD_TO_SEK;
+    // from `expectedPrice`. Convert back through the same rate the quote used
+    // so a rounding drift here cannot silently widen the accepted window —
+    // hence `settings`, not the module constant, when the caller resolved one.
+    const expectedPriceUsd = binding.wholesaleSek / (settings?.usdToSek ?? USD_TO_SEK);
     const result = await buyDomain(domain, expectedPriceUsd, {
       teamId: process.env.VERCEL_TEAM_ID,
     });

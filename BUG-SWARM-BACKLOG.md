@@ -10,7 +10,7 @@ Regler:
 - `Aktiv kö` innehåller bara kod- eller prodverifierade fel på nuvarande `master`.
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-087`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-088`.
 - En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
   planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
@@ -59,7 +59,10 @@ De här är inte nåbara produktbuggar medan respektive flagga är av.
 
 ### `SM-007` — domänköp
 
-Flaggan förblir av. Före aktivering måste hela kedjan stängas:
+Flaggan förblir av. Domänpåslaget är **x2** och styrs av admin via
+`pricing_settings`; `config/domain-pricing.json` äger det inte längre. Själva
+köpvägen är oförändrad och fortfarande parkerad. Före aktivering måste hela
+kedjan stängas:
 
 1. Byt den utfasade Vercel-buy-endpointen och samla/livscykelhantera obligatorisk
    `contactInformation` med uttryckligt GDPR-beslut.
@@ -157,6 +160,7 @@ fixade; de finns i git-snapshoten `feac0570e`.
 <!-- prettier-ignore -->
 | Prio | Klass | Kvarvarande skuld |
 | --- | --- | --- |
+| P1 | Env (`SM-087`) | Production kör Stripe i testläge (`sk_test_`), verifierat 2026-09-11 mot Stripes API. Price-id-delen är **stängd**: `STRIPE_PRICE_*` är borttagna ur alla Vercel-miljöer och checkout använder `price_data`. Kvarvarande ägaråtgärd: `STRIPE_SECRET_KEY` och `STRIPE_WEBHOOK_SECRET` är en post var som täcker development, preview och production; en live-nyckel där skulle debitera riktiga kort lokalt. Dela posterna per miljö innan live-nyckeln läggs in, och registrera en live-webhook mot `/api/stripe/webhook`. Beslut: [`docs/decisions/README.md`](docs/decisions/README.md) (Stripe / live-läge). |
 | P2 | Observability | `engine_version_error_logs.version_id` är `NOT NULL`, så fel före första versionen kan inte loggas (`T3`). |
 | P2 | Säkerhet | Läsande CI-jobb delar prod-credentials med skrivande jobb; inför separat read-only-roll/DSN. |
 | P2 | Säkerhet (cross-tenant) | `sites.sajtmaskin.se` saknar Public-Suffix-List-post, så en kundsajt skulle kunna sätta cookie på den delade parent-domänen och nå syskonsajter. Blockerar branded-rollouten — se [`docs/runbooks/branded-user-urls.md`](docs/runbooks/branded-user-urls.md). |
@@ -203,6 +207,7 @@ draftbeskrivningar och journalprosa finns i git och i
 | [x] | `SM-075` | Fixad | PR #1242 lägger `TS2724` och `TS2693` i `RENDER_RISK_TS_CODES` så F2-gaten inte advisory-promotar samma render-riskklass som TS2305/TS2614/TS1361. |
 | [x] | `SM-076` | Fixad | PR #1242 anropar `failVersionVerification` i build-error-repairens catch när `files_json` är oförändrad, så raden inte hänger i `repairing` efter att leasen släppts. |
 | [x] | `SM-015` | Fixad | [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138) använder opak `text-muted-foreground` för läsbar audittext, sökplaceholder, previewhjälp och diagnostikkod. Kontrasttester låser 5,75–6,45:1 mot `background`, `card`, `popover` och `muted`; käll- och komponenttester hindrar de svaga `/70`, `text-gray-500` och `text-zinc-500`-fallen från att återkomma. |
+| [x] | Affärsmodell / månadsavgift | Beslutad 2026-09-11, inte byggd | Riktningen ratificerad i [`docs/decisions/README.md`](docs/decisions/README.md) (Prissättning / affärsmodell). Implementation återstår: inget abonnemangsstöd, checkout är `mode: "payment"`, `users` har inga Stripe-fält. |
 
 Stängda eller supersedade PR-utkast räknas inte som mergebevis. Det gäller bland
 annat de äldre arkivrader som beskrev en draft som ”kodfixad”; aktuell kod på

@@ -3,12 +3,86 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from backoffice.pages import generation_cost as gc
+
+
+def _render_cost_for_test(repo_root: str) -> None:
+    from pathlib import Path
+
+    from backoffice.pages.generation_cost import render
+    from backoffice.shared import build_backoffice_context
+
+    render(build_backoffice_context(Path(repo_root)))
+
+
+class GenerationCostInteractionTests(unittest.TestCase):
+    def setUp(self):
+        from streamlit.testing.v1 import AppTest
+
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        gc._cached_cost.clear()
+        self.addCleanup(gc._cached_cost.clear)
+        patcher = mock.patch.object(gc, "_run_cost", return_value=gc.CostPayload(
+            ok=True, usd_to_sek=10.5, totals={"totalUsd": 10.0},
+        ))
+        self.run_cost = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.app = AppTest.from_function(_render_cost_for_test, args=(str(self.root),))
+        self.app.run(timeout=10)
+
+    def test_currency_change_reuses_data_and_recalculates_sek(self):
+        self.app.number_input[0].set_value(11.0).run()
+        self.assertEqual(list(self.app.exception), [])
+        self.run_cost.assert_called_once()
+        metrics = {m.label: m.value for m in self.app.metric}
+        self.assertEqual(metrics["Total kostnad (SEK)"], "110 kr")
+
+    def test_explicit_refresh_fetches_again(self):
+        next(b for b in self.app.button if b.label == "Uppdatera kostnadsdata").click().run()
+        self.assertEqual(self.run_cost.call_count, 2)
+        self.assertEqual(list(self.app.exception), [])
+
+    def test_query_changes_fetch_separate_results(self):
+        self.app.slider[0].set_value(7).run()
+        self.assertEqual(self.run_cost.call_count, 2)
+        self.assertEqual(self.run_cost.call_args.args[2], 7)
+        self.app.selectbox[1].select("engine_generation_logs (bara codegen)").run()
+        self.assertEqual(self.run_cost.call_count, 3)
+        self.assertEqual(self.run_cost.call_args.args[4], "logs")
+        self.app.selectbox[0].select("Prod (.env.vercel.production.pulled)").run()
+        self.assertEqual(self.run_cost.call_count, 4)
+        self.assertEqual(self.run_cost.call_args.args[1], ".env.vercel.production.pulled")
+
+    def test_changed_env_and_pricing_files_invalidate_cached_result(self):
+        for rel in (".env.local", "config/ai_models/pricing.json"):
+            with self.subTest(path=rel):
+                path = self.root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                before = self.run_cost.call_count
+                path.write_text("fixture input", encoding="utf-8")
+                self.app.run()
+                self.assertEqual(self.run_cost.call_count, before + 1)
+
+    def test_changed_inherited_environment_invalidates_cached_result(self):
+        with mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://fixture/changed"}):
+            self.app.run()
+        self.assertEqual(self.run_cost.call_count, 2)
+
+    def test_unreadable_configuration_never_displays_cached_report(self):
+        with mock.patch.object(gc, "repo_command_fingerprint", side_effect=PermissionError):
+            self.app.run()
+        self.run_cost.assert_called_once()
+        self.assertEqual(len(self.app.metric), 0)
+        self.assertTrue(any("konfiguration" in e.value for e in self.app.error))
 
 
 class GenerationCostSourceTests(unittest.TestCase):

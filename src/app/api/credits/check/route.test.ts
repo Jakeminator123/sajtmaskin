@@ -3,9 +3,13 @@ import { NextRequest } from "next/server";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const isTestUser = vi.hoisted(() => vi.fn(() => false));
+const resolvePricingSettings = vi.hoisted(() =>
+  vi.fn(async () => ({ creditActionPrices: {} as Record<string, unknown> })),
+);
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/users", () => ({ isTestUser }));
+vi.mock("@/lib/db/services/pricing-settings", () => ({ resolvePricingSettings }));
 
 import { GET } from "./route";
 
@@ -23,6 +27,15 @@ describe("GET /api/credits/check execution mode", () => {
       free_generation_available: true,
     });
     isTestUser.mockReturnValue(false);
+    resolvePricingSettings.mockResolvedValue({ creditActionPrices: {} });
+  });
+
+  it("reports the operator-set price instead of the constant", async () => {
+    resolvePricingSettings.mockResolvedValue({ creditActionPrices: { promptCreate: { pro: 4 } } });
+
+    const response = await GET(request("action=generate&modelId=pro&executionMode=repair"));
+
+    expect(await response.json()).toMatchObject({ cost: 4 });
   });
 
   it("uses the account entitlement for normal own-engine code generation", async () => {

@@ -1,10 +1,31 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import shutil
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
+
+
+def repo_command_fingerprint(repo_root: Path, input_paths: tuple[Path, ...]) -> str:
+    """Bind a command to its checkout, inherited env and local input bytes.
+
+    Store only the digest, never credentials. Missing files differ from empty
+    files; other read failures propagate so callers cannot reuse stale state.
+    """
+    files = []
+    for path in input_paths:
+        try:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        except FileNotFoundError:
+            digest = None
+        files.append((str(path.resolve()), digest))
+    payload = (str(repo_root.resolve()), sorted(os.environ.items()), files)
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=True).encode()).hexdigest()
+
 
 def resolve_command(command: tuple[str, ...]) -> list[str]:
     """Resolve the first argument via PATH (PATHEXT on Windows).

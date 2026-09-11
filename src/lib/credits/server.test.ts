@@ -4,6 +4,9 @@ const getCurrentUser = vi.hoisted(() => vi.fn());
 const createTransaction = vi.hoisted(() => vi.fn());
 const getTransactionByIdempotency = vi.hoisted(() => vi.fn());
 const isTestUser = vi.hoisted(() => vi.fn(() => false));
+const resolvePricingSettings = vi.hoisted(() =>
+  vi.fn(async () => ({ creditActionPrices: {} as Record<string, unknown> })),
+);
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/transactions", () => ({
@@ -11,8 +14,9 @@ vi.mock("@/lib/db/services/transactions", () => ({
   getTransactionByIdempotency,
 }));
 vi.mock("@/lib/db/services/users", () => ({ isTestUser }));
+vi.mock("@/lib/db/services/pricing-settings", () => ({ resolvePricingSettings }));
 
-const { prepareCredits } = await import("./server");
+const { prepareCredits, remainingCreditsAfterCharge } = await import("./server");
 
 function account(overrides: Record<string, unknown> = {}) {
   return {
@@ -28,6 +32,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   isTestUser.mockReturnValue(false);
   getTransactionByIdempotency.mockResolvedValue(null);
+  resolvePricingSettings.mockResolvedValue({ creditActionPrices: {} });
 });
 
 describe("prepareCredits account-bound free generation", () => {
@@ -112,5 +117,53 @@ describe("prepareCredits durable entitlement helper (B1 ledger)", () => {
     expect(prepared.usingExistingEntitlement).toBe(true);
     await prepared.commit();
     expect(createTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("prepareCredits reads the operator-set price", () => {
+  it("charges the price from pricing_settings, not the constant", async () => {
+    resolvePricingSettings.mockResolvedValue({ creditActionPrices: { wizard: 19 } });
+    getCurrentUser.mockResolvedValue(account({ diamonds: 22, free_generation_available: false }));
+
+    const prepared = await prepareCredits(new Request("https://example.test"), "wizard.enrich");
+
+    expect(prepared.cost).toBe(19);
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    await prepared.commit();
+    expect(createTransaction).toHaveBeenCalledWith(
+      "user_1", "wizard_enrich", -19, "Wizard-analys", undefined, undefined,
+      { idempotencyKey: undefined },
+    );
+  });
+
+  it("keeps the gate working when the price row cannot be read", async () => {
+    // resolvePricingSettings degrades to defaults rather than throwing; the
+    // gate must still produce today's price instead of failing the request.
+    resolvePricingSettings.mockResolvedValue({ creditActionPrices: {} });
+    getCurrentUser.mockResolvedValue(account({ diamonds: 22, free_generation_available: false }));
+
+    const prepared = await prepareCredits(new Request("https://example.test"), "wizard.enrich");
+
+    expect(prepared.cost).toBe(11);
+  });
+});
+
+describe("remainingCreditsAfterCharge", () => {
+  it("follows the server charge, not a stale client price", () => {
+    const clientGuess = 30 - 15;
+    const remaining = remainingCreditsAfterCharge({
+      diamonds: 30,
+      cost: 25,
+      charged: true,
+    });
+    expect(remaining).toBe(5);
+    expect(remaining).not.toBe(clientGuess);
+  });
+
+  it("leaves the balance unchanged when the charge was skipped", () => {
+    expect(
+      remainingCreditsAfterCharge({ diamonds: 30, cost: 25, charged: false }),
+    ).toBe(30);
   });
 });

@@ -4,6 +4,7 @@ import {
   createTransaction,
   getTransactionByIdempotency,
 } from "@/lib/db/services/transactions";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { isTestUser } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import {
@@ -36,6 +37,19 @@ const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
   "openclaw.tip": "Du måste vara inloggad för att använda AI-tips.",
 };
 
+/**
+ * Saldo efter en debitering som servern redan har beslutat.
+ * Klienten får inte räkna baklänges från sitt eget pris — det kan vara stale.
+ */
+export function remainingCreditsAfterCharge(input: {
+  diamonds: number;
+  cost: number;
+  charged: boolean;
+}): number {
+  if (!input.charged) return input.diamonds;
+  return Math.max(0, input.diamonds - input.cost);
+}
+
 export type CreditsEvaluation = {
   allowed: boolean;
   cost: number;
@@ -58,7 +72,8 @@ async function evaluateCredits(
     idempotencyKey?: string | null;
   } = {},
 ): Promise<CreditsEvaluation> {
-  const cost = getCreditCost(action, context);
+  const pricing = await resolvePricingSettings();
+  const cost = getCreditCost(action, context, pricing.creditActionPrices);
   const user = await getCurrentUser(req);
 
   if (user) {
