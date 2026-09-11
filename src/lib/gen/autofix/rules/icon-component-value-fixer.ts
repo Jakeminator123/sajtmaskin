@@ -108,22 +108,43 @@ function findArrayLiteral(code: string, name: string): string | null {
 }
 
 /**
- * Resolve which array `itemName` iterates over: `arr.map((item) =>`,
- * `arr.map(item =>`, `arr.map(({ …}, i)` is not resolved (destructured).
+ * Resolve which array the `itemName` at `position` iterates over: the CLOSEST
+ * `arr.map((item) =>` / `arr.map(item =>` that opens before `position`. Two
+ * lists that reuse the same callback name (`features.map((item) => …)` and
+ * `products.map((item) => …)`) thus resolve to their own array instead of the
+ * first match in the file (review #1329). Destructured params and
+ * `for…of` are not resolved (→ file-level fallback).
  */
-function findIteratedArrayName(code: string, itemName: string): string | null {
+function findIteratedArrayName(
+  code: string,
+  itemName: string,
+  position: number,
+): string | null {
   const re = new RegExp(
     `\\b([A-Za-z_$][\\w$]*)\\.(?:map|forEach|flatMap)\\(\\s*\\(?\\s*${escapeRegExp(itemName)}\\b`,
+    "g",
   );
-  return re.exec(code)?.[1] ?? null;
+  let closest: string | null = null;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(code)) !== null) {
+    if (match.index >= position) break;
+    closest = match[1];
+  }
+  return closest;
 }
 
 /**
- * Should `{itemName.icon}` be rewritten? Per-binding evidence when the source
- * array literal is resolvable; conservative file-level fallback otherwise.
+ * Should `{itemName.icon}` at `position` be rewritten? Per-binding evidence
+ * when the enclosing iteration's array literal is resolvable; conservative
+ * file-level fallback otherwise. `position` defaults to end-of-file so callers
+ * without a position still get the last (i.e. any) iteration in the file.
  */
-export function bindingHoldsComponentIcons(code: string, itemName: string): boolean {
-  const arrayName = findIteratedArrayName(code, itemName);
+export function bindingHoldsComponentIcons(
+  code: string,
+  itemName: string,
+  position: number = code.length,
+): boolean {
+  const arrayName = findIteratedArrayName(code, itemName, position);
   const literal = arrayName ? findArrayLiteral(code, arrayName) : null;
   const scope = literal ?? code;
   return COMPONENT_ICON_EVIDENCE_RE.test(scope) && !STRING_ICON_EVIDENCE_RE.test(scope);
@@ -142,16 +163,21 @@ export function fixIconComponentValueMisuse(
   });
 
   if (fileSuggestsComponentIcons(code)) {
-    const decisionCache = new Map<string, boolean>();
+    // Decide against the ORIGINAL code so offsets stay valid even though the
+    // key rewrite above may already have shifted `nextCode`. The key rewrite
+    // only touches `key={…}` attributes, never a bare child, so the set of
+    // child matches (and their relative order) is identical in both strings;
+    // resolve each match's offset back into `code` by locating the same
+    // occurrence there.
+    const childMatchesInOriginal = [...code.matchAll(ICON_CHILD_RENDER_RE)];
+    let occurrence = 0;
     nextCode = nextCode.replace(
       ICON_CHILD_RENDER_RE,
       (full, prefix: string, itemName: string) => {
-        let allowed = decisionCache.get(itemName);
-        if (allowed === undefined) {
-          allowed = bindingHoldsComponentIcons(code, itemName);
-          decisionCache.set(itemName, allowed);
-        }
-        if (!allowed) return full;
+        const original = childMatchesInOriginal[occurrence];
+        occurrence += 1;
+        const position = original?.index ?? code.length;
+        if (!bindingHoldsComponentIcons(code, itemName, position)) return full;
         fixed = true;
         return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}`;
       },

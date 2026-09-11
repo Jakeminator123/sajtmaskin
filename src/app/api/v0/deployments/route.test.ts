@@ -753,6 +753,25 @@ describe("POST /api/v0/deployments", () => {
       expect(createVercelDeployment).not.toHaveBeenCalled();
     });
 
+    it("also blocks the server-verify writer form (quality-gate:typecheck-advisory, no preflight row)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockResolvedValue([
+        {
+          ...advisoryVerdictRow,
+          category: "quality-gate:typecheck-advisory",
+          meta: { advisory: true, advisoryChecks: ["typecheck"], failedChecks: ["typecheck"] },
+        },
+      ]);
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_TYPECHECK_ADVISORY");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
     it("lets the same design version deploy once the latest verdict is a clean pass", async () => {
       mockHappyDeployInfra();
       getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());

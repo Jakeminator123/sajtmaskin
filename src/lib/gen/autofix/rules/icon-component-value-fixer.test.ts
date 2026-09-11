@@ -187,6 +187,67 @@ export default function Page() {
     expect(result.code).toContain("            {product.icon}\n");
   });
 
+  /**
+   * Review #1329 (cursor[bot]): två listor som återanvänder samma
+   * callback-namn `item`. Första `.map((item)` i filen fick tidigare avgöra
+   * för båda; nu löses närmast föregående `.map(` per förekomst.
+   */
+  it.each([
+    ["component list first", "features", "products"],
+    ["string list first", "products", "features"],
+  ])("same callback name in two lists (%s): each child resolves to its own array", (_label, first, second) => {
+    const lists = {
+      features: `
+      <ul>
+        {features.map((item) => (
+          <li key={item.title}>
+            {item.icon}
+            <span>{item.title}</span>
+          </li>
+        ))}
+      </ul>`,
+      products: `
+      <ul>
+        {products.map((item) => (
+          <li key={item.id}>
+            {item.icon}
+            <span>{item.name}</span>
+          </li>
+        ))}
+      </ul>`,
+    } as const;
+    const code = `
+import { Anchor, Ship } from "lucide-react";
+
+const products = [
+  { id: "1", name: "Anchor", icon: "anchor" },
+  { id: "2", name: "Wheel", icon: "wheel" },
+];
+const features = [
+  { title: "Kajplats", icon: Anchor },
+  { title: "Frakt", icon: Ship },
+];
+
+export default function Page() {
+  return (
+    <>${lists[first as keyof typeof lists]}${lists[second as keyof typeof lists]}
+    </>
+  );
+}
+`;
+    const result = fixIconComponentValueMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    const rewritten = `{typeof item.icon === "string" ? item.icon : <item.icon className="h-5 w-5" />}`;
+    // Exactly one rewrite: the features child. The products child is intact.
+    expect(result.code.split(rewritten).length - 1).toBe(1);
+    const productsBlock = result.code.slice(result.code.indexOf("{products.map("));
+    const productsEnd = productsBlock.indexOf("</ul>");
+    expect(productsBlock.slice(0, productsEnd)).toContain("            {item.icon}\n");
+    expect(productsBlock.slice(0, productsEnd)).not.toContain("<item.icon");
+    const featuresBlock = result.code.slice(result.code.indexOf("{features.map("));
+    expect(featuresBlock.slice(0, featuresBlock.indexOf("</ul>"))).toContain(rewritten);
+  });
+
   it("mixed file with an unresolvable binding (prop) falls back to no-op", () => {
     const code = `
 import { Anchor } from "lucide-react";
@@ -292,5 +353,18 @@ tabs.map((tab) => tab.icon);
   it("falls back to the whole file when the binding is not an array iteration", () => {
     expect(bindingHoldsComponentIcons(`type I = { icon: LucideIcon }; <b>{item.icon}</b>`, "item")).toBe(true);
     expect(bindingHoldsComponentIcons(mixed, "item")).toBe(false);
+  });
+
+  it("resolves the closest preceding iteration for a reused callback name", () => {
+    const code = `
+const features = [{ title: "A", icon: Anchor }];
+const products = [{ id: "1", icon: "anchor" }];
+features.map((item) => item.icon);
+products.map((item) => item.icon);
+`;
+    const inFeatures = code.indexOf("features.map((item) => item.icon") + "features.map((item) => ".length;
+    const inProducts = code.indexOf("products.map((item) => item.icon") + "products.map((item) => ".length;
+    expect(bindingHoldsComponentIcons(code, "item", inFeatures)).toBe(true);
+    expect(bindingHoldsComponentIcons(code, "item", inProducts)).toBe(false);
   });
 });
