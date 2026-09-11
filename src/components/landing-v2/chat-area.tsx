@@ -7,13 +7,14 @@ import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
+import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages"
 import {
+  creditPackageCopy,
   integrations,
   landingJourneySteps,
   studioTeam,
   studioTiers,
   trustLogos,
-  creditPackages,
 } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
 import { IntegrationCard } from "@/components/landing-v2/landing-tech-integration-cards"
@@ -197,55 +198,58 @@ export function ChatArea(props: ChatAreaProps = {}) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-              {creditPackages.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  className={`card-3d rounded-2xl border p-7 flex flex-col gap-5 transition-all duration-300 ${
-                    pkg.popular
-                      ? "bg-primary/5 border-primary/30 relative md:scale-105 md:-my-2 shadow-xl shadow-primary/5"
-                      : "bg-card/50 border-border/20 hover:border-border/40"
-                  }`}
-                >
-                  {pkg.popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground bg-primary px-3 py-1 rounded-full">
-                      Populärast
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-lg text-foreground font-(--font-heading)">{pkg.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">{pkg.description}</p>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl text-foreground font-(--font-heading)">{pkg.price} kr</span>
-                    <span className="text-sm text-muted-foreground mb-1">{pkg.credits} credits</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-2">
-                    {(pkg.price / pkg.credits).toFixed(1)} kr/credit
-                    {pkg.savings > 0 ? ` • spara ${pkg.savings}%` : ""}
-                  </p>
-                  <div className="h-px bg-border/20" />
-                  <ul className="space-y-3 flex-1">
-                    {pkg.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                        <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className={`w-full font-medium mt-2 ${
+              {CREDIT_PACKAGES.map((pkg) => {
+                const copy = creditPackageCopy[pkg.id]
+                return (
+                  <div
+                    key={pkg.id}
+                    className={`card-3d rounded-2xl border p-7 flex flex-col gap-5 transition-all duration-300 ${
                       pkg.popular
-                        ? "btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
-                        : "btn-3d bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/30"
+                        ? "bg-primary/5 border-primary/30 relative md:scale-105 md:-my-2 shadow-xl shadow-primary/5"
+                        : "bg-card/50 border-border/20 hover:border-border/40"
                     }`}
-                    onClick={() => router.push("/buy-credits")}
-                    disabled={isSubmitting}
                   >
-                    {pkg.cta}
-                    {pkg.popular && <ArrowRight className="w-4 h-4 ml-2" />}
-                  </Button>
-                </div>
-              ))}
+                    {pkg.popular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground bg-primary px-3 py-1 rounded-full">
+                        Populärast
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-lg text-foreground font-(--font-heading)">{pkg.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <span className="text-3xl text-foreground font-(--font-heading)">{pkg.price} kr</span>
+                      <span className="text-sm text-muted-foreground mb-1">{pkg.credits} credits</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground -mt-2">
+                      {(pkg.price / pkg.credits).toFixed(1)} kr/credit
+                      {pkg.savings > 0 ? ` • spara ${pkg.savings}%` : ""}
+                    </p>
+                    <div className="h-px bg-border/20" />
+                    <ul className="space-y-3 flex-1">
+                      {copy.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                          <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      className={`w-full font-medium mt-2 ${
+                        pkg.popular
+                          ? "btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
+                          : "btn-3d bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/30"
+                      }`}
+                      onClick={() => router.push("/buy-credits")}
+                      disabled={isSubmitting}
+                    >
+                      {copy.cta}
+                      {pkg.popular && <ArrowRight className="w-4 h-4 ml-2" />}
+                    </Button>
+                  </div>
+                )
+              })}
             </div>
 
             <div className="mt-14 rounded-[32px] border border-border/20 bg-card/35 p-6 md:p-8 shadow-[0_24px_70px_rgba(6,10,20,0.2)]">
