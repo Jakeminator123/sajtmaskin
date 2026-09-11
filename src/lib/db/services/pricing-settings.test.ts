@@ -6,33 +6,68 @@ const dbState = {
   configured: true,
   rows: [] as unknown[],
   throwOnSelect: false,
+  /** Sista `.set()`-payloaden updatePricingSettings skrev. */
+  lastUpdate: null as Record<string, unknown> | null,
+  /** Ordningen läs/skriv skedde i, för att bevisa att låset tas först. */
+  order: [] as string[],
 };
 
-vi.mock("@/lib/db/client", () => ({
-  get dbConfigured() {
-    return dbState.configured;
-  },
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: async () => {
-            if (dbState.throwOnSelect) throw new Error("connection reset");
-            return dbState.rows;
-          },
-        }),
+vi.mock("@/lib/db/client", () => {
+  const readChain = {
+    from: () => ({
+      where: () => ({
+        limit: async () => {
+          if (dbState.throwOnSelect) throw new Error("connection reset");
+          return dbState.rows;
+        },
+        // SELECT … FOR UPDATE: samma rader, men registrerar att låset togs.
+        for: async (mode: string) => {
+          dbState.order.push(`lock:${mode}`);
+          return dbState.rows;
+        },
       }),
     }),
-  },
-}));
+  };
+
+  const writeChain = {
+    set: (values: Record<string, unknown>) => ({
+      where: () => ({
+        returning: async () => {
+          dbState.order.push("update");
+          dbState.lastUpdate = values;
+          const current = (dbState.rows[0] ?? {}) as Record<string, unknown>;
+          const merged = { ...current, ...values };
+          dbState.rows = [merged];
+          return [merged];
+        },
+      }),
+    }),
+  };
+
+  const tx = { select: () => readChain, update: () => writeChain };
+
+  return {
+    get dbConfigured() {
+      return dbState.configured;
+    },
+    db: {
+      select: () => readChain,
+      update: () => writeChain,
+      insert: () => ({ values: () => ({ onConflictDoNothing: async () => undefined }) }),
+      transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
+    },
+  };
+});
 
 import { DEFAULT_CREDIT_ACTION_PRICES, getCreditCost } from "@/lib/credits/pricing";
 import { applyMarkupSek, DEFAULT_DOMAIN_PRICING } from "@/lib/domains/pricing";
 import {
   FALLBACK_PRICING_SETTINGS,
   mapPricingSettings,
+  mergeCreditActionPrices,
   parseCreditActionPrices,
   resolvePricingSettings,
+  updatePricingSettings,
 } from "./pricing-settings";
 
 type Row = Parameters<typeof mapPricingSettings>[0];
@@ -53,6 +88,8 @@ beforeEach(() => {
   dbState.configured = true;
   dbState.rows = [];
   dbState.throwOnSelect = false;
+  dbState.lastUpdate = null;
+  dbState.order = [];
   vi.restoreAllMocks();
 });
 
@@ -148,6 +185,145 @@ describe("an admin-set markup reaches the customer price", () => {
 
     expect(applyMarkupSek(99, domain)).toBe(297);
     expect(applyMarkupSek(99)).toBe(99 * DEFAULT_DOMAIN_PRICING.markup);
+  });
+});
+
+describe("mergeCreditActionPrices", () => {
+  const current = {
+    promptCreate: { premium: 12, pro: 8 },
+    wizard: 9,
+    auditBasic: 20,
+  };
+
+  it("leaves missing fields untouched", () => {
+    expect(mergeCreditActionPrices(current, { wizard: 14 })).toEqual({
+      promptCreate: { premium: 12, pro: 8 },
+      wizard: 14,
+      auditBasic: 20,
+    });
+  });
+
+  it("removes an override when the field is null", () => {
+    expect(mergeCreditActionPrices(current, { wizard: null })).toEqual({
+      promptCreate: { premium: 12, pro: 8 },
+      auditBasic: 20,
+    });
+  });
+
+  it("merges per model tier instead of replacing the group", () => {
+    expect(mergeCreditActionPrices(current, { promptCreate: { pro: 3 } }).promptCreate).toEqual({
+      premium: 12,
+      pro: 3,
+    });
+    expect(mergeCreditActionPrices(current, { promptCreate: { premium: null } }).promptCreate)
+      .toEqual({ pro: 8 });
+  });
+
+  it("drops a tier group that becomes empty, and one nulled wholesale", () => {
+    expect(
+      mergeCreditActionPrices(current, { promptCreate: { premium: null, pro: null } }),
+    ).toEqual({ wizard: 9, auditBasic: 20 });
+    expect(mergeCreditActionPrices(current, { promptCreate: null })).toEqual({
+      wizard: 9,
+      auditBasic: 20,
+    });
+  });
+
+  it("keeps 0 as a real price rather than treating it as removal", () => {
+    expect(mergeCreditActionPrices(current, { wizard: 0 }).wizard).toBe(0);
+  });
+});
+
+describe("updatePricingSettings patch semantics", () => {
+  function seedRow(creditActionPrices: Record<string, unknown>) {
+    dbState.rows = [row({ credit_action_prices: creditActionPrices as never })];
+  }
+
+  it("keeps other stored overrides when patching one field", async () => {
+    seedRow({ promptCreate: { premium: 12 }, wizard: 9, auditBasic: 20 });
+
+    const settings = await updatePricingSettings({ creditActionPrices: { wizard: 14 }, updatedBy: "jakob" });
+
+    expect(settings.creditActionPrices).toEqual({
+      promptCreate: { premium: 12 },
+      wizard: 14,
+      auditBasic: 20,
+    });
+    // Regression: en ersättande .set() skrev {wizard:14} och raderade resten.
+    expect(getCreditCost("audit.basic", {}, settings.creditActionPrices)).toBe(20);
+    expect(getCreditCost("prompt.create", { modelId: "premium" }, settings.creditActionPrices)).toBe(12);
+  });
+
+  it("removes an override with null so getCreditCost returns to its constant", async () => {
+    seedRow({ wizard: 9, auditBasic: 20 });
+
+    const settings = await updatePricingSettings({
+      creditActionPrices: { wizard: null },
+      updatedBy: "jakob",
+    });
+
+    expect(settings.creditActionPrices).toEqual({ auditBasic: 20 });
+    expect(getCreditCost("wizard.enrich", {}, settings.creditActionPrices)).toBe(
+      DEFAULT_CREDIT_ACTION_PRICES.wizard,
+    );
+  });
+
+  it("rejects an unknown key with RangeError and writes nothing", async () => {
+    seedRow({ wizard: 9 });
+
+    await expect(
+      updatePricingSettings({ creditActionPrices: { wizrad: 9 }, updatedBy: "jakob" }),
+    ).rejects.toBeInstanceOf(RangeError);
+    expect(dbState.lastUpdate).toBeNull();
+  });
+
+  it("rejects an invalid number with RangeError", async () => {
+    seedRow({ wizard: 9 });
+
+    for (const broken of [{ wizard: -1 }, { wizard: 11.5 }, { wizard: 10_000 }, { wizard: "9" }]) {
+      await expect(
+        updatePricingSettings({ creditActionPrices: broken, updatedBy: "jakob" }),
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+    expect(dbState.lastUpdate).toBeNull();
+  });
+
+  it("takes the row lock before writing", async () => {
+    seedRow({ wizard: 9 });
+
+    await updatePricingSettings({ creditActionPrices: { wizard: 12 }, updatedBy: "jakob" });
+
+    expect(dbState.order).toEqual(["lock:update", "update"]);
+  });
+
+  it("leaves the domain columns untouched when the patch omits them", async () => {
+    seedRow({});
+
+    await updatePricingSettings({ creditActionPrices: { wizard: 12 }, updatedBy: "jakob" });
+
+    expect(dbState.lastUpdate).not.toHaveProperty("domain_markup_basis_points");
+    expect(dbState.lastUpdate).not.toHaveProperty("domain_usd_to_sek_ore");
+    expect(dbState.lastUpdate).toMatchObject({ updated_by: "jakob" });
+  });
+
+  it("leaves credit prices untouched when the patch omits them", async () => {
+    seedRow({ wizard: 9 });
+
+    const settings = await updatePricingSettings({ domainMarkup: 3, updatedBy: "jakob" });
+
+    expect(dbState.lastUpdate).not.toHaveProperty("credit_action_prices");
+    expect(settings.domain.markup).toBe(3);
+    expect(settings.creditActionPrices).toEqual({ wizard: 9 });
+  });
+
+  it("still range-checks the domain fields it is given", async () => {
+    seedRow({});
+    await expect(updatePricingSettings({ domainMarkup: 20, updatedBy: "j" })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(
+      updatePricingSettings({ domainUsdToSek: 0.5, updatedBy: "j" }),
+    ).rejects.toBeInstanceOf(RangeError);
   });
 });
 

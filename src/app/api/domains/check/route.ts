@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { resolveDomainOffer, type DomainOffer } from "@/lib/domains/registrar";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { lookupWhois, summarizeWhois, type WhoisSummary } from "@/lib/domains/rdap-client";
 import { withRateLimit } from "@/lib/rate-limit";
 
@@ -125,12 +126,16 @@ export async function POST(req: NextRequest) {
             `${rawQuery}.net`,
           ];
 
+      // En gång för hela svaret: alla TLD-förslag ska prissättas på samma
+      // påslag även om en admin ändrar det mitt under sökningen.
+      const pricing = (await resolvePricingSettings()).domain;
+
       const results = await Promise.all(
         domains.map(async (domain, index): Promise<DomainCheckResult> => {
           if (index > 0) {
             await new Promise((r) => setTimeout(r, index * 150));
           }
-          const offer = await resolveDomainOffer(domain);
+          const offer = await resolveDomainOffer(domain, pricing);
           return enrichWithWhois(toCheckResult(offer));
         }),
       );

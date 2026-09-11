@@ -15,9 +15,10 @@
 
 import { referenceQuote, unknownQuote } from "@/lib/domains/pricing";
 import { checkAvailabilityViaDns } from "@/lib/domains/dns-availability";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { loopiaRegistrar } from "./loopia-registrar";
 import { vercelRegistrar } from "./vercel-registrar";
-import type { DomainPriceQuote } from "@/lib/domains/pricing";
+import type { DomainPricingSettings, DomainPriceQuote } from "@/lib/domains/pricing";
 import type { RegistrarId, RegistrarProvider } from "./types";
 
 export type { RegistrarId, RegistrarProvider, RegistrarQuote } from "./types";
@@ -72,13 +73,23 @@ export function fulfilmentProviderFor(
   return providersForTld(tld).find((p) => p.canRegister()) ?? null;
 }
 
-export async function resolveDomainOffer(domain: string): Promise<DomainOffer> {
+/**
+ * `settings` är den upplösta prisbilden. Utelämnad resolvar den själv, så en
+ * enskild uppslagning inte behöver bry sig. En sökning som svarar på flera
+ * domäner ska däremot resolva EN gång och skicka in samma objekt: annars kan
+ * en admin som ändrar påslaget mitt i sökningen ge två priser i samma lista.
+ */
+export async function resolveDomainOffer(
+  domain: string,
+  settings?: DomainPricingSettings,
+): Promise<DomainOffer> {
   const normalized = domain.trim().toLowerCase();
   const tld = tldOf(normalized);
   const providers = providersForTld(tld);
+  const pricing = settings ?? (await resolvePricingSettings()).domain;
 
   const results = await Promise.all(
-    providers.filter((p) => p.canQuote()).map((p) => p.getQuote(normalized)),
+    providers.filter((p) => p.canQuote()).map((p) => p.getQuote(normalized, pricing)),
   );
 
   // Availability: first provider (specialist order) that returned a verdict.
@@ -97,7 +108,7 @@ export async function resolveDomainOffer(domain: string): Promise<DomainOffer> {
   // Price: the first binding quote wins; otherwise a labelled reference figure
   // so the surface can still say "ungefär" instead of showing nothing.
   const binding = results.find((r) => r.quote.binding)?.quote;
-  const quote = binding ?? (results.length > 0 ? referenceQuote(tld) : referenceQuote(tld));
+  const quote = binding ?? referenceQuote(tld, pricing);
 
   const fulfilment = fulfilmentProviderFor(tld, quote);
   const blockedReason = resolveBlockedReason({ available, quote, tld, fulfilment });

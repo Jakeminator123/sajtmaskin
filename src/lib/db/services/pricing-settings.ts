@@ -60,11 +60,89 @@ const CREDIT_ACTION_PRICE_FIELDS = {
 } as const;
 
 /**
- * Varje fält är valfritt: en rad som bara överrider audit-priset ska vara
- * giltig, och resten faller tillbaka på koden. Strikt om okända nycklar så ett
- * felstavat fältnamn inte tyst blir en prisändring som aldrig slår igenom.
+ * Formen som ligger LAGRAD i `credit_action_prices`. Varje fält är valfritt: en
+ * rad som bara överrider audit-priset ska vara giltig, och resten faller
+ * tillbaka på koden. Strikt om okända nycklar så ett felstavat fältnamn inte
+ * tyst blir en prisändring som aldrig slår igenom.
+ *
+ * `null` finns inte här med flit — en borttagen override lagras som en saknad
+ * nyckel, inte som en null. Se {@link creditActionPricesPatchSchema}.
  */
 export const creditActionPricesSchema = z.strictObject(CREDIT_ACTION_PRICE_FIELDS).partial();
+
+const modelTierPricesPatchSchema = z
+  .strictObject({
+    premium: creditPriceSchema.nullable(),
+    pro: creditPriceSchema.nullable(),
+    max: creditPriceSchema.nullable(),
+    codex: creditPriceSchema.nullable(),
+    anthropic: creditPriceSchema.nullable(),
+  })
+  .partial();
+
+/**
+ * Formen en admin SKICKAR IN. Skild från den lagrade formen eftersom en patch
+ * behöver kunna uttrycka "ta bort den här overriden" — vilket `null` betyder.
+ * Se {@link updatePricingSettings} för hela semantiken.
+ */
+export const creditActionPricesPatchSchema = z
+  .strictObject({
+    promptCreate: modelTierPricesPatchSchema.nullable(),
+    promptRefine: modelTierPricesPatchSchema.nullable(),
+    wizard: creditPriceSchema.nullable(),
+    auditBasic: creditPriceSchema.nullable(),
+    auditAdvanced: creditPriceSchema.nullable(),
+    deployPreview: creditPriceSchema.nullable(),
+    deployProduction: creditPriceSchema.nullable(),
+    openclawTip: creditPriceSchema.nullable(),
+  })
+  .partial();
+
+export type CreditActionPricesPatch = z.infer<typeof creditActionPricesPatchSchema>;
+
+function mergeModelTierPrices(
+  current: Partial<Record<string, number>>,
+  patch: Record<string, number | null | undefined>,
+): Record<string, number> {
+  const merged: Record<string, number> = { ...(current as Record<string, number>) };
+  for (const [tier, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (value === null) delete merged[tier];
+    else merged[tier] = value;
+  }
+  return merged;
+}
+
+/**
+ * Slår ihop en patch med den lagrade prislistan enligt semantiken i
+ * {@link updatePricingSettings}. Ren funktion — anroparen äger låsningen.
+ */
+export function mergeCreditActionPrices(
+  current: CreditPriceOverrides,
+  patch: CreditActionPricesPatch,
+): CreditPriceOverrides {
+  const merged: Record<string, unknown> = { ...current };
+  for (const [field, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      delete merged[field];
+      continue;
+    }
+    if (typeof value === "object") {
+      const tiers = mergeModelTierPrices(
+        (merged[field] as Partial<Record<string, number>>) ?? {},
+        value as Record<string, number | null | undefined>,
+      );
+      // En tom grupp lagras inte — då är hela overriden borttagen och
+      // `getCreditCost` ska tillbaka till sin konstant.
+      if (Object.keys(tiers).length === 0) delete merged[field];
+      else merged[field] = tiers;
+      continue;
+    }
+    merged[field] = value;
+  }
+  return merged as CreditPriceOverrides;
+}
 
 export type PricingSettings = {
   domainMarkupBasisPoints: number;
@@ -197,60 +275,112 @@ export async function resolvePricingSettings(): Promise<PricingSettings> {
 }
 
 export type UpdatePricingSettingsInput = {
-  /** Multiplikator, t.ex. 5 för X5. */
-  domainMarkup: number;
-  /** Kronor per USD, t.ex. 11. */
-  domainUsdToSek: number;
+  /** Multiplikator, t.ex. 5 för X5. Utelämnad lämnar påslaget orört. */
+  domainMarkup?: number;
+  /** Kronor per USD, t.ex. 11. Utelämnad lämnar kursen orörd. */
+  domainUsdToSek?: number;
+  /** Patch enligt {@link creditActionPricesPatchSchema}. */
   creditActionPrices?: unknown;
   updatedBy: string;
 };
 
+/**
+ * Uppdaterar prisbilden. Allt är en PATCH, aldrig en ersättning.
+ *
+ * `credit_action_prices`:
+ *   - fält som **saknas** i patchen lämnas orört
+ *   - fält satt till ett **tal** sätter eller uppdaterar overriden
+ *   - fält satt till **null** tar bort overriden, varpå `getCreditCost`
+ *     återgår till sin konstant
+ *
+ * Samma tre regler gäller per modelltier inuti `promptCreate`/`promptRefine`;
+ * hela gruppen satt till `null` tar bort alla dess overrides. Ett admin-UI som
+ * bara skickar det fält användaren rörde kan därför inte råka nollställa
+ * resten — vilket är precis vad en ersättande `.set()` gjorde.
+ *
+ * Läsning, sammanslagning och skrivning sker i EN transaktion med
+ * `SELECT … FOR UPDATE` på singleton-raden, så två samtidiga patchar
+ * serialiseras i stället för att skriva över varandras fält.
+ *
+ * Valideringen är strikt: okända nycklar och ogiltiga tal ger `RangeError`.
+ */
 export async function updatePricingSettings(
   input: UpdatePricingSettingsInput,
 ): Promise<PricingSettings> {
   assertDbConfigured();
-  const domainMarkupBasisPoints = Math.round(input.domainMarkup * 10_000);
-  const domainUsdToSekOre = Math.round(input.domainUsdToSek * 100);
-  if (
-    !Number.isFinite(domainMarkupBasisPoints) ||
-    domainMarkupBasisPoints < DOMAIN_MARKUP_BASIS_POINTS_MIN ||
-    domainMarkupBasisPoints > DOMAIN_MARKUP_BASIS_POINTS_MAX
-  ) {
-    throw new RangeError("Domänpåslaget måste vara mellan X1,0 och X10,0.");
+
+  let domainMarkupBasisPoints: number | undefined;
+  if (input.domainMarkup !== undefined) {
+    domainMarkupBasisPoints = Math.round(input.domainMarkup * 10_000);
+    if (
+      !Number.isFinite(domainMarkupBasisPoints) ||
+      domainMarkupBasisPoints < DOMAIN_MARKUP_BASIS_POINTS_MIN ||
+      domainMarkupBasisPoints > DOMAIN_MARKUP_BASIS_POINTS_MAX
+    ) {
+      throw new RangeError("Domänpåslaget måste vara mellan X1,0 och X10,0.");
+    }
   }
-  if (
-    !Number.isFinite(domainUsdToSekOre) ||
-    domainUsdToSekOre < DOMAIN_USD_TO_SEK_ORE_MIN ||
-    domainUsdToSekOre > DOMAIN_USD_TO_SEK_ORE_MAX
-  ) {
-    throw new RangeError("USD/SEK för domäner måste vara mellan 1 och 100.");
+
+  let domainUsdToSekOre: number | undefined;
+  if (input.domainUsdToSek !== undefined) {
+    domainUsdToSekOre = Math.round(input.domainUsdToSek * 100);
+    if (
+      !Number.isFinite(domainUsdToSekOre) ||
+      domainUsdToSekOre < DOMAIN_USD_TO_SEK_ORE_MIN ||
+      domainUsdToSekOre > DOMAIN_USD_TO_SEK_ORE_MAX
+    ) {
+      throw new RangeError("USD/SEK för domäner måste vara mellan 1 och 100.");
+    }
   }
 
   // Här är strikt validering rätt: en admin som skickar ett ogiltigt pris ska
   // få veta det, till skillnad från resolvern som måste tåla en trasig rad.
-  let creditActionPrices: CreditPriceOverrides = {};
+  let creditPatch: CreditActionPricesPatch | undefined;
   if (input.creditActionPrices !== undefined) {
-    const parsed = creditActionPricesSchema.safeParse(input.creditActionPrices);
+    const parsed = creditActionPricesPatchSchema.safeParse(input.creditActionPrices);
     if (!parsed.success) {
       throw new RangeError(
-        `Creditpriserna måste vara heltal mellan 0 och ${CREDIT_PRICE_MAX} per åtgärd.`,
+        `Creditpriserna måste vara heltal mellan 0 och ${CREDIT_PRICE_MAX} per åtgärd, ` +
+          `eller null för att ta bort en override.`,
       );
     }
-    creditActionPrices = parsed.data;
+    creditPatch = parsed.data;
   }
 
   await ensureSettings();
-  const rows = await db
-    .update(pricingSettings)
-    .set({
-      domain_markup_basis_points: domainMarkupBasisPoints,
-      domain_usd_to_sek_ore: domainUsdToSekOre,
-      ...(input.creditActionPrices === undefined ? {} : { credit_action_prices: creditActionPrices }),
-      updated_by: input.updatedBy,
-      updated_at: new Date(),
-    })
-    .where(eq(pricingSettings.id, PRICING_SETTINGS_ID))
-    .returning();
-  if (!rows[0]) throw new Error("Pricing settings could not be updated");
-  return mapPricingSettings(rows[0]);
+
+  return db.transaction(async (tx) => {
+    const lockedRows = await tx
+      .select()
+      .from(pricingSettings)
+      .where(eq(pricingSettings.id, PRICING_SETTINGS_ID))
+      .for("update");
+    const locked = lockedRows[0];
+    if (!locked) throw new Error("Pricing settings missing");
+
+    const rows = await tx
+      .update(pricingSettings)
+      .set({
+        ...(domainMarkupBasisPoints === undefined
+          ? {}
+          : { domain_markup_basis_points: domainMarkupBasisPoints }),
+        ...(domainUsdToSekOre === undefined
+          ? {}
+          : { domain_usd_to_sek_ore: domainUsdToSekOre }),
+        ...(creditPatch === undefined
+          ? {}
+          : {
+              credit_action_prices: mergeCreditActionPrices(
+                parseCreditActionPrices(locked.credit_action_prices),
+                creditPatch,
+              ),
+            }),
+        updated_by: input.updatedBy,
+        updated_at: new Date(),
+      })
+      .where(eq(pricingSettings.id, PRICING_SETTINGS_ID))
+      .returning();
+    if (!rows[0]) throw new Error("Pricing settings could not be updated");
+    return mapPricingSettings(rows[0]);
+  });
 }
