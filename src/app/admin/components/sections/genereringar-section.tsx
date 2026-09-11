@@ -166,7 +166,7 @@ export function GenereringarSection() {
       </div>
       {reconcileMessage && <p className="text-muted-foreground text-sm">{reconcileMessage}</p>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
         <StatCard label="Genereringar" value={data?.summary.generations ?? 0} icon={WandSparkles} />
         <StatCard
           label="Beräknad självkostnad"
@@ -175,9 +175,15 @@ export function GenereringarSection() {
           icon={ReceiptText}
         />
         <StatCard
-          label="Efter påslag"
+          label="Debiterat"
           value={formatSek(data?.summary.billableOre ?? 0)}
-          hint="Värdet före avrundning till credits"
+          hint="Credits × radens kr/credit, inte paketpris"
+          icon={Coins}
+        />
+        <StatCard
+          label="Marginal"
+          value={formatSek((data?.summary.billableOre ?? 0) - (data?.summary.providerCostOre ?? 0))}
+          hint="Debiterat kreditvärde minus självkostnad"
           icon={Coins}
         />
         <StatCard label="Credits dragna" value={data?.summary.creditsCharged ?? 0} icon={Coins} />
@@ -278,7 +284,7 @@ export function GenereringarSection() {
 
       <SectionCard
         title="Användare"
-        description="Summerad självkostnad och debitering för vald period."
+        description="Självkostnad, debiterat kreditvärde och marginal för vald period."
         icon={Users}
       >
         <DataState
@@ -295,6 +301,8 @@ export function GenereringarSection() {
                   <TableHead>Användare</TableHead>
                   <TableHead className="text-right">Genereringar</TableHead>
                   <TableHead className="text-right">Självkostnad</TableHead>
+                  <TableHead className="text-right">Debiterat</TableHead>
+                  <TableHead className="text-right">Marginal</TableHead>
                   <TableHead className="text-right">Gratis</TableHead>
                   <TableHead className="text-right">Credits</TableHead>
                 </TableRow>
@@ -310,6 +318,8 @@ export function GenereringarSection() {
                     </TableCell>
                     <TableCell className="text-right">{formatCount(user.generations)}</TableCell>
                     <TableCell className="text-right">{formatSek(user.providerCostOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.billableOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.marginOre)}</TableCell>
                     <TableCell className="text-right">
                       {formatCount(user.freeGenerations)}
                     </TableCell>
@@ -400,6 +410,9 @@ export function GenereringarSection() {
                   <div>
                     <span className="text-muted-foreground block text-xs">Efter påslag</span>
                     {formatSek(row.billableOre)}
+                    <span className="text-muted-foreground block text-xs">
+                      Listpris före kreditavrundning
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block text-xs">Draget</span>

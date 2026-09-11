@@ -826,6 +826,79 @@ export type AdminGenerationBillingRow = {
   updatedAt: string;
 };
 
+export type GenerationBillingUserSummary = {
+  userId: string | null;
+  name: string;
+  email: string | null;
+  generations: number;
+  providerCostOre: number;
+  billableOre: number;
+  marginOre: number;
+  creditsCharged: number;
+  freeGenerations: number;
+};
+
+export type GenerationBillingLedgerRow = {
+  creditsCharged: number;
+  sekPerCreditOre: number;
+  providerCostOre: number;
+};
+
+/** Kreditvärde enligt radens snapshot — inte vad kunden betalade för paketet. */
+export function billedOreTowardAdminRevenue(row: {
+  creditsCharged: number;
+  sekPerCreditOre: number;
+}): number {
+  return Number(row.creditsCharged) * Number(row.sekPerCreditOre);
+}
+
+export function summarizeGenerationBillingRows(
+  rows: GenerationBillingLedgerRow[],
+): { providerCostOre: number; billableOre: number; marginOre: number } {
+  let providerCostOre = 0;
+  let billableOre = 0;
+  for (const row of rows) {
+    providerCostOre += Number(row.providerCostOre);
+    billableOre += billedOreTowardAdminRevenue(row);
+  }
+  return {
+    providerCostOre,
+    billableOre,
+    marginOre: billableOre - providerCostOre,
+  };
+}
+
+function chargedCreditValueSql(tableAlias?: "gb") {
+  const credits = tableAlias ? sql`gb.credits_charged` : sql`credits_charged`;
+  const rate = tableAlias ? sql`gb.sek_per_credit_ore` : sql`sek_per_credit_ore`;
+  return sql`COALESCE(SUM(${credits} * ${rate}), 0)::integer`;
+}
+
+export function mapGenerationBillingUserSummary(row: {
+  userId: string | null;
+  name: string;
+  email: string | null;
+  generations: number;
+  providerCostOre: number;
+  billableOre: number;
+  creditsCharged: number;
+  freeGenerations: number;
+}): GenerationBillingUserSummary {
+  const providerCostOre = Number(row.providerCostOre);
+  const billableOre = Number(row.billableOre);
+  return {
+    userId: row.userId,
+    name: row.name,
+    email: row.email,
+    generations: Number(row.generations),
+    providerCostOre,
+    billableOre,
+    marginOre: billableOre - providerCostOre,
+    creditsCharged: Number(row.creditsCharged),
+    freeGenerations: Number(row.freeGenerations),
+  };
+}
+
 export async function getGenerationBillingAdminData(
   days: number,
   limit = 200,
@@ -900,7 +973,7 @@ export async function getGenerationBillingAdminData(
       SELECT
         COUNT(*)::integer AS generations,
         COALESCE(SUM(provider_cost_ore), 0)::integer AS "providerCostOre",
-        COALESCE(SUM(billable_ore), 0)::integer AS "billableOre",
+        ${chargedCreditValueSql()} AS "billableOre",
         COALESCE(SUM(credits_charged), 0)::integer AS "creditsCharged",
         COUNT(*) FILTER (WHERE free_generation_applied)::integer AS "freeGenerations",
         COALESCE(SUM(llm_calls), 0)::integer AS "llmCalls"
@@ -915,6 +988,7 @@ export async function getGenerationBillingAdminData(
         u.email,
         COUNT(*)::integer AS generations,
         COALESCE(SUM(gb.provider_cost_ore), 0)::integer AS "providerCostOre",
+        ${chargedCreditValueSql("gb")} AS "billableOre",
         COALESCE(SUM(gb.credits_charged), 0)::integer AS "creditsCharged",
         COUNT(*) FILTER (WHERE gb.free_generation_applied)::integer AS "freeGenerations"
       FROM generation_billings gb
@@ -1002,17 +1076,12 @@ export async function getGenerationBillingAdminData(
     email: string | null;
     generations: number;
     providerCostOre: number;
+    billableOre: number;
     creditsCharged: number;
     freeGenerations: number;
   };
   const usersSummary = ((usersResult as unknown as { rows?: UserSummaryRow[] }).rows ?? []).map(
-    (row) => ({
-      ...row,
-      generations: Number(row.generations),
-      providerCostOre: Number(row.providerCostOre),
-      creditsCharged: Number(row.creditsCharged),
-      freeGenerations: Number(row.freeGenerations),
-    }),
+    (row) => mapGenerationBillingUserSummary(row),
   );
 
   return {

@@ -3,8 +3,13 @@ import { calculateModelCost } from "@/lib/billing/model-cost";
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 
-const { buildGenerationQuote, resolveGenerationChargeDecision } =
-  await import("./generation-billing");
+const {
+  billedOreTowardAdminRevenue,
+  buildGenerationQuote,
+  mapGenerationBillingUserSummary,
+  resolveGenerationChargeDecision,
+  summarizeGenerationBillingRows,
+} = await import("./generation-billing");
 
 function usageRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -317,6 +322,94 @@ describe("resolveGenerationChargeDecision", () => {
       status: "needs_reconciliation",
       freeGenerationApplied: true,
       shouldClaimFreeGeneration: false,
+    });
+  });
+});
+
+describe("summarizeGenerationBillingRows", () => {
+  const free = {
+    creditsCharged: 0,
+    sekPerCreditOre: 300,
+    providerCostOre: 300,
+  };
+  const paid = {
+    creditsCharged: 2,
+    sekPerCreditOre: 300,
+    providerCostOre: 200,
+  };
+
+  it("gives negative margin equal to cost when a free generation charged no credits", () => {
+    expect(summarizeGenerationBillingRows([free])).toEqual({
+      providerCostOre: 300,
+      billableOre: 0,
+      marginOre: -300,
+    });
+  });
+
+  it("uses credit value after rounding, not list price", () => {
+    expect(
+      billedOreTowardAdminRevenue({
+        creditsCharged: 2,
+        sekPerCreditOre: 300,
+      }),
+    ).toBe(600);
+    expect(
+      summarizeGenerationBillingRows([
+        {
+          creditsCharged: 2,
+          sekPerCreditOre: 300,
+          providerCostOre: 180,
+        },
+      ]),
+    ).toEqual({
+      providerCostOre: 180,
+      billableOre: 600,
+      marginOre: 420,
+    });
+  });
+
+  it("subtracts both costs from the paid generation's credit value", () => {
+    expect(summarizeGenerationBillingRows([paid, free])).toEqual({
+      providerCostOre: 500,
+      billableOre: 600,
+      marginOre: 100,
+    });
+  });
+
+  it("does not count a test row as revenue", () => {
+    expect(
+      summarizeGenerationBillingRows([
+        {
+          creditsCharged: 0,
+          sekPerCreditOre: 300,
+          providerCostOre: 250,
+        },
+      ]),
+    ).toEqual({
+      providerCostOre: 250,
+      billableOre: 0,
+      marginOre: -250,
+    });
+  });
+});
+
+describe("mapGenerationBillingUserSummary", () => {
+  it("keeps öre as integers on already-aggregated totals", () => {
+    expect(
+      mapGenerationBillingUserSummary({
+        userId: "user_1",
+        name: "Ada",
+        email: "ada@example.com",
+        generations: 2,
+        creditsCharged: 14,
+        freeGenerations: 1,
+        providerCostOre: 1500,
+        billableOre: 4200,
+      }),
+    ).toMatchObject({
+      providerCostOre: 1500,
+      billableOre: 4200,
+      marginOre: 2700,
     });
   });
 });

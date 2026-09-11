@@ -42,6 +42,38 @@ describe("admin generation billing route", () => {
     });
   });
 
+  it("passes through billed amount and negative free-generation margin", async () => {
+    getGenerationBillingAdminData.mockResolvedValue({
+      days: 30,
+      generations: [],
+      users: [
+        {
+          userId: "user_1",
+          name: "Ada",
+          email: "ada@example.com",
+          generations: 1,
+          providerCostOre: 300,
+          billableOre: 0,
+          marginOre: -300,
+          creditsCharged: 0,
+          freeGenerations: 1,
+        },
+      ],
+    });
+    const response = await GET(new NextRequest("http://localhost/api/admin/generation-billing"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      users: [
+        {
+          billableOre: 0,
+          marginOre: -300,
+          providerCostOre: 300,
+        },
+      ],
+    });
+  });
+
   it("persists validated settings with the admin actor", async () => {
     updateGenerationBillingSettings.mockResolvedValue({ markupMultiplier: 2.8 });
     const response = await PATCH(
