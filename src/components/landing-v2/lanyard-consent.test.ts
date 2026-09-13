@@ -32,7 +32,9 @@ describe("lanyard consent helpers", () => {
     );
     expect(source).toContain("lanyard-experience");
     expect(source).toContain("lanyard-card");
-    expect(source).toMatch(/if \(readStoredCookieConsent\(\)\)/);
+    expect(source).toContain("readPrefersReducedMotion");
+    expect(source).toContain("readSaveDataPreference");
+    expect(source).toMatch(/if \(!readStoredCookieConsent\(\)\) return/);
     expect(() => preloadReturningLanyard()).not.toThrow();
   });
 });

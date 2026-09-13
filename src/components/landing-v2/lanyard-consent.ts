@@ -1,3 +1,8 @@
+import {
+  readPrefersReducedMotion,
+  readSaveDataPreference,
+} from "@/components/landing-v2/landing-hooks";
+
 export const LANYARD_CONSENT_KEY = "cookie-consent";
 export const LANYARD_CONSENT_DATE_KEY = "cookie-consent-date";
 
@@ -13,10 +18,12 @@ export function readStoredCookieConsent(): string | null {
 /**
  * Startar experience- och 3D-chunk parallellt för återbesökare så
  * hero-ytan inte väntar på en andra dynamisk import efter mount.
+ * Reduced-motion / save-data hoppar över 3D-chunken — samma regel som
+ * LanyardExperience.staticOnly.
  */
 export function preloadReturningLanyard(): void {
   void import("@/components/landing-v2/lanyard-experience");
-  if (readStoredCookieConsent()) {
-    void import("@/components/landing-v2/lanyard-card");
-  }
+  if (!readStoredCookieConsent()) return;
+  if (readPrefersReducedMotion() || readSaveDataPreference()) return;
+  void import("@/components/landing-v2/lanyard-card");
 }
