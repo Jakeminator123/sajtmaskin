@@ -64,6 +64,11 @@ export function readSaveDataPreference(): boolean {
   }
 }
 
+/** Client-only sync snapshot — covers the tick before motion/save-data hooks settle. */
+export function readLanyardStaticOnly(): boolean {
+  return readPrefersReducedMotion() || readSaveDataPreference()
+}
+
 /**
  * Rapporterar `true` när användaren ber om datasparläge (`Save-Data`) eller sitter
  * på en svag uppkoppling (`effectiveType` 2g/3g eller låg `downlink`). Används för

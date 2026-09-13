@@ -26,8 +26,7 @@ import {
   readStoredCookieConsent,
 } from "@/components/landing-v2/lanyard-consent"
 import {
-  readPrefersReducedMotion,
-  readSaveDataPreference,
+  readLanyardStaticOnly,
   usePrefersReducedMotion,
   useSaveData,
 } from "@/components/landing-v2/landing-hooks"
@@ -95,8 +94,7 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
   const saveData = useSaveData()
   // Hookarna är SSR-säkra (false tills effect). Experience är client-only
   // och får inte montera WebGL en tick för reduced-motion / save-data.
-  const staticOnly =
-    reducedMotion || saveData || readPrefersReducedMotion() || readSaveDataPreference()
+  const staticOnly = reducedMotion || saveData || readLanyardStaticOnly()
   // Experience laddas med ssr:false, så första render är klient.
   // Läs samtycke synkront — "checking" lämnade annars hero-ytan tom en tick.
   const [phase, setPhase] = useState<Phase>(initialPhase)
