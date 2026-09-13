@@ -46,9 +46,19 @@ describe("findBreakingStatements", () => {
     expect(found("ALTER TABLE t ADD CONSTRAINT t_email_unique UNIQUE (email);")).toContain(
       "add-constraint",
     );
+    expect(found("ALTER TABLE t ADD UNIQUE (email);")).toContain("add-unique");
+    expect(found("ALTER TABLE t ADD PRIMARY KEY (id);")).toContain("add-primary-key");
+    expect(found("ALTER TABLE t ADD FOREIGN KEY (user_id) REFERENCES users (id);")).toContain(
+      "add-foreign-key",
+    );
+    expect(found("ALTER TABLE t ADD COLUMN email TEXT UNIQUE;")).toContain("add-column-unique");
     expect(found("CREATE UNIQUE INDEX t_email_uidx ON t (email);")).toContain(
       "create-unique-index",
     );
+    expect(found("ALTER TABLE t ADD COLUMN email TEXT;")).not.toContain("add-column-unique");
+    expect(
+      found("CREATE TABLE IF NOT EXISTS t (id text PRIMARY KEY, email text UNIQUE);"),
+    ).toEqual([]);
   });
 
   it("läser inuti en DO-kropp — det är där den riktiga DROP COLUMN gömmer sig", () => {
@@ -185,6 +195,10 @@ describe("BREAKING_STATEMENTS", () => {
       "truncate",
       "delete-from",
       "add-constraint",
+      "add-unique",
+      "add-primary-key",
+      "add-foreign-key",
+      "add-column-unique",
       "create-unique-index",
     ]);
   });

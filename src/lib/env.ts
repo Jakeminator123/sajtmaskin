@@ -280,6 +280,8 @@ const BUILD_PHASES = new Set(["phase-production-build", "phase-export"]);
 
 /**
  * Production may only run live Stripe keys. Preview/development stay on test.
+ * Scoped to Vercel `VERCEL_ENV=production` on purpose — `NODE_ENV=production`
+ * is also set during local/`next build` and CI, where test keys are correct.
  * Skipped during Next's production-build phase so a failed refine cannot trip
  * the empty-env fallback (that would strip inlined NEXT_PUBLIC_* values).
  * Unset keys are allowed — checkout is optional until the secret is present.
