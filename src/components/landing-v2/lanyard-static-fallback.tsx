@@ -16,7 +16,7 @@ export const LANYARD_CARD_GRAIN_STYLE: CSSProperties = {
 
 export function LanyardBrandFace({ className = "" }: { className?: string }) {
   return (
-    <div className={`relative overflow-hidden bg-[#070b10] ${className}`}>
+    <div className={`relative isolate overflow-hidden bg-[#070b10] ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={CARD_IMAGE}

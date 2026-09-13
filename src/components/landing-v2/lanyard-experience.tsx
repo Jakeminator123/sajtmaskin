@@ -31,6 +31,13 @@ import {
   useSaveData,
 } from "@/components/landing-v2/landing-hooks"
 import {
+  LANYARD_ACCEPT_FLIGHT_KEYFRAMES,
+  lanyardAcceptFlightAnimation,
+  lanyardAcceptFlipMs,
+  lanyardAcceptHandoffDelayMs,
+  lanyardPhysicsLayerClass,
+} from "@/components/landing-v2/lanyard-accept-transition"
+import {
   LANYARD_CARD_GRAIN_STYLE,
   LanyardBrandFace,
   StaticLanyardFallback,
@@ -40,9 +47,6 @@ const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
   { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
-
-const FLIP_MS_DESKTOP = 1550
-const FLIP_MS_MOBILE = 1150
 
 /** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
 function useExperienceMode() {
@@ -116,9 +120,8 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
       {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
       {phase !== "checking" && !staticOnly && (
         <div
-          className={`h-full w-full transition-opacity duration-300 ${
-            phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+          data-testid="lanyard-physics-layer"
+          className={lanyardPhysicsLayerClass(phase === "reveal")}
         >
           <LanyardErrorBoundary>
             <LanyardCard className="h-full" autoSwing={autoSwing} />
@@ -223,7 +226,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
   }, [])
 
   // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
-  const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
+  const flipMs = lanyardAcceptFlipMs({ reducedMotion, mobile })
 
   const choose = useCallback(
     (value: "accepted" | "declined") => {
@@ -237,7 +240,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
       }
       setLeaving(true)
-      window.setTimeout(onDone, flipMs - 60)
+      window.setTimeout(onDone, lanyardAcceptHandoffDelayMs(flipMs))
     },
     [leaving, onDone, flipMs],
   )
@@ -248,7 +251,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Cookie-inställningar"
-      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-colors duration-700 ease-out ${
         leaving
           ? "pointer-events-none bg-transparent"
           : "bg-[#05070a]"
@@ -258,34 +261,19 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
           sedan släpper spänningen och hela prylen (snodd + clips + kort)
           SKJUTS iväg långt bak i djupled — förbi sitt viloläge — och
           fjädrar sedan tillbaka fram till överlämningsstorleken. */}
-      <style>{`
-        @keyframes lanyard-fly-back {
-          0% { transform: translateY(0) translateZ(0) scale(1); }
-          18% { transform: translateY(2.4vh) translateZ(190px) scale(1.09); }
-          72% { transform: translateY(-30vh) translateZ(-1050px) scale(0.5); }
-          100% { transform: translateY(-24vh) translateZ(-560px) scale(0.66); }
-        }
-        @keyframes lanyard-fly-back-mobile {
-          0% { transform: translateY(0) translateZ(0) scale(1); }
-          18% { transform: translateY(1.6vh) translateZ(120px) scale(1.06); }
-          72% { transform: translateY(-21vh) translateZ(-720px) scale(0.56); }
-          100% { transform: translateY(-16vh) translateZ(-380px) scale(0.7); }
-        }
-        @keyframes lanyard-fade-out {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-      `}</style>
+      <style>{LANYARD_ACCEPT_FLIGHT_KEYFRAMES}</style>
       <div
+        data-testid="lanyard-accept-flight"
         className="flex flex-col items-center"
         style={{
           perspective: "1600px",
           transformStyle: "preserve-3d",
-          animation: leaving
-            ? reducedMotion
-              ? `lanyard-fade-out ${flipMs}ms ease-out forwards`
-              : `${mobile ? "lanyard-fly-back-mobile" : "lanyard-fly-back"} ${flipMs}ms cubic-bezier(0.34, 0.02, 0.26, 1) forwards`
-            : "none",
+          animation: lanyardAcceptFlightAnimation({
+            leaving,
+            reducedMotion,
+            mobile,
+            flipMs,
+          }),
         }}
       >
         {/* Snodd/band som kortet hänger i — samma teal som 3D-bandet. */}

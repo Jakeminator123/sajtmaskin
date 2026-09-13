@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  LANYARD_FLIP_MS_DESKTOP,
+  LANYARD_FLIP_MS_REDUCED,
+} from "./lanyard-accept-transition";
 import { LanyardExperience } from "./lanyard-experience";
 
 vi.mock("next/dynamic", () => ({
@@ -127,6 +131,41 @@ describe("LanyardExperience", () => {
       expect(screen.getByTestId("lanyard-physics")).toBeTruthy();
     });
     expect(screen.queryByTestId("lanyard-static")).toBeNull();
+  });
+
+  it("keeps the accept flight opaque and snaps the dangling card in", () => {
+    vi.useFakeTimers();
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Acceptera alla" }));
+
+    const flight = screen.getByTestId("lanyard-accept-flight");
+    expect(flight.style.animation).toContain("lanyard-fly-back");
+    expect(flight.style.animation).not.toContain("lanyard-fade-out");
+    expect(screen.getByTestId("lanyard-physics-layer").className).toContain("opacity-0");
+
+    act(() => {
+      vi.advanceTimersByTime(LANYARD_FLIP_MS_DESKTOP);
+    });
+
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+    const layer = screen.getByTestId("lanyard-physics-layer");
+    expect(layer.className).toContain("opacity-100");
+    expect(layer.className).not.toContain("transition-opacity");
+    expect(layer.className).not.toContain("opacity-0");
+  });
+
+  it("still fades the card out when reduced motion is preferred", () => {
+    originalMatchMedia = stubMatchMedia(true);
+    render(<LanyardExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Acceptera alla" }));
+
+    const flight = screen.getByTestId("lanyard-accept-flight");
+    expect(flight.style.animation).toBe(
+      `lanyard-fade-out ${LANYARD_FLIP_MS_REDUCED}ms ease-out forwards`,
+    );
   });
 
   it("never leaves the hero empty for a returning visitor", () => {

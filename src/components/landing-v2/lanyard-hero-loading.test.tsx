@@ -19,7 +19,9 @@ describe("LanyardHeroLoading", () => {
   it("fills the stage with the static card for a returning visitor", () => {
     localStorage.setItem(LANYARD_CONSENT_KEY, "accepted");
     render(<LanyardHeroLoading />);
-    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+    const card = screen.getByTestId("lanyard-static");
+    expect(card).toBeTruthy();
+    expect(card.querySelector(".isolate")).toBeTruthy();
     expect(screen.queryByTestId("lanyard-hero-loading")).toBeNull();
   });
 });
