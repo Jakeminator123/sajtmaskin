@@ -2,17 +2,24 @@ import { describe, expect, it } from "vitest";
 import { CREDIT_PACKAGES, getCreditPackageById } from "./credit-packages";
 
 describe("CREDIT_PACKAGES", () => {
-  it("owns the three one-time packages", () => {
+  it("owns the three one-time packages at 1 kr = 1 credit", () => {
     expect(CREDIT_PACKAGES.map((pkg) => [pkg.id, pkg.credits, pkg.price])).toEqual([
-      ["10_credits", 10, 49],
-      ["25_credits", 25, 99],
-      ["50_credits", 50, 179],
+      ["starter", 49, 49],
+      ["popular", 99, 99],
+      ["pro", 179, 179],
     ]);
-    expect(CREDIT_PACKAGES[0].id).toBe("10_credits");
+    expect(CREDIT_PACKAGES[1]?.popular).toBe(true);
+  });
+
+  it("keeps credits identical to the kronor price", () => {
+    for (const pkg of CREDIT_PACKAGES) {
+      expect(pkg.credits).toBe(pkg.price);
+      expect(pkg.savings).toBe(0);
+    }
   });
 
   it("looks up by id", () => {
-    expect(getCreditPackageById("25_credits")?.popular).toBe(true);
+    expect(getCreditPackageById("popular")?.popular).toBe(true);
     expect(getCreditPackageById("missing")).toBeUndefined();
   });
 });

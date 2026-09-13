@@ -1,34 +1,35 @@
 /**
  * Publika creditpaket — kanonisk ägare av id, storlek och pris.
  *
- * Ingen env, ingen Stripe-klient, inga sidoeffekter. Klientkomponenter
- * får importera den här filen. Stripe price-id:n kopplas på i `stripe.ts`.
+ * 1 kr = 1 credit. Ingen env, ingen Stripe-klient, inga sidoeffekter.
+ * Klientkomponenter får importera den här filen. Stripe price-id:n
+ * kopplas på i `stripe.ts`.
  */
 
 export const CREDIT_PACKAGES = [
   {
-    id: "10_credits",
+    id: "starter",
     name: "Starter",
-    credits: 10,
-    price: 49, // SEK (4.9 kr/credit)
+    credits: 49,
+    price: 49,
     popular: false,
     savings: 0,
   },
   {
-    id: "25_credits",
+    id: "popular",
     name: "Popular",
-    credits: 25,
-    price: 99, // SEK (~4 kr/credit, ~19% off)
+    credits: 99,
+    price: 99,
     popular: true,
-    savings: 19,
+    savings: 0,
   },
   {
-    id: "50_credits",
+    id: "pro",
     name: "Pro",
-    credits: 50,
-    price: 179, // SEK (~3.6 kr/credit, ~27% off)
+    credits: 179,
+    price: 179,
     popular: false,
-    savings: 27,
+    savings: 0,
   },
 ] as const;
 

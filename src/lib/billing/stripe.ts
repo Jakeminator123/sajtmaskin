@@ -5,7 +5,7 @@
  * valfria Stripe price-id:n från server-env — importera den inte från klienten.
  */
 
-import { CREDIT_PACKAGES } from "./credit-packages";
+import { CREDIT_PACKAGES, type CreditPackageId } from "./credit-packages";
 
 function normalizeStripePriceId(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -18,10 +18,10 @@ function normalizeStripePriceId(value: string | undefined): string | undefined {
 }
 
 const STRIPE_PRICE_ENV = {
-  "10_credits": process.env.STRIPE_PRICE_10_CREDITS,
-  "25_credits": process.env.STRIPE_PRICE_25_CREDITS,
-  "50_credits": process.env.STRIPE_PRICE_50_CREDITS,
-} as const;
+  starter: process.env.STRIPE_PRICE_10_CREDITS,
+  popular: process.env.STRIPE_PRICE_25_CREDITS,
+  pro: process.env.STRIPE_PRICE_50_CREDITS,
+} as const satisfies Record<CreditPackageId, string | undefined>;
 
 const DIAMOND_PACKAGES = CREDIT_PACKAGES.map((pkg) => ({
   id: pkg.id,

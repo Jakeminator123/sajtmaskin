@@ -37,15 +37,15 @@ vi.mock("stripe", async (importOriginal) => {
 const { POST } = await import("./route");
 
 const PACKAGE = {
-  id: "25_credits",
+  id: "popular",
   name: "Popular",
-  diamonds: 25,
+  diamonds: 99,
   price: 99,
   priceId: "price_live_only",
   popular: true,
 };
 
-function postCheckout(body: { packageId?: string } = { packageId: "25_credits" }): NextRequest {
+function postCheckout(body: { packageId?: string } = { packageId: "popular" }): NextRequest {
   return new NextRequest("http://localhost/api/stripe/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
