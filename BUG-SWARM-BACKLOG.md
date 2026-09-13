@@ -160,7 +160,7 @@ fixade; de finns i git-snapshoten `feac0570e`.
 <!-- prettier-ignore -->
 | Prio | Klass | Kvarvarande skuld |
 | --- | --- | --- |
-| P2 | Env (`SM-087`) | Live-nycklar och webhook på production är **på plats** (delade poster, test i development/preview). `STRIPE_PRICE_*` är medvetet osatta. Kvar: production-posterna är Vercel `sensitive` så de inte går att läsa tillbaka — skriv om med `vercel env add … --force --no-sensitive` när live-värdena finns till hands. Stripe-kontot har payouts pausade (pengar kan debiteras men inte betalas ut). Beslut: [`docs/decisions/README.md`](docs/decisions/README.md) (Stripe / live-läge). |
+| P2 | Env (`SM-087`) | Live-nycklar och webhook på production är **på plats** (test i development/preview, live i production). `STRIPE_PRICE_*` är medvetet osatta. Runtime nekar `sk_test`/`pk_test` i `VERCEL_ENV=production`. Kvar: production-posterna är Vercel `sensitive` så de inte går att läsa tillbaka — skriv om **samma live-värden** per production-mål med `vercel env add … --force --no-sensitive` (inte «all environments»). Stripe-payouts slår ägaren på i Stripe Dashboard. Beslut: [`docs/decisions/README.md`](docs/decisions/README.md) (Stripe / live-läge). |
 | P2 | Observability | `engine_version_error_logs.version_id` är `NOT NULL`, så fel före första versionen kan inte loggas (`T3`). |
 | P2 | Säkerhet | Läsande CI-jobb delar prod-credentials med skrivande jobb; inför separat read-only-roll/DSN. |
 | P2 | Säkerhet (cross-tenant) | `sites.sajtmaskin.se` saknar Public-Suffix-List-post, så en kundsajt skulle kunna sätta cookie på den delade parent-domänen och nå syskonsajter. Blockerar branded-rollouten — se [`docs/runbooks/branded-user-urls.md`](docs/runbooks/branded-user-urls.md). |

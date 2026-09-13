@@ -36,8 +36,11 @@ import { fileURLToPath } from "node:url";
  *
  * Uttryckligen UTANFÖR listan, eftersom drop-och-återskapa är själva idiomet
  * och en falsk träff skulle göra grinden till något man stänger av:
- * `DROP POLICY`, `DROP TRIGGER`, `DROP FUNCTION`, `DROP INDEX`,
+ * `DROP POLICY`, `DROP TRIGGER`, `DROP FUNCTION`, `DROP INDEX` (icke-unik),
  * `DROP CONSTRAINT` och backfill-`UPDATE`.
+ * `ADD CONSTRAINT`, shorthand `ADD UNIQUE` / `PRIMARY KEY` / `FOREIGN KEY`,
+ * `ADD COLUMN … UNIQUE` och `CREATE UNIQUE INDEX` ÄR med: de kan få gammal
+ * INSERT att faila mot den fortfarande körande mastern.
  *
  * @type {ReadonlyArray<{ id: string; re: RegExp; why: string }>}
  */
@@ -66,6 +69,36 @@ export const BREAKING_STATEMENTS = Object.freeze([
   },
   { id: "truncate", re: /\bTRUNCATE\b/giu, why: "dataförlust" },
   { id: "delete-from", re: /\bDELETE\s+FROM\b/giu, why: "dataförlust" },
+  {
+    id: "add-constraint",
+    re: /\bADD\s+CONSTRAINT\b/giu,
+    why: "UNIQUE/CHECK/FK kan göra gammal INSERT ogiltig",
+  },
+  {
+    id: "add-unique",
+    re: /\bADD\s+UNIQUE\b/giu,
+    why: "unikhet kan göra gammal INSERT ogiltig",
+  },
+  {
+    id: "add-primary-key",
+    re: /\bADD\s+PRIMARY\s+KEY\b/giu,
+    why: "PRIMARY KEY kan göra gammal INSERT ogiltig",
+  },
+  {
+    id: "add-foreign-key",
+    re: /\bADD\s+FOREIGN\s+KEY\b/giu,
+    why: "FK kan göra gammal INSERT ogiltig",
+  },
+  {
+    id: "add-column-unique",
+    re: /\bADD\s+COLUMN\b[^;]*\bUNIQUE\b/giu,
+    why: "kolumn-UNIQUE kan göra gammal INSERT ogiltig",
+  },
+  {
+    id: "create-unique-index",
+    re: /\bCREATE\s+UNIQUE\s+INDEX\b/giu,
+    why: "unikhet kan göra gammal INSERT ogiltig",
+  },
 ]);
 
 /**
