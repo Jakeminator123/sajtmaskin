@@ -13,10 +13,20 @@ import { persistVersionErrorLogs as persistVersionErrorLogsShared } from "@/lib/
 import type { VersionErrorLogPayload } from "@/lib/hooks/chat/types";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 import { debugLog } from "@/lib/utils/debug";
+import {
+  markPendingCreatedVersion,
+  type PendingCreatedVersionRef,
+} from "./page-controller/useBuilderVersionSelectionSync";
 
 type Args = {
   selectedVersionIdRef: MutableRefObject<string | null>;
   latestVersionIdRef: MutableRefObject<string | null>;
+  /**
+   * Fresh-version grace for the id a stream `done` selects. See
+   * `markPendingCreatedVersion` — without it the version-selection guard clears
+   * the selection before `/versions` contains the new row.
+   */
+  pendingCreatedVersionRef?: PendingCreatedVersionRef;
   chatId: string | null;
   activeVersionId: string | null;
   /** In-session deployment id (the one whose SSE status the header reflects). */
@@ -66,6 +76,7 @@ type Args = {
 export function useBuilderDeployActions({
   selectedVersionIdRef,
   latestVersionIdRef,
+  pendingCreatedVersionRef,
   chatId,
   activeVersionId,
   activeDeploymentId,
@@ -571,8 +582,15 @@ export function useBuilderDeployActions({
           const sel = selectedVersionIdRef.current;
           const latest = latestVersionIdRef.current;
           const wasOnLatest = !sel || sel === latest;
-          if (wasOnLatest) setSelectedVersionId(data.versionId);
+          if (wasOnLatest) {
+            markPendingCreatedVersion(pendingCreatedVersionRef, data.versionId);
+            setSelectedVersionId(data.versionId);
+          }
         } else {
+          // The `/versions` refetch (`mutateVersions()` in the done handler) is
+          // still in flight: mark the id as ours FIRST so the selection guard
+          // keeps it instead of bouncing to the stale latest for a second.
+          markPendingCreatedVersion(pendingCreatedVersionRef, data.versionId);
           setSelectedVersionId(data.versionId);
         }
       }
@@ -737,6 +755,7 @@ export function useBuilderDeployActions({
       setApplyInstructionsOnce,
       selectedVersionIdRef,
       latestVersionIdRef,
+      pendingCreatedVersionRef,
     ],
   );
 

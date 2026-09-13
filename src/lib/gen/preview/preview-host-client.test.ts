@@ -783,6 +783,37 @@ describe("fetchPreviewHostFilesManifest", () => {
     const result = await fetchPreviewHostFilesManifest("ps_1");
     expect(result?.versionId).toBeNull();
   });
+
+  it("parses booting:true from a host that exposes the in-flight boot flag", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, running: false, booting: true });
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result).toMatchObject({
+      previewSessionId: "ps_1",
+      running: false,
+      booting: true,
+    });
+  });
+
+  it("leaves booting undefined when an older host omits the field", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest(validBody);
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result).toBeTruthy();
+    expect(result && "booting" in result).toBe(false);
+    expect(result?.booting).toBeUndefined();
+  });
+
+  it("parses an explicit booting:false so a dead runtime cannot look in-flight", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, running: false, booting: false });
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result?.running).toBe(false);
+    expect(result?.booting).toBe(false);
+  });
 });
 
 // BUG-SWARM #260 P2: the quality-gate + repair routes hold a per-version lease

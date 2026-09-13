@@ -1,5 +1,6 @@
 import {
   Activity,
+  CircleDollarSign,
   Coins,
   Database,
   FileText,
@@ -57,6 +58,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: "Genereringar",
     description: "Självkostnad, användardebitering och påslag per AI-generering.",
     icon: Coins,
+    kind: "write",
+  },
+  {
+    href: "/admin/priser",
+    label: "Priser",
+    description: "Domänpåslag, creditpriser och avräkningsregeln för genereringar.",
+    icon: CircleDollarSign,
     kind: "write",
   },
   {

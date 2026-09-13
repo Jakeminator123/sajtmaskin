@@ -45,6 +45,10 @@ export const MIGRATION_ORDER = [
   // debits once (idempotency_key = run id). Wizard routes authorize the
   // run; a client-invented UUID is never a valid entitlement.
   "add-wizard-runs.sql",
+  // Security follow-up for already-ledgered add-wizard-runs installs. RLS and
+  // ACL revocation must live in the migration path as well as db:init, or a
+  // migration-only deploy exposes the server-owned entitlement table.
+  "harden-wizard-runs-access.sql",
   "rename-engine-version-preview-url.sql",
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",
@@ -114,6 +118,10 @@ export const MIGRATION_ORDER = [
   // Eget filnamn — schemat skiljer sig från stängda #1251
   // (`add-product-postcheck-runs.sql`: fail-open + result-cache).
   "add-product-postcheck-run-claims.sql",
+  // Operatörsstyrd prisbild (domänpåslag + fasta creditpriser). Fristående
+  // CREATE utan beroenden; seedas med exakt dagens hårdkodade värden så
+  // migrationen i sig inte ändrar någon debitering.
+  "add-pricing-settings.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

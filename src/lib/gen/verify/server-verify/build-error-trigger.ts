@@ -29,26 +29,24 @@ import { triggerServerVerification } from "./verify-run";
 
 /**
  * Resolves whether the post-VM build-error auto-repair loop is enabled
- * for the current runtime. Defaults to ON in `development` and Vercel
- * `preview` (so the loop is exercised constantly during build), and OFF
- * in `production` until we have enough live data to flip the default
- * there too. Explicit `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false`
- * always wins over the default.
+ * for the current runtime. **Default ON everywhere** since 2026-09-11 —
+ * production included. It was OFF in production "until we have enough
+ * live data"; 40 days of prod (2026-08-02 → 2026-09-11) gave that data:
+ * the server repair-loop ran 3 times and repaired 3/3, every run is
+ * bounded by `REPAIR_LOOP_BUDGET_MS` + the `RepairLedger` dedupe, and the
+ * same `inflight`/lease guards as server-verify prevent parallel repairs
+ * of one version. Explicit `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|
+ * false|on|off|yes|no` always wins over the default — `0` is the
+ * production kill-switch.
  */
-function isAutoRepairBuildErrorEnabled(): boolean {
-  const explicit = process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR?.trim().toLowerCase();
-  if (explicit === "1" || explicit === "true" || explicit === "on" || explicit === "yes") {
-    return true;
-  }
+export function isAutoRepairBuildErrorEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const explicit = env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR?.trim().toLowerCase();
   if (explicit === "0" || explicit === "false" || explicit === "off" || explicit === "no") {
     return false;
   }
-  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
-  if (vercelEnv === "preview" || vercelEnv === "development") return true;
-  if (vercelEnv === "production") return false;
-  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase();
-  if (nodeEnv === "development" || nodeEnv === "test") return true;
-  return false;
+  return true;
 }
 
 /**
@@ -62,12 +60,12 @@ function isAutoRepairBuildErrorEnabled(): boolean {
  * also schedule server-verify (which it usually doesn't in design
  * mode, see `resolvePostFinalizeServerVerifyDecision`).
  *
- * **Default on in dev/preview** (Wave 4 of the LLM-flow consolidation).
- * Production still waits for explicit opt-in via
- * `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` until we have enough field
- * data to flip the production default. Same `inflight` dedup as
- * server-verify, so we never run two repair loops on the same version
- * concurrently regardless of which path triggered them.
+ * **Default on in every environment** (Wave 4 of the LLM-flow
+ * consolidation flipped dev/preview; 2026-09-11 flipped production after
+ * 40 days of 3/3 successful bounded repairs). `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0`
+ * is the kill-switch. Same `inflight` dedup as server-verify, so we never
+ * run two repair loops on the same version concurrently regardless of
+ * which path triggered them.
  */
 /**
  * Utfall från `triggerBuildErrorRepair`. `void`-returen behölls tidigare (alla

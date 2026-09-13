@@ -4,8 +4,9 @@
  * soft schema-synk efter att arbetskopians git-läge har ändrats.
  *
  * Varför den finns: prod är idiotsäkert. `prod-migrations-apply` kör vid varje
- * push till master och `prod-migrations-applied` verifierar efterat, så en
- * migration kan inte bli deployad utan att köras. Dev hade ingen motsvarighet:
+ * push till master eller preview och `prod-migrations-applied` verifierar
+ * efteråt, så en migration kan inte bli deployad utan att köras. Dev hade
+ * ingen motsvarighet:
  * `db:init` applicerar bara på `npm run dev`-vägen, och den är soft. Kör du
  * `SKIP_PREDEV=1`, startar `next-runner.mjs` direkt, eller rör databasen från
  * något annat script, kunde du köra vidare på ett schema koden lämnat bakom sig
@@ -16,11 +17,11 @@
  * fick upptäcka följdfel flera minuter senare. Därför är pre-push-hooken hård
  * för `verify:pr --plan`, medan DB-hookarna nedan fortsätter vara soft.
  *
- * Symmetrin hookarna ger: prod får migrationer när kod pushas till master, dev
- * får dem när master dras hem. Drift uppstår vid `git pull`/`git checkout`, så
- * det är där den ska botas — därav tre DB-hooks och inte en: en merge-pull, ett
- * grenbyte och en rebase-pull är tre olika vägar hem, och bara den första ger
- * `post-merge`.
+ * Symmetrin hookarna ger: prod får migrationer när kod pushas till master
+ * eller preview, dev får dem när den grenen dras hem. Drift uppstår vid
+ * `git pull`/`git checkout`, så det är där den ska botas — därav tre
+ * DB-hooks och inte en: en merge-pull, ett grenbyte och en rebase-pull är
+ * tre olika vägar hem, och bara den första ger `post-merge`.
  *
  * Hookarna kör aldrig DDL själva — de anropar `ensure-schema.mjs`, som i sin tur
  * delegerar till `run-migrations.ts`. Där bor prod-skrivskyddet

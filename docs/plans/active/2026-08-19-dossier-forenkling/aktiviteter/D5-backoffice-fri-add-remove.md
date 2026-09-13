@@ -7,7 +7,7 @@ Beror på: [D2](D2-configinputs-providersetup.md) om beslutet blir ja.
 
 Två skäl, och båda är avsiktliga.
 
-**Det är ny produktförmåga.** `mvp-scope-freeze.mdc` säger att en agent ska pausa
+**Det är ny produktförmåga.** `project-phase-priorities.mdc` säger att en agent ska pausa
 och varna innan ny produktyta byggs, och vänta på uttryckligt ja. Att kunna lägga
 till och ta bort dossiers fritt i Backoffice är inte en härdning av ett befintligt
 kontrakt — det är en ny administrativ förmåga, med en raderingsväg som inte finns

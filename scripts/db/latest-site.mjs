@@ -33,6 +33,7 @@ import {
   LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL,
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
+import { chatDisplayTitleSql, firstUserPromptLateralSql } from "./lib/chat-display-title.mjs";
 
 const useProd = process.argv.includes("--prod");
 const PROD_ENV_FILE = ".env.vercel.production.pulled";
@@ -116,9 +117,11 @@ try {
   const versions = await safeRows(
     `select v.id, v.chat_id, v.version_number, v.release_state, v.verification_state,
             v.lifecycle_stage, v.preview_url, v.created_at,
-            c.title, c.project_id, c.model, c.scaffold_id
+            ${chatDisplayTitleSql()} AS title, c.project_id, c.model, c.scaffold_id
      from engine_versions v
      left join engine_chats c on c.id = v.chat_id
+     left join app_projects p on p.id = c.project_id
+     ${firstUserPromptLateralSql("c.id")}
      order by v.created_at desc
      limit $1`,
     [limit],

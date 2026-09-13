@@ -1,13 +1,13 @@
 {
   "plugins": {
-    "linear": {
-      "enabled": false
-    },
     "docs-canvas": {
       "enabled": true
     },
     "supabase": {
       "enabled": true
+    },
+    "vercel": {
+      "enabled": false
     }
   }
 }

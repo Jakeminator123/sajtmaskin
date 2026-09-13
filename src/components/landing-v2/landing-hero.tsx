@@ -32,10 +32,9 @@ export type LandingHeroProps = Pick<
   | "handleAuditUrlChange"
   | "submitPrimaryInput"
 > &
-  Pick<ChatAreaProps, "heroPrefix" | "expandedContent" | "onPlayIntro">
+  Pick<ChatAreaProps, "expandedContent" | "onPlayIntro">
 
 export function LandingHero({
-  heroPrefix,
   expandedContent,
   selectedCategory,
   pickCategory,
@@ -52,15 +51,15 @@ export function LandingHero({
   submitPrimaryInput,
 }: LandingHeroProps) {
   return (
-    <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
-      {heroPrefix}
-
+    <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
-        className="pointer-events-auto -mt-6 mb-1 h-[240px] w-full max-w-[420px] shrink-0 sm:h-[280px] md:-mt-10 md:h-[clamp(300px,36vh,360px)]"
+        data-lanyard-stage
+        className="pointer-events-auto relative z-0 mb-1 h-[min(56vh,620px)] w-screen max-w-none shrink-0 overflow-visible sm:h-[min(60vh,680px)] md:h-[min(64vh,720px)]"
       >
-        <LanyardExperience className="h-full" />
+        <LanyardExperience className="h-full w-full overflow-visible" />
       </div>
 
+      <div className="flex w-full flex-col items-center px-6">
       <div
         className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/50 border border-border/40 px-4 py-1.5 rounded-full mb-6 animate-fade-up"
         style={{ animationDelay: "0.1s" }}
@@ -294,6 +293,7 @@ export function LandingHero({
             </span>
           </div>
         ))}
+      </div>
       </div>
     </section>
   )

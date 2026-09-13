@@ -38,7 +38,11 @@ import { useBuilderPreviewVersionSync } from "./page-controller/useBuilderPrevie
 import { useBuilderProjectHydration } from "./page-controller/useBuilderProjectHydration";
 import { useBuilderRouteFeedback } from "./page-controller/useBuilderRouteFeedback";
 import { useBuilderVersionNotices } from "./page-controller/useBuilderVersionNotices";
-import { useBuilderVersionSelectionSync } from "./page-controller/useBuilderVersionSelectionSync";
+import {
+  markPendingCreatedVersion,
+  useBuilderVersionSelectionSync,
+  type PendingCreatedVersion,
+} from "./page-controller/useBuilderVersionSelectionSync";
 import { usePreviewHandoff } from "./page-controller/usePreviewHandoff";
 
 /**
@@ -97,6 +101,7 @@ export function useBuilderPageController() {
     applyPreviewHandoff,
     currentPreviewUrlRef,
     lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
   } = usePreviewHandoff({
     currentPreviewUrl,
     setCurrentPreviewUrl,
@@ -116,6 +121,10 @@ export function useBuilderPageController() {
   }, []);
 
   const resetRecoverAfterBootstrapRef = useRef<(() => void) | null>(null);
+  // Fresh-version grace for ids THIS client just created (generation done, F3
+  // settle, quick edit). Owned here because `useBuilderDeployActions` runs
+  // before `useBuilderVersionSelectionSync` in the hook order; both need it.
+  const pendingCreatedVersionRef = useRef<PendingCreatedVersion | null>(null);
   const shouldHoldChatHooksForFreshEntry = Boolean(
     chatId && !chatIdParam && !templateId && hasEntryParams && entryIntentActive,
   );
@@ -187,6 +196,9 @@ export function useBuilderPageController() {
   const handleDeterministicF3Settled = useCallback(
     (payload: { versionId: string; selectVersion: boolean }) => {
       if (payload.selectVersion) {
+        // Same fresh-version grace as generation done: the forked F3 row is
+        // not in `/versions` yet when we select it.
+        markPendingCreatedVersion(pendingCreatedVersionRef, payload.versionId);
         setSelectedVersionId(payload.versionId);
       }
       void mutateVersions();
@@ -278,6 +290,7 @@ export function useBuilderPageController() {
   const deployActions = useBuilderDeployActions({
     selectedVersionIdRef,
     latestVersionIdRef,
+    pendingCreatedVersionRef,
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
     activeDeploymentId: state.activeDeploymentId,
@@ -436,6 +449,7 @@ export function useBuilderPageController() {
     setCurrentPreviewUrl(null);
     currentPreviewUrlRef.current = null;
     lastPreviewHandoffKeyRef.current = null;
+    appliedPreviewHandoffKeysRef.current.clear();
     setPreviewRefreshToken(0);
     resetPreviewForNewChat();
   }, [
@@ -444,6 +458,7 @@ export function useBuilderPageController() {
     resetPreviewForNewChat,
     currentPreviewUrlRef,
     lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
   ]);
 
   // ── Chat messaging ───────────────────────────────────────────────────
@@ -550,6 +565,8 @@ export function useBuilderPageController() {
     sendMessage,
     effectiveVersionsList: derived.effectiveVersionsList,
     bumpPreviewRefreshToken,
+    lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setSelectedVersionId: state.setSelectedVersionId,
     setIsVersionPanelCollapsed: state.setIsVersionPanelCollapsed,
@@ -710,7 +727,7 @@ export function useBuilderPageController() {
     setMessages,
   });
 
-  const { pendingCreatedVersionRef } = useBuilderVersionSelectionSync({
+  useBuilderVersionSelectionSync({
     chatId,
     chatIdParam,
     chatExternalProjectId: derived.chatExternalProjectId,
@@ -720,6 +737,7 @@ export function useBuilderPageController() {
     isIntentionalReset,
     selectedVersionId,
     versionIdSet: derived.versionIdSet,
+    pendingCreatedVersionRef,
     router,
     setChatId,
     setExternalProjectId,
@@ -746,6 +764,7 @@ export function useBuilderPageController() {
     serverProjectPreviewOverrideUrl,
     serverProjectPreviewOverrideVersionId,
     applyPreviewHandoff,
+    appliedPreviewHandoffKeysRef,
     setClearedPreviewVersionId,
     setCurrentPreviewUrl,
     setPreviewPending,

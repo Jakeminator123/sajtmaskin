@@ -225,6 +225,8 @@ export async function finalizeAndSaveVersion(
     tokenUsage,
     logNote,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     onProgress,
     orchestrationStreamMeta,
     repairPassIndex = 0,
@@ -362,6 +364,7 @@ export async function finalizeAndSaveVersion(
     verifierBlockingFindings,
     rejectedShrinks,
     rejectedStructural,
+    selectedDossierEnvKeys,
     crossFileStubs,
     repairLedger,
     stepTelemetry: fastPathStepTelemetry,
@@ -376,6 +379,8 @@ export async function finalizeAndSaveVersion(
     routePlan,
     orchestrationContract,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     onProgress,
     contentForVersion,
     finalizePath,
@@ -439,17 +444,10 @@ export async function finalizeAndSaveVersion(
     typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
       ? params.accumulatedThinking
       : null;
-  // Våg 2 + dossier-env rehydrering: the selected dossiers' declared env keys,
-  // deduped. Threaded into the first preview boot (FinalizeResult) AND
-  // persisted on the version row, so a later force-restart or quick-edit
-  // preview fallback rebuilds the same F2 mock-seeded `.env.local` surface.
-  const selectedDossierEnvKeys = Array.from(
-    new Set(
-      selectedDossiers.flatMap((dossier) =>
-        (dossier.envVars ?? []).map((envVar) => envVar.key),
-      ),
-    ),
-  );
+  // Våg 2 + dossier-env rehydrering: keys from this-round dossiers unioned
+  // with the previous version (see resolveDossierEnvScopeForFinalize).
+  // Threaded into the first preview boot (FinalizeResult) AND persisted on
+  // the version row so the next follow-up inherits the same scope.
   // Plain-language account of the turn for the chat (see turn-summary.ts).
   // Appended to the persisted MESSAGE only — `contentForVersion` (the code)
   // is what the rest of the pipeline keeps reading. Skipped when the model

@@ -148,58 +148,6 @@ export function useTerminalTypewriter() {
   return { containerRef, visibleLines, cursorLine }
 }
 
-export function useHonestCounter(fakeTarget: number, realValue: number, message: string) {
-  // `fakeTarget` behålls i signaturen för bakåtkompatibilitet men används inte
-  // längre: den gamla uppblås-till-fejk-siffra + glitch-teatern lät sidan visa
-  // påhittade tal ("2 480+") i flera sekunder, vilket såg ut som fejkade
-  // vanity-metrics. Nu räknar vi direkt upp till det ärliga värdet.
-  void fakeTarget
-  const [count, setCount] = useState(0)
-  const [phase, setPhase] = useState<"idle" | "inflating" | "glitch" | "honest">("idle")
-  const ref = useRef<HTMLDivElement>(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const start = () => {
-      if (started.current) return
-      started.current = true
-      setPhase("inflating")
-
-      const duration = 900
-      const startedAt = performance.now()
-      const step = (now: number) => {
-        const progress = Math.min((now - startedAt) / duration, 1)
-        const eased = 1 - Math.pow(1 - progress, 3)
-        setCount(Math.max(1, Math.floor(eased * realValue)))
-        if (progress < 1) {
-          requestAnimationFrame(step)
-        } else {
-          setCount(realValue)
-          setPhase("honest")
-        }
-      }
-      requestAnimationFrame(step)
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) start()
-      },
-      { threshold: 0.2 },
-    )
-    observer.observe(el)
-    // Säkerhetsnät: hoppa till ärligt värde om observern aldrig triggar.
-    const fallback = setTimeout(start, 6000)
-    return () => {
-      observer.disconnect()
-      clearTimeout(fallback)
-    }
-  }, [realValue])
-
-  return { count, phase, ref, message }
-}
-
 export function useRotatingText(items: string[], interval = 2400) {
   const [index, setIndex] = useState(0)
   const [visible, setVisible] = useState(true)

@@ -12,7 +12,17 @@ om inte Jakob nämner en.
 ## 1. Starta
 
 1. `npm run hooks:install` vid ny clone eller hookändring.
-2. `git fetch origin master` när du behöver färsk bas.
+2. **Välj bas medvetet — de två är inte samma sak:**
+   - *Leveransbas* = grenen PR:en ska mot. Default `preview`; utgå från
+     `origin/preview` för vanligt utvecklingsarbete så att diffen inte saknar
+     det som redan ligger i staging.
+   - *Granskningsbas* = det du bevisar mot. `origin/master` när påståendet
+     gäller **produktion** (backloggens «Bevis på `master`», prodrepro,
+     promote-verifiering).
+
+   Hämta den du faktiskt använder: `git fetch origin preview` respektive
+   `git fetch origin master`. Frys basens SHA när flera kandidater eller
+   agenter ska jämföras — annars mäts de mot olika underlag.
 3. Jobba i den öppna checkouten, eller skapa en valfri branch. Worktree bara
    vid parallellt arbete — se `agent-worktree.mdc`.
 4. Kontrollera öppna PR:er för samma owner om ändringen kan krocka.

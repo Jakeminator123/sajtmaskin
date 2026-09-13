@@ -98,6 +98,33 @@ export function buildReleaseGateBlocker(
   };
 }
 
+/**
+ * Paritet för F2-advisory-låset (2026-09-11): deploy-API:t 409:ar
+ * `DEPLOY_TYPECHECK_ADVISORY` när en designversions senaste gate-verdikt är en
+ * typecheck-advisory — readiness måste blocka samma version så `canDeploy`
+ * aldrig visar grönt för något som fäller Vercel-bygget.
+ *
+ * Läggs bara till när ingen lifecycle-blocker redan finns (samma regel som
+ * `buildReleaseGateBlocker`). Klarspråk mot användaren; gatens tekniska
+ * `message` stannar i API-svaret/loggarna.
+ */
+export function buildTypecheckAdvisoryBlocker(
+  typecheckGate: DeployReleaseGateResult,
+  hasLifecycleBlocker: boolean,
+): ChatReadinessItem | null {
+  if (typecheckGate.allowed) return null;
+  if (typecheckGate.code !== "DEPLOY_TYPECHECK_ADVISORY") return null;
+  if (hasLifecycleBlocker) return null;
+  return {
+    id: "typecheck-advisory-blocks-publish",
+    title: "Sajten har typfel som stoppar publiceringen.",
+    detail:
+      "Förhandsgranskningen fungerar, men publiceringen bygger sajten med en strikt typkontroll som skulle misslyckas. Kör en reparation eller be om en autofix i chatten, och publicera när versionen är verifierad utan varningar.",
+    severity: "blocker",
+    action: "versions",
+  };
+}
+
 export function withReadinessCategory(item: ChatReadinessItem): ChatReadinessItem {
   if (item.category) return item;
   return {

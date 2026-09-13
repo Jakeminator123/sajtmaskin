@@ -95,6 +95,10 @@ vi.mock("@/lib/domains/registrar", () => ({
   ],
 }));
 
+vi.mock("@/lib/db/services/pricing-settings", () => ({
+  resolvePricingSettings: async () => ({ domain: { markup: 5, usdToSek: 11 } }),
+}));
+
 vi.mock("stripe", () => ({
   default: class FakeStripe {
     refunds = {

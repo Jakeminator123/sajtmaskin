@@ -397,9 +397,13 @@ before deciding between `patch` and `update`, without shipping file contents bac
 - Read-only: unlike `/status` it never queues a boot.
 - `404 session_not_found` for an unknown, destroyed or expired session.
 - Response: `ok`, `previewSessionId`, `chatId`, `versionId`, `status`, `running`,
-  `hashAlgorithm` (`"sha256"`), `fileCount`, `files` (`path -> sha256 hex`).
+  `booting`, `hashAlgorithm` (`"sha256"`), `fileCount`, `files` (`path -> sha256 hex`).
 - `running` uses the same prewarm-aware rule as `/status`, so an unclaimed prewarm
   skeleton is never reported as patchable.
+- `booting` is the in-memory boot chain (`inflightBootByChat`). A same-version
+  rewrite may `/patch` only when `running === false` and `booting === true`.
+  Older hosts omit the field; the app treats that as not-booting and falls back
+  to `/update` so a dead runtime still resets the boot-failure budget.
 
 App side: `fetchPreviewHostFilesManifest` in
 `src/lib/gen/preview/preview-host-client.ts`. Any non-200 (including a
@@ -420,7 +424,7 @@ otherwise it logs the reason and runs the untouched update path:
 | `SAJTMASKIN_PREVIEW_PATCH_LANE` is on | `patch_lane_disabled` |
 | The app's session pointer knows the base version | `unknown_base_version` |
 | The host returned a manifest | `manifest_unavailable` |
-| The host reports `running: true` | `runtime_not_running` |
+| The host reports `running: true`, or same-version rewrite with `booting: true` | `runtime_not_running` |
 | The manifest's `versionId` equals the app's base version | `host_version_mismatch` |
 | Diff is non-empty, non-structural and within 200 files / 4 MB | `no_changes`, `empty_host_manifest`, `structural_change`, `diff_too_large` |
 | The host accepted the patch (`expectedBaseVersionId` re-checked under its lock) | `host_patch_failed` |

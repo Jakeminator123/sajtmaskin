@@ -203,6 +203,86 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("release-gate-not-green");
   });
 
+  // F2-advisory-lås (2026-09-11): prod 2026-09-10 (chat 5d809cc1) publicerade
+  // en advisory-promotad designversion → Vercel-bygget föll på exakt de
+  // advisory-klassade typfelen. Readiness måste blocka samma version som
+  // deploy-POST:en 409:ar med `DEPLOY_TYPECHECK_ADVISORY`.
+  it("blocks canDeploy for a design version whose latest gate verdict is a typecheck advisory", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary:
+        "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+    });
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        id: "log_adv",
+        version_id: "ver_1",
+        chat_id: "chat_1",
+        level: "warning",
+        category: "quality-gate:typecheck-advisory",
+        message:
+          "Designläge: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair.",
+        meta: { advisory: true, advisoryChecks: ["typecheck"], failedChecks: ["typecheck"] },
+        created_at: new Date("2026-09-10T15:11:54Z"),
+      },
+      {
+        id: "log_verdict",
+        version_id: "ver_1",
+        chat_id: "chat_1",
+        level: "warning",
+        category: "preflight:quality-gate",
+        message: "Designläge: typecheck-varning (advisory).",
+        meta: { passed: false, advisory: true, advisoryChecks: ["typecheck"] },
+        created_at: new Date("2026-09-10T15:11:54Z"),
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(false);
+    expect(json.readiness?.blockers.map((b) => b.id)).toContain(
+      "typecheck-advisory-blocks-publish",
+    );
+  });
+
+  it("keeps canDeploy for a design version whose latest gate verdict is a clean pass", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary: "Server verify passed.",
+    });
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        id: "log_pass",
+        version_id: "ver_1",
+        chat_id: "chat_1",
+        level: "info",
+        category: "preflight:quality-gate",
+        message: "Server verify passed.",
+        meta: { passed: true, advisory: false, advisoryChecks: [] },
+        created_at: new Date("2026-09-10T15:11:54Z"),
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.blockers.map((b) => b.id)).not.toContain(
+      "typecheck-advisory-blocks-publish",
+    );
+  });
+
   // Ö4a: `hasRealBuildIntegrations` styr vad "Bygg integrationer" LOVAR om
   // kostnad. En spec som inte går att härleda är samma `null` som får den
   // delade gaten att svara `version_files_unavailable` → 409 från

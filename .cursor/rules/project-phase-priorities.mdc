@@ -1,64 +1,50 @@
 ---
-description: "Projektprioritet + MVP-bias: hygien alltid; varna innan nya features; inga onödiga säkerhetslager."
+description: "MVP-bias: hygien alltid; varna innan nya features; inga onödiga säkerhetslager."
 alwaysApply: false
 ---
 
 # Projektprioritet
 
-Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säkerhets-/governance-lager utan explicit scope. Ny produktförmåga: se § Produkt-scope.
+Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora
+säkerhets-/governance-lager utan explicit scope.
 
 ## Alltid grundhygien
 
 - Inga secrets i git eller loggar.
 - Cross-tenant-läckage stoppar alltid.
 - Dataförlust och tyst korruption fixas alltid.
-- Ta inte bort fungerande krypto/nyckelhantering om det kan göra sparad data oläsbar.
+- Ta inte bort fungerande krypto/nyckelhantering om sparad data kan bli oläsbar.
 
-## Tooling-säkerhet (alltid)
-
-- **Supabase-MCP: `supabase` = dev, `supabase-prod` = prod.** Svara aldrig om prod utifrån dev-projektet. Ingen destruktiv SQL via MCP.
-- `.cursor/mcp.json` är den riktiga Cursor-filen och därför gitignorerad — committa aldrig. Mallen är `.cursor/mcp.json.example`.
-- Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
-
-Full tooling-setup: [`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
+Tooling-identitet (Supabase dev≠prod, gitignorerad men agentläsbar `mcp.json`, Vercel-id):
+[`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
 
 ## Produkt-scope (MVP-bias)
 
 Sajtmaskin är i slutfasen mot MVP (ägarbeslut 2026-08-01; mjukad 2026-08-11).
-Det är en bias, inte en stoppskylt: föredra stabilitet, och **pausa + varna**
-innan du bygger ny produktförmåga.
+Bias, inte stoppskylt: föredra stabilitet, och **pausa + varna** innan ny
+produktförmåga.
 
 **Default (utan friktion):** bekräftade defekter och rader ur
-`BUG-SWARM-BACKLOG.md` § Aktiv kö; grundhygien ovan; tester som låser en konkret
+`BUG-SWARM-BACKLOG.md` § Aktiv kö; grundhygien; tester som låser en konkret
 fix; docs-synk; små härdningar av **befintliga** kontrakt; städ / ignore-filer.
 
 **Nytt** (features, produkter, integrationer, dossiers/scaffolds, agentförmågor,
-"smarta" mekanismer, nya UI-ytor i builder/preview/landing):
+nya UI-ytor i builder/preview/landing):
 
 1. Pausa och fråga: *«Vill du verkligen ha en ny feature/yta nu?»*
 2. Vänta på uttryckligt OK.
 3. Bredda inte scope mitt i en fix-PR.
 
-Återanvänd en befintlig yta (truth bar, versionspanel, chattstatus) hellre än
-en ny. Ta hellre bort redundanta ytor än lägg till nya.
-
-[`mvp-scope-freeze.mdc`](mvp-scope-freeze.mdc) är en pekare hit.
+Återanvänd en befintlig yta hellre än en ny.
 
 ## Undvik utan explicit scope
 
-- ny auth-gate
-- ny kryptering
-- ny rate-limit
-- ny signatur-/tokenmodell
-- stora "governance"-lager
+ny auth-gate, ny kryptering, ny rate-limit, ny signatur-/tokenmodell, stora
+governance-lager.
 
-## Vercel-env
+## Vercel-env och repo
 
-- Föredra läsbara (non-sensitive, `encrypted`-typ) Vercel-env så värden kan inspekteras; markera inte `sensitive` i onödan.
-- Ta inte bort `ENV_VAR_ENCRYPTION_KEY` (lagrade projektEnvVars blir odekrypterbara → tyst dataförlust).
-
-## Repo-synlighet
-
-Repot är **publikt**. Committa inga secrets; var sparsam med admin-/credit-mekanik
-och infra-id:n i docs. "Läsbar env" ovan gäller Vercel-dashboarden — inte git.
-Skriv säkerhetsfynd som tydlig backlog om de inte är P0/P1.
+- Föredra läsbara (non-sensitive) Vercel-env; markera inte `sensitive` i onödan.
+- Ta inte bort `ENV_VAR_ENCRYPTION_KEY` (lagrade projektEnvVars blir oläsbara).
+- Repot är **publikt**. Inga secrets i git. "Läsbar env" gäller dashboarden,
+  inte git.

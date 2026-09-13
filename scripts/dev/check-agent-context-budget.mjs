@@ -18,7 +18,6 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/commands/pr-herde.md": 2_000,
   ".cursor/commands/post-review.md": 1_800,
   ".cursor/commands/avslutning.md": 1_500,
-  ".cursor/rules/response-format.mdc": 800,
 });
 
 export const REQUIRED_ALWAYS_RULES = Object.freeze([
@@ -46,6 +45,9 @@ const LEGACY_ACTIVE_REFERENCES = Object.freeze([
   { label: "retired Cursor skill path", pattern: /\.cursor\/skills\//u },
   { label: "retired fas-check path", pattern: /fas-check(?:-commit-guard)?/iu },
   { label: "retired useful-commands rule", pattern: /useful-commands\.mdc/iu },
+  { label: "retired mvp-scope-freeze pointer", pattern: /mvp-scope-freeze\.mdc/iu },
+  { label: "retired response-format rule", pattern: /response-format\.mdc/iu },
+  { label: "retired jakob-pre-mvp-backup rule", pattern: /jakob-pre-mvp-backup\.mdc/iu },
   { label: "retired broad context skill", pattern: /sajtmaskin-context/iu },
 ]);
 const GODNATT_PROFILES = Object.freeze({
@@ -77,7 +79,10 @@ export const REQUIRED_CURSOR_SECRET_IGNORES = Object.freeze([
   ".token-status.json",
   ".cursor/openclaw-bridge/",
   ".cursor/openclaw-bridge-message.txt",
-  ".cursor/mcp.json",
+  // `.cursor/mcp.json` stod här till 2026-09-11. Ägarbeslut: den är den enda
+  // beskrivningen av Cursors faktiska verktygsläge, och en blockerad fil gjorde
+  // MCP-felsökning till gissning. `.gitignore` håller den ur det publika repot
+  // och `npm run doctor` varnar om den får secret-formade fält.
   ".vercel/",
   "docs/old/**/*.env.local",
   "docs/old/**/*.env.production",
@@ -171,6 +176,15 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   }
 
   const canonicalSkills = skillIds(root, ".agents/skills");
+  // Machine-migrated mirrors of `.cursor/commands/*.md`. They are gitignored on
+  // purpose (see .gitignore) so they never become a second source of truth, but
+  // a gitignored file still ships its description into every prompt on the
+  // machine that has it — 13 mirrors measured at ~430 tokens per turn, for
+  // commands that are already loaded from their tracked originals.
+  //
+  // Reported as a warning rather than an error: they cannot exist in CI (they
+  // are ignored), so failing here would be a red that CI can never reproduce.
+  const commandMirrors = canonicalSkills.filter((id) => id.startsWith("source-command-"));
   const cursorSkillsPath = resolve(root, ".cursor/skills");
   const cursorSkills = skillIds(root, ".cursor/skills");
   if (existsSync(cursorSkillsPath)) {
@@ -248,6 +262,7 @@ export function evaluateAgentContext(root = REPO_ROOT) {
       alwaysRuleApproximateTokens: Math.ceil(alwaysBytes / 4),
       canonicalSkillCount: canonicalSkills.length,
       cursorSkillCount: cursorSkills.length,
+      commandMirrors,
     },
   };
 }
@@ -265,6 +280,13 @@ function main() {
   console.log(
     `[agent-context] skills: ${metrics.canonicalSkillCount} canonical, ${metrics.cursorSkillCount} under .cursor`,
   );
+  if (metrics.commandMirrors.length > 0) {
+    console.warn(
+      `[agent-context] WARN: ${metrics.commandMirrors.length} gitignorerade source-command-speglingar i .agents/skills ` +
+        "dubblerar .cursor/commands och kostar kontext varje tur. Ta bort dem lokalt: " +
+        "Remove-Item -Recurse -Force .agents/skills/source-command-*",
+    );
+  }
 
   if (errors.length === 0) {
     console.log("[agent-context] Context budgets are within limits.");

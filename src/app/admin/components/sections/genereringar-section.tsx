@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Coins, ExternalLink, ReceiptText, Save, Users, WandSparkles } from "lucide-react";
+import { useState } from "react";
+import { Coins, ExternalLink, ReceiptText, Users, WandSparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -105,48 +103,8 @@ export function GenereringarSection() {
     `/api/admin/generation-billing?days=${days}`,
     { errorMessage: "Kunde inte hämta generationskostnaderna" },
   );
-  const [markup, setMarkup] = useState("2");
-  const [usdToSek, setUsdToSek] = useState("10.5");
-  const [sekPerCredit, setSekPerCredit] = useState("3");
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!resource.data?.settings) return;
-    setMarkup(String(resource.data.settings.markupMultiplier));
-    setUsdToSek(String(resource.data.settings.usdToSek));
-    setSekPerCredit(String(resource.data.settings.sekPerCredit));
-  }, [resource.data?.settings]);
-
-  const saveSettings = async () => {
-    setSaving(true);
-    setSaveMessage(null);
-    setSaveError(null);
-    try {
-      const response = await fetch("/api/admin/generation-billing", {
-        method: "PATCH",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({
-          markupMultiplier: Number(markup.replace(",", ".")),
-          usdToSek: Number(usdToSek.replace(",", ".")),
-          sekPerCredit: Number(sekPerCredit.replace(",", ".")),
-        }),
-      });
-      const json = (await response.json()) as { success?: boolean; error?: string };
-      if (!response.ok || json.success === false) {
-        throw new Error(json.error || "Kunde inte spara.");
-      }
-      setSaveMessage("Sparat. Nya genereringar får de nya parametrarna.");
-      await resource.reload({ silent: true });
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Kunde inte spara.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const data = resource.data;
   const reconciliation = data?.openAiReconciliation;
@@ -208,7 +166,7 @@ export function GenereringarSection() {
       </div>
       {reconcileMessage && <p className="text-muted-foreground text-sm">{reconcileMessage}</p>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
         <StatCard label="Genereringar" value={data?.summary.generations ?? 0} icon={WandSparkles} />
         <StatCard
           label="Beräknad självkostnad"
@@ -217,9 +175,15 @@ export function GenereringarSection() {
           icon={ReceiptText}
         />
         <StatCard
-          label="Efter påslag"
+          label="Debiterat"
           value={formatSek(data?.summary.billableOre ?? 0)}
-          hint="Värdet före avrundning till credits"
+          hint="Credits × radens kr/credit, inte paketpris"
+          icon={Coins}
+        />
+        <StatCard
+          label="Marginal"
+          value={formatSek((data?.summary.billableOre ?? 0) - (data?.summary.providerCostOre ?? 0))}
+          hint="Debiterat kreditvärde minus självkostnad"
           icon={Coins}
         />
         <StatCard label="Credits dragna" value={data?.summary.creditsCharged ?? 0} icon={Coins} />
@@ -310,61 +274,17 @@ export function GenereringarSection() {
         )}
       </SectionCard>
 
-      <SectionCard
-        title="Prisregel"
-        description="Formel: leverantörskostnad i USD × USD/SEK × X-påslag ÷ SEK per credit. Resultatet avrundas uppåt till hela credits. En generering behåller sin snapshot även om regeln ändras senare."
-        icon={Coins}
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="billing-markup">Påslag (X)</Label>
-            <Input
-              id="billing-markup"
-              inputMode="decimal"
-              value={markup}
-              onChange={(event) => setMarkup(event.target.value)}
-              aria-describedby="billing-markup-help"
-            />
-            <p id="billing-markup-help" className="text-muted-foreground text-xs">
-              X1,0–X10,0. Exempel: 15 kr × X2,8 = 42 kr.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="billing-fx">USD till SEK</Label>
-            <Input
-              id="billing-fx"
-              inputMode="decimal"
-              value={usdToSek}
-              onChange={(event) => setUsdToSek(event.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              Manuell revisionskurs, inte en livekurs.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="billing-credit-value">SEK per credit</Label>
-            <Input
-              id="billing-credit-value"
-              inputMode="decimal"
-              value={sekPerCredit}
-              onChange={(event) => setSekPerCredit(event.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">Nuvarande produktantagande är 3 kr.</p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={() => void saveSettings()} disabled={saving} className="gap-2">
-            <Save className="h-4 w-4" />
-            {saving ? "Sparar…" : "Spara prisregel"}
-          </Button>
-          {saveMessage && <span className="text-sm text-emerald-500">{saveMessage}</span>}
-          {saveError && <span className="text-destructive text-sm">{saveError}</span>}
-        </div>
-      </SectionCard>
+      <p className="text-muted-foreground text-sm">
+        Prisregel, domänpåslag och creditpriser redigeras under{" "}
+        <Link href="/admin/priser" className="text-foreground underline-offset-4 hover:underline">
+          Priser
+        </Link>
+        .
+      </p>
 
       <SectionCard
         title="Användare"
-        description="Summerad självkostnad och debitering för vald period."
+        description="Självkostnad, debiterat kreditvärde och marginal för vald period."
         icon={Users}
       >
         <DataState
@@ -381,6 +301,8 @@ export function GenereringarSection() {
                   <TableHead>Användare</TableHead>
                   <TableHead className="text-right">Genereringar</TableHead>
                   <TableHead className="text-right">Självkostnad</TableHead>
+                  <TableHead className="text-right">Debiterat</TableHead>
+                  <TableHead className="text-right">Marginal</TableHead>
                   <TableHead className="text-right">Gratis</TableHead>
                   <TableHead className="text-right">Credits</TableHead>
                 </TableRow>
@@ -396,6 +318,8 @@ export function GenereringarSection() {
                     </TableCell>
                     <TableCell className="text-right">{formatCount(user.generations)}</TableCell>
                     <TableCell className="text-right">{formatSek(user.providerCostOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.billableOre)}</TableCell>
+                    <TableCell className="text-right">{formatSek(user.marginOre)}</TableCell>
                     <TableCell className="text-right">
                       {formatCount(user.freeGenerations)}
                     </TableCell>
@@ -486,6 +410,9 @@ export function GenereringarSection() {
                   <div>
                     <span className="text-muted-foreground block text-xs">Efter påslag</span>
                     {formatSek(row.billableOre)}
+                    <span className="text-muted-foreground block text-xs">
+                      Listpris före kreditavrundning
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block text-xs">Draget</span>

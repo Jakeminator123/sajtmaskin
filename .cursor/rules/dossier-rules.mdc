@@ -1,5 +1,5 @@
 ---
-description: "Dossier-regler: skilj runtime dossiers från template references och variant-katalog."
+description: "Dossier-regler: runtime dossiers är inte template-references eller variant-katalog."
 globs:
   - data/dossiers/**
   - data/template-references/**
@@ -12,24 +12,27 @@ alwaysApply: false
 
 # Dossier-regler
 
-Det finns flera liknande mappar. De är inte samma sak — det är pipeline-LAGER, inte tre kopior. Runtime läser **bara** `data/dossiers/{hard,soft}/`.
-
-## Canonical map
+Runtime läser **bara** `data/dossiers/{hard,soft}/`. Övriga mappar är andra lager.
 
 | Yta | Path | Roll |
 |---|---|---|
-| Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` | **Enda** source of truth för dossiers i runtime (läses av `src/lib/gen/dossiers/registry.ts`) |
-| Capability map | `data/dossiers/_index/capability-map.json` | Genererad/tooling-index (`capabilities` + `groups`-vy), läses inte i runtime |
-| Dossier scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
-| Backoffice | `backoffice/pages/dossiers.py` | Adminvy för runtime dossiers |
-| Template reference repos | `data/template-references/repos/<id>/` | Rå input till AI-kuration (gitignorerad, lokal) |
-| Reference catalog (LEGACY) | *(helt borttagen 2026-07-09)* | `sourceTemplateIds` slås numera upp mot `src/lib/templates/template-blob-manifest.json` (v0-mallar i Blob). Arkiv av gamla pipeline-skripten: syskonmappen `gamla-skript-till-scaffolds/` utanför repot. Skapa inget nytt beroende mot legacy-katalogen. |
-| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Visuellt uttryck (eget subsystem, ej dossier); `sourceTemplateIds` är ordnade inspirationskandidater som runtime slår upp mot Blob-manifestet |
-
-## Regler
+| Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` | Enda runtime-sanning (`src/lib/gen/dossiers/registry.ts`) |
+| Capability map | `data/dossiers/_index/capability-map.json` | Genererad vy — bär även `dossiers`, `labelsSv`, `policy`, `f2Policy`. Läses inte i runtime |
+| Scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
+| Backoffice | `backoffice/pages/dossiers.py` | Adminvy: Lista, AI-kuration, Systemkarta |
+| Template refs | `data/template-references/repos/<id>/` | Rå input, gitignorerad |
+| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Eget subsystem; `sourceTemplateIds` slås upp mot Blob-manifestet |
 
 - Flytta inte runtime dossiers till template-reference-mappar.
-- Behandla `capability-map.json` som genererad vy; bygg om från manifests (`npm run dossiers:capability-map:write`). Vyn bär även ett `groups`-fält (grupp-id → `{label, capabilities[]}`, härlett från `dossier-groups.ts`) som backoffice läser (gruppvy i Lista, kategori-väljare i AI-kuration, grupptabell i Capability map) — duplicera aldrig den mappningen i Python.
-- Efter manifeständring: kör `npm run dossiers:validate-all` och regenerera capability-map med `npm run dossiers:capability-map:write`. Vyn läses inte i runtime, men dess färskhet är blockerande CI eftersom Backoffice/Systemkarta konsumerar den.
-- `sourceTemplateIds` slås i runtime upp mot `src/lib/templates/template-blob-manifest.json`, där högst en tillåten inspirationsmall väljs. Bygg aldrig en join mot dossiers eller den borttagna `catalog.json`-katalogen.
-- Vid radering av en dossier: kontrollera capability, defaultForCapability, envVars, dependencies och `capability-map`.
+- `groups` ägs av `src/lib/builder/dossier-groups.ts` och härleds till vyn.
+  Duplicera aldrig den mappningen i Python.
+- Efter manifeständring: `npm run dossiers:validate-all` +
+  `npm run dossiers:capability-map:write`. Vyn läses inte i runtime, men
+  `dossiers:capability-map:check` är **blockerande CI** eftersom Backoffice
+  konsumerar den.
+- `sourceTemplateIds` är ordnade kandidater; runtime väljer **högst en**
+  inspirationsmall via `src/lib/templates/template-blob-manifest.json` (finns
+  lokalt men är gitignorerad). Ingen join mot dossiers och inget nytt beroende
+  mot `catalog.json` — den togs bort 2026-07-09.
+- Vid radering: kolla capability, defaultForCapability, envVars, dependencies
+  och capability-map.

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Search, Coins, Loader2, AlertCircle, BarChart2, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
-import { AUDIT_COSTS } from "@/lib/credits/pricing";
+import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import type { AuditMode, AuditResult } from "@/types/audit";
 import {
   Dialog,
@@ -31,7 +31,16 @@ export function SiteAuditSection({
   hideUrlInput = false,
   externalSubmitSignal,
 }: SiteAuditSectionProps) {
-  const { user, isAuthenticated, updateDiamonds } = useAuth();
+  const { user, isAuthenticated, updateDiamonds, fetchUser } = useAuth();
+  const { pricing } = usePublicPricing();
+  const auditCosts = useMemo(
+    () =>
+      ({
+        basic: pricing.credits.auditBasic,
+        advanced: pricing.credits.auditAdvanced,
+      }) as const,
+    [pricing.credits.auditAdvanced, pricing.credits.auditBasic],
+  );
   const [internalUrl, setInternalUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +63,8 @@ export function SiteAuditSection({
     [isUrlControlled, onUrlChange],
   );
 
-  const canAffordBasic = user && user.diamonds >= AUDIT_COSTS.basic;
-  const canAffordAdvanced = user && user.diamonds >= AUDIT_COSTS.advanced;
+  const canAffordBasic = user && user.diamonds >= auditCosts.basic;
+  const canAffordAdvanced = user && user.diamonds >= auditCosts.advanced;
 
   const requestModeSelection = useCallback(() => {
     if (isLoading) return;
@@ -92,7 +101,7 @@ export function SiteAuditSection({
       return;
     }
 
-    const auditCost = AUDIT_COSTS[mode];
+    const auditCost = auditCosts[mode];
     if (user.diamonds < auditCost) {
       setError(`Du behöver minst ${auditCost} credits. Du har ${user.diamonds}.`);
       return;
@@ -155,9 +164,14 @@ export function SiteAuditSection({
 
       setProgress(100);
 
-      // Update local diamonds (server already deducted)
-      if (user) {
-        updateDiamonds(user.diamonds - auditCost);
+      const remaining =
+        typeof data.creditsRemaining === "number" && Number.isFinite(data.creditsRemaining)
+          ? data.creditsRemaining
+          : null;
+      if (remaining !== null) {
+        updateDiamonds(remaining);
+      } else {
+        await fetchUser();
       }
 
       // Pass result and URL to parent
@@ -170,7 +184,7 @@ export function SiteAuditSection({
       setIsLoading(false);
       setProgress(0);
     }
-  }, [currentUrl, isAuthenticated, onAuditComplete, onRequireAuth, setUrlValue, updateDiamonds, user]);
+  }, [auditCosts, currentUrl, fetchUser, isAuthenticated, onAuditComplete, onRequireAuth, setUrlValue, updateDiamonds, user]);
 
   return (
     <div className="w-full max-w-2xl">
@@ -234,7 +248,7 @@ export function SiteAuditSection({
               <span className="flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-sm">
                 <Coins className="h-3.5 w-3.5" />
                 <span>
-                  {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
+                  {auditCosts.basic}/{auditCosts.advanced}
                 </span>
               </span>
             </>
@@ -246,7 +260,7 @@ export function SiteAuditSection({
             <p>
               Du har{" "}
               <span
-                className={user.diamonds >= AUDIT_COSTS.basic ? "text-primary font-medium" : "text-destructive"}
+                className={user.diamonds >= auditCosts.basic ? "text-primary font-medium" : "text-destructive"}
               >
                 {user.diamonds} credits
               </span>
@@ -254,11 +268,11 @@ export function SiteAuditSection({
             <p>
               Vanlig:{" "}
               <span className={canAffordBasic ? "text-primary" : "text-destructive"}>
-                {AUDIT_COSTS.basic}
+                {auditCosts.basic}
               </span>{" "}
               | Avancerad:{" "}
               <span className={canAffordAdvanced ? "text-primary" : "text-destructive"}>
-                {AUDIT_COSTS.advanced}
+                {auditCosts.advanced}
               </span>
             </p>
           </div>
@@ -317,7 +331,7 @@ export function SiteAuditSection({
                 <span className="text-sm font-semibold text-foreground">Vanlig analys</span>
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
-                  {AUDIT_COSTS.basic}
+                  {auditCosts.basic}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -333,7 +347,7 @@ export function SiteAuditSection({
                 <span className="text-sm font-semibold text-foreground">Avancerad analys</span>
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
-                  {AUDIT_COSTS.advanced}
+                  {auditCosts.advanced}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">

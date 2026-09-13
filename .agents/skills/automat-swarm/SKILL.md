@@ -45,7 +45,13 @@ Status lives in the `A#` id itself, so `FINDINGS.md` needs no new column: `A#12`
 1. **Pick lanes.** Take the next 8 lanes from the rotation cursor (wrap around the table). Round 1 = lanes 1–8, round 3 = lanes 9–13 then 1–3, etc. If agents `K` ≠ 8, map `K` agents to lanes (split a lane into sub-areas when `K` > lane count). Honor any lane override from the message.
 2. **Resolve paths.** For each lane, get exact repo paths from [`repo-router.mdc`](../../../.cursor/rules/repo-router.mdc) so subagents look in the right place.
 3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: <luna>`), one lane each, using the scan prompt below.
-4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`. Then `npm run clean:scratch:apply` so `runs/` stays at the 3 newest / ≤14 days.
+4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`. Then prune **only this surface** so `runs/` stays at the 3 newest and younger than 14 days:
+
+   ```powershell
+   node scripts/dev/clean-scratch.mjs --apply --only .cursor/swarms/runs
+   ```
+
+   Never run the bare `npm run clean:scratch:apply` here — the global sweep also prunes handoffs, kedja candidate diffs, `.cursor/tmp`, `logs/` and `.env-backups`, none of which this run owns. Use `node`, not `npm run --`: npm swallows unknown flags.
 5. **Distill via one subagent, not yourself.** Fire a single readonly `<sol>` task pointed at `runs/<ts>/r<r>-*.md` **and** `.cursor/swarms/FINDINGS.md`, asking for **at most 5** new high-value rows. This keeps older rounds out of the parent context.
 6. **Round note.** Update `runs/<ts>/index.md` with one line per lane (top pick + confidence).
 

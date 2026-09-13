@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect } from "react"
-import { ArrowRight, CheckCircle2, Rocket } from "lucide-react"
+import { ArrowRight, Rocket } from "lucide-react"
+import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
+import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
@@ -13,7 +15,6 @@ import {
   studioTeam,
   studioTiers,
   trustLogos,
-  creditPackages,
 } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
 import { IntegrationCard } from "@/components/landing-v2/landing-tech-integration-cards"
@@ -25,7 +26,7 @@ export type { ChatAreaProps }
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export function ChatArea(props: ChatAreaProps = {}) {
-  const { expandedContent, heroPrefix, onPlayIntro } = props
+  const { expandedContent, onPlayIntro } = props
   // /#hur-det-fungerar och /#priser bor i den inre scroll-containern som
   // Nexts hash-hantering inte scrollar — lös hash-länkarna här.
   useHashScroll()
@@ -38,8 +39,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
     inputValue,
     setInputValue,
     isSubmitting,
-    websitesCounter,
-    usersCounter,
     rotatingType,
     headlineTilt,
     preloadHowItWorksScene,
@@ -67,7 +66,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
   }, [router])
 
   return (
-    <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-x-clip overflow-y-hidden">
       <LandingBackground
         selectedCategory={selectedCategory}
         isAuditMode={isAuditMode}
@@ -76,12 +75,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
       {/* Scrollable content */}
       <div
-        className="relative z-10 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
+        className="relative z-10 min-h-0 flex-1 touch-pan-y overflow-x-clip overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
         data-scroll-container
       >
 
         <LandingHero
-          heroPrefix={heroPrefix}
           expandedContent={expandedContent}
           onPlayIntro={onPlayIntro}
           selectedCategory={selectedCategory}
@@ -157,36 +155,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
           </div>
         </section>
 
-        {/* ━━━ HONEST COUNTER STRIP ━━━ */}
-        <section className="px-6 py-14 border-t border-b border-border/15 bg-secondary/20">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-10 md:gap-20">
-            {[websitesCounter, usersCounter].map((counter, idx) => (
-              <div key={idx} className="flex flex-col items-center">
-                {idx > 0 && <div className="hidden md:block absolute w-px h-12 bg-border/30" style={{ marginLeft: "-5rem" }} />}
-                <div className="text-center" ref={counter.ref}>
-                  <p className="text-3xl md:text-4xl font-(--font-heading) text-primary transition-all duration-300">
-                    {/* Inget "+"-suffix: räknaren går direkt till det ärliga värdet. */}
-                    <span>{counter.count.toLocaleString("sv-SE")}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {idx === 0 ? "Webbplatser skapade" : "Aktiva f\u00f6retagare"}
-                  </p>
-                  {counter.phase === "honest" && (
-                    <p className="text-xs mt-2.5 max-w-[280px] leading-relaxed animate-fade-up text-muted-foreground italic">
-                      {counter.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {websitesCounter.phase === "honest" && (
-            <p className="text-center text-xs text-muted-foreground/50 mt-6 animate-fade-up" style={{ animationDelay: "0.3s" }}>
-              Vi v&auml;xer med riktiga f&ouml;retag i ryggen &mdash; varje sajt &auml;r byggd f&ouml;r att driva aff&auml;rer, inte bara finnas.
-            </p>
-          )}
-        </section>
-
         {/* ━━━ INTEGRATIONS SHOWCASE ━━━ */}
         <section className="px-6 py-18 md:py-24 border-b border-border/15">
           <div className="max-w-5xl mx-auto">
@@ -228,57 +196,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-              {creditPackages.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  className={`card-3d rounded-2xl border p-7 flex flex-col gap-5 transition-all duration-300 ${
-                    pkg.popular
-                      ? "bg-primary/5 border-primary/30 relative md:scale-105 md:-my-2 shadow-xl shadow-primary/5"
-                      : "bg-card/50 border-border/20 hover:border-border/40"
-                  }`}
-                >
-                  {pkg.popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground bg-primary px-3 py-1 rounded-full">
-                      Populärast
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-lg text-foreground font-(--font-heading)">{pkg.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">{pkg.description}</p>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl text-foreground font-(--font-heading)">{pkg.price} kr</span>
-                    <span className="text-sm text-muted-foreground mb-1">{pkg.credits} credits</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-2">
-                    {(pkg.price / pkg.credits).toFixed(1)} kr/credit
-                    {pkg.savings > 0 ? ` • spara ${pkg.savings}%` : ""}
-                  </p>
-                  <div className="h-px bg-border/20" />
-                  <ul className="space-y-3 flex-1">
-                    {pkg.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                        <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className={`w-full font-medium mt-2 ${
-                      pkg.popular
-                        ? "btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
-                        : "btn-3d bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/30"
-                    }`}
-                    onClick={() => router.push("/buy-credits")}
-                    disabled={isSubmitting}
-                  >
-                    {pkg.cta}
-                    {pkg.popular && <ArrowRight className="w-4 h-4 ml-2" />}
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <CreditPackageGrid
+              disabled={isSubmitting}
+              onSelect={() => router.push("/buy-credits")}
+              ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
+            />
 
             <div className="mt-14 rounded-[32px] border border-border/20 bg-card/35 p-6 md:p-8 shadow-[0_24px_70px_rgba(6,10,20,0.2)]">
               <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">

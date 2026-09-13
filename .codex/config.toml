@@ -5,12 +5,21 @@
 
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
-# Safe interactive defaults: keep writes inside the selected checkout/worktree
-# and ask before a command needs broader access.
+# Ägarbeslut 2026-09-11: sandbox av, live-sök på.
+#
+# Codex sandbox på Windows är opålitlig i den här uppsättningen, och en halvt
+# fungerande sandbox ger falsk trygghet snarare än skydd. Den kvarvarande
+# grinden är därför MÄNSKLIG: `approval_policy = "on-request"` frågar innan ett
+# kommando körs. Sänk inte den till `never` — då finns ingen grind kvar alls.
+#
+# Ändras någon av raderna nedan måste `.codex/README.md` § Behörighet ändras i
+# samma diff; `npm run workflow:contract` jämför dem.
 approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-web_search = "cached"
+sandbox_mode = "danger-full-access"
+web_search = "live"
 
+# Kortare svar: Codex är sekundär agent här, Cursor äger huvudflödet.
+model_verbosity = "low"
 [windows]
 sandbox = "elevated"
 

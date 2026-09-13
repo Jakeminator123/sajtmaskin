@@ -442,6 +442,10 @@ const BRIEF_SYSTEM_PROMPT =
   "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
   "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
 
+const BRIEF_SIMPLIFIED_SYSTEM_PROMPT =
+  BRIEF_SYSTEM_PROMPT +
+  "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.";
+
 function buildBriefUserPrompt(
   prompt: string,
   imageGenerations: boolean,
@@ -645,10 +649,8 @@ export async function generateSiteBriefObject(
       result = await generateObject({
         model: directModel,
         schema: siteBriefSchema,
-        messages: [
-          { role: "system", content: BRIEF_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
+        system: BRIEF_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
         maxRetries: 1,
         maxOutputTokens: outputTokenCap,
         abortSignal,
@@ -671,15 +673,8 @@ export async function generateSiteBriefObject(
         result = await generateObject({
           model: directModel,
           schema: simplifiedBriefSchema,
-          messages: [
-            {
-              role: "system",
-              content:
-                BRIEF_SYSTEM_PROMPT +
-                "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.",
-            },
-            { role: "user", content: userPrompt },
-          ],
+          system: BRIEF_SIMPLIFIED_SYSTEM_PROMPT,
+          messages: [{ role: "user", content: userPrompt }],
           maxRetries: 1,
           maxOutputTokens: Math.min(outputTokenCap, 40_960),
           abortSignal,
@@ -745,10 +740,8 @@ export async function generateSiteBriefObject(
     result = await generateObject({
       model: directModel,
       schema: siteBriefSchema,
-      messages: [
-        { role: "system", content: BRIEF_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
+      system: BRIEF_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
       maxRetries: 1,
       maxOutputTokens: outputTokenCap,
       abortSignal,
@@ -769,15 +762,8 @@ export async function generateSiteBriefObject(
       result = await generateObject({
         model: directModel,
         schema: simplifiedBriefSchema,
-        messages: [
-          {
-            role: "system",
-            content:
-              BRIEF_SYSTEM_PROMPT +
-              "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.",
-          },
-          { role: "user", content: userPrompt },
-        ],
+        system: BRIEF_SIMPLIFIED_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
         maxRetries: 1,
         maxOutputTokens: Math.min(outputTokenCap, 40_960),
         abortSignal,

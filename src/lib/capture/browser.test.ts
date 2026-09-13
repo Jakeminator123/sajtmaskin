@@ -255,6 +255,37 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
+  it("loggar och prunar en Chromium-core-dump som skrivs under samma capture-körning", async () => {
+    // Preview 2026-09-08 (chat 4a2aa301): v1 skrev core.chromium.29 (385 MB)
+    // men loggade passed. v2 såg dumpen först vid nästa launch och hade dött
+    // på /tmp-slut utan pruningen. Dumpen ska synas i SAMMA körning.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { launchCaptureBrowser, detectAndPruneChromiumCoreDumps } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    const duringRun = path.join(tmp, "core.chromium.29");
+    fs.writeFileSync(duringRun, Buffer.alloc(2 * 1_048_576));
+    expect(fs.existsSync(duringRun)).toBe(true);
+
+    const detected = detectAndPruneChromiumCoreDumps("product-postcheck");
+    await browser.close();
+
+    expect(detected).toEqual({ count: 1, totalMb: 2 });
+    expect(fs.existsSync(duringRun)).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[capture-browser] Chromium core dump detected (2 MB) during product-postcheck",
+    );
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it("raderar Chromium-core-dumps oavsett ålder före serverless-launch (SM-072)", async () => {
     // Prod 2026-09-01 (chat 3b9ca137): `core.chromium.24` på 913 MB fyllde
     // ensam tmpfs:en och varje senare launch dog. En core dump i lambdan har
@@ -270,6 +301,7 @@ describe("launchCaptureBrowser", () => {
     const unrelatedFile = path.join(tmp, "corefile.txt");
     fs.writeFileSync(unrelatedFile, "keep");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { launchCaptureBrowser } = await import("./browser");
 
     const browser = await launchCaptureBrowser();
@@ -280,7 +312,11 @@ describe("launchCaptureBrowser", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       "[capture-browser] pruned 1 Chromium core dump(s)",
     );
+    expect(
+      errorSpy.mock.calls.some((call) => String(call[0]).includes("core dump detected")),
+    ).toBe(false);
     warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it("behåller en färsk Playwright-profil under 15 minuter", async () => {

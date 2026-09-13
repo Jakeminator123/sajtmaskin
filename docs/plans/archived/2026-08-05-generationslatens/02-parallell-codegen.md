@@ -6,7 +6,7 @@
 # Steg 4: parallell codegen — beslutspunkt
 
 Detta är **inte** beställt arbete. Det kräver uttryckligt ägar-OK enligt
-[`mvp-scope-freeze.mdc`](../../../../.cursor/rules/mvp-scope-freeze.mdc), som
+[`project-phase-priorities.mdc`](../../../../.cursor/rules/project-phase-priorities.mdc), som
 säger att en tråkig robust fix går före en elegant ny abstraktion fram till
 MVP-leverans. Filen finns för att beslutet ska kunna fattas på underlag i
 stället för på magkänsla, och för att steg 1–3 i [`00-master-plan.md`](00-master-plan.md)

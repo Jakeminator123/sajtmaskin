@@ -206,6 +206,7 @@ export function CompactToolParts({
             />
           ) : null;
         }
+        const isReviewTool = toolType === "tool-post-check" || toolType === "tool-quality-gate";
         const integrationSummary = getToolIntegrationSummary(tool);
         const integrationCard = getIntegrationCardData(tool);
         const qualityGateErrorText =
@@ -309,12 +310,13 @@ export function CompactToolParts({
                       </p>
                     )}
                   </div>
-                ) : (
+                ) : !isReviewTool ? (
                   <p className="text-muted-foreground mt-2 text-xs">
                     Den genererade sajten behöver denna integration. Konfigurera via miljövariabler
                     eller Byggblock i previewen.
                   </p>
-                )}
+                ) : null}
+                {summaries.postCheck && <PostCheckPanel {...summaries.postCheck} />}
                 {(summaries.qualityGate || qualityGateErrorText) && (
                   <QualityGatePanel
                     variant="compact"
@@ -337,7 +339,7 @@ export function CompactToolParts({
                 {summaries.liveReview && <LiveReviewRow result={summaries.liveReview} />}
               </>
             )}
-            {isIntegrations ? (
+            {isIntegrations && !isReviewTool ? (
               <div className="mt-2 flex flex-wrap gap-2">
                 {!replyPrompt && projectEnvKeys.length > 0 && (
                   <Button size="sm" onClick={() => openDossiersPanel(projectEnvKeys)}>

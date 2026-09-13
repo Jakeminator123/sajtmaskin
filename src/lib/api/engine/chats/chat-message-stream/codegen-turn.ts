@@ -85,6 +85,9 @@ export async function runCodegenTurn(params: {
   designReferences: ReturnType<typeof summarizeDesignReferences>;
   promptOrchestration: ReturnType<typeof orchestratePromptMessage>;
   previousFiles: CodeFile[];
+  /** Same resolved base as `previousFiles` — threaded into finalize, no latest re-read. */
+  previousVersionId?: string | null;
+  previousSelectedDossierEnvKeys?: string[];
   hasFollowUpBase: boolean;
   existingRoutePaths: string[];
   existingShellRoutePaths: string[];
@@ -139,6 +142,8 @@ export async function runCodegenTurn(params: {
     designReferences,
     promptOrchestration,
     previousFiles,
+    previousVersionId,
+    previousSelectedDossierEnvKeys,
     hasFollowUpBase,
     existingRoutePaths,
     existingShellRoutePaths,
@@ -538,6 +543,10 @@ export async function runCodegenTurn(params: {
     urlMap,
     commitCredits: commitCreditsOnce,
     previousFiles: hasFollowUpBase ? previousFiles : undefined,
+    previousVersionId: hasFollowUpBase ? (previousVersionId ?? null) : null,
+    previousSelectedDossierEnvKeys: hasFollowUpBase
+      ? previousSelectedDossierEnvKeys
+      : undefined,
     lineageHash,
     targetVersionId:
       metaPromptSourceKind === "autofix" && metaEngineBaseVersionId

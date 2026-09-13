@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
@@ -682,6 +683,26 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       f3PriorToolOnlyRounds: priorRounds,
     };
   }
+
+  it("observes engine billing completion after reader cancellation", async () => {
+    let finishBilling!: () => void;
+    const billing = new Promise<void>((resolve) => { finishBilling = resolve; });
+    commitCredits.mockReturnValueOnce(billing);
+    const executionFinished = vi.fn();
+    await runWithGenerationWork(async (completion) => {
+      const stream = createOwnEngineGenerationStream({
+        ...f3ToolOnlyStreamParams("chat_cancel_billing", 0),
+        pipelineStream: new ReadableStream<Uint8Array>(),
+      });
+      const execution = completion()!.then(executionFinished);
+      await stream.cancel("client disconnected");
+      await vi.waitFor(() => expect(commitCredits).toHaveBeenCalledOnce());
+      expect(executionFinished).not.toHaveBeenCalled();
+      finishBilling();
+      await execution;
+      expect(executionFinished).toHaveBeenCalledOnce();
+    });
+  });
 
   it("round 2 (approval STILL tool-only): persists a closure-offering marker, not the identical question", async () => {
     const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))

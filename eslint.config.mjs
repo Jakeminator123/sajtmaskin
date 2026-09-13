@@ -50,7 +50,28 @@ export default defineConfig([
     // Archived legacy dossier pipeline (snapshot frozen 2026-04-20). Not
     // maintained — kept on disk for reference only.
     "archive/**/*",
+    // Gitignored scratch and run output. ESLint flat config does NOT read
+    // .gitignore, so without these the lint gate covers files that only exist
+    // on one machine: `npm run lint` runs with `--max-warnings=0`, and a single
+    // `console.log` an agent drops in the sanctioned `.cursor/tmp/` turns the
+    // local gate red while CI — which never sees the file — stays green. A
+    // local check that can fail for reasons CI cannot reproduce is worse than
+    // no local check, because it trains you to ignore it.
+    ".cursor/tmp/**/*",
     ".cursor/bugs/**/*",
+    ".cursor/handoffs/**/*",
+    ".cursor/kedja/**/*",
+    ".cursor/logg-internet/**/*",
+    ".cursor/plans/**/*",
+    ".cursor/swarms/**/*",
+    // Nested agent worktrees hold a second full checkout of src/.
+    ".cursor/worktrees/**/*",
+    ".tmp/**/*",
+    "logs/**/*",
+    ".env-backups/**/*",
+    // Owner-local surfaces (see docs/decisions/README.md 2026-09-08).
+    "övrigt/**/*",
+    "publicerings-material/**/*",
     ".next/**/*",
     ".vercel/**/*",
     "out/**/*",

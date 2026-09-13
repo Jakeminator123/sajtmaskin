@@ -5,7 +5,12 @@ globs:
   - src/lib/providers/own-engine/**
   - src/lib/gen/preview/**
   - src/lib/gen/detect-integrations.ts
+  - src/lib/gen/agent-tools.ts
+  - src/lib/gen/dossiers/f2-mute.ts
+  - src/lib/gen/system-prompt/sections/session-contracts.ts
   - src/app/api/engine/chats/[chatId]/readiness/**
+  - src/app/api/engine/chats/[chatId]/finalize-design/**
+  - src/app/api/v0/projects/[projectId]/env-vars/**
   - src/app/builder/BuilderShellContent.tsx
   - src/components/builder/readiness/F3RequirementsSurface.tsx
   - src/components/builder/preview-panel/**
@@ -33,8 +38,9 @@ rätt dossier i Byggblock.
 
 Designläget ska se ut som en riktig sajt: dossierns `mock` + `env-local.ts`
 renderar demo utan live-nycklar. Status ljuger inte: `planned` /
-`blocked-build` / `built-demo` / `built-live` (`describeDossierStatus`).
-"Byggd" utan livenycklar heter "Demo". `built-demo` blockerar aldrig publicering.
+`blocked-build` / `built-demo` / `built-live` / `self-contained`
+(`describeDossierStatus`). "Byggd" utan livenycklar heter "Demo".
+`built-demo` blockerar aldrig publicering.
 
 **Mute = noll integrationskod + synlig uppskjutning.** Mutade capabilities får
 inte tyst bjuda in frihandsbygge.
@@ -50,7 +56,8 @@ inte tyst bjuda in frihandsbygge.
 
 1. Tool-gate: env-tools exponeras inte i designläge.
 2. SSE-filter: tool-events droppas i designläge.
-3. En env-yta: Byggblock-inputs (ingen `ProjectEnvVarsPanel`).
+3. En env-yta: Byggblock-inputs. `ProjectEnvVarsPanel` är **borttagen**
+   (2026-07-22) — bara eventnamn lever kvar. Återinför den inte.
 4. Post-finalize-gate: detected integrations droppas i designläge.
 
 ## Förbjudet

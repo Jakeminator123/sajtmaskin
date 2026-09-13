@@ -4,7 +4,6 @@ status: avklarad
 created: 2026-06-19
 archived: 2026-07-13
 archived_note: "BESLUT: Option B (instrumenterad preview / inspect-bridge) vald och levererad flagg-gated (PR #164, default av). Option A (Playwright inspector-worker på Render.com-konto) AVVISAD — workern (services/inspector-worker/) redan raderad, återuppbyggs inte. Kvarvarande svans (litet eget pass, ej blockerande): live-verifiera bryggan i prod, ev. CSP frame-src *.fly.dev, pensionera gamla /api/inspector-{capture,element-map}. Flyttad active→avklarat 2026-07-13."
-linear: null
 parent: null
 supersedes: null
 ---

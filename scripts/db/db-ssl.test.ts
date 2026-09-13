@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSslConfig } from "./db-ssl.mjs";
+import { connectionStringForPg, resolveSslConfig } from "./db-ssl.mjs";
 
 /**
  * Every DB script that opens a pool (`db-init.mjs`, `run-migrations.ts`,
@@ -69,5 +69,23 @@ describe("resolveSslConfig", () => {
     expect(resolveSslConfig(undefined, { env: {} })).toEqual({
       rejectUnauthorized: true,
     });
+  });
+});
+
+describe("connectionStringForPg", () => {
+  it("strips sslmode so pg cannot override a relaxed ssl option", () => {
+    // Live CI after #1340: URL sslmode=require + ssl.rejectUnauthorized=false
+    // still verified the cert, because pg aliases require → verify-full.
+    const cleaned = connectionStringForPg(
+      "postgresql://u:p@host.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    );
+    const url = new URL(cleaned ?? "");
+    expect(url.searchParams.has("sslmode")).toBe(false);
+    expect(url.searchParams.has("supa")).toBe(false);
+    expect(url.hostname).toBe("host.pooler.supabase.com");
+  });
+
+  it("leaves an unparseable string alone", () => {
+    expect(connectionStringForPg("not-a-url")).toBe("not-a-url");
   });
 });

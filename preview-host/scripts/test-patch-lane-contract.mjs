@@ -112,8 +112,28 @@ try {
   assert.equal(queuedBoots.length, bootsBeforeManifest, "files-manifest must not queue a boot");
 
   // A session whose runtime is not up reports running:false — the app must not
-  // hot-patch a workspace nobody is serving.
+  // hot-patch a workspace nobody is serving. `booting` is the in-memory boot
+  // chain; absent an inflight boot it is false so a dead runtime cannot take
+  // the same-version patch lane.
   assert.equal(manifest.body.running, false);
+  assert.equal(manifest.body.booting, false);
+
+  runtime.__testing.setRuntimeStateForTesting({
+    chatId: "chat-manifest",
+    sessionId: started.body.sessionId,
+    previewSessionId,
+    runtimePort: 4321,
+    running: false,
+    booting: true,
+  });
+  const bootingManifest = await manifestFor(previewSessionId);
+  assert.equal(bootingManifest.body.running, false);
+  assert.equal(bootingManifest.body.booting, true);
+  assert.equal(
+    queuedBoots.length,
+    bootsBeforeManifest,
+    "files-manifest must not queue a boot when reporting booting:true",
+  );
 
   runtime.__testing.setRuntimeStateForTesting({
     chatId: "chat-manifest",
@@ -123,7 +143,9 @@ try {
     running: true,
     booting: false,
   });
-  assert.equal((await manifestFor(previewSessionId)).body.running, true);
+  const runningManifest = await manifestFor(previewSessionId);
+  assert.equal(runningManifest.body.running, true);
+  assert.equal(runningManifest.body.booting, false);
 
   // /patch is the write side of the same contract: merged file + removal +
   // new versionId must all be visible in the next manifest read.

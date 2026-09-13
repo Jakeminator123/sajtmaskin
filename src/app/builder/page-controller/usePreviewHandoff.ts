@@ -6,6 +6,7 @@ import {
   decidePreviewHandoff,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
+import { rememberAppliedPreviewHandoffKey } from "../builder-page-preview-helpers";
 
 type Params = {
   currentPreviewUrl: string | null;
@@ -43,6 +44,7 @@ export function usePreviewHandoff({
     currentPreviewUrlRef.current = currentPreviewUrl;
   }, [currentPreviewUrl]);
   const lastPreviewHandoffKeyRef = useRef<string | null>(null);
+  const appliedPreviewHandoffKeysRef = useRef<Set<string>>(new Set());
 
   const applyPreviewHandoff = useCallback<ApplyPreviewHandoff>(
     (params) => {
@@ -60,8 +62,11 @@ export function usePreviewHandoff({
       // stays `?:url` and later swallows a genuine new-version bump at the same
       // reused session URL, leaving the iframe on the previous version (Bugbot
       // high). The empty-URL decision carries a null key and must not clobber it.
+      // The applied-key *set* remembers every pair this chat has already
+      // handed off so version-sync can ignore the v3→v2→v3 flicker.
       if (decision.key !== null) {
         lastPreviewHandoffKeyRef.current = decision.key;
+        rememberAppliedPreviewHandoffKey(appliedPreviewHandoffKeysRef.current, decision.key);
       }
       if (decision.action === "noop") return;
       if (decision.action === "set-url") {
@@ -82,5 +87,6 @@ export function usePreviewHandoff({
     applyPreviewHandoff,
     currentPreviewUrlRef,
     lastPreviewHandoffKeyRef,
+    appliedPreviewHandoffKeysRef,
   };
 }

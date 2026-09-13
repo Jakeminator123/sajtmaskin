@@ -43,7 +43,8 @@
             "hydration_dom_loss",
             "console_error",
             "request_failed",
-            "http_error"
+            "http_error",
+            "browser_crashed"
           ]
         },
         "href": { "type": ["string", "null"] },

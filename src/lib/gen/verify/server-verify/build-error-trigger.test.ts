@@ -51,7 +51,7 @@ vi.mock("./f3-readiness", () => ({
   }) => filesRevision?.trim() || `md5:${filesJson.length}`,
 }));
 
-import { triggerBuildErrorRepair } from "./build-error-trigger";
+import { isAutoRepairBuildErrorEnabled, triggerBuildErrorRepair } from "./build-error-trigger";
 
 const chatId = "chat-be";
 const versionId = "version-be";
@@ -197,5 +197,59 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
         result: expect.objectContaining({ reason: "missing_env" }),
       }),
     );
+  });
+});
+
+describe("isAutoRepairBuildErrorEnabled — default på överallt sedan 2026-09-11", () => {
+  it("är på i production utan explicit flagga (var av tills 40 dagars prod visade 3/3 lyckade reparationer)", () => {
+    expect(isAutoRepairBuildErrorEnabled({ VERCEL_ENV: "production" })).toBe(true);
+    expect(isAutoRepairBuildErrorEnabled({ VERCEL_ENV: "production", NODE_ENV: "production" })).toBe(
+      true,
+    );
+    expect(isAutoRepairBuildErrorEnabled({})).toBe(true);
+  });
+
+  it("förblir på i preview och development", () => {
+    expect(isAutoRepairBuildErrorEnabled({ VERCEL_ENV: "preview" })).toBe(true);
+    expect(isAutoRepairBuildErrorEnabled({ NODE_ENV: "development" })).toBe(true);
+  });
+
+  it("stängs av bara av ett explicit nej — kill-switchen", () => {
+    for (const value of ["0", "false", "off", "no", " OFF ", "No"]) {
+      expect(isAutoRepairBuildErrorEnabled({ SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR: value })).toBe(
+        false,
+      );
+    }
+  });
+
+  it("behandlar ett explicit ja och okända värden som på", () => {
+    for (const value of ["1", "true", "on", "yes", "", "maybe"]) {
+      expect(isAutoRepairBuildErrorEnabled({ SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR: value })).toBe(
+        true,
+      );
+    }
+  });
+});
+
+describe("triggerBuildErrorRepair — env-gaten utan force", () => {
+  it("hoppar över när kill-switchen är satt", async () => {
+    const previous = process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR;
+    process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR = "0";
+    try {
+      const outcome = await triggerBuildErrorRepair({
+        chatId,
+        versionId,
+        buildError: { stage: "next-build", message: "boom" },
+      });
+      expect(outcome).toEqual({
+        started: false,
+        repairAvailable: false,
+        skippedReason: "auto_repair_disabled",
+      });
+      expect(acquireVerifyLease).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR;
+      else process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR = previous;
+    }
   });
 });

@@ -20,6 +20,14 @@
         "timeout": 10,
         "failClosed": false
       }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "node .cursor/hooks/mcp-secret-read-guard.mjs",
+        "matcher": "Read",
+        "timeout": 5,
+        "failClosed": false
+      }
     ]
   }
 }

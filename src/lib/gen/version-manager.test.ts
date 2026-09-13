@@ -19,6 +19,7 @@ import {
   mergePackageJsonContent,
   mergeVersionFilesWithWarnings,
   resolveChatPreferredVersionId,
+  resolveFollowUpPreviousBase,
   resolveFollowUpPreviousFiles,
 } from "./version-manager";
 import type { CodeFile } from "./parser";
@@ -278,5 +279,43 @@ describe("resolveFollowUpPreviousFiles known image heals", () => {
     expect(updateVersionFilesMock).not.toHaveBeenCalled();
     expect(getPreferredVersionMock).not.toHaveBeenCalled();
     expect(getLatestVersionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveFollowUpPreviousBase env keys share the resolved files row", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getKnownBrokenImageReplacementsMock.mockResolvedValue({});
+    updateVersionFilesMock.mockResolvedValue(true);
+  });
+
+  it("returns files and keys from the explicit older base, not the failed latest", async () => {
+    const oldFiles = [file("app/page.tsx", "export default function Page() { return <main>v1</main>; }")];
+    getVersionByIdMock.mockResolvedValue({
+      id: "ver_old",
+      chat_id: "chat_1",
+      files_json: JSON.stringify(oldFiles),
+      selected_dossier_env_keys: ["RESEND_API_KEY"],
+    } as never);
+    getPreferredVersionMock.mockResolvedValue({
+      id: "ver_failed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([file("app/page.tsx", "failed")]),
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    } as never);
+    getLatestVersionMock.mockResolvedValue({
+      id: "ver_failed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([file("app/page.tsx", "failed")]),
+      selected_dossier_env_keys: ["RESEND_API_KEY", "STRIPE_SECRET_KEY"],
+    } as never);
+
+    const base = await resolveFollowUpPreviousBase("chat_1", "ver_old");
+
+    expect(base.versionId).toBe("ver_old");
+    expect(base.selectedDossierEnvKeys).toEqual(["RESEND_API_KEY"]);
+    expect(base.files[0]?.content).toContain("v1");
+    expect(getLatestVersionMock).not.toHaveBeenCalled();
+    expect(getPreferredVersionMock).not.toHaveBeenCalled();
   });
 });

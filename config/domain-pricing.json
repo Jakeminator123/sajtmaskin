@@ -1,11 +1,11 @@
 {
-  "$schema-note": "Referensdata for domanpriser. Kanonisk agare av markup, valutakurs och de riktpriser som visas nar ingen registrar kan lamna en bindande offert. Las via src/lib/domains/pricing.ts - importera aldrig den har filen direkt fran en route.",
-  "updatedAt": "2026-08-01",
-  "markup": 5,
+  "$schema-note": "Referensdata for domanpriser. Kanonisk agare av riktpriserna som visas nar ingen registrar kan lamna en bindande offert. `markup` och `usdToSek` ags INTE langre har - de ags av tabellen pricing_settings (id = 'default') och las via src/lib/db/services/pricing-settings.ts. Vardena nedan ar seed for den raden och fallback nar den inte gar att lasa. Las via src/lib/domains/pricing.ts - importera aldrig den har filen direkt fran en route.",
+  "updatedAt": "2026-09-11",
+  "markup": 2,
   "usdToSek": {
     "rate": 11,
     "updatedAt": "2026-08-01",
-    "note": "Fast referenskurs, inte en live-kurs. Anvands bara for att omvandla registrarens USD-offert till en SEK-siffra i UI:t. Debitering sker alltid pa den SEK-summa som last i ordern vid checkout."
+    "note": "Fast referenskurs, inte en live-kurs. Anvands bara for att omvandla registrarens USD-offert till en SEK-siffra i UI:t. Skild fran generation_billing_settings.usd_to_sek_ore, som ar revisionskurs for LLM-avrakning. Debitering sker alltid pa den SEK-summa som last i ordern vid checkout."
   },
   "referenceWholesaleSek": {
     "se": 99,

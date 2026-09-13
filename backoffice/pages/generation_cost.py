@@ -15,12 +15,14 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import streamlit as st
 
 from backoffice.shared import BackofficeContext
+from backoffice.shared_lib.subprocess_helpers import repo_command_fingerprint
 
 _SCRIPT_REL = "scripts/db/generation-cost.mjs"
 _TIMEOUT_S = 90
@@ -121,6 +123,20 @@ def _run_cost(
         unpriced=list(data.get("unpricedModels", [])),
         caveats=list(data.get("caveats", [])),
     )
+
+
+@st.cache_data(ttl=30, max_entries=16, show_spinner=False)
+def _cached_cost(
+    repo_root: Path,
+    env_file: str,
+    days: int,
+    allow_insecure: bool,
+    source: str,
+    input_fingerprint: str,
+) -> CostPayload:
+    # input_fingerprint participates in Streamlit's cache key, even though the
+    # subprocess itself reads those inputs directly.
+    return _run_cost(repo_root, env_file, days, allow_insecure, source)
 
 
 def _fmt_usd(value: Any) -> str:
@@ -233,8 +249,24 @@ def render(ctx: BackofficeContext) -> None:
     days = col_c.slider("Fönster (dagar)", min_value=1, max_value=90, value=30)
     allow_insecure = col_d.checkbox("Tillåt osäker SSL", value=(env_file != ".env.local"))
 
+    if st.button("Uppdatera kostnadsdata"):
+        _cached_cost.clear()
+    try:
+        fingerprint = repo_command_fingerprint(
+            ctx.repo_root,
+            (
+                ctx.repo_root / env_file,
+                ctx.repo_root / ".env.vercel.production.pulled",
+                ctx.repo_root / "config/ai_models/pricing.json",
+                ctx.repo_root / "config/db-targets.json",
+            ),
+        )
+    except OSError:
+        st.error("Kunde inte läsa rapportens konfiguration. Ingen tidigare rapport visas.")
+        return
     with st.spinner("Hämtar och prissätter token-användning ..."):
-        payload = _run_cost(ctx.repo_root, env_file, days, allow_insecure, source)
+        payload = _cached_cost(ctx.repo_root, env_file, days, allow_insecure, source, fingerprint)
+    st.caption("Hämtad data återanvänds i högst 30 sekunder. Uppdatera för att hämta direkt.")
 
     if not payload.ok:
         st.error(f"Kunde inte hämta data: {payload.error}")

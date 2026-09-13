@@ -116,6 +116,7 @@ function kindFromProductPostcheckCode(code: string): VersionDefectKind {
     case "preview_boot_page":
       return "runtime";
     case "preview_probe_unreadable":
+    case "browser_crashed":
     case "live_review":
     case "summary":
     case "skipped":

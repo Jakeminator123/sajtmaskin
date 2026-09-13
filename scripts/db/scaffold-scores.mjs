@@ -23,7 +23,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
 
-config({ path: ".env.local" });
+config({ path: ".env.local", quiet: true });
 warnIfProdLikeReadTarget({ commandName: "scaffold-scores" });
 
 const wantJson = process.argv.includes("--json");

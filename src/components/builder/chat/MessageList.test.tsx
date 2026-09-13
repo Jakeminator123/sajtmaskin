@@ -14,6 +14,121 @@ vi.mock("@streamdown/code", () => ({
 }));
 
 describe("MessageList", () => {
+  it("keeps completed review panels inside the shared details while their warning stays visible", () => {
+    render(<MessageList chatId="chat_review" messages={[{
+      id: "assistant_review", role: "assistant", content: "Menyn är uppdaterad.",
+      uiParts: [{ type: "tool:quality-gate", toolName: "Quality gate", state: "output-available",
+        output: { passed: true, designAdvisory: true, checks: [
+          { check: "typecheck", passed: false, advisory: true, exitCode: 1, output: "TS2322" },
+        ] } }],
+    }]} />);
+    expect(screen.getAllByTestId("generation-surface")).toHaveLength(1);
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText("Quality gate")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getAllByText("Quality gate").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Den genererade sajten behöver denna integration/)).toBeNull();
+  });
+
+  it.each([
+    [false, "Status: quality gate körs fortfarande"],
+    [true, "Status: autofix är köad efter post-check"],
+  ])("renders the actual post-check result in shared details (autofix: %s)", (autoFixQueued, status) => {
+    render(<MessageList chatId="chat_postcheck" lifecycleStage="integrations" messages={[{
+      id: "assistant_postcheck", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:post-check", state: "output-available", output: {
+        summary: { files: 3, added: 1, modified: 2, removed: 0, warnings: 1,
+          provisional: true, qualityGatePending: true, autoFixQueued },
+        demoUrl: "https://preview.example/updated",
+      } }],
+    }]} />);
+
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText("Post-check-sammanfattning")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText("Post-check-sammanfattning")).toBeTruthy();
+    expect(screen.getByText("Filer: 3")).toBeTruthy();
+    expect(screen.getByText("Varningar: 1")).toBeTruthy();
+    expect(screen.getByText(status)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Öppna preview-länk" }).getAttribute("href"))
+      .toBe("https://preview.example/updated");
+    expect(screen.queryByText(/Den genererade sajten behöver denna integration/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Visa integrationer" })).toBeNull();
+  });
+
+  it("keeps a retry-pending verification visible when its skipped gate is inside closed details", () => {
+    const reason = "Preview kunde inte synkas; versionen lämnas pending.";
+    render(<MessageList chatId="chat_hold" messages={[{
+      id: "assistant_hold", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:quality-gate", state: "output-available", output: {
+        skipped: true, retryPending: true, reason,
+      } }],
+    }]} />);
+
+    expect(screen.getByTestId("generation-surface").getAttribute("data-attention")).toBe("true");
+    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.queryByText(new RegExp(reason))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getByText(new RegExp(reason))).toBeTruthy();
+  });
+
+  it("says the verification is still running when the post-check has no warnings", () => {
+    const pending: ChatMessage[] = [{
+      id: "assistant_pending", role: "assistant", content: "Ändringarna är sparade.",
+      uiParts: [{ type: "tool:post-check", toolCallId: "post-check:ver-1", state: "output-available",
+        output: {
+          summary: { files: 2, added: 0, modified: 2, removed: 0, warnings: 0,
+            provisional: true, qualityGatePending: true, autoFixQueued: false },
+          demoUrl: "https://preview.example/pending",
+        } }],
+    }];
+    const { rerender } = render(<MessageList chatId="chat_pending" messages={pending} />);
+
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-verifying")).toBe("true");
+    expect(surface.getAttribute("data-attention")).toBe("false");
+    expect(screen.getByText("Verifieringen pågår")).toBeTruthy();
+    expect(screen.queryByText("Genereringen har avslutats.")).toBeNull();
+
+    rerender(<MessageList chatId="chat_pending" messages={[{
+      ...pending[0],
+      uiParts: [...(pending[0].uiParts ?? []),
+        { type: "tool:quality-gate", toolCallId: "quality-gate:ver-1", state: "output-available",
+          output: { passed: true, checks: [
+            { check: "typecheck", passed: true, exitCode: 0, output: "" },
+          ] } }],
+    }]} />);
+    expect(screen.getByTestId("generation-surface").getAttribute("data-verifying")).toBe("false");
+    expect(screen.queryByText("Verifieringen pågår")).toBeNull();
+  });
+
+  it("surfaces an available server repair without opening the details drawer", () => {
+    render(<MessageList chatId="chat_repair_offer" messages={[{
+      id: "assistant_repair_offer", role: "assistant", content: "Byggfelet är lagat.",
+      uiParts: [{ type: "tool:quality-gate", toolName: "Server repair",
+        toolCallId: "server-repair-available:ver-1", state: "output-available",
+        output: { repaired: true, status: "repair_available",
+          reason: "En serverreparation finns tillgänglig och kan accepteras i versionspanelen." } }],
+    }]} />);
+
+    expect(screen.getByText("Fix finns att acceptera i versionspanelen")).toBeTruthy();
+    expect(screen.queryByText("Serverreparation")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
+    expect(screen.getAllByText("Fixen är klar – men inte applicerad ännu").length).toBeGreaterThan(0);
+  });
+
+  it("uses the assistant surface for repair progress without a second guessed phase indicator", () => {
+    render(<MessageList chatId="chat_repair" isStreaming messages={[
+      { id: "repair_prompt", role: "user", content: "Rätta syntaxfelet.",
+        uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }] },
+      { id: "repair_answer", role: "assistant", content: "", isStreaming: true },
+    ]} />);
+    expect(screen.getByText("Automatisk reparation")).toBeTruthy();
+    expect(screen.getAllByTestId("generation-surface")).toHaveLength(1);
+    expect(screen.queryByText("LLM tänker")).toBeNull();
+    expect(screen.queryByText("Automatisk kodreparation pågår")).toBeNull();
+  });
+
   it("renders current engine progress prominently while the assistant is streaming", () => {
     const messages: ChatMessage[] = [
       {
@@ -104,7 +219,9 @@ describe("MessageList", () => {
     render(<MessageList chatId="chat_newer_turn" messages={messages} isStreaming />);
 
     expect(screen.getAllByText("Arbetar med din sajt")).toHaveLength(1);
-    expect(screen.getByText("Slutsteg (1)")).toBeTruthy();
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces[0].getAttribute("data-active")).toBe("false");
+    expect(surfaces[1].getAttribute("data-active")).toBe("true");
   });
 
   it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {

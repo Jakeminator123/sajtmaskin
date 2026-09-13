@@ -34,4 +34,5 @@ rollen eller kör `/scout`, `/builder` eller `/steward`.
 - Ordet **preview** är flertydigt — slå upp det i glossaryn. `preview`-grenen
   ≠ Preview-ytan (builder-iframe) ≠ `preview_host`.
 
-Ignore: `.cursorignore` är secrets/Read-fällor. Ta aldrig bort secretsmönster.
+Ignore: `.cursorignore` är secrets/Read-fällor. Secretsmönster tas bara bort på
+uttryckligt ägarbeslut, registrerat i `docs/decisions/`.

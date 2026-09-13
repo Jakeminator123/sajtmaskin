@@ -415,6 +415,9 @@ function materializeBinaryContent(content) {
 
 function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   ensureDir(workspaceDir);
+  // Removals are manifest-scoped: a file npm wrote that is not in the
+  // previous manifest (package-lock.json / pnpm-lock.yaml / yarn.lock)
+  // is left on disk even when filesJson omits it.
   const priorManifest = readJsonIfExists(manifestPathForWorkspace(workspaceDir));
   const previousFiles = Array.isArray(priorManifest?.files) ? priorManifest.files : [];
   const nextFiles = Object.keys(filesJson);

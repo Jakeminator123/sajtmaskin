@@ -17,7 +17,7 @@ source: Master-planens riskavsnitt (git — `git log --follow docs/plans/active/
 
 ## Blockerad tills två saker är sanna
 
-1. **MVP är levererad.** [`mvp-scope-freeze.mdc`](../../../.cursor/rules/mvp-scope-freeze.mdc)
+1. **MVP är levererad.** [`project-phase-priorities.mdc`](../../../.cursor/rules/project-phase-priorities.mdc)
    säger stabilitet före kosmetik, och den här ändringen är ren kosmetik.
 2. **Ägaren har valt målnamn** — och samtidigt avgjort om mappen ska leva vidare
    alls. Konstanten heter `LEGACY_INDEX_DIR`; ska mappen fasas ut är omdöpningen

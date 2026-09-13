@@ -227,8 +227,8 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         "Cursor-agenter",
         "Miljö & policy",
         cursor_agents.render,
-        mode="edit",
-        blurb="Redigera terminologi-regeln och kodkartan som agenterna läser.",
+        mode="read",
+        blurb="Läs agenternas kontext, terminologi och kodkarta.",
     ),
     # ── Drift & hälsa ────────────────────────────────────────────────────
     PageSpec(

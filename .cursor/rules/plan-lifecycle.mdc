@@ -9,43 +9,23 @@ alwaysApply: false
 # Plan-livscykel
 
 Planer dokumenterar arbete, de är inte produkten.
-
-## Grundregel
-
-`docs/plans/active/README.md` är aktiv router (kort tabell — inte stängningskrönika).
-Allt som inte styr pågående arbete ska ut ur `active/`.
+`docs/plans/active/README.md` är aktiv router. Allt som inte styr pågående
+arbete ska ut ur `active/`.
 
 | Plats | Innehåll |
 |---|---|
 | `docs/plans/active/README.md` | aktivt koncentrat + länkar |
-| `docs/plans/active/<initiativ>/` | endast stora pågående initiativ |
+| `docs/plans/active/<initiativ>/` | bara stora pågående initiativ |
 | `docs/plans/avklarat/` | implementerat och mergat |
 | `docs/plans/archived/` | vilande, parkerat, ersatt, skrotat |
 
-## Stora initiativ
+Stora initiativ: `00-master-plan.md` → `NN-område.md` → `aktiviteter/*.md`.
 
-```text
-00-master-plan.md       nivå 1: målbild/index
-NN-område.md            nivå 2: domänområde
-aktiviteter/*.md        nivå 3: smala agentuppgifter, just-in-time
-```
+Flytta färdiga planer till `avklarat/` i samma ändring som länkar/README.
+`avklarat/README.md` är den avsedda ytan. Standard: en rad i indexet och
+radera detaljfilen (git är arkivet). Behåll egen fil bara om kod/contract
+eller `*.stability.test.ts` citerar den.
 
-## Cleanup-regel
-
-Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `active/`. Uppdatera länkar/README i samma ändring.
-
-## `avklarat/` är ett tunt index — inte ett filzoo
-
-`docs/plans/avklarat/README.md` är den **avsedda ytan**: ett konsoliderat index över levererade initiativ (PR-referenser + git-pekare). Läs det först — gräv inte i eller återskapa stora plan-/aktivitetsfiler.
-
-- **Standard:** väv in en levererad plan som en rad i `avklarat/README.md` och radera detaljfilen — git-historiken (`git log --follow`, `git show <sha>:<path>`) är fullständigt arkiv.
-- **Behåll som egen fil endast** när något med fortsatt referensvärde pekar på den: (a) källkod/contract-doc som citerar filen, eller (b) `*.stability.test.ts` som anger den som `Källa:`. Radera sådana först efter referensmigrering.
-- Skriv aldrig ny prosa i avklarade detaljfiler; uppdatera indexet eller den kod/contract som äger sanningen.
-
-## Ägarbeslut
-
-Öppna beslutsfrågor ligger i `BUG-SWARM-BACKLOG.md` (aktiva defekter i `## Aktiv kö`, uppskjutna produkt-/arkitekturval i `## Väntar på ägarbeslut`). Fattade/ratificerade beslut registreras i `docs/decisions/README.md` med datum och pekare till kanonisk källa; backloggraden arkiveras då med pekare dit. Beslutshistorik hör aldrig hemma i `active/`.
-
-## Buggar
-
-`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till samma fils `## Arkiv` som `[x]` med PR/commit-ref. Äldre bulk-arkiv ligger i git — tunt index i `docs/plans/avklarat/bug-swarm/README.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
+Öppna beslut: `BUG-SWARM-BACKLOG.md`. Ratificerade: `docs/decisions/README.md`.
+Buggsanning: backloggens `## Aktiv kö` / `## Arkiv`. `.cursor/bugs/` är lokal
+evidens (gitignored), inte status.

@@ -5,10 +5,33 @@ alwaysApply: false
 
 # RTK (terminalkomprimering)
 
-Ägaren har **RTK** (v0.45+) installerat globalt. Cursor-hooken
-(`%USERPROFILE%\.cursor\hooks.json` → `preToolUse` / `rtk hook cursor`) wrappar
-Shell så agenten ofta ser **filtrerad** output. Projektets
-`.cursor/hooks.json` (`beforeShellExecution`-guards) är separat och ska lämnas.
+Ägaren har **RTK** (v0.45+) installerat globalt. När Cursor-hooken
+(`%USERPROFILE%\.cursor\hooks.json` → `preToolUse` / `rtk hook cursor`) är
+installerad wrappar den Shell, så agenten ser **filtrerad** output.
+
+**Hooken är inte garanterad.** En Cursor-ominstallation tar bort
+`%USERPROFILE%\.cursor\hooks.json` medan `rtk.exe` och `%APPDATA%\rtk\config.toml`
+blir kvar — då är output ofiltrerad och resten av den här filen är bakgrund,
+inte nuläge.
+
+**Enda pålitliga kontrollen är filen.** Den ska innehålla `preToolUse` →
+`rtk hook cursor` med matcher `Shell`:
+
+```powershell
+Get-Content "$env:USERPROFILE\.cursor\hooks.json"
+```
+
+Lita **inte** på `rtk hook check --agent cursor …`. Den skriver
+`No hook installed` även när Cursor-hooken är korrekt registrerad — verifierat
+2026-09-11: filen fanns och wrappade, medan kommandot larmade. Den läser Claude
+Codes plats, inte Cursors.
+
+Återinstallera med `rtk init -g --agent cursor`. Utan `--agent cursor` riktar
+den sig mot Claude Code. Kommandot skriver dessutom `~/.claude/RTK.md` och rör
+`~/.claude/CLAUDE.md` även i cursor-läget — ofarligt, men inte tyst.
+
+Projektets `.cursor/hooks.json` (`beforeShellExecution`-guards) är en **annan**
+fil, ligger i repot och påverkas inte.
 
 ## Agentbeteende
 
@@ -50,7 +73,7 @@ exclude_commands = ["git log", "git rebase", "git cherry-pick"]
 - **`git log` måste vara excluded.** `rtk git log` utan `-N` injicerar `--no-merges` → fel HEAD efter merge (öppen RTK-bugg). `[git] no_merges = false` ignoreras i 0.45.
 - `git rebase` / `git cherry-pick`: defensivt (RTK:s egen rekommendation).
 - Verifiera omskrivning: `rtk hook check --agent cursor "git log -1"` → `No rewrite for: …`
-- Statistik: `rtk gain --history` (tecken/4; bara terminaltokens). Varningen `No hook installed` kan vara falsk om Cursor-hooken redan wrappar.
+- Statistik: `rtk gain --history` (tecken/4; bara terminaltokens). Varningen `No hook installed` är opålitlig — se kontrollen ovan.
 
 ## Scope
 

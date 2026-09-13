@@ -88,7 +88,21 @@ export async function checkActiveDocLinks({
   const failures = [];
 
   for (const sourcePath of tracked.filter(isActiveMarkdown).sort(compareText)) {
-    const content = await read(sourcePath);
+    // `git ls-files` lists the index, not the disk. Deleting a tracked doc
+    // without staging the deletion therefore threw a raw ENOENT stack trace —
+    // which names neither the file's role nor the fix. Report it as a finding.
+    let content;
+    try {
+      content = await read(sourcePath);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      failures.push({
+        sourcePath,
+        target: sourcePath,
+        reason: "tracked but deleted from disk — stage the deletion (git add <path>)",
+      });
+      continue;
+    }
     for (const rawTarget of extractLocalLinkTargets(content)) {
       if (rawTarget.startsWith("/")) {
         const topLevel = rawTarget.slice(1).split(/[/?#]/, 1)[0];

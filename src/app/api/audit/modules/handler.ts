@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import OpenAI from "openai";
-import { prepareCredits } from "@/lib/credits/server";
+import { prepareCredits, remainingCreditsAfterCharge } from "@/lib/credits/server";
 import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
+import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
@@ -45,7 +46,8 @@ export async function POST(request: NextRequest) {
       const resolvedAuditMode: AuditMode = auditMode === "advanced" ? "advanced" : "basic";
       const auditAction: CreditAction =
         resolvedAuditMode === "advanced" ? "audit.advanced" : "audit.basic";
-      const auditCost = getCreditCost(auditAction);
+      const auditPricing = await resolvePricingSettings();
+      const auditCost = getCreditCost(auditAction, {}, auditPricing.creditActionPrices);
 
       // Validate URL
       let normalizedUrl: string;
@@ -589,6 +591,15 @@ export async function POST(request: NextRequest) {
           {
             success: true,
             result,
+            creditsRemaining: remainingCreditsAfterCharge({
+              diamonds: user.diamonds,
+              cost: creditCheck.cost,
+              charged:
+                !creditCheck.isTest &&
+                !creditCheck.usingFreeGeneration &&
+                !creditCheck.usingExistingEntitlement &&
+                creditCheck.cost > 0,
+            }),
           },
           {
             headers: {

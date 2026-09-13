@@ -55,8 +55,19 @@ google-services.json
 .cursor/openclaw-bridge/
 .cursor/openclaw-bridge-message.txt
 
-# Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
-.cursor/mcp.json
+# .cursor/mcp.json är MEDVETET inte blockerad (ägarbeslut 2026-09-11).
+#
+# Den var det tidigare för att den *kan* hålla auth-headers. Men den är enda
+# filen som beskriver Cursors faktiska verktygsläge, och en agent som inte får
+# läsa den felsöker MCP-problem blint — efter ominstallationen 2026-09-11
+# svarade en agent om servrarna utan att kunna se att de var avstängda. Risken
+# att svara fel om verktygsläget bedömdes större än risken att en secret dras
+# in i kontexten. Verifierat samma dag: filen höll bara url, note, command, args.
+#
+# Skyddet som gäller i stället:
+#   - .gitignore håller filen ur det publika repot (det är den riktiga faran);
+#   - npm run doctor varnar om filen får secret-formade fält (checkMcpSecrets).
+# Lägg aldrig in en token här. Behövs auth: OAuth via Settings -> Tools & MCP.
 
 # Nästlad agent-checkout inuti repot. Får aldrig Read:as — andra trädet,
 # ev. env-kopior. Rätt placering är bredvid repo-roten.

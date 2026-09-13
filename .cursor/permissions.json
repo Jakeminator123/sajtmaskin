@@ -1,0 +1,176 @@
+{
+  // Cursor Run Mode-allowlist för det här repot. Läses live av Cursor och
+  // slås ihop med ~/.cursor/permissions.json. Docs: cursor.com/docs/reference/permissions
+  //
+  // Varför den finns (2026-09-11): på Windows saknar Cursor filsystems-sandbox,
+  // så varje terminalkommando som inte är allowlistat går till klassificeraren
+  // eller till en fråga — även `git status`. Efter en kväll med fem commits var
+  // ägaren trött på att godkänna. Den här listan tar bort frågorna för det som
+  // repot redan skyddar på annat sätt:
+  //   - repots hookar NEKAR det farliga (force-push, *BRA*, rå worktree remove,
+  //     dynamiskt git, heredoc i pwsh, secret-bärande mcp.json) — de frågar inte;
+  //   - pre-push kräver ren arbetskopia + grön verify:pr --plan;
+  //   - CI kör fullprofilen på varje PR-head.
+  // Klassificeraren är «best-effort, not a security boundary» enligt Cursors
+  // egna docs. Hookarna är deterministiska. Därför är det hookarna som bär
+  // skyddet, och allowlisten som bär vardagen.
+  //
+  // Prefixmatch, skiftlägeskänslig — ett prefix släpper ALLT som börjar så.
+  // Därför är listan smal på skrivande kommandon och bred på läsande, och
+  // varje skrivande prefix som står här har en deterministisk Cursor-hook
+  // bakom sig (extern granskning 2026-09-11, 8/10 på `git push`):
+  //   - `git push`   → worktree-force-guard nekar -f/--force*/+refspec/:refspec/
+  //                    --delete/--mirror/--prune/--no-verify
+  //   - `git switch` / `git checkout -b` → samma hook nekar -f/--discard-changes
+  //   - `git commit` → commit-guard nekar trunk utan break-glass, dynamiskt git
+  //   - `git branch` → bara läsformer listade; -D/-m går till klassificeraren
+  // `git.exe` dubbleras för att pwsh-regeln kräver explicit exe-namn ibland.
+  //
+  // Medvetet INTE med (var det, togs bort efter granskning):
+  //   - `gh api repos/…` — prefixet matchade `…/pulls/N/merge -X PUT`, alltså
+  //     en merge utan mandat. Ingen prefixform kan skilja GET från PUT.
+  //   - `gh pr create` — PR-skapande är mandat, som merge.
+  //   - `node scripts/dev/` — matchade clean-scratch --apply och tidy --apply.
+  //   - `node scripts/workflow/` — matchade promote.mjs (öppnar PR).
+  //   - `npm run test` — matchade test:postgres, vars pretest skriver dev-schema.
+  //   - `npm run tidy` / `npm run clean:scratch` — prefixet tog med `:apply`
+  //     (andra granskningsrundan, 6/10). Dry-run går till klassificeraren;
+  //     `npm run hygiene` kör samma dry-runs och är kvar.
+  //   - bara `git branch` / `volta` — tog med -D respektive `volta install`.
+  // Och aldrig: `gh pr merge`, `npm run promote`, `npm run db:*`,
+  // `npm run clean:*:apply`, `Remove-Item`, `vercel`, `fly`.
+  "terminalAllowlist": [
+    "git status",
+    "git log",
+    "git diff",
+    "git show",
+    "git fetch",
+    "git rev-parse",
+    "git rev-list",
+    "git ls-files",
+    "git merge-base",
+    "git branch --show-current",
+    "git branch --list",
+    "git branch -a",
+    "git branch -r",
+    "git branch -vv",
+    "git add",
+    "git commit",
+    "git push",
+    "git switch",
+    "git checkout -b",
+    "git stash list",
+    "git worktree list",
+    "git.exe status",
+    "git.exe log",
+    "git.exe diff",
+    "git.exe show",
+    "git.exe fetch",
+    "git.exe rev-parse",
+    "git.exe rev-list",
+    "git.exe ls-files",
+    "git.exe merge-base",
+    "git.exe branch --show-current",
+    "git.exe branch --list",
+    "git.exe branch -a",
+    "git.exe branch -r",
+    "git.exe branch -vv",
+    "git.exe add",
+    "git.exe commit",
+    "git.exe push",
+    "git.exe switch",
+    "git.exe checkout -b",
+    "git.exe stash list",
+    "git.exe worktree list",
+    "npm run typecheck",
+    "npm run lint",
+    "npm run test:ci",
+    "npm run test:pr",
+    "npm run verify:pr",
+    "npm run check:",
+    "npm run docs:",
+    "npm run workflow:contract",
+    "npm run canvas:",
+    "npm run scaffolds:validate",
+    "npm run dossiers:validate",
+    "npm run dossiers:capability-map:check",
+    "npm run route-timeouts:check",
+    "npm run doctor",
+    "npm run hooks:install",
+    "npm run hygiene",
+    "npm run clean:orphans:dry",
+    "npm run backoffice:test",
+    "npm ci",
+    "npx vitest run",
+    "npx tsc",
+    "npx eslint",
+    "npx prettier --check",
+    "node scripts/dev/doctor.mjs",
+    "node scripts/dev/check-",
+    "node scripts/dev/install-git-hooks.mjs",
+    "node scripts/dev/clean-scratch.mjs --apply --only",
+    "node scripts/workflow/verify-pr.mjs",
+    "node scripts/workflow/check-contract.mjs",
+    "node scripts/workflow/commit-guard.mjs",
+    "node scripts/docs/",
+    "node scripts/canvas/",
+    "node .cursor/hooks/",
+    "gh pr view",
+    "gh pr checks",
+    "gh pr list",
+    "gh pr diff",
+    "gh run view",
+    "gh run list",
+    "gh auth status",
+    "rtk hook check",
+    "rtk --version",
+    "Get-ChildItem",
+    "Get-Content",
+    "Get-Item",
+    "Test-Path",
+    "Resolve-Path",
+    "Select-String",
+    "Write-Host",
+    "where.exe",
+    "node --version",
+    "npm --version",
+    "volta list",
+    "volta which",
+    "volta --version"
+  ],
+
+  // Read-only-servrar och read-only-verktyg. Supabase-servrarna är
+  // read_only=true i URL:en; docs-servrarna har inget att skriva till. shadcn
+  // kan installera komponenter (skriver i repot) — bara sök/läs-verktygen.
+  "mcpAllowlist": [
+    "supabase:*",
+    "supabase-prod:*",
+    "openai-docs:*",
+    "openclaw-docs:*",
+    "context7:*",
+    "shadcn:search*",
+    "shadcn:get*",
+    "shadcn:list*",
+    "shadcn:view*",
+    "vercel:list_*",
+    "vercel:get_*",
+    "user-vercel:list_*",
+    "user-vercel:get_*"
+  ],
+
+  // Styr Auto-review-klassificeraren när Run Mode är Auto-review. Ingen
+  // effekt i Allowlist/Run Everything. Steering, inte enforcement.
+  "autoRun": {
+    "allow_instructions": [
+      "Read-only git (status, log, diff, show, rev-parse, fetch) och npm-kontroller (typecheck, lint, vitest run, check:*, docs:*, verify:pr) är rutin i det här repot och ska köras utan fråga.",
+      "Repots egna .cursor/hooks.json nekar redan det farliga: force-push, *BRA*-brancher, rå git worktree remove, dynamiska git-kommandon och heredoc i PowerShell. Lita på dem i stället för att fråga om samma sak.",
+      "Att skriva ett commit-meddelande till .cursor/tmp/commit-msg.txt och köra git commit -F på den är repots kanoniska commitväg, inte ett försök att smuggla något."
+    ],
+    "block_instructions": [
+      "gh pr merge, gh pr create, npm run promote och gh api med annan metod än GET (särskilt sökvägar som slutar på /merge) kräver ägarens uttryckliga uppdrag i chatten — fråga alltid.",
+      "npm run db:* som skriver (migrate, init, ensure, perf-indexes) mot någon databas — fråga, särskilt allt med prod i namnet.",
+      "Remove-Item -Recurse, rm -rf, npm run clean:*:apply och npm run worktree:remove raderar på disk — fråga.",
+      "Allt som skriver till .env*, .cursor/mcp.json, ~/.cursor/, ~/.codex/ eller ~/.claude/ — fråga."
+    ]
+  }
+}

@@ -656,24 +656,27 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run knip:files
 
-  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid merge till master —
-  # så en migration ALDRIG kan bli deployad utan att köras (grundorsaken till att
-  # add-branded-site-domains.sql saknades i prod: migrationer körs INTE automatiskt
-  # vid Vercel-deploy). Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-
-  # ledgern, så varje re-run är en no-op.
+  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid push till master
+  # eller preview — så en migration ALDRIG kan bli deployad utan att köras
+  # (grundorsaken till att add-branded-site-domains.sql saknades i prod:
+  # migrationer körs INTE automatiskt vid Vercel-deploy). Preview använder
+  # samma prod-Postgres som Production (`config/db-targets.json`), så apply
+  # måste ske när koden landar på preview — inte först vid promote.
+  # Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-ledgern, så varje
+  # re-run är en no-op.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
   # prod-migrations-applied / db-blob-sync-check) — bara trusted events (push
-  # master / manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds.
-  # Guard-steget SKIP:ar apply tyst om secret:en saknas (fork utan creds) så
-  # jobbet inte blir falskt rött där.
+  # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
+  # prod-creds. Guard-steget SKIP:ar apply tyst om secret:en saknas (fork utan
+  # creds) så jobbet inte blir falskt rött där.
   #
   # Gate:as bakom quality, schema-drift, build och Backoffice så prod-schemat
   # ALDRIG muteras för en trasig merge. Additiv migration parallellt med
   # Vercels deploy är ofarligt; vill man ha helt race-fritt gate:ar man
   # deployen bakom detta jobb separat.
   prod-migrations-apply:
-    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     needs: [quality, schema-drift, build, backoffice-tests]
     runs-on: ubuntu-latest
 
@@ -722,6 +725,28 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
+      # Staging får inte kunna bryta produktionen. Preview och Production läser
+      # SAMMA prod-Postgres, men `master` kan ligga tiotals commits bakom — en
+      # migration som landar på preview träffar alltså den databas den GAMLA
+      # produktionskoden fortfarande läser. Additiv DDL är ofarlig där; allt som
+      # tar bort, byter typ eller byter namn bryter produktionen innan någon har
+      # promoverat. Den automatiska vägen begränsas därför till additivt, och
+      # resten kräver ett medvetet beslut (promote, eller db:migrate:prod med
+      # ägaren närvarande).
+      #
+      # Bara PENDING migrationer granskas — repot har redan applicerad brytande
+      # DDL i ledgern och den ska inte rödfärga varje push. Read-only (SELECT
+      # mot schema_migrations), därför inget DB_ALLOW_PROD_LIKE_WRITE.
+      #
+      # `master` gate:as inte: promoten ÄR det medvetna beslutet, och där byter
+      # kod och schema plats samtidigt.
+      - name: Additive-only gate for preview (prod DB is shared with production)
+        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}
+        run: npm run db:migrate:additive-check
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
+
       - name: Apply pending migrations to production (idempotent)
         if: steps.creds.outputs.present == 'true'
         run: npx tsx scripts/db/run-migrations.ts
@@ -739,7 +764,7 @@ jobs:
       # migration step above.
       - name: Apply performance indexes to production (idempotent)
         if: steps.creds.outputs.present == 'true'
-        run: npm run db:perf-indexes -- --reason "auto:ci-master-push"
+        run: npm run db:perf-indexes -- --reason "auto:ci-${{ github.ref_name }}-push"
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
           DB_ALLOW_PROD_LIKE_WRITE: "1"
@@ -752,11 +777,11 @@ jobs:
   # när apply gått grönt) → kör `npm run db:migrate:prod` manuellt.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
-  # db-blob-sync-check) — jobbet körs bara på trusted events (push master /
-  # manuell dispatch), så PR-kontrollerad kod aldrig ser prod-creds. Saknas
-  # secret (fork) SKIP:ar checken med exit 0.
+  # db-blob-sync-check) — jobbet körs bara på trusted events (push
+  # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
+  # prod-creds. Saknas secret (fork) SKIP:ar checken med exit 0.
   prod-migrations-applied:
-    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     needs: prod-migrations-apply
     runs-on: ubuntu-latest
 
@@ -796,9 +821,11 @@ jobs:
   #
   # `needs: prod-migrations-apply` så pariteten alltid mäts EFTER att prod
   # fått sina migrationer — annars vore varje merge med migration falskt röd.
-  # Den schemalagda systern (db-schema-parity.yml) fångar drift mellan pushar.
+  # Körs på preview och master: preview delar prod-DB, så drift måste synas
+  # när staging landar, inte först vid promote. Den schemalagda systern
+  # (db-schema-parity.yml) fångar drift mellan pushar.
   db-schema-parity:
-    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     needs: prod-migrations-apply
     runs-on: ubuntu-latest
 

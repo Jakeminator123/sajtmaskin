@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildReleaseGateBlocker,
   buildSeoAdvisoriesFromMeta,
+  buildTypecheckAdvisoryBlocker,
   withReadinessCategory,
 } from "./readiness-payload";
-import { resolveDeployReleaseGate } from "@/lib/db/engine-version-lifecycle";
+import {
+  resolveDeployReleaseGate,
+  resolveDeployTypecheckAdvisoryGate,
+} from "@/lib/db/engine-version-lifecycle";
 
 describe("readiness payload category mapping", () => {
   it("klassar missing-metadata/missing-title som Advisory", () => {
@@ -103,5 +107,73 @@ describe("buildReleaseGateBlocker (Ö1-paritet, A#12)", () => {
     });
     expect(gate.code).toBe("DEPLOY_VERSION_FAILED");
     expect(buildReleaseGateBlocker(gate, true)).toBeNull();
+  });
+});
+
+describe("resolveDeployTypecheckAdvisoryGate + buildTypecheckAdvisoryBlocker (F2-advisory-lås 2026-09-11)", () => {
+  const designPromoted = {
+    lifecycle_stage: "design",
+    verification_state: "passed",
+    release_state: "promoted",
+  };
+
+  it("blockerar en advisory-promotad designversion — samma villkor som deploy-API:ts 409", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: designPromoted,
+      latestGateAdvisoryChecks: ["typecheck"],
+    });
+    expect(gate.allowed).toBe(false);
+    expect(gate.code).toBe("DEPLOY_TYPECHECK_ADVISORY");
+
+    const item = buildTypecheckAdvisoryBlocker(gate, false);
+    expect(item?.id).toBe("typecheck-advisory-blocks-publish");
+    expect(item?.severity).toBe("blocker");
+    expect(item?.action).toBe("versions");
+  });
+
+  it("släpper igenom en designversion vars senaste verdikt är en ren pass", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: designPromoted,
+      latestGateAdvisoryChecks: [],
+    });
+    expect(gate.allowed).toBe(true);
+    expect(buildTypecheckAdvisoryBlocker(gate, false)).toBeNull();
+  });
+
+  it("bryr sig inte om lint-advisories — bara typecheck fäller next build", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: designPromoted,
+      latestGateAdvisoryChecks: ["lint"],
+    });
+    expect(gate.allowed).toBe(true);
+  });
+
+  it("lämnar F3/integrations till ReleaseGate", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: { ...designPromoted, lifecycle_stage: "integrations" },
+      latestGateAdvisoryChecks: ["typecheck"],
+    });
+    expect(gate.allowed).toBe(true);
+  });
+
+  it("dubblerar inte en befintlig lifecycle-blocker", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: designPromoted,
+      latestGateAdvisoryChecks: ["typecheck"],
+    });
+    expect(buildTypecheckAdvisoryBlocker(gate, true)).toBeNull();
+  });
+
+  it("använder klarspråk utan intern gate-vokabulär", () => {
+    const gate = resolveDeployTypecheckAdvisoryGate({
+      version: designPromoted,
+      latestGateAdvisoryChecks: ["typecheck"],
+    });
+    const item = buildTypecheckAdvisoryBlocker(gate, false);
+    const blob = `${item?.title ?? ""} ${item?.detail ?? ""}`;
+    expect(blob).not.toMatch(
+      /quality gate|preflight|ReleaseGate|\bF2\b|\bF3\b|\btypecheck\b|\btsc\b|\blint\b|advisory/i,
+    );
+    expect(item?.title).toContain("typfel");
   });
 });

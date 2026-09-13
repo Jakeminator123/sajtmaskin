@@ -36,6 +36,8 @@ export const loopiaRegistrar: RegistrarProvider = {
     return false;
   },
 
+  // `settings` tas inte emot: Loopia svarar aldrig med ett pris, så det finns
+  // inget påslag att applicera här.
   async getQuote(domain: string): Promise<RegistrarQuote> {
     if (!isLoopiaConfigured()) {
       return {

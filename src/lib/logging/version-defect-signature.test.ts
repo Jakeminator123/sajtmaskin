@@ -16,6 +16,7 @@ describe("classifyVersionDefectKind", () => {
     expect(kind("product_postcheck.console_error")).toBe("runtime");
     expect(kind("product_postcheck.preview_boot_page")).toBe("runtime");
     expect(kind("product_postcheck.preview_probe_unreadable")).toBe("other");
+    expect(kind("product_postcheck.browser_crashed")).toBe("other");
     expect(kind("product_postcheck.request_failed")).toBe("network");
     expect(kind("product_postcheck.http_error")).toBe("network");
     expect(kind("product_postcheck.broken_anchor")).toBe("product");

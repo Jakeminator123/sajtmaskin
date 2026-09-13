@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:8ba5885c840e33f8 -->
+<!-- source-fingerprint: config/env-policy.json sha256:b03a421ab367d984 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -77,6 +77,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`                 | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
 | `OAUTH_ALLOWED_ORIGINS`                              | `environment_specific` | `preview`, `production`                | Yes           | No           |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
@@ -160,10 +161,11 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_VISUAL_QA`                               | `environment_specific` | `preview`, `production`                | No            | Yes          |
 | `SAJTMASKIN_WARN_SYSTEM_LENGTH`                      | `environment_specific` | `production`                           | No            | No           |
 | `STORAGE_BACKEND`                                    | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
-| `STRIPE_PRICE_10_CREDITS`                            | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
-| `STRIPE_PRICE_25_CREDITS`                            | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
-| `STRIPE_PRICE_50_CREDITS`                            | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `STRIPE_PRICE_POPULAR`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `STRIPE_PRICE_PRO`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `STRIPE_PRICE_STARTER`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `STRIPE_SECRET_KEY`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `STRIPE_WEBHOOK_SECRET`                              | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SUPERADMIN_DIAMONDS`                                | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SUPERADMIN_EMAIL`                                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `TEST_USER_EMAIL`                                    | `local_only`           | —                                      | Yes           | No           |

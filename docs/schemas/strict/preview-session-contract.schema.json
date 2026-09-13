@@ -534,6 +534,11 @@
           "required": true,
           "note": "Same prewarm-aware public-running rule as /status: an unclaimed prewarm skeleton is never reported as running, so it can never be patched onto."
         },
+        "booting": {
+          "type": "boolean",
+          "required": false,
+          "note": "In-memory inflightBootByChat.has(chatId). The app may same-version /patch only when running=false AND booting=true. Older hosts omit the field; callers treat missing as not-booting and fall back to /update so a dead runtime still resets the boot-failure budget."
+        },
         "hashAlgorithm": { "type": "string", "required": true, "const": "sha256" },
         "fileCount": { "type": "number", "required": false },
         "files": {

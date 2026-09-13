@@ -45,6 +45,8 @@ export type OwnEnginePipelineAndGenerationInput = {
   urlMap: Record<string, string>;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
+  previousVersionId?: string | null;
+  previousSelectedDossierEnvKeys?: string[];
   lineageHash?: string | null;
   targetVersionId?: string | null;
   includeIntegrationSignals?: boolean;
@@ -119,6 +121,8 @@ export function createOwnEnginePipelineAndGenerationStream(
     urlMap: input.urlMap,
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
+    previousVersionId: input.previousVersionId,
+    previousSelectedDossierEnvKeys: input.previousSelectedDossierEnvKeys,
     lineageHash: input.lineageHash,
     targetVersionId: input.targetVersionId,
     lifecycleParentVersionId: input.lifecycleParentVersionId,

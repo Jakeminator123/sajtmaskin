@@ -8,6 +8,7 @@ subprocess-felvägar (mockade).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -16,6 +17,161 @@ from types import SimpleNamespace
 from unittest import mock
 
 from backoffice.pages import projects_admin as pa
+
+
+def _render_admin_for_test(repo_root: str) -> None:
+    from pathlib import Path
+
+    from backoffice.pages.projects_admin import render
+    from backoffice.shared import build_backoffice_context
+
+    render(build_backoffice_context(Path(repo_root)))
+
+
+class ProjectsAdminInteractionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        from streamlit.testing.v1 import AppTest
+
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.env_file = self.root / ".env.local"
+        self.env_file.write_text("TEST_USER_EMAIL=fixture@example.test\n", encoding="utf-8")
+        patcher = mock.patch.object(pa, "_run_script", side_effect=self._result)
+        self.run_script = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.app = AppTest.from_function(_render_admin_for_test, args=(str(self.root),))
+        self.app.run(timeout=10)
+
+    def _result(self, _ctx, command):
+        return {
+            "command": " ".join(command), "exitCode": 0, "elapsedSec": 0,
+            "stdout": "", "stderr": "",
+            "summary": {
+                "mode": "apply" if "--apply" in command else "dry-run",
+                "keep": int(command[command.index("--keep") + 1]),
+                "summary": [{"email": "fixture@example.test", "keep": 4,
+                             "deleted": 2, "engineChats": 2}],
+            },
+        }
+
+    def _button(self, text):
+        return next(b for b in self.app.button if text in b.label)
+
+    def _preview_and_confirm(self):
+        self._button("Kör DRY-RUN").click().run()
+        self.app.checkbox(key=pa._CONFIRM_KEY).check().run()
+        self.assertFalse(self._button("KÖR APPLY").disabled)
+
+    def _assert_blocked(self):
+        self.assertEqual(list(self.app.exception), [])
+        self.assertTrue(self._button("KÖR APPLY").disabled)
+        self.assertFalse(self.app.checkbox(key=pa._CONFIRM_KEY).value)
+        self.assertFalse(any("--apply" in c.args[1] for c in self.run_script.call_args_list))
+
+    def test_initial_apply_is_blocked(self):
+        self._assert_blocked()
+        self.run_script.assert_not_called()
+
+    def test_failed_dry_run_never_authorizes_apply(self):
+        self.run_script.side_effect = lambda ctx, cmd: {**self._result(ctx, cmd), "exitCode": 1}
+        self._button("Kör DRY-RUN").click().run()
+        self._assert_blocked()
+
+    def test_missing_or_wrong_summary_never_authorizes_apply(self):
+        for summary in (None, {}, {"mode": "apply", "keep": 4, "summary": [{}]},
+                        {"mode": "dry-run", "keep": 0, "summary": [{}]}):
+            with self.subTest(summary=summary):
+                self.run_script.side_effect = lambda ctx, cmd: {
+                    **self._result(ctx, cmd), "summary": summary,
+                }
+                self._button("Kör DRY-RUN").click().run()
+                self._assert_blocked()
+
+    def test_keep_change_invalidates_preview_even_when_changed_back(self):
+        self._preview_and_confirm()
+        self.app.number_input[0].set_value(0).run()
+        self._assert_blocked()
+        self.app.number_input[0].set_value(4).run()
+        self._assert_blocked()
+
+    def test_scope_and_specific_email_changes_require_new_preview(self):
+        self._preview_and_confirm()
+        self.app.radio[0].set_value("specific_email").run()
+        self.app.text_input[0].set_value("one@example.test").run()
+        self._assert_blocked()
+        self._preview_and_confirm()
+        self.app.text_input[0].set_value("two@example.test").run()
+        self._assert_blocked()
+
+    def test_user_id_change_requires_new_preview(self):
+        self.app.radio[0].set_value("specific_user_id").run()
+        self.app.text_input[0].set_value("fixture-one").run()
+        self._preview_and_confirm()
+        self.app.text_input[0].set_value("fixture-two").run()
+        self._assert_blocked()
+
+    def test_env_file_change_requires_new_preview(self):
+        self._preview_and_confirm()
+        self.env_file.write_text("TEST_USER_EMAIL=changed@example.test\n", encoding="utf-8")
+        self.app.run()
+        self._assert_blocked()
+
+    def test_inherited_database_change_requires_new_preview(self):
+        with mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://fixture/one"}):
+            self._preview_and_confirm()
+            with mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://fixture/two"}):
+                self.app.run()
+                self._assert_blocked()
+
+    def test_new_dry_run_resets_confirmation(self):
+        self._preview_and_confirm()
+        self._button("Kör DRY-RUN").click().run()
+        self._assert_blocked()
+        self.assertFalse(self.app.checkbox(key=pa._CONFIRM_KEY).disabled)
+
+    def test_env_changed_during_dry_run_cannot_authorize_apply(self):
+        def changed(ctx, command):
+            self.env_file.write_text("TEST_USER_EMAIL=changed@example.test\n", encoding="utf-8")
+            return self._result(ctx, command)
+
+        self.run_script.side_effect = changed
+        self._button("Kör DRY-RUN").click().run()
+        self._assert_blocked()
+
+    def test_configuration_is_rechecked_when_apply_is_clicked(self):
+        self._preview_and_confirm()
+        real_binding = pa._dry_binding
+        count = 0
+
+        def changes_before_execution(ctx, command):
+            nonlocal count
+            count += 1
+            return real_binding(ctx, command) if count == 1 else None
+
+        with mock.patch.object(pa, "_dry_binding", side_effect=changes_before_execution):
+            self._button("KÖR APPLY").click().run()
+        self.assertEqual(list(self.app.exception), [])
+        self.assertFalse(any("--apply" in c.args[1] for c in self.run_script.call_args_list))
+
+    def test_successful_preview_runs_same_arguments_once_including_keep_zero(self):
+        self.app.number_input[0].set_value(0).run()
+        self._preview_and_confirm()
+        dry_command = self.run_script.call_args.args[1]
+        self._button("KÖR APPLY").click().run()
+        self.assertEqual(list(self.app.exception), [])
+        self.assertEqual(self.run_script.call_args.args[1], [*dry_command, "--apply"])
+        self.assertEqual(self.run_script.call_count, 2)
+        self.assertTrue(self._button("KÖR APPLY").disabled)
+        self.assertFalse(self.app.checkbox(key=pa._CONFIRM_KEY).value)
+
+    def test_failed_apply_consumes_confirmation_too(self):
+        self._preview_and_confirm()
+        self.run_script.side_effect = lambda ctx, cmd: {**self._result(ctx, cmd), "exitCode": 1}
+        self._button("KÖR APPLY").click().run()
+        self.assertEqual(list(self.app.exception), [])
+        self.assertTrue(self._button("KÖR APPLY").disabled)
+        self.assertFalse(self.app.checkbox(key=pa._CONFIRM_KEY).value)
 
 
 def _is_node_argv0(argv0: str) -> bool:

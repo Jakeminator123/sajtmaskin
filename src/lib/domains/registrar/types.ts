@@ -16,7 +16,7 @@
  * exist, so `canQuote()` and `canRegister()` stay separate.
  */
 
-import type { DomainPriceQuote } from "@/lib/domains/pricing";
+import type { DomainPricingSettings, DomainPriceQuote } from "@/lib/domains/pricing";
 
 export type RegistrarId = "vercel" | "loopia";
 
@@ -45,11 +45,24 @@ export interface RegistrarProvider {
    * A provider that can price but not buy returns `false` here.
    */
   canRegister(): boolean;
-  getQuote(domain: string): Promise<RegistrarQuote>;
+  /**
+   * `settings` är den upplösta prisbilden (`pricing_settings`). Utelämnad ger
+   * seed-värdena — men varje väg som visar eller fryser ett pris ska skicka
+   * med den, annars kan sökningen visa ett påslag och ordern ett annat.
+   */
+  getQuote(domain: string, settings?: DomainPricingSettings): Promise<RegistrarQuote>;
   /**
    * Place the order. Only ever called when {@link canRegister} is true and the
    * caller holds a binding quote. Must throw on failure so the caller's refund
    * path runs — never resolve with a partial success.
+   *
+   * `settings` must be the same resolved pricing the binding quote was built
+   * from, so a provider converting back to the registrar's currency uses one
+   * rate rather than two.
    */
-  register(domain: string, binding: DomainPriceQuote): Promise<RegisterResult>;
+  register(
+    domain: string,
+    binding: DomainPriceQuote,
+    settings?: DomainPricingSettings,
+  ): Promise<RegisterResult>;
 }

@@ -261,11 +261,7 @@ export function LanyardBadge() {
 
                 <div className="h-px bg-border/15 mb-2.5" />
 
-                <div className="flex items-center justify-between text-[9px]">
-                  <div>
-                    <p className="text-muted-foreground/40 uppercase tracking-wider leading-none mb-0.5">Grundare</p>
-                    <p className="text-foreground/80 font-medium">Erik</p>
-                  </div>
+                <div className="flex items-center justify-end text-[9px]">
                   <div className="text-right">
                     <p className="text-muted-foreground/40 uppercase tracking-wider leading-none mb-0.5">Status</p>
                     <div className="flex items-center gap-1 justify-end">

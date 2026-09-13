@@ -10,10 +10,26 @@ import { describe, expect, it } from "vitest";
  */
 const HOOK = resolve(process.cwd(), ".cursor/hooks/heredoc-guard.mjs");
 
-function ask(command: string): { permission: string; agent_message?: string } {
+/**
+ * The guard only denies where the shell is PowerShell, so every Windows-verdict
+ * case pins the platform explicitly. Without it these assertions would flip on
+ * the Linux CI runner and on the cloud agent image.
+ */
+function ask(
+  command: string,
+  platform = "win32",
+  shell = "",
+): { permission: string; agent_message?: string } {
+  // `SHELL` is pinned too, so the runner's own login shell never decides the
+  // verdict — a CI box with SHELL=/bin/zsh must behave like a laptop with pwsh.
+  // Default is empty: that is what pwsh on Windows actually exports (verified).
+  const env: NodeJS.ProcessEnv = { ...process.env, SAJTMASKIN_SHELL_PLATFORM: platform };
+  if (shell) env.SHELL = shell;
+  else delete env.SHELL;
   const stdout = execFileSync(process.execPath, [HOOK], {
     input: JSON.stringify({ command }),
     encoding: "utf8",
+    env,
   });
   return JSON.parse(stdout);
 }
@@ -25,6 +41,47 @@ describe("heredoc-guard hook", () => {
     const verdict = ask(COMMIT_HEREDOC);
     expect(verdict.permission).toBe("deny");
     expect(verdict.agent_message).toContain("here-string");
+  });
+
+  it("points at the one commit form the other guards also allow", () => {
+    // `-m $msg` was the old advice and is denied by commit-guard's shared
+    // expansion check, so recommending it here made the two hooks contradict.
+    const verdict = ask(COMMIT_HEREDOC);
+    expect(verdict.agent_message).toContain("git commit -F");
+    // Naming `-m $msg` is fine — as the antipattern. What must never come back
+    // is recommending it, so require the explicit negative next to the mention.
+    expect(verdict.agent_message).toContain("Do NOT use `-m $msg`");
+  });
+
+  it("allows a heredoc where the shell is not PowerShell", () => {
+    // The project's hooks travel to the Linux cloud agent image, where a
+    // heredoc is valid shell and denying it would block correct code.
+    expect(ask(COMMIT_HEREDOC, "linux", "/bin/bash").permission).toBe("allow");
+    expect(ask("cat <<EOF > out.txt\ntext\nEOF", "linux", "/bin/bash").permission).toBe("allow");
+    expect(ask(COMMIT_HEREDOC, "darwin", "/bin/zsh").permission).toBe("allow");
+    // Linux without SHELL at all (minimal container) is still not PowerShell.
+    expect(ask(COMMIT_HEREDOC, "linux").permission).toBe("allow");
+  });
+
+  it("allows a heredoc in Git Bash on Windows — SHELL names a POSIX shell", () => {
+    // Extern granskning: win32 antogs alltid vara pwsh. Verifierat 2026-09-11:
+    // pwsh exporterar inte SHELL på Windows, Git Bash sätter /usr/bin/bash.
+    expect(ask(COMMIT_HEREDOC, "win32", "/usr/bin/bash").permission).toBe("allow");
+    expect(ask(COMMIT_HEREDOC, "win32", "C:\\Program Files\\Git\\usr\\bin\\bash.exe").permission).toBe(
+      "allow",
+    );
+    // …och pwsh på Windows (tom SHELL) nekar fortfarande.
+    expect(ask(COMMIT_HEREDOC, "win32").permission).toBe("deny");
+  });
+
+  it("still denies on Linux/mac when the shell itself is PowerShell", () => {
+    // Extern granskning: nyckeln var OS, inte skal. pwsh på Linux fick en
+    // heredoc släppt igenom som sedan föll i pwsh ändå. `$SHELL` avgör nu.
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/bin/pwsh").permission).toBe("deny");
+    expect(ask(COMMIT_HEREDOC, "darwin", "/opt/homebrew/bin/pwsh").permission).toBe("deny");
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/local/bin/powershell").permission).toBe("deny");
+    // …men inte ett skal som bara innehåller bokstäverna.
+    expect(ask(COMMIT_HEREDOC, "linux", "/usr/bin/pwshell-compat").permission).toBe("allow");
   });
 
   it("denies a heredoc that is redirected mid-segment", () => {

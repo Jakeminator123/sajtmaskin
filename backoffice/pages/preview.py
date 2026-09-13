@@ -104,8 +104,8 @@ def render(ctx: BackofficeContext) -> None:
 - **Verifier-fynd → RepairGate (Wave 2 2026-04-20)**: Blocker-fynd från `runVerifierPass` (både deterministiska
   och LLM-reported) matas in i `runLlmRepairGate` direkt efter verifier-passet. Lyckad repair rensar
   `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats.
-- **Auto-repair på `build-error` (Wave 4 2026-04-20)**: `triggerBuildErrorRepair` är default ON i
-  `development` + Vercel `preview`, default OFF i `production`. Override via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1`.
+- **Auto-repair på `build-error` (Wave 4 2026-04-20, prod-default på 2026-09-11)**:
+  `triggerBuildErrorRepair` är default ON i alla miljöer. Kill-switch: `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0`.
 - **Placeholder-merge** (`src/lib/gen/preview/env-local.ts`): `harmless → tier3-stub → project-preview → user → generated`.
   Vid F3 hoppas tier-3-stub-laget över helt. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`.
 """

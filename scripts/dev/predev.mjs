@@ -30,6 +30,9 @@ const chain = [
   // Installerar schema-synk-hookarna om de saknas. Tyst när de redan finns, så
   // en färsk clone/worktree får dem utan att någon behöver komma ihåg det.
   "npm run hooks:install:soft",
+  // Samma princip för maskin-lokalt driv som CI aldrig kan se (RTK-hook,
+  // mcp.json, dubblerade skill-rötter). Tyst när allt stämmer, aldrig blockerande.
+  "npm run doctor:soft",
   "npm run db:init:soft",
   "npm run db:perf-indexes:soft",
 ].join(" && ");

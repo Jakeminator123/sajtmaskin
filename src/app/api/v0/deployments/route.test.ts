@@ -119,6 +119,15 @@ vi.mock("@/lib/projects/project-env-vars", () => ({
   readAllowPlaceholdersInF3,
 }));
 
+// F2-advisory-lås (SM-083): deploy-POST läser versionens senaste gate-verdikt
+// ur `engine_version_error_logs`. Default = inga rader (ingen advisory) så
+// övriga tester är opåverkade; fail-closed-testet låter läsningen kasta.
+const getEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/version-errors", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/services/version-errors")>()),
+  getEngineVersionErrorLogs,
+}));
+
 const { GET, POST } = await import("./route");
 
 describe("POST /api/v0/deployments", () => {
@@ -182,6 +191,7 @@ describe("POST /api/v0/deployments", () => {
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },
     ]);
+    getEngineVersionErrorLogs.mockResolvedValue([]);
   });
 
   it("precheckOnly returns 200 with deployReadiness without calling credits", async () => {
@@ -673,6 +683,149 @@ describe("POST /api/v0/deployments", () => {
       };
       expect(json.releaseGate?.allowed).toBe(false);
       expect(json.releaseGate?.code).toBe("DEPLOY_RELEASE_GATE_NOT_GREEN");
+    });
+  });
+
+  // F2-advisory-lås (SM-083, 2026-09-11): en designversion som promotades med
+  // typecheck-varningar renderar i previewn men fäller Vercels `next build`
+  // (prod 2026-09-10, chat 5d809cc1). Deploy-POST 409:ar på det senaste
+  // gate-verdiktet. Review #1329: läsningen av verdiktet är FAIL-CLOSED — ett
+  // DB-fel får inte tolkas som «inga varningar».
+  describe("F2 typecheck-advisory publish lock (SM-083)", () => {
+    const mockHappyDeployInfra = () => {
+      const commit = vi.fn(async () => undefined);
+      prepareCredits.mockImplementation(async () => ({
+        ok: true,
+        commit,
+        refund: vi.fn(async () => undefined),
+      }));
+      createDeploymentRecord.mockResolvedValue("dep_1");
+      createVercelDeployment.mockResolvedValue({
+        vercelDeploymentId: "dpl_1",
+        vercelProjectId: "vp_1",
+        url: "https://example.vercel.app",
+        inspectorUrl: null,
+        readyState: "READY",
+      });
+      updateDeploymentStatus.mockResolvedValue({ transitionedToError: false });
+      return { commit };
+    };
+
+    const deployRequest = (extra: Record<string, unknown> = {}) =>
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", ...extra }),
+      });
+
+    const designVersion = (overrides: Record<string, unknown> = {}) => ({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: {
+        id: "ver_1",
+        chat_id: "chat_1",
+        lifecycle_stage: "design",
+        verification_state: "pending",
+        release_state: "promoted",
+        ...overrides,
+      },
+    });
+
+    const advisoryVerdictRow = {
+      id: "log_1",
+      version_id: "ver_1",
+      category: "preflight:quality-gate",
+      level: "warning",
+      message: "Quality gate: typecheck advisory",
+      meta: { advisory: true, advisoryChecks: ["typecheck"] },
+      created_at: new Date("2026-09-10T15:06:00Z"),
+    };
+
+    it("returns 409 DEPLOY_TYPECHECK_ADVISORY for a design version whose latest verdict is a typecheck advisory (no charge, no Vercel call)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockResolvedValue([advisoryVerdictRow]);
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_TYPECHECK_ADVISORY");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
+    it("also blocks the server-verify writer form (quality-gate:typecheck-advisory, no preflight row)", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockResolvedValue([
+        {
+          ...advisoryVerdictRow,
+          category: "quality-gate:typecheck-advisory",
+          meta: { advisory: true, advisoryChecks: ["typecheck"], failedChecks: ["typecheck"] },
+        },
+      ]);
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(409);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_TYPECHECK_ADVISORY");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
+    it("lets the same design version deploy once the latest verdict is a clean pass", async () => {
+      mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockResolvedValue([
+        {
+          ...advisoryVerdictRow,
+          id: "log_2",
+          level: "info",
+          meta: { passed: true, repass: true },
+          created_at: new Date("2026-09-10T15:20:00Z"),
+        },
+        advisoryVerdictRow,
+      ]);
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+    });
+
+    it("precheckOnly reports the advisory as typecheckGate instead of throwing", async () => {
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockResolvedValue([advisoryVerdictRow]);
+
+      const res = await POST(deployRequest({ precheckOnly: true }));
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as {
+        typecheckGate?: { allowed: boolean; code?: string };
+      };
+      expect(json.typecheckGate?.allowed).toBe(false);
+      expect(json.typecheckGate?.code).toBe("DEPLOY_TYPECHECK_ADVISORY");
+    });
+
+    it("fails closed: a failing error-log read returns 503 DEPLOY_GATE_LOGS_UNAVAILABLE and never publishes", async () => {
+      const { commit } = mockHappyDeployInfra();
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockRejectedValue(new Error("db read failed"));
+
+      const res = await POST(deployRequest());
+      expect(res.status).toBe(503);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_GATE_LOGS_UNAVAILABLE");
+      expect(commit).not.toHaveBeenCalled();
+      expect(createDeploymentRecord).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    });
+
+    it("precheckOnly also fails closed on a failing error-log read", async () => {
+      getEngineVersionForChatByIdForRequest.mockResolvedValue(designVersion());
+      getEngineVersionErrorLogs.mockRejectedValue(new Error("db read failed"));
+
+      const res = await POST(deployRequest({ precheckOnly: true }));
+      expect(res.status).toBe(503);
+      const json = (await res.json()) as { code?: string };
+      expect(json.code).toBe("DEPLOY_GATE_LOGS_UNAVAILABLE");
     });
   });
 

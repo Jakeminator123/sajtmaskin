@@ -16,7 +16,10 @@ class CursorAgentsPageContractTest(unittest.TestCase):
         self.assertNotIn(".cursor/rules/terminology.mdc", paths)
 
     def test_page_is_read_only_like_domain_map_and_policy_registry(self) -> None:
+        from backoffice.pages import PAGE_MAP
+
         self.assertFalse(CURSOR_AGENT_PAGE_EDITABLE)
+        self.assertEqual(PAGE_MAP["Cursor-agenter"].mode, "read")
 
 
 if __name__ == "__main__":

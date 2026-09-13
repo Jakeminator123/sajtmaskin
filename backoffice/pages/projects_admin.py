@@ -1,8 +1,8 @@
 """Projekt-admin — massradera testkonton från backofficen.
 
 Kör `scripts/db/cleanup-test-projects.mjs` via subprocess (samma mönster som
-`pipeline_health.py`). Default är DRY-RUN; APPLY kräver att man bockar i
-en check-box för att förhindra fingerfel.
+`pipeline_health.py`). Default är DRY-RUN; APPLY kräver en lyckad förhandskörning
+med samma val och konfiguration samt en ny explicit bekräftelse.
 
 Testkonton plockas från `.env.local`:
 - `ADMIN_EMAILS` (kommaseparerad lista)
@@ -22,10 +22,46 @@ from typing import Any
 import streamlit as st
 
 from backoffice.shared import BackofficeContext, render_save_scope
+from backoffice.shared_lib.subprocess_helpers import repo_command_fingerprint
 
 
 _DEFAULT_TIMEOUT_S = 120
 _SCRIPT_REL = "scripts/db/cleanup-test-projects.mjs"
+_CONFIRM_KEY = "projects_admin_apply_confirm_checkbox"
+_BINDING_KEY = "projects_admin_dry_binding"
+
+
+def _dry_binding(ctx: BackofficeContext, command: list[str] | None) -> tuple | None:
+    if command is None:
+        return None
+    try:
+        fingerprint = repo_command_fingerprint(
+            ctx.repo_root,
+            (
+                ctx.env_local,
+                ctx.repo_root / ".env.vercel.production.pulled",
+                ctx.repo_root / "config/db-targets.json",
+                ctx.repo_root / _SCRIPT_REL,
+            ),
+        )
+    except OSError:
+        return None
+    return tuple(command), fingerprint
+
+
+def _successful_dry_run(result: dict | None, command: list[str] | None) -> bool:
+    if not result or result.get("exitCode") != 0 or command is None:
+        return False
+    summary = result.get("summary")
+    return (
+        isinstance(summary, dict)
+        and summary.get("mode") == "dry-run"
+        and type(summary.get("keep")) is int
+        and summary["keep"] == int(command[command.index("--keep") + 1])
+        and isinstance(summary.get("summary"), list)
+        and bool(summary["summary"])
+        and all(isinstance(row, dict) for row in summary["summary"])
+    )
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -100,6 +136,12 @@ def render(ctx: BackofficeContext) -> None:
 
     cmd = _build_command(scope, keep, specific_email, specific_user_id, apply_mode=False)
     scope_incomplete = cmd is None
+    binding = _dry_binding(ctx, cmd)
+    if binding is None or st.session_state.get(_BINDING_KEY) != binding:
+        st.session_state.pop(_BINDING_KEY, None)
+        st.session_state[_CONFIRM_KEY] = False
+    if cmd is not None and binding is None:
+        st.error("Kunde inte läsa körningens konfiguration. DRY-RUN och APPLY är spärrade.")
     if scope_incomplete:
         # Fail-closed: inget kommando visas och båda knapparna är disabled —
         # tom specifik scope får aldrig breddas till --all-test-users.
@@ -121,49 +163,57 @@ def render(ctx: BackofficeContext) -> None:
             "🔍 Kör DRY-RUN",
             type="secondary",
             use_container_width=True,
-            disabled=scope_incomplete,
+            disabled=scope_incomplete or binding is None,
         ):
             # Belt-and-suspenders: never run a broadened command even if the
             # button somehow fires while scope is incomplete.
-            if cmd is None:
+            if cmd is None or binding is None:
                 st.error("Kan inte köra DRY-RUN utan giltigt scope.")
             else:
+                st.session_state.pop(_BINDING_KEY, None)
+                st.session_state[_CONFIRM_KEY] = False
                 with st.spinner("Kör DRY-RUN…"):
                     result = _run_script(ctx, cmd)
                 st.session_state["projects_admin_last_dry"] = result
-                st.session_state.pop("projects_admin_apply_confirmed", None)
+                if _successful_dry_run(result, cmd) and _dry_binding(ctx, cmd) == binding:
+                    st.session_state[_BINDING_KEY] = binding
 
     with col_apply:
+        preview_ready = (
+            binding is not None
+            and st.session_state.get(_BINDING_KEY) == binding
+            and _successful_dry_run(st.session_state.get("projects_admin_last_dry"), cmd)
+        )
         confirm = st.checkbox(
             "Jag förstår att detta raderar rader permanent",
-            key="projects_admin_apply_confirm_checkbox",
-        )
-        apply_disabled = (
-            scope_incomplete
-            or not confirm
-            or "projects_admin_last_dry" not in st.session_state
+            key=_CONFIRM_KEY,
+            disabled=not preview_ready,
         )
         if st.button(
             "🗑 KÖR APPLY",
             type="primary",
             use_container_width=True,
-            disabled=apply_disabled,
+            disabled=not preview_ready or not confirm,
             help=(
                 "Aktiveras först efter en lyckad DRY-RUN och bekräftelse-checkbox. "
-                "Använder samma argument som DRY-RUN-knappen visade."
+                "Ändrade val eller ändrad konfiguration kräver en ny DRY-RUN."
             ),
         ):
-            apply_cmd = _build_command(
-                scope, keep, specific_email, specific_user_id, apply_mode=True
-            )
-            if apply_cmd is None:
-                st.error("Kan inte köra APPLY utan giltigt scope — ingen radering utförd.")
+            # Recheck at execution, not just when deciding button availability.
+            if not preview_ready or not confirm or _dry_binding(ctx, cmd) != binding:
+                st.session_state.pop(_BINDING_KEY, None)
+                st.error("Kör en ny lyckad DRY-RUN med aktuella val innan APPLY.")
             else:
+                assert cmd is not None
+                apply_cmd = [*cmd, "--apply"]
+                # Consume before execution: failure/timeout also requires a new preview.
+                st.session_state.pop(_BINDING_KEY, None)
                 with st.spinner("Kör APPLY…"):
                     result = _run_script(ctx, apply_cmd)
                 st.session_state["projects_admin_last_apply"] = result
                 # Tvinga ny DRY-RUN-bekräftelse innan nästa apply.
                 st.session_state.pop("projects_admin_last_dry", None)
+                st.rerun()
 
     st.divider()
 

@@ -5,10 +5,13 @@ vi.mock("@/lib/projects/project-env-vars", () => ({
 }));
 
 import {
+  buildDossierEnvScope,
   buildProjectEnvFileContents,
   injectProjectEnvFileIntoFilesJson,
   PROJECT_ENV_FILE_PATH,
+  resolveDossierEnvScopeForFinalize,
 } from "./project-env-file";
+import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { PIPELINE_ENV_LOCAL_MARKER } from "./env-local";
 
 describe("buildProjectEnvFileContents", () => {
@@ -358,5 +361,80 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
 
     expect(next).not.toContain("sk-legacy-plaintext");
     expect(next).toContain("OPENAI_API_KEY=");
+  });
+});
+
+describe("buildDossierEnvScope / resolveDossierEnvScopeForFinalize", () => {
+  it("unions inherited keys and restores purpose from the dossier registry", () => {
+    const scope = buildDossierEnvScope({
+      selectedDossiers: [],
+      inheritedEnvKeys: ["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"],
+    });
+    expect(scope.envVars.map((envVar) => envVar.key)).toEqual([
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
+      "CONTACT_EMAIL_TO",
+    ]);
+    expect(scope.envVars.find((envVar) => envVar.key === "EMAIL_FROM")?.purpose).toContain(
+      "From-address",
+    );
+  });
+
+  it("inherits from previous files when this-round selection is empty", () => {
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      previousFiles: [
+        { path: "components/contact-form.tsx" },
+        { path: "app/api/contact/route.ts" },
+      ],
+    });
+    expect(scope.envVars.map((envVar) => envVar.key)).toEqual(
+      expect.arrayContaining(["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]),
+    );
+  });
+
+  it("drops inherited keys that belong to an explicitly removed dossier", () => {
+    const resend = getDossierById("resend-contact-form");
+    expect(resend).not.toBeNull();
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      removedDossiers: resend ? [resend] : [],
+      persistedEnvKeys: ["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"],
+    });
+    expect(scope.envVars.map((envVar) => envVar.key)).not.toContain("RESEND_API_KEY");
+  });
+
+  it("drops snapshot-selected and persisted keys for a tombstoned capability", () => {
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      previousFiles: [
+        { path: "components/contact-form.tsx" },
+        { path: "app/api/contact/route.ts" },
+      ],
+      persistedEnvKeys: [
+        "RESEND_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      ],
+      orchestrationSnapshot: {
+        requestedCapabilities: ["payments", "contact-form"],
+        removedCapabilities: ["Payments"],
+      },
+    });
+    const keys = scope.envVars.map((envVar) => envVar.key);
+    expect(keys).toEqual(expect.arrayContaining(["RESEND_API_KEY"]));
+    expect(keys).not.toContain("STRIPE_SECRET_KEY");
+    expect(keys).not.toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  });
+
+  it("still inherits Stripe keys from a snapshot that lists payments without a tombstone", () => {
+    const scope = resolveDossierEnvScopeForFinalize({
+      selectedDossiers: [],
+      persistedEnvKeys: ["STRIPE_SECRET_KEY"],
+      orchestrationSnapshot: {
+        requestedCapabilities: ["payments"],
+      },
+    });
+    expect(scope.envVars.map((envVar) => envVar.key)).toContain("STRIPE_SECRET_KEY");
   });
 });

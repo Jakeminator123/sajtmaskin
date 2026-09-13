@@ -129,6 +129,25 @@ export async function resolveChatPreferredVersionId(
   return version?.id ?? null;
 }
 
+export type FollowUpPreviousBase = {
+  files: CodeFile[];
+  /** Version that actually supplied `files` after explicit→preferred→latest. */
+  versionId: string | null;
+  /** `selected_dossier_env_keys` from that same row — never a different "latest". */
+  selectedDossierEnvKeys: string[];
+};
+
+function readSelectedDossierEnvKeys(version: Version | null | undefined): string[] {
+  const raw = version?.selected_dossier_env_keys;
+  return Array.isArray(raw)
+    ? raw.filter((key): key is string => typeof key === "string" && key.length > 0)
+    : [];
+}
+
+function emptyFollowUpBase(): FollowUpPreviousBase {
+  return { files: [], versionId: null, selectedDossierEnvKeys: [] };
+}
+
 /**
  * Canonical follow-up base: `engine_versions.files_json` for the explicitly selected version
  * (`engineBaseVersionId` from builder meta), else preferred lifecycle version, else latest.
@@ -145,11 +164,15 @@ export async function resolveChatPreferredVersionId(
  * empty-files version has no honest evidence of its own, and the readiness
  * gate resolves its version through the same explicit→preferred chain, so
  * gate and generation agree on the base they inspected.
+ *
+ * Env keys are taken from the same resolved row as `files`. A failed newer
+ * "latest" version must not leak its `selected_dossier_env_keys` into a
+ * follow-up that is building on an older/selected base.
  */
-export async function resolveFollowUpPreviousFiles(
+export async function resolveFollowUpPreviousBase(
   chatId: string,
   engineBaseVersionId?: string | null,
-): Promise<CodeFile[]> {
+): Promise<FollowUpPreviousBase> {
   const id = typeof engineBaseVersionId === "string" ? engineBaseVersionId.trim() : "";
   if (id) {
     const version = await getVersionById(id);
@@ -175,12 +198,17 @@ export async function resolveFollowUpPreviousFiles(
             versionId: version.id,
           });
         } catch {}
-        return applyKnownImageHealsToVersionFiles({
+        const files = await applyKnownImageHealsToVersionFiles({
           chatId,
           version,
           files: parsed,
           branch: "explicit",
         });
+        return {
+          files,
+          versionId: version.id,
+          selectedDossierEnvKeys: readSelectedDossierEnvKeys(version),
+        };
       }
     }
   }
@@ -201,18 +229,30 @@ export async function resolveFollowUpPreviousFiles(
       versionId: version?.id ?? null,
     });
   } catch {}
-  if (!version?.files_json) return [];
+  if (!version?.files_json) return emptyFollowUpBase();
   const parsed = parseStoredVersionFiles(version.files_json, {
     versionId: version.id,
     chatId: version.chat_id,
   });
-  if (!parsed || parsed.length === 0) return [];
-  return applyKnownImageHealsToVersionFiles({
+  if (!parsed || parsed.length === 0) return emptyFollowUpBase();
+  const files = await applyKnownImageHealsToVersionFiles({
     chatId,
     version,
     files: parsed,
     branch,
   });
+  return {
+    files,
+    versionId: version.id,
+    selectedDossierEnvKeys: readSelectedDossierEnvKeys(version),
+  };
+}
+
+export async function resolveFollowUpPreviousFiles(
+  chatId: string,
+  engineBaseVersionId?: string | null,
+): Promise<CodeFile[]> {
+  return (await resolveFollowUpPreviousBase(chatId, engineBaseVersionId)).files;
 }
 
 /**

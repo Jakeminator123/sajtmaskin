@@ -1,5 +1,5 @@
 ---
-description: "Pipeline-regler: enkelhet, docs/schema/backoffice-sync och inga nya repair-callsites i onödan."
+description: "Pipeline: färre rörliga delar. Synka owner → schema → docs. Inga nya repair-callsites i onödan."
 globs:
   - sajtmaskin_backoffice.py
   - backoffice/**
@@ -19,23 +19,9 @@ alwaysApply: false
 
 # Pipeline-regler
 
-## Filosofi
-
-Färre rörliga delar. Stärk prompt/kontrakt först. Lägg inte till nytt orkestreringssteg, ny fixer eller ny signal om befintlig ägare kan förbättras.
-
-## Målbild
-
-Respektera fem single sources of truth:
-
-1. intent
-2. prompt composition
-3. runtime status
-4. repair gate
-5. F2/F3-skillnad
-
-Se `docs/architecture/README.md` (arkitekturprinciper) och `docs/architecture/runtime-contracts.md`.
-
-## Paket efter OMTAG
+Stärk prompt/kontrakt först. Nytt orkestreringssteg, fixer eller signal bara
+när befintlig ägare inte räcker. Single sources: intent, prompt composition,
+runtime status, repair gate, F2/F3. Se `docs/architecture/README.md`.
 
 Importera från mapparna, inte gamla toppfiler:
 
@@ -46,19 +32,11 @@ Importera från mapparna, inte gamla toppfiler:
 | Finalize | `src/lib/gen/stream/finalize-version/` |
 | Prompt assist | `src/lib/builder/prompt-assist/` |
 
-## Owner → validate → generate → check
+När runtime-sanning, env, schema, signal eller adminflöde ändras: ändra
+ägaren → uppdatera schema/validator bara om kontraktet kräver det →
+`npm run docs:generate` → `docs:check` / `docs:links` + domänvalidatorer.
+Handskriven modell bara om stabil semantik ändras. Se
+`docs/documentation-lifecycle.md`.
 
-När runtime-sanning, env-yta, schema, signal eller adminflöde ändras:
-
-1. identifiera och ändra den kanoniska ägaren,
-2. uppdatera schema/validator bara om kontraktet kräver det,
-3. kör `npm run docs:generate` för strukturerade projektioner,
-4. kör `npm run docs:check`, `npm run docs:links` och relevanta domänvalidatorer,
-5. uppdatera handskriven mental modell endast om stabil semantik ändras.
-
-Kopiera inte enumlistor, registryinnehåll eller defaults till en ny handskriven yta.
-Se `docs/documentation-lifecycle.md`.
-
-## Repair-gate
-
-Innan ny callsite till `runLlmFixer`: kontrollera befintlig repair-gate/verifier-loop/partial-file-repair. Målet är färre LLM-fix-ingångar, inte fler.
+Innan ny callsite till `runLlmFixer`: kolla befintlig repair-gate /
+verifier-loop / partial-file-repair.

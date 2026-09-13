@@ -715,6 +715,32 @@ function stripUnsafeCompilerOptions(
   );
 }
 
+/** Semantic JSON equality (key order ignored). Used to keep tsconfig bytes stable. */
+function jsonValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (left === null || right === null) return left === right;
+  if (typeof left !== typeof right) return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    return left.every((item, index) => jsonValuesEqual(item, right[index]));
+  }
+  if (typeof left === "object") {
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord);
+    const rightKeys = Object.keys(rightRecord);
+    if (leftKeys.length !== rightKeys.length) return false;
+    return leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+        jsonValuesEqual(leftRecord[key], rightRecord[key]),
+    );
+  }
+  return false;
+}
+
 export function mergeTsconfigWithBaseline(
   model: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -998,6 +1024,11 @@ export function buildCompleteProject(
     try {
       const model = JSON.parse(file.content) as Record<string, unknown>;
       const merged = mergeTsconfigWithBaseline(model);
+      // Follow-up re-runs this merge on the already-persisted scaffold
+      // tsconfig. If the result is semantically identical, keep the original
+      // bytes so JSON.stringify(…, null, 2) cannot flip files_revision and
+      // trip planPreviewPatch → structural_change (prod 2026-09-08).
+      if (jsonValuesEqual(merged, model)) return file;
       return { ...file, content: JSON.stringify(merged, null, 2) };
     } catch {
       const merged = mergeTsconfigWithBaseline({});
@@ -1040,9 +1071,13 @@ export function buildCompleteProject(
       } else {
         result.push(envFile);
       }
-    } else if (envIndex >= 0 && shouldOwnEnvArtifact) {
-      result.splice(envIndex, 1);
     }
+    // Empty scoped body on a fresh project still writes nothing (envIndex < 0).
+    // Do not splice an existing pipeline-authored `.env.local`: follow-up
+    // rounds with a momentarily empty dossier pick must keep the artifact
+    // init persisted. The preview host always rebuilds runtime `.env.local`
+    // via buildPreviewEnvLocalContents and never treats this file as
+    // generated/user values (see isPipelineAuthoredEnvLocal).
   }
 
   return result.sort((a, b) => a.path.localeCompare(b.path));

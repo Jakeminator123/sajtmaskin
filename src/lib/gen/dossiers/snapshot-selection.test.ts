@@ -126,4 +126,13 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
     expect(withKeys.find((d) => d.entry.capability === "payments")?.configured).toBe(true);
     expect(withoutKeys.find((d) => d.entry.capability === "payments")?.configured).toBe(false);
   });
+
+  it("does not subtract removedCapabilities (stale-intent caveat stays here)", () => {
+    const result = resolveSelectedDossiersFromSnapshot({
+      requestedCapabilities: ["payments", "contact-form"],
+      removedCapabilities: ["payments"],
+    });
+    expect(result.map((d) => d.entry.capability)).toContain("payments");
+    expect(result.map((d) => d.entry.capability)).toContain("contact-form");
+  });
 });

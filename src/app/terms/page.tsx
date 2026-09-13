@@ -23,15 +23,15 @@ export default function TermsPage() {
           Användarvillkor
         </h1>
         <p className="text-muted-foreground mb-10 text-sm">
-          Senast uppdaterad: {new Date().toISOString().split("T")[0]}
+          Senast uppdaterad: 2026-09-09
         </p>
 
         <div className="prose-sm space-y-8">
           <Section title="1. Om tjänsten">
             <p>
               Sajtmaskin (&quot;Tjänsten&quot;) är en AI-driven plattform för webbplatsgenerering som
-              drivs av Pretty Good AB, org.nr DG97 (&quot;Bolaget&quot;,
-              &quot;vi&quot;). Genom att använda Tjänsten godkänner du dessa villkor.
+              drivs av Pretty Good AB (&quot;Bolaget&quot;, &quot;vi&quot;). Genom att använda
+              Tjänsten godkänner du dessa villkor.
             </p>
           </Section>
 
@@ -93,7 +93,7 @@ export default function TermsPage() {
 
           <Section title="9. Kontakt">
             <p>
-              Pretty Good AB (DG97)
+              Pretty Good AB
               <br />
               E-post:{" "}
               <a href="mailto:support@sajtmaskin.se" className="text-primary hover:underline">
