@@ -1,6 +1,5 @@
 "use client"
 
-import type { CreditPackageId } from "@/lib/billing/credit-packages"
 import type { LucideIcon } from "lucide-react"
 import {
   Activity,
@@ -236,27 +235,7 @@ export const stats = [
   { value: "0 kr", label: "Att starta", tooltip: "Inga kreditkort, inga bindningstider" },
 ]
 
-/** Marknadstext per paket. Pris och storlek ägs av `credit-packages.ts`. */
-export const creditPackageCopy: Record<
-  CreditPackageId,
-  { description: string; features: readonly string[]; cta: string }
-> = {
-  "10_credits": {
-    description: "Perfekt för att testa",
-    features: ["AI-generering & förfining", "Aldrig utgångsdatum", "Engångsköp - ingen prenumeration"],
-    cta: "Köp Starter",
-  },
-  "25_credits": {
-    description: "Bästa balans för de flesta",
-    features: ["AI-generering & förfining", "Aldrig utgångsdatum", "Engångsköp - ingen prenumeration"],
-    cta: "Köp Popular",
-  },
-  "50_credits": {
-    description: "För högre tempo och fler iterationer",
-    features: ["AI-generering & förfining", "Aldrig utgångsdatum", "Engångsköp - ingen prenumeration"],
-    cta: "Köp Pro",
-  },
-}
+export { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 
 export const studioTiers = [
   { name: "Start", range: "5 000 - 10 000 kr", description: "1-5 sidor, grundläggande anpassning" },

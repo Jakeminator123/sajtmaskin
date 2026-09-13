@@ -9,9 +9,9 @@ import {
 } from "./stripe-credit-checkout";
 
 const PACKAGE: CreditPackageForCheckout = {
-  id: "25_credits",
+  id: "popular",
   name: "Popular",
-  diamonds: 25,
+  diamonds: 99,
   price: 99,
   priceId: "price_valid",
 };
@@ -126,7 +126,7 @@ describe("createCreditCheckoutSession", () => {
             unit_amount: 9900,
             product_data: {
               name: "Popular",
-              description: "25 credits för SajtMaskin",
+              description: "99 credits för SajtMaskin",
             },
           },
           quantity: 1,
@@ -136,7 +136,7 @@ describe("createCreditCheckoutSession", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       "[Stripe/checkout] Konfigurerat price-id avvisades av Stripe — faller tillbaka på price_data",
       expect.objectContaining({
-        packageId: "25_credits",
+        packageId: "popular",
         priceId: "price_valid",
         stripeCode: "resource_missing",
       }),

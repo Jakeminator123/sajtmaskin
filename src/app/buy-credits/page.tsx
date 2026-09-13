@@ -7,7 +7,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
-import { CREDIT_PACKAGES } from "@/lib/billing/credit-packages";
+import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ import {
   CheckCircle,
   Wand2,
   Loader2,
-  Star,
   Zap,
   Building2,
   Mail,
@@ -435,88 +434,14 @@ function BuyCreditsContent() {
             <TabsContent value="credits">
               <div className="animate-fadeIn">
                 {/* Package cards */}
-                <div className="grid gap-6 md:grid-cols-3">
-                  {CREDIT_PACKAGES.map((pkg) => (
-                    <Card
-                      key={pkg.id}
-                      className={`hover-lift relative overflow-hidden transition-all ${
-                        pkg.popular
-                          ? "border-brand-teal/50 bg-brand-teal/5 shadow-brand-teal/5 shadow-lg"
-                          : "border-border bg-card/80 backdrop-blur-sm"
-                      }`}
-                    >
-                      {/* Popular badge */}
-                      {pkg.popular && (
-                        <div className="via-brand-teal absolute -top-px right-0 left-0 h-0.5 bg-linear-to-r from-transparent to-transparent" />
-                      )}
-
-                      <CardContent className="flex flex-col p-6">
-                        {/* Header */}
-                        <div className="mb-4 flex items-center justify-between">
-                          <h3 className="text-foreground text-lg font-semibold">{pkg.name}</h3>
-                          {pkg.popular && (
-                            <Badge className="bg-brand-teal/10 text-brand-teal border-brand-teal/30 text-[11px]">
-                              <Star className="mr-0.5 h-3 w-3 fill-current" />
-                              Populär
-                            </Badge>
-                          )}
-                          {pkg.savings > 0 && !pkg.popular && (
-                            <Badge variant="secondary" className="text-[11px]">
-                              Spara {pkg.savings}%
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Credit count */}
-                        <div className="mb-1 flex items-baseline gap-2">
-                          <span className="text-foreground text-4xl font-bold">{pkg.credits}</span>
-                          <span className="text-muted-foreground text-sm">credits</span>
-                        </div>
-
-                        {/* Price */}
-                        <div className="mb-6">
-                          <span className="text-foreground text-2xl font-bold">{pkg.price} kr</span>
-                          <span className="text-muted-foreground ml-2 text-xs">
-                            {(pkg.price / pkg.credits).toFixed(1)} kr/credit
-                          </span>
-                        </div>
-
-                        {/* Features */}
-                        <ul className="mb-6 grow space-y-2.5">
-                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
-                            <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
-                            AI-generering &amp; förfining
-                          </li>
-                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
-                            <Zap className="text-brand-amber h-4 w-4 shrink-0" />
-                            Aldrig utgångsdatum
-                          </li>
-                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
-                            <CheckCircle className="text-brand-teal h-4 w-4 shrink-0" />
-                            Engångsköp – ingen prenumeration
-                          </li>
-                        </ul>
-
-                        {/* Buy button */}
-                        <Button
-                          onClick={() => handlePurchase(pkg.id)}
-                          disabled={isLoading}
-                          className={`h-11 w-full font-medium ${
-                            pkg.popular
-                              ? "bg-brand-teal hover:bg-brand-teal/90 text-white"
-                              : "bg-secondary hover:bg-secondary/80 text-foreground"
-                          }`}
-                        >
-                          {isLoading && selectedPackage === pkg.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>{isAuthenticated ? "Köp nu" : "Logga in & köp"}</>
-                          )}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <CreditPackageGrid
+                  disabled={isLoading}
+                  pendingId={selectedPackage}
+                  onSelect={(packageId) => {
+                    void handlePurchase(packageId);
+                  }}
+                  ctaLabel={() => (isAuthenticated ? "Köp nu" : "Logga in & köp")}
+                />
 
                 {/* Pricing breakdown */}
                 <div className="mt-16">
