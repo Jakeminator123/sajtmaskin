@@ -5,6 +5,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEv
 /* 3D tilt — DOM transform only, prefers-reduced-motion aware */
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
 
+/** Synk läsning för client-only ytor som inte får vänta på en effect-tick. */
+export function readPrefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.matchMedia(REDUCED_MOTION_QUERY).matches
+  } catch {
+    return false
+  }
+}
+
 /** SSR-safe; false until mounted, then syncs with system preference. */
 export function usePrefersReducedMotion(): boolean {
   const [reduce, setReduce] = useState(false)
@@ -30,6 +40,30 @@ type NetworkInformationLike = {
 
 const SLOW_EFFECTIVE_TYPES = new Set(["slow-2g", "2g", "3g"])
 
+function readNetworkSaveData(): boolean {
+  if (typeof navigator === "undefined") return false
+  const connection = (
+    navigator as Navigator & { connection?: NetworkInformationLike }
+  ).connection
+  if (!connection) return false
+  return (
+    connection.saveData === true ||
+    (typeof connection.effectiveType === "string" &&
+      SLOW_EFFECTIVE_TYPES.has(connection.effectiveType)) ||
+    (typeof connection.downlink === "number" &&
+      connection.downlink > 0 &&
+      connection.downlink < 1.5)
+  )
+}
+
+export function readSaveDataPreference(): boolean {
+  try {
+    return readNetworkSaveData()
+  } catch {
+    return false
+  }
+}
+
 /**
  * Rapporterar `true` när användaren ber om datasparläge (`Save-Data`) eller sitter
  * på en svag uppkoppling (`effectiveType` 2g/3g eller låg `downlink`). Används för
@@ -45,16 +79,7 @@ export function useSaveData(): boolean {
     ).connection
     if (!connection) return
 
-    const sync = () => {
-      const slow =
-        connection.saveData === true ||
-        (typeof connection.effectiveType === "string" &&
-          SLOW_EFFECTIVE_TYPES.has(connection.effectiveType)) ||
-        (typeof connection.downlink === "number" &&
-          connection.downlink > 0 &&
-          connection.downlink < 1.5)
-      setSaveData(Boolean(slow))
-    }
+    const sync = () => setSaveData(readNetworkSaveData())
 
     sync()
     connection.addEventListener?.("change", sync)

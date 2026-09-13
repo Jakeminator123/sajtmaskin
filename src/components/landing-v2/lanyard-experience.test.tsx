@@ -76,6 +76,8 @@ describe("LanyardExperience", () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(true);
     render(<LanyardExperience />);
+    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
     await waitFor(() => {
       expect(screen.getByTestId("lanyard-static")).toBeTruthy();
     });

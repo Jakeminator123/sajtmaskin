@@ -25,7 +25,12 @@ import {
   LANYARD_CONSENT_KEY,
   readStoredCookieConsent,
 } from "@/components/landing-v2/lanyard-consent"
-import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks"
+import {
+  readPrefersReducedMotion,
+  readSaveDataPreference,
+  usePrefersReducedMotion,
+  useSaveData,
+} from "@/components/landing-v2/landing-hooks"
 import {
   LANYARD_CARD_GRAIN_STYLE,
   LanyardBrandFace,
@@ -88,7 +93,10 @@ function initialPhase(): Phase {
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const reducedMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
-  const staticOnly = reducedMotion || saveData
+  // Hookarna är SSR-säkra (false tills effect). Experience är client-only
+  // och får inte montera WebGL en tick för reduced-motion / save-data.
+  const staticOnly =
+    reducedMotion || saveData || readPrefersReducedMotion() || readSaveDataPreference()
   // Experience laddas med ssr:false, så första render är klient.
   // Läs samtycke synkront — "checking" lämnade annars hero-ytan tom en tick.
   const [phase, setPhase] = useState<Phase>(initialPhase)
