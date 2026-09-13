@@ -114,6 +114,20 @@ describe("LanyardExperience", () => {
     expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 
+  it("shows the static card during accept flight on save-data", () => {
+    originalMatchMedia = stubMatchMedia(false);
+    restoreConnection = stubConnection({ saveData: true });
+    render(<LanyardExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Acceptera alla" }));
+
+    expect(screen.getByTestId("lanyard-accept-flight").style.animation).toContain(
+      "lanyard-fly-back",
+    );
+    expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+    expect(screen.queryByTestId("lanyard-physics")).toBeNull();
+  });
+
   it("shows the static card on first paint for a returning visitor on save-data", () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(false);
@@ -143,7 +157,10 @@ describe("LanyardExperience", () => {
     const flight = screen.getByTestId("lanyard-accept-flight");
     expect(flight.style.animation).toContain("lanyard-fly-back");
     expect(flight.style.animation).not.toContain("lanyard-fade-out");
-    expect(screen.getByTestId("lanyard-physics-layer").className).toContain("opacity-0");
+    const layerDuringFlight = screen.getByTestId("lanyard-physics-layer");
+    expect(layerDuringFlight.className).toContain("opacity-100");
+    expect(layerDuringFlight.className).not.toContain("transition-opacity");
+    expect(layerDuringFlight.className).not.toContain("opacity-0");
 
     act(() => {
       vi.advanceTimersByTime(LANYARD_FLIP_MS_DESKTOP);

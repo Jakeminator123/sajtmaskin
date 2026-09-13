@@ -109,6 +109,14 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
   const handleDone = useCallback(() => {
     setPhase("reveal")
   }, [])
+  // Overlayn går transparent under flykten. Om destinationen stannar på
+  // opacity-0 blir hjälten ett genomskinligt hål — visa den solida posen
+  // redan när accept-flykten startar.
+  const [flightRevealed, setFlightRevealed] = useState(false)
+  const handleLeaving = useCallback(() => {
+    setFlightRevealed(true)
+  }, [])
+  const showSettledCard = phase === "reveal" || flightRevealed
 
   return (
     <div className={`relative h-full w-full ${className}`}>
@@ -117,23 +125,31 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
           utan en tom lucka där inget kort syns. Reduced-motion / save-data
           hoppar över 3D-chunken helt och visar den statiska fallbacken. */}
       {phase === "checking" && <StaticLanyardFallback />}
-      {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
+      {showSettledCard && staticOnly && <StaticLanyardFallback />}
       {phase !== "checking" && !staticOnly && (
         <div
           data-testid="lanyard-physics-layer"
-          className={lanyardPhysicsLayerClass(phase === "reveal")}
+          className={lanyardPhysicsLayerClass(showSettledCard)}
         >
           <LanyardErrorBoundary>
             <LanyardCard className="h-full" autoSwing={autoSwing} />
           </LanyardErrorBoundary>
         </div>
       )}
-      {phase === "intro" && <CookieFlipCard onDone={handleDone} />}
+      {phase === "intro" && (
+        <CookieFlipCard onLeaving={handleLeaving} onDone={handleDone} />
+      )}
     </div>
   )
 }
 
-function CookieFlipCard({ onDone }: { onDone: () => void }) {
+function CookieFlipCard({
+  onLeaving,
+  onDone,
+}: {
+  onLeaving: () => void
+  onDone: () => void
+}) {
   const [leaving, setLeaving] = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const { mobile, reducedMotion } = useExperienceMode()
@@ -240,9 +256,10 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
       }
       setLeaving(true)
+      onLeaving()
       window.setTimeout(onDone, lanyardAcceptHandoffDelayMs(flipMs))
     },
-    [leaving, onDone, flipMs],
+    [leaving, onDone, onLeaving, flipMs],
   )
 
   const dialog = (

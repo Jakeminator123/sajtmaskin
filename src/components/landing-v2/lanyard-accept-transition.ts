@@ -62,7 +62,7 @@ export function lanyardAcceptFlightAnimation(input: {
   return `${name} ${input.flipMs}ms cubic-bezier(0.34, 0.02, 0.26, 1) forwards`;
 }
 
-/** Ingen 300ms crossfade — överlämningen ska vara solid, inte genomskinlig. */
+/** Ingen 300ms crossfade. `revealed` är true redan när accept-flykten startar. */
 export function lanyardPhysicsLayerClass(revealed: boolean): string {
   return revealed
     ? "h-full w-full opacity-100"
