@@ -1,5 +1,6 @@
 import { Texture } from "three";
 import { describe, expect, it } from "vitest";
+import { LANYARD_FRONT_TEXTURE_CROP } from "./lanyard-texture-css";
 import {
   LANYARD_CARD_LAYOUT,
   applyLanyardTextureCrop,
@@ -26,6 +27,7 @@ describe("lanyard card layout", () => {
     expect(backAspect).toBeCloseTo(cardAspect, 2);
     expect(LANYARD_CARD_LAYOUT.frontTexture.repeatX).toBeLessThan(1);
     expect(LANYARD_CARD_LAYOUT.backTexture.repeatY).toBeLessThan(1);
+    expect(LANYARD_CARD_LAYOUT.frontTexture).toEqual(LANYARD_FRONT_TEXTURE_CROP);
   });
 
   it("keeps the settled card inside the camera with breathing room", () => {

@@ -93,4 +93,14 @@ describe("LanyardExperience", () => {
     });
     expect(screen.queryByTestId("lanyard-static")).toBeNull();
   });
+
+  it("never leaves the hero empty for a returning visitor", () => {
+    localStorage.setItem(CONSENT_KEY, "accepted");
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
+    expect(
+      screen.queryByTestId("lanyard-physics") ?? screen.queryByTestId("lanyard-static"),
+    ).toBeTruthy();
+  });
 });

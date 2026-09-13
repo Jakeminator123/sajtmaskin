@@ -16,52 +16,29 @@
  * direkt på plats (med en mjuk gungning till liv).
  */
 
-import { Component, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
+import {
+  LANYARD_CONSENT_DATE_KEY,
+  LANYARD_CONSENT_KEY,
+  readStoredCookieConsent,
+} from "@/components/landing-v2/lanyard-consent"
 import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks"
 import {
-  LANYARD_CARD_LAYOUT,
-  lanyardTextureToCss,
-} from "@/components/landing-v2/lanyard-card-layout"
+  LANYARD_CARD_GRAIN_STYLE,
+  LanyardBrandFace,
+  StaticLanyardFallback,
+} from "@/components/landing-v2/lanyard-static-fallback"
 
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
   { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
-const CONSENT_KEY = "cookie-consent"
-const CONSENT_DATE_KEY = "cookie-consent-date"
-const CARD_IMAGE = "/branding/lanyard-card.png"
 const FLIP_MS_DESKTOP = 1550
 const FLIP_MS_MOBILE = 1150
-const FRONT_TEXTURE_CSS = lanyardTextureToCss(LANYARD_CARD_LAYOUT.frontTexture)
-const CARD_GRAIN_STYLE: CSSProperties = {
-  backgroundImage:
-    "repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 4px)",
-}
-
-function LanyardBrandFace({ className = "" }: { className?: string }) {
-  return (
-    <div className={`relative overflow-hidden bg-[#070b10] ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={CARD_IMAGE}
-        alt=""
-        aria-hidden="true"
-        className="absolute max-w-none"
-        style={FRONT_TEXTURE_CSS}
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-20 mix-blend-soft-light"
-        style={CARD_GRAIN_STYLE}
-      />
-      <span className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
-    </div>
-  )
-}
 
 /** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
 function useExperienceMode() {
@@ -103,47 +80,24 @@ class LanyardErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   }
 }
 
-/** Statiskt hängande kort — ersätter 3D-kortet när WebGL inte finns. */
-function StaticLanyardFallback() {
-  return (
-    <div
-      data-testid="lanyard-static"
-      aria-hidden="true"
-      className="flex h-full w-full flex-col items-center justify-start overflow-visible pt-0"
-    >
-      <span
-        className="block h-[28%] min-h-10 w-[6px] shrink-0 rounded-full"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",
-          boxShadow: "0 0 14px rgba(45,212,191,0.45)",
-        }}
-      />
-      <LanyardBrandFace className="relative mt-1 aspect-[3/4] h-[72%] max-w-[min(60vw,220px)] shrink-0 rounded-[26px] shadow-2xl ring-1 ring-primary/30" />
-    </div>
-  )
+function initialPhase(): Phase {
+  if (typeof window === "undefined") return "checking"
+  return readStoredCookieConsent() ? "reveal" : "intro"
 }
 
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const reducedMotion = usePrefersReducedMotion()
   const saveData = useSaveData()
   const staticOnly = reducedMotion || saveData
-  const [phase, setPhase] = useState<Phase>("checking")
+  // Experience laddas med ssr:false, så första render är klient.
+  // Läs samtycke synkront — "checking" lämnade annars hero-ytan tom en tick.
+  const [phase, setPhase] = useState<Phase>(initialPhase)
   // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
   // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
-  const [autoSwing, setAutoSwing] = useState(false)
+  const [autoSwing, setAutoSwing] = useState(() => initialPhase() === "reveal")
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    let consent: string | null = null
-    try {
-      consent = localStorage.getItem(CONSENT_KEY)
-    } catch {
-      consent = null
-    }
-    // First paint is SSR and must stay at "checking" — reading localStorage
-    // during render would hydrate-mismatch returning visitors.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- cookie consent after mount
+    const consent = readStoredCookieConsent()
     setAutoSwing(Boolean(consent))
     setPhase(consent ? "reveal" : "intro")
   }, [])
@@ -158,6 +112,7 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
           fysiken och texturen hunnit ladda — överlämningen blir sömlös
           utan en tom lucka där inget kort syns. Reduced-motion / save-data
           hoppar över 3D-chunken helt och visar den statiska fallbacken. */}
+      {phase === "checking" && <StaticLanyardFallback />}
       {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
       {phase !== "checking" && !staticOnly && (
         <div
@@ -274,9 +229,9 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
     (value: "accepted" | "declined") => {
       if (leaving) return
       try {
-        localStorage.setItem(CONSENT_KEY, value)
+        localStorage.setItem(LANYARD_CONSENT_KEY, value)
         if (value === "accepted") {
-          localStorage.setItem(CONSENT_DATE_KEY, new Date().toISOString())
+          localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString())
         }
       } catch {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
@@ -365,7 +320,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
               <span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 opacity-20"
-                style={CARD_GRAIN_STYLE}
+                style={LANYARD_CARD_GRAIN_STYLE}
               />
               <span className="pointer-events-none absolute inset-x-8 top-0 h-16 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.16),transparent_70%)]" />
               {/* Litet urtag högst upp där snodden fäster */}

@@ -1,18 +1,11 @@
 import { SRGBColorSpace, type Euler, type Quaternion, type Texture, type Vector3 } from "three";
+import {
+  LANYARD_FRONT_TEXTURE_CROP,
+  type LanyardTextureCrop,
+} from "@/components/landing-v2/lanyard-texture-css";
 
-export type LanyardTextureCrop = {
-  repeatX: number;
-  repeatY: number;
-  offsetX: number;
-  offsetY: number;
-};
-
-export type LanyardTextureCss = {
-  width: string;
-  height: string;
-  left: string;
-  top: string;
-};
+export type { LanyardTextureCrop, LanyardTextureCss } from "@/components/landing-v2/lanyard-texture-css";
+export { lanyardTextureToCss } from "@/components/landing-v2/lanyard-texture-css";
 
 /**
  * Delat layoutkontrakt för 3D-kortet. Ett fullt utsträckt lodrätt rep är
@@ -46,12 +39,7 @@ export const LANYARD_CARD_LAYOUT = {
   cameraFovDegrees: 28,
   cameraY: 0,
   cameraLookAtY: 0.16,
-  frontTexture: {
-    repeatX: 0.696,
-    repeatY: 1,
-    offsetX: 0,
-    offsetY: 0,
-  } satisfies LanyardTextureCrop,
+  frontTexture: LANYARD_FRONT_TEXTURE_CROP,
   backTexture: {
     repeatX: 0.62,
     repeatY: 0.89,
@@ -84,23 +72,6 @@ export function applyLanyardTextureCrop(
   texture.anisotropy = Math.max(1, anisotropy);
   texture.needsUpdate = true;
   return texture;
-}
-
-/**
- * CSS-motsvarighet till Three-crop: samma fönster på 2D-fallback och
- * cookie-flippens baksida som på 3D-planen.
- */
-export function lanyardTextureToCss(crop: LanyardTextureCrop): LanyardTextureCss {
-  const widthPct = 100 / crop.repeatX;
-  const heightPct = 100 / crop.repeatY;
-  const startX = (1 - crop.repeatX) / 2 + crop.offsetX;
-  const startY = (1 - crop.repeatY) / 2 + crop.offsetY;
-  return {
-    width: `${widthPct}%`,
-    height: `${heightPct}%`,
-    left: `${-startX * widthPct}%`,
-    top: `${-startY * heightPct}%`,
-  };
 }
 
 /**
