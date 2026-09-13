@@ -39,6 +39,16 @@ describe("domain pricing", () => {
     expect(bindingQuoteFromSek(-1).customerSek).toBeNull();
   });
 
+  it("uses the same USD→SEK rounding for the price API and a binding quote", () => {
+    const settings = { markup: 2, usdToSek: 11 };
+    // 10.05 × 11 = 110.55 → 111; ×2 = 222. A single-pass 10.05×11×2 = 221.
+    expect(customerPriceFromUsd(10.05, settings)).toBe(222);
+    const quoted = bindingQuoteFromUsd(10.05, 1, settings);
+    expect(quoted.wholesaleSek).toBe(111);
+    expect(quoted.customerSek).toBe(222);
+    expect(quoted.customerSek).toBe(customerPriceFromUsd(10.05, settings));
+  });
+
   it("marks a registrar quote as binding and a reference figure as not", () => {
     const quoted = bindingQuoteFromUsd(10, 1);
     expect(quoted.binding).toBe(true);

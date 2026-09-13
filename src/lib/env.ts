@@ -276,6 +276,37 @@ export const serverSchema = z.object({
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
+const BUILD_PHASES = new Set(["phase-production-build", "phase-export"]);
+
+/**
+ * Production may only run live Stripe keys. Preview/development stay on test.
+ * Skipped during Next's production-build phase so a failed refine cannot trip
+ * the empty-env fallback (that would strip inlined NEXT_PUBLIC_* values).
+ * Unset keys are allowed — checkout is optional until the secret is present.
+ */
+export function stripeProductionKeyIssues(env: {
+  VERCEL_ENV?: string;
+  NEXT_PHASE?: string;
+  STRIPE_SECRET_KEY?: string;
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?: string;
+}): string[] {
+  if (env.NEXT_PHASE && BUILD_PHASES.has(env.NEXT_PHASE)) return [];
+  if (env.VERCEL_ENV !== "production") return [];
+
+  const issues: string[] = [];
+  const secret = env.STRIPE_SECRET_KEY?.trim();
+  if (secret && !secret.startsWith("sk_live_")) {
+    issues.push("STRIPE_SECRET_KEY must start with sk_live_ when VERCEL_ENV=production");
+  }
+  const publishable = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+  if (publishable && !publishable.startsWith("pk_live_")) {
+    issues.push(
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY must start with pk_live_ when VERCEL_ENV=production",
+    );
+  }
+  return issues;
+}
+
 // ---------------------------------------------------------------------------
 // Lazy-validated singleton
 // ---------------------------------------------------------------------------
@@ -296,6 +327,15 @@ export function getServerEnv(): ServerEnv {
     console.error("[env] ❌ Validation failed:");
     for (const issue of result.error.issues) {
       console.error(`  ${issue.path.join(".")}: ${issue.message}`);
+    }
+    throw new Error("Invalid server environment variables");
+  }
+
+  const stripeIssues = stripeProductionKeyIssues(result.data);
+  if (stripeIssues.length > 0) {
+    console.error("[env] ❌ Validation failed:");
+    for (const issue of stripeIssues) {
+      console.error(`  ${issue}`);
     }
     throw new Error("Invalid server environment variables");
   }

@@ -103,13 +103,20 @@ export function applyMarkupSek(
   return Math.round(wholesaleSek * resolveSettings(settings).markup);
 }
 
+/** USD → whole SEK before markup. Shared so display and charge cannot drift. */
+function wholesaleSekFromUsd(
+  wholesaleUsd: number,
+  settings?: Partial<DomainPricingSettings> | null,
+): number {
+  return Math.round(wholesaleUsd * resolveSettings(settings).usdToSek);
+}
+
 /** Convert wholesale USD → customer SEK with markup applied. */
 export function customerPriceFromUsd(
   wholesaleUsd: number,
   settings?: Partial<DomainPricingSettings> | null,
 ): number {
-  const resolved = resolveSettings(settings);
-  return applyMarkupSek(wholesaleUsd * resolved.usdToSek, resolved);
+  return applyMarkupSek(wholesaleSekFromUsd(wholesaleUsd, settings), settings);
 }
 
 /** Reference wholesale for a TLD in SEK. Falls back to the configured default. */
@@ -139,7 +146,7 @@ export function bindingQuoteFromUsd(
 ): DomainPriceQuote {
   if (!Number.isFinite(wholesaleUsd) || wholesaleUsd <= 0) return unknownQuote();
   const resolved = resolveSettings(settings);
-  const wholesaleSek = Math.round(wholesaleUsd * resolved.usdToSek);
+  const wholesaleSek = wholesaleSekFromUsd(wholesaleUsd, resolved);
   return {
     customerSek: applyMarkupSek(wholesaleSek, resolved),
     wholesaleSek,

@@ -43,6 +43,12 @@ describe("findBreakingStatements", () => {
     expect(found("ALTER TABLE t ALTER COLUMN c DROP DEFAULT;")).toContain("drop-default");
     expect(found("TRUNCATE registry_cache;")).toContain("truncate");
     expect(found("DELETE FROM engine_versions WHERE id = 'x';")).toContain("delete-from");
+    expect(found("ALTER TABLE t ADD CONSTRAINT t_email_unique UNIQUE (email);")).toContain(
+      "add-constraint",
+    );
+    expect(found("CREATE UNIQUE INDEX t_email_uidx ON t (email);")).toContain(
+      "create-unique-index",
+    );
   });
 
   it("läser inuti en DO-kropp — det är där den riktiga DROP COLUMN gömmer sig", () => {
@@ -178,6 +184,8 @@ describe("BREAKING_STATEMENTS", () => {
       "drop-default",
       "truncate",
       "delete-from",
+      "add-constraint",
+      "create-unique-index",
     ]);
   });
 });
