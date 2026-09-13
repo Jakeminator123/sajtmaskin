@@ -102,13 +102,7 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
   const [phase, setPhase] = useState<Phase>(initialPhase)
   // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
   // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
-  const [autoSwing, setAutoSwing] = useState(() => initialPhase() === "reveal")
-
-  useEffect(() => {
-    const consent = readStoredCookieConsent()
-    setAutoSwing(Boolean(consent))
-    setPhase(consent ? "reveal" : "intro")
-  }, [])
+  const [autoSwing] = useState(() => initialPhase() === "reveal")
 
   const handleDone = useCallback(() => {
     setPhase("reveal")
