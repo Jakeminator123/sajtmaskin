@@ -250,9 +250,9 @@
     "SHADCNBLOCKS_API_KEY",
     "STORAGE_BACKEND",
     "STORYBLOK_ACCESS_TOKEN",
-    "STRIPE_PRICE_10_CREDITS",
-    "STRIPE_PRICE_25_CREDITS",
-    "STRIPE_PRICE_50_CREDITS",
+    "STRIPE_PRICE_POPULAR",
+    "STRIPE_PRICE_PRO",
+    "STRIPE_PRICE_STARTER",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
     "SUPERADMIN_DIAMONDS",
@@ -586,6 +586,12 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],
       "notes": "Public app URL varies between local and deployed environments."
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Stripe publishable key. Split per Vercel target: pk_test in development/preview, pk_live in production. Not a secret; store encrypted with --no-sensitive so operators can inspect the prefix."
     },
     {
       "key": "NEXT_PUBLIC_BASE_URL",
@@ -1104,28 +1110,34 @@
       "notes": "Dev-only Google OAuth client id."
     },
     {
-      "key": "STRIPE_PRICE_10_CREDITS",
+      "key": "STRIPE_PRICE_STARTER",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Stripe price id for the 10-credit pack."
+      "notes": "Optional Stripe price id for the Starter pack (49 kr / 49 credits). Keep unset so checkout uses price_data from credit-packages.ts. If set it must be a price_ id whose amount matches 49 SEK. Non-sensitive catalog id; do not use the retired STRIPE_PRICE_10_CREDITS name."
     },
     {
-      "key": "STRIPE_PRICE_25_CREDITS",
+      "key": "STRIPE_PRICE_POPULAR",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Stripe price id for the 25-credit pack."
+      "notes": "Optional Stripe price id for the Popular pack (99 kr / 99 credits). Keep unset so checkout uses price_data from credit-packages.ts. If set it must be a price_ id whose amount matches 99 SEK. Non-sensitive catalog id; do not use the retired STRIPE_PRICE_25_CREDITS name."
     },
     {
-      "key": "STRIPE_PRICE_50_CREDITS",
+      "key": "STRIPE_PRICE_PRO",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Stripe price id for the 50-credit pack."
+      "notes": "Optional Stripe price id for the Pro pack (179 kr / 179 credits). Keep unset so checkout uses price_data from credit-packages.ts. If set it must be a price_ id whose amount matches 179 SEK. Non-sensitive catalog id; do not use the retired STRIPE_PRICE_50_CREDITS name."
     },
     {
       "key": "STRIPE_SECRET_KEY",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Stripe server secret for billing and generated-site F3 checkout. Store as Vercel encrypted env; do not mark sensitive-only unless there is a concrete need to hide inspectability."
+      "notes": "Stripe server secret for billing and generated-site F3 checkout. Split per Vercel target: sk_test in development/preview, sk_live in production. Store as encrypted env with --no-sensitive so operators can inspect prefix/targeting; do not mark sensitive-only."
+    },
+    {
+      "key": "STRIPE_WEBHOOK_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Stripe webhook signing secret for POST /api/stripe/webhook. Split per Vercel target: test-whsec in development/preview, live-whsec in production. Encrypted with --no-sensitive; do not mark sensitive-only."
     },
     {
       "key": "RESEND_API_KEY",

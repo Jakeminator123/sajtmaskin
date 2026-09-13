@@ -5,7 +5,11 @@
  * valfria Stripe price-id:n från server-env — importera den inte från klienten.
  */
 
-import { CREDIT_PACKAGES, type CreditPackageId } from "./credit-packages";
+import {
+  CREDIT_PACKAGES,
+  resolveCreditPackageId,
+  type CreditPackageId,
+} from "./credit-packages";
 
 function normalizeStripePriceId(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -17,10 +21,17 @@ function normalizeStripePriceId(value: string | undefined): string | undefined {
   return trimmed;
 }
 
+/** Valfria katalog-id:n. Medvetet osatta — checkout använder `price_data`. */
+export const STRIPE_PRICE_ENV_KEYS = {
+  starter: "STRIPE_PRICE_STARTER",
+  popular: "STRIPE_PRICE_POPULAR",
+  pro: "STRIPE_PRICE_PRO",
+} as const satisfies Record<CreditPackageId, string>;
+
 const STRIPE_PRICE_ENV = {
-  starter: process.env.STRIPE_PRICE_10_CREDITS,
-  popular: process.env.STRIPE_PRICE_25_CREDITS,
-  pro: process.env.STRIPE_PRICE_50_CREDITS,
+  starter: process.env.STRIPE_PRICE_STARTER,
+  popular: process.env.STRIPE_PRICE_POPULAR,
+  pro: process.env.STRIPE_PRICE_PRO,
 } as const satisfies Record<CreditPackageId, string | undefined>;
 
 const DIAMOND_PACKAGES = CREDIT_PACKAGES.map((pkg) => ({
@@ -33,5 +44,8 @@ const DIAMOND_PACKAGES = CREDIT_PACKAGES.map((pkg) => ({
 }));
 
 export function getPackageById(id: string) {
-  return DIAMOND_PACKAGES.find((p) => p.id === id);
+  const canonical = resolveCreditPackageId(id);
+  return canonical
+    ? DIAMOND_PACKAGES.find((pkg) => pkg.id === canonical)
+    : undefined;
 }

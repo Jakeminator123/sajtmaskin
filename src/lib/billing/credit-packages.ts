@@ -36,6 +36,23 @@ export const CREDIT_PACKAGES = [
 export type CreditPackage = (typeof CREDIT_PACKAGES)[number];
 export type CreditPackageId = CreditPackage["id"];
 
+/** Gamla checkout-id:n före 1 kr = 1 credit. Mappar till samma kronor/credits. */
+export const LEGACY_CREDIT_PACKAGE_IDS = {
+  "10_credits": "starter",
+  "25_credits": "popular",
+  "50_credits": "pro",
+} as const satisfies Record<string, CreditPackageId>;
+
+export function resolveCreditPackageId(id: string): CreditPackageId | undefined {
+  if (CREDIT_PACKAGES.some((pkg) => pkg.id === id)) {
+    return id as CreditPackageId;
+  }
+  return LEGACY_CREDIT_PACKAGE_IDS[id as keyof typeof LEGACY_CREDIT_PACKAGE_IDS];
+}
+
 export function getCreditPackageById(id: string): CreditPackage | undefined {
-  return CREDIT_PACKAGES.find((pkg) => pkg.id === id);
+  const canonical = resolveCreditPackageId(id);
+  return canonical
+    ? CREDIT_PACKAGES.find((pkg) => pkg.id === canonical)
+    : undefined;
 }

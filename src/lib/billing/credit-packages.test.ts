@@ -22,4 +22,22 @@ describe("CREDIT_PACKAGES", () => {
     expect(getCreditPackageById("popular")?.popular).toBe(true);
     expect(getCreditPackageById("missing")).toBeUndefined();
   });
+
+  it("aliases retired package ids to the 1 kr = 1 credit packs", () => {
+    expect(getCreditPackageById("10_credits")).toMatchObject({
+      id: "starter",
+      credits: 49,
+      price: 49,
+    });
+    expect(getCreditPackageById("25_credits")).toMatchObject({
+      id: "popular",
+      credits: 99,
+      price: 99,
+    });
+    expect(getCreditPackageById("50_credits")).toMatchObject({
+      id: "pro",
+      credits: 179,
+      price: 179,
+    });
+  });
 });
