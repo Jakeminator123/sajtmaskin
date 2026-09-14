@@ -60,7 +60,7 @@ export function LandingHero({
     <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
         data-lanyard-stage
-        className="pointer-events-auto relative z-0 mb-1 h-[min(56vh,620px)] w-screen max-w-none shrink-0 overflow-visible sm:h-[min(60vh,680px)] md:h-[min(64vh,720px)]"
+        className="pointer-events-auto relative z-0 mb-6 h-[min(56vh,620px)] w-screen max-w-none shrink-0 overflow-visible sm:h-[min(60vh,680px)] md:h-[min(64vh,720px)]"
       >
         <LanyardExperience className="h-full w-full overflow-visible" />
       </div>

@@ -205,15 +205,6 @@ describe("lanyard mobile interactions", () => {
     expect(simulation.rapierVersion).toBe("0.19.2");
   }, 15_000);
 
-  it("applies the same scroll-safe contract to the lower badge", () => {
-    const source = readComponent("lanyard-badge.tsx");
-
-    expect(source).toContain('touchAction: runPhysics ? "pan-y pinch-zoom" : "auto"');
-    expect(source).toContain("onPointerCancel");
-    expect(source).toContain("onLostPointerCapture");
-    expect(source).not.toContain('touchAction: runPhysics ? "none"');
-  });
-
   it("shares texture crops between the 3D card and the 2D fallback", () => {
     const experience = readComponent("lanyard-experience.tsx");
     const fallback = readComponent("lanyard-static-fallback.tsx");

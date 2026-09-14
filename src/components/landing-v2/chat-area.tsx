@@ -160,8 +160,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
         </section>
 
         {/* ━━━ PRICING ━━━ */}
-        <section id="priser" className="px-6 py-20 md:py-28">
-          <div className="max-w-5xl mx-auto">
+        <section id="priser" className="overflow-visible px-6 py-20 md:py-28">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="mb-10 text-center text-2xl text-foreground font-(--font-heading) tracking-tight text-balance md:mb-14 md:text-4xl">
+              Priser
+            </h2>
             <CreditPackageGrid
               disabled={isSubmitting}
               onSelect={() => router.push("/buy-credits")}
