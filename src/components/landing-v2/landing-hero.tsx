@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
 import { preloadReturningLanyard } from "@/components/landing-v2/lanyard-consent"
-import { LanyardHeroLoading } from "@/components/landing-v2/lanyard-hero-loading"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 if (typeof window !== "undefined") {
@@ -15,11 +14,11 @@ if (typeof window !== "undefined") {
 }
 
 // Cookie-samtycke som flippar till det fysikdrivna 3D-nyckelbandet.
-// Laddas endast i webbläsaren (ingen SSR). Återbesökare får det statiska
-// kortet som loading så hero-ytan inte gapar tom under chunk-laddning.
+// Laddas endast i webbläsaren (ingen SSR). Stagen är tom tills kortet är
+// redo; återbesökare får då drop-in-entrén i LanyardExperience.
 const LanyardExperience = dynamic(
   () => import("@/components/landing-v2/lanyard-experience").then((m) => m.LanyardExperience),
-  { ssr: false, loading: () => <LanyardHeroLoading /> },
+  { ssr: false },
 )
 
 export type LandingHeroProps = Pick<
