@@ -92,6 +92,11 @@ const EXPECTED_TABLES = [
   "pricing_settings",
   // Domains
   "domain_orders",
+  // D1: abonnemang per publicerad sajt och per Stripe-läge (schema only)
+  "billing_customers",
+  "site_subscriptions",
+  "subscription_credit_grants",
+  "billing_jobs",
 ];
 
 // Förväntade index — synkad med src/lib/db/schema.ts + scripts/db/db-init.mjs
@@ -285,6 +290,28 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   domain_orders: [
     { name: "idx_domain_orders_project", columns: ["project_id"] },
     { name: "idx_domain_orders_order", columns: ["order_id"] },
+  ],
+  billing_customers: [{ name: "idx_billing_customers_user", columns: ["user_id"] }],
+  site_subscriptions: [
+    { name: "idx_site_subscriptions_user", columns: ["user_id", "created_at"] },
+    { name: "idx_site_subscriptions_project", columns: ["project_id"] },
+    {
+      name: "idx_site_subscriptions_mode_lifecycle",
+      columns: ["billing_mode", "lifecycle_state"],
+    },
+    { name: "idx_site_subscriptions_period_end", columns: ["current_period_end"] },
+    { name: "idx_site_subscriptions_grace_until", columns: ["grace_until"] },
+  ],
+  subscription_credit_grants: [
+    {
+      name: "idx_subscription_credit_grants_subscription",
+      columns: ["subscription_id", "created_at"],
+    },
+    { name: "idx_subscription_credit_grants_user", columns: ["user_id", "created_at"] },
+  ],
+  billing_jobs: [
+    { name: "idx_billing_jobs_runnable", columns: ["status", "run_after"] },
+    { name: "idx_billing_jobs_subscription", columns: ["subscription_id"] },
   ],
 };
 
