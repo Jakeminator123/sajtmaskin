@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import { resetServerEnvCacheForTests } from "@/lib/env";
 import {
+  AUTH_COOKIE_HOST_NAME,
+  AUTH_COOKIE_LEGACY_NAME,
+} from "./host-cookies";
+import {
   INTENDED_VERCEL_OAUTH_ORIGIN,
   OAUTH_PARALLEL_FLOW_POLICY,
   OAUTH_STATE_MAX_AGE_SECONDS,
@@ -135,7 +139,7 @@ describe("OAuth state binding", () => {
 
   it("binds a GitHub connection to the exact initiating auth session", () => {
     const start = request("https://sajtmaskin.se/api/auth/github", {
-      sajtmaskin_auth: "session-a",
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
     });
     const flow = createOAuthFlow("github", start, {
       returnTo: "/projects",
@@ -149,7 +153,7 @@ describe("OAuth state binding", () => {
       verifyOAuthFlow(
         "github",
         request(callbackUrl, {
-          sajtmaskin_auth: "session-b",
+          [AUTH_COOKIE_HOST_NAME]: "session-b",
           [oauthCookieName("github")]: cookie,
         }),
         flow.state,
@@ -160,7 +164,7 @@ describe("OAuth state binding", () => {
       verifyOAuthFlow(
         "github",
         request(callbackUrl, {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: cookie,
         }),
         flow.state,
@@ -173,7 +177,7 @@ describe("OAuth state binding", () => {
 
   it("relays a canonical GitHub callback to the signed start origin", () => {
     const start = request("https://sajtmaskin.se/api/auth/github", {
-      sajtmaskin_auth: "session-a",
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
     });
     const flow = createOAuthFlow("github", start, {
       returnTo: "/builder?tab=github",
@@ -194,7 +198,7 @@ describe("OAuth state binding", () => {
     expect(relay?.headers.get("referrer-policy")).toBe("no-referrer");
 
     const relayed = request(relay!.headers.get("location")!, {
-      sajtmaskin_auth: "session-a",
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
       [oauthCookieName("github")]: cookie,
     });
     expect(verifyOAuthFlow("github", relayed, flow.state)).toMatchObject({
@@ -204,7 +208,7 @@ describe("OAuth state binding", () => {
 
   it("keeps Google and GitHub flows independent in parallel", () => {
     const start = request("https://sajtmaskin.se/api/auth/google", {
-      sajtmaskin_auth: "session-a",
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
     });
     const google = createOAuthFlow("google", start, { returnTo: "/" });
     const github = createOAuthFlow("github", start, {
@@ -217,7 +221,7 @@ describe("OAuth state binding", () => {
     expect(oauthCookieName("google")).not.toBe(oauthCookieName("github"));
 
     const both = {
-      sajtmaskin_auth: "session-a",
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
       [oauthCookieName("google")]: googleCookie,
       [oauthCookieName("github")]: githubCookie,
     };
@@ -300,6 +304,157 @@ describe("OAuth state binding", () => {
     allowOrigins("https://evil.example,https://*.sajtmaskin.se,not-a-url");
     expect(isOAuthOriginAllowed("https://evil.example")).toBe(true);
     expect(isOAuthOriginAllowed("https://phish.sajtmaskin.se")).toBe(false);
+  });
+
+  it("writes a __Host- OAuth cookie over HTTPS with no Domain", () => {
+    const start = request("https://sajtmaskin.se/api/auth/google");
+    const flow = createOAuthFlow("google", start, { returnTo: "/" });
+    const response = NextResponse.json({ ok: true });
+    setOAuthFlowCookie(response, "google", flow, start);
+    const headers = response.headers.getSetCookie();
+    const hostHeader = headers.find((entry) =>
+      entry.startsWith(`${oauthCookieName("google")}=`),
+    );
+
+    expect(oauthCookieName("google")).toBe("__Host-sajtmaskin_oauth_google");
+    expect(hostHeader).toMatch(/Secure/i);
+    expect(hostHeader).toMatch(/HttpOnly/i);
+    expect(hostHeader).toMatch(/Path=\//i);
+    // `__Host-` must never carry Domain; the leftover clear beside it may.
+    expect(hostHeader?.toLowerCase()).not.toMatch(/domain=/);
+    expect(
+      headers.some((entry) => entry.startsWith("sajtmaskin_oauth_google=")),
+    ).toBe(true);
+  });
+
+  it("keeps the unprefixed OAuth name on local HTTP", () => {
+    const httpsStart = request("https://sajtmaskin.se/api/auth/google");
+    const httpStart = request("http://127.0.0.1:3010/api/auth/google");
+    const flow = createOAuthFlow("google", httpsStart, { returnTo: "/" });
+    const response = NextResponse.json({ ok: true });
+    setOAuthFlowCookie(response, "google", flow, httpStart);
+    const header = response.headers.get("set-cookie") ?? "";
+
+    expect(header).toContain(`${oauthCookieName("google", { secure: false })}=`);
+    expect(header).not.toContain(`${oauthCookieName("google", { secure: true })}=`);
+    expect(header).not.toMatch(/;\s*Secure/i);
+  });
+
+  it("binds GitHub to the __Host- auth cookie when both names are present", () => {
+    const start = request("https://sajtmaskin.se/api/auth/github", {
+      [AUTH_COOKIE_HOST_NAME]: "session-a",
+      [AUTH_COOKIE_LEGACY_NAME]: "session-b",
+    });
+    const flow = createOAuthFlow("github", start, {
+      returnTo: "/projects",
+      subject: "user-a",
+    });
+    const cookie = flowCookie("github", flow, start);
+    const callbackUrl =
+      `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(flow.state)}`;
+
+    expect(
+      verifyOAuthFlow(
+        "github",
+        request(callbackUrl, {
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
+          [AUTH_COOKIE_LEGACY_NAME]: "session-b",
+          [oauthCookieName("github")]: cookie,
+        }),
+        flow.state,
+      ),
+    ).toMatchObject({ ok: true });
+
+    expect(
+      verifyOAuthFlow(
+        "github",
+        request(callbackUrl, {
+          [AUTH_COOKIE_HOST_NAME]: "session-b",
+          [AUTH_COOKIE_LEGACY_NAME]: "session-a",
+          [oauthCookieName("github")]: cookie,
+        }),
+        flow.state,
+      ),
+    ).toEqual({ ok: false, reason: "state_session_mismatch" });
+  });
+
+  it("prefers the __Host- OAuth cookie over a leftover name in the same request", () => {
+    const start = request("https://sajtmaskin.se/api/auth/google");
+    const hostFlow = createOAuthFlow("google", start, { returnTo: "/host" });
+    const leftoverFlow = createOAuthFlow("google", start, { returnTo: "/legacy" });
+    const hostCookie = flowCookie("google", hostFlow, start);
+
+    const callbackUrl =
+      `https://sajtmaskin.se/api/auth/google/callback?code=abc&state=${encodeURIComponent(hostFlow.state)}`;
+    expect(
+      verifyOAuthFlow(
+        "google",
+        request(callbackUrl, {
+          [oauthCookieName("google")]: hostCookie,
+          [oauthCookieName("google", { secure: false })]: leftoverFlow.cookieValue,
+        }),
+        hostFlow.state,
+      ),
+    ).toMatchObject({ ok: true, payload: { returnTo: "/host" } });
+  });
+
+  it("does not accept a lone leftover OAuth cookie over HTTPS", () => {
+    const start = request("https://sajtmaskin.se/api/auth/google");
+    const flow = createOAuthFlow("google", start, { returnTo: "/" });
+    const leftover = oauthCookieName("google", { secure: false });
+    const callbackUrl = (origin: string) =>
+      `${origin}/api/auth/google/callback?code=abc&state=${encodeURIComponent(flow.state)}`;
+
+    expect(
+      verifyOAuthFlow(
+        "google",
+        request(callbackUrl("https://sajtmaskin.se"), {
+          [leftover]: flow.cookieValue,
+        }),
+        flow.state,
+      ),
+    ).toEqual({ ok: false, reason: "state_cookie_missing" });
+  });
+
+  it("expires the leftover OAuth name on the parent Domain over HTTPS", () => {
+    const start = request("https://preview.sajtmaskin.se/api/auth/google");
+    const consumed = NextResponse.redirect("https://preview.sajtmaskin.se/");
+    clearOAuthFlowCookie(consumed, "google", start);
+    const leftover = consumed.headers
+      .getSetCookie()
+      .find((header) =>
+        header.startsWith(`${oauthCookieName("google", { secure: false })}=`),
+      );
+
+    expect(leftover).toContain("Domain=.sajtmaskin.se");
+    expect(leftover).toMatch(/Max-Age=0/i);
+    expect(leftover).not.toContain("Domain=.se;");
+  });
+
+  it("treats two values for the leftover OAuth name as a missing cookie", () => {
+    const start = request("https://sajtmaskin.se/api/auth/google");
+    const flow = createOAuthFlow("google", start, { returnTo: "/" });
+    const leftover = oauthCookieName("google", { secure: false });
+    const cookieHeader = `${leftover}=${flow.cookieValue}; ${leftover}=e30`;
+    const callback = new NextRequest(
+      `https://sajtmaskin.se/api/auth/google/callback?code=abc&state=${encodeURIComponent(flow.state)}`,
+      { headers: { cookie: cookieHeader } },
+    );
+
+    expect(verifyOAuthFlow("google", callback, flow.state)).toEqual({
+      ok: false,
+      reason: "state_cookie_missing",
+    });
+  });
+
+  it("clears both OAuth cookie names", () => {
+    const start = request("https://sajtmaskin.se/api/auth/google");
+    const consumed = NextResponse.redirect("https://sajtmaskin.se/");
+    clearOAuthFlowCookie(consumed, "google", start);
+    const header = consumed.headers.get("set-cookie") ?? "";
+    expect(header).toContain(oauthCookieName("google", { secure: true }));
+    expect(header).toContain(oauthCookieName("google", { secure: false }));
+    expect(header).toMatch(/Max-Age=0/i);
   });
 
   it("refuses to sign or relay an origin outside the allowlist", () => {

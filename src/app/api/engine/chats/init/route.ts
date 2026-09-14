@@ -403,8 +403,10 @@ export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
   const sessionId = session.sessionId;
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };
