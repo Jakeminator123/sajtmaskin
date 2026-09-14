@@ -9,6 +9,27 @@ function sse(body: string): Response {
 }
 
 describe("createHttpEngineClient.createChat (Codex P1: project id)", () => {
+  it("marks forwarded cookie calls with the exact target Origin", async () => {
+    const fetchSpy = vi.fn(
+      async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+        sse('data: {"chatId":"c1","versionId":"v1"}\n\ndata: [DONE]\n\n'),
+    );
+    const fetchImpl = fetchSpy as unknown as typeof fetch;
+    const client = createHttpEngineClient({
+      baseUrl: "https://preview.sajtmaskin.se/",
+      authHeaders: { cookie: "__Host-sajtmaskin_auth=signed" },
+      fetchImpl,
+    });
+
+    await client.createChat({ prompt: "build" });
+
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      Origin: "https://preview.sajtmaskin.se",
+      cookie: "__Host-sajtmaskin_auth=signed",
+    });
+  });
+
   it("sends meta.appProjectId so the create-chat route can resolve the project", async () => {
     const bodies: Array<Record<string, unknown>> = [];
     const fetchImpl = vi.fn(async (url: unknown, init: unknown) => {

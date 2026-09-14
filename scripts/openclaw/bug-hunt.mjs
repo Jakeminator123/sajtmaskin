@@ -68,9 +68,16 @@ async function postRun({ baseUrl, headers, runId, scenario, scenarios, appProjec
   const ids = {};
   if (appProjectId) ids.appProjectId = appProjectId;
   if (projectId) ids.projectId = projectId;
-  const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/openclaw/debug/run`, {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const res = await fetch(`${normalizedBaseUrl}/api/openclaw/debug/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    // This authenticated server-to-server mutation needs the exact target
+    // origin when forwarding cookie auth through the browser CSRF guard.
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+      Origin: new URL(normalizedBaseUrl).origin,
+    },
     body: JSON.stringify(
       scenarios ? { runId, scenarios, ...ids } : { runId, scenario, ...ids },
     ),
