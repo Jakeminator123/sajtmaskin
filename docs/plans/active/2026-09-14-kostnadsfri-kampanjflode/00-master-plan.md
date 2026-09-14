@@ -1,13 +1,14 @@
 # Kostnadsfri-kampanjflödet — sidantal, bolagsdata och pre-generering (2026-09-14)
 
-> **Status: ett beslut fattat och implementerat, två kvar.** Sidantalet är avgjort
-> 2026-09-14 (3 sidor, se [`docs/decisions/README.md`](../../../decisions/README.md))
-> och koden är skriven — men **inte mergad**, så `master` är auktoritet tills den
-> är det. Vad som ändrades står i avsnitt 1. Bolagsdata och
-> pre-generering ligger kvar som rader i
+> **Status: två beslut fattade och implementerade, ett kvar.** Sidantalet är
+> avgjort 2026-09-14 (3 sidor) och bolagsdatans PII-gräns 2026-09-15 (allowlist
+> plus personnummerspärr) — båda i
+> [`docs/decisions/README.md`](../../../decisions/README.md). Koden är skriven men
+> **inte mergad**, så `master` är auktoritet tills den är det. Kvar som rad i
 > [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Väntar på
-> ägarbeslut. Städlistan längst ned hänger på besluten och ska köras i samma
-> ändring som respektive beslut, inte som ett eget "senare".
+> ägarbeslut: pre-generering vid lösenordsverifiering. Städlistan längst ned
+> hänger på besluten och ska köras i samma ändring som respektive beslut, inte som
+> ett eget "senare".
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
@@ -85,24 +86,44 @@ Pull åt andra riktningen är sämre: dashen ligger på Render free tier med
 kallstarter, och en pull skulle lägga ett externt anrop i exakt det ögonblick
 användaren väntar.
 
-**Två saker måste avgöras innan koden skrivs:**
+**Beslutat 2026-09-15 och byggt (ingest):** allowlistad profil på
+`extra_data.profile`, och profilen matar **mini-wizarden** — aldrig
+generationsprompten direkt. Prompten byggs som förut av wizardens utdata, så
+inget kan nå den publicerade sajten som företaget inte har sett och kunnat rätta.
+Det löser samtidigt oron för vad som händer när de vill ändra ett förifyllt
+värde. Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 
-1. **PII-gränsen.** Dashen visar personnummer och styrelseledamöternas
-   hemadresser. `extra_data` skickas till browsern efter lösenordsverifiering —
-   rutten säger det själv i kommentaren till `serializePage` — och blir dessutom
-   LLM-input. Utan en uttrycklig fältlista kan en ledamots hemadress hamna
-   publicerad på den genererade sajten. Föreslagen gräns: företagsnamn, org.nr,
-   säte/ort, företagets c/o-adress, verksamhetstext, primärkontaktens förnamn och
-   e-post. Inga personnummer, inga hemadresser, inga åldrar.
-2. **Bransch som fack eller fritext.** Dashen ger fritext; koden kräver ett av
-   elva id:n. `frisörverksamhet` har inget fack och landar närmast på `health`
-   («Hälsa/Wellness»). Antingen används verksamhetstexten som beskrivning och
-   bransch blir en hint, eller så växer taxonomin — men då måste den växa på det
-   ställe som äger den (se städlistan), inte i tre kopior.
+| Fält | Varför |
+|---|---|
+| `orgNumber` | Standard i svensk sidfot. Normaliseras till `NNNNNN-NNNN` |
+| `registeredOffice`, `city`, `postalCode` | «based in», lokal SEO, kontaktsida |
+| `streetAddress` | Ofta c/o hos revisor eller annat bolag — förifylls för bekräftelse, publiceras inte automatiskt som besöksadress |
+| `businessDescription` | Mest användbara fältet: bär både bransch och vad bolaget faktiskt gör |
+| `registeredAt` | «Grundat 2026» som copy |
 
-Lucka att täcka i implementationen: `markKostnadsfriPageSent` (upsert-vägen när
-`sentAt` skickas) skriver inte `extra_data` i dag, så en dash som skickar profilen
-tillsammans med sändregistreringen får den tappad.
+Företagsnamn, bransch, webbplats, kontaktnamn och kontakt-e-post har egna
+kolumner på `kostnadsfri_pages` och dubbleras inte hit. Personnummer,
+hemadresser, åldrar, aktiekapital och den råa kungörelsetexten skickas inte, och
+`findPersonalIdentityViolations` fäller requesten med 400 om de ändå kommer — med
+fältnamn, aldrig värdet, eftersom `extra_data` går både till browsern och in i
+wizarden. Organisationsnummer har identisk form som personnummer, så `orgNumber`
+undantas mönsterkontrollen och valideras i stället som exakt ett org.nr.
+
+Luckan i `markKostnadsfriPageSent` är stängd: upsert-vägen tar en
+`extraDataPatch` som slås ihop med `jsonb ||`, så en profil som skickas
+tillsammans med sändregistreringen inte längre tappas. Den ytliga
+sammanslagningen är avsiktlig — patchen ska byta ut `profile` men lämna
+`openclaw` orörd.
+
+**Kvar:** wizarden läser inte profilen än. Förifyllningen bor i
+`mini-wizard.tsx`, som ligger i videoagentens scope, så den hör i en egen PR
+efteråt.
+
+**Fortfarande oavgjort — bransch som fack eller fritext.** Dashen ger fritext;
+koden kräver ett av elva id:n. `frisörverksamhet` har inget fack och landar
+närmast på `health` («Hälsa/Wellness»). Antingen används `businessDescription`
+som beskrivning och bransch blir en hint, eller så växer taxonomin — men då måste
+den växa på det ställe som äger den (se städlistan), inte i tre kopior.
 
 ## 3. Pre-generering vid lösenordsverifiering
 
