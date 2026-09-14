@@ -27,6 +27,14 @@ const {
 
 const EMPTY = { subscriptions: 0, grants: 0, jobs: 0, customers: 0 };
 
+function postgresError(code: string, message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code });
+}
+
+function drizzleWrapped(error: Error): Error {
+  return new Error("Failed query", { cause: error });
+}
+
 /**
  * Den SQL spärren faktiskt skickar, kompilerad av Drizzles RIKTIGA
  * PostgreSQL-dialekt. En mock av `db.execute` ser aldrig frågan; det var
@@ -68,19 +76,40 @@ describe("countProtectedBillingRows", () => {
   it("svarar noll när databasen saknar tabellerna", async () => {
     // En miljö som inte fått D1-migrationen har ingen bokföring att bevara.
     // Att låsa adminpanelen där vore fel svar på rätt fråga.
-    execute.mockRejectedValue(Object.assign(new Error("relation missing"), { code: "42P01" }));
+    execute
+      .mockRejectedValueOnce(postgresError("42P01", "relation missing"))
+      .mockResolvedValueOnce({ rows: [{ all_missing: true }] });
 
     await expect(countProtectedBillingRows({ kind: "allProjects" })).resolves.toEqual(EMPTY);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(compiledQuery().sql.match(/to_regclass/gu)).toHaveLength(4);
+  });
+
+  it("öppnar legacy-fallbacken för Drizzles inlindade undefined_table", async () => {
+    execute
+      .mockRejectedValueOnce(
+        drizzleWrapped(postgresError("42P01", "relation missing inside Drizzle")),
+      )
+      .mockResolvedValueOnce({ rows: [{ all_missing: true }] });
+
+    await expect(countProtectedBillingRows({ kind: "allProjects" })).resolves.toEqual(EMPTY);
+  });
+
+  it("förblir stängd när bara en del av schemat saknas", async () => {
+    const error = drizzleWrapped(postgresError("42P01", "one relation missing"));
+    execute.mockRejectedValueOnce(error).mockResolvedValueOnce({ rows: [{ all_missing: false }] });
+
+    await expect(countProtectedBillingRows({ kind: "allProjects" })).rejects.toBe(error);
   });
 
   it("sväljer inte andra databasfel", async () => {
     // Ett trasigt anrop får inte se ut som "inga abonnemang" — då hade spärren
     // öppnat sig själv vid fel.
-    execute.mockRejectedValue(Object.assign(new Error("connection lost"), { code: "08006" }));
+    const error = drizzleWrapped(postgresError("08006", "connection lost"));
+    execute.mockRejectedValue(error);
 
-    await expect(countProtectedBillingRows({ kind: "allProjects" })).rejects.toThrow(
-      "connection lost",
-    );
+    await expect(countProtectedBillingRows({ kind: "allProjects" })).rejects.toBe(error);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -240,6 +269,32 @@ describe("projectIdsWithBillingRows", () => {
   it("frågar inte för en tom lista", async () => {
     await expect(projectIdsWithBillingRows([])).resolves.toEqual(new Set());
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("öppnar legacy-fallbacken för Drizzles inlindade undefined_table", async () => {
+    execute
+      .mockRejectedValueOnce(
+        drizzleWrapped(postgresError("42P01", "relation missing inside Drizzle")),
+      )
+      .mockResolvedValueOnce({ rows: [{ all_missing: true }] });
+
+    await expect(projectIdsWithBillingRows(["prj_legacy"])).resolves.toEqual(new Set());
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("förblir stängd när ett delvis migrerat schema ger undefined_table", async () => {
+    const error = drizzleWrapped(postgresError("42P01", "one relation missing"));
+    execute.mockRejectedValueOnce(error).mockResolvedValueOnce({ rows: [{ all_missing: false }] });
+
+    await expect(projectIdsWithBillingRows(["prj_paid"])).rejects.toBe(error);
+  });
+
+  it("sväljer inte andra inlindade databasfel", async () => {
+    const error = drizzleWrapped(postgresError("08006", "connection lost"));
+    execute.mockRejectedValue(error);
+
+    await expect(projectIdsWithBillingRows(["prj_paid"])).rejects.toBe(error);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   for (const projectIds of [["prj_only"], ["prj_a", "prj_b"]]) {

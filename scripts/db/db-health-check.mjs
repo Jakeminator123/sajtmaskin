@@ -332,6 +332,10 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
   subscription_credit_grants: [
     {
+      name: "subscription_credit_grants_transaction_unique",
+      columns: ["transaction_id"],
+    },
+    {
       name: "subscription_credit_grants_period_unique",
       columns: ["billing_mode", "subscription_id", "period_id"],
     },

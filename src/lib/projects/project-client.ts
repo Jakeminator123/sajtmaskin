@@ -38,6 +38,35 @@ export interface ProjectWithData {
   data: ProjectData | null;
 }
 
+/** Which kind of host serves the site — `provider` is a fallback, not an address to advertise. */
+export type SiteAddressKind = "custom" | "branded" | "provider" | "none";
+
+export type SitePublishState =
+  | "never_published"
+  | "pending"
+  | "building"
+  | "ready"
+  | "error"
+  | "cancelled";
+
+/** Wire shape of `GET /api/projects/[id]/site`. Dates arrive as ISO strings. */
+export interface ProjectSite {
+  projectId: string;
+  chatId: string | null;
+  address: { liveUrl: string | null; kind: SiteAddressKind };
+  state: SitePublishState;
+  liveAt: string | null;
+  liveVersionId: string | null;
+  /** Set when the newest deployment is still pending/building — watch this id. */
+  latestDeploymentId: string | null;
+  publishedSlug: string | null;
+  brandedDomain: string | null;
+  brandedDomainVerified: boolean;
+  customDomain: string | null;
+  customDomainVerified: boolean;
+  vercelProjectId: string | null;
+}
+
 // Get all projects
 export async function getProjects(): Promise<Project[]> {
   const response = await fetch("/api/projects");
@@ -60,6 +89,25 @@ export async function getProject(id: string): Promise<ProjectWithData> {
   }
 
   return { project: data.project, data: data.data };
+}
+
+/**
+ * Address and publish state for one project.
+ *
+ * Returns `null` on 404 so the caller can render "hittades inte" without
+ * treating an unowned id as an error state — the API deliberately answers the
+ * same way for "missing" and "not yours".
+ */
+export async function getProjectSite(id: string): Promise<ProjectSite | null> {
+  const response = await fetch(`/api/projects/${id}/site`);
+  if (response.status === 404) return null;
+
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(data.error || "Failed to get site overview");
+  }
+
+  return data.site as ProjectSite;
 }
 
 // Create new project

@@ -570,6 +570,8 @@ const setupQueries = [
       CHECK (strpos(period_id, ':') = 0),
     CONSTRAINT subscription_credit_grants_test_ledger_check
       CHECK (billing_mode = 'live' OR transaction_id IS NULL),
+    CONSTRAINT subscription_credit_grants_transaction_unique
+      UNIQUE (transaction_id),
     CONSTRAINT subscription_credit_grants_period_unique
       UNIQUE (billing_mode, subscription_id, period_id)
   )`,

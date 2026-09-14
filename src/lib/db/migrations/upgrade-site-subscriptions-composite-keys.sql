@@ -249,6 +249,14 @@ DO $$ BEGIN
     CHECK (billing_mode = 'live' OR transaction_id IS NULL);
 EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
+-- PostgreSQLs UNIQUE tillåter flera NULL: väntande/testgrants kan vara
+-- olänkade, men samma ledgertransaktion får inte styrka två periodförmåner.
+DO $$ BEGIN
+  ALTER TABLE subscription_credit_grants
+    ADD CONSTRAINT subscription_credit_grants_transaction_unique
+    UNIQUE (transaction_id);
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
+
 DO $$ BEGIN
   ALTER TABLE subscription_credit_grants ADD CONSTRAINT subscription_credit_grants_period_unique
     UNIQUE (billing_mode, subscription_id, period_id);

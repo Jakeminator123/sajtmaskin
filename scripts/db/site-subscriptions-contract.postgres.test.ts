@@ -16,8 +16,9 @@
  *      (projekt, läge), medan historiska avslutade rader bevaras.
  *   3. Stripe-status och hostingtillstånd är skilda axlar: `past_due` kan
  *      samexistera med en live sajt i respit.
- *   4. En periodgrant är unik per (läge, abonnemang, period), och en
- *      testgrant kan inte peka på en rad i den gemensamma creditledgern.
+ *   4. En periodgrant är unik per (läge, abonnemang, period), en satt
+ *      ledgertransaktion styrker högst en grant, och en testgrant kan inte
+ *      peka på en rad i den gemensamma creditledgern.
  *   5. Högst ett öppet paus-/återställningsjobb per abonnemang och typ.
  *
  * Säkerhet: testet SKRIVER rader och vägrar allt utom en dev-target via
@@ -241,6 +242,7 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
             'site_subscriptions_open_claim_unique',
             'site_subscriptions_stripe_subscription_unique',
             'site_subscriptions_checkout_session_unique',
+            'subscription_credit_grants_transaction_unique',
             'subscription_credit_grants_period_unique',
             'billing_jobs_open_unique'
           )`,
@@ -252,6 +254,7 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
       "site_subscriptions_open_claim_unique",
       "site_subscriptions_stripe_subscription_unique",
       "site_subscriptions_checkout_session_unique",
+      "subscription_credit_grants_transaction_unique",
       "subscription_credit_grants_period_unique",
       "billing_jobs_open_unique",
     ]) {
@@ -653,6 +656,43 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
     await expect(
       insertGrant({ subscriptionId: subscription, billingMode: "test", periodId: "inv:3" }),
     ).rejects.toMatchObject({ code: CHECK_VIOLATION });
+  });
+
+  it("låter flera grants sakna ledgerlänk men återanvänder aldrig en satt transaktion", async () => {
+    const subscription = await insertSubscription({ billingMode: "live" });
+    // PostgreSQLs UNIQUE tillåter flera NULL, vilket väntande grants behöver.
+    const firstGrant = await insertGrant({
+      subscriptionId: subscription,
+      billingMode: "live",
+      periodId: "inv_txn_unique_1",
+    });
+    const secondGrant = await insertGrant({
+      subscriptionId: subscription,
+      billingMode: "live",
+      periodId: "inv_txn_unique_2",
+    });
+
+    const transactionId = `txn_unique_${runTag}`;
+    await pool.query(
+      `insert into transactions (id, user_id, type, amount, balance_after, description)
+       values ($1, $2, 'subscription_grant', 500, 500, 'D1 unik ledgerlänk')`,
+      [transactionId, userA],
+    );
+    await pool.query(
+      "update subscription_credit_grants set transaction_id = $1 where id = $2",
+      [transactionId, firstGrant],
+    );
+
+    // Två olika betalda perioder får inte båda påstå att samma saldorörelse
+    // verkställde deras kreditgrant.
+    await expect(
+      pool.query(
+        "update subscription_credit_grants set transaction_id = $1 where id = $2",
+        [transactionId, secondGrant],
+      ),
+    ).rejects.toMatchObject({ code: UNIQUE_VIOLATION });
+
+    await pool.query("delete from transactions where id = $1", [transactionId]);
   });
 
   it("hindrar en testgrant från att peka på den gemensamma creditledgern", async () => {

@@ -217,6 +217,10 @@ CREATE TABLE IF NOT EXISTS site_subscriptions (
 -- Testläget får ALDRIG röra gemensamma `users.diamonds`: `transaction_id` är
 -- spärrad till live av en CHECK, så en testgrant kan inte peka på en rad i den
 -- delade ledgern ens om koden försöker.
+--
+-- En ledgertransaktion får bara styrka EN periodgrant. UNIQUE tillåter flera
+-- NULL i PostgreSQL, så väntande och simulerade grants kan fortfarande sakna
+-- ledgerlänk samtidigt som en satt `transaction_id` aldrig kan återanvändas.
 CREATE TABLE IF NOT EXISTS subscription_credit_grants (
   id TEXT PRIMARY KEY,
   subscription_id TEXT NOT NULL,
@@ -259,6 +263,8 @@ CREATE TABLE IF NOT EXISTS subscription_credit_grants (
     CHECK (strpos(period_id, ':') = 0),
   CONSTRAINT subscription_credit_grants_test_ledger_check
     CHECK (billing_mode = 'live' OR transaction_id IS NULL),
+  CONSTRAINT subscription_credit_grants_transaction_unique
+    UNIQUE (transaction_id),
   CONSTRAINT subscription_credit_grants_period_unique
     UNIQUE (billing_mode, subscription_id, period_id)
 );

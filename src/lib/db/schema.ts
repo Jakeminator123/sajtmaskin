@@ -1510,6 +1510,10 @@ export const subscriptionCreditGrants = pgTable(
       columns: [table.user_id],
       foreignColumns: [users.id],
     }).onDelete("restrict"),
+    /** PostgreSQL permits many NULLs, but a linked ledger row proves only one period grant. */
+    transactionUnique: unique("subscription_credit_grants_transaction_unique").on(
+      table.transaction_id,
+    ),
     periodUnique: unique("subscription_credit_grants_period_unique").on(
       table.billing_mode,
       table.subscription_id,

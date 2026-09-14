@@ -21,6 +21,49 @@ import { db } from "./client";
 /** Postgres `undefined_table`. En databas utan tabellerna har ingen bokföring att skydda. */
 const UNDEFINED_TABLE = "42P01";
 
+/**
+ * DrizzleQueryError lägger PostgreSQL-felet i `cause`. Begränsa vandringen så
+ * att trasiga eller cykliska felobjekt inte kan låsa fallbacken i en loop.
+ */
+function isUndefinedTable(error: unknown): boolean {
+  let candidate = error;
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (!candidate || typeof candidate !== "object") return false;
+    if ((candidate as { code?: unknown }).code === UNDEFINED_TABLE) return true;
+    const cause = (candidate as { cause?: unknown }).cause;
+    if (cause === candidate) return false;
+    candidate = cause;
+  }
+  return false;
+}
+
+/**
+ * En saknad relation är säker bara innan HELA D1-schemat finns. En saknad
+ * tabell i ett delvis migrerat schema måste hålla spärren stängd: de övriga
+ * tabellerna kan redan innehålla bokföring som en adminrensning ska bevara.
+ */
+async function allBillingTablesAreMissing(): Promise<boolean> {
+  const result = await db.execute<{ all_missing: boolean }>(sql`
+    SELECT
+      to_regclass('public.billing_customers') IS NULL
+      AND to_regclass('public.site_subscriptions') IS NULL
+      AND to_regclass('public.subscription_credit_grants') IS NULL
+      AND to_regclass('public.billing_jobs') IS NULL
+      AS all_missing
+  `);
+  return result.rows?.[0]?.all_missing === true;
+}
+
+/** Öppna bara när både SQLSTATE och en lyckad katalogfråga säger legacy. */
+async function isLegacyDatabaseWithoutBillingTables(error: unknown): Promise<boolean> {
+  if (!isUndefinedTable(error)) return false;
+  try {
+    return await allBillingTablesAreMissing();
+  } catch {
+    return false;
+  }
+}
+
 export type BillingRetentionCounts = {
   subscriptions: number;
   grants: number;
@@ -176,9 +219,9 @@ export async function countProtectedBillingRows(
       customers: Number(row?.customers ?? 0),
     };
   } catch (error) {
-    if ((error as { code?: string } | null)?.code === UNDEFINED_TABLE) {
-      // Miljön har inte fått D1-migrationen än. Ingen tabell, ingen bokföring
-      // att bevara — spärren ska inte låsa adminpanelen där.
+    if (await isLegacyDatabaseWithoutBillingTables(error)) {
+      // Miljön har inte fått någon del av D1-migrationen än. Inga tabeller,
+      // ingen bokföring att bevara — spärren ska inte låsa adminpanelen där.
       console.warn("[billing-retention] abonnemangstabellerna saknas i den här databasen");
       return EMPTY;
     }
@@ -212,7 +255,7 @@ export async function projectIdsWithBillingRows(projectIds: string[]): Promise<S
     `);
     return new Set((result.rows ?? []).map((row) => row.project_id));
   } catch (error) {
-    if ((error as { code?: string } | null)?.code === UNDEFINED_TABLE) return new Set();
+    if (await isLegacyDatabaseWithoutBillingTables(error)) return new Set();
     throw error;
   }
 }
