@@ -7,7 +7,6 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
-import { MAX_PAGE_COUNT_CHOICE } from "@/lib/builder/init-build-choices";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -84,12 +83,9 @@ export function KostnadsfriPage({
       setError(null);
 
       try {
-        // Build prompt from wizard data. Sidantalet ägs av byggvalens
-        // `MAX_PAGE_COUNT_CHOICE` (ägarbeslut 2026-09-14) och skickas dessutom
-        // strukturerat till ruttplanen av auto-starten i buildern.
-        const prompt = buildPromptFromWizardData(wizardData, {
-          maxPages: MAX_PAGE_COUNT_CHOICE,
-        });
+        // Build prompt from wizard data. Sidantalet finns inte i prompten utan
+        // skickas strukturerat till ruttplanen av auto-starten i buildern.
+        const prompt = buildPromptFromWizardData(wizardData);
 
         // Create app project first (same pattern as category page)
         const project = await createProject(
@@ -144,7 +140,7 @@ export function KostnadsfriPage({
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background">
       {phase === "password" && (
         <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
       )}
