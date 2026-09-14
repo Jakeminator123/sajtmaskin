@@ -187,6 +187,37 @@ describe("KontoPage auth and history", () => {
     });
   });
 
+  it("refetches /api/konto after re-login with the same user id", async () => {
+    const user = authUser({ id: "user_a", email: "anna@example.com", name: "Anna" });
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (!url.includes("/api/konto")) return Promise.resolve(jsonResponse({}));
+      const kontoCalls = fetchMock.mock.calls.filter((call) =>
+        String(call[0]).includes("/api/konto"),
+      ).length;
+      if (kontoCalls <= 1) {
+        return Promise.resolve(jsonResponse({ success: false, error: "Du måste vara inloggad." }, 401));
+      }
+      return Promise.resolve(jsonResponse(payload({ email: "anna@example.com", name: "Anna" })));
+    });
+
+    act(() => {
+      useAuthStore.getState().setUser(user);
+    });
+    render(<KontoPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(KONTO_SIGNED_OUT_TITLE)).toBeTruthy();
+    });
+
+    act(() => {
+      useAuthStore.getState().setUser(authUser({ id: "user_a", email: "anna@example.com", name: "Anna" }));
+    });
+
+    expect(await screen.findByText("anna@example.com")).toBeTruthy();
+    expect(screen.queryByText(KONTO_SIGNED_OUT_TITLE)).toBeNull();
+  });
+
   it("appends older history instead of dropping it", async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);

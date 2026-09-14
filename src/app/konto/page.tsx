@@ -99,7 +99,24 @@ export default function KontoPage() {
   const [sessionMissing, setSessionMissing] = useState(!userId);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const requestGeneration = useRef(0);
+  const sessionMissingRef = useRef(!userId);
+
+  function markSessionMissing() {
+    sessionMissingRef.current = true;
+    setSessionMissing(true);
+  }
+
+  useEffect(() => {
+    return useAuthStore.subscribe((state, previous) => {
+      if (!sessionMissingRef.current) return;
+      if (!state.user?.id || state.user === previous.user) return;
+      // Re-login writes the same id; the fetch effect must still run.
+      sessionMissingRef.current = false;
+      setRefreshNonce((value) => value + 1);
+    });
+  }, []);
 
   useEffect(() => {
     const generation = ++requestGeneration.current;
@@ -112,7 +129,7 @@ export default function KontoPage() {
       setPageOffset(0);
       setLoading(false);
       setLoadingMore(false);
-      setSessionMissing(true);
+      markSessionMissing();
       return () => controller.abort();
     }
 
@@ -120,6 +137,7 @@ export default function KontoPage() {
     setError(null);
     setHasMore(false);
     setPageOffset(0);
+    sessionMissingRef.current = false;
     setSessionMissing(false);
     setLoading(true);
 
@@ -142,7 +160,7 @@ export default function KontoPage() {
           setData(null);
           setError(null);
           setHasMore(false);
-          setSessionMissing(true);
+          markSessionMissing();
           return;
         }
 
@@ -179,7 +197,7 @@ export default function KontoPage() {
     return () => {
       controller.abort();
     };
-  }, [userId]);
+  }, [userId, refreshNonce]);
 
   async function loadOlder() {
     if (!userId || loadingMore || !hasMore) return;
@@ -206,7 +224,7 @@ export default function KontoPage() {
         setData(null);
         setError(null);
         setHasMore(false);
-        setSessionMissing(true);
+        markSessionMissing();
         return;
       }
 
