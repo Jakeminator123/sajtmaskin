@@ -66,7 +66,9 @@ export function IntroVideo({
           type="button"
           onClick={handleStart}
           aria-label={`Spela ${label.toLowerCase()} — ${KOSTNADSFRI_INTRO_DURATION_LABEL}`}
-          className="group absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/10 transition-colors hover:bg-black/20 focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-none"
+          // pb-12 keeps the affordance clear of the native control bar, which
+          // stays visible under the overlay while the film is paused.
+          className="group absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/10 pb-12 transition-colors hover:bg-black/20 focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-none"
         >
           <span
             className={cn(

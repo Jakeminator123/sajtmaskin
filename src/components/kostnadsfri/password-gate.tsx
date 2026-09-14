@@ -10,8 +10,8 @@ import { IntroVideo } from "./intro-video";
  * PasswordGate — First phase of the kostnadsfri flow.
  *
  * Two columns on desktop: the intro film is the visual anchor on the left, the
- * password card sits to the right so the input stays immediately findable.
- * Mobile stacks the same DOM order — film first, card underneath.
+ * password card sits to the right. Mobile stacks it film → card → step list,
+ * so the film stays the first thing you see without burying the input.
  */
 
 /** Written out because the film must not be the only carrier of this. */
@@ -34,6 +34,7 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
   const [attempts, setAttempts] = useState(0);
   const passwordId = useId();
   const errorId = useId();
+  const headingId = useId();
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -76,9 +77,12 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
         className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] bg-[radial-gradient(60%_60%_at_50%_0%,hsl(var(--brand-teal)/0.10),transparent_70%)]"
       />
 
-      <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-10 px-5 py-12 lg:flex-row lg:items-center lg:gap-14 lg:px-8 lg:py-16">
-        {/* ── Film column ───────────────────────────────────── */}
-        <section className="w-full lg:w-[58%]">
+      {/* Grid rather than two flex columns: the step list reads best under the
+          film on desktop but must sit *after* the card on mobile, so the
+          password field stays within reach of the first screen. */}
+      <main className="relative mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-5 pt-10 pb-28 lg:min-h-screen lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:content-center lg:gap-x-12 lg:gap-y-7 lg:px-8 lg:pt-16 lg:pb-24 xl:grid-cols-[minmax(0,62fr)_minmax(0,38fr)]">
+        {/* ── Film ──────────────────────────────────────────── */}
+        <header className="lg:col-start-1 lg:row-start-1">
           <p className="text-xs font-medium tracking-[0.18em] text-brand-teal uppercase">
             Kostnadsfri webbplats
           </p>
@@ -86,25 +90,22 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
             {companyName}
           </h1>
           <p className="mt-3 max-w-xl text-sm text-pretty text-muted-foreground sm:text-base">
-            Se filmen om hur det går till — och ange sedan koden du fick i mejlet.
+            Filmen förklarar erbjudandet på {KOSTNADSFRI_INTRO_DURATION_LABEL}. Du kan också gå
+            direkt vidare med koden du fick i mejlet.
           </p>
 
           <IntroVideo className="mt-6" />
+        </header>
 
-          <ul className="mt-6 grid gap-2.5">
-            {STEPS.map((step) => (
-              <li key={step} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-teal" aria-hidden />
-                <span>{step}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* ── Password column ───────────────────────────────── */}
-        <section className="w-full lg:w-[42%]">
+        {/* ── Password card ─────────────────────────────────── */}
+        <section
+          aria-labelledby={headingId}
+          className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-center"
+        >
           <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
-            <h2 className="text-xl font-semibold text-card-foreground">Kom igång</h2>
+            <h2 id={headingId} className="text-xl font-semibold text-card-foreground">
+              Kom igång
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Ange lösenordet du fick i mailet för att komma igång
             </p>
@@ -169,17 +170,22 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
                 )}
               </button>
             </form>
-
-            <p className="mt-6 border-t border-border pt-5 text-xs text-muted-foreground">
-              Filmen är {KOSTNADSFRI_INTRO_DURATION_LABEL} lång. Du behöver inte se den för att
-              komma igång — koden räcker.
-            </p>
           </div>
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Drivs av SajtMaskin — AI-driven webbdesign
-          </p>
         </section>
+
+        {/* ── What happens next, in text ────────────────────── */}
+        <ul className="grid gap-2.5 lg:col-start-1 lg:row-start-2">
+          {STEPS.map((step) => (
+            <li key={step} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-teal" aria-hidden />
+              <span>{step}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="text-center text-xs text-muted-foreground lg:col-span-2 lg:row-start-3 lg:pt-2">
+          Drivs av SajtMaskin — AI-driven webbdesign
+        </p>
       </main>
     </div>
   );
