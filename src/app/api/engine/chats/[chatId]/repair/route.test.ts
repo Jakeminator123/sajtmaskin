@@ -58,11 +58,15 @@ vi.mock("@/lib/tenant", () => ({
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/db/services/version-errors", () => ({ createEngineVersionErrorLogs }));
-vi.mock("@/lib/db/services/generation-billing", () => ({
-  getGenerationBillingMarkerPolicy,
-  establishGenerationBilling,
-  appendGenerationBillingClaimKey,
-}));
+vi.mock("@/lib/db/services/generation-billing", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db/services/generation-billing")>();
+  return {
+    ...actual,
+    getGenerationBillingMarkerPolicy,
+    establishGenerationBilling,
+    appendGenerationBillingClaimKey,
+  };
+});
 vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionRepairing,
@@ -161,6 +165,9 @@ beforeEach(() => {
   getGenerationBillingMarkerPolicy.mockReset().mockResolvedValue({
     freeGenerationEligible: true,
     freeGenerationApplied: false,
+    campaignFreeApplied: false,
+    campaignEntitlementId: null,
+    campaignPhase: null,
   });
   establishGenerationBilling.mockReset().mockResolvedValue(undefined);
   appendGenerationBillingClaimKey.mockReset().mockResolvedValue(undefined);
@@ -415,10 +422,69 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(acquireVersionLease).toHaveBeenCalledOnce();
   });
 
+  it("skips paid preflight for a campaign-free version even at 0 credits", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: false,
+      freeGenerationApplied: false,
+      campaignFreeApplied: true,
+      campaignEntitlementId: "campaign_1",
+      campaignPhase: "initial",
+    });
+    prepareCredits.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ insufficientCredits: true }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+    expect(appendGenerationBillingClaimKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versionId: "ver-1",
+        claimKey: expect.any(String),
+      }),
+    );
+    expect(acquireVersionLease).toHaveBeenCalledOnce();
+  });
+
+  it("treats a reserved campaign marker as free before settlement applies the flag", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: false,
+      freeGenerationApplied: false,
+      campaignFreeApplied: false,
+      campaignEntitlementId: "campaign_1",
+      campaignPhase: "followup",
+    });
+    prepareCredits.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ insufficientCredits: true }), { status: 402 }),
+    });
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(appendGenerationBillingClaimKey).toHaveBeenCalledOnce();
+  });
+
   it("rejects repeat repair of a free marker that is not failed or repair-available", async () => {
     getGenerationBillingMarkerPolicy.mockResolvedValue({
       freeGenerationEligible: true,
       freeGenerationApplied: true,
+      campaignFreeApplied: false,
+      campaignEntitlementId: null,
+      campaignPhase: null,
     });
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1", model: "pro" },

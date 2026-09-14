@@ -52,6 +52,86 @@ export function resolveKostnadsfriCampaignPhase(input: {
     : null;
 }
 
+export type KostnadsfriCampaignReservedSlot = {
+  phase: KostnadsfriCampaignPhase;
+  versionId: string;
+  chatId: string;
+};
+
+export type KostnadsfriCampaignRestoredSlots = {
+  initialChatId: string | null;
+  initialVersionId: string | null;
+  followupVersionId: string | null;
+};
+
+/**
+ * A successful finalize writes the campaign completion marker before
+ * settlement can copy version ids onto the entitlement. Later benefit
+ * checks must treat that marker as the consumed init/follow-up so a
+ * retry of settlement cannot spend a second init or hide the follow-up.
+ */
+export function restoreKostnadsfriCampaignSlotsFromMarkers(input: {
+  initialChatId?: string | null;
+  initialVersionId?: string | null;
+  followupVersionId?: string | null;
+  reservedSlots: KostnadsfriCampaignReservedSlot[];
+}): KostnadsfriCampaignRestoredSlots {
+  const initialMarker = input.reservedSlots.find((slot) => slot.phase === "initial");
+  const followupMarker = input.reservedSlots.find((slot) => slot.phase === "followup");
+  return {
+    initialChatId: input.initialChatId ?? initialMarker?.chatId ?? null,
+    initialVersionId: input.initialVersionId ?? initialMarker?.versionId ?? null,
+    followupVersionId: input.followupVersionId ?? followupMarker?.versionId ?? null,
+  };
+}
+
+export function decideKostnadsfriCampaignBenefit(input: {
+  entitlementId: string;
+  requestedPhase: KostnadsfriCampaignRequestedPhase;
+  chatId?: string | null;
+  initialChatId?: string | null;
+  initialVersionId?: string | null;
+  followupVersionId?: string | null;
+  reservedSlots: KostnadsfriCampaignReservedSlot[];
+}): {
+  restored: KostnadsfriCampaignRestoredSlots;
+  needsRestore: boolean;
+  phase: KostnadsfriCampaignPhase | null;
+  benefit: KostnadsfriCampaignBenefit | null;
+} {
+  const restored = restoreKostnadsfriCampaignSlotsFromMarkers({
+    initialChatId: input.initialChatId,
+    initialVersionId: input.initialVersionId,
+    followupVersionId: input.followupVersionId,
+    reservedSlots: input.reservedSlots,
+  });
+  const needsRestore =
+    restored.initialChatId !== (input.initialChatId ?? null) ||
+    restored.initialVersionId !== (input.initialVersionId ?? null) ||
+    restored.followupVersionId !== (input.followupVersionId ?? null);
+  const phase = resolveKostnadsfriCampaignPhase({
+    requestedPhase: input.requestedPhase,
+    chatId: input.chatId,
+    initialChatId: restored.initialChatId,
+    initialVersionId: restored.initialVersionId,
+  });
+  if (!phase) {
+    return { restored, needsRestore, phase: null, benefit: null };
+  }
+  if (input.reservedSlots.some((slot) => slot.phase === phase)) {
+    return { restored, needsRestore, phase, benefit: null };
+  }
+  if (phase === "followup" && restored.followupVersionId) {
+    return { restored, needsRestore, phase, benefit: null };
+  }
+  return {
+    restored,
+    needsRestore,
+    phase,
+    benefit: { entitlementId: input.entitlementId, phase },
+  };
+}
+
 /**
  * Pins the invitation to the chat created by the admitted initial request.
  * This is a retry binding, not consumption: the initial slot is claimed only
@@ -258,33 +338,52 @@ export async function getKostnadsfriCampaignPolicy(input: {
       entitlement = claimed[0] ?? entitlement;
     }
 
-    const phase = resolveKostnadsfriCampaignPhase({
+    const reservedRows = await tx
+      .select({
+        phase: generationBillings.campaign_phase,
+        versionId: generationBillings.version_id,
+        chatId: generationBillings.chat_id,
+      })
+      .from(generationBillings)
+      .where(eq(generationBillings.campaign_entitlement_id, entitlement.id));
+    const reservedSlots = reservedRows.filter(
+      (row): row is KostnadsfriCampaignReservedSlot =>
+        row.phase === "initial" || row.phase === "followup",
+    );
+    const decision = decideKostnadsfriCampaignBenefit({
+      entitlementId: entitlement.id,
       requestedPhase: input.phase,
       chatId: input.chatId,
       initialChatId: entitlement.initial_chat_id,
       initialVersionId: entitlement.initial_version_id,
+      followupVersionId: entitlement.followup_version_id,
+      reservedSlots,
     });
-    if (!phase) return unavailablePolicy();
-
-    const reserved = await tx
-      .select({ id: generationBillings.id })
-      .from(generationBillings)
-      .where(
-        and(
-          eq(generationBillings.campaign_entitlement_id, entitlement.id),
-          eq(generationBillings.campaign_phase, phase),
-        ),
-      )
-      .limit(1);
-    if (reserved[0]) return unavailablePolicy();
-
-    if (phase === "followup" && entitlement.followup_version_id) {
-      return unavailablePolicy();
+    if (decision.needsRestore) {
+      const now = new Date();
+      const restoredRows = await tx
+        .update(kostnadsfriCampaignEntitlements)
+        .set({
+          initial_chat_id: decision.restored.initialChatId,
+          initial_version_id: decision.restored.initialVersionId,
+          initial_claimed_at: decision.restored.initialVersionId
+            ? (entitlement.initial_claimed_at ?? now)
+            : entitlement.initial_claimed_at,
+          followup_version_id: decision.restored.followupVersionId,
+          followup_claimed_at: decision.restored.followupVersionId
+            ? (entitlement.followup_claimed_at ?? now)
+            : entitlement.followup_claimed_at,
+          updated_at: now,
+        })
+        .where(eq(kostnadsfriCampaignEntitlements.id, entitlement.id))
+        .returning();
+      entitlement = restoredRows[0] ?? entitlement;
     }
+    if (!decision.benefit) return unavailablePolicy();
 
     return {
       entitlementId: entitlement.id,
-      benefit: { entitlementId: entitlement.id, phase },
+      benefit: decision.benefit,
     };
   });
 }

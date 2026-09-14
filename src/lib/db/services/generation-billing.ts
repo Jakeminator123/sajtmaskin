@@ -718,18 +718,45 @@ export async function settleGenerationBilling(
   });
 }
 
+export type GenerationBillingMarkerPolicy = {
+  freeGenerationEligible: boolean;
+  freeGenerationApplied: boolean;
+  campaignFreeApplied: boolean;
+  campaignEntitlementId: string | null;
+  campaignPhase: "initial" | "followup" | null;
+};
+
+/**
+ * Repair preflight treats the original generation as already paid when either
+ * the account's free slot or the campaign slot was reserved on this version.
+ * Campaign reservation lives on the completion marker before settlement sets
+ * `campaign_free_applied`, so entitlement/phase must also count as free.
+ */
+export function isGenerationBillingMarkerFreeForRepair(
+  marker: GenerationBillingMarkerPolicy,
+): boolean {
+  return (
+    marker.freeGenerationApplied ||
+    marker.campaignFreeApplied ||
+    Boolean(marker.campaignEntitlementId && marker.campaignPhase)
+  );
+}
+
 /**
  * Lightweight marker lookup for post-processing preflight. Unlike settlement,
  * this never mutates balance, status, or the free-generation entitlement.
  */
 export async function getGenerationBillingMarkerPolicy(
   versionId: string,
-): Promise<{ freeGenerationEligible: boolean; freeGenerationApplied: boolean } | null> {
+): Promise<GenerationBillingMarkerPolicy | null> {
   assertDbConfigured();
   const rows = await db
     .select({
       freeGenerationEligible: generationBillings.free_generation_eligible,
       freeGenerationApplied: generationBillings.free_generation_applied,
+      campaignFreeApplied: generationBillings.campaign_free_applied,
+      campaignEntitlementId: generationBillings.campaign_entitlement_id,
+      campaignPhase: generationBillings.campaign_phase,
     })
     .from(generationBillings)
     .where(eq(generationBillings.version_id, versionId))
