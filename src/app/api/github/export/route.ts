@@ -6,12 +6,22 @@ import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
 import {
+  OwnerTransferSiteUrlRequiredError,
+  buildOwnerTransferPackage,
+} from "@/lib/gen/export/owner-transfer-package";
+import {
   GITHUB_EXPORT_MANIFEST_PATH,
   GitHubExportPathConflictError,
   buildGitHubExportPlan,
   parseGitHubExportManifest,
 } from "@/lib/gen/export/github-tree-plan";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { getProjectByIdForOwner } from "@/lib/db/services/projects";
+import {
+  loadProjectExportMedia,
+  loadProjectProviderOrigin,
+} from "@/lib/projects/project-export-media";
 
 export const runtime = "nodejs";
 
@@ -20,6 +30,26 @@ const exportSchema = z.object({
   versionId: z.string().min(1, "versionId is required"),
   repo: z.string().min(1, "repo is required"),
   private: z.boolean().optional(),
+  projectId: z.string().trim().min(1).optional(),
+  siteUrl: z
+    .url()
+    .refine((value) => {
+      const url = new URL(value);
+      const hostname = url.hostname.replace(/\.+$/, "");
+      const isSajtmaskinHost =
+        hostname === "sajtmaskin.se" ||
+        hostname.endsWith(".sajtmaskin.se") ||
+        hostname === "sajtmaskin.vercel.app";
+      return (
+        (url.protocol === "https:" || url.protocol === "http:") &&
+        !isSajtmaskinHost &&
+        url.pathname === "/" &&
+        !url.search &&
+        !url.hash
+      );
+    }, "siteUrl must be a new http(s) origin outside Sajtmaskin")
+    .transform((value) => new URL(value).origin)
+    .optional(),
 });
 
 type GitHubRepoResponse = {
@@ -231,7 +261,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { chatId, versionId, repo: repoInput, private: isPrivate = true } = parsed.data;
+      const {
+        chatId,
+        versionId,
+        repo: repoInput,
+        private: isPrivate = true,
+        projectId,
+        siteUrl,
+      } = parsed.data;
       const repoParsed = normalizeRepoInput(repoInput, user.github_username);
       const owner = sanitizeRepoName(repoParsed.owner);
       const repoName = sanitizeRepoName(repoParsed.repo);
@@ -244,10 +281,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: "Legacy V0-export är inte längre tillgänglig. Export fungerar bara för own-engine-chattar.",
+            error:
+              "Legacy V0-export är inte längre tillgänglig. Export fungerar bara för own-engine-chattar.",
           },
           { status: 410 },
         );
+      }
+      // All export entry points share the authorized chat's project scope.
+      // A client-supplied project is only an additional consistency check.
+      const exportProjectId = projectId ?? engineChat.project_id;
+      if (exportProjectId) {
+        const project = await getProjectByIdForOwner(exportProjectId, {
+          userId: user.id,
+          sessionId: getSessionIdFromRequest(request),
+        });
+        if (!project || engineChat.project_id !== project.id) {
+          return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+        }
       }
 
       const ev = await getVersionById(versionId);
@@ -256,7 +306,24 @@ export async function POST(request: NextRequest) {
       }
       const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
       const portableProject = await buildPortableExportProject(rawFiles, chatId);
-      const previewFiles = buildGitHubExportPlan(portableProject).files.filter(
+      const media = exportProjectId
+        ? await loadProjectExportMedia({
+            projectId: exportProjectId,
+            userId: user.id,
+            referencedText: portableProject.map((file) => file.content).join("\n"),
+          })
+        : [];
+      const providerOrigin = await loadProjectProviderOrigin({
+        chatId: engineChat.id,
+        versionId: ev.id,
+      });
+      const transferProject = buildOwnerTransferPackage({
+        projectFiles: portableProject,
+        media,
+        siteUrl,
+        providerOrigin,
+      });
+      const previewFiles = buildGitHubExportPlan(transferProject).files.filter(
         (file) => file.path !== GITHUB_EXPORT_MANIFEST_PATH,
       );
       if (previewFiles.length === 0) {
@@ -305,7 +372,7 @@ export async function POST(request: NextRequest) {
       let files: ReturnType<typeof buildGitHubExportPlan>["files"];
       let deletionPaths: string[];
       try {
-        const plan = buildGitHubExportPlan(portableProject, {
+        const plan = buildGitHubExportPlan(transferProject, {
           previousManifestPaths,
           existingBlobPaths,
         });
@@ -313,10 +380,7 @@ export async function POST(request: NextRequest) {
         deletionPaths = plan.deletionPaths;
       } catch (error) {
         if (error instanceof GitHubExportPathConflictError) {
-          return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 409 },
-          );
+          return NextResponse.json({ success: false, error: error.message }, { status: 409 });
         }
         throw error;
       }
@@ -335,7 +399,9 @@ export async function POST(request: NextRequest) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              content: Buffer.from(file.content, "utf8").toString("base64"),
+              content: Buffer.isBuffer(file.content)
+                ? file.content.toString("base64")
+                : Buffer.from(file.content, "utf8").toString("base64"),
               encoding: "base64",
             }),
           },
@@ -430,8 +496,12 @@ export async function POST(request: NextRequest) {
         repoUrl: repoResult.repo.html_url,
         created: repoResult.created,
         commitSha: commitResponse.data.sha,
+        mediaCount: media.length,
       });
     } catch (error) {
+      if (error instanceof OwnerTransferSiteUrlRequiredError) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      }
       console.error("[API/GitHub Export] Error:", error);
       return NextResponse.json(
         {
