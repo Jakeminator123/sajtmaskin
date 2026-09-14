@@ -239,9 +239,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           imageGenerations: resolvedImageGenerations,
           attachmentsCount: requestAttachments.length,
         };
+        const campaignProjectId = !metaPlanMode
+          ? await resolveAppProjectIdForRequest(
+              req,
+              { appProjectId: metaAppProjectId, projectId },
+              { sessionId },
+            )
+          : null;
         const creditCheck = await prepareGenerationCredits(req, "prompt.create", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
+          campaignProjectId,
+          campaignPhase: "initial",
         });
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);

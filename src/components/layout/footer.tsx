@@ -34,12 +34,10 @@ export function Footer() {
             <p className="text-muted-foreground/60 mt-4 text-xs">
               En tjänst från{" "}
               <a
-                href="https://sajtstudio.se"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/om"
                 className="hover:text-foreground transition-colors"
               >
-                Pretty Good AB
+                Pretty Good B.V.
               </a>
             </p>
           </div>
@@ -110,7 +108,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="border-border/50 mt-10 border-t pt-6">
           <p className="text-muted-foreground/60 text-center text-xs">
-            &copy; {new Date().getFullYear()} Pretty Good AB (DG97). Alla rättigheter förbehållna.
+            &copy; {new Date().getFullYear()} Pretty Good B.V. Alla rättigheter förbehållna.
           </p>
         </div>
       </div>

@@ -35,7 +35,11 @@ function verifyRequest(slug: string, password: string) {
   return new NextRequest(`http://localhost/api/kostnadsfri/${slug}/verify`, {
     method: "POST",
     body: JSON.stringify({ password }),
-    headers: { "content-type": "application/json", "x-real-ip": "10.0.0.1" },
+    headers: {
+      "content-type": "application/json",
+      "x-real-ip": "10.0.0.1",
+      cookie: "sajtmaskin_session=sess_1",
+    },
   });
 }
 
@@ -74,9 +78,11 @@ describe("kostnadsfri verify route", () => {
 
     expect(ok.status).toBe(200);
     expect(body.companyData.companyName).toBe("Jakobs Foretag AB");
+    expect(ok.headers.get("set-cookie")).toContain("sajtmaskin_kostnadsfri_campaign=");
+    expect(ok.headers.get("set-cookie")).toContain("HttpOnly");
     expect(recordPageView).toHaveBeenCalledWith(
       "/kostnadsfri/jakobs-foretag-ab/verifierad",
-      undefined,
+      "sess_1",
       undefined,
       "10.0.0.1",
       undefined,

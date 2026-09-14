@@ -238,6 +238,41 @@ describe("resolveGenerationChargeDecision", () => {
     });
   });
 
+  it("uses the campaign slot before the account's general first generation", () => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        campaignFreeEligible: true,
+        existingCampaignFreeApplied: false,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status: "campaign_free_generation",
+      campaignFreeApplied: true,
+      shouldClaimCampaignFree: true,
+      freeGenerationApplied: false,
+      shouldClaimFreeGeneration: false,
+    });
+  });
+
+  it("keeps repeated settlement of a campaign version idempotently free", () => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        freeGenerationAvailable: true,
+        campaignFreeEligible: false,
+        existingCampaignFreeApplied: true,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status: "campaign_free_generation",
+      campaignFreeApplied: true,
+      shouldClaimCampaignFree: false,
+      freeGenerationApplied: false,
+      shouldClaimFreeGeneration: false,
+    });
+  });
+
   it("keeps repeated settlement of the free version idempotently free", () => {
     expect(
       resolveGenerationChargeDecision({

@@ -69,6 +69,9 @@ export const MIGRATION_ORDER = [
   // migration. This nullable per-marker lower bound prevents a newly created
   // historical repair marker from charging the version's old usage.
   "add-generation-billing-usage-start.sql",
+  // Verified invitation pilot: one free init and one free follow-up, settled
+  // on successful version markers without consuming the account entitlement.
+  "add-kostnadsfri-campaign-entitlements.sql",
   "add-app-projects-vercel-project.sql",
   "add-branded-site-domains.sql",
   "drop-deployments-legacy-fks.sql",

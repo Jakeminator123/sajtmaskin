@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import {
-  createTransaction,
-  getTransactionByIdempotency,
-} from "@/lib/db/services/transactions";
+import { createTransaction, getTransactionByIdempotency } from "@/lib/db/services/transactions";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { isTestUser } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
+import {
+  getKostnadsfriCampaignPolicy,
+  type KostnadsfriCampaignBenefit,
+  type KostnadsfriCampaignPhase,
+} from "@/lib/db/services/kostnadsfri-campaign";
 import {
   getActionLabel,
   getCreditCost,
@@ -57,6 +59,8 @@ export type CreditsEvaluation = {
   user: User | null;
   isTest: boolean;
   usingFreeGeneration: boolean;
+  campaignBenefit: KostnadsfriCampaignBenefit | null;
+  campaignProject: boolean;
   usingExistingEntitlement: boolean;
   failureType?: "auth" | "insufficient";
   currentBalance?: number;
@@ -70,6 +74,9 @@ async function evaluateCredits(
     sessionId?: string | null;
     allowFreeGeneration?: boolean;
     idempotencyKey?: string | null;
+    campaignProjectId?: string | null;
+    campaignPhase?: KostnadsfriCampaignPhase;
+    campaignChatId?: string | null;
   } = {},
 ): Promise<CreditsEvaluation> {
   const pricing = await resolvePricingSettings();
@@ -78,6 +85,17 @@ async function evaluateCredits(
 
   if (user) {
     const isTest = isTestUser(user);
+    const campaignPolicy =
+      !isTest && options.campaignProjectId && options.campaignPhase
+        ? await getKostnadsfriCampaignPolicy({
+            projectId: options.campaignProjectId,
+            userId: user.id,
+            sessionId: options.sessionId,
+            phase: options.campaignPhase,
+            chatId: options.campaignChatId,
+          })
+        : null;
+    const campaignBenefit = campaignPolicy?.benefit ?? null;
     const idempotencyKey = options.idempotencyKey?.trim() || null;
     const usingExistingEntitlement = idempotencyKey
       ? Boolean(
@@ -95,10 +113,15 @@ async function evaluateCredits(
     const usingFreeGeneration =
       !isTest &&
       options.allowFreeGeneration === true &&
+      !campaignPolicy &&
       VERSION_SETTLED_GENERATION_ACTIONS.has(action) &&
       user.free_generation_available;
     const canProceed =
-      isTest || usingFreeGeneration || usingExistingEntitlement || user.diamonds >= cost;
+      isTest ||
+      Boolean(campaignBenefit) ||
+      usingFreeGeneration ||
+      usingExistingEntitlement ||
+      user.diamonds >= cost;
     return {
       allowed: canProceed,
       cost,
@@ -108,6 +131,8 @@ async function evaluateCredits(
       user,
       isTest,
       usingFreeGeneration,
+      campaignBenefit,
+      campaignProject: Boolean(campaignPolicy),
       usingExistingEntitlement,
       failureType: canProceed ? undefined : "insufficient",
       currentBalance: user.diamonds,
@@ -121,6 +146,8 @@ async function evaluateCredits(
     user: null,
     isTest: false,
     usingFreeGeneration: false,
+    campaignBenefit: null,
+    campaignProject: false,
     usingExistingEntitlement: false,
     failureType: "auth",
   };
@@ -135,6 +162,8 @@ export type PreparedCredits =
       user: User;
       isTest: boolean;
       usingFreeGeneration: boolean;
+      campaignBenefit: KostnadsfriCampaignBenefit | null;
+      campaignProject: boolean;
       usingExistingEntitlement: boolean;
       /**
        * Charge the credits. Pass `{ rejectIfNegative: true }` from charge-FIRST
@@ -157,6 +186,9 @@ export async function prepareCredits(
     sessionId?: string | null;
     allowFreeGeneration?: boolean;
     idempotencyKey?: string | null;
+    campaignProjectId?: string | null;
+    campaignPhase?: KostnadsfriCampaignPhase;
+    campaignChatId?: string | null;
   } = {},
 ): Promise<PreparedCredits> {
   const evaluation = await evaluateCredits(req, action, context, options);
@@ -180,10 +212,12 @@ export async function prepareCredits(
   const commit = async (commitOptions?: { rejectIfNegative?: boolean }) => {
     if (
       evaluation.isTest ||
+      evaluation.campaignBenefit ||
       evaluation.usingFreeGeneration ||
       evaluation.usingExistingEntitlement ||
       evaluation.cost <= 0
-    ) return;
+    )
+      return;
     await createTransaction(
       evaluation.user!.id,
       getCreditTransactionType(action),
@@ -201,10 +235,12 @@ export async function prepareCredits(
   const refund = async () => {
     if (
       evaluation.isTest ||
+      evaluation.campaignBenefit ||
       evaluation.usingFreeGeneration ||
       evaluation.usingExistingEntitlement ||
       evaluation.cost <= 0
-    ) return;
+    )
+      return;
     await createTransaction(
       evaluation.user!.id,
       `${getCreditTransactionType(action)}_refund`,
@@ -221,6 +257,8 @@ export async function prepareCredits(
     user: evaluation.user!,
     isTest: evaluation.isTest,
     usingFreeGeneration: evaluation.usingFreeGeneration,
+    campaignBenefit: evaluation.campaignBenefit,
+    campaignProject: evaluation.campaignProject,
     usingExistingEntitlement: evaluation.usingExistingEntitlement,
     commit,
     refund,

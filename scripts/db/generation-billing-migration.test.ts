@@ -20,6 +20,10 @@ const usageStartMigration = readFileSync(
   join(REPO_ROOT, "src/lib/db/migrations/add-generation-billing-usage-start.sql"),
   "utf8",
 );
+const campaignMigration = readFileSync(
+  join(REPO_ROOT, "src/lib/db/migrations/add-kostnadsfri-campaign-entitlements.sql"),
+  "utf8",
+);
 const dbHealth = readFileSync(join(REPO_ROOT, "scripts/db/db-health-check.mjs"), "utf8");
 
 function firstGenerationCte(sql: string): string {
@@ -60,17 +64,30 @@ describe("generation billing claim-key migration", () => {
     const baseIndex = MIGRATION_ORDER.indexOf("add-generation-billing.sql");
     expect(baseIndex).toBeGreaterThanOrEqual(0);
     expect(MIGRATION_ORDER[baseIndex + 1]).toBe("add-generation-billing-claim-keys.sql");
-    expect(MIGRATION_ORDER[baseIndex + 2]).toBe(
-      "add-generation-billing-free-eligibility.sql",
-    );
+    expect(MIGRATION_ORDER[baseIndex + 2]).toBe("add-generation-billing-free-eligibility.sql");
     expect(MIGRATION_ORDER[baseIndex + 3]).toBe("add-generation-billing-usage-start.sql");
+    expect(MIGRATION_ORDER[baseIndex + 4]).toBe("add-kostnadsfri-campaign-entitlements.sql");
   });
 
   it("keeps the recovery column in the read-only database health contract", () => {
     expect(dbHealth).toMatch(
-      /EXPECTED_REQUIRED_COLUMNS\s*=\s*\{[\s\S]*generation_billings:\s*\["claim_keys",\s*"free_generation_eligible",\s*"usage_started_at"\]/,
+      /generation_billings:\s*\[[\s\S]*"claim_keys",[\s\S]*"campaign_entitlement_id",[\s\S]*"campaign_phase",[\s\S]*"campaign_free_applied"/,
     );
     expect(dbHealth).toContain("allMissingColumns.length === 0");
+  });
+});
+
+describe("kostnadsfri campaign billing migration", () => {
+  it("reserves each invitation phase once and keeps the server-owned table private", () => {
+    expect(campaignMigration).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS generation_billings_campaign_slot_unique[\s\S]*campaign_entitlement_id, campaign_phase/i,
+    );
+    expect(campaignMigration).toMatch(
+      /ALTER TABLE kostnadsfri_campaign_entitlements ENABLE ROW LEVEL SECURITY/i,
+    );
+    expect(campaignMigration).toMatch(
+      /REVOKE ALL ON TABLE kostnadsfri_campaign_entitlements FROM authenticated/i,
+    );
   });
 });
 
@@ -85,9 +102,7 @@ describe("generation billing usage boundary", () => {
 
 describe("generation billing free-eligibility policy", () => {
   it("creates the explicit policy column for fresh and already-migrated databases", () => {
-    expect(migration).toMatch(
-      /free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i,
-    );
+    expect(migration).toMatch(/free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i);
     expect(freeEligibilityMigration).toMatch(
       /ALTER TABLE generation_billings[\s\S]*ADD COLUMN IF NOT EXISTS free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i,
     );
