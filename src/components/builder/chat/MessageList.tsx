@@ -89,6 +89,10 @@ function hasGenerationContent(text: string): boolean {
   return text.includes('file="') || text.includes("```");
 }
 
+function hasCanonicalRawPlanBlockers(rawPlan?: Record<string, unknown>): boolean {
+  return Array.isArray(rawPlan?.blockers) && rawPlan.blockers.length > 0;
+}
+
 const MessageListComponent = ({
   chatId,
   versionId = null,
@@ -543,7 +547,11 @@ const MessageListComponent = ({
                         )}
                         <BuildPlanCard
                           rawPlan={part.plan.raw}
-                          onApproveBuild={approveBuildPlanForMessage}
+                          onApproveBuild={
+                            !hasCanonicalRawPlanBlockers(part.plan.raw)
+                              ? approveBuildPlanForMessage
+                              : undefined
+                          }
                           approveDisabled={quickReplyDisabled}
                           lifecycleStage={lifecycleStage}
                         />
@@ -587,7 +595,11 @@ const MessageListComponent = ({
                       <BuildPlanCard
                         key={`${message.id}-plan-card-${index}`}
                         rawPlan={part.plan.raw}
-                        onApproveBuild={approveBuildPlanForMessage}
+                        onApproveBuild={
+                          !hasCanonicalRawPlanBlockers(part.plan.raw)
+                            ? approveBuildPlanForMessage
+                            : undefined
+                        }
                         approveDisabled={quickReplyDisabled}
                         lifecycleStage={lifecycleStage}
                       />

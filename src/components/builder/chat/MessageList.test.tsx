@@ -1131,6 +1131,62 @@ describe("MessageList", () => {
     expect(onApproveBuildPlan).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      "malformed",
+      {
+        id: "invalid-blocker",
+        kind: "unsupported-kind",
+        question: "Vilken datakälla ska användas?",
+      },
+    ],
+    [
+      "resolved",
+      {
+        id: "resolved-blocker",
+        kind: "unclear",
+        question: "Ska standardvalet användas?",
+        resolved: true,
+      },
+    ],
+  ])(
+    "keeps approval hidden after reload when the persisted raw plan has a %s blocker",
+    (_case, blocker) => {
+      const onApproveBuildPlan = vi.fn();
+
+      render(
+        <MessageList
+          chatId="chat_sm088_reloaded"
+          onApproveBuildPlan={onApproveBuildPlan}
+          messages={[
+            {
+              id: "assistant_reloaded_plan",
+              role: "assistant",
+              content: "Planen är sparad.",
+              uiParts: [
+                {
+                  type: "plan",
+                  plan: {
+                    title: "Brochure",
+                    description: "Hem, Kontakt",
+                    raw: {
+                      ...readyBuildPlan(),
+                      blockers: [blocker],
+                    },
+                  },
+                },
+              ],
+            },
+          ]}
+        />,
+      );
+
+      expect(screen.getByText("Bygg startsidan")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Godkänn plan och bygg" })).toBeNull();
+      expect(onApproveBuildPlan).not.toHaveBeenCalled();
+    },
+  );
+
   it("keeps a historical plan visible without restoring its approval after a later turn", () => {
     const onApproveBuildPlan = vi.fn();
 
