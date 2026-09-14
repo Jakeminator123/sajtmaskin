@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db/client", () => ({ db: {} }));
 
-import { resolveSiteAddress, toPublishState } from "./site-overview";
+import {
+  inFlightDeploymentId,
+  resolveOverviewAddress,
+  resolveSiteAddress,
+  toPublishState,
+} from "./site-overview";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -84,6 +89,72 @@ describe("resolveSiteAddress", () => {
 
   it("reports no address when nothing is published", () => {
     expect(resolveSiteAddress({ providerUrl: null })).toEqual({ liveUrl: null, kind: "none" });
+  });
+});
+
+describe("resolveOverviewAddress", () => {
+  it("classifies a ready row whose only host lives in deployments.url", () => {
+    // Older rows never got providerUrl written; the deploy list already
+    // recovers the vercel.app host via resolveLegacyProviderUrl.
+    const result = resolveOverviewAddress(
+      {},
+      { providerUrl: null, url: "https://generated-abc.vercel.app" },
+    );
+
+    expect(result).toEqual({
+      liveUrl: "https://generated-abc.vercel.app",
+      kind: "provider",
+    });
+  });
+
+  it("classifies a verified custom host even without a ready row", () => {
+    const result = resolveOverviewAddress(
+      {
+        customDomain: "kundforetag.se",
+        customDomainVerifiedAt: new Date("2026-09-01"),
+      },
+      null,
+    );
+
+    expect(result).toEqual({ liveUrl: "https://kundforetag.se", kind: "custom" });
+  });
+
+  it("classifies a verified branded host even without a ready row", () => {
+    enableBrandedGate();
+
+    const result = resolveOverviewAddress(
+      {
+        brandedDomain: "kundforetag.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date("2026-09-01"),
+      },
+      null,
+    );
+
+    expect(result).toEqual({
+      liveUrl: "https://kundforetag.sites.sajtmaskin.se",
+      kind: "branded",
+    });
+  });
+
+  it("does not invent a provider address from a non-vercel deployments.url", () => {
+    expect(
+      resolveOverviewAddress({}, { providerUrl: null, url: "https://kundforetag.se" }),
+    ).toEqual({ liveUrl: null, kind: "none" });
+  });
+});
+
+describe("inFlightDeploymentId", () => {
+  it("exposes the newest id only while the build is pending or building", () => {
+    expect(inFlightDeploymentId({ id: "dep_1", status: "building" })).toBe("dep_1");
+    expect(inFlightDeploymentId({ id: "dep_2", status: "pending" })).toBe("dep_2");
+    expect(inFlightDeploymentId({ id: "dep_3", status: "queued" })).toBe("dep_3");
+  });
+
+  it("is null once the newest deployment is terminal", () => {
+    expect(inFlightDeploymentId({ id: "dep_4", status: "ready" })).toBeNull();
+    expect(inFlightDeploymentId({ id: "dep_5", status: "error" })).toBeNull();
+    expect(inFlightDeploymentId({ id: "dep_6", status: "cancelled" })).toBeNull();
+    expect(inFlightDeploymentId(null)).toBeNull();
   });
 });
 

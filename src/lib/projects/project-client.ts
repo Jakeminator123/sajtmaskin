@@ -57,6 +57,8 @@ export interface ProjectSite {
   state: SitePublishState;
   liveAt: string | null;
   liveVersionId: string | null;
+  /** Set when the newest deployment is still pending/building — watch this id. */
+  latestDeploymentId: string | null;
   publishedSlug: string | null;
   brandedDomain: string | null;
   brandedDomainVerified: boolean;

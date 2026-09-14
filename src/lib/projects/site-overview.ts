@@ -17,6 +17,7 @@
  */
 
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { resolveLegacyProviderUrl } from "@/app/api/v0/deployments/_route/legacy-provider-url";
 import { db } from "@/lib/db/client";
 import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
@@ -52,6 +53,12 @@ export type SiteOverview = {
   liveAt: Date | null;
   /** Version behind the live deployment — the one a re-publish should target. */
   liveVersionId: string | null;
+  /**
+   * Newest deployment when it is still pending/building. The portal watches
+   * this id over the existing SSE stream so a second charged republish cannot
+   * start, and so "Bygger"/"Väntar" is not left on screen after the build ends.
+   */
+  latestDeploymentId: string | null;
   /** Slug reserved for the branded host. Stable once allocated. */
   publishedSlug: string | null;
   /** Branded host, and whether it is verified. Unverified never serves traffic. */
@@ -69,6 +76,16 @@ type AddressInput = {
   brandedDomainVerifiedAt?: Date | string | null;
   customDomain?: string | null;
   customDomainVerifiedAt?: Date | string | null;
+};
+
+type OverviewProjectFields = Pick<
+  AddressInput,
+  "brandedDomain" | "brandedDomainVerifiedAt" | "customDomain" | "customDomainVerifiedAt"
+>;
+
+type OverviewReadyRow = {
+  providerUrl?: string | null;
+  url?: string | null;
 };
 
 /**
@@ -98,6 +115,30 @@ export function resolveSiteAddress(input: AddressInput): SiteAddress {
   return { liveUrl, kind: "provider" };
 }
 
+/**
+ * Address for the portal overview.
+ *
+ * `resolveLiveUrl` stays the only priority. This helper only fills
+ * `providerUrl` from the legacy `deployments.url` column when the ready row
+ * never got `providerUrl` written — older sites stored the vercel.app host
+ * there. A verified custom/branded host is classified even without a ready
+ * row, because `resolveLiveUrl` can already produce that URL from project
+ * fields alone.
+ */
+export function resolveOverviewAddress(
+  project: OverviewProjectFields,
+  latestReady: OverviewReadyRow | null | undefined,
+): SiteAddress {
+  const storedProvider = latestReady?.providerUrl?.trim() || null;
+  return resolveSiteAddress({
+    providerUrl: storedProvider || resolveLegacyProviderUrl(latestReady?.url),
+    brandedDomain: project.brandedDomain,
+    brandedDomainVerifiedAt: project.brandedDomainVerifiedAt,
+    customDomain: project.customDomain,
+    customDomainVerifiedAt: project.customDomainVerifiedAt,
+  });
+}
+
 /** Vercel-style ready states are already normalised into `deployments.status`. */
 export function toPublishState(status: string | null | undefined): SitePublishState {
   switch ((status ?? "").toLowerCase()) {
@@ -113,6 +154,15 @@ export function toPublishState(status: string | null | undefined): SitePublishSt
     default:
       return "pending";
   }
+}
+
+/** Id to subscribe to when the newest deployment is still in flight. */
+export function inFlightDeploymentId(
+  latest: { id: string; status: string | null | undefined } | null | undefined,
+): string | null {
+  if (!latest?.id) return null;
+  const state = toPublishState(latest.status);
+  return state === "pending" || state === "building" ? latest.id : null;
 }
 
 /**
@@ -148,10 +198,11 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   const emptyOverview: SiteOverview = {
     projectId: project.id,
     chatId: chatIds[0] ?? null,
-    address: { liveUrl: null, kind: "none" },
+    address: resolveOverviewAddress(project, null),
     state: "never_published",
     liveAt: null,
     liveVersionId: null,
+    latestDeploymentId: null,
     publishedSlug: project.publishedSlug ?? null,
     brandedDomain: project.brandedDomain ?? null,
     brandedDomainVerified: Boolean(project.brandedDomainVerifiedAt),
@@ -169,6 +220,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   // re-publish starts.
   const [latest] = await db
     .select({
+      id: deployments.id,
       chatId: deployments.chatId,
       status: deployments.status,
       createdAt: deployments.createdAt,
@@ -183,6 +235,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
       chatId: deployments.chatId,
       versionId: deployments.versionId,
       providerUrl: deployments.providerUrl,
+      url: deployments.url,
       updatedAt: deployments.updatedAt,
     })
     .from(deployments)
@@ -195,17 +248,10 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   return {
     ...emptyOverview,
     chatId: latestReady?.chatId ?? latest.chatId ?? chatIds[0] ?? null,
-    address: latestReady
-      ? resolveSiteAddress({
-          providerUrl: latestReady.providerUrl,
-          brandedDomain: project.brandedDomain,
-          brandedDomainVerifiedAt: project.brandedDomainVerifiedAt,
-          customDomain: project.customDomain,
-          customDomainVerifiedAt: project.customDomainVerifiedAt,
-        })
-      : { liveUrl: null, kind: "none" },
+    address: resolveOverviewAddress(project, latestReady),
     state: toPublishState(latest.status),
     liveAt: latestReady?.updatedAt ?? null,
     liveVersionId: latestReady?.versionId ?? null,
+    latestDeploymentId: inFlightDeploymentId(latest),
   };
 }
