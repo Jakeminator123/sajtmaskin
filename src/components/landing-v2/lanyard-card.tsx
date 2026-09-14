@@ -89,7 +89,13 @@ const {
 const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT + CARD_JOINT_Y)
 const FACE = getLanyardCardFaceSize()
 
-type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
+type BandProps = {
+  maxSpeed?: number
+  minSpeed?: number
+  autoSwing?: boolean
+  /** Första framen där fysikkropparna har riktiga positioner — kortet kan visas. */
+  onReady?: () => void
+}
 
 function useCompactLanyardCanvas() {
   return useThree((state) => state.size.width < 480)
@@ -218,8 +224,9 @@ function CardBody({
   )
 }
 
-function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
+function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true, onReady }: BandProps) {
   const band = useRef<THREE.Mesh>(null)
+  const readyFired = useRef(false)
   const visual = useRef<THREE.Group>(null)
   // `null!` — rapiers joint-hooks kräver RefObject<RapierRigidBody> utan null;
   // refs sätts av <RigidBody ref={...}> före första fysik-steget.
@@ -432,6 +439,10 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
         Number.isFinite(lerped.j1.x) &&
         Number.isFinite(lerped.j2.x)
       if (allFinite) {
+        if (!readyFired.current) {
+          readyFired.current = true
+          onReady?.()
+        }
         curve.points[0].set(t3.x, t3.y, t3.z)
         curve.points[1].copy(lerped.j2)
         curve.points[2].copy(lerped.j1)
@@ -577,9 +588,11 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
 export function LanyardCard({
   className = "",
   autoSwing = true,
+  onReady,
 }: {
   className?: string
   autoSwing?: boolean
+  onReady?: () => void
 }) {
   return (
     <div className={`relative w-full overflow-visible select-none ${className}`} aria-hidden="true">
@@ -594,7 +607,7 @@ export function LanyardCard({
         <CameraRig />
         <LanyardLights />
         <Physics gravity={[...CARD_GRAVITY]} timeStep={1 / 60}>
-          <Band autoSwing={autoSwing} />
+          <Band autoSwing={autoSwing} onReady={onReady} />
         </Physics>
         <Environment resolution={64}>
           <Lightformer intensity={2.6} color={ACCENT} position={[3, 2, 3]} scale={[6, 6, 1]} form="rect" />

@@ -216,13 +216,18 @@ describe("lanyard mobile interactions", () => {
 
   it("shares texture crops between the 3D card and the 2D fallback", () => {
     const experience = readComponent("lanyard-experience.tsx");
+    const fallback = readComponent("lanyard-static-fallback.tsx");
     const hero = readFileSync(
       resolve(process.cwd(), "src/components/landing-v2/landing-hero.tsx"),
       "utf8",
     );
 
-    expect(experience).toContain("lanyardTextureToCss");
+    expect(fallback).toContain("lanyardTextureToCss");
+    expect(fallback).toContain("LanyardBrandFace");
     expect(experience).toContain("LanyardBrandFace");
+    expect(hero).toContain("preloadReturningLanyard");
+    expect(experience).toContain("onReady");
+    expect(experience).toContain("-translate-y-[120%]");
     const stageClass = hero.match(/data-lanyard-stage[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
     expect(hero).toContain('data-lanyard-stage');
     expect(stageClass).toContain("overflow-visible");
