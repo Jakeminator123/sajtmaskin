@@ -89,8 +89,14 @@ function hasGenerationContent(text: string): boolean {
   return text.includes('file="') || text.includes("```");
 }
 
-function hasCanonicalRawPlanBlockers(rawPlan?: Record<string, unknown>): boolean {
-  return Array.isArray(rawPlan?.blockers) && rawPlan.blockers.length > 0;
+function planIsVerifiedReady(plan: Extract<MessagePart, { type: "plan" }>["plan"]): boolean {
+  // Missing state means legacy persisted data whose server outcome cannot be
+  // reconstructed after reload. Only an explicit canonical `false` may start
+  // codegen; raw blockers remain a fail-closed guard for inconsistent/old data.
+  return (
+    plan.awaitingInput === false &&
+    (!Array.isArray(plan.raw?.blockers) || plan.raw.blockers.length === 0)
+  );
 }
 
 const MessageListComponent = ({
@@ -548,7 +554,7 @@ const MessageListComponent = ({
                         <BuildPlanCard
                           rawPlan={part.plan.raw}
                           onApproveBuild={
-                            !hasCanonicalRawPlanBlockers(part.plan.raw)
+                            planIsVerifiedReady(part.plan)
                               ? approveBuildPlanForMessage
                               : undefined
                           }
@@ -596,7 +602,7 @@ const MessageListComponent = ({
                         key={`${message.id}-plan-card-${index}`}
                         rawPlan={part.plan.raw}
                         onApproveBuild={
-                          !hasCanonicalRawPlanBlockers(part.plan.raw)
+                          planIsVerifiedReady(part.plan)
                             ? approveBuildPlanForMessage
                             : undefined
                         }

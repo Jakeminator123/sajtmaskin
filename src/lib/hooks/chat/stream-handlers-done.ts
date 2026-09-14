@@ -334,6 +334,9 @@ export function handleDoneEvent(
           : [],
         blockers: Array.isArray(planArtifact.blockers) ? planArtifact.blockers : [],
         assumptions: Array.isArray(planArtifact.assumptions) ? planArtifact.assumptions : [],
+        ...(typeof doneData.awaitingInput === "boolean"
+          ? { awaitingInput: doneData.awaitingInput }
+          : {}),
         raw: planArtifact,
       },
     };

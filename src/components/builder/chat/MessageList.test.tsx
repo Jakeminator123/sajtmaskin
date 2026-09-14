@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { PROMPT_SOURCE_UI_PART_TYPE, type ChatMessage } from "@/lib/builder/types";
+import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { MessageList } from "./MessageList";
 
@@ -1061,6 +1062,7 @@ describe("MessageList", () => {
                 plan: {
                   title: "Brochure",
                   description: "Hem, Kontakt",
+                  awaitingInput: false,
                   raw: readyPlan,
                 },
               },
@@ -1105,6 +1107,7 @@ describe("MessageList", () => {
                 plan: {
                   title: "Brochure",
                   description: "Hem, Kontakt",
+                  awaitingInput: true,
                   raw: rawPlan,
                 },
               },
@@ -1169,6 +1172,7 @@ describe("MessageList", () => {
                   plan: {
                     title: "Brochure",
                     description: "Hem, Kontakt",
+                    awaitingInput: false,
                     raw: {
                       ...readyBuildPlan(),
                       blockers: [blocker],
@@ -1184,6 +1188,82 @@ describe("MessageList", () => {
       expect(screen.getByText("Bygg startsidan")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Godkänn plan och bygg" })).toBeNull();
       expect(onApproveBuildPlan).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps a legacy persisted plan without canonical approval state fail-closed", () => {
+    const onApproveBuildPlan = vi.fn();
+
+    render(
+      <MessageList
+        chatId="chat_sm088_legacy_reload"
+        onApproveBuildPlan={onApproveBuildPlan}
+        messages={[
+          {
+            id: "assistant_legacy_reloaded_plan",
+            role: "assistant",
+            content: "Planen är sparad.",
+            uiParts: [
+              {
+                type: "plan",
+                plan: {
+                  title: "Brochure",
+                  description: "Hem, Kontakt",
+                  raw: readyBuildPlan(),
+                },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Bygg startsidan")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn plan och bygg" })).toBeNull();
+    expect(onApproveBuildPlan).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [true, false],
+    [false, true],
+  ])(
+    "preserves canonical awaiting-input=%s through a persisted plan reload (approval visible: %s)",
+    (hasBlockers, approvalVisible) => {
+      const onApproveBuildPlan = vi.fn();
+      const rawPlan = readyBuildPlan();
+      const persistedAssistant = buildPlanModeAssistantMessage({
+        planData: rawPlan,
+        hasBlockers,
+        hasPlanArtifact: true,
+        plannerText: "",
+        upstreamErrorMessage: hasBlockers ? "Provider stream failed" : null,
+      });
+
+      render(
+        <MessageList
+          chatId="chat_sm088_canonical_reload"
+          onApproveBuildPlan={onApproveBuildPlan}
+          messages={[
+            {
+              id: "assistant_canonical_reloaded_plan",
+              role: "assistant",
+              content: persistedAssistant.content,
+              uiParts: persistedAssistant.uiParts,
+            },
+          ]}
+        />,
+      );
+
+      expect(screen.getByText("Bygg startsidan")).toBeTruthy();
+      const approveButton = screen.queryByRole("button", { name: "Godkänn plan och bygg" });
+      expect(Boolean(approveButton)).toBe(approvalVisible);
+
+      if (approveButton) {
+        fireEvent.click(approveButton);
+        expect(onApproveBuildPlan).toHaveBeenCalledWith(rawPlan);
+      } else {
+        expect(onApproveBuildPlan).not.toHaveBeenCalled();
+      }
     },
   );
 
@@ -1205,6 +1285,7 @@ describe("MessageList", () => {
                 plan: {
                   title: "Brochure",
                   description: "Hem, Kontakt",
+                  awaitingInput: false,
                   raw: readyBuildPlan(),
                 },
               },
@@ -1240,6 +1321,7 @@ describe("MessageList", () => {
                 plan: {
                   title: "Brochure",
                   description: "Hem, Kontakt",
+                  awaitingInput: false,
                   raw: readyBuildPlan(),
                 },
               },
