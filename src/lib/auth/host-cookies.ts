@@ -165,7 +165,11 @@ export function expireCookieSetOptions(secure: boolean): {
   expires: Date;
 } {
   return {
-    ...hostCookieSetOptions({ secure, maxAge: 0 }),
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
     expires: new Date(0),
   };
 }

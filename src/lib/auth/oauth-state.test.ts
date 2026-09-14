@@ -326,11 +326,11 @@ describe("OAuth state binding", () => {
   });
 
   it("keeps the unprefixed OAuth name on local HTTP", () => {
-    const start = request("http://127.0.0.1:3010/api/auth/google");
-    allowOrigins("http://127.0.0.1:3010");
-    const flow = createOAuthFlow("google", start, { returnTo: "/" });
+    const httpsStart = request("https://sajtmaskin.se/api/auth/google");
+    const httpStart = request("http://127.0.0.1:3010/api/auth/google");
+    const flow = createOAuthFlow("google", httpsStart, { returnTo: "/" });
     const response = NextResponse.json({ ok: true });
-    setOAuthFlowCookie(response, "google", flow, start);
+    setOAuthFlowCookie(response, "google", flow, httpStart);
     const header = response.headers.get("set-cookie") ?? "";
 
     expect(header).toContain(`${oauthCookieName("google", { secure: false })}=`);
