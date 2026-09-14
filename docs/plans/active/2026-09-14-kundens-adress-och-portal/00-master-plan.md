@@ -19,10 +19,10 @@ Statusen beskriver verifierad leverans och ratificerar inga nya produktförslag.
 |---|---|
 | C1 | Sajtvy levererad på `preview` i #1358. |
 | C3 etapp 1 | Konto, saldo och köphistorik levererade i #1359. Abonnemang/Billing Portal återstår. |
-| A2 grundskydd | Cookies #1360 och exakt Origin #1365 är levererade. PR #1366 har rättningar på `6b88db3` som fått oberoende Sol/high PASS; slutliga CI-/mergesteg återstår. Faktisk pilotaktivering är stängd med `activation_not_ready`. |
+| A2 grundskydd | Cookies #1360 och exakt Origin #1365 är levererade. PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontroller på preview följs separat. Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`. |
 | D1 | Schema och retention guards levererade i #1361; #1364 löste migrationskompatibiliteten. Read-only Supabase-kontroll bekräftar båda D1-migrationerna i den delade preview/prod-databasens ledger. |
 | Portalens följdleveranser | #1362–#1365 är mergade till `preview`. |
-| B1 | PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Slutlig integration/CI och GitGuardian-incident 37094000 återstår. Fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal, men incidenten är inte markerad som false positive. |
+| B1 | PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Senaste preview efter #1366 är integrerad utan ändring av det granskade exportträdet. Slutlig CI och GitGuardian-incident 37094000 återstår. Sajtmaskin-fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal; GitHub-kontrollen är ännu inte grön. |
 | A3 | Lokal WIP i separat arbetsgren, ännu inte färdig eller levererad. Ingen ny adressregel är aktiverad. |
 | A1/A4 | Verkligt HTTPS-bevis, slutligt deploypaket → exakt READY-deployment → serialiserad aliasbindning och kontrollerad pilot/migrering återstår. |
 | C2, D2/D3 | Kundens domänflöde, abonnemangsflöde och faktisk paus/återställning återstår. |
