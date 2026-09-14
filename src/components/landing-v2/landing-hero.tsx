@@ -1,11 +1,11 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { ArrowUp, Mic, ShieldCheck, Video, X } from "lucide-react"
+import { ArrowUp, Mic, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
-import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
+import { categories, longestSiteType } from "@/components/landing-v2/landing-chat-data"
 import { preloadReturningLanyard } from "@/components/landing-v2/lanyard-consent"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
@@ -66,17 +66,9 @@ export function LandingHero({
       </div>
 
       <div className="flex w-full flex-col items-center px-6">
-      <div
-        className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/50 border border-border/40 px-4 py-1.5 rounded-full mb-6 animate-fade-up"
-        style={{ animationDelay: "0.1s" }}
-      >
-        <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-        Byggt f&ouml;r svenska f&ouml;retag &mdash; seri&ouml;st fr&aring;n f&ouml;rsta dagen
-      </div>
-
       <div className="cursor-default">
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
+          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-8 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
           aria-label="Din nästa sajt på 30 sekunder"
         >
@@ -117,14 +109,6 @@ export function LandingHero({
           </span>
         </h1>
       </div>
-      <p
-        className="text-base md:text-lg text-muted-foreground text-center max-w-2xl mb-8 leading-relaxed animate-rise text-pretty"
-        style={{ animationDelay: "0.4s" }}
-      >
-        Beskriv ditt f&ouml;retag &mdash; f&aring; en professionell sajt som driver aff&auml;rer, inte bara ser bra ut. Inga
-        f&ouml;rkunskaper kr&auml;vs. Byggt f&ouml;r svenska f&ouml;retagare som beh&ouml;ver mer &auml;n en statisk
-        startsida.
-      </p>
 
       <div
         className="flex flex-wrap items-center justify-center gap-2.5 mb-8 animate-fade-up"
@@ -280,26 +264,6 @@ export function LandingHero({
           {expandedContent}
         </div>
       )}
-
-      <div
-        className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mt-10 animate-fade-up"
-        style={{ animationDelay: "0.7s" }}
-      >
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="group relative flex items-center gap-2 bg-secondary/40 border border-border/20 hover:border-primary/30 rounded-xl px-4 py-2.5 transition-all duration-300 hover:bg-secondary/60 cursor-default"
-          >
-            <span className="text-base md:text-lg text-primary font-(--font-heading) transition-transform duration-300 group-hover:scale-105">
-              {stat.value}
-            </span>
-            <span className="text-xs text-muted-foreground">{stat.label}</span>
-            <span className="absolute -top-9 left-1/2 -translate-x-1/2 text-[10px] text-foreground bg-card border border-border/30 rounded-lg px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none -translate-y-1 group-hover:translate-y-0 shadow-lg">
-              {stat.tooltip}
-            </span>
-          </div>
-        ))}
-      </div>
       </div>
     </section>
   )

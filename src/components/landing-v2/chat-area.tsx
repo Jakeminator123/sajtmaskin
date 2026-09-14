@@ -5,15 +5,12 @@ import { ArrowRight, Rocket } from "lucide-react"
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
 import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
-import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
 import {
   integrations,
   landingJourneySteps,
-  studioTeam,
-  studioTiers,
   trustLogos,
 } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
@@ -119,20 +116,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
           </div>
         </section>
 
-        {/* ━━━ LANYARD BADGE ━━━ */}
-        <section className="relative border-t border-border/15 overflow-hidden">
-          <div className="max-w-3xl mx-auto px-6 pt-16 pb-0 text-center">
-            <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Kvalitet i leveransen</p>
-            <h2 className="text-2xl md:text-3xl text-foreground font-(--font-heading) tracking-tight text-balance mb-2">
-              Sajter som ser bra ut och konverterar
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed text-pretty">
-              Vi bygger f&ouml;r riktiga f&ouml;retag: tydlig struktur, snabb prestanda och design som leder till fler f&ouml;rfr&aring;gningar.
-            </p>
-          </div>
-          <LanyardBadge />
-        </section>
-
         {/* ━━━ HOW IT WORKS ━━━ */}
         <section
           id="hur-det-fungerar"
@@ -179,86 +162,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
         {/* ━━━ PRICING ━━━ */}
         <section id="priser" className="px-6 py-20 md:py-28">
           <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Priser</p>
-              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Starta själv. Ta in oss när det behövs.
-              </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
-                Börja med credits och jobba i din egen takt. När du vill vässa strategi, design eller integrationer finns vi som ett team bredvid dig.
-              </p>
-              <div className="inline-flex items-center gap-2 mt-5 text-xs font-medium text-primary bg-primary/8 border border-primary/15 px-4 py-1.5 rounded-full flex-wrap justify-center">
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                </span>
-                <span>Credits gäller för alltid och köps som engångspaket utan bindningstid.</span>
-              </div>
-            </div>
-
             <CreditPackageGrid
               disabled={isSubmitting}
               onSelect={() => router.push("/buy-credits")}
               ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
             />
-
-            <div className="mt-14 rounded-[32px] border border-border/20 bg-card/35 p-6 md:p-8 shadow-[0_24px_70px_rgba(6,10,20,0.2)]">
-              <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-                <div>
-                  <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">SajtStudio</p>
-                  <h3 className="text-2xl md:text-3xl font-(--font-heading) text-foreground tracking-tight text-balance">
-                    Behöver du ett team som hoppar in?
-                  </h3>
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                    När credits inte räcker för allt runtomkring kan vi hjälpa till med struktur, copy, design, integrationer och sista biten fram till lansering.
-                  </p>
-
-                  <div className="mt-5 space-y-3">
-                    {studioTeam.map((member) => (
-                      <div key={member.name} className="flex items-center gap-3 rounded-2xl border border-border/15 bg-background/35 px-3 py-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-sm font-(--font-heading) text-primary">
-                          {member.name.slice(0, 1)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-(--font-heading) text-foreground">{member.name}</p>
-                          <p className="text-xs text-muted-foreground">{member.role}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Button
-                      className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
-                      onClick={() => {
-                        window.location.href = "mailto:hej@sajtmaskin.se"
-                      }}
-                    >
-                      Prata med teamet
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                    <p className="text-xs text-muted-foreground self-center">
-                      Vi svarar personligt om scope, tempo och vad som är rimligt att bygga vidare på.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  {studioTiers.map((tier, index) => (
-                    <div
-                      key={tier.name}
-                      className={`rounded-[24px] border p-5 bg-background/35 ${
-                        index === 1 ? "border-primary/30 shadow-[0_16px_40px_rgba(8,145,178,0.12)]" : "border-border/20"
-                      }`}
-                    >
-                      <p className="text-xs uppercase tracking-[0.18em] text-primary/70">{tier.name}</p>
-                      <p className="mt-3 text-lg font-(--font-heading) text-foreground">{tier.range}</p>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tier.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
