@@ -4,18 +4,23 @@
  * körs mot en riktig databas.
  *
  * Varför DB-backad: spärrens enhetstester mockar `db.execute`, och en mock ser
- * aldrig frågan. En interpolerad JS-lista expanderas av Drizzle till en
- * parameter per post — `ANY(($1, $2)::text[])` är en record Postgres vägrar
- * casta (42846) och `ANY(($1)::text[])` är en ogiltig arrayliteral (22P02) — så
- * varje rensning med en icke-tom lista kastade i stället för att svara, utan att
- * något test märkte det.
+ * aldrig frågan. Två fel kunde därför ligga gröna:
  *
- * Determinism: `usersExcept` läser HELA tabellerna, och den här lanen kör flera
- * filer parallellt mot samma dev-databas. Därför jämförs två frågor som skiljer
- * sig på exakt en skyddad adress, körda i EN `repeatable read`-snapshot:
- * differensen kan bara komma från testets egna rader. Snapshoten är dessutom
- * `read only`, vilket gör det till ett bevis att spärren inte skriver — en
- * INSERT/UPDATE/DELETE hade fallit på 25006.
+ *   1. En interpolerad JS-lista expanderas av Drizzle till en parameter per
+ *      post. `ANY(($1, $2)::text[])` är en record Postgres vägrar casta
+ *      (42846) och `ANY(($1)::text[])` är en ogiltig arrayliteral (22P02), så
+ *      varje rensning med en icke-tom lista kastade i stället för att svara.
+ *   2. Spärren räknade abonnemang, grants och jobb men inte kundraderna. En
+ *      avbruten checkout lämnar en Stripe-kund utan abonnemang; `reset-all`
+ *      fick då noll, raderade projekt- och ledgerrader och stoppades först av
+ *      kundradens RESTRICT vid den avslutande användarraderingen.
+ *
+ * Determinism: `usersExcept` och `everything` läser HELA tabellerna, och den här
+ * lanen kör flera filer parallellt mot samma dev-databas. Därför jämförs två
+ * frågor som skiljer sig på exakt en skyddad adress, körda i EN
+ * `repeatable read`-snapshot: differensen kan bara komma från testets egna
+ * rader. Snapshoten är dessutom `read only`, vilket gör det till ett bevis att
+ * spärren inte skriver — en INSERT/UPDATE/DELETE hade fallit på 25006.
  *
  * Säkerhet: testet SKRIVER fixturrader och vägrar allt utom en dev-target via
  * repots egen `check-db-env-target.mjs`. Fotavtryck: rader med ett unikt
@@ -85,9 +90,8 @@ vi.mock("@/lib/db/client", () => ({
   },
 }));
 
-const { countProtectedBillingRows, projectIdsWithBillingRows } = await import(
-  "@/lib/db/billing-retention-guard"
-);
+const { countProtectedBillingRows, hasProtectedBillingRows, projectIdsWithBillingRows } =
+  await import("@/lib/db/billing-retention-guard");
 
 const MALFORMED_ARRAY_LITERAL = "22P02";
 const CANNOT_CAST_RECORD = "42846";
@@ -97,6 +101,9 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
   /** Ägaren till abonnemanget, granten och jobbet. */
   const ownerId = `usr_guard_owner_${runTag}`;
   const ownerEmail = `guard-owner-${runTag}@example.invalid`;
+  /** Har BARA en kundrad — inget abonnemang. Den avbrutna checkouten. */
+  const customerOnlyId = `usr_guard_customer_${runTag}`;
+  const customerOnlyEmail = `guard-customer-${runTag}@example.invalid`;
   const projectId = `prj_guard_${runTag}`;
   const subscriptionId = `sub_guard_${runTag}`;
   const dialect = new PgDialect();
@@ -137,8 +144,9 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
 
     await pool.query(
       `insert into users (id, email, name, provider, email_verified)
-       values ($1, $2, 'Spärrägare', 'email', true)`,
-      [ownerId, ownerEmail],
+       values ($1, $2, 'Spärrägare', 'email', true),
+              ($3, $4, 'Övergiven checkout', 'email', true)`,
+      [ownerId, ownerEmail, customerOnlyId, customerOnlyEmail],
     );
     await pool.query(
       "insert into app_projects (id, user_id, name) values ($1, $2, 'Spärrens sajt')",
@@ -161,6 +169,12 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
        values ($1, $2, 'test', 'pause', 'pending')`,
       [`job_guard_${runTag}`, subscriptionId],
     );
+    // Kundraden hör till den ANDRA användaren och har inget abonnemang.
+    await pool.query(
+      `insert into billing_customers (id, user_id, billing_mode, stripe_customer_id)
+       values ($1, $2, 'test', $3)`,
+      [`bc_guard_${runTag}`, customerOnlyId, `cus_guard_${runTag}`],
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -170,8 +184,13 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
     await pool
       .query("delete from site_subscriptions where id = $1", [subscriptionId])
       .catch(() => null);
+    await pool
+      .query("delete from billing_customers where user_id = $1", [customerOnlyId])
+      .catch(() => null);
     await pool.query("delete from app_projects where id = $1", [projectId]).catch(() => null);
-    await pool.query("delete from users where id = $1", [ownerId]).catch(() => null);
+    await pool
+      .query("delete from users where id = any($1::text[])", [[ownerId, customerOnlyId]])
+      .catch(() => null);
     await pool.end().catch(() => null);
   }, 60_000);
 
@@ -193,7 +212,7 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
   it("räknar en projektlista med EN post", async () => {
     await expect(
       countProtectedBillingRows({ kind: "projectIds", projectIds: [projectId] }),
-    ).resolves.toEqual({ subscriptions: 1, grants: 1, jobs: 1 });
+    ).resolves.toEqual({ subscriptions: 1, grants: 1, jobs: 1, customers: 0 });
   });
 
   it("räknar en projektlista med FLERA poster", async () => {
@@ -202,7 +221,7 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
         kind: "projectIds",
         projectIds: [`prj_ghost_a_${runTag}`, projectId, `prj_ghost_b_${runTag}`],
       }),
-    ).resolves.toEqual({ subscriptions: 1, grants: 1, jobs: 1 });
+    ).resolves.toEqual({ subscriptions: 1, grants: 1, jobs: 1, customers: 0 });
   });
 
   it("hittar inget för en projektlista som inte rör bokföringen", async () => {
@@ -211,7 +230,7 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
         kind: "projectIds",
         projectIds: [`prj_ghost_c_${runTag}`, `prj_ghost_d_${runTag}`],
       }),
-    ).resolves.toEqual({ subscriptions: 0, grants: 0, jobs: 0 });
+    ).resolves.toEqual({ subscriptions: 0, grants: 0, jobs: 0, customers: 0 });
   });
 
   it("pekar ut de bokförda projekten för bakgrundsstädningen", async () => {
@@ -226,8 +245,8 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
 
   it("skyddar exakt de adresser användarrensningen får lämna kvar", async () => {
     // Två frågor i samma snapshot: den ena skyddar abonnemangets ägare, den
-    // andra inte. Differensen kan bara vara testets egen rad — och den listan
-    // körs både med en och med två poster.
+    // andra inte. Differensen kan bara vara testets egna rader — och listan körs
+    // både med en och med två poster.
     const { exposed, protectedOwner } = await inSnapshot(async () => ({
       exposed: await countProtectedBillingRows({
         kind: "usersExcept",
@@ -244,12 +263,69 @@ describe.skipIf(!target.url)("bevarandespärren mot riktig Postgres", () => {
     expect(exposed.jobs - protectedOwner.jobs).toBe(1);
   });
 
+  // ── Kundraden utan abonnemang ──────────────────────────────────────────
+
+  it("räknar kundraden när användarrensningen når dess ägare", async () => {
+    // Två frågor i samma snapshot: den ena skyddar kundradens ägare, den andra
+    // inte. Skillnaden är exakt testets kundrad — och noll abonnemang, eftersom
+    // den användaren aldrig fick något.
+    const { exposed, protectedOwner } = await inSnapshot(async () => ({
+      exposed: await countProtectedBillingRows({
+        kind: "usersExcept",
+        keepEmails: [ownerEmail],
+      }),
+      protectedOwner: await countProtectedBillingRows({
+        kind: "usersExcept",
+        keepEmails: [ownerEmail, customerOnlyEmail],
+      }),
+    }));
+
+    expect(exposed.customers - protectedOwner.customers).toBe(1);
+    expect(exposed.subscriptions - protectedOwner.subscriptions).toBe(0);
+    expect(hasProtectedBillingRows(exposed)).toBe(true);
+  });
+
+  it("räknar den även för nollställningen", async () => {
+    const { exposed, protectedOwner } = await inSnapshot(async () => ({
+      exposed: await countProtectedBillingRows({
+        kind: "everything",
+        keepEmails: [ownerEmail],
+      }),
+      protectedOwner: await countProtectedBillingRows({
+        kind: "everything",
+        keepEmails: [ownerEmail, customerOnlyEmail],
+      }),
+    }));
+
+    expect(exposed.customers - protectedOwner.customers).toBe(1);
+    // Nollställningen tar varje projekt, så abonnemanget räknas oavsett ägare.
+    expect(protectedOwner.subscriptions).toBeGreaterThanOrEqual(1);
+    expect(hasProtectedBillingRows(exposed)).toBe(true);
+  });
+
+  it("låter inte en kundrad låsa en rensning som lämnar användarna kvar", async () => {
+    // `clear projects` rör inte `users`; då är ingen kundrad i farozonen och
+    // spärren ska inte kunna stoppa åtgärden på deras räkning. Samma snapshot
+    // visar att kundraderna FINNS när urvalet är ett användarurval.
+    const { projectsOnly, users } = await inSnapshot(async () => ({
+      projectsOnly: await countProtectedBillingRows({ kind: "allProjects" }),
+      users: await countProtectedBillingRows({
+        kind: "usersExcept",
+        keepEmails: [ownerEmail],
+      }),
+    }));
+
+    expect(projectsOnly.customers).toBe(0);
+    expect(users.customers).toBeGreaterThanOrEqual(1);
+    expect(projectsOnly.subscriptions).toBeGreaterThanOrEqual(1);
+  });
+
   it("skriver ingenting — hela räkningen tål en read-only-transaktion", async () => {
     // 25006 (`read_only_sql_transaction`) hade fallit ut här om spärren
     // innehöll en enda skrivning. Den är LÄSARE i D1, och det är det som gör
     // den tillåten att nämna tabellerna alls.
     const counts = await inSnapshot(async () =>
-      countProtectedBillingRows({ kind: "allProjects" }),
+      countProtectedBillingRows({ kind: "everything", keepEmails: [ownerEmail] }),
     );
 
     expect(counts.subscriptions).toBeGreaterThanOrEqual(1);

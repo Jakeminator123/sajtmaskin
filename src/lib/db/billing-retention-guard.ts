@@ -25,25 +25,39 @@ export type BillingRetentionCounts = {
   subscriptions: number;
   grants: number;
   jobs: number;
+  /**
+   * Stripe-kundrader som hör till användarna en åtgärd är på väg att radera.
+   *
+   * Egen post eftersom en kundrad kan finnas HELT UTAN abonnemang: en avbruten
+   * checkout lämnar kunden kvar. Räknades den inte fick `reset-all` noll från
+   * spärren, raderade projekt- och ledgerrader och stoppades först av
+   * kundradens RESTRICT vid den sista `users`-raderingen — alltså exakt det
+   * halvraderade utfallet spärren finns för att förhindra.
+   */
+  customers: number;
 };
 
 /**
  * Vilka rader en åtgärd är på väg att radera.
  *
- * - `allProjects` — hela projektstädningen (`reset-all`, `clear projects`).
- *   Varje abonnemang bär ett `project_id`, så alla abonnemang berörs.
+ * - `allProjects` — hela projektstädningen (`clear projects`). Varje abonnemang
+ *   bär ett `project_id`, så alla abonnemang berörs. Användare rörs inte, och
+ *   då står ingen kundrad i vägen.
  * - `projectIds` — en avgränsad uppsättning projekt.
  * - `usersExcept` — varje användare UTOM de skyddade e-postadresserna.
+ * - `everything` — nollställningen: varje projekt OCH varje användare utom de
+ *   skyddade. Kundraderna räknas eftersom användarna faktiskt raderas.
  */
 export type BillingRetentionScope =
   | { kind: "allProjects" }
   | { kind: "projectIds"; projectIds: string[] }
-  | { kind: "usersExcept"; keepEmails: string[] };
+  | { kind: "usersExcept"; keepEmails: string[] }
+  | { kind: "everything"; keepEmails: string[] };
 
-const EMPTY: BillingRetentionCounts = { subscriptions: 0, grants: 0, jobs: 0 };
+const EMPTY: BillingRetentionCounts = { subscriptions: 0, grants: 0, jobs: 0, customers: 0 };
 
 export function hasProtectedBillingRows(counts: BillingRetentionCounts): boolean {
-  return counts.subscriptions + counts.grants + counts.jobs > 0;
+  return counts.subscriptions + counts.grants + counts.jobs + counts.customers > 0;
 }
 
 /** Fel som betyder "ingenting raderades" — anroparen har inte hunnit skriva något. */
@@ -63,9 +77,12 @@ export function billingRetentionMessage(
 ): string {
   return (
     `${action} avbröts innan något raderades: ${counts.subscriptions} abonnemang, ` +
-    `${counts.grants} kreditgrant(er) och ${counts.jobs} betalningsjobb hör till raderna ` +
-    `som skulle tas bort. Abonnemangsbokföringen raderas aldrig automatiskt — avsluta ` +
-    `abonnemangen först, eller välj en rensning som inte rör dem.`
+    `${counts.grants} kreditgrant(er), ${counts.jobs} betalningsjobb och ` +
+    `${counts.customers} kundrader hör till raderna som skulle tas bort. ` +
+    `Abonnemangsbokföringen raderas aldrig automatiskt — en kundrad räknas även ` +
+    `utan abonnemang, eftersom en avbruten checkout lämnar den kvar. Avsluta ` +
+    `abonnemangen och avregistrera kunderna först, eller välj en rensning som ` +
+    `inte rör dem.`
   );
 }
 
@@ -83,9 +100,11 @@ function textArray(values: string[]): SQL {
   return sql`${sql.param(values)}::text[]`;
 }
 
+/** Predikat mot abonnemangsraden `s`. */
 function scopePredicate(scope: BillingRetentionScope): SQL {
   switch (scope.kind) {
     case "allProjects":
+    case "everything":
       return sql`true`;
     case "projectIds":
       return sql`s.project_id = ANY(${textArray(scope.projectIds)})`;
@@ -101,8 +120,24 @@ function scopePredicate(scope: BillingRetentionScope): SQL {
 }
 
 /**
- * Räknar abonnemang, kreditgrants och betalningsjobb som hör till de rader
- * `scope` är på väg att radera. En enda rundtur; inget skrivs.
+ * Predikat mot kundraden `c`, eller `null` när åtgärden inte raderar någon
+ * användare. En projektrensning rör inte `users`, så kundraderna är inte i
+ * farozonen där och ska inte kunna låsa den.
+ */
+function customerPredicate(scope: BillingRetentionScope): SQL | null {
+  if (scope.kind !== "usersExcept" && scope.kind !== "everything") return null;
+  return scope.keepEmails.length === 0
+    ? sql`true`
+    : sql`NOT EXISTS (
+        SELECT 1 FROM users u
+         WHERE u.id = c.user_id
+           AND u.email = ANY(${textArray(scope.keepEmails)})
+      )`;
+}
+
+/**
+ * Räknar abonnemang, kreditgrants, betalningsjobb och kundrader som hör till de
+ * rader `scope` är på väg att radera. En enda rundtur; inget skrivs.
  */
 export async function countProtectedBillingRows(
   scope: BillingRetentionScope,
@@ -110,11 +145,13 @@ export async function countProtectedBillingRows(
   if (scope.kind === "projectIds" && scope.projectIds.length === 0) return EMPTY;
 
   const predicate = scopePredicate(scope);
+  const customers = customerPredicate(scope);
   try {
     const result = await db.execute<{
       subscriptions: number;
       grants: number;
       jobs: number;
+      customers: number;
     }>(sql`
       SELECT
         (SELECT count(*) FROM site_subscriptions s WHERE ${predicate})::int
@@ -124,13 +161,19 @@ export async function countProtectedBillingRows(
           WHERE ${predicate})::int AS grants,
         (SELECT count(*) FROM billing_jobs j
            JOIN site_subscriptions s ON s.id = j.subscription_id
-          WHERE ${predicate})::int AS jobs
+          WHERE ${predicate})::int AS jobs,
+        ${
+          customers
+            ? sql`(SELECT count(*) FROM billing_customers c WHERE ${customers})::int`
+            : sql`0`
+        } AS customers
     `);
     const row = result.rows?.[0];
     return {
       subscriptions: Number(row?.subscriptions ?? 0),
       grants: Number(row?.grants ?? 0),
       jobs: Number(row?.jobs ?? 0),
+      customers: Number(row?.customers ?? 0),
     };
   } catch (error) {
     if ((error as { code?: string } | null)?.code === UNDEFINED_TABLE) {

@@ -86,9 +86,14 @@ async function resetEnvironmentData(actingAdminEmail: string | null | undefined)
 }> {
   // Före den FÖRSTA DELETE:n. Abonnemangsbokföringen hålls kvar av RESTRICT i
   // databasen, men den spärren slår till först när `app_projects` raderas —
-  // och då är tabellerna före den redan tömda. Här avbryts hela åtgärden i
-  // stället, med miljön orörd.
-  await assertNoProtectedBillingRows("Nollställningen", { kind: "allProjects" });
+  // och för en kundrad utan abonnemang inte förrän den avslutande
+  // användarraderingen. Då är tabellerna före den redan tömda. Här avbryts hela
+  // åtgärden i stället, med miljön orörd. `everything` täcker båda: varje
+  // projekt OCH varje användare utom de skyddade.
+  await assertNoProtectedBillingRows("Nollställningen", {
+    kind: "everything",
+    keepEmails: protectedUserEmails(actingAdminEmail),
+  });
 
   let deletedRows = 0;
 

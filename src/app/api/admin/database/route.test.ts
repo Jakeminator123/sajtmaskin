@@ -24,8 +24,21 @@ const deleteCalls = vi.hoisted(() => [] as { table: string; condition: unknown }
  * What the billing-retention guard's single counting query returns. D3 keeps
  * subscription bookkeeping out of every wipe, so a non-zero value here must
  * abort the action BEFORE the first delete.
+ *
+ * `customers` is the Stripe customer row, counted for every action that deletes
+ * users: an abandoned checkout leaves one behind with no subscription at all, so
+ * the other three can be zero while a user delete is still refused by the
+ * database — after the earlier tables are already empty.
  */
-const billingCounts = vi.hoisted(() => ({ subscriptions: 0, grants: 0, jobs: 0 }));
+const billingCounts = vi.hoisted(() => ({
+  subscriptions: 0,
+  grants: 0,
+  jobs: 0,
+  customers: 0,
+}));
+
+/** The counting queries the retention guard sent during a test. */
+const guardQueries = vi.hoisted(() => [] as unknown[]);
 
 vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess }));
 vi.mock("@/lib/data/redis", () => ({ flushRedisCache, getRedisInfo }));
@@ -82,12 +95,13 @@ vi.mock("@/lib/db/client", () => ({
     // query is answered with the per-test counts, everything else with the
     // database-size row. Matched on `count(*)` rather than a table name so this
     // file stays outside the D1 "no readers yet" scanner.
-    execute: (query: { text?: string }) =>
-      Promise.resolve(
-        query?.text?.includes("count(*)")
-          ? { rows: [{ ...billingCounts }] }
-          : { rows: [{ size: "1 MB" }] },
-      ),
+    execute: (query: { text?: string }) => {
+      const isCount = Boolean(query?.text?.includes("count(*)"));
+      if (isCount) guardQueries.push(query);
+      return Promise.resolve(
+        isCount ? { rows: [{ ...billingCounts }] } : { rows: [{ size: "1 MB" }] },
+      );
+    },
   },
 }));
 
@@ -126,6 +140,32 @@ function actionRequest(body: Record<string, unknown>) {
   }) as never;
 }
 
+/**
+ * Every list the guard bound as ONE parameter inside its counting query.
+ *
+ * `reset-all` deletes all projects, so its subscription sub-queries need no
+ * selection at all — the only list it can bind is the protected emails, and only
+ * because the customer rows are part of the same pre-check.
+ */
+function guardBoundLists(): unknown[] {
+  const found: unknown[] = [];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    const entry = node as { op?: string; value?: unknown; values?: unknown[] };
+    if (entry.op === "param") {
+      found.push(entry.value);
+      return;
+    }
+    if (entry.values) walk(entry.values);
+  };
+  walk(guardQueries);
+  return found;
+}
+
 function userDeleteConditions() {
   return deleteCalls
     .filter((call) => call.table === "users")
@@ -136,7 +176,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   deleteCalls.length = 0;
-  Object.assign(billingCounts, { subscriptions: 0, grants: 0, jobs: 0 });
+  guardQueries.length = 0;
+  Object.assign(billingCounts, { subscriptions: 0, grants: 0, jobs: 0, customers: 0 });
   redisFeature.enabled = true;
   requireAdminAccess.mockResolvedValue({ ok: true, user: { email: ADMIN_EMAIL } });
   flushRedisCache.mockResolvedValue(0);
@@ -315,8 +356,55 @@ describe("POST /api/admin/database — abonnemangsbokföringen överlever varje 
     const payload = await response.json();
 
     expect(response.status).toBe(409);
-    expect(payload.counts).toEqual({ subscriptions: 0, grants: 2, jobs: 1 });
+    expect(payload.counts).toEqual({ subscriptions: 0, grants: 2, jobs: 1, customers: 0 });
     expect(deleteCalls).toEqual([]);
+  });
+
+  // En avbruten checkout lämnar en Stripe-kundrad utan abonnemang. Räknades den
+  // inte fick nollställningen noll från spärren, raderade projekt- och
+  // ledgerrader och stoppades först av kundradens RESTRICT vid den avslutande
+  // `users`-raderingen — halv miljö, precis det spärren finns för.
+  for (const body of [
+    { action: "reset-all" },
+    { action: "mega-cleanup" },
+    { action: "clear", table: "users" },
+  ] as const) {
+    const label = "table" in body ? `${body.action} ${body.table}` : body.action;
+
+    it(`vägrar ${label} när bara en kundrad finns och inget abonnemang`, async () => {
+      billingCounts.customers = 1;
+
+      const response = await POST(actionRequest(body));
+      const payload = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(payload.blockedBy).toBe("billing-retention");
+      expect(payload.counts).toEqual({
+        subscriptions: 0,
+        grants: 0,
+        jobs: 0,
+        customers: 1,
+      });
+      expect(payload.error).toMatch(/kundrader/i);
+      expect(deleteCalls).toEqual([]);
+    });
+  }
+
+  it("låter spärren pröva de skyddade adresserna innan nollställningen", async () => {
+    await POST(actionRequest({ action: "reset-all" }));
+
+    // Reset tar varje projekt, så abonnemangsdelfrågorna behöver inget urval.
+    // Att adresslistan ändå binds är beviset att kundraderna prövas — utan det
+    // stoppades en övergiven checkout först vid den sista raderingen.
+    expect(guardBoundLists()).toEqual([
+      expect.arrayContaining(["test@example.com", ADMIN_EMAIL]),
+    ]);
+  });
+
+  it("frågar inte om kundrader för en rensning som lämnar användarna kvar", async () => {
+    await POST(actionRequest({ action: "clear", table: "projects" }));
+
+    expect(guardBoundLists()).toEqual([]);
   });
 
   it("lämnar rensningar som inte rör projekt eller användare orörda", async () => {
