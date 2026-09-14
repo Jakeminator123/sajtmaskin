@@ -8,6 +8,9 @@
 
 ## Verifierat DNS-läge (2026-08-24)
 
+**Historisk mätning.** Kontrollera aktuell zon, projektkoppling och HTTPS före
+nya driftsteg. Tabellen nedan är inte verifierad på nytt 2026-09-14.
+
 Zonen driftas av **one.com** (`ns01.one.com`, `ns02.one.com`) — nya poster läggs
 där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 `*.sajtmaskin.se`, så varje värdnamn måste skapas explicit.
@@ -19,11 +22,11 @@ där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 | `preview.sajtmaskin.se` | CNAME → **Vercel** | Redan taget av Vercel. Måste släppas där innan Fly kan äga värdnamnet och utfärda certifikat. |
 | `sites.sajtmaskin.se` | NXDOMAIN | Inte påbörjad. |
 
-`preview.sajtmaskin.se` är den enda hårda krocken: appens proxy (`src/proxy.ts`)
-sätter bara CSP och auth-headers och proxar ingen preview-trafik. Värdnamnet
-levererar alltså inget användbart i dag, samtidigt som det blockerar Fly-vägen.
+`preview.sajtmaskin.se` är också produktens stagingadress enligt dagens
+Git-workflow. Historikens Fly-plan ger inte mandat att koppla bort den från
+Vercel. Branded kundadresser under `sites` är ett separat spår.
 
-## Cookie-isolation kräver en PSL-post
+## Cookiegräns och begränsad pilot
 
 `sites.sajtmaskin.se` blir en parent-domän som delas av kundsajter som inte
 litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
@@ -32,28 +35,55 @@ litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
 supercookie mellan tenants. Det är exakt därför `vercel.app` ligger i PSL:ens
 private-sektion.
 
-Skicka därför en PR till [`publicsuffix/list`](https://github.com/publicsuffix/list)
-för `sites.sajtmaskin.se` **innan** kundsajter börjar dela domänen. Kraven är
-ägarverifiering via `_psl`-TXT-post, domänregistrering med ≥2 år kvar,
-icke-personlig avsändaradress och en nåbar abuse-kontakt. Handläggningen tar
-tid, så starta den parallellt med DNS-arbetet — inte efter.
+Läs [PSL:s riktlinjer](https://github.com/publicsuffix/list/wiki/Guidelines)
+innan ansökan. Små/beta-projekt kan avslås och en godkänd ändring tar tid att
+nå webbläsare. Planera inte lanseringen mot ett antaget godkännandedatum.
+PSL-spåret ersätter inte portalens cookie-/Origin-skydd, särskilt mot cookies
+på föräldern `sajtmaskin.se`.
 
-Egen verifierad `customDomain` berörs inte: den ligger utanför den delade
-parent-domänen.
+En auth-dossier är en risksignal, inget komplett bevis på cookieanvändning.
+Även vanlig JavaScript kan sätta cookies. Före eventuell öppen utrullning
+behövs därför en verifierad domän-/sessionsmodell. Ett föreslaget avgränsat
+pilotupplägg finns i
+[`A2`](../plans/active/2026-09-14-kundens-adress-och-portal/aktiviteter/A2-branded-eligibility.md);
+det är ett granskningsunderlag, inte ett fattat aktiveringsbeslut.
+
+En kunds egen domän utanför plattformens domänträd delar inte denna parent.
+Projektägarskap, DNS och HTTPS måste fortfarande verifieras.
+
+## DNS för kundvärdnamn
+
+En post för `sites.sajtmaskin.se` skapar inte poster för
+`<slug>.sites.sajtmaskin.se`. Använd exakta kundvärdnamn med rätt CNAME-mål
+och ett exakt alias per Vercel-projekt. För en större grupp kan wildcard-DNS
+eller delegering av `sites` utvärderas, men verifiera routingen till två olika
+projekt innan den används brett.
+
+Wildcard-DNS är inte samma sak som Vercels wildcard-alias/certifikat, som har
+nameserverkrav. Vercel kan ange projektspecifika DNS-värden; kopiera inte
+standardvärden från ett annat projekt. Låt rot, staging och e-postposter vara.
+[Vercels domänanvisningar](https://vercel.com/docs/domains/working-with-domains/add-a-domain).
 
 ## Aktiveringsordning
 
-1. Äg `sajtmaskin.se` och konfigurera DNS. **Klart.**
-2. Släpp `preview.sajtmaskin.se` från Vercel, peka den till Fly-appen, lägg ett Fly-certifikat och verifiera `/health`.
-3. Konfigurera exakt Vercel/DNS-routing för `sites.sajtmaskin.se` och starta PSL-ansökan.
-4. Sätt `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se`.
-5. Armera bara migreringsprocessen lokalt och kör torrt:
-   `$env:SAJTMASKIN_BRANDED_LIVE_URLS="true"; npx tsx scripts/db/migrate-branded-live-urls.ts --limit=10`.
-   Detta aktiverar inte Vercel-runtimen.
-6. Kör en staging-migrering i samma armerade shell med `--apply`, verifiera
-   DNS/TLS och publicera om en sajt.
-7. Sätt `SAJTMASKIN_BRANDED_LIVE_URLS=true` först i Development/Preview, därefter Production.
-8. Byt appens `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och Fly `PREVIEW_BASE_URL` till `https://preview.sajtmaskin.se`; sätt preview-host-allowlisten till exakt `preview.sajtmaskin.se`.
+1. Bekräfta aktuellt DNS-läge, valda pilotprojekt och mandat för ändringen.
+2. Verifiera exakt kundhost, rätt Vercel-projekt och faktisk HTTPS. Säkerställ
+   att publiceringsväg och migreringsskript följer samma godkända pilotpolicy.
+3. Kontrollera databasmålet innan eventuell skrivning. Preview delar
+   prod-databas; en preview-körning är inte ett isolerat stagingtest.
+4. Armera migreringsprocessen lokalt med
+   `SAJTMASKIN_BRANDED_LIVE_URLS=true` och
+   `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se`. Torrkör skriptet med
+   explicit projekt-ID. Detta aktiverar inte appens Vercel-runtime.
+5. Applicera på ett godkänt testprojekt. Verifiera alias och ompublicera rätt
+   publicerad version för att uppdatera metadata/redirect, inte senaste utkast.
+6. Prova HTTP-kedja och rollback. Aktivera därefter begränsad pilot i appen.
+7. Migrera äldre sajter med explicit urval och redovisad progress. Enbart
+   `--limit` bevisar inte att nästa körning behandlar nya projekt.
+
+Detaljer och beroenden finns i
+[`A4`](../plans/active/2026-09-14-kundens-adress-och-portal/aktiviteter/A4-aktivering-och-migrering.md).
+Plan-PR:n varken aktiverar dessa steg eller flyttar Fly-preview/staging.
 
 ## Test före DNS-aktivering
 
@@ -71,7 +101,12 @@ Automatiska `*.vercel.app`-alias kan ha flera former och räknas alltid som
 
 ## Rollback
 
-Ta bort eller sätt `SAJTMASKIN_BRANDED_LIVE_URLS=false`. UI/API faller då tillbaka till sparad provider-URL utan att radera Vercel-projekt, alias eller kunddomäner. Ändra inte `SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan en ny verifierad migrering.
+`SAJTMASKIN_BRANDED_LIVE_URLS=false` återställer appens URL-val till provider
+när ingen verifierad egen domän finns. Det återställer **inte** metadata eller
+redirects som redan byggts in i kunddeploymenten. Behåll fungerande målalias
+tills kundruntime återställts eller ompublicerats och HTTP-kedjan kontrollerats.
+En cachead permanent redirect kan kvarstå hos klienter. Ändra inte
+`SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan verifierad migrering.
 
 ## Sluggen — användaren väljer den redan
 
@@ -107,7 +142,12 @@ utan någon av posterna ovan.
 
 ## Egen domän
 
-Domänen blir kanonisk först när Vercels verify-endpoint returnerar `verified: true` och projektfältet har sparats. SEO använder den vid nästa publicering. Om domänen inte längre är verifierad ska projektets varumärkta standardadress återställas innan SEO publiceras om.
+Ägarkontroll, Vercels verifiering och DNS-konfiguration krävs före kanonisk
+adress. Kontrollera också faktisk HTTPS innan bytet presenteras som klart.
+Metadata och byggda redirects ändras först vid ompublicering eller annan
+verifierad routingändring. Tillfälligt okänd provider-status är inte samma sak
+som bekräftat fel; bevara senaste fungerande adress vid det första fallet.
+Vid bortkoppling måste både UI och runtime återgå till rätt branded adress.
 
 ## Preview
 
