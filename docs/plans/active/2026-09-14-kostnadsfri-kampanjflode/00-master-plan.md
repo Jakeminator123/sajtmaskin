@@ -185,11 +185,27 @@ frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
 
 - Om spekulativ init är värd risken att företaget känner igen sig dåligt i en
   sajt som redan är byggd när de kommer till wizarden.
-- Om `profile` ska vara ett fritt `extra_data`-objekt eller ett schemalagt fält
-  med egen validering. Ett fritt objekt går snabbare; ett schema är det som
-  faktiskt hindrar personnummer från att åka med.
 - Om taxonomin ska växa (frisör/skönhet, hantverk, transport) eller ersättas av
   fritext plus hint. Registreringsunderlag är fritext i grunden.
+
+Avgjort sedan planen skrevs: `profile` är **schemalagt med egen validering**, inte
+ett fritt `extra_data`-objekt. Beslutsraden 2026-09-15 äger innebörden.
+
+## Säkerhetsfixar efter första granskningen
+
+Tre läckvägar fanns kvar i ingest-koden och är stängda i samma PR:
+
+| Väg | Vad höll inte | Nu |
+|---|---|---|
+| `orgNumber` runt PII-guarden | Fältet är undantaget mönsterkontrollen, men valideringen strök bort alla icke-siffror och godtog vilka tio siffror som helst — ett personnummer lagrades som org.nr | Strikt rått format (`NNNNNN-NNNN` eller tio siffror), gruppnummer ≥ 2 på tredje siffran (ett personnummer bär månad 01–12 där) och Luhn-kontrollsiffra |
+| 500-svar från `POST /api/kostnadsfri` | `error.message` gick till anroparen och hela felobjektet till loggen; ett Drizzle-fel bär querytexten och dess parametrar, alltså profil, kontakt-e-post och lösenordshash | Konstant `Internt fel…` ut, och loggen får bara felets typnamn |
+| Rå `extra_data` i publik DTO | `extractCompanyData` returnerade hela kolumnen till browsern efter lösenordsverifiering, vilket gick runt allowlisten för poster som lagrades före den eller lades in för hand | Fältet finns inte längre på DTO:n; bara `profile` och `openclawConfig` (båda normaliserade) exponeras |
+
+Samtidigt härdat: PII-guarden går nu igenom nästlade objekt och arrayer till fyra
+nivåer och räknar även JSON-tal, men rapporterar fortfarande bara toppnivåns
+nyckel — en nästlad sökväg är avsändarstyrd text och hör inte i vårt felsvar.
+`registeredAt` kräver ett verkligt kalenderdatum (`2026-02-31` och
+`2026-07-10 (osäkert)` avvisas) men tar fortfarande dashens hela ISO-timestamp.
 
 ## Kopplingar
 

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import {
   buildPromptFromWizardData,
+  extractCompanyData,
   generatePassword,
   hasKostnadsfriPasswordSecret,
   type MiniWizardData,
@@ -23,6 +25,56 @@ describe("generatePassword", () => {
     expect(hasKostnadsfriPasswordSecret()).toBe(true);
     expect(generatePassword("acme-ab")).toBe(generatePassword("acme-ab"));
     expect(generatePassword("acme-ab")).not.toBe(generatePassword("other-ab"));
+  });
+});
+
+// DTO:n går till browsern efter lösenordsverifiering. En post som lagrades före
+// allowlisten — eller lades in för hand — kan bära personnummer och hemadresser
+// i `extra_data`, så den råa kolumnen får inte följa med ut.
+describe("extractCompanyData", () => {
+  const page = (extraData: Record<string, unknown> | null) =>
+    ({
+      slug: "zax-2-0-ab",
+      company_name: "Zax 2.0 AB",
+      industry: "health",
+      website: null,
+      contact_email: "post@example.se",
+      contact_name: "Didar",
+      extra_data: extraData,
+    }) as unknown as KostnadsfriPage;
+
+  it("exponerar inte rå extra_data", () => {
+    const data = extractCompanyData(
+      page({
+        profile: { city: "Kista" },
+        homeAddress: "HÖGNÄSVÄGEN 4, 196 34 KUNGSÄNGEN",
+        boardMembers: [{ name: "Didar", personalId: "19748885-2517" }],
+      }),
+    );
+
+    expect(data).not.toHaveProperty("extraData");
+    expect(JSON.stringify(data)).not.toContain("HÖGNÄSVÄGEN");
+    expect(JSON.stringify(data)).not.toContain("19748885-2517");
+  });
+
+  it("behåller de normaliserade projektionerna", () => {
+    const data = extractCompanyData(
+      page({
+        openclaw: { roleLabel: "Sajtagenten" },
+        profile: { city: "Kista", orgNumber: "559599-5639", shareCapital: "25.000 SEK" },
+      }),
+    );
+
+    expect(data.profile).toEqual({ city: "Kista", orgNumber: "559599-5639" });
+    expect(data.openclawConfig?.roleLabel).toBe("Sajtagenten");
+    expect(data.companyName).toBe("Zax 2.0 AB");
+  });
+
+  it("är tyst när extra_data saknas", () => {
+    const data = extractCompanyData(page(null));
+
+    expect(data.profile).toBeNull();
+    expect(data.openclawConfig).toBeNull();
   });
 });
 

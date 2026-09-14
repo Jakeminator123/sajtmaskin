@@ -30,7 +30,12 @@ export interface KostnadsfriCompanyData {
   website: string | null;
   contactEmail: string | null;
   contactName: string | null;
-  extraData: Record<string, unknown> | null;
+  /**
+   * Medvetet **ingen** rå `extraData` här. DTO:n går till browsern efter
+   * lösenordsverifiering, och en post som skapades före allowlisten (eller
+   * lades in för hand i databasen) kan bära personnummer och hemadresser i
+   * `extra_data`. Bara typade, normaliserade projektioner exponeras.
+   */
   openclawConfig: KostnadsfriOpenClawConfig | null;
   /**
    * Bolagsfakta från utskicksverktyget. Förifyller mini-wizarden; går aldrig
@@ -105,7 +110,6 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     website: page.website,
     contactEmail: page.contact_email,
     contactName: page.contact_name,
-    extraData,
     openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
     profile: extractKostnadsfriCompanyProfile(extraData),
   };
@@ -123,7 +127,6 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     website: null,
     contactEmail: null,
     contactName: null,
-    extraData: null,
     openclawConfig: null,
     profile: null,
   };

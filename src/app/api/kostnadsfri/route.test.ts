@@ -351,6 +351,30 @@ describe("POST /api/kostnadsfri — bolagsprofil", () => {
       expect.objectContaining({ extraData: { profile: { city: "Kista" } } }),
     );
   });
+
+  // Parameteriserad SQL skyddar frågan, inte felutdatan: ett Drizzle-fel bär
+  // querytexten och dess parametrar, och de innehåller här profil, kontakt-
+  // e-post och lösenordshash.
+  it("läcker inte databasfelets text i svaret eller loggen", async () => {
+    const sentinel = "SENTINEL-19748885-2517-hash:hemligt";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    getKostnadsfriPageBySlug.mockRejectedValueOnce(
+      new Error(`insert into "kostnadsfri_pages" … params: ${sentinel}`),
+    );
+
+    const res = await POST(postRequest({ companyName: "Acme AB" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ success: false, error: "Internt fel. Försök igen senare." });
+    expect(JSON.stringify(body)).not.toContain(sentinel);
+
+    const logged = consoleError.mock.calls.flat().map(String).join(" ");
+    expect(logged).not.toContain(sentinel);
+    expect(logged).toContain("Failed to create page");
+
+    consoleError.mockRestore();
+  });
 });
 
 describe("GET /api/kostnadsfri", () => {
