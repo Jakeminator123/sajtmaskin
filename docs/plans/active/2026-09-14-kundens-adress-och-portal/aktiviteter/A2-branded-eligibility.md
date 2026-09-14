@@ -2,7 +2,7 @@
 
 ## Genomförandestatus 2026-09-14
 
-Cookie-/Origin-skydd är levererade i #1360/#1365. PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontroller på preview följs separat. Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`.
+Cookie-/Origin-skydd är levererade i #1360/#1365. PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontrollerna på preview är gröna, inklusive migrationer och schemaparitet (CI 34899457800). Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`.
 Verkligt HTTPS-cookieprov och verifierad återställning av legitima äldre
 gästsessioner återstår. Dokumentera eventuell ny inloggning för befintliga
 användare. Ursprunglig analys och kvarvarande acceptanskrav följer nedan.

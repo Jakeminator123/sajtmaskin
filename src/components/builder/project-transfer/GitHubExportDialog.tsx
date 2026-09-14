@@ -26,6 +26,10 @@ type GitHubExportDialogProps = {
   /** Optional name used to pre-fill the repo field (project name or chat id). */
   suggestedRepoName?: string | null;
   githubUsername?: string | null;
+  /** Project scope enables durable export of media attached to that project. */
+  projectId?: string | null;
+  /** A customer-owned destination origin used to replace old hosted canonicals. */
+  suggestedSiteUrl?: string | null;
 };
 
 /** GitHub repo names allow letters, digits, `.`, `-` and `_`. */
@@ -39,13 +43,9 @@ function sanitizeRepoName(input: string): string {
     .slice(0, 100);
 }
 
-function buildDefaultRepoName(
-  suggested: string | null | undefined,
-  chatId: string | null,
-): string {
+function buildDefaultRepoName(suggested: string | null | undefined, chatId: string | null): string {
   const base =
-    suggested?.trim() ||
-    (chatId ? `sajtmaskin-${chatId.slice(0, 8)}` : "sajtmaskin-sajt");
+    suggested?.trim() || (chatId ? `sajtmaskin-${chatId.slice(0, 8)}` : "sajtmaskin-sajt");
   return sanitizeRepoName(base) || "sajtmaskin-sajt";
 }
 
@@ -71,11 +71,12 @@ function GitHubExportDialogForm({
   isAuthenticated,
   suggestedRepoName,
   githubUsername,
+  projectId,
+  suggestedSiteUrl,
 }: GitHubExportDialogProps) {
-  const [repoName, setRepoName] = useState(() =>
-    buildDefaultRepoName(suggestedRepoName, chatId),
-  );
+  const [repoName, setRepoName] = useState(() => buildDefaultRepoName(suggestedRepoName, chatId));
   const [makePrivate, setMakePrivate] = useState(true);
+  const [siteUrl, setSiteUrl] = useState(() => suggestedSiteUrl?.trim() ?? "");
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
@@ -104,11 +105,19 @@ function GitHubExportDialogForm({
       const res = await fetch("/api/github/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId, versionId, repo, private: makePrivate }),
+        body: JSON.stringify({
+          chatId,
+          versionId,
+          repo,
+          private: makePrivate,
+          ...(projectId ? { projectId } : {}),
+          ...(siteUrl.trim() ? { siteUrl: siteUrl.trim() } : {}),
+        }),
       });
-      const data = (await res.json().catch(() => null)) as
-        | { repoUrl?: string; error?: string }
-        | null;
+      const data = (await res.json().catch(() => null)) as {
+        repoUrl?: string;
+        error?: string;
+      } | null;
       if (res.status === 401) {
         throw new Error("GitHub är inte kopplat. Koppla GitHub och försök igen.");
       }
@@ -116,9 +125,7 @@ function GitHubExportDialogForm({
         throw new Error(data?.error || `Export misslyckades (HTTP ${res.status})`);
       }
       if (!data?.repoUrl) {
-        throw new Error(
-          "Exporten lyckades men inget repo returnerades. Försök igen om en stund.",
-        );
+        throw new Error("Exporten lyckades men inget repo returnerades. Försök igen om en stund.");
       }
       setSuccessUrl(data.repoUrl);
     } catch (err) {
@@ -133,7 +140,8 @@ function GitHubExportDialogForm({
       <DialogHeader>
         <DialogTitle>Exportera till GitHub</DialogTitle>
         <DialogDescription>
-          Skapar ett nytt GitHub-repo med koden från den valda versionen.
+          Skapar eller uppdaterar ett GitHub-repo med kod, flyttguide och projektets uppladdade
+          media.
         </DialogDescription>
       </DialogHeader>
 
@@ -225,6 +233,24 @@ function GitHubExportDialogForm({
               {githubUsername ? ` Kopplat som @${githubUsername}.` : ""}
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${privateId}-site-url`}>Ny webbaddress vid utflytt</Label>
+            <Input
+              id={`${privateId}-site-url`}
+              type="url"
+              value={siteUrl}
+              onChange={(event) => {
+                setSiteUrl(event.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="https://www.dindoman.se"
+              disabled={isExporting}
+            />
+            <p className="text-muted-foreground text-xs">
+              Krävs om koden innehåller en gammal Sajtmaskin-canonical. Du kan också sätta{" "}
+              <code>NEXT_PUBLIC_SITE_URL</code> efter flytten.
+            </p>
+          </div>
           <div className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm">
             <Switch
               id={privateId}
@@ -240,6 +266,11 @@ function GitHubExportDialogForm({
               </span>
             </Label>
           </div>
+          <p className="text-muted-foreground text-xs">
+            Exporten innehåller filerna och en env-mall med tomma värden, men inte databasdata,
+            konton, nyckelvärden eller tredjepartslicenser. Koden får användas enligt tillämpliga
+            licenser; tredjepartsbibliotek och AI-material är inte nödvändigtvis exklusiva.
+          </p>
           {error && <div className="text-xs text-red-400">{error}</div>}
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" onClick={onClose} disabled={isExporting}>

@@ -2,7 +2,7 @@
 
 ## Genomförandestatus 2026-09-14
 
-PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Senaste preview efter #1366 är integrerad utan ändring av det granskade exportträdet. Slutlig CI och GitGuardian-incident 37094000 återstår. Sajtmaskin-fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal; GitHub-kontrollen är ännu inte grön.
+B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden.
 
 Område: [02](../02-agandeskap-och-exit.md). Efter [C1](C1-sajtvy.md).
 Sajtvy-integration körs i följd med C2 så att samma sida inte skrivs parallellt.
