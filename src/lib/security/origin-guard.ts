@@ -30,6 +30,7 @@ const PORTAL_ORIGINS = [
 export type PortalOriginSources = {
   appBaseUrl?: string | null;
   oauthAllowedOrigins?: string | null;
+  vercelBranchUrl?: string | null;
   vercelUrl?: string | null;
 };
 
@@ -69,6 +70,20 @@ function parseConfiguredOrigin(value: string): string | null {
   }
 }
 
+function parseVercelSystemHostname(value: string): string | null {
+  const hostname = value.trim().toLowerCase();
+  if (!hostname || hostname.includes("*")) return null;
+
+  try {
+    const url = new URL(`https://${hostname}`);
+    if (url.origin !== `https://${hostname}`) return null;
+    if (!url.hostname.endsWith(".vercel.app")) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 /** Origin headers use the serialized-origin form, without paths or a slash. */
 function parseOriginHeader(value: string): string | null {
   const parsed = parseConfiguredOrigin(value);
@@ -96,14 +111,17 @@ export function getTrustedPortalOrigins(
   sources: PortalOriginSources = {
     appBaseUrl: getAppBaseUrl(),
     oauthAllowedOrigins: process.env.OAUTH_ALLOWED_ORIGINS,
+    vercelBranchUrl: process.env.VERCEL_BRANCH_URL,
     vercelUrl: process.env.VERCEL_URL,
   },
 ): Set<string> {
   const origins = new Set<string>(PORTAL_ORIGINS);
   const candidates = [sources.appBaseUrl ?? ""];
 
-  if (sources.vercelUrl) {
-    candidates.push(`https://${sources.vercelUrl.trim()}`);
+  for (const vercelHostname of [sources.vercelUrl, sources.vercelBranchUrl]) {
+    if (!vercelHostname) continue;
+    const origin = parseVercelSystemHostname(vercelHostname);
+    if (origin) origins.add(origin);
   }
   if (sources.oauthAllowedOrigins) {
     candidates.push(...sources.oauthAllowedOrigins.split(","));

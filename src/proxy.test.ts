@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 import { proxy } from "./proxy";
@@ -73,6 +73,28 @@ describe("proxy exact-Origin guard", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("allows browser mutations from Vercel's persistent preview-branch origin", async () => {
+    const branchOrigin = "https://sajtmaskin-git-preview-jakeminator123s-projects.vercel.app";
+    vi.stubEnv("VERCEL_BRANCH_URL", new URL(branchOrigin).hostname);
+
+    try {
+      const res = await proxy(
+        new NextRequest("https://sajtmaskin.vercel.app/api/projects", {
+          method: "POST",
+          headers: {
+            origin: branchOrigin,
+            cookie: "__Host-sajtmaskin_auth=signed",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("rejects a customer sibling even when the browser calls it same-site", async () => {

@@ -16,19 +16,14 @@ function decide(
 }
 
 describe("trusted portal origins", () => {
-  it("combines stable aliases with the configured app, OAuth, and Vercel preview owners", () => {
+  it("combines stable aliases with the configured app and OAuth owners", () => {
     const origins = getTrustedPortalOrigins({
       appBaseUrl: "http://localhost:4173/",
       oauthAllowedOrigins:
         "https://staff.sajtmaskin.test, http://127.0.0.1:3001, https://*.sajtmaskin.se, http://insecure.example, https://sajtmaskin.se/callback",
-      vercelUrl: "sajtmaskin-git-origin-guard.vercel.app",
     });
 
-    expect(origins).toEqual(
-      expect.objectContaining({
-        size: 10,
-      }),
-    );
+    expect(origins.size).toBe(9);
     expect([...origins]).toEqual(
       expect.arrayContaining([
         "https://sajtmaskin.se",
@@ -37,7 +32,6 @@ describe("trusted portal origins", () => {
         "https://www.sajtmaskin.com",
         "https://preview.sajtmaskin.se",
         "https://sajtmaskin.vercel.app",
-        "https://sajtmaskin-git-origin-guard.vercel.app",
         "https://staff.sajtmaskin.test",
         "http://localhost:4173",
         "http://127.0.0.1:3001",
@@ -45,6 +39,28 @@ describe("trusted portal origins", () => {
     );
     expect(origins.has("https://customer.sajtmaskin.se")).toBe(false);
     expect(origins.has("http://insecure.example")).toBe(false);
+  });
+
+  it("trusts the distinct Vercel deployment and persistent branch origins", () => {
+    const uniqueDeployment = "sajtmaskin-a1b2c3-jakeminator123s-projects.vercel.app";
+    const previewBranch = "sajtmaskin-git-preview-jakeminator123s-projects.vercel.app";
+    const origins = getTrustedPortalOrigins({
+      vercelUrl: uniqueDeployment,
+      vercelBranchUrl: previewBranch,
+    });
+
+    expect(origins.has(`https://${uniqueDeployment}`)).toBe(true);
+    expect(origins.has(`https://${previewBranch}`)).toBe(true);
+  });
+
+  it("rejects spoofed Vercel system hostnames", () => {
+    const origins = getTrustedPortalOrigins({
+      vercelUrl: "sajtmaskin.vercel.app.evil.example",
+      vercelBranchUrl: "sajtmaskin.vercel.app@evil.example",
+    });
+
+    expect(origins.has("https://sajtmaskin.vercel.app.evil.example")).toBe(false);
+    expect(origins.has("https://evil.example")).toBe(false);
   });
 
   it("accepts only canonical exact Origin header values", () => {
