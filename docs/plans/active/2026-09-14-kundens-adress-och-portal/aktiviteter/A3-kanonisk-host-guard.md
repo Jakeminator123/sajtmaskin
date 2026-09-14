@@ -1,5 +1,11 @@
 # A3 — Primäradress i metadata och runtime
 
+## Genomförandestatus 2026-09-14
+
+Lokal implementation är WIP och ännu inte levererad. Den får inte aktivera
+routing utan verifierad projektidentitet, HTTPS och A4:s slutliga bindning.
+Full A3 kräver de faktiska deploy-/rollback-proven nedan.
+
 Område: [01](../01-varumarkta-adresser.md). Efter [A2](A2-branded-eligibility.md)
 för gemensamma deployfiler. Samordna kontrakt med [C2](C2-domanflode.md).
 

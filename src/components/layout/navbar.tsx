@@ -285,6 +285,17 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     <p className="truncate text-xs text-gray-500">{user?.email}</p>
                   </div>
 
+                  <Link
+                    href="/konto"
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-gray-800/50 ${
+                      isActive("/konto") ? "text-white" : "text-gray-300"
+                    }`}
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <User className="text-brand-teal h-4 w-4" />
+                    Konto
+                  </Link>
+
                   {/* Balance */}
                   <Link
                     href="/buy-credits"
@@ -394,6 +405,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               >
                 <Search className="h-5 w-5" />
                 Audits
+              </Link>
+            )}
+            {isAuthenticated && (
+              <Link
+                href="/konto"
+                onClick={() => setShowMobileMenu(false)}
+                className={`flex items-center gap-2 px-4 py-3 ${
+                  isActive("/konto") ? "bg-gray-800/50 text-white" : "text-gray-400"
+                }`}
+              >
+                <User className="h-5 w-5" />
+                Konto
               </Link>
             )}
             {isAuthenticated && (

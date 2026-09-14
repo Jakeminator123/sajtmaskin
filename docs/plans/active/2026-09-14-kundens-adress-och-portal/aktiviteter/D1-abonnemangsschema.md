@@ -1,7 +1,18 @@
 # D1 — Abonnemangsdata per sajt och Stripe-läge
 
-Område: [04](../04-abonnemang-och-livscykel.md). Efter D3:s policybeslut;
-D3:s driftimplementation kommer senare. Endast schema i denna etapp.
+Område: [04](../04-abonnemang-och-livscykel.md). Grundschemat levererades innan
+D3:s policyförslag ratificerats: modellen håller policyvärden och aktivering
+åtskilda. D3:s driftimplementation kommer senare.
+
+## Genomförandestatus 2026-09-14
+
+Grundschema och retention guards levererade i #1361.
+`add-site-subscriptions.sql` och
+`upgrade-site-subscriptions-composite-keys.sql` är verifierade i den delade
+preview/prod-databasens ledger. Ingen checkout, entitlement eller pilot
+aktiveras av schemaetappen. Pris, inkluderade credits och rollover är förslag.
+Den körbara ägaren är `src/lib/db/schema.ts` och migrationsfilerna; kontrakten
+nedan styr återstående writers och konsumenter.
 
 ## Centralt: preview och prod delar databas
 
@@ -14,7 +25,7 @@ Varje checkout, webhook, portallänk och entitlement-uppslag måste vara avgrän
 per läge. Testabonnemang får aldrig hålla en produktionssajt publicerad eller
 fylla det riktiga creditsaldot. Testa även samma användare/projekt i båda lägena.
 
-## Föreslagen datamodell
+## Grundmodellens kontrakt
 
 - Kundkoppling per användare/läge med unik Stripe-kundidentitet inom läget.
 - Abonnemang med ägare, `project_id`, läge, Stripe subscription-ID,
@@ -35,7 +46,7 @@ fylla det riktiga creditsaldot. Testa även samma användare/projekt i båda lä
 en aktiv sajt och en pausad samtidigt. Begreppen och periodfält hämtas från
 installerad Stripe-API-version, inte från gamla exempel.
 
-## Credits
+## Föreslagen creditmodell
 
 Förslag i MVP: månatligt tillskott till befintligt saldo med rollover, utan
 nollställning av köpta credits. Befintlig `transactions.idempotency_key` kan

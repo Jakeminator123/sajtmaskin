@@ -1,5 +1,12 @@
 # A2 — Begränsad branded pilot och portalens grundskydd
 
+## Genomförandestatus 2026-09-14
+
+Cookie-/Origin-skydd är levererade i #1360/#1365. PR #1366 har rättningar på `6b88db3` som fått oberoende Sol/high PASS; slutliga CI-/mergesteg återstår. Faktisk pilotaktivering är stängd med `activation_not_ready`.
+Verkligt HTTPS-cookieprov och verifierad återställning av legitima äldre
+gästsessioner återstår. Dokumentera eventuell ny inloggning för befintliga
+användare. Ursprunglig analys och kvarvarande acceptanskrav följer nedan.
+
 Område: [01](../01-varumarkta-adresser.md). Föreslaget svar: fråga 1 i
 [masterplanen](../00-master-plan.md). Kör före A3 och A4.
 
@@ -22,7 +29,11 @@ Mekanismen bakom föräldra-risken: `.se` är ett publikt suffix, men
 sedan även till portalen. Riktningen kundsajt → plattform är alltså den
 allvarligare, eftersom `sajtmaskin_session` bär ägandet av oägda projekt.
 
-## Utgångsläge (verifierat 2026-09-14)
+## Ursprungligt utgångsläge före #1360
+
+Inventeringen nedan beskriver läget före cookieändringen. Aktuell kod använder
+`__Host-`-cookies över HTTPS och separat lokal hantering; det återstående
+webbläsar-/återställningsbeviset framgår av statusen ovan.
 
 Ingen av plattformens cookies sätter `Domain` i dag — alla är host-only. Det
 skyddar riktningen plattform → kundsajt, men **inte** mot att en subdomän sätter
@@ -38,7 +49,10 @@ en bredare cookie med samma namn.
 signaturkontrollen. Det som återstår är att en angripare tvingar in sin **egen
 giltiga** session, och att gästcookien skuggas utan någon signatur alls.
 
-## Gör
+## Ursprungliga acceptanskrav
+
+Cookie- och Origin-koden är levererad; nedan bevaras kontraktet för
+verifiering och återstående pilotarbete.
 
 1. Ha en uttrycklig pilotallowlist per projekt och granskad publiceringsversion.
    En enkel ägarstyrd konfiguration duger i början. Återanvänd befintliga

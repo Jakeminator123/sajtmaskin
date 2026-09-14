@@ -17,6 +17,7 @@ import {
   engineChats,
   generationBillings,
   generationBillingSettings,
+  kostnadsfriCampaignEntitlements,
   llmUsage,
   transactions,
   users,
@@ -131,6 +132,8 @@ export type GenerationBillingTarget = {
    * this. Conflict retries never replace the already persisted boundary.
    */
   usageStartsAtNow?: boolean;
+  campaignEntitlementId?: string | null;
+  campaignPhase?: "initial" | "followup" | null;
 };
 
 export function normalizeGenerationBillingClaimKeys(value: unknown): string[] {
@@ -163,6 +166,11 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
   const settings = settingsRows[0];
   if (!settings) throw new Error("Generation billing settings missing");
   const claimKey = input.claimKey?.trim() || null;
+  const campaignEntitlementId = input.campaignEntitlementId?.trim() || null;
+  const campaignPhase = campaignEntitlementId ? (input.campaignPhase ?? null) : null;
+  if (campaignEntitlementId && !campaignPhase) {
+    throw new Error("Campaign billing phase missing");
+  }
   const now = new Date();
 
   await db
@@ -174,6 +182,8 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
       user_id: input.userId ?? null,
       status: "pending",
       free_generation_eligible: input.freeGenerationEligible ?? true,
+      campaign_entitlement_id: campaignEntitlementId,
+      campaign_phase: campaignPhase,
       claim_keys: claimKey ? [claimKey] : [],
       usage_started_at: input.usageStartsAtNow ? sql`NOW()` : null,
       markup_basis_points: settings.markup_basis_points,
@@ -366,6 +376,7 @@ export type SettlementResult = {
   providerCostMicroUsd: number;
   unpricedModels: string[];
   freeGenerationApplied: boolean;
+  campaignFreeApplied: boolean;
 };
 
 export type GenerationChargeDecision = {
@@ -373,6 +384,8 @@ export type GenerationChargeDecision = {
   status: string;
   freeGenerationApplied: boolean;
   shouldClaimFreeGeneration: boolean;
+  campaignFreeApplied: boolean;
+  shouldClaimCampaignFree: boolean;
 };
 
 export function resolveGenerationChargeDecision(input: {
@@ -387,6 +400,8 @@ export function resolveGenerationChargeDecision(input: {
   existingFreeGenerationApplied: boolean;
   freeGenerationEligible: boolean;
   freeGenerationAvailable: boolean;
+  existingCampaignFreeApplied?: boolean;
+  campaignFreeEligible?: boolean;
 }): GenerationChargeDecision {
   let desiredCredits = input.hasCompletePrice ? input.calculatedCredits : input.lockedCredits;
   let status = input.hasCompletePrice
@@ -403,9 +418,17 @@ export function resolveGenerationChargeDecision(input: {
     status = "needs_reconciliation";
   }
 
+  const shouldClaimCampaignFree =
+    input.hasOwner &&
+    !input.ownerIsTest &&
+    input.campaignFreeEligible === true &&
+    input.existingCampaignFreeApplied !== true &&
+    input.lockedCredits === 0;
+  const campaignFreeApplied = input.existingCampaignFreeApplied === true || shouldClaimCampaignFree;
   const shouldClaimFreeGeneration =
     input.hasOwner &&
     !input.ownerIsTest &&
+    !campaignFreeApplied &&
     input.freeGenerationEligible &&
     !input.existingFreeGenerationApplied &&
     input.lockedCredits === 0 &&
@@ -418,6 +441,9 @@ export function resolveGenerationChargeDecision(input: {
   } else if (input.ownerIsTest) {
     desiredCredits = 0;
     status = "test";
+  } else if (campaignFreeApplied) {
+    desiredCredits = 0;
+    if (input.hasCompletePrice) status = "campaign_free_generation";
   } else if (freeGenerationApplied) {
     // The first successfully-finalized version owns the entitlement even when
     // its telemetry still needs reconciliation. Waive/refund the customer
@@ -434,6 +460,8 @@ export function resolveGenerationChargeDecision(input: {
     status,
     freeGenerationApplied,
     shouldClaimFreeGeneration,
+    campaignFreeApplied,
+    shouldClaimCampaignFree,
   };
 }
 
@@ -485,6 +513,7 @@ export async function settleGenerationBilling(
         providerCostMicroUsd: locked.provider_cost_microusd,
         unpricedModels: [],
         freeGenerationApplied: locked.free_generation_applied,
+        campaignFreeApplied: locked.campaign_free_applied,
       };
     }
 
@@ -503,6 +532,36 @@ export async function settleGenerationBilling(
       diamonds: number;
       freeGenerationAvailable: boolean;
     } | null = null;
+    let campaignEntitlement: typeof kostnadsfriCampaignEntitlements.$inferSelect | null = null;
+    let campaignFreeEligible = false;
+    if (locked.campaign_entitlement_id && locked.campaign_phase && owner && !ownerIsTest) {
+      const entitlementRows = await tx
+        .select()
+        .from(kostnadsfriCampaignEntitlements)
+        .where(eq(kostnadsfriCampaignEntitlements.id, locked.campaign_entitlement_id))
+        .limit(1)
+        .for("update");
+      campaignEntitlement = entitlementRows[0] ?? null;
+      const chatRows = await tx
+        .select({ projectId: engineChats.projectId })
+        .from(engineChats)
+        .where(eq(engineChats.id, input.chatId))
+        .limit(1);
+      const bindingMatches =
+        campaignEntitlement?.user_id === owner.id &&
+        campaignEntitlement.project_id === chatRows[0]?.projectId;
+      campaignFreeEligible =
+        Boolean(bindingMatches) &&
+        (locked.campaign_phase === "initial"
+          ? (!campaignEntitlement!.initial_chat_id ||
+              campaignEntitlement!.initial_chat_id === input.chatId) &&
+            (!campaignEntitlement!.initial_version_id ||
+              campaignEntitlement!.initial_version_id === input.versionId)
+          : campaignEntitlement!.initial_chat_id === input.chatId &&
+            Boolean(campaignEntitlement!.initial_version_id) &&
+            (!campaignEntitlement!.followup_version_id ||
+              campaignEntitlement!.followup_version_id === input.versionId));
+    }
     if (owner && !ownerIsTest) {
       const lockedUsers = await tx
         .select({
@@ -528,8 +587,29 @@ export async function settleGenerationBilling(
       existingFreeGenerationApplied: locked.free_generation_applied,
       freeGenerationEligible: locked.free_generation_eligible,
       freeGenerationAvailable: lockedUser?.freeGenerationAvailable ?? false,
+      existingCampaignFreeApplied: locked.campaign_free_applied,
+      campaignFreeEligible,
     });
-    const { desiredCredits, status, freeGenerationApplied } = decision;
+    const { desiredCredits, status, freeGenerationApplied, campaignFreeApplied } = decision;
+    if (decision.shouldClaimCampaignFree && campaignEntitlement) {
+      await tx
+        .update(kostnadsfriCampaignEntitlements)
+        .set(
+          locked.campaign_phase === "initial"
+            ? {
+                initial_chat_id: input.chatId,
+                initial_version_id: input.versionId,
+                initial_claimed_at: now,
+                updated_at: now,
+              }
+            : {
+                followup_version_id: input.versionId,
+                followup_claimed_at: now,
+                updated_at: now,
+              },
+        )
+        .where(eq(kostnadsfriCampaignEntitlements.id, campaignEntitlement.id));
+    }
     if (owner && decision.shouldClaimFreeGeneration) {
       await tx
         .update(users)
@@ -603,6 +683,7 @@ export async function settleGenerationBilling(
         billable_ore: customerCharge.billableOre,
         credits_charged: totalCredits,
         free_generation_applied: freeGenerationApplied,
+        campaign_free_applied: campaignFreeApplied,
         llm_calls: quote.llmCalls,
         input_tokens: quote.inputTokens,
         cached_input_tokens: quote.cachedInputTokens,
@@ -632,8 +713,33 @@ export async function settleGenerationBilling(
       providerCostMicroUsd: quote.providerCostMicroUsd,
       unpricedModels: quote.unpricedModels,
       freeGenerationApplied,
+      campaignFreeApplied,
     };
   });
+}
+
+export type GenerationBillingMarkerPolicy = {
+  freeGenerationEligible: boolean;
+  freeGenerationApplied: boolean;
+  campaignFreeApplied: boolean;
+  campaignEntitlementId: string | null;
+  campaignPhase: "initial" | "followup" | null;
+};
+
+/**
+ * Repair preflight treats the original generation as already paid when either
+ * the account's free slot or the campaign slot was reserved on this version.
+ * Campaign reservation lives on the completion marker before settlement sets
+ * `campaign_free_applied`, so entitlement/phase must also count as free.
+ */
+export function isGenerationBillingMarkerFreeForRepair(
+  marker: GenerationBillingMarkerPolicy,
+): boolean {
+  return (
+    marker.freeGenerationApplied ||
+    marker.campaignFreeApplied ||
+    Boolean(marker.campaignEntitlementId && marker.campaignPhase)
+  );
 }
 
 /**
@@ -642,12 +748,15 @@ export async function settleGenerationBilling(
  */
 export async function getGenerationBillingMarkerPolicy(
   versionId: string,
-): Promise<{ freeGenerationEligible: boolean; freeGenerationApplied: boolean } | null> {
+): Promise<GenerationBillingMarkerPolicy | null> {
   assertDbConfigured();
   const rows = await db
     .select({
       freeGenerationEligible: generationBillings.free_generation_eligible,
       freeGenerationApplied: generationBillings.free_generation_applied,
+      campaignFreeApplied: generationBillings.campaign_free_applied,
+      campaignEntitlementId: generationBillings.campaign_entitlement_id,
+      campaignPhase: generationBillings.campaign_phase,
     })
     .from(generationBillings)
     .where(eq(generationBillings.version_id, versionId))
@@ -852,9 +961,11 @@ export function billedOreTowardAdminRevenue(row: {
   return Number(row.creditsCharged) * Number(row.sekPerCreditOre);
 }
 
-export function summarizeGenerationBillingRows(
-  rows: GenerationBillingLedgerRow[],
-): { providerCostOre: number; billableOre: number; marginOre: number } {
+export function summarizeGenerationBillingRows(rows: GenerationBillingLedgerRow[]): {
+  providerCostOre: number;
+  billableOre: number;
+  marginOre: number;
+} {
   let providerCostOre = 0;
   let billableOre = 0;
   for (const row of rows) {
@@ -1019,8 +1130,11 @@ export async function getGenerationBillingAdminData(
     `),
   ]);
   const rows = (
-    (result as unknown as { rows?: Array<AdminGenerationBillingRow & { firstUserPrompt?: string | null }> })
-      .rows ?? []
+    (
+      result as unknown as {
+        rows?: Array<AdminGenerationBillingRow & { firstUserPrompt?: string | null }>;
+      }
+    ).rows ?? []
   ).map((row) => {
     const { firstUserPrompt, ...rest } = row;
     return {

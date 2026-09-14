@@ -2,31 +2,30 @@
 
 ## Kontrakt
 
-- `previewUrl`: `https://preview.sajtmaskin.se/<chatId>` när Fly-hostnamnet är aktiverat.
-- `liveUrl`: verifierad `customDomain`, annars verifierad `<slug>.sites.sajtmaskin.se`, annars provider-URL som rollback.
+- `previewUrl`: preview-hostens konfigurerade interna URL; `preview.sajtmaskin.se`
+  är appens staging-alias och ska ligga kvar på Vercel.
+- `liveUrl` i A2: verifierad `customDomain`, annars provider-URL. En granskad
+  `<slug>.sites.sajtmaskin.se` är bara en kandidat; runtime-aktivering är
+  stängd tills A4 kan binda slutartefakten till en exakt READY-deployment.
 - Provider-URL (`*.vercel.app`) sparas separat och får aldrig användas som SEO-canonical när en verifierad projektadress finns.
 
 ## Verifierat DNS-läge (2026-08-24)
-
-**Historisk mätning.** Kontrollera aktuell zon, projektkoppling och HTTPS före
-nya driftsteg. Tabellen nedan är inte verifierad på nytt 2026-09-14.
 
 Zonen driftas av **one.com** (`ns01.one.com`, `ns02.one.com`) — nya poster läggs
 där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 `*.sajtmaskin.se`, så varje värdnamn måste skapas explicit.
 
-| Värdnamn | Läge | Följd |
-|---|---|---|
-| `sajtmaskin.se` | A → `76.76.21.21` (Vercel) | Appens rot. Rör inte. |
-| `www.sajtmaskin.se` | CNAME → Vercel | Appen. Rör inte. |
-| `preview.sajtmaskin.se` | CNAME → **Vercel** | Redan taget av Vercel. Måste släppas där innan Fly kan äga värdnamnet och utfärda certifikat. |
-| `sites.sajtmaskin.se` | NXDOMAIN | Inte påbörjad. |
+| Värdnamn                | Läge                       | Följd                                     |
+| ----------------------- | -------------------------- | ----------------------------------------- |
+| `sajtmaskin.se`         | A → `76.76.21.21` (Vercel) | Appens rot. Rör inte.                     |
+| `www.sajtmaskin.se`     | CNAME → Vercel             | Appen. Rör inte.                          |
+| `preview.sajtmaskin.se` | CNAME → **Vercel**         | Appens staging. Ska ligga kvar på Vercel. |
+| `sites.sajtmaskin.se`   | NXDOMAIN                   | Inte påbörjad.                            |
 
-`preview.sajtmaskin.se` är också produktens stagingadress enligt dagens
-Git-workflow. Historikens Fly-plan ger inte mandat att koppla bort den från
-Vercel. Branded kundadresser under `sites` är ett separat spår.
+DNS-raden är en historisk mätning. A1 ska verifiera aktuellt DNS/TLS-läge innan
+aktivering; staging-aliaset är inte en ledig preview-host-adress.
 
-## Cookiegräns och begränsad pilot
+## PSL är ett senare isoleringslager
 
 `sites.sajtmaskin.se` blir en parent-domän som delas av kundsajter som inte
 litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
@@ -35,56 +34,44 @@ litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
 supercookie mellan tenants. Det är exakt därför `vercel.app` ligger i PSL:ens
 private-sektion.
 
-Läs [PSL:s riktlinjer](https://github.com/publicsuffix/list/wiki/Guidelines)
-innan ansökan. Små/beta-projekt kan avslås och en godkänd ändring tar tid att
-nå webbläsare. Planera inte lanseringen mot ett antaget godkännandedatum.
-PSL-spåret ersätter inte portalens cookie-/Origin-skydd, särskilt mot cookies
-på föräldern `sajtmaskin.se`. Inventeringen omfattar både auth-cookien och
-gästsessionen `sajtmaskin_session`, som ingår i tenant-/projektbehörigheten.
+En PSL-post för `sites.sajtmaskin.se` kan begränsa cookies mellan kundvärdar,
+men den hindrar inte en kundvärd från att försöka skugga plattformscookies på
+föräldern `.sajtmaskin.se`. Den är därför varken ensam aktiveringsgrind eller
+ett generellt skydd för portalen. Första steget är en liten versionsbunden pilot;
+PSL-arbetet kan fortsätta parallellt inför en bredare utrullning.
 
-En auth-dossier är en risksignal, inget komplett bevis på cookieanvändning.
-Även vanlig JavaScript kan sätta cookies. Före eventuell öppen utrullning
-behövs därför en verifierad domän-/sessionsmodell. Ett föreslaget avgränsat
-pilotupplägg finns i
-[`A2`](../plans/active/2026-09-14-kundens-adress-och-portal/aktiviteter/A2-branded-eligibility.md);
-det är ett granskningsunderlag, inte ett fattat aktiveringsbeslut.
-
-En kunds egen domän utanför plattformens domänträd delar inte denna parent.
-Projektägarskap, DNS och HTTPS måste fortfarande verifieras.
-
-## DNS för kundvärdnamn
-
-En post för `sites.sajtmaskin.se` skapar inte poster för
-`<slug>.sites.sajtmaskin.se`. Använd exakta kundvärdnamn med rätt CNAME-mål
-och ett exakt alias per Vercel-projekt. För en större grupp kan wildcard-DNS
-eller delegering av `sites` utvärderas, men verifiera routingen till två olika
-projekt innan den används brett.
-
-Wildcard-DNS är inte samma sak som Vercels wildcard-alias/certifikat, som har
-nameserverkrav. Vercel kan ange projektspecifika DNS-värden; kopiera inte
-standardvärden från ett annat projekt. Låt rot, staging och e-postposter vara.
-[Vercels domänanvisningar](https://vercel.com/docs/domains/working-with-domains/add-a-domain).
+Egen verifierad `customDomain` berörs inte: den ligger utanför den delade
+parent-domänen.
 
 ## Aktiveringsordning
 
-1. Bekräfta aktuellt DNS-läge, valda pilotprojekt och mandat för ändringen.
-2. Verifiera exakt kundhost, rätt Vercel-projekt och faktisk HTTPS. Säkerställ
-   att publiceringsväg och migreringsskript följer samma godkända pilotpolicy.
-3. Kontrollera databasmålet innan eventuell skrivning. Preview delar
-   prod-databas; en preview-körning är inte ett isolerat stagingtest.
-4. Armera migreringsprocessen lokalt med
-   `SAJTMASKIN_BRANDED_LIVE_URLS=true` och
-   `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se`. Torrkör skriptet med
-   explicit projekt-ID. Detta aktiverar inte appens Vercel-runtime.
-5. Applicera på ett godkänt testprojekt. Verifiera alias och ompublicera rätt
-   publicerad version för att uppdatera metadata/redirect, inte senaste utkast.
-6. Prova HTTP-kedja och rollback. Aktivera därefter begränsad pilot i appen.
-7. Migrera äldre sajter med explicit urval och redovisad progress. Enbart
-   `--limit` bevisar inte att nästa körning behandlar nya projekt.
-
-Detaljer och beroenden finns i
-[`A4`](../plans/active/2026-09-14-kundens-adress-och-portal/aktiviteter/A4-aktivering-och-migrering.md).
-Plan-PR:n varken aktiverar dessa steg eller flyttar Fly-preview/staging.
+1. Äg `sajtmaskin.se` och konfigurera DNS. **Klart.**
+2. Låt `preview.sajtmaskin.se` ligga kvar som staging-alias på Vercel.
+3. Konfigurera och verifiera exakt Vercel/DNS-routing för `sites.sajtmaskin.se`.
+4. Granska pilotversionens lagrade källfiler och registrera exakt
+   `projectId` + `versionId` + `filesRevision` i
+   `SAJTMASKIN_BRANDED_PILOT_ALLOWLIST`, till exempel
+   `[{"projectId":"…","versionId":"…","filesRevision":"…"}]`. En ändring
+   av samma versionsrad kräver ny granskning och nytt revisionsvärde. Detta är
+   granskningsinventering, inte bevis för bytes som skickas till providern:
+   autofix, SEO/LLM och bildmaterialisering sker efter denna revision.
+5. Sätt `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se` i det kontrollerade
+   testshellet. Armera bara migreringsprocessen lokalt och kör torrt:
+   `$env:SAJTMASKIN_BRANDED_LIVE_URLS="true"; npx tsx scripts/db/migrate-branded-live-urls.ts --limit=10`.
+   Detta aktiverar inte Vercel-runtimen.
+6. Slutför portalens exakta Origin-skydd och cookieövergång och bevisa med ett
+   riktigt HTTPS-test att både inloggad session och gäst/claim motstår
+   parent-domain-cookie-skuggning. Dessa är kvarvarande A2-krav.
+7. Kör inte migreringen med `--apply` i A2. En versionsrad kan ha ändrats efter
+   den äldre provider-deployen, så den aktuella `filesRevision` bevisar inte
+   vilka bytes den deployen kör. Skriptet stoppar därför `--apply` tills A4
+   binder aliaset till ett verifierat, oföränderligt provider-deployment.
+8. A4 måste fingeravtrycka den slutligt transformerade artefakten och dess
+   indata/utdata, vänta på exakt READY provider-deployment och serialisera
+   alias-kopplingen till just den deploymenten. Först därefter kan
+   aktiveringsgrinden öppnas. Verifiera då DNS/TLS och publicera om en pilotsajt innan
+   `SAJTMASKIN_BRANDED_LIVE_URLS=true` sätts i Development/Preview.
+   Produktion kräver ett separat aktiveringsbeslut efter bevisen ovan.
 
 ## Test före DNS-aktivering
 
@@ -102,12 +89,14 @@ Automatiska `*.vercel.app`-alias kan ha flera former och räknas alltid som
 
 ## Rollback
 
-`SAJTMASKIN_BRANDED_LIVE_URLS=false` återställer appens URL-val till provider
-när ingen verifierad egen domän finns. Det återställer **inte** metadata eller
-redirects som redan byggts in i kunddeploymenten. Behåll fungerande målalias
-tills kundruntime återställts eller ompublicerats och HTTP-kedjan kontrollerats.
-En cachead permanent redirect kan kvarstå hos klienter. Ändra inte
-`SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan verifierad migrering.
+I A2 visas alltid sparad provider-URL om ingen verifierad kunddomän finns.
+Routen reserverar eller kopplar inte nya branded alias, oavsett flaggvärde. Ett
+projekt som redan har ett branded alias får inte publiceras om alls i detta
+steg, eftersom varje produktiondeploy på samma provider-projekt annars kan
+flytta aliaset till ogranskade bytes. Blockeringen sker före debitering,
+deploy-rad och provideranrop, så den befintliga publicerade versionen lämnas
+kvar. Ändra inte `SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan en ny
+verifierad migrering.
 
 ## Sluggen — användaren väljer den redan
 
@@ -116,11 +105,12 @@ En cachead permanent redirect kan kvarstå hos klienter. Ändra inte
 `slugCandidate` i `src/lib/live-site-url.ts`: gemener, diakriter borttagna,
 icke-alfanumeriskt → bindestreck, max 50 tecken.
 
-- Reserveras **en gång**, vid första branded publiceringen
-  (`ensureProjectPublishedIdentity`), och är därefter stabil per
+- Ska i A4 reserveras **en gång**, vid första säkra branded aktiveringen
+  (`ensureProjectPublishedIdentity`), och därefter vara stabil per
   `app_projects.id`. Krockar blir `-2`, `-3`, … med DB-unikindex som sista
   grind.
-- Med gaten av reserveras ingen slug alls; befintlig läses bara.
+- A2 reserverar ingen slug alls, även om konfigurationsflaggan är satt;
+  befintlig läses bara.
 - Reserverade ord (`admin`, `api`, `app`, `assets`, `preview`, `www`) och tomt
   resultat faller till `site`.
 
@@ -131,25 +121,19 @@ vi tillåta det krävs ett ägarbeslut om alias/redirect, inte en ny slug-genera
 
 Path-routing på rotdomänen avvisas medvetet:
 
-| Skäl | Innebörd |
-|---|---|
-| Appen äger roten | `sajtmaskin.se` kör builder, inloggning och `/admin`. En kundsajt på samma origin delar cookie-jar med appens session. |
-| Delad proxy | Varje kundsajt är ett eget hosting-projekt. Path-routing tvingar all kundtrafik genom appens proxy — kostnad, latens och en ny felkälla. |
-| Asset-krockar | Genererade Next-projekt förväntar sig att ligga i roten (`/_next/...`). Preview-hosten löser det för preview med aktiv path-omskrivning; att upprepa det i produktion är onödig komplexitet. |
-| Kundens varumärke | En subdomän läser som kundens egen adress. En path under vår domän gör kunden till en undersida hos oss. |
+| Skäl              | Innebörd                                                                                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Appen äger roten  | `sajtmaskin.se` kör builder, inloggning och `/admin`. En kundsajt på samma origin delar cookie-jar med appens session.                                                                       |
+| Delad proxy       | Varje kundsajt är ett eget hosting-projekt. Path-routing tvingar all kundtrafik genom appens proxy — kostnad, latens och en ny felkälla.                                                     |
+| Asset-krockar     | Genererade Next-projekt förväntar sig att ligga i roten (`/_next/...`). Preview-hosten löser det för preview med aktiv path-omskrivning; att upprepa det i produktion är onödig komplexitet. |
+| Kundens varumärke | En subdomän läser som kundens egen adress. En path under vår domän gör kunden till en undersida hos oss.                                                                                     |
 
-Subdomänformen `<slug>.sites.sajtmaskin.se` separerar kundsajtens origin och
-asset-sökvägar från appens. Den ger inte ensam full cookie-/sessionsisolering:
-följ grundskyddet och pilotavgränsningen ovan, även för gästprojekt.
+Subdomänformen `<slug>.sites.sajtmaskin.se` ger samma "vi äger produkten"-känsla
+utan någon av posterna ovan.
 
 ## Egen domän
 
-Ägarkontroll, Vercels verifiering och DNS-konfiguration krävs före kanonisk
-adress. Kontrollera också faktisk HTTPS innan bytet presenteras som klart.
-Metadata och byggda redirects ändras först vid ompublicering eller annan
-verifierad routingändring. Tillfälligt okänd provider-status är inte samma sak
-som bekräftat fel; bevara senaste fungerande adress vid det första fallet.
-Vid bortkoppling måste både UI och runtime återgå till rätt branded adress.
+Domänen blir kanonisk först när Vercels verify-endpoint returnerar `verified: true` och projektfältet har sparats. SEO använder den vid nästa publicering. Om domänen inte längre är verifierad ska projektets varumärkta standardadress återställas innan SEO publiceras om.
 
 ## Preview
 

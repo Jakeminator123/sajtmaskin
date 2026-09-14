@@ -161,6 +161,35 @@ export async function getProjectById(id: string): Promise<Project | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * Attach every still-unclaimed project of one guest session to a user.
+ *
+ * Currently uncalled: the login path must not claim from a leftover cookie,
+ * because a subdomain can plant a `sess_` id and a login only proves the
+ * account (see `setAuthCookie`). Reserved for the controlled restore where the
+ * user proves the project — do not wire it to anything a client can supply.
+ *
+ * Unlike {@link getProjectByIdForOwner} this never widens to `user_id IS NULL`
+ * without a session match: only rows carrying exactly this `session_id` move.
+ */
+export async function claimUnclaimedSessionProjects(
+  sessionId: string,
+  userId: string,
+): Promise<string[]> {
+  assertDbConfigured();
+  const session = sessionId.trim();
+  const owner = userId.trim();
+  if (!session || !owner) return [];
+
+  const rows = await db
+    .update(appProjects)
+    .set({ user_id: owner, updated_at: new Date() })
+    .where(and(isNull(appProjects.user_id), eq(appProjects.session_id, session)))
+    .returning({ id: appProjects.id });
+
+  return rows.map((row) => row.id);
+}
+
 export async function getProjectByIdForOwner(
   id: string,
   scope: ProjectOwnerScope,

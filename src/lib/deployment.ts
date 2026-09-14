@@ -342,11 +342,13 @@ export async function setLatestDeploymentLiveUrlForChat(
 /** Resolve the public URL for status/webhook paths that do not have an app request context. */
 export async function resolveDeploymentLiveUrlForChat(params: {
   chatId: string;
+  versionId: string;
   providerUrl?: string | null;
   fallbackUrl?: string | null;
 }): Promise<string | null> {
   const [project] = await db
     .select({
+      projectId: appProjects.id,
       brandedDomain: appProjects.branded_domain,
       brandedDomainVerifiedAt: appProjects.branded_domain_verified_at,
       customDomain: appProjects.custom_domain,
@@ -357,6 +359,8 @@ export async function resolveDeploymentLiveUrlForChat(params: {
     .where(eq(engineChats.id, params.chatId))
     .limit(1);
   const resolved = resolveLiveUrl({
+    projectId: project?.projectId ?? null,
+    versionId: params.versionId,
     providerUrl: params.providerUrl,
     brandedDomain: project?.brandedDomain ?? null,
     brandedDomainVerifiedAt: project?.brandedDomainVerifiedAt ?? null,

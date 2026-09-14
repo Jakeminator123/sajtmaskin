@@ -29,6 +29,7 @@
     "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+    "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
@@ -57,6 +58,7 @@
     "SUPERADMIN_PASSWORD",
     "TEST_USER_EMAIL",
     "TEST_USER_PASSWORD",
+    "VERCEL_BRANCH_URL",
     "VERCEL_GIT_COMMIT_AUTHOR_LOGIN",
     "VERCEL_GIT_COMMIT_AUTHOR_NAME",
     "VERCEL_GIT_COMMIT_MESSAGE",
@@ -191,6 +193,7 @@
     "SAJTMASKIN_BRIEF_MODEL",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
+    "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFAULT_THINKING",
@@ -264,6 +267,7 @@
     "UPSTASH_REDIS_REST_URL",
     "USE_RESPONSES_API",
     "VERCEL",
+    "VERCEL_BRANCH_URL",
     "VERCEL_ENV",
     "VERCEL_LOG_DRAIN_ENABLED",
     "VERCEL_LOG_DRAIN_SECRET",
@@ -283,6 +287,12 @@
       "classification": "vercel_managed",
       "recommendedVercelTargets": [],
       "notes": "Set internally by Next.js build/runtime phases."
+    },
+    {
+      "key": "VERCEL_BRANCH_URL",
+      "classification": "vercel_managed",
+      "recommendedVercelTargets": [],
+      "notes": "Set automatically by Vercel to the branch-specific deployment URL. Do not push a local value."
     },
     {
       "key": "RENDER",
@@ -425,10 +435,7 @@
     {
       "key": "SAJTMASKIN_DOMAIN_PURCHASE",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview"
-      ],
+      "recommendedVercelTargets": ["development", "preview"],
       "notes": "Opt-in, default off. DO NOT ENABLE YET — the final hop is an unfinished skeleton (owner decision 2026-08-01): buyDomain posts to the retired /v5/domains/buy, and the current POST /v1/registrar/domains/{domain}/buy also requires a contactInformation object (registrant name, address, country) the app never collects, so a paid purchase would fail at the registrar. Search, pricing, Stripe Checkout, the order table and the compensation path ARE finished. When enabled, POST /api/domains/purchase may create a Stripe Checkout session and a paid order may place a REAL order at the registrar on the owner's account. Off = search still works and prices are still shown, but every offer reports purchaseBlockedReason 'purchase_disabled' and the purchase route answers 503. Deliberately separate from VERCEL_TOKEN: a token that exists so deploys work must not by itself authorise spending money at the registrar. Note that development/preview here is a RECOMMENDATION only — the code checks the flag and a Stripe key, never NODE_ENV, so setting it in production would take effect. Source: src/lib/config.ts (FEATURES.useDomainPurchase), src/lib/domains/registrar/vercel-registrar.ts."
     },
     {
@@ -561,7 +568,13 @@
       "key": "SAJTMASKIN_BRANDED_LIVE_URLS",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature gate for branded generated-site aliases. Keep unset until the configured live-site domain is owned, DNS/TLS is verified and exact aliases can be attached to generated Vercel projects."
+      "notes": "Configuration signal for branded generated-site aliases. A2 keeps runtime activation closed regardless of this value. Do not activate until A4 binds the final transformed artifact to an exact READY provider deployment and serializes alias attachment, and DNS/TLS plus shared-host security prerequisites are verified."
+    },
+    {
+      "key": "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Default empty/deny. JSON array of exact reviewed objects {projectId, versionId, filesRevision}. This records review of the stored source revision only; autofix, SEO/LLM and image materialization run later, so it does not prove final provider bytes or authorize activation. A project approval never rolls forward to a new or edited engine version. A4 must add final-artifact proof and serialized attachment to an exact READY deployment before runtime activation. Source: src/lib/branded-pilot-eligibility.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",

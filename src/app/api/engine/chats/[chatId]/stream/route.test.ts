@@ -1202,7 +1202,16 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(getVersionsByChat).toHaveBeenCalledWith("chat_1");
     expect(resolveFollowUpPreviousBase).toHaveBeenCalled();
     expect(resolveFollowUpPreviousFiles).toHaveBeenCalled();
-    expect(prepareCredits).toHaveBeenCalled();
+    expect(prepareCredits).toHaveBeenCalledWith(
+      expect.any(Request),
+      "prompt.refine",
+      expect.any(Object),
+      expect.objectContaining({
+        campaignProjectId: "app_proj_1",
+        campaignPhase: "continuation",
+        campaignChatId: "chat_1",
+      }),
+    );
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
   });

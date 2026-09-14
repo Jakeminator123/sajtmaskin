@@ -1,14 +1,22 @@
 # 05 — Körschema
 
-Denna plan-PR levererar underlag. Implementationsuppdrag startar när Jakob
-har svarat på förslagen i [masterplanen](00-master-plan.md).
+Denna plan-PR levererar underlag och ratificerar inte nya produktförslag i
+[masterplanen](00-master-plan.md). Separata implementationsuppdrag har startat.
+
+## Genomförandestatus 2026-09-14
+
+C1, C3 etapp 1, A2:s cookie-/Origin-skydd och D1 är levererade på `preview`.
+PR #1366 har rättningar på `6b88db3` som fått oberoende Sol/high PASS; slutliga CI-/mergesteg återstår. Faktisk pilotaktivering är stängd med `activation_not_ready`.
+PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Slutlig integration/CI och GitGuardian-incident 37094000 återstår. Fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal, men incidenten är inte markerad som false positive.
+A3 är lokal WIP; A1/A4, C2 och D2/D3:s kund-/driftflöden återstår.
+Aktuell samlad status finns i [masterplanen](00-master-plan.md).
 
 ## Etapper
 
 | Etapp | Arbete | Vad som kan levereras |
 |---|---|---|
 | 0 | D3:s policy, A1:s DNS-underlag, enkel kostnadskalkyl | Klara val och förberedda driftsteg. Inget väntetvång på PSL eller partnerbrev. |
-| 1 | C1 och A2; D1 efter policybeslut | Sajtvy, pilotgrind och datamodell. A2 och C1 serialiseras om båda rör `src/proxy.ts`. |
+| 1 | C1 och A2; D1 levererades policyneutralt | Sajtvy, pilotgrind och datamodell. D1 ratificerar inte D3:s förslag. A2 och C1 serialiseras om båda rör `src/proxy.ts`. |
 | 2 | A3 efter A2; C2 efter C1 och A3:s adresskontrakt; B1 efter C1 | Korrekt adress, domänkoppling och export. C2 och B1 integreras sekventiellt i sajtvyn. |
 | 3 | D2 efter D1, därefter D3:s driftimplementation; C3 etapp 2 | Testbar abonnemangslivscykel och kontohantering. |
 | 4 | A4:s begränsade pilot, därefter äldre sajter i små satser | Branded publicering och dokumenterad rollback. Full betalstart kräver D2/D3 klara. |
@@ -45,8 +53,9 @@ GPT-5.6 Sol med `high` inför draft → ready.
 Parallella agenter används när uppdrag och faktiskt disjunkta filer tillåter
 det; högst tre samtidiga skrivande uppdrag i detta initiativ. Drift kan utföras
 av behörig operatör eller agent med befintligt mandat. Det finns inget generellt
-tekniskt krav på att Jakob själv skriver kommandona. Mandatet för denna PR
-täcker bara planändringar, inte produktion, kundmeddelanden eller dataradering.
+tekniskt krav på att Jakob själv skriver kommandona. Denna dokumentations-PR
+ändrar bara underlaget. Separata implementationsuppdrag gäller `preview`,
+inte produktion, kundmeddelanden eller dataradering.
 
 Före push: `npm run verify:pr -- --plan --base origin/preview` och berörda
 riktade kontroller. Runtime: typecheck och tester för ändrat beteende. A3/A4

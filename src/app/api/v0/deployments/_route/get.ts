@@ -27,6 +27,7 @@ import {
   touchProjectBrandedDomainCheckedAt,
 } from "@/lib/db/services/projects";
 import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
 import { resolveLegacyProviderUrl } from "./legacy-provider-url";
 
 export async function GET(req: Request) {
@@ -57,6 +58,15 @@ export async function GET(req: Request) {
         if (!chat) chat = await getChatByIdForRequest(req, chatId);
         if (chat) internalChatId = chat.id;
       }
+
+      const result = internalChatId
+        ? await db
+            .select()
+            .from(deployments)
+            .where(eq(deployments.chatId, internalChatId))
+            .orderBy(desc(deployments.createdAt))
+        : [];
+      const latestReadyDeployment = result.find((deployment) => deployment.status === "ready");
 
       // Contract with the builder UI: top-level `project` carries the persisted
       // Vercel project link (null-safe; legacy chats have no app_projects row).
@@ -128,17 +138,28 @@ export async function GET(req: Request) {
           const hasVerifiedCustomDomain = Boolean(
             appProject.custom_domain && customDomainVerifiedAt,
           );
-          const marked = await markProjectBrandedDomainVerified(
-            appProjectId,
-            appProject.branded_domain,
-          );
-          if (marked) {
-            brandedDomainVerifiedAt = marked.branded_domain_verified_at ?? new Date();
-            // Custom domain always wins as liveUrl — never stamp the branded
-            // subdomain over it, even on a genuine transition.
-            if (!wasVerifiedBefore && !hasVerifiedCustomDomain && internalChatId) {
-              await setLatestDeploymentLiveUrlForChat(internalChatId, appProject.branded_domain);
+          const activationAllowed = resolveBrandedPilotEligibility({
+            projectId: appProjectId,
+            versionId: latestReadyDeployment?.versionId,
+          }).allowed;
+          if (wasVerifiedBefore || activationAllowed) {
+            const marked = await markProjectBrandedDomainVerified(
+              appProjectId,
+              appProject.branded_domain,
+            );
+            if (marked) {
+              brandedDomainVerifiedAt = marked.branded_domain_verified_at ?? new Date();
+              // Custom domain always wins as liveUrl — never stamp the branded
+              // subdomain over it, even on a genuine transition.
+              if (!wasVerifiedBefore && !hasVerifiedCustomDomain && internalChatId) {
+                await setLatestDeploymentLiveUrlForChat(internalChatId, appProject.branded_domain);
+              }
             }
+          } else {
+            // Provider verification is only an observed fact. While the
+            // canonical runtime gate is closed, keep the alias pending and
+            // advance only the throttle clock.
+            await touchProjectBrandedDomainCheckedAt(appProjectId, appProject.branded_domain);
           }
         } else if (configured === false) {
           // Definitive: the provider no longer reports the domain as
@@ -171,11 +192,6 @@ export async function GET(req: Request) {
         return NextResponse.json({ deployments: [], project });
       }
 
-      const result = await db
-        .select()
-        .from(deployments)
-        .where(eq(deployments.chatId, internalChatId))
-        .orderBy(desc(deployments.createdAt));
       const refreshedById = new Map<
         string,
         {
@@ -198,6 +214,8 @@ export async function GET(req: Request) {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
           const refreshedLiveUrl = resolveLiveUrl({
+            projectId: appProjectId,
+            versionId: latestRefreshCandidate.versionId,
             providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
             brandedDomain: appProject?.branded_domain ?? null,
             brandedDomainVerifiedAt,
@@ -255,6 +273,8 @@ export async function GET(req: Request) {
             url:
               refreshed?.url ??
               resolveLiveUrl({
+                projectId: appProjectId,
+                versionId: d.versionId,
                 providerUrl: d.providerUrl,
                 brandedDomain: appProject?.branded_domain ?? null,
                 brandedDomainVerifiedAt,

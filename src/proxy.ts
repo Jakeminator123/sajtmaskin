@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
-import { getAppBaseUrl } from "@/lib/app-url";
+import {
+  evaluateMutationOrigin,
+  getTrustedPortalOrigins,
+  isExternalMachineEndpoint,
+  isPortalMutationMethod,
+  isTrustedPortalOriginHeader,
+} from "@/lib/security/origin-guard";
 
 // ---------------------------------------------------------------------------
 // Path sets
@@ -8,13 +14,17 @@ import { getAppBaseUrl } from "@/lib/app-url";
 
 const ADMIN_PREFIX = "/admin";
 
-const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits"]);
+const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
-const ALLOWED_ORIGINS = new Set(
-  [getAppBaseUrl(), process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ""].filter(
-    Boolean,
-  ),
-);
+/**
+ * Prefixes whose subpaths require a signed-in user. `AUTH_REQUIRED_PATHS` is an
+ * exact-match set, so a dynamic route like `/projects/<id>` would slip straight
+ * through it — the customer portal's per-site view must be gated by prefix.
+ *
+ * The server-side owner check in each route/API is still the authority; this
+ * gate only keeps an anonymous visitor from reaching the page at all.
+ */
+const AUTH_REQUIRED_PREFIXES = ["/projects/"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,7 +39,8 @@ function needsAdminAuth(pathname: string): boolean {
 }
 
 function needsUserAuth(pathname: string): boolean {
-  return AUTH_REQUIRED_PATHS.has(pathname);
+  if (AUTH_REQUIRED_PATHS.has(pathname)) return true;
+  return AUTH_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com", "https://studio.d-id.com"];
@@ -206,8 +217,12 @@ function addSecurityHeaders(
   }
 }
 
-function addCorsHeaders(response: NextResponse, origin: string | null): void {
-  const allowed = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
+function addCorsHeaders(
+  response: NextResponse,
+  origin: string | null,
+  trustedOrigins: ReadonlySet<string>,
+): void {
+  const allowed = origin && isTrustedPortalOriginHeader(origin, trustedOrigins) ? origin : "";
   if (allowed) {
     response.headers.set("Access-Control-Allow-Origin", allowed);
     const existing = response.headers.get("Vary");
@@ -230,6 +245,7 @@ let _jwtMissingWarned = false;
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const origin = request.headers.get("origin");
+  const trustedOrigins = getTrustedPortalOrigins();
   const nonce = crypto.randomUUID();
   const enforceCsp = process.env.CSP_ENFORCE?.trim().toLowerCase() === "true";
   const requestHeaders = new Headers(request.headers);
@@ -237,10 +253,31 @@ export async function proxy(request: NextRequest) {
 
   // ---- CORS preflight for API routes ----
   if (isApiRoute(pathname) && request.method === "OPTIONS") {
+    if (origin !== null && !isTrustedPortalOriginHeader(origin, trustedOrigins)) {
+      const denied = NextResponse.json(
+        { error: "origin_not_allowed" },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+      addSecurityHeaders(denied, pathname, nonce, enforceCsp);
+      return denied;
+    }
     const preflight = new NextResponse(null, { status: 204 });
-    addCorsHeaders(preflight, origin);
+    addCorsHeaders(preflight, origin, trustedOrigins);
     addSecurityHeaders(preflight, pathname, nonce, enforceCsp);
     return preflight;
+  }
+
+  // ---- Exact-Origin CSRF guard for browser mutations ----
+  if (isPortalMutationMethod(request.method) && !isExternalMachineEndpoint(pathname)) {
+    const decision = evaluateMutationOrigin(request.headers, trustedOrigins);
+    if (!decision.allowed) {
+      const denied = NextResponse.json(
+        { error: "origin_not_allowed" },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+      addSecurityHeaders(denied, pathname, nonce, enforceCsp);
+      return denied;
+    }
   }
 
   // ---- Page auth redirects ----
@@ -277,7 +314,7 @@ export async function proxy(request: NextRequest) {
 
   // ---- CORS headers for API responses ----
   if (isApiRoute(pathname)) {
-    addCorsHeaders(response, origin);
+    addCorsHeaders(response, origin, trustedOrigins);
   }
 
   // ---- Security headers on all responses ----

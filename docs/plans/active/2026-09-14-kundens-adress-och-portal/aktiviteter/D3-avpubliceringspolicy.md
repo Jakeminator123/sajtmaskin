@@ -1,8 +1,13 @@
 # D3 — Föreslagen pauspolicy och faktisk driftåtgärd
 
-Område: [04](../04-abonnemang-och-livscykel.md). Policydelen fastställs före D1;
-driftimplementationen följer D1 och D2. Detta bryter den ursprungliga cirkeln
-där D1 väntade på ett helt färdigt D3 som självt behövde abonnemangskoden.
+Område: [04](../04-abonnemang-och-livscykel.md). D1:s policyneutrala
+grundschema är levererat utan att dessa policyförslag ratificerats. Policyn
+fastställs före kundaktivering; driftimplementationen följer D1 och D2.
+
+## Genomförandestatus 2026-09-14
+
+Policyn är inte ratificerad och faktisk paus/återställning är inte levererad.
+7 dagars respit, 90 dagars bevarande och övriga utfall nedan är fortsatt förslag.
 
 ## Föreslagen policy att svara ja till
 

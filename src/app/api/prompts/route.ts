@@ -4,10 +4,12 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
-import { createPromptHandoff } from "@/lib/db/services/projects";
+import { createPromptHandoff, getProjectByIdForOwner } from "@/lib/db/services/projects";
+import { bindVerifiedKostnadsfriCampaign } from "@/lib/db/services/kostnadsfri-campaign";
 import { cachePromptHandoff } from "@/lib/data/redis";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
+import { readKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
 
 const createPromptSchema = z.object({
   prompt: z
@@ -55,8 +57,10 @@ function recordKostnadsfriCompleted(
 export async function POST(request: NextRequest) {
   const session = ensureSessionIdFromRequest(request);
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };
@@ -83,6 +87,38 @@ export async function POST(request: NextRequest) {
         return attachSessionCookie(
           NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
         );
+      }
+
+      if (source === "kostnadsfri") {
+        if (!kostnadsfriSlug || !projectId) {
+          return attachSessionCookie(
+            NextResponse.json({ success: false, error: "Ogiltig inbjudan." }, { status: 403 }),
+          );
+        }
+        const project = await getProjectByIdForOwner(projectId, {
+          userId: user?.id ?? null,
+          sessionId,
+        });
+        if (!project) {
+          return attachSessionCookie(
+            NextResponse.json({ success: false, error: "Ogiltig inbjudan." }, { status: 403 }),
+          );
+        }
+        const benefit = await bindVerifiedKostnadsfriCampaign({
+          receipt: readKostnadsfriCampaignReceipt(request),
+          invitationSlug: kostnadsfriSlug,
+          projectId: project.id,
+          userId: user?.id ?? null,
+          sessionId,
+        });
+        if (!benefit) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { success: false, error: "Inbjudan kunde inte verifieras." },
+              { status: 403 },
+            ),
+          );
+        }
       }
 
       const created = await createPromptHandoff({

@@ -94,6 +94,23 @@ describe("createCommitCreditsOnce", () => {
     );
   });
 
+  it("freezes the campaign entitlement and phase on the successful version marker", async () => {
+    const check = creditCheck({
+      campaignBenefit: { entitlementId: "campaign_1", phase: "followup" },
+      campaignProject: true,
+    });
+    const commit = createCommitCreditsOnce(check as never);
+    await commit({ chatId: "chat_1", versionId: "version_2" });
+
+    expect(establishGenerationBilling).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaignEntitlementId: "campaign_1",
+        campaignPhase: "followup",
+        freeGenerationEligible: false,
+      }),
+    );
+  });
+
   it("uses the existing fixed charge for non-version actions", async () => {
     const check = creditCheck();
     const commit = createCommitCreditsOnce(check as never);

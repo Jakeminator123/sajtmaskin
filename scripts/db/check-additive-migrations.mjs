@@ -19,7 +19,8 @@
  * för länge sedan är applicerad (t.ex. `align-live-schema-parity.sql`); den
  * ligger i ledgern och ska inte rödfärga varje ny push.
  *
- * Strikt read-only: enda databasanropet är en SELECT mot `schema_migrations`.
+ * Strikt read-only: de enda databasanropen är SELECT mot `schema_migrations`
+ * och mot `information_schema` för tabeller, kolumner och skrivtriggers.
  *
  * Användning:
  *   node scripts/db/check-additive-migrations.mjs
@@ -150,7 +151,7 @@ export function maskSqlComments(sql) {
       continue;
     }
 
-    const dollar = /^\$[A-Za-z_]*\$/u.exec(rest);
+    const dollar = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/u.exec(rest);
     if (dollar) {
       const tag = dollar[0];
       const end = sql.indexOf(tag, i + tag.length);
@@ -195,11 +196,374 @@ export function maskSqlComments(sql) {
 }
 
 /**
+ * Träffar som bara kan skada för att det redan FINNS rader eller körande kod
+ * som rör tabellen. Läggs en sådan constraint på en tabell som samma pending-
+ * omgång själv skapar, och som ännu inte finns i måldatabasen, kan den per
+ * definition inte ogiltigförklara vare sig en befintlig rad eller en INSERT
+ * från den gamla produktionskoden — tabellen existerar inte för den koden.
+ *
+ * `create-unique-index` står MEDVETET utanför: repot kräver att unikhet
+ * deklareras som tabellintern constraint, och den regeln ska inte kunna
+ * kringgås av att tabellen råkar vara ny.
+ *
+ * @type {ReadonlySet<string>}
+ */
+const NEW_TABLE_EXEMPT_IDS = new Set([
+  "add-constraint",
+  "add-unique",
+  "add-primary-key",
+  "add-foreign-key",
+  "add-column-unique",
+]);
+
+/** `CREATE TABLE [IF NOT EXISTS] <namn>` — tabellerna en fil själv skapar. */
+const CREATE_TABLE_RE =
+  /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/giu;
+
+/** `ALTER TABLE [IF EXISTS] [ONLY] <namn>` — måltabellen för en efterföljande sats. */
+const ALTER_TABLE_RE =
+  /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/giu;
+
+/** Samma form, men med schemaprefixet separat för kolumnbevisningen. */
+const PROOF_ALTER_TABLE_RE =
+  /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(public\.)?"?([a-z_][a-z0-9_]*)"?/giu;
+
+/**
+ * Tabellnamnen `sql` skapar med `CREATE TABLE`.
+ *
  * @param {string} sql
+ * @returns {Set<string>}
+ */
+export function parseCreatedTables(sql) {
+  const masked = maskSqlComments(sql);
+  const tables = new Set();
+  const pattern = new RegExp(CREATE_TABLE_RE.source, CREATE_TABLE_RE.flags);
+  let match;
+  while ((match = pattern.exec(masked)) !== null) tables.add(match[1].toLowerCase());
+  return tables;
+}
+
+/**
+ * Måltabellen för satsen som innehåller offset `index`: närmast föregående
+ * `ALTER TABLE <namn>`. Är tabellnamnet dynamiskt (`EXECUTE format('ALTER TABLE
+ * %I …')`) går det inte att avgöra statiskt, och då returneras null — vilket
+ * betyder "ingen dispens", den säkra riktningen.
+ *
+ * @param {Array<{ index: number; table: string }>} alterTargets
+ * @param {number} index
+ * @returns {string | null}
+ */
+function alterTargetAt(alterTargets, index) {
+  let found = null;
+  for (const target of alterTargets) {
+    if (target.index > index) break;
+    found = target.table;
+  }
+  return found;
+}
+
+/**
+ * Proof-parsningen får bara lita på direkt SQL. Kommentarer, strängar och —
+ * när `maskDollarBodies` är sant — hela dollar-quotade kroppar blankas med
+ * bibehållen längd. Den vanliga brytandescannern fortsätter däremot att läsa
+ * DO-kroppar konservativt via {@link maskSqlComments}.
+ *
+ * @param {string} sql
+ * @param {{ maskDollarBodies: boolean }} options
+ */
+function maskForProof(sql, { maskDollarBodies }) {
+  let out = "";
+  let i = 0;
+  const blank = (text) => text.replace(/[^\n]/gu, " ");
+
+  while (i < sql.length) {
+    if (sql.startsWith("--", i)) {
+      const end = sql.indexOf("\n", i);
+      const stop = end === -1 ? sql.length : end;
+      out += blank(sql.slice(i, stop));
+      i = stop;
+      continue;
+    }
+
+    if (sql.startsWith("/*", i)) {
+      let depth = 0;
+      let j = i;
+      while (j < sql.length) {
+        if (sql.startsWith("/*", j)) {
+          depth += 1;
+          j += 2;
+        } else if (sql.startsWith("*/", j)) {
+          depth -= 1;
+          j += 2;
+          if (depth === 0) break;
+        } else {
+          j += 1;
+        }
+      }
+      out += blank(sql.slice(i, j));
+      i = j;
+      continue;
+    }
+
+    if (sql[i] === "'") {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === "'") {
+          if (sql[j + 1] === "'") {
+            j += 2;
+            continue;
+          }
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      out += blank(sql.slice(i, j));
+      i = j;
+      continue;
+    }
+
+    if (maskDollarBodies) {
+      const dollar = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/u.exec(sql.slice(i));
+      if (dollar) {
+        const tag = dollar[0];
+        const end = sql.indexOf(tag, i + tag.length);
+        const stop = end === -1 ? sql.length : end + tag.length;
+        out += blank(sql.slice(i, stop));
+        i = stop;
+        continue;
+      }
+    }
+
+    if (sql[i] === '"') {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === '"') {
+          if (sql[j + 1] === '"') {
+            j += 2;
+            continue;
+          }
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      out += sql.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    out += sql[i];
+    i += 1;
+  }
+
+  return out;
+}
+
+/**
+ * @param {ReadonlyMap<string, Iterable<string>>} input
+ * @returns {Map<string, Set<string>>}
+ */
+function normalizeColumnCatalog(input) {
+  return new Map(
+    [...input].map(([table, columns]) => [
+      table.toLowerCase(),
+      new Set([...columns].map((column) => column.toLowerCase())),
+    ]),
+  );
+}
+
+/**
+ * @param {Array<{ filename: string; sql: string }>} sources
+ * @param {{
+ *   existingTables?: Iterable<string>,
+ *   existingColumns?: ReadonlyMap<string, Iterable<string>>,
+ *   tablesWithWriteTriggers?: Iterable<string>,
+ * }} options
+ * @returns {Map<number, Set<string>>}
+ */
+function safeNewColumnFindingKeys(sources, options) {
+  const exemptions = new Map();
+  if (!options.existingTables || !options.existingColumns || !options.tablesWithWriteTriggers) {
+    return exemptions;
+  }
+
+  const existingTables = new Set([...options.existingTables].map((table) => table.toLowerCase()));
+  const existingColumns = normalizeColumnCatalog(options.existingColumns);
+  const triggeredTables = new Set(
+    [...options.tablesWithWriteTriggers].map((table) => table.toLowerCase()),
+  );
+
+  const executableMasks = sources.map(({ sql }) => maskForProof(sql, { maskDollarBodies: false }));
+  // Dynamisk SQL, en trigger eller en skrivning/defaultändring kan fylla de nya
+  // kolumnerna utan att den lilla proof-grammatiken kan avgöra utfallet. Hela
+  // omgångens kolumndispens stängs då, även när operationen verkar orelaterad.
+  if (
+    executableMasks.some((sql) =>
+      /\b(?:EXECUTE|UPDATE|INSERT|MERGE|COPY)\b|\bCREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\b|\bSET\s+(?:DEFAULT|NOT\s+NULL)\b/iu.test(
+        sql,
+      ),
+    )
+  ) {
+    return exemptions;
+  }
+
+  /**
+   * @type {Array<{
+   *   table: string,
+   *   column: string,
+   *   sourceIndex: number,
+   *   index: number,
+   *   exact: boolean,
+   * }>}
+   */
+  const declarations = [];
+
+  sources.forEach(({ sql }, sourceIndex) => {
+    const masked = maskForProof(sql, { maskDollarBodies: true });
+    const alterTargets = [];
+    const alterPattern = new RegExp(PROOF_ALTER_TABLE_RE.source, PROOF_ALTER_TABLE_RE.flags);
+    let alterMatch;
+    while ((alterMatch = alterPattern.exec(masked)) !== null) {
+      alterTargets.push({
+        index: alterMatch.index,
+        table: alterMatch[2].toLowerCase(),
+        publicQualified: Boolean(alterMatch[1]),
+      });
+    }
+
+    const exactIndexes = new Set();
+    const exactPattern =
+      /\bADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s+TEXT(?=\s*[,;])/giu;
+    let exactMatch;
+    while ((exactMatch = exactPattern.exec(masked)) !== null) {
+      exactIndexes.add(exactMatch.index);
+    }
+
+    const anyPattern =
+      /\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([a-z_][a-z0-9_]*)"|([a-z_][a-z0-9_]*))/giu;
+    let match;
+    while ((match = anyPattern.exec(masked)) !== null) {
+      const statementStart = masked.lastIndexOf(";", match.index) + 1;
+      const target = [...alterTargets]
+        .reverse()
+        .find((candidate) => candidate.index <= match.index);
+      if (!target || target.index < statementStart) continue;
+      declarations.push({
+        table: target.table,
+        column: (match[1] ?? match[2]).toLowerCase(),
+        sourceIndex,
+        index: match.index,
+        exact: target.publicQualified && exactIndexes.has(match.index),
+      });
+    }
+  });
+
+  const declarationCounts = new Map();
+  for (const declaration of declarations) {
+    const key = `${declaration.table}.${declaration.column}`;
+    declarationCounts.set(key, (declarationCounts.get(key) ?? 0) + 1);
+  }
+
+  /**
+   * @type {Map<string, {
+   *   table: string,
+   *   column: string,
+   *   sourceIndex: number,
+   *   index: number,
+   * }>}
+   */
+  const safeDeclarations = new Map();
+  for (const declaration of declarations) {
+    const key = `${declaration.table}.${declaration.column}`;
+    if (!declaration.exact || declarationCounts.get(key) !== 1) continue;
+    if (!existingTables.has(declaration.table)) continue;
+    if (!existingColumns.has(declaration.table)) continue;
+    if (existingColumns.get(declaration.table)?.has(declaration.column)) continue;
+    if (triggeredTables.has(declaration.table)) continue;
+    safeDeclarations.set(key, declaration);
+  }
+
+  const declaredBefore = (table, columns, sourceIndex, index) =>
+    columns.every((column) => {
+      const declaration = safeDeclarations.get(`${table}.${column}`);
+      return (
+        declaration &&
+        (declaration.sourceIndex < sourceIndex ||
+          (declaration.sourceIndex === sourceIndex && declaration.index < index))
+      );
+    });
+
+  sources.forEach(({ sql }, sourceIndex) => {
+    const executable = executableMasks[sourceIndex];
+    const allowed = new Set();
+
+    const checkPattern =
+      /\bALTER\s+TABLE\s+public\.([a-z_][a-z0-9_]*)\s+ADD\s+CONSTRAINT\s+[a-z_][a-z0-9_]*\s+CHECK\s*\(\s*\(\s*([a-z_][a-z0-9_]*)\s+IS\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IS\s+NULL\s*\)\s+OR\s*\(\s*([a-z_][a-z0-9_]*)\s+IS\s+NOT\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IS\s+NOT\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IN\s*\(\s*'(?:''|[^'])*'(?:\s*,\s*'(?:''|[^'])*')*\s*\)\s*\)\s*\)\s*;/giu;
+    let checkMatch;
+    while ((checkMatch = checkPattern.exec(sql)) !== null) {
+      const table = checkMatch[1].toLowerCase();
+      const nullKey = checkMatch[2].toLowerCase();
+      const nullValue = checkMatch[3].toLowerCase();
+      const presentKey = checkMatch[4].toLowerCase();
+      const presentValue = checkMatch[5].toLowerCase();
+      const phaseValue = checkMatch[6].toLowerCase();
+      const addOffset = checkMatch.index + checkMatch[0].search(/\bADD\s+CONSTRAINT\b/iu);
+      if (!/^ADD\s+CONSTRAINT\b/iu.test(executable.slice(addOffset))) continue;
+      if (
+        nullKey !== presentKey ||
+        nullValue !== presentValue ||
+        nullValue !== phaseValue ||
+        nullKey === nullValue
+      ) {
+        continue;
+      }
+      if (!declaredBefore(table, [nullKey, nullValue], sourceIndex, checkMatch.index)) continue;
+      allowed.add(`add-constraint:${addOffset}`);
+    }
+
+    const uniquePattern =
+      /\bCREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+[a-z_][a-z0-9_]*\s+ON\s+public\.([a-z_][a-z0-9_]*)\s*\(\s*([a-z_][a-z0-9_]*(?:\s*,\s*[a-z_][a-z0-9_]*)*)\s*\)\s+WHERE\s+([a-z_][a-z0-9_]*)\s+IS\s+NOT\s+NULL\s*;/giu;
+    let uniqueMatch;
+    while ((uniqueMatch = uniquePattern.exec(sql)) !== null) {
+      if (!/^CREATE\s+UNIQUE\s+INDEX\b/iu.test(executable.slice(uniqueMatch.index))) continue;
+      const table = uniqueMatch[1].toLowerCase();
+      const columns = uniqueMatch[2].split(",").map((column) => column.trim().toLowerCase());
+      const predicateColumn = uniqueMatch[3].toLowerCase();
+      if (new Set(columns).size !== columns.length || !columns.includes(predicateColumn)) continue;
+      if (!declaredBefore(table, columns, sourceIndex, uniqueMatch.index)) continue;
+      allowed.add(`create-unique-index:${uniqueMatch.index}`);
+    }
+
+    exemptions.set(sourceIndex, allowed);
+  });
+
+  return exemptions;
+}
+
+/**
+ * @param {string} sql
+ * @param {{ exemptTables?: Iterable<string>, safeFindingKeys?: Iterable<string> }} [options]
+ *   `exemptTables` är tabeller som samma pending-omgång skapar och som saknas i
+ *   måldatabasen. `safeFindingKeys` kommer bara från den katalogstödda
+ *   kolumnbevisningen ovan; callers ska inte skapa dem själva.
  * @returns {Array<{ id: string; why: string; line: number; snippet: string }>}
  */
-export function findBreakingStatements(sql) {
+export function findBreakingStatements(sql, options = {}) {
   const masked = maskSqlComments(sql);
+  const exempt = new Set([...(options.exemptTables ?? [])].map((table) => table.toLowerCase()));
+  const safeFindingKeys = new Set(options.safeFindingKeys ?? []);
+
+  /** @type {Array<{ index: number; table: string }>} */
+  const alterTargets = [];
+  if (exempt.size > 0) {
+    const pattern = new RegExp(ALTER_TABLE_RE.source, ALTER_TABLE_RE.flags);
+    let match;
+    while ((match = pattern.exec(masked)) !== null) {
+      alterTargets.push({ index: match.index, table: match[1].toLowerCase() });
+    }
+  }
+
   /** @type {Array<{ id: string; why: string; line: number; snippet: string }>} */
   const findings = [];
 
@@ -207,13 +571,20 @@ export function findBreakingStatements(sql) {
     const pattern = new RegExp(re.source, re.flags);
     let match;
     while ((match = pattern.exec(masked)) !== null) {
-      const line = masked.slice(0, match.index).split("\n").length;
-      findings.push({
-        id,
-        why,
-        line,
-        snippet: sql.split("\n")[line - 1]?.trim().slice(0, 160) ?? match[0],
-      });
+      const exemptHere =
+        exempt.size > 0 &&
+        NEW_TABLE_EXEMPT_IDS.has(id) &&
+        exempt.has(alterTargetAt(alterTargets, match.index) ?? "");
+      const safeNewColumnConstraint = safeFindingKeys.has(`${id}:${match.index}`);
+      if (!exemptHere && !safeNewColumnConstraint) {
+        const line = masked.slice(0, match.index).split("\n").length;
+        findings.push({
+          id,
+          why,
+          line,
+          snippet: sql.split("\n")[line - 1]?.trim().slice(0, 160) ?? match[0],
+        });
+      }
       if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
     }
   }
@@ -225,17 +596,82 @@ export function findBreakingStatements(sql) {
  * Ren klassificering av en lista pending filer. Läser filer från disk men rör
  * ingen databas, så den är direkt testbar.
  *
+ * `existingTables` är måldatabasens nuvarande tabeller. En tabell som den
+ * pending-omgången själv skapar och som INTE finns där kan inte ha vare sig
+ * rader eller läsare i den gamla produktionskoden, så constraints mot den är
+ * additiva. Utelämnas listan ges ingen dispens alls — utan kunskap om
+ * databasen är det enda ärliga svaret det strängaste.
+ *
  * @param {string[]} pending
- * @param {{ migrationsDir?: string, readFile?: (path: string) => string }} [options]
+ * @param {{
+ *   migrationsDir?: string,
+ *   readFile?: (path: string) => string,
+ *   existingTables?: Iterable<string>,
+ *   existingColumns?: ReadonlyMap<string, Iterable<string>>,
+ *   tablesWithWriteTriggers?: Iterable<string>,
+ * }} [options]
  */
 export function classifyPendingMigrations(pending, options = {}) {
   const migrationsDir = options.migrationsDir ?? join("src", "lib", "db", "migrations");
   const read = options.readFile ?? ((path) => readFileSync(path, "utf8"));
 
-  return pending.map((filename) => ({
+  const sources = pending.map((filename) => ({
     filename,
-    findings: findBreakingStatements(read(join(migrationsDir, filename))),
+    sql: read(join(migrationsDir, filename)),
   }));
+
+  /** @type {Set<string> | null} */
+  let exemptTables = null;
+  if (options.existingTables) {
+    const existing = new Set([...options.existingTables].map((table) => table.toLowerCase()));
+    exemptTables = new Set();
+    for (const { sql } of sources) {
+      for (const table of parseCreatedTables(sql)) {
+        if (!existing.has(table)) exemptTables.add(table);
+      }
+    }
+  }
+
+  const safeFindingKeys = safeNewColumnFindingKeys(sources, options);
+
+  return sources.map(({ filename, sql }, sourceIndex) => ({
+    filename,
+    findings: findBreakingStatements(sql, {
+      ...(exemptTables ? { exemptTables } : {}),
+      safeFindingKeys: safeFindingKeys.get(sourceIndex),
+    }),
+  }));
+}
+
+/**
+ * Måldatabasens nuvarande publika tabeller, kolumner och skrivtriggers.
+ * Kolumn- och triggermetadata krävs för den smala dispensen för nya nullable
+ * TEXT-kolumner; saknad metadata ger ingen dispens.
+ *
+ * @param {{ query: (text: string) => Promise<{ rows: Array<Record<string, string>> }> }} pool
+ */
+async function readExistingSchema(pool) {
+  const [tablesResult, columnsResult, triggersResult] = await Promise.all([
+    pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"),
+    pool.query(
+      "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'",
+    ),
+    pool.query(
+      `SELECT DISTINCT event_object_table AS table_name
+         FROM information_schema.triggers
+        WHERE event_object_schema = 'public'
+          AND event_manipulation IN ('INSERT', 'UPDATE')`,
+    ),
+  ]);
+  const existingTables = new Set(tablesResult.rows.map((row) => row.table_name.toLowerCase()));
+  const existingColumns = new Map([...existingTables].map((table) => [table, new Set()]));
+  for (const row of columnsResult.rows) {
+    existingColumns.get(row.table_name.toLowerCase())?.add(row.column_name.toLowerCase());
+  }
+  const tablesWithWriteTriggers = new Set(
+    triggersResult.rows.map((row) => row.table_name.toLowerCase()),
+  );
+  return { existingTables, existingColumns, tablesWithWriteTriggers };
 }
 
 async function main() {
@@ -261,11 +697,10 @@ async function main() {
   // och anslutningen kommer från injicerad POSTGRES_URL — no-op där.
   config({ path: ".env.local" });
 
-  const connectionString = [
-    "POSTGRES_URL",
-    "POSTGRES_URL_NON_POOLING",
-    "DATABASE_URL",
-  ].reduce((found, key) => found || normalizeEnvUrl(process.env[key]), undefined);
+  const connectionString = ["POSTGRES_URL", "POSTGRES_URL_NON_POOLING", "DATABASE_URL"].reduce(
+    (found, key) => found || normalizeEnvUrl(process.env[key]),
+    undefined,
+  );
 
   if (!connectionString) {
     // Fork / no-secret CI: samma meningsfulla SKIP som check-migrations-applied.
@@ -298,7 +733,7 @@ async function main() {
 
   try {
     const pending = diffPendingMigrations(await readAppliedMigrations(pool));
-    const classified = classifyPendingMigrations(pending);
+    const classified = classifyPendingMigrations(pending, await readExistingSchema(pool));
     const breaking = classified.filter((entry) => entry.findings.length > 0);
 
     if (asJson) {
@@ -322,6 +757,17 @@ async function main() {
           console.error(`       ${f.snippet}`);
         }
       }
+      console.error(
+        `\nEn constraint mot en tabell som samma omgång SKAPAR, och som saknas i ` +
+          `${host}, klassas som additiv. Står den kvar här finns tabellen redan i ` +
+          `den databasen, och ändringen måste därför ske medvetet.`,
+      );
+      console.error(
+        `En CHECK eller ett partiellt unikt index kan också klassas som additivt ` +
+          `när det bara använder nullable TEXT-kolumner som omgången nyss deklarerar ` +
+          `och live-katalogen bevisar att kolumnerna och skrivtriggers saknas. ` +
+          `Saknad metadata eller en delvis applicerad kolumn failar stängt.`,
+      );
       console.error(
         `\nDen automatiska preview-vägen applicerar bara additiv DDL. Kör den här ` +
           `migrationen medvetet i stället:\n` +

@@ -5,6 +5,13 @@ Per-sajt-modellen och att publicering ingår är redan beslutade. Nya detaljer o
 respit, paus, bevarande och kvotens rollover är förslag tills Jakob svarat på
 [frågorna](00-master-plan.md); tidigare beslut behöver inte fattas på nytt.
 
+## Genomförandestatus 2026-09-14
+
+D1:s schema och retention guards är levererade på `preview` i #1361.
+Båda D1-migrationerna är verifierade i den delade preview/prod-databasens
+ledger. D2, D3:s driftimplementation och betalaktivering återstår. D1
+ratificerar inte förslagen om pris, credits, rollover eller 7/90 dagar.
+
 ## Modell
 
 Ett abonnemang per `app_projects.id`, inte per deployment, alias eller konto.
@@ -35,10 +42,13 @@ på faktiska leverantörskostnader och rimliga användningsfall. Följ därefter
 utfallet. En bestämd 30-dagarsmätning är inget krav för att bygga funktionerna.
 Sälj inte obegränsad trafik eller obegränsat AI-arbete i MVP.
 
-## Verifierat på granskad preview
+## Ursprungligt verifierat på granskad preview
 
-Credit-checkout använder `mode: "payment"`; abonnemangstabell, Stripe-kundkoppling
-och Billing Portal saknas. `transactions` har redan en idempotensnyckel.
+Vid planens första granskning använde credit-checkout `mode: "payment"`;
+abonnemangstabell, Stripe-kundkoppling och Billing Portal saknades då.
+D1-statusen ovan ersätter den historiska observationen för schema och
+kundkoppling; subscription-checkout och Billing Portal återstår.
+`transactions` hade redan en idempotensnyckel.
 Nycklar och webhook-secrets är uppdelade per target och produktion har skydd
 mot testnyckel. **Befintliga credit-köp är däremot inte lägesisolerade i
 ledgern**: webhooken kan fylla gemensamma `users.diamonds`. Använd inte riktiga
@@ -59,8 +69,8 @@ pausas automatiskt för att en ny abonnemangstabell saknar rader för dem.
 
 | Ref | Leverans | Beroende |
 |---|---|---|
-| [D3](aktiviteter/D3-avpubliceringspolicy.md) | Fastställ policy; senare verklig paus/återställning | Policydelen före D1; driftimplementation efter D1 och D2 |
-| [D1](aktiviteter/D1-abonnemangsschema.md) | Miljödelad datamodell och idempotens | D3:s fastställda policy |
+| [D3](aktiviteter/D3-avpubliceringspolicy.md) | Fastställ policy; senare verklig paus/återställning | Policy före kundaktivering; driftimplementation efter D1 och D2 |
+| [D1](aktiviteter/D1-abonnemangsschema.md) | Miljödelad datamodell och idempotens | Levererad policyneutralt; D3:s förslag är inte ratificerade |
 | [D2](aktiviteter/D2-abonnemangsflode.md) | Checkout, webhook, servergrind, Billing Portal | D1; D3:s driftsteg färdigt före betald lansering |
 
 Innan betalning aktiveras ska start, förnyelse, uppsägning, paus och

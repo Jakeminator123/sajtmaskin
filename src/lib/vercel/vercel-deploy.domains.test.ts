@@ -34,6 +34,13 @@ it("makes provider project names collision-safe across customer projects", () =>
 });
 
 describe("branded live URL policy", () => {
+  function allowReviewedVersion(projectId = "project_1", versionId = "version_1") {
+    vi.stubEnv(
+      "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      JSON.stringify([{ projectId, versionId, filesRevision: "revision_1" }]),
+    );
+  }
+
   it("requires both rollout flag and base domain", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "");
@@ -48,9 +55,10 @@ describe("branded live URL policy", () => {
     expect(buildBrandedLiveDomain("preview")).toBeNull();
   });
 
-  it("resolves verified custom, branded and provider URL precedence", () => {
+  it("keeps reviewed branded hosts inactive while preserving custom and provider URLs", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         customDomain: "kund.se",
@@ -58,6 +66,8 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.se");
     expect(
@@ -67,13 +77,17 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
-    ).toBe("https://kund.sites.sajtmaskin.se");
+    ).toBe("https://kund.vercel.app");
     expect(
       resolveLiveUrl({
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: null,
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.vercel.app");
   });
@@ -88,13 +102,42 @@ describe("branded live URL policy", () => {
     ).toBe("https://kund.vercel.app");
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         brandedDomain: "attacker.example.com",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "safe.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://safe.vercel.app");
+  });
+
+  it("does not display branded for a different version, while custom stays available", () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
+
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        providerUrl: "kund.vercel.app",
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.vercel.app");
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        customDomain: "kund.se",
+        customDomainVerifiedAt: new Date(),
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.se");
   });
 
   it("normalizes provider URLs and stable slug candidates", () => {
@@ -109,16 +152,9 @@ describe("branded live URL policy", () => {
 it("marks public builder previews as non-indexable and non-cacheable", () => {
   // `applyPublicPreviewHeaders` moved from the server.js monolith to the
   // http module in the server/-split; the pinned header contract is the same.
-  const source = readFileSync(
-    resolve(process.cwd(), "preview-host/src/server/http.js"),
-    "utf8",
-  );
-  expect(source).toContain(
-    'res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive")',
-  );
-  expect(source).toContain(
-    'res.setHeader("Cache-Control", "private, no-store")',
-  );
+  const source = readFileSync(resolve(process.cwd(), "preview-host/src/server/http.js"), "utf8");
+  expect(source).toContain('res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive")');
+  expect(source).toContain('res.setHeader("Cache-Control", "private, no-store")');
 });
 
 describe("ensureVercelProjectDomain", () => {
@@ -134,12 +170,12 @@ describe("ensureVercelProjectDomain", () => {
       .mockResolvedValueOnce(Response.json({ misconfigured: false }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se"),
-    ).resolves.toEqual({
-      name: "bistro.sites.sajtmaskin.se",
-      verified: true,
-    });
+    await expect(ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se")).resolves.toEqual(
+      {
+        name: "bistro.sites.sajtmaskin.se",
+        verified: true,
+      },
+    );
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
@@ -156,12 +192,12 @@ describe("ensureVercelProjectDomain", () => {
       .mockResolvedValueOnce(Response.json({ misconfigured: false }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se"),
-    ).resolves.toEqual({
-      name: "bistro.sites.sajtmaskin.se",
-      verified: true,
-    });
+    await expect(ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se")).resolves.toEqual(
+      {
+        name: "bistro.sites.sajtmaskin.se",
+        verified: true,
+      },
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
@@ -172,9 +208,9 @@ describe("ensureVercelProject", () => {
   });
 
   it("reuses an existing generated project", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ id: "prj_existing", name: "bistro" }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ id: "prj_existing", name: "bistro" }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
@@ -204,13 +240,11 @@ describe("ensureVercelProject", () => {
   it("refuses to retarget a persisted customer project id", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json({ id: "prj_other", name: "other" }),
-      ),
+      vi.fn().mockResolvedValue(Response.json({ id: "prj_other", name: "other" })),
     );
-    await expect(
-      ensureVercelProject("bistro", "prj_expected"),
-    ).rejects.toThrow(/ownership mismatch/i);
+    await expect(ensureVercelProject("bistro", "prj_expected")).rejects.toThrow(
+      /ownership mismatch/i,
+    );
   });
 
   it("reuses the winner of a parallel first-project creation race", async () => {
@@ -220,9 +254,7 @@ describe("ensureVercelProject", () => {
         .fn()
         .mockResolvedValueOnce(Response.json({}, { status: 404 }))
         .mockResolvedValueOnce(Response.json({}, { status: 409 }))
-        .mockResolvedValueOnce(
-          Response.json({ id: "prj_winner", name: "bistro" }),
-        ),
+        .mockResolvedValueOnce(Response.json({ id: "prj_winner", name: "bistro" })),
     );
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
@@ -242,9 +274,7 @@ describe("checkVercelProjectDomain", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValueOnce(
-          Response.json({ domains: [{ name: "kund.se", verified: true }] }),
-        )
+        .mockResolvedValueOnce(Response.json({ domains: [{ name: "kund.se", verified: true }] }))
         .mockResolvedValueOnce(Response.json({ misconfigured: true })),
     );
     await expect(checkVercelProjectDomain("prj_1", "kund.se")).resolves.toBe(false);

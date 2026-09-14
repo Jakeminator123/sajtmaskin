@@ -12,6 +12,7 @@
  */
 
 import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { projectIdsWithBillingRows } from "@/lib/db/billing-retention-guard";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
@@ -57,6 +58,12 @@ export interface CleanupResult {
   hardDeletedProjects: number;
   freedStorageBytes: number;
   expiredTemplateCaches: number;
+  /**
+   * Projekt som matchade en städregel men bär betalningsbokföring. De hoppas
+   * över — databasens `ON DELETE RESTRICT` hade annars avbrutit hela körningen
+   * på första träffen och lämnat resten av städningen ogjord.
+   */
+  skippedBillingProtectedProjects: number;
 }
 
 /**
@@ -71,9 +78,17 @@ export async function runCleanup(): Promise<CleanupResult> {
     hardDeletedProjects: 0,
     freedStorageBytes: 0,
     expiredTemplateCaches: 0,
+    skippedBillingProtectedProjects: 0,
   };
 
   console.info("[Cleanup] Starting cleanup cycle...");
+
+  /** Projekt med abonnemang lämnas orörda; resten städas som vanligt. */
+  const withoutBilling = async (ids: string[]): Promise<string[]> => {
+    const protectedIds = await projectIdsWithBillingRows(ids);
+    result.skippedBillingProtectedProjects += protectedIds.size;
+    return ids.filter((id) => !protectedIds.has(id));
+  };
 
   // 1. Delete old anonymous session projects
   const anonymousCutoff = new Date();
@@ -90,8 +105,8 @@ export async function runCleanup(): Promise<CleanupResult> {
       ),
     );
 
-  for (const project of anonymousProjects) {
-    await deleteProjectAndData(project.id);
+  for (const projectId of await withoutBilling(anonymousProjects.map((p) => p.id))) {
+    await deleteProjectAndData(projectId);
     result.deletedAnonymousProjects++;
   }
 
@@ -116,8 +131,8 @@ export async function runCleanup(): Promise<CleanupResult> {
       ),
     );
 
-  for (const project of unsavedProjects) {
-    await deleteProjectAndData(project.id);
+  for (const projectId of await withoutBilling(unsavedProjects.map((p) => p.id))) {
+    await deleteProjectAndData(projectId);
     result.deletedUnsaveProjects++;
   }
 
@@ -162,6 +177,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     expiredCaches: result.expiredTemplateCaches,
     orphanedFiles: orphanedFiles.length,
     orphanedImages: orphanedImages.length,
+    skippedBillingProtected: result.skippedBillingProtectedProjects,
   });
 
   return result;

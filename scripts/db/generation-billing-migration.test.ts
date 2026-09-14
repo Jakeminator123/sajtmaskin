@@ -20,7 +20,13 @@ const usageStartMigration = readFileSync(
   join(REPO_ROOT, "src/lib/db/migrations/add-generation-billing-usage-start.sql"),
   "utf8",
 );
+const campaignMigration = readFileSync(
+  join(REPO_ROOT, "src/lib/db/migrations/add-kostnadsfri-campaign-entitlements.sql"),
+  "utf8",
+);
 const dbHealth = readFileSync(join(REPO_ROOT, "scripts/db/db-health-check.mjs"), "utf8");
+const dbInit = readFileSync(join(REPO_ROOT, "scripts/db/db-init.mjs"), "utf8");
+const drizzleSchema = readFileSync(join(REPO_ROOT, "src/lib/db/schema.ts"), "utf8");
 
 function firstGenerationCte(sql: string): string {
   const match = sql.match(/WITH first_generation AS \(([\s\S]*?)\)\s*UPDATE users AS u/i);
@@ -60,17 +66,66 @@ describe("generation billing claim-key migration", () => {
     const baseIndex = MIGRATION_ORDER.indexOf("add-generation-billing.sql");
     expect(baseIndex).toBeGreaterThanOrEqual(0);
     expect(MIGRATION_ORDER[baseIndex + 1]).toBe("add-generation-billing-claim-keys.sql");
-    expect(MIGRATION_ORDER[baseIndex + 2]).toBe(
-      "add-generation-billing-free-eligibility.sql",
-    );
+    expect(MIGRATION_ORDER[baseIndex + 2]).toBe("add-generation-billing-free-eligibility.sql");
     expect(MIGRATION_ORDER[baseIndex + 3]).toBe("add-generation-billing-usage-start.sql");
+    expect(MIGRATION_ORDER[baseIndex + 4]).toBe("add-kostnadsfri-campaign-entitlements.sql");
   });
 
   it("keeps the recovery column in the read-only database health contract", () => {
     expect(dbHealth).toMatch(
-      /EXPECTED_REQUIRED_COLUMNS\s*=\s*\{[\s\S]*generation_billings:\s*\["claim_keys",\s*"free_generation_eligible",\s*"usage_started_at"\]/,
+      /generation_billings:\s*\[[\s\S]*"claim_keys",[\s\S]*"campaign_entitlement_id",[\s\S]*"campaign_phase",[\s\S]*"campaign_free_applied"/,
     );
     expect(dbHealth).toContain("allMissingColumns.length === 0");
+  });
+});
+
+describe("kostnadsfri campaign billing migration", () => {
+  it("reserves each invitation phase once and keeps the server-owned table private", () => {
+    expect(campaignMigration).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS generation_billings_campaign_slot_unique[\s\S]*campaign_entitlement_id, campaign_phase/i,
+    );
+    expect(campaignMigration).toMatch(
+      /ALTER TABLE (?:public\.)?kostnadsfri_campaign_entitlements ENABLE ROW LEVEL SECURITY/i,
+    );
+    expect(campaignMigration).toMatch(
+      /REVOKE ALL ON TABLE (?:public\.)?kostnadsfri_campaign_entitlements FROM authenticated/i,
+    );
+    expect(campaignMigration).toMatch(
+      /campaign_entitlement_id IS NOT NULL[\s\S]*campaign_phase IS NOT NULL[\s\S]*campaign_phase IN \('initial', 'followup'\)/i,
+    );
+    expect(campaignMigration).toMatch(
+      /pg_get_constraintdef\(oid\) NOT ILIKE '%campaign_phase IS NOT NULL%'[\s\S]*DROP CONSTRAINT generation_billings_campaign_phase_check/i,
+    );
+  });
+
+  it("declares invitation and project uniqueness inline in every schema owner", () => {
+    for (const name of [
+      "kostnadsfri_campaign_invitation_unique",
+      "kostnadsfri_campaign_project_unique",
+    ]) {
+      expect(campaignMigration).toMatch(new RegExp(`CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(campaignMigration).toMatch(new RegExp(`ADD\\s+CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(campaignMigration).toMatch(
+        new RegExp(`ADD\\s+CONSTRAINT ${name}\\s+UNIQUE USING INDEX ${name}`, "i"),
+      );
+      expect(dbInit).toMatch(new RegExp(`CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(drizzleSchema).toContain(`unique("${name}")`);
+    }
+    expect(campaignMigration).not.toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_(?:invitation|project)_unique/i,
+    );
+    expect(dbInit).not.toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_(?:invitation|project)_unique/i,
+    );
+  });
+
+  it("declares the partial unique slot index in both schema owners", () => {
+    expect(drizzleSchema).toMatch(
+      /uniqueIndex\("generation_billings_campaign_slot_unique"\)[\s\S]*\.on\(table\.campaign_entitlement_id, table\.campaign_phase\)[\s\S]*\.where\(sql`\$\{table\.campaign_entitlement_id\} is not null`\)/,
+    );
+    expect(dbHealth).toMatch(
+      /name: "generation_billings_campaign_slot_unique",[\s\S]*columns: \["campaign_entitlement_id", "campaign_phase"\],[\s\S]*unique: true,[\s\S]*partial: true/,
+    );
   });
 });
 
@@ -85,9 +140,7 @@ describe("generation billing usage boundary", () => {
 
 describe("generation billing free-eligibility policy", () => {
   it("creates the explicit policy column for fresh and already-migrated databases", () => {
-    expect(migration).toMatch(
-      /free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i,
-    );
+    expect(migration).toMatch(/free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i);
     expect(freeEligibilityMigration).toMatch(
       /ALTER TABLE generation_billings[\s\S]*ADD COLUMN IF NOT EXISTS free_generation_eligible BOOLEAN NOT NULL DEFAULT TRUE/i,
     );

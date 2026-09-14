@@ -2,19 +2,15 @@
  * Public URL policy for generated customer sites.
  *
  * A generated site keeps its provider URL for diagnostics and rollback, but
- * users should receive a stable Sajtmaskin URL until they verify their own
- * domain. All values here are deliberately hostnames, never request supplied
- * URLs, so tenant routing cannot be influenced by untrusted input.
+ * A2 only inventories branded candidates: it never presents a branded host as
+ * active. Users keep the provider URL until they verify their own domain. All
+ * values here are deliberately hostnames, never request supplied URLs, so
+ * tenant routing cannot be influenced by untrusted input.
  */
 
-const DEFAULT_RESERVED_SLUGS = new Set([
-  "admin",
-  "api",
-  "app",
-  "assets",
-  "preview",
-  "www",
-]);
+import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
+
+const DEFAULT_RESERVED_SLUGS = new Set(["admin", "api", "app", "assets", "preview", "www"]);
 
 function isAffirmative(value: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(value?.trim().toLowerCase() ?? "");
@@ -47,7 +43,10 @@ export function getBrandedLiveSiteDomain(): string | null {
   return normalizeDomainHostname(process.env.SAJTMASKIN_LIVE_SITE_DOMAIN);
 }
 
-export function buildBrandedLiveDomain(slug: string, baseDomain = getBrandedLiveSiteDomain()): string | null {
+export function buildBrandedLiveDomain(
+  slug: string,
+  baseDomain = getBrandedLiveSiteDomain(),
+): string | null {
   const normalizedSlug = slug.trim().toLowerCase();
   if (
     !baseDomain ||
@@ -65,6 +64,8 @@ export function toHttpsUrl(hostname: string | null | undefined): string | null {
 }
 
 export function resolveLiveUrl(params: {
+  projectId?: string | null;
+  versionId?: string | null;
   providerUrl?: string | null;
   brandedDomain?: string | null;
   brandedDomainVerifiedAt?: Date | string | null;
@@ -79,7 +80,11 @@ export function resolveLiveUrl(params: {
   if (
     brandedBase &&
     normalizedBranded?.endsWith(`.${brandedBase}`) &&
-    params.brandedDomainVerifiedAt
+    params.brandedDomainVerifiedAt &&
+    resolveBrandedPilotEligibility({
+      projectId: params.projectId,
+      versionId: params.versionId,
+    }).allowed
   ) {
     return toHttpsUrl(params.brandedDomain);
   }

@@ -1,5 +1,9 @@
 # C3 — Kontosida `/konto`
 
+## Genomförandestatus 2026-09-14
+
+Etapp 1 är levererad i #1359. Abonnemang och Billing Portal återstår efter D2.
+
 Område: [03](../03-kundportal.md). Efter C1 för gemensam auth-routefil.
 
 ## Etapp 1 — fungerar utan abonnemang

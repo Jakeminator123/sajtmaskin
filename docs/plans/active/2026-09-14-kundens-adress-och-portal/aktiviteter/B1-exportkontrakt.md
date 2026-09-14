@@ -1,5 +1,9 @@
 # B1 — Användbar export och ärligt äganderättsbesked
 
+## Genomförandestatus 2026-09-14
+
+PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Slutlig integration/CI och GitGuardian-incident 37094000 återstår. Fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal, men incidenten är inte markerad som false positive.
+
 Område: [02](../02-agandeskap-och-exit.md). Efter [C1](C1-sajtvy.md).
 Sajtvy-integration körs i följd med C2 så att samma sida inte skrivs parallellt.
 

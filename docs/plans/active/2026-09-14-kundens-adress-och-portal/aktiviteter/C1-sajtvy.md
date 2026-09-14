@@ -1,5 +1,10 @@
 # C1 — Sajtvy `/projects/[id]`
 
+## Genomförandestatus 2026-09-14
+
+C1:s sajtvy är levererad i #1358. Domänhantering, export och abonnemang
+följs separat i C2, B1 och D2; ursprungliga kontrakt nedan är bevarade.
+
 Område: [03](../03-kundportal.md). Kan börja före abonnemangsimplementation.
 Samordna `src/proxy.ts` med A2 och C3.
 

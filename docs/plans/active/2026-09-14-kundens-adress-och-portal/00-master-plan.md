@@ -1,16 +1,36 @@
 # Kundens adress och portal — reviderat MVP-förslag (2026-09-14)
 
-> **Status: plan för granskning, inte aktiverad funktion.** Jakob har bett om
-> granskning och planändringar. Denna dokumentations-PR får granskas och mergas
-> utan att de föreslagna produktvalen därmed räknas som ratificerade. Ingen
-> kundsajt, DNS, betalning eller databas ändras av PR:n. Förslagen nedan flyttas
-> till [beslutsloggen](../../../decisions/README.md) först efter Jakobs svar.
+> **Status: genomförande pågår mot `preview`.** Grundläggande portal- och
+> databaspaket är levererade. Denna dokumentations-PR uppdaterar underlaget
+> utan att ratificera nya produktval eller aktivera kundsajter, DNS eller
+> betalning. Förslagen nedan flyttas till
+> [beslutsloggen](../../../decisions/README.md) först efter Jakobs svar.
 
-Underlag: bifogade planfiler, kod på `preview`
-`5cbdc34f0166e989ad9d7a7231dbf9dac6e1b1dc` och leverantörskällor kontrollerade
-2026-09-14. Vid kontrollen fanns ingen öppen plan-PR; de fem öppna PR:arna var
-beroendeuppdateringar. DNS- och env-status i äldre runbooks är historiska
-observationer, inte nya driftmätningar.
+Ursprungligt underlag: bifogade planfiler och kod på `preview`
+`5cbdc34f0166e989ad9d7a7231dbf9dac6e1b1dc`. Genomförandestatusen nedan
+kontrollerades senare samma dag via GitHub, Vercel och Supabase. DNS-/env-text
+i äldre runbooks är historiska observationer, inte nya driftmätningar.
+
+## Genomförandestatus 2026-09-14
+
+Statusen beskriver verifierad leverans och ratificerar inga nya produktförslag.
+
+| Del | Status |
+|---|---|
+| C1 | Sajtvy levererad på `preview` i #1358. |
+| C3 etapp 1 | Konto, saldo och köphistorik levererade i #1359. Abonnemang/Billing Portal återstår. |
+| A2 grundskydd | Cookies #1360 och exakt Origin #1365 är levererade. PR #1366 har rättningar på `6b88db3` som fått oberoende Sol/high PASS; slutliga CI-/mergesteg återstår. Faktisk pilotaktivering är stängd med `activation_not_ready`. |
+| D1 | Schema och retention guards levererade i #1361; #1364 löste migrationskompatibiliteten. Read-only Supabase-kontroll bekräftar båda D1-migrationerna i den delade preview/prod-databasens ledger. |
+| Portalens följdleveranser | #1362–#1365 är mergade till `preview`. |
+| B1 | PR #1367 är fortfarande draft. Tre följdfynd är rättade och har fått oberoende Sol/high PASS, 45 fokuserade tester och typecheck lokalt. Slutlig integration/CI och GitGuardian-incident 37094000 återstår. Fyndet är `URL.password`-egenskapsåtkomst utan hemlig literal, men incidenten är inte markerad som false positive. |
+| A3 | Lokal WIP i separat arbetsgren, ännu inte färdig eller levererad. Ingen ny adressregel är aktiverad. |
+| A1/A4 | Verkligt HTTPS-bevis, slutligt deploypaket → exakt READY-deployment → serialiserad aliasbindning och kontrollerad pilot/migrering återstår. |
+| C2, D2/D3 | Kundens domänflöde, abonnemangsflöde och faktisk paus/återställning återstår. |
+| Produktval | Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande är fortsatt förslag. |
+
+Branded-piloten är fortsatt avstängd. Verkligt HTTPS-cookieprov och verifierad
+återställning av legitima äldre gästsessioner återstår. Ingen
+produktionspromote ingår i denna våg.
 
 ## Idén
 
