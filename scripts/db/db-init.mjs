@@ -462,6 +462,168 @@ const setupQueries = [
     CONSTRAINT product_postcheck_runs_mutation_check
       CHECK (mutation_revision >= 0)
   )`,
+  // D1: abonnemang per publicerad sajt och per Stripe-läge. Samma kroppar som
+  // add-site-subscriptions.sql, så db:init och SQL-ledgern inte kan glida isär.
+  // Endast schema — ingen checkout, webhook eller worker läser tabellerna.
+  //
+  // Formen här gäller en TOM databas. En databas som redan har tabellerna rörs
+  // inte av IF NOT EXISTS; den uppgraderas av
+  // upgrade-site-subscriptions-composite-keys.sql, som applySqlMigrations()
+  // kör direkt efter den här listan.
+  `CREATE TABLE IF NOT EXISTS billing_customers (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    billing_mode TEXT NOT NULL,
+    stripe_customer_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT billing_customers_mode_check
+      CHECK (billing_mode IN ('test', 'live')),
+    CONSTRAINT billing_customers_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT billing_customers_user_mode_unique
+      UNIQUE (user_id, billing_mode),
+    CONSTRAINT billing_customers_stripe_customer_unique
+      UNIQUE (billing_mode, stripe_customer_id),
+    CONSTRAINT billing_customers_id_user_mode_unique
+      UNIQUE (id, user_id, billing_mode)
+  )`,
+  `CREATE TABLE IF NOT EXISTS site_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    project_id TEXT NOT NULL REFERENCES app_projects(id) ON DELETE RESTRICT,
+    billing_mode TEXT NOT NULL,
+    billing_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    stripe_checkout_session_id TEXT,
+    price_ref TEXT,
+    currency TEXT,
+    amount_ore INTEGER,
+    stripe_status TEXT,
+    lifecycle_state TEXT NOT NULL DEFAULT 'checkout_pending',
+    ended_reason TEXT,
+    ended_at TIMESTAMPTZ,
+    hosting_state_desired TEXT NOT NULL DEFAULT 'active',
+    hosting_state_actual TEXT NOT NULL DEFAULT 'active',
+    pause_requested_at TIMESTAMPTZ,
+    paused_at TIMESTAMPTZ,
+    resumed_at TIMESTAMPTZ,
+    current_period_start TIMESTAMPTZ,
+    current_period_end TIMESTAMPTZ,
+    cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+    cancel_at TIMESTAMPTZ,
+    canceled_at TIMESTAMPTZ,
+    grace_until TIMESTAMPTZ,
+    retain_until TIMESTAMPTZ,
+    last_published_ref TEXT,
+    last_published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    open_claim_key TEXT GENERATED ALWAYS AS (
+      CASE
+        WHEN lifecycle_state <> 'ended' THEN billing_mode || ':' || project_id
+      END
+    ) STORED,
+    CONSTRAINT site_subscriptions_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT site_subscriptions_customer_fk
+      FOREIGN KEY (billing_customer_id, user_id, billing_mode)
+      REFERENCES billing_customers (id, user_id, billing_mode) ON DELETE RESTRICT,
+    CONSTRAINT site_subscriptions_mode_check
+      CHECK (billing_mode IN ('test', 'live')),
+    CONSTRAINT site_subscriptions_lifecycle_check
+      CHECK (lifecycle_state IN ('checkout_pending', 'active', 'ended')),
+    CONSTRAINT site_subscriptions_desired_check
+      CHECK (hosting_state_desired IN ('active', 'grace', 'paused')),
+    CONSTRAINT site_subscriptions_actual_check
+      CHECK (hosting_state_actual IN ('active', 'pausing', 'paused', 'resuming')),
+    CONSTRAINT site_subscriptions_ended_at_check
+      CHECK ((lifecycle_state = 'ended') = (ended_at IS NOT NULL)),
+    CONSTRAINT site_subscriptions_open_claim_unique
+      UNIQUE (open_claim_key),
+    CONSTRAINT site_subscriptions_stripe_subscription_unique
+      UNIQUE (billing_mode, stripe_subscription_id),
+    CONSTRAINT site_subscriptions_checkout_session_unique
+      UNIQUE (billing_mode, stripe_checkout_session_id),
+    CONSTRAINT site_subscriptions_id_mode_unique
+      UNIQUE (id, billing_mode),
+    CONSTRAINT site_subscriptions_id_user_unique
+      UNIQUE (id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS subscription_credit_grants (
+    id TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    billing_mode TEXT NOT NULL,
+    period_id TEXT NOT NULL,
+    period_start TIMESTAMPTZ,
+    period_end TIMESTAMPTZ,
+    credits INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    transaction_id TEXT REFERENCES transactions(id) ON DELETE SET NULL,
+    granted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ledger_idempotency_key TEXT GENERATED ALWAYS AS (
+      'site_sub_period:' || billing_mode || ':' || subscription_id || ':' || period_id
+    ) STORED,
+    CONSTRAINT subscription_credit_grants_subscription_mode_fk
+      FOREIGN KEY (subscription_id, billing_mode)
+      REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
+    CONSTRAINT subscription_credit_grants_subscription_owner_fk
+      FOREIGN KEY (subscription_id, user_id)
+      REFERENCES site_subscriptions (id, user_id) ON DELETE CASCADE,
+    CONSTRAINT subscription_credit_grants_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT subscription_credit_grants_mode_check
+      CHECK (billing_mode IN ('test', 'live')),
+    CONSTRAINT subscription_credit_grants_status_check
+      CHECK (status IN ('pending', 'granted', 'skipped', 'simulated')),
+    CONSTRAINT subscription_credit_grants_credits_check
+      CHECK (credits >= 0),
+    CONSTRAINT subscription_credit_grants_period_id_check
+      CHECK (strpos(period_id, ':') = 0),
+    CONSTRAINT subscription_credit_grants_test_ledger_check
+      CHECK (billing_mode = 'live' OR transaction_id IS NULL),
+    CONSTRAINT subscription_credit_grants_transaction_unique
+      UNIQUE (transaction_id),
+    CONSTRAINT subscription_credit_grants_period_unique
+      UNIQUE (billing_mode, subscription_id, period_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS billing_jobs (
+    id TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL,
+    billing_mode TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    run_after TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    lease_owner TEXT,
+    lease_expires_at TIMESTAMPTZ,
+    provider_ref TEXT,
+    last_error TEXT,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    open_job_key TEXT GENERATED ALWAYS AS (
+      CASE
+        WHEN status IN ('pending', 'running') THEN kind || ':' || subscription_id
+      END
+    ) STORED,
+    CONSTRAINT billing_jobs_subscription_mode_fk
+      FOREIGN KEY (subscription_id, billing_mode)
+      REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
+    CONSTRAINT billing_jobs_mode_check
+      CHECK (billing_mode IN ('test', 'live')),
+    CONSTRAINT billing_jobs_kind_check
+      CHECK (kind IN ('pause', 'resume')),
+    CONSTRAINT billing_jobs_status_check
+      CHECK (status IN ('pending', 'running', 'done', 'failed')),
+    CONSTRAINT billing_jobs_attempts_check
+      CHECK (attempts >= 0),
+    CONSTRAINT billing_jobs_open_unique
+      UNIQUE (open_job_key)
+  )`,
 ];
 
 const schemaQueries = [
@@ -757,6 +919,10 @@ const ALL_TABLES = [
   "generation_billing_settings",
   "generation_billings",
   "pricing_settings",
+  "billing_customers",
+  "site_subscriptions",
+  "subscription_credit_grants",
+  "billing_jobs",
   "openai_webhook_events",
   "vercel_log_drain_events",
 ];

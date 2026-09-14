@@ -178,6 +178,21 @@ async function countTable(client, table) {
   }
 }
 
+/**
+ * Antal abonnemang som skulle blockeras av `site_subscriptions.project_id`
+ * (ON DELETE RESTRICT). En databas utan D1-migrationen saknar tabellen och har
+ * per definition ingen bokföring att skydda.
+ */
+async function countBillingRetention(client) {
+  try {
+    const r = await client.query("SELECT COUNT(*)::int AS n FROM site_subscriptions");
+    return r.rows[0].n;
+  } catch (e) {
+    if (e.code === "42P01") return 0;
+    throw e;
+  }
+}
+
 async function snapshot(client) {
   const out = {};
   for (const [group, tables] of Object.entries(REPORT_TABLES)) {
@@ -210,6 +225,21 @@ async function main() {
 
     const before = await snapshot(client);
     printSnapshot("BEFORE", before);
+
+    // Abonnemangsbokföringen hör till KEEP-sidan, men den hänger i
+    // `app_projects` med ON DELETE RESTRICT. Utan den här kontrollen hade
+    // raderingen rullats tillbaka med ett rått 23503 efter att ha kört halva
+    // listan — rätt utfall, obegripligt besked. Refusera i stället.
+    const blocking = await countBillingRetention(client);
+    if (blocking > 0) {
+      console.error(
+        `\nVÄGRAR: ${blocking} abonnemang hör till projekt som skulle raderas.\n` +
+          "Abonnemangsbokföringen raderas aldrig av den här städningen (D3).\n" +
+          "Avsluta abonnemangen först, eller rensa de projekten manuellt.",
+      );
+      process.exitCode = 1;
+      return;
+    }
 
     if (!APPLY) {
       console.log("\nDRY-RUN complete. Re-run with --apply to delete (add --clear-cache to also clear caches).");

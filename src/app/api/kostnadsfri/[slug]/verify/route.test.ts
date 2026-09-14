@@ -25,6 +25,8 @@ vi.mock("next/server", async (importOriginal) => {
 import { POST } from "./route";
 import { generatePassword } from "@/lib/kostnadsfri";
 
+const SESSION_ID = "sess_ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb";
+
 afterEach(() => {
   vi.clearAllMocks();
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
@@ -38,7 +40,7 @@ function verifyRequest(slug: string, password: string) {
     headers: {
       "content-type": "application/json",
       "x-real-ip": "10.0.0.1",
-      cookie: "sajtmaskin_session=sess_1",
+      cookie: `sajtmaskin_session=${SESSION_ID}`,
     },
   });
 }
@@ -82,10 +84,46 @@ describe("kostnadsfri verify route", () => {
     expect(ok.headers.get("set-cookie")).toContain("HttpOnly");
     expect(recordPageView).toHaveBeenCalledWith(
       "/kostnadsfri/jakobs-foretag-ab/verifierad",
-      "sess_1",
+      SESSION_ID,
       undefined,
       "10.0.0.1",
       undefined,
     );
+  });
+
+  it("returns the host session and expires an HTTPS parent-domain leftover", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    getKostnadsfriPageBySlug.mockResolvedValue(null);
+    const slug = "legacy-cookie-company";
+    const request = new NextRequest(
+      `https://preview.sajtmaskin.se/api/kostnadsfri/${slug}/verify`,
+      {
+        method: "POST",
+        body: JSON.stringify({ password: generatePassword(slug) }),
+        headers: {
+          "content-type": "application/json",
+          "x-real-ip": "10.0.0.2",
+          host: "preview.sajtmaskin.se",
+          cookie: `sajtmaskin_session=${SESSION_ID}`,
+        },
+      },
+    );
+
+    const response = await POST(request, { params: Promise.resolve({ slug }) });
+
+    expect(response.status).toBe(200);
+    const setCookies = response.headers.getSetCookie();
+    expect(setCookies).toHaveLength(3);
+    expect(setCookies.some((header) => header.startsWith("__Host-sajtmaskin_session=sess_"))).toBe(
+      true,
+    );
+    expect(
+      setCookies.some(
+        (header) =>
+          header.startsWith("sajtmaskin_session=;") &&
+          header.includes("Domain=.sajtmaskin.se") &&
+          header.includes("Max-Age=0"),
+      ),
+    ).toBe(true);
   });
 });

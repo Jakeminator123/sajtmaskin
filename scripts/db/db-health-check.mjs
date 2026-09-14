@@ -93,6 +93,11 @@ const EXPECTED_TABLES = [
   "pricing_settings",
   // Domains
   "domain_orders",
+  // D1: abonnemang per publicerad sajt och per Stripe-läge (schema only)
+  "billing_customers",
+  "site_subscriptions",
+  "subscription_credit_grants",
+  "billing_jobs",
 ];
 
 // Förväntade index — synkad med src/lib/db/schema.ts + scripts/db/db-init.mjs
@@ -292,6 +297,65 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   domain_orders: [
     { name: "idx_domain_orders_project", columns: ["project_id"] },
     { name: "idx_domain_orders_order", columns: ["order_id"] },
+  ],
+  // D1: de namngivna UNIQUE-constraintsen bär hela garantin (ett pågående
+  // abonnemang per sajt och läge, en extern identitet per läge, en grant per
+  // period), så de deklareras här och inte bara som "extra index".
+  billing_customers: [
+    { name: "billing_customers_user_mode_unique", columns: ["user_id", "billing_mode"] },
+    {
+      name: "billing_customers_stripe_customer_unique",
+      columns: ["billing_mode", "stripe_customer_id"],
+    },
+    // Måltupeln för abonnemangets kundlänk: utan den kan ägare och läge inte
+    // ärvas av en främmande nyckel.
+    {
+      name: "billing_customers_id_user_mode_unique",
+      columns: ["id", "user_id", "billing_mode"],
+    },
+    { name: "idx_billing_customers_user", columns: ["user_id"] },
+  ],
+  site_subscriptions: [
+    { name: "site_subscriptions_open_claim_unique", columns: ["open_claim_key"] },
+    {
+      name: "site_subscriptions_stripe_subscription_unique",
+      columns: ["billing_mode", "stripe_subscription_id"],
+    },
+    {
+      name: "site_subscriptions_checkout_session_unique",
+      columns: ["billing_mode", "stripe_checkout_session_id"],
+    },
+    // Måltupler för grants och jobb: läge respektive ägare ärvs av barnen.
+    { name: "site_subscriptions_id_mode_unique", columns: ["id", "billing_mode"] },
+    { name: "site_subscriptions_id_user_unique", columns: ["id", "user_id"] },
+    { name: "idx_site_subscriptions_user", columns: ["user_id", "created_at"] },
+    { name: "idx_site_subscriptions_project", columns: ["project_id"] },
+    {
+      name: "idx_site_subscriptions_mode_lifecycle",
+      columns: ["billing_mode", "lifecycle_state"],
+    },
+    { name: "idx_site_subscriptions_period_end", columns: ["current_period_end"] },
+    { name: "idx_site_subscriptions_grace_until", columns: ["grace_until"] },
+  ],
+  subscription_credit_grants: [
+    {
+      name: "subscription_credit_grants_transaction_unique",
+      columns: ["transaction_id"],
+    },
+    {
+      name: "subscription_credit_grants_period_unique",
+      columns: ["billing_mode", "subscription_id", "period_id"],
+    },
+    {
+      name: "idx_subscription_credit_grants_subscription",
+      columns: ["subscription_id", "created_at"],
+    },
+    { name: "idx_subscription_credit_grants_user", columns: ["user_id", "created_at"] },
+  ],
+  billing_jobs: [
+    { name: "billing_jobs_open_unique", columns: ["open_job_key"] },
+    { name: "idx_billing_jobs_runnable", columns: ["status", "run_after"] },
+    { name: "idx_billing_jobs_subscription", columns: ["subscription_id"] },
   ],
 };
 

@@ -2,6 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
+const ensureSessionIdFromRequest = vi.hoisted(() =>
+  vi.fn<
+    (request: Request) => {
+      sessionId: string;
+      setCookie: string | null;
+      setCookies: string[];
+    }
+  >(() => ({ sessionId: "sess_1", setCookie: null, setCookies: [] })),
+);
 const createPromptHandoff = vi.hoisted(() =>
   vi.fn(async (params: { prompt: string; source?: string | null; projectId?: string | null }) => ({
     id: "prompt_1",
@@ -29,7 +38,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser: vi.fn(async () => null) }));
 vi.mock("@/lib/auth/session", () => ({
-  ensureSessionIdFromRequest: () => ({ sessionId: "sess_1", setCookie: null }),
+  ensureSessionIdFromRequest,
 }));
 vi.mock("@/lib/db/services/projects", () => ({ createPromptHandoff, getProjectByIdForOwner }));
 vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
@@ -62,6 +71,45 @@ afterEach(() => {
 });
 
 describe("POST /api/prompts — kostnadsfri funnel", () => {
+  it("returns both the __Host- session and parent-domain leftover expiry", async () => {
+    const session = await vi.importActual<typeof import("@/lib/auth/session")>(
+      "@/lib/auth/session",
+    );
+    ensureSessionIdFromRequest.mockImplementationOnce(
+      session.ensureSessionIdFromRequest,
+    );
+
+    const res = await POST(
+      new NextRequest("https://preview.sajtmaskin.se/api/prompts", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie:
+            "sajtmaskin_session=sess_ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb",
+          host: "preview.sajtmaskin.se",
+        },
+        body: JSON.stringify({ prompt: "Bygg en sajt" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const setCookies = res.headers.getSetCookie();
+    expect(setCookies).toHaveLength(2);
+    expect(
+      setCookies.some((header) =>
+        header.startsWith("__Host-sajtmaskin_session=sess_"),
+      ),
+    ).toBe(true);
+    expect(
+      setCookies.some(
+        (header) =>
+          header.startsWith("sajtmaskin_session=;") &&
+          header.includes("Domain=.sajtmaskin.se") &&
+          header.includes("Max-Age=0"),
+      ),
+    ).toBe(true);
+  });
+
   it("records `skapad` server-side when the kostnadsfri flow hands off", async () => {
     const res = await POST(
       promptRequest(

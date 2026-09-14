@@ -97,7 +97,10 @@ export async function POST(
         path: "/",
         maxAge: KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE,
       });
-      if (session.setCookie) response.headers.append("Set-Cookie", session.setCookie);
+      const setCookies = session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+      for (const setCookie of setCookies) {
+        response.headers.append("Set-Cookie", setCookie);
+      }
       return response;
     };
 
