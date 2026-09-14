@@ -16,6 +16,28 @@ för alla cookies på föräldern `sajtmaskin.se`, gamla webbläsare eller porta
 CSRF-skydd. MVP-valet är en liten kontrollerad pilot, inte fri publicering av
 ömsesidigt opålitlig kod på den delade domänen.
 
+Mekanismen bakom föräldra-risken: `.se` är ett publikt suffix, men
+`sajtmaskin.se` är det inte. En webbläsare tillåter därför en värd under
+`sajtmaskin.se` att sätta `Domain=.sajtmaskin.se`, och den cookien skickas
+sedan även till portalen. Riktningen kundsajt → plattform är alltså den
+allvarligare, eftersom `sajtmaskin_session` bär ägandet av oägda projekt.
+
+## Utgångsläge (verifierat 2026-09-14)
+
+Ingen av plattformens cookies sätter `Domain` i dag — alla är host-only. Det
+skyddar riktningen plattform → kundsajt, men **inte** mot att en subdomän sätter
+en bredare cookie med samma namn.
+
+| Cookie | Owner | Attribut i dag |
+|---|---|---|
+| `sajtmaskin_auth` | `setAuthCookie`, `src/lib/auth/auth.ts:132-141` | httpOnly, secure (prod), sameSite lax, path `/` — ingen `Domain` |
+| `sajtmaskin_session` | `createSessionCookie`, `src/lib/auth/session.ts:71-81` | HttpOnly, SameSite=Lax, Secure (prod), Path=/ — ingen `Domain` |
+| OAuth-state | `cookieOptions`, `src/lib/auth/oauth-state.ts:346-354` | httpOnly, secure, sameSite lax, path `/` — ingen `Domain` |
+
+`sajtmaskin_auth` är HMAC-signerad, så ett påhittat värde faller på
+signaturkontrollen. Det som återstår är att en angripare tvingar in sin **egen
+giltiga** session, och att gästcookien skuggas utan någon signatur alls.
+
 ## Gör
 
 1. Ha en uttrycklig pilotallowlist per projekt och granskad publiceringsversion.
@@ -36,6 +58,13 @@ CSRF-skydd. MVP-valet är en liten kontrollerad pilot, inte fri publicering av
    fallback i produktion. Bevara legitima gästprojekt via en verifierad
    övergång; lita inte blint på en gammal gästcookie för att flytta ägarskap.
    Dokumentera eventuell ny inloggning för befintliga användare.
+
+   **Dev-friktion som måste lösas i samma ändring:** `Secure` sätts i dag bara i
+   produktion (`secure: IS_PRODUCTION` i `auth.ts`, `NODE_ENV === "production"`
+   i `session.ts`), och en `__Host-`-cookie utan `Secure` avvisas av
+   webbläsaren. Utan åtgärd slutar inloggning fungera lokalt. Välj antingen
+   miljöberoende cookienamn (prefix bara när `Secure` är på) eller alltid
+   `Secure` med https lokalt, och motivera valet i PR:n.
 4. Kontrollera exakt betrodd Origin för relevanta cookieautentiserade
    skriv-API:er, eller använd befintligt likvärdigt CSRF-skydd. Tillåt inte
    `*.sajtmaskin.se`. CORS-headers och SameSite ensamma är inget sådant skydd.
@@ -65,3 +94,9 @@ cookie-shadowing mot både inloggad session och gästprojekt/claim, samt Origin-
 grundskyddet mot portalen. Dokumentera pilotens kvarvarande risk. Full
 öppen publicering kräver en senare bedömning; bygg ingen stor säkerhetsplattform
 för att genomföra dessa konkreta grundkontroller.
+
+Testa uttryckligen **dubbel-cookie-fallet**: gammalt och nytt namn i samma
+request, och två cookies med samma namn där den ena är host-only och den andra
+satt på föräldern. Vilken `cookies().get()` returnerar är inte garanterat, så
+utfallet ska bevisas i test och inte antas. Befintliga testfiler finns för alla
+tre ägarna (`auth`, `session`, `oauth-state`).
