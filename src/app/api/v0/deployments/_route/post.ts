@@ -12,7 +12,6 @@ import {
   buildGeneratedVercelProjectName,
   ensureVercelProject,
   mapVercelReadyStateToStatus,
-  ensureVercelProjectDomain,
   sanitizeVercelProjectName,
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
@@ -38,11 +37,8 @@ import {
 } from "@/lib/projects/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
-  clearProjectBrandedDomainVerification,
   clearProjectCustomDomainVerification,
-  ensureProjectPublishedIdentity,
   getProjectData,
-  markProjectBrandedDomainVerified,
   setProjectVercelLink,
 } from "@/lib/db/services/projects";
 import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
@@ -51,10 +47,11 @@ import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
-import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import { resolveLiveUrl } from "@/lib/live-site-url";
 import {
   collectBrandedPilotCapabilitySignals,
-  resolveBrandedPilotDeploymentEligibility,
+  resolveBrandedPilotArtifactReview,
+  resolveBrandedPilotRuntimeActivation,
 } from "@/lib/branded-pilot-eligibility";
 import { createDeploymentSchema } from "./schema";
 import { classifyDeployError } from "./error-mapping";
@@ -289,9 +286,10 @@ export async function POST(req: Request) {
         );
       }
 
-      // One DB snapshot binds the reviewed revision to the exact files sent to
-      // the provider. engine_versions rows are mutable, so separate reads
-      // would leave a review→deploy race under the same version id.
+      // One DB snapshot binds the A2 review inventory to the stored source
+      // bytes. This is deliberately NOT final provider-artifact proof: autofix,
+      // SEO and image materialization still run below, so runtime activation
+      // remains closed until A4 can attest the final transformed files.
       const versionFilesSnapshot = await getVersionFilesSnapshot(versionId);
       const codeFiles = versionFilesSnapshot?.files ?? null;
       if (!codeFiles || codeFiles.length === 0) {
@@ -302,7 +300,7 @@ export async function POST(req: Request) {
         snapshot: engineChat.orchestration_snapshot,
         versionFiles: codeFiles,
       });
-      const brandedPilotDecision = resolveBrandedPilotDeploymentEligibility({
+      const brandedPilotReview = resolveBrandedPilotArtifactReview({
         projectId: engineProjectId,
         versionId,
         filesRevision: versionFilesSnapshot?.filesRevision,
@@ -311,28 +309,20 @@ export async function POST(req: Request) {
           selectedDossiers,
         }),
       });
-      const brandedBaseDomain = getBrandedLiveSiteDomain();
+      const brandedActivation = resolveBrandedPilotRuntimeActivation(brandedPilotReview);
       const hasExistingBrandedAlias = Boolean(ownedProject.branded_domain?.trim());
-      const hasVerifiedCustomDomain = Boolean(
-        ownedProject.custom_domain?.trim() && ownedProject.custom_domain_verified_at,
-      );
-      // A verified custom-domain project without a branded alias keeps its
-      // existing publish path. Otherwise an enabled/new branded surface, or an
-      // alias already attached to this provider project, requires the exact
-      // reviewed project+version+revision decision before any provider write.
-      const brandedPilotRequired =
-        hasExistingBrandedAlias || Boolean(brandedBaseDomain && !hasVerifiedCustomDomain);
       const brandedPilotGate = {
-        ...brandedPilotDecision,
-        required: brandedPilotRequired,
-        blocked: brandedPilotRequired && !brandedPilotDecision.allowed,
+        review: brandedPilotReview,
+        activation: brandedActivation,
+        existingAlias: hasExistingBrandedAlias,
+        blocked: hasExistingBrandedAlias,
       };
       if (brandedPilotGate.blocked && !precheckOnly) {
         return NextResponse.json(
           {
             error:
-              "Den här versionen väntar på granskning för Sajtmaskins pilotadress. Den nuvarande publicerade versionen ligger kvar.",
-            code: "DEPLOY_BRANDED_PILOT_PENDING",
+              "Projektets befintliga Sajtmaskin-adress kräver A4:s säkra aktiveringsflöde innan sajten kan publiceras om. Den nuvarande publicerade versionen ligger kvar.",
+            code: "DEPLOY_BRANDED_ALIAS_REPUBLISH_BLOCKED",
             brandedPilotGate,
           },
           { status: 409 },
@@ -554,9 +544,6 @@ export async function POST(req: Request) {
         // in that case. The generated fallback name only matters for a
         // genuinely first-ever deploy (no known project at all), where the
         // body name determines the brand-new project that gets created.
-        const brandedRolloutEnabled = Boolean(
-          brandedBaseDomain && brandedPilotDecision.allowed,
-        );
         const vercelProjectName = hasKnownVercelProject
           ? currentVercelProjectName
           : sanitizeVercelProjectName(
@@ -577,52 +564,22 @@ export async function POST(req: Request) {
             currentCustomDomainVerifiedAt = null;
           }
         }
-        const publishedIdentity = brandedRolloutEnabled
-          ? await ensureProjectPublishedIdentity(
-              engineProjectId,
-              projectName || ownedProject.name || vercelProjectName,
-            )
-          : {
-              publishedSlug: ownedProject.published_slug?.trim() || null,
-              brandedDomain: null,
-              brandedDomainVerifiedAt: null,
-              customDomain: currentCustomDomain,
-              customDomainVerifiedAt: currentCustomDomainVerifiedAt,
-            };
-        if (!publishedIdentity) {
-          throw new Error("Could not reserve the project's public URL identity");
-        }
+        // A2 is review/preparation only. A4 must bind the final transformed
+        // artifact to a READY provider deployment before reserving or attaching
+        // a branded alias. Provider/custom deploys without an existing alias
+        // continue normally through this explicit non-branded identity.
+        const publishedIdentity = {
+          publishedSlug: ownedProject.published_slug?.trim() || null,
+          brandedDomain: null,
+          brandedDomainVerifiedAt: null,
+          customDomain: currentCustomDomain,
+          customDomainVerifiedAt: currentCustomDomainVerifiedAt,
+        };
         const ensuredProject = await ensureVercelProject(
           vercelProjectName,
           existingVercelProjectId,
         );
         const domainWarnings: string[] = [];
-        let brandedDomainVerifiedAt = publishedIdentity.brandedDomainVerifiedAt;
-        if (publishedIdentity.brandedDomain) {
-          try {
-            const alias = await ensureVercelProjectDomain(
-              ensuredProject.id,
-              publishedIdentity.brandedDomain,
-            );
-            if (alias.verified) {
-              const marked = await markProjectBrandedDomainVerified(engineProjectId, alias.name);
-              if (!marked) {
-                throw new Error("The verified branded domain could not be persisted");
-              }
-              brandedDomainVerifiedAt = new Date();
-            } else {
-              await clearProjectBrandedDomainVerification(engineProjectId, alias.name);
-              brandedDomainVerifiedAt = null;
-              domainWarnings.push(
-                `Sajtmaskin-adressen ${alias.name} väntar på DNS/TLS-verifiering. Den tekniska publiceringsadressen används tills dess.`,
-              );
-            }
-          } catch (aliasErr) {
-            domainWarnings.push(
-              `Sajtmaskin-adressen kunde inte kopplas ännu: ${aliasErr instanceof Error ? aliasErr.message : String(aliasErr)}`,
-            );
-          }
-        }
         const resolvedSeoOptions = resolveDeploySeoOptions(
           bodySeo,
           persistedSeo,
@@ -630,7 +587,7 @@ export async function POST(req: Request) {
             projectId: engineProjectId,
             versionId,
             brandedDomain: publishedIdentity.brandedDomain,
-            brandedDomainVerifiedAt,
+            brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
             customDomain: publishedIdentity.customDomain,
             customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
           }),
@@ -761,7 +718,7 @@ export async function POST(req: Request) {
           versionId,
           providerUrl: created.url,
           brandedDomain: publishedIdentity.brandedDomain,
-          brandedDomainVerifiedAt,
+          brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
           customDomain: publishedIdentity.customDomain,
           customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
         });
@@ -825,6 +782,7 @@ export async function POST(req: Request) {
           status: mapped.status,
           readyState: created.readyState,
           projectId: engineProjectId,
+          brandedPilotGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           url: liveUrl,
           providerUrl: created.url ?? null,
@@ -840,10 +798,11 @@ export async function POST(req: Request) {
           vercelProjectId: effectiveProjectId,
           url: liveUrl,
           providerUrl: created.url,
-          brandedDomain: brandedDomainVerifiedAt ? publishedIdentity.brandedDomain : null,
+          brandedDomain: null,
           inspectorUrl: created.inspectorUrl,
           readyState: created.readyState,
           projectId: engineProjectId,
+          brandedPilotGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           fixesApplied,
           preDeployWarnings: warnings,

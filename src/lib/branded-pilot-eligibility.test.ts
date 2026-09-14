@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectBrandedPilotCapabilitySignals,
+  resolveBrandedPilotArtifactReview,
   resolveBrandedPilotDeploymentEligibility,
   resolveBrandedPilotEligibility,
+  resolveBrandedPilotReviewEligibility,
 } from "./branded-pilot-eligibility";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -33,44 +35,54 @@ describe("resolveBrandedPilotEligibility", () => {
     ).toMatchObject({ allowed: false, reason: "allowlist_invalid" });
   });
 
-  it("binds provider writes to the reviewed content revision even when the version id is reused", () => {
+  it("records the raw revision review but keeps provider activation closed", () => {
     enablePilot([{ projectId: "project_1", versionId: "version_1", filesRevision: "abc123" }]);
 
     expect(
-      resolveBrandedPilotDeploymentEligibility({
+      resolveBrandedPilotArtifactReview({
         projectId: "project_1",
         versionId: "version_1",
         filesRevision: "abc123",
       }),
     ).toMatchObject({ allowed: true, reason: "eligible" });
     expect(
-      resolveBrandedPilotDeploymentEligibility({
+      resolveBrandedPilotArtifactReview({
         projectId: "project_1",
         versionId: "version_1",
         filesRevision: "changed-after-review",
       }),
     ).toMatchObject({ allowed: false, reason: "version_content_changed" });
+    expect(
+      resolveBrandedPilotDeploymentEligibility({
+        projectId: "project_1",
+        versionId: "version_1",
+        filesRevision: "abc123",
+      }),
+    ).toMatchObject({ allowed: false, reason: "activation_not_ready" });
   });
 
   it("requires the exact project and reviewed version pair", () => {
     enablePilot([{ projectId: "project_1", versionId: "version_1" }]);
 
     expect(
-      resolveBrandedPilotEligibility({ projectId: "project_1", versionId: "version_1" }),
+      resolveBrandedPilotReviewEligibility({ projectId: "project_1", versionId: "version_1" }),
     ).toEqual({ allowed: true, reason: "eligible", rejectedCapabilities: [] });
     expect(
-      resolveBrandedPilotEligibility({ projectId: "project_1", versionId: "version_2" }),
+      resolveBrandedPilotReviewEligibility({ projectId: "project_1", versionId: "version_2" }),
     ).toMatchObject({ allowed: false, reason: "version_not_reviewed" });
     expect(
-      resolveBrandedPilotEligibility({ projectId: "project_2", versionId: "version_1" }),
+      resolveBrandedPilotReviewEligibility({ projectId: "project_2", versionId: "version_1" }),
     ).toMatchObject({ allowed: false, reason: "version_not_reviewed" });
+    expect(
+      resolveBrandedPilotEligibility({ projectId: "project_1", versionId: "version_1" }),
+    ).toMatchObject({ allowed: false, reason: "activation_not_ready" });
   });
 
   it("denies auth and every unknown or sensitive capability even for an allowlisted pair", () => {
     enablePilot([{ projectId: "project_1", versionId: "version_1" }]);
 
     expect(
-      resolveBrandedPilotEligibility({
+      resolveBrandedPilotReviewEligibility({
         projectId: "project_1",
         versionId: "version_1",
         capabilities: ["carousel", "auth"],
@@ -81,7 +93,7 @@ describe("resolveBrandedPilotEligibility", () => {
       rejectedCapabilities: ["auth"],
     });
     expect(
-      resolveBrandedPilotEligibility({
+      resolveBrandedPilotReviewEligibility({
         projectId: "project_1",
         versionId: "version_1",
         capabilities: ["payments", "future-capability"],

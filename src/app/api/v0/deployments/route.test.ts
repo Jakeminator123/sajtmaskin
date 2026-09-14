@@ -141,9 +141,7 @@ describe("POST /api/v0/deployments", () => {
     vi.clearAllMocks();
     vi.stubEnv(
       "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
-      JSON.stringify([
-        { projectId: "proj_1", versionId: "ver_1", filesRevision: "revision_1" },
-      ]),
+      JSON.stringify([{ projectId: "proj_1", versionId: "ver_1", filesRevision: "revision_1" }]),
     );
     prepareCredits.mockImplementation(() => {
       throw new Error("prepareCredits should not run for precheckOnly tests");
@@ -161,10 +159,7 @@ describe("POST /api/v0/deployments", () => {
     // owned/app project — without overriding the resolver mock — keep
     // resolving to that cached id, exactly like before this refactor.
     resolveCanonicalVercelProjectForDomain.mockImplementation(
-      async (
-        _chatId: string,
-        owned?: { vercel_project_id?: string | null },
-      ) => ({
+      async (_chatId: string, owned?: { vercel_project_id?: string | null }) => ({
         domain: null,
         source: "none" as const,
         projectId: owned?.vercel_project_id?.trim() || null,
@@ -243,7 +238,8 @@ describe("POST /api/v0/deployments", () => {
     getVersionFiles.mockResolvedValue([
       {
         path: "lib/pay.ts",
-        content: 'import Stripe from "stripe";\nexport const x = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
+        content:
+          'import Stripe from "stripe";\nexport const x = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
       },
     ]);
 
@@ -268,9 +264,7 @@ describe("POST /api/v0/deployments", () => {
     };
     expect(json.deployReadiness?.ready).toBe(true);
     expect(json.deployReadiness?.missingEnv).not.toContain("STRIPE_SECRET_KEY");
-    expect(
-      json.deployReadiness?.warnings.some((w) => w.includes("STRIPE_SECRET_KEY")),
-    ).toBe(true);
+    expect(json.deployReadiness?.warnings.some((w) => w.includes("STRIPE_SECRET_KEY"))).toBe(true);
   });
 
   // BUG-fix: deploy must align with the readiness route's F2/F3 env logic.
@@ -411,9 +405,7 @@ describe("POST /api/v0/deployments", () => {
     };
     expect(json.precheckOnly).toBe(true);
     expect(json.fileCount).toBe(2);
-    expect(
-      json.fixesApplied?.some((f) => /skip|hoppats|skipped/i.test(f)),
-    ).toBe(true);
+    expect(json.fixesApplied?.some((f) => /skip|hoppats|skipped/i.test(f))).toBe(true);
   });
 
   it("precheckOnly lists package.json in deployReadiness.invalidFiles when JSON is invalid", async () => {
@@ -989,10 +981,7 @@ describe("POST /api/v0/deployments", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(commit).toHaveBeenCalled();
-      expect(ensureVercelProject).toHaveBeenCalledWith(
-        expect.any(String),
-        "vp_domain_row",
-      );
+      expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_domain_row");
       expect(createVercelDeployment).toHaveBeenCalledWith(
         expect.objectContaining({ projectName: "domain-row-project" }),
       );
@@ -1043,10 +1032,7 @@ describe("POST /api/v0/deployments", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(commit).toHaveBeenCalled();
-      expect(ensureVercelProject).toHaveBeenCalledWith(
-        expect.any(String),
-        "vp_current",
-      );
+      expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_current");
       expect(createVercelDeployment).toHaveBeenCalledWith(
         expect.objectContaining({ projectName: "current-project" }),
       );
@@ -1348,10 +1334,7 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(ensureVercelProject).toHaveBeenCalledWith(
-      expect.any(String),
-      "vp_legacy",
-    );
+    expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_legacy");
     expect(createVercelDeployment).toHaveBeenCalledWith(
       expect.objectContaining({ projectName: "legacy-provider-project" }),
     );
@@ -1400,14 +1383,8 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(ensureVercelProject).toHaveBeenCalledWith(
-      expect.any(String),
-      "vp_fresh",
-    );
-    expect(checkVercelProjectDomain).toHaveBeenCalledWith(
-      "vp_fresh",
-      "republished.example",
-    );
+    expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_fresh");
+    expect(checkVercelProjectDomain).toHaveBeenCalledWith("vp_fresh", "republished.example");
     expect(setProjectVercelLink).toHaveBeenCalledWith(
       "proj_1",
       expect.objectContaining({
@@ -1464,13 +1441,10 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(ensureVercelProject).toHaveBeenCalledWith(
-      expect.any(String),
-      "vp_cached",
-    );
+    expect(ensureVercelProject).toHaveBeenCalledWith(expect.any(String), "vp_cached");
   });
 
-  it("provisions and verifies the branded alias before exposing it as liveUrl", async () => {
+  it("records an approved review while keeping branded activation closed", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
     const commit = vi.fn(async () => undefined);
@@ -1480,18 +1454,7 @@ describe("POST /api/v0/deployments", () => {
       refund: vi.fn(async () => undefined),
     }));
     createDeploymentRecord.mockResolvedValue("dep_1");
-    ensureProjectPublishedIdentity.mockResolvedValue({
-      publishedSlug: "demo",
-      brandedDomain: "demo.sites.sajtmaskin.se",
-      brandedDomainVerifiedAt: null,
-      customDomain: null,
-      customDomainVerifiedAt: null,
-    });
     ensureVercelProject.mockResolvedValue({ id: "vp_1", name: "demo" });
-    ensureVercelProjectDomain.mockResolvedValue({
-      name: "demo.sites.sajtmaskin.se",
-      verified: true,
-    });
     createVercelDeployment.mockResolvedValue({
       vercelDeploymentId: "dpl_1",
       vercelProjectId: null,
@@ -1508,20 +1471,29 @@ describe("POST /api/v0/deployments", () => {
       }),
     );
     expect(res.status).toBe(200);
+    const body = await res.json();
     expect(commit.mock.invocationCallOrder[0]).toBeLessThan(
       ensureVercelProject.mock.invocationCallOrder[0],
     );
-    expect(ensureVercelProjectDomain).toHaveBeenCalledWith(
-      "vp_1",
-      "demo.sites.sajtmaskin.se",
-    );
+    expect(ensureProjectPublishedIdentity).not.toHaveBeenCalled();
+    expect(ensureVercelProjectDomain).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      url: "https://demo.vercel.app",
+      brandedDomain: null,
+      brandedPilotGate: {
+        blocked: false,
+        existingAlias: false,
+        review: { allowed: true, reason: "eligible" },
+        activation: { allowed: false, reason: "activation_not_ready" },
+      },
+    });
     expect(updateDeploymentStatus).toHaveBeenCalledWith(
       "dep_1",
       "ready",
       expect.objectContaining({
         vercelProjectId: "vp_1",
         providerUrl: "demo.vercel.app",
-        url: "https://demo.sites.sajtmaskin.se",
+        url: "https://demo.vercel.app",
       }),
     );
   });
@@ -1560,8 +1532,13 @@ describe("POST /api/v0/deployments", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toMatchObject({
-      code: "DEPLOY_BRANDED_PILOT_PENDING",
-      brandedPilotGate: { blocked: true, reason: "version_not_reviewed" },
+      code: "DEPLOY_BRANDED_ALIAS_REPUBLISH_BLOCKED",
+      brandedPilotGate: {
+        blocked: true,
+        existingAlias: true,
+        review: { reason: "version_not_reviewed" },
+        activation: { reason: "version_not_reviewed" },
+      },
     });
     expect(commit).not.toHaveBeenCalled();
     expect(createDeploymentRecord).not.toHaveBeenCalled();
@@ -1569,7 +1546,7 @@ describe("POST /api/v0/deployments", () => {
     expect(createVercelDeployment).not.toHaveBeenCalled();
   });
 
-  it("denies the same allowlisted version id after its file revision changes", async () => {
+  it("reports a changed raw source revision without blocking an ordinary provider precheck", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
     const commit = vi.fn(async () => undefined);
@@ -1591,13 +1568,18 @@ describe("POST /api/v0/deployments", () => {
       new Request("http://localhost/api/v0/deployments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
       }),
     );
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      brandedPilotGate: { blocked: true, reason: "version_content_changed" },
+      brandedPilotGate: {
+        blocked: false,
+        existingAlias: false,
+        review: { allowed: false, reason: "version_content_changed" },
+        activation: { allowed: false, reason: "version_content_changed" },
+      },
     });
     expect(commit).not.toHaveBeenCalled();
     expect(createDeploymentRecord).not.toHaveBeenCalled();
@@ -1630,6 +1612,10 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "DEPLOY_BRANDED_ALIAS_REPUBLISH_BLOCKED",
+      brandedPilotGate: { blocked: true, existingAlias: true },
+    });
     expect(commit).not.toHaveBeenCalled();
     expect(createVercelDeployment).not.toHaveBeenCalled();
   });
@@ -1656,14 +1642,15 @@ describe("POST /api/v0/deployments", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
       brandedPilotGate: {
-        required: false,
         blocked: false,
-        reason: "version_not_reviewed",
+        existingAlias: false,
+        review: { reason: "version_not_reviewed" },
+        activation: { reason: "version_not_reviewed" },
       },
     });
   });
 
-  it("denies an allowlisted auth-capability version", async () => {
+  it("reports auth review denial without blocking an ordinary provider precheck", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
     const commit = vi.fn(async () => undefined);
@@ -1689,13 +1676,18 @@ describe("POST /api/v0/deployments", () => {
       new Request("http://localhost/api/v0/deployments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
       }),
     );
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      brandedPilotGate: { blocked: true, reason: "auth_capability" },
+      brandedPilotGate: {
+        blocked: false,
+        existingAlias: false,
+        review: { allowed: false, reason: "auth_capability" },
+        activation: { allowed: false, reason: "auth_capability" },
+      },
     });
     expect(commit).not.toHaveBeenCalled();
     expect(createVercelDeployment).not.toHaveBeenCalled();
@@ -1741,7 +1733,7 @@ describe("POST /api/v0/deployments", () => {
     });
   });
 
-  it("falls back to providerUrl and reports a domain warning while branded DNS is pending", async () => {
+  it("does not reserve or attach a prospective branded alias", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
     prepareCredits.mockImplementation(async () => ({
@@ -1750,18 +1742,7 @@ describe("POST /api/v0/deployments", () => {
       refund: vi.fn(async () => undefined),
     }));
     createDeploymentRecord.mockResolvedValue("dep_1");
-    ensureProjectPublishedIdentity.mockResolvedValue({
-      publishedSlug: "demo",
-      brandedDomain: "demo.sites.sajtmaskin.se",
-      brandedDomainVerifiedAt: null,
-      customDomain: null,
-      customDomainVerifiedAt: null,
-    });
     ensureVercelProject.mockResolvedValue({ id: "vp_1", name: "demo" });
-    ensureVercelProjectDomain.mockResolvedValue({
-      name: "demo.sites.sajtmaskin.se",
-      verified: false,
-    });
     createVercelDeployment.mockResolvedValue({
       vercelDeploymentId: "dpl_1",
       vercelProjectId: "vp_1",
@@ -1781,10 +1762,11 @@ describe("POST /api/v0/deployments", () => {
 
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://demo.vercel.app");
-    expect(body.domainWarnings).toEqual([
-      expect.stringContaining("väntar på DNS/TLS-verifiering"),
-    ]);
-    expect(clearProjectBrandedDomainVerification).toHaveBeenCalled();
+    expect(body.brandedDomain).toBeNull();
+    expect(body.domainWarnings).toEqual([]);
+    expect(ensureProjectPublishedIdentity).not.toHaveBeenCalled();
+    expect(ensureVercelProjectDomain).not.toHaveBeenCalled();
+    expect(clearProjectBrandedDomainVerification).not.toHaveBeenCalled();
     expect(updateDeploymentStatus).toHaveBeenCalledWith(
       "dep_1",
       "ready",
@@ -1812,9 +1794,7 @@ describe("POST /api/v0/deployments", () => {
     checkVercelProjectDomain.mockResolvedValue(true);
     markProjectBrandedDomainVerified.mockResolvedValue({ id: "proj_1" });
 
-    const res = await GET(
-      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-    );
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
     expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
@@ -1843,15 +1823,10 @@ describe("POST /api/v0/deployments", () => {
     });
     resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_fresh");
 
-    const res = await GET(
-      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-    );
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
-    expect(checkVercelProjectDomain).toHaveBeenCalledWith(
-      "vp_fresh",
-      "republished.example",
-    );
+    expect(checkVercelProjectDomain).toHaveBeenCalledWith("vp_fresh", "republished.example");
     const body = await res.json();
     expect(body.project.vercelProjectId).toBe("vp_fresh");
   });
@@ -1871,9 +1846,7 @@ describe("POST /api/v0/deployments", () => {
       branded_domain_checked_at: new Date(),
     });
 
-    const res = await GET(
-      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-    );
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
     expect(checkVercelProjectDomain).not.toHaveBeenCalled();
@@ -1896,9 +1869,7 @@ describe("POST /api/v0/deployments", () => {
     });
     checkVercelProjectDomain.mockResolvedValue(false);
 
-    const res = await GET(
-      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-    );
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
     expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
@@ -1937,15 +1908,10 @@ describe("POST /api/v0/deployments", () => {
         branded_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
       });
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
-      expect(checkVercelProjectDomain).toHaveBeenCalledWith(
-        "vp_1",
-        "demo.sites.sajtmaskin.se",
-      );
+      expect(checkVercelProjectDomain).toHaveBeenCalledWith("vp_1", "demo.sites.sajtmaskin.se");
       // Throttle clock still moves (markProjectBrandedDomainVerified always
       // advances branded_domain_checked_at)...
       expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
@@ -1982,9 +1948,7 @@ describe("POST /api/v0/deployments", () => {
         branded_domain_verified_at: new Date("2026-07-13T00:00:00Z"),
       });
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
       // The branded domain is still marked verified in the backing table...
@@ -2013,9 +1977,7 @@ describe("POST /api/v0/deployments", () => {
       });
       checkVercelProjectDomain.mockResolvedValue(false);
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
       expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
@@ -2044,9 +2006,7 @@ describe("POST /api/v0/deployments", () => {
       });
       checkVercelProjectDomain.mockResolvedValue(null);
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
       expect(touchProjectBrandedDomainCheckedAt).toHaveBeenCalledWith(
@@ -2084,19 +2044,14 @@ describe("POST /api/v0/deployments", () => {
       resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_resolved");
       checkVercelProjectDomain.mockResolvedValue(true);
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
       // The SAME function POST's custom/branded branches call, with the
       // SAME two arguments (chat id + the app_project's cache) — a stale
       // legacy `deployments.domain` row (which POST's legacy-row branch
       // alone may prefer) can never leak into this call.
-      expect(resolveLatestOrCachedVercelProjectId).toHaveBeenCalledWith(
-        "chat_1",
-        "vp_cache",
-      );
+      expect(resolveLatestOrCachedVercelProjectId).toHaveBeenCalledWith("chat_1", "vp_cache");
       // The recheck ran against whatever the shared helper resolved to, not
       // the raw cache value.
       expect(checkVercelProjectDomain).toHaveBeenCalledWith(
@@ -2128,15 +2083,10 @@ describe("POST /api/v0/deployments", () => {
       resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_fresh");
       checkVercelProjectDomain.mockResolvedValue(false);
 
-      const res = await GET(
-        new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-      );
+      const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
-      expect(checkVercelProjectDomain).toHaveBeenCalledWith(
-        "vp_fresh",
-        "demo.sites.sajtmaskin.se",
-      );
+      expect(checkVercelProjectDomain).toHaveBeenCalledWith("vp_fresh", "demo.sites.sajtmaskin.se");
       expect(clearProjectBrandedDomainVerification).toHaveBeenCalledWith(
         "proj_1",
         "demo.sites.sajtmaskin.se",
@@ -2187,9 +2137,7 @@ describe("POST /api/v0/deployments", () => {
       },
     ]);
 
-    const res = await GET(
-      new Request("http://localhost/api/v0/deployments?chatId=chat_1"),
-    );
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
     const body = await res.json();

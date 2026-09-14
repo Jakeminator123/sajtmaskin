@@ -40,7 +40,7 @@ describe("resolveSiteAddress", () => {
     expect(result).toEqual({ liveUrl: "https://kundforetag.se", kind: "custom" });
   });
 
-  it("classifies a verified branded host as branded when the gate is on", () => {
+  it("keeps a reviewed branded host on the provider URL until activation is safe", () => {
     enableBrandedGate();
 
     const result = resolveSiteAddress({
@@ -52,8 +52,8 @@ describe("resolveSiteAddress", () => {
     });
 
     expect(result).toEqual({
-      liveUrl: "https://kundforetag.sites.sajtmaskin.se",
-      kind: "branded",
+      liveUrl: "https://generated-abc.vercel.app",
+      kind: "provider",
     });
   });
 
@@ -142,7 +142,7 @@ describe("resolveOverviewAddress", () => {
     expect(result).toEqual({ liveUrl: null, kind: "none" });
   });
 
-  it("classifies branded from the exact reviewed ready version", () => {
+  it("does not expose branded from a reviewed version without a provider URL", () => {
     enableBrandedGate();
 
     const result = resolveOverviewAddress(
@@ -154,10 +154,7 @@ describe("resolveOverviewAddress", () => {
       { versionId: "version_1" },
     );
 
-    expect(result).toEqual({
-      liveUrl: "https://kundforetag.sites.sajtmaskin.se",
-      kind: "branded",
-    });
+    expect(result).toEqual({ liveUrl: null, kind: "none" });
   });
 
   it("does not invent a provider address from a non-vercel deployments.url", () => {

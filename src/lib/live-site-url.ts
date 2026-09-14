@@ -2,21 +2,15 @@
  * Public URL policy for generated customer sites.
  *
  * A generated site keeps its provider URL for diagnostics and rollback, but
- * users should receive a stable Sajtmaskin URL until they verify their own
- * domain. All values here are deliberately hostnames, never request supplied
- * URLs, so tenant routing cannot be influenced by untrusted input.
+ * A2 only inventories branded candidates: it never presents a branded host as
+ * active. Users keep the provider URL until they verify their own domain. All
+ * values here are deliberately hostnames, never request supplied URLs, so
+ * tenant routing cannot be influenced by untrusted input.
  */
 
 import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
 
-const DEFAULT_RESERVED_SLUGS = new Set([
-  "admin",
-  "api",
-  "app",
-  "assets",
-  "preview",
-  "www",
-]);
+const DEFAULT_RESERVED_SLUGS = new Set(["admin", "api", "app", "assets", "preview", "www"]);
 
 function isAffirmative(value: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(value?.trim().toLowerCase() ?? "");

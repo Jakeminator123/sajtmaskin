@@ -1,6 +1,6 @@
 import {
   collectBrandedPilotCapabilitySignals,
-  resolveBrandedPilotDeploymentEligibility,
+  resolveBrandedPilotArtifactReview,
 } from "@/lib/branded-pilot-eligibility";
 
 export function assertBrandedLiveUrlMigrationMode(argv: readonly string[]): void {
@@ -19,7 +19,7 @@ export function resolveBrandedLiveUrlMigrationPolicy(params: {
   snapshot?: unknown;
   selectedDossiers?: ReadonlyArray<{ entry?: { capability?: unknown } }> | null;
 }) {
-  return resolveBrandedPilotDeploymentEligibility({
+  return resolveBrandedPilotArtifactReview({
     projectId: params.projectId,
     versionId: params.versionId,
     filesRevision: params.filesRevision,

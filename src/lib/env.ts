@@ -19,6 +19,7 @@ export const serverSchema = z.object({
   NEXT_PHASE: z.string().optional(),
   VERCEL: z.string().optional(),
   VERCEL_ENV: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
   VERCEL_URL: z.string().optional(),
 
   // Database

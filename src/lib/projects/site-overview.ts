@@ -31,12 +31,7 @@ export type SiteAddressKind = "custom" | "branded" | "provider" | "none";
  * but Vercel has not reported a terminal state yet.
  */
 export type SitePublishState =
-  | "never_published"
-  | "pending"
-  | "building"
-  | "ready"
-  | "error"
-  | "cancelled";
+  "never_published" | "pending" | "building" | "ready" | "error" | "cancelled";
 
 export type SiteAddress = {
   liveUrl: string | null;
@@ -129,8 +124,9 @@ export function resolveSiteAddress(input: AddressInput): SiteAddress {
  * `providerUrl` from the legacy `deployments.url` column when the ready row
  * never got `providerUrl` written — older sites stored the vercel.app host
  * there. A verified custom host can be classified from project fields alone.
- * Branded also needs the ready row's reviewed version id; without it the
- * portal must not present the shared-host address as live.
+ * The A2 branded candidate remains inactive even with a reviewed version;
+ * until A4 proves and activates the final provider artifact, the portal uses
+ * the provider URL. The version id stays in the input for that future gate.
  */
 export function resolveOverviewAddress(
   project: OverviewProjectFields,

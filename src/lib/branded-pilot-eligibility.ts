@@ -3,8 +3,9 @@
  *
  * The operator allowlist is deliberately a list of exact project/version
  * pairs. A project approval never rolls forward to a newly generated version.
- * Capability signals add a conservative runtime backstop, while the reviewed
- * pair remains the authority for code that those signals cannot describe.
+ * Capability signals add a conservative review backstop. A2 records this
+ * decision for inventory only; it does not claim to identify final provider
+ * bytes and therefore cannot activate a branded host.
  */
 
 const PILOT_SAFE_CAPABILITIES = new Set([
@@ -34,7 +35,8 @@ export type BrandedPilotEligibilityReason =
   | "version_revision_missing"
   | "version_content_changed"
   | "auth_capability"
-  | "capability_not_pilot_safe";
+  | "capability_not_pilot_safe"
+  | "activation_not_ready";
 
 export type BrandedPilotEligibility = {
   allowed: boolean;
@@ -134,7 +136,8 @@ export function collectBrandedPilotCapabilitySignals(params: {
   return [...result].sort();
 }
 
-export function resolveBrandedPilotEligibility(params: {
+/** Review inventory only; it does not identify the final provider artifact. */
+export function resolveBrandedPilotReviewEligibility(params: {
   projectId?: string | null;
   versionId?: string | null;
   capabilities?: ReadonlyArray<string> | null;
@@ -187,17 +190,17 @@ export function resolveBrandedPilotEligibility(params: {
 }
 
 /**
- * Deploy/migration check for the mutable engine_versions row. URL display uses
- * the pair-only decision above: a later edit must not hide an already deployed
- * reviewed build, while every new provider write must match the reviewed bytes.
+ * Review the mutable engine_versions row before transform inputs are applied.
+ * A match is useful for pilot inventory, but cannot authorize activation: the
+ * deploy path later applies autofix, SEO and image transforms.
  */
-export function resolveBrandedPilotDeploymentEligibility(params: {
+export function resolveBrandedPilotArtifactReview(params: {
   projectId?: string | null;
   versionId?: string | null;
   filesRevision?: string | null;
   capabilities?: ReadonlyArray<string> | null;
 }): BrandedPilotEligibility {
-  const base = resolveBrandedPilotEligibility(params);
+  const base = resolveBrandedPilotReviewEligibility(params);
   if (!base.allowed) return base;
   const revision = params.filesRevision?.trim().toLowerCase() ?? "";
   if (!revision) {
@@ -220,4 +223,34 @@ export function resolveBrandedPilotDeploymentEligibility(params: {
   return exact
     ? base
     : { allowed: false, reason: "version_content_changed", rejectedCapabilities: [] };
+}
+
+/**
+ * A4 must replace this closure with final-artifact proof plus serialized alias
+ * attachment to the exact READY provider deployment. A2 never activates.
+ */
+export function resolveBrandedPilotRuntimeActivation(
+  review: BrandedPilotEligibility,
+): BrandedPilotEligibility {
+  if (!review.allowed) return review;
+  return { allowed: false, reason: "activation_not_ready", rejectedCapabilities: [] };
+}
+
+/** URL-display decision: reviewed pair plus the still-closed runtime switch. */
+export function resolveBrandedPilotEligibility(params: {
+  projectId?: string | null;
+  versionId?: string | null;
+  capabilities?: ReadonlyArray<string> | null;
+}): BrandedPilotEligibility {
+  return resolveBrandedPilotRuntimeActivation(resolveBrandedPilotReviewEligibility(params));
+}
+
+/** Provider-write decision: raw artifact review plus the still-closed runtime switch. */
+export function resolveBrandedPilotDeploymentEligibility(params: {
+  projectId?: string | null;
+  versionId?: string | null;
+  filesRevision?: string | null;
+  capabilities?: ReadonlyArray<string> | null;
+}): BrandedPilotEligibility {
+  return resolveBrandedPilotRuntimeActivation(resolveBrandedPilotArtifactReview(params));
 }
