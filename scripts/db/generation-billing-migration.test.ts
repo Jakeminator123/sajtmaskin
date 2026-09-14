@@ -25,6 +25,7 @@ const campaignMigration = readFileSync(
   "utf8",
 );
 const dbHealth = readFileSync(join(REPO_ROOT, "scripts/db/db-health-check.mjs"), "utf8");
+const dbInit = readFileSync(join(REPO_ROOT, "scripts/db/db-init.mjs"), "utf8");
 const drizzleSchema = readFileSync(join(REPO_ROOT, "src/lib/db/schema.ts"), "utf8");
 
 function firstGenerationCte(sql: string): string {
@@ -84,10 +85,37 @@ describe("kostnadsfri campaign billing migration", () => {
       /CREATE UNIQUE INDEX IF NOT EXISTS generation_billings_campaign_slot_unique[\s\S]*campaign_entitlement_id, campaign_phase/i,
     );
     expect(campaignMigration).toMatch(
-      /ALTER TABLE kostnadsfri_campaign_entitlements ENABLE ROW LEVEL SECURITY/i,
+      /ALTER TABLE (?:public\.)?kostnadsfri_campaign_entitlements ENABLE ROW LEVEL SECURITY/i,
     );
     expect(campaignMigration).toMatch(
-      /REVOKE ALL ON TABLE kostnadsfri_campaign_entitlements FROM authenticated/i,
+      /REVOKE ALL ON TABLE (?:public\.)?kostnadsfri_campaign_entitlements FROM authenticated/i,
+    );
+    expect(campaignMigration).toMatch(
+      /campaign_entitlement_id IS NOT NULL[\s\S]*campaign_phase IS NOT NULL[\s\S]*campaign_phase IN \('initial', 'followup'\)/i,
+    );
+    expect(campaignMigration).toMatch(
+      /pg_get_constraintdef\(oid\) NOT ILIKE '%campaign_phase IS NOT NULL%'[\s\S]*DROP CONSTRAINT generation_billings_campaign_phase_check/i,
+    );
+  });
+
+  it("declares invitation and project uniqueness inline in every schema owner", () => {
+    for (const name of [
+      "kostnadsfri_campaign_invitation_unique",
+      "kostnadsfri_campaign_project_unique",
+    ]) {
+      expect(campaignMigration).toMatch(new RegExp(`CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(campaignMigration).toMatch(new RegExp(`ADD\\s+CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(campaignMigration).toMatch(
+        new RegExp(`ADD\\s+CONSTRAINT ${name}\\s+UNIQUE USING INDEX ${name}`, "i"),
+      );
+      expect(dbInit).toMatch(new RegExp(`CONSTRAINT ${name} UNIQUE`, "i"));
+      expect(drizzleSchema).toContain(`unique("${name}")`);
+    }
+    expect(campaignMigration).not.toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_(?:invitation|project)_unique/i,
+    );
+    expect(dbInit).not.toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_(?:invitation|project)_unique/i,
     );
   });
 

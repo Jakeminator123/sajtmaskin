@@ -624,8 +624,8 @@ export const kostnadsfriCampaignEntitlements = pgTable(
     updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    invitationIdx: uniqueIndex("kostnadsfri_campaign_invitation_unique").on(table.invitation_slug),
-    projectIdx: uniqueIndex("kostnadsfri_campaign_project_unique").on(table.project_id),
+    invitationUnique: unique("kostnadsfri_campaign_invitation_unique").on(table.invitation_slug),
+    projectUnique: unique("kostnadsfri_campaign_project_unique").on(table.project_id),
     userIdx: index("idx_kostnadsfri_campaign_user_id").on(table.user_id),
   }),
 );

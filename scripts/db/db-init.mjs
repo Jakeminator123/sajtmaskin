@@ -358,7 +358,9 @@ const setupQueries = [
     followup_version_id TEXT,
     followup_claimed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT kostnadsfri_campaign_invitation_unique UNIQUE (invitation_slug),
+    CONSTRAINT kostnadsfri_campaign_project_unique UNIQUE (project_id)
   )`,
   `CREATE TABLE IF NOT EXISTS domain_orders (
     id TEXT PRIMARY KEY,
@@ -734,8 +736,6 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_invitation_unique ON kostnadsfri_campaign_entitlements(invitation_slug)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS kostnadsfri_campaign_project_unique ON kostnadsfri_campaign_entitlements(project_id)`,
   `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_campaign_user_id ON kostnadsfri_campaign_entitlements(user_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS user_integrations_owner_project_type_idx ON user_integrations(user_id, project_id, integration_type)`,
   `CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON user_integrations(user_id)`,
