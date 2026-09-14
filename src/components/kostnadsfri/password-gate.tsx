@@ -98,9 +98,14 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
         </header>
 
         {/* ── Password card ─────────────────────────────────── */}
+        {/* z-[60] + top alignment for the same reason MiniWizard carries it:
+            the Sajtagenten teaser (OpenClawChat) is fixed at z-50 in the
+            bottom-right corner and swallowed the click on "Kom igång" on a
+            1280x800 viewport. Aligning the card to the top keeps them apart
+            geometrically; the z-index guarantees the click on short screens. */}
         <section
           aria-labelledby={headingId}
-          className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-center"
+          className="relative z-[60] lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start"
         >
           <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
             <h2 id={headingId} className="text-xl font-semibold text-card-foreground">
