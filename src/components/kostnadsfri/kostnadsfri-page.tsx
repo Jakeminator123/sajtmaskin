@@ -7,6 +7,7 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import { MAX_PAGE_COUNT_CHOICE } from "@/lib/builder/init-build-choices";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -83,8 +84,12 @@ export function KostnadsfriPage({
       setError(null);
 
       try {
-        // Build prompt from wizard data
-        const prompt = buildPromptFromWizardData(wizardData);
+        // Build prompt from wizard data. Sidantalet ägs av byggvalens
+        // `MAX_PAGE_COUNT_CHOICE` (ägarbeslut 2026-09-14) och skickas dessutom
+        // strukturerat till ruttplanen av auto-starten i buildern.
+        const prompt = buildPromptFromWizardData(wizardData, {
+          maxPages: MAX_PAGE_COUNT_CHOICE,
+        });
 
         // Create app project first (same pattern as category page)
         const project = await createProject(

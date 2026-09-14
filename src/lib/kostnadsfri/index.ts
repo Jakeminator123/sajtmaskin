@@ -173,19 +173,30 @@ const VIBE_LABELS: Record<string, string> = {
 // PAGE STRUCTURE (industry-aware, purpose-aware)
 // ============================================================================
 
-/** Suggested pages based on industry and purposes */
+/**
+ * Sidnamn per bransch i **prioritetsordning** — inte ett sidantal.
+ *
+ * Listorna namngav tidigare 4–5 sidor och `buildPromptFromWizardData` skrev ut
+ * antalet i prompten, vilket lät kampanjflödet sätta ett tal som ruttplanen och
+ * byggvalsreglaget redan äger (ägarbeslut 2026-09-14, `docs/decisions/README.md`).
+ * Antalet kommer nu utifrån via `maxPages`; ordningen här avgör bara *vilka*
+ * sidor som ryms. Sidor som faller utanför taket blir sektioner i stället —
+ * `PURPOSE_SECTIONS` bär den delen.
+ */
 const INDUSTRY_PAGES: Record<string, string[]> = {
-  cafe: ["Hem", "Meny", "Om oss", "Hitta hit"],
-  restaurant: ["Hem", "Meny", "Om oss", "Boka bord", "Kontakt"],
-  retail: ["Hem", "Produkter", "Om oss", "Kontakt"],
-  tech: ["Hem", "Tjänster", "Case", "Om oss", "Kontakt"],
-  consulting: ["Hem", "Tjänster", "Om oss", "Kunder", "Kontakt"],
-  health: ["Hem", "Behandlingar", "Om oss", "Boka tid", "Kontakt"],
-  creative: ["Hem", "Portfolio", "Tjänster", "Om oss", "Kontakt"],
-  education: ["Hem", "Kurser", "Om oss", "Kontakt"],
-  ecommerce: ["Hem", "Produkter", "Om oss", "FAQ", "Kontakt"],
-  realestate: ["Hem", "Objekt", "Tjänster", "Om oss", "Kontakt"],
+  cafe: ["Hem", "Meny", "Hitta hit", "Om oss"],
+  restaurant: ["Hem", "Meny", "Kontakt", "Boka bord", "Om oss"],
+  retail: ["Hem", "Produkter", "Kontakt", "Om oss"],
+  tech: ["Hem", "Tjänster", "Kontakt", "Case", "Om oss"],
+  consulting: ["Hem", "Tjänster", "Kontakt", "Kunder", "Om oss"],
+  health: ["Hem", "Behandlingar", "Kontakt", "Boka tid", "Om oss"],
+  creative: ["Hem", "Portfolio", "Kontakt", "Tjänster", "Om oss"],
+  education: ["Hem", "Kurser", "Kontakt", "Om oss"],
+  ecommerce: ["Hem", "Produkter", "Kontakt", "FAQ", "Om oss"],
+  realestate: ["Hem", "Objekt", "Kontakt", "Tjänster", "Om oss"],
 };
+
+const FALLBACK_INDUSTRY_PAGES = ["Hem", "Tjänster", "Kontakt", "Om oss"];
 
 const PURPOSE_SECTIONS: Record<string, string[]> = {
   sell: ["product showcase", "pricing / plans", "testimonials", "trust badges"],
@@ -200,13 +211,18 @@ const PURPOSE_SECTIONS: Record<string, string[]> = {
 
 /**
  * Determine the recommended page structure for the company.
- * Returns page names and extra section suggestions.
+ *
+ * `maxPages` ägs av anroparen (`MAX_PAGE_COUNT_CHOICE`) — den här modulen
+ * bestämmer bara ordningen. Ett tal under 1 behandlas som 1: en sajt utan
+ * startsida är inget flödet kan leverera.
  */
 function resolvePageStructure(
   industry: string,
   purposes: string[],
+  maxPages: number,
 ): { pages: string[]; extraSections: string[] } {
-  const base = INDUSTRY_PAGES[industry] || ["Hem", "Om oss", "Tjänster", "Kontakt"];
+  const limit = Math.max(1, Math.trunc(maxPages));
+  const base = (INDUSTRY_PAGES[industry] || FALLBACK_INDUSTRY_PAGES).slice(0, limit);
   const extraSections: string[] = [];
   for (const purpose of purposes) {
     const sections = PURPOSE_SECTIONS[purpose];
@@ -236,11 +252,23 @@ function resolvePageStructure(
  *  - Purpose-driven section suggestions
  *  - Full design direction with tone, colors, and typography hints
  *  - Scope override to prevent brief model from down-scoping
+ *
+ * Sidantalet skickas in (`maxPages`) och skrivs medvetet **inte** som ett tal i
+ * prompttexten: ruttplanen får det strukturerat via `meta.pageCountHint` från
+ * kampanjhandoffen, och ett tal i prosa som en annan fil bestämmer blir en andra
+ * sanning som `detectExplicitPageCount` läser tillbaka (ägarbeslut 2026-09-14).
  */
-export function buildPromptFromWizardData(data: MiniWizardData): string {
+export function buildPromptFromWizardData(
+  data: MiniWizardData,
+  options: { maxPages: number },
+): string {
   const industryLabel = INDUSTRY_LABELS[data.industry] || data.industry || "general";
   const vibeLabel = VIBE_LABELS[data.designVibe] || data.designVibe || "Modern & Clean";
-  const { pages, extraSections } = resolvePageStructure(data.industry, data.purposes);
+  const { pages, extraSections } = resolvePageStructure(
+    data.industry,
+    data.purposes,
+    options.maxPages,
+  );
 
   const sections: string[] = [];
 
@@ -306,9 +334,11 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
     `\nContent & requirements:\n- All text content must be in Swedish\n- Premium, trustworthy design with attention to detail\n- Include realistic placeholder content (not lorem ipsum) that matches the industry\n- Every page should include relevant images and icons\n- Mobile-first responsive design\n- Smooth scroll-reveal animations and tasteful hover states`,
   );
 
-  // 8. Explicit scope override — prevents brief model from down-scoping
+  // 8. Explicit scope override — prevents brief model from down-scoping.
+  // Inget sidantal här: sidorna är redan namngivna ovan och antalet kommer
+  // strukturerat via `meta.pageCountHint`.
   sections.push(
-    `\nScope: This is a comprehensive, multi-page company website (${pages.length} pages). Do NOT reduce this to a single-page site. Each page should be fully fleshed out with multiple content sections, proper navigation between pages, and a professional footer. Aim for 8-15 sections total across all pages.`,
+    `\nScope: This is a comprehensive, multi-page company website covering exactly the pages listed above. Do NOT reduce this to a single-page site, and do NOT add pages beyond that list. Each page should be fully fleshed out with multiple content sections, proper navigation between pages, and a professional footer. Aim for 8-15 sections total across all pages.`,
   );
 
   return sections.join("\n");
