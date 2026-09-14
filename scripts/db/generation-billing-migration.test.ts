@@ -25,6 +25,7 @@ const campaignMigration = readFileSync(
   "utf8",
 );
 const dbHealth = readFileSync(join(REPO_ROOT, "scripts/db/db-health-check.mjs"), "utf8");
+const drizzleSchema = readFileSync(join(REPO_ROOT, "src/lib/db/schema.ts"), "utf8");
 
 function firstGenerationCte(sql: string): string {
   const match = sql.match(/WITH first_generation AS \(([\s\S]*?)\)\s*UPDATE users AS u/i);
@@ -87,6 +88,15 @@ describe("kostnadsfri campaign billing migration", () => {
     );
     expect(campaignMigration).toMatch(
       /REVOKE ALL ON TABLE kostnadsfri_campaign_entitlements FROM authenticated/i,
+    );
+  });
+
+  it("declares the partial unique slot index in both schema owners", () => {
+    expect(drizzleSchema).toMatch(
+      /uniqueIndex\("generation_billings_campaign_slot_unique"\)[\s\S]*\.on\(table\.campaign_entitlement_id, table\.campaign_phase\)[\s\S]*\.where\(sql`\$\{table\.campaign_entitlement_id\} is not null`\)/,
+    );
+    expect(dbHealth).toMatch(
+      /name: "generation_billings_campaign_slot_unique",[\s\S]*columns: \["campaign_entitlement_id", "campaign_phase"\],[\s\S]*unique: true,[\s\S]*partial: true/,
     );
   });
 });

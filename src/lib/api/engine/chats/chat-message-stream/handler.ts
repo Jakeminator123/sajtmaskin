@@ -436,7 +436,7 @@ export async function handleMessageStreamRequest(
           sessionId,
           allowFreeGeneration: !metaPlanMode,
           campaignProjectId: !metaPlanMode ? engineChat.project_id : null,
-          campaignPhase: "followup",
+          campaignPhase: "continuation",
           campaignChatId: chatId,
         });
         if (!creditCheck.ok) {

@@ -70,6 +70,43 @@ describe("prepareCredits kostnadsfri campaign", () => {
     expect(createTransaction).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["initial", "failed initial retry"],
+    ["followup", "follow-up after the initial version"],
+  ] as const)("admits the %s slot selected for a %s", async (phase, _scenario) => {
+    getCurrentUser.mockResolvedValue(
+      account({ diamonds: 0, free_generation_available: false }),
+    );
+    getKostnadsfriCampaignPolicy.mockResolvedValue({
+      entitlementId: "campaign_1",
+      benefit: { entitlementId: "campaign_1", phase },
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "prompt.refine",
+      {},
+      {
+        sessionId: "sess_1",
+        allowFreeGeneration: true,
+        campaignProjectId: "project_1",
+        campaignPhase: "continuation",
+        campaignChatId: "chat_1",
+      },
+    );
+
+    expect(getKostnadsfriCampaignPolicy).toHaveBeenCalledWith({
+      projectId: "project_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      phase: "continuation",
+      chatId: "chat_1",
+    });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.campaignBenefit).toEqual({ entitlementId: "campaign_1", phase });
+  });
+
   it("blocks general first-free fallback after the project's campaign slot is exhausted", async () => {
     const user = account({ diamonds: 0, free_generation_available: true });
     getCurrentUser.mockResolvedValue(user);

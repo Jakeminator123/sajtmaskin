@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
+  engineChats,
   generationBillings,
   kostnadsfriCampaignEntitlements,
   kostnadsfriPages,
@@ -12,6 +13,7 @@ import { verifyKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-rec
 import { assertDbConfigured } from "./shared";
 
 export type KostnadsfriCampaignPhase = "initial" | "followup";
+export type KostnadsfriCampaignRequestedPhase = KostnadsfriCampaignPhase | "continuation";
 
 export type KostnadsfriCampaignBenefit = {
   entitlementId: string;
@@ -22,6 +24,80 @@ export type KostnadsfriCampaignPolicy = {
   entitlementId: string;
   benefit: KostnadsfriCampaignBenefit | null;
 };
+
+export function resolveKostnadsfriCampaignPhase(input: {
+  requestedPhase: KostnadsfriCampaignRequestedPhase;
+  chatId?: string | null;
+  initialChatId?: string | null;
+  initialVersionId?: string | null;
+}): KostnadsfriCampaignPhase | null {
+  const phase: KostnadsfriCampaignPhase =
+    input.requestedPhase === "continuation"
+      ? input.initialVersionId
+        ? "followup"
+        : "initial"
+      : input.requestedPhase;
+  if (phase === "initial") {
+    if (input.initialVersionId) return null;
+    return input.chatId
+      ? input.initialChatId === input.chatId
+        ? "initial"
+        : null
+      : input.initialChatId
+        ? null
+        : "initial";
+  }
+  return input.chatId && input.initialChatId === input.chatId && input.initialVersionId
+    ? "followup"
+    : null;
+}
+
+/**
+ * Pins the invitation to the chat created by the admitted initial request.
+ * This is a retry binding, not consumption: the initial slot is claimed only
+ * when settlement records a successful version.
+ */
+export async function bindKostnadsfriCampaignInitialChat(input: {
+  entitlementId: string;
+  projectId: string;
+  userId: string;
+  chatId: string;
+}): Promise<boolean> {
+  assertDbConfigured();
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(kostnadsfriCampaignEntitlements)
+      .where(eq(kostnadsfriCampaignEntitlements.id, input.entitlementId))
+      .limit(1)
+      .for("update");
+    const entitlement = rows[0];
+    if (
+      !entitlement ||
+      entitlement.project_id !== input.projectId ||
+      entitlement.user_id !== input.userId ||
+      entitlement.initial_version_id ||
+      (entitlement.initial_chat_id && entitlement.initial_chat_id !== input.chatId)
+    ) {
+      return false;
+    }
+
+    const chats = await tx
+      .select({ projectId: engineChats.projectId })
+      .from(engineChats)
+      .where(eq(engineChats.id, input.chatId))
+      .limit(1);
+    if (chats[0]?.projectId !== input.projectId) return false;
+
+    if (!entitlement.initial_chat_id) {
+      await tx
+        .update(kostnadsfriCampaignEntitlements)
+        .set({ initial_chat_id: input.chatId, updated_at: new Date() })
+        .where(eq(kostnadsfriCampaignEntitlements.id, entitlement.id));
+    }
+    return true;
+  });
+}
 
 type Entitlement = typeof kostnadsfriCampaignEntitlements.$inferSelect;
 
@@ -138,7 +214,7 @@ export async function getKostnadsfriCampaignPolicy(input: {
   projectId: string;
   userId: string;
   sessionId?: string | null;
-  phase: KostnadsfriCampaignPhase;
+  phase: KostnadsfriCampaignRequestedPhase;
   chatId?: string | null;
 }): Promise<KostnadsfriCampaignPolicy | null> {
   assertDbConfigured();
@@ -182,34 +258,33 @@ export async function getKostnadsfriCampaignPolicy(input: {
       entitlement = claimed[0] ?? entitlement;
     }
 
+    const phase = resolveKostnadsfriCampaignPhase({
+      requestedPhase: input.phase,
+      chatId: input.chatId,
+      initialChatId: entitlement.initial_chat_id,
+      initialVersionId: entitlement.initial_version_id,
+    });
+    if (!phase) return unavailablePolicy();
+
     const reserved = await tx
       .select({ id: generationBillings.id })
       .from(generationBillings)
       .where(
         and(
           eq(generationBillings.campaign_entitlement_id, entitlement.id),
-          eq(generationBillings.campaign_phase, input.phase),
+          eq(generationBillings.campaign_phase, phase),
         ),
       )
       .limit(1);
     if (reserved[0]) return unavailablePolicy();
 
-    if (input.phase === "initial") {
-      if (entitlement.initial_chat_id || entitlement.initial_version_id) {
-        return unavailablePolicy();
-      }
-    } else if (
-      !input.chatId ||
-      entitlement.initial_chat_id !== input.chatId ||
-      !entitlement.initial_version_id ||
-      entitlement.followup_version_id
-    ) {
+    if (phase === "followup" && entitlement.followup_version_id) {
       return unavailablePolicy();
     }
 
     return {
       entitlementId: entitlement.id,
-      benefit: { entitlementId: entitlement.id, phase: input.phase },
+      benefit: { entitlementId: entitlement.id, phase },
     };
   });
 }

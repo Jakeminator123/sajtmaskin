@@ -1229,6 +1229,9 @@ export const generationBillings = pgTable(
   },
   (table) => ({
     versionUnique: uniqueIndex("generation_billings_version_unique").on(table.version_id),
+    campaignSlotUnique: uniqueIndex("generation_billings_campaign_slot_unique")
+      .on(table.campaign_entitlement_id, table.campaign_phase)
+      .where(sql`${table.campaign_entitlement_id} is not null`),
     chatIdx: index("idx_generation_billings_chat").on(table.chat_id),
     userCreatedIdx: index("idx_generation_billings_user_created").on(
       table.user_id,

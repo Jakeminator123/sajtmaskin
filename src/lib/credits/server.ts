@@ -7,7 +7,7 @@ import type { User } from "@/lib/db/services/shared";
 import {
   getKostnadsfriCampaignPolicy,
   type KostnadsfriCampaignBenefit,
-  type KostnadsfriCampaignPhase,
+  type KostnadsfriCampaignRequestedPhase,
 } from "@/lib/db/services/kostnadsfri-campaign";
 import {
   getActionLabel,
@@ -75,7 +75,7 @@ async function evaluateCredits(
     allowFreeGeneration?: boolean;
     idempotencyKey?: string | null;
     campaignProjectId?: string | null;
-    campaignPhase?: KostnadsfriCampaignPhase;
+    campaignPhase?: KostnadsfriCampaignRequestedPhase;
     campaignChatId?: string | null;
   } = {},
 ): Promise<CreditsEvaluation> {
@@ -187,7 +187,7 @@ export async function prepareCredits(
     allowFreeGeneration?: boolean;
     idempotencyKey?: string | null;
     campaignProjectId?: string | null;
-    campaignPhase?: KostnadsfriCampaignPhase;
+    campaignPhase?: KostnadsfriCampaignRequestedPhase;
     campaignChatId?: string | null;
   } = {},
 ): Promise<PreparedCredits> {
