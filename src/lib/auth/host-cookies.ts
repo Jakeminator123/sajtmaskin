@@ -232,23 +232,6 @@ export function forwardedProtoIsHttps(
   return value?.split(",")[0]?.trim().toLowerCase() === "https";
 }
 
-/**
- * The unprefixed guest id from a `Cookie` header, usable as a one-time claim
- * source after a verified `__Host-` login — never as a live session id and
- * never for auth.
- *
- * Two values for the name mean a parent-domain shadow may be present, and a
- * shadow must not be able to move project ownership, so that case yields null.
- */
-export function leftoverGuestClaimId(
-  cookieHeader: string | null | undefined,
-): string | null {
-  const value = unambiguousCookieValue(
-    parseCookieHeader(cookieHeader).get(SESSION_COOKIE_LEGACY_NAME),
-  );
-  return value && isGuestSessionId(value) ? value : null;
-}
-
 export function hostCookieSetOptions(args: {
   secure: boolean;
   maxAge: number;

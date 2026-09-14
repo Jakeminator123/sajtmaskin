@@ -10,7 +10,6 @@ import {
   getAuthTokenFromRequest,
   isGuestSessionId,
   leftoverCookieDomain,
-  leftoverGuestClaimId,
   parseCookieHeader,
   pickHostOrLegacyCookie,
   pickHostOrLegacyCookieFromHeader,
@@ -194,28 +193,29 @@ describe("guest session format", () => {
   });
 });
 
-describe("leftover guest claim source", () => {
-  it("returns an unambiguous, format-valid leftover id", () => {
+// The leftover guest name has no claim path left: nothing derives a claimable
+// id from it, so the module exposes no helper that could hand one out.
+describe("leftover guest name is not a claim source", () => {
+  it("exports no leftover-to-claim-id helper", async () => {
+    const hostCookies = await import("./host-cookies");
     expect(
-      leftoverGuestClaimId(`${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`),
-    ).toBe(VALID_GUEST);
+      Object.keys(hostCookies).filter((name) => /claim/i.test(name)),
+    ).toEqual([]);
   });
 
-  it("refuses a shadowed leftover so a parent domain cannot move ownership", () => {
-    expect(
-      leftoverGuestClaimId(
-        `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}; ${SESSION_COOKIE_LEGACY_NAME}=${OTHER_GUEST}`,
-      ),
-    ).toBeNull();
-  });
-
-  it("refuses an ill-formed or absent leftover", () => {
-    expect(
-      leftoverGuestClaimId(`${SESSION_COOKIE_LEGACY_NAME}=guest-session-1`),
-    ).toBeNull();
-    expect(
-      leftoverGuestClaimId(`${SESSION_COOKIE_HOST_NAME}=${VALID_GUEST}`),
-    ).toBeNull();
-    expect(leftoverGuestClaimId(null)).toBeNull();
+  it("never resolves the leftover name to a guest id on HTTPS", () => {
+    for (const header of [
+      `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}; ${SESSION_COOKIE_LEGACY_NAME}=${OTHER_GUEST}`,
+    ]) {
+      expect(
+        pickHostOrLegacyCookieFromHeader(
+          header,
+          SESSION_COOKIE_HOST_NAME,
+          SESSION_COOKIE_LEGACY_NAME,
+          HTTPS,
+        ),
+      ).toBeNull();
+    }
   });
 });

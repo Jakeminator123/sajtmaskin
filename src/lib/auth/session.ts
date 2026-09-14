@@ -100,9 +100,11 @@ export interface EnsuredGuestSession {
 
 /**
  * On HTTPS a leftover guest id is never re-issued as `__Host-`: an unverified
- * id must not become the portal's identity, so a new id is minted here. The
- * leftover's own projects are reconnected on the login path instead, see
- * `guest-claim.ts`. Local HTTP keeps the leftover→same-id upgrade.
+ * id must not become the portal's identity, so a new id is minted here. Its
+ * unclaimed projects keep the old `session_id` in the database — login does not
+ * claim them, because a leftover cookie is plantable (see `setAuthCookie`), and
+ * a controlled restore is a later package. Local HTTP keeps the
+ * leftover→same-id upgrade.
  */
 export function ensureSessionIdFromRequest(request: Request): EnsuredGuestSession {
   const existing = resolveGuestSessionFromRequest(request);

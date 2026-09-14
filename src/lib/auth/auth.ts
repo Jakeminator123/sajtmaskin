@@ -21,7 +21,6 @@ import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 import {
   AUTH_COOKIE_HOST_NAME,
   AUTH_COOKIE_LEGACY_NAME,
-  SESSION_COOKIE_LEGACY_NAME,
   authCookieWriteName,
   cookieMapFromList,
   expireCookieSetOptions,
@@ -29,7 +28,6 @@ import {
   forwardedProtoIsHttps,
   getAuthTokenFromRequest,
   hostCookieSetOptions,
-  leftoverGuestClaimId,
   parseCookieHeader,
   pickHostOrLegacyCookie,
 } from "@/lib/auth/host-cookies";
@@ -212,6 +210,19 @@ async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
 /**
  * Set auth cookie with JWT token.
  * `__Host-` is used only when `Secure` is on — browsers reject `__Host-` without it.
+ *
+ * Writes auth cookies only. A login proves the *account*; it says nothing about
+ * who wrote a leftover `sajtmaskin_session` cookie or whether that session's
+ * projects belong to this user. A subdomain on `Domain=.sajtmaskin.se` can plant
+ * a known `sess_` id, so claiming from it here would let a plantable cookie
+ * transfer `app_projects` ownership permanently — expiring the cookie afterwards
+ * does not undo a transfer. Automatic legacy claim is therefore off.
+ *
+ * Follow-up before the branded pilot: a controlled restore where the user proves
+ * the project (not a cookie). Unclaimed guest rows keep their original
+ * `session_id` in the database until then, so nothing is lost — only unreachable
+ * without that restore. Projects that already carry `user_id` need no claim and
+ * stay visible after re-login.
  */
 export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
   const secure = resolveAuthCookieSecure(options);
@@ -223,50 +234,13 @@ export async function setAuthCookie(token: string, options?: { secure?: boolean 
   );
   if (!secure) return;
 
-  const headerList = await incomingHeaders();
-  const host = requestHostFromHeaders(headerList);
+  const host = requestHostFromHeaders(await incomingHeaders());
   // Production must not keep the unprefixed name as a live permission cookie.
   cookieStore.set(
     AUTH_COOKIE_LEGACY_NAME,
     "",
     expireLeftoverCookieOptions(host),
   );
-
-  await reconnectLeftoverGuestProjects(token, headerList, cookieStore);
-}
-
-/**
- * The write just proved the user's identity with a `__Host-` cookie, which is
- * the only moment a leftover guest id may be trusted — as a claim source, once.
- * Failing here must never fail the login, and the leftover is only expired once
- * its projects actually moved.
- */
-async function reconnectLeftoverGuestProjects(
-  token: string,
-  headerList: IncomingHeaderList | null,
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-): Promise<void> {
-  const sessionId = leftoverGuestClaimId(headerList?.get("cookie"));
-  if (!sessionId) return;
-
-  const userId = verifyToken(token)?.userId;
-  if (!userId) return;
-
-  try {
-    // Imported lazily: the database client throws at import time without a
-    // connection string, and this module is loaded by consumers that run
-    // without one.
-    const { reconnectGuestProjects } = await import("@/lib/auth/guest-claim");
-    const result = await reconnectGuestProjects(sessionId, userId);
-    if (!result.ok) return;
-    cookieStore.set(
-      SESSION_COOKIE_LEGACY_NAME,
-      "",
-      expireLeftoverCookieOptions(requestHostFromHeaders(headerList)),
-    );
-  } catch (error) {
-    console.error("[Auth] Guest project reconnect unavailable:", error);
-  }
 }
 
 /**

@@ -164,10 +164,13 @@ export async function getProjectById(id: string): Promise<Project | null> {
 /**
  * Attach every still-unclaimed project of one guest session to a user.
  *
- * Used once, right after a verified `__Host-` login, so a pre-migration guest
- * cookie can hand its projects over instead of leaving them unreachable. Unlike
- * {@link getProjectByIdForOwner} this never widens to `user_id IS NULL` without
- * a session match: only rows carrying exactly this `session_id` can move.
+ * Currently uncalled: the login path must not claim from a leftover cookie,
+ * because a subdomain can plant a `sess_` id and a login only proves the
+ * account (see `setAuthCookie`). Reserved for the controlled restore where the
+ * user proves the project — do not wire it to anything a client can supply.
+ *
+ * Unlike {@link getProjectByIdForOwner} this never widens to `user_id IS NULL`
+ * without a session match: only rows carrying exactly this `session_id` move.
  */
 export async function claimUnclaimedSessionProjects(
   sessionId: string,

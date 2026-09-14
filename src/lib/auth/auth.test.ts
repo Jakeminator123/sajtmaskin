@@ -4,11 +4,12 @@ import { cookies, headers } from "next/headers";
 import {
   AUTH_COOKIE_HOST_NAME,
   AUTH_COOKIE_LEGACY_NAME,
+  SESSION_COOKIE_HOST_NAME,
   SESSION_COOKIE_LEGACY_NAME,
 } from "./host-cookies";
 import { getTokenFromRequestEdge } from "./edge-auth";
 
-const reconnectGuestProjects = vi.hoisted(() => vi.fn());
+const claimUnclaimedSessionProjects = vi.hoisted(() => vi.fn());
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -22,7 +23,9 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-vi.mock("@/lib/auth/guest-claim", () => ({ reconnectGuestProjects }));
+// The only write that could move project ownership. Mocked so a claim would be
+// observable instead of throwing on the missing database connection.
+vi.mock("@/lib/db/services/projects", () => ({ claimUnclaimedSessionProjects }));
 
 vi.mock("@/lib/db/services/users", () => ({
   getUserById: vi.fn(),
@@ -95,12 +98,8 @@ describe("auth token security", () => {
   });
 
   beforeEach(() => {
-    reconnectGuestProjects.mockReset();
-    reconnectGuestProjects.mockResolvedValue({
-      sessionId: VALID_GUEST,
-      claimedProjectIds: ["proj_1"],
-      ok: true,
-    });
+    claimUnclaimedSessionProjects.mockReset();
+    claimUnclaimedSessionProjects.mockResolvedValue(["proj_1"]);
   });
 
   it("creates and verifies JWT tokens", () => {
@@ -357,7 +356,10 @@ describe("server-component auth cookie reader", () => {
   });
 });
 
-describe("guest project reconnect after __Host- login", () => {
+// A leftover cookie is plantable from a subdomain, and a login only proves the
+// account. So no shape of leftover — lone, shadowed, or on HTTP — may move
+// `app_projects.user_id` at login.
+describe("leftover guest cookie at __Host- login", () => {
   let auth: typeof import("./auth");
 
   beforeAll(async () => {
@@ -365,15 +367,11 @@ describe("guest project reconnect after __Host- login", () => {
   });
 
   beforeEach(() => {
-    reconnectGuestProjects.mockReset();
-    reconnectGuestProjects.mockResolvedValue({
-      sessionId: VALID_GUEST,
-      claimedProjectIds: ["proj_1"],
-      ok: true,
-    });
+    claimUnclaimedSessionProjects.mockReset();
+    claimUnclaimedSessionProjects.mockResolvedValue(["proj_1"]);
   });
 
-  it("claims the unambiguous leftover guest session and then expires it", async () => {
+  it("does not claim from an unambiguous leftover guest session", async () => {
     const token = auth.createToken("user_1", "one@example.com");
     const { set } = mockCookieStore();
     mockIncomingHeaders({
@@ -383,15 +381,12 @@ describe("guest project reconnect after __Host- login", () => {
 
     await auth.setAuthCookie(token, { secure: true });
 
-    expect(reconnectGuestProjects).toHaveBeenCalledWith(VALID_GUEST, "user_1");
-    const leftover = set.mock.calls.find(
-      (call) => call[0] === SESSION_COOKIE_LEGACY_NAME,
-    );
-    expect(leftover?.[2]).toMatchObject({
-      domain: ".sajtmaskin.se",
-      maxAge: 0,
-      secure: true,
-    });
+    expect(claimUnclaimedSessionProjects).not.toHaveBeenCalled();
+    // Login writes auth cookies only; the guest name is cleaned up by the
+    // guest-session path, which is complementary cleanup and not the control.
+    expect(
+      set.mock.calls.map((call) => call[0]),
+    ).toEqual([AUTH_COOKIE_HOST_NAME, AUTH_COOKIE_LEGACY_NAME]);
   });
 
   it("does not claim from a shadowed leftover guest cookie", async () => {
@@ -404,36 +399,15 @@ describe("guest project reconnect after __Host- login", () => {
 
     await auth.setAuthCookie(token, { secure: true });
 
-    expect(reconnectGuestProjects).not.toHaveBeenCalled();
+    expect(claimUnclaimedSessionProjects).not.toHaveBeenCalled();
     expect(
       set.mock.calls.some((call) => call[0] === SESSION_COOKIE_LEGACY_NAME),
     ).toBe(false);
   });
 
-  it("keeps the leftover when the claim failed so it can be retried", async () => {
-    reconnectGuestProjects.mockResolvedValue({
-      sessionId: VALID_GUEST,
-      claimedProjectIds: [],
-      ok: false,
-    });
+  it("does not claim on local HTTP, where the leftover is still the live cookie", async () => {
     const token = auth.createToken("user_1", "one@example.com");
     const { set } = mockCookieStore();
-    mockIncomingHeaders({
-      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
-      host: "sajtmaskin.se",
-    });
-
-    await auth.setAuthCookie(token, { secure: true });
-
-    expect(reconnectGuestProjects).toHaveBeenCalledWith(VALID_GUEST, "user_1");
-    expect(
-      set.mock.calls.some((call) => call[0] === SESSION_COOKIE_LEGACY_NAME),
-    ).toBe(false);
-  });
-
-  it("never claims on local HTTP, where the leftover is still the live cookie", async () => {
-    const token = auth.createToken("user_1", "one@example.com");
-    mockCookieStore();
     mockIncomingHeaders({
       cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
       host: "127.0.0.1:3010",
@@ -441,18 +415,25 @@ describe("guest project reconnect after __Host- login", () => {
 
     await auth.setAuthCookie(token, { secure: false });
 
-    expect(reconnectGuestProjects).not.toHaveBeenCalled();
+    expect(claimUnclaimedSessionProjects).not.toHaveBeenCalled();
+    expect(set.mock.calls.map((call) => call[0])).toEqual([
+      AUTH_COOKIE_LEGACY_NAME,
+    ]);
   });
 
-  it("does not claim for an unverifiable token", async () => {
+  it("does not claim when a __Host- guest session is also present", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
     mockCookieStore();
     mockIncomingHeaders({
-      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      cookie: [
+        `${SESSION_COOKIE_HOST_NAME}=${OTHER_GUEST}`,
+        `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      ].join("; "),
       host: "sajtmaskin.se",
     });
 
-    await auth.setAuthCookie("not.a.jwt", { secure: true });
+    await auth.setAuthCookie(token, { secure: true });
 
-    expect(reconnectGuestProjects).not.toHaveBeenCalled();
+    expect(claimUnclaimedSessionProjects).not.toHaveBeenCalled();
   });
 });
