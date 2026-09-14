@@ -82,10 +82,18 @@ type Phase = "checking" | "intro" | "reveal"
  * avstängt eller Canvas/Rapier inte kan starta. Fallback = det statiska
  * varumärkeskortet, så hjälteytan aldrig blir tom.
  */
-class LanyardErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class LanyardErrorBoundary extends Component<
+  { children: ReactNode; onFailed?: () => void },
+  { failed: boolean }
+> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
+  }
+  componentDidCatch() {
+    // Drop-in-wrappern håller innehållet ovanför stagen tills onReady —
+    // fallbacken måste släppas ner direkt, annars gapar hero-ytan i 6 s.
+    this.props.onFailed?.()
   }
   render() {
     if (this.state.failed) return <StaticLanyardFallback />
@@ -146,7 +154,7 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
                 }`
           }`}
         >
-          <LanyardErrorBoundary>
+          <LanyardErrorBoundary onFailed={dropIn ? handleReady : undefined}>
             <LanyardCard
               className="h-full"
               autoSwing={autoSwing}

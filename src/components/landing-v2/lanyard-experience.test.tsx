@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LanyardExperience } from "./lanyard-experience";
 
+let physicsStubThrows = false;
+
 vi.mock("next/dynamic", () => ({
   default: () =>
     function LanyardPhysicsStub({ onReady }: { onReady?: () => void }) {
+      if (physicsStubThrows) throw new Error("WebGL unavailable");
       return <button type="button" data-testid="lanyard-physics" onClick={onReady} />;
     },
 }));
@@ -157,6 +160,23 @@ describe("LanyardExperience", () => {
       vi.advanceTimersByTime(6000);
     });
     expect(stage.className).toContain("translate-y-0");
+  });
+
+  it("releases the static fallback immediately when the 3D card fails before ready", () => {
+    physicsStubThrows = true;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      localStorage.setItem(CONSENT_KEY, "accepted");
+      originalMatchMedia = stubMatchMedia(false);
+      render(<LanyardExperience />);
+      const stage = screen.getByTestId("lanyard-stage-3d");
+      expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+      expect(stage.className).toContain("translate-y-0");
+      expect(stage.className).not.toContain("-translate-y-[120%]");
+    } finally {
+      physicsStubThrows = false;
+      consoleError.mockRestore();
+    }
   });
 
   it("keeps the first-visit handoff on the opacity path, not the drop-in", () => {
