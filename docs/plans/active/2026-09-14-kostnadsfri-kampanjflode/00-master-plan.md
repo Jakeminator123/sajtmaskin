@@ -1,14 +1,12 @@
 # Kostnadsfri-kampanjflödet — sidantal, bolagsdata och pre-generering (2026-09-14)
 
-> **Status: två beslut fattade och implementerade, ett kvar.** Sidantalet är
-> avgjort 2026-09-14 (3 sidor) och bolagsdatans PII-gräns 2026-09-15 (allowlist
-> plus personnummerspärr) — båda i
+> **Status: besluten är fattade.** Sidantal (3), bolagsdata (allowlist +
+> wizard-prefill, aldrig direkt i prompten), bransch som hint, gemensam
+> taxonomiägare och **ingen** verify-prewarm/spekulativ init — se
 > [`docs/decisions/README.md`](../../../decisions/README.md). Koden är skriven men
-> **inte mergad**, så `master` är auktoritet tills den är det. Kvar som rad i
+> **inte mergad**, så `master` är auktoritet tills den är det. Inget kvar i
 > [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Väntar på
-> ägarbeslut: pre-generering vid lösenordsverifiering. Städlistan längst ned
-> hänger på besluten och ska köras i samma ändring som respektive beslut, inte som
-> ett eget "senare".
+> ägarbeslut för det här spåret.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
@@ -97,7 +95,7 @@ värde. Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 |---|---|
 | `orgNumber` | Standard i svensk sidfot. Normaliseras till `NNNNNN-NNNN` |
 | `registeredOffice`, `city`, `postalCode` | «based in», lokal SEO, kontaktsida |
-| `streetAddress` | Ofta c/o hos revisor eller annat bolag — förifylls för bekräftelse, publiceras inte automatiskt som besöksadress |
+| `streetAddress` | Ofta c/o hos revisor eller annat bolag — lagras men förifylls **inte** som besöksadress |
 | `businessDescription` | Mest användbara fältet: bär både bransch och vad bolaget faktiskt gör |
 | `registeredAt` | «Grundat 2026» som copy |
 
@@ -115,15 +113,17 @@ tillsammans med sändregistreringen inte längre tappas. Den ytliga
 sammanslagningen är avsiktlig — patchen ska byta ut `profile` men lämna
 `openclaw` orörd.
 
-**Kvar:** wizarden läser inte profilen än. Förifyllningen bor i
-`mini-wizard.tsx`, som ligger i videoagentens scope, så den hör i en egen PR
-efteråt.
+**Beslutat 2026-09-15 och byggt (prefill + hint):** `mini-wizard.tsx` läser
+profilen. `city` vinner över `registeredOffice` för plats; `businessDescription`
+förifyller beskrivningen; `streetAddress` lämnas tomt som besöksadress.
+`companyData.industry` sätter bransch-state **bara** vid exakt id eller känd
+alias mot de elva facken. `frisörverksamhet` lämnar facket tomt — användaren
+väljer. Inget nytt frisör-/skönhets-id. Prompten byggs fortfarande bara av
+`buildPromptFromWizardData(wizardData)`.
 
-**Fortfarande oavgjort — bransch som fack eller fritext.** Dashen ger fritext;
-koden kräver ett av elva id:n. `frisörverksamhet` har inget fack och landar
-närmast på `health` («Hälsa/Wellness»). Antingen används `businessDescription`
-som beskrivning och bransch blir en hint, eller så växer taxonomin — men då måste
-den växa på det ställe som äger den (se städlistan), inte i tre kopior.
+Taxonomin (id + label + suggestedFeatures / purpose desc) ägs av
+`src/lib/builder/wizard-taxonomy.ts`. Prompt-wizardens Lucide-ikoner och
+mini-wizardens emoji mappar bara id → ikon.
 
 ## 3. Pre-generering vid lösenordsverifiering
 
@@ -157,8 +157,12 @@ billiga att rätta. Nuvarande auto-start (`canAutoStartKostnadsfriGeneration` i
 `src/app/builder/page-controller/auto-start-generation.ts`) startar först efter
 hela wizarden och är den yta som i så fall byter läge.
 
-**Beslutet som behövs:** bara prewarm (ingen tokenkostnad, ingen felrisk), eller
-prewarm plus spekulativ init efter vibe-valet?
+**Beslutat 2026-09-15: ingen spekulativ init och ingen ny prewarm vid
+lösenordsverify.** `preview-prewarm` är chat-nycklad och
+`FEATURES.previewPrewarm` är av som default. Verify-rutten startar varken VM
+eller generation. Auto-start sker som förut efter mini-wizarden; vibe och palett
+måste vara valda först. Beslutsrad:
+[`docs/decisions/README.md`](../../../decisions/README.md).
 
 Om väntan behöver fyllas: buildern strömmar redan synligt. En andra video direkt
 efter den treminuters som ligger på landningssidan är sannolikt för mycket, och
@@ -175,21 +179,17 @@ ovan och körs i samma ändring.
 |---|---|---|
 | ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är prioritetsordning, taket kommer utifrån |
 | ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — inget tal i prosa längre |
-| `INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS` | `src/lib/kostnadsfri/index.ts` | **Öppet** — filens egen kommentar säger «mirrors PromptWizardModalV2 constants», alltså en medveten kopia av `src/components/modals/prompt-wizard/constants.ts`. |
-| `INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS` | `src/components/kostnadsfri/mini-wizard.tsx` | **Öppet** — tredje kopian av samma taxonomi (emoji i stället för Lucide-ikoner). Värdena är identiska i dag, så inget är fel än, men en bransch kan bara läggas till på ett av tre ställen och då driftar de tyst. |
+| ~~`INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS`~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — importerar labels från `src/lib/builder/wizard-taxonomy.ts` |
+| ~~`INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS`~~ | `src/components/kostnadsfri/mini-wizard.tsx` | **Klart** — samma id/label-lista; emoji stannar i UI-lagret |
 
-Taxonomistädningen är förutsättning för punkt 2: att lägga till ett
-frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
+Taxonomistädningen var förutsättning för punkt 2: att lägga till ett
+frisör-/skönhetsfack i tre filer är hur divergensen uppstår. Facket lades inte
+till — hint-beslutet gör att det inte behövs.
 
 ## Inte avgjort
 
-- Om spekulativ init är värd risken att företaget känner igen sig dåligt i en
-  sajt som redan är byggd när de kommer till wizarden.
-- Om `profile` ska vara ett fritt `extra_data`-objekt eller ett schemalagt fält
-  med egen validering. Ett fritt objekt går snabbare; ett schema är det som
-  faktiskt hindrar personnummer från att åka med.
-- Om taxonomin ska växa (frisör/skönhet, hantverk, transport) eller ersättas av
-  fritext plus hint. Registreringsunderlag är fritext i grunden.
+- Hur väntan efter wizarden ska fyllas (strömmen, copy om «Kista»/verksamhet,
+  extra video). Smak, inte grind.
 
 ## Kopplingar
 
@@ -202,4 +202,5 @@ frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
   publicerade hamnar i den framtida månadsavgiften, vilket påverkar hur mycket
   gratisgenerering som är försvarbar.
 - `docs/schemas/builder-entry-contract.md` beskriver `kostnadsfri`-entryns
-  auto-generate-väg och måste uppdateras om triggern flyttas till verifieringen.
+  auto-generate-väg. Triggern flyttas **inte** till verifieringen (beslut
+  2026-09-15); kontraktet behöver därför inte ändras för den här frågan.

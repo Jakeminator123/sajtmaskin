@@ -29,8 +29,8 @@ export interface KostnadsfriCompanyProfile {
   postalCode?: string;
   /**
    * Bolagets registrerade gatuadress. Ofta en c/o-adress hos revisor eller
-   * annat bolag, så den förifylls för bekräftelse och ska inte publiceras som
-   * besöksadress utan att företaget sagt ja.
+   * annat bolag. Lagras men förifylls inte som besöksadress — bekräftelse
+   * senare, inte auto-publicera.
    */
   streetAddress?: string;
   /**

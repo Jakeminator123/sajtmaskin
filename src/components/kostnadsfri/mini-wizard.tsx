@@ -17,6 +17,15 @@ import {
 } from "@/components/forms/color-palette-picker";
 import { LocationPicker } from "@/components/modals/location-picker";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
+import { prefillMiniWizardFromCompanyData } from "@/lib/kostnadsfri/wizard-prefill";
+import {
+  WIZARD_INDUSTRIES,
+  WIZARD_PURPOSES,
+  WIZARD_VIBES,
+  type WizardIndustryId,
+  type WizardPurposeId,
+  type WizardVibeId,
+} from "@/lib/builder/wizard-taxonomy";
 
 /**
  * MiniWizard — 3-step wizard for the kostnadsfri flow.
@@ -29,40 +38,60 @@ import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
  */
 
 // ── Constants ────────────────────────────────────────────────────
+// Id/label/desc ägs av `src/lib/builder/wizard-taxonomy.ts`. Emoji är UI-lager.
 
-const INDUSTRY_OPTIONS = [
-  { id: "cafe", label: "Café/Konditori", icon: "☕" },
-  { id: "restaurant", label: "Restaurang/Bar", icon: "🍽️" },
-  { id: "retail", label: "Butik/Detaljhandel", icon: "🛍️" },
-  { id: "tech", label: "Tech/IT-företag", icon: "💻" },
-  { id: "consulting", label: "Konsult/Tjänster", icon: "💼" },
-  { id: "health", label: "Hälsa/Wellness", icon: "🏥" },
-  { id: "creative", label: "Kreativ byrå", icon: "🎨" },
-  { id: "education", label: "Utbildning", icon: "📚" },
-  { id: "ecommerce", label: "E-handel", icon: "🛒" },
-  { id: "realestate", label: "Fastigheter", icon: "🏠" },
-  { id: "other", label: "Annat", icon: "✨" },
-];
+const INDUSTRY_EMOJIS: Record<WizardIndustryId, string> = {
+  cafe: "☕",
+  restaurant: "🍽️",
+  retail: "🛍️",
+  tech: "💻",
+  consulting: "💼",
+  health: "🏥",
+  creative: "🎨",
+  education: "📚",
+  ecommerce: "🛒",
+  realestate: "🏠",
+  other: "✨",
+};
 
-const PURPOSE_OPTIONS = [
-  { id: "sell", label: "Sälja", icon: "🛒", desc: "Produkter/tjänster" },
-  { id: "leads", label: "Leads", icon: "📧", desc: "Fånga kontakter" },
-  { id: "portfolio", label: "Portfolio", icon: "🎨", desc: "Visa arbeten" },
-  { id: "inform", label: "Informera", icon: "📚", desc: "Dela kunskap" },
-  { id: "brand", label: "Varumärke", icon: "⭐", desc: "Bygga identitet" },
-  { id: "booking", label: "Bokningar", icon: "📅", desc: "Ta emot bokningar" },
-  { id: "conversion", label: "Konvertering", icon: "📈", desc: "Öka konvertering" },
-  { id: "rebrand", label: "Rebrand", icon: "🔄", desc: "Ny identitet" },
-];
+const PURPOSE_EMOJIS: Record<WizardPurposeId, string> = {
+  sell: "🛒",
+  leads: "📧",
+  portfolio: "🎨",
+  inform: "📚",
+  brand: "⭐",
+  booking: "📅",
+  conversion: "📈",
+  rebrand: "🔄",
+};
 
-const VIBE_OPTIONS = [
-  { id: "modern", label: "Modern & Clean", icon: "✨" },
-  { id: "playful", label: "Playful & Fun", icon: "🎨" },
-  { id: "brutalist", label: "Brutalist", icon: "🏗️" },
-  { id: "luxury", label: "Luxury", icon: "💎" },
-  { id: "tech", label: "Futuristic", icon: "🚀" },
-  { id: "minimal", label: "Minimal", icon: "◻️" },
-];
+const VIBE_EMOJIS: Record<WizardVibeId, string> = {
+  modern: "✨",
+  playful: "🎨",
+  brutalist: "🏗️",
+  luxury: "💎",
+  tech: "🚀",
+  minimal: "◻️",
+};
+
+const INDUSTRY_OPTIONS = WIZARD_INDUSTRIES.map((industry) => ({
+  id: industry.id,
+  label: industry.label,
+  icon: INDUSTRY_EMOJIS[industry.id],
+}));
+
+const PURPOSE_OPTIONS = WIZARD_PURPOSES.map((purpose) => ({
+  id: purpose.id,
+  label: purpose.label,
+  desc: purpose.desc,
+  icon: PURPOSE_EMOJIS[purpose.id],
+}));
+
+const VIBE_OPTIONS = WIZARD_VIBES.map((vibe) => ({
+  id: vibe.id,
+  label: vibe.label,
+  icon: VIBE_EMOJIS[vibe.id],
+}));
 
 const INPUT_CLASS =
   "w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:border-brand-teal focus:ring-1 focus:ring-brand-teal/50 focus:outline-none";
@@ -80,12 +109,13 @@ interface MiniWizardProps {
 export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) {
   const [step, setStep] = useState(1);
 
-  // Step 1: About
-  const [companyName] = useState(companyData.companyName);
-  const [industry, setIndustry] = useState(companyData.industry || "");
-  const [website] = useState(companyData.website || "");
-  const [location, setLocation] = useState("");
-  const [description, setDescription] = useState("");
+  // Step 1: About — förifyllt från kampanjrad + profil, allt går att rätta
+  const prefill = prefillMiniWizardFromCompanyData(companyData);
+  const [companyName, setCompanyName] = useState(prefill.companyName);
+  const [industry, setIndustry] = useState(prefill.industry);
+  const [website, setWebsite] = useState(prefill.website);
+  const [location, setLocation] = useState(prefill.location);
+  const [description, setDescription] = useState(prefill.description);
 
   // Step 2: Goals
   const [purposes, setPurposes] = useState<string[]>([]);
@@ -251,7 +281,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                 </p>
               </div>
 
-              {/* Company name (pre-filled, read-only) */}
+              {/* Company name (pre-filled, editable) */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
                   Företagsnamn
@@ -259,8 +289,8 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                 <input
                   type="text"
                   value={companyName}
-                  readOnly
-                  className={INPUT_CLASS + " cursor-default opacity-70"}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className={INPUT_CLASS}
                 />
               </div>
 
@@ -286,20 +316,19 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                 </div>
               </div>
 
-              {/* Website (pre-filled if available) */}
-              {website && (
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                    Befintlig webbplats
-                  </label>
-                  <input
-                    type="text"
-                    value={website}
-                    readOnly
-                    className={INPUT_CLASS + " cursor-default opacity-70"}
-                  />
-                </div>
-              )}
+              {/* Website (pre-filled if available, editable) */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                  Befintlig webbplats
+                </label>
+                <input
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://…"
+                  className={INPUT_CLASS}
+                />
+              </div>
 
               {/* Location */}
               <div>
