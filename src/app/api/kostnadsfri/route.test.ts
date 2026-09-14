@@ -136,6 +136,33 @@ describe("POST /api/kostnadsfri", () => {
     expect(body.page).not.toHaveProperty("extraData");
   });
 
+  it("registers a send on an existing slug even when the password seed is missing", async () => {
+    // Review finding: a pure sent_at update must not depend on the seed.
+    // Only the API key authorises the caller; the slug is derived without secrets.
+    delete process.env.KOSTNADSFRI_PASSWORD_SEED;
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    markKostnadsfriPageSent.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-09-14T08:30:00.000Z"), source: "python-utskick" }),
+    );
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        source: "python-utskick",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(markKostnadsfriPageSent).toHaveBeenCalledWith("acme-ab", {
+      sentAt: new Date("2026-09-14T08:30:00.000Z"),
+      source: "python-utskick",
+      contactEmail: undefined,
+    });
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect((await res.json()).updated).toBe(true);
+  });
+
   it("defaults source to `api` when the send is registered without one", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
     markKostnadsfriPageSent.mockResolvedValueOnce(

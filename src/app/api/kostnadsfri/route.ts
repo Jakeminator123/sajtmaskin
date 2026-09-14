@@ -8,6 +8,9 @@ import {
   markKostnadsfriPageSent,
 } from "@/lib/db/services/kostnadsfri";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
+import { getAppBaseUrl } from "@/lib/app-url";
+import { kostnadsfriVisitPath } from "@/lib/kostnadsfri/analytics-paths";
+import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 
@@ -33,9 +36,11 @@ const createSchema = z.object({
   password: z.string().min(4, "Password must be at least 4 characters").optional(),
   expiresInDays: z.number().positive().optional(),
   /**
-   * When the invite mail went out (ISO 8601 with timezone — `Z` or `±HH:MM`,
-   * so Python's `datetime.isoformat()` is accepted as-is). Presence turns the
-   * call into an upsert; absence keeps the original create-only behaviour.
+   * When the invite mail went out. ISO 8601 **with** timezone (`Z` or `±HH:MM`):
+   * a timezone-aware Python `datetime.now(timezone.utc).isoformat()` passes,
+   * a naive `datetime.now().isoformat()` is rejected with 400 — an ambiguous
+   * timestamp is worse than none in a register. Presence turns the call into
+   * an upsert; absence keeps the original create-only behaviour.
    */
   sentAt: z.string().datetime({ offset: true }).optional(),
   /** Who registered the send, e.g. `python-utskick`. Defaults to `api`. */
@@ -116,20 +121,16 @@ export async function POST(request: NextRequest) {
       openclaw,
     } = validation.data;
 
-    // Slug + password (explicit or deterministic from slug + seed) + link
-    let invite;
-    try {
-      invite = buildKostnadsfriInvite(companyName, { password: explicitPassword });
-    } catch (error) {
-      if (error instanceof KostnadsfriInviteError) {
-        return NextResponse.json(
-          { success: false, error: error.message },
-          { status: error.status },
-        );
-      }
-      throw error;
+    // The slug is pure (no seed involved), so an existing row can be looked
+    // up — and a send registered on it — without the password seed at all.
+    // Only the create path below needs `buildKostnadsfriInvite`.
+    const slug = generateSlug(companyName.trim());
+    if (!slug) {
+      return NextResponse.json(
+        { success: false, error: "Kunde inte skapa en giltig länk av företagsnamnet." },
+        { status: 400 },
+      );
     }
-    const { slug, password, url } = invite;
 
     const existing = await getKostnadsfriPageBySlug(slug);
     if (existing) {
@@ -157,12 +158,28 @@ export async function POST(request: NextRequest) {
 
       // No password here: a row created with its own explicit password cannot
       // be recovered from the seed, so the derived one would be a lie.
+      const url = `${getAppBaseUrl()}${kostnadsfriVisitPath(slug)}`;
       return NextResponse.json({
         success: true,
         updated: true,
         page: { id: updated.id, ...serializePage(updated), url },
       });
     }
+
+    // Create: slug + password (explicit or deterministic from slug + seed) + link
+    let invite;
+    try {
+      invite = buildKostnadsfriInvite(companyName, { password: explicitPassword });
+    } catch (error) {
+      if (error instanceof KostnadsfriInviteError) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: error.status },
+        );
+      }
+      throw error;
+    }
+    const { password, url } = invite;
 
     const passwordHash = hashPassword(password);
 

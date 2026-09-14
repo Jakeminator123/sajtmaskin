@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, like } from "drizzle-orm";
+import { and, desc, eq, gt, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { kostnadsfriPages, pageViews, users } from "@/lib/db/schema";
 import {
@@ -93,12 +93,18 @@ export async function getKostnadsfriPageBySlug(slug: string): Promise<Kostnadsfr
 }
 
 /**
- * Every pre-created page, newest first. Password hashes are NOT stripped here.
- * `limit` caps the read for callers that serve the list over HTTP.
+ * Every pre-created page as a send register: rows with a send first, newest
+ * send on top, then unsent rows newest-created first. Same order as
+ * `/admin/kostnadsfri`, so a capped read never drops a recently re-sent old
+ * row. Password hashes are NOT stripped here. `limit` caps the read for
+ * callers that serve the list over HTTP.
  */
 export async function listKostnadsfriPages(limit?: number): Promise<KostnadsfriPage[]> {
   assertDbConfigured();
-  const query = db.select().from(kostnadsfriPages).orderBy(desc(kostnadsfriPages.created_at));
+  const query = db
+    .select()
+    .from(kostnadsfriPages)
+    .orderBy(sql`${kostnadsfriPages.sent_at} DESC NULLS LAST`, desc(kostnadsfriPages.created_at));
   return limit && limit > 0 ? query.limit(limit) : query;
 }
 
