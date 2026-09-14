@@ -90,6 +90,8 @@ export async function GET(req: NextRequest) {
         createdAt: page.created_at,
         expiresAt: page.expires_at,
         consumedAt: page.consumed_at,
+        sentAt: page.sent_at,
+        source: page.source,
       };
     });
 
