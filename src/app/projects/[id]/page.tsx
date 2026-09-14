@@ -99,14 +99,10 @@ export default function ProjectSitePage() {
       }
       setProject(projectResult.project);
       setSite(siteResult);
-      const incoming = siteResult.latestDeploymentId;
-      // Do not resubscribe to an id the SSE stream already finished — the
-      // overview can lag the webhook, and a second subscribe would loop load().
-      if (incoming && reloadedForRef.current !== incoming) {
-        setWatchedDeploymentId(incoming);
-      } else {
-        setWatchedDeploymentId(null);
-      }
+      // Keep watching a completed id when the overview still reports it as
+      // in-flight (webhook lag). The terminal-effect ref stops load() loops;
+      // dropping the watch here would fall back to a stale "Bygger" badge.
+      setWatchedDeploymentId(siteResult.latestDeploymentId);
     } catch (err: unknown) {
       // A 404 from the project endpoint surfaces as a thrown error; treat the
       // "not yours / missing" case the same way the site endpoint does rather
