@@ -29,6 +29,12 @@ export type CanonicalHostRedirectCandidate = {
   target: "production";
 };
 
+export type CanonicalAddressDeployIdentity = {
+  projectId: string;
+  vercelProjectId: string;
+  target: "production" | "preview";
+};
+
 export type CanonicalAddressPreparation = {
   contract: CanonicalAddressContract;
   hostRedirectCandidate: null;
@@ -105,7 +111,10 @@ export function prepareCanonicalAddressContract(params: {
   return { contract, hostRedirectCandidate: null, envVars, warnings: [] };
 }
 
-function isManagedProviderRedirect(value: unknown, candidate: CanonicalHostRedirectCandidate): boolean {
+function isManagedProviderRedirect(
+  value: unknown,
+  candidate: CanonicalHostRedirectCandidate,
+): boolean {
   if (!value || typeof value !== "object") return false;
   const rule = value as Record<string, unknown>;
   if (
@@ -133,6 +142,89 @@ function isManagedProviderRedirect(value: unknown, candidate: CanonicalHostRedir
   return Object.keys(match).length === 1 && match.eq === candidate.providerHost;
 }
 
+function normalizeBareHostname(value: string): string | null {
+  const raw = value.trim();
+  if (
+    !raw ||
+    raw !== value ||
+    raw.includes(":") ||
+    raw.includes("/") ||
+    raw.includes("@") ||
+    raw.includes("?") ||
+    raw.includes("#")
+  ) {
+    return null;
+  }
+  return normalizeDomainHostname(raw);
+}
+
+function normalizeCandidateHttpsOrigin(value: string): string | null {
+  const raw = value.trim();
+  if (raw !== value || !/^https:\/\//i.test(raw)) return null;
+  return normalizeHttpsOrigin(raw);
+}
+
+function isExactIdentity(value: string): boolean {
+  return Boolean(value) && value === value.trim();
+}
+
+function validateCanonicalHostRedirectCandidate(
+  candidate: CanonicalHostRedirectCandidate,
+  deployIdentity: CanonicalAddressDeployIdentity,
+):
+  | { candidate: CanonicalHostRedirectCandidate; warning: null }
+  | { candidate: null; warning: string } {
+  if (
+    !isExactIdentity(candidate.projectId) ||
+    !isExactIdentity(candidate.vercelProjectId) ||
+    !isExactIdentity(deployIdentity.projectId) ||
+    !isExactIdentity(deployIdentity.vercelProjectId) ||
+    candidate.projectId !== deployIdentity.projectId ||
+    candidate.vercelProjectId !== deployIdentity.vercelProjectId
+  ) {
+    return {
+      candidate: null,
+      warning:
+        "Host-omdirigeringen aktiverades inte eftersom kandidatens projektidentitet inte matchar den aktuella deployen.",
+    };
+  }
+  if (candidate.target !== "production" || deployIdentity.target !== "production") {
+    return {
+      candidate: null,
+      warning: "Host-omdirigeringen aktiverades inte eftersom den kräver en produktionsdeploy.",
+    };
+  }
+
+  const canonicalUrl = normalizeCandidateHttpsOrigin(candidate.canonicalUrl);
+  if (!canonicalUrl) {
+    return {
+      candidate: null,
+      warning:
+        "Host-omdirigeringen aktiverades inte eftersom den kanoniska URL:en inte är en giltig HTTPS-origin.",
+    };
+  }
+  const providerHost = normalizeBareHostname(candidate.providerHost);
+  if (!providerHost) {
+    return {
+      candidate: null,
+      warning:
+        "Host-omdirigeringen aktiverades inte eftersom provider-hosten inte är ett giltigt bart värdnamn.",
+    };
+  }
+  if (new URL(canonicalUrl).hostname === providerHost) {
+    return {
+      candidate: null,
+      warning:
+        "Host-omdirigeringen aktiverades inte eftersom kanonisk host och provider-host är samma värd.",
+    };
+  }
+
+  return {
+    candidate: { ...candidate, canonicalUrl, providerHost },
+    warning: null,
+  };
+}
+
 /**
  * Merge the temporary provider-host redirect into static Vercel config.
  * Existing JSON fields and customer redirects are preserved. Invalid or
@@ -142,12 +234,31 @@ function isManagedProviderRedirect(value: unknown, candidate: CanonicalHostRedir
 export function applyCanonicalHostRedirect(
   files: DeployTextFile[],
   candidate: CanonicalHostRedirectCandidate | null,
+  deployIdentity: CanonicalAddressDeployIdentity,
 ): { files: DeployTextFile[]; warnings: string[]; applied: boolean } {
   if (candidate === null) {
     return { files, warnings: [], applied: false };
   }
 
-  const configIndex = files.findIndex((file) => file.name.replace(/^\/+/, "") === "vercel.json");
+  const validated = validateCanonicalHostRedirectCandidate(candidate, deployIdentity);
+  if (!validated.candidate) {
+    return { files, warnings: [validated.warning], applied: false };
+  }
+  candidate = validated.candidate;
+
+  const configIndexes = files.flatMap((file, index) =>
+    file.name.replace(/^\/+/, "") === "vercel.json" ? [index] : [],
+  );
+  if (configIndexes.length > 1) {
+    return {
+      files,
+      warnings: [
+        "Host-omdirigeringen aktiverades inte eftersom deployen innehåller flera root-ekvivalenta vercel.json-filer.",
+      ],
+      applied: false,
+    };
+  }
+  const configIndex = configIndexes[0] ?? -1;
   if (files.some((file) => ["vercel.ts", "vercel.toml"].includes(file.name.replace(/^\/+/, "")))) {
     return {
       files,
@@ -182,6 +293,9 @@ export function applyCanonicalHostRedirect(
   );
   redirects.unshift({
     source: "/:path*",
+    // Vercel's current vercel.json schema allows either a regex string or a
+    // condition object here. Keep `eq` so dots and other hostname characters
+    // are compared literally: https://openapi.vercel.sh/vercel.json
     has: [{ type: "host", value: { eq: candidate.providerHost } }],
     destination: `${candidate.canonicalUrl}/:path*`,
     permanent: false,

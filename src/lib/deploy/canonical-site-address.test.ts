@@ -4,6 +4,7 @@ import {
   applyCanonicalHostRedirect,
   isCanonicalAddressContractEnabled,
   prepareCanonicalAddressContract,
+  type CanonicalAddressDeployIdentity,
   type CanonicalHostRedirectCandidate,
 } from "./canonical-site-address";
 
@@ -20,6 +21,12 @@ const candidate: CanonicalHostRedirectCandidate = {
   providerHost: "kund-project.vercel.app",
   projectId: "project-1",
   vercelProjectId: "prj_1",
+  target: "production",
+};
+
+const deployIdentity: CanonicalAddressDeployIdentity = {
+  projectId: candidate.projectId,
+  vercelProjectId: candidate.vercelProjectId,
   target: "production",
 };
 
@@ -67,12 +74,14 @@ describe("canonical site address contract", () => {
     expect(result.contract.activationReason).toBe("activation_not_ready");
     expect(result.hostRedirectCandidate).toBeNull();
     expect(result.warnings).toEqual([]);
-    const files = [{ name: "vercel.json", content: "{\"framework\":\"nextjs\"}" }];
-    expect(applyCanonicalHostRedirect(files, result.hostRedirectCandidate)).toEqual({
-      files,
-      warnings: [],
-      applied: false,
-    });
+    const files = [{ name: "vercel.json", content: '{"framework":"nextjs"}' }];
+    expect(applyCanonicalHostRedirect(files, result.hostRedirectCandidate, deployIdentity)).toEqual(
+      {
+        files,
+        warnings: [],
+        applied: false,
+      },
+    );
   });
 
   it("does not discard configured identity while provider status is unknown", () => {
@@ -110,6 +119,7 @@ describe("canonical site address contract", () => {
         },
       ],
       candidate,
+      deployIdentity,
     );
     const config = JSON.parse(result.files[0].content) as {
       framework: string;
@@ -124,13 +134,15 @@ describe("canonical site address contract", () => {
       permanent: false,
     });
     expect(config.redirects[1]).toEqual({ source: "/old", destination: "/new", permanent: true });
-    expect(applyCanonicalHostRedirect(result.files, candidate).files).toEqual(result.files);
+    expect(applyCanonicalHostRedirect(result.files, candidate, deployIdentity).files).toEqual(
+      result.files,
+    );
   });
 
   it("does not overwrite malformed or competing Vercel config", () => {
     for (const content of ["{", '{"redirects":null}', '{"redirects":{"source":"/old"}}']) {
       const malformed = [{ name: "vercel.json", content }];
-      expect(applyCanonicalHostRedirect(malformed, candidate)).toMatchObject({
+      expect(applyCanonicalHostRedirect(malformed, candidate, deployIdentity)).toMatchObject({
         files: malformed,
         applied: false,
         warnings: [expect.stringContaining("inte kunde slås ihop")],
@@ -139,13 +151,27 @@ describe("canonical site address contract", () => {
     for (const name of ["vercel.ts", "vercel.toml"]) {
       const competing = [{ name, content: "" }];
       for (const files of [competing, [...competing, { name: "vercel.json", content: "{}" }]]) {
-        expect(applyCanonicalHostRedirect(files, candidate)).toMatchObject({
+        expect(applyCanonicalHostRedirect(files, candidate, deployIdentity)).toMatchObject({
           files,
           applied: false,
           warnings: [expect.stringContaining("vercel.ts")],
         });
       }
     }
+  });
+
+  it("rejects duplicate root-equivalent vercel.json files", () => {
+    const files = [
+      { name: "vercel.json", content: "{}" },
+      { name: "/vercel.json", content: '{"framework":"nextjs"}' },
+    ];
+    const result = applyCanonicalHostRedirect(files, candidate, deployIdentity);
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("flera root-ekvivalenta vercel.json")],
+    });
+    expect(result.files).toBe(files);
   });
 
   it("preserves customer catch-all redirects that differ from the generated rule", () => {
@@ -165,8 +191,100 @@ describe("canonical site address contract", () => {
     const result = applyCanonicalHostRedirect(
       [{ name: "vercel.json", content: JSON.stringify({ redirects: customerRedirects }) }],
       candidate,
+      deployIdentity,
     );
     const config = JSON.parse(result.files[0].content) as { redirects: unknown[] };
     expect(config.redirects).toEqual([generatedShape, ...customerRedirects]);
+  });
+
+  it.each([
+    ["project", { ...deployIdentity, projectId: "project-2" }],
+    ["Vercel project", { ...deployIdentity, vercelProjectId: "prj_2" }],
+  ])("rejects a candidate for a different %s", (_label, identity) => {
+    const files = [{ name: "vercel.json", content: "{}" }];
+    const result = applyCanonicalHostRedirect(files, candidate, identity);
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("projektidentitet")],
+    });
+    expect(result.files).toBe(files);
+  });
+
+  it.each([
+    ["current deploy", candidate, { ...deployIdentity, target: "preview" as const }],
+    [
+      "candidate",
+      { ...candidate, target: "preview" } as unknown as CanonicalHostRedirectCandidate,
+      deployIdentity,
+    ],
+  ])("rejects a non-production %s", (_label, redirectCandidate, identity) => {
+    const files = [{ name: "vercel.json", content: "{}" }];
+    const result = applyCanonicalHostRedirect(files, redirectCandidate, identity);
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("produktionsdeploy")],
+    });
+    expect(result.files).toBe(files);
+  });
+
+  it.each([
+    ["scheme", "http://www.kund.se"],
+    ["path", "https://www.kund.se/path"],
+    ["credentials", "https://user:secret@www.kund.se"],
+    ["port", "https://www.kund.se:444"],
+  ])("rejects a canonical URL with %s", (_label, canonicalUrl) => {
+    const files = [{ name: "vercel.json", content: "{}" }];
+    const result = applyCanonicalHostRedirect(
+      files,
+      { ...candidate, canonicalUrl },
+      deployIdentity,
+    );
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("HTTPS-origin")],
+    });
+    expect(result.files).toBe(files);
+  });
+
+  it.each([
+    ["scheme", "https://kund-project.vercel.app"],
+    ["path", "kund-project.vercel.app/path"],
+    ["credentials", "user@kund-project.vercel.app"],
+    ["port", "kund-project.vercel.app:443"],
+  ])("rejects a provider host with %s", (_label, providerHost) => {
+    const files = [{ name: "vercel.json", content: "{}" }];
+    const result = applyCanonicalHostRedirect(
+      files,
+      { ...candidate, providerHost },
+      deployIdentity,
+    );
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("bart värdnamn")],
+    });
+    expect(result.files).toBe(files);
+  });
+
+  it("rejects a self-redirect after hostname normalization", () => {
+    const files = [{ name: "vercel.json", content: "{}" }];
+    const result = applyCanonicalHostRedirect(
+      files,
+      {
+        ...candidate,
+        canonicalUrl: "https://KUND-PROJECT.VERCEL.APP.",
+        providerHost: "kund-project.vercel.app.",
+      },
+      deployIdentity,
+    );
+    expect(result).toMatchObject({
+      files,
+      applied: false,
+      warnings: [expect.stringContaining("samma värd")],
+    });
+    expect(result.files).toBe(files);
   });
 });

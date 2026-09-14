@@ -691,6 +691,11 @@ export async function POST(req: Request) {
         const canonicalHostRedirect = applyCanonicalHostRedirect(
           seoPass ? seoPass.files : fixedFiles,
           canonicalAddress.hostRedirectCandidate,
+          {
+            projectId: engineProjectId,
+            vercelProjectId: ensuredProject.id,
+            target: deployTarget,
+          },
         );
         domainWarnings.push(...canonicalHostRedirect.warnings);
         const filesForDeploy = canonicalHostRedirect.files;
