@@ -38,11 +38,12 @@ import {
   StaticLanyardFallback,
 } from "@/components/landing-v2/lanyard-static-fallback"
 
-// Ingen loading-platshållare: återbesökare får drop-in-entrén nedan och
-// cookie-flippen håller kortet osynligt tills överlämningen.
+// Platshållaren täcker cookie-flippens överlämning om 3D-chunken inte hunnit
+// in vid reveal. I drop-in-läget står wrappern ovanför stagen tills onReady,
+// så där syns den aldrig.
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
-  { ssr: false },
+  { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
 const FLIP_MS_DESKTOP = 1550
