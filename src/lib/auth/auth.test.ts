@@ -1,12 +1,21 @@
 import crypto from "crypto";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { createSessionCookie } from "./session";
+import { cookies } from "next/headers";
+import {
+  AUTH_COOKIE_HOST_NAME,
+  AUTH_COOKIE_LEGACY_NAME,
+} from "./host-cookies";
+import { getTokenFromRequestEdge } from "./edge-auth";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     set: vi.fn(),
     get: vi.fn(),
+    getAll: vi.fn(() => []),
     delete: vi.fn(),
+  })),
+  headers: vi.fn(async () => ({
+    get: vi.fn(() => null),
   })),
 }));
 
@@ -109,16 +118,111 @@ describe("auth token security", () => {
     });
     expect(auth.getTokenFromRequest(fromCookie)).toBe("token_from_cookie");
   });
-});
 
-describe("session cookie flags", () => {
-  it("includes secure attributes in production-style cookie", () => {
-    const cookie = createSessionCookie("sess_test", { secure: true });
-    expect(cookie).toContain("sajtmaskin_session=sess_test");
-    expect(cookie).toContain("HttpOnly");
-    expect(cookie).toContain("SameSite=Lax");
-    expect(cookie).toContain("Path=/");
-    expect(cookie).toContain("Secure");
-    expect(cookie).toContain("Max-Age=");
+  it("prefers the __Host- auth cookie over a leftover unprefixed name", () => {
+    const request = new Request("https://sajtmaskin.se/", {
+      headers: {
+        cookie: `${AUTH_COOKIE_LEGACY_NAME}=legacy_token; ${AUTH_COOKIE_HOST_NAME}=host_token`,
+      },
+    });
+    expect(auth.getTokenFromRequest(request)).toBe("host_token");
+    expect(getTokenFromRequestEdge(request)).toBe("host_token");
+  });
+
+  it("refuses a duplicated auth cookie name instead of first-wins", () => {
+    const request = new Request("https://sajtmaskin.se/", {
+      headers: {
+        cookie: `${AUTH_COOKIE_LEGACY_NAME}=host_only_token; ${AUTH_COOKIE_LEGACY_NAME}=parent_domain_token`,
+      },
+    });
+    expect(auth.getTokenFromRequest(request)).toBeNull();
+    expect(getTokenFromRequestEdge(request)).toBeNull();
+  });
+
+  it("uses __Host- when the leftover name is duplicated", () => {
+    const request = new Request("https://sajtmaskin.se/", {
+      headers: {
+        cookie: [
+          `${AUTH_COOKIE_LEGACY_NAME}=host_only_token`,
+          `${AUTH_COOKIE_LEGACY_NAME}=parent_domain_token`,
+          `${AUTH_COOKIE_HOST_NAME}=host_token`,
+        ].join("; "),
+      },
+    });
+    expect(auth.getTokenFromRequest(request)).toBe("host_token");
+  });
+
+  it("writes __Host- and expires the leftover name over HTTPS", async () => {
+    const set = vi.fn();
+    vi.mocked(cookies).mockResolvedValueOnce({
+      set,
+      get: vi.fn(),
+      getAll: vi.fn(() => []),
+      delete: vi.fn(),
+    } as never);
+
+    await auth.setAuthCookie("fresh_token", { secure: true });
+
+    expect(set).toHaveBeenCalledWith(
+      AUTH_COOKIE_HOST_NAME,
+      "fresh_token",
+      expect.objectContaining({
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+      }),
+    );
+    expect(set).toHaveBeenCalledWith(
+      AUTH_COOKIE_LEGACY_NAME,
+      "",
+      expect.objectContaining({
+        path: "/",
+        maxAge: 0,
+        secure: true,
+      }),
+    );
+    const writeOptions = set.mock.calls[0]?.[2] as { domain?: string };
+    expect(writeOptions.domain).toBeUndefined();
+  });
+
+  it("keeps the unprefixed name on local HTTP so __Host- is not sent without Secure", async () => {
+    const set = vi.fn();
+    vi.mocked(cookies).mockResolvedValueOnce({
+      set,
+      get: vi.fn(),
+      getAll: vi.fn(() => []),
+      delete: vi.fn(),
+    } as never);
+
+    await auth.setAuthCookie("dev_token", { secure: false });
+
+    expect(set).toHaveBeenCalledWith(
+      AUTH_COOKIE_LEGACY_NAME,
+      "dev_token",
+      expect.objectContaining({ secure: false, path: "/", httpOnly: true }),
+    );
+    expect(set.mock.calls.some((call) => call[0] === AUTH_COOKIE_HOST_NAME)).toBe(
+      false,
+    );
+  });
+
+  it("clears both auth cookie names on logout", async () => {
+    const set = vi.fn();
+    vi.mocked(cookies).mockResolvedValueOnce({
+      set,
+      get: vi.fn(),
+      getAll: vi.fn(() => []),
+      delete: vi.fn(),
+    } as never);
+
+    await auth.clearAuthCookie({ secure: true });
+
+    const names = set.mock.calls.map((call) => call[0]);
+    expect(names).toContain(AUTH_COOKIE_HOST_NAME);
+    expect(names).toContain(AUTH_COOKIE_LEGACY_NAME);
+    expect(
+      set.mock.calls.every((call) => (call[2] as { maxAge: number }).maxAge === 0),
+    ).toBe(true);
   });
 });

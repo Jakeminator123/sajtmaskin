@@ -84,16 +84,26 @@ function cookieFrom(
   provider: "google" | "github",
 ): string {
   const name = oauthCookieName(provider);
-  const header = response.headers.get("set-cookie") ?? "";
-  const match = header.match(new RegExp(`${name}=([^;]+)`));
-  if (!match?.[1]) throw new Error(`Missing ${name} cookie`);
-  return match[1];
+  const headers =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie") ?? ""];
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const header of headers) {
+    const match = header.match(new RegExp(`(?:^|[\\s,])${escaped}=([^;]+)`));
+    if (match?.[1]) return match[1];
+  }
+  throw new Error(`Missing ${name} cookie`);
 }
 
 function clearedCookie(response: Response, provider: "google" | "github"): boolean {
-  const header = response.headers.get("set-cookie") ?? "";
-  return (
-    header.includes(oauthCookieName(provider)) && /Max-Age=0/i.test(header)
+  const name = oauthCookieName(provider);
+  const headers =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie") ?? ""];
+  return headers.some(
+    (header) => header.includes(name) && /Max-Age=0/i.test(header),
   );
 }
 

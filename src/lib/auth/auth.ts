@@ -5,7 +5,7 @@
  */
 
 import crypto from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   createGoogleUser,
   createUser,
@@ -18,6 +18,17 @@ import {
 } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
+import {
+  AUTH_COOKIE_HOST_NAME,
+  AUTH_COOKIE_LEGACY_NAME,
+  authCookieWriteName,
+  cookieMapFromList,
+  expireCookieSetOptions,
+  getAuthTokenFromRequest,
+  hostCookieSetOptions,
+  parseCookieHeader,
+  pickHostOrLegacyCookie,
+} from "@/lib/auth/host-cookies";
 
 /** Default diamond balance for admin/superuser accounts. */
 const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;
@@ -46,7 +57,6 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 // JWT configuration - use centralized secrets
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
-const AUTH_COOKIE_NAME = "sajtmaskin_auth";
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
@@ -126,54 +136,72 @@ export function verifyToken(token: string): JWTPayload | null {
 
 // ============ Cookie Management ============
 
-/**
- * Set auth cookie with JWT token
- */
-export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
+function resolveAuthCookieSecure(options?: { secure?: boolean }): boolean {
+  return typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION;
+}
+
+async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
+  try {
+    const headerList = await headers();
+    const picked = pickHostOrLegacyCookie(
+      parseCookieHeader(headerList.get("cookie")),
+      AUTH_COOKIE_HOST_NAME,
+      AUTH_COOKIE_LEGACY_NAME,
+    );
+    if (picked) return picked.value;
+  } catch {
+    // headers() is unavailable in some unit-test mocks; fall through to cookies().
+  }
+
   const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION,
-    sameSite: "lax",
-    path: "/",
-    maxAge: JWT_EXPIRY,
-  });
+  const list =
+    typeof cookieStore.getAll === "function" ? cookieStore.getAll() : [];
+  return (
+    pickHostOrLegacyCookie(
+      cookieMapFromList(list),
+      AUTH_COOKIE_HOST_NAME,
+      AUTH_COOKIE_LEGACY_NAME,
+    )?.value ?? null
+  );
 }
 
 /**
- * Clear auth cookie (logout)
+ * Set auth cookie with JWT token.
+ * `__Host-` is used only when `Secure` is on — browsers reject `__Host-` without it.
  */
-export async function clearAuthCookie(): Promise<void> {
+export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
+  const secure = resolveAuthCookieSecure(options);
   const cookieStore = await cookies();
-  cookieStore.delete(AUTH_COOKIE_NAME);
+  cookieStore.set(
+    authCookieWriteName(secure),
+    token,
+    hostCookieSetOptions({ secure, maxAge: JWT_EXPIRY }),
+  );
+  if (secure) {
+    // Production must not keep the unprefixed name as a live permission cookie.
+    cookieStore.set(
+      AUTH_COOKIE_LEGACY_NAME,
+      "",
+      expireCookieSetOptions(true),
+    );
+  }
+}
+
+/**
+ * Clear both the `__Host-` cookie and the pre-migration name.
+ */
+export async function clearAuthCookie(options?: { secure?: boolean }): Promise<void> {
+  const secure = resolveAuthCookieSecure(options);
+  const cookieStore = await cookies();
+  cookieStore.set(AUTH_COOKIE_HOST_NAME, "", expireCookieSetOptions(true));
+  cookieStore.set(AUTH_COOKIE_LEGACY_NAME, "", expireCookieSetOptions(secure));
 }
 
 /**
  * Get auth token from request headers (for API routes)
  */
 export function getTokenFromRequest(request: Request): string | null {
-  // Check Authorization header
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.substring(7);
-  }
-
-  // Check cookie header
-  const cookieHeader = request.headers.get("cookie");
-  if (cookieHeader) {
-    const cookies = cookieHeader.split(";").map((c) => c.trim());
-    for (const cookie of cookies) {
-      const equalIndex = cookie.indexOf("=");
-      if (equalIndex === -1) continue;
-      const name = cookie.substring(0, equalIndex);
-      const value = cookie.substring(equalIndex + 1);
-      if (name === AUTH_COOKIE_NAME) {
-        return value;
-      }
-    }
-  }
-
-  return null;
+  return getAuthTokenFromRequest(request);
 }
 
 // ============ User Authentication ============
@@ -201,8 +229,7 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
  * single-sourced in this module.
  */
 export async function getCurrentUserFromCookies(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const token = await readAuthTokenFromIncomingCookies();
   if (!token) return null;
 
   const payload = verifyToken(token);
