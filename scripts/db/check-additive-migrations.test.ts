@@ -7,6 +7,7 @@ import {
   classifyPendingMigrations,
   findBreakingStatements,
   maskSqlComments,
+  parseCreatedTables,
 } from "./check-additive-migrations.mjs";
 
 /**
@@ -122,6 +123,62 @@ describe("findBreakingStatements", () => {
     ).toEqual([]);
   });
 
+  it("ger ingen dispens utan uttrycklig lista över nya tabeller", () => {
+    // Default är det strängaste svaret: vet grinden inget om måldatabasen kan
+    // den inte veta att tabellen är ny.
+    expect(
+      findBreakingStatements("ALTER TABLE t ADD CONSTRAINT t_u UNIQUE (a, b);").map(
+        (f) => f.id,
+      ),
+    ).toEqual(["add-constraint"]);
+  });
+
+  it("släpper en constraint mot en tabell som omgången själv skapar och som saknas i databasen", () => {
+    // Den formen kan inte ogiltigförklara någon rad eller någon INSERT från den
+    // gamla produktionskoden: tabellen finns inte där än.
+    expect(
+      findBreakingStatements(
+        `CREATE TABLE IF NOT EXISTS site_subscriptions (id text PRIMARY KEY);
+         ALTER TABLE site_subscriptions
+           ADD CONSTRAINT site_subscriptions_id_mode_unique UNIQUE (id, billing_mode);`,
+        { exemptTables: ["site_subscriptions"] },
+      ),
+    ).toEqual([]);
+  });
+
+  it("håller dispensen på rätt tabell inom samma fil", () => {
+    const findings = findBreakingStatements(
+      `ALTER TABLE site_subscriptions ADD CONSTRAINT a UNIQUE (id, billing_mode);
+       ALTER TABLE users ADD CONSTRAINT b UNIQUE (email);`,
+      { exemptTables: ["site_subscriptions"] },
+    );
+    expect(findings.map((f) => f.id)).toEqual(["add-constraint"]);
+    expect(findings[0].snippet).toContain("ALTER TABLE users");
+  });
+
+  it("ger ingen dispens när måltabellen bara finns som dynamisk sträng", () => {
+    // `EXECUTE format('ALTER TABLE %I …')` går inte att knyta till en tabell
+    // statiskt, och då är det enda säkra svaret att behandla den som brytande.
+    expect(
+      findBreakingStatements(
+        `DO $$ BEGIN
+           EXECUTE format('ALTER TABLE %I ADD CONSTRAINT x UNIQUE (a)', 'site_subscriptions');
+         END $$;`,
+        { exemptTables: ["site_subscriptions"] },
+      ).map((f) => f.id),
+    ).toEqual(["add-constraint"]);
+  });
+
+  it("låter inte dispensen öppna för fristående unika index", () => {
+    // Repot kräver tabellinterna constraints. Att tabellen är ny ändrar inte
+    // den regeln.
+    expect(
+      findBreakingStatements("CREATE UNIQUE INDEX t_uidx ON site_subscriptions (a);", {
+        exemptTables: ["site_subscriptions"],
+      }).map((f) => f.id),
+    ).toEqual(["create-unique-index"]);
+  });
+
   it("rapporterar rad och orsak så beskedet går att agera på", () => {
     const findings = findBreakingStatements("SELECT 1;\n\nALTER TABLE t DROP COLUMN gone;\n");
     expect(findings).toHaveLength(1);
@@ -165,6 +222,35 @@ describe("classifyPendingMigrations", () => {
     expect(classifyPendingMigrations([])).toEqual([]);
   });
 
+  it("räknar en tabell som ny bara när den saknas i måldatabasen", () => {
+    const files = {
+      "create.sql": "CREATE TABLE IF NOT EXISTS fresh_table (id text PRIMARY KEY);",
+      "upgrade.sql": "ALTER TABLE fresh_table ADD CONSTRAINT fresh_u UNIQUE (id, mode);",
+    } as const;
+    const read = (path: string) =>
+      files[path.endsWith("create.sql") ? "create.sql" : "upgrade.sql"];
+    const pending = ["create.sql", "upgrade.sql"];
+
+    // Tabellen skapas av omgången och finns inte i databasen → additiv.
+    expect(
+      classifyPendingMigrations(pending, {
+        migrationsDir: "fake",
+        readFile: read,
+        existingTables: ["users"],
+      }).flatMap((entry) => entry.findings),
+    ).toEqual([]);
+
+    // Samma DDL mot en databas som redan har tabellen → brytande, eftersom den
+    // kan innehålla rader och ha läsare i den gamla produktionskoden.
+    expect(
+      classifyPendingMigrations(pending, {
+        migrationsDir: "fake",
+        readFile: read,
+        existingTables: ["users", "fresh_table"],
+      }).flatMap((entry) => entry.findings.map((f) => f.id)),
+    ).toEqual(["add-constraint"]);
+  });
+
   /**
    * Den historiska migrationen som bevisar att grinden behövs — och att den
    * bara får granska PENDING filer. Den här är applicerad för länge sedan; om
@@ -177,6 +263,18 @@ describe("classifyPendingMigrations", () => {
       "utf8",
     );
     expect(findBreakingStatements(sql).map((f) => f.id)).toContain("drop-column");
+  });
+});
+
+describe("parseCreatedTables", () => {
+  it("läser tabellerna en fil skapar, oavsett IF NOT EXISTS och schemaprefix", () => {
+    expect(
+      parseCreatedTables(`
+        CREATE TABLE IF NOT EXISTS billing_customers (id text PRIMARY KEY);
+        CREATE TABLE public.billing_jobs (id text PRIMARY KEY);
+        -- CREATE TABLE kommenterad_bort (id text);
+      `),
+    ).toEqual(new Set(["billing_customers", "billing_jobs"]));
   });
 });
 

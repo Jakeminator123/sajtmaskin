@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/footer";
 export const metadata: Metadata = {
   title: "Om oss",
   description:
-    "Om Sajtmaskin — AI-driven webbplattform för svenska företag. Pretty Good AB.",
+    "Om Sajtmaskin — AI-driven webbplattform för svenska företag. Pretty Good B.V.",
 };
 
 export default function OmPage() {
@@ -24,7 +24,7 @@ export default function OmPage() {
             Om Sajtmaskin
           </h1>
           <p className="mb-10 text-sm text-muted-foreground">
-            Sajtmaskin drivs av Pretty Good AB och bygger professionella webbplatser med modern
+            Sajtmaskin drivs av Pretty Good B.V. i Nederländerna och bygger professionella webbplatser med modern
             stack (React, Next.js, TypeScript) och AI-assisterade arbetsflöden.
           </p>
 

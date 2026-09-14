@@ -26,6 +26,7 @@ vi.mock("@/lib/db/services/generation-billing", () => ({
 const createChatSchemaSafeParse = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
+const bindKostnadsfriCampaignInitialChat = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
@@ -103,6 +104,10 @@ vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
 
 vi.mock("@/lib/credits/server", () => ({
   prepareCredits,
+}));
+
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  bindKostnadsfriCampaignInitialChat,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -518,6 +523,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     attachVersionToPendingUsageAsync.mockResolvedValue(undefined);
     establishGenerationBilling.mockResolvedValue(undefined);
     settleGenerationBilling.mockResolvedValue(undefined);
+    bindKostnadsfriCampaignInitialChat.mockResolvedValue(true);
     prepareCredits.mockResolvedValue({
       ok: true,
       user: { id: "user_1" },
@@ -1029,6 +1035,14 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      user: { id: "user_1" },
+      isTest: false,
+      campaignBenefit: { entitlementId: "campaign_1", phase: "initial" },
+      campaignProject: true,
+      commit: commitCredits,
+    });
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
         {
@@ -1095,5 +1109,11 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(String((doneEvent?.data as Record<string, unknown>)?.awaitingInputPrompt)).toContain(
       "Integrationer signalerades",
     );
+    expect(bindKostnadsfriCampaignInitialChat).toHaveBeenCalledWith({
+      entitlementId: "campaign_1",
+      projectId: "app_proj_1",
+      userId: "user_1",
+      chatId: "engine_chat_1",
+    });
   });
 });

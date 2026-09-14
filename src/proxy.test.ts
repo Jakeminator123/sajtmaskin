@@ -23,7 +23,7 @@ function directive(csp: string, name: string): string {
 }
 
 describe("proxy auth gate — customer portal routes", () => {
-  it.each(["/projects", "/projects/abc123", "/projects/abc123/", "/buy-credits"])(
+  it.each(["/projects", "/projects/abc123", "/projects/abc123/", "/buy-credits", "/konto"])(
     "redirects an anonymous visitor away from %s",
     async (path) => {
       const res = await proxy(new NextRequest(new URL(`https://sajtmaskin.example${path}`)));
@@ -35,6 +35,14 @@ describe("proxy auth gate — customer portal routes", () => {
       expect(res.headers.get("location")).toBe("https://sajtmaskin.example/");
     },
   );
+
+  it("does not treat /konto as a prefix — only the exact path is gated", async () => {
+    const res = await proxy(
+      new NextRequest(new URL("https://sajtmaskin.example/konto/installningar")),
+    );
+
+    expect(res.status).not.toBe(307);
+  });
 
   it("does not gate unrelated public routes that merely start similarly", async () => {
     const res = await proxy(new NextRequest(new URL("https://sajtmaskin.example/templates")));

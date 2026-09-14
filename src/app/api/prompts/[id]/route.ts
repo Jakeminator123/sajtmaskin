@@ -39,8 +39,10 @@ function canUseCachedPrompt(
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const session = ensureSessionIdFromRequest(request);
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };

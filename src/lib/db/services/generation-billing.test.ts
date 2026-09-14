@@ -6,6 +6,7 @@ vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 const {
   billedOreTowardAdminRevenue,
   buildGenerationQuote,
+  isGenerationBillingMarkerFreeForRepair,
   mapGenerationBillingUserSummary,
   resolveGenerationChargeDecision,
   summarizeGenerationBillingRows,
@@ -238,6 +239,41 @@ describe("resolveGenerationChargeDecision", () => {
     });
   });
 
+  it("uses the campaign slot before the account's general first generation", () => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        campaignFreeEligible: true,
+        existingCampaignFreeApplied: false,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status: "campaign_free_generation",
+      campaignFreeApplied: true,
+      shouldClaimCampaignFree: true,
+      freeGenerationApplied: false,
+      shouldClaimFreeGeneration: false,
+    });
+  });
+
+  it("keeps repeated settlement of a campaign version idempotently free", () => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        freeGenerationAvailable: true,
+        campaignFreeEligible: false,
+        existingCampaignFreeApplied: true,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status: "campaign_free_generation",
+      campaignFreeApplied: true,
+      shouldClaimCampaignFree: false,
+      freeGenerationApplied: false,
+      shouldClaimFreeGeneration: false,
+    });
+  });
+
   it("keeps repeated settlement of the free version idempotently free", () => {
     expect(
       resolveGenerationChargeDecision({
@@ -323,6 +359,52 @@ describe("resolveGenerationChargeDecision", () => {
       freeGenerationApplied: true,
       shouldClaimFreeGeneration: false,
     });
+  });
+});
+
+describe("isGenerationBillingMarkerFreeForRepair", () => {
+  const paid = {
+    freeGenerationEligible: true,
+    freeGenerationApplied: false,
+    campaignFreeApplied: false,
+    campaignEntitlementId: null,
+    campaignPhase: null,
+  };
+
+  it("keeps an ordinary unpaid marker on the paid repair path", () => {
+    expect(isGenerationBillingMarkerFreeForRepair(paid)).toBe(false);
+  });
+
+  it("treats a settled campaign-free version as free for repair", () => {
+    expect(
+      isGenerationBillingMarkerFreeForRepair({
+        ...paid,
+        freeGenerationEligible: false,
+        campaignFreeApplied: true,
+        campaignEntitlementId: "campaign_1",
+        campaignPhase: "initial",
+      }),
+    ).toBe(true);
+  });
+
+  it("treats a reserved campaign marker as free before settlement applies the flag", () => {
+    expect(
+      isGenerationBillingMarkerFreeForRepair({
+        ...paid,
+        freeGenerationEligible: false,
+        campaignEntitlementId: "campaign_1",
+        campaignPhase: "followup",
+      }),
+    ).toBe(true);
+  });
+
+  it("still treats the account's ordinary free generation as free", () => {
+    expect(
+      isGenerationBillingMarkerFreeForRepair({
+        ...paid,
+        freeGenerationApplied: true,
+      }),
+    ).toBe(true);
   });
 });
 

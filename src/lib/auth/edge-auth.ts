@@ -8,14 +8,14 @@
  *   header.payload.signature  (base64url-encoded, HMAC-SHA256)
  */
 
+import { getAuthTokenFromRequest } from "@/lib/auth/host-cookies";
+
 interface JWTPayload {
   userId: string;
   email: string;
   iat: number;
   exp: number;
 }
-
-const AUTH_COOKIE_NAME = "sajtmaskin_auth";
 
 function base64UrlDecode(input: string): Uint8Array {
   let base64 = input.replace(/-/g, "+").replace(/_/g, "/");
@@ -82,24 +82,7 @@ export async function verifyTokenEdge(
  * Extract the JWT token string from a request's cookies or Authorization header.
  */
 export function getTokenFromRequestEdge(request: Request): string | null {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.substring(7);
-  }
-
-  const cookieHeader = request.headers.get("cookie");
-  if (cookieHeader) {
-    for (const part of cookieHeader.split(";")) {
-      const trimmed = part.trim();
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx === -1) continue;
-      if (trimmed.substring(0, eqIdx) === AUTH_COOKIE_NAME) {
-        return trimmed.substring(eqIdx + 1);
-      }
-    }
-  }
-
-  return null;
+  return getAuthTokenFromRequest(request);
 }
 
 /**

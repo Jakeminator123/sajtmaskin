@@ -131,14 +131,19 @@ export async function getTransactionByIdempotency(
   return rows[0] ?? null;
 }
 
-export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {
+export async function getUserTransactions(
+  userId: string,
+  limit = 10,
+  offset = 0,
+): Promise<Transaction[]> {
   assertDbConfigured();
   return await db
     .select()
     .from(transactions)
     .where(eq(transactions.user_id, userId))
     .orderBy(desc(transactions.created_at))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
 }
 
 export async function getTransactionByStripeSession(
