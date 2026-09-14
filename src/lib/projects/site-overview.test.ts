@@ -14,11 +14,15 @@ const ORIGINAL_ENV = { ...process.env };
 function enableBrandedGate(domain = "sites.sajtmaskin.se") {
   process.env.SAJTMASKIN_BRANDED_LIVE_URLS = "true";
   process.env.SAJTMASKIN_LIVE_SITE_DOMAIN = domain;
+  process.env.SAJTMASKIN_BRANDED_PILOT_ALLOWLIST = JSON.stringify([
+    { projectId: "project_1", versionId: "version_1", filesRevision: "revision_1" },
+  ]);
 }
 
 beforeEach(() => {
   delete process.env.SAJTMASKIN_BRANDED_LIVE_URLS;
   delete process.env.SAJTMASKIN_LIVE_SITE_DOMAIN;
+  delete process.env.SAJTMASKIN_BRANDED_PILOT_ALLOWLIST;
 });
 
 afterEach(() => {
@@ -36,18 +40,20 @@ describe("resolveSiteAddress", () => {
     expect(result).toEqual({ liveUrl: "https://kundforetag.se", kind: "custom" });
   });
 
-  it("classifies a verified branded host as branded when the gate is on", () => {
+  it("keeps a reviewed branded host on the provider URL until activation is safe", () => {
     enableBrandedGate();
 
     const result = resolveSiteAddress({
       providerUrl: "generated-abc.vercel.app",
       brandedDomain: "kundforetag.sites.sajtmaskin.se",
       brandedDomainVerifiedAt: new Date("2026-09-01"),
+      projectId: "project_1",
+      versionId: "version_1",
     });
 
     expect(result).toEqual({
-      liveUrl: "https://kundforetag.sites.sajtmaskin.se",
-      kind: "branded",
+      liveUrl: "https://generated-abc.vercel.app",
+      kind: "provider",
     });
   });
 
@@ -56,6 +62,8 @@ describe("resolveSiteAddress", () => {
       providerUrl: "generated-abc.vercel.app",
       brandedDomain: "kundforetag.sites.sajtmaskin.se",
       brandedDomainVerifiedAt: new Date("2026-09-01"),
+      projectId: "project_1",
+      versionId: "version_1",
     });
 
     // The gate being off must not present the branded host as live — and the
@@ -119,21 +127,34 @@ describe("resolveOverviewAddress", () => {
     expect(result).toEqual({ liveUrl: "https://kundforetag.se", kind: "custom" });
   });
 
-  it("classifies a verified branded host even without a ready row", () => {
+  it("does not present branded without the reviewed live version identity", () => {
     enableBrandedGate();
 
     const result = resolveOverviewAddress(
       {
+        projectId: "project_1",
         brandedDomain: "kundforetag.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date("2026-09-01"),
       },
       null,
     );
 
-    expect(result).toEqual({
-      liveUrl: "https://kundforetag.sites.sajtmaskin.se",
-      kind: "branded",
-    });
+    expect(result).toEqual({ liveUrl: null, kind: "none" });
+  });
+
+  it("does not expose branded from a reviewed version without a provider URL", () => {
+    enableBrandedGate();
+
+    const result = resolveOverviewAddress(
+      {
+        projectId: "project_1",
+        brandedDomain: "kundforetag.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date("2026-09-01"),
+      },
+      { versionId: "version_1" },
+    );
+
+    expect(result).toEqual({ liveUrl: null, kind: "none" });
   });
 
   it("does not invent a provider address from a non-vercel deployments.url", () => {

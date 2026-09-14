@@ -18,7 +18,7 @@ function decide(
 describe("trusted portal origins", () => {
   it("combines stable aliases with the configured app and OAuth owners", () => {
     const origins = getTrustedPortalOrigins({
-      appBaseUrl: "http://localhost:4173/",
+      appBaseUrl: "https://portal.sajtmaskin.test/",
       oauthAllowedOrigins:
         "https://staff.sajtmaskin.test, http://127.0.0.1:3001, https://*.sajtmaskin.se, http://insecure.example, https://sajtmaskin.se/callback",
     });
@@ -32,13 +32,66 @@ describe("trusted portal origins", () => {
         "https://www.sajtmaskin.com",
         "https://preview.sajtmaskin.se",
         "https://sajtmaskin.vercel.app",
+        "https://portal.sajtmaskin.test",
         "https://staff.sajtmaskin.test",
-        "http://localhost:4173",
         "http://127.0.0.1:3001",
       ]),
     );
     expect(origins.has("https://customer.sajtmaskin.se")).toBe(false);
     expect(origins.has("http://insecure.example")).toBe(false);
+  });
+
+  it.each(["localhost", "127.0.0.1", "[::1]"])(
+    "derives the three same-port loopback aliases from configured %s in nonproduction",
+    (hostname) => {
+      const origins = getTrustedPortalOrigins({
+        appBaseUrl: `http://${hostname}:4173`,
+        nodeEnv: "development",
+      });
+
+      expect(origins.has("http://localhost:4173")).toBe(true);
+      expect(origins.has("http://127.0.0.1:4173")).toBe(true);
+      expect(origins.has("http://[::1]:4173")).toBe(true);
+      expect(origins.has("http://127.0.0.1:3000")).toBe(false);
+      expect(origins.has("http://team.localhost:4173")).toBe(false);
+    },
+  );
+
+  it("does not derive loopback aliases in production or from HTTPS", () => {
+    const production = getTrustedPortalOrigins({
+      appBaseUrl: "http://localhost:4173",
+      nodeEnv: "production",
+    });
+    const https = getTrustedPortalOrigins({
+      appBaseUrl: "https://localhost:4173",
+      nodeEnv: "development",
+    });
+
+    expect(production.has("http://localhost:4173")).toBe(true);
+    expect(production.has("http://127.0.0.1:4173")).toBe(false);
+    expect(production.has("http://[::1]:4173")).toBe(false);
+    expect(https.has("https://localhost:4173")).toBe(true);
+    expect(https.has("https://127.0.0.1:4173")).toBe(false);
+    expect(https.has("http://127.0.0.1:4173")).toBe(false);
+  });
+
+  it("does not derive aliases from arbitrary .localhost or OAuth origins", () => {
+    const arbitraryLocalhost = getTrustedPortalOrigins({
+      appBaseUrl: "http://team.localhost:4173",
+      nodeEnv: "development",
+    });
+    const oauthOnly = getTrustedPortalOrigins({
+      appBaseUrl: "https://sajtmaskin.se",
+      nodeEnv: "development",
+      oauthAllowedOrigins: "http://127.0.0.1:4444",
+    });
+
+    expect(arbitraryLocalhost.has("http://localhost:4173")).toBe(false);
+    expect(arbitraryLocalhost.has("http://127.0.0.1:4173")).toBe(false);
+    expect(arbitraryLocalhost.has("http://[::1]:4173")).toBe(false);
+    expect(oauthOnly.has("http://127.0.0.1:4444")).toBe(true);
+    expect(oauthOnly.has("http://localhost:4444")).toBe(false);
+    expect(oauthOnly.has("http://[::1]:4444")).toBe(false);
   });
 
   it("trusts the distinct Vercel deployment and persistent branch origins", () => {

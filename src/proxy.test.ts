@@ -97,6 +97,38 @@ describe("proxy exact-Origin guard", () => {
     }
   });
 
+  it("allows a same-port loopback alias in development but not another port", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+    vi.stubEnv("NODE_ENV", "development");
+
+    try {
+      const allowed = await proxy(
+        new NextRequest("http://127.0.0.1:3000/api/projects", {
+          method: "POST",
+          headers: {
+            origin: "http://127.0.0.1:3000",
+            cookie: "sajtmaskin_session=local",
+          },
+        }),
+      );
+      const denied = await proxy(
+        new NextRequest("http://127.0.0.1:3001/api/projects", {
+          method: "POST",
+          headers: {
+            origin: "http://127.0.0.1:3001",
+            cookie: "sajtmaskin_session=local",
+          },
+        }),
+      );
+
+      expect(allowed.status).toBe(200);
+      expect(allowed.headers.get("x-middleware-next")).toBe("1");
+      expect(denied.status).toBe(403);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("rejects a customer sibling even when the browser calls it same-site", async () => {
     const res = await proxy(
       new NextRequest("https://sajtmaskin.se/api/projects", {

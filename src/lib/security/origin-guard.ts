@@ -27,8 +27,11 @@ const PORTAL_ORIGINS = [
   "https://sajtmaskin.vercel.app",
 ] as const;
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 export type PortalOriginSources = {
   appBaseUrl?: string | null;
+  nodeEnv?: string | null;
   oauthAllowedOrigins?: string | null;
   vercelBranchUrl?: string | null;
   vercelUrl?: string | null;
@@ -84,6 +87,25 @@ function parseVercelSystemHostname(value: string): string | null {
   }
 }
 
+function addConfiguredLoopbackAliases(
+  origins: Set<string>,
+  appBaseUrl: string | null | undefined,
+  nodeEnv: string | null | undefined,
+): void {
+  if (nodeEnv === "production" || !appBaseUrl) return;
+
+  const appOrigin = parseConfiguredOrigin(appBaseUrl);
+  if (!appOrigin) return;
+
+  const url = new URL(appOrigin);
+  if (url.protocol !== "http:" || !LOOPBACK_HOSTNAMES.has(url.hostname)) return;
+
+  const port = url.port ? `:${url.port}` : "";
+  origins.add(`http://localhost${port}`);
+  origins.add(`http://127.0.0.1${port}`);
+  origins.add(`http://[::1]${port}`);
+}
+
 /** Origin headers use the serialized-origin form, without paths or a slash. */
 function parseOriginHeader(value: string): string | null {
   const parsed = parseConfiguredOrigin(value);
@@ -110,6 +132,7 @@ function refererOrigin(value: string): string | null {
 export function getTrustedPortalOrigins(
   sources: PortalOriginSources = {
     appBaseUrl: getAppBaseUrl(),
+    nodeEnv: process.env.NODE_ENV,
     oauthAllowedOrigins: process.env.OAUTH_ALLOWED_ORIGINS,
     vercelBranchUrl: process.env.VERCEL_BRANCH_URL,
     vercelUrl: process.env.VERCEL_URL,
@@ -117,6 +140,12 @@ export function getTrustedPortalOrigins(
 ): Set<string> {
   const origins = new Set<string>(PORTAL_ORIGINS);
   const candidates = [sources.appBaseUrl ?? ""];
+
+  addConfiguredLoopbackAliases(
+    origins,
+    sources.appBaseUrl,
+    sources.nodeEnv ?? process.env.NODE_ENV,
+  );
 
   for (const vercelHostname of [sources.vercelUrl, sources.vercelBranchUrl]) {
     if (!vercelHostname) continue;

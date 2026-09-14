@@ -12,7 +12,6 @@ import {
   buildGeneratedVercelProjectName,
   ensureVercelProject,
   mapVercelReadyStateToStatus,
-  ensureVercelProjectDomain,
   sanitizeVercelProjectName,
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
@@ -22,7 +21,7 @@ import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
-import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
 import {
@@ -38,11 +37,8 @@ import {
 } from "@/lib/projects/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
-  clearProjectBrandedDomainVerification,
   clearProjectCustomDomainVerification,
-  ensureProjectPublishedIdentity,
   getProjectData,
-  markProjectBrandedDomainVerified,
   setProjectVercelLink,
 } from "@/lib/db/services/projects";
 import { readSeoPreferencesFromMeta } from "@/lib/projects/preferences-schema";
@@ -51,7 +47,12 @@ import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
-import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import { resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  collectBrandedPilotCapabilitySignals,
+  resolveBrandedPilotArtifactReview,
+  resolveBrandedPilotRuntimeActivation,
+} from "@/lib/branded-pilot-eligibility";
 import { createDeploymentSchema } from "./schema";
 import { classifyDeployError } from "./error-mapping";
 import { runPreDeployFixPipeline, shouldSkipPreDeployAutoFix } from "./pre-deploy-fix";
@@ -285,9 +286,47 @@ export async function POST(req: Request) {
         );
       }
 
-      const codeFiles = await getVersionFiles(versionId);
+      // One DB snapshot binds the A2 review inventory to the stored source
+      // bytes. This is deliberately NOT final provider-artifact proof: autofix,
+      // SEO and image materialization still run below, so runtime activation
+      // remains closed until A4 can attest the final transformed files.
+      const versionFilesSnapshot = await getVersionFilesSnapshot(versionId);
+      const codeFiles = versionFilesSnapshot?.files ?? null;
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json({ error: "No files found for this version" }, { status: 404 });
+      }
+
+      const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+        snapshot: engineChat.orchestration_snapshot,
+        versionFiles: codeFiles,
+      });
+      const brandedPilotReview = resolveBrandedPilotArtifactReview({
+        projectId: engineProjectId,
+        versionId,
+        filesRevision: versionFilesSnapshot?.filesRevision,
+        capabilities: collectBrandedPilotCapabilitySignals({
+          snapshot: engineChat.orchestration_snapshot,
+          selectedDossiers,
+        }),
+      });
+      const brandedActivation = resolveBrandedPilotRuntimeActivation(brandedPilotReview);
+      const hasExistingBrandedAlias = Boolean(ownedProject.branded_domain?.trim());
+      const brandedPilotGate = {
+        review: brandedPilotReview,
+        activation: brandedActivation,
+        existingAlias: hasExistingBrandedAlias,
+        blocked: hasExistingBrandedAlias,
+      };
+      if (brandedPilotGate.blocked && !precheckOnly) {
+        return NextResponse.json(
+          {
+            error:
+              "Projektets befintliga Sajtmaskin-adress kräver A4:s säkra aktiveringsflöde innan sajten kan publiceras om. Den nuvarande publicerade versionen ligger kvar.",
+            code: "DEPLOY_BRANDED_ALIAS_REPUBLISH_BLOCKED",
+            brandedPilotGate,
+          },
+          { status: 409 },
+        );
       }
 
       // The generated placeholder `.env.local` (injected for the shared
@@ -335,10 +374,6 @@ export async function POST(req: Request) {
       // One owner (review round 2): snapshot ∪ version-presence — parity with
       // the readiness route's set is real now (both call the shared resolver),
       // not just claimed. `codeFiles` was already loaded above (single read).
-      const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
-        snapshot: engineChat.orchestration_snapshot,
-        versionFiles: codeFiles,
-      });
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
@@ -396,6 +431,7 @@ export async function POST(req: Request) {
           // kopplad — precheck rapporterar i stället så UI:t kan varna innan
           // användaren försöker byta namn.
           projectNameLock,
+          brandedPilotGate,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,
@@ -508,7 +544,6 @@ export async function POST(req: Request) {
         // in that case. The generated fallback name only matters for a
         // genuinely first-ever deploy (no known project at all), where the
         // body name determines the brand-new project that gets created.
-        const brandedRolloutEnabled = Boolean(getBrandedLiveSiteDomain());
         const vercelProjectName = hasKnownVercelProject
           ? currentVercelProjectName
           : sanitizeVercelProjectName(
@@ -529,58 +564,30 @@ export async function POST(req: Request) {
             currentCustomDomainVerifiedAt = null;
           }
         }
-        const publishedIdentity = brandedRolloutEnabled
-          ? await ensureProjectPublishedIdentity(
-              engineProjectId,
-              projectName || ownedProject.name || vercelProjectName,
-            )
-          : {
-              publishedSlug: ownedProject.published_slug?.trim() || null,
-              brandedDomain: null,
-              brandedDomainVerifiedAt: null,
-              customDomain: currentCustomDomain,
-              customDomainVerifiedAt: currentCustomDomainVerifiedAt,
-            };
-        if (!publishedIdentity) {
-          throw new Error("Could not reserve the project's public URL identity");
-        }
+        // A2 is review/preparation only. A4 must bind the final transformed
+        // artifact to a READY provider deployment before reserving or attaching
+        // a branded alias. Provider/custom deploys without an existing alias
+        // continue normally through this explicit non-branded identity.
+        const publishedIdentity = {
+          publishedSlug: ownedProject.published_slug?.trim() || null,
+          brandedDomain: null,
+          brandedDomainVerifiedAt: null,
+          customDomain: currentCustomDomain,
+          customDomainVerifiedAt: currentCustomDomainVerifiedAt,
+        };
         const ensuredProject = await ensureVercelProject(
           vercelProjectName,
           existingVercelProjectId,
         );
         const domainWarnings: string[] = [];
-        let brandedDomainVerifiedAt = publishedIdentity.brandedDomainVerifiedAt;
-        if (publishedIdentity.brandedDomain) {
-          try {
-            const alias = await ensureVercelProjectDomain(
-              ensuredProject.id,
-              publishedIdentity.brandedDomain,
-            );
-            if (alias.verified) {
-              const marked = await markProjectBrandedDomainVerified(engineProjectId, alias.name);
-              if (!marked) {
-                throw new Error("The verified branded domain could not be persisted");
-              }
-              brandedDomainVerifiedAt = new Date();
-            } else {
-              await clearProjectBrandedDomainVerification(engineProjectId, alias.name);
-              brandedDomainVerifiedAt = null;
-              domainWarnings.push(
-                `Sajtmaskin-adressen ${alias.name} väntar på DNS/TLS-verifiering. Den tekniska publiceringsadressen används tills dess.`,
-              );
-            }
-          } catch (aliasErr) {
-            domainWarnings.push(
-              `Sajtmaskin-adressen kunde inte kopplas ännu: ${aliasErr instanceof Error ? aliasErr.message : String(aliasErr)}`,
-            );
-          }
-        }
         const resolvedSeoOptions = resolveDeploySeoOptions(
           bodySeo,
           persistedSeo,
           resolveLiveUrl({
+            projectId: engineProjectId,
+            versionId,
             brandedDomain: publishedIdentity.brandedDomain,
-            brandedDomainVerifiedAt,
+            brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
             customDomain: publishedIdentity.customDomain,
             customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
           }),
@@ -707,9 +714,11 @@ export async function POST(req: Request) {
         }
 
         const liveUrl = resolveLiveUrl({
+          projectId: engineProjectId,
+          versionId,
           providerUrl: created.url,
           brandedDomain: publishedIdentity.brandedDomain,
-          brandedDomainVerifiedAt,
+          brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
           customDomain: publishedIdentity.customDomain,
           customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
         });
@@ -773,6 +782,7 @@ export async function POST(req: Request) {
           status: mapped.status,
           readyState: created.readyState,
           projectId: engineProjectId,
+          brandedPilotGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           url: liveUrl,
           providerUrl: created.url ?? null,
@@ -788,10 +798,11 @@ export async function POST(req: Request) {
           vercelProjectId: effectiveProjectId,
           url: liveUrl,
           providerUrl: created.url,
-          brandedDomain: brandedDomainVerifiedAt ? publishedIdentity.brandedDomain : null,
+          brandedDomain: null,
           inspectorUrl: created.inspectorUrl,
           readyState: created.readyState,
           projectId: engineProjectId,
+          brandedPilotGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           fixesApplied,
           preDeployWarnings: warnings,
