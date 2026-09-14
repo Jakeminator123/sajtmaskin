@@ -1774,7 +1774,7 @@ describe("POST /api/v0/deployments", () => {
     );
   });
 
-  it("reconciles a pending branded alias on deployment-history reload", async () => {
+  it("keeps a pending branded alias inactive and preserves a legacy provider URL", async () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
     getEngineChatByIdForRequest.mockResolvedValue({
@@ -1792,21 +1792,41 @@ describe("POST /api/v0/deployments", () => {
       custom_domain_verified_at: null,
     });
     checkVercelProjectDomain.mockResolvedValue(true);
-    markProjectBrandedDomainVerified.mockResolvedValue({ id: "proj_1" });
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_legacy_provider",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        status: "ready",
+        url: "legacy-provider.vercel.app",
+        providerUrl: null,
+        inspectorUrl: null,
+        vercelDeploymentId: null,
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-07-10T00:00:00Z"),
+        updatedAt: new Date("2026-07-10T00:00:00Z"),
+      },
+    ]);
 
     const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
     expect(res.status).toBe(200);
-    expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
+    expect(checkVercelProjectDomain).toHaveBeenCalledWith("vp_1", "demo.sites.sajtmaskin.se");
+    expect(markProjectBrandedDomainVerified).not.toHaveBeenCalled();
+    expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+    expect(touchProjectBrandedDomainCheckedAt).toHaveBeenCalledWith(
       "proj_1",
       "demo.sites.sajtmaskin.se",
     );
-    expect(setLatestDeploymentLiveUrlForChat).toHaveBeenCalledWith(
-      "chat_1",
-      "demo.sites.sajtmaskin.se",
-    );
     const body = await res.json();
-    expect(body.project.brandedDomainVerifiedAt).toBeTruthy();
+    expect(body.project.brandedDomainVerifiedAt).toBeNull();
+    expect(body.deployments).toEqual([
+      expect.objectContaining({
+        id: "dep_legacy_provider",
+        providerUrl: null,
+        url: "https://legacy-provider.vercel.app",
+      }),
+    ]);
   });
 
   it("uses the latest deployment project for history domain reconciliation", async () => {
@@ -1923,10 +1943,7 @@ describe("POST /api/v0/deployments", () => {
       expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
     });
 
-    // VADE #519: a genuine unverified→verified transition must still not
-    // promote the branded subdomain over an ALREADY-verified custom domain
-    // — custom domain always wins as liveUrl.
-    it("does NOT stamp liveUrl on a genuine verification transition when a verified custom domain already wins", async () => {
+    it("does not promote an unverified alias while runtime activation is closed", async () => {
       vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
       vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
       getEngineChatByIdForRequest.mockResolvedValue({
@@ -1943,22 +1960,17 @@ describe("POST /api/v0/deployments", () => {
         custom_domain_verified_at: new Date("2026-07-10T00:00:00Z"),
       });
       checkVercelProjectDomain.mockResolvedValue(true);
-      markProjectBrandedDomainVerified.mockResolvedValue({
-        id: "proj_1",
-        branded_domain_verified_at: new Date("2026-07-13T00:00:00Z"),
-      });
-
       const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
 
       expect(res.status).toBe(200);
-      // The branded domain is still marked verified in the backing table...
-      expect(markProjectBrandedDomainVerified).toHaveBeenCalledWith(
+      expect(markProjectBrandedDomainVerified).not.toHaveBeenCalled();
+      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+      expect(touchProjectBrandedDomainCheckedAt).toHaveBeenCalledWith(
         "proj_1",
         "demo.sites.sajtmaskin.se",
       );
-      // ...but the live URL must stay on the verified custom domain, never
-      // clobbered to the branded subdomain.
-      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.project.brandedDomainVerifiedAt).toBeNull();
     });
 
     it("a definitive false revokes a previously verified domain", async () => {

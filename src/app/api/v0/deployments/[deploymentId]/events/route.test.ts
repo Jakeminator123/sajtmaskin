@@ -109,6 +109,34 @@ describe("GET /api/v0/deployments/[deploymentId]/events auth (A#3)", () => {
     expect(getChatByIdForRequest).not.toHaveBeenCalled();
   });
 
+  it("resolves the initial terminal snapshot instead of emitting a stored branded URL", async () => {
+    dbState.rows = [
+      {
+        ...failedDeployment,
+        status: "ready",
+        versionId: "ver_1",
+        providerUrl: "legacy-provider.vercel.app",
+        url: "https://demo.sites.sajtmaskin.se",
+      },
+    ];
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    resolveDeploymentLiveUrlForChat.mockResolvedValueOnce("https://legacy-provider.vercel.app");
+
+    const { req, ctx } = makeRequest("dep_1");
+    const res = await GET(req, ctx);
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(resolveDeploymentLiveUrlForChat).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      providerUrl: "legacy-provider.vercel.app",
+      fallbackUrl: "https://demo.sites.sajtmaskin.se",
+    });
+    expect(body).toContain('"url":"https://legacy-provider.vercel.app"');
+    expect(body).not.toContain("demo.sites.sajtmaskin.se");
+  });
+
   it("falls back to the legacy v0 chat lookup", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByIdForRequest.mockResolvedValue({ id: "chat_1" });

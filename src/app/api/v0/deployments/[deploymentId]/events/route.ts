@@ -52,6 +52,12 @@ export async function GET(
         headers: { "Content-Type": "application/json" },
       });
     }
+    const initialLiveUrl = await resolveDeploymentLiveUrlForChat({
+      chatId: deployment.chatId,
+      versionId: deployment.versionId,
+      providerUrl: deployment.providerUrl,
+      fallbackUrl: deployment.url,
+    });
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
@@ -93,7 +99,7 @@ export async function GET(
 
         send({
           status: deployment.status ?? "pending",
-          url: deployment.url,
+          url: initialLiveUrl,
           inspectorUrl: deployment.inspectorUrl,
         });
 
