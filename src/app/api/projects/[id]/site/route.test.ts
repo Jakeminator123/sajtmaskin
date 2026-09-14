@@ -55,6 +55,7 @@ describe("GET /api/projects/[id]/site", () => {
       state: "ready",
       liveAt: new Date("2026-09-10T08:00:00Z"),
       liveVersionId: "ver_1",
+      latestDeploymentId: null,
       publishedSlug: "kundforetag",
       brandedDomain: null,
       brandedDomainVerified: false,
@@ -75,6 +76,32 @@ describe("GET /api/projects/[id]/site", () => {
     expect(body.site.address).toEqual({ liveUrl: "https://kundforetag.se", kind: "custom" });
     // Dates must cross the wire as ISO strings, not as `{}`.
     expect(body.site.liveAt).toBe("2026-09-10T08:00:00.000Z");
+    expect(body.site.latestDeploymentId).toBeNull();
+  });
+
+  it("forwards an in-flight latestDeploymentId so the portal can watch it", async () => {
+    getProjectByIdForOwner.mockResolvedValue({ id: "proj_1" });
+    getProjectSiteOverview.mockResolvedValue({
+      projectId: "proj_1",
+      chatId: "chat_1",
+      address: { liveUrl: "https://kundforetag.se", kind: "custom" },
+      state: "building",
+      liveAt: new Date("2026-09-10T08:00:00Z"),
+      liveVersionId: "ver_1",
+      latestDeploymentId: "dep_building",
+      publishedSlug: "kundforetag",
+      brandedDomain: null,
+      brandedDomainVerified: false,
+      customDomain: "kundforetag.se",
+      customDomainVerified: true,
+      vercelProjectId: "prj_x",
+    });
+
+    const { req, params } = request();
+    const body = await (await GET(req, { params })).json();
+
+    expect(body.site.state).toBe("building");
+    expect(body.site.latestDeploymentId).toBe("dep_building");
   });
 
   it("serialises a never-published project without inventing an address", async () => {
@@ -86,6 +113,7 @@ describe("GET /api/projects/[id]/site", () => {
       state: "never_published",
       liveAt: null,
       liveVersionId: null,
+      latestDeploymentId: null,
       publishedSlug: null,
       brandedDomain: null,
       brandedDomainVerified: false,
@@ -100,5 +128,22 @@ describe("GET /api/projects/[id]/site", () => {
     expect(body.site.state).toBe("never_published");
     expect(body.site.address.liveUrl).toBeNull();
     expect(body.site.liveAt).toBeNull();
+  });
+
+  it("returns a generic 500 body and does not leak the raw error message", async () => {
+    const leaked = "relation app_projects does not exist";
+    getProjectByIdForOwner.mockRejectedValue(new Error(leaked));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { req, params } = request();
+    const response = await GET(req, { params });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Failed to load site overview");
+    expect(JSON.stringify(body)).not.toContain(leaked);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
