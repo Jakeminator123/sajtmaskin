@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,17 @@ import {
   RefreshCw,
   Upload,
 } from "lucide-react";
+import { useDeploymentStatus } from "@/lib/hooks/useDeploymentStatus";
+import {
+  canRepublish,
+  isTerminalDeploymentStatus,
+} from "@/lib/projects/can-republish";
 import {
   getProject,
   getProjectSite,
   type Project,
   type ProjectSite,
+  type SitePublishState,
 } from "@/lib/projects/project-client";
 import {
   addressKindHelp,
@@ -68,27 +74,47 @@ export default function ProjectSitePage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [republishing, setRepublishing] = useState(false);
+  const [watchedDeploymentId, setWatchedDeploymentId] = useState<string | null>(null);
+  const reloadedForRef = useRef<string | null>(null);
+  const deploymentWatch = useDeploymentStatus(watchedDeploymentId);
+  const watchingInFlight =
+    watchedDeploymentId !== null && !isTerminalDeploymentStatus(deploymentWatch.status);
 
   const load = useCallback(async () => {
     if (!projectId) return;
+    setNotFound(false);
+    setError(null);
     try {
       setLoading(true);
-      setError(null);
       const [projectResult, siteResult] = await Promise.all([
         getProject(projectId),
         getProjectSite(projectId),
       ]);
       if (!siteResult) {
         setNotFound(true);
+        setProject(null);
+        setSite(null);
+        setWatchedDeploymentId(null);
         return;
       }
       setProject(projectResult.project);
       setSite(siteResult);
+      const incoming = siteResult.latestDeploymentId;
+      // Do not resubscribe to an id the SSE stream already finished — the
+      // overview can lag the webhook, and a second subscribe would loop load().
+      if (incoming && reloadedForRef.current !== incoming) {
+        setWatchedDeploymentId(incoming);
+      } else {
+        setWatchedDeploymentId(null);
+      }
     } catch (err: unknown) {
       // A 404 from the project endpoint surfaces as a thrown error; treat the
       // "not yours / missing" case the same way the site endpoint does rather
       // than showing a raw failure for a project the user simply cannot see.
       const message = err instanceof Error ? err.message : "Kunde inte läsa projektet";
+      setProject(null);
+      setSite(null);
+      setWatchedDeploymentId(null);
       if (/not found/i.test(message)) {
         setNotFound(true);
         return;
@@ -100,8 +126,21 @@ export default function ProjectSitePage() {
   }, [projectId]);
 
   useEffect(() => {
+    reloadedForRef.current = null;
+    setWatchedDeploymentId(null);
+  }, [projectId]);
+
+  useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!watchedDeploymentId) return;
+    if (!isTerminalDeploymentStatus(deploymentWatch.status)) return;
+    if (reloadedForRef.current === watchedDeploymentId) return;
+    reloadedForRef.current = watchedDeploymentId;
+    void load();
+  }, [deploymentWatch.status, watchedDeploymentId, load]);
 
   async function copyAddress() {
     if (!site?.address.liveUrl) return;
@@ -114,6 +153,16 @@ export default function ProjectSitePage() {
     }
   }
 
+  const publishState: SitePublishState | null = site
+    ? watchedDeploymentId
+      ? deploymentWatch.status
+      : site.state
+    : null;
+  const republishAllowed = canRepublish(publishState, {
+    republishing,
+    watching: watchingInFlight,
+  });
+
   /**
    * Re-publish the version that is already live, through the same deploy route
    * the builder uses — so credits, release gate and every other check apply
@@ -122,6 +171,7 @@ export default function ProjectSitePage() {
    */
   async function republish() {
     if (!site?.chatId || !site.liveVersionId) return;
+    if (!canRepublish(publishState, { republishing, watching: watchingInFlight })) return;
     setRepublishing(true);
     try {
       const response = await fetch("/api/v0/deployments", {
@@ -138,7 +188,13 @@ export default function ProjectSitePage() {
         toast.error(data?.error || "Publiceringen kunde inte startas.");
         return;
       }
+      const deploymentId = typeof data?.id === "string" && data.id.trim() ? data.id : null;
       toast.success("Publiceringen startade.");
+      if (deploymentId) {
+        reloadedForRef.current = null;
+        setWatchedDeploymentId(deploymentId);
+        return;
+      }
       await load();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Publiceringen kunde inte startas.");
@@ -147,7 +203,7 @@ export default function ProjectSitePage() {
     }
   }
 
-  const stateLabel = site ? publishStateLabel(site.state) : null;
+  const stateLabel = publishState ? publishStateLabel(publishState) : null;
 
   return (
     <div className="bg-background min-h-screen">
@@ -276,9 +332,9 @@ export default function ProjectSitePage() {
                         variant="outline"
                         className="gap-2"
                         onClick={() => void republish()}
-                        disabled={republishing}
+                        disabled={!republishAllowed}
                       >
-                        {republishing ? (
+                        {republishing || watchingInFlight ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <RefreshCw className="h-4 w-4" />
