@@ -22,6 +22,25 @@ function directive(csp: string, name: string): string {
   );
 }
 
+describe("proxy auth gate — /konto", () => {
+  it("redirects an anonymous visitor away from /konto", async () => {
+    const res = await proxy(new NextRequest(new URL("https://sajtmaskin.example/konto")));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://sajtmaskin.example/");
+  });
+
+  it("does not treat /konto as a prefix — only the exact path is gated", async () => {
+    // C1 owns AUTH_REQUIRED_PREFIXES for /projects/. This page is an exact set
+    // member so a sibling merge does not pick up an extra prefix rule.
+    const res = await proxy(
+      new NextRequest(new URL("https://sajtmaskin.example/konto/installningar")),
+    );
+
+    expect(res.status).not.toBe(307);
+  });
+});
+
 describe("proxy CSP — Vercel Toolbar / Live allowlist", () => {
   it("allows vercel.live (+ Pusher + Vercel CDN) so the injected toolbar stops tripping CSP", async () => {
     const csp = await cspFor("https://sajtmaskin.example/");

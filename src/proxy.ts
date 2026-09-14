@@ -8,7 +8,7 @@ import { getAppBaseUrl } from "@/lib/app-url";
 
 const ADMIN_PREFIX = "/admin";
 
-const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits"]);
+const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
 const ALLOWED_ORIGINS = new Set(
   [getAppBaseUrl(), process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ""].filter(
