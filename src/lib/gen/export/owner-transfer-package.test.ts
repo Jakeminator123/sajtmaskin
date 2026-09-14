@@ -93,4 +93,47 @@ describe("buildOwnerTransferPackage", () => {
     );
     expect(JSON.stringify(files)).not.toContain("must-not-leak");
   });
+
+  it("detects destructured process env and bracketed Vite env names", () => {
+    const files = buildOwnerTransferPackage({
+      projectFiles: [
+        {
+          path: "src/config.ts",
+          content:
+            "const { DATABASE_URL, API_TOKEN: token } = process.env; " +
+            "const vite = import.meta.env['VITE_API_URL'];",
+          language: "ts",
+        },
+      ],
+      media: [],
+    });
+
+    expect(String(files.find((file) => file.path === "env.example")?.content)).toBe(
+      "API_TOKEN=\nDATABASE_URL=\nNEXT_PUBLIC_SITE_URL=\nVITE_API_URL=\n",
+    );
+  });
+
+  it("replaces only the exact persisted provider origin", () => {
+    const input = {
+      projectFiles: [
+        {
+          path: "app/sitemap.ts",
+          content:
+            'export default () => [{ url: "https://demo.vercel.app/" }, ' +
+            '{ url: "https://demo.vercel.app.evil.example/" }, ' +
+            '{ url: "https://third-party.vercel.app/" }];',
+          language: "ts",
+        },
+      ],
+      media: [],
+      providerOrigin: "https://demo.vercel.app",
+    };
+
+    expect(() => buildOwnerTransferPackage(input)).toThrow(OwnerTransferSiteUrlRequiredError);
+    const files = buildOwnerTransferPackage({ ...input, siteUrl: "https://kund.se" });
+    const sitemap = String(files.find((file) => file.path === "app/sitemap.ts")?.content);
+    expect(sitemap).toContain('url: "https://kund.se/"');
+    expect(sitemap).toContain("https://demo.vercel.app.evil.example/");
+    expect(sitemap).toContain("https://third-party.vercel.app/");
+  });
 });

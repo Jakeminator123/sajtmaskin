@@ -9,6 +9,8 @@ const PLATFORM_SITE_ORIGIN_RE = /https?:\/\/(?:[a-z0-9-]+\.)?sites\.sajtmaskin\.
 const ENV_REFERENCE_RE = /\bprocess\.env\.([A-Z][A-Z0-9_]*)\b/g;
 const ENV_BRACKET_REFERENCE_RE = /\bprocess\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g;
 const PUBLIC_ENV_REFERENCE_RE = /\bimport\.meta\.env\.([A-Z][A-Z0-9_]*)\b/g;
+const PUBLIC_ENV_BRACKET_REFERENCE_RE = /\bimport\.meta\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g;
+const ENV_DESTRUCTURE_RE = /\b(?:const|let|var)\s*\{([^{}]+)\}\s*=\s*process\.env\b/g;
 const ENV_ASSIGN_RE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm;
 
 const PROVIDERS: Array<{ pattern: RegExp; label: string }> = [
@@ -22,12 +24,12 @@ const PROVIDERS: Array<{ pattern: RegExp; label: string }> = [
 
 export class OwnerTransferSiteUrlRequiredError extends Error {
   constructor() {
-    super("Ange sajtens nya webbaddress för att ersätta en gammal sites.sajtmaskin.se-adress.");
+    super("Ange sajtens nya webbaddress för att ersätta en tidigare publiceringsadress.");
     this.name = "OwnerTransferSiteUrlRequiredError";
   }
 }
 
-function safeMediaName(name: string, id: number): string {
+function safeMediaName(name: string, id: number | string): string {
   const basename = name.replace(/\\/g, "/").split("/").pop() || "media.bin";
   const parsed = path.posix.parse(basename);
   const stem =
@@ -47,12 +49,24 @@ function replaceAllLiteral(content: string, search: string, replacement: string)
   return search ? content.split(search).join(replacement) : content;
 }
 
+function originPattern(origin: string): RegExp {
+  const escaped = origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${escaped}(?![a-zA-Z0-9.-])`, "g");
+}
+
 function collectEnvNames(files: ReadonlyArray<{ path: string; content: string }>): string[] {
   const names = new Set<string>();
   for (const file of files) {
     for (const match of file.content.matchAll(ENV_REFERENCE_RE)) names.add(match[1]);
     for (const match of file.content.matchAll(ENV_BRACKET_REFERENCE_RE)) names.add(match[1]);
     for (const match of file.content.matchAll(PUBLIC_ENV_REFERENCE_RE)) names.add(match[1]);
+    for (const match of file.content.matchAll(PUBLIC_ENV_BRACKET_REFERENCE_RE)) names.add(match[1]);
+    for (const match of file.content.matchAll(ENV_DESTRUCTURE_RE)) {
+      for (const binding of match[1].split(",")) {
+        const name = binding.trim().split(/[:=]/, 1)[0]?.trim();
+        if (name && /^[A-Z][A-Z0-9_]*$/.test(name)) names.add(name);
+      }
+    }
     if (/(^|\/)\.env(?:\.|$)|(^|\/)env\.(?:example|env)$/i.test(file.path)) {
       for (const match of file.content.matchAll(ENV_ASSIGN_RE)) names.add(match[1].toUpperCase());
     }
@@ -105,6 +119,7 @@ function buildGuide(params: {
   files: ReadonlyArray<{ path: string; content: string }>;
   mediaCount: number;
   siteUrl: string | null;
+  replacedProviderOrigin: string | null;
 }): string {
   const envNames = collectEnvNames(params.files);
   const commands = packageCommands(params.files);
@@ -130,7 +145,10 @@ function buildGuide(params: {
         ? ` och ${params.mediaCount} uppladdade mediafiler under \`public/media/\``
         : "";
   const selectedAddress = params.siteUrl
-    ? ` Den valda adressen vid export var \`${params.siteUrl}\`.`
+    ? ` Kända adresser för projektets Sajtmaskin-publicering ersattes med \`${params.siteUrl}\`.`
+    : "";
+  const providerAddress = params.replacedProviderOrigin
+    ? ` Den tidigare provider-adressen \`${params.replacedProviderOrigin}\` ingick i ersättningen.`
     : "";
 
   return `# Flytta den här sajten
@@ -149,7 +167,7 @@ ${commands.dev}
 
 ## Webbaddress och canonical
 
-Sätt \`NEXT_PUBLIC_SITE_URL\` till den nya publika origin-adressen, till exempel \`https://www.dindoman.se\`. Exporten innehåller ingen tvingande canonical eller redirect tillbaka till den tidigare Sajtmaskin-hosten.${selectedAddress}
+Sätt \`NEXT_PUBLIC_SITE_URL\` till den nya publika origin-adressen, till exempel \`https://www.dindoman.se\`. Exporten innehåller ingen tvingande canonical eller redirect tillbaka till kända adresser för projektets Sajtmaskin-publicering.${selectedAddress}${providerAddress} Andra tredjepartslänkar lämnas oförändrade.
 
 ## Miljövariabler
 
@@ -170,9 +188,11 @@ export function buildOwnerTransferPackage(params: {
   projectFiles: CodeFile[];
   media: ProjectExportMedia[];
   siteUrl?: string | null;
+  providerOrigin?: string | null;
 }): GitHubExportSourceFile[] {
   const safeProjectFiles = sanitizeEnvSecretsForPublicExport(params.projectFiles);
   const requestedOrigin = params.siteUrl?.trim().replace(/\/$/, "") || null;
+  const providerOrigin = params.providerOrigin?.trim().replace(/\/$/, "") || null;
   const mediaFiles: GitHubExportSourceFile[] = [];
   const replacements = new Map<string, string>();
 
@@ -183,8 +203,14 @@ export function buildOwnerTransferPackage(params: {
     for (const sourceUrl of item.sourceUrls) replacements.set(sourceUrl, publicPath);
   }
 
-  const hasHostedOrigin = safeProjectFiles.some((file) =>
-    PLATFORM_SITE_ORIGIN_RE.test(file.content),
+  const hasHostedOrigin = safeProjectFiles.some(
+    (file) =>
+      PLATFORM_SITE_ORIGIN_RE.test(file.content) ||
+      (providerOrigin ? originPattern(providerOrigin).test(file.content) : false),
+  );
+  const hasProviderOrigin = Boolean(
+    providerOrigin &&
+    safeProjectFiles.some((file) => originPattern(providerOrigin).test(file.content)),
   );
   PLATFORM_SITE_ORIGIN_RE.lastIndex = 0;
   if (hasHostedOrigin && !requestedOrigin) throw new OwnerTransferSiteUrlRequiredError();
@@ -193,6 +219,9 @@ export function buildOwnerTransferPackage(params: {
     let content = requestedOrigin
       ? file.content.replace(PLATFORM_SITE_ORIGIN_RE, requestedOrigin)
       : file.content;
+    if (requestedOrigin && providerOrigin) {
+      content = content.replace(originPattern(providerOrigin), requestedOrigin);
+    }
     for (const [sourceUrl, publicPath] of replacements) {
       content = replaceAllLiteral(content, sourceUrl, publicPath);
     }
@@ -225,6 +254,7 @@ export function buildOwnerTransferPackage(params: {
       files: withoutOldGuide,
       mediaCount: mediaFiles.length,
       siteUrl: params.siteUrl?.trim() || null,
+      replacedProviderOrigin: hasProviderOrigin ? providerOrigin : null,
     }),
     language: "markdown",
   });

@@ -12,6 +12,7 @@ const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn());
 const buildPortableExportProject = vi.hoisted(() => vi.fn());
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
 const loadProjectExportMedia = vi.hoisted(() => vi.fn());
+const loadProjectProviderOrigin = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -38,7 +39,10 @@ vi.mock("@/lib/gen/export/build-portable-export-project", () => ({
 }));
 
 vi.mock("@/lib/db/services/projects", () => ({ getProjectByIdForOwner }));
-vi.mock("@/lib/projects/project-export-media", () => ({ loadProjectExportMedia }));
+vi.mock("@/lib/projects/project-export-media", () => ({
+  loadProjectExportMedia,
+  loadProjectProviderOrigin,
+}));
 
 const { POST } = await import("./route");
 
@@ -163,6 +167,7 @@ describe("POST /api/github/export", () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
     getProjectByIdForOwner.mockResolvedValue({ id: "proj_1" });
     loadProjectExportMedia.mockResolvedValue([]);
+    loadProjectProviderOrigin.mockResolvedValue(null);
     getVersionById.mockResolvedValue({ id: "ver_1", chat_id: "chat_1", files_json: "[]" });
     parseCodeFilesFromFilesJson.mockReturnValue([
       { path: "app/page.tsx", content: "raw", language: "tsx" },
@@ -399,5 +404,27 @@ describe("POST /api/github/export", () => {
     expect(recorded.tree).toEqual(
       expect.arrayContaining([expect.objectContaining({ path: "public/media/9-hero.png" })]),
     );
+  });
+
+  it("requires a destination for the exact persisted provider origin", async () => {
+    loadProjectProviderOrigin.mockResolvedValue("https://demo.vercel.app");
+    buildPortableExportProject.mockResolvedValue([
+      {
+        path: "app/sitemap.ts",
+        content: 'export default () => [{ url: "https://demo.vercel.app/" }];',
+        language: "ts",
+      },
+    ]);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(exportRequest({ projectId: "proj_1" }));
+
+    expect(res.status).toBe(400);
+    expect(loadProjectProviderOrigin).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

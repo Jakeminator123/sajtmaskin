@@ -18,7 +18,10 @@ import {
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner } from "@/lib/db/services/projects";
-import { loadProjectExportMedia } from "@/lib/projects/project-export-media";
+import {
+  loadProjectExportMedia,
+  loadProjectProviderOrigin,
+} from "@/lib/projects/project-export-media";
 
 export const runtime = "nodejs";
 
@@ -306,10 +309,14 @@ export async function POST(request: NextRequest) {
             referencedText: portableProject.map((file) => file.content).join("\n"),
           })
         : [];
+      const providerOrigin = projectId
+        ? await loadProjectProviderOrigin({ chatId: engineChat.id, versionId: ev.id })
+        : null;
       const transferProject = buildOwnerTransferPackage({
         projectFiles: portableProject,
         media,
         siteUrl,
+        providerOrigin,
       });
       const previewFiles = buildGitHubExportPlan(transferProject).files.filter(
         (file) => file.path !== GITHUB_EXPORT_MANIFEST_PATH,
