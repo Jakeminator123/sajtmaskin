@@ -19,7 +19,8 @@
  * för länge sedan är applicerad (t.ex. `align-live-schema-parity.sql`); den
  * ligger i ledgern och ska inte rödfärga varje ny push.
  *
- * Strikt read-only: enda databasanropet är en SELECT mot `schema_migrations`.
+ * Strikt read-only: de enda databasanropen är SELECT mot `schema_migrations`
+ * och mot `information_schema.tables`.
  *
  * Användning:
  *   node scripts/db/check-additive-migrations.mjs
@@ -195,11 +196,90 @@ export function maskSqlComments(sql) {
 }
 
 /**
+ * Träffar som bara kan skada för att det redan FINNS rader eller körande kod
+ * som rör tabellen. Läggs en sådan constraint på en tabell som samma pending-
+ * omgång själv skapar, och som ännu inte finns i måldatabasen, kan den per
+ * definition inte ogiltigförklara vare sig en befintlig rad eller en INSERT
+ * från den gamla produktionskoden — tabellen existerar inte för den koden.
+ *
+ * `create-unique-index` står MEDVETET utanför: repot kräver att unikhet
+ * deklareras som tabellintern constraint, och den regeln ska inte kunna
+ * kringgås av att tabellen råkar vara ny.
+ *
+ * @type {ReadonlySet<string>}
+ */
+const NEW_TABLE_EXEMPT_IDS = new Set([
+  "add-constraint",
+  "add-unique",
+  "add-primary-key",
+  "add-foreign-key",
+  "add-column-unique",
+]);
+
+/** `CREATE TABLE [IF NOT EXISTS] <namn>` — tabellerna en fil själv skapar. */
+const CREATE_TABLE_RE =
+  /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/giu;
+
+/** `ALTER TABLE [IF EXISTS] [ONLY] <namn>` — måltabellen för en efterföljande sats. */
+const ALTER_TABLE_RE =
+  /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/giu;
+
+/**
+ * Tabellnamnen `sql` skapar med `CREATE TABLE`.
+ *
  * @param {string} sql
+ * @returns {Set<string>}
+ */
+export function parseCreatedTables(sql) {
+  const masked = maskSqlComments(sql);
+  const tables = new Set();
+  const pattern = new RegExp(CREATE_TABLE_RE.source, CREATE_TABLE_RE.flags);
+  let match;
+  while ((match = pattern.exec(masked)) !== null) tables.add(match[1].toLowerCase());
+  return tables;
+}
+
+/**
+ * Måltabellen för satsen som innehåller offset `index`: närmast föregående
+ * `ALTER TABLE <namn>`. Är tabellnamnet dynamiskt (`EXECUTE format('ALTER TABLE
+ * %I …')`) går det inte att avgöra statiskt, och då returneras null — vilket
+ * betyder "ingen dispens", den säkra riktningen.
+ *
+ * @param {Array<{ index: number; table: string }>} alterTargets
+ * @param {number} index
+ * @returns {string | null}
+ */
+function alterTargetAt(alterTargets, index) {
+  let found = null;
+  for (const target of alterTargets) {
+    if (target.index > index) break;
+    found = target.table;
+  }
+  return found;
+}
+
+/**
+ * @param {string} sql
+ * @param {{ exemptTables?: Iterable<string> }} [options] `exemptTables` är de
+ *   tabeller som samma pending-omgång skapar OCH som saknas i måldatabasen.
  * @returns {Array<{ id: string; why: string; line: number; snippet: string }>}
  */
-export function findBreakingStatements(sql) {
+export function findBreakingStatements(sql, options = {}) {
   const masked = maskSqlComments(sql);
+  const exempt = new Set(
+    [...(options.exemptTables ?? [])].map((table) => table.toLowerCase()),
+  );
+
+  /** @type {Array<{ index: number; table: string }>} */
+  const alterTargets = [];
+  if (exempt.size > 0) {
+    const pattern = new RegExp(ALTER_TABLE_RE.source, ALTER_TABLE_RE.flags);
+    let match;
+    while ((match = pattern.exec(masked)) !== null) {
+      alterTargets.push({ index: match.index, table: match[1].toLowerCase() });
+    }
+  }
+
   /** @type {Array<{ id: string; why: string; line: number; snippet: string }>} */
   const findings = [];
 
@@ -207,13 +287,19 @@ export function findBreakingStatements(sql) {
     const pattern = new RegExp(re.source, re.flags);
     let match;
     while ((match = pattern.exec(masked)) !== null) {
-      const line = masked.slice(0, match.index).split("\n").length;
-      findings.push({
-        id,
-        why,
-        line,
-        snippet: sql.split("\n")[line - 1]?.trim().slice(0, 160) ?? match[0],
-      });
+      const exemptHere =
+        exempt.size > 0 &&
+        NEW_TABLE_EXEMPT_IDS.has(id) &&
+        exempt.has(alterTargetAt(alterTargets, match.index) ?? "");
+      if (!exemptHere) {
+        const line = masked.slice(0, match.index).split("\n").length;
+        findings.push({
+          id,
+          why,
+          line,
+          snippet: sql.split("\n")[line - 1]?.trim().slice(0, 160) ?? match[0],
+        });
+      }
       if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
     }
   }
@@ -225,17 +311,61 @@ export function findBreakingStatements(sql) {
  * Ren klassificering av en lista pending filer. Läser filer från disk men rör
  * ingen databas, så den är direkt testbar.
  *
+ * `existingTables` är måldatabasens nuvarande tabeller. En tabell som den
+ * pending-omgången själv skapar och som INTE finns där kan inte ha vare sig
+ * rader eller läsare i den gamla produktionskoden, så constraints mot den är
+ * additiva. Utelämnas listan ges ingen dispens alls — utan kunskap om
+ * databasen är det enda ärliga svaret det strängaste.
+ *
  * @param {string[]} pending
- * @param {{ migrationsDir?: string, readFile?: (path: string) => string }} [options]
+ * @param {{
+ *   migrationsDir?: string,
+ *   readFile?: (path: string) => string,
+ *   existingTables?: Iterable<string>,
+ * }} [options]
  */
 export function classifyPendingMigrations(pending, options = {}) {
   const migrationsDir = options.migrationsDir ?? join("src", "lib", "db", "migrations");
   const read = options.readFile ?? ((path) => readFileSync(path, "utf8"));
 
-  return pending.map((filename) => ({
+  const sources = pending.map((filename) => ({
     filename,
-    findings: findBreakingStatements(read(join(migrationsDir, filename))),
+    sql: read(join(migrationsDir, filename)),
   }));
+
+  /** @type {Set<string> | null} */
+  let exemptTables = null;
+  if (options.existingTables) {
+    const existing = new Set(
+      [...options.existingTables].map((table) => table.toLowerCase()),
+    );
+    exemptTables = new Set();
+    for (const { sql } of sources) {
+      for (const table of parseCreatedTables(sql)) {
+        if (!existing.has(table)) exemptTables.add(table);
+      }
+    }
+  }
+
+  return sources.map(({ filename, sql }) => ({
+    filename,
+    findings: findBreakingStatements(sql, exemptTables ? { exemptTables } : {}),
+  }));
+}
+
+/**
+ * Måldatabasens nuvarande publika tabeller. Read-only; används bara för att
+ * avgöra vilka tabeller den pending-omgången introducerar (se
+ * {@link classifyPendingMigrations}).
+ *
+ * @param {{ query: (text: string) => Promise<{ rows: Array<{ table_name: string }> }> }} pool
+ * @returns {Promise<Set<string>>}
+ */
+async function readExistingTables(pool) {
+  const { rows } = await pool.query(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+  );
+  return new Set(rows.map((row) => row.table_name.toLowerCase()));
 }
 
 async function main() {
@@ -298,7 +428,9 @@ async function main() {
 
   try {
     const pending = diffPendingMigrations(await readAppliedMigrations(pool));
-    const classified = classifyPendingMigrations(pending);
+    const classified = classifyPendingMigrations(pending, {
+      existingTables: await readExistingTables(pool),
+    });
     const breaking = classified.filter((entry) => entry.findings.length > 0);
 
     if (asJson) {
@@ -322,6 +454,11 @@ async function main() {
           console.error(`       ${f.snippet}`);
         }
       }
+      console.error(
+        `\nEn constraint mot en tabell som samma omgång SKAPAR, och som saknas i ` +
+          `${host}, klassas som additiv. Står den kvar här finns tabellen redan i ` +
+          `den databasen, och ändringen måste därför ske medvetet.`,
+      );
       console.error(
         `\nDen automatiska preview-vägen applicerar bara additiv DDL. Kör den här ` +
           `migrationen medvetet i stället:\n` +

@@ -93,6 +93,26 @@ function parseCreateIndexes(source: string): Set<string> {
 }
 
 /**
+ * Plocka ut namnen på tabellinterna `CONSTRAINT <namn> UNIQUE (...)`.
+ *
+ * Postgres skapar ett backande unikt index med exakt constraintens namn, så
+ * formen är en lika riktig indexkälla som en fristående `CREATE UNIQUE INDEX`.
+ * Den används av D1:s abonnemangstabeller eftersom den additiva grinden
+ * (`check-additive-migrations.mjs`) klassar fristående unika index som
+ * brytande — utan den här parsern hade de unika constraintsen sett ut som
+ * index inget skript kan skapa.
+ */
+function parseUniqueConstraintIndexes(source: string): Set<string> {
+  const names = new Set<string>();
+  const re = /CONSTRAINT\s+([a-z_][a-z0-9_]*)\s+UNIQUE\s*\(/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    names.add(m[1]);
+  }
+  return names;
+}
+
+/**
  * Plocka ut alla `index("name")` och `uniqueIndex("name")`-anrop från
  * Drizzle-schemat.
  */
@@ -125,6 +145,8 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
     ...dbInitIndexes,
     ...perfIndexes,
     ...sqlMigrationsIndexes,
+    ...parseUniqueConstraintIndexes(dbInitSrc),
+    ...parseUniqueConstraintIndexes(sqlMigrationsSrc),
   ]);
 
   it("varje pgTable() i schema.ts har en motsvarande CREATE TABLE i db-init.mjs", () => {
