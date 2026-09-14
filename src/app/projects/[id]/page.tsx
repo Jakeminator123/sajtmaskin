@@ -14,16 +14,14 @@ import {
   Copy,
   ExternalLink,
   Globe,
+  Github,
   Loader2,
   PencilLine,
   RefreshCw,
   Upload,
 } from "lucide-react";
 import { useDeploymentStatus } from "@/lib/hooks/useDeploymentStatus";
-import {
-  canRepublish,
-  isTerminalDeploymentStatus,
-} from "@/lib/projects/can-republish";
+import { canRepublish, isTerminalDeploymentStatus } from "@/lib/projects/can-republish";
 import {
   getProject,
   getProjectSite,
@@ -37,6 +35,8 @@ import {
   publishStateLabel,
   type SiteStateTone,
 } from "@/lib/projects/site-labels";
+import { useAuth } from "@/lib/auth/auth-store";
+import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 
 const TONE_CLASS: Record<SiteStateTone, string> = {
   live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -64,6 +64,7 @@ function Section({
 }
 
 export default function ProjectSitePage() {
+  const { user, isAuthenticated, hasGitHub } = useAuth();
   const params = useParams<{ id: string }>();
   const projectId = typeof params?.id === "string" ? params.id : "";
 
@@ -74,6 +75,7 @@ export default function ProjectSitePage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [republishing, setRepublishing] = useState(false);
+  const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [watchedDeploymentId, setWatchedDeploymentId] = useState<string | null>(null);
   const reloadedForRef = useRef<string | null>(null);
   const deploymentWatch = useDeploymentStatus(watchedDeploymentId);
@@ -226,9 +228,7 @@ export default function ProjectSitePage() {
         {!loading && notFound && (
           <div className="border border-gray-800 bg-black/50 p-8 text-center">
             <h1 className="text-xl font-semibold text-gray-300">Projektet hittades inte</h1>
-            <p className="mt-2 text-gray-500">
-              Det finns inte, eller tillhör ett annat konto.
-            </p>
+            <p className="mt-2 text-gray-500">Det finns inte, eller tillhör ett annat konto.</p>
             <Link href="/projects" className="mt-6 inline-block">
               <Button variant="outline">Till mina projekt</Button>
             </Link>
@@ -338,8 +338,8 @@ export default function ProjectSitePage() {
                         Publicera om
                       </Button>
                       <p className="text-xs text-gray-600">
-                        Publicerar samma version igen. Kostar credits precis som en publicering
-                        från byggaren.
+                        Publicerar samma version igen. Kostar credits precis som en publicering från
+                        byggaren.
                       </p>
                     </div>
                   ) : (
@@ -370,9 +370,7 @@ export default function ProjectSitePage() {
                       <code className="text-white">{site.customDomain}</code>
                       <span
                         className={`border px-2 py-0.5 text-xs ${
-                          site.customDomainVerified
-                            ? TONE_CLASS.live
-                            : TONE_CLASS.progress
+                          site.customDomainVerified ? TONE_CLASS.live : TONE_CLASS.progress
                         }`}
                       >
                         {site.customDomainVerified ? "Verifierad" : "Väntar på DNS"}
@@ -386,7 +384,46 @@ export default function ProjectSitePage() {
                   </p>
                 </div>
               </Section>
+
+              <Section
+                title="Kod och utflytt"
+                description="Du kan exportera sajten även när publiceringen eller betalningen är pausad."
+              >
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setGithubExportOpen(true)}
+                    disabled={!site.chatId || !site.liveVersionId}
+                  >
+                    <Github className="h-4 w-4" />
+                    Exportera till GitHub
+                  </Button>
+                  <p className="text-xs text-gray-600">
+                    Exporten innehåller den publicerade versionens kod, uppladdade projektmedia som
+                    filer och en flyttguide. Databasdata, domänregistrering, tredjepartskonton,
+                    hemliga nyckelvärden och licenser följer inte med.
+                  </p>
+                  {(!site.chatId || !site.liveVersionId) && (
+                    <p className="text-xs text-amber-500">
+                      Publicera en version först så att det finns en bestämd version att exportera.
+                    </p>
+                  )}
+                </div>
+              </Section>
             </div>
+            <GitHubExportDialog
+              open={githubExportOpen}
+              onClose={() => setGithubExportOpen(false)}
+              chatId={site.chatId}
+              versionId={site.liveVersionId}
+              hasGitHub={hasGitHub}
+              isAuthenticated={isAuthenticated}
+              suggestedRepoName={project?.name ?? null}
+              githubUsername={user?.github_username ?? null}
+              projectId={site.projectId}
+              suggestedSiteUrl={site.customDomain ? `https://${site.customDomain}` : null}
+            />
           </>
         )}
       </div>

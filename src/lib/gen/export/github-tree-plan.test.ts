@@ -12,6 +12,17 @@ function file(path: string, content: string, language: string): CodeFile {
 }
 
 describe("buildGitHubExportPlan", () => {
+  it("preserves binary media bytes in the managed tree plan", () => {
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const plan = buildGitHubExportPlan([
+      { path: "public/media/hero.png", content: bytes },
+    ]);
+
+    expect(plan.files.find((entry) => entry.path === "public/media/hero.png")?.content).toEqual(
+      bytes,
+    );
+  });
+
   it("keeps empty files instead of treating empty content as a missing file", () => {
     const plan = buildGitHubExportPlan([
       file("app/page.tsx", "export default function Page() { return null; }", "tsx"),
@@ -21,7 +32,7 @@ describe("buildGitHubExportPlan", () => {
     expect(plan.files).toContainEqual({ path: "public/.gitkeep", content: "" });
     expect(plan.files.some((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)).toBe(true);
     const manifest = parseGitHubExportManifest(
-      plan.files.find((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)!.content,
+      String(plan.files.find((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)!.content),
     );
     expect(manifest).toEqual(
       expect.arrayContaining(["app/page.tsx", "public/.gitkeep", GITHUB_EXPORT_MANIFEST_PATH]),
@@ -105,7 +116,7 @@ describe("buildGitHubExportPlan", () => {
 
     expect(plan.deletionPaths).toEqual([]);
     const manifest = parseGitHubExportManifest(
-      plan.files.find((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)!.content,
+      String(plan.files.find((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)!.content),
     );
     expect(manifest).toEqual([GITHUB_EXPORT_MANIFEST_PATH, "app/page.tsx"]);
     expect(manifest).not.toContain("app/already-gone.tsx");
