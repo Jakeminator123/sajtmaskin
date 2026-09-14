@@ -10,6 +10,8 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn());
 const buildPortableExportProject = vi.hoisted(() => vi.fn());
+const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
+const loadProjectExportMedia = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -34,6 +36,9 @@ vi.mock("@/lib/gen/version-manager", () => ({
 vi.mock("@/lib/gen/export/build-portable-export-project", () => ({
   buildPortableExportProject,
 }));
+
+vi.mock("@/lib/db/services/projects", () => ({ getProjectByIdForOwner }));
+vi.mock("@/lib/projects/project-export-media", () => ({ loadProjectExportMedia }));
 
 const { POST } = await import("./route");
 
@@ -62,7 +67,10 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function installGitHubMock(state: GitHubState = {}) {
-  const recorded: { tree: TreeEntry[] | null } = { tree: null };
+  const recorded: { tree: TreeEntry[] | null; blobs: string[] } = {
+    tree: null,
+    blobs: [],
+  };
   let blobSeq = 0;
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -104,6 +112,8 @@ function installGitHubMock(state: GitHubState = {}) {
     }
 
     if (method === "POST" && pathname === "repos/alice/site/git/blobs") {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { content?: string };
+      recorded.blobs.push(body.content ?? "");
       blobSeq += 1;
       return jsonResponse({ sha: `blob-${blobSeq}` });
     }
@@ -129,7 +139,7 @@ function installGitHubMock(state: GitHubState = {}) {
   return { fetchMock, recorded };
 }
 
-function exportRequest(): NextRequest {
+function exportRequest(overrides: Record<string, unknown> = {}): NextRequest {
   return new NextRequest("http://localhost/api/github/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -137,6 +147,7 @@ function exportRequest(): NextRequest {
       chatId: "chat_1",
       versionId: "ver_1",
       repo: "alice/site",
+      ...overrides,
     }),
   });
 }
@@ -149,7 +160,9 @@ describe("POST /api/github/export", () => {
       github_token: "ghp_test",
       github_username: "alice",
     });
-    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
+    getProjectByIdForOwner.mockResolvedValue({ id: "proj_1" });
+    loadProjectExportMedia.mockResolvedValue([]);
     getVersionById.mockResolvedValue({ id: "ver_1", chat_id: "chat_1", files_json: "[]" });
     parseCodeFilesFromFilesJson.mockReturnValue([
       { path: "app/page.tsx", content: "raw", language: "tsx" },
@@ -162,7 +175,11 @@ describe("POST /api/github/export", () => {
 
   it("exports an empty file instead of dropping it", async () => {
     buildPortableExportProject.mockResolvedValue([
-      { path: "app/page.tsx", content: "export default function Page(){ return null; }", language: "tsx" },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page(){ return null; }",
+        language: "tsx",
+      },
       { path: "public/.gitkeep", content: "", language: "text" },
     ]);
     const { recorded } = installGitHubMock();
@@ -170,9 +187,11 @@ describe("POST /api/github/export", () => {
     const res = await POST(exportRequest());
 
     expect(res.status).toBe(200);
-    expect(recorded.tree?.some((entry) => entry.path === "public/.gitkeep" && "sha" in entry && entry.sha)).toBe(
-      true,
-    );
+    expect(
+      recorded.tree?.some(
+        (entry) => entry.path === "public/.gitkeep" && "sha" in entry && entry.sha,
+      ),
+    ).toBe(true);
     expect(recorded.tree?.some((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)).toBe(true);
   });
 
@@ -199,9 +218,7 @@ describe("POST /api/github/export", () => {
     const res = await POST(exportRequest());
 
     expect(res.status).toBe(200);
-    expect(recorded.tree).toEqual(
-      expect.arrayContaining([deletionEntry("app/old.tsx")]),
-    );
+    expect(recorded.tree).toEqual(expect.arrayContaining([deletionEntry("app/old.tsx")]));
     expect(recorded.tree?.find((entry) => entry.path === "app/old.tsx")).toEqual(
       deletionEntry("app/old.tsx"),
     );
@@ -313,5 +330,74 @@ describe("POST /api/github/export", () => {
     expect(res.status).toBe(409);
     expect(body.error).toMatch(/file\/directory swap/);
     expect(recorded.tree).toBeNull();
+  });
+
+  it("requires the optional project scope to belong to the user and chat", async () => {
+    getProjectByIdForOwner.mockResolvedValue(null);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(exportRequest({ projectId: "foreign_project" }));
+
+    expect(res.status).toBe(404);
+    expect(loadProjectExportMedia).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a project that is owned by the user but belongs to another chat", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "different_project",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(exportRequest({ projectId: "proj_1" }));
+
+    expect(res.status).toBe(404);
+    expect(loadProjectExportMedia).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Sajtmaskin host as the destination canonical", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(exportRequest({ siteUrl: "https://kund.sites.sajtmaskin.se" }));
+
+    expect(res.status).toBe(400);
+    expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uploads project media as its original bytes and reports the count", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    loadProjectExportMedia.mockResolvedValue([
+      {
+        id: 9,
+        originalName: "hero.png",
+        mimeType: "image/png",
+        body: png,
+        sourceUrls: ["https://blob.example/hero.png"],
+      },
+    ]);
+    buildPortableExportProject.mockResolvedValue([
+      {
+        path: "app/page.tsx",
+        content: "export default function Page(){ return null; }",
+        language: "tsx",
+      },
+    ]);
+    const { recorded } = installGitHubMock();
+
+    const res = await POST(exportRequest({ projectId: "proj_1" }));
+    const responseBody = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(responseBody.mediaCount).toBe(1);
+    expect(recorded.blobs).toContain(png.toString("base64"));
+    expect(recorded.tree).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: "public/media/9-hero.png" })]),
+    );
   });
 });
