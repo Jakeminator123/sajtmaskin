@@ -8,6 +8,10 @@
 
 import crypto from "crypto";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
+import {
+  extractKostnadsfriCompanyProfile,
+  type KostnadsfriCompanyProfile,
+} from "./company-profile";
 import { companyNameFromSlug } from "./company-name";
 import {
   extractKostnadsfriOpenClawConfig,
@@ -28,6 +32,11 @@ export interface KostnadsfriCompanyData {
   contactName: string | null;
   extraData: Record<string, unknown> | null;
   openclawConfig: KostnadsfriOpenClawConfig | null;
+  /**
+   * Bolagsfakta från utskicksverktyget. Förifyller mini-wizarden; går aldrig
+   * direkt in i generationsprompten (ägarbeslut 2026-09-15).
+   */
+  profile: KostnadsfriCompanyProfile | null;
 }
 
 /** Data collected by the mini-wizard */
@@ -98,6 +107,7 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     contactName: page.contact_name,
     extraData,
     openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
+    profile: extractKostnadsfriCompanyProfile(extraData),
   };
 }
 
@@ -115,6 +125,7 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     contactName: null,
     extraData: null,
     openclawConfig: null,
+    profile: null,
   };
 }
 
