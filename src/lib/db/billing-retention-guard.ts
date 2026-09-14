@@ -69,19 +69,33 @@ export function billingRetentionMessage(
   );
 }
 
+/**
+ * Hela listan som EN parameter: `ANY($1::text[])`.
+ *
+ * Drizzle expanderar ett interpolerat JS-fält till en parameter per post, så
+ * `ANY(${list}::text[])` blir `ANY(($1, $2)::text[])` — en record-konstruktor
+ * som Postgres vägrar casta till `text[]` (42846), och med en enda post
+ * `ANY(($1)::text[])`, alltså en ogiltig arrayliteral (22P02). Båda fallen
+ * gjorde att spärren kastade i stället för att svara, och en icke-tom lista
+ * kunde därför aldrig granskas.
+ */
+function textArray(values: string[]): SQL {
+  return sql`${sql.param(values)}::text[]`;
+}
+
 function scopePredicate(scope: BillingRetentionScope): SQL {
   switch (scope.kind) {
     case "allProjects":
       return sql`true`;
     case "projectIds":
-      return sql`s.project_id = ANY(${scope.projectIds}::text[])`;
+      return sql`s.project_id = ANY(${textArray(scope.projectIds)})`;
     case "usersExcept":
       return scope.keepEmails.length === 0
         ? sql`true`
         : sql`NOT EXISTS (
             SELECT 1 FROM users u
              WHERE u.id = s.user_id
-               AND u.email = ANY(${scope.keepEmails}::text[])
+               AND u.email = ANY(${textArray(scope.keepEmails)})
           )`;
   }
 }
@@ -151,7 +165,7 @@ export async function projectIdsWithBillingRows(projectIds: string[]): Promise<S
   try {
     const result = await db.execute<{ project_id: string }>(sql`
       SELECT DISTINCT project_id FROM site_subscriptions
-       WHERE project_id = ANY(${projectIds}::text[])
+       WHERE project_id = ANY(${textArray(projectIds)})
     `);
     return new Set((result.rows ?? []).map((row) => row.project_id));
   } catch (error) {

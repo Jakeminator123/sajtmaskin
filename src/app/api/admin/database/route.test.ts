@@ -39,16 +39,27 @@ vi.mock("@/lib/config", () => ({
 }));
 
 // Simple stand-ins so conditions are inspectable plain objects.
-vi.mock("drizzle-orm", () => ({
-  and: (...conditions: unknown[]) => ({ op: "and", conditions }),
-  desc: (column: unknown) => ({ op: "desc", column }),
-  isNotNull: (column: unknown) => ({ op: "isNotNull", column }),
-  isNull: (column: unknown) => ({ op: "isNull", column }),
-  inArray: (column: unknown, values: unknown[]) => ({ op: "inArray", column, values }),
-  lt: (column: unknown, value: unknown) => ({ op: "lt", column, value }),
-  notInArray: (column: unknown, values: unknown[]) => ({ op: "notInArray", column, values }),
-  sql: (strings: TemplateStringsArray) => ({ op: "sql", text: strings?.join?.("") ?? "" }),
-}));
+vi.mock("drizzle-orm", () => {
+  const sql = (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+    values,
+  });
+  // The retention guard binds list parameters through `sql.param` so Postgres
+  // gets one `text[]` instead of a record; the real shape is asserted against
+  // the compiled query in `billing-retention-guard.test.ts`.
+  sql.param = (value: unknown) => ({ op: "param", value });
+  return {
+    and: (...conditions: unknown[]) => ({ op: "and", conditions }),
+    desc: (column: unknown) => ({ op: "desc", column }),
+    isNotNull: (column: unknown) => ({ op: "isNotNull", column }),
+    isNull: (column: unknown) => ({ op: "isNull", column }),
+    inArray: (column: unknown, values: unknown[]) => ({ op: "inArray", column, values }),
+    lt: (column: unknown, value: unknown) => ({ op: "lt", column, value }),
+    notInArray: (column: unknown, values: unknown[]) => ({ op: "notInArray", column, values }),
+    sql,
+  };
+});
 
 vi.mock("@/lib/db/client", () => ({
   db: {

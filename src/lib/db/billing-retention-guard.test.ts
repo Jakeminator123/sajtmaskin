@@ -2,9 +2,11 @@
  * Spärren är det enda som står mellan en adminrensning och en halvt raderad
  * miljö: databasens `ON DELETE RESTRICT` slår till först vid `app_projects`,
  * alltså efter att de tidigare tabellerna redan tömts. Testerna här handlar
- * därför om två saker — att den räknar rätt rader, och att den aldrig gör ett
- * fel till tyst grönt.
+ * därför om tre saker — att den räknar rätt rader, att den skickar en fråga
+ * Postgres faktiskt kan köra, och att den aldrig gör ett fel till tyst grönt.
  */
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const execute = vi.hoisted(() => vi.fn());
@@ -19,8 +21,20 @@ const {
   projectIdsWithBillingRows,
 } = await import("./billing-retention-guard");
 
+/**
+ * Den SQL spärren faktiskt skickar, kompilerad av Drizzles RIKTIGA
+ * PostgreSQL-dialekt. En mock av `db.execute` ser aldrig frågan; det var
+ * precis därför en felbunden listparameter kunde ligga kvar grön.
+ */
+function compiledQuery(): { sql: string; params: unknown[] } {
+  const query = execute.mock.calls.at(-1)?.[0] as SQL;
+  const compiled = new PgDialect().sqlToQuery(query);
+  return { sql: compiled.sql, params: compiled.params };
+}
+
 beforeEach(() => {
   execute.mockReset();
+  execute.mockResolvedValue({ rows: [{ subscriptions: 0, grants: 0, jobs: 0 }] });
 });
 
 describe("countProtectedBillingRows", () => {
@@ -62,6 +76,47 @@ describe("countProtectedBillingRows", () => {
     await expect(countProtectedBillingRows({ kind: "allProjects" })).rejects.toThrow(
       "connection lost",
     );
+  });
+});
+
+describe("countProtectedBillingRows — listor blir riktiga PostgreSQL-arrayer", () => {
+  // Drizzle expanderar ett interpolerat JS-fält till en parameter per post:
+  // `ANY(($1, $2)::text[])` är en record Postgres vägrar casta (42846), och
+  // `ANY(($1)::text[])` är en ogiltig arrayliteral (22P02). Mockade tabeller
+  // såg inget av det, för de ser aldrig den kompilerade frågan.
+  const ONE = ["prj_only"];
+  const MANY = ["prj_a", "prj_b", "prj_c"];
+
+  for (const projectIds of [ONE, MANY]) {
+    it(`binder en projektlista med ${projectIds.length} post(er) som en enda parameter`, async () => {
+      await countProtectedBillingRows({ kind: "projectIds", projectIds });
+
+      const { sql: text, params } = compiledQuery();
+      // Ett predikat per delfråga → en parameter per delfråga, aldrig en per post.
+      expect(text).toContain("ANY($1::text[])");
+      expect(text).toContain("ANY($2::text[])");
+      expect(text).toContain("ANY($3::text[])");
+      expect(text).not.toMatch(/ANY\(\(/u);
+      expect(params).toEqual([projectIds, projectIds, projectIds]);
+    });
+  }
+
+  for (const keepEmails of [["solo@example.test"], ["a@example.test", "b@example.test"]]) {
+    it(`binder en e-postlista med ${keepEmails.length} post(er) som en enda parameter`, async () => {
+      await countProtectedBillingRows({ kind: "usersExcept", keepEmails });
+
+      const { sql: text, params } = compiledQuery();
+      expect(text).toContain("ANY($1::text[])");
+      expect(text).toContain("ANY($3::text[])");
+      expect(text).not.toMatch(/ANY\(\(/u);
+      expect(params).toEqual([keepEmails, keepEmails, keepEmails]);
+    });
+  }
+
+  it("frågar utan parameter när ingen adress är skyddad", async () => {
+    await countProtectedBillingRows({ kind: "usersExcept", keepEmails: [] });
+
+    expect(compiledQuery().params).toEqual([]);
   });
 });
 
@@ -121,4 +176,17 @@ describe("projectIdsWithBillingRows", () => {
     await expect(projectIdsWithBillingRows([])).resolves.toEqual(new Set());
     expect(execute).not.toHaveBeenCalled();
   });
+
+  for (const projectIds of [["prj_only"], ["prj_a", "prj_b"]]) {
+    it(`binder ${projectIds.length} projekt-id som en enda arrayparameter`, async () => {
+      execute.mockResolvedValue({ rows: [] });
+
+      await projectIdsWithBillingRows(projectIds);
+
+      const { sql: text, params } = compiledQuery();
+      expect(text).toContain("ANY($1::text[])");
+      expect(text).not.toMatch(/ANY\(\(/u);
+      expect(params).toEqual([projectIds]);
+    });
+  }
 });
