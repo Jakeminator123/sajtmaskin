@@ -399,6 +399,13 @@ const MessageListComponent = ({
             (p): p is Extract<MessagePart, { type: "tool" }> => p.type === "tool",
           );
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+          // Approval starts codegen, so it must fail closed on the same canonical
+          // awaiting-input assessment as the inline reply UI. BuildPlanCard
+          // normalizes raw blockers for display and must not be asked to infer
+          // whether the server is still waiting. Historical plans also stay
+          // visible, but never regain an approval callback after a later user turn.
+          const approveBuildPlanForMessage =
+            !pendingReply && !hasUserAfterCurrentMessage ? onApproveBuildPlan : undefined;
           const compactToolParts = showStructuredParts
             ? []
             : toolParts.filter((part) => isActionableToolPart(part.tool) || isGenerationReviewPart(part));
@@ -536,7 +543,7 @@ const MessageListComponent = ({
                         )}
                         <BuildPlanCard
                           rawPlan={part.plan.raw}
-                          onApproveBuild={onApproveBuildPlan}
+                          onApproveBuild={approveBuildPlanForMessage}
                           approveDisabled={quickReplyDisabled}
                           lifecycleStage={lifecycleStage}
                         />
@@ -580,7 +587,7 @@ const MessageListComponent = ({
                       <BuildPlanCard
                         key={`${message.id}-plan-card-${index}`}
                         rawPlan={part.plan.raw}
-                        onApproveBuild={onApproveBuildPlan}
+                        onApproveBuild={approveBuildPlanForMessage}
                         approveDisabled={quickReplyDisabled}
                         lifecycleStage={lifecycleStage}
                       />

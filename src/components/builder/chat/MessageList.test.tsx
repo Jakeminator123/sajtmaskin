@@ -13,6 +13,22 @@ vi.mock("@streamdown/code", () => ({
   code: () => null,
 }));
 
+function readyBuildPlan() {
+  return {
+    goal: "Brochure",
+    siteType: "brochure",
+    scope: ["Hem", "Kontakt"],
+    pages: [
+      { id: "home", path: "/", name: "Hem", intent: "Start", sections: [] },
+      { id: "contact", path: "/kontakt", name: "Kontakt", intent: "Kontakt", sections: [] },
+    ],
+    steps: [
+      { id: "s1", title: "Bygg startsidan", description: "Hem och kontakt", phase: "build" },
+    ],
+    blockers: [],
+  };
+}
+
 describe("MessageList", () => {
   it("keeps completed review panels inside the shared details while their warning stays visible", () => {
     render(<MessageList chatId="chat_review" messages={[{
@@ -1027,19 +1043,7 @@ describe("MessageList", () => {
 
   it("shows Godkänn plan och bygg in the default chat, not only in felsökningsvyn", () => {
     const onApproveBuildPlan = vi.fn();
-    const readyPlan = {
-      goal: "Brochure",
-      siteType: "brochure",
-      scope: ["Hem", "Kontakt"],
-      pages: [
-        { id: "home", path: "/", name: "Hem", intent: "Start", sections: [] },
-        { id: "contact", path: "/kontakt", name: "Kontakt", intent: "Kontakt", sections: [] },
-      ],
-      steps: [
-        { id: "s1", title: "Bygg startsidan", description: "Hem och kontakt", phase: "build" },
-      ],
-      blockers: [],
-    };
+    const readyPlan = readyBuildPlan();
 
     render(
       <MessageList
@@ -1067,7 +1071,131 @@ describe("MessageList", () => {
     );
 
     expect(screen.getByTestId("generation-surface")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Godkänn plan och bygg" })).toBeTruthy();
+    const approveButton = screen.getByRole("button", { name: "Godkänn plan och bygg" });
+    fireEvent.click(approveButton);
+    expect(onApproveBuildPlan).toHaveBeenCalledWith(readyPlan);
     expect(screen.queryByText("Quality gate")).toBeNull();
+  });
+
+  it("hides approval while canonical plan awaiting-input is active even if normalization drops its blocker", () => {
+    const onApproveBuildPlan = vi.fn();
+    const rawPlan = {
+      ...readyBuildPlan(),
+      blockers: [
+        {
+          id: "invalid-blocker",
+          kind: "unsupported-kind",
+          question: "Vilken datakälla ska användas?",
+        },
+      ],
+    };
+
+    render(
+      <MessageList
+        chatId="chat_sm088_pending"
+        onApproveBuildPlan={onApproveBuildPlan}
+        messages={[
+          {
+            id: "assistant_plan_pending",
+            role: "assistant",
+            content: "Planen kräver ett svar innan bygget kan starta.",
+            uiParts: [
+              {
+                type: "plan",
+                plan: {
+                  title: "Brochure",
+                  description: "Hem, Kontakt",
+                  raw: rawPlan,
+                },
+              },
+              {
+                type: "tool:awaiting-input",
+                toolName: "Plan: svar krävs",
+                toolCallId: "awaiting-input:assistant_plan_pending",
+                state: "input-available",
+                output: {
+                  question: "Vilken datakälla ska användas?",
+                  awaitingInput: true,
+                  planBlockers: rawPlan.blockers,
+                },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Bygg startsidan")).toBeTruthy();
+    expect(screen.getByText("Vilken datakälla ska användas?")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn plan och bygg" })).toBeNull();
+    expect(onApproveBuildPlan).not.toHaveBeenCalled();
+  });
+
+  it("keeps a historical plan visible without restoring its approval after a later turn", () => {
+    const onApproveBuildPlan = vi.fn();
+
+    render(
+      <MessageList
+        chatId="chat_sm088_history"
+        onApproveBuildPlan={onApproveBuildPlan}
+        messages={[
+          {
+            id: "assistant_old_plan",
+            role: "assistant",
+            content: "Planen är klar.",
+            uiParts: [
+              {
+                type: "plan",
+                plan: {
+                  title: "Brochure",
+                  description: "Hem, Kontakt",
+                  raw: readyBuildPlan(),
+                },
+              },
+            ],
+          },
+          { id: "user_after_plan", role: "user", content: "Byt målgrupp till företag." },
+          { id: "assistant_after_plan", role: "assistant", content: "Målgruppen är uppdaterad." },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Bygg startsidan")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn plan och bygg" })).toBeNull();
+    expect(onApproveBuildPlan).not.toHaveBeenCalled();
+  });
+
+  it("keeps the interaction lock on the current ready-plan approval", () => {
+    const onApproveBuildPlan = vi.fn();
+
+    render(
+      <MessageList
+        chatId="chat_sm088_locked"
+        onApproveBuildPlan={onApproveBuildPlan}
+        quickReplyDisabled
+        messages={[
+          {
+            id: "assistant_locked_plan",
+            role: "assistant",
+            content: "Planen är klar.",
+            uiParts: [
+              {
+                type: "plan",
+                plan: {
+                  title: "Brochure",
+                  description: "Hem, Kontakt",
+                  raw: readyBuildPlan(),
+                },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    const approveButton = screen.getByRole("button", { name: "Godkänn plan och bygg" });
+    expect(approveButton.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(approveButton);
+    expect(onApproveBuildPlan).not.toHaveBeenCalled();
   });
 });
