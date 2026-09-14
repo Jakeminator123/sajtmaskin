@@ -10,7 +10,7 @@ const ENV_REFERENCE_RE = /\bprocess\.env\.([A-Z][A-Z0-9_]*)\b/g;
 const ENV_BRACKET_REFERENCE_RE = /\bprocess\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g;
 const PUBLIC_ENV_REFERENCE_RE = /\bimport\.meta\.env\.([A-Z][A-Z0-9_]*)\b/g;
 const PUBLIC_ENV_BRACKET_REFERENCE_RE = /\bimport\.meta\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g;
-const ENV_DESTRUCTURE_RE = /\b(?:const|let|var)\s*\{([^{}]+)\}\s*=\s*process\.env\b/g;
+const ENV_DESTRUCTURE_RE = /\b(?:const|let|var)\s*\{([^{}]+)\}\s*=\s*(?:process|import\.meta)\.env\b/g;
 const ENV_ASSIGN_RE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm;
 
 const PROVIDERS: Array<{ pattern: RegExp; label: string }> = [

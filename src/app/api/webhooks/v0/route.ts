@@ -125,6 +125,7 @@ async function handleDeploymentReady(data: V0Payload) {
   if (deployment.length > 0) {
     const liveUrl = await resolveDeploymentLiveUrlForChat({
       chatId: deployment[0].chatId,
+      versionId: deployment[0].versionId,
       providerUrl: url,
       fallbackUrl: deployment[0].url,
     });

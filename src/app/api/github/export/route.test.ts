@@ -364,47 +364,62 @@ describe("POST /api/github/export", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a Sajtmaskin host as the destination canonical", async () => {
+  it.each([
+    "https://kund.sites.sajtmaskin.se",
+    "https://kund.sites.sajtmaskin.se.",
+    "https://sajtmaskin.se.",
+    "https://sajtmaskin.vercel.app.",
+  ])("rejects the Sajtmaskin destination canonical %s", async (siteUrl) => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await POST(exportRequest({ siteUrl: "https://kund.sites.sajtmaskin.se" }));
+    const res = await POST(exportRequest({ siteUrl }));
 
     expect(res.status).toBe(400);
     expect(getEngineChatByIdForRequest).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("uploads project media as its original bytes and reports the count", async () => {
-    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-    loadProjectExportMedia.mockResolvedValue([
-      {
-        id: 9,
-        originalName: "hero.png",
-        mimeType: "image/png",
-        body: png,
-        sourceUrls: ["https://blob.example/hero.png"],
-      },
-    ]);
-    buildPortableExportProject.mockResolvedValue([
-      {
-        path: "app/page.tsx",
-        content: "export default function Page(){ return null; }",
-        language: "tsx",
-      },
-    ]);
-    const { recorded } = installGitHubMock();
+  it.each([{}, { projectId: "proj_1" }])(
+    "uploads project media for both implicit and explicit project scope %j",
+    async (scope) => {
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+      loadProjectExportMedia.mockResolvedValue([
+        {
+          id: 9,
+          originalName: "hero.png",
+          mimeType: "image/png",
+          body: png,
+          sourceUrls: ["https://blob.example/hero.png"],
+        },
+      ]);
+      buildPortableExportProject.mockResolvedValue([
+        {
+          path: "app/page.tsx",
+          content: "export default function Page(){ return null; }",
+          language: "tsx",
+        },
+      ]);
+      const { recorded } = installGitHubMock();
 
-    const res = await POST(exportRequest({ projectId: "proj_1" }));
-    const responseBody = await res.json();
+      const res = await POST(exportRequest(scope));
+      const responseBody = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(responseBody.mediaCount).toBe(1);
-    expect(recorded.blobs).toContain(png.toString("base64"));
-    expect(recorded.tree).toEqual(
-      expect.arrayContaining([expect.objectContaining({ path: "public/media/9-hero.png" })]),
-    );
-  });
+      expect(res.status).toBe(200);
+      expect(responseBody.mediaCount).toBe(1);
+      expect(getProjectByIdForOwner).toHaveBeenCalledWith(
+        "proj_1",
+        expect.objectContaining({ userId: "user_1" }),
+      );
+      expect(loadProjectExportMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj_1", userId: "user_1" }),
+      );
+      expect(recorded.blobs).toContain(png.toString("base64"));
+      expect(recorded.tree).toEqual(
+        expect.arrayContaining([expect.objectContaining({ path: "public/media/9-hero.png" })]),
+      );
+    },
+  );
 
   it("requires a destination for the exact persisted provider origin", async () => {
     loadProjectProviderOrigin.mockResolvedValue("https://demo.vercel.app");
@@ -418,7 +433,7 @@ describe("POST /api/github/export", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await POST(exportRequest({ projectId: "proj_1" }));
+    const res = await POST(exportRequest());
 
     expect(res.status).toBe(400);
     expect(loadProjectProviderOrigin).toHaveBeenCalledWith({
@@ -427,4 +442,17 @@ describe("POST /api/github/export", () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("rejects an implicit project scope the current user no longer owns", async () => {
+    getProjectByIdForOwner.mockResolvedValue(null);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(exportRequest());
+
+    expect(res.status).toBe(404);
+    expect(loadProjectExportMedia).not.toHaveBeenCalled();
+    expect(loadProjectProviderOrigin).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
 });

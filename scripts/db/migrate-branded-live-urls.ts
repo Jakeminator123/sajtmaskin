@@ -1,23 +1,38 @@
 /**
  * Bounded migration for already-published generated sites.
  *
- * Dry-run is the default. `--apply` performs DB + Vercel writes and therefore
- * requires the normal production-like DB write acknowledgement.
+ * Dry-run is the default. `--apply` is rejected until A4 can bind the reviewed
+ * bytes to the immutable provider deployment that will receive the alias.
  */
 import { config } from "dotenv";
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
-import { assertSafeWriteTarget } from "./db-target-guard.mjs";
+import {
+  assertBrandedLiveUrlMigrationMode,
+  resolveBrandedLiveUrlMigrationPolicy,
+} from "./migrate-branded-live-urls-policy";
 
+const apply = process.argv.includes("--apply");
+assertBrandedLiveUrlMigrationMode(process.argv);
 config({ path: ".env.local" });
-const [{ db }, { appProjects, deployments, engineChats }, projectServices, deploymentServices, liveUrls, vercelDeploy] =
-  await Promise.all([
-    import("@/lib/db/client"),
-    import("@/lib/db/schema"),
-    import("@/lib/db/services/projects"),
-    import("@/lib/deployment"),
-    import("@/lib/live-site-url"),
-    import("@/lib/vercel/vercel-deploy"),
-  ]);
+const [
+  { db },
+  { appProjects, deployments, engineChats },
+  projectServices,
+  deploymentServices,
+  liveUrls,
+  vercelDeploy,
+  versionManager,
+  dossierPresence,
+] = await Promise.all([
+  import("@/lib/db/client"),
+  import("@/lib/db/schema"),
+  import("@/lib/db/services/projects"),
+  import("@/lib/deployment"),
+  import("@/lib/live-site-url"),
+  import("@/lib/vercel/vercel-deploy"),
+  import("@/lib/gen/version-manager"),
+  import("@/lib/gen/dossiers/version-presence"),
+]);
 const {
   clearProjectBrandedDomainVerification,
   ensureProjectPublishedIdentity,
@@ -28,8 +43,8 @@ const {
 const { getBrandedLiveSiteDomain, slugCandidate } = liveUrls;
 const { checkVercelProjectDomain, ensureVercelProjectDomain } = vercelDeploy;
 const { setLatestDeploymentLiveUrlForChat } = deploymentServices;
-
-const apply = process.argv.includes("--apply");
+const { getVersionFilesSnapshot } = versionManager;
+const { resolveSelectedDossiersWithVersionPresence } = dossierPresence;
 const limitArg = process.argv.find((arg) => arg.startsWith("--limit="));
 const projectArg = process.argv.find((arg) => arg.startsWith("--project-id="));
 const limit = Math.max(1, Math.min(100, Number(limitArg?.split("=")[1] ?? 10)));
@@ -40,10 +55,6 @@ if (!getBrandedLiveSiteDomain()) {
     "Set SAJTMASKIN_BRANDED_LIVE_URLS=true and SAJTMASKIN_LIVE_SITE_DOMAIN before migration.",
   );
 }
-if (apply) {
-  assertSafeWriteTarget({ commandName: "domains:brand:migrate" });
-}
-
 const rows = await db
   .select()
   .from(appProjects)
@@ -53,7 +64,7 @@ let processed = 0;
 for (const project of rows) {
   if (onlyProjectId && project.id !== onlyProjectId) continue;
   const chats = await db
-    .select({ id: engineChats.id })
+    .select({ id: engineChats.id, orchestrationSnapshot: engineChats.orchestrationSnapshot })
     .from(engineChats)
     .where(eq(engineChats.projectId, project.id));
   const chatIds = chats.map((chat) => chat.id);
@@ -64,7 +75,11 @@ for (const project of rows) {
     chatIds.length > 0
       ? (
           await db
-            .select({ vercelProjectId: deployments.vercelProjectId })
+            .select({
+              chatId: deployments.chatId,
+              versionId: deployments.versionId,
+              vercelProjectId: deployments.vercelProjectId,
+            })
             .from(deployments)
             .where(
               and(
@@ -77,9 +92,9 @@ for (const project of rows) {
             .limit(1)
         )[0]
       : null;
-  const vercelProjectId =
-    latestReadyDeployment?.vercelProjectId?.trim() || null;
-  if (!vercelProjectId) continue;
+  const vercelProjectId = latestReadyDeployment?.vercelProjectId?.trim() || null;
+  const versionId = latestReadyDeployment?.versionId?.trim() || null;
+  if (!vercelProjectId || !versionId) continue;
   const legacyDomain =
     chatIds.length > 0
       ? (
@@ -98,6 +113,34 @@ for (const project of rows) {
       : null;
   processed += 1;
   if (processed > limit) break;
+  const versionSnapshot = await getVersionFilesSnapshot(versionId);
+  const chatSnapshot = chats.find(
+    (chat) => chat.id === latestReadyDeployment?.chatId,
+  )?.orchestrationSnapshot;
+  const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+    snapshot: chatSnapshot,
+    versionFiles: versionSnapshot?.files ?? [],
+  });
+  const pilotDecision = resolveBrandedLiveUrlMigrationPolicy({
+    projectId: project.id,
+    versionId,
+    filesRevision: versionSnapshot?.filesRevision ?? null,
+    snapshot: chatSnapshot,
+    selectedDossiers,
+  });
+  if (!pilotDecision.allowed) {
+    console.log(
+      JSON.stringify({
+        mode: "skip",
+        requestedMode: apply ? "apply" : "dry-run",
+        projectId: project.id,
+        versionId,
+        reason: pilotDecision.reason,
+        rejectedCapabilities: pilotDecision.rejectedCapabilities,
+      }),
+    );
+    continue;
+  }
   const candidate = project.published_slug?.trim() || slugCandidate(project.name);
   if (!apply) {
     console.log(
@@ -105,6 +148,8 @@ for (const project of rows) {
         mode: "dry-run",
         projectId: project.id,
         projectName: project.name,
+        versionId,
+        filesRevision: versionSnapshot?.filesRevision ?? null,
         vercelProjectId,
         slugCandidate: candidate,
         legacyCustomDomain: legacyDomain,
@@ -147,6 +192,7 @@ for (const project of rows) {
     JSON.stringify({
       mode: "apply",
       projectId: project.id,
+      versionId,
       domain: alias.name,
       verified: alias.verified,
     }),

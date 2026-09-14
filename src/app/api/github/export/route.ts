@@ -35,10 +35,11 @@ const exportSchema = z.object({
     .url()
     .refine((value) => {
       const url = new URL(value);
+      const hostname = url.hostname.replace(/\.+$/, "");
       const isSajtmaskinHost =
-        url.hostname === "sajtmaskin.se" ||
-        url.hostname.endsWith(".sajtmaskin.se") ||
-        url.hostname === "sajtmaskin.vercel.app";
+        hostname === "sajtmaskin.se" ||
+        hostname.endsWith(".sajtmaskin.se") ||
+        hostname === "sajtmaskin.vercel.app";
       return (
         (url.protocol === "https:" || url.protocol === "http:") &&
         !isSajtmaskinHost &&
@@ -286,8 +287,11 @@ export async function POST(request: NextRequest) {
           { status: 410 },
         );
       }
-      if (projectId) {
-        const project = await getProjectByIdForOwner(projectId, {
+      // All export entry points share the authorized chat's project scope.
+      // A client-supplied project is only an additional consistency check.
+      const exportProjectId = projectId ?? engineChat.project_id;
+      if (exportProjectId) {
+        const project = await getProjectByIdForOwner(exportProjectId, {
           userId: user.id,
           sessionId: getSessionIdFromRequest(request),
         });
@@ -302,16 +306,17 @@ export async function POST(request: NextRequest) {
       }
       const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
       const portableProject = await buildPortableExportProject(rawFiles, chatId);
-      const media = projectId
+      const media = exportProjectId
         ? await loadProjectExportMedia({
-            projectId,
+            projectId: exportProjectId,
             userId: user.id,
             referencedText: portableProject.map((file) => file.content).join("\n"),
           })
         : [];
-      const providerOrigin = projectId
-        ? await loadProjectProviderOrigin({ chatId: engineChat.id, versionId: ev.id })
-        : null;
+      const providerOrigin = await loadProjectProviderOrigin({
+        chatId: engineChat.id,
+        versionId: ev.id,
+      });
       const transferProject = buildOwnerTransferPackage({
         projectFiles: portableProject,
         media,

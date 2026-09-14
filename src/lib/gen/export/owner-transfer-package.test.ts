@@ -113,6 +113,26 @@ describe("buildOwnerTransferPackage", () => {
     );
   });
 
+  it("includes destructured Vite environment names without their values", () => {
+    const files = buildOwnerTransferPackage({
+      projectFiles: [
+        {
+          path: "src/config.ts",
+          content: "const { VITE_API_URL, VITE_TOKEN: token } = import.meta.env;",
+          language: "ts",
+        },
+      ],
+      media: [],
+    });
+
+    expect(String(files.find((file) => file.path === "env.example")?.content)).toBe(
+      "NEXT_PUBLIC_SITE_URL=\nVITE_API_URL=\nVITE_TOKEN=\n",
+    );
+    expect(String(files.find((file) => file.path === EXPORT_GUIDE_PATH)?.content)).toContain(
+      "VITE_TOKEN",
+    );
+  });
+
   it("replaces only the exact persisted provider origin", () => {
     const input = {
       projectFiles: [
