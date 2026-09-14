@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:f5efa3533f99032f -->
+<!-- source-fingerprint: config/env-policy.json sha256:b5356a0ac7ab6676 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -175,6 +175,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `UPSTASH_REDIS_REST_TOKEN`                           | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `UPSTASH_REDIS_REST_URL`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `USE_RESPONSES_API`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `VERCEL_BRANCH_URL`                                  | `vercel_managed`       | —                                      | Yes           | No           |
 | `VERCEL_LOG_DRAIN_ENABLED`                           | `optional_runtime`     | `production`                           | No            | No           |
 | `VERCEL_LOG_DRAIN_SECRET`                            | `optional_runtime`     | `production`                           | No            | No           |
 | `VERCEL_OIDC_TOKEN`                                  | `environment_specific` | `development`                          | No            | No           |

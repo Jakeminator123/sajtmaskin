@@ -289,6 +289,12 @@
       "notes": "Set internally by Next.js build/runtime phases."
     },
     {
+      "key": "VERCEL_BRANCH_URL",
+      "classification": "vercel_managed",
+      "recommendedVercelTargets": [],
+      "notes": "Set automatically by Vercel to the branch-specific deployment URL. Do not push a local value."
+    },
+    {
       "key": "RENDER",
       "classification": "local_only",
       "recommendedVercelTargets": [],
