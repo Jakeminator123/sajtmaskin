@@ -196,6 +196,16 @@ describe("D1-schemat är samma sanning i alla ägare", () => {
 });
 
 describe("D1 aktiverar inget kundflöde", () => {
+  /**
+   * Enda tillåtna nämnaren av tabellerna under `src/` utöver schema-ägaren.
+   *
+   * Bevarandespärren MÅSTE kunna räkna raderna: adminrensningarna raderar flera
+   * tabeller i tur och ordning, så utan en fråga före den första DELETE:n kommer
+   * databasens RESTRICT först när halva miljön är borta. Den får läsa — aldrig
+   * skriva. Nästa test håller den gränsen.
+   */
+  const RETENTION_GUARD = join("src", "lib", "db", "billing-retention-guard.ts");
+
   /** Alla källfiler under src/ utom schema-ägaren och migrationerna. */
   function appSources(): string[] {
     const out: string[] = [];
@@ -213,13 +223,15 @@ describe("D1 aktiverar inget kundflöde", () => {
     return out.filter(
       (path) =>
         !path.endsWith(join("src", "lib", "db", "schema.ts")) &&
+        !path.endsWith(RETENTION_GUARD) &&
         !path.includes(join("src", "lib", "db", "migrations")),
     );
   }
 
   it("har ingen läsare eller skrivare av abonnemangstabellerna ännu", () => {
     // D1 är schema. Checkout, webhook, portallänk och avstämning ägs av D2, och
-    // den här grinden gör det synligt om något smyger in i samma etapp.
+    // den här grinden gör det synligt om något smyger in i samma etapp. En
+    // kommande `src/app/api/stripe/...` som rör tabellerna failar här.
     const offenders = appSources().filter((path) => {
       const source = readFileSync(path, "utf8");
       return D1_TABLES.some(
@@ -227,6 +239,14 @@ describe("D1 aktiverar inget kundflöde", () => {
       );
     });
     expect(offenders).toEqual([]);
+  });
+
+  it("låter bevarandespärren räkna rader men aldrig skriva dem", () => {
+    const guard = readFileSync(join(REPO_ROOT, RETENTION_GUARD), "utf8");
+    // Bara SELECT. En INSERT/UPDATE/DELETE här vore D2-flödet smuget in i D1.
+    expect(guard).not.toMatch(/\b(INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/iu);
+    expect(guard).not.toMatch(/db\.(insert|update|delete)\(/u);
+    expect(guard).toContain("SELECT count(*) FROM site_subscriptions");
   });
 });
 

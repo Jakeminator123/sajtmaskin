@@ -20,6 +20,13 @@ const getRedisInfo = vi.hoisted(() => vi.fn());
 /** Recorded `db.delete(<table>).where(<condition>)` calls per test. */
 const deleteCalls = vi.hoisted(() => [] as { table: string; condition: unknown }[]);
 
+/**
+ * What the billing-retention guard's single counting query returns. D3 keeps
+ * subscription bookkeeping out of every wipe, so a non-zero value here must
+ * abort the action BEFORE the first delete.
+ */
+const billingCounts = vi.hoisted(() => ({ subscriptions: 0, grants: 0, jobs: 0 }));
+
 vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess }));
 vi.mock("@/lib/data/redis", () => ({ flushRedisCache, getRedisInfo }));
 
@@ -37,6 +44,7 @@ vi.mock("drizzle-orm", () => ({
   desc: (column: unknown) => ({ op: "desc", column }),
   isNotNull: (column: unknown) => ({ op: "isNotNull", column }),
   isNull: (column: unknown) => ({ op: "isNull", column }),
+  inArray: (column: unknown, values: unknown[]) => ({ op: "inArray", column, values }),
   lt: (column: unknown, value: unknown) => ({ op: "lt", column, value }),
   notInArray: (column: unknown, values: unknown[]) => ({ op: "notInArray", column, values }),
   sql: (strings: TemplateStringsArray) => ({ op: "sql", text: strings?.join?.("") ?? "" }),
@@ -59,7 +67,16 @@ vi.mock("@/lib/db/client", () => ({
         then: (resolve: (rows: { count: number }[]) => unknown) => resolve([{ count: 0 }]),
       }),
     }),
-    execute: () => Promise.resolve({ rows: [{ size: "1 MB" }] }),
+    // The retention guard runs for real against this stand-in: its counting
+    // query is answered with the per-test counts, everything else with the
+    // database-size row. Matched on `count(*)` rather than a table name so this
+    // file stays outside the D1 "no readers yet" scanner.
+    execute: (query: { text?: string }) =>
+      Promise.resolve(
+        query?.text?.includes("count(*)")
+          ? { rows: [{ ...billingCounts }] }
+          : { rows: [{ size: "1 MB" }] },
+      ),
   },
 }));
 
@@ -108,6 +125,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   deleteCalls.length = 0;
+  Object.assign(billingCounts, { subscriptions: 0, grants: 0, jobs: 0 });
   redisFeature.enabled = true;
   requireAdminAccess.mockResolvedValue({ ok: true, user: { email: ADMIN_EMAIL } });
   flushRedisCache.mockResolvedValue(0);
@@ -239,6 +257,64 @@ describe("POST /api/admin/database — the acting admin survives", () => {
 
     const conditions = userDeleteConditions();
     expect(conditions[0].values).toEqual(["test@example.com"]);
+  });
+});
+
+describe("POST /api/admin/database — abonnemangsbokföringen överlever varje rensning", () => {
+  // Abonnemangens projektlänk är ON DELETE RESTRICT. Utan en spärr före
+  // den FÖRSTA raderingen hade rensningarna tömt project_files, project_data,
+  // images, transactions … och sedan kraschat på app_projects — halv miljö och
+  // ett obegripligt FK-fel. Spärren gör utfallet "ingenting hände".
+  const wipes: { action: string; table?: string }[] = [
+    { action: "reset-all" },
+    { action: "mega-cleanup" },
+    { action: "clear", table: "projects" },
+    { action: "clear", table: "users" },
+  ];
+
+  for (const body of wipes) {
+    const label = body.table ? `${body.action} ${body.table}` : body.action;
+
+    it(`vägrar ${label} utan att radera något när ett abonnemang finns`, async () => {
+      billingCounts.subscriptions = 1;
+
+      const response = await POST(actionRequest(body));
+      const payload = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(payload.success).toBe(false);
+      expect(payload.blockedBy).toBe("billing-retention");
+      expect(payload.error).toMatch(/abonnemang/i);
+      expect(deleteCalls).toEqual([]);
+    });
+
+    it(`låter ${label} gå igenom när tabellerna är tomma`, async () => {
+      const response = await POST(actionRequest(body));
+
+      expect(response.status).toBe(200);
+      expect(deleteCalls.length).toBeGreaterThan(0);
+    });
+  }
+
+  it("vägrar även när bara en kreditgrant eller ett jobb ligger kvar", async () => {
+    billingCounts.grants = 2;
+    billingCounts.jobs = 1;
+
+    const response = await POST(actionRequest({ action: "reset-all" }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.counts).toEqual({ subscriptions: 0, grants: 2, jobs: 1 });
+    expect(deleteCalls).toEqual([]);
+  });
+
+  it("lämnar rensningar som inte rör projekt eller användare orörda", async () => {
+    billingCounts.subscriptions = 3;
+
+    const response = await POST(actionRequest({ action: "clear", table: "page_views" }));
+
+    expect(response.status).toBe(200);
+    expect(deleteCalls.map((call) => call.table)).toEqual(["page_views"]);
   });
 });
 

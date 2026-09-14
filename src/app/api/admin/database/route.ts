@@ -4,11 +4,15 @@
  * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
-import { and, desc, isNotNull, isNull, lt, notInArray, sql } from "drizzle-orm";
+import { and, desc, inArray, isNotNull, isNull, lt, notInArray, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
+import {
+  BillingRetentionError,
+  assertNoProtectedBillingRows,
+} from "@/lib/db/billing-retention-guard";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
@@ -80,6 +84,12 @@ async function resetEnvironmentData(actingAdminEmail: string | null | undefined)
    */
   redisConfigured: boolean;
 }> {
+  // Före den FÖRSTA DELETE:n. Abonnemangsbokföringen hålls kvar av RESTRICT i
+  // databasen, men den spärren slår till först när `app_projects` raderas —
+  // och då är tabellerna före den redan tömda. Här avbryts hela åtgärden i
+  // stället, med miljön orörd.
+  await assertNoProtectedBillingRows("Nollställningen", { kind: "allProjects" });
+
   let deletedRows = 0;
 
   // Order matters: rows that reference app_projects go first.
@@ -216,8 +226,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (table === "users") {
+        await assertNoProtectedBillingRows("Rensningen av användare", {
+          kind: "usersExcept",
+          keepEmails: protectedUserEmails(admin.user.email),
+        });
         await deleteUsersExceptProtected(admin.user.email);
       } else if (table === "projects") {
+        await assertNoProtectedBillingRows("Rensningen av projekt", { kind: "allProjects" });
         await db.delete(projectData).where(sql`true`);
         await db.delete(projectFiles).where(sql`true`);
         await db.delete(images).where(sql`true`);
@@ -514,16 +529,32 @@ export async function POST(req: NextRequest) {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
 
-      const deleted = await db
-        .delete(appProjects)
+      // Först vilka rader det gäller, sedan spärren, sedan raderingen — så
+      // spärren prövas mot exakt de projekt som är på väg bort.
+      const candidates = await db
+        .select({ id: appProjects.id })
+        .from(appProjects)
         .where(
           and(
             isNull(appProjects.user_id),
             isNotNull(appProjects.session_id),
             lt(appProjects.updated_at, cutoff),
           ),
-        )
-        .returning({ id: appProjects.id });
+        );
+      const candidateIds = candidates.map((row) => row.id).filter(Boolean);
+
+      await assertNoProtectedBillingRows("Rensningen av anonyma projekt", {
+        kind: "projectIds",
+        projectIds: candidateIds,
+      });
+
+      const deleted =
+        candidateIds.length === 0
+          ? []
+          : await db
+              .delete(appProjects)
+              .where(inArray(appProjects.id, candidateIds))
+              .returning({ id: appProjects.id });
 
       console.info(`[Admin] Deleted ${deleted.length} anonymous projects older than ${days} days`);
       return NextResponse.json({
@@ -535,6 +566,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (error) {
+    if (error instanceof BillingRetentionError) {
+      // Inget raderades. Egen statuskod och det faktiska antalet, så operatören
+      // ser skillnad på "vägrade" och "gick sönder halvvägs".
+      console.warn("[API/admin/database] Avbröts av abonnemangsspärren:", error.counts);
+      return NextResponse.json(
+        { success: false, error: error.message, blockedBy: "billing-retention", counts: error.counts },
+        { status: 409 },
+      );
+    }
     console.error("[API/admin/database] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to perform action" },
