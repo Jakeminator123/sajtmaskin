@@ -52,6 +52,10 @@ export interface KostnadsfriAdminPayload {
     createdAt: string;
     expiresAt: string | null;
     consumedAt: string | null;
+    /** When the invite mail went out. Null = created but never sent. */
+    sentAt: string | null;
+    /** Who registered the send, e.g. `python-utskick`. */
+    source: string | null;
   }[];
   stats: {
     slug: string;
