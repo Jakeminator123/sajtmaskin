@@ -341,7 +341,9 @@ const setupQueries = [
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     expires_at TIMESTAMPTZ,
-    consumed_at TIMESTAMPTZ
+    consumed_at TIMESTAMPTZ,
+    sent_at TIMESTAMPTZ,
+    source TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS kostnadsfri_campaign_entitlements (
     id TEXT PRIMARY KEY,

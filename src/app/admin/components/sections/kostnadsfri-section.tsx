@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Users, Wand2 } from "lucide-react";
+import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,15 @@ function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("sv-SE");
+}
+
+/** Date only — the send register is read per day, not per second. */
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -157,6 +166,8 @@ export function KostnadsfriSection() {
         saved: boolean;
         status: string | null;
         contactEmail: string | null;
+        sentAt: string | null;
+        source: string | null;
         stats: KostnadsfriAdminPayload["stats"][number] | null;
       }
     >();
@@ -167,6 +178,8 @@ export function KostnadsfriSection() {
         saved: true,
         status: page.status,
         contactEmail: page.contactEmail,
+        sentAt: page.sentAt,
+        source: page.source,
         stats: null,
       });
     }
@@ -181,16 +194,33 @@ export function KostnadsfriSection() {
           saved: false,
           status: null,
           contactEmail: null,
+          sentAt: null,
+          source: null,
           stats: stat,
         });
       }
     }
+    // Sent rows first (newest send on top) — this is a send register. Rows
+    // without a send keep the old "last visit" ordering below them.
     return [...bySlug.values()].sort((a, b) => {
+      if (a.sentAt && b.sentAt && a.sentAt !== b.sentAt) return a.sentAt < b.sentAt ? 1 : -1;
+      if (Boolean(a.sentAt) !== Boolean(b.sentAt)) return a.sentAt ? -1 : 1;
       const aLast = a.stats?.lastSeen ?? "";
       const bLast = b.stats?.lastSeen ?? "";
       return aLast < bLast ? 1 : aLast > bLast ? -1 : a.slug.localeCompare(b.slug);
     });
   }, [data]);
+
+  const [rowFilter, setRowFilter] = useState("");
+  const filteredRows = useMemo(() => {
+    const needle = rowFilter.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) =>
+      [row.companyName, row.slug, row.contactEmail].some((field) =>
+        field?.toLowerCase().includes(needle),
+      ),
+    );
+  }, [rows, rowFilter]);
 
   const totals = useMemo(() => {
     const stats = data?.stats ?? [];
@@ -199,6 +229,8 @@ export function KostnadsfriSection() {
       visits: stats.reduce((sum, s) => sum + s.visits, 0),
       verified: stats.reduce((sum, s) => sum + s.verified, 0),
       started: stats.reduce((sum, s) => sum + s.started, 0),
+      // Sends are lifetime facts on the DB row, not period statistics.
+      sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
     };
   }, [data]);
 
@@ -375,7 +407,8 @@ export function KostnadsfriSection() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <StatCard label="Utskick" value={totals.sent} hint="totalt" icon={Send} />
               <StatCard
                 label="Länkar med besök"
                 value={totals.slugs}
@@ -399,19 +432,36 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Per företag"
-              description={`Sparade sidor och alla länkar som fått besök, ${periodLabel}. Rader utan "Sparad" är deterministiska länkar som aldrig lades i databasen.`}
+              description={`Sparade sidor och alla länkar som fått besök, ${periodLabel}. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden. Rader utan "Sparad" är deterministiska länkar som aldrig lades i databasen.`}
               icon={Users}
             >
+              <div className="mb-4 max-w-sm">
+                <Label htmlFor="kostnadsfri-filter" className="sr-only">
+                  Sök i registret
+                </Label>
+                <Input
+                  id="kostnadsfri-filter"
+                  value={rowFilter}
+                  onChange={(event) => setRowFilter(event.target.value)}
+                  placeholder="Sök företag, slug eller e-post"
+                  autoComplete="off"
+                />
+              </div>
               <DataState
-                isEmpty={rows.length === 0}
-                emptyTitle="Inga länkar ännu"
-                emptyDescription="Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                isEmpty={filteredRows.length === 0}
+                emptyTitle={rowFilter.trim() ? "Inga träffar" : "Inga länkar ännu"}
+                emptyDescription={
+                  rowFilter.trim()
+                    ? "Ingen rad matchar sökningen. Rensa fältet för att se hela registret."
+                    : "Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                }
                 emptyIcon={Link2}
               >
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
+                      <TableHead>Skickat</TableHead>
                       <TableHead className="text-right">Besök</TableHead>
                       <TableHead className="text-right">Unika</TableHead>
                       <TableHead className="text-right">Rätt lösenord</TableHead>
@@ -426,15 +476,19 @@ export function KostnadsfriSection() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((row) => (
+                    {filteredRows.map((row) => (
                       <TableRow key={row.slug}>
                         <TableCell>
                           <p className="font-medium">{row.companyName ?? "—"}</p>
                           <p className="text-muted-foreground font-mono text-xs">
                             /kostnadsfri/{row.slug}
                           </p>
-                          {row.contactEmail && (
-                            <p className="text-muted-foreground text-xs">{row.contactEmail}</p>
+                          <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          <p>{formatDate(row.sentAt)}</p>
+                          {row.source && (
+                            <p className="text-muted-foreground text-[11px]">{row.source}</p>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
