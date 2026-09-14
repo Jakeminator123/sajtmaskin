@@ -7,9 +7,11 @@ full historik → git. Livscykel:
 Buggar/beslut → [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) —
 kopiera inte kön hit.
 
-**Nästa agent startar här:**
+**Oassignerat buggarbete startar här:**
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md).
-Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp.
+Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp,
+när inget pågående spår har tilldelats uttryckligen. En agent som har fått ett
+namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 
 ## Pågående spår
 

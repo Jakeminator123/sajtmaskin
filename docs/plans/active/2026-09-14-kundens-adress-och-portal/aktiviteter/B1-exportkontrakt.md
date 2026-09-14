@@ -4,29 +4,28 @@
 
 B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden.
 
-Område: [02](../02-agandeskap-och-exit.md). Efter [C1](C1-sajtvy.md).
-Sajtvy-integration körs i följd med C2 så att samma sida inte skrivs parallellt.
+Område: [02](../02-agandeskap-och-exit.md). Leveransen bygger vidare på
+[C1](C1-sajtvy.md); C2 äger den kvarvarande domänintegrationen i samma sajtvy.
 
-## Gör
+## Leveransbevis och kodägare
 
-1. Gör befintlig GitHub-export nåbar från sajtvyn. Återanvänd implementationen.
-2. Ge åtkomst till kundens uppladdade media genom filuttag eller länklista.
-   En lista med utgångna/signerade URL:er räcker inte som varaktig medieexport.
-3. Bifoga instruktioner för installation, build och nödvändiga externa tjänster.
-   Exportera env-namn men inga plattformshemligheter. Markera tydligt sådant
-   som saknas: extern databas, tredjepartskonton, nycklar eller licensrättigheter.
-4. Låt kundens egen domän/nya URL ersätta gammal `sites.sajtmaskin.se`-canonical
-   vid utflytt. Exporterade redirects får inte tvinga sajten tillbaka till oss.
-5. Skriv kort kundtext som motsvarar faktiskt exporterad kod och data. Kunden
-   får använda koden enligt tillämpliga licenser; utlova inte exklusivitet för
-   tredjepartsbibliotek eller AI-output.
+- Sajtvyn öppnar den befintliga, serverägargranskade GitHub-exporten via
+  [`GitHubExportDialog.tsx`](../../../../../src/components/builder/project-transfer/GitHubExportDialog.tsx)
+  och [`route.ts`](../../../../../src/app/api/github/export/route.ts).
+- Uppladdade media materialiseras som varaktiga filer av
+  [`project-export-media.ts`](../../../../../src/lib/projects/project-export-media.ts),
+  inte som utgående signerade länkar.
+- Installations-, build-, env- och begränsningsinformationen ägs av
+  [`owner-transfer-package.ts`](../../../../../src/lib/gen/export/owner-transfer-package.ts).
+  Den exporterar env-namn utan plattformshemligheter och beskriver externa
+  beroenden som inte följer med. Samma ägare kräver en ny origin före byte av
+  projektets tidigare canonical och tar inte med en tvingande redirect tillbaka
+  till Sajtmaskin.
+- Det portabla GitHub-filträdet och dess säkra uppdateringsplan ägs av
+  [`github-tree-plan.ts`](../../../../../src/lib/gen/export/github-tree-plan.ts).
+- Leveransen verifierades med 45 riktade tester och typecheck samt en fristående
+  installerad Next-export med verklig PNG, ny origin och tomma env-värden.
 
-## Verifiering
-
-Installera och bygg en representativ export med projektets aktuella baseline,
-inklusive ett tillagt mediaobjekt. Pinnad Next-version hämtas från kodägaren,
-inte från ett versionsnummer i detta dokument. Kontrollera att inga interna
-nycklar eller tvingande plattformsredirects följt med.
-
-Ägarkontroll krävs även på export-/medie-endpoints. Export ska fungera under
-betalningspaus utan nytt köp. Full databas- eller registraröverföring ingår inte.
+Export-/medie-endpoints gör serverägd projektkontroll och vägen kräver inget
+nytt köp, så exporten förblir tillgänglig under betalningspaus. Full databas-
+eller registraröverföring ingår inte i B1.

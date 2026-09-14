@@ -25,7 +25,7 @@ Varje checkout, webhook, portallänk och entitlement-uppslag måste vara avgrän
 per läge. Testabonnemang får aldrig hålla en produktionssajt publicerad eller
 fylla det riktiga creditsaldot. Testa även samma användare/projekt i båda lägena.
 
-## Grundmodellens kontrakt
+## Grundmodellens levererade kontrakt
 
 - Kundkoppling per användare/läge med unik Stripe-kundidentitet inom läget.
 - Abonnemang med ägare, `project_id`, läge, Stripe subscription-ID,
@@ -53,7 +53,7 @@ nollställning av köpta credits. Befintlig `transactions.idempotency_key` kan
 återanvändas för live-granten. Testgrants ska stanna i testavgränsad ledger/
 förmånssimulering; de får inte mutera gemensamma `users.diamonds`.
 
-## Migration och verifiering
+## Leveransbevis och bevarade följdkrav
 
 Följ [db-env-parity](../../../../../.cursor/rules/db-env-parity.mdc): additiv
 migration, registrering i `MIGRATION_ORDER`, target-kontroll och rätt applicering
