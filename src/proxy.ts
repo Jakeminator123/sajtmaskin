@@ -10,6 +10,16 @@ const ADMIN_PREFIX = "/admin";
 
 const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
+/**
+ * Prefixes whose subpaths require a signed-in user. `AUTH_REQUIRED_PATHS` is an
+ * exact-match set, so a dynamic route like `/projects/<id>` would slip straight
+ * through it — the customer portal's per-site view must be gated by prefix.
+ *
+ * The server-side owner check in each route/API is still the authority; this
+ * gate only keeps an anonymous visitor from reaching the page at all.
+ */
+const AUTH_REQUIRED_PREFIXES = ["/projects/"] as const;
+
 const ALLOWED_ORIGINS = new Set(
   [getAppBaseUrl(), process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ""].filter(
     Boolean,
@@ -29,7 +39,8 @@ function needsAdminAuth(pathname: string): boolean {
 }
 
 function needsUserAuth(pathname: string): boolean {
-  return AUTH_REQUIRED_PATHS.has(pathname);
+  if (AUTH_REQUIRED_PATHS.has(pathname)) return true;
+  return AUTH_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com", "https://studio.d-id.com"];

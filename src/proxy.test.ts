@@ -22,20 +22,30 @@ function directive(csp: string, name: string): string {
   );
 }
 
-describe("proxy auth gate — /konto", () => {
-  it("redirects an anonymous visitor away from /konto", async () => {
-    const res = await proxy(new NextRequest(new URL("https://sajtmaskin.example/konto")));
+describe("proxy auth gate — customer portal routes", () => {
+  it.each(["/projects", "/projects/abc123", "/projects/abc123/", "/buy-credits", "/konto"])(
+    "redirects an anonymous visitor away from %s",
+    async (path) => {
+      const res = await proxy(new NextRequest(new URL(`https://sajtmaskin.example${path}`)));
 
-    expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("https://sajtmaskin.example/");
-  });
+      // `AUTH_REQUIRED_PATHS` is an exact-match set, so the dynamic site view
+      // would fall through without the prefix rule. A signed-out visitor must
+      // not reach the page at all.
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("https://sajtmaskin.example/");
+    },
+  );
 
   it("does not treat /konto as a prefix — only the exact path is gated", async () => {
-    // C1 owns AUTH_REQUIRED_PREFIXES for /projects/. This page is an exact set
-    // member so a sibling merge does not pick up an extra prefix rule.
     const res = await proxy(
       new NextRequest(new URL("https://sajtmaskin.example/konto/installningar")),
     );
+
+    expect(res.status).not.toBe(307);
+  });
+
+  it("does not gate unrelated public routes that merely start similarly", async () => {
+    const res = await proxy(new NextRequest(new URL("https://sajtmaskin.example/templates")));
 
     expect(res.status).not.toBe(307);
   });
