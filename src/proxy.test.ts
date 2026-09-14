@@ -51,6 +51,163 @@ describe("proxy auth gate — customer portal routes", () => {
   });
 });
 
+describe("proxy exact-Origin guard", () => {
+  const browserMutations = [
+    "/api/projects",
+    "/api/engine/chats/stream",
+    "/api/media/upload",
+    "/api/auth/logout",
+    "/api/github/export",
+  ];
+
+  it.each(browserMutations)("allows %s from the exact preview portal origin", async (path) => {
+    const res = await proxy(
+      new NextRequest(`https://sajtmaskin.vercel.app${path}`, {
+        method: "POST",
+        headers: {
+          origin: "https://preview.sajtmaskin.se",
+          cookie: "__Host-sajtmaskin_auth=signed",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("rejects a customer sibling even when the browser calls it same-site", async () => {
+    const res = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "POST",
+        headers: {
+          origin: "https://customer.sajtmaskin.se",
+          "sec-fetch-site": "same-site",
+          cookie: "sajtmaskin_session=shadowed",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: "origin_not_allowed" });
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("does not derive trust from the request Host", async () => {
+    const res = await proxy(
+      new NextRequest("https://customer.sajtmaskin.se/api/auth/logout", {
+        method: "POST",
+        headers: {
+          origin: "https://customer.sajtmaskin.se",
+          cookie: "sajtmaskin_auth=shadowed",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+  });
+
+  it.each(["null", "*", "https://sajtmaskin.se/", "malformed"])(
+    "rejects the non-exact Origin value %s",
+    async (origin) => {
+      const res = await proxy(
+        new NextRequest("https://sajtmaskin.se/api/projects", {
+          method: "POST",
+          headers: { origin },
+        }),
+      );
+
+      expect(res.status).toBe(403);
+    },
+  );
+
+  it("accepts a no-Origin cookie mutation only with same-origin browser evidence", async () => {
+    const allowed = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "POST",
+        headers: {
+          cookie: "__Host-sajtmaskin_session=signed",
+          "sec-fetch-site": "same-origin",
+        },
+      }),
+    );
+    const denied = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "POST",
+        headers: {
+          cookie: "sajtmaskin_session=shadowed",
+          "sec-fetch-site": "same-site",
+        },
+      }),
+    );
+
+    expect(allowed.status).toBe(200);
+    expect(denied.status).toBe(403);
+  });
+
+  it("keeps the no-Origin API-key client outside browser CSRF handling", async () => {
+    const res = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/kostnadsfri", {
+        method: "POST",
+        headers: { "x-api-key": "owned-by-the-route" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it.each([
+    "/api/drains/vercel",
+    "/api/stripe/webhook",
+    "/api/webhooks/openai",
+    "/api/webhooks/v0",
+    "/api/webhooks/vercel",
+  ])("leaves signed machine receiver %s to its route-owned authentication", async (path) => {
+    const res = await proxy(
+      new NextRequest(`https://sajtmaskin.se${path}`, {
+        method: "POST",
+        headers: { origin: "https://untrusted.example" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("rejects an untrusted API preflight and answers an exact trusted one", async () => {
+    const denied = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "OPTIONS",
+        headers: { origin: "https://customer.sajtmaskin.se" },
+      }),
+    );
+    const allowed = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "OPTIONS",
+        headers: { origin: "https://preview.sajtmaskin.se" },
+      }),
+    );
+
+    expect(denied.status).toBe(403);
+    expect(allowed.status).toBe(204);
+    expect(allowed.headers.get("access-control-allow-origin")).toBe(
+      "https://preview.sajtmaskin.se",
+    );
+  });
+
+  it("does not block a read but does not reflect an untrusted read Origin", async () => {
+    const res = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        headers: { origin: "https://customer.sajtmaskin.se" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
 describe("proxy CSP — Vercel Toolbar / Live allowlist", () => {
   it("allows vercel.live (+ Pusher + Vercel CDN) so the injected toolbar stops tripping CSP", async () => {
     const csp = await cspFor("https://sajtmaskin.example/");
