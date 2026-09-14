@@ -93,6 +93,7 @@ export default function KontoPage() {
   const [loading, setLoading] = useState(Boolean(userId));
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [pageLimit, setPageLimit] = useState(KONTO_HISTORY_DEFAULT_LIMIT);
   const [pageOffset, setPageOffset] = useState(0);
@@ -125,6 +126,7 @@ export default function KontoPage() {
     if (!userId) {
       setData(null);
       setError(null);
+      setHistoryError(null);
       setHasMore(false);
       setPageOffset(0);
       setLoading(false);
@@ -135,6 +137,7 @@ export default function KontoPage() {
 
     setData(null);
     setError(null);
+    setHistoryError(null);
     setHasMore(false);
     setPageOffset(0);
     sessionMissingRef.current = false;
@@ -204,6 +207,7 @@ export default function KontoPage() {
     const requestUserId = userId;
     const generation = requestGeneration.current;
     setLoadingMore(true);
+    setHistoryError(null);
     try {
       const params = new URLSearchParams({
         offset: String(pageOffset + pageLimit),
@@ -223,13 +227,14 @@ export default function KontoPage() {
       if (response.status === 401) {
         setData(null);
         setError(null);
+        setHistoryError(null);
         setHasMore(false);
         markSessionMissing();
         return;
       }
 
       if (!response.ok || !body || !("account" in body)) {
-        setError(readKontoError(body));
+        setHistoryError(readKontoError(body));
         return;
       }
 
@@ -251,7 +256,7 @@ export default function KontoPage() {
       if (!shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)) {
         return;
       }
-      setError(err instanceof Error ? err.message : "Kunde inte hämta kontot.");
+      setHistoryError(err instanceof Error ? err.message : "Kunde inte hämta kontot.");
     } finally {
       if (generation === requestGeneration.current) setLoadingMore(false);
     }
@@ -395,6 +400,11 @@ export default function KontoPage() {
                   <p className="text-sm text-gray-500">
                     {kontoOlderHistoryNotice(data.transactions.length)}
                   </p>
+                  {historyError && (
+                    <p className="text-sm text-red-400" role="alert">
+                      {historyError}
+                    </p>
+                  )}
                   <Button
                     variant="outline"
                     disabled={loadingMore}
@@ -402,7 +412,7 @@ export default function KontoPage() {
                       void loadOlder();
                     }}
                   >
-                    {loadingMore ? "Hämtar…" : KONTO_LOAD_OLDER_LABEL}
+                    {loadingMore ? "Hämtar…" : historyError ? "Försök igen" : KONTO_LOAD_OLDER_LABEL}
                   </Button>
                 </div>
               )}

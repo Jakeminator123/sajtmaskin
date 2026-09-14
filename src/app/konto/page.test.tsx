@@ -261,4 +261,60 @@ describe("KontoPage auth and history", () => {
     expect(screen.getByText("Köp: latest")).toBeTruthy();
     expect(screen.queryByText(KONTO_LOAD_OLDER_LABEL)).toBeNull();
   });
+
+  it("keeps loaded account data visible and retries when older history fails", async () => {
+    let olderAttempts = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("offset=50")) {
+        olderAttempts += 1;
+        if (olderAttempts === 1) {
+          return Promise.resolve(
+            jsonResponse({ success: false, error: "Kunde inte hämta äldre historik." }, 500),
+          );
+        }
+        return Promise.resolve(
+          jsonResponse(
+            payload({
+              email: "anna@example.com",
+              name: "Anna",
+              transactions: [{ id: "tx_old", description: "Köp: older" }],
+              hasMore: false,
+              offset: 50,
+            }),
+          ),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse(
+          payload({
+            email: "anna@example.com",
+            name: "Anna",
+            transactions: [{ id: "tx_new", description: "Köp: latest" }],
+            hasMore: true,
+          }),
+        ),
+      );
+    });
+
+    act(() => {
+      useAuthStore.getState().setUser(authUser({ id: "user_a", email: "anna@example.com" }));
+    });
+    render(<KontoPage />);
+
+    expect(await screen.findByText("Köp: latest")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: KONTO_LOAD_OLDER_LABEL }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Kunde inte hämta äldre historik.",
+    );
+    expect(screen.getByText("anna@example.com")).toBeTruthy();
+    expect(screen.getByText("Köp: latest")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+
+    expect(await screen.findByText("Köp: older")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(olderAttempts).toBe(2);
+  });
 });
