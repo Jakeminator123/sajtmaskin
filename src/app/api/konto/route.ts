@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getUserTransactions } from "@/lib/db/services/transactions";
-import { loginMethodLabel } from "@/lib/konto/account";
-
-const HISTORY_LIMIT = 50;
+import {
+  loginMethodLabel,
+  parseKontoHistoryQuery,
+  sliceKontoHistory,
+} from "@/lib/konto/account";
 
 /**
  * GET /api/konto — account, credit balance and ledger for the signed-in user.
@@ -21,7 +23,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const transactions = await getUserTransactions(user.id, HISTORY_LIMIT);
+    const { limit, offset } = parseKontoHistoryQuery(request.nextUrl.searchParams);
+    const fetched = await getUserTransactions(user.id, limit + 1, offset);
+    const { rows, hasMore } = sliceKontoHistory(fetched, limit);
 
     return NextResponse.json({
       success: true,
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
       credits: {
         balance: user.diamonds,
       },
-      transactions: transactions.map((row) => ({
+      transactions: rows.map((row) => ({
         id: row.id,
         type: row.type,
         amount: row.amount,
@@ -41,6 +45,9 @@ export async function GET(request: NextRequest) {
         description: row.description,
         createdAt: row.created_at.toISOString(),
       })),
+      hasMore,
+      limit,
+      offset,
     });
   } catch (error) {
     console.error("[API/konto] GET error:", error);

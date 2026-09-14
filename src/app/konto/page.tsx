@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { transactionLabel } from "@/lib/konto/account";
+import { useAuthStore } from "@/lib/auth/auth-store";
+import {
+  KONTO_HISTORY_DEFAULT_LIMIT,
+  KONTO_LOAD_OLDER_LABEL,
+  KONTO_SIGNED_OUT_TITLE,
+  kontoOlderHistoryNotice,
+  mergeKontoTransactions,
+  shouldApplyKontoResponse,
+  transactionLabel,
+} from "@/lib/konto/account";
 import { ArrowRight, Coins, FolderOpen, User } from "lucide-react";
 
 type KontoTransaction = {
@@ -29,6 +38,9 @@ type KontoPayload = {
     balance: number;
   };
   transactions: KontoTransaction[];
+  hasMore?: boolean;
+  limit?: number;
+  offset?: number;
 };
 
 function formatDate(value: string): string {
@@ -66,57 +78,179 @@ function Section({
   );
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function readKontoError(body: { error?: string } | KontoPayload | null): string {
+  if (body && "error" in body && body.error) return body.error;
+  return "Kunde inte hämta kontot.";
+}
+
 export default function KontoPage() {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   const [data, setData] = useState<KontoPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(userId));
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageLimit, setPageLimit] = useState(KONTO_HISTORY_DEFAULT_LIMIT);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [sessionMissing, setSessionMissing] = useState(!userId);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const requestGeneration = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = ++requestGeneration.current;
+    const controller = new AbortController();
+
+    if (!userId) {
+      setData(null);
+      setError(null);
+      setHasMore(false);
+      setPageOffset(0);
+      setLoading(false);
+      setLoadingMore(false);
+      setSessionMissing(true);
+      return () => controller.abort();
+    }
+
+    setData(null);
+    setError(null);
+    setHasMore(false);
+    setPageOffset(0);
+    setSessionMissing(false);
+    setLoading(true);
+
+    const requestUserId = userId;
 
     async function load() {
       try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch("/api/konto");
+        const response = await fetch("/api/konto", { signal: controller.signal });
         const body = (await response.json().catch(() => null)) as
           | { success?: boolean; error?: string }
           | KontoPayload
           | null;
 
-        if (!response.ok || !body || !("account" in body)) {
-          setError(
-            (body && "error" in body && body.error) || "Kunde inte hämta kontot.",
-          );
+        if (generation !== requestGeneration.current) return;
+        if (!shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)) {
           return;
         }
 
-        if (!cancelled) setData(body);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Kunde inte hämta kontot.");
+        if (response.status === 401) {
+          setData(null);
+          setError(null);
+          setHasMore(false);
+          setSessionMissing(true);
+          return;
         }
+
+        if (!response.ok || !body || !("account" in body)) {
+          setData(null);
+          setError(readKontoError(body));
+          return;
+        }
+
+        setData(body);
+        setHasMore(Boolean(body.hasMore));
+        setPageLimit(
+          typeof body.limit === "number" ? body.limit : KONTO_HISTORY_DEFAULT_LIMIT,
+        );
+        setPageOffset(typeof body.offset === "number" ? body.offset : 0);
+      } catch (err: unknown) {
+        if (isAbortError(err) || generation !== requestGeneration.current) return;
+        if (!shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)) {
+          return;
+        }
+        setData(null);
+        setError(err instanceof Error ? err.message : "Kunde inte hämta kontot.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (
+          generation === requestGeneration.current &&
+          shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)
+        ) {
+          setLoading(false);
+        }
       }
     }
 
     void load();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, []);
+  }, [userId]);
+
+  async function loadOlder() {
+    if (!userId || loadingMore || !hasMore) return;
+    const requestUserId = userId;
+    const generation = requestGeneration.current;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({
+        offset: String(pageOffset + pageLimit),
+        limit: String(pageLimit),
+      });
+      const response = await fetch(`/api/konto?${params.toString()}`);
+      const body = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | KontoPayload
+        | null;
+
+      if (generation !== requestGeneration.current) return;
+      if (!shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)) {
+        return;
+      }
+
+      if (response.status === 401) {
+        setData(null);
+        setError(null);
+        setHasMore(false);
+        setSessionMissing(true);
+        return;
+      }
+
+      if (!response.ok || !body || !("account" in body)) {
+        setError(readKontoError(body));
+        return;
+      }
+
+      setData((previous) =>
+        previous
+          ? {
+              ...body,
+              transactions: mergeKontoTransactions(previous.transactions, body.transactions),
+            }
+          : body,
+      );
+      setHasMore(Boolean(body.hasMore));
+      setPageLimit(
+        typeof body.limit === "number" ? body.limit : KONTO_HISTORY_DEFAULT_LIMIT,
+      );
+      setPageOffset(typeof body.offset === "number" ? body.offset : pageOffset + pageLimit);
+    } catch (err: unknown) {
+      if (isAbortError(err) || generation !== requestGeneration.current) return;
+      if (!shouldApplyKontoResponse(requestUserId, useAuthStore.getState().user?.id ?? null)) {
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Kunde inte hämta kontot.");
+    } finally {
+      if (generation === requestGeneration.current) setLoadingMore(false);
+    }
+  }
+
+  function openLogin() {
+    setAuthMode("login");
+    setShowAuthModal(true);
+  }
+
+  const showSignedOut = !userId || sessionMissing;
 
   return (
     <div className="bg-background min-h-screen">
       <ShaderBackground theme="default" speed={0.2} opacity={0.3} />
       <Navbar
-        onLoginClick={() => {
-          setAuthMode("login");
-          setShowAuthModal(true);
-        }}
+        onLoginClick={openLogin}
         onRegisterClick={() => {
           setAuthMode("register");
           setShowAuthModal(true);
@@ -134,7 +268,20 @@ export default function KontoPage() {
           <p className="mt-1 text-gray-400">Dina uppgifter, credits och köphistorik.</p>
         </div>
 
-        {loading && (
+        {showSignedOut && (
+          <div className="py-20 text-center">
+            <User className="mx-auto mb-4 h-16 w-16 text-gray-600" />
+            <h2 className="mb-2 text-xl font-semibold text-gray-300">{KONTO_SIGNED_OUT_TITLE}</h2>
+            <p className="mb-6 text-gray-500">
+              Dina uppgifter, credits och köphistorik kopplas till ditt konto.
+            </p>
+            <Button className="bg-brand-teal hover:bg-brand-teal/90" onClick={openLogin}>
+              Logga in
+            </Button>
+          </div>
+        )}
+
+        {!showSignedOut && loading && (
           <div className="space-y-6">
             <Skeleton className="h-32 w-full rounded-none" />
             <Skeleton className="h-32 w-full rounded-none" />
@@ -142,13 +289,13 @@ export default function KontoPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!showSignedOut && !loading && error && (
           <div className="border border-red-500/30 bg-red-500/10 p-4 text-red-400">
             {error}
           </div>
         )}
 
-        {!loading && !error && data && (
+        {!showSignedOut && !loading && !error && data && (
           <div className="space-y-6">
             <Section title="Konto">
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -223,6 +370,22 @@ export default function KontoPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {hasMore && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-sm text-gray-500">
+                    {kontoOlderHistoryNotice(data.transactions.length)}
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={loadingMore}
+                    onClick={() => {
+                      void loadOlder();
+                    }}
+                  >
+                    {loadingMore ? "Hämtar…" : KONTO_LOAD_OLDER_LABEL}
+                  </Button>
                 </div>
               )}
             </Section>
