@@ -12,19 +12,6 @@ export function readStoredCookieConsent(): string | null {
   }
 }
 
-export function getCookieConsentSnapshot(): boolean {
-  return Boolean(readStoredCookieConsent());
-}
-
-export function subscribeCookieConsent(onStoreChange: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === null || event.key === LANYARD_CONSENT_KEY) onStoreChange();
-  };
-  window.addEventListener("storage", onStorage);
-  return () => window.removeEventListener("storage", onStorage);
-}
-
 /** 3D-kortet får bara förladdas när samtycke finns och staticOnly är av. */
 export function shouldPreloadLanyardCard(): boolean {
   return Boolean(readStoredCookieConsent()) && !readLanyardStaticOnly();

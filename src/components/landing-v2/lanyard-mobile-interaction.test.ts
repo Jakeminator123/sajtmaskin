@@ -225,8 +225,9 @@ describe("lanyard mobile interactions", () => {
     expect(fallback).toContain("lanyardTextureToCss");
     expect(fallback).toContain("LanyardBrandFace");
     expect(experience).toContain("LanyardBrandFace");
-    expect(hero).toContain("LanyardHeroLoading");
     expect(hero).toContain("preloadReturningLanyard");
+    expect(experience).toContain("onReady");
+    expect(experience).toContain("-translate-y-[120%]");
     const stageClass = hero.match(/data-lanyard-stage[\s\S]*?className="([^"]+)"/)?.[1] ?? "";
     expect(hero).toContain('data-lanyard-stage');
     expect(stageClass).toContain("overflow-visible");

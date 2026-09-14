@@ -12,8 +12,10 @@
  * över till det riktiga 3D-nyckelbandet som redan ligger stilla i exakt samma
  * pose (ingen extra gungning), så bytet blir osynligt.
  *
- * Har besökaren redan valt tidigare hoppas cookie-steget över och kortet hänger
- * direkt på plats (med en mjuk gungning till liv).
+ * Har besökaren redan valt tidigare hoppas cookie-steget över. Då monteras
+ * 3D-kortet direkt men OVANFÖR stagen; först när fysiken rapporterar sin
+ * första riktiga frame glider hela lanyarden ner på plats. Laddtiden blir
+ * en avsiktlig entré i stället för ett stillbildskort som byter pose.
  */
 
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
@@ -36,13 +38,20 @@ import {
   StaticLanyardFallback,
 } from "@/components/landing-v2/lanyard-static-fallback"
 
+// Ingen loading-platshållare: återbesökare får drop-in-entrén nedan och
+// cookie-flippen håller kortet osynligt tills överlämningen.
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
-  { ssr: false, loading: () => <StaticLanyardFallback /> },
+  { ssr: false },
 )
 
 const FLIP_MS_DESKTOP = 1550
 const FLIP_MS_MOBILE = 1150
+/** Om fysiken aldrig rapporterar redo (t.ex. pausad tabb) visas kortet ändå. */
+const DROP_IN_FALLBACK_MS = 6000
+const DROP_IN_HIDDEN_CLASS = "-translate-y-[120%] pointer-events-none"
+const DROP_IN_SHOWN_CLASS =
+  "translate-y-0 transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
 
 /** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
 function useExperienceMode() {
@@ -101,6 +110,17 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
   // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
   // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
   const [autoSwing] = useState(() => initialPhase() === "reveal")
+  // Återbesök: kortet börjar ovanför stagen och glider ner när fysiken är
+  // redo. Cookie-flippen använder i stället opacity-överlämningen nedan.
+  const dropIn = autoSwing && !staticOnly
+  const [dropped, setDropped] = useState(false)
+  const handleReady = useCallback(() => setDropped(true), [])
+
+  useEffect(() => {
+    if (!dropIn || dropped) return
+    const timer = window.setTimeout(() => setDropped(true), DROP_IN_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [dropIn, dropped])
 
   const handleDone = useCallback(() => {
     setPhase("reveal")
@@ -112,16 +132,26 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
           fysiken och texturen hunnit ladda — överlämningen blir sömlös
           utan en tom lucka där inget kort syns. Reduced-motion / save-data
           hoppar över 3D-chunken helt och visar den statiska fallbacken. */}
-      {phase === "checking" && <StaticLanyardFallback />}
       {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
       {phase !== "checking" && !staticOnly && (
         <div
-          className={`h-full w-full transition-opacity duration-300 ${
-            phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
+          data-testid="lanyard-stage-3d"
+          className={`h-full w-full will-change-transform ${
+            dropIn
+              ? dropped
+                ? DROP_IN_SHOWN_CLASS
+                : DROP_IN_HIDDEN_CLASS
+              : `transition-opacity duration-300 ${
+                  phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
+                }`
           }`}
         >
           <LanyardErrorBoundary>
-            <LanyardCard className="h-full" autoSwing={autoSwing} />
+            <LanyardCard
+              className="h-full"
+              autoSwing={autoSwing}
+              onReady={dropIn ? handleReady : undefined}
+            />
           </LanyardErrorBoundary>
         </div>
       )}
