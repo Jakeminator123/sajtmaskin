@@ -33,6 +33,10 @@ flera produktplaner är utanför MVP och kan kräva ytterligare priskonfiguratio
    samma händelse inte också behandlas som ett credit-köp/domänköp. Tillämpa
    idempotens både på event-ID och förmån per period. Proration eller flera
    fakturor under samma period ger inte automatiskt nya månadscredits.
+   Dispatch och lägeskontroll ska finnas innan subscription-checkout aktiveras
+   eller dess events kan nå webhooken, även i test. Gata aktiveringen tills
+   dessa delar är levererade tillsammans. Dagens credit-webhook saknar full
+   lägesisolering; testa inte den vägen med en riktig produktionsanvändare.
 5. Stripe-händelser kan komma igen och i annan ordning. Kontrollera aktuellt
    Stripe-objekt/period där det behövs; en gammal failed-händelse får inte pausa
    ett betalt abonnemang. Retriable fel ska inte permanent kvitteras som klara.

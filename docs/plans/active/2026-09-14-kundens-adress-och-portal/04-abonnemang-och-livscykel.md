@@ -1,7 +1,9 @@
 # 04 — Abonnemang och livscykel
 
 Riktning: beslut 2026-09-11 i [beslutsloggen](../../../decisions/README.md).
-Detaljerna nedan är förslag tills Jakob svarat på [frågorna](00-master-plan.md).
+Per-sajt-modellen och att publicering ingår är redan beslutade. Nya detaljer om
+respit, paus, bevarande och kvotens rollover är förslag tills Jakob svarat på
+[frågorna](00-master-plan.md); tidigare beslut behöver inte fattas på nytt.
 
 ## Modell
 
@@ -37,8 +39,11 @@ Sälj inte obegränsad trafik eller obegränsat AI-arbete i MVP.
 
 Credit-checkout använder `mode: "payment"`; abonnemangstabell, Stripe-kundkoppling
 och Billing Portal saknas. `transactions` har redan en idempotensnyckel.
-Stripe test/live skyddas av senaste billingändringarna, men nya abonnemang får
-inte blanda miljöerna i den gemensamma preview/prod-databasen.
+Nycklar och webhook-secrets är uppdelade per target och produktion har skydd
+mot testnyckel. **Befintliga credit-köp är däremot inte lägesisolerade i
+ledgern**: webhooken kan fylla gemensamma `users.diamonds`. Använd inte riktiga
+produktionsanvändare för Stripe-test. D1:s separation ska finnas före nya
+abonnemangstester som muterar förmåner i den gemensamma preview/prod-databasen.
 
 ## Livscykel
 

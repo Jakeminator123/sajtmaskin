@@ -27,14 +27,15 @@ observationer, inte nya driftmätningar.
 
 ## Svarsförslag på de fyra frågorna
 
-Ordningen följer skärmbilderna. Detta är rekommendationer, inte påståenden om
-att Jakob redan valt alternativen.
+Ordningen följer skärmbilderna. Fråga 3 bekräftar det redan fattade beslutet
+2026-09-11 om per-sajt-abonnemang och blockerar inte planeringen på nytt.
+Övriga preciseringar är rekommendationer, inte redan fattade ägarbeslut.
 
 | Fråga | Föreslaget svar | Precisering för implementation |
 |---|---|---|
 | 1. Branded före PSL? | **A, med skärpt pilotavgränsning.** | Börja med uttryckligen godkända enkla sajter/versioner och grundskydd för portalen. Kända auth-/cookiesajter och okända fall använder egen domän eller väntar. Dossierlistan är en risksignal, inget isolationsbevis. Se [A2](aktiviteter/A2-branded-eligibility.md). |
 | 2. När betalningen upphör? | **A: neutral paus, 90 dagars bevarande, export öppen.** | Förnyelsefel ger 7 dagars respit. Uppsägning gäller efter betald period. Domänkoppling och slug behålls under pausen. Ingen automatisk dataradering i MVP. Se [D3](aktiviteter/D3-avpubliceringspolicy.md). |
-| 3. Per sajt eller konto? | **A: per publicerad sajt.** | En sajt = ett `app_projects.id`; flera alias eller deployer ger ingen extra avgift. Ett konto kan ha flera separata sajt-abonnemang. |
+| 3. Per sajt eller konto? | **A: bekräfta befintligt beslut om per publicerad sajt.** | En sajt = ett `app_projects.id`; flera alias eller deployer ger ingen extra avgift. Ett konto kan ha flera separata sajt-abonnemang. |
 | 4. Skriftligt Vercelmedgivande nu? | **Other: ingen separat kontakt som villkor för planering och MVP-utveckling.** | Närmast B om endast A–C kan väljas. Juridisk tillåtlighet är inte verifierad genom dokumentationen. Kontakta inte Vercel automatiskt. Se avsnittet nedan. |
 
 ## Vercel: skilj tekniskt stöd från avtalsbesked
@@ -48,11 +49,13 @@ Sajtmaskins tjänst bedöms eller vilka särskilda kontovillkor som gäller.
 
 **Rekommendation:** behåll arkitekturen och fortsätt planering/utveckling utan
 krav på ett separat partnerbrev. Lova inte att dokumentationen ersätter ett
-avtal eller att MVP/Pro automatiskt ger undantag. Att kalla avgiften
+avtal eller att MVP/Pro eller en gratis kundpilot automatiskt ger undantag. Att kalla avgiften
 plattformstjänst förändrar inte i sig villkorens tillämpning. Ren vidareförsäljning
-av Vercelåtkomst ligger utanför planen. Avtalsfrågan kvarstår inför kommersiell
-drift; denna PR avgör eller aktiverar inte den. När faktisk omfattning och
-erbjudande är kända kan tillämpliga kontovillkor bedömas utan att bygget väntar.
+av Vercelåtkomst ligger utanför planen. Tillämpliga konto-/ordervillkor behöver
+bedömas före första externa kundpilot, även om den är gratis; denna PR avgör
+eller aktiverar inte den. Intern utveckling och egna testprojekt kan fortsätta
+under tiden. Kontovillkorskontroll innebär inte automatiskt krav på ett nytt
+partnerbrev. Ingen separat leverantörskontakt tas inom detta uppdrag.
 
 ## Tidigare beslut som ligger fast
 
@@ -88,7 +91,7 @@ Builderns befintliga flöden återanvänds. Detaljer: [03](03-kundportal.md).
   Det är ett långsiktigt isolationsspår, ingen given MVP-leveransdag.
 - En DNS-post för `sites.sajtmaskin.se` skapar inte `<slug>.sites.sajtmaskin.se`.
   Exakta värdnamn och deras HTTPS måste fungera på respektive hostingprojekt.
-- Portalens session behöver skydd även om kundsajterna saknar auth-dossier.
+- Portalens auth- och gästsessioner behöver skydd även om kundsajterna saknar auth-dossier.
 - En flagga i Sajtmaskin återställer inte redirects som byggts in i kundsajter.
 - Återkommande Stripe-priser kan skapas med `price_data.recurring`. Ett nytt
   katalogprojekt är inget krav för abonnemang.

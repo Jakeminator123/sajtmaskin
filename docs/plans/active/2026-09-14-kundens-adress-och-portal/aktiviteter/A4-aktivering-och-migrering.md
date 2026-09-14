@@ -13,8 +13,11 @@ på Vercel, i DNS eller i databasen.
 - Primäradress, redirects och rollback har verifierats på kundtestdeployment.
 - Pilotprojekt och bevarade deployment-/adressreferenser finns i körunderlaget.
 
-PSL-godkännande är inte ett krav för den begränsade piloten. Aktuell risk och
-avtalsfråga redovisas enligt masterplanen; inget leverantörsmedgivande antas.
+PSL-godkännande är inte ett krav för den begränsade piloten. Interna/egna
+testprojekt kan förberedas medan avtalsfrågan utreds. Tillämpliga konto-/order-
+villkor bedöms före en extern kundpilot enligt masterplanen, även om den är
+gratis. Inget leverantörsmedgivande antas och inget partnerbrev krävs för själva
+planerings-/utvecklingsarbetet.
 
 ## Körning
 

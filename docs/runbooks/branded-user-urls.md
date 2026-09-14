@@ -39,7 +39,8 @@ Läs [PSL:s riktlinjer](https://github.com/publicsuffix/list/wiki/Guidelines)
 innan ansökan. Små/beta-projekt kan avslås och en godkänd ändring tar tid att
 nå webbläsare. Planera inte lanseringen mot ett antaget godkännandedatum.
 PSL-spåret ersätter inte portalens cookie-/Origin-skydd, särskilt mot cookies
-på föräldern `sajtmaskin.se`.
+på föräldern `sajtmaskin.se`. Inventeringen omfattar både auth-cookien och
+gästsessionen `sajtmaskin_session`, som ingår i tenant-/projektbehörigheten.
 
 En auth-dossier är en risksignal, inget komplett bevis på cookieanvändning.
 Även vanlig JavaScript kan sätta cookies. Före eventuell öppen utrullning
@@ -137,8 +138,9 @@ Path-routing på rotdomänen avvisas medvetet:
 | Asset-krockar | Genererade Next-projekt förväntar sig att ligga i roten (`/_next/...`). Preview-hosten löser det för preview med aktiv path-omskrivning; att upprepa det i produktion är onödig komplexitet. |
 | Kundens varumärke | En subdomän läser som kundens egen adress. En path under vår domän gör kunden till en undersida hos oss. |
 
-Subdomänformen `<slug>.sites.sajtmaskin.se` ger samma "vi äger produkten"-känsla
-utan någon av posterna ovan.
+Subdomänformen `<slug>.sites.sajtmaskin.se` separerar kundsajtens origin och
+asset-sökvägar från appens. Den ger inte ensam full cookie-/sessionsisolering:
+följ grundskyddet och pilotavgränsningen ovan, även för gästprojekt.
 
 ## Egen domän
 

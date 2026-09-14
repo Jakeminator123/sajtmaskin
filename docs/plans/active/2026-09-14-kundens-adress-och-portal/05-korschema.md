@@ -14,7 +14,9 @@ har svarat på förslagen i [masterplanen](00-master-plan.md).
 | 4 | A4:s begränsade pilot, därefter äldre sajter i små satser | Branded publicering och dokumenterad rollback. Full betalstart kräver D2/D3 klara. |
 
 C3 etapp 1 (konto, credits, historik) kan göras direkt efter C1. A4:s frivilliga
-adresspilot behöver inte invänta faktureringsarbetet. Ett DNS-problem blockerar
+adresspilot på egna testprojekt behöver inte invänta faktureringsarbetet.
+Före en extern kundpilot bedöms tillämpliga konto-/ordervillkor enligt
+masterplanen, även om kunden inte betalar. Ett DNS-problem blockerar
 bara berörda adresssteg, inte portal, export eller testfakturering.
 
 ## Filägarskap och beroenden

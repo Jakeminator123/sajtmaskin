@@ -25,11 +25,17 @@ CSRF-skydd. MVP-valet är en liten kontrollerad pilot, inte fri publicering av
 2. Tillåt enkla företagshemsidor utan inloggning, kundsessioner eller känsliga
    funktioner i denna första grupp. Okänd status ger väntande branded
    publicering. Verifierad egen domän är alternativet för andra sajter.
-3. Före delad pilot: skydda plattformens inloggning med `__Host-`-cookie över
-   HTTPS (`Secure`, `HttpOnly`, `Path=/`, ingen `Domain`) eller verifierat
-   likvärdigt skydd. Uppdatera alla auth-/edge-/OAuth-läsare och utloggning
-   samordnat; lämna inte en gammal oprefixad cookie som fortsatt auth-fallback
-   i produktion. Dokumentera eventuell ny inloggning för befintliga användare.
+3. Före delad pilot: inventera **alla behörighetsbärande plattformscookies**,
+   minst både `sajtmaskin_auth` och `sajtmaskin_session`. Gästsessionen i
+   `src/lib/auth/session.ts` ingår i tenant-scope och kan användas vid claim av
+   oägda projekt; den är därför också en behörighetsgräns. Flytta dessa cookies
+   till `__Host-` över HTTPS (`Secure`, `HttpOnly`, `Path=/`, ingen `Domain`)
+   eller verifierat likvärdigt skydd. Inventera även OAuth-skyddscookies.
+   Uppdatera alla läsare/skrivare, tenant-resolver, OAuth och utloggning
+   samordnat; lämna inte gamla oprefixade cookies som fortsatt behörighets-
+   fallback i produktion. Bevara legitima gästprojekt via en verifierad
+   övergång; lita inte blint på en gammal gästcookie för att flytta ägarskap.
+   Dokumentera eventuell ny inloggning för befintliga användare.
 4. Kontrollera exakt betrodd Origin för relevanta cookieautentiserade
    skriv-API:er, eller använd befintligt likvärdigt CSRF-skydd. Tillåt inte
    `*.sajtmaskin.se`. CORS-headers och SameSite ensamma är inget sådant skydd.
@@ -54,7 +60,8 @@ En nekad ny version får inte avpublicera den gamla godkända versionen.
 ## Verifiering och klart
 
 Riktade tester: allowlist/version, okänd capability, auth-sajt, egen domän,
-ompublicering och migreringsskript. Verkligt HTTPS-test av cookie-/Origin-
+ompublicering och migreringsskript. Verkligt HTTPS-test av parent-domain
+cookie-shadowing mot både inloggad session och gästprojekt/claim, samt Origin-
 grundskyddet mot portalen. Dokumentera pilotens kvarvarande risk. Full
 öppen publicering kräver en senare bedömning; bygg ingen stor säkerhetsplattform
 för att genomföra dessa konkreta grundkontroller.
