@@ -1,11 +1,14 @@
 import crypto from "crypto";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { cookies } from "next/headers";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { cookies, headers } from "next/headers";
 import {
   AUTH_COOKIE_HOST_NAME,
   AUTH_COOKIE_LEGACY_NAME,
+  SESSION_COOKIE_LEGACY_NAME,
 } from "./host-cookies";
 import { getTokenFromRequestEdge } from "./edge-auth";
+
+const reconnectGuestProjects = vi.hoisted(() => vi.fn());
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -18,6 +21,8 @@ vi.mock("next/headers", () => ({
     get: vi.fn(() => null),
   })),
 }));
+
+vi.mock("@/lib/auth/guest-claim", () => ({ reconnectGuestProjects }));
 
 vi.mock("@/lib/db/services/users", () => ({
   getUserById: vi.fn(),
@@ -46,11 +51,56 @@ vi.mock("@/lib/config", () => ({
   IS_PRODUCTION: false,
 }));
 
+const VALID_GUEST = "sess_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+const OTHER_GUEST = "sess_11111111-2222-4333-8444-555555555555";
+
+/** One `headers()` resolution with the exact header set a test needs. */
+function mockIncomingHeaders(values: Record<string, string>): void {
+  vi.mocked(headers).mockResolvedValueOnce({
+    get: (name: string) => values[name.toLowerCase()] ?? null,
+  } as never);
+}
+
+// The `...Once` queues below must not survive a test: a reader that returns
+// early leaves its cookie-store mock unconsumed and would shift the next test.
+beforeEach(() => {
+  vi.mocked(cookies).mockReset();
+  vi.mocked(cookies).mockResolvedValue({
+    set: vi.fn(),
+    get: vi.fn(),
+    getAll: vi.fn(() => []),
+    delete: vi.fn(),
+  } as never);
+  vi.mocked(headers).mockReset();
+  vi.mocked(headers).mockResolvedValue({ get: () => null } as never);
+});
+
+function mockCookieStore(overrides?: { getAll?: () => { name: string; value: string }[] }) {
+  const set = vi.fn();
+  const getAll = vi.fn(overrides?.getAll ?? (() => []));
+  vi.mocked(cookies).mockResolvedValueOnce({
+    set,
+    get: vi.fn(),
+    getAll,
+    delete: vi.fn(),
+  } as never);
+  return { set, getAll };
+}
+
 describe("auth token security", () => {
   let auth: typeof import("./auth");
 
   beforeAll(async () => {
     auth = await import("./auth");
+  });
+
+  beforeEach(() => {
+    reconnectGuestProjects.mockReset();
+    reconnectGuestProjects.mockResolvedValue({
+      sessionId: VALID_GUEST,
+      claimedProjectIds: ["proj_1"],
+      ok: true,
+    });
   });
 
   it("creates and verifies JWT tokens", () => {
@@ -113,10 +163,18 @@ describe("auth token security", () => {
     });
     expect(auth.getTokenFromRequest(fromHeader)).toBe("token_from_header");
 
-    const fromCookie = new Request("https://example.com", {
+    const fromCookie = new Request("http://127.0.0.1:3010", {
       headers: { cookie: "foo=bar; sajtmaskin_auth=token_from_cookie; x=y" },
     });
     expect(auth.getTokenFromRequest(fromCookie)).toBe("token_from_cookie");
+  });
+
+  it("does not accept a lone leftover auth cookie as a session over HTTPS", () => {
+    const request = new Request("https://sajtmaskin.se/", {
+      headers: { cookie: `${AUTH_COOKIE_LEGACY_NAME}=leftover_jwt` },
+    });
+    expect(auth.getTokenFromRequest(request)).toBeNull();
+    expect(getTokenFromRequestEdge(request)).toBeNull();
   });
 
   it("prefers the __Host- auth cookie over a leftover unprefixed name", () => {
@@ -153,13 +211,7 @@ describe("auth token security", () => {
   });
 
   it("writes __Host- and expires the leftover name over HTTPS", async () => {
-    const set = vi.fn();
-    vi.mocked(cookies).mockResolvedValueOnce({
-      set,
-      get: vi.fn(),
-      getAll: vi.fn(() => []),
-      delete: vi.fn(),
-    } as never);
+    const { set } = mockCookieStore();
 
     await auth.setAuthCookie("fresh_token", { secure: true });
 
@@ -187,13 +239,7 @@ describe("auth token security", () => {
   });
 
   it("keeps the unprefixed name on local HTTP so __Host- is not sent without Secure", async () => {
-    const set = vi.fn();
-    vi.mocked(cookies).mockResolvedValueOnce({
-      set,
-      get: vi.fn(),
-      getAll: vi.fn(() => []),
-      delete: vi.fn(),
-    } as never);
+    const { set } = mockCookieStore();
 
     await auth.setAuthCookie("dev_token", { secure: false });
 
@@ -208,13 +254,7 @@ describe("auth token security", () => {
   });
 
   it("clears both auth cookie names on logout", async () => {
-    const set = vi.fn();
-    vi.mocked(cookies).mockResolvedValueOnce({
-      set,
-      get: vi.fn(),
-      getAll: vi.fn(() => []),
-      delete: vi.fn(),
-    } as never);
+    const { set } = mockCookieStore();
 
     await auth.clearAuthCookie({ secure: true });
 
@@ -224,5 +264,195 @@ describe("auth token security", () => {
     expect(
       set.mock.calls.every((call) => (call[2] as { maxAge: number }).maxAge === 0),
     ).toBe(true);
+  });
+
+  it("expires the leftover auth name on the parent Domain over HTTPS", async () => {
+    const { set } = mockCookieStore();
+    mockIncomingHeaders({ host: "preview.sajtmaskin.se" });
+
+    await auth.clearAuthCookie({ secure: true });
+
+    const leftover = set.mock.calls.find(
+      (call) => call[0] === AUTH_COOKIE_LEGACY_NAME,
+    );
+    expect(leftover?.[2]).toMatchObject({
+      domain: ".sajtmaskin.se",
+      maxAge: 0,
+      path: "/",
+      secure: true,
+    });
+    const hostCookie = set.mock.calls.find(
+      (call) => call[0] === AUTH_COOKIE_HOST_NAME,
+    );
+    expect((hostCookie?.[2] as { domain?: string }).domain).toBeUndefined();
+  });
+});
+
+describe("server-component auth cookie reader", () => {
+  let auth: typeof import("./auth");
+  let users: typeof import("@/lib/db/services/users");
+
+  beforeAll(async () => {
+    auth = await import("./auth");
+    users = await import("@/lib/db/services/users");
+  });
+
+  beforeEach(() => {
+    vi.mocked(users.getUserById).mockReset();
+    vi.mocked(users.getUserById).mockResolvedValue({ id: "user_1" } as never);
+  });
+
+  it("refuses a duplicated auth cookie name and does not let cookies() rescue it", async () => {
+    const first = auth.createToken("user_1", "one@example.com");
+    const second = auth.createToken("user_2", "two@example.com");
+    mockIncomingHeaders({
+      cookie: `${AUTH_COOKIE_LEGACY_NAME}=${first}; ${AUTH_COOKIE_LEGACY_NAME}=${second}`,
+    });
+    // Next's parser collapses the pair, so a fall-through would hand back a
+    // usable JWT even though the raw header was ambiguous.
+    const { getAll } = mockCookieStore({
+      getAll: () => [{ name: AUTH_COOKIE_LEGACY_NAME, value: second }],
+    });
+
+    await expect(auth.getCurrentUserFromCookies()).resolves.toBeNull();
+    expect(getAll).not.toHaveBeenCalled();
+    expect(users.getUserById).not.toHaveBeenCalled();
+  });
+
+  it("ignores a lone leftover JWT once the request is on the HTTPS policy", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
+    mockIncomingHeaders({
+      cookie: `${AUTH_COOKIE_LEGACY_NAME}=${token}`,
+      "x-forwarded-proto": "https",
+    });
+
+    await expect(auth.getCurrentUserFromCookies()).resolves.toBeNull();
+    expect(users.getUserById).not.toHaveBeenCalled();
+  });
+
+  it("still reads the leftover JWT on local HTTP", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
+    mockIncomingHeaders({ cookie: `${AUTH_COOKIE_LEGACY_NAME}=${token}` });
+
+    await expect(auth.getCurrentUserFromCookies()).resolves.toEqual({
+      id: "user_1",
+    });
+  });
+
+  it("uses the __Host- cookie over a shadowed leftover on HTTPS", async () => {
+    const host = auth.createToken("user_1", "one@example.com");
+    const parent = auth.createToken("user_2", "two@example.com");
+    mockIncomingHeaders({
+      cookie: [
+        `${AUTH_COOKIE_LEGACY_NAME}=${parent}`,
+        `${AUTH_COOKIE_HOST_NAME}=${host}`,
+      ].join("; "),
+      "x-forwarded-proto": "https",
+    });
+
+    await expect(auth.getCurrentUserFromCookies()).resolves.toEqual({
+      id: "user_1",
+    });
+    expect(users.getUserById).toHaveBeenCalledWith("user_1");
+  });
+});
+
+describe("guest project reconnect after __Host- login", () => {
+  let auth: typeof import("./auth");
+
+  beforeAll(async () => {
+    auth = await import("./auth");
+  });
+
+  beforeEach(() => {
+    reconnectGuestProjects.mockReset();
+    reconnectGuestProjects.mockResolvedValue({
+      sessionId: VALID_GUEST,
+      claimedProjectIds: ["proj_1"],
+      ok: true,
+    });
+  });
+
+  it("claims the unambiguous leftover guest session and then expires it", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
+    const { set } = mockCookieStore();
+    mockIncomingHeaders({
+      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      host: "sajtmaskin.se",
+    });
+
+    await auth.setAuthCookie(token, { secure: true });
+
+    expect(reconnectGuestProjects).toHaveBeenCalledWith(VALID_GUEST, "user_1");
+    const leftover = set.mock.calls.find(
+      (call) => call[0] === SESSION_COOKIE_LEGACY_NAME,
+    );
+    expect(leftover?.[2]).toMatchObject({
+      domain: ".sajtmaskin.se",
+      maxAge: 0,
+      secure: true,
+    });
+  });
+
+  it("does not claim from a shadowed leftover guest cookie", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
+    const { set } = mockCookieStore();
+    mockIncomingHeaders({
+      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}; ${SESSION_COOKIE_LEGACY_NAME}=${OTHER_GUEST}`,
+      host: "sajtmaskin.se",
+    });
+
+    await auth.setAuthCookie(token, { secure: true });
+
+    expect(reconnectGuestProjects).not.toHaveBeenCalled();
+    expect(
+      set.mock.calls.some((call) => call[0] === SESSION_COOKIE_LEGACY_NAME),
+    ).toBe(false);
+  });
+
+  it("keeps the leftover when the claim failed so it can be retried", async () => {
+    reconnectGuestProjects.mockResolvedValue({
+      sessionId: VALID_GUEST,
+      claimedProjectIds: [],
+      ok: false,
+    });
+    const token = auth.createToken("user_1", "one@example.com");
+    const { set } = mockCookieStore();
+    mockIncomingHeaders({
+      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      host: "sajtmaskin.se",
+    });
+
+    await auth.setAuthCookie(token, { secure: true });
+
+    expect(reconnectGuestProjects).toHaveBeenCalledWith(VALID_GUEST, "user_1");
+    expect(
+      set.mock.calls.some((call) => call[0] === SESSION_COOKIE_LEGACY_NAME),
+    ).toBe(false);
+  });
+
+  it("never claims on local HTTP, where the leftover is still the live cookie", async () => {
+    const token = auth.createToken("user_1", "one@example.com");
+    mockCookieStore();
+    mockIncomingHeaders({
+      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      host: "127.0.0.1:3010",
+    });
+
+    await auth.setAuthCookie(token, { secure: false });
+
+    expect(reconnectGuestProjects).not.toHaveBeenCalled();
+  });
+
+  it("does not claim for an unverifiable token", async () => {
+    mockCookieStore();
+    mockIncomingHeaders({
+      cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_GUEST}`,
+      host: "sajtmaskin.se",
+    });
+
+    await auth.setAuthCookie("not.a.jwt", { secure: true });
+
+    expect(reconnectGuestProjects).not.toHaveBeenCalled();
   });
 });

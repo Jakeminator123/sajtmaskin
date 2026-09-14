@@ -161,6 +161,32 @@ export async function getProjectById(id: string): Promise<Project | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * Attach every still-unclaimed project of one guest session to a user.
+ *
+ * Used once, right after a verified `__Host-` login, so a pre-migration guest
+ * cookie can hand its projects over instead of leaving them unreachable. Unlike
+ * {@link getProjectByIdForOwner} this never widens to `user_id IS NULL` without
+ * a session match: only rows carrying exactly this `session_id` can move.
+ */
+export async function claimUnclaimedSessionProjects(
+  sessionId: string,
+  userId: string,
+): Promise<string[]> {
+  assertDbConfigured();
+  const session = sessionId.trim();
+  const owner = userId.trim();
+  if (!session || !owner) return [];
+
+  const rows = await db
+    .update(appProjects)
+    .set({ user_id: owner, updated_at: new Date() })
+    .where(and(isNull(appProjects.user_id), eq(appProjects.session_id, session)))
+    .returning({ id: appProjects.id });
+
+  return rows.map((row) => row.id);
+}
+
 export async function getProjectByIdForOwner(
   id: string,
   scope: ProjectOwnerScope,

@@ -9,6 +9,12 @@
  * `cookies().get()` / first-wins header scans are not safe when two cookies
  * share a name (host-only vs parent-domain). Callers must parse every pair
  * and refuse a name that has conflicting values.
+ *
+ * A `Cookie` header carries no origin, so a lone unprefixed value is not proof
+ * that the portal wrote it — format plus "no duplicate" does not establish
+ * origin. On HTTPS the unprefixed name is therefore never an identity. Plain
+ * HTTP (`npm run dev` on localhost) keeps reading it because browsers reject
+ * `__Host-` without `Secure`.
  */
 
 export const AUTH_COOKIE_LEGACY_NAME = "sajtmaskin_auth";
@@ -34,8 +40,25 @@ export interface PickedCookie {
   source: HostCookieSource;
 }
 
+/**
+ * Read and write must agree on this flag. A reader that refuses the unprefixed
+ * name while the writer still writes it would lock everyone out.
+ */
+export interface CookiePolicy {
+  /** The request runs the HTTPS/`__Host-` policy. */
+  secure: boolean;
+}
+
 const GUEST_SESSION_ID_RE =
   /^sess_(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})$/;
+
+/**
+ * Registrable portal domains. A parent-domain expire must never target a
+ * public suffix (`.se`) or a shared provider apex (`.vercel.app`), and there is
+ * no PSL lookup here, so the parent is matched against the domains we own
+ * instead of guessed from label counts.
+ */
+const PORTAL_APEX_DOMAINS = ["sajtmaskin.se", "sajtmaskin.com"] as const;
 
 export function authCookieWriteName(secure: boolean): string {
   return secure ? AUTH_COOKIE_HOST_NAME : AUTH_COOKIE_LEGACY_NAME;
@@ -43,6 +66,53 @@ export function authCookieWriteName(secure: boolean): string {
 
 export function sessionCookieWriteName(secure: boolean): string {
   return secure ? SESSION_COOKIE_HOST_NAME : SESSION_COOKIE_LEGACY_NAME;
+}
+
+/**
+ * Single source for "this request runs the HTTPS cookie policy", used by both
+ * the readers and the writers so the two can never disagree.
+ */
+export function requestUsesSecureCookies(request: Request): boolean {
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return process.env.NODE_ENV === "production";
+  }
+}
+
+/**
+ * The registrable portal domain a leftover cookie could have been planted on,
+ * or null for localhost and any host whose apex we do not own.
+ */
+export function portalCookieApex(host: string | null | undefined): string | null {
+  if (!host) return null;
+  const hostname = host
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+    .replace(/:\d+$/, "")
+    .replace(/\.$/, "");
+  if (!hostname) return null;
+  return (
+    PORTAL_APEX_DOMAINS.find(
+      (apex) => hostname === apex || hostname.endsWith(`.${apex}`),
+    ) ?? null
+  );
+}
+
+/**
+ * `Domain` for the expiring `Set-Cookie` that removes the unprefixed name, or
+ * null when the host has no portal apex we own (localhost, `*.vercel.app`).
+ *
+ * RFC 6265 §5.2.3 drops a leading dot, so `Domain=.sajtmaskin.se` and
+ * `Domain=sajtmaskin.se` address the same cookie — one clear covers both
+ * spellings.
+ */
+export function leftoverCookieDomain(
+  host: string | null | undefined,
+): string | null {
+  const apex = portalCookieApex(host);
+  return apex ? `.${apex}` : null;
 }
 
 export function parseCookieHeader(
@@ -95,17 +165,24 @@ export function unambiguousCookieValue(
  * Prefer `__Host-` when that name is present. Do not fall back to the
  * unprefixed name while the host name is on the request — that leftover
  * can be a parent-domain shadow.
+ *
+ * On the HTTPS policy the unprefixed name is not an identity at all, not even
+ * when it is lone and well formed: nothing in the request says whether the
+ * portal or the parent domain wrote it.
  */
 export function pickHostOrLegacyCookie(
   cookies: Map<string, string[]>,
   hostName: string,
   legacyName: string,
+  policy: CookiePolicy,
 ): PickedCookie | null {
   const hostValues = cookies.get(hostName);
   if (hostValues && hostValues.length > 0) {
     const host = unambiguousCookieValue(hostValues);
     return host ? { value: host, source: "host" } : null;
   }
+
+  if (policy.secure) return null;
 
   const legacy = unambiguousCookieValue(cookies.get(legacyName));
   return legacy ? { value: legacy, source: "legacy" } : null;
@@ -115,8 +192,14 @@ export function pickHostOrLegacyCookieFromHeader(
   cookieHeader: string | null | undefined,
   hostName: string,
   legacyName: string,
+  policy: CookiePolicy,
 ): PickedCookie | null {
-  return pickHostOrLegacyCookie(parseCookieHeader(cookieHeader), hostName, legacyName);
+  return pickHostOrLegacyCookie(
+    parseCookieHeader(cookieHeader),
+    hostName,
+    legacyName,
+    policy,
+  );
 }
 
 export function getAuthTokenFromRequest(request: Request): string | null {
@@ -129,12 +212,41 @@ export function getAuthTokenFromRequest(request: Request): string | null {
       request.headers.get("cookie"),
       AUTH_COOKIE_HOST_NAME,
       AUTH_COOKIE_LEGACY_NAME,
+      { secure: requestUsesSecureCookies(request) },
     )?.value ?? null
   );
 }
 
 export function isGuestSessionId(value: string): boolean {
   return GUEST_SESSION_ID_RE.test(value);
+}
+
+/**
+ * `x-forwarded-proto` reports HTTPS. Used only to tighten a read policy that
+ * already defaults to the deployment's own protocol, so a spoofed value can
+ * never loosen it.
+ */
+export function forwardedProtoIsHttps(
+  value: string | null | undefined,
+): boolean {
+  return value?.split(",")[0]?.trim().toLowerCase() === "https";
+}
+
+/**
+ * The unprefixed guest id from a `Cookie` header, usable as a one-time claim
+ * source after a verified `__Host-` login — never as a live session id and
+ * never for auth.
+ *
+ * Two values for the name mean a parent-domain shadow may be present, and a
+ * shadow must not be able to move project ownership, so that case yields null.
+ */
+export function leftoverGuestClaimId(
+  cookieHeader: string | null | undefined,
+): string | null {
+  const value = unambiguousCookieValue(
+    parseCookieHeader(cookieHeader).get(SESSION_COOKIE_LEGACY_NAME),
+  );
+  return value && isGuestSessionId(value) ? value : null;
 }
 
 export function hostCookieSetOptions(args: {
@@ -156,13 +268,17 @@ export function hostCookieSetOptions(args: {
   };
 }
 
-export function expireCookieSetOptions(secure: boolean): {
+export function expireCookieSetOptions(
+  secure: boolean,
+  domain?: string,
+): {
   httpOnly: true;
   secure: boolean;
   sameSite: "lax";
   path: "/";
   maxAge: 0;
   expires: Date;
+  domain?: string;
 } {
   return {
     httpOnly: true,
@@ -171,7 +287,25 @@ export function expireCookieSetOptions(secure: boolean): {
     path: "/",
     maxAge: 0,
     expires: new Date(0),
+    ...(domain ? { domain } : {}),
   };
+}
+
+/**
+ * The one clear that removes the unprefixed name on the HTTPS policy.
+ *
+ * Next serializes at most one `Set-Cookie` per cookie name — `ResponseCookies`
+ * is a name-keyed map and every `set()` rewrites the header list from it — so a
+ * host-only clear and a `Domain=` clear cannot both ship for the same name.
+ * Target the parent `Domain`, because that is the spelling a host-only clear can
+ * never reach and the one a subdomain can plant. The host-only leftover is our
+ * own pre-migration cookie, is no longer read on HTTPS, and ages out with its
+ * original `Max-Age`.
+ */
+export function expireLeftoverCookieOptions(
+  host: string | null | undefined,
+): ReturnType<typeof expireCookieSetOptions> {
+  return expireCookieSetOptions(true, leftoverCookieDomain(host) ?? undefined);
 }
 
 export function formatSetCookie(
@@ -181,6 +315,7 @@ export function formatSetCookie(
     secure: boolean;
     maxAge: number;
     expires?: Date;
+    domain?: string;
   },
 ): string {
   const parts = [
@@ -190,6 +325,9 @@ export function formatSetCookie(
     "HttpOnly",
     "SameSite=Lax",
   ];
+  if (options.domain) {
+    parts.push(`Domain=${options.domain}`);
+  }
   if (options.expires) {
     parts.push(`Expires=${options.expires.toUTCString()}`);
   }
@@ -197,4 +335,23 @@ export function formatSetCookie(
     parts.push("Secure");
   }
   return parts.join("; ");
+}
+
+/**
+ * `Set-Cookie` string that expires the unprefixed name. On the HTTPS policy it
+ * targets the parent `Domain` for the reason given on
+ * {@link expireLeftoverCookieOptions}.
+ */
+export function expireLeftoverCookieHeader(
+  name: string,
+  args: { secure: boolean; host?: string | null },
+): string {
+  return formatSetCookie(name, "", {
+    secure: args.secure,
+    maxAge: 0,
+    expires: new Date(0),
+    ...(args.secure
+      ? { domain: leftoverCookieDomain(args.host) ?? undefined }
+      : {}),
+  });
 }

@@ -81,6 +81,34 @@ describe("guest session read", () => {
     expect(isGuestSessionId("guest-session-1")).toBe(false);
   });
 
+  it("is not a live identity over HTTPS even when lone and well formed", () => {
+    const cookie = `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}`;
+    expect(
+      getSessionIdFromRequest(
+        new Request("https://sajtmaskin.se/api/projects", {
+          headers: { cookie },
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      getSessionIdFromRequest(
+        new Request("http://127.0.0.1:3010/api/projects", {
+          headers: { cookie },
+        }),
+      ),
+    ).toBe(VALID_LEGACY);
+  });
+
+  it("does not let a leftover name open the x-session-id fallback on HTTPS", () => {
+    const request = new Request("https://sajtmaskin.se/api/projects", {
+      headers: {
+        cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}`,
+        "x-session-id": VALID_PARENT,
+      },
+    });
+    expect(getSessionIdFromRequest(request)).toBeNull();
+  });
+
   it("does not fall through to x-session-id after an ambiguous leftover cookie", () => {
     const request = new Request("https://sajtmaskin.se/", {
       headers: {
@@ -99,17 +127,55 @@ describe("guest session read", () => {
   });
 });
 
-describe("verified guest transition", () => {
-  it("re-issues a lone well-formed leftover as __Host- with the same id", () => {
+describe("guest transition", () => {
+  it("mints a new id over HTTPS instead of promoting a leftover to __Host-", () => {
     const request = new Request("https://sajtmaskin.se/api/projects", {
+      headers: {
+        cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}`,
+        host: "sajtmaskin.se",
+      },
+    });
+    const ensured = ensureSessionIdFromRequest(request);
+
+    expect(ensured.sessionId).not.toBe(VALID_LEGACY);
+    expect(isGuestSessionId(ensured.sessionId)).toBe(true);
+    expect(ensured.setCookie).toContain(
+      `${SESSION_COOKIE_HOST_NAME}=${ensured.sessionId}`,
+    );
+    expect(ensured.setCookie).not.toContain(VALID_LEGACY);
+    expect(ensured.setCookie).toContain("Secure");
+  });
+
+  it("expires the leftover on the parent Domain when it minted a new HTTPS id", () => {
+    const request = new Request("https://preview.sajtmaskin.se/api/projects", {
+      headers: {
+        cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}`,
+        host: "preview.sajtmaskin.se",
+      },
+    });
+    const ensured = ensureSessionIdFromRequest(request);
+    const expiry = ensured.setCookies.filter((header) =>
+      header.startsWith(`${SESSION_COOKIE_LEGACY_NAME}=;`),
+    );
+
+    expect(ensured.setCookies[0]).toBe(ensured.setCookie);
+    expect(expiry).toHaveLength(1);
+    expect(expiry[0]).toContain("Domain=.sajtmaskin.se");
+    expect(expiry[0]).toContain("Max-Age=0");
+  });
+
+  it("keeps the leftover id under the unprefixed name on local HTTP", () => {
+    const request = new Request("http://127.0.0.1:3010/api/projects", {
       headers: { cookie: `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}` },
     });
     const ensured = ensureSessionIdFromRequest(request);
+
     expect(ensured.sessionId).toBe(VALID_LEGACY);
     expect(ensured.setCookie).toContain(
-      `${SESSION_COOKIE_HOST_NAME}=${VALID_LEGACY}`,
+      `${SESSION_COOKIE_LEGACY_NAME}=${VALID_LEGACY}`,
     );
-    expect(ensured.setCookie).toContain("Secure");
+    expect(ensured.setCookie).not.toContain(SESSION_COOKIE_HOST_NAME);
+    expect(ensured.setCookies).toEqual([ensured.setCookie]);
   });
 
   it("does not mint a cookie when the __Host- session is already present", () => {
@@ -119,6 +185,7 @@ describe("verified guest transition", () => {
     expect(ensureSessionIdFromRequest(request)).toEqual({
       sessionId: VALID_HOST,
       setCookie: null,
+      setCookies: [],
     });
   });
 

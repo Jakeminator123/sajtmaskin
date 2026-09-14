@@ -10,10 +10,12 @@ import { randomBytes, randomUUID } from "crypto";
 import {
   SESSION_COOKIE_HOST_NAME,
   SESSION_COOKIE_LEGACY_NAME,
+  expireLeftoverCookieHeader,
   formatSetCookie,
   isGuestSessionId,
   parseCookieHeader,
   pickHostOrLegacyCookie,
+  requestUsesSecureCookies,
   sessionCookieWriteName,
   type HostCookieSource,
 } from "@/lib/auth/host-cookies";
@@ -35,20 +37,16 @@ function generateSessionId(): string {
 
 function requestWantsSecureCookie(request: Request, override?: boolean): boolean {
   if (typeof override === "boolean") return override;
-  try {
-    return new URL(request.url).protocol === "https:";
-  } catch {
-    return process.env.NODE_ENV === "production";
-  }
+  return requestUsesSecureCookies(request);
 }
 
 /**
  * Read the guest session from the Cookie header.
  *
- * Host-prefixed cookie wins. A lone well-formed legacy cookie is accepted
- * only when the `__Host-` name is absent and that name is not duplicated
- * with conflicting values. That is the verified transition: format + no
- * shadow. A shadowed/ambiguous leftover is not used to move ownership.
+ * Host-prefixed cookie wins. On HTTPS the unprefixed name is not a guest
+ * identity: the header does not say whether the portal or a subdomain on
+ * `Domain=.sajtmaskin.se` wrote it, so format plus "no duplicate" is not proof
+ * of origin. Plain HTTP still reads it so local dev keeps its session.
  */
 export function resolveGuestSessionFromRequest(
   request: Request,
@@ -60,6 +58,7 @@ export function resolveGuestSessionFromRequest(
     cookies,
     SESSION_COOKIE_HOST_NAME,
     SESSION_COOKIE_LEGACY_NAME,
+    { secure: requestWantsSecureCookie(request) },
   );
 
   if (picked && isGuestSessionId(picked.value)) {
@@ -87,35 +86,61 @@ export function getSessionIdFromRequest(request: Request): string | null {
   return resolveGuestSessionFromRequest(request)?.sessionId ?? null;
 }
 
-export function ensureSessionIdFromRequest(request: Request): {
+export interface EnsuredGuestSession {
   sessionId: string;
+  /** The guest session cookie to write, or null when `__Host-` already holds it. */
   setCookie: string | null;
-} {
+  /**
+   * `setCookie` plus the `Set-Cookie` that expires the unprefixed leftover on
+   * HTTPS. A caller that emits only `setCookie` leaves the leftover in place —
+   * inert, because the HTTPS reader no longer accepts that name.
+   */
+  setCookies: string[];
+}
+
+/**
+ * On HTTPS a leftover guest id is never re-issued as `__Host-`: an unverified
+ * id must not become the portal's identity, so a new id is minted and nothing
+ * is claimed from the leftover. Local HTTP keeps the leftover→same-id upgrade.
+ */
+export function ensureSessionIdFromRequest(request: Request): EnsuredGuestSession {
   const existing = resolveGuestSessionFromRequest(request);
   const secure = requestWantsSecureCookie(request);
+  const leftoverPresent = parseCookieHeader(
+    request.headers.get("cookie"),
+  ).has(SESSION_COOKIE_LEGACY_NAME);
+  const expireLeftover =
+    secure && leftoverPresent
+      ? [
+          expireLeftoverCookieHeader(SESSION_COOKIE_LEGACY_NAME, {
+            secure: true,
+            host: request.headers.get("host"),
+          }),
+        ]
+      : [];
+
+  const resolved = (sessionId: string, setCookie: string | null) => ({
+    sessionId,
+    setCookie,
+    setCookies: [...(setCookie ? [setCookie] : []), ...expireLeftover],
+  });
 
   if (existing?.source === "host") {
-    return { sessionId: existing.sessionId, setCookie: null };
+    return resolved(existing.sessionId, null);
   }
 
-  if (existing?.source === "legacy" && isGuestSessionId(existing.sessionId)) {
-    // Verified transition: unambiguous, format-valid leftover. Re-issue as
-    // `__Host-` with the same id so later requests stop reading the old name.
-    return {
-      sessionId: existing.sessionId,
-      setCookie: createSessionCookie(existing.sessionId, { secure }),
-    };
-  }
-
-  if (existing?.source === "header") {
-    return {
-      sessionId: existing.sessionId,
-      setCookie: createSessionCookie(existing.sessionId, { secure }),
-    };
+  // `legacy` is only reachable on plain HTTP — the HTTPS picker refuses the
+  // unprefixed name outright. Re-check here so the write site states the same
+  // invariant as the reader: no leftover id is ever promoted to `__Host-`.
+  if (existing && !(secure && existing.source === "legacy")) {
+    return resolved(
+      existing.sessionId,
+      createSessionCookie(existing.sessionId, { secure }),
+    );
   }
 
   const sessionId = generateSessionId();
-  return { sessionId, setCookie: createSessionCookie(sessionId, { secure }) };
+  return resolved(sessionId, createSessionCookie(sessionId, { secure }));
 }
 
 /**

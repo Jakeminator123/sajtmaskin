@@ -11,6 +11,7 @@ import {
   OAUTH_COOKIE_HOST_NAMES,
   OAUTH_COOKIE_LEGACY_NAMES,
   expireCookieSetOptions,
+  expireLeftoverCookieOptions,
   getAuthTokenFromRequest,
   hostCookieSetOptions,
   pickHostOrLegacyCookieFromHeader,
@@ -378,11 +379,7 @@ export function setOAuthFlowCookie(
     cookieOptions(request),
   );
   if (secure) {
-    response.cookies.set(
-      oauthCookieName(provider, { secure: false }),
-      "",
-      expireCookieSetOptions(true),
-    );
+    expireOAuthLeftover(response, provider, request);
   }
 }
 
@@ -397,10 +394,30 @@ export function clearOAuthFlowCookie(
     "",
     expireCookieSetOptions(true),
   );
+  if (!secure) {
+    response.cookies.set(
+      oauthCookieName(provider, { secure: false }),
+      "",
+      expireCookieSetOptions(false),
+    );
+    return;
+  }
+  expireOAuthLeftover(response, provider, request);
+}
+
+/**
+ * A host-only clear leaves a leftover written with `Domain=.sajtmaskin.se` in
+ * place, so the HTTPS clear targets the parent domain instead.
+ */
+function expireOAuthLeftover(
+  response: NextResponse,
+  provider: OAuthProvider,
+  request: NextRequest,
+): void {
   response.cookies.set(
     oauthCookieName(provider, { secure: false }),
     "",
-    expireCookieSetOptions(secure),
+    expireLeftoverCookieOptions(request.nextUrl.hostname),
   );
 }
 
@@ -418,6 +435,7 @@ export function verifyOAuthFlow(
       request.headers.get("cookie"),
       oauthCookieName(provider, { secure: true }),
       oauthCookieName(provider, { secure: false }),
+      { secure: cookieSecure(request) },
     )?.value,
   );
   if (!cookie) return { ok: false, reason: "state_cookie_missing" };

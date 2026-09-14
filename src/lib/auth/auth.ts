@@ -21,11 +21,15 @@ import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 import {
   AUTH_COOKIE_HOST_NAME,
   AUTH_COOKIE_LEGACY_NAME,
+  SESSION_COOKIE_LEGACY_NAME,
   authCookieWriteName,
   cookieMapFromList,
   expireCookieSetOptions,
+  expireLeftoverCookieOptions,
+  forwardedProtoIsHttps,
   getAuthTokenFromRequest,
   hostCookieSetOptions,
+  leftoverGuestClaimId,
   parseCookieHeader,
   pickHostOrLegacyCookie,
 } from "@/lib/auth/host-cookies";
@@ -140,17 +144,56 @@ function resolveAuthCookieSecure(options?: { secure?: boolean }): boolean {
   return typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION;
 }
 
-async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
+type IncomingHeaderList = { get(name: string): string | null };
+
+/** `headers()`, or null in the unit-test mocks / render phases where it throws. */
+async function incomingHeaders(): Promise<IncomingHeaderList | null> {
   try {
-    const headerList = await headers();
-    const picked = pickHostOrLegacyCookie(
-      parseCookieHeader(headerList.get("cookie")),
-      AUTH_COOKIE_HOST_NAME,
-      AUTH_COOKIE_LEGACY_NAME,
-    );
-    if (picked) return picked.value;
+    return await headers();
   } catch {
-    // headers() is unavailable in some unit-test mocks; fall through to cookies().
+    return null;
+  }
+}
+
+/**
+ * HTTPS cookie policy for a request that has no `Request` object. The write side
+ * uses `IS_PRODUCTION`, so `OR` here can only make the reader stricter than the
+ * writer — never laxer, which would re-open the leftover as an identity.
+ */
+function secureCookiePolicy(headerList: IncomingHeaderList | null): boolean {
+  return (
+    resolveAuthCookieSecure() ||
+    forwardedProtoIsHttps(headerList?.get("x-forwarded-proto"))
+  );
+}
+
+/** Request host for the parent-`Domain` clears, or null when unavailable. */
+function requestHostFromHeaders(headerList: IncomingHeaderList | null): string | null {
+  return (
+    headerList?.get("host") ?? headerList?.get("x-forwarded-host") ?? null
+  );
+}
+
+/**
+ * The raw `Cookie` header is the only view that still shows two cookies sharing
+ * a name — `cookies()` has already collapsed them. So a successful header read
+ * is authoritative, including when it refuses: falling through to `cookies()`
+ * would let the lossy parser hand back one of the conflicting values anyway.
+ * `cookies()` is a fallback only for the case where `headers()` is unavailable.
+ */
+async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
+  const headerList = await incomingHeaders();
+  const secure = secureCookiePolicy(headerList);
+
+  if (headerList) {
+    return (
+      pickHostOrLegacyCookie(
+        parseCookieHeader(headerList.get("cookie")),
+        AUTH_COOKIE_HOST_NAME,
+        AUTH_COOKIE_LEGACY_NAME,
+        { secure },
+      )?.value ?? null
+    );
   }
 
   const cookieStore = await cookies();
@@ -161,6 +204,7 @@ async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
       cookieMapFromList(list),
       AUTH_COOKIE_HOST_NAME,
       AUTH_COOKIE_LEGACY_NAME,
+      { secure },
     )?.value ?? null
   );
 }
@@ -177,24 +221,72 @@ export async function setAuthCookie(token: string, options?: { secure?: boolean 
     token,
     hostCookieSetOptions({ secure, maxAge: JWT_EXPIRY }),
   );
-  if (secure) {
-    // Production must not keep the unprefixed name as a live permission cookie.
+  if (!secure) return;
+
+  const headerList = await incomingHeaders();
+  const host = requestHostFromHeaders(headerList);
+  // Production must not keep the unprefixed name as a live permission cookie.
+  cookieStore.set(
+    AUTH_COOKIE_LEGACY_NAME,
+    "",
+    expireLeftoverCookieOptions(host),
+  );
+
+  await reconnectLeftoverGuestProjects(token, headerList, cookieStore);
+}
+
+/**
+ * The write just proved the user's identity with a `__Host-` cookie, which is
+ * the only moment a leftover guest id may be trusted — as a claim source, once.
+ * Failing here must never fail the login, and the leftover is only expired once
+ * its projects actually moved.
+ */
+async function reconnectLeftoverGuestProjects(
+  token: string,
+  headerList: IncomingHeaderList | null,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+): Promise<void> {
+  const sessionId = leftoverGuestClaimId(headerList?.get("cookie"));
+  if (!sessionId) return;
+
+  const userId = verifyToken(token)?.userId;
+  if (!userId) return;
+
+  try {
+    // Imported lazily: the database client throws at import time without a
+    // connection string, and this module is loaded by consumers that run
+    // without one.
+    const { reconnectGuestProjects } = await import("@/lib/auth/guest-claim");
+    const result = await reconnectGuestProjects(sessionId, userId);
+    if (!result.ok) return;
     cookieStore.set(
-      AUTH_COOKIE_LEGACY_NAME,
+      SESSION_COOKIE_LEGACY_NAME,
       "",
-      expireCookieSetOptions(true),
+      expireLeftoverCookieOptions(requestHostFromHeaders(headerList)),
     );
+  } catch (error) {
+    console.error("[Auth] Guest project reconnect unavailable:", error);
   }
 }
 
 /**
- * Clear both the `__Host-` cookie and the pre-migration name.
+ * Clear the `__Host-` cookie and the pre-migration name, on HTTPS including the
+ * parent `Domain` a subdomain could have planted it on.
  */
 export async function clearAuthCookie(options?: { secure?: boolean }): Promise<void> {
   const secure = resolveAuthCookieSecure(options);
   const cookieStore = await cookies();
   cookieStore.set(AUTH_COOKIE_HOST_NAME, "", expireCookieSetOptions(true));
-  cookieStore.set(AUTH_COOKIE_LEGACY_NAME, "", expireCookieSetOptions(secure));
+  if (!secure) {
+    cookieStore.set(AUTH_COOKIE_LEGACY_NAME, "", expireCookieSetOptions(false));
+    return;
+  }
+  const host = requestHostFromHeaders(await incomingHeaders());
+  cookieStore.set(
+    AUTH_COOKIE_LEGACY_NAME,
+    "",
+    expireLeftoverCookieOptions(host),
+  );
 }
 
 /**
