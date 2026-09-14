@@ -1024,4 +1024,50 @@ describe("MessageList", () => {
       screen.queryByText("Integrationsbygge startat utifrån den finaliserade designversionen."),
     ).toBeNull();
   });
+
+  it("shows Godkänn plan och bygg in the default chat, not only in felsökningsvyn", () => {
+    const onApproveBuildPlan = vi.fn();
+    const readyPlan = {
+      goal: "Brochure",
+      siteType: "brochure",
+      scope: ["Hem", "Kontakt"],
+      pages: [
+        { id: "home", path: "/", name: "Hem", intent: "Start", sections: [] },
+        { id: "contact", path: "/kontakt", name: "Kontakt", intent: "Kontakt", sections: [] },
+      ],
+      steps: [
+        { id: "s1", title: "Bygg startsidan", description: "Hem och kontakt", phase: "build" },
+      ],
+      blockers: [],
+    };
+
+    render(
+      <MessageList
+        chatId="chat_sm088"
+        showStructuredParts={false}
+        onApproveBuildPlan={onApproveBuildPlan}
+        messages={[
+          {
+            id: "assistant_plan_ready",
+            role: "assistant",
+            content: "Plan skapad (brochure): 2 sida/sidor och 0 integration(er) är redo för granskning.",
+            uiParts: [
+              {
+                type: "plan",
+                plan: {
+                  title: "Brochure",
+                  description: "Hem, Kontakt",
+                  raw: readyPlan,
+                },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("generation-surface")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Godkänn plan och bygg" })).toBeTruthy();
+    expect(screen.queryByText("Quality gate")).toBeNull();
+  });
 });

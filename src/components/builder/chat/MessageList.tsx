@@ -430,11 +430,9 @@ const MessageListComponent = ({
           const currentTurnIsActive =
             !hasUserAfterCurrentMessage &&
             Boolean(message.isStreaming || activeAgentLogLabel);
-          const planParts = showStructuredParts
-            ? message.parts.filter(
-                (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
-              )
-            : [];
+          const planParts = message.parts.filter(
+            (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
+          );
           const sourcesParts = showStructuredParts
             ? message.parts.filter(
                 (p): p is Extract<MessagePart, { type: "sources" }> => p.type === "sources",
@@ -565,6 +563,7 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   !showStructuredParts ? (
+                    <>
                     <GenerationSurface
                       content={textContent}
                       reasoning={reasoningPart?.reasoning}
@@ -577,6 +576,16 @@ const MessageListComponent = ({
                       reviews={renderCompactTools(reviewToolParts)}
                       actions={renderCompactTools(actionToolParts)}
                     />
+                    {planParts.map((part, index) => (
+                      <BuildPlanCard
+                        key={`${message.id}-plan-card-${index}`}
+                        rawPlan={part.plan.raw}
+                        onApproveBuild={onApproveBuildPlan}
+                        approveDisabled={quickReplyDisabled}
+                        lifecycleStage={lifecycleStage}
+                      />
+                    ))}
+                    </>
                   ) : textContent ? (
                     hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />

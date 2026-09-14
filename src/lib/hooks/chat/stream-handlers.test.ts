@@ -509,7 +509,8 @@ describe("handleSseStream", () => {
     expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
     // Planen ska monteras som eget uiPart, inte skrivas över av felmeddelandet.
     expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
-    expect(store.getMessages()[0]?.content).toContain("Här är planen.");
+    expect(store.getMessages()[0]?.content).toContain("Plan skapad");
+    expect(store.getMessages()[0]?.content).not.toContain("Här är planen.");
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
     // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
