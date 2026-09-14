@@ -139,7 +139,7 @@ export function KostnadsfriPage({
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background">
       {phase === "password" && (
         <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
       )}
