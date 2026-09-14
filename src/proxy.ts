@@ -70,6 +70,13 @@ const THIRD_PARTY_HOSTS = {
   connect: ["https://api-js.mixpanel.com"],
 } as const;
 
+// Large media (today: the kostnadsfri intro film) is served from the project's
+// public Vercel Blob store instead of being committed as an mp4. `blob:` on
+// media-src is the URL *scheme* and does not cover this domain, so the host
+// needs its own entry — mirroring the `*.blob.vercel-storage.com` pattern that
+// img-src already carries.
+const VERCEL_BLOB_MEDIA_HOSTS = ["https://*.public.blob.vercel-storage.com"] as const;
+
 // LocationPicker and CompetitorMap bootstrap the Maps JavaScript API directly,
 // which then loads runtime chunks and Places data from these two exact origins.
 // Keep this narrower than Google's generic allowlist: the current UI disables
@@ -153,7 +160,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   ];
   const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...VERCEL_LIVE_HOSTS.frame, ...tier2PreviewHosts];
   const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...VERCEL_LIVE_HOSTS.connect, ...tier2PreviewHosts];
-  const mediaSrc = [`'self'`, "blob:"];
+  const mediaSrc = [`'self'`, "blob:", ...VERCEL_BLOB_MEDIA_HOSTS];
   const workerSrc = [`'self'`, "blob:"];
 
   // D-ID SDK (bundled npm) needs connect-src for WebRTC signaling on any page
