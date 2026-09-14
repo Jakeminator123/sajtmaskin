@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     template: "%s | Sajtmaskin",
   },
   description:
-    "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.",
+    "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.",
   metadataBase: new URL(URLS.baseUrl),
   icons: {
     icon: "/icon.svg",
@@ -81,7 +81,7 @@ export default async function RootLayout({
         <noscript>
           <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
             <h1>Sajtmaskin</h1>
-            <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.</p>
+            <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.</p>
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
           </div>
         </noscript>

@@ -597,6 +597,35 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
   consumed_at: timestamptz("consumed_at"),
 });
 
+/**
+ * Server-owned pilot entitlement. IDs are deliberately retained without FKs:
+ * deleting a temporary project or account must not make an invitation
+ * redeemable a second time.
+ */
+export const kostnadsfriCampaignEntitlements = pgTable(
+  "kostnadsfri_campaign_entitlements",
+  {
+    id: text("id").primaryKey(),
+    invitation_slug: text("invitation_slug").notNull(),
+    kostnadsfri_page_id: integer("kostnadsfri_page_id"),
+    project_id: text("project_id").notNull(),
+    user_id: text("user_id"),
+    session_id: text("session_id").notNull(),
+    initial_chat_id: text("initial_chat_id"),
+    initial_version_id: text("initial_version_id"),
+    initial_claimed_at: timestamptz("initial_claimed_at"),
+    followup_version_id: text("followup_version_id"),
+    followup_claimed_at: timestamptz("followup_claimed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    invitationIdx: uniqueIndex("kostnadsfri_campaign_invitation_unique").on(table.invitation_slug),
+    projectIdx: uniqueIndex("kostnadsfri_campaign_project_unique").on(table.project_id),
+    userIdx: index("idx_kostnadsfri_campaign_user_id").on(table.user_id),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // ENGINE TABLES — own code-generation engine (migrated from SQLite)
 // ---------------------------------------------------------------------------
@@ -1172,6 +1201,9 @@ export const generationBillings = pgTable(
      */
     free_generation_eligible: boolean("free_generation_eligible").default(true).notNull(),
     free_generation_applied: boolean("free_generation_applied").default(false).notNull(),
+    campaign_entitlement_id: text("campaign_entitlement_id"),
+    campaign_phase: text("campaign_phase").$type<"initial" | "followup" | null>(),
+    campaign_free_applied: boolean("campaign_free_applied").default(false).notNull(),
     claim_keys: jsonb("claim_keys")
       .$type<string[]>()
       .default(sql`'[]'::jsonb`)
@@ -1199,6 +1231,9 @@ export const generationBillings = pgTable(
   },
   (table) => ({
     versionUnique: uniqueIndex("generation_billings_version_unique").on(table.version_id),
+    campaignSlotUnique: uniqueIndex("generation_billings_campaign_slot_unique")
+      .on(table.campaign_entitlement_id, table.campaign_phase)
+      .where(sql`${table.campaign_entitlement_id} is not null`),
     chatIdx: index("idx_generation_billings_chat").on(table.chat_id),
     userCreatedIdx: index("idx_generation_billings_user_created").on(
       table.user_id,

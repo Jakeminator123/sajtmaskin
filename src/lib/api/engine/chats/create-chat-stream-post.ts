@@ -61,6 +61,7 @@ import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { bindKostnadsfriCampaignInitialChat } from "@/lib/db/services/kostnadsfri-campaign";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
 import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
@@ -241,9 +242,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           imageGenerations: resolvedImageGenerations,
           attachmentsCount: requestAttachments.length,
         };
+        const campaignProjectId = !metaPlanMode
+          ? await resolveAppProjectIdForRequest(
+              req,
+              { appProjectId: metaAppProjectId, projectId },
+              { sessionId },
+            )
+          : null;
         const creditCheck = await prepareGenerationCredits(req, "prompt.create", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
+          campaignProjectId,
+          campaignPhase: "initial",
         });
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
@@ -988,6 +998,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }
           acquiredGenerationLock = initBoot.lock;
           const engineChat = initBoot.chat;
+          if (creditCheck.campaignBenefit?.phase === "initial") {
+            const campaignChatBound = await bindKostnadsfriCampaignInitialChat({
+              entitlementId: creditCheck.campaignBenefit.entitlementId,
+              projectId: projectIdForChat,
+              userId: creditCheck.user.id,
+              chatId: engineChat.id,
+            });
+            if (!campaignChatBound) {
+              throw new Error("Campaign entitlement could not be bound to the initial chat");
+            }
+          }
           await attachCreateChatPromptLogChatId(createChatPromptLogId, engineChat.id);
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });

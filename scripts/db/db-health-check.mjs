@@ -68,6 +68,7 @@ const EXPECTED_TABLES = [
   "user_audits",
   // Kostnadsfri
   "kostnadsfri_pages",
+  "kostnadsfri_campaign_entitlements",
   // Engine (own-engine codegen)
   "engine_chats",
   "engine_messages",
@@ -127,6 +128,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
   generation_billings: [
     { name: "generation_billings_version_unique", columns: ["version_id"] },
+    {
+      name: "generation_billings_campaign_slot_unique",
+      columns: ["campaign_entitlement_id", "campaign_phase"],
+      unique: true,
+      partial: true,
+    },
     { name: "idx_generation_billings_chat", columns: ["chat_id"] },
     { name: "idx_generation_billings_user_created", columns: ["user_id", "created_at"] },
     { name: "idx_generation_billings_created", columns: ["created_at"] },
@@ -356,7 +363,14 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
 // tabellen och dess index fortfarande finns. Håll listan smal: full live
 // dev↔prod-kolumnparitet ägs av check-schema-parity.mjs.
 const EXPECTED_REQUIRED_COLUMNS = {
-  generation_billings: ["claim_keys", "free_generation_eligible", "usage_started_at"],
+  generation_billings: [
+    "claim_keys",
+    "free_generation_eligible",
+    "usage_started_at",
+    "campaign_entitlement_id",
+    "campaign_phase",
+    "campaign_free_applied",
+  ],
 };
 
 const ENABLE_EXACT_COUNT = process.argv.includes("--exact-count");

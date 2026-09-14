@@ -48,6 +48,13 @@ export function createCommitCreditsOnce(
             userId: creditCheck.user.id,
             isTest: creditCheck.isTest,
             claimKey,
+            ...(creditCheck.campaignBenefit
+              ? {
+                  campaignEntitlementId: creditCheck.campaignBenefit.entitlementId,
+                  campaignPhase: creditCheck.campaignBenefit.phase,
+                }
+              : {}),
+            ...(creditCheck.campaignProject ? { freeGenerationEligible: false } : {}),
           });
           markerError = null;
           break;
@@ -56,10 +63,7 @@ export function createCommitCreditsOnce(
         }
       }
       if (markerError) {
-        console.error(
-          "[generation-billing] Kunde inte spara completion-markören:",
-          markerError,
-        );
+        console.error("[generation-billing] Kunde inte spara completion-markören:", markerError);
         throw markerError;
       }
 
@@ -92,7 +96,10 @@ export function createCommitCreditsOnce(
         }
       }
       if (settlementError) {
-        console.error("[generation-billing] Kunde inte debitera completion-markören:", settlementError);
+        console.error(
+          "[generation-billing] Kunde inte debitera completion-markören:",
+          settlementError,
+        );
       }
       return;
     }

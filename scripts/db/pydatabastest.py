@@ -160,6 +160,7 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "pricing_settings",
     "domain_orders",
     "kostnadsfri_pages",
+    "kostnadsfri_campaign_entitlements",
     "user_integrations",
     "media_library",
     "prompt_logs",

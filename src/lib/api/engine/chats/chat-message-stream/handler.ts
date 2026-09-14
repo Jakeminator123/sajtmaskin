@@ -437,6 +437,9 @@ export async function handleMessageStreamRequest(
         const creditCheck = await prepareGenerationCredits(req, "prompt.refine", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
+          campaignProjectId: !metaPlanMode ? engineChat.project_id : null,
+          campaignPhase: "continuation",
+          campaignChatId: chatId,
         });
         if (!creditCheck.ok) {
           // Grinden ligger före prompt-loggen och före user-raden, så ett avslag

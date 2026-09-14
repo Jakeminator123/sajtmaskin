@@ -22,6 +22,16 @@ const createPromptHandoff = vi.hoisted(() =>
     created_at: new Date("2026-09-08T00:00:00Z"),
   })),
 );
+const getProjectByIdForOwner = vi.hoisted(() =>
+  vi.fn(async (id: string) => ({ id, user_id: null, session_id: "sess_1" })),
+);
+const bindVerifiedKostnadsfriCampaign = vi.hoisted(() =>
+  vi.fn(async (input: { receipt: string | null }) =>
+    input.receipt === "verified-receipt"
+      ? { entitlementId: "campaign_1", phase: "initial" as const }
+      : null,
+  ),
+);
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -30,7 +40,10 @@ vi.mock("@/lib/auth/auth", () => ({ getCurrentUser: vi.fn(async () => null) }));
 vi.mock("@/lib/auth/session", () => ({
   ensureSessionIdFromRequest,
 }));
-vi.mock("@/lib/db/services/projects", () => ({ createPromptHandoff }));
+vi.mock("@/lib/db/services/projects", () => ({ createPromptHandoff, getProjectByIdForOwner }));
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  bindVerifiedKostnadsfriCampaign,
+}));
 vi.mock("@/lib/data/redis", () => ({ cachePromptHandoff: vi.fn(async () => undefined) }));
 vi.mock("@/lib/db/services/analytics", () => ({ recordPageView }));
 // `after()` needs a request scope in Next; run the callback inline in tests.
@@ -41,10 +54,14 @@ vi.mock("next/server", async (importOriginal) => {
 
 import { POST } from "./route";
 
-function promptRequest(body: Record<string, unknown>) {
+function promptRequest(body: Record<string, unknown>, verified = false) {
   return new NextRequest("http://localhost/api/prompts", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-real-ip": "10.0.0.1" },
+    headers: {
+      "content-type": "application/json",
+      "x-real-ip": "10.0.0.1",
+      ...(verified ? { cookie: "sajtmaskin_kostnadsfri_campaign=verified-receipt" } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -95,7 +112,15 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
 
   it("records `skapad` server-side when the kostnadsfri flow hands off", async () => {
     const res = await POST(
-      promptRequest({ prompt: "Bygg en sajt", source: "kostnadsfri", kostnadsfriSlug: "ikea-ab" }),
+      promptRequest(
+        {
+          prompt: "Bygg en sajt",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+        },
+        true,
+      ),
     );
 
     expect(res.status).toBe(200);
@@ -106,6 +131,24 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
       "10.0.0.1",
       undefined,
     );
+  });
+
+  it("rejects client-provided source and slug without a verified receipt", async () => {
+    const res = await POST(
+      promptRequest({
+        prompt: "Bygg en sajt",
+        source: "kostnadsfri",
+        kostnadsfriSlug: "ikea-ab",
+        projectId: "project_1",
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    expect(bindVerifiedKostnadsfriCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({ receipt: null, invitationSlug: "ikea-ab" }),
+    );
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+    expect(recordPageView).not.toHaveBeenCalled();
   });
 
   it("does not record anything for other sources or without a slug", async () => {

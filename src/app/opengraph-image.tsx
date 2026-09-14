@@ -136,7 +136,7 @@ export default function OgImage() {
             fontSize: 14,
           }}
         >
-          En tjänst från Pretty Good AB
+          En tjänst från Pretty Good B.V.
         </div>
       </div>
     ),
