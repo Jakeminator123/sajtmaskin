@@ -34,6 +34,13 @@ it("makes provider project names collision-safe across customer projects", () =>
 });
 
 describe("branded live URL policy", () => {
+  function allowReviewedVersion(projectId = "project_1", versionId = "version_1") {
+    vi.stubEnv(
+      "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      JSON.stringify([{ projectId, versionId, filesRevision: "revision_1" }]),
+    );
+  }
+
   it("requires both rollout flag and base domain", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "");
@@ -51,6 +58,7 @@ describe("branded live URL policy", () => {
   it("resolves verified custom, branded and provider URL precedence", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         customDomain: "kund.se",
@@ -58,6 +66,8 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.se");
     expect(
@@ -67,6 +77,8 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.sites.sajtmaskin.se");
     expect(
@@ -74,6 +86,8 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: null,
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.vercel.app");
   });
@@ -88,13 +102,42 @@ describe("branded live URL policy", () => {
     ).toBe("https://kund.vercel.app");
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         brandedDomain: "attacker.example.com",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "safe.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://safe.vercel.app");
+  });
+
+  it("does not display branded for a different version, while custom stays available", () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
+
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        providerUrl: "kund.vercel.app",
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.vercel.app");
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        customDomain: "kund.se",
+        customDomainVerifiedAt: new Date(),
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.se");
   });
 
   it("normalizes provider URLs and stable slug candidates", () => {

@@ -198,6 +198,8 @@ export async function GET(req: Request) {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
           const refreshedLiveUrl = resolveLiveUrl({
+            projectId: appProjectId,
+            versionId: latestRefreshCandidate.versionId,
             providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
             brandedDomain: appProject?.branded_domain ?? null,
             brandedDomainVerifiedAt,
@@ -255,6 +257,8 @@ export async function GET(req: Request) {
             url:
               refreshed?.url ??
               resolveLiveUrl({
+                projectId: appProjectId,
+                versionId: d.versionId,
                 providerUrl: d.providerUrl,
                 brandedDomain: appProject?.branded_domain ?? null,
                 brandedDomainVerifiedAt,

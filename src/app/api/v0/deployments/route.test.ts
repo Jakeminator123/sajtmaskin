@@ -6,6 +6,7 @@ const deploymentRows = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
 );
 const getVersionFiles = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
@@ -97,6 +98,7 @@ vi.mock("@/lib/db/services/projects", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
+  getVersionFilesSnapshot,
 }));
 
 // BB#deploy2: routen loggar deploy-fel när dess statusskrivningar vinner
@@ -137,6 +139,12 @@ describe("POST /api/v0/deployments", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv(
+      "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      JSON.stringify([
+        { projectId: "proj_1", versionId: "ver_1", filesRevision: "revision_1" },
+      ]),
+    );
     prepareCredits.mockImplementation(() => {
       throw new Error("prepareCredits should not run for precheckOnly tests");
     });
@@ -184,13 +192,21 @@ describe("POST /api/v0/deployments", () => {
     // Tenant-scoped resolver: version + owned engine chat resolve together.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1", project_id: "proj_1" },
-      version: { id: "ver_1", chat_id: "chat_1" },
+      version: { id: "ver_1", chat_id: "chat_1", files_revision: "revision_1" },
     });
     getEngineChatByIdForRequest.mockResolvedValue(null);
     deploymentRows.mockResolvedValue([]);
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },
     ]);
+    getVersionFilesSnapshot.mockImplementation(async (versionId: string) => ({
+      files: await getVersionFiles(versionId),
+      filesJson: "[]",
+      filesRevision: "revision_1",
+      lifecycleStage: "design",
+      verificationState: "pending",
+      parentVersionId: null,
+    }));
     getEngineVersionErrorLogs.mockResolvedValue([]);
   });
 
@@ -1508,6 +1524,181 @@ describe("POST /api/v0/deployments", () => {
         url: "https://demo.sites.sajtmaskin.se",
       }),
     );
+  });
+
+  it("denies an unreviewed redeploy before charging or touching Vercel so the approved live version remains", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    });
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: {
+        id: "ver_2",
+        chat_id: "chat_1",
+        files_revision: "revision_2",
+      },
+    });
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Demo",
+      branded_domain: "demo.sites.sajtmaskin.se",
+      branded_domain_verified_at: new Date("2026-09-01"),
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_2" }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "DEPLOY_BRANDED_PILOT_PENDING",
+      brandedPilotGate: { blocked: true, reason: "version_not_reviewed" },
+    });
+    expect(commit).not.toHaveBeenCalled();
+    expect(createDeploymentRecord).not.toHaveBeenCalled();
+    expect(ensureVercelProjectDomain).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
+  it("denies the same allowlisted version id after its file revision changes", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    });
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "package.json", content: '{"name":"edited"}' }],
+      filesJson: '[{"path":"package.json","content":"edited"}]',
+      filesRevision: "revision_after_review",
+      lifecycleStage: "design",
+      verificationState: "pending",
+      parentVersionId: null,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      brandedPilotGate: { blocked: true, reason: "version_content_changed" },
+    });
+    expect(commit).not.toHaveBeenCalled();
+    expect(createDeploymentRecord).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
+  it("does not exempt an unreviewed version when custom and branded aliases share the project", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "false");
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    });
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Demo",
+      branded_domain: "demo.sites.sajtmaskin.se",
+      branded_domain_verified_at: new Date("2026-09-01"),
+      custom_domain: "kund.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
+  it("lets an existing verified custom-domain project without a branded alias use its normal path", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    vi.stubEnv("SAJTMASKIN_BRANDED_PILOT_ALLOWLIST", "[]");
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Demo",
+      custom_domain: "kund.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      brandedPilotGate: {
+        required: false,
+        blocked: false,
+        reason: "version_not_reviewed",
+      },
+    });
+  });
+
+  it("denies an allowlisted auth-capability version", async () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    });
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: {
+        id: "chat_1",
+        project_id: "proj_1",
+        orchestration_snapshot: { requestedCapabilities: ["auth"] },
+      },
+      version: {
+        id: "ver_1",
+        chat_id: "chat_1",
+        files_revision: "revision_1",
+      },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      brandedPilotGate: { blocked: true, reason: "auth_capability" },
+    });
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
   });
 
   // #486 Fix A: a display-name-only edit must not look like retargeting once

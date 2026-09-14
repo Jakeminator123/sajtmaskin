@@ -7,6 +7,8 @@
  * URLs, so tenant routing cannot be influenced by untrusted input.
  */
 
+import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
+
 const DEFAULT_RESERVED_SLUGS = new Set([
   "admin",
   "api",
@@ -47,7 +49,10 @@ export function getBrandedLiveSiteDomain(): string | null {
   return normalizeDomainHostname(process.env.SAJTMASKIN_LIVE_SITE_DOMAIN);
 }
 
-export function buildBrandedLiveDomain(slug: string, baseDomain = getBrandedLiveSiteDomain()): string | null {
+export function buildBrandedLiveDomain(
+  slug: string,
+  baseDomain = getBrandedLiveSiteDomain(),
+): string | null {
   const normalizedSlug = slug.trim().toLowerCase();
   if (
     !baseDomain ||
@@ -65,6 +70,8 @@ export function toHttpsUrl(hostname: string | null | undefined): string | null {
 }
 
 export function resolveLiveUrl(params: {
+  projectId?: string | null;
+  versionId?: string | null;
   providerUrl?: string | null;
   brandedDomain?: string | null;
   brandedDomainVerifiedAt?: Date | string | null;
@@ -79,7 +86,11 @@ export function resolveLiveUrl(params: {
   if (
     brandedBase &&
     normalizedBranded?.endsWith(`.${brandedBase}`) &&
-    params.brandedDomainVerifiedAt
+    params.brandedDomainVerifiedAt &&
+    resolveBrandedPilotEligibility({
+      projectId: params.projectId,
+      versionId: params.versionId,
+    }).allowed
   ) {
     return toHttpsUrl(params.brandedDomain);
   }

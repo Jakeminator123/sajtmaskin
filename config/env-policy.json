@@ -29,6 +29,7 @@
     "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+    "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
@@ -191,6 +192,7 @@
     "SAJTMASKIN_BRIEF_MODEL",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
+    "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFAULT_THINKING",
@@ -562,6 +564,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Feature gate for branded generated-site aliases. Keep unset until the configured live-site domain is owned, DNS/TLS is verified and exact aliases can be attached to generated Vercel projects."
+    },
+    {
+      "key": "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Default empty/deny. JSON array of exact reviewed objects {projectId, versionId, filesRevision}. A project approval never rolls forward to a new or edited engine version. Used together with SAJTMASKIN_BRANDED_LIVE_URLS; do not activate until the shared-host security prerequisites and real HTTPS evidence are complete. Source: src/lib/branded-pilot-eligibility.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",

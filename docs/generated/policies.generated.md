@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:b03a421ab367d984 -->
+<!-- source-fingerprint: config/env-policy.json sha256:64aeda5ead7991b8 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -105,6 +105,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_BLOCKING_ESLINT`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS`            | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BRANDED_LIVE_URLS`                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_BRANDED_PILOT_ALLOWLIST`                 | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_CONTENT_REVISION_GATE`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD`          | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |

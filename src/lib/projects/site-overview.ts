@@ -71,6 +71,8 @@ export type SiteOverview = {
 };
 
 type AddressInput = {
+  projectId?: string | null;
+  versionId?: string | null;
   providerUrl?: string | null;
   brandedDomain?: string | null;
   brandedDomainVerifiedAt?: Date | string | null;
@@ -80,10 +82,15 @@ type AddressInput = {
 
 type OverviewProjectFields = Pick<
   AddressInput,
-  "brandedDomain" | "brandedDomainVerifiedAt" | "customDomain" | "customDomainVerifiedAt"
+  | "projectId"
+  | "brandedDomain"
+  | "brandedDomainVerifiedAt"
+  | "customDomain"
+  | "customDomainVerifiedAt"
 >;
 
 type OverviewReadyRow = {
+  versionId?: string | null;
   providerUrl?: string | null;
   url?: string | null;
 };
@@ -121,9 +128,9 @@ export function resolveSiteAddress(input: AddressInput): SiteAddress {
  * `resolveLiveUrl` stays the only priority. This helper only fills
  * `providerUrl` from the legacy `deployments.url` column when the ready row
  * never got `providerUrl` written — older sites stored the vercel.app host
- * there. A verified custom/branded host is classified even without a ready
- * row, because `resolveLiveUrl` can already produce that URL from project
- * fields alone.
+ * there. A verified custom host can be classified from project fields alone.
+ * Branded also needs the ready row's reviewed version id; without it the
+ * portal must not present the shared-host address as live.
  */
 export function resolveOverviewAddress(
   project: OverviewProjectFields,
@@ -131,6 +138,8 @@ export function resolveOverviewAddress(
 ): SiteAddress {
   const storedProvider = latestReady?.providerUrl?.trim() || null;
   return resolveSiteAddress({
+    projectId: project.projectId,
+    versionId: latestReady?.versionId,
     providerUrl: storedProvider || resolveLegacyProviderUrl(latestReady?.url),
     brandedDomain: project.brandedDomain,
     brandedDomainVerifiedAt: project.brandedDomainVerifiedAt,
@@ -198,7 +207,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   const emptyOverview: SiteOverview = {
     projectId: project.id,
     chatId: chatIds[0] ?? null,
-    address: resolveOverviewAddress(project, null),
+    address: resolveOverviewAddress({ ...project, projectId: project.id }, null),
     state: "never_published",
     liveAt: null,
     liveVersionId: null,
@@ -248,7 +257,7 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
   return {
     ...emptyOverview,
     chatId: latestReady?.chatId ?? latest.chatId ?? chatIds[0] ?? null,
-    address: resolveOverviewAddress(project, latestReady),
+    address: resolveOverviewAddress({ ...project, projectId: project.id }, latestReady),
     state: toPublishState(latest.status),
     liveAt: latestReady?.updatedAt ?? null,
     liveVersionId: latestReady?.versionId ?? null,

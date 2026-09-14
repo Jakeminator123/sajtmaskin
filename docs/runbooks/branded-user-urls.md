@@ -2,8 +2,10 @@
 
 ## Kontrakt
 
-- `previewUrl`: `https://preview.sajtmaskin.se/<chatId>` när Fly-hostnamnet är aktiverat.
-- `liveUrl`: verifierad `customDomain`, annars verifierad `<slug>.sites.sajtmaskin.se`, annars provider-URL som rollback.
+- `previewUrl`: preview-hostens konfigurerade interna URL; `preview.sajtmaskin.se`
+  är appens staging-alias och ska ligga kvar på Vercel.
+- `liveUrl`: verifierad `customDomain`, annars en verifierad och pilotgodkänd
+  `<slug>.sites.sajtmaskin.se`, annars provider-URL som rollback.
 - Provider-URL (`*.vercel.app`) sparas separat och får aldrig användas som SEO-canonical när en verifierad projektadress finns.
 
 ## Verifierat DNS-läge (2026-08-24)
@@ -16,14 +18,13 @@ där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 |---|---|---|
 | `sajtmaskin.se` | A → `76.76.21.21` (Vercel) | Appens rot. Rör inte. |
 | `www.sajtmaskin.se` | CNAME → Vercel | Appen. Rör inte. |
-| `preview.sajtmaskin.se` | CNAME → **Vercel** | Redan taget av Vercel. Måste släppas där innan Fly kan äga värdnamnet och utfärda certifikat. |
+| `preview.sajtmaskin.se` | CNAME → **Vercel** | Appens staging. Ska ligga kvar på Vercel. |
 | `sites.sajtmaskin.se` | NXDOMAIN | Inte påbörjad. |
 
-`preview.sajtmaskin.se` är den enda hårda krocken: appens proxy (`src/proxy.ts`)
-sätter bara CSP och auth-headers och proxar ingen preview-trafik. Värdnamnet
-levererar alltså inget användbart i dag, samtidigt som det blockerar Fly-vägen.
+DNS-raden är en historisk mätning. A1 ska verifiera aktuellt DNS/TLS-läge innan
+aktivering; staging-aliaset är inte en ledig preview-host-adress.
 
-## Cookie-isolation kräver en PSL-post
+## PSL är ett senare isoleringslager
 
 `sites.sajtmaskin.se` blir en parent-domän som delas av kundsajter som inte
 litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
@@ -32,11 +33,11 @@ litar på varandra. Utan en post i Public Suffix List (PSL, webbläsarens lista
 supercookie mellan tenants. Det är exakt därför `vercel.app` ligger i PSL:ens
 private-sektion.
 
-Skicka därför en PR till [`publicsuffix/list`](https://github.com/publicsuffix/list)
-för `sites.sajtmaskin.se` **innan** kundsajter börjar dela domänen. Kraven är
-ägarverifiering via `_psl`-TXT-post, domänregistrering med ≥2 år kvar,
-icke-personlig avsändaradress och en nåbar abuse-kontakt. Handläggningen tar
-tid, så starta den parallellt med DNS-arbetet — inte efter.
+En PSL-post för `sites.sajtmaskin.se` kan begränsa cookies mellan kundvärdar,
+men den hindrar inte en kundvärd från att försöka skugga plattformscookies på
+föräldern `.sajtmaskin.se`. Den är därför varken ensam aktiveringsgrind eller
+ett generellt skydd för portalen. Första steget är en liten versionsbunden pilot;
+PSL-arbetet kan fortsätta parallellt inför en bredare utrullning.
 
 Egen verifierad `customDomain` berörs inte: den ligger utanför den delade
 parent-domänen.
@@ -44,16 +45,27 @@ parent-domänen.
 ## Aktiveringsordning
 
 1. Äg `sajtmaskin.se` och konfigurera DNS. **Klart.**
-2. Släpp `preview.sajtmaskin.se` från Vercel, peka den till Fly-appen, lägg ett Fly-certifikat och verifiera `/health`.
-3. Konfigurera exakt Vercel/DNS-routing för `sites.sajtmaskin.se` och starta PSL-ansökan.
-4. Sätt `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se`.
-5. Armera bara migreringsprocessen lokalt och kör torrt:
+2. Låt `preview.sajtmaskin.se` ligga kvar som staging-alias på Vercel.
+3. Konfigurera och verifiera exakt Vercel/DNS-routing för `sites.sajtmaskin.se`.
+4. Granska pilotversionens faktiska filer och registrera exakt
+   `projectId` + `versionId` + `filesRevision` i
+   `SAJTMASKIN_BRANDED_PILOT_ALLOWLIST`, till exempel
+   `[{"projectId":"…","versionId":"…","filesRevision":"…"}]`. En ändring
+   av samma versionsrad kräver ny granskning och nytt revisionsvärde.
+5. Sätt `SAJTMASKIN_LIVE_SITE_DOMAIN=sites.sajtmaskin.se` i det kontrollerade
+   testshellet. Armera bara migreringsprocessen lokalt och kör torrt:
    `$env:SAJTMASKIN_BRANDED_LIVE_URLS="true"; npx tsx scripts/db/migrate-branded-live-urls.ts --limit=10`.
    Detta aktiverar inte Vercel-runtimen.
-6. Kör en staging-migrering i samma armerade shell med `--apply`, verifiera
-   DNS/TLS och publicera om en sajt.
-7. Sätt `SAJTMASKIN_BRANDED_LIVE_URLS=true` först i Development/Preview, därefter Production.
-8. Byt appens `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och Fly `PREVIEW_BASE_URL` till `https://preview.sajtmaskin.se`; sätt preview-host-allowlisten till exakt `preview.sajtmaskin.se`.
+6. Slutför portalens exakta Origin-skydd och cookieövergång och bevisa med ett
+   riktigt HTTPS-test att både inloggad session och gäst/claim motstår
+   parent-domain-cookie-skuggning. Dessa är kvarvarande A2-krav.
+7. Kör inte migreringen med `--apply` i A2. En versionsrad kan ha ändrats efter
+   den äldre provider-deployen, så den aktuella `filesRevision` bevisar inte
+   vilka bytes den deployen kör. Skriptet stoppar därför `--apply` tills A4
+   binder aliaset till ett verifierat, oföränderligt provider-deployment.
+8. Efter A4:s bevis: verifiera DNS/TLS och publicera om en pilotsajt innan
+   `SAJTMASKIN_BRANDED_LIVE_URLS=true` sätts i Development/Preview.
+   Produktion kräver ett separat aktiveringsbeslut efter bevisen ovan.
 
 ## Test före DNS-aktivering
 
@@ -71,7 +83,12 @@ Automatiska `*.vercel.app`-alias kan ha flera former och räknas alltid som
 
 ## Rollback
 
-Ta bort eller sätt `SAJTMASKIN_BRANDED_LIVE_URLS=false`. UI/API faller då tillbaka till sparad provider-URL utan att radera Vercel-projekt, alias eller kunddomäner. Ändra inte `SAJTMASKIN_LIVE_SITE_DOMAIN` på befintliga projekt utan en ny verifierad migrering.
+Ta bort eller sätt `SAJTMASKIN_BRANDED_LIVE_URLS=false`. UI/API faller då
+tillbaka till sparad provider-URL utan att radera Vercel-projekt, alias eller
+kunddomäner. Ett projekt som redan har ett branded alias får inte publiceras om
+med en icke godkänd version, eftersom aliaset annars skulle börja servera den
+nya versionen trots rollbackflaggan. Ändra inte `SAJTMASKIN_LIVE_SITE_DOMAIN`
+på befintliga projekt utan en ny verifierad migrering.
 
 ## Sluggen — användaren väljer den redan
 

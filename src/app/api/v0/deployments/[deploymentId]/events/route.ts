@@ -120,6 +120,7 @@ export async function GET(
               const mapped = mapVercelReadyStateToStatus(vd.readyState);
               const liveUrl = await resolveDeploymentLiveUrlForChat({
                 chatId: deployment.chatId,
+                versionId: deployment.versionId,
                 providerUrl: vd.url,
                 fallbackUrl: deployment.url,
               });

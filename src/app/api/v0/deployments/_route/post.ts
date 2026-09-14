@@ -22,7 +22,7 @@ import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
-import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { recordDeployResultForVersion } from "@/lib/db/services/generation-telemetry";
 import {
@@ -52,6 +52,10 @@ import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
 import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  collectBrandedPilotCapabilitySignals,
+  resolveBrandedPilotDeploymentEligibility,
+} from "@/lib/branded-pilot-eligibility";
 import { createDeploymentSchema } from "./schema";
 import { classifyDeployError } from "./error-mapping";
 import { runPreDeployFixPipeline, shouldSkipPreDeployAutoFix } from "./pre-deploy-fix";
@@ -285,9 +289,54 @@ export async function POST(req: Request) {
         );
       }
 
-      const codeFiles = await getVersionFiles(versionId);
+      // One DB snapshot binds the reviewed revision to the exact files sent to
+      // the provider. engine_versions rows are mutable, so separate reads
+      // would leave a review→deploy race under the same version id.
+      const versionFilesSnapshot = await getVersionFilesSnapshot(versionId);
+      const codeFiles = versionFilesSnapshot?.files ?? null;
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json({ error: "No files found for this version" }, { status: 404 });
+      }
+
+      const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+        snapshot: engineChat.orchestration_snapshot,
+        versionFiles: codeFiles,
+      });
+      const brandedPilotDecision = resolveBrandedPilotDeploymentEligibility({
+        projectId: engineProjectId,
+        versionId,
+        filesRevision: versionFilesSnapshot?.filesRevision,
+        capabilities: collectBrandedPilotCapabilitySignals({
+          snapshot: engineChat.orchestration_snapshot,
+          selectedDossiers,
+        }),
+      });
+      const brandedBaseDomain = getBrandedLiveSiteDomain();
+      const hasExistingBrandedAlias = Boolean(ownedProject.branded_domain?.trim());
+      const hasVerifiedCustomDomain = Boolean(
+        ownedProject.custom_domain?.trim() && ownedProject.custom_domain_verified_at,
+      );
+      // A verified custom-domain project without a branded alias keeps its
+      // existing publish path. Otherwise an enabled/new branded surface, or an
+      // alias already attached to this provider project, requires the exact
+      // reviewed project+version+revision decision before any provider write.
+      const brandedPilotRequired =
+        hasExistingBrandedAlias || Boolean(brandedBaseDomain && !hasVerifiedCustomDomain);
+      const brandedPilotGate = {
+        ...brandedPilotDecision,
+        required: brandedPilotRequired,
+        blocked: brandedPilotRequired && !brandedPilotDecision.allowed,
+      };
+      if (brandedPilotGate.blocked && !precheckOnly) {
+        return NextResponse.json(
+          {
+            error:
+              "Den här versionen väntar på granskning för Sajtmaskins pilotadress. Den nuvarande publicerade versionen ligger kvar.",
+            code: "DEPLOY_BRANDED_PILOT_PENDING",
+            brandedPilotGate,
+          },
+          { status: 409 },
+        );
       }
 
       // The generated placeholder `.env.local` (injected for the shared
@@ -335,10 +384,6 @@ export async function POST(req: Request) {
       // One owner (review round 2): snapshot ∪ version-presence — parity with
       // the readiness route's set is real now (both call the shared resolver),
       // not just claimed. `codeFiles` was already loaded above (single read).
-      const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
-        snapshot: engineChat.orchestration_snapshot,
-        versionFiles: codeFiles,
-      });
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
@@ -396,6 +441,7 @@ export async function POST(req: Request) {
           // kopplad — precheck rapporterar i stället så UI:t kan varna innan
           // användaren försöker byta namn.
           projectNameLock,
+          brandedPilotGate,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,
@@ -508,7 +554,9 @@ export async function POST(req: Request) {
         // in that case. The generated fallback name only matters for a
         // genuinely first-ever deploy (no known project at all), where the
         // body name determines the brand-new project that gets created.
-        const brandedRolloutEnabled = Boolean(getBrandedLiveSiteDomain());
+        const brandedRolloutEnabled = Boolean(
+          brandedBaseDomain && brandedPilotDecision.allowed,
+        );
         const vercelProjectName = hasKnownVercelProject
           ? currentVercelProjectName
           : sanitizeVercelProjectName(
@@ -579,6 +627,8 @@ export async function POST(req: Request) {
           bodySeo,
           persistedSeo,
           resolveLiveUrl({
+            projectId: engineProjectId,
+            versionId,
             brandedDomain: publishedIdentity.brandedDomain,
             brandedDomainVerifiedAt,
             customDomain: publishedIdentity.customDomain,
@@ -707,6 +757,8 @@ export async function POST(req: Request) {
         }
 
         const liveUrl = resolveLiveUrl({
+          projectId: engineProjectId,
+          versionId,
           providerUrl: created.url,
           brandedDomain: publishedIdentity.brandedDomain,
           brandedDomainVerifiedAt,
