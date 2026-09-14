@@ -140,6 +140,7 @@ export default function KontoPage() {
     setHistoryError(null);
     setHasMore(false);
     setPageOffset(0);
+    setLoadingMore(false);
     sessionMissingRef.current = false;
     setSessionMissing(false);
     setLoading(true);

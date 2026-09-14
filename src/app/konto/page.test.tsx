@@ -173,6 +173,46 @@ describe("KontoPage auth and history", () => {
     expect(screen.getByText("bertil@example.com")).toBeTruthy();
   });
 
+  it("resets pending pagination when switching directly to another signed-in account", async () => {
+    let resolvePrevious: ((value: unknown) => void) | undefined;
+    const previousResponse = new Promise((resolve) => {
+      resolvePrevious = resolve;
+    });
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const older = String(input).includes("offset=50");
+      const isAnna = useAuthStore.getState().user?.id === "user_a";
+      if (older && isAnna) return previousResponse;
+      return Promise.resolve(jsonResponse(payload({
+        email: isAnna ? "anna@example.com" : "bertil@example.com",
+        name: isAnna ? "Anna" : "Bertil",
+        transactions: [{ id: older ? "tx_b_old" : "tx_latest", description: older ? "Bertils äldre köp" : "Senaste köp" }],
+        hasMore: !older,
+        offset: older ? 50 : 0,
+      })));
+    });
+
+    act(() => {
+      useAuthStore.getState().setUser(authUser({ id: "user_a", email: "anna@example.com" }));
+    });
+    render(<KontoPage />);
+    await screen.findByText("anna@example.com");
+    fireEvent.click(screen.getByRole("button", { name: KONTO_LOAD_OLDER_LABEL }));
+    expect((screen.getByRole("button", { name: "Hämtar…" }) as HTMLButtonElement).disabled).toBe(true);
+
+    act(() => {
+      useAuthStore.getState().setUser(authUser({ id: "user_b", email: "bertil@example.com", name: "Bertil" }));
+    });
+    await screen.findByText("bertil@example.com");
+    expect((screen.getByRole("button", { name: KONTO_LOAD_OLDER_LABEL }) as HTMLButtonElement).disabled).toBe(false);
+
+    await act(async () => {
+      resolvePrevious?.(jsonResponse(payload({ email: "anna@example.com", name: "Anna", offset: 50 })));
+    });
+    expect(screen.queryByText("anna@example.com")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: KONTO_LOAD_OLDER_LABEL }));
+    expect(await screen.findByText("Bertils äldre köp")).toBeTruthy();
+  });
+
   it("clears account cards when /api/konto returns 401", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "Du måste vara inloggad." }, 401));
 
