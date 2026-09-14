@@ -126,6 +126,12 @@ export const MIGRATION_ORDER = [
   // CREATE TABLE med FK mot users/app_projects/transactions, som alla skapas
   // tidigare. Endast schema — ingen checkout, webhook eller worker aktiveras.
   "add-site-subscriptions.sql",
+  // D1-uppföljning: samma fyra tabeller, men uppgraderingsvägen. CREATE TABLE
+  // IF NOT EXISTS rör inte en tabell som redan finns, så de sammansatta
+  // unikheterna och FK-tuplerna (läge + ägare ärvs av databasen) måste läggas
+  // till idempotent för databaser som fick den första versionen. Måste ligga
+  // direkt efter basfilen: den refererar constraints som basen skapar.
+  "upgrade-site-subscriptions-composite-keys.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

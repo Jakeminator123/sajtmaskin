@@ -300,6 +300,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
       name: "billing_customers_stripe_customer_unique",
       columns: ["billing_mode", "stripe_customer_id"],
     },
+    // Måltupeln för abonnemangets kundlänk: utan den kan ägare och läge inte
+    // ärvas av en främmande nyckel.
+    {
+      name: "billing_customers_id_user_mode_unique",
+      columns: ["id", "user_id", "billing_mode"],
+    },
     { name: "idx_billing_customers_user", columns: ["user_id"] },
   ],
   site_subscriptions: [
@@ -312,6 +318,9 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
       name: "site_subscriptions_checkout_session_unique",
       columns: ["billing_mode", "stripe_checkout_session_id"],
     },
+    // Måltupler för grants och jobb: läge respektive ägare ärvs av barnen.
+    { name: "site_subscriptions_id_mode_unique", columns: ["id", "billing_mode"] },
+    { name: "site_subscriptions_id_user_unique", columns: ["id", "user_id"] },
     { name: "idx_site_subscriptions_user", columns: ["user_id", "created_at"] },
     { name: "idx_site_subscriptions_project", columns: ["project_id"] },
     {

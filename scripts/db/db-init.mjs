@@ -450,26 +450,35 @@ const setupQueries = [
   // D1: abonnemang per publicerad sajt och per Stripe-läge. Samma kroppar som
   // add-site-subscriptions.sql, så db:init och SQL-ledgern inte kan glida isär.
   // Endast schema — ingen checkout, webhook eller worker läser tabellerna.
+  //
+  // Formen här gäller en TOM databas. En databas som redan har tabellerna rörs
+  // inte av IF NOT EXISTS; den uppgraderas av
+  // upgrade-site-subscriptions-composite-keys.sql, som applySqlMigrations()
+  // kör direkt efter den här listan.
   `CREATE TABLE IF NOT EXISTS billing_customers (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
     billing_mode TEXT NOT NULL,
     stripe_customer_id TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT billing_customers_mode_check
       CHECK (billing_mode IN ('test', 'live')),
+    CONSTRAINT billing_customers_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
     CONSTRAINT billing_customers_user_mode_unique
       UNIQUE (user_id, billing_mode),
     CONSTRAINT billing_customers_stripe_customer_unique
-      UNIQUE (billing_mode, stripe_customer_id)
+      UNIQUE (billing_mode, stripe_customer_id),
+    CONSTRAINT billing_customers_id_user_mode_unique
+      UNIQUE (id, user_id, billing_mode)
   )`,
   `CREATE TABLE IF NOT EXISTS site_subscriptions (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
     project_id TEXT NOT NULL REFERENCES app_projects(id) ON DELETE RESTRICT,
     billing_mode TEXT NOT NULL,
-    billing_customer_id TEXT REFERENCES billing_customers(id) ON DELETE SET NULL,
+    billing_customer_id TEXT,
     stripe_subscription_id TEXT,
     stripe_checkout_session_id TEXT,
     price_ref TEXT,
@@ -500,6 +509,11 @@ const setupQueries = [
         WHEN lifecycle_state <> 'ended' THEN billing_mode || ':' || project_id
       END
     ) STORED,
+    CONSTRAINT site_subscriptions_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT site_subscriptions_customer_fk
+      FOREIGN KEY (billing_customer_id, user_id, billing_mode)
+      REFERENCES billing_customers (id, user_id, billing_mode) ON DELETE RESTRICT,
     CONSTRAINT site_subscriptions_mode_check
       CHECK (billing_mode IN ('test', 'live')),
     CONSTRAINT site_subscriptions_lifecycle_check
@@ -515,12 +529,16 @@ const setupQueries = [
     CONSTRAINT site_subscriptions_stripe_subscription_unique
       UNIQUE (billing_mode, stripe_subscription_id),
     CONSTRAINT site_subscriptions_checkout_session_unique
-      UNIQUE (billing_mode, stripe_checkout_session_id)
+      UNIQUE (billing_mode, stripe_checkout_session_id),
+    CONSTRAINT site_subscriptions_id_mode_unique
+      UNIQUE (id, billing_mode),
+    CONSTRAINT site_subscriptions_id_user_unique
+      UNIQUE (id, user_id)
   )`,
   `CREATE TABLE IF NOT EXISTS subscription_credit_grants (
     id TEXT PRIMARY KEY,
-    subscription_id TEXT NOT NULL REFERENCES site_subscriptions(id) ON DELETE CASCADE,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     billing_mode TEXT NOT NULL,
     period_id TEXT NOT NULL,
     period_start TIMESTAMPTZ,
@@ -534,6 +552,14 @@ const setupQueries = [
     ledger_idempotency_key TEXT GENERATED ALWAYS AS (
       'site_sub_period:' || billing_mode || ':' || subscription_id || ':' || period_id
     ) STORED,
+    CONSTRAINT subscription_credit_grants_subscription_mode_fk
+      FOREIGN KEY (subscription_id, billing_mode)
+      REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
+    CONSTRAINT subscription_credit_grants_subscription_owner_fk
+      FOREIGN KEY (subscription_id, user_id)
+      REFERENCES site_subscriptions (id, user_id) ON DELETE CASCADE,
+    CONSTRAINT subscription_credit_grants_user_fk
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
     CONSTRAINT subscription_credit_grants_mode_check
       CHECK (billing_mode IN ('test', 'live')),
     CONSTRAINT subscription_credit_grants_status_check
@@ -549,7 +575,7 @@ const setupQueries = [
   )`,
   `CREATE TABLE IF NOT EXISTS billing_jobs (
     id TEXT PRIMARY KEY,
-    subscription_id TEXT NOT NULL REFERENCES site_subscriptions(id) ON DELETE CASCADE,
+    subscription_id TEXT NOT NULL,
     billing_mode TEXT NOT NULL,
     kind TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
@@ -567,6 +593,9 @@ const setupQueries = [
         WHEN status IN ('pending', 'running') THEN kind || ':' || subscription_id
       END
     ) STORED,
+    CONSTRAINT billing_jobs_subscription_mode_fk
+      FOREIGN KEY (subscription_id, billing_mode)
+      REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
     CONSTRAINT billing_jobs_mode_check
       CHECK (billing_mode IN ('test', 'live')),
     CONSTRAINT billing_jobs_kind_check

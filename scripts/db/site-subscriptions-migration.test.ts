@@ -2,16 +2,22 @@ import { readFileSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { findBreakingStatements } from "./check-additive-migrations.mjs";
+import {
+  classifyPendingMigrations,
+  findBreakingStatements,
+  maskSqlComments,
+} from "./check-additive-migrations.mjs";
 import { MIGRATION_ORDER } from "./migration-order.mjs";
 
 const REPO_ROOT = process.cwd();
 const MIGRATION_FILE = "add-site-subscriptions.sql";
+const UPGRADE_FILE = "upgrade-site-subscriptions-composite-keys.sql";
 
 const migration = readFileSync(
   join(REPO_ROOT, "src/lib/db/migrations", MIGRATION_FILE),
   "utf8",
 );
+const upgrade = readFileSync(join(REPO_ROOT, "src/lib/db/migrations", UPGRADE_FILE), "utf8");
 const dbInit = readFileSync(join(REPO_ROOT, "scripts/db/db-init.mjs"), "utf8");
 const dbHealth = readFileSync(join(REPO_ROOT, "scripts/db/db-health-check.mjs"), "utf8");
 const pyDbTest = readFileSync(join(REPO_ROOT, "scripts/db/pydatabastest.py"), "utf8");
@@ -62,6 +68,86 @@ describe("D1-migrationen är additiv och registrerad", () => {
     expect(migration).toContain("FROM anon");
     expect(migration).toContain("FROM authenticated");
     expect(migration).toContain("TO postgres, service_role");
+  });
+});
+
+describe("D1-uppgraderingen når tabeller som redan finns", () => {
+  /** Bara körbar DDL: prosan i filen ska inte kunna uppfylla ett krav här. */
+  const upgradeDdl = maskSqlComments(upgrade);
+
+  /** Namn + form för varje namngiven CONSTRAINT i en CREATE TABLE-kropp. */
+  function declaredConstraints(source: string): string[] {
+    return D1_TABLES.flatMap((table) => [
+      ...createTableBody(table, source).matchAll(/CONSTRAINT\s+([a-z_][a-z0-9_]*)\s/gu),
+    ].map((match) => match[1]));
+  }
+
+  it("lägger till varje namngiven constraint som ägarfilen deklarerar", () => {
+    // Det här är hela poängen med filen: `CREATE TABLE IF NOT EXISTS` rör inte
+    // en tabell som redan finns, så utan en ADD CONSTRAINT per deklaration
+    // skulle en dev- eller preview-databas som fick den FÖRSTA versionen sakna
+    // garantierna för alltid — utan att något test märkte det.
+    const missing = declaredConstraints(migration).filter(
+      (name) => !new RegExp(`ADD\\s+CONSTRAINT\\s+${name}\\b`, "u").test(upgradeDdl),
+    );
+    expect(missing, "constraints som saknar uppgraderingsväg").toEqual([]);
+  });
+
+  it("är idempotent per constraint i stället för per fil", () => {
+    // Ett enda block för alla ALTER hade avbrutits av den första som redan
+    // fanns, och resten hade tyst hoppats över.
+    const addCount = upgradeDdl.match(/ADD\s+CONSTRAINT/gu)?.length ?? 0;
+    const guardCount = upgradeDdl.match(/EXCEPTION WHEN duplicate_object OR duplicate_table/gu)
+      ?.length ?? 0;
+    expect(addCount).toBeGreaterThan(0);
+    expect(guardCount).toBe(addCount);
+  });
+
+  it("byter ut de FK-former som första versionen fick fel, och bara dem", () => {
+    // CASCADE mot users hade låtit en adminrensning ta bokföringen; de
+    // enkolumniga länkarna kontrollerade bara att id:t fanns.
+    for (const legacy of [
+      "billing_customers_user_id_fkey",
+      "site_subscriptions_user_id_fkey",
+      "site_subscriptions_billing_customer_id_fkey",
+      "subscription_credit_grants_subscription_id_fkey",
+      "subscription_credit_grants_user_id_fkey",
+      "billing_jobs_subscription_id_fkey",
+    ]) {
+      expect(upgradeDdl, `${legacy} saknar uppgradering`).toMatch(
+        new RegExp(`DROP\\s+CONSTRAINT(?:\\s+IF\\s+EXISTS)?\\s+${legacy}\\b`, "u"),
+      );
+    }
+    // Projektlänken var RESTRICT redan från början och ska inte röras.
+    expect(upgradeDdl).not.toContain("site_subscriptions_project_id_fkey");
+    expect(upgradeDdl).not.toMatch(/\bDROP\s+TABLE\b/iu);
+    expect(upgradeDdl).not.toMatch(/\bDROP\s+COLUMN\b/iu);
+  });
+
+  it("ligger direkt efter ägarfilen i MIGRATION_ORDER", () => {
+    expect(MIGRATION_ORDER.indexOf(UPGRADE_FILE)).toBe(
+      MIGRATION_ORDER.indexOf(MIGRATION_FILE) + 1,
+    );
+  });
+
+  it("är additiv mot en databas som ännu inte har tabellerna", () => {
+    // Den automatiska preview-vägen träffar prod-Postgres, där ingen av de fyra
+    // tabellerna finns än: samma omgång skapar dem i filen före. Då kan en
+    // constraint varken ogiltigförklara en rad eller en INSERT från gammal kod.
+    const findings = classifyPendingMigrations([MIGRATION_FILE, UPGRADE_FILE], {
+      existingTables: ["users", "app_projects", "transactions"],
+    });
+    expect(findings.flatMap((entry) => entry.findings)).toEqual([]);
+  });
+
+  it("klassas som brytande om tabellerna redan finns i måldatabasen", () => {
+    // Grinden är inte avstängd — den vet bara skillnaden. En databas som redan
+    // har tabellerna får inte uppgraderas av den automatiska preview-vägen.
+    const findings = classifyPendingMigrations([MIGRATION_FILE, UPGRADE_FILE], {
+      existingTables: ["users", "app_projects", "transactions", ...D1_TABLES],
+    });
+    expect(findings.find((entry) => entry.filename === UPGRADE_FILE)?.findings.length).
+      toBeGreaterThan(0);
   });
 });
 

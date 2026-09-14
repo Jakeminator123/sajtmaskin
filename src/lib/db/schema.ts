@@ -8,6 +8,7 @@ import {
   boolean,
   uniqueIndex,
   unique,
+  foreignKey,
   index,
   integer,
   serial,
@@ -1291,15 +1292,19 @@ export const billingCustomers = pgTable(
   "billing_customers",
   {
     id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
     billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
     stripe_customer_id: text("stripe_customer_id").notNull(),
     created_at: timestamptz("created_at").defaultNow().notNull(),
     updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },
   (table) => ({
+    userFk: foreignKey({
+      name: "billing_customers_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
     userModeUnique: unique("billing_customers_user_mode_unique").on(
       table.user_id,
       table.billing_mode,
@@ -1307,6 +1312,17 @@ export const billingCustomers = pgTable(
     stripeCustomerUnique: unique("billing_customers_stripe_customer_unique").on(
       table.billing_mode,
       table.stripe_customer_id,
+    ),
+    /**
+     * Redundant on its own (`id` is the primary key) but required by Postgres:
+     * a composite foreign key must target a declared uniqueness with exactly
+     * that column list. This is what lets a subscription inherit both owner
+     * and mode from its customer row.
+     */
+    idUserModeUnique: unique("billing_customers_id_user_mode_unique").on(
+      table.id,
+      table.user_id,
+      table.billing_mode,
     ),
     userIdx: index("idx_billing_customers_user").on(table.user_id),
   }),
@@ -1337,18 +1353,19 @@ export const siteSubscriptions = pgTable(
   "site_subscriptions",
   {
     id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
     /** `ON DELETE RESTRICT` in SQL: billing rows outlive project cleanup. */
     project_id: text("project_id")
       .notNull()
       .references(() => appProjects.id, { onDelete: "restrict" }),
     billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
-    /** Convenience link; the logical one is (user_id, billing_mode). */
-    billing_customer_id: text("billing_customer_id").references(() => billingCustomers.id, {
-      onDelete: "set null",
-    }),
+    /**
+     * NULL until the Stripe customer exists, so checkout can create the claim
+     * row first. When set, `site_subscriptions_customer_fk` requires it to
+     * belong to the same account AND the same mode.
+     */
+    billing_customer_id: text("billing_customer_id"),
     stripe_subscription_id: text("stripe_subscription_id"),
     stripe_checkout_session_id: text("stripe_checkout_session_id"),
     /** Price version the customer approved, frozen at checkout. */
@@ -1390,6 +1407,25 @@ export const siteSubscriptions = pgTable(
     ),
   },
   (table) => ({
+    userFk: foreignKey({
+      name: "site_subscriptions_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
+    /**
+     * MATCH SIMPLE (Postgres default): a NULL `billing_customer_id` skips the
+     * whole tuple check, so a `checkout_pending` row without a customer passes.
+     * Once set, owner and mode must match the customer row.
+     */
+    customerFk: foreignKey({
+      name: "site_subscriptions_customer_fk",
+      columns: [table.billing_customer_id, table.user_id, table.billing_mode],
+      foreignColumns: [
+        billingCustomers.id,
+        billingCustomers.user_id,
+        billingCustomers.billing_mode,
+      ],
+    }).onDelete("restrict"),
     openClaimUnique: unique("site_subscriptions_open_claim_unique").on(table.open_claim_key),
     stripeSubscriptionUnique: unique("site_subscriptions_stripe_subscription_unique").on(
       table.billing_mode,
@@ -1399,6 +1435,9 @@ export const siteSubscriptions = pgTable(
       table.billing_mode,
       table.stripe_checkout_session_id,
     ),
+    /** Inheritable tuples: grants and jobs reference (id, mode) / (id, owner). */
+    idModeUnique: unique("site_subscriptions_id_mode_unique").on(table.id, table.billing_mode),
+    idUserUnique: unique("site_subscriptions_id_user_unique").on(table.id, table.user_id),
     userIdx: index("idx_site_subscriptions_user").on(table.user_id, table.created_at),
     projectIdx: index("idx_site_subscriptions_project").on(table.project_id),
     modeLifecycleIdx: index("idx_site_subscriptions_mode_lifecycle").on(
@@ -1429,12 +1468,9 @@ export const subscriptionCreditGrants = pgTable(
   "subscription_credit_grants",
   {
     id: text("id").primaryKey(),
-    subscription_id: text("subscription_id")
-      .notNull()
-      .references(() => siteSubscriptions.id, { onDelete: "cascade" }),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    subscription_id: text("subscription_id").notNull(),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
     billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
     /** Stable identity of the paid period, e.g. the Stripe invoice id. */
     period_id: text("period_id").notNull(),
@@ -1454,6 +1490,26 @@ export const subscriptionCreditGrants = pgTable(
     ),
   },
   (table) => ({
+    /**
+     * Mode and owner are INHERITED from the subscription instead of repeated
+     * freely: without these tuples a live grant could point at a test
+     * subscription, or be booked on another account than the subscription's.
+     */
+    subscriptionModeFk: foreignKey({
+      name: "subscription_credit_grants_subscription_mode_fk",
+      columns: [table.subscription_id, table.billing_mode],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.billing_mode],
+    }).onDelete("cascade"),
+    subscriptionOwnerFk: foreignKey({
+      name: "subscription_credit_grants_subscription_owner_fk",
+      columns: [table.subscription_id, table.user_id],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.user_id],
+    }).onDelete("cascade"),
+    userFk: foreignKey({
+      name: "subscription_credit_grants_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
     periodUnique: unique("subscription_credit_grants_period_unique").on(
       table.billing_mode,
       table.subscription_id,
@@ -1481,9 +1537,7 @@ export const billingJobs = pgTable(
   "billing_jobs",
   {
     id: text("id").primaryKey(),
-    subscription_id: text("subscription_id")
-      .notNull()
-      .references(() => siteSubscriptions.id, { onDelete: "cascade" }),
+    subscription_id: text("subscription_id").notNull(),
     billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
     /** 'pause' | 'resume'. */
     kind: text("kind").notNull(),
@@ -1503,6 +1557,12 @@ export const billingJobs = pgTable(
     ),
   },
   (table) => ({
+    /** The job inherits the subscription's mode; a live pause is never a test job. */
+    subscriptionModeFk: foreignKey({
+      name: "billing_jobs_subscription_mode_fk",
+      columns: [table.subscription_id, table.billing_mode],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.billing_mode],
+    }).onDelete("cascade"),
     openJobUnique: unique("billing_jobs_open_unique").on(table.open_job_key),
     runnableIdx: index("idx_billing_jobs_runnable").on(table.status, table.run_after),
     subscriptionIdx: index("idx_billing_jobs_subscription").on(table.subscription_id),

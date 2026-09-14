@@ -81,6 +81,8 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
   const claimedSite = `prj_sub_claim_${runTag}`;
   /** Bär allt annat, nästan alltid som redan avslutade rader. */
   const historySite = `prj_sub_history_${runTag}`;
+  /** Fri sajt för anspråk som måste vara ÖPPNA utan att krocka med ovanstående. */
+  const openSite = `prj_sub_open_${runTag}`;
   const sharedSubscriptionId = `sub_shared_${runTag}`;
   const sharedSessionId = `cs_shared_${runTag}`;
   let pool: Pool;
@@ -99,21 +101,27 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
     );
     await pool.query(
       `insert into app_projects (id, user_id, name)
-       values ($1, $2, 'D1 anspråkssajt'), ($3, $2, 'D1 historiksajt')`,
-      [claimedSite, userA, historySite],
+       values ($1, $2, 'D1 anspråkssajt'), ($3, $2, 'D1 historiksajt'),
+              ($4, $2, 'D1 fri sajt')`,
+      [claimedSite, userA, historySite, openSite],
     );
   }, 60_000);
 
   afterAll(async () => {
     if (!pool) return;
-    // site_subscriptions håller projektet med ON DELETE RESTRICT, så
-    // abonnemangen måste bort före projekten. Grants och jobb följer med via
-    // CASCADE, billing_customers via users.
+    // Allt hänger nu i RESTRICT: abonnemangen håller både projektet OCH
+    // användaren, och kundraderna håller användaren. Städningen måste därför gå
+    // barn → förälder. Grants och jobb följer abonnemanget via CASCADE.
     await pool
       .query("delete from site_subscriptions where user_id = any($1::text[])", [[userA, userB]])
       .catch(() => null);
     await pool
-      .query("delete from app_projects where id = any($1::text[])", [[claimedSite, historySite]])
+      .query("delete from billing_customers where user_id = any($1::text[])", [[userA, userB]])
+      .catch(() => null);
+    await pool
+      .query("delete from app_projects where id = any($1::text[])", [
+        [claimedSite, historySite, openSite],
+      ])
       .catch(() => null);
     await pool
       .query("delete from users where id = any($1::text[])", [[userA, userB]])
@@ -126,7 +134,9 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
   /** Skapar en rad. Default är en AVSLUTAD rad, som aldrig tar ett anspråk. */
   async function insertSubscription(input: {
     projectId?: string;
+    userId?: string;
     billingMode: string;
+    billingCustomerId?: string | null;
     open?: boolean;
     lifecycleState?: string;
     endedAt?: string | null;
@@ -147,15 +157,16 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
           : null;
     await pool.query(
       `insert into site_subscriptions (
-         id, user_id, project_id, billing_mode, lifecycle_state, ended_at,
+         id, user_id, project_id, billing_mode, billing_customer_id, lifecycle_state, ended_at,
          stripe_subscription_id, stripe_checkout_session_id, stripe_status,
          hosting_state_desired, hosting_state_actual, grace_until
-       ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         id,
-        userA,
+        input.userId ?? userA,
         input.projectId ?? historySite,
         input.billingMode,
+        input.billingCustomerId ?? null,
         lifecycleState,
         endedAt,
         input.stripeSubscriptionId ?? null,
@@ -173,6 +184,7 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
 
   async function insertGrant(input: {
     subscriptionId: string;
+    userId?: string;
     billingMode: string;
     periodId: string;
     transactionId?: string | null;
@@ -185,7 +197,7 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
       [
         id,
         input.subscriptionId,
-        userA,
+        input.userId ?? userA,
         input.billingMode,
         input.periodId,
         input.transactionId ?? null,
@@ -200,12 +212,19 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
     subscriptionId: string;
     kind: string;
     status?: string;
+    billingMode?: string;
   }): Promise<string> {
     const id = `job_${runTag}_${(jobSeq += 1)}`;
     await pool.query(
       `insert into billing_jobs (id, subscription_id, billing_mode, kind, status)
-       values ($1, $2, 'test', $3, $4)`,
-      [id, input.subscriptionId, input.kind, input.status ?? "pending"],
+       values ($1, $2, $3, $4, $5)`,
+      [
+        id,
+        input.subscriptionId,
+        input.billingMode ?? "test",
+        input.kind,
+        input.status ?? "pending",
+      ],
     );
     return id;
   }
@@ -417,6 +436,147 @@ describe.skipIf(!target.url)("D1 abonnemangsschema mot riktig Postgres", () => {
     // en projektstädning får inte ta abonnemangshistoriken med sig.
     await expect(
       pool.query("delete from app_projects where id = $1", [claimedSite]),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  // ── 2b. Släktskapet är sammansatt: läge och ägare ärvs ────────────────
+
+  it("har de sammansatta tupelnycklarna och tupel-FK:erna applicerade", async () => {
+    // Bevisar att UPPGRADERINGSVÄGEN nådde den här databasen. Tabellerna
+    // skapades av den första versionen av migrationen; `CREATE TABLE IF NOT
+    // EXISTS` hade aldrig kunnat lägga till något av det här.
+    const { rows: uniques } = await pool.query<{ indexname: string }>(
+      `select indexname from pg_indexes
+        where schemaname = 'public'
+          and indexname in (
+            'billing_customers_id_user_mode_unique',
+            'site_subscriptions_id_mode_unique',
+            'site_subscriptions_id_user_unique'
+          )`,
+    );
+    expect(uniques.map((row) => row.indexname).sort()).toEqual([
+      "billing_customers_id_user_mode_unique",
+      "site_subscriptions_id_mode_unique",
+      "site_subscriptions_id_user_unique",
+    ]);
+
+    const { rows: fks } = await pool.query<{ conname: string; def: string }>(
+      `select conname, pg_get_constraintdef(oid) as def
+         from pg_constraint
+        where contype = 'f'
+          and conname in (
+            'site_subscriptions_customer_fk',
+            'subscription_credit_grants_subscription_mode_fk',
+            'subscription_credit_grants_subscription_owner_fk',
+            'billing_jobs_subscription_mode_fk',
+            'billing_customers_user_fk',
+            'site_subscriptions_user_fk',
+            'subscription_credit_grants_user_fk'
+          )`,
+    );
+    const byName = new Map(fks.map((row) => [row.conname, row.def]));
+    expect(byName.get("site_subscriptions_customer_fk")).toContain(
+      "FOREIGN KEY (billing_customer_id, user_id, billing_mode)",
+    );
+    expect(byName.get("subscription_credit_grants_subscription_mode_fk")).toContain(
+      "FOREIGN KEY (subscription_id, billing_mode)",
+    );
+    expect(byName.get("subscription_credit_grants_subscription_owner_fk")).toContain(
+      "FOREIGN KEY (subscription_id, user_id)",
+    );
+    expect(byName.get("billing_jobs_subscription_mode_fk")).toContain(
+      "FOREIGN KEY (subscription_id, billing_mode)",
+    );
+    // Bokföringen får inte kunna kaskadraderas bort med en användare.
+    for (const name of [
+      "billing_customers_user_fk",
+      "site_subscriptions_user_fk",
+      "subscription_credit_grants_user_fk",
+    ]) {
+      expect(byName.get(name), `${name} saknas`).toContain("ON DELETE RESTRICT");
+    }
+  });
+
+  it("avvisar en live-grant på ett testabonnemang", async () => {
+    // Det var precis det en FK mot enbart `id` tillät: en riktig kreditutbetalning
+    // bokförd mot ett Stripe-testabonnemang.
+    const testSubscription = await insertSubscription({ billingMode: "test" });
+    await expect(
+      insertGrant({
+        subscriptionId: testSubscription,
+        billingMode: "live",
+        periodId: "inv_mode_mismatch",
+      }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it("avvisar en grant som bokförs på ett annat konto än abonnemangets ägare", async () => {
+    const subscription = await insertSubscription({ billingMode: "test" });
+    await expect(
+      insertGrant({
+        subscriptionId: subscription,
+        userId: userB,
+        billingMode: "test",
+        periodId: "inv_owner_mismatch",
+      }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it("avvisar ett paus-/återställningsjobb i fel läge", async () => {
+    const testSubscription = await insertSubscription({ billingMode: "test" });
+    await expect(
+      insertJob({ subscriptionId: testSubscription, kind: "pause", billingMode: "live" }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it("tillåter kundlänken bara mot samma konto och samma läge", async () => {
+    await pool.query(
+      `insert into billing_customers (id, user_id, billing_mode, stripe_customer_id)
+       values ($1, $2, 'test', $3)`,
+      [`bc_${runTag}_b_test`, userB, `cus_test_b_${runTag}`],
+    );
+
+    // Rätt konto, rätt läge.
+    await expect(
+      insertSubscription({ billingMode: "test", billingCustomerId: `bc_${runTag}_test` }),
+    ).resolves.toBeTruthy();
+
+    // Ett annat konto får inte kopplas in — det hade bokfört betalningen fel.
+    await expect(
+      insertSubscription({ billingMode: "test", billingCustomerId: `bc_${runTag}_b_test` }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+
+    // Rätt konto men fel läge: testkunden får inte bära ett riktigt abonnemang.
+    await expect(
+      insertSubscription({ billingMode: "live", billingCustomerId: `bc_${runTag}_test` }),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it("låter ett checkout-anspråk finnas innan Stripe-kunden gör det", async () => {
+    // Den striktare formen (FK på (user_id, billing_mode) mot kundtabellen)
+    // hade omöjliggjort ordningen flödet faktiskt har. NULL i kundlänken
+    // hoppar över tupelkontrollen; den gäller så snart länken sätts.
+    await expect(
+      insertSubscription({
+        projectId: openSite,
+        billingMode: "live",
+        lifecycleState: "checkout_pending",
+        billingCustomerId: null,
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("skyddar bokföringen mot en adminrensning av användare", async () => {
+    // Tidigare var länkarna ON DELETE CASCADE: en "rensa användare" i
+    // adminpanelen hade tagit abonnemang, grants och jobb med sig.
+    await expect(
+      pool.query("delete from users where id = $1", [userA]),
+    ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
+  });
+
+  it("skyddar bokföringen mot att kundraden raderas under den", async () => {
+    await expect(
+      pool.query("delete from billing_customers where id = $1", [`bc_${runTag}_test`]),
     ).rejects.toMatchObject({ code: FOREIGN_KEY_VIOLATION });
   });
 

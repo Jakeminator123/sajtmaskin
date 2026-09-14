@@ -32,26 +32,51 @@
 -- additiva grinden kan läsa den. Constrainten är den enda auktoriteten:
 -- två samtidiga checkout-anrop avgörs av 23505, inte av en UI-disable.
 --
+-- Släktskapen kontrolleras med SAMMANSATTA nycklar, inte bara med interna
+-- id:n. En FK som bara säger "det här id:t finns" tillåter en live-grant mot
+-- ett testabonnemang och en grant vars `user_id` inte är abonnemangets ägare.
+-- Mönstret är därför: föräldern bär UNIQUE (id, billing_mode) respektive
+-- UNIQUE (id, user_id), och barnet refererar hela tupeln. Läge och ägarskap
+-- ärvs då av databasen i stället för av en framtida kodväg.
+--
+-- `ON DELETE` följer D3: ingen automatisk radering. Länkarna mot `users` är
+-- RESTRICT, inte CASCADE — en adminrensning av användare får inte ta
+-- abonnemangsbokföringen med sig. `project_id` var RESTRICT från början av
+-- samma skäl. Kvar som CASCADE är bara barnen till abonnemanget självt
+-- (grants och jobb), som är meningslösa utan sin rad.
+--
 -- Idempotent; körs via BÅDE `npm run db:init` (applySqlMigrations) och
--- `npm run db:migrate`.
+-- `npm run db:migrate`. Den här filen ger en TOM databas hela formen direkt.
+-- En databas som redan fick den första versionen av tabellerna uppgraderas av
+-- `upgrade-site-subscriptions-composite-keys.sql`, eftersom
+-- `CREATE TABLE IF NOT EXISTS` inte rör en tabell som redan finns.
 
 -- Stripe-kundidentitet per användare OCH läge. Unik `(user_id, billing_mode)`
 -- gör att samma konto kan ha både en testkund och en riktig kund utan att den
 -- ena skriver över den andra. Unik `(billing_mode, stripe_customer_id)` gör
 -- att samma Stripe-kund inte kan kopplas till två konton inom ett läge.
+--
+-- `(id, user_id, billing_mode)` är redundant som unikhet (id är redan
+-- primärnyckel) men krävs av Postgres för att ett abonnemang ska kunna
+-- referera hela tupeln: en sammansatt FK måste peka på en deklarerad unikhet
+-- med exakt den kolumnlistan.
 CREATE TABLE IF NOT EXISTS billing_customers (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   billing_mode TEXT NOT NULL,
   stripe_customer_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT billing_customers_mode_check
     CHECK (billing_mode IN ('test', 'live')),
+  CONSTRAINT billing_customers_user_fk
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
   CONSTRAINT billing_customers_user_mode_unique
     UNIQUE (user_id, billing_mode),
   CONSTRAINT billing_customers_stripe_customer_unique
-    UNIQUE (billing_mode, stripe_customer_id)
+    UNIQUE (billing_mode, stripe_customer_id),
+  CONSTRAINT billing_customers_id_user_mode_unique
+    UNIQUE (id, user_id, billing_mode)
 );
 
 -- Ett abonnemang per publicerad sajt och läge.
@@ -79,15 +104,20 @@ CREATE TABLE IF NOT EXISTS billing_customers (
 --
 -- FK mot `app_projects` är `ON DELETE RESTRICT` med flit. Bokföringsdata ska
 -- inte kunna försvinna för att någon rensar ett projekt, och MVP har ingen
--- automatisk radering. Den operatörsstyrda avslutsprocessen ägs av D3.
+-- automatisk radering. Den operatörsstyrda avslutsprocessen ägs av D3. Länken
+-- mot `users` är RESTRICT av exakt samma skäl.
 CREATE TABLE IF NOT EXISTS site_subscriptions (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   project_id TEXT NOT NULL REFERENCES app_projects(id) ON DELETE RESTRICT,
   billing_mode TEXT NOT NULL,
-  -- Bekvämlighetslänk. Den logiska kopplingen är (user_id, billing_mode), så
-  -- checkout kan skapa anspråksraden innan Stripe-kunden finns.
-  billing_customer_id TEXT REFERENCES billing_customers(id) ON DELETE SET NULL,
+  -- Kundlänken är NULL tills Stripe-kunden finns, så checkout kan skapa
+  -- anspråksraden först. Är den satt måste den peka på SAMMA konto och SAMMA
+  -- läge — det bevakas av den sammansatta FK:n längst ned. En FK
+  -- (user_id, billing_mode) → billing_customers hade varit striktare men
+  -- omöjliggjort 'checkout_pending' innan kundraden finns, vilket är den ordning
+  -- flödet faktiskt har.
+  billing_customer_id TEXT,
 
   -- Extern identitet. Båda är NULL innan respektive Stripe-objekt existerar;
   -- UNIQUE tillåter flera NULL, så en oavslutad checkout blockerar inget.
@@ -135,6 +165,14 @@ CREATE TABLE IF NOT EXISTS site_subscriptions (
     END
   ) STORED,
 
+  CONSTRAINT site_subscriptions_user_fk
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+  -- MATCH SIMPLE (Postgres default): är `billing_customer_id` NULL kontrolleras
+  -- tupeln inte alls, så ett checkout-anspråk utan kundrad går igenom. Är den
+  -- satt måste kundraden ha samma ägare och samma läge.
+  CONSTRAINT site_subscriptions_customer_fk
+    FOREIGN KEY (billing_customer_id, user_id, billing_mode)
+    REFERENCES billing_customers (id, user_id, billing_mode) ON DELETE RESTRICT,
   CONSTRAINT site_subscriptions_mode_check
     CHECK (billing_mode IN ('test', 'live')),
   CONSTRAINT site_subscriptions_lifecycle_check
@@ -152,7 +190,14 @@ CREATE TABLE IF NOT EXISTS site_subscriptions (
   CONSTRAINT site_subscriptions_stripe_subscription_unique
     UNIQUE (billing_mode, stripe_subscription_id),
   CONSTRAINT site_subscriptions_checkout_session_unique
-    UNIQUE (billing_mode, stripe_checkout_session_id)
+    UNIQUE (billing_mode, stripe_checkout_session_id),
+  -- Ärvbara tupler för barnen. Utan dem kan Postgres inte uttrycka "granten
+  -- hör till abonnemangets läge" respektive "granten hör till abonnemangets
+  -- ägare" som en främmande nyckel.
+  CONSTRAINT site_subscriptions_id_mode_unique
+    UNIQUE (id, billing_mode),
+  CONSTRAINT site_subscriptions_id_user_unique
+    UNIQUE (id, user_id)
 );
 
 -- Kreditgrant per giltig betald abonnemangsperiod.
@@ -174,8 +219,8 @@ CREATE TABLE IF NOT EXISTS site_subscriptions (
 -- delade ledgern ens om koden försöker.
 CREATE TABLE IF NOT EXISTS subscription_credit_grants (
   id TEXT PRIMARY KEY,
-  subscription_id TEXT NOT NULL REFERENCES site_subscriptions(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subscription_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
   billing_mode TEXT NOT NULL,
   -- Stabil identitet för den betalda perioden (t.ex. Stripe invoice-id).
   period_id TEXT NOT NULL,
@@ -193,6 +238,17 @@ CREATE TABLE IF NOT EXISTS subscription_credit_grants (
     'site_sub_period:' || billing_mode || ':' || subscription_id || ':' || period_id
   ) STORED,
 
+  -- Läge och ägare ÄRVS från abonnemanget i stället för att upprepas fritt.
+  -- Utan de här två tupelnycklarna kunde en live-grant peka på ett
+  -- testabonnemang, och en grant kunde bokföras på fel konto.
+  CONSTRAINT subscription_credit_grants_subscription_mode_fk
+    FOREIGN KEY (subscription_id, billing_mode)
+    REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
+  CONSTRAINT subscription_credit_grants_subscription_owner_fk
+    FOREIGN KEY (subscription_id, user_id)
+    REFERENCES site_subscriptions (id, user_id) ON DELETE CASCADE,
+  CONSTRAINT subscription_credit_grants_user_fk
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
   CONSTRAINT subscription_credit_grants_mode_check
     CHECK (billing_mode IN ('test', 'live')),
   CONSTRAINT subscription_credit_grants_status_check
@@ -220,7 +276,7 @@ CREATE TABLE IF NOT EXISTS subscription_credit_grants (
 -- beställa två pausningar av samma sajt.
 CREATE TABLE IF NOT EXISTS billing_jobs (
   id TEXT PRIMARY KEY,
-  subscription_id TEXT NOT NULL REFERENCES site_subscriptions(id) ON DELETE CASCADE,
+  subscription_id TEXT NOT NULL,
   billing_mode TEXT NOT NULL,
   kind TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
@@ -242,6 +298,11 @@ CREATE TABLE IF NOT EXISTS billing_jobs (
     END
   ) STORED,
 
+  -- Jobbet ärver abonnemangets läge. Ett pausjobb för en riktig kundsajt får
+  -- aldrig kunna bokföras som ett testjobb, eller tvärtom.
+  CONSTRAINT billing_jobs_subscription_mode_fk
+    FOREIGN KEY (subscription_id, billing_mode)
+    REFERENCES site_subscriptions (id, billing_mode) ON DELETE CASCADE,
   CONSTRAINT billing_jobs_mode_check
     CHECK (billing_mode IN ('test', 'live')),
   CONSTRAINT billing_jobs_kind_check
