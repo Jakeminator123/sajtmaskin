@@ -19,6 +19,9 @@ export async function createKostnadsfriPage(data: {
   contactName?: string;
   extraData?: Record<string, unknown>;
   expiresAt?: Date;
+  /** Set when the row is created by a caller that already mailed the invite. */
+  sentAt?: Date;
+  source?: string;
 }): Promise<KostnadsfriPage> {
   assertDbConfigured();
   const now = new Date();
@@ -37,9 +40,46 @@ export async function createKostnadsfriPage(data: {
       created_at: now,
       updated_at: now,
       expires_at: data.expiresAt || null,
+      sent_at: data.sentAt || null,
+      source: data.source || null,
     })
     .returning();
   return rows[0];
+}
+
+/**
+ * Register that the invite mail for `slug` went out — the write half of the
+ * send register behind `/admin/kostnadsfri`.
+ *
+ * `contactEmail` is only written when it is a non-empty string: a caller that
+ * re-registers a send without repeating the address must not blank the one
+ * already stored. Returns null when the slug has no row (the caller decides
+ * whether to create one).
+ */
+export async function markKostnadsfriPageSent(
+  slug: string,
+  data: { sentAt: Date; source: string; contactEmail?: string | null },
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
+  const updates: {
+    sent_at: Date;
+    source: string;
+    updated_at: Date;
+    contact_email?: string;
+  } = {
+    sent_at: data.sentAt,
+    source: data.source,
+    updated_at: new Date(),
+  };
+  const contactEmail = data.contactEmail?.trim();
+  if (contactEmail) updates.contact_email = contactEmail;
+
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set(updates)
+    .where(eq(kostnadsfriPages.slug, slug))
+    .returning();
+  return rows[0] ?? null;
 }
 
 export async function getKostnadsfriPageBySlug(slug: string): Promise<KostnadsfriPage | null> {
@@ -52,10 +92,14 @@ export async function getKostnadsfriPageBySlug(slug: string): Promise<Kostnadsfr
   return rows[0] ?? null;
 }
 
-/** Every pre-created page, newest first. Password hashes are NOT stripped here. */
-export async function listKostnadsfriPages(): Promise<KostnadsfriPage[]> {
+/**
+ * Every pre-created page, newest first. Password hashes are NOT stripped here.
+ * `limit` caps the read for callers that serve the list over HTTP.
+ */
+export async function listKostnadsfriPages(limit?: number): Promise<KostnadsfriPage[]> {
   assertDbConfigured();
-  return db.select().from(kostnadsfriPages).orderBy(desc(kostnadsfriPages.created_at));
+  const query = db.select().from(kostnadsfriPages).orderBy(desc(kostnadsfriPages.created_at));
+  return limit && limit > 0 ? query.limit(limit) : query;
 }
 
 // ============================================================================

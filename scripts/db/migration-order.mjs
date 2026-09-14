@@ -134,6 +134,11 @@ export const MIGRATION_ORDER = [
   // rör ledgern (som redan finns när migrationer körs) och inte får blockera
   // någon schemaändring före sig.
   "harden-schema-migrations-ledger.sql",
+  // Utskicksregister för kostnadsfri-länkar (`sent_at`, `source`). Rent additiv
+  // ALTER utan beroenden åt någon riktning — den kan därför ligga efter de två
+  // "sist"-posterna ovan (parity + ledger-härdning), som bara rör äldre tabeller
+  // respektive ledgern själv.
+  "add-kostnadsfri-sent.sql",
 ];
 
 /**

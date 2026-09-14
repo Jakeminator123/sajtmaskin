@@ -593,6 +593,10 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
   updated_at: timestamptz("updated_at").defaultNow().notNull(),
   expires_at: timestamptz("expires_at"),
   consumed_at: timestamptz("consumed_at"),
+  /** När utskicksmejlet gick ut. Null = länken är skapad men inte skickad. */
+  sent_at: timestamptz("sent_at"),
+  /** Vem registrerade utskicket (t.ex. `python-utskick`, `admin`). */
+  source: text("source"),
 });
 
 // ---------------------------------------------------------------------------
