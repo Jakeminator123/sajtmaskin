@@ -8,7 +8,7 @@ import { getAppBaseUrl } from "@/lib/app-url";
 
 const ADMIN_PREFIX = "/admin";
 
-const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits"]);
+const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/konto"]);
 
 /**
  * Prefixes whose subpaths require a signed-in user. `AUTH_REQUIRED_PATHS` is an

@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
       // `/admin` is deliberately omitted so robots.txt does not advertise the
       // private slug. The route itself requires an admin account and declares
       // `noindex` in its metadata.
-      disallow: ["/api/", "/builder", "/projects"],
+      disallow: ["/api/", "/builder", "/projects", "/konto"],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,
   };
