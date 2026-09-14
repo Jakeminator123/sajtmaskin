@@ -83,7 +83,8 @@ export function KostnadsfriPage({
       setError(null);
 
       try {
-        // Build prompt from wizard data
+        // Build prompt from wizard data. Sidantalet finns inte i prompten utan
+        // skickas strukturerat till ruttplanen av auto-starten i buildern.
         const prompt = buildPromptFromWizardData(wizardData);
 
         // Create app project first (same pattern as category page)

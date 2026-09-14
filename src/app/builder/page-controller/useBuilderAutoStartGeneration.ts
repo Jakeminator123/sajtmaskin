@@ -4,6 +4,11 @@ import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 import type { BuildMethod } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import {
+  MAX_PAGE_COUNT_CHOICE,
+  getCurrentInitBuildChoices,
+  setCurrentInitBuildChoices,
+} from "@/lib/builder/init-build-choices";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 import { canAutoStartKostnadsfriGeneration } from "./auto-start-generation";
 
@@ -27,6 +32,12 @@ type Params = {
  * input (ChatInterface `initialPrompt`, same as the audit flow) so the user
  * can pick Modell/Inställningar before the explicit send — auto-send also
  * used to force-reset the model tier below, discarding any prior choice.
+ *
+ * Kampanjflödet har ingen välkomstpanel att göra byggval i, så sidantalet fylls
+ * här: `pageCount` går in i byggvalsstoren och blir `meta.pageCountHint`, som
+ * `buildRoutePlan` föredrar framför prompttextens regex. Det är därför
+ * kampanjprompten inte längre skriver ut något sidantal i prosa (ägarbeslut
+ * 2026-09-14, `docs/decisions/README.md` § Kostnadsfri / sidantal).
  */
 export function useBuilderAutoStartGeneration({
   isAuthenticated,
@@ -65,6 +76,13 @@ export function useBuilderAutoStartGeneration({
     autoGenerateTriggeredRef.current = true;
 
     setSelectedModelTier(DEFAULT_MODEL_TIER);
+
+    // Bara när inget val redan uttalats (0 = auto). Ett faktiskt byggval äger
+    // sitt eget tal och ska inte skrivas över av kampanjstandarden.
+    const activeChoices = getCurrentInitBuildChoices();
+    if (activeChoices.pageCount < 1) {
+      setCurrentInitBuildChoices({ ...activeChoices, pageCount: MAX_PAGE_COUNT_CHOICE });
+    }
 
     const timer = setTimeout(() => {
       void promptActions.requestCreateChat(resolvedPrompt!);
