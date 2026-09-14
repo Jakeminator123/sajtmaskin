@@ -48,8 +48,7 @@ i prosa:
 | Fil | Ändring |
 |---|---|
 | `src/app/builder/page-controller/useBuilderAutoStartGeneration.ts` | Fyller `pageCount` i byggvalsstoren före auto-starten, men bara när inget val redan uttalats (`0 = auto`). `buildInitBuildChoicesMeta` gör det till `meta.pageCountHint`. |
-| `src/lib/kostnadsfri/index.ts` | `resolvePageStructure` tar `maxPages` utifrån; `INDUSTRY_PAGES` är prioritetsordning utan eget tal; `Scope`-raden slutade skriva ut `(N pages)` |
-| `src/components/kostnadsfri/kostnadsfri-page.tsx` | Skickar `MAX_PAGE_COUNT_CHOICE` som `maxPages` |
+| `src/lib/kostnadsfri/index.ts` | `INDUSTRY_PAGES` är icke-bindande prioriteringar utan eget tal; prompten uttrycker varken `(N pages)` eller en exakt sidlista. |
 
 Bieffekt värd att känna till: när hinten är satt blir `earlyExplicitPageCount` 3,
 vilket är under `MAX_ROUTES_PER_GENERATION`. Då sätts `allowCeilingExemptions`
@@ -57,13 +56,14 @@ inte alls, så namngivna sidor kan inte längre lyfta bygget över taket. Det ä
 själva mekanismen som gjorde sajten femsidig, och den är nu stängd för
 kampanjflödet utan att ruttplanens regler ändrades.
 
-Sidlistorna omordnades samtidigt så att de tre som ryms är `Hem`, kärnsidan och
-`Kontakt` — tidigare låg `Om oss` på tredje plats och `Kontakt` sist, vilket vid
-en kapning hade tappat kontaktsidan. Sidor utanför taket blir sektioner i stället.
+Sidprioriteringarna omordnades samtidigt så att `Hem`, branschens kärnsida och
+`Kontakt` kommer först. De är uttryckligen önskemål, inte en andra route-lista:
+`pageCountHint` är enda antalssanningen och ruttplanen kapar till 1, 2 eller
+kampanjstandarden 3. Prioriteringar som inte blir egna rutter kan bli sektioner.
 
-Verifierat: 35 tester i `src/lib/kostnadsfri`, `src/components/kostnadsfri` och
-`src/app/builder/page-controller`, plus `npm run typecheck` och lint på de
-ändrade filerna.
+Verifierat med prompt→ruttplan-regressioner för uttryckliga val på 1 och 2,
+auto-startens standard/preserve-fall, route-planens tester, `npm run typecheck`
+och riktad lint.
 
 ## 2. Bolagsdata: push in, inte pull ut
 
@@ -152,8 +152,8 @@ ovan och körs i samma ändring.
 
 | Vad | Var | Status |
 |---|---|---|
-| ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är prioritetsordning, taket kommer utifrån |
-| ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — inget tal i prosa längre |
+| ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är icke-bindande prioriteringar, antalet kommer strukturerat |
+| ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — varken tal eller exakt sidlista i prosa |
 | `INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS` | `src/lib/kostnadsfri/index.ts` | **Öppet** — filens egen kommentar säger «mirrors PromptWizardModalV2 constants», alltså en medveten kopia av `src/components/modals/prompt-wizard/constants.ts`. |
 | `INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS` | `src/components/kostnadsfri/mini-wizard.tsx` | **Öppet** — tredje kopian av samma taxonomi (emoji i stället för Lucide-ikoner). Värdena är identiska i dag, så inget är fel än, men en bransch kan bara läggas till på ett av tre ställen och då driftar de tyst. |
 
