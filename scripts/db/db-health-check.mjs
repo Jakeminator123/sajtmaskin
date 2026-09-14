@@ -291,8 +291,27 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_domain_orders_project", columns: ["project_id"] },
     { name: "idx_domain_orders_order", columns: ["order_id"] },
   ],
-  billing_customers: [{ name: "idx_billing_customers_user", columns: ["user_id"] }],
+  // D1: de namngivna UNIQUE-constraintsen bär hela garantin (ett pågående
+  // abonnemang per sajt och läge, en extern identitet per läge, en grant per
+  // period), så de deklareras här och inte bara som "extra index".
+  billing_customers: [
+    { name: "billing_customers_user_mode_unique", columns: ["user_id", "billing_mode"] },
+    {
+      name: "billing_customers_stripe_customer_unique",
+      columns: ["billing_mode", "stripe_customer_id"],
+    },
+    { name: "idx_billing_customers_user", columns: ["user_id"] },
+  ],
   site_subscriptions: [
+    { name: "site_subscriptions_open_claim_unique", columns: ["open_claim_key"] },
+    {
+      name: "site_subscriptions_stripe_subscription_unique",
+      columns: ["billing_mode", "stripe_subscription_id"],
+    },
+    {
+      name: "site_subscriptions_checkout_session_unique",
+      columns: ["billing_mode", "stripe_checkout_session_id"],
+    },
     { name: "idx_site_subscriptions_user", columns: ["user_id", "created_at"] },
     { name: "idx_site_subscriptions_project", columns: ["project_id"] },
     {
@@ -304,12 +323,17 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
   subscription_credit_grants: [
     {
+      name: "subscription_credit_grants_period_unique",
+      columns: ["billing_mode", "subscription_id", "period_id"],
+    },
+    {
       name: "idx_subscription_credit_grants_subscription",
       columns: ["subscription_id", "created_at"],
     },
     { name: "idx_subscription_credit_grants_user", columns: ["user_id", "created_at"] },
   ],
   billing_jobs: [
+    { name: "billing_jobs_open_unique", columns: ["open_job_key"] },
     { name: "idx_billing_jobs_runnable", columns: ["status", "run_after"] },
     { name: "idx_billing_jobs_subscription", columns: ["subscription_id"] },
   ],
