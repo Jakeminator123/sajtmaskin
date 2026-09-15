@@ -9,20 +9,20 @@ import {
 // Ägarbeslut 2026-09-15: allowlist av bolagsfält, personnummer hårdspärrade.
 // Underlaget är JakobScrape-dashens företagsvy (Zax 2.0 AB / K603156-26).
 describe("findPersonalIdentityViolations", () => {
-  it("namnger fältet men aldrig värdet när ett personnummer smugglats in", () => {
+  it("namnger allowlistat fält men aldrig värdet när ett personnummer smugglats in", () => {
     const violations = findPersonalIdentityViolations({
-      businessDescription: "Frisörverksamhet",
-      contactPersonalId: "19748885-2517",
+      businessDescription: "Ledamot 19748885-2517 äger bolaget",
     });
 
-    expect(violations).toEqual(["contactPersonalId"]);
+    expect(violations).toEqual(["businessDescription"]);
+    expect(violations.join(" ")).not.toContain("19748885-2517");
   });
 
   it("tar både tolvsiffrig, tiosiffrig, plus-form och separatorlös form", () => {
-    expect(findPersonalIdentityViolations({ a: "197488852517" })).toEqual(["a"]);
-    expect(findPersonalIdentityViolations({ b: "748885-2517" })).toEqual(["b"]);
-    expect(findPersonalIdentityViolations({ c: "080101+1234" })).toEqual(["c"]);
-    expect(findPersonalIdentityViolations({ d: "7488852517" })).toEqual(["d"]);
+    expect(findPersonalIdentityViolations({ a: "198112289874" })).toEqual(["profile"]);
+    expect(findPersonalIdentityViolations({ b: "850101-1234" })).toEqual(["profile"]);
+    expect(findPersonalIdentityViolations({ c: "080101+1234" })).toEqual(["profile"]);
+    expect(findPersonalIdentityViolations({ d: "8501011234" })).toEqual(["profile"]);
   });
 
   // Guarden gick tidigare bara på toppnivåns strängar, så dashen kunde nästla
@@ -32,15 +32,15 @@ describe("findPersonalIdentityViolations", () => {
       findPersonalIdentityViolations({
         boardMembers: [{ name: "Didar", personalId: "19748885-2517" }],
       }),
-    ).toEqual(["boardMembers"]);
+    ).toEqual(["profile"]);
     expect(
       findPersonalIdentityViolations({ owner: { identity: { ssn: "748885-2517" } } }),
-    ).toEqual(["owner"]);
+    ).toEqual(["profile"]);
   });
 
   it("fäller ett personnummer skickat som JSON-tal", () => {
-    expect(findPersonalIdentityViolations({ contactPersonalId: 7488852517 })).toEqual([
-      "contactPersonalId",
+    expect(findPersonalIdentityViolations({ contactPersonalId: 8501011234 })).toEqual([
+      "profile",
     ]);
   });
 
@@ -51,8 +51,50 @@ describe("findPersonalIdentityViolations", () => {
       }),
     ).toEqual(["businessDescription"]);
     expect(findPersonalIdentityViolations({ people: ["Didar", "748885-2517"] })).toEqual([
-      "people",
+      "profile",
     ]);
+  });
+
+  it("hittar formen mot bokstäver utan ASCII-ordgräns", () => {
+    expect(findPersonalIdentityViolations({ businessDescription: "Ledamot850101-1234" })).toEqual([
+      "businessDescription",
+    ]);
+    expect(findPersonalIdentityViolations({ streetAddress: "850101-1234x" })).toEqual([
+      "streetAddress",
+    ]);
+  });
+
+  it("hittar typografiska separatorer och whitespace-grupperade former", () => {
+    expect(findPersonalIdentityViolations({ city: "850101\u20101234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u20131234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u20141234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u22121234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "1981 12 28-9874" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "19811228 9874" })).toEqual(["city"]);
+  });
+
+  it("rapporterar okända toppnycklar som profile och deduplicerar", () => {
+    expect(findPersonalIdentityViolations({ "19811228-9874": "19811228-9874" })).toEqual([
+      "profile",
+    ]);
+    expect(
+      findPersonalIdentityViolations({
+        contactPersonalId: "850101-1234",
+        extra: "19811228-9874",
+        businessDescription: "Ledamot850101-1234",
+      }),
+    ).toEqual(["profile", "businessDescription"]);
+  });
+
+  it("släpper telefonnummer, postnummer, belopp och ISO-datum", () => {
+    expect(
+      findPersonalIdentityViolations({
+        businessDescription:
+          "Ring 070-123 45 67 eller 0701234567. Post 164 40. Pris 25.000 SEK. Grundat 2026-07-10.",
+        postalCode: "164 40",
+        registeredAt: "2026-07-10",
+      }),
+    ).toEqual([]);
   });
 
   // Organisationsnummer har identisk form och är uttryckligen tillåtet, så det
@@ -175,6 +217,33 @@ describe("normalizeKostnadsfriCompanyProfile", () => {
     });
 
     expect(profile).toEqual({ city: "Kista" });
+  });
+
+  it("andra linjen fångar prefix, typografisk separator och whitespace-form", () => {
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        city: "Kista",
+        businessDescription: "Ledamot850101-1234",
+      }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        city: "Kista",
+        businessDescription: "850101\u20131234",
+      }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        city: "Kista",
+        businessDescription: "1981 12 28-9874",
+      }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        city: "Kista",
+        businessDescription: "19811228 9874",
+      }),
+    ).toEqual({ city: "Kista" });
   });
 
   it("släpper registeredAt som inte är ett verkligt kalenderdatum", () => {

@@ -45,14 +45,33 @@ export interface KostnadsfriCompanyProfile {
 
 /**
  * Personnummerformer: `YYMMDD-NNNN`, `YYYYMMDD-NNNN`, `+` för över hundra år,
- * och samma siffror utan separator.
+ * samma siffror utan separator, typografiska streck och whitespace-gruppering.
  *
  * Organisationsnummer har identisk form (`559599-5639`), så det går inte att
  * skilja dem på mönstret. Därför undantas `orgNumber` från kontrollen och
  * valideras i stället som *exakt* ett organisationsnummer — inget annat fält får
  * innehålla en sådan sifferföljd alls.
+ *
+ * Detektorn är medvetet *inte* «strippa allt och slå ihop siffrorna»: det ger
+ * falsklarm på telefon, postnummer och belopp. I stället matchas bara de
+ * kända 10-/12-sifferformerna. Kompakta former kräver en datumdel som kan vara
+ * ett kalenderdatum; svensk nationell telefon (`0…` utan separator) undantas.
  */
-const PERSONAL_IDENTITY_RE = /\b(?:\d{8}|\d{6})[-+]?\d{4}\b/;
+const IDENTITY_DASH_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFF0D]/g;
+const IDENTITY_PLUS_RE = /\uFF0B/g;
+
+/** Allowlistade profilfält som får namnges i felsvar. `orgNumber` är undantaget. */
+const SAFE_VIOLATION_FIELDS = new Set([
+  "registeredOffice",
+  "city",
+  "postalCode",
+  "streetAddress",
+  "businessDescription",
+  "registeredAt",
+]);
+
+/** Generell markör när avsändaren stoppade PII i en okänd toppnyckel. */
+export const UNKNOWN_PROFILE_VIOLATION_FIELD = "profile";
 
 /** Exakt ett organisationsnummer, inte en sifferföljd inbäddad i text. */
 const ORG_NUMBER_RE = /^\d{6}-\d{4}$/;
@@ -69,6 +88,114 @@ const GUARD_EXEMPT_FIELDS = new Set(["orgNumber"]);
 
 /** Hur djupt PII-guarden går i en nästlad payload. */
 const GUARD_MAX_DEPTH = 4;
+
+function normalizeIdentityText(value: string): string {
+  let out = "";
+  for (const char of value) {
+    const code = char.codePointAt(0);
+    if (code !== undefined && code >= 0xff10 && code <= 0xff19) {
+      out += String.fromCharCode(0x30 + (code - 0xff10));
+      continue;
+    }
+    out += char;
+  }
+  return out.replace(IDENTITY_DASH_RE, "-").replace(IDENTITY_PLUS_RE, "+");
+}
+
+function isPlausibleIdentityDate(dateDigits: string): boolean {
+  if (dateDigits.length === 8) {
+    const year = Number(dateDigits.slice(0, 4));
+    const month = Number(dateDigits.slice(4, 6));
+    const day = Number(dateDigits.slice(6, 8));
+    if (year < 1800 || year > 2100) return false;
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return (
+      parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
+    );
+  }
+  if (dateDigits.length === 6) {
+    const month = Number(dateDigits.slice(2, 4));
+    const day = Number(dateDigits.slice(4, 6));
+    if (month < 1 || month > 12 || day < 1) return false;
+    const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day <= daysInMonth[month];
+  }
+  return false;
+}
+
+type IdentityFormKind = "hyphenated" | "grouped" | "compact";
+
+function isIdentityCandidate(dateDigits: string, kind: IdentityFormKind): boolean {
+  if (dateDigits.length !== 6 && dateDigits.length !== 8) return false;
+  if (kind === "hyphenated") return true;
+  if (kind === "grouped") return isPlausibleIdentityDate(dateDigits);
+  // Kompakt 10-siffrig nationell telefon (`0701234567`) har giltigt datum
+  // 07-01-23 — undanta ledande nolla i stället för att slå ihop alla siffror.
+  if (dateDigits.length === 6 && dateDigits.startsWith("0")) return false;
+  return isPlausibleIdentityDate(dateDigits);
+}
+
+/**
+ * Delad kontroll för båda linjerna: inmatningsguarden och profilens sista filter.
+ * Ingen ASCII-ordgräns — `Ledamot850101-1234` ska fällas.
+ */
+function textHasPersonalIdentityForm(value: string): boolean {
+  const text = normalizeIdentityText(value);
+  const patterns: Array<{
+    re: RegExp;
+    dateFrom: (match: RegExpExecArray) => string;
+    kind: (match: RegExpExecArray) => IdentityFormKind;
+  }> = [
+    {
+      re: /(\d{4})\s+(\d{2})\s+(\d{2})[-+\s]+(\d{4})/g,
+      dateFrom: (match) => `${match[1]}${match[2]}${match[3]}`,
+      kind: () => "grouped",
+    },
+    {
+      re: /(\d{2})\s+(\d{2})\s+(\d{2})[-+\s]+(\d{4})/g,
+      dateFrom: (match) => `${match[1]}${match[2]}${match[3]}`,
+      kind: () => "grouped",
+    },
+    {
+      re: /(\d{8})([-+]|\s+)?(\d{4})/g,
+      dateFrom: (match) => match[1],
+      kind: (match) => (match[2] ? "hyphenated" : "compact"),
+    },
+    {
+      re: /(\d{6})([-+]|\s+)?(\d{4})/g,
+      dateFrom: (match) => match[1],
+      kind: (match) => (match[2] ? "hyphenated" : "compact"),
+    },
+  ];
+
+  for (const pattern of patterns) {
+    pattern.re.lastIndex = 0;
+    let match = pattern.re.exec(text);
+    while (match) {
+      if (isIdentityCandidate(pattern.dateFrom(match), pattern.kind(match))) {
+        return true;
+      }
+      if (match.index === pattern.re.lastIndex) pattern.re.lastIndex += 1;
+      match = pattern.re.exec(text);
+    }
+  }
+  return false;
+}
+
+/** Bara serverns allowlistade fältnamn; okända nycklar blir `profile`. */
+export function sanitizeProfileViolationFields(fields: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const field of fields) {
+    const safe = SAFE_VIOLATION_FIELDS.has(field) ? field : UNKNOWN_PROFILE_VIOLATION_FIELD;
+    if (seen.has(safe)) continue;
+    seen.add(safe);
+    result.push(safe);
+  }
+  return result;
+}
 
 function normalizeString(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -138,10 +265,10 @@ function normalizeIsoDate(value: unknown): string | undefined {
 
 /** True om något värde i grenen bär en personnummerform. */
 function branchHasPersonalIdentity(value: unknown, depth: number): boolean {
-  if (typeof value === "string") return PERSONAL_IDENTITY_RE.test(value);
+  if (typeof value === "string") return textHasPersonalIdentityForm(value);
   // Siffror räknas: `8507091234` som JSON-tal är samma läcka som strängen.
   if (typeof value === "number" && Number.isFinite(value)) {
-    return PERSONAL_IDENTITY_RE.test(String(value));
+    return textHasPersonalIdentityForm(String(value));
   }
   if (depth >= GUARD_MAX_DEPTH) return false;
   if (Array.isArray(value)) {
@@ -160,8 +287,9 @@ function branchHasPersonalIdentity(value: unknown, depth: number): boolean {
  *
  * Körs på **rå** indata, inte på den normaliserade profilen: normaliseringen
  * släpper okända nycklar, och ett tyst bortfall lär inte avsändaren att den
- * skickade något förbjudet. Returnerar fältnamn — aldrig värdet, som inte ska
- * vidare till loggar eller felsvar.
+ * skickade något förbjudet. Returnerar bara allowlistade fältnamn — aldrig
+ * värdet och aldrig avsändarstyrda nycklar, som inte ska vidare till loggar
+ * eller felsvar. Okända toppnycklar rapporteras som `profile`.
  *
  * Söker igenom nästlade objekt och arrayer till `GUARD_MAX_DEPTH`, men
  * rapporterar bara **toppnivåns** nyckel: en nästlad sökväg är avsändarstyrd
@@ -178,7 +306,7 @@ export function findPersonalIdentityViolations(value: unknown): string[] {
     }
   }
 
-  return violations;
+  return sanitizeProfileViolationFields(violations);
 }
 
 /** True när `orgNumber` finns men inte är ett organisationsnummer. */
@@ -214,7 +342,7 @@ export function normalizeKostnadsfriCompanyProfile(
   // tidigare — det här är skyddet mot en framtida anropsväg som glömmer den.
   for (const [key, entry] of Object.entries(profile)) {
     if (GUARD_EXEMPT_FIELDS.has(key)) continue;
-    if (typeof entry === "string" && PERSONAL_IDENTITY_RE.test(entry)) {
+    if (typeof entry === "string" && textHasPersonalIdentityForm(entry)) {
       delete profile[key as keyof KostnadsfriCompanyProfile];
     }
   }
