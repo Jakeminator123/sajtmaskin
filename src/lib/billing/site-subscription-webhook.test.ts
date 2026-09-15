@@ -309,6 +309,47 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(grantSiteSubscriptionPeriodCredits.mock.calls[1]?.[0].periodId).toBe("p1726401600");
   });
 
+  it("släpper inte ett betalt expired-anspråk och villkorar unpaid expire", async () => {
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+    });
+
+    const paid = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.expired", {
+        id: "cs_1",
+        status: "expired",
+        subscription: "sub_1",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+    expect(paid.body.ignored).toBe("paid_claim");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+
+    updateSiteSubscription.mockClear();
+    updateSiteSubscription.mockResolvedValue({ ...row, lifecycle_state: "ended" });
+    const unpaid = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.expired", {
+        id: "cs_1",
+        status: "expired",
+        subscription: null,
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+    expect(unpaid.body.expired).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ lifecycle_state: "ended" }),
+      { expectedLifecycle: "checkout_pending" },
+    );
+  });
+
   it("anspråkar inte en främmande subscription-invoice", async () => {
     getSiteSubscriptionByStripeId.mockResolvedValue(null);
     const result = await handleSiteSubscriptionStripeEvent({

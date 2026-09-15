@@ -218,6 +218,7 @@ export async function updateSiteSubscription(
   guard?: {
     expectedDesired?: string;
     expectedLifecycle?: string;
+    expectedUpdatedAt?: Date;
   },
 ): Promise<SiteSubscriptionRow | null> {
   assertDbConfigured();
@@ -233,6 +234,9 @@ export async function updateSiteSubscription(
           : undefined,
         guard?.expectedLifecycle
           ? eq(siteSubscriptions.lifecycle_state, guard.expectedLifecycle)
+          : undefined,
+        guard?.expectedUpdatedAt
+          ? eq(siteSubscriptions.updated_at, guard.expectedUpdatedAt)
           : undefined,
       ),
     )

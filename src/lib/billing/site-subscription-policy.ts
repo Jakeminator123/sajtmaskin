@@ -15,7 +15,26 @@ export type CheckoutSessionSnapshot = {
   status: "open" | "complete" | "expired" | string;
   url: string | null;
   expiresAt: Date | null;
+  subscriptionId?: string | null;
 };
+
+/**
+ * Stripe svarade (`reached`/`absent`) eller var onåbar (`unreachable`).
+ * De två får aldrig kollapsas — onåbar är inte «sessionen finns inte».
+ */
+export type CheckoutSessionLookup =
+  | { lookup: "reached"; session: CheckoutSessionSnapshot }
+  | { lookup: "absent" }
+  | { lookup: "unreachable" };
+
+export type CheckoutClaimClassification = {
+  paid: boolean;
+  known: boolean;
+  unpaidExpired: boolean;
+  subscriptionId: string | null;
+};
+
+export type CheckoutSessionLookupKind = CheckoutSessionLookup["lookup"];
 
 export type CheckoutReuseDecision =
   | { action: "create_new" }
@@ -32,6 +51,7 @@ export type OpenSubscriptionSnapshot = {
   lifecycleState: SiteSubscriptionLifecycleState;
   stripeCheckoutSessionId: string | null;
   stripeStatus: string | null;
+  stripeSubscriptionId?: string | null;
 };
 
 export function eventMatchesServerBillingMode(
@@ -85,9 +105,71 @@ export function shouldApplyPaymentFailed(current: {
   return true;
 }
 
+export function checkoutSessionLookupFrom(
+  session: CheckoutSessionSnapshot | null | undefined,
+  lookup?: CheckoutSessionLookupKind,
+): CheckoutSessionLookup {
+  if (lookup === "unreachable") return { lookup: "unreachable" };
+  if (lookup === "absent") return { lookup: "absent" };
+  if (session) return { lookup: "reached", session };
+  return { lookup: "unreachable" };
+}
+
+function sessionIsExpired(session: CheckoutSessionSnapshot, now: Date): boolean {
+  return (
+    session.status === "expired" ||
+    (session.status === "open" &&
+      session.expiresAt !== null &&
+      session.expiresAt.getTime() <= now.getTime())
+  );
+}
+
+/**
+ * Gemensam sanning: är anspråket betalt, och visste vi det från Stripe?
+ * Både checkout-reuse och stale-repair måste gå hit — aldrig tolka om.
+ */
+export function classifyCheckoutClaim(input: {
+  now: Date;
+  lookup: CheckoutSessionLookup;
+  rowSubscriptionId?: string | null;
+}): CheckoutClaimClassification {
+  const rowSubscriptionId = input.rowSubscriptionId ?? null;
+
+  if (input.lookup.lookup === "unreachable") {
+    return {
+      paid: Boolean(rowSubscriptionId),
+      known: false,
+      unpaidExpired: false,
+      subscriptionId: rowSubscriptionId,
+    };
+  }
+
+  if (input.lookup.lookup === "absent") {
+    return {
+      paid: Boolean(rowSubscriptionId),
+      known: true,
+      unpaidExpired: !rowSubscriptionId,
+      subscriptionId: rowSubscriptionId,
+    };
+  }
+
+  const session = input.lookup.session;
+  const subscriptionId = session.subscriptionId ?? rowSubscriptionId;
+  const paid = Boolean(subscriptionId) || session.status === "complete";
+  const expired = sessionIsExpired(session, input.now);
+
+  return {
+    paid,
+    known: true,
+    unpaidExpired: expired && !paid,
+    subscriptionId,
+  };
+}
+
 export function decideCheckoutReuse(input: {
   openRow: OpenSubscriptionSnapshot | null;
   session: CheckoutSessionSnapshot | null;
+  lookup?: CheckoutSessionLookupKind;
   now: Date;
 }): CheckoutReuseDecision {
   const row = input.openRow;
@@ -101,16 +183,22 @@ export function decideCheckoutReuse(input: {
     return { action: "create_new" };
   }
 
-  if (!row.stripeCheckoutSessionId) {
+  if (!row.stripeCheckoutSessionId && input.lookup !== "absent") {
     return { action: "wait_for_session", existingId: row.id };
   }
 
-  const session = input.session;
-  if (!session) {
+  const lookup = checkoutSessionLookupFrom(input.session, input.lookup);
+  if (lookup.lookup === "unreachable") {
     return { action: "wait_for_session", existingId: row.id };
   }
 
-  if (session.status === "complete") {
+  const claim = classifyCheckoutClaim({
+    now: input.now,
+    lookup,
+    rowSubscriptionId: row.stripeSubscriptionId,
+  });
+
+  if (claim.paid) {
     return {
       action: "already_active",
       existingId: row.id,
@@ -118,20 +206,15 @@ export function decideCheckoutReuse(input: {
     };
   }
 
-  const expired =
-    session.status === "expired" ||
-    (session.status === "open" &&
-      session.expiresAt !== null &&
-      session.expiresAt.getTime() <= input.now.getTime());
-  if (expired) {
+  if (claim.unpaidExpired) {
     return { action: "replace_expired", existingId: row.id };
   }
 
-  if (session.status === "open") {
+  if (lookup.lookup === "reached" && lookup.session.status === "open") {
     return {
       action: "reuse_session",
-      sessionId: session.id,
-      url: session.url,
+      sessionId: lookup.session.id,
+      url: lookup.session.url,
     };
   }
 
@@ -153,6 +236,8 @@ export type PendingCheckoutRepairDecision =
         | "too_fresh"
         | "session_open"
         | "complete_without_subscription"
+        | "session_unreachable"
+        | "operator_attention"
         | "not_pending";
     };
 
@@ -164,16 +249,33 @@ export function decidePendingCheckoutRepair(input: {
   now: Date;
   createdAt: Date;
   thresholdMinutes: number;
+  operatorThresholdMinutes?: number;
   lifecycleState: SiteSubscriptionLifecycleState;
   currentPeriodEnd?: Date | null;
   stripeSubscriptionId?: string | null;
   session: PendingCheckoutSessionSnapshot | null;
+  lookup?: CheckoutSessionLookupKind;
 }): PendingCheckoutRepairDecision {
-  const knownSubscriptionId =
-    input.session?.subscriptionId ?? input.stripeSubscriptionId ?? null;
+  const lookup = checkoutSessionLookupFrom(
+    input.session
+      ? {
+          id: "session",
+          url: null,
+          status: input.session.status,
+          expiresAt: input.session.expiresAt,
+          subscriptionId: input.session.subscriptionId,
+        }
+      : null,
+    input.lookup,
+  );
+  const claim = classifyCheckoutClaim({
+    now: input.now,
+    lookup,
+    rowSubscriptionId: input.stripeSubscriptionId,
+  });
 
   if (input.lifecycleState === "active") {
-    if (!input.currentPeriodEnd && knownSubscriptionId) {
+    if (!input.currentPeriodEnd && claim.subscriptionId) {
       return { action: "activate", reason: "paid_without_period" };
     }
     return { action: "leave", reason: "not_pending" };
@@ -188,32 +290,27 @@ export function decidePendingCheckoutRepair(input: {
     return { action: "leave", reason: "too_fresh" };
   }
 
-  const session = input.session;
-  if (!session) {
-    return { action: "end_claim", reason: "session_missing" };
+  if (!claim.known) {
+    return { action: "leave", reason: "session_unreachable" };
   }
 
-  if (session.status === "complete" && session.subscriptionId) {
+  if (claim.paid && claim.subscriptionId) {
     return { action: "activate", reason: "session_complete" };
   }
-  if (session.status === "complete") {
+
+  if (claim.paid) {
+    const operatorMs = (input.operatorThresholdMinutes ?? input.thresholdMinutes * 18) * 60_000;
+    if (ageMs >= operatorMs) {
+      return { action: "leave", reason: "operator_attention" };
+    }
     return { action: "leave", reason: "complete_without_subscription" };
   }
 
-  const expired =
-    session.status === "expired" ||
-    (session.status === "open" &&
-      session.expiresAt !== null &&
-      session.expiresAt.getTime() <= input.now.getTime());
-
-  if (expired && session.subscriptionId) {
-    return { action: "activate", reason: "session_complete" };
-  }
-  if (expired) {
-    return { action: "end_claim", reason: "session_expired" };
-  }
-  if (session.status === "open") {
-    return { action: "leave", reason: "session_open" };
+  if (claim.unpaidExpired) {
+    return {
+      action: "end_claim",
+      reason: lookup.lookup === "absent" ? "session_missing" : "session_expired",
+    };
   }
 
   return { action: "leave", reason: "session_open" };

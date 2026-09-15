@@ -35,6 +35,11 @@ export const SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS = {
    * cron läser om sanningen från Stripe. Provisoriskt.
    */
   pendingCheckoutRepairMinutes: 20,
+  /**
+   * Efter så här länge, om sessionen är betald men subscription-id
+   * fortfarande saknas: logga och märk raden. Anspråket släpps inte.
+   */
+  pendingCheckoutOperatorMinutes: 360,
   interval: "month" as const,
   productName: "Sajtmaskin sajt-abonnemang",
   productDescription:

@@ -15,7 +15,11 @@ import {
   SITE_SUBSCRIPTION_KIND,
   SITE_SUBSCRIPTION_PRICE_REF,
 } from "./site-subscription-offer";
-import { decideCheckoutReuse } from "./site-subscription-policy";
+import {
+  decideCheckoutReuse,
+  type CheckoutSessionLookupKind,
+} from "./site-subscription-policy";
+import { isStripeResourceMissing, readStripeId } from "./site-subscription-stripe";
 
 const SESSION_WAIT_MS = [40, 80, 160];
 
@@ -44,26 +48,39 @@ function toOpenSnapshot(row: SiteSubscriptionRow) {
     lifecycleState: row.lifecycle_state as "checkout_pending" | "active" | "ended",
     stripeCheckoutSessionId: row.stripe_checkout_session_id,
     stripeStatus: row.stripe_status,
+    stripeSubscriptionId: row.stripe_subscription_id,
   };
 }
 
-async function retrieveCheckoutSession(
+async function lookupCheckoutSession(
   stripe: Stripe,
   sessionId: string,
-): Promise<Stripe.Checkout.Session | null> {
+): Promise<{
+  session: Stripe.Checkout.Session | null;
+  lookup: CheckoutSessionLookupKind;
+}> {
   try {
-    return await stripe.checkout.sessions.retrieve(sessionId);
-  } catch {
-    return null;
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    return { session, lookup: "reached" };
+  } catch (error) {
+    if (isStripeResourceMissing(error)) {
+      return { session: null, lookup: "absent" };
+    }
+    return { session: null, lookup: "unreachable" };
   }
 }
 
-async function endExpiredClaim(row: SiteSubscriptionRow): Promise<void> {
-  await updateSiteSubscription(row.id, row.billing_mode, {
-    lifecycle_state: "ended",
-    ended_reason: "checkout_expired",
-    ended_at: new Date(),
-  });
+async function endExpiredClaim(row: SiteSubscriptionRow): Promise<SiteSubscriptionRow | null> {
+  return updateSiteSubscription(
+    row.id,
+    row.billing_mode,
+    {
+      lifecycle_state: "ended",
+      ended_reason: "checkout_expired",
+      ended_at: new Date(),
+    },
+    { expectedLifecycle: "checkout_pending" },
+  );
 }
 
 async function createStripeSubscriptionSession(input: {
@@ -176,9 +193,10 @@ export async function startSiteSubscriptionCheckout(input: {
   }
 
   for (let attempt = 0; attempt <= SESSION_WAIT_MS.length; attempt += 1) {
-    const session = claim.stripe_checkout_session_id
-      ? await retrieveCheckoutSession(input.stripe, claim.stripe_checkout_session_id)
-      : null;
+    const lookedUp = claim.stripe_checkout_session_id
+      ? await lookupCheckoutSession(input.stripe, claim.stripe_checkout_session_id)
+      : { session: null, lookup: undefined };
+    const session = lookedUp.session;
     const decision = decideCheckoutReuse({
       openRow: toOpenSnapshot(claim),
       session: session
@@ -187,8 +205,10 @@ export async function startSiteSubscriptionCheckout(input: {
             status: session.status ?? "open",
             url: session.url,
             expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+            subscriptionId: readStripeId(session.subscription),
           }
         : null,
+      lookup: lookedUp.lookup,
       now: new Date(),
     });
 
@@ -236,7 +256,24 @@ export async function startSiteSubscriptionCheckout(input: {
     }
 
     if (decision.action === "replace_expired") {
-      await endExpiredClaim(claim);
+      const ended = await endExpiredClaim(claim);
+      if (!ended) {
+        const latest = await getOpenSiteSubscription(input.projectId, input.billingMode);
+        if (latest?.lifecycle_state === "active") {
+          return {
+            ok: false,
+            status: 409,
+            error: "Sajten har redan ett pågående abonnemang.",
+            code: "already_subscribed",
+          };
+        }
+        return {
+          ok: false,
+          status: 409,
+          error: "En checkout pågår redan. Försök igen om en stund.",
+          code: "checkout_in_progress",
+        };
+      }
       try {
         claim = await insertCheckoutClaim({
           userId: input.userId,

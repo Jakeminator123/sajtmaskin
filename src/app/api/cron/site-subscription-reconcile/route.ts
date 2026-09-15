@@ -9,10 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { isCronRefreshAuthorized } from "@/app/api/shadcn/registry/refresh/cron-auth";
 import { reconcileSiteSubscriptions } from "@/lib/billing/site-subscription-reconcile";
-import {
-  isSiteSubscriptionCheckoutEnvEnabled,
-  isSiteSubscriptionHostingWritesEnabled,
-} from "@/lib/billing/site-subscription-flags";
+import { isSiteSubscriptionCheckoutReady } from "@/lib/billing/site-subscription-flags";
 import { resolveServerBillingMode } from "@/lib/billing/site-subscription-offer";
 import { SECRETS } from "@/lib/config";
 
@@ -21,13 +18,17 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isSiteSubscriptionCheckoutEnvEnabled() && !isSiteSubscriptionHostingWritesEnabled()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: "feature_off" });
-  }
-
   const billingMode = resolveServerBillingMode(SECRETS.stripeSecretKey);
   if (!billingMode) {
     return NextResponse.json({ error: "billing_mode_unavailable" }, { status: 503 });
+  }
+
+  if (!isSiteSubscriptionCheckoutReady(billingMode)) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: billingMode === "live" ? "live_closed" : "feature_off",
+    });
   }
 
   const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;

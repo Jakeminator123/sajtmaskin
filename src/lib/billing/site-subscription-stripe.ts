@@ -1,6 +1,35 @@
-import type Stripe from "stripe";
+import Stripe from "stripe";
 import { SITE_SUBSCRIPTION_KIND } from "./site-subscription-offer";
 import { buildPeriodId } from "./site-subscription-policy";
+
+export function isStripeResourceMissing(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeInvalidRequestError &&
+    error.code === "resource_missing"
+  );
+}
+
+export async function findSiteSubscriptionIdForProject(input: {
+  stripe: Stripe;
+  customerId: string;
+  projectId: string;
+  userId?: string | null;
+}): Promise<string | null> {
+  const listed = await input.stripe.subscriptions.list({
+    customer: input.customerId,
+    status: "all",
+    limit: 20,
+  });
+  const match = listed.data.find((sub) => {
+    const meta = readSiteSubscriptionMetadata(sub.metadata);
+    return (
+      meta.kind === SITE_SUBSCRIPTION_KIND &&
+      meta.projectId === input.projectId &&
+      (!input.userId || !meta.userId || meta.userId === input.userId)
+    );
+  });
+  return match?.id ?? null;
+}
 
 export function readStripeId(value: string | { id: string } | null | undefined): string | null {
   if (!value) return null;

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import type { BillingMode } from "@/lib/db/schema";
 import { getProjectById } from "@/lib/db/services/projects";
 import {
+  getBillingCustomer,
   getOpenBillingJob,
   getSiteSubscriptionById,
   insertBillingJob,
@@ -19,11 +20,16 @@ import {
   applyHostingProviderResult,
   decidePendingCheckoutRepair,
   decideReconcileAction,
+  type CheckoutSessionLookupKind,
   type HostingActualState,
   type HostingDesiredState,
   type SiteSubscriptionLifecycleState,
 } from "./site-subscription-policy";
-import { readStripeId } from "./site-subscription-stripe";
+import {
+  findSiteSubscriptionIdForProject,
+  isStripeResourceMissing,
+  readStripeId,
+} from "./site-subscription-stripe";
 
 export async function enqueueHostingJob(input: {
   subscriptionId: string;
@@ -149,20 +155,48 @@ async function retrieveCheckoutSessionSnapshot(
   stripe: Stripe,
   sessionId: string | null,
 ): Promise<{
-  status: string;
-  expiresAt: Date | null;
-  subscriptionId: string | null;
-} | null> {
-  if (!sessionId) return null;
+  session: {
+    status: string;
+    expiresAt: Date | null;
+    subscriptionId: string | null;
+  } | null;
+  lookup: CheckoutSessionLookupKind;
+}> {
+  if (!sessionId) return { session: null, lookup: "absent" };
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     return {
-      status: session.status ?? "open",
-      expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
-      subscriptionId: readStripeId(session.subscription),
+      session: {
+        status: session.status ?? "open",
+        expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+        subscriptionId: readStripeId(session.subscription),
+      },
+      lookup: "reached",
     };
+  } catch (error) {
+    if (isStripeResourceMissing(error)) {
+      return { session: null, lookup: "absent" };
+    }
+    return { session: null, lookup: "unreachable" };
+  }
+}
+
+async function findProjectSubscriptionId(
+  stripe: Stripe,
+  row: SiteSubscriptionRow,
+): Promise<{ id: string | null; known: boolean }> {
+  const customer = await getBillingCustomer(row.user_id, row.billing_mode);
+  if (!customer) return { id: null, known: true };
+  try {
+    const id = await findSiteSubscriptionIdForProject({
+      stripe,
+      customerId: customer.stripe_customer_id,
+      projectId: row.project_id,
+      userId: row.user_id,
+    });
+    return { id, known: true };
   } catch {
-    return null;
+    return { id: null, known: false };
   }
 }
 
@@ -172,22 +206,57 @@ export async function repairPendingCheckoutClaim(input: {
   now?: Date;
 }): Promise<{ action: string; reason: string; granted?: boolean }> {
   const now = input.now ?? new Date();
-  const session = await retrieveCheckoutSessionSnapshot(
+  const lookedUp = await retrieveCheckoutSessionSnapshot(
     input.stripe,
     input.row.stripe_checkout_session_id,
   );
+  let session = lookedUp.session;
+  let foundSubscriptionId =
+    session?.subscriptionId ?? input.row.stripe_subscription_id ?? null;
+  let searchKnown = true;
+
+  if (!foundSubscriptionId && lookedUp.lookup !== "unreachable") {
+    const searched = await findProjectSubscriptionId(input.stripe, input.row);
+    searchKnown = searched.known;
+    foundSubscriptionId = searched.id;
+    if (foundSubscriptionId && session) {
+      session = { ...session, subscriptionId: foundSubscriptionId };
+    }
+  }
+
   const decision = decidePendingCheckoutRepair({
     now,
     createdAt: input.row.created_at,
     thresholdMinutes: SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutRepairMinutes,
+    operatorThresholdMinutes:
+      SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutOperatorMinutes,
     lifecycleState: input.row.lifecycle_state as SiteSubscriptionLifecycleState,
     currentPeriodEnd: input.row.current_period_end,
-    stripeSubscriptionId: input.row.stripe_subscription_id,
+    stripeSubscriptionId: foundSubscriptionId,
     session,
+    lookup: lookedUp.lookup,
   });
 
   if (decision.action === "leave") {
+    if (decision.reason === "operator_attention") {
+      console.error("[site-subscription] operator_attention", {
+        subscriptionId: input.row.id,
+        projectId: input.row.project_id,
+        checkoutSessionId: input.row.stripe_checkout_session_id,
+        reason: "paid_session_without_subscription_id",
+      });
+      await updateSiteSubscription(
+        input.row.id,
+        input.row.billing_mode,
+        { stripe_status: "operator_attention" },
+        { expectedLifecycle: "checkout_pending" },
+      );
+    }
     return decision;
+  }
+
+  if (decision.action === "end_claim" && !searchKnown) {
+    return { action: "leave", reason: "session_unreachable" };
   }
 
   if (decision.action === "end_claim") {
@@ -207,8 +276,7 @@ export async function repairPendingCheckoutClaim(input: {
     };
   }
 
-  const stripeSubscriptionId =
-    session?.subscriptionId ?? input.row.stripe_subscription_id;
+  const stripeSubscriptionId = foundSubscriptionId ?? session?.subscriptionId;
   if (!stripeSubscriptionId) {
     return { action: "leave", reason: "complete_without_subscription" };
   }
@@ -287,12 +355,22 @@ export async function reconcileSiteSubscriptions(input: {
     });
 
     if (decision.desired !== row.hosting_state_desired || decision.endLifecycle) {
-      await updateSiteSubscription(row.id, row.billing_mode, {
-        hosting_state_desired: decision.desired,
-        lifecycle_state: decision.endLifecycle ? "ended" : row.lifecycle_state,
-        ended_reason: decision.endLifecycle ? "period_ended" : row.ended_reason,
-        ended_at: decision.endLifecycle ? now : row.ended_at,
-      });
+      const written = await updateSiteSubscription(
+        row.id,
+        row.billing_mode,
+        {
+          hosting_state_desired: decision.desired,
+          lifecycle_state: decision.endLifecycle ? "ended" : row.lifecycle_state,
+          ended_reason: decision.endLifecycle ? "period_ended" : row.ended_reason,
+          ended_at: decision.endLifecycle ? now : row.ended_at,
+        },
+        {
+          expectedDesired: row.hosting_state_desired,
+          expectedLifecycle: row.lifecycle_state,
+          expectedUpdatedAt: row.updated_at,
+        },
+      );
+      if (!written) continue;
     }
 
     if (decision.enqueuePause) {

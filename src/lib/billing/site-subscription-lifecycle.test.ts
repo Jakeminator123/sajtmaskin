@@ -4,6 +4,7 @@ import {
   applyHostingProviderResult,
   billingModeFromLivemode,
   buildPeriodId,
+  classifyCheckoutClaim,
   decideCheckoutReuse,
   decidePendingCheckoutRepair,
   decideReconcileAction,
@@ -135,6 +136,49 @@ describe("två samtidiga checkouts", () => {
       }),
     ).toEqual({ action: "already_active", existingId: "sub_1", confirming: true });
   });
+
+  it("behandlar expired + subscriptionId som betalt, inte utgången", () => {
+    expect(
+      decideCheckoutReuse({
+        openRow: {
+          id: "sub_1",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+          lifecycleState: "checkout_pending",
+          stripeCheckoutSessionId: "cs_paid",
+          stripeStatus: null,
+        },
+        session: {
+          id: "cs_paid",
+          status: "expired",
+          url: null,
+          expiresAt: new Date("2026-09-15T11:00:00.000Z"),
+          subscriptionId: "sub_stripe",
+        },
+        now,
+      }),
+    ).toEqual({ action: "already_active", existingId: "sub_1", confirming: true });
+  });
+
+  it("väntar när Stripe är onåbar i stället för att släppa anspråket", () => {
+    expect(
+      decideCheckoutReuse({
+        openRow: {
+          id: "sub_1",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+          lifecycleState: "checkout_pending",
+          stripeCheckoutSessionId: "cs_1",
+          stripeStatus: null,
+        },
+        session: null,
+        lookup: "unreachable",
+        now,
+      }),
+    ).toEqual({ action: "wait_for_session", existingId: "sub_1" });
+  });
 });
 
 describe("stale checkout-reparation", () => {
@@ -217,8 +261,157 @@ describe("stale checkout-reparation", () => {
         thresholdMinutes: threshold,
         lifecycleState: "checkout_pending",
         session: null,
+        lookup: "absent",
       }),
     ).toEqual({ action: "end_claim", reason: "session_missing" });
+  });
+
+  it("lämnar onåbar Stripe-retrieve orörd", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: null,
+        lookup: "unreachable",
+      }),
+    ).toEqual({ action: "leave", reason: "session_unreachable" });
+  });
+
+  it("aktiverar expired + subscriptionId och signalerar complete utan id efter operatorgräns", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: { status: "expired", expiresAt: createdAt, subscriptionId: "sub_stripe" },
+      }),
+    ).toEqual({ action: "activate", reason: "session_complete" });
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt: new Date("2026-09-14T12:00:00.000Z"),
+        thresholdMinutes: threshold,
+        operatorThresholdMinutes: 360,
+        lifecycleState: "checkout_pending",
+        session: { status: "complete", expiresAt: null, subscriptionId: null },
+      }),
+    ).toEqual({ action: "leave", reason: "operator_attention" });
+  });
+});
+
+describe("gemensam checkout-klassificering", () => {
+  const pendingRow = {
+    id: "sub_1",
+    projectId: "prj_a",
+    userId: "user_1",
+    billingMode: "test" as const,
+    lifecycleState: "checkout_pending" as const,
+    stripeCheckoutSessionId: "cs_1",
+    stripeStatus: null,
+  };
+  const createdAt = new Date("2026-09-15T11:00:00.000Z");
+  const threshold = SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutRepairMinutes;
+
+  it("låter reuse och repair inte divergera för samma Stripe-tillstånd", () => {
+    const cases: Array<{
+      session: {
+        id: string;
+        status: string;
+        url: string | null;
+        expiresAt: Date | null;
+        subscriptionId: string | null;
+      } | null;
+      lookup?: "reached" | "absent" | "unreachable";
+    }> = [
+      {
+        session: {
+          id: "cs_1",
+          status: "expired",
+          url: null,
+          expiresAt: createdAt,
+          subscriptionId: "sub_stripe",
+        },
+      },
+      { session: null, lookup: "unreachable" },
+      {
+        session: {
+          id: "cs_1",
+          status: "complete",
+          url: null,
+          expiresAt: createdAt,
+          subscriptionId: "sub_stripe",
+        },
+      },
+      {
+        session: {
+          id: "cs_1",
+          status: "expired",
+          url: null,
+          expiresAt: createdAt,
+          subscriptionId: null,
+        },
+      },
+      { session: null, lookup: "absent" },
+      {
+        session: {
+          id: "cs_1",
+          status: "complete",
+          url: null,
+          expiresAt: null,
+          subscriptionId: null,
+        },
+      },
+    ];
+
+    for (const fixture of cases) {
+      const classifiedLookup = fixture.session
+        ? { lookup: "reached" as const, session: fixture.session }
+        : fixture.lookup === "absent"
+          ? { lookup: "absent" as const }
+          : { lookup: "unreachable" as const };
+      const lookup = classifyCheckoutClaim({
+        now,
+        lookup: classifiedLookup,
+        rowSubscriptionId: null,
+      });
+      const reuse = decideCheckoutReuse({
+        openRow: pendingRow,
+        session: fixture.session,
+        lookup: fixture.lookup,
+        now,
+      });
+      const repair = decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: fixture.session
+          ? {
+              status: fixture.session.status,
+              expiresAt: fixture.session.expiresAt,
+              subscriptionId: fixture.session.subscriptionId,
+            }
+          : null,
+        lookup: fixture.lookup,
+      });
+
+      if (lookup.paid) {
+        expect(reuse.action, `paid reuse ${JSON.stringify(fixture)}`).toBe("already_active");
+        expect(repair.action, `paid repair ${JSON.stringify(fixture)}`).not.toBe("end_claim");
+      }
+      if (!lookup.known) {
+        expect(reuse.action, `unknown reuse ${JSON.stringify(fixture)}`).toBe("wait_for_session");
+        expect(repair.action, `unknown repair ${JSON.stringify(fixture)}`).toBe("leave");
+        expect(repair.reason).toBe("session_unreachable");
+      }
+      if (lookup.unpaidExpired) {
+        expect(reuse.action, `unpaid reuse ${JSON.stringify(fixture)}`).toBe("replace_expired");
+        expect(repair.action, `unpaid repair ${JSON.stringify(fixture)}`).toBe("end_claim");
+      }
+    }
   });
 });
 

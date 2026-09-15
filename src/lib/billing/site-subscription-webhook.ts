@@ -18,6 +18,7 @@ import {
 import { resolveLastPublishedRef } from "./site-subscription-hosting";
 import { enqueueHostingJob } from "./site-subscription-reconcile";
 import {
+  classifyCheckoutClaim,
   eventMatchesServerBillingMode,
 } from "./site-subscription-policy";
 import { SITE_SUBSCRIPTION_KIND } from "./site-subscription-offer";
@@ -310,12 +311,34 @@ async function handleCheckoutExpired(
   if (!row || row.lifecycle_state !== "checkout_pending") {
     return ok({ ignored: "no_pending_claim" });
   }
-  await updateSiteSubscription(row.id, billingMode, {
-    lifecycle_state: "ended",
-    ended_reason: "checkout_expired",
-    ended_at: new Date(),
+  const claim = classifyCheckoutClaim({
+    now: new Date(),
+    lookup: {
+      lookup: "reached",
+      session: {
+        id: session.id,
+        status: session.status ?? "expired",
+        url: null,
+        expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+        subscriptionId: readStripeId(session.subscription),
+      },
+    },
+    rowSubscriptionId: row.stripe_subscription_id,
   });
-  return ok({ expired: true });
+  if (claim.paid) {
+    return ok({ ignored: "paid_claim" });
+  }
+  const written = await updateSiteSubscription(
+    row.id,
+    billingMode,
+    {
+      lifecycle_state: "ended",
+      ended_reason: "checkout_expired",
+      ended_at: new Date(),
+    },
+    { expectedLifecycle: "checkout_pending" },
+  );
+  return ok({ expired: Boolean(written), stale: !written });
 }
 
 async function handleSubscriptionUpdated(
