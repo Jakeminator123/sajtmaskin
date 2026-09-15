@@ -9,8 +9,15 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder, Settings2 } from "lucide-react";
-import { getProjects, deleteProject, Project } from "@/lib/projects/project-client";
+import {
+  getProjects,
+  getProjectSite,
+  deleteProject,
+  Project,
+  type ProjectSite,
+} from "@/lib/projects/project-client";
 import { ProjectThumbnail } from "@/components/projects/project-thumbnail";
+import { ProjectCardSiteMeta } from "@/components/projects/project-card-site-meta";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +47,7 @@ function ProjectsPageInner() {
     projectName: string;
   }>({ isOpen: false, projectId: "", projectName: "" });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sitesById, setSitesById] = useState<Record<string, ProjectSite | null>>({});
 
   useEffect(() => {
     loadProjects();
@@ -67,16 +75,29 @@ function ProjectsPageInner() {
   }, [pathname, router, searchParams]);
 
   async function loadProjects() {
+    let regularProjects: Project[] = [];
     try {
       setLoading(true);
-      const regularProjects = await getProjects();
+      regularProjects = await getProjects();
       setProjects(regularProjects);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Kunde inte ladda projekt";
       setError(errorMessage);
+      return;
     } finally {
       setLoading(false);
     }
+
+    const siteEntries = await Promise.all(
+      regularProjects.map(async (project) => {
+        try {
+          return [project.id, await getProjectSite(project.id)] as const;
+        } catch {
+          return [project.id, null] as const;
+        }
+      }),
+    );
+    setSitesById(Object.fromEntries(siteEntries));
   }
 
   // Open delete confirmation dialog
@@ -302,6 +323,8 @@ function ProjectsPageInner() {
                         {project.description}
                       </p>
                     )}
+
+                    <ProjectCardSiteMeta projectId={project.id} site={sitesById[project.id]} />
 
                     <div className="mt-3 flex items-center gap-1 text-xs text-gray-600">
                       <Clock className="h-3 w-3" />
