@@ -552,18 +552,26 @@ async function handleSubscriptionDeleted(
     stillPaid,
   });
 
-  await updateSiteSubscription(row.id, billingMode, {
-    stripe_status: current.status,
-    lifecycle_state: stillPaid ? "active" : "ended",
-    ended_reason: endedReasonAfterSubscriptionDeleted({
-      lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
-      currentEndedReason: row.ended_reason,
-      stillPaid,
-    }),
-    ended_at: stillPaid ? row.ended_at : now,
-    cancel_at_period_end: true,
-    ...(pauseHosting ? { hosting_state_desired: "paused" as const } : {}),
-  });
+  const written = await updateSiteSubscription(
+    row.id,
+    billingMode,
+    {
+      stripe_status: current.status,
+      lifecycle_state: stillPaid ? "active" : "ended",
+      ended_reason: endedReasonAfterSubscriptionDeleted({
+        lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
+        currentEndedReason: row.ended_reason,
+        stillPaid,
+      }),
+      ended_at: stillPaid ? row.ended_at : now,
+      cancel_at_period_end: true,
+      ...(pauseHosting ? { hosting_state_desired: "paused" as const } : {}),
+    },
+    { expectedLifecycle: row.lifecycle_state },
+  );
+  if (!written) {
+    return retry("stale_lifecycle");
+  }
 
   if (pauseHosting) {
     await enqueueHostingJob({

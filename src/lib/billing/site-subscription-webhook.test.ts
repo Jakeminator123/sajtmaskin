@@ -490,6 +490,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
         lifecycle_state: "ended",
         ended_reason: "checkout_expired",
       }),
+      { expectedLifecycle: "checkout_pending" },
     );
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
       expect.objectContaining({ lifecycle_state: "active" }),
@@ -499,6 +500,46 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       expect.objectContaining({ ended_reason: "subscription_deleted" }),
     );
     expect(enqueueHostingJob).not.toHaveBeenCalled();
+  });
+
+  it("retrysar subscription.deleted när CAS missar mot redan active", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+    });
+    updateSiteSubscription.mockResolvedValue(null);
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_1",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(500);
+    expect(result.body.error).toBe("stale_lifecycle");
+    expect(result.body.deleted).not.toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        lifecycle_state: "ended",
+        ended_reason: "checkout_expired",
+      }),
+      { expectedLifecycle: "checkout_pending" },
+    );
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
+    expect(completeStripeBillingEvent).not.toHaveBeenCalled();
+    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "stale_lifecycle");
   });
 
   it("skriver inte över ended+checkout_expired när Stripe sedan skickar deleted", async () => {
@@ -533,6 +574,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
         lifecycle_state: "ended",
         ended_reason: "checkout_expired",
       }),
+      { expectedLifecycle: "ended" },
     );
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
       expect.objectContaining({ ended_reason: "subscription_deleted" }),
@@ -569,6 +611,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       "sub_row",
       "test",
       expect.objectContaining({ lifecycle_state: "active" }),
+      { expectedLifecycle: "active" },
     );
     expect(enqueueHostingJob).not.toHaveBeenCalled();
   });
@@ -879,6 +922,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
         ended_reason: "subscription_deleted",
         hosting_state_desired: "paused",
       }),
+      { expectedLifecycle: "active" },
     );
     expect(enqueueHostingJob).toHaveBeenCalledWith({
       subscriptionId: "sub_row",
