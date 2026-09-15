@@ -29,7 +29,7 @@ Aktivering av kundsajter är fortfarande A4 och avstängd.
 | `sajtmaskin.se` | A TTL 3600 → `76.76.21.21`. HTTPS HEAD `200`, `Server: Vercel` | Appens rot. Rör inte. |
 | `www.sajtmaskin.se` | CNAME TTL 3600 → `98a450bd71e44b00.vercel-dns-016.com` | Appen. Rör inte. |
 | `preview.sajtmaskin.se` | CNAME TTL 3600 → samma mål. HTTPS HEAD `302` → följd `200` | Appens staging. Ska ligga kvar på Vercel. |
-| `sites.sajtmaskin.se` | Ingen egen A-post | Väntat. MVP använder exakt CNAME per slug, inte wildcard. |
+| `sites.sajtmaskin.se` | 21:55: ingen egen A-post (SOA-svar för zonen) | Väntat. MVP använder exakt CNAME per slug, inte wildcard. |
 | `pilot-a.sites.sajtmaskin.se` | 21:55: CNAME → `dd208d0d1d5d62f6.vercel-dns-016.com`. HTTPS `200`, `A1 PILOT A`, `noindex` | A1-bevis, host 1. |
 | `pilot-b.sites.sajtmaskin.se` | 21:55: CNAME → `5cad42c9d9941af8.vercel-dns-016.com`. HTTPS `200`, `A1 PILOT B`, `noindex` | A1-bevis, host 2. Skilt mål från host 1. |
 | `pilot-a1-test.sites.sajtmaskin.se` | NXDOMAIN. Aldrig upplagd | Inget bevis åt något håll — piloterna heter `pilot-a`/`pilot-b`. |

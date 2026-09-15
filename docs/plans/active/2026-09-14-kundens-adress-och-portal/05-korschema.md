@@ -7,8 +7,8 @@ i [masterplanen](00-master-plan.md).
 
 Etapp 1–2 är kodmässigt inne på `preview` för C1, C3e1, A2, B1, C2 och A3
 (#1386 + #1391). #1389 är kod på preview; Fly är inte deployad. C2 har ingen
-kill-switch. A3-redirect och branded är av. D3-adaptern saknas. A1, A4 och
-D2/D3 (#1385, nästa våg) återstår. Samlad tabell:
+kill-switch. A3-redirect och branded är av. D3-adaptern saknas. A1:s DNS-del är
+levererad (PSL kvarstår). A4 och D2/D3 (#1385, nästa våg) återstår. Samlad tabell:
 [masterplanen](00-master-plan.md).
 
 #1385, #1376, #1377 och Dependabot ingår inte i denna release. #1380 stängs.
