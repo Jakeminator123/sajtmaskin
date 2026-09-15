@@ -11,8 +11,9 @@ eller CNAME-post ger inte DNS för underliggande sluggar.
 
 ## Gör
 
-1. Läs aktuell zon och projektens rekommenderade DNS-värden. Runbookens
-   one.com/NXDOMAIN-uppgifter är från 2026-08-24 och måste mätas på nytt.
+1. Läs aktuell zon och projektens rekommenderade DNS-värden. Runbooken mättes
+   2026-09-15: `sites.sajtmaskin.se` och `*.sites` är NXDOMAIN. Historik
+   2026-08-24 finns kvar i runbooken. Leveransen (två testhosts/HTTPS) återstår.
 2. MVP-standard: lägg exakta CNAME-poster för pilotens sluggar hos aktuell
    DNS-operatör och exakta alias på respektive Vercel-projekt. Domäner får inte
    alla bindas till Sajtmaskins eget app-projekt.
@@ -41,6 +42,10 @@ förutsätter framtida användarvolym. Inlämning till annat repo ingår inte i 
 Ingen env-flagga är bevis på att alla webbläsare använder liständringen.
 [A2](A2-branded-eligibility.md) avgränsar pilotens risk även om PSL dröjer eller
 avslås. DNS-kod, portal och Stripe-testflöden kan byggas under tiden.
+
+Avvaktan dokumenterad 2026-09-15 i
+[runbooken](../../../../runbooks/branded-user-urls.md): litet/beta, ingen
+`sites.*`-volym att åberopa, portalcookie-skydd är A2. Ingen ansökan.
 
 ## Klart när
 

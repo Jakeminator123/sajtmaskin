@@ -9,11 +9,38 @@
   stängd tills A4 kan binda slutartefakten till en exakt READY-deployment.
 - Provider-URL (`*.vercel.app`) sparas separat och får aldrig användas som SEO-canonical när en verifierad projektadress finns.
 
-## Verifierat DNS-läge (2026-08-24)
+## Verifierat DNS-läge (2026-09-15)
 
-Zonen driftas av **one.com** (`ns01.one.com`, `ns02.one.com`) — nya poster läggs
-där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
-`*.sajtmaskin.se`, så varje värdnamn måste skapas explicit.
+Zonen driftas av **one.com** (`ns01.one.com`, `ns02.one.com`; auktoritativ
+`ns01` svarade från `195.206.121.10`) — nya poster läggs där, inte i Vercels
+DNS-panel. Mätning: 2026-09-15 03:49 CEST. Rekursiv resolver:
+`80.58.61.254` (`254.red-80-58-61.staticip.rima-tde.net`). Verktyg:
+`Resolve-DnsName` och `nslookup`. Det finns **ingen** wildcard för
+`*.sajtmaskin.se` eller `*.sites.sajtmaskin.se`; varje värdnamn måste skapas
+explicit.
+
+**A1 är inte driftklart.** Inga två testhosts under `sites.sajtmaskin.se` når
+två olika projekt över HTTPS. Tabellen är read-only-underlag, inte aktivering.
+Påstå inte att `sites.*` fungerar.
+
+Observerade Vercel-värden är inte universellt facit. Hårdkoda inte
+`76.76.21.21` eller `cname.vercel-dns.com` i ny DNS.
+
+| Värdnamn | Läge 2026-09-15 | Följd |
+| --- | --- | --- |
+| `sajtmaskin.se` | A TTL 3600 → `76.76.21.21`. CNAME-fråga gav SOA (apex). HTTPS HEAD `200`, `Server: Vercel`. | Appens rot. Rör inte. |
+| `www.sajtmaskin.se` | CNAME TTL 3600 → `98a450bd71e44b00.vercel-dns-016.com` (samma mot `ns01.one.com`). Rekursiv A på målet: `216.150.16.193` / `216.150.1.193` (`Resolve-DnsName`); `nslookup` visade `216.150.16.1` / `216.150.1.1`. | Appen. Rör inte. |
+| `preview.sajtmaskin.se` | CNAME TTL 3600 → samma `98a450bd71e44b00.vercel-dns-016.com`. HTTPS HEAD först `302`, därefter följd `200`, `Server: Vercel`. | Appens staging-alias. Ska ligga kvar på Vercel. |
+| `sites.sajtmaskin.se` | NXDOMAIN (rekursiv + `ns01.one.com`) | Inte påbörjad. |
+| `pilot-a1-test.sites.sajtmaskin.se` | NXDOMAIN (rekursiv + `ns01.one.com`) | Wildcard för `*.sites` saknas. |
+
+Staging-aliaset är inte en ledig preview-host-adress.
+
+## Historisk mätning (2026-08-24)
+
+Apex-A och `sites` NXDOMAIN är oförändrade. 2026-08-24 angav `www`/`preview`
+bara som «CNAME → Vercel» utan konkret mål. 2026-09-15 visade målet
+`98a450bd71e44b00.vercel-dns-016.com`, inte `cname.vercel-dns.com`.
 
 | Värdnamn                | Läge                       | Följd                                     |
 | ----------------------- | -------------------------- | ----------------------------------------- |
@@ -21,9 +48,6 @@ där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 | `www.sajtmaskin.se`     | CNAME → Vercel             | Appen. Rör inte.                          |
 | `preview.sajtmaskin.se` | CNAME → **Vercel**         | Appens staging. Ska ligga kvar på Vercel. |
 | `sites.sajtmaskin.se`   | NXDOMAIN                   | Inte påbörjad.                            |
-
-DNS-raden är en historisk mätning. A1 ska verifiera aktuellt DNS/TLS-läge innan
-aktivering; staging-aliaset är inte en ledig preview-host-adress.
 
 ## PSL är ett senare isoleringslager
 
@@ -37,8 +61,19 @@ private-sektion.
 En PSL-post för `sites.sajtmaskin.se` kan begränsa cookies mellan kundvärdar,
 men den hindrar inte en kundvärd från att försöka skugga plattformscookies på
 föräldern `.sajtmaskin.se`. Den är därför varken ensam aktiveringsgrind eller
-ett generellt skydd för portalen. Första steget är en liten versionsbunden pilot;
-PSL-arbetet kan fortsätta parallellt inför en bredare utrullning.
+ett generellt skydd för portalen. Första steget är en liten versionsbunden
+pilot.
+
+### PSL-avvaktan (2026-09-15)
+
+Ingen PSL-ansökan i denna våg. Skäl att avvakta, mot
+[PSL:s riktlinjer](https://github.com/publicsuffix/list/wiki/Guidelines):
+
+- Produkten är liten/beta. PSL avvisar ofta sandbox/test/lab/beta och projekt
+  som inte betjänar mer än tusentals användare.
+- Det finns ingen `sites.*`-volym att åberopa: parent och slug-host är NXDOMAIN.
+- Portalens cookie-/Origin-skydd är A2 (levererat på `preview`), inte PSL.
+- En godkänd rad sprids sakta till konsumenter; ingen env-flagga är bevis.
 
 Egen verifierad `customDomain` berörs inte: den ligger utanför den delade
 parent-domänen.

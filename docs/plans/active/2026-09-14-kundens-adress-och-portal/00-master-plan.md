@@ -8,8 +8,11 @@
 
 Ursprungligt underlag: bifogade planfiler och kod på `preview`
 `5cbdc34f0166e989ad9d7a7231dbf9dac6e1b1dc`. Genomförandestatusen nedan
-kontrollerades senare samma dag via GitHub, Vercel och Supabase. DNS-/env-text
-i äldre runbooks är historiska observationer, inte nya driftmätningar.
+kontrollerades senare samma dag via GitHub, Vercel och Supabase. SHA-bunden
+lägesbild 2026-09-15: [HANDOFF.md](HANDOFF.md) mot preview-tip
+`e398d2b3c3bb7531436ae8f1befd44e0bea60e56`. DNS-fakta ägs av
+[runbooken](../../../runbooks/branded-user-urls.md) (mätt 2026-09-15;
+2026-08-24 är historik).
 
 ## Genomförandestatus 2026-09-14
 
@@ -23,8 +26,8 @@ Statusen beskriver verifierad leverans och ratificerar inga nya produktförslag.
 | D1 | Schema och retention guards levererade i #1361; #1364 löste migrationskompatibiliteten. Read-only Supabase-kontroll bekräftar båda D1-migrationerna i den delade preview/prod-databasens ledger. |
 | Portalens följdleveranser | #1362–#1365 är mergade till `preview`. |
 | B1 | B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden. |
-| A3 | En förberedande kodetapp pågår separat. Fullständigt adresskontrakt och driftverifiering återstår. Ingen ny adressregel är aktiverad. |
-| A1/A4 | Verkligt HTTPS-bevis, slutligt deploypaket → exakt READY-deployment → serialiserad aliasbindning och kontrollerad pilot/migrering återstår. |
+| A3 | Draft #1369 (prep, inte full A3) mot preview-tip. Ingen adressregel aktiverad. Kvar: ready → full CI → separat merge. |
+| A1/A4 | DNS remätt 2026-09-15: `sites.*` fortfarande NXDOMAIN; A1 är inte driftklart (inga två testhosts/HTTPS). Verkligt HTTPS-bevis, READY-bindning och A4-migrering återstår. |
 | C2, D2/D3 | Kundens domänflöde, abonnemangsflöde och faktisk paus/återställning återstår. |
 | Produktval | Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande är fortsatt förslag. |
 

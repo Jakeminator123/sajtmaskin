@@ -9,8 +9,9 @@ På granskad `preview` finns `resolveLiveUrl` (custom → branded → provider),
 slug-reservation, exakta Vercel-alias och ett migreringsskript. De är byggstenar;
 de bevisar inte att DNS, TLS eller produktionsflaggor är aktiva.
 
-`sites.sajtmaskin.se` rapporterades som NXDOMAIN 2026-08-24 i runbooken. Ny
-mätning krävs i A1. Inget produktions-DNS har ändrats i plan-PR:n.
+`sites.sajtmaskin.se` är NXDOMAIN vid mätning 2026-09-15 (samma utfall som
+2026-08-24). A1:s leverans (två testhosts/HTTPS) återstår. Inget
+produktions-DNS har ändrats i underlags-PR:n.
 
 ## Adresskontrakt
 
