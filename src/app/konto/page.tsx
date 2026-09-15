@@ -17,7 +17,7 @@ import {
   shouldApplyKontoResponse,
   transactionLabel,
 } from "@/lib/konto/account";
-import { ArrowRight, Coins, FolderOpen, User } from "lucide-react";
+import { ArrowRight, Coins, CreditCard, FolderOpen, User } from "lucide-react";
 
 type KontoTransaction = {
   id: string;
@@ -26,6 +26,24 @@ type KontoTransaction = {
   balanceAfter: number;
   description: string | null;
   createdAt: string;
+};
+
+type KontoSiteSubscription = {
+  id: string;
+  projectId: string;
+  projectName: string;
+  billingMode: string;
+  lifecycleState: string;
+  stripeStatus: string | null;
+  hostingDesired: string;
+  hostingActual: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  graceUntil: string | null;
+  pausedAt: string | null;
+  entitled: boolean;
+  graceActive: boolean;
+  canReactivate: boolean;
 };
 
 type KontoPayload = {
@@ -37,6 +55,7 @@ type KontoPayload = {
   credits: {
     balance: number;
   };
+  siteSubscriptions?: KontoSiteSubscription[];
   transactions: KontoTransaction[];
   hasMore?: boolean;
   limit?: number;
@@ -101,6 +120,9 @@ export default function KontoPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [reactivateId, setReactivateId] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const requestGeneration = useRef(0);
   const sessionMissingRef = useRef(!userId);
 
@@ -263,6 +285,57 @@ export default function KontoPage() {
     }
   }
 
+  async function openBillingPortal() {
+    setPortalBusy(true);
+    setBillingError(null);
+    try {
+      const response = await fetch("/api/stripe/site-subscription/portal", { method: "POST" });
+      const body = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!response.ok || !body?.url) {
+        setBillingError(body?.error || "Kunde inte öppna Billing Portal.");
+        return;
+      }
+      window.location.href = body.url;
+    } catch (err: unknown) {
+      setBillingError(err instanceof Error ? err.message : "Kunde inte öppna Billing Portal.");
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function reactivateSite(projectId: string) {
+    setReactivateId(projectId);
+    setBillingError(null);
+    try {
+      const response = await fetch("/api/stripe/site-subscription/reactivate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const body = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+      if (!response.ok || !body?.success) {
+        setBillingError(body?.error || "Kunde inte återaktivera abonnemanget.");
+        return;
+      }
+      setRefreshNonce((value) => value + 1);
+    } catch (err: unknown) {
+      setBillingError(err instanceof Error ? err.message : "Kunde inte återaktivera abonnemanget.");
+    } finally {
+      setReactivateId(null);
+    }
+  }
+
+  function siteStatusLabel(row: KontoSiteSubscription): string {
+    if (row.hostingActual === "pausing") return "Pausning pågår";
+    if (row.hostingActual === "resuming") return "Återställning pågår";
+    if (row.hostingActual === "paused") return "Pausad";
+    if (row.graceActive) return "Respit";
+    if (row.cancelAtPeriodEnd) return "Sägs upp vid periodslut";
+    if (row.lifecycleState === "active") return "Aktiv";
+    if (row.lifecycleState === "checkout_pending") return "Checkout pågår";
+    return "Avslutad";
+  }
+
   function openLogin() {
     setAuthMode("login");
     setShowAuthModal(true);
@@ -357,6 +430,69 @@ export default function KontoPage() {
                   </Button>
                 </Link>
               </div>
+            </Section>
+
+            <Section
+              title="Sajt-abonnemang"
+              description="Varje sajt har sitt eget abonnemang. Kort och fakturor hanteras i Stripe Billing Portal."
+            >
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-400">
+                  En pausad sajt låser inte kontot — du kan fortfarande logga in, betala och exportera.
+                </p>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={portalBusy}
+                  onClick={() => {
+                    void openBillingPortal();
+                  }}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {portalBusy ? "Öppnar…" : "Billing Portal"}
+                </Button>
+              </div>
+              {billingError && (
+                <p className="mb-3 text-sm text-red-400" role="alert">
+                  {billingError}
+                </p>
+              )}
+              {(data.siteSubscriptions ?? []).length === 0 ? (
+                <p className="text-sm text-gray-500">Inga sajt-abonnemang ännu.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(data.siteSubscriptions ?? []).map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex flex-wrap items-center justify-between gap-3 border border-gray-800 p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-200">{row.projectName}</p>
+                        <p className="text-xs text-gray-500">
+                          {siteStatusLabel(row)}
+                          {row.currentPeriodEnd
+                            ? ` · nästa period ${formatDate(row.currentPeriodEnd)}`
+                            : ""}
+                          {row.graceUntil && row.graceActive
+                            ? ` · respit till ${formatDate(row.graceUntil)}`
+                            : ""}
+                        </p>
+                      </div>
+                      {row.canReactivate && (
+                        <Button
+                          variant="outline"
+                          disabled={reactivateId === row.projectId}
+                          onClick={() => {
+                            void reactivateSite(row.projectId);
+                          }}
+                        >
+                          {reactivateId === row.projectId ? "Återaktiverar…" : "Återaktivera"}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </Section>
 
             <Section title="Köphistorik">

@@ -98,6 +98,7 @@ const EXPECTED_TABLES = [
   "site_subscriptions",
   "subscription_credit_grants",
   "billing_jobs",
+  "stripe_billing_events",
 ];
 
 // Förväntade index — synkad med src/lib/db/schema.ts + scripts/db/db-init.mjs

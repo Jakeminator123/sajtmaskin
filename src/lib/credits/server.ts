@@ -9,6 +9,7 @@ import {
   type KostnadsfriCampaignBenefit,
   type KostnadsfriCampaignRequestedPhase,
 } from "@/lib/db/services/kostnadsfri-campaign";
+import { evaluateProjectPublishEntitlement } from "@/lib/billing/site-subscription-publish-gate";
 import {
   getActionLabel,
   getCreditCost,
@@ -77,10 +78,11 @@ async function evaluateCredits(
     campaignProjectId?: string | null;
     campaignPhase?: KostnadsfriCampaignRequestedPhase;
     campaignChatId?: string | null;
+    siteProjectId?: string | null;
   } = {},
 ): Promise<CreditsEvaluation> {
   const pricing = await resolvePricingSettings();
-  const cost = getCreditCost(action, context, pricing.creditActionPrices);
+  let cost = getCreditCost(action, context, pricing.creditActionPrices);
   const user = await getCurrentUser(req);
 
   if (user) {
@@ -116,6 +118,15 @@ async function evaluateCredits(
       !campaignPolicy &&
       VERSION_SETTLED_GENERATION_ACTIONS.has(action) &&
       user.free_generation_available;
+    if (action === "deploy.production" && options.siteProjectId) {
+      const publish = await evaluateProjectPublishEntitlement({
+        projectId: options.siteProjectId,
+        userId: user.id,
+      });
+      if (publish.waiveDeployFee) {
+        cost = 0;
+      }
+    }
     const canProceed =
       isTest ||
       Boolean(campaignBenefit) ||
@@ -189,6 +200,7 @@ export async function prepareCredits(
     campaignProjectId?: string | null;
     campaignPhase?: KostnadsfriCampaignRequestedPhase;
     campaignChatId?: string | null;
+    siteProjectId?: string | null;
   } = {},
 ): Promise<PreparedCredits> {
   const evaluation = await evaluateCredits(req, action, context, options);

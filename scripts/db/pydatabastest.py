@@ -171,6 +171,7 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "billing_customers",
     "site_subscriptions",
     "subscription_credit_grants",
+    "stripe_billing_events",
 )
 
 CACHE_TABLES: Tuple[str, ...] = (

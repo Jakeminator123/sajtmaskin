@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
   SITE_SUBSCRIPTION_ACTIVATION_NOT_READY,
@@ -10,6 +10,7 @@ const getCurrentUser = vi.hoisted(() => vi.fn());
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
 const createSession = vi.hoisted(() => vi.fn());
 const createCreditCheckoutSession = vi.hoisted(() => vi.fn());
+const startSiteSubscriptionCheckout = vi.hoisted(() => vi.fn());
 const dbInsert = vi.hoisted(() => vi.fn());
 const dbUpdate = vi.hoisted(() => vi.fn());
 const secrets = vi.hoisted(() => ({ stripeSecretKey: "sk_test_x" }));
@@ -41,6 +42,10 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("@/lib/billing/stripe-credit-checkout", () => ({
   createCreditCheckoutSession,
+}));
+
+vi.mock("@/lib/billing/site-subscription-checkout", () => ({
+  startSiteSubscriptionCheckout,
 }));
 
 vi.mock("stripe", async (importOriginal) => {
@@ -78,6 +83,7 @@ function postRaw(raw: string): NextRequest {
 function expectNoWrites() {
   expect(createSession).not.toHaveBeenCalled();
   expect(createCreditCheckoutSession).not.toHaveBeenCalled();
+  expect(startSiteSubscriptionCheckout).not.toHaveBeenCalled();
   expect(dbInsert).not.toHaveBeenCalled();
   expect(dbUpdate).not.toHaveBeenCalled();
 }
@@ -204,6 +210,41 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
     expect(response.status).toBe(503);
     expect(body.offer.billing_mode).toBe("live");
     expectNoWrites();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("skapar subscription-checkout i test när env-grinden är på", async () => {
+    vi.stubEnv("SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT", "1");
+    startSiteSubscriptionCheckout.mockResolvedValue({
+      ok: true,
+      sessionId: "cs_sub_1",
+      url: "https://checkout.stripe.com/cs_sub_1",
+      reused: false,
+    });
+
+    const response = await POST(
+      postCheckout({
+        projectId: "proj_1",
+        amount: 1,
+        billing_mode: "live",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.sessionId).toBe("cs_sub_1");
+    expect(startSiteSubscriptionCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        projectId: "proj_1",
+        billingMode: "test",
+      }),
+    );
+    expect(createCreditCheckoutSession).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
 
   it("returnerar 400 utan projectId före projektuppslag", async () => {

@@ -12,57 +12,22 @@ import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
 import { fulfilDomainOrder, refundDomainOrder } from "@/lib/domains/fulfilment";
 import { markDomainOrderExpired, markDomainOrderPaid } from "@/lib/db/services/domain-orders";
+import {
+  handleSiteSubscriptionStripeEvent,
+  webhookResultToResponse,
+} from "@/lib/billing/site-subscription-webhook";
+import { resolveServerBillingMode } from "@/lib/billing/site-subscription-offer";
+import {
+  getCheckoutCompletedDispatch,
+  isSiteSubscriptionStripeEventType,
+  shouldDispatchSiteSubscription,
+} from "@/lib/billing/stripe-webhook-dispatch";
 import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
 const webhookSecret = SECRETS.stripeWebhookSecret;
-
-type CheckoutCompletedDispatch = "legacy_credits" | "domain_purchase" | "ignored_setup" | "blocked";
-
-/**
- * Keep every new Checkout contract out of the two legacy payment mutation
- * lanes until that contract has its own durable consumer. In particular, an
- * empty or malformed `kind` is not the same thing as no `kind`: only the
- * historical producer's genuinely absent value may reach credits.
- */
-function getCheckoutCompletedDispatch(session: Stripe.Checkout.Session): CheckoutCompletedDispatch {
-  const metadata: unknown = session.metadata;
-  if (
-    metadata !== null &&
-    metadata !== undefined &&
-    (typeof metadata !== "object" || Array.isArray(metadata))
-  ) {
-    return "blocked";
-  }
-
-  const kind =
-    metadata === null || metadata === undefined
-      ? undefined
-      : (metadata as Record<string, unknown>).kind;
-
-  if (kind !== undefined && typeof kind !== "string") {
-    return "blocked";
-  }
-
-  const mode: unknown = session.mode;
-  if (mode === "subscription" || kind === "site_subscription") {
-    return "blocked";
-  }
-
-  if (mode === "payment") {
-    if (kind === undefined) return "legacy_credits";
-    if (kind === "domain_purchase") return "domain_purchase";
-    return "blocked";
-  }
-
-  if (mode === "setup") {
-    return kind === "domain_purchase" ? "blocked" : "ignored_setup";
-  }
-
-  return "blocked";
-}
 
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
@@ -89,6 +54,20 @@ export async function POST(req: NextRequest) {
 
   console.info("[Stripe/webhook] Received event:", event.type);
 
+  const serverBillingMode = resolveServerBillingMode(SECRETS.stripeSecretKey);
+  if (
+    isSiteSubscriptionStripeEventType(event.type) &&
+    shouldDispatchSiteSubscription(event) &&
+    serverBillingMode
+  ) {
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe,
+      event,
+      serverBillingMode,
+    });
+    return webhookResultToResponse(result);
+  }
+
   // Handle the event
   switch (event.type) {
     case "checkout.session.completed": {
@@ -100,6 +79,9 @@ export async function POST(req: NextRequest) {
       // consumer or its activation gate. Setup-only sessions can be
       // acknowledged because no payment occurred.
       const dispatch = getCheckoutCompletedDispatch(session);
+      if (dispatch === "site_subscription") {
+        return NextResponse.json({ error: "site_subscription_mode_unavailable" }, { status: 503 });
+      }
       if (dispatch === "blocked") {
         console.error(
           "[Stripe/webhook] checkout_contract_not_activated",
