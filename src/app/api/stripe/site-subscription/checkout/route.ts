@@ -31,6 +31,10 @@ type CheckoutBody = {
   activation?: unknown;
 };
 
+function isCheckoutBody(value: unknown): value is CheckoutBody {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function readOwnedProjectId(body: CheckoutBody): string | null {
   if (typeof body.projectId !== "string") return null;
   const projectId = body.projectId.trim();
@@ -60,13 +64,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let body: CheckoutBody = {};
+    let parsed: unknown;
     try {
-      body = (await req.json()) as CheckoutBody;
+      parsed = await req.json();
     } catch {
       return NextResponse.json({ success: false, error: "Ogiltig begäran." }, { status: 400 });
     }
 
+    if (!isCheckoutBody(parsed)) {
+      return NextResponse.json({ success: false, error: "Ogiltig begäran." }, { status: 400 });
+    }
+
+    const body = parsed;
     const projectId = readOwnedProjectId(body);
     if (!projectId) {
       return NextResponse.json(

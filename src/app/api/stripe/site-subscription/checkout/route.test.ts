@@ -59,12 +59,27 @@ vi.mock("stripe", async (importOriginal) => {
 
 const { POST } = await import("./route");
 
-function postCheckout(body: Record<string, unknown> | null = { projectId: "proj_1" }): NextRequest {
+function postCheckout(body: unknown = { projectId: "proj_1" }): NextRequest {
   return new NextRequest("http://localhost/api/stripe/site-subscription/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: body === null ? "not-json" : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
+}
+
+function postRaw(raw: string): NextRequest {
+  return new NextRequest("http://localhost/api/stripe/site-subscription/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: raw,
+  });
+}
+
+function expectNoWrites() {
+  expect(createSession).not.toHaveBeenCalled();
+  expect(createCreditCheckoutSession).not.toHaveBeenCalled();
+  expect(dbInsert).not.toHaveBeenCalled();
+  expect(dbUpdate).not.toHaveBeenCalled();
 }
 
 describe("POST /api/stripe/site-subscription/checkout", () => {
@@ -84,9 +99,33 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
     expect(response.status).toBe(401);
     expect(body).toMatchObject({ success: false, error: "Du måste vara inloggad" });
     expect(getProjectByIdForOwner).not.toHaveBeenCalled();
-    expect(createSession).not.toHaveBeenCalled();
-    expect(dbInsert).not.toHaveBeenCalled();
-    expect(dbUpdate).not.toHaveBeenCalled();
+    expectNoWrites();
+  });
+
+  it.each([
+    { label: "JSON null", body: null },
+    { label: "array", body: [] },
+    { label: "string", body: "sträng" },
+    { label: "number", body: 42 },
+    { label: "boolean", body: true },
+  ])("returnerar 400 före projektuppslag för $label", async ({ body: requestBody }) => {
+    const response = await POST(postCheckout(requestBody));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ success: false, error: "Ogiltig begäran." });
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expectNoWrites();
+  });
+
+  it("returnerar 400 för ogiltig JSON före projektuppslag", async () => {
+    const response = await POST(postRaw("not-json"));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ success: false, error: "Ogiltig begäran." });
+    expect(getProjectByIdForOwner).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it("returnerar 404 för projekt som anroparen inte äger", async () => {
@@ -100,9 +139,7 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
     expect(getProjectByIdForOwner).toHaveBeenCalledWith("someone-elses-project", {
       userId: "user-1",
     });
-    expect(createSession).not.toHaveBeenCalled();
-    expect(dbInsert).not.toHaveBeenCalled();
-    expect(dbUpdate).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it("ignorerar klientbelopp och klientläge och svarar 503 utan Stripe eller DB-write", async () => {
@@ -131,10 +168,8 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
     expect(body.offer.billing_mode).not.toBe("live");
     expect(body.sessionId).toBeUndefined();
     expect(body.url).toBeUndefined();
-    expect(createSession).not.toHaveBeenCalled();
-    expect(createCreditCheckoutSession).not.toHaveBeenCalled();
-    expect(dbInsert).not.toHaveBeenCalled();
-    expect(dbUpdate).not.toHaveBeenCalled();
+    expect(getProjectByIdForOwner).toHaveBeenCalledWith("proj_1", { userId: "user-1" });
+    expectNoWrites();
   });
 
   it("låter inte activate/request-flagga öppna checkout", async () => {
@@ -151,8 +186,7 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
     expect(response.status).toBe(503);
     expect(body.code).toBe(SITE_SUBSCRIPTION_CHECKOUT_NOT_ACTIVATED);
     expect(body.activation).toBe(SITE_SUBSCRIPTION_ACTIVATION_NOT_READY);
-    expect(createSession).not.toHaveBeenCalled();
-    expect(dbInsert).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
   it("använder server-live-läge även om klienten skickar test", async () => {
@@ -169,16 +203,16 @@ describe("POST /api/stripe/site-subscription/checkout", () => {
 
     expect(response.status).toBe(503);
     expect(body.offer.billing_mode).toBe("live");
-    expect(createSession).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 
-  it("returnerar 400 utan projectId", async () => {
+  it("returnerar 400 utan projectId före projektuppslag", async () => {
     const response = await POST(postCheckout({ amount: 99 }));
     const body = await response.json();
 
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ success: false, error: "projectId saknas" });
     expect(getProjectByIdForOwner).not.toHaveBeenCalled();
-    expect(createSession).not.toHaveBeenCalled();
+    expectNoWrites();
   });
 });
