@@ -37,8 +37,13 @@ assert.match(starting, /prefers-reduced-motion:\s*reduce/);
 assert.match(starting, /navigator\.connection && navigator\.connection\.saveData/);
 assert.match(starting, /sajtmaskin-preview-boot-t/);
 assert.match(starting, /loadedmetadata/);
+assert.match(starting, /<template id="sm-boot-video-tpl"/);
 assert.match(starting, /<video id="sm-boot-video"/);
+assert.match(starting, /preload="none"/);
+assert.match(starting, /sm-boot-still/);
+assert.match(starting, /tpl\.parentNode\.removeChild\(tpl\)/);
 assert.match(starting, /muted playsinline loop/);
+assert.doesNotMatch(starting.replace(/<template[\s\S]*?<\/template>/, ""), /<video\b/);
 for (const source of PREVIEW_BACKDROP_VIDEO_SOURCES) {
   assert.match(starting, new RegExp(source.src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(starting, new RegExp(`type="${source.type}"`));
@@ -47,7 +52,9 @@ for (const source of PREVIEW_BACKDROP_VIDEO_SOURCES) {
 const recovering = renderPreviewPlaceholderPage("recovering");
 assertSharedContract(recovering, "recovering");
 assert.match(recovering, /http-equiv="refresh" content="4"/);
+assert.match(recovering, /<template id="sm-boot-video-tpl"/);
 assert.match(recovering, /<video id="sm-boot-video"/);
+assert.doesNotMatch(recovering.replace(/<template[\s\S]*?<\/template>/, ""), /<video\b/);
 
 const errorPage = renderPreviewPlaceholderPage("error");
 assertSharedContract(errorPage, "error");

@@ -53,9 +53,11 @@ function renderPreviewPlaceholderPage(variant) {
   const refresh = motion ? `\n    <meta http-equiv="refresh" content="4" />` : "";
   const video = motion
     ? `
-      <video id="sm-boot-video" class="video" poster="${PREVIEW_BACKDROP_POSTER_URL}" muted playsinline loop preload="auto" tabindex="-1">
+      <template id="sm-boot-video-tpl">
+        <video id="sm-boot-video" class="video" poster="${PREVIEW_BACKDROP_POSTER_URL}" muted playsinline loop preload="none" tabindex="-1">
 ${videoSourcesHtml()}
-      </video>`
+        </video>
+      </template>`
     : "";
   const playbackScript = motion
     ? `
@@ -64,13 +66,18 @@ ${videoSourcesHtml()}
         var reduce = false;
         try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
         try { if (navigator.connection && navigator.connection.saveData) reduce = true; } catch (e) {}
-        var video = document.getElementById("sm-boot-video");
+        var tpl = document.getElementById("sm-boot-video-tpl");
         if (reduce) {
           document.documentElement.classList.add("sm-boot-still");
-          if (video && video.parentNode) video.parentNode.removeChild(video);
+          if (tpl && tpl.parentNode) tpl.parentNode.removeChild(tpl);
           return;
         }
-        if (!video) return;
+        if (!tpl || !tpl.content) return;
+        var video = tpl.content.querySelector("video");
+        var scene = document.querySelector(".scene");
+        if (!video || !scene) return;
+        scene.insertBefore(video, scene.querySelector(".card"));
+        tpl.parentNode.removeChild(tpl);
         var key = "sajtmaskin-preview-boot-t";
         var persist = true;
         var restore = function () {
