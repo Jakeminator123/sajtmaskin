@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  bindCampaignScriptProjectId,
   buildKostnadsfriHandoffIntro,
+  campaignContextForClient,
   campaignCopyBundleForTests,
   consumeAdviceRound,
   decideKostnadsfriBuildStartedAnnounce,
@@ -10,8 +12,12 @@ import {
   KOSTNADSFRI_ADVICE_ROUND_LIMIT,
   kostnadsfriCampaignManuscriptLines,
   markHandoffOpened,
+  persistBoundCampaignProjectId,
   shouldActivateCampaignScriptChrome,
+  shouldAttachCampaignContext,
   shouldEnforceCampaignAdviceQuota,
+  writeCampaignScript,
+  type CampaignScriptStorage,
 } from "./agent-campaign-script";
 
 const handoffContext = {
@@ -86,9 +92,19 @@ describe("rådgivningskvot", () => {
   it("gäller bara kampanjytan", () => {
     const script = emptyCampaignScript("zax-2-0-ab");
     expect(shouldEnforceCampaignAdviceQuota({ page: "kostnadsfri" }, script)).toBe(true);
+    script.projectId = "proj-a";
     expect(
-      shouldEnforceCampaignAdviceQuota({ page: "builder", buildMethod: "kostnadsfri" }, script),
+      shouldEnforceCampaignAdviceQuota(
+        { page: "builder", buildMethod: "kostnadsfri", projectId: "proj-a" },
+        script,
+      ),
     ).toBe(true);
+    expect(
+      shouldEnforceCampaignAdviceQuota(
+        { page: "builder", buildMethod: "kostnadsfri", projectId: "proj-b" },
+        script,
+      ),
+    ).toBe(false);
     expect(shouldEnforceCampaignAdviceQuota({ page: "landing" }, script)).toBe(false);
     expect(shouldEnforceCampaignAdviceQuota({ page: "kostnadsfri" }, null)).toBe(false);
   });
@@ -143,10 +159,13 @@ describe("kampanjcopy", () => {
 
 describe("decideKostnadsfriBuildStartedAnnounce", () => {
   it("säger till när kampanjbygget startat, en gång", () => {
-    const script = markHandoffOpened(emptyCampaignScript("zax-2-0-ab"));
+    const script = bindCampaignScriptProjectId(
+      markHandoffOpened(emptyCampaignScript("zax-2-0-ab")),
+      "proj-a",
+    );
     const first = decideKostnadsfriBuildStartedAnnounce({
       pathname: "/builder",
-      context: { buildMethod: "kostnadsfri", isStreaming: true },
+      context: { buildMethod: "kostnadsfri", isStreaming: true, projectId: "proj-a" },
       script,
     });
     expect(first).toEqual({ announce: true, slug: "zax-2-0-ab" });
@@ -166,12 +185,87 @@ describe("kostnadsfriCampaignManuscriptLines", () => {
   it("lägger följdfrågor i systemkanalen", () => {
     const lines = kostnadsfriCampaignManuscriptLines({
       brief: { stage: "handoff", companyName: "Zax" },
-      campaign: { followupsSkipped: false, remaining: 5, buildStarted: false },
+      campaign: {
+        followupsSkipped: false,
+        followupsCompleted: false,
+        remaining: 5,
+        buildStarted: false,
+        projectId: null,
+      },
     });
     const block = lines.join("\n");
     expect(lines[0]).toBe("[KAMPANJ-MANUS]");
     expect(block).toContain("Uppföljningsdirektiv");
     expect(block).toContain("Rådgivningskvot");
     expect(block.toLowerCase()).not.toMatch(/generering|ombyggnad/);
+  });
+});
+
+function memoryStorage(): CampaignScriptStorage {
+  const data = new Map<string, string>();
+  return {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => {
+      data.set(key, value);
+    },
+    removeItem: (key) => {
+      data.delete(key);
+    },
+  };
+}
+
+describe("F6 projectId-bindning", () => {
+  it("kampanj A → projekt A → /konto → projekt B utan A → tillbaka till A", () => {
+    const storage = memoryStorage();
+    let script = emptyCampaignScript("slug-a");
+    writeCampaignScript(script, storage);
+    script = persistBoundCampaignProjectId("proj-a", { slug: "slug-a", storage })!;
+    expect(script.projectId).toBe("proj-a");
+
+    expect(
+      shouldAttachCampaignContext({
+        pathname: "/builder",
+        page: "builder",
+        buildMethod: "kostnadsfri",
+        currentProjectId: "proj-a",
+        script,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldAttachCampaignContext({
+        pathname: "/konto",
+        page: "account",
+        currentProjectId: null,
+        script,
+      }),
+    ).toBe(false);
+    expect(
+      campaignContextForClient(storage, {
+        pathname: "/konto",
+        page: "account",
+        currentProjectId: null,
+      }),
+    ).toBeNull();
+
+    expect(
+      shouldAttachCampaignContext({
+        pathname: "/builder",
+        page: "builder",
+        buildMethod: "kostnadsfri",
+        currentProjectId: "proj-b",
+        script,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldAttachCampaignContext({
+        pathname: "/builder",
+        page: "builder",
+        buildMethod: "kostnadsfri",
+        currentProjectId: "proj-a",
+        script,
+      }),
+    ).toBe(true);
   });
 });

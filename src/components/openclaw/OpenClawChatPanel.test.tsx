@@ -121,12 +121,15 @@ describe("OpenClawChatPanel", () => {
     const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
 
     expect(screen.getByTestId("kampanj-radgivning-kvar").textContent).toContain("rådgivning");
+    expect(screen.getByRole("button", { name: "Fortsätt" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Hoppa över frågorna" })).toBeTruthy();
     expect(container.textContent?.toLowerCase()).not.toMatch(/generering|ombyggnad/);
 
     fireEvent.click(screen.getByRole("button", { name: "Hoppa över frågorna" }));
 
     expect(useOpenClawStore.getState().campaignScript?.followupsSkipped).toBe(true);
+    expect(useOpenClawStore.getState().campaignScript?.followupsCompleted).toBe(true);
     expect(screen.queryByRole("button", { name: "Hoppa över frågorna" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fortsätt" })).toBeNull();
   });
 });

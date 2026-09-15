@@ -9,7 +9,19 @@ import {
   normalizeKostnadsfriAgentBrief,
   type KostnadsfriAgentBrief,
 } from "./agent-brief";
-import { kostnadsfriFollowupDirectiveLines } from "./agent-followups";
+import {
+  continueFollowups,
+  createFollowupSession,
+  kostnadsfriFollowupDirectiveLines,
+  normalizeKostnadsfriFollowupSession,
+  notifyCampaignFollowupsReady,
+  recordFollowupAnswer,
+  skipAllFollowups,
+  skipCurrentFollowup,
+  type KostnadsfriFollowupId,
+  type KostnadsfriFollowupReadyReason,
+  type KostnadsfriFollowupSession,
+} from "./agent-followups";
 
 export const KOSTNADSFRI_ADVICE_ROUND_LIMIT = 5;
 
@@ -24,17 +36,29 @@ const KOSTNADSFRI_PATH = /^\/kostnadsfri\/([^/]+)/;
 
 export interface KostnadsfriCampaignScriptState {
   slug: string;
+  projectId: string | null;
   remaining: number;
   followupsSkipped: boolean;
+  followupsCompleted: boolean;
+  followupSession: KostnadsfriFollowupSession | null;
   handoffOpened: boolean;
   buildStartedAnnounced: boolean;
 }
 
 export interface KostnadsfriCampaignClientContext {
   followupsSkipped: boolean;
+  followupsCompleted: boolean;
   remaining: number;
   buildStarted: boolean;
+  projectId: string | null;
 }
+
+export type CampaignContextSurface = {
+  pathname?: string;
+  page?: unknown;
+  buildMethod?: unknown;
+  currentProjectId?: string | null;
+};
 
 export type CampaignScriptStorage = {
   getItem(key: string): string | null;
@@ -66,11 +90,20 @@ export function campaignScriptStorage(): CampaignScriptStorage {
   }
 }
 
+function normalizeProjectId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 export function emptyCampaignScript(slug: string): KostnadsfriCampaignScriptState {
   return {
     slug,
+    projectId: null,
     remaining: KOSTNADSFRI_ADVICE_ROUND_LIMIT,
     followupsSkipped: false,
+    followupsCompleted: false,
+    followupSession: null,
     handoffOpened: false,
     buildStartedAnnounced: false,
   };
@@ -94,8 +127,11 @@ export function readCampaignScript(
     const parsed = JSON.parse(raw) as Partial<KostnadsfriCampaignScriptState>;
     return {
       slug,
+      projectId: normalizeProjectId(parsed.projectId),
       remaining: clampRemaining(parsed.remaining),
       followupsSkipped: parsed.followupsSkipped === true,
+      followupsCompleted: parsed.followupsCompleted === true,
+      followupSession: normalizeKostnadsfriFollowupSession(parsed.followupSession),
       handoffOpened: parsed.handoffOpened === true,
       buildStartedAnnounced: parsed.buildStartedAnnounced === true,
     };
@@ -155,7 +191,109 @@ export function markHandoffOpened(
 export function markFollowupsSkipped(
   state: KostnadsfriCampaignScriptState,
 ): KostnadsfriCampaignScriptState {
-  return { ...state, followupsSkipped: true };
+  const session = skipAllFollowups(state.followupSession ?? createFollowupSession([]));
+  return {
+    ...state,
+    followupsSkipped: true,
+    followupsCompleted: true,
+    followupSession: session,
+  };
+}
+
+export function bindCampaignScriptProjectId(
+  state: KostnadsfriCampaignScriptState,
+  projectId: string,
+): KostnadsfriCampaignScriptState {
+  const nextId = normalizeProjectId(projectId);
+  if (!nextId) return state;
+  return { ...state, projectId: nextId };
+}
+
+export function persistBoundCampaignProjectId(
+  projectId: string,
+  options?: { slug?: string; storage?: CampaignScriptStorage },
+): KostnadsfriCampaignScriptState | null {
+  const storage = options?.storage ?? campaignScriptStorage();
+  const slug = options?.slug ?? readActiveCampaignSlug(storage);
+  if (!slug) return null;
+  const next = bindCampaignScriptProjectId(readCampaignScript(slug, storage), projectId);
+  writeCampaignScript(next, storage);
+  return next;
+}
+
+export function beginCampaignFollowupSession(
+  state: KostnadsfriCampaignScriptState,
+  questionIds: readonly KostnadsfriFollowupId[],
+): KostnadsfriCampaignScriptState {
+  if (state.followupSession) return state;
+  return { ...state, followupSession: createFollowupSession(questionIds) };
+}
+
+function completeFollowupState(
+  state: KostnadsfriCampaignScriptState,
+  session: KostnadsfriFollowupSession,
+  reason: KostnadsfriFollowupReadyReason,
+): KostnadsfriCampaignScriptState {
+  return {
+    ...state,
+    followupSession: session,
+    followupsCompleted: true,
+    followupsSkipped: reason === "skipped" || state.followupsSkipped,
+  };
+}
+
+export function recordCampaignFollowupReply(
+  state: KostnadsfriCampaignScriptState,
+  raw: string,
+): { state: KostnadsfriCampaignScriptState; result: "inactive" | "pending" | "complete" } {
+  if (state.followupsCompleted) return { state, result: "inactive" };
+  const session = state.followupSession ?? createFollowupSession([]);
+  if (session.completed || session.questionIds.length === 0) {
+    return { state, result: "inactive" };
+  }
+  const nextSession = recordFollowupAnswer(session, raw);
+  if (nextSession === session) return { state: { ...state, followupSession: nextSession }, result: "pending" };
+  if (!nextSession.completed) {
+    return { state: { ...state, followupSession: nextSession }, result: "pending" };
+  }
+  const reason = nextSession.completeReason ?? "answered";
+  return { state: completeFollowupState(state, nextSession, reason), result: "complete" };
+}
+
+export function skipCurrentCampaignFollowup(
+  state: KostnadsfriCampaignScriptState,
+): { state: KostnadsfriCampaignScriptState; result: "inactive" | "pending" | "complete" } {
+  if (state.followupsCompleted) return { state, result: "inactive" };
+  const session = skipCurrentFollowup(state.followupSession ?? createFollowupSession([]));
+  if (!session.completed) {
+    return { state: { ...state, followupSession: session }, result: "pending" };
+  }
+  const reason = session.completeReason ?? "skipped";
+  return { state: completeFollowupState(state, session, reason), result: "complete" };
+}
+
+export function continueCampaignFollowups(
+  state: KostnadsfriCampaignScriptState,
+): KostnadsfriCampaignScriptState {
+  if (state.followupsCompleted) return state;
+  const session = continueFollowups(state.followupSession ?? createFollowupSession([]));
+  return completeFollowupState(state, session, "continued");
+}
+
+export function reannounceFollowupsReady(state: KostnadsfriCampaignScriptState): void {
+  if (!state.followupsCompleted) return;
+  notifyCampaignFollowupsReady({
+    slug: state.slug,
+    reason: state.followupSession?.completeReason ?? (state.followupsSkipped ? "skipped" : "continued"),
+  });
+}
+
+export function notifyIfFollowupsReady(
+  previous: KostnadsfriCampaignScriptState,
+  next: KostnadsfriCampaignScriptState,
+): void {
+  if (previous.followupsCompleted || !next.followupsCompleted) return;
+  reannounceFollowupsReady(next);
 }
 
 export function markBuildStartedAnnounced(
@@ -191,7 +329,9 @@ export function buildKostnadsfriHandoffIntro(brief: Pick<
 export const KOSTNADSFRI_FOLLOWUP_SKIP_LABEL = "Hoppa över frågorna";
 
 export const KOSTNADSFRI_FOLLOWUP_SKIP_HINT =
-  "Svaren är frivilliga och blockerar inget.";
+  "Svaren är frivilliga — hoppa över eller svara, sen startar bygget.";
+
+export const KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL = "Fortsätt";
 
 export const KOSTNADSFRI_FOLLOWUP_SKIP_ACK =
   "Okej, då hoppar vi över frågorna. Skriv eller prata om du vill ha mer hjälp.";
@@ -241,11 +381,13 @@ export function decideKostnadsfriBuildStartedAnnounce(input: {
       Boolean(input.context.activeVersionId.trim()));
   if (!buildStarted) return { announce: false };
 
+  const currentProjectId = normalizeProjectId(input.context.projectId);
   const slug = input.script?.slug ?? readActiveCampaignSlug();
   if (!slug) return { announce: false };
 
   const script = input.script ?? readCampaignScript(slug);
   if (script.buildStartedAnnounced) return { announce: false };
+  if (!script.projectId || script.projectId !== currentProjectId) return { announce: false };
 
   return { announce: true, slug };
 }
@@ -256,7 +398,50 @@ export function shouldEnforceCampaignAdviceQuota(
 ): boolean {
   if (!script) return false;
   if (context?.page === "kostnadsfri") return true;
-  if (context?.page === "builder" && context.buildMethod === "kostnadsfri") return true;
+  if (
+    context?.page === "builder" &&
+    context.buildMethod === "kostnadsfri" &&
+    normalizeProjectId(context.projectId) === script.projectId &&
+    Boolean(script.projectId)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Kampanjkontext följer inbjudan + avsett projekt, inte «senaste aktiva slug».
+ * Före createProject är projectId null — då gäller bara /kostnadsfri/[slug].
+ */
+export function shouldAttachCampaignContext(input: {
+  pathname: string;
+  page?: unknown;
+  buildMethod?: unknown;
+  currentProjectId?: string | null;
+  script?: KostnadsfriCampaignScriptState | null;
+}): boolean {
+  const script = input.script;
+  if (!script) return false;
+
+  const pathSlug = kostnadsfriSlugFromPathname(input.pathname);
+  if (pathSlug && pathSlug === script.slug) {
+    return (
+      script.handoffOpened ||
+      script.followupsCompleted ||
+      Boolean(script.followupSession) ||
+      script.buildStartedAnnounced
+    );
+  }
+
+  if (input.page === "builder" || input.pathname.startsWith("/builder")) {
+    const currentProjectId = normalizeProjectId(input.currentProjectId);
+    return (
+      input.buildMethod === "kostnadsfri" &&
+      Boolean(script.projectId) &&
+      script.projectId === currentProjectId
+    );
+  }
+
   return false;
 }
 
@@ -271,24 +456,53 @@ export function shouldActivateCampaignScriptChrome(input: {
   script?: KostnadsfriCampaignScriptState | null;
 }): boolean {
   const brief = normalizeKostnadsfriAgentBrief(input.context?.kostnadsfriBrief);
-  if (brief?.stage === "handoff") return true;
-  if (input.pathname.startsWith("/builder") && input.context?.buildMethod === "kostnadsfri") {
-    return true;
-  }
-  const script = input.script;
-  return Boolean(script?.handoffOpened || script?.buildStartedAnnounced);
+  const pathSlug = kostnadsfriSlugFromPathname(input.pathname);
+  if (brief?.stage === "handoff" && pathSlug) return true;
+  return shouldAttachCampaignContext({
+    pathname: input.pathname,
+    page: input.context?.page,
+    buildMethod: input.context?.buildMethod,
+    currentProjectId: normalizeProjectId(input.context?.projectId),
+    script: input.script,
+  });
+}
+
+function surfaceFromWindow(): CampaignContextSurface {
+  if (typeof window === "undefined") return {};
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  return {
+    pathname: window.location.pathname,
+    page: ctx?.page,
+    buildMethod: ctx?.buildMethod,
+    currentProjectId: normalizeProjectId(ctx?.projectId),
+  };
 }
 
 export function campaignContextForClient(
   storage: CampaignScriptStorage = campaignScriptStorage(),
+  surface?: CampaignContextSurface,
 ): KostnadsfriCampaignClientContext | null {
-  const slug = readActiveCampaignSlug(storage);
+  const resolved = surface ?? surfaceFromWindow();
+  const slug = kostnadsfriSlugFromPathname(resolved.pathname ?? "") ?? readActiveCampaignSlug(storage);
   if (!slug) return null;
   const script = readCampaignScript(slug, storage);
+  if (
+    !shouldAttachCampaignContext({
+      pathname: resolved.pathname ?? "",
+      page: resolved.page,
+      buildMethod: resolved.buildMethod,
+      currentProjectId: resolved.currentProjectId,
+      script,
+    })
+  ) {
+    return null;
+  }
   return {
     followupsSkipped: script.followupsSkipped,
+    followupsCompleted: script.followupsCompleted,
     remaining: script.remaining,
     buildStarted: script.buildStartedAnnounced,
+    projectId: script.projectId,
   };
 }
 
@@ -300,8 +514,10 @@ export function normalizeKostnadsfriCampaignContext(
   const remaining = clampRemaining(raw.remaining);
   return {
     followupsSkipped: raw.followupsSkipped === true,
+    followupsCompleted: raw.followupsCompleted === true,
     remaining,
     buildStarted: raw.buildStarted === true,
+    projectId: normalizeProjectId(raw.projectId),
   };
 }
 
@@ -316,6 +532,7 @@ export function kostnadsfriCampaignManuscriptLines(input: {
   const { brief, campaign } = input;
   const followupLines = kostnadsfriFollowupDirectiveLines(brief, {
     skipped: campaign?.followupsSkipped === true,
+    completed: campaign?.followupsCompleted === true,
   });
   const lines: string[] = [];
 
@@ -346,6 +563,7 @@ export function campaignCopyBundleForTests(): string {
     buildKostnadsfriHandoffIntro({ companyName: "Zax", contactFirstName: "Jan" }),
     buildKostnadsfriHandoffIntro({ companyName: "Zax" }),
     KOSTNADSFRI_FOLLOWUP_SKIP_LABEL,
+    KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL,
     KOSTNADSFRI_FOLLOWUP_SKIP_HINT,
     KOSTNADSFRI_FOLLOWUP_SKIP_ACK,
     KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
@@ -358,7 +576,13 @@ export function campaignCopyBundleForTests(): string {
         stage: "handoff",
         companyName: "Zax",
       },
-      campaign: { followupsSkipped: false, remaining: 3, buildStarted: true },
+      campaign: {
+        followupsSkipped: false,
+        followupsCompleted: false,
+        remaining: 3,
+        buildStarted: true,
+        projectId: null,
+      },
     }),
   ].join("\n");
 }

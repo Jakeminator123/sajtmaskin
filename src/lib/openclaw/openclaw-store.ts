@@ -6,14 +6,22 @@ import type {
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 import {
+  beginCampaignFollowupSession,
+  bindCampaignScriptProjectId,
   consumeAdviceRound,
+  continueCampaignFollowups as applyContinueCampaignFollowups,
   markBuildStartedAnnounced,
   markFollowupsSkipped,
   markHandoffOpened,
+  notifyIfFollowupsReady,
+  reannounceFollowupsReady,
   readCampaignScript,
+  recordCampaignFollowupReply as applyCampaignFollowupReply,
+  skipCurrentCampaignFollowup as applySkipCurrentCampaignFollowup,
   writeCampaignScript,
   type KostnadsfriCampaignScriptState,
 } from "@/lib/kostnadsfri/agent-campaign-script";
+import type { KostnadsfriFollowupId } from "@/lib/kostnadsfri/agent-followups";
 import {
   activeOpenClawPowerIds,
   resolveOpenClawPowers,
@@ -107,7 +115,12 @@ interface OpenClawState {
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
   hydrateCampaignScript: (slug: string) => void;
   markCampaignHandoffOpened: (slug: string) => void;
+  beginCampaignFollowups: (questionIds: KostnadsfriFollowupId[]) => void;
+  recordCampaignFollowupReply: (text: string) => "inactive" | "pending" | "complete";
+  skipCurrentCampaignFollowup: () => "inactive" | "pending" | "complete";
   skipCampaignFollowups: () => void;
+  continueCampaignFollowups: () => void;
+  bindCampaignProjectId: (projectId: string) => void;
   consumeCampaignAdviceRound: () => "ok" | "exhausted" | "inactive";
   markCampaignBuildStartedAnnounced: () => void;
 }
@@ -249,8 +262,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
     ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
   hydrateCampaignScript: (slug) =>
-    set((s) => {
-      if (s.campaignScript?.slug === slug) return s;
+    set(() => {
       const campaignScript = readCampaignScript(slug);
       writeCampaignScript(campaignScript);
       return { campaignScript };
@@ -262,10 +274,73 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
       writeCampaignScript(campaignScript);
       return { campaignScript };
     }),
+  beginCampaignFollowups: (questionIds) =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      const campaignScript = beginCampaignFollowupSession(s.campaignScript, questionIds);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  recordCampaignFollowupReply: (text) => {
+    let result: "inactive" | "pending" | "complete" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      const next = applyCampaignFollowupReply(s.campaignScript, text);
+      result = next.result;
+      if (next.state === s.campaignScript) return s;
+      writeCampaignScript(next.state);
+      notifyIfFollowupsReady(s.campaignScript, next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
+  skipCurrentCampaignFollowup: () => {
+    let result: "inactive" | "pending" | "complete" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      const next = applySkipCurrentCampaignFollowup(s.campaignScript);
+      result = next.result;
+      if (next.state === s.campaignScript) return s;
+      writeCampaignScript(next.state);
+      notifyIfFollowupsReady(s.campaignScript, next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
   skipCampaignFollowups: () =>
     set((s) => {
-      if (!s.campaignScript || s.campaignScript.followupsSkipped) return s;
+      if (!s.campaignScript) return s;
+      if (s.campaignScript.followupsCompleted) {
+        reannounceFollowupsReady(s.campaignScript);
+        return s;
+      }
       const campaignScript = markFollowupsSkipped(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      notifyIfFollowupsReady(s.campaignScript, campaignScript);
+      return { campaignScript };
+    }),
+  continueCampaignFollowups: () =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      if (s.campaignScript.followupsCompleted) {
+        reannounceFollowupsReady(s.campaignScript);
+        return s;
+      }
+      const campaignScript = applyContinueCampaignFollowups(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      notifyIfFollowupsReady(s.campaignScript, campaignScript);
+      return { campaignScript };
+    }),
+  bindCampaignProjectId: (projectId) =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      const campaignScript = bindCampaignScriptProjectId(s.campaignScript, projectId);
       writeCampaignScript(campaignScript);
       return { campaignScript };
     }),

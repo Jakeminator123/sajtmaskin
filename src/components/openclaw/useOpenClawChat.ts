@@ -116,6 +116,8 @@ export function useOpenClawChat() {
         return;
       }
 
+      useOpenClawStore.getState().recordCampaignFollowupReply(trimmed);
+
       const userMsg: OpenClawMessage = {
         id: makeId(),
         role: "user",

@@ -8,12 +8,13 @@ import {
   decideKostnadsfriBuildStartedAnnounce,
   decideKostnadsfriHandoffOpen,
   shouldActivateCampaignScriptChrome,
+  shouldAttachCampaignContext,
   KOSTNADSFRI_BUILD_STARTED_COPY,
   KOSTNADSFRI_BUILD_STARTED_ID,
   KOSTNADSFRI_HANDOFF_INTRO_ID,
   kostnadsfriSlugFromPathname,
-  readActiveCampaignSlug,
 } from "@/lib/kostnadsfri/agent-campaign-script";
+import { selectKostnadsfriFollowups } from "@/lib/kostnadsfri/agent-followups";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   normalizeKostnadsfriOpenClawConfig,
@@ -122,8 +123,8 @@ function seedAssistantMessage(id: string, content: string) {
 }
 
 /**
- * Kampanjtriggern ägs här, där `__SITEMASKIN_CONTEXT` redan läses.
- * Kampanjsidan ska inte anropa storet.
+ * Handoff-triggern ägs här, där `__SITEMASKIN_CONTEXT` redan läses.
+ * Kampanjsidan startar inte takeover.
  */
 function applyKostnadsfriCampaignTriggers(pathname: string) {
   if (typeof window === "undefined") return;
@@ -131,16 +132,27 @@ function applyKostnadsfriCampaignTriggers(pathname: string) {
   const store = useOpenClawStore.getState();
 
   const pathSlug = kostnadsfriSlugFromPathname(pathname);
-  const activeSlug = pathSlug ?? readActiveCampaignSlug();
-  if (
-    activeSlug &&
+  const existingScript = store.campaignScript;
+  const attachExisting = shouldAttachCampaignContext({
+    pathname,
+    page: context?.page,
+    buildMethod: context?.buildMethod,
+    currentProjectId: typeof context?.projectId === "string" ? context.projectId : null,
+    script: existingScript,
+  });
+  const hydrateSlug =
+    pathSlug &&
     shouldActivateCampaignScriptChrome({
       pathname,
       context,
-      script: store.campaignScript,
+      script: existingScript,
     })
-  ) {
-    store.hydrateCampaignScript(activeSlug);
+      ? pathSlug
+      : attachExisting
+        ? existingScript?.slug
+        : null;
+  if (hydrateSlug) {
+    store.hydrateCampaignScript(hydrateSlug);
   }
 
   const script = useOpenClawStore.getState().campaignScript;
@@ -151,9 +163,15 @@ function applyKostnadsfriCampaignTriggers(pathname: string) {
   });
   if (handoff.open) {
     store.markCampaignHandoffOpened(handoff.slug);
+    const followups = selectKostnadsfriFollowups(handoff.brief);
+    store.beginCampaignFollowups(followups.map((item) => item.id));
     store.open();
     store.setPanelPresentation("takeover");
     seedAssistantMessage(KOSTNADSFRI_HANDOFF_INTRO_ID, buildKostnadsfriHandoffIntro(handoff.brief));
+    const first = followups[0];
+    if (first) {
+      seedAssistantMessage(`oc-kampanj-foljd-${first.id}`, first.question);
+    }
     return;
   }
 

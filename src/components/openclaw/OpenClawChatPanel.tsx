@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   formatAdviceRemaining,
+  KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL,
   KOSTNADSFRI_FOLLOWUP_SKIP_ACK,
   KOSTNADSFRI_FOLLOWUP_SKIP_HINT,
   KOSTNADSFRI_FOLLOWUP_SKIP_ID,
@@ -131,6 +132,7 @@ export function OpenClawChatPanel({
     setPanelPresentation,
     campaignScript,
     skipCampaignFollowups,
+    continueCampaignFollowups,
     addMessage,
   } = useOpenClawStore();
   const isTakeover = panelPresentation === "takeover";
@@ -448,6 +450,9 @@ export function OpenClawChatPanel({
       timestamp: Date.now(),
     });
   }, [addMessage, skipCampaignFollowups]);
+  const handleContinueFollowups = useCallback(() => {
+    continueCampaignFollowups();
+  }, [continueCampaignFollowups]);
 
   return (
     <div
@@ -754,18 +759,27 @@ export function OpenClawChatPanel({
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] text-slate-300" data-testid="kampanj-radgivning-kvar">
                   {formatAdviceRemaining(campaignScript.remaining)}
-                  {!campaignScript.followupsSkipped ? (
+                  {!campaignScript.followupsCompleted ? (
                     <span className="ml-1.5 text-slate-400">· {KOSTNADSFRI_FOLLOWUP_SKIP_HINT}</span>
                   ) : null}
                 </p>
-                {!campaignScript.followupsSkipped ? (
-                  <button
-                    type="button"
-                    onClick={handleSkipFollowups}
-                    className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-100 transition-colors hover:bg-white/10"
-                  >
-                    {KOSTNADSFRI_FOLLOWUP_SKIP_LABEL}
-                  </button>
+                {!campaignScript.followupsCompleted ? (
+                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleContinueFollowups}
+                      className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                    >
+                      {KOSTNADSFRI_FOLLOWUP_CONTINUE_LABEL}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSkipFollowups}
+                      className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-100 transition-colors hover:bg-white/10"
+                    >
+                      {KOSTNADSFRI_FOLLOWUP_SKIP_LABEL}
+                    </button>
+                  </div>
                 ) : null}
               </div>
             ) : null}

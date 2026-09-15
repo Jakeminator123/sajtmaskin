@@ -4,6 +4,7 @@ import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearCampaignScriptStorageForTests,
+  emptyCampaignScript,
   KOSTNADSFRI_HANDOFF_INTRO_ID,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -167,5 +168,26 @@ describe("OpenClawChat launcher", () => {
 
     expect(useOpenClawStore.getState().isOpen).toBe(false);
     expect(useOpenClawStore.getState().messages).toEqual([]);
+  });
+
+  it("hydrerar inte kampanjmanus på /konto från senast aktiva slug", async () => {
+    navigation.pathname = "/konto";
+    window.__SITEMASKIN_CONTEXT = { page: "account" };
+    act(() => {
+      useOpenClawStore.setState({
+        campaignScript: {
+          ...emptyCampaignScript("zax-2-0-ab"),
+          handoffOpened: true,
+          projectId: "proj-a",
+        },
+      });
+    });
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
