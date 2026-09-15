@@ -161,7 +161,17 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
             playsInline
             tabIndex={-1}
             onPlaying={() => setHasPlayed(true)}
-            onError={() => setMediaFailed(true)}
+            onError={(event) => {
+              // React 19 listens on <source> and emulates bubbling. A WebM
+              // failure must not unmount the video before MP4 can play.
+              const target = event.target;
+              if (target instanceof HTMLSourceElement) {
+                const sources = [...event.currentTarget.querySelectorAll("source")];
+                const index = sources.indexOf(target);
+                if (index >= 0 && index < sources.length - 1) return;
+              }
+              setMediaFailed(true);
+            }}
           >
             {PREVIEW_BACKDROP_VIDEO_SOURCES.map((source) => (
               <source key={source.src} src={source.src} type={source.type} />
