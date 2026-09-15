@@ -1,5 +1,20 @@
 # D2 — Checkout, webhooks, portal och publiceringsrätt
 
+## Genomförandestatus 2026-09-15
+
+**Inte levererad till preview.** På preview finns bara stängsel:
+
+- #1379 — subscription-events går inte in i credit-/domänköps-dispatch
+- #1381 — checkout-endpointen finns men är hårdstängd
+  (`SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false`, ingen env-väg)
+
+D3-adaptern `site-subscription-hosting.ts` **saknas** (ingen
+paus/restore-provider, ingen hosting-write-flagga). Full implementation
+(subscription-checkout, webhook-livscykel, Billing Portal, publiceringsgrind,
+cron, C3e2, Vercel-adapter) är öppen draft #1385. Den PR:en registrerar
+`add-stripe-billing-events.sql`. Filen finns **inte** i preview och är
+**inte** applicerad mot den delade databasen. Dokumentera den inte som kör.
+
 Område: [04](../04-abonnemang-och-livscykel.md). Efter D1 och A3 för gemensam
 deployroute. D3:s driftimplementation måste vara klar före betald lansering.
 

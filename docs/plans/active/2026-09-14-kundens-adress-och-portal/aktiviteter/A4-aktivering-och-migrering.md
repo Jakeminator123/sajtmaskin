@@ -1,5 +1,10 @@
 # A4 — Pilot och migrering av publicerade sajter
 
+## Genomförandestatus 2026-09-15
+
+**Inte levererad.** Ingen aliasbindning, ingen `--apply`, ingen branded
+live-URL. A3:s kodflagga öppnar inte A4. Vänta på A1:s två testhosts.
+
 Område: [01](../01-varumarkta-adresser.md). Drift efter A1:s DNS-del, A2 och A3.
 Behörig operatör eller agent utför med konkret mandat. Denna plan-PR ändrar inget
 på Vercel, i DNS eller i databasen.

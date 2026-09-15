@@ -1,11 +1,16 @@
 # A2 — Begränsad branded pilot och portalens grundskydd
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-Cookie-/Origin-skydd är levererade i #1360/#1365. PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontrollerna på preview är gröna, inklusive migrationer och schemaparitet (CI 34899457800). Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`.
-Verkligt HTTPS-cookieprov och verifierad återställning av legitima äldre
-gästsessioner återstår. Dokumentera eventuell ny inloggning för befintliga
-användare. Ursprunglig analys och kvarvarande acceptanskrav följer nedan.
+**Kod på preview. Inte aktiverad.** Cookie-/Origin-skydd #1360/#1365 och
+pilotgrind #1366 (`e7bdbb2d`) är mergade. CI efter #1366 var grön, inklusive
+migrationer och schemaparitet. Grinden returnerar `activation_not_ready`.
+Branded-flaggor är av.
+
+Kvar innan kundaktivering: verkligt HTTPS-cookieprov mot parent-domain
+shadowing, och verifierad återställning av legitima äldre gästsessioner.
+Dokumentera eventuell ny inloggning för befintliga användare. Ursprunglig
+analys och acceptanskrav följer nedan.
 
 Område: [01](../01-varumarkta-adresser.md). Föreslaget svar: fråga 1 i
 [masterplanen](../00-master-plan.md). Kör före A3 och A4.

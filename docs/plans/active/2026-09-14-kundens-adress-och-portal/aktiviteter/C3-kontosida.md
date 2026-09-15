@@ -1,8 +1,9 @@
 # C3 — Kontosida `/konto`
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-Etapp 1 är levererad i #1359. Abonnemang och Billing Portal återstår efter D2.
+Etapp 1 är kod på `preview` (#1359). Etapp 2 (per-sajt-abonnemang, respit,
+Billing Portal) ligger i öppen draft #1385 och är inte på preview.
 
 Område: [03](../03-kundportal.md). Efter C1 för gemensam auth-routefil.
 

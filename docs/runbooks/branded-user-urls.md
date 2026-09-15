@@ -9,21 +9,35 @@
   stängd tills A4 kan binda slutartefakten till en exakt READY-deployment.
 - Provider-URL (`*.vercel.app`) sparas separat och får aldrig användas som SEO-canonical när en verifierad projektadress finns.
 
-## Verifierat DNS-läge (2026-08-24)
+## Verifierat DNS-läge (2026-09-15)
 
 Zonen driftas av **one.com** (`ns01.one.com`, `ns02.one.com`) — nya poster läggs
 där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
-`*.sajtmaskin.se`, så varje värdnamn måste skapas explicit.
+`*.sajtmaskin.se` eller `*.sites.sajtmaskin.se`, så varje värdnamn måste skapas
+explicit.
 
-| Värdnamn                | Läge                       | Följd                                     |
-| ----------------------- | -------------------------- | ----------------------------------------- |
-| `sajtmaskin.se`         | A → `76.76.21.21` (Vercel) | Appens rot. Rör inte.                     |
-| `www.sajtmaskin.se`     | CNAME → Vercel             | Appen. Rör inte.                          |
-| `preview.sajtmaskin.se` | CNAME → **Vercel**         | Appens staging. Ska ligga kvar på Vercel. |
-| `sites.sajtmaskin.se`   | NXDOMAIN                   | Inte påbörjad.                            |
+Read-only mätning 2026-09-15 03:49 CEST. Resolver `80.58.61.254`
+(`254.red-80-58-61.staticip.rima-tde.net`). Auktoritativ `ns01` =
+`195.206.121.10`. Verktyg: `Resolve-DnsName`, `nslookup`. Inga hårdkodade
+universella Vercel-värden som facit. **A1 är inte driftklart** — två testhosts
+under `sites.sajtmaskin.se` når inte två olika projekt över HTTPS.
 
-DNS-raden är en historisk mätning. A1 ska verifiera aktuellt DNS/TLS-läge innan
-aktivering; staging-aliaset är inte en ledig preview-host-adress.
+| Värdnamn | Läge 2026-09-15 03:49 CEST | Följd |
+| --- | --- | --- |
+| `sajtmaskin.se` | A TTL 3600 → `76.76.21.21`. HTTPS HEAD `200`, `Server: Vercel` | Appens rot. Rör inte. |
+| `www.sajtmaskin.se` | CNAME TTL 3600 → `98a450bd71e44b00.vercel-dns-016.com` | Appen. Rör inte. |
+| `preview.sajtmaskin.se` | CNAME TTL 3600 → samma mål. HTTPS HEAD `302` → följd `200` | Appens staging. Ska ligga kvar på Vercel. |
+| `sites.sajtmaskin.se` | NXDOMAIN (rekursiv + `ns01`) | Inte påbörjad. |
+| `pilot-a1-test.sites.sajtmaskin.se` | NXDOMAIN. Wildcard saknas | Inte A1-bevis. |
+
+Rekursiv A på CNAME-målet: `216.150.16.193` / `216.150.1.193`
+(`Resolve-DnsName`); `nslookup` visade `216.150.16.1` / `216.150.1.1`.
+Mätningen 2026-08-24 (samma NS, `sites.*` NXDOMAIN, utan testhost-rad) är
+historik. Mät om före skarp DNS-skrivning. Staging-aliaset är inte en ledig
+preview-host-adress.
+
+PSL: avvakta. Ingen ansökan. Litet/beta, ingen `sites.*`-volym; portalens
+cookie-skydd ägs av A2.
 
 ## PSL är ett senare isoleringslager
 
