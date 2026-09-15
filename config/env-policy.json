@@ -605,7 +605,7 @@
       "key": "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Default off request signal for A3's shared canonical build/redirect contract. A3 always returns a null redirect candidate and keeps runtime activation hard-closed with activation_not_ready even when set; customer env remains unchanged. A4 must add server-trusted HTTPS proof and an exact production provider alias attested for the same Vercel project before this may mutate generated env or routing. Source: src/lib/deploy/canonical-site-address.ts."
+      "notes": "Default off request signal for A3's shared canonical build/redirect contract. Even when unset, deploy injects NEXT_PUBLIC_SITE_URL from verified project identity. When set, a temporary 307 from the attested same-project production provider alias is emitted only after an in-process HTTPS proof passes; otherwise fail closed and keep the last working publish. Does not open A4 alias/migration activation. Source: src/lib/deploy/canonical-site-address.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import {
   createDeploymentRecord,
+  getLatestReadyDeploymentIdentityForChat,
   resolveCanonicalVercelProjectForDomain,
   updateDeploymentStatus,
 } from "@/lib/deployment";
@@ -47,11 +48,20 @@ import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
-import { resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  isGitPreviewVercelHost,
+  normalizeDomainHostname,
+  persistableDeploymentUrl,
+  resolveLiveUrl,
+  selectCurrentProductionIdentityUrl,
+} from "@/lib/live-site-url";
+import { proveCanonicalHttps } from "@/lib/deploy/canonical-https-proof";
 import {
   applyCanonicalHostRedirect,
+  applyCanonicalMetadataToFiles,
   isCanonicalAddressContractEnabled,
   prepareCanonicalAddressContract,
+  shouldProbeCanonicalHttps,
 } from "@/lib/deploy/canonical-site-address";
 import {
   collectBrandedPilotCapabilitySignals,
@@ -559,6 +569,7 @@ export async function POST(req: Request) {
             );
         const currentCustomDomain = ownedProject.custom_domain?.trim() || null;
         let currentCustomDomainVerifiedAt = ownedProject.custom_domain_verified_at ?? null;
+        let customDomainProviderStatus: "verified" | "invalid" | "unknown" = "verified";
         if (currentCustomDomain && currentCustomDomainVerifiedAt && existingVercelProjectId) {
           const customDomainValid = await checkVercelProjectDomain(
             existingVercelProjectId,
@@ -567,6 +578,9 @@ export async function POST(req: Request) {
           if (customDomainValid === false) {
             await clearProjectCustomDomainVerification(engineProjectId, currentCustomDomain);
             currentCustomDomainVerifiedAt = null;
+            customDomainProviderStatus = "invalid";
+          } else if (customDomainValid === null) {
+            customDomainProviderStatus = "unknown";
           }
         }
         // A2 is review/preparation only. A4 must bind the final transformed
@@ -592,20 +606,84 @@ export async function POST(req: Request) {
           customDomain: publishedIdentity.customDomain,
           customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
         });
+        const featureRequested = isCanonicalAddressContractEnabled();
+        const attestedProviderHost =
+          ensuredProject.productionAliasStatus === "attested"
+            ? ensuredProject.productionProviderAlias
+            : null;
+        const verifiedCustomerHosts = [
+          currentCustomDomain && currentCustomDomainVerifiedAt ? currentCustomDomain : null,
+          ownedProject.branded_domain?.trim() && ownedProject.branded_domain_verified_at
+            ? ownedProject.branded_domain.trim()
+            : null,
+        ];
+        const lastWorkingIdentityOptions = {
+          vercelProjectId: ensuredProject.id,
+          attestedProductionHost: attestedProviderHost,
+          verifiedCustomerHosts,
+          allowLastWorkingProvider: ensuredProject.productionAliasStatus === "unknown",
+        };
+        const lastWorkingSameProject = await getLatestReadyDeploymentIdentityForChat(
+          chatId,
+          lastWorkingIdentityOptions,
+        ).catch(() => null);
+        let httpsProof = null;
+        if (customDomainProviderStatus === "invalid") {
+          httpsProof = {
+            status: "not_ready" as const,
+            verdict: "invalid" as const,
+            reason: "provider_invalid" as const,
+          };
+        } else if (
+          customDomainProviderStatus === "unknown" &&
+          shouldProbeCanonicalHttps({
+            featureRequested,
+            target: deployTarget,
+            verifiedLiveUrl,
+            attestedProviderHost,
+          })
+        ) {
+          httpsProof = {
+            status: "not_ready" as const,
+            verdict: "unknown" as const,
+            reason: "provider_unknown" as const,
+          };
+        } else if (
+          shouldProbeCanonicalHttps({
+            featureRequested,
+            target: deployTarget,
+            verifiedLiveUrl,
+            attestedProviderHost,
+          })
+        ) {
+          httpsProof = await proveCanonicalHttps({
+            candidate: verifiedLiveUrl ?? "",
+            projectId: engineProjectId,
+            vercelProjectId: ensuredProject.id,
+            providerStatus: "verified",
+          });
+        }
         const canonicalAddress = prepareCanonicalAddressContract({
-          featureRequested: isCanonicalAddressContractEnabled(),
+          featureRequested,
           projectId: engineProjectId,
           vercelProjectId: ensuredProject.id,
           target: deployTarget,
           verifiedLiveUrl,
-          // A3 cannot safely infer a production provider alias from a project
-          // name or deployment URL. A4 must supply an exact same-project alias
-          // together with HTTPS proof before runtime activation can open.
-          verifiedProviderDomain: null,
+          verifiedProviderDomain: attestedProviderHost,
+          verifiedCustomerHosts,
+          providerAliasStatus: ensuredProject.productionAliasStatus,
+          lastWorkingCanonicalUrl: lastWorkingSameProject
+            ? selectCurrentProductionIdentityUrl(lastWorkingSameProject, lastWorkingIdentityOptions)
+            : null,
+          lastWorkingProviderHost: normalizeDomainHostname(
+            lastWorkingSameProject?.providerUrl ?? null,
+          ),
+          httpsProof,
           configuredEnv: projectEnv.configuredMap,
         });
         const domainWarnings: string[] = [...canonicalAddress.warnings];
-        const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo, verifiedLiveUrl);
+        const policyUrl = canonicalAddress.contract.canonicalUrl;
+        const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo, policyUrl);
         const envVarsForDeploy = canonicalAddress.envVars;
         if (fixesApplied.length > 0) {
           console.info("[deploy] applied fixes:", fixesApplied);
@@ -688,13 +766,31 @@ export async function POST(req: Request) {
             scoreAfter: seoPass.report.after.score,
           });
         }
-        const canonicalHostRedirect = applyCanonicalHostRedirect(
+        const metadataFiles = applyCanonicalMetadataToFiles(
           seoPass ? seoPass.files : fixedFiles,
+          policyUrl,
+        );
+        const policyHost = canonicalAddress.contract.canonicalHost;
+        const providerHostForNoindex = attestedProviderHost;
+        const canonicalHostRedirect = applyCanonicalHostRedirect(
+          metadataFiles.files,
           canonicalAddress.hostRedirectCandidate,
           {
             projectId: engineProjectId,
             vercelProjectId: ensuredProject.id,
             target: deployTarget,
+          },
+          {
+            primaryHost: policyHost,
+            noindexHost:
+              deployTarget === "production" &&
+              providerHostForNoindex &&
+              policyHost &&
+              providerHostForNoindex !== policyHost &&
+              !isGitPreviewVercelHost(policyHost)
+                ? providerHostForNoindex
+                : null,
+            previewNoindex: deployTarget === "preview",
           },
         );
         domainWarnings.push(...canonicalHostRedirect.warnings);
@@ -704,6 +800,8 @@ export async function POST(req: Request) {
           enabled: canonicalAddress.contract.enabled,
           reason: canonicalAddress.contract.activationReason,
           redirectApplied: canonicalHostRedirect.applied,
+          noindexApplied: canonicalHostRedirect.noindexApplied,
+          pendingAddress: canonicalAddress.contract.pendingAddress,
         };
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
@@ -743,14 +841,9 @@ export async function POST(req: Request) {
           console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
         }
 
-        const liveUrl = resolveLiveUrl({
-          projectId: engineProjectId,
-          versionId,
-          providerUrl: created.url,
-          brandedDomain: publishedIdentity.brandedDomain,
-          brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
-          customDomain: publishedIdentity.customDomain,
-          customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
+        const liveUrl = persistableDeploymentUrl({
+          policyUrl,
+          candidateUrl: created.url,
         });
 
         // `syncEnvVarsToVercelProject` upserts env vars on the Vercel PROJECT
@@ -779,7 +872,7 @@ export async function POST(req: Request) {
           vercelDeploymentId: created.vercelDeploymentId,
           vercelProjectId: effectiveProjectId ?? undefined,
           providerUrl: created.url ?? undefined,
-          url: liveUrl ?? undefined,
+          url: liveUrl,
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
         // BB#deploy2: den som VINNER den atomiska övergången till `error` äger
