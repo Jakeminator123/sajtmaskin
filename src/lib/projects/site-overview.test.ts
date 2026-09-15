@@ -6,6 +6,7 @@ import {
   inFlightDeploymentId,
   resolveOverviewAddress,
   resolveSiteAddress,
+  selectLivePublishIdentity,
   toPublishState,
 } from "./site-overview";
 
@@ -161,6 +162,103 @@ describe("resolveOverviewAddress", () => {
     expect(
       resolveOverviewAddress({}, { providerUrl: null, url: "https://kundforetag.se" }),
     ).toEqual({ liveUrl: null, kind: "none" });
+  });
+});
+
+describe("selectLivePublishIdentity", () => {
+  const productionA = {
+    id: "dep_a",
+    chatId: "chat_1",
+    versionId: "ver_a",
+    status: "ready",
+    url: "https://demo.vercel.app",
+    providerUrl: "https://demo.vercel.app",
+    vercelProjectId: "vp_1",
+    vercelDeploymentId: "dpl_a",
+    updatedAt: new Date("2026-09-10T08:00:00Z"),
+  };
+  const previewB = {
+    id: "dep_b",
+    chatId: "chat_1",
+    versionId: "ver_b",
+    status: "ready",
+    url: "https://demo-8fyovx8jc-team.vercel.app",
+    providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+    vercelProjectId: "vp_1",
+    vercelDeploymentId: "dpl_b",
+    updatedAt: new Date("2026-09-11T08:00:00Z"),
+  };
+  const failedC = {
+    id: "dep_c",
+    chatId: "chat_1",
+    versionId: "ver_c",
+    status: "error",
+    url: null,
+    providerUrl: null,
+    vercelProjectId: "vp_1",
+    vercelDeploymentId: "dpl_c",
+    updatedAt: new Date("2026-09-12T08:00:00Z"),
+  };
+
+  it("keeps production A after a later preview READY and a failed deploy", () => {
+    const live = selectLivePublishIdentity([failedC, previewB, productionA], {
+      vercelProjectId: "vp_1",
+      productionDeploymentId: "dpl_a",
+    });
+
+    expect(live?.versionId).toBe("ver_a");
+    expect(live?.id).toBe("dep_a");
+  });
+
+  it("does not guess the newest READY when production identity is unknown", () => {
+    expect(
+      selectLivePublishIdentity([failedC, previewB, productionA], {
+        vercelProjectId: "vp_1",
+        productionDeploymentId: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not treat a READY hostname or approved domain as production", () => {
+    expect(
+      selectLivePublishIdentity(
+        [
+          {
+            ...previewB,
+            url: "https://www.kund.se",
+            providerUrl: "https://demo.vercel.app",
+          },
+          productionA,
+        ],
+        { vercelProjectId: "vp_1", productionDeploymentId: "dpl_missing" },
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps a rolled-back older production deploy over a newer READY", () => {
+    const live = selectLivePublishIdentity([previewB, productionA], {
+      vercelProjectId: "vp_1",
+      productionDeploymentId: "dpl_a",
+    });
+    expect(live?.versionId).toBe("ver_a");
+  });
+
+  it("rejects a matching deployment id on another Vercel project", () => {
+    expect(
+      selectLivePublishIdentity([{ ...productionA, vercelProjectId: "vp_other" }], {
+        vercelProjectId: "vp_1",
+        productionDeploymentId: "dpl_a",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not invent identity from a legacy READY row without a deployment id", () => {
+    expect(
+      selectLivePublishIdentity(
+        [{ ...productionA, vercelDeploymentId: null }],
+        { vercelProjectId: "vp_1", productionDeploymentId: "dpl_a" },
+      ),
+    ).toBeNull();
   });
 });
 

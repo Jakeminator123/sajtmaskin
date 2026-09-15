@@ -29,6 +29,7 @@ import {
   PreviewHostBootPageError,
   PreviewProbeUnreadableError,
   classifyPreviewPageProbe,
+  collectPreviewHostBootPageProbe,
   isPreviewHostBootPageError,
   isPreviewProbeUnreadableError,
 } from "@/lib/capture/preview-boot-page";
@@ -487,11 +488,7 @@ export async function captureThumbnailScreenshot(
     // it must not be phrased as the host still showing its placeholder.
     stage = "boot-page-check";
     const bootProbe = await withHostDeadline(
-      page.evaluate(() => ({
-        title: document.title || "",
-        h1: document.querySelector("h1")?.textContent?.trim() || null,
-        bodyText: (document.body?.innerText || "").slice(0, 800),
-      })),
+      page.evaluate(collectPreviewHostBootPageProbe),
       THUMBNAIL_BOOT_PROBE_TIMEOUT_MS,
     );
     const probeKind = classifyPreviewPageProbe(bootProbe);

@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
-import { normalizeDomainHostname } from "@/lib/live-site-url";
+import {
+  normalizeDomainHostname,
+  pickCustomerFacingProductionAlias,
+} from "@/lib/live-site-url";
 
 export type VercelDeploymentTarget = "production" | "preview";
 
@@ -38,9 +41,13 @@ export type VercelProjectDomain = {
   verified: boolean;
 };
 
+export type ProductionAliasStatus = "attested" | "unknown" | "missing";
+
 export type EnsuredVercelProject = {
   id: string;
   name: string;
+  productionProviderAlias: string | null;
+  productionAliasStatus: ProductionAliasStatus;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -53,6 +60,98 @@ function readStringField(obj: JsonObject | null, key: string): string | null {
   if (!obj) return null;
   const value = obj[key];
   return typeof value === "string" ? value : null;
+}
+
+/**
+ * Read the same-project production provider alias from a Vercel project
+ * payload. Never invent an alias from the project name. Missing `targets`
+ * is unknown; an empty production alias list is missing. When several
+ * aliases are present, pick the shortest customer-facing host.
+ */
+export function readAttestedProductionProviderAlias(payload: unknown): {
+  alias: string | null;
+  status: ProductionAliasStatus;
+} {
+  const root = asJsonObject(payload);
+  if (!root || !("targets" in root)) {
+    return { alias: null, status: "unknown" };
+  }
+  const targets = asJsonObject(root.targets);
+  if (!targets || !("production" in targets)) {
+    return { alias: null, status: "missing" };
+  }
+  const production = asJsonObject(targets.production);
+  if (!production) {
+    return { alias: null, status: "missing" };
+  }
+  const aliases = Array.isArray(production.alias) ? production.alias : [];
+  const preferred = pickCustomerFacingProductionAlias(
+    aliases.filter((entry): entry is string => typeof entry === "string"),
+  );
+  return preferred
+    ? { alias: preferred, status: "attested" }
+    : { alias: null, status: "missing" };
+}
+
+/** Current production deployment id from a Vercel project payload. */
+export function readAttestedProductionDeploymentId(payload: unknown): string | null {
+  const root = asJsonObject(payload);
+  if (!root || !("targets" in root)) return null;
+  const targets = asJsonObject(root.targets);
+  if (!targets || !("production" in targets)) return null;
+  const production = asJsonObject(targets.production);
+  return readStringField(production, "id");
+}
+
+/**
+ * Read-only: which Vercel deployment currently owns production.
+ * Never creates a project. Fail-closed to `null` on token/network/mismatch.
+ */
+export async function getVercelProjectProductionIdentity(
+  vercelProjectId: string,
+): Promise<{ vercelProjectId: string; productionDeploymentId: string | null } | null> {
+  const expectedId = vercelProjectId.trim();
+  if (!expectedId) return null;
+
+  let token: string;
+  try {
+    token = getVercelToken();
+  } catch {
+    return null;
+  }
+
+  try {
+    const teamId = getVercelTeamId();
+    const endpoint = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(expectedId)}`);
+    if (teamId) endpoint.searchParams.set("teamId", teamId);
+    const response = await fetch(endpoint.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) return null;
+    const projectId = readStringField(asJsonObject(payload), "id");
+    if (!projectId || projectId !== expectedId) return null;
+    return {
+      vercelProjectId: projectId,
+      productionDeploymentId: readAttestedProductionDeploymentId(payload),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function withProductionAlias(
+  id: string,
+  name: string,
+  payload: unknown,
+): EnsuredVercelProject {
+  const alias = readAttestedProductionProviderAlias(payload);
+  return {
+    id,
+    name,
+    productionProviderAlias: alias.alias,
+    productionAliasStatus: alias.status,
+  };
 }
 
 function extractVercelErrorMessage(payload: unknown): string | null {
@@ -409,7 +508,7 @@ export async function ensureVercelProject(
     if (expectedProjectId?.trim() && id !== expectedProjectId.trim()) {
       throw new Error("Persisted Vercel project ownership mismatch");
     }
-    return { id, name: readStringField(root, "name") ?? name };
+    return withProductionAlias(id, readStringField(root, "name") ?? name, existingPayload);
   }
   if (existing.status !== 404) {
     throw new Error(
@@ -439,10 +538,11 @@ export async function ensureVercelProject(
       const racedRoot = asJsonObject(racedPayload);
       const racedId = readStringField(racedRoot, "id");
       if (racedId) {
-        return {
-          id: racedId,
-          name: readStringField(racedRoot, "name") ?? name,
-        };
+        return withProductionAlias(
+          racedId,
+          readStringField(racedRoot, "name") ?? name,
+          racedPayload,
+        );
       }
     }
   }
@@ -455,7 +555,23 @@ export async function ensureVercelProject(
   const root = asJsonObject(createdPayload);
   const id = readStringField(root, "id");
   if (!id) throw new Error("Vercel project creation response missing id");
-  return { id, name: readStringField(root, "name") ?? name };
+  const createdName = readStringField(root, "name") ?? name;
+  const createdAlias = withProductionAlias(id, createdName, createdPayload);
+  if (createdAlias.productionAliasStatus !== "unknown") return createdAlias;
+
+  const rereadEndpoint = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(id)}`);
+  if (teamId) rereadEndpoint.searchParams.set("teamId", teamId);
+  const reread = await fetch(rereadEndpoint.toString(), { headers });
+  const rereadPayload = await reread.json().catch(() => null);
+  if (reread.ok) {
+    const rereadRoot = asJsonObject(rereadPayload);
+    return withProductionAlias(
+      readStringField(rereadRoot, "id") ?? id,
+      readStringField(rereadRoot, "name") ?? createdName,
+      rereadPayload,
+    );
+  }
+  return createdAlias;
 }
 
 /**

@@ -90,6 +90,10 @@ export default defineConfig({
       "tests/**/*.{test,spec}.{ts,tsx}",
       "scripts/**/*.{test,spec}.ts",
     ],
-    exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS, ...POSTGRES_TEST_GLOBS],
+    exclude: [
+      ...SHARED_TEST_EXCLUDE,
+      ...STABILITY_TEST_GLOBS,
+      ...POSTGRES_TEST_GLOBS,
+    ],
   },
 });

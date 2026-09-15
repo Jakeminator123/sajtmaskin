@@ -11,16 +11,58 @@ import { createTransaction, getTransactionByStripeSession } from "@/lib/db/servi
 import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
 import { fulfilDomainOrder, refundDomainOrder } from "@/lib/domains/fulfilment";
-import {
-  markDomainOrderExpired,
-  markDomainOrderPaid,
-} from "@/lib/db/services/domain-orders";
+import { markDomainOrderExpired, markDomainOrderPaid } from "@/lib/db/services/domain-orders";
 import Stripe from "stripe";
 
 // Initialize Stripe
 const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
 const webhookSecret = SECRETS.stripeWebhookSecret;
+
+type CheckoutCompletedDispatch = "legacy_credits" | "domain_purchase" | "ignored_setup" | "blocked";
+
+/**
+ * Keep every new Checkout contract out of the two legacy payment mutation
+ * lanes until that contract has its own durable consumer. In particular, an
+ * empty or malformed `kind` is not the same thing as no `kind`: only the
+ * historical producer's genuinely absent value may reach credits.
+ */
+function getCheckoutCompletedDispatch(session: Stripe.Checkout.Session): CheckoutCompletedDispatch {
+  const metadata: unknown = session.metadata;
+  if (
+    metadata !== null &&
+    metadata !== undefined &&
+    (typeof metadata !== "object" || Array.isArray(metadata))
+  ) {
+    return "blocked";
+  }
+
+  const kind =
+    metadata === null || metadata === undefined
+      ? undefined
+      : (metadata as Record<string, unknown>).kind;
+
+  if (kind !== undefined && typeof kind !== "string") {
+    return "blocked";
+  }
+
+  const mode: unknown = session.mode;
+  if (mode === "subscription" || kind === "site_subscription") {
+    return "blocked";
+  }
+
+  if (mode === "payment") {
+    if (kind === undefined) return "legacy_credits";
+    if (kind === "domain_purchase") return "domain_purchase";
+    return "blocked";
+  }
+
+  if (mode === "setup") {
+    return kind === "domain_purchase" ? "blocked" : "ignored_setup";
+  }
+
+  return "blocked";
+}
 
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
@@ -52,11 +94,31 @@ export async function POST(req: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
 
+      // Fence dispatch before either payment mutation lane. A non-2xx answer
+      // preserves Stripe retries for financially unresolved Checkout events;
+      // that retry window is limited and does not replace the future durable
+      // consumer or its activation gate. Setup-only sessions can be
+      // acknowledged because no payment occurred.
+      const dispatch = getCheckoutCompletedDispatch(session);
+      if (dispatch === "blocked") {
+        console.error(
+          "[Stripe/webhook] checkout_contract_not_activated",
+          session.id,
+          "(event:",
+          event.id + ")",
+        );
+        return NextResponse.json({ error: "checkout_contract_not_activated" }, { status: 503 });
+      }
+      if (dispatch === "ignored_setup") {
+        console.info("[Stripe/webhook] unsupported_mode", session.id, "(event:", event.id + ")");
+        return NextResponse.json({ received: true, ignored: "unsupported_mode" });
+      }
+
       // Domain purchases share this endpoint but not the credits ledger: they
       // settle against `domain_orders`, so they must branch off BEFORE the
       // transaction lookup below (which would otherwise find nothing, treat the
       // session as new, and try to credit diamonds for a domain).
-      if (session.metadata?.kind === "domain_purchase") {
+      if (dispatch === "domain_purchase") {
         return handleDomainPurchaseCompleted(session);
       }
 
@@ -110,12 +172,7 @@ export async function POST(req: NextRequest) {
           session.id,
         );
 
-        console.info(
-          "[Stripe/webhook] Added",
-          diamonds,
-          "diamonds for session",
-          session.id,
-        );
+        console.info("[Stripe/webhook] Added", diamonds, "diamonds for session", session.id);
       } catch (error) {
         // Race-condition idempotency guard: when two concurrent webhook
         // deliveries race past the SELECT-by-session-id check above, the
@@ -128,10 +185,7 @@ export async function POST(req: NextRequest) {
           (typeof (error as { code?: string }).code === "string" &&
             (error as { code?: string }).code === "23505")
         ) {
-          console.info(
-            "[Stripe/webhook] Duplicate session insert ignored:",
-            session.id,
-          );
+          console.info("[Stripe/webhook] Duplicate session insert ignored:", session.id);
           return NextResponse.json({ received: true });
         }
         console.error("[Stripe/webhook] Failed to add diamonds:", error);
@@ -190,8 +244,7 @@ export async function POST(req: NextRequest) {
 async function handleDomainPurchaseCompleted(
   session: Stripe.Checkout.Session,
 ): Promise<NextResponse> {
-  const paymentIntent =
-    typeof session.payment_intent === "string" ? session.payment_intent : null;
+  const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : null;
   // Keyed on the order id from metadata, not the session id: the session id is
   // written to the order AFTER Stripe creates the session, so a failure in
   // that window would otherwise leave a payable session no lookup can match.

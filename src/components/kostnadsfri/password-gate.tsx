@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useCallback, useId, type FormEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, Loader2, AlertCircle, Check } from "lucide-react";
 import type { KostnadsfriCompanyData } from "@/lib/kostnadsfri";
+import { KOSTNADSFRI_INFORMATION_PATH } from "@/lib/kostnadsfri/analytics-paths";
 import { KOSTNADSFRI_INTRO_DURATION_LABEL } from "@/lib/kostnadsfri/media";
 import { IntroVideo } from "./intro-video";
 
@@ -175,6 +177,18 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
                 )}
               </button>
             </form>
+
+            <p className="mt-5 text-sm text-pretty text-muted-foreground">
+              Vill du veta mer får du gärna läsa mer om erbjudandet{" "}
+              <Link
+                href={KOSTNADSFRI_INFORMATION_PATH}
+                className="text-primary underline-offset-2 hover:underline"
+                aria-label="Läs mer om erbjudandet"
+              >
+                här
+              </Link>
+              .
+            </p>
           </div>
         </section>
 

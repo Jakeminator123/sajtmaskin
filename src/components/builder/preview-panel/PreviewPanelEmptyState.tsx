@@ -14,6 +14,7 @@ import {
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import {
+  isPreviewBuildErrorBlocking,
   previewBuildErrorTitle,
   type PreviewBuildErrorState,
   type PreviewLifecycleState,
@@ -22,6 +23,7 @@ import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
@@ -233,9 +235,14 @@ export function PreviewPanelEmptyState({
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
+  // Moving Background 2 rör sig när ytan väntar, och fryser till stillbild vid
+  // ett verkligt fel — då ska diagnostiken, inte scenen, ta uppmärksamheten.
+  // Ett `info`-fel är en notis och stoppar inte scenen.
+  const backdropMotion = !isPreviewBuildErrorBlocking(previewBuildError);
+
   if (showWelcome) {
     return (
-      <div className="flex h-full flex-col items-center justify-center overflow-y-auto bg-black/20 px-6 py-8">
+      <PreviewBackdropStage motion statusKey="welcome" variant="welcome">
         <div className="w-full max-w-md text-center">
           <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
             <Sparkles className="h-6 w-6" aria-hidden="true" />
@@ -261,12 +268,12 @@ export function PreviewPanelEmptyState({
             Skriv i chatten till vänster för att starta
           </p>
         </div>
-      </div>
+      </PreviewBackdropStage>
     );
   }
 
   return (
-    <div className="text-muted-foreground flex h-full flex-col items-center justify-center bg-black/20 px-6 text-center">
+    <PreviewBackdropStage motion={backdropMotion} statusKey={title}>
       <EmptyIcon
         className={cn(
           "mb-4 h-12 w-12",
@@ -320,6 +327,6 @@ export function PreviewPanelEmptyState({
           Försök reparera preview
         </Button>
       ) : null}
-    </div>
+    </PreviewBackdropStage>
   );
 }

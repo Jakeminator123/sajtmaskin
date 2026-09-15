@@ -5,48 +5,30 @@
  * POST /api/domains/link
  * Body: { domain: string, chatId: string }
  *
- * Links a domain to the customer's OWN generated project (resolved from the
- * chat, cross-tenant-safe) and optionally sets up DNS records via Loopia for
- * Swedish domains (.se/.nu).
- *
- * Flow:
- *  1. Resolve the customer's project from the chat
- *  2. Add domain to that project
- *  3. If .se/.nu + Loopia configured AND the caller has a fulfilled
- *     `domain_orders` row (`status = registered`, keyed to their user id):
- *     create records pointing to the platform. Otherwise skip Loopia and
- *     return manual DNS instructions — the shared Loopia account must not
- *     be rewritten for a name the caller did not buy.
- *  4. Return verification status and DNS instructions
+ * Links a domain the customer already owns to their generated project.
+ * DNS values come from the current Vercel config for that project — never
+ * hardcoded anycast defaults. Availability / purchase is not required here.
  */
 
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
+import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { addZoneRecord, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { db, dbConfigured } from "@/lib/db/client";
 import { domainOrders } from "@/lib/db/schema";
 import { withRateLimit } from "@/lib/rate-limit";
 import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
+import { normalizeObservedDomain } from "@/lib/domains/domain-observation";
+import {
+  dnsInstructionRecords,
+  linkCustomerDomain,
+  type ResolvedHosting,
+} from "@/lib/domains/customer-domain-flow";
 
 export const maxDuration = 15;
 
-const VERCEL_CNAME_TARGET = "cname.vercel-dns.com";
-const VERCEL_APEX_A_RECORD = "76.76.21.21";
-
-/**
- * Proven ownership of a platform-purchased name.
- *
- * Same tenant key as `getDomainOrderById(..., userId)`: every read of
- * `domain_orders` filters on `user_id`. `registered` is the fulfilled
- * state (`markDomainOrderRegistered`); pending/paid/registering only hold
- * the name, they do not prove the registrar has delivered the zone.
- */
-async function callerOwnsRegisteredDomain(
-  userId: string,
-  domain: string,
-): Promise<boolean> {
+async function callerOwnsRegisteredDomain(userId: string, domain: string): Promise<boolean> {
   if (!dbConfigured) return false;
   try {
     const rows = await db
@@ -71,24 +53,24 @@ export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:link", async () => {
     const user = await getCurrentUser(req);
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
     try {
       const body = await req.json();
-      const domain = (body.domain ?? "").trim().toLowerCase();
+      const rawDomain = (body.domain ?? "").trim().toLowerCase();
       const chatId = (body.chatId ?? "").trim();
-      const teamId = process.env.VERCEL_TEAM_ID;
 
-      if (!domain) {
+      if (!rawDomain) {
         return NextResponse.json({ error: "domain is required" }, { status: 400 });
       }
-
       if (!chatId) {
         return NextResponse.json({ error: "chatId is required" }, { status: 400 });
+      }
+
+      const normalized = normalizeObservedDomain(rawDomain);
+      if (!normalized.ok) {
+        return NextResponse.json({ error: normalized.error }, { status: 400 });
       }
 
       if (!isVercelConfigured()) {
@@ -102,43 +84,60 @@ export async function POST(req: NextRequest) {
       if (!resolution.ok) {
         return NextResponse.json({ error: resolution.error }, { status: resolution.status });
       }
-      const projectId = resolution.vercelProjectId;
-
-      let vercelResult;
-      try {
-        vercelResult = await addDomainToProject(projectId, domain, teamId);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to add domain to Vercel";
-        console.error("[domains/link] Vercel addDomain error:", err);
-        return NextResponse.json({ error: message }, { status: 502 });
+      if (!resolution.appProjectId) {
+        return NextResponse.json(
+          { error: "Chatten saknar ett projekt." },
+          { status: 409 },
+        );
       }
 
-      const tld = domain.split(".").pop()?.toLowerCase();
-      const isSwedish = tld === "se" || tld === "nu";
-      let dnsSetup: { success: boolean; method: string; error?: string } | null = null;
+      const hosting: ResolvedHosting = {
+        vercelProjectId: resolution.vercelProjectId,
+        appProjectId: resolution.appProjectId,
+        chatId: resolution.chatId,
+      };
 
-      const ownsRegisteredDomain = await callerOwnsRegisteredDomain(user.id, domain);
-      if (isSwedish && isLoopiaConfigured() && ownsRegisteredDomain) {
+      const linked = await linkCustomerDomain({ hosting, domain: normalized.domain });
+      if (!linked.ok) {
+        return NextResponse.json(
+          { error: linked.error, snapshot: linked.snapshot ?? null },
+          { status: linked.status },
+        );
+      }
+
+      const records = dnsInstructionRecords(linked.snapshot).map((record) => ({
+        type: record.type,
+        host: record.host,
+        value: record.value,
+        ttl: 3600,
+      }));
+
+      let dnsSetup: { success: boolean; method: string; error?: string } | null = null;
+      const tld = normalized.domain.split(".").pop()?.toLowerCase();
+      const isSwedish = tld === "se" || tld === "nu";
+      const ownsRegisteredDomain = await callerOwnsRegisteredDomain(user.id, normalized.domain);
+      const configuration = records.filter((record) => record.type === "A" || record.type === "CNAME");
+
+      if (isSwedish && isLoopiaConfigured() && ownsRegisteredDomain && configuration.length > 0) {
         try {
-          const baseDomain = domain;
-          // The zone apex (`@`) must be an A record — a CNAME on the apex is
-          // invalid DNS and breaks the root domain. `www` gets the CNAME. This
-          // mirrors the manual dnsInstructions below (#32).
-          const apexResult = await addZoneRecord(baseDomain, "@", {
-            type: "A",
-            data: VERCEL_APEX_A_RECORD,
-            ttl: 3600,
-          });
-          const wwwResult = await addZoneRecord(baseDomain, "www", {
-            type: "CNAME",
-            data: VERCEL_CNAME_TARGET,
-            ttl: 3600,
-          });
-          const ok = apexResult === "OK" && wwwResult === "OK";
+          const results = await Promise.all(
+            configuration.map((record) => {
+              const zoneHost =
+                record.host === normalized.domain || record.host === "@"
+                  ? "@"
+                  : record.host.replace(`.${normalized.domain}`, "").replace(/\.$/, "") || "@";
+              return addZoneRecord(normalized.domain, zoneHost, {
+                type: record.type === "CNAME" ? "CNAME" : "A",
+                data: record.value,
+                ttl: record.ttl,
+              });
+            }),
+          );
+          const failed = results.find((result) => result !== "OK");
           dnsSetup = {
-            success: ok,
+            success: !failed,
             method: "loopia",
-            error: ok ? undefined : apexResult !== "OK" ? apexResult : wwwResult,
+            error: failed,
           };
         } catch (err) {
           console.error("[domains/link] Loopia DNS setup error:", err);
@@ -150,36 +149,24 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const dnsInstructions = isSwedish && !dnsSetup?.success
-        ? {
-            message: "Peka din domän till Vercel genom att lägga till dessa DNS-poster hos din registrar:",
-            records: [
-              {
-                type: "CNAME",
-                host: "www",
-                value: VERCEL_CNAME_TARGET,
-                ttl: 3600,
-              },
-              {
-                type: "A",
-                host: "@",
-                value: VERCEL_APEX_A_RECORD,
-                ttl: 3600,
-              },
-            ],
-          }
-        : null;
-
       const dnsSetupFailed = dnsSetup !== null && !dnsSetup.success;
+      const dnsInstructions =
+        records.length > 0
+          ? {
+              message:
+                "Peka din domän genom att lägga till dessa poster hos din registrar. Värdena kommer från den aktuella konfigurationen för just den här sajten.",
+              records,
+            }
+          : null;
 
       return NextResponse.json({
-        // `linked` = domain added to hosting project; `success` = no partial DNS failure.
         linked: true,
         success: !dnsSetupFailed,
-        domain: vercelResult.name,
-        verified: vercelResult.verified,
+        domain: normalized.domain,
+        verified: linked.snapshot.primary?.ownership === "verified",
         dnsSetup,
         dnsInstructions,
+        snapshot: linked.snapshot,
       });
     } catch (error) {
       console.error("[domains/link] Error:", error);

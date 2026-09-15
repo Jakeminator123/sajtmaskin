@@ -16,11 +16,12 @@
  * provider hostname has been told something untrue about their own site.
  */
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { resolveLegacyProviderUrl } from "@/app/api/v0/deployments/_route/legacy-provider-url";
 import { db } from "@/lib/db/client";
 import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import { getVercelProjectProductionIdentity } from "@/lib/vercel/vercel-deploy";
 
 /** Which kind of host is serving the site right now. */
 export type SiteAddressKind = "custom" | "branded" | "provider" | "none";
@@ -89,6 +90,44 @@ type OverviewReadyRow = {
   providerUrl?: string | null;
   url?: string | null;
 };
+
+export type OverviewDeploymentRow = OverviewReadyRow & {
+  id: string;
+  chatId?: string | null;
+  status?: string | null;
+  vercelProjectId?: string | null;
+  vercelDeploymentId?: string | null;
+  updatedAt?: Date | null;
+};
+
+/**
+ * The version/deployment that is actually published for this project.
+ * READY, hostname shape or a verified customer host is not enough — the
+ * row must be the same Vercel deployment that currently owns production.
+ */
+export function selectLivePublishIdentity(
+  rows: OverviewDeploymentRow[],
+  attested: {
+    vercelProjectId?: string | null;
+    productionDeploymentId?: string | null;
+  },
+): OverviewDeploymentRow | null {
+  const productionDeploymentId = attested.productionDeploymentId?.trim() || null;
+  if (!productionDeploymentId) return null;
+  const expectedProjectId = attested.vercelProjectId?.trim() || null;
+
+  return (
+    rows.find((row) => {
+      const rowDeploymentId = row.vercelDeploymentId?.trim() || null;
+      if (!rowDeploymentId || rowDeploymentId !== productionDeploymentId) return false;
+      const rowProjectId = row.vercelProjectId?.trim() || null;
+      if (expectedProjectId && rowProjectId && rowProjectId !== expectedProjectId) {
+        return false;
+      }
+      return true;
+    }) ?? null
+  );
+}
 
 /**
  * Classify the address `resolveLiveUrl` picked.
@@ -218,45 +257,42 @@ export async function getProjectSiteOverview(projectId: string): Promise<SiteOve
 
   if (chatIds.length === 0) return emptyOverview;
 
-  // Two separate reads on purpose. The newest deployment carries the CURRENT
-  // state (a running build, or a failure), while the newest READY one carries
-  // the address and version that are actually serving traffic. Collapsing them
-  // would either hide an in-flight build or drop the live address the moment a
-  // re-publish starts.
-  const [latest] = await db
+  // Newest row = current publish state (build/fail). Live version is the
+  // deployment Vercel currently has as production — not the newest READY.
+  const rows = await db
     .select({
       id: deployments.id,
       chatId: deployments.chatId,
-      status: deployments.status,
-      createdAt: deployments.createdAt,
-    })
-    .from(deployments)
-    .where(inArray(deployments.chatId, chatIds))
-    .orderBy(desc(deployments.createdAt))
-    .limit(1);
-
-  const [latestReady] = await db
-    .select({
-      chatId: deployments.chatId,
       versionId: deployments.versionId,
-      providerUrl: deployments.providerUrl,
+      status: deployments.status,
       url: deployments.url,
+      providerUrl: deployments.providerUrl,
+      vercelProjectId: deployments.vercelProjectId,
+      vercelDeploymentId: deployments.vercelDeploymentId,
       updatedAt: deployments.updatedAt,
     })
     .from(deployments)
-    .where(and(inArray(deployments.chatId, chatIds), eq(deployments.status, "ready")))
-    .orderBy(desc(deployments.createdAt))
-    .limit(1);
+    .where(inArray(deployments.chatId, chatIds))
+    .orderBy(desc(deployments.createdAt));
 
+  const latest = rows[0];
   if (!latest) return emptyOverview;
+
+  const attested = project.vercelProjectId
+    ? await getVercelProjectProductionIdentity(project.vercelProjectId)
+    : null;
+  const liveRow = selectLivePublishIdentity(rows, {
+    vercelProjectId: project.vercelProjectId,
+    productionDeploymentId: attested?.productionDeploymentId ?? null,
+  });
 
   return {
     ...emptyOverview,
-    chatId: latestReady?.chatId ?? latest.chatId ?? chatIds[0] ?? null,
-    address: resolveOverviewAddress({ ...project, projectId: project.id }, latestReady),
+    chatId: liveRow?.chatId ?? latest.chatId ?? chatIds[0] ?? null,
+    address: resolveOverviewAddress({ ...project, projectId: project.id }, liveRow),
     state: toPublishState(latest.status),
-    liveAt: latestReady?.updatedAt ?? null,
-    liveVersionId: latestReady?.versionId ?? null,
+    liveAt: liveRow?.updatedAt ?? null,
+    liveVersionId: liveRow?.versionId ?? null,
     latestDeploymentId: inFlightDeploymentId(latest),
   };
 }
