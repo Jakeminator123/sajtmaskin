@@ -25,6 +25,7 @@ import type {
   LiveReviewScreenshotSet,
   ProductDomSummary,
   ReviewFinding,
+  UserRequestPinSource,
 } from "./live-review-types";
 
 export interface LiveReviewSession {
@@ -139,6 +140,7 @@ export async function finishLiveReviewSession(
     versionNumber?: number | null;
     filesJson: string | null | undefined;
     userRequest: string;
+    userRequestSource?: UserRequestPinSource;
     briefSummary: string;
     isTargetCurrent?: () => Promise<boolean>;
   },
@@ -207,6 +209,7 @@ export async function finishLiveReviewSession(
     versionNumber: input.versionNumber,
     filesJson: input.filesJson,
     userRequest: input.userRequest,
+    userRequestSource: input.userRequestSource,
     briefSummary: input.briefSummary,
     filesRevision: session.filesRevision,
   });
