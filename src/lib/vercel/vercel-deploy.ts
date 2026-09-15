@@ -93,6 +93,53 @@ export function readAttestedProductionProviderAlias(payload: unknown): {
     : { alias: null, status: "missing" };
 }
 
+/** Current production deployment id from a Vercel project payload. */
+export function readAttestedProductionDeploymentId(payload: unknown): string | null {
+  const root = asJsonObject(payload);
+  if (!root || !("targets" in root)) return null;
+  const targets = asJsonObject(root.targets);
+  if (!targets || !("production" in targets)) return null;
+  const production = asJsonObject(targets.production);
+  return readStringField(production, "id");
+}
+
+/**
+ * Read-only: which Vercel deployment currently owns production.
+ * Never creates a project. Fail-closed to `null` on token/network/mismatch.
+ */
+export async function getVercelProjectProductionIdentity(
+  vercelProjectId: string,
+): Promise<{ vercelProjectId: string; productionDeploymentId: string | null } | null> {
+  const expectedId = vercelProjectId.trim();
+  if (!expectedId) return null;
+
+  let token: string;
+  try {
+    token = getVercelToken();
+  } catch {
+    return null;
+  }
+
+  try {
+    const teamId = getVercelTeamId();
+    const endpoint = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(expectedId)}`);
+    if (teamId) endpoint.searchParams.set("teamId", teamId);
+    const response = await fetch(endpoint.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) return null;
+    const projectId = readStringField(asJsonObject(payload), "id");
+    if (!projectId || projectId !== expectedId) return null;
+    return {
+      vercelProjectId: projectId,
+      productionDeploymentId: readAttestedProductionDeploymentId(payload),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function withProductionAlias(
   id: string,
   name: string,
