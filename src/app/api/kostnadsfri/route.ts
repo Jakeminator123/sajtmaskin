@@ -14,6 +14,7 @@ import {
   findPersonalIdentityViolations,
   hasInvalidOrgNumber,
   normalizeKostnadsfriCompanyProfile,
+  sanitizeProfileViolationFields,
 } from "@/lib/kostnadsfri/company-profile";
 import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
@@ -150,7 +151,9 @@ export async function POST(request: NextRequest) {
     // Personnummer och ledamöters hemadresser finns i källan men hör inte i en
     // sajt, och `extra_data` går både till browsern och in i wizarden. Fältnamn
     // i svaret, aldrig värdet — ett personnummer ska inte vidare till loggar.
-    const identityViolations = findPersonalIdentityViolations(profile);
+    const identityViolations = sanitizeProfileViolationFields(
+      findPersonalIdentityViolations(profile),
+    );
     if (identityViolations.length > 0) {
       return NextResponse.json(
         {
