@@ -27,7 +27,7 @@ export type DeploymentHistoryProject = {
   vercelProjectName: string | null;
 };
 
-/** The newest ready deployment, treated as the currently live site. */
+/** The deployment Vercel currently has as production — not the newest READY. */
 export type LiveDeployment = {
   deploymentId: string;
   url: string | null;
@@ -35,12 +35,17 @@ export type LiveDeployment = {
   vercelProjectId: string | null;
 };
 
+export type DeploymentHistoryProduction = {
+  deploymentId: string;
+  versionId: string | null;
+};
+
 /**
  * Hydrates the builder's publish state from the server on mount. Without this,
  * the header only knows a site is published within the same session that ran
  * the deploy — after a reload the "Publicerad"/"Publicera ändringar" states are
  * lost. Fetches the deployment list once per chat and derives the live
- * deployment (newest row with status "ready") plus the hosting project meta.
+ * deployment (server-attested production row) plus the hosting project meta.
  */
 /** Max automatic retries after a failed hydration fetch (transient 5xx/network). */
 const MAX_HYDRATION_RETRIES = 2;
@@ -48,6 +53,7 @@ const RETRY_DELAY_MS = 4000;
 
 export function useDeploymentHistory(chatId: string | null) {
   const [deployments, setDeployments] = useState<DeploymentHistoryRow[]>([]);
+  const [production, setProduction] = useState<DeploymentHistoryProduction | null>(null);
   const [project, setProject] = useState<DeploymentHistoryProject | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -70,10 +76,26 @@ export function useDeploymentHistory(chatId: string | null) {
         const data = (await res.json().catch(() => null)) as {
           deployments?: DeploymentHistoryRow[];
           project?: DeploymentHistoryProject | null;
+          production?: DeploymentHistoryProduction | null;
         } | null;
         if (signal?.aborted) return;
         setDeployments(Array.isArray(data?.deployments) ? data!.deployments : []);
         setProject(data?.project ?? null);
+        const productionId =
+          typeof data?.production?.deploymentId === "string"
+            ? data.production.deploymentId.trim()
+            : "";
+        setProduction(
+          productionId
+            ? {
+                deploymentId: productionId,
+                versionId:
+                  typeof data?.production?.versionId === "string"
+                    ? data.production.versionId
+                    : null,
+              }
+            : null,
+        );
         setLoadError(false);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
@@ -89,6 +111,7 @@ export function useDeploymentHistory(chatId: string | null) {
   useEffect(() => {
     if (!chatId) {
       setDeployments([]);
+      setProduction(null);
       setProject(null);
       setLoadError(false);
       return;
@@ -120,16 +143,16 @@ export function useDeploymentHistory(chatId: string | null) {
   }, [fetchHistory]);
 
   const liveDeployment = useMemo<LiveDeployment | null>(() => {
-    // The list is sorted newest-first, so the first ready row is the live one.
-    const ready = deployments.find((d) => String(d.status) === "ready" && Boolean(d.url));
-    if (!ready) return null;
+    if (!production?.deploymentId) return null;
+    const row = deployments.find((d) => d.id === production.deploymentId);
+    if (!row) return null;
     return {
-      deploymentId: ready.id,
-      url: ready.url,
-      versionId: ready.versionId,
-      vercelProjectId: ready.vercelProjectId,
+      deploymentId: row.id,
+      url: row.url,
+      versionId: row.versionId ?? production.versionId,
+      vercelProjectId: row.vercelProjectId,
     };
-  }, [deployments]);
+  }, [deployments, production]);
 
   // BB#deploy3/A#5: den senaste publiceringen om den slutade i `error`.
   // Bara den NYASTE raden räknas — finns en nyare ready/pending-rad är felet

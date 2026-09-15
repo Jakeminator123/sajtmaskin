@@ -16,6 +16,8 @@ const {
   checkVercelProjectDomain,
   ensureVercelProject,
   ensureVercelProjectDomain,
+  getVercelProjectProductionIdentity,
+  readAttestedProductionDeploymentId,
   readAttestedProductionProviderAlias,
 } = await import("./vercel-deploy");
 
@@ -303,6 +305,56 @@ describe("ensureVercelProject", () => {
     expect(result.productionAliasStatus).toBe("attested");
     expect(result.productionProviderAlias).toBe("bistro.vercel.app");
     expect(result.id).toBe("prj_existing");
+  });
+});
+
+describe("getVercelProjectProductionIdentity", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the attested production deployment id for the same project", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          id: "vp_1",
+          targets: { production: { id: "dpl_a", alias: ["demo.vercel.app"] } },
+        }),
+      ),
+    );
+
+    await expect(getVercelProjectProductionIdentity("vp_1")).resolves.toEqual({
+      vercelProjectId: "vp_1",
+      productionDeploymentId: "dpl_a",
+    });
+  });
+
+  it("returns null when the project id does not match", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ id: "vp_other", targets: { production: { id: "dpl_a" } } })),
+    );
+
+    await expect(getVercelProjectProductionIdentity("vp_1")).resolves.toBeNull();
+  });
+});
+
+describe("readAttestedProductionDeploymentId", () => {
+  it("reads the current production deployment id and stays fail-closed", () => {
+    expect(
+      readAttestedProductionDeploymentId({
+        id: "prj_1",
+        targets: { production: { id: "dpl_a", alias: ["demo.vercel.app"] } },
+      }),
+    ).toBe("dpl_a");
+    expect(readAttestedProductionDeploymentId({ id: "prj_1" })).toBeNull();
+    expect(
+      readAttestedProductionDeploymentId({
+        id: "prj_1",
+        targets: { production: { alias: ["demo.vercel.app"] } },
+      }),
+    ).toBeNull();
   });
 });
 
