@@ -91,6 +91,18 @@ function industryLabelFrom(value: string | null | undefined): string | undefined
   return wizardIndustryLabel(id);
 }
 
+/**
+ * När wizard-objektet finns äger det fältet — även tom sträng.
+ * Register/profil får bara fylla i när `wizardData` saknas helt.
+ */
+function ownedByWizard<T>(
+  wizardData: MiniWizardData | null,
+  wizardValue: T | undefined,
+  registerValue: T | undefined,
+): T | undefined {
+  return wizardData ? wizardValue : registerValue;
+}
+
 export function buildKostnadsfriAgentBrief(input: {
   stage: KostnadsfriAgentStage;
   /** Null innan lösenordet är verifierat. */
@@ -115,27 +127,38 @@ export function buildKostnadsfriAgentBrief(input: {
   const contact = firstName(companyData?.contactName);
   if (contact) brief.contactFirstName = contact;
 
-  // Ort: kundens rättade värde först, sedan postort, sist registrerat säte.
-  const city =
-    text(wizardData?.location, MAX.city) ??
-    text(profile?.city, MAX.city) ??
-    text(profile?.registeredOffice, MAX.city);
+  // Ort/webb/verksamhet/bransch: wizard äger överlappet även tomt.
+  // Register fyller bara i när wizardData saknas (postort → säte för ort).
+  const city = ownedByWizard(
+    wizardData,
+    text(wizardData?.location, MAX.city),
+    text(profile?.city, MAX.city) ?? text(profile?.registeredOffice, MAX.city),
+  );
   if (city) brief.city = city;
 
-  const industry =
-    industryLabelFrom(wizardData?.industry) ?? industryLabelFrom(companyData?.industry);
+  const industry = ownedByWizard(
+    wizardData,
+    industryLabelFrom(wizardData?.industry),
+    industryLabelFrom(companyData?.industry),
+  );
   if (industry) brief.industryLabel = industry;
 
   const wizardDescription = text(wizardData?.description, MAX.businessDescription);
-  const description =
-    wizardDescription ?? text(profile?.businessDescription, MAX.businessDescription);
+  const description = ownedByWizard(
+    wizardData,
+    wizardDescription,
+    text(profile?.businessDescription, MAX.businessDescription),
+  );
   if (description) {
     brief.businessDescription = description;
-    brief.businessDescriptionSource = wizardDescription ? "wizard" : "register";
+    brief.businessDescriptionSource = wizardData ? "wizard" : "register";
   }
 
-  const website =
-    text(wizardData?.website, MAX.website) ?? text(companyData?.website, MAX.website);
+  const website = ownedByWizard(
+    wizardData,
+    text(wizardData?.website, MAX.website),
+    text(companyData?.website, MAX.website),
+  );
   if (website) brief.website = website;
 
   if (wizardData) {

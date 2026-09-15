@@ -82,6 +82,48 @@ describe("buildKostnadsfriAgentBrief", () => {
     expect(brief.paletteName).toBe("Ocean");
   });
 
+  it("låter tomma wizardfält vinna — registret fyller inte i location/website/description", () => {
+    const brief = buildKostnadsfriAgentBrief({
+      stage: "handoff",
+      companyData: {
+        ...companyData,
+        website: "https://register.example",
+        industry: "Hälsa/Wellness",
+      },
+      fallbackCompanyName: "Zax 2 0 Ab",
+      wizardData: {
+        ...wizardData,
+        location: "",
+        website: "",
+        description: "   ",
+        industry: "",
+      },
+    });
+
+    expect(brief.city).toBeUndefined();
+    expect(brief.website).toBeUndefined();
+    expect(brief.businessDescription).toBeUndefined();
+    expect(brief.businessDescriptionSource).toBeUndefined();
+    expect(brief.industryLabel).toBeUndefined();
+    expect(brief.contactFirstName).toBe("Jan");
+    expect(brief.companyName).toBe("Zax Frisör");
+  });
+
+  it("använder registret för location/website/description när wizardData saknas", () => {
+    const brief = buildKostnadsfriAgentBrief({
+      stage: "wizard",
+      companyData: { ...companyData, website: "https://register.example" },
+      fallbackCompanyName: "Zax 2 0 Ab",
+    });
+
+    expect(brief.city).toBe("Kista");
+    expect(brief.website).toBe("https://register.example");
+    expect(brief.businessDescription).toBe(
+      "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
+    );
+    expect(brief.businessDescriptionSource).toBe("register");
+  });
+
   it("tar aldrig med org.nr, postnummer, gatuadress eller registreringsdatum", () => {
     const brief = buildKostnadsfriAgentBrief({
       stage: "handoff",
