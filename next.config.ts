@@ -175,6 +175,14 @@ const nextConfig: NextConfig = {
 
     return [
       {
+        source: "/bimi.svg",
+        headers: [
+          { key: "Content-Type", value: "image/svg+xml" },
+          { key: "Cache-Control", value: "public, max-age=86400" },
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+      {
         // Only apply to project pages (where WebContainer runs after takeover)
         source: "/project/:path*",
         headers: [
