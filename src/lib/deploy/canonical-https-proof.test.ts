@@ -77,6 +77,28 @@ describe("parseCanonicalHttpsCandidate", () => {
       reason: "invalid_origin",
     });
   });
+
+  it("rejects literal loopback, private and link-local hosts without probing", () => {
+    const blocked = [
+      "localhost",
+      "preview.localhost",
+      "device.local",
+      "svc.internal",
+      "127.0.0.1",
+      "10.10.1.1",
+      "192.168.0.42",
+      "169.254.169.254",
+      "https://127.0.0.1/",
+      "https://169.254.169.254/",
+    ];
+    for (const candidate of blocked) {
+      expect(parseCanonicalHttpsCandidate(candidate)).toEqual({
+        status: "not_ready",
+        verdict: "invalid",
+        reason: "blocked_destination",
+      });
+    }
+  });
 });
 
 describe("parseCanonicalHttpsIdentity", () => {
@@ -164,6 +186,108 @@ describe("proveCanonicalHttps", () => {
     if (result.status === "ready") {
       expect(result.proof.origin).toBe(ORIGIN);
     }
+  });
+
+  it("keeps a trailing slash on the URL that is actually fetched", async () => {
+    const probe = probeWith([
+      okObservation({ statusCode: 302, location: "https://www.kund.se/hem/" }),
+      okObservation({ statusCode: 200 }),
+    ]);
+    const result = await proveCanonicalHttps({ candidate: ORIGIN, ...identity }, { probe });
+    expect(result.status).toBe("ready");
+    expect(probe).toHaveBeenNthCalledWith(1, {
+      hostname: HOST,
+      url: ORIGIN,
+      timeoutMs: 8_000,
+    });
+    expect(probe).toHaveBeenNthCalledWith(2, {
+      hostname: HOST,
+      url: "https://www.kund.se/hem/",
+      timeoutMs: 8_000,
+    });
+  });
+
+  it("follows /hem to /hem/ without collapsing the slash into a self-redirect", async () => {
+    const probe = probeWith([
+      okObservation({ statusCode: 302, location: "https://www.kund.se/hem" }),
+      okObservation({ statusCode: 301, location: "https://www.kund.se/hem/" }),
+      okObservation({ statusCode: 200 }),
+    ]);
+    const result = await proveCanonicalHttps({ candidate: ORIGIN, ...identity }, { probe });
+    expect(result.status).toBe("ready");
+    expect(probe).toHaveBeenNthCalledWith(2, {
+      hostname: HOST,
+      url: "https://www.kund.se/hem",
+      timeoutMs: 8_000,
+    });
+    expect(probe).toHaveBeenNthCalledWith(3, {
+      hostname: HOST,
+      url: "https://www.kund.se/hem/",
+      timeoutMs: 8_000,
+    });
+  });
+
+  it("preserves query on the fetched redirect target", async () => {
+    const probe = probeWith([
+      okObservation({ statusCode: 302, location: "https://www.kund.se/hem/?utm=1" }),
+      okObservation({ statusCode: 200 }),
+    ]);
+    const result = await proveCanonicalHttps({ candidate: ORIGIN, ...identity }, { probe });
+    expect(result.status).toBe("ready");
+    expect(probe).toHaveBeenLastCalledWith({
+      hostname: HOST,
+      url: "https://www.kund.se/hem/?utm=1",
+      timeoutMs: 8_000,
+    });
+  });
+
+  it("still stops a real two-way redirect loop after slash-preserving fetches", async () => {
+    const loop = await proveCanonicalHttps(
+      { candidate: HOST, ...identity },
+      {
+        probe: probeWith([
+          okObservation({ statusCode: 302, location: "https://www.kund.se/a/" }),
+          okObservation({ statusCode: 302, location: "https://www.kund.se/" }),
+        ]),
+      },
+    );
+    expect(loop).toEqual({
+      status: "not_ready",
+      verdict: "invalid",
+      reason: "redirect_loop",
+    });
+  });
+
+  it("still rejects an off-host redirect without fetching the new host", async () => {
+    const probe = probeWith(
+      okObservation({ statusCode: 302, location: "https://annan.se/hem/" }),
+    );
+    const result = await proveCanonicalHttps({ candidate: HOST, ...identity }, { probe });
+    expect(result).toEqual({
+      status: "not_ready",
+      verdict: "invalid",
+      reason: "host_mismatch",
+    });
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledWith({
+      hostname: HOST,
+      url: ORIGIN,
+      timeoutMs: 8_000,
+    });
+  });
+
+  it("rejects a blocked candidate before the injected probe runs", async () => {
+    const probe = probeWith(okObservation());
+    const result = await proveCanonicalHttps(
+      { candidate: "127.0.0.1", ...identity },
+      { probe },
+    );
+    expect(result).toEqual({
+      status: "not_ready",
+      verdict: "invalid",
+      reason: "blocked_destination",
+    });
+    expect(probe).not.toHaveBeenCalled();
   });
 
   it("classifies confirmed broken hosts as invalid, not unknown", async () => {

@@ -11,7 +11,12 @@
 
 import https from "node:https";
 import tls from "node:tls";
+import {
+  guardedLookup,
+  PINNED_ADDRESS_BLOCKED_MESSAGE,
+} from "@/lib/capture/pinned-fetch";
 import { normalizeDomainHostname } from "@/lib/live-site-url";
+import { isDisallowedHost } from "@/lib/ssrf-guard";
 
 export const CANONICAL_HTTPS_PROOF_KIND = "sajtmaskin.canonical_https_proof" as const;
 export const CANONICAL_HTTPS_PROOF_VERSION = 1 as const;
@@ -29,6 +34,7 @@ export type CanonicalHttpsProofReason =
   | "host_mismatch"
   | "self_redirect"
   | "redirect_loop"
+  | "blocked_destination"
   | "timeout"
   | "unknown_status"
   | "provider_invalid"
@@ -77,7 +83,13 @@ export type CanonicalHttpsObservation = {
   responseHost?: string | null;
   statusCode?: number;
   location?: string | null;
-  errorKind?: "timeout" | "cert_mismatch" | "http_only" | "network" | "unknown";
+  errorKind?:
+    | "timeout"
+    | "cert_mismatch"
+    | "http_only"
+    | "network"
+    | "unknown"
+    | "blocked_destination";
 };
 
 export type ProbeCanonicalHttpsOrigin = (input: {
@@ -156,16 +168,16 @@ export function parseCanonicalHttpsCandidate(candidate: string): ParsedHttpsOrig
       return notReady("invalid", "invalid_origin");
     }
     const hostname = normalizeDomainHostname(url.hostname);
-    return hostname
-      ? { status: "ok", origin: `https://${hostname}`, hostname }
-      : notReady("invalid", "invalid_origin");
+    if (!hostname) return notReady("invalid", "invalid_origin");
+    if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
+    return { status: "ok", origin: `https://${hostname}`, hostname };
   }
 
   if (/[:/?#@]/.test(raw)) return notReady("invalid", "invalid_origin");
   const hostname = normalizeDomainHostname(raw);
-  return hostname
-    ? { status: "ok", origin: `https://${hostname}`, hostname }
-    : notReady("invalid", "invalid_origin");
+  if (!hostname) return notReady("invalid", "invalid_origin");
+  if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
+  return { status: "ok", origin: `https://${hostname}`, hostname };
 }
 
 export function certificateHostMatches(
@@ -184,9 +196,28 @@ export function certificateHostMatches(
   });
 }
 
-function normalizeRequestUrl(url: URL): string {
-  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
-  const path = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
+function requestHostname(url: URL): string {
+  return url.hostname.toLowerCase().replace(/\.$/, "");
+}
+
+/**
+ * Exact URL the next hop fetches. Path, trailing slash and query stay as the
+ * server sent them — only hostname case is folded.
+ */
+function toRequestUrl(url: URL): string {
+  const hostname = requestHostname(url);
+  const path = url.pathname || "/";
+  return `https://${hostname}${path}${url.search}`;
+}
+
+/**
+ * Loop / self-redirect key. Root `/` matches a slashless origin; every other
+ * trailing slash is significant and must not be stripped.
+ */
+function toComparisonKey(href: string): string {
+  const url = new URL(href);
+  const hostname = requestHostname(url);
+  const path = url.pathname === "/" ? "" : url.pathname;
   return `https://${hostname}${path}${url.search}`;
 }
 
@@ -207,8 +238,9 @@ function parseRedirectTarget(
   }
   const hostname = normalizeDomainHostname(target.hostname);
   if (!hostname) return notReady("invalid", "invalid_origin");
+  if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
   if (hostname !== expectedHostname) return notReady("invalid", "host_mismatch");
-  return { status: "follow", nextUrl: normalizeRequestUrl(target) };
+  return { status: "follow", nextUrl: toRequestUrl(target) };
 }
 
 function classifyObservation(
@@ -227,6 +259,9 @@ function classifyObservation(
   }
   if (observation.errorKind === "cert_mismatch") {
     return notReady("invalid", "cert_mismatch");
+  }
+  if (observation.errorKind === "blocked_destination") {
+    return notReady("invalid", "blocked_destination");
   }
   if (observation.errorKind === "network" || observation.errorKind === "unknown") {
     return notReady("unknown", "unknown_status");
@@ -252,7 +287,9 @@ function classifyObservation(
   if (statusCode >= 300 && statusCode < 400 && location) {
     const target = parseRedirectTarget(location, currentUrl, hostname);
     if (target.status === "not_ready") return target;
-    if (target.nextUrl === currentUrl) return notReady("invalid", "self_redirect");
+    if (toComparisonKey(target.nextUrl) === toComparisonKey(currentUrl)) {
+      return notReady("invalid", "self_redirect");
+    }
     return { status: "follow", nextUrl: target.nextUrl };
   }
 
@@ -283,7 +320,11 @@ function collectCertificateHosts(cert: tls.PeerCertificate | undefined): string[
 function observationFromProbeError(error: unknown): CanonicalHttpsObservation {
   const err = error as NodeJS.ErrnoException;
   const code = err.code ?? "";
-  const message = typeof err.message === "string" ? err.message.toLowerCase() : "";
+  const rawMessage = typeof err.message === "string" ? err.message : "";
+  const message = rawMessage.toLowerCase();
+  if (rawMessage.includes(PINNED_ADDRESS_BLOCKED_MESSAGE)) {
+    return { errorKind: "blocked_destination" };
+  }
   if (code === "ETIMEDOUT" || code === "ESOCKETTIMEDOUT" || message.includes("timed out")) {
     return { timedOut: true, errorKind: "timeout" };
   }
@@ -326,12 +367,20 @@ export function probeCanonicalHttpsOrigin(input: {
   if (parsed.protocol !== "https:") {
     return Promise.resolve({ errorKind: "http_only", protocol: "http" });
   }
+  if (isDisallowedHost(input.hostname) || isDisallowedHost(parsed.hostname)) {
+    return Promise.resolve({ errorKind: "blocked_destination" });
+  }
 
   return new Promise((resolve) => {
     let settled = false;
+    // Same pin as capture: the lookup that validates is the lookup the socket
+    // uses. fetchWithPinnedDns is not used because it does not expose the peer
+    // certificate fields this proof needs (SAN/CN via getPeerCertificate).
+    const agent = new https.Agent({ lookup: guardedLookup, keepAlive: false });
     const settle = (observation: CanonicalHttpsObservation) => {
       if (settled) return;
       settled = true;
+      agent.destroy();
       resolve(observation);
     };
 
@@ -344,6 +393,7 @@ export function probeCanonicalHttpsOrigin(input: {
         method: "GET",
         timeout: input.timeoutMs,
         rejectUnauthorized: false,
+        agent,
       },
       (response) => {
         const socket = response.socket as tls.TLSSocket;
@@ -420,7 +470,7 @@ export async function proveCanonicalHttps(
   }
 
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const seen = new Set<string>([parsed.origin]);
+  const seen = new Set<string>([toComparisonKey(parsed.origin)]);
   let currentUrl = parsed.origin;
 
   for (let hop = 0; hop < MAX_REDIRECT_HOPS; hop += 1) {
@@ -432,8 +482,9 @@ export async function proveCanonicalHttps(
     const classified = classifyObservation(observation, parsed.hostname, currentUrl);
     if (classified.status === "not_ready") return classified;
     if (classified.status === "follow") {
-      if (seen.has(classified.nextUrl)) return notReady("invalid", "redirect_loop");
-      seen.add(classified.nextUrl);
+      const nextKey = toComparisonKey(classified.nextUrl);
+      if (seen.has(nextKey)) return notReady("invalid", "redirect_loop");
+      seen.add(nextKey);
       currentUrl = classified.nextUrl;
       continue;
     }
