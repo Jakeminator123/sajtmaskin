@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
@@ -10,6 +10,52 @@ import {
 import { KOSTNADSFRI_FOLLOWUPS_READY_EVENT } from "@/lib/kostnadsfri/agent-followups";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { KostnadsfriPage } from "./kostnadsfri-page";
+
+const fixtures = vi.hoisted(() => {
+  const companyData: KostnadsfriCompanyData = {
+    slug: "zax-2-0-ab",
+    companyName: "Zax 2.0 AB",
+    industry: null,
+    website: null,
+    contactEmail: "info@zax.example",
+    contactName: "Jan Rickard Mandahl",
+    openclawConfig: null,
+    profile: {
+      businessDescription: "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
+    },
+  };
+  const wizardData: MiniWizardData = {
+    companyName: "Zax Frisör",
+    industry: "health",
+    website: "https://zax.example",
+    location: "Kista",
+    description: "Vi klipper och färgar hår i Kista sedan 2026.",
+    purposes: ["booking", "leads"],
+    targetAudience: "Boende i Kista och norra Stockholm",
+    usp: "Drop-in på kvällar",
+    designVibe: "luxury",
+    paletteName: "Ocean",
+    colorPrimary: "#000000",
+    colorSecondary: "#333333",
+    colorAccent: "#2dd4bf",
+  };
+  const f1Wizard: MiniWizardData = {
+    companyName: "Zax 2.0 AB",
+    industry: "health",
+    website: "",
+    location: "Kista",
+    description: "Frisörverksamhet",
+    purposes: ["leads"],
+    targetAudience: "",
+    usp: "",
+    designVibe: "modern",
+    paletteName: null,
+    colorPrimary: null,
+    colorSecondary: null,
+    colorAccent: null,
+  };
+  return { companyData, wizardData, f1Wizard, completeWith: "f1" as "f1" | "preview" };
+});
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 const projects = vi.hoisted(() => ({
@@ -35,47 +81,31 @@ vi.mock("./password-gate", () => ({
   }: {
     onSuccess: (data: KostnadsfriCompanyData) => void;
   }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onSuccess({
-          slug: "zax-2-0-ab",
-          companyName: "Zax 2.0 AB",
-          industry: "health",
-          website: null,
-          contactEmail: null,
-          contactName: "Jan",
-          openclawConfig: null,
-          profile: null,
-        })
-      }
-    >
+    <button type="button" onClick={() => onSuccess(fixtures.companyData)}>
       Öppna wizard
     </button>
   ),
 }));
 
-const wizardFixture: MiniWizardData = {
-  companyName: "Zax 2.0 AB",
-  industry: "health",
-  website: "",
-  location: "Kista",
-  description: "Frisörverksamhet",
-  purposes: ["leads"],
-  targetAudience: "",
-  usp: "",
-  designVibe: "modern",
-  paletteName: null,
-  colorPrimary: null,
-  colorSecondary: null,
-  colorAccent: null,
-};
-
 vi.mock("./mini-wizard", () => ({
-  MiniWizard: ({ onComplete }: { onComplete: (data: MiniWizardData) => void }) => (
-    <button type="button" onClick={() => onComplete(wizardFixture)}>
-      Klara wizarden
-    </button>
+  MiniWizard: ({
+    onComplete,
+    error,
+  }: {
+    onComplete: (data: MiniWizardData) => void;
+    error: string | null;
+  }) => (
+    <div>
+      {error ? <p>{error}</p> : null}
+      <button
+        type="button"
+        onClick={() =>
+          onComplete(fixtures.completeWith === "preview" ? fixtures.wizardData : fixtures.f1Wizard)
+        }
+      >
+        Klara wizarden
+      </button>
+    </div>
   ),
 }));
 
@@ -85,8 +115,15 @@ vi.mock("./thinking-spinner", () => ({
 
 describe("KostnadsfriPage — F1 wait then one build", () => {
   beforeEach(() => {
+    fixtures.completeWith = "f1";
     router.push.mockReset();
-    projects.createProject.mockClear();
+    projects.createProject.mockReset();
+    projects.createProject.mockImplementation(async () => ({
+      id: "proj-a",
+      name: "Zax - Kostnadsfri",
+      created_at: "",
+      updated_at: "",
+    }));
     clearCampaignScriptStorageForTests();
     vi.stubGlobal(
       "fetch",
@@ -103,9 +140,11 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     vi.useRealTimers();
     clearCampaignScriptStorageForTests();
+    delete window.__SITEMASKIN_CONTEXT;
   });
 
   it("startar inte bygget efter tyst 3s — skip ger exakt ett init-bygge", async () => {
@@ -200,5 +239,67 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     expect(promptCall).toBeTruthy();
     const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as { prompt?: string };
     expect(body.prompt).toContain("SM-F1-CONFIRM-PHRASE-7f3a");
+  });
+});
+
+describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
+  beforeEach(() => {
+    fixtures.completeWith = "preview";
+    router.push.mockReset();
+    projects.createProject.mockReset();
+    clearCampaignScriptStorageForTests();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ promptId: "prompt_1" }),
+      })),
+    );
+    act(() => {
+      useOpenClawStore.setState({
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    clearCampaignScriptStorageForTests();
+    delete window.__SITEMASKIN_CONTEXT;
+  });
+
+  it("rensar wizard-underlaget i kontexten när projekt-handoffen misslyckas före projectId", async () => {
+    projects.createProject.mockRejectedValue(new Error("projektfel"));
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    expect(screen.getByText("Följdfrågor")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Fortsätt" })).toBeTruthy();
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Något gick fel. Försök igen.")).toBeTruthy();
+    });
+
+    const brief = window.__SITEMASKIN_CONTEXT?.kostnadsfriBrief as {
+      stage?: string;
+      businessDescription?: string;
+      businessDescriptionSource?: string;
+      purposeLabels?: string[];
+    };
+
+    expect(brief.stage).toBe("wizard");
+    expect(brief.businessDescription).toBe(
+      "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
+    );
+    expect(brief.businessDescriptionSource).toBe("register");
+    expect(brief.purposeLabels).toBeUndefined();
   });
 });

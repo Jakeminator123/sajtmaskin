@@ -19,7 +19,8 @@
  * Underlaget är kontext för samtalet, inte sajtinnehåll. Prompten till buildern
  * byggs av `buildPromptFromWizardData` från wizardens utdata plus uttryckligen
  * kundbekräftade follow-up-svar — aldrig av registret, chattranskript eller
- * det här underlaget (ägarbeslut 2026-09-15).
+ * det här underlaget (ägarbeslut 2026-09-15). Renderingen skriver ut den
+ * gränsen för modellen.
  */
 import {
   resolveWizardIndustryHint,
@@ -42,6 +43,8 @@ export interface KostnadsfriAgentBrief {
   industryLabel?: string;
   /** Verksamhetstexten ur registret, eller kundens rättade version. */
   businessDescription?: string;
+  /** Styr hur Sajtagenten får använda texten — registret är prosa, wizarden är bekräftad. */
+  businessDescriptionSource?: "register" | "wizard";
   website?: string;
   purposeLabels?: string[];
   targetAudience?: string;
@@ -90,6 +93,18 @@ function industryLabelFrom(value: string | null | undefined): string | undefined
   return wizardIndustryLabel(id);
 }
 
+/**
+ * När wizard-objektet finns äger det fältet — även tom sträng.
+ * Register/profil får bara fylla i när `wizardData` saknas helt.
+ */
+function ownedByWizard<T>(
+  wizardData: MiniWizardData | null,
+  wizardValue: T | undefined,
+  registerValue: T | undefined,
+): T | undefined {
+  return wizardData ? wizardValue : registerValue;
+}
+
 export function buildKostnadsfriAgentBrief(input: {
   stage: KostnadsfriAgentStage;
   /** Null innan lösenordet är verifierat. */
@@ -114,24 +129,38 @@ export function buildKostnadsfriAgentBrief(input: {
   const contact = firstName(companyData?.contactName);
   if (contact) brief.contactFirstName = contact;
 
-  // Ort: kundens rättade värde först, sedan postort, sist registrerat säte.
-  const city =
-    text(wizardData?.location, MAX.city) ??
-    text(profile?.city, MAX.city) ??
-    text(profile?.registeredOffice, MAX.city);
+  // Ort/webb/verksamhet/bransch: wizard äger överlappet även tomt.
+  // Register fyller bara i när wizardData saknas (postort → säte för ort).
+  const city = ownedByWizard(
+    wizardData,
+    text(wizardData?.location, MAX.city),
+    text(profile?.city, MAX.city) ?? text(profile?.registeredOffice, MAX.city),
+  );
   if (city) brief.city = city;
 
-  const industry =
-    industryLabelFrom(wizardData?.industry) ?? industryLabelFrom(companyData?.industry);
+  const industry = ownedByWizard(
+    wizardData,
+    industryLabelFrom(wizardData?.industry),
+    industryLabelFrom(companyData?.industry),
+  );
   if (industry) brief.industryLabel = industry;
 
-  const description =
-    text(wizardData?.description, MAX.businessDescription) ??
-    text(profile?.businessDescription, MAX.businessDescription);
-  if (description) brief.businessDescription = description;
+  const wizardDescription = text(wizardData?.description, MAX.businessDescription);
+  const description = ownedByWizard(
+    wizardData,
+    wizardDescription,
+    text(profile?.businessDescription, MAX.businessDescription),
+  );
+  if (description) {
+    brief.businessDescription = description;
+    brief.businessDescriptionSource = wizardData ? "wizard" : "register";
+  }
 
-  const website =
-    text(wizardData?.website, MAX.website) ?? text(companyData?.website, MAX.website);
+  const website = ownedByWizard(
+    wizardData,
+    text(wizardData?.website, MAX.website),
+    text(companyData?.website, MAX.website),
+  );
   if (website) brief.website = website;
 
   if (wizardData) {
@@ -199,7 +228,12 @@ export function normalizeKostnadsfriAgentBrief(value: unknown): KostnadsfriAgent
   if (industryLabel) brief.industryLabel = industryLabel;
 
   const businessDescription = text(raw.businessDescription, MAX.businessDescription);
-  if (businessDescription) brief.businessDescription = businessDescription;
+  if (businessDescription) {
+    brief.businessDescription = businessDescription;
+    if (raw.businessDescriptionSource === "register" || raw.businessDescriptionSource === "wizard") {
+      brief.businessDescriptionSource = raw.businessDescriptionSource;
+    }
+  }
 
   const website = text(raw.website, MAX.website);
   if (website) brief.website = website;
@@ -233,8 +267,8 @@ const STAGE_LABELS: Record<KostnadsfriAgentStage, string> = {
  * underlag finns, så anroparen kan utelämna hela sektionen.
  *
  * Två instruktionsrader följer med medvetet: tilltalsnamnet är en person och
- * hör inte i publicerad copy, och verksamhetstexten är registerprosa som ska
- * omformuleras, inte citeras.
+ * hör inte i publicerad copy, och verksamhetstextens källa styr om den är
+ * registerprosa (omformulera) eller kundens bekräftade beskrivning.
  */
 export function kostnadsfriAgentBriefLines(brief: KostnadsfriAgentBrief | null): string[] {
   if (!brief) return [];
@@ -249,9 +283,11 @@ export function kostnadsfriAgentBriefLines(brief: KostnadsfriAgentBrief | null):
   if (brief.industryLabel) lines.push(`Bransch: ${brief.industryLabel}`);
   if (brief.website) lines.push(`Nuvarande webbplats: ${brief.website}`);
   if (brief.businessDescription) {
-    lines.push(
-      `Verksamhet enligt registret (torr registerprosa — omformulera, citera inte): ${brief.businessDescription}`,
-    );
+    const descriptionLine =
+      brief.businessDescriptionSource === "wizard"
+        ? `Verksamhet (kundens bekräftade beskrivning — utgå från den): ${brief.businessDescription}`
+        : `Verksamhet enligt registret (torr registerprosa — omformulera, citera inte): ${brief.businessDescription}`;
+    lines.push(descriptionLine);
   }
   if (brief.purposeLabels?.length) lines.push(`Mål med sajten: ${brief.purposeLabels.join(", ")}`);
   if (brief.targetAudience) lines.push(`Målgrupp: ${brief.targetAudience}`);

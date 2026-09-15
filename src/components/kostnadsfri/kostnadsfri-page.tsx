@@ -56,6 +56,9 @@ export function KostnadsfriPage({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("password");
   const [companyData, setCompanyData] = useState<KostnadsfriCompanyData | null>(null);
+  // Sajtagentens underlag växer med flödet: bolagsdata efter lösenordet,
+  // wizardens svar när de bekräftats. Sparas separat från prompten eftersom
+  // prompten är en engångsartefakt medan underlaget lever kvar i samtalet.
   const [wizardData, setWizardData] = useState<MiniWizardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initStartedRef = useRef(false);
@@ -67,6 +70,8 @@ export function KostnadsfriPage({
     [companyData?.openclawConfig, openclawConfig],
   );
 
+  // Underlaget speglar vad som är bestämt just nu, så Sajtagenten kan ställa en
+  // riktad följdfråga i stället för en allmän. Allowlistat i `agent-brief.ts`.
   const agentBrief = useMemo(
     () =>
       buildKostnadsfriAgentBrief({
@@ -160,7 +165,15 @@ export function KostnadsfriPage({
       console.error("[Kostnadsfri] Failed to generate prompt:", err);
       setError("Något gick fel. Försök igen.");
       initStartedRef.current = false;
-      setPhase("followup");
+      // MiniWizard remountas tom mot companyData bara om vi backar dit.
+      // Efter frågesteget stannar vi i followup så Fortsätt kan återanvända
+      // samma projekt; wizard-underlaget får inte rensas där.
+      if (!createdProjectIdRef.current) {
+        setWizardData(null);
+        setPhase("wizard");
+      } else {
+        setPhase("followup");
+      }
     }
   }, [router, companyName, slug, wizardData]);
 

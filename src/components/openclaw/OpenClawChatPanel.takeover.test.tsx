@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawChatPanel } from "./OpenClawChatPanel";
@@ -97,8 +97,47 @@ describe("OpenClawChatPanel takeover degradation", () => {
     act(() => {
       useOpenClawStore.setState({ panelPresentation: "takeover" });
     });
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
+  });
+
+  it("stays in takeover when Escape is already defaultPrevented", () => {
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    const event = createEvent.keyDown(window, { key: "Escape" });
+    event.preventDefault();
+    fireEvent(window, event);
+
+    expect(useOpenClawStore.getState().panelPresentation).toBe("takeover");
+  });
+
+  it("stays in takeover when Escape targets a sibling dialog", () => {
+    render(
+      <>
+        <OpenClawChatPanel onClose={vi.fn()} />
+        <div role="dialog" aria-label="Mini-wizard">
+          <button type="button">Stäng wizard</button>
+        </div>
+      </>,
+    );
+
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Mini-wizard" }), {
+      key: "Escape",
+    });
+
+    expect(useOpenClawStore.getState().panelPresentation).toBe("takeover");
+  });
+
+  it("sets aria-modal only while takeover is active", () => {
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBe("true");
+
+    act(() => {
+      useOpenClawStore.setState({ panelPresentation: "bubble" });
+    });
+
+    expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBeNull();
   });
 
   it("renders takeover as a text chat when avatar mode is off", () => {
