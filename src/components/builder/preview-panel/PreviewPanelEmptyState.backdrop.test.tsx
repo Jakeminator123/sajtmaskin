@@ -7,6 +7,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
+import {
+  installIntersectionObserver,
+  type FakeIntersectionObserver,
+} from "./PreviewBackdrop.test-support";
 import { resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
 
 const FIX_LABEL = "Försök reparera preview";
@@ -31,34 +35,70 @@ function renderEmptyState(
   );
 }
 
+let observer: FakeIntersectionObserver;
+
 beforeEach(() => {
   HTMLMediaElement.prototype.play = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   HTMLMediaElement.prototype.pause = vi.fn();
+  observer = installIntersectionObserver({ initial: true });
 });
 
 afterEach(() => {
+  observer.restore();
   vi.restoreAllMocks();
   resetF3FinalizeActivity();
   searchParamsMock.current = new URLSearchParams();
 });
 
 describe("PreviewPanelEmptyState — Moving Background 2", () => {
-  it("lägger scenen bakom byggvalen i välkomstläget", () => {
+  it("lägger scenen i välkomstläget utan att svälja byggvalen", () => {
     const { container } = renderEmptyState({ chatId: null, versionId: null });
     expect(screen.getByText("Vad vill du bygga?")).toBeTruthy();
-    expect(container.querySelector("video")).toBeTruthy();
-    // Byggval-reglagen är riktiga kontroller och måste tas emot ovanför den
-    // `pointer-events-none`-dekoration som ligger bakom kortet.
+    const video = container.querySelector("video");
+    expect(video).toBeTruthy();
+
+    // Dekorationen är ett eget `aria-hidden` + `pointer-events-none`-lager, och
+    // inget riktigt reglage ligger inuti det. Ett RTL-klick skulle vara grönt
+    // även med videon ovanpå, så trädet är det som kontrolleras här.
+    const decoration = video!.parentElement!;
+    expect(decoration.getAttribute("aria-hidden")).toBe("true");
+    expect(decoration.className).toContain("pointer-events-none");
+
     const choices = screen.getAllByRole("radio");
     expect(choices.length).toBeGreaterThan(1);
+    for (const choice of choices) {
+      expect(decoration.contains(choice)).toBe(false);
+    }
     fireEvent.click(choices[0]!);
     expect(choices[0]!.getAttribute("data-state")).toBe("on");
   });
 
   it("lägger scenen bakom den faktiska statusen medan VM:en startar", () => {
     const { container } = renderEmptyState({ previewPending: true });
+    const status = screen.getByText("Startar VM-preview");
+    const video = container.querySelector("video");
+    expect(video).toBeTruthy();
+    expect(video!.parentElement!.contains(status)).toBe(false);
+  });
+
+  // Ett statusbyte är presentation. Det får aldrig trigga en debiterad körning.
+  it("startar ingen reparation när statusen byts", () => {
+    const onFixPreview = vi.fn();
+    const { rerender } = renderEmptyState({ onFixPreview });
+    rerender(
+      <PreviewPanelEmptyState
+        chatId="chat_1"
+        versionId="ver_1"
+        externalLoading={false}
+        awaitingInput={false}
+        awaitingInputOptions={[]}
+        previewPending
+        onFixPreview={onFixPreview}
+        isGenerating={false}
+      />,
+    );
     expect(screen.getByText("Startar VM-preview")).toBeTruthy();
-    expect(container.querySelector("video")).toBeTruthy();
+    expect(onFixPreview).not.toHaveBeenCalled();
   });
 
   it("behåller den kvarliggande frågan och svarsalternativen i statuskortet", () => {

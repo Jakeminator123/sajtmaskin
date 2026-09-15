@@ -10,9 +10,11 @@
  * job may delete.
  *
  * The URLs below are the exact values the upload returned — Blob appends a
- * random suffix, so they can never be reconstructed from the filename. Each
- * one was fetched back publicly without redirects and matched on MIME type,
- * byte length and SHA-256 against the source manifest.
+ * random suffix, so they can never be reconstructed from the filename. The
+ * upload run fetched each one back publicly without redirects and compared MIME
+ * type, byte length and SHA-256 against the source manifest before writing them
+ * here; that was a one-off operator step and is not re-checked by any test or
+ * CI job. Replacing a URL means re-running that verification by hand.
  *
  * CSP needs no new entry: `src/proxy.ts` already allows
  * `https://*.public.blob.vercel-storage.com` on `media-src` and

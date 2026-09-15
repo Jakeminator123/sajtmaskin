@@ -58,8 +58,11 @@ export function PreviewBackdropStage({
     });
   }, [statusKey, prefersReducedMotion]);
 
+  // `pb-16` reserverar nederkanten åt `PreviewBackdrop`s egen kontroll. Kortets
+  // `max-h-full` mäts mot content-boxen, så kortet kan aldrig växa ner under
+  // kontrollen — även när previewpanelen är låg.
   return (
-    <div className="relative isolate flex h-full flex-col items-center justify-center overflow-hidden px-6 py-8">
+    <div className="relative isolate flex h-full flex-col items-center justify-center overflow-hidden px-6 pt-8 pb-16">
       <PreviewBackdrop motion={motion} />
       {/*
         Opakt kort, ingen heltäckande dimma över scenen. `--muted-foreground`

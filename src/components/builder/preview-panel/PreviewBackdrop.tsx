@@ -12,13 +12,22 @@ import styles from "./PreviewBackdrop.module.css";
 
 export interface PreviewBackdropProps {
   /**
-   * Sant bara när den rörliga scenen faktiskt behövs: previewrektangeln har
-   * ingen användbar sajt att visa. `false` (verkligt fel, eller en sajt som
-   * redan ligger i iframen) håller stillbilden kvar och rör aldrig video-
-   * resurserna. Bakgrunden är ren dekoration — den är inte en readiness-signal
-   * och får aldrig påverka iframe, session eller retry.
+   * Sant bara när den rörliga scenen faktiskt behövs. `false` betyder ett
+   * verkligt fel: stillbilden ligger kvar medan diagnostiken tar ytan, och
+   * videoresurserna rörs aldrig. Att en användbar sajt visas är inget läge
+   * här — då renderas hela den tomma ytan inte alls.
+   *
+   * Bakgrunden är ren dekoration. Den är inte en readiness-signal och får
+   * aldrig påverka iframe, session eller retry.
    */
   motion: boolean;
+}
+
+/** `DOMException` ärver inte `Error`, så namnet läses defensivt. */
+function errorName(error: unknown): string {
+  if (typeof error !== "object" || error === null) return "";
+  const { name } = error as { name?: unknown };
+  return typeof name === "string" ? name : "";
 }
 
 /**
@@ -43,9 +52,11 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
   // `paused`: en paus ska frysa den ruta som syns, inte hoppa till postern.
   const [hasPlayed, setHasPlayed] = useState(false);
   const [documentHidden, setDocumentHidden] = useState(false);
-  // Utan IntersectionObserver (jsdom, äldre browsers) antas panelen synlig —
-  // dekorationen får aldrig bli beroende av en observer som inte finns.
-  const [inView, setInView] = useState(true);
+  // Finns en IntersectionObserver väntar vi in dess första utsaga: annars
+  // hade en panel utanför viewporten hunnit starta nedladdningen innan vi vet
+  // om ytan ens syns. Saknas observern antas panelen synlig — dekorationen får
+  // inte bli beroende av ett API som inte finns.
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
   // `usePrefersReducedMotion` och `useSaveData` är SSR-säkra och rapporterar
   // `false` fram till sin första effect. Utan den här latchen skulle videon
   // monteras en tick för tidigt — och ett monterat, spelande videoelement har
@@ -81,6 +92,14 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
     return () => observer.disconnect();
   }, []);
 
+  // Nollställs i cleanup — inte i effektkroppen — när videoelementet försvinner,
+  // så ett remount inte ärver intoningen från förra scenen.
+  useEffect(() => {
+    return () => {
+      setHasPlayed(false);
+    };
+  }, [showVideo]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -94,7 +113,7 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
     let cancelled = false;
     void Promise.resolve(video.play()).catch((error: unknown) => {
       // AbortError = en ny play/pause hann före; det är inte ett block.
-      if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+      if (cancelled || errorName(error) === "AbortError") return;
       setAutoplayBlocked(true);
     });
     return () => {

@@ -55,12 +55,17 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
 }
 
 /**
- * jsdom har `HTMLMediaElement.prototype.play`, men den är en `notImplemented`-
+ * jsdom HAR `HTMLMediaElement.prototype.play`, men den är en `notImplemented`-
  * stubb: den returnerar `undefined` och skriver "Not implemented" till konsolen
  * i varje test som råkar mounta en `<video>` (builderns previewbakgrund gör
- * det). Stubben ersätts därför med en muted-autoplay som lyckas — samma
- * beteende som en riktig webbläsare ger en `muted playsInline`-video. Tester som
- * behöver blockerad autoplay eller mediafel skriver över den per test.
+ * det). Den ersätts därför — till skillnad från polyfillerna ovan installeras
+ * den här villkorslöst, just för att den befintliga implementationen är det
+ * som ska bort.
+ *
+ * Ersättningen gör exakt en sak: löser löftet. Den sätter INTE `paused`, och
+ * fyrar INTE `play`/`playing`/`pause`. Ett test som beror på de tillstånden
+ * eller eventen måste stubba `play`/`pause` själv och fyra eventen med
+ * `fireEvent` — annars blir det grönt av fel skäl.
  */
 if (typeof HTMLMediaElement !== "undefined") {
   HTMLMediaElement.prototype.play = function play(): Promise<void> {
