@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 const addDomainToProject = vi.hoisted(() => vi.fn());
@@ -49,6 +49,9 @@ const HOSTING = {
   appProjectId: "proj_1",
   chatId: "chat_1",
 };
+
+/** Vercels `POST …/domains/<d>/verify` går via global fetch, inte vercel-client. */
+let fetchMock: ReturnType<typeof vi.fn>;
 
 function observation(
   domain: string,
@@ -108,7 +111,12 @@ beforeEach(() => {
     verified: true,
     redirect: "exempel.se",
   });
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ verified: true }), { status: 200 })));
+  fetchMock = vi.fn(async () => new Response(JSON.stringify({ verified: true }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 // C2 är inte runtime-bevisat mot en riktig kunddomän. Tills det är gjort ska
@@ -139,6 +147,10 @@ describe("customer-domain write gate", () => {
     expect(setProjectCustomDomainCandidate).not.toHaveBeenCalled();
     expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
     expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+    // Verify-vägens providerskrivning och demotering av en levande adress.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+    expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
   });
 
   it("stänger även när domänen är ogiltig, före normalisering", async () => {
