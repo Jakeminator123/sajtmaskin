@@ -293,6 +293,28 @@ describe("sajt-abonnemang waivar deploy.production", () => {
     });
   });
 
+  it("litar på siteProjectId från anroparen — routen får inte skicka body.projectId", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
+    evaluateProjectPublishEntitlement.mockResolvedValue({
+      entitled: true,
+      waiveDeployFee: true,
+      reason: "valid_subscription",
+      graceActive: false,
+    });
+
+    await prepareCredits(
+      new Request("https://example.test"),
+      "deploy.production",
+      {},
+      { siteProjectId: "prj_paid_sibling" },
+    );
+
+    expect(evaluateProjectPublishEntitlement).toHaveBeenCalledWith({
+      projectId: "prj_paid_sibling",
+      userId: "user_1",
+    });
+  });
+
   it("låser inte upp en annan sajt utan siteProjectId", async () => {
     getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
     evaluateProjectPublishEntitlement.mockResolvedValue({
