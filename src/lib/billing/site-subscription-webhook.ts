@@ -18,6 +18,8 @@ import {
 import { resolveLastPublishedRef } from "./site-subscription-hosting";
 import { enqueueHostingJob } from "./site-subscription-reconcile";
 import {
+  allowProjectFallback,
+  canBindOpenRow,
   classifyCheckoutClaim,
   computeGraceUntil,
   eventMatchesServerBillingMode,
@@ -79,6 +81,7 @@ async function resolveSubscriptionRow(input: {
   checkoutSessionId?: string | null;
   projectId?: string | null;
   userId?: string | null;
+  allowProjectFallback?: boolean;
 }): Promise<SiteSubscriptionRow | null> {
   if (input.stripeSubscriptionId) {
     const byStripe = await getSiteSubscriptionByStripeId(
@@ -94,11 +97,26 @@ async function resolveSubscriptionRow(input: {
     );
     if (bySession) return bySession;
   }
-  if (input.projectId) {
+  if (input.allowProjectFallback && input.projectId) {
     const open = await getOpenSiteSubscription(input.projectId, input.billingMode);
     if (open && (!input.userId || open.user_id === input.userId)) return open;
   }
   return null;
+}
+
+function ignoreForeignStripeBinding(
+  row: SiteSubscriptionRow,
+  eventStripeSubscriptionId: string | null | undefined,
+): WebhookHandleResult | null {
+  if (
+    canBindOpenRow({
+      existingStripeSubscriptionId: row.stripe_subscription_id,
+      eventStripeSubscriptionId,
+    })
+  ) {
+    return null;
+  }
+  return ok({ ignored: "foreign_subscription" });
 }
 
 function assertTenant(row: SiteSubscriptionRow, userId: string | null, projectId: string | null) {
@@ -341,6 +359,7 @@ async function handleCheckoutCompleted(
     checkoutSessionId: session.id,
     projectId: meta.projectId,
     userId: meta.userId,
+    allowProjectFallback: allowProjectFallback("bind"),
   });
   if (!row || !assertTenant(row, meta.userId, meta.projectId)) {
     return retry("subscription_row_missing");
@@ -354,7 +373,10 @@ async function handleCheckoutCompleted(
   if (
     existingSubscriptionId &&
     stripeSubscriptionId &&
-    existingSubscriptionId !== stripeSubscriptionId
+    !canBindOpenRow({
+      existingStripeSubscriptionId: existingSubscriptionId,
+      eventStripeSubscriptionId: stripeSubscriptionId,
+    })
   ) {
     return ok({ ignored: "foreign_subscription" });
   }
@@ -448,6 +470,7 @@ async function handleSubscriptionUpdated(
     stripeSubscriptionId: current.id,
     projectId: meta.projectId,
     userId: meta.userId,
+    allowProjectFallback: allowProjectFallback("bind"),
   });
   if (!row) {
     if (!meta.projectId) return ok({ ignored: "unbound_subscription" });
@@ -456,6 +479,8 @@ async function handleSubscriptionUpdated(
   if (!assertTenant(row, meta.userId, meta.projectId)) {
     return reject(400, "tenant_mismatch");
   }
+  const foreign = ignoreForeignStripeBinding(row, current.id);
+  if (foreign) return foreign;
 
   const itemPeriod = current.items.data[0];
   const startGrace =
@@ -500,6 +525,7 @@ async function handleSubscriptionDeleted(
     stripeSubscriptionId: current.id,
     projectId: meta.projectId,
     userId: meta.userId,
+    allowProjectFallback: allowProjectFallback("delete"),
   });
   if (!row) return ok({ ignored: "unknown_subscription" });
   if (!assertTenant(row, meta.userId, meta.projectId)) {
@@ -560,6 +586,7 @@ async function handleInvoicePaid(
     stripeSubscriptionId,
     projectId: meta.projectId,
     userId: meta.userId,
+    allowProjectFallback: allowProjectFallback("bind"),
   });
   if (!row) {
     if (meta.kind === SITE_SUBSCRIPTION_KIND) return retry("subscription_row_missing");
@@ -568,6 +595,8 @@ async function handleInvoicePaid(
   if (!assertTenant(row, meta.userId, meta.projectId)) {
     return reject(400, "tenant_mismatch");
   }
+  const foreign = ignoreForeignStripeBinding(row, stripeSubscriptionId);
+  if (foreign) return foreign;
 
   const grant = await fulfillPaidSubscriptionRow({
     stripe,
@@ -609,6 +638,7 @@ async function handleInvoicePaymentFailed(
     stripeSubscriptionId,
     projectId: meta.projectId,
     userId: meta.userId,
+    allowProjectFallback: allowProjectFallback("bind"),
   });
   if (!row) {
     if (meta.kind === SITE_SUBSCRIPTION_KIND) return retry("subscription_row_missing");
@@ -617,6 +647,8 @@ async function handleInvoicePaymentFailed(
   if (!assertTenant(row, meta.userId, meta.projectId)) {
     return reject(400, "tenant_mismatch");
   }
+  const foreign = ignoreForeignStripeBinding(row, stripeSubscriptionId);
+  if (foreign) return foreign;
 
   if (
     !shouldApplyPaymentFailed({

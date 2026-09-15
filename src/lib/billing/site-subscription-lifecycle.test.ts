@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS } from "./site-subscription-config";
 import {
+  allowProjectFallback,
   applyHostingProviderResult,
   billingModeFromLivemode,
   buildPeriodId,
+  canBindOpenRow,
   classifyCheckoutClaim,
   decideCheckoutReuse,
   decidePendingCheckoutRepair,
@@ -20,6 +22,37 @@ import {
 } from "./site-subscription-policy";
 
 const now = new Date("2026-09-15T12:00:00.000Z");
+
+describe("canBindOpenRow", () => {
+  it("binder tom rad och samma id, men inte ett annat stripe-id", () => {
+    expect(
+      canBindOpenRow({
+        existingStripeSubscriptionId: null,
+        eventStripeSubscriptionId: "sub_new",
+      }),
+    ).toBe(true);
+    expect(
+      canBindOpenRow({
+        existingStripeSubscriptionId: "",
+        eventStripeSubscriptionId: "sub_new",
+      }),
+    ).toBe(true);
+    expect(
+      canBindOpenRow({
+        existingStripeSubscriptionId: "sub_1",
+        eventStripeSubscriptionId: "sub_1",
+      }),
+    ).toBe(true);
+    expect(
+      canBindOpenRow({
+        existingStripeSubscriptionId: "sub_winner",
+        eventStripeSubscriptionId: "sub_orphan",
+      }),
+    ).toBe(false);
+    expect(allowProjectFallback("bind")).toBe(true);
+    expect(allowProjectFallback("delete")).toBe(false);
+  });
+});
 
 describe("test/live-isolering", () => {
   it("avvisar testevent mot live-server och tvärtom", () => {
@@ -135,6 +168,28 @@ describe("två samtidiga checkouts", () => {
         now,
       }),
     ).toEqual({ action: "already_active", existingId: "sub_1", confirming: false });
+  });
+
+  it("håller classifyCheckoutClaim.paid som subscriptionId || complete", () => {
+    const reached = (status: string, subscriptionId: string | null) =>
+      classifyCheckoutClaim({
+        now,
+        lookup: {
+          lookup: "reached",
+          session: {
+            id: "cs_1",
+            status,
+            url: null,
+            expiresAt: new Date("2026-09-15T11:00:00.000Z"),
+            subscriptionId,
+          },
+        },
+      });
+
+    expect(reached("open", "sub_1").paid).toBe(true);
+    expect(reached("complete", null).paid).toBe(true);
+    expect(reached("expired", null).paid).toBe(false);
+    expect(reached("expired", "sub_1").paid).toBe(true);
   });
 
   it("håller complete-session som paid utan invoice.paid så reuse inte skapar ny", () => {

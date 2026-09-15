@@ -858,6 +858,217 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(updateSiteSubscription).not.toHaveBeenCalled();
   });
 
+  it("ignorerar orphan invoice.paid när vinnaren redan har annat stripe-id", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      stripe_subscription_id: "sub_winner",
+    });
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_orphan",
+      status: "paid",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      parent: { subscription_details: { subscription: "sub_orphan" } },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_orphan",
+      status: "active",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      cancel_at_period_end: false,
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event(
+        "invoice.paid",
+        siteInvoice({
+          id: "in_orphan",
+          parent: {
+            subscription_details: {
+              metadata: { kind: "site_subscription" },
+              subscription: "sub_orphan",
+            },
+          },
+        }),
+      ),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("foreign_subscription");
+    expect(result.body.paid).not.toBe(true);
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+  });
+
+  it("ignorerar orphan subscription.deleted och rör inte öppen vinnarrad", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      stripe_subscription_id: "sub_winner",
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_orphan",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_orphan",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("unknown_subscription");
+    expect(result.body.deleted).not.toBe(true);
+    expect(getOpenSiteSubscription).not.toHaveBeenCalled();
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
+  });
+
+  it("ignorerar orphan subscription.updated när vinnaren har annat stripe-id", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      stripe_subscription_id: "sub_winner",
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_orphan",
+      status: "active",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      cancel_at_period_end: false,
+      latest_invoice: { status: "paid" },
+      items: { data: [{ current_period_start: 1, current_period_end: 2 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.updated", {
+        id: "sub_orphan",
+        status: "active",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("foreign_subscription");
+    expect(result.body.synced).not.toBe(true);
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("binder invoice.paid till öppen rad med tomma stripe-fält i första webhook-racet", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+      stripe_checkout_session_id: "cs_1",
+      current_period_end: null,
+    });
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_paid",
+      status: "paid",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      parent: { subscription_details: { subscription: "sub_race" } },
+      lines: {
+        data: [
+          {
+            period: { start: 1726401600, end: 1729080000 },
+            parent: { type: "subscription_item_details" },
+          },
+        ],
+      },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_race",
+      status: "active",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_paid", status: "paid" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event(
+        "invoice.paid",
+        siteInvoice({
+          id: "in_paid",
+          parent: {
+            subscription_details: {
+              metadata: { kind: "site_subscription" },
+              subscription: "sub_race",
+            },
+          },
+        }),
+      ),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.paid).toBe(true);
+    expect(result.body.grant).toMatchObject({ applied: true, granted: true });
+    expect(getOpenSiteSubscription).toHaveBeenCalledWith("prj_a", "test");
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        stripe_subscription_id: "sub_race",
+        lifecycle_state: "active",
+      }),
+    );
+  });
+
+  it("fyller tomt stripe_subscription_id från subscription.updated", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_new",
+      status: "active",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      cancel_at_period_end: false,
+      latest_invoice: { status: "paid" },
+      items: { data: [{ current_period_start: 1, current_period_end: 2 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.updated", {
+        id: "sub_new",
+        status: "active",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.synced).toBe(true);
+    expect(getOpenSiteSubscription).toHaveBeenCalledWith("prj_a", "test");
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ stripe_subscription_id: "sub_new" }),
+    );
+  });
+
   it("ignorerar orphan complete som bara skiljer subscription-id", async () => {
     getSiteSubscriptionByStripeId.mockResolvedValue(null);
     getSiteSubscriptionByCheckoutSession.mockResolvedValue({

@@ -66,6 +66,26 @@ export function billingModeFromLivemode(livemode: boolean): BillingMode {
   return livemode ? "live" : "test";
 }
 
+/**
+ * Project-fallback får binda en öppen rad bara när `stripe_subscription_id`
+ * saknas (invoice.paid / subscription.updated före checkout.completed) eller
+ * redan är samma som eventet. Annat id är orphan mot vinnaren.
+ */
+export function canBindOpenRow(input: {
+  existingStripeSubscriptionId: string | null | undefined;
+  eventStripeSubscriptionId: string | null | undefined;
+}): boolean {
+  const existing = input.existingStripeSubscriptionId?.trim() ?? "";
+  if (!existing) return true;
+  const incoming = input.eventStripeSubscriptionId?.trim() ?? "";
+  return incoming === existing;
+}
+
+/** `subscription.deleted` får inte träffa vinnaren via project-fallback. */
+export function allowProjectFallback(kind: "bind" | "delete"): boolean {
+  return kind === "bind";
+}
+
 export function buildPeriodId(periodStartUnix: number): string {
   if (!Number.isInteger(periodStartUnix) || periodStartUnix <= 0) {
     throw new Error("period_start saknas");
