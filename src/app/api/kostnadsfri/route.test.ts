@@ -388,19 +388,40 @@ describe("POST /api/kostnadsfri — bolagsprofil", () => {
     }
   });
 
+  it("avvisar mellanslag runt separatorn och osynliga tecken i hela HTTP-svaret", async () => {
+    for (const value of [
+      "850101 - 1234",
+      "850101- 1234",
+      "850101 -1234",
+      "850101\u200B-\u200B1234",
+      "850101\u00AD-1234",
+      "850101\u20151234",
+    ]) {
+      const res = await POST(postRequest({ companyName: "Acme AB", profile: { city: value } }));
+      const raw = await res.text();
+      const body = JSON.parse(raw) as { fields?: string[] };
+
+      expect(res.status).toBe(400);
+      expect(body.fields).toEqual(["city"]);
+      expect(raw).not.toContain(value);
+      expect(raw).not.toContain("850101");
+      expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    }
+  });
+
   it("lagrar legitim bolagsdata med telefon, postnummer, belopp och ISO-datum", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
     createKostnadsfriPage.mockResolvedValueOnce(pageRow());
 
     const businessDescription =
-      "Ring 070-123 45 67 eller 0701234567. Post 164 40. Pris 25.000 SEK.";
+      "omsättning 100000 - 200000 kr, 100 000-200 000, lägst 100000 och högst 500000. Ring 070-123 45 67, 0701234567, +46 70 123 45 67 eller 08-123 45 67. Post 164 40. Pris 25.000 SEK.";
     const res = await POST(
       postRequest({
         companyName: "Acme AB",
         profile: {
           orgNumber: "559599-5639",
           postalCode: "164 40",
-          registeredAt: "2026-07-10",
+          registeredAt: "2026-07-10T14:30:00+02:00",
           businessDescription,
         },
       }),

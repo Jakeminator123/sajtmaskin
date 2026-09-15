@@ -54,11 +54,16 @@ export interface KostnadsfriCompanyProfile {
  *
  * Detektorn är medvetet *inte* «strippa allt och slå ihop siffrorna»: det ger
  * falsklarm på telefon, postnummer och belopp. I stället matchas bara de
- * kända 10-/12-sifferformerna. Kompakta former kräver en datumdel som kan vara
- * ett kalenderdatum; svensk nationell telefon (`0…` utan separator) undantas.
+ * kända 10-/12-sifferformerna. Kompakta former och former med mellanslag runt
+ * separatorn kräver en datumdel som kan vara ett kalenderdatum; tät
+ * `YYMMDD-NNNN` fälls alltid. Svensk nationell telefon (`0…` utan separator)
+ * undantas.
  */
-const IDENTITY_DASH_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFF0D]/g;
+const IDENTITY_DASH_RE = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFF0D]/g;
 const IDENTITY_PLUS_RE = /\uFF0B/g;
+const INVISIBLE_IDENTITY_RE = /[\u200B\u200C\u200D\uFEFF\u00AD]/g;
+/** Streck/plus med mellanslag på minst en sida — inte den täta `850101-1234`. */
+const PADDED_IDENTITY_SEP = String.raw`(?:\s+[-+]\s*|\s*[-+]\s+)`;
 
 /** Allowlistade profilfält som får namnges i felsvar. `orgNumber` är undantaget. */
 const SAFE_VIOLATION_FIELDS = new Set([
@@ -99,7 +104,10 @@ function normalizeIdentityText(value: string): string {
     }
     out += char;
   }
-  return out.replace(IDENTITY_DASH_RE, "-").replace(IDENTITY_PLUS_RE, "+");
+  return out
+    .replace(INVISIBLE_IDENTITY_RE, "")
+    .replace(IDENTITY_DASH_RE, "-")
+    .replace(IDENTITY_PLUS_RE, "+");
 }
 
 function isPlausibleIdentityDate(dateDigits: string): boolean {
@@ -159,9 +167,21 @@ function textHasPersonalIdentityForm(value: string): boolean {
       kind: () => "grouped",
     },
     {
+      // `850101 - 1234` / `850101- 1234` / `850101 -1234`. Datumkrav så att
+      // `omsättning 100000 - 200000 kr` inte fälls (månad 00).
+      re: new RegExp(`(\\d{8})${PADDED_IDENTITY_SEP}(\\d{4})`, "g"),
+      dateFrom: (match) => match[1],
+      kind: () => "grouped",
+    },
+    {
       re: /(\d{8})([-+]|\s+)?(\d{4})/g,
       dateFrom: (match) => match[1],
       kind: (match) => (match[2] ? "hyphenated" : "compact"),
+    },
+    {
+      re: new RegExp(`(\\d{6})${PADDED_IDENTITY_SEP}(\\d{4})`, "g"),
+      dateFrom: (match) => match[1],
+      kind: () => "grouped",
     },
     {
       re: /(\d{6})([-+]|\s+)?(\d{4})/g,

@@ -97,6 +97,33 @@ describe("findPersonalIdentityViolations", () => {
     ).toEqual([]);
   });
 
+  it("fäller mellanslag runt separatorn när datumdelen är ett kalenderdatum", () => {
+    expect(findPersonalIdentityViolations({ city: "850101 - 1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101- 1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101 -1234" })).toEqual(["city"]);
+  });
+
+  it("fäller osynliga tecken och horizontal bar insprängda i formen", () => {
+    expect(findPersonalIdentityViolations({ city: "850101\u200B-\u200B1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u200C\u200D-1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\uFEFF-1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u00AD-1234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101\u20151234" })).toEqual(["city"]);
+    expect(findPersonalIdentityViolations({ city: "850101 \u2015 1234" })).toEqual(["city"]);
+  });
+
+  it("släpper beloppsintervall, telefon, postnummer och ISO-datum", () => {
+    expect(
+      findPersonalIdentityViolations({
+        orgNumber: "559599-5639",
+        postalCode: "164 40",
+        registeredAt: "2026-07-10T14:30:00+02:00",
+        businessDescription:
+          "omsättning 100000 - 200000 kr, 100 000-200 000, lägst 100000 och högst 500000. Ring 070-123 45 67, 0701234567, +46 70 123 45 67 eller 08-123 45 67. Post 164 40. Pris 25.000 SEK. Grundat 2026-07-10.",
+      }),
+    ).toEqual([]);
+  });
+
   // Organisationsnummer har identisk form och är uttryckligen tillåtet, så det
   // fältet undantas från mönsterkontrollen och valideras separat.
   it("släpper igenom organisationsnummer i orgNumber", () => {
@@ -244,6 +271,45 @@ describe("normalizeKostnadsfriCompanyProfile", () => {
         businessDescription: "19811228 9874",
       }),
     ).toEqual({ city: "Kista" });
+  });
+
+  it("andra linjen fångar mellanslag runt separatorn och osynliga tecken", () => {
+    expect(
+      normalizeKostnadsfriCompanyProfile({ city: "Kista", businessDescription: "850101 - 1234" }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({ city: "Kista", businessDescription: "850101- 1234" }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({ city: "Kista", businessDescription: "850101 -1234" }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        city: "Kista",
+        businessDescription: "850101\u200B-\u200B1234",
+      }),
+    ).toEqual({ city: "Kista" });
+    expect(
+      normalizeKostnadsfriCompanyProfile({ city: "Kista", businessDescription: "850101\u20151234" }),
+    ).toEqual({ city: "Kista" });
+  });
+
+  it("andra linjen behåller beloppsintervall och telefon", () => {
+    const businessDescription =
+      "omsättning 100000 - 200000 kr, 100 000-200 000, lägst 100000 och högst 500000. Ring 070-123 45 67, 0701234567, +46 70 123 45 67 eller 08-123 45 67. Post 164 40. Pris 25.000 SEK.";
+    expect(
+      normalizeKostnadsfriCompanyProfile({
+        orgNumber: "559599-5639",
+        postalCode: "164 40",
+        registeredAt: "2026-07-10T14:30:00+02:00",
+        businessDescription,
+      }),
+    ).toEqual({
+      orgNumber: "559599-5639",
+      postalCode: "164 40",
+      registeredAt: "2026-07-10",
+      businessDescription,
+    });
   });
 
   it("släpper registeredAt som inte är ett verkligt kalenderdatum", () => {
