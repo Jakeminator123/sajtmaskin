@@ -125,7 +125,8 @@ function getSurfaceContent(
 
 export function OpenClawChat() {
   const pathname = usePathname();
-  const { isOpen, open, close, setScope } = useOpenClawStore();
+  const { isOpen, open, close, setScope, panelPresentation } = useOpenClawStore();
+  const isTakeover = isOpen && panelPresentation === "takeover";
   const [showTeaser, setShowTeaser] = useState(true);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
     null,
@@ -184,11 +185,18 @@ export function OpenClawChat() {
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-x-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end",
-        // Buildern äger nederkanten på mobil: chatinputens Skicka-knapp ligger
-        // längst ned till höger och låg tidigare under bubblan. Lyft bubblan
-        // ovanför inputraden — desktop (sm+) har egen kolumn och rörs inte.
-        sharesBottomEdgeWithInput ? "bottom-28" : "bottom-3",
+        "pointer-events-none fixed z-50 flex flex-col",
+        // z-50: samma lager som bubblan — över builderns preview-overlays
+        // (z-10–z-40) men under kampanjens mini-wizard (z-[60]), så wizarden
+        // fortsätter täcka takeover.
+        isTakeover
+          ? "inset-4 items-stretch"
+          : cn(
+              "inset-x-3 items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end",
+              // Buildern äger nederkanten på mobil: chatinputens Skicka-knapp
+              // ligger längst ned till höger och låg tidigare under bubblan.
+              sharesBottomEdgeWithInput ? "bottom-28" : "bottom-3",
+            ),
       )}
     >
       {showRouteTeaser ? (
@@ -239,17 +247,22 @@ export function OpenClawChat() {
       {/* Chat panel */}
       <div
         className={cn(
-          "origin-bottom-right self-end overflow-hidden transition-all duration-200 ease-out",
-          isOpen
-            ? "pointer-events-auto scale-100 opacity-100"
-            : "max-h-0 scale-95 opacity-0",
-          // Panelen får aldrig växa förbi skärmen — den lyfta bubblan äter
-          // extra höjd i buildern på mobil.
-          isOpen && sharesBottomEdgeWithInput
-            ? "max-h-[min(640px,calc(100vh-13rem))] sm:max-h-[min(640px,calc(100vh-5rem))]"
-            : isOpen
-              ? "max-h-[min(640px,calc(100vh-5rem))]"
-              : null,
+          "overflow-hidden transition-all duration-200 ease-out",
+          isTakeover
+            ? "pointer-events-auto h-full w-full self-stretch"
+            : cn(
+                "origin-bottom-right self-end",
+                isOpen
+                  ? "pointer-events-auto scale-100 opacity-100"
+                  : "max-h-0 scale-95 opacity-0",
+                // Panelen får aldrig växa förbi skärmen — den lyfta bubblan
+                // äter extra höjd i buildern på mobil.
+                isOpen && sharesBottomEdgeWithInput
+                  ? "max-h-[min(640px,calc(100vh-13rem))] sm:max-h-[min(640px,calc(100vh-5rem))]"
+                  : isOpen
+                    ? "max-h-[min(640px,calc(100vh-5rem))]"
+                    : null,
+              ),
         )}
       >
         <OpenClawChatPanel

@@ -13,6 +13,8 @@ import {
   type OpenClawPowers,
 } from "@/lib/openclaw/powers";
 
+export type OpenClawPanelPresentation = "bubble" | "takeover";
+
 export interface OpenClawMessage {
   id: string;
   role: "user" | "assistant";
@@ -30,6 +32,9 @@ interface OpenClawState {
   isStreaming: boolean;
   scopeKey: string;
   avatarMode: boolean;
+  /** How the open panel is shown. Local `avatarExpanded` in the panel only
+   * widens the bubble; it must not be reused as takeover. */
+  panelPresentation: OpenClawPanelPresentation;
   /** Server-reported OC_DEBUG state (from /api/openclaw/health) — read side
    * (debug context). Default false. */
   debugEnabled: boolean;
@@ -64,6 +69,7 @@ interface OpenClawState {
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
   setAvatarMode: (v: boolean) => void;
+  setPanelPresentation: (v: OpenClawPanelPresentation) => void;
   setDebugEnabled: (v: boolean) => void;
   setEditEnabled: (v: boolean) => void;
   /** Press/release the master toggle. Releasing it disarms (see below). */
@@ -119,6 +125,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   // Text first: opening the chat must not synchronously load the D-ID SDK or
   // start a video connection. The user can opt into the avatar from the panel.
   avatarMode: false,
+  panelPresentation: "bubble",
   debugEnabled: false,
   editEnabled: false,
   powersOn: false,
@@ -127,9 +134,13 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   armedContinuation: null,
   preparedFill: null,
 
-  toggle: () => set((s) => ({ isOpen: !s.isOpen })),
+  toggle: () =>
+    set((s) => ({
+      isOpen: !s.isOpen,
+      ...(s.isOpen ? { panelPresentation: "bubble" as const } : {}),
+    })),
   open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false }),
+  close: () => set({ isOpen: false, panelPresentation: "bubble" }),
   setScope: (scopeKey) =>
     set((state) =>
       state.scopeKey === scopeKey
@@ -150,6 +161,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             // user re-presses the button where they actually want it.
             powersOn: false,
             grantedPowers: [],
+            panelPresentation: "bubble",
           },
     ),
 
@@ -165,6 +177,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   setStreaming: (v) => set({ isStreaming: v }),
   clearMessages: () => set({ messages: [] }),
   setAvatarMode: (v) => set({ avatarMode: v }),
+  setPanelPresentation: (panelPresentation) => set({ panelPresentation }),
   setDebugEnabled: (v) => set({ debugEnabled: v }),
   // Losing the env gate withdraws the grant with it. Otherwise a health check
   // that dips to false and back — a failed fetch is enough — would silently
