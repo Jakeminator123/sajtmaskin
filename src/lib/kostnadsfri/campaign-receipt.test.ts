@@ -23,6 +23,9 @@ describe("kostnadsfri campaign receipt", () => {
     expect(
       verifyKostnadsfriCampaignReceipt(receipt, { slug: "acme-ab", sessionId: "sess_2", now }),
     ).toBe(false);
+    expect(
+      verifyKostnadsfriCampaignReceipt(receipt, { slug: "acme", sessionId: "sess_1", now }),
+    ).toBe(false);
   });
 
   it("rejects tampering and expired receipts", () => {

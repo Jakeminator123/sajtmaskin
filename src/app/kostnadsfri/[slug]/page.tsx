@@ -1,5 +1,5 @@
 import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
-import { isPageAccessible } from "@/lib/kostnadsfri";
+import { findKostnadsfriPageForSlug, isPageAccessible } from "@/lib/kostnadsfri";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   extractKostnadsfriOpenClawConfig,
@@ -22,18 +22,22 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+async function loadKostnadsfriLandingPage(slug: string) {
+  try {
+    return await findKostnadsfriPageForSlug(slug, getKostnadsfriPageBySlug);
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
 
   // Try DB first for a richer title, fall back to slug-derived name
   let companyName = companyNameFromSlug(slug);
-  try {
-    const page = await getKostnadsfriPageBySlug(slug);
-    if (page) {
-      companyName = page.company_name;
-    }
-  } catch {
-    // DB not available — use slug-derived name
+  const page = await loadKostnadsfriLandingPage(slug);
+  if (page) {
+    companyName = page.company_name;
   }
 
   return {
@@ -51,22 +55,17 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
   let expiredReason: string | null = null;
   let openclawConfig: KostnadsfriOpenClawConfig | null = null;
 
-  try {
-    const page = await getKostnadsfriPageBySlug(slug);
-    if (page) {
-      // Check if DB page is still accessible (expiry etc.)
-      const access = isPageAccessible(page);
-      if (!access.accessible) {
-        expiredReason = access.reason ?? "Länken är inte längre giltig.";
-      } else {
-        companyName = page.company_name;
-        openclawConfig = extractKostnadsfriOpenClawConfig(
-          page.extra_data as Record<string, unknown> | null,
-        );
-      }
+  const page = await loadKostnadsfriLandingPage(slug);
+  if (page) {
+    const access = isPageAccessible(page);
+    if (!access.accessible) {
+      expiredReason = access.reason ?? "Länken är inte längre giltig.";
+    } else {
+      companyName = page.company_name;
+      openclawConfig = extractKostnadsfriOpenClawConfig(
+        page.extra_data as Record<string, unknown> | null,
+      );
     }
-  } catch {
-    // DB not available — continue with slug-derived data
   }
 
   if (expiredReason) {

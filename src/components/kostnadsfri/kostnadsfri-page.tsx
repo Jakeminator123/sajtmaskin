@@ -148,6 +148,8 @@ export function KostnadsfriPage({
           prompt,
           source: "kostnadsfri",
           projectId,
+          // URL-sluggen, inte `companyData.slug`: kvittot från verify är bundet
+          // till page-parametern, så syskonraden får inte byta ut den här.
           kostnadsfriSlug: slug,
         }),
       });

@@ -404,4 +404,41 @@ describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
     expect(brief.businessDescriptionSource).toBe("register");
     expect(brief.purposeLabels).toBeUndefined();
   });
+
+  // Bolagsdatan bär radens slug (`zax-2-0-ab`) när syskonraden träffades, men
+  // kvittot från verify är bundet till URL-sluggen. Skickas radens slug som
+  // inbjudan får kunden 403 på ett korrekt lösenord.
+  it("löser inbjudan mot URL-sluggen även när bolagsdatan bär syskonsluggen", async () => {
+    projects.createProject.mockResolvedValue({
+      id: "proj-syskon",
+      name: "Zax - Kostnadsfri",
+      created_at: "",
+      updated_at: "",
+    });
+    act(() => {
+      useOpenClawStore.setState({ campaignScript: emptyCampaignScript("zax-2-0") });
+    });
+
+    render(<KostnadsfriPage slug="zax-2-0" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(projects.createProject).toHaveBeenCalledTimes(1);
+    });
+
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const promptCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes("/api/prompts"),
+    );
+    expect(promptCall).toBeTruthy();
+    expect(JSON.parse(String(promptCall?.[1]?.body ?? "{}"))).toMatchObject({
+      source: "kostnadsfri",
+      kostnadsfriSlug: "zax-2-0",
+    });
+  });
 });
