@@ -47,7 +47,10 @@ import {
   normalizeProductPostcheckMutationRevision,
 } from "@/lib/db/services/product-postcheck-runs";
 import { readProductPostcheckVerdictForVersion } from "@/lib/integrations/tier3-readiness-gate";
-import { productPostcheckResultFromVerdict } from "@/lib/gen/verify/product-postcheck-verdict";
+import {
+  isNonBlockingPreviewBootResult,
+  productPostcheckResultFromVerdict,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -665,6 +668,22 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           previewUrl: resolvedPreviewUrl,
           durationMs: result.durationMs,
           routesChecked: result.routesChecked,
+        }),
+      );
+    }
+
+    // SM-077: a timing boot-splash is not a product verdict. Attesting it as
+    // `passed` locked the claim and skipped the later starting→ready crawl.
+    if (isNonBlockingPreviewBootResult(result)) {
+      if (result.screenshots) {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+      }
+      await finishHeldClaim("superseded");
+      return NextResponse.json(
+        pendingPreviewNotReadyResult({
+          previewUrl: resolvedPreviewUrl,
+          durationMs: result.durationMs,
+          verificationRunId,
         }),
       );
     }
