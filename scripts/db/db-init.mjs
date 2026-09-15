@@ -256,6 +256,24 @@ const setupQueries = [
     expires_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT wizard_runs_status_check CHECK (status IN ('active', 'completed', 'expired'))
   )`,
+  `CREATE TABLE IF NOT EXISTS template_init_operations (
+    claim_key TEXT PRIMARY KEY,
+    operation_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    user_id TEXT,
+    session_id TEXT,
+    project_id TEXT,
+    template_id TEXT NOT NULL,
+    chat_id TEXT,
+    version_id TEXT,
+    claim_generation INTEGER NOT NULL DEFAULT 1,
+    error TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT template_init_operations_status_check
+      CHECK (status IN ('pending', 'completed', 'failed'))
+  )`,
   `CREATE TABLE IF NOT EXISTS guest_usage (
     id BIGSERIAL PRIMARY KEY,
     session_id TEXT UNIQUE NOT NULL,
@@ -732,6 +750,8 @@ const schemaQueries = [
   `CREATE UNIQUE INDEX IF NOT EXISTS transactions_user_type_idempotency_idx ON transactions(user_id, type, idempotency_key) WHERE idempotency_key IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_wizard_runs_user_id ON wizard_runs(user_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS wizard_runs_user_active_idx ON wizard_runs(user_id) WHERE status = 'active'`,
+  `CREATE INDEX IF NOT EXISTS idx_template_init_operations_project ON template_init_operations(project_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_template_init_operations_expires_at ON template_init_operations(expires_at)`,
   `CREATE INDEX IF NOT EXISTS idx_user_audits_user_id ON user_audits(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
@@ -894,6 +914,7 @@ const ALL_TABLES = [
   "user_integrations",
   "transactions",
   "wizard_runs",
+  "template_init_operations",
   "guest_usage",
   "company_profiles",
   "template_cache",

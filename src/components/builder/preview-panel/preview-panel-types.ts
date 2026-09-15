@@ -86,6 +86,9 @@ export interface PreviewPanelProps {
    * reuse the dead chatId for a follow-up post.
    */
   onRestartGeneration?: () => void;
+  /** Failed template import while `?templateId=` remains without `chatId`. */
+  templateInitError?: string | null;
+  onRetryTemplateInit?: () => void;
   refreshToken?: number;
   /**
    * Called after a manual file save. When the Fast Edit Lane created a new minor

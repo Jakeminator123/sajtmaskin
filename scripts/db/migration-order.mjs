@@ -152,6 +152,10 @@ export const MIGRATION_ORDER = [
   // "sist"-posterna ovan (parity + ledger-härdning), som bara rör äldre tabeller
   // respektive ledgern själv.
   "add-kostnadsfri-sent.sql",
+  // SM-013: durable template-init reservation. Fristående CREATE — inga
+  // FK-beroenden. claim_key är PRIMARY KEY (inserten är låset);
+  // operation_id är credit-idempotensnyckeln.
+  "add-template-init-operations.sql",
 ];
 
 /**

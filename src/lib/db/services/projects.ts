@@ -155,6 +155,30 @@ export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<
     .orderBy(desc(appProjects.updated_at));
 }
 
+/**
+ * Latest project this owner already started from `templateId`.
+ * Used by `POST /api/template` when the client has no `projectId` so a retry
+ * does not mint a second project. Gallery clicks always send `projectId` and
+ * never go through this lookup.
+ */
+export async function findLatestTemplateInitProjectIdForOwner(
+  scope: ProjectOwnerScope,
+  templateId: string,
+): Promise<string | null> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  const trimmedTemplateId = templateId.trim();
+  if (!ownerCondition || !trimmedTemplateId) return null;
+  const rows = await db
+    .select({ id: appProjects.id })
+    .from(appProjects)
+    .innerJoin(projectData, eq(projectData.project_id, appProjects.id))
+    .where(and(ownerCondition, sql`${projectData.meta}->>'templateId' = ${trimmedTemplateId}`))
+    .orderBy(desc(projectData.updated_at))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
 export async function getProjectById(id: string): Promise<Project | null> {
   assertDbConfigured();
   const rows = await db.select().from(appProjects).where(eq(appProjects.id, id)).limit(1);
