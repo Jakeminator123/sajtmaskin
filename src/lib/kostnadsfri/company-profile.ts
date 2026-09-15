@@ -376,3 +376,65 @@ export function extractKostnadsfriCompanyProfile(
   if (!extraData) return null;
   return normalizeKostnadsfriCompanyProfile(extraData.profile);
 }
+
+/**
+ * True när den **normaliserade** profilen saknas. Speglar SQL-villkoret i
+ * `backfillKostnadsfriPageProfile`: saknad/null/primitiv/`{}` *och* ogiltig
+ * legacy (nonempty men inte allowlistad) är skrivbart. En giltig pushad
+ * profil vinner alltid över fallback.
+ */
+export function isKostnadsfriProfileSlotEmpty(extraData: unknown): boolean {
+  if (!extraData || typeof extraData !== "object" || Array.isArray(extraData)) {
+    return true;
+  }
+  return extractKostnadsfriCompanyProfile(extraData as Record<string, unknown>) === null;
+}
+
+/** Negativ sentinel efter miss eller träff utan publicerbar profil. */
+export type KostnadsfriProfileFallbackOutcome = "miss" | "empty";
+
+export type KostnadsfriProfileFallback = {
+  outcome: KostnadsfriProfileFallbackOutcome;
+  checkedAt: string;
+};
+
+/** Miss cacheas ett dygn; empty kortare — scrape kan senare rätta underlaget. */
+export const KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS = 24 * 60 * 60 * 1000;
+export const KOSTNADSFRI_PROFILE_FALLBACK_EMPTY_TTL_MS = 6 * 60 * 60 * 1000;
+
+export function buildKostnadsfriProfileFallback(
+  outcome: KostnadsfriProfileFallbackOutcome,
+  checkedAt: Date = new Date(),
+): KostnadsfriProfileFallback {
+  return { outcome, checkedAt: checkedAt.toISOString() };
+}
+
+/**
+ * True när en negativ lookup-sentinel fortfarande gäller.
+ * `unavailable` / timeout / 5xx / läsfel har ingen sentinel.
+ * Saknad eller ogiltig `checkedAt` är inte settled — ingen permanent miss.
+ */
+export function isKostnadsfriProfileFallbackSettled(
+  extraData: unknown,
+  now: Date | number = Date.now(),
+): boolean {
+  if (!extraData || typeof extraData !== "object" || Array.isArray(extraData)) {
+    return false;
+  }
+  const fallback = (extraData as Record<string, unknown>).profileFallback;
+  if (!fallback || typeof fallback !== "object" || Array.isArray(fallback)) {
+    return false;
+  }
+  const record = fallback as Record<string, unknown>;
+  const outcome = record.outcome;
+  if (outcome !== "miss" && outcome !== "empty") return false;
+  if (typeof record.checkedAt !== "string") return false;
+  const checkedAtMs = Date.parse(record.checkedAt);
+  if (Number.isNaN(checkedAtMs)) return false;
+  const ttlMs =
+    outcome === "miss"
+      ? KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS
+      : KOSTNADSFRI_PROFILE_FALLBACK_EMPTY_TTL_MS;
+  const nowMs = typeof now === "number" ? now : now.getTime();
+  return nowMs - checkedAtMs < ttlMs;
+}
