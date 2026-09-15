@@ -127,8 +127,16 @@ describe("base invalidation marker", () => {
   });
 });
 
+// Check-id måste vara unikt per fixture. Ett slumpat id kolliderade ibland
+// mellan två required checks i samma test, och då band `checkRunIdFromUrl` två
+// canonical jobb till samma check → provenance `ambiguous-workflow-job` med
+// `collision: true`. Gaten kastade i stället för att returnera det förväntade
+// utfallet, så suiten föll slumpmässigt (röd `preview` 2026-09-15). En monoton
+// räknare är deterministisk och kan inte krocka.
+let nextRunId = 1;
+
 function run(name: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const id = Math.floor(Math.random() * 1_000_000);
+  const id = nextRunId++;
   const workflowRun = {
     id: 500,
     check_suite_id: 700,
