@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ByodDomainStatus } from "./ByodDomainStatus";
 
@@ -166,6 +166,40 @@ describe("ByodDomainStatus", () => {
     rerender(<ByodDomainStatus chatId="chat_2" initialDomain="b.se" />);
 
     expect(screen.queryByText("DNS verifierad för den kontrollerade domänen.")).toBeNull();
+    expect(screen.getByLabelText(/Domän du redan äger/i)).toHaveProperty("value", "b.se");
+  });
+
+  it("drops a late response after the owning chat and domain have changed", async () => {
+    let resolveOldRequest: ((response: Response) => void) | null = null;
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveOldRequest = resolve;
+        }),
+    ) as unknown as typeof fetch;
+
+    const { rerender } = render(<ByodDomainStatus chatId="chat_1" initialDomain="a.se" />);
+    fireEvent.click(screen.getByRole("button", { name: /Kontrollera domän/i }));
+
+    rerender(<ByodDomainStatus chatId="chat_2" initialDomain="b.se" />);
+    await act(async () => {
+      resolveOldRequest?.(
+        json({
+          domain: "a.se",
+          connection: "connected",
+          ownership: "verified",
+          dns: "valid",
+          https: "not_checked",
+          activation: "not_started",
+          records: [],
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("DNS verifierad för den kontrollerade domänen.")).toBeNull();
+    expect(screen.queryByText("a.se")).toBeNull();
     expect(screen.getByLabelText(/Domän du redan äger/i)).toHaveProperty("value", "b.se");
   });
 });

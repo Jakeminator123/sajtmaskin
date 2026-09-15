@@ -196,6 +196,34 @@ describe("observeVercelDomain", () => {
     expect(JSON.stringify(result)).not.toContain("vp_other");
   });
 
+  it("rejects a mismatched domain name even when the project id matches", async () => {
+    providerFetch({
+      config: json({
+        misconfigured: false,
+        recommendedIPv4: [{ rank: 1, value: ["192.0.2.31"] }],
+      }),
+      project: json({
+        name: "other-customer.com",
+        apexName: "other-customer.com",
+        projectId: "vp_customer",
+        verified: true,
+        verification: [
+          { type: "TXT", domain: "_vercel.other-customer.com", value: "name-mismatch-secret" },
+        ],
+      }),
+    });
+
+    const result = await observeVercelDomain({
+      projectId: "vp_customer",
+      domain: "customer.com",
+    });
+
+    expect(result.connection).toBe("unknown");
+    expect(result.ownership).toBe("unknown");
+    expect(JSON.stringify(result)).not.toContain("name-mismatch-secret");
+    expect(JSON.stringify(result)).not.toContain("other-customer.com");
+  });
+
   it.each([
     [json({ error: "provider failure" }, 500), "unknown"],
     [new Error("network failure"), "unknown"],
@@ -238,6 +266,11 @@ describe("observeVercelDomain", () => {
             value: "vc-domain-verify=customer.com,abc",
             reason: "internal provider detail",
           },
+          {
+            type: "CNAME",
+            domain: "_future.customer.com",
+            value: "unexpected-challenge.vercel-dns.com",
+          },
         ],
       }),
     });
@@ -256,6 +289,7 @@ describe("observeVercelDomain", () => {
       },
     ]);
     expect(JSON.stringify(result)).not.toContain("internal provider detail");
+    expect(JSON.stringify(result)).not.toContain("unexpected-challenge");
   });
 
   it.each([undefined, "yes"])(

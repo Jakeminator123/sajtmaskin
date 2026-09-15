@@ -132,7 +132,10 @@ function ownershipRecords(projectDomain: VercelProjectDomain): DnsRecord[] {
         : "";
     const value =
       "value" in challenge && typeof challenge.value === "string" ? challenge.value.trim() : "";
-    if (!/^[A-Z][A-Z0-9-]{0,15}$/.test(type) || !host || !value) return [];
+    // The project-domain contract documents TXT as the DNS ownership
+    // challenge. Never turn an unknown future challenge kind into a DNS
+    // instruction merely because its name happens to look record-like.
+    if (type !== "TXT" || !host || !value) return [];
     return [{ type, host, value, purpose: "ownership" as const }];
   });
 }
