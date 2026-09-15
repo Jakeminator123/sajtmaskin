@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import {
+  clearCampaignScriptStorageForTests,
+  KOSTNADSFRI_ADVICE_ROUND_LIMIT,
+} from "@/lib/kostnadsfri/agent-campaign-script";
 import { readOpenClawPowers, useOpenClawStore } from "./openclaw-store";
 
 describe("OpenClaw store assistant targeting", () => {
@@ -10,7 +14,9 @@ describe("OpenClaw store assistant targeting", () => {
       scopeKey: "global",
       avatarMode: false,
       panelPresentation: "bubble",
+      campaignScript: null,
     });
+    clearCampaignScriptStorageForTests();
   });
 
   it("opens text-first without starting the D-ID avatar", () => {
@@ -299,5 +305,34 @@ describe("OpenClaw store — withdrawing an extra power", () => {
     expect(state.powersOn).toBe(false);
     expect(state.grantedPowers).toEqual([]);
     expect(state.armedMandate).toBeNull();
+  });
+});
+
+describe("OpenClaw store — kampanjrådgivning", () => {
+  beforeEach(() => {
+    clearCampaignScriptStorageForTests();
+    useOpenClawStore.setState({ campaignScript: null, messages: [] });
+  });
+
+  it("räknar ned kvoten, stannar på noll och överlever setScope", () => {
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(
+      KOSTNADSFRI_ADVICE_ROUND_LIMIT,
+    );
+
+    for (let i = 0; i < KOSTNADSFRI_ADVICE_ROUND_LIMIT; i += 1) {
+      expect(useOpenClawStore.getState().consumeCampaignAdviceRound()).toBe("ok");
+    }
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+    expect(useOpenClawStore.getState().consumeCampaignAdviceRound()).toBe("exhausted");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+
+    useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+
+    useOpenClawStore.setState({ campaignScript: null });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
   });
 });

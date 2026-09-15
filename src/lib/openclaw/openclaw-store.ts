@@ -6,6 +6,15 @@ import type {
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 import {
+  consumeAdviceRound,
+  markBuildStartedAnnounced,
+  markFollowupsSkipped,
+  markHandoffOpened,
+  readCampaignScript,
+  writeCampaignScript,
+  type KostnadsfriCampaignScriptState,
+} from "@/lib/kostnadsfri/agent-campaign-script";
+import {
   activeOpenClawPowerIds,
   resolveOpenClawPowers,
   toggleOpenClawPower,
@@ -59,6 +68,11 @@ interface OpenClawState {
    * `prepared-prompt.ts`). Cleared on scope change and after the draft that
    * carried it is sent. */
   preparedFill: OpenClawPreparedFill | null;
+  /**
+   * Kampanjmanus per slug (rådgivningskvot + hoppa-över). Lever utanför
+   * `setScope` så en redirect till buildern inte nollställer kvoten.
+   */
+  campaignScript: KostnadsfriCampaignScriptState | null;
 
   toggle: () => void;
   open: () => void;
@@ -91,6 +105,11 @@ interface OpenClawState {
     outcome: ArmedContinuationSendOutcome,
   ) => void;
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
+  hydrateCampaignScript: (slug: string) => void;
+  markCampaignHandoffOpened: (slug: string) => void;
+  skipCampaignFollowups: () => void;
+  consumeCampaignAdviceRound: () => "ok" | "exhausted" | "inactive";
+  markCampaignBuildStartedAnnounced: () => void;
 }
 
 /**
@@ -133,6 +152,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   armedMandate: null,
   armedContinuation: null,
   preparedFill: null,
+  campaignScript: null,
 
   toggle: () =>
     set((s) => ({
@@ -228,6 +248,49 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
         : {},
     ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
+  hydrateCampaignScript: (slug) =>
+    set((s) => {
+      if (s.campaignScript?.slug === slug) return s;
+      const campaignScript = readCampaignScript(slug);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  markCampaignHandoffOpened: (slug) =>
+    set((s) => {
+      const base = s.campaignScript?.slug === slug ? s.campaignScript : readCampaignScript(slug);
+      const campaignScript = markHandoffOpened(base);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  skipCampaignFollowups: () =>
+    set((s) => {
+      if (!s.campaignScript || s.campaignScript.followupsSkipped) return s;
+      const campaignScript = markFollowupsSkipped(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  consumeCampaignAdviceRound: () => {
+    let result: "ok" | "exhausted" | "inactive" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      const next = consumeAdviceRound(s.campaignScript);
+      result = next.result;
+      if (next.result === "exhausted") return s;
+      writeCampaignScript(next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
+  markCampaignBuildStartedAnnounced: () =>
+    set((s) => {
+      if (!s.campaignScript || s.campaignScript.buildStartedAnnounced) return s;
+      const campaignScript = markBuildStartedAnnounced(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
 }));
 
 /**

@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles, X } from "lucide-react";
+import {
+  buildKostnadsfriHandoffIntro,
+  decideKostnadsfriBuildStartedAnnounce,
+  decideKostnadsfriHandoffOpen,
+  KOSTNADSFRI_BUILD_STARTED_COPY,
+  KOSTNADSFRI_BUILD_STARTED_ID,
+  KOSTNADSFRI_HANDOFF_INTRO_ID,
+  kostnadsfriSlugFromPathname,
+  readActiveCampaignSlug,
+} from "@/lib/kostnadsfri/agent-campaign-script";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   normalizeKostnadsfriOpenClawConfig,
@@ -99,6 +109,55 @@ function getKostnadsfriSurfaceContent(
   };
 }
 
+function seedAssistantMessage(id: string, content: string) {
+  const { messages, addMessage } = useOpenClawStore.getState();
+  if (messages.some((message) => message.id === id)) return;
+  addMessage({
+    id,
+    role: "assistant",
+    content,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Kampanjtriggern ägs här, där `__SITEMASKIN_CONTEXT` redan läses.
+ * Kampanjsidan ska inte anropa storet.
+ */
+function applyKostnadsfriCampaignTriggers(pathname: string) {
+  if (typeof window === "undefined") return;
+  const context = window.__SITEMASKIN_CONTEXT;
+  const store = useOpenClawStore.getState();
+
+  const pathSlug = kostnadsfriSlugFromPathname(pathname);
+  const activeSlug = pathSlug ?? readActiveCampaignSlug();
+  if (activeSlug) store.hydrateCampaignScript(activeSlug);
+
+  const script = useOpenClawStore.getState().campaignScript;
+  const handoff = decideKostnadsfriHandoffOpen({
+    pathname,
+    context,
+    script,
+  });
+  if (handoff.open) {
+    store.markCampaignHandoffOpened(handoff.slug);
+    store.open();
+    store.setPanelPresentation("takeover");
+    seedAssistantMessage(KOSTNADSFRI_HANDOFF_INTRO_ID, buildKostnadsfriHandoffIntro(handoff.brief));
+    return;
+  }
+
+  const buildStarted = decideKostnadsfriBuildStartedAnnounce({
+    pathname,
+    context,
+    script: useOpenClawStore.getState().campaignScript,
+  });
+  if (!buildStarted.announce) return;
+  store.hydrateCampaignScript(buildStarted.slug);
+  store.markCampaignBuildStartedAnnounced();
+  seedAssistantMessage(KOSTNADSFRI_BUILD_STARTED_ID, KOSTNADSFRI_BUILD_STARTED_COPY);
+}
+
 function getSurfaceContent(
   pathname: string,
   contextSurface: KostnadsfriOpenClawSurfaceContext | null,
@@ -156,7 +215,10 @@ export function OpenClawChat() {
   useEffect(() => {
     const syncContext = () => {
       setContextSurface(readKostnadsfriSurfaceContext());
-      setScopeKey(readOpenClawScopeKey(pathname));
+      const nextScope = readOpenClawScopeKey(pathname);
+      setScopeKey(nextScope);
+      // Scope oförändrat: wizard → handoff fyrar här, inte via setScope-effekten.
+      if (nextScope === scopeKey) applyKostnadsfriCampaignTriggers(pathname);
     };
 
     syncContext();
@@ -164,11 +226,17 @@ export function OpenClawChat() {
     return () => {
       window.removeEventListener("sajtmaskin:context-updated", syncContext);
     };
-  }, [pathname]);
+  }, [pathname, scopeKey]);
 
   useEffect(() => {
     setScope(scopeKey);
   }, [scopeKey, setScope]);
+
+  useEffect(() => {
+    const expected = readOpenClawScopeKey(pathname);
+    if (scopeKey !== expected) return;
+    applyKostnadsfriCampaignTriggers(pathname);
+  }, [pathname, scopeKey]);
 
   const handleOpen = () => {
     setShowTeaser(false);

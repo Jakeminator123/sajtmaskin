@@ -24,6 +24,13 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatAdviceRemaining,
+  KOSTNADSFRI_FOLLOWUP_SKIP_ACK,
+  KOSTNADSFRI_FOLLOWUP_SKIP_HINT,
+  KOSTNADSFRI_FOLLOWUP_SKIP_ID,
+  KOSTNADSFRI_FOLLOWUP_SKIP_LABEL,
+} from "@/lib/kostnadsfri/agent-campaign-script";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   DID_AVATAR_AVAILABLE,
@@ -122,6 +129,9 @@ export function OpenClawChatPanel({
     armedMandate,
     panelPresentation,
     setPanelPresentation,
+    campaignScript,
+    skipCampaignFollowups,
+    addMessage,
   } = useOpenClawStore();
   const isTakeover = panelPresentation === "takeover";
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
@@ -426,6 +436,18 @@ export function OpenClawChatPanel({
   const enterTakeover = useCallback(() => {
     setPanelPresentation("takeover");
   }, [setPanelPresentation]);
+  const handleSkipFollowups = useCallback(() => {
+    skipCampaignFollowups();
+    if (useOpenClawStore.getState().messages.some((message) => message.id === KOSTNADSFRI_FOLLOWUP_SKIP_ID)) {
+      return;
+    }
+    addMessage({
+      id: KOSTNADSFRI_FOLLOWUP_SKIP_ID,
+      role: "assistant",
+      content: KOSTNADSFRI_FOLLOWUP_SKIP_ACK,
+      timestamp: Date.now(),
+    });
+  }, [addMessage, skipCampaignFollowups]);
 
   return (
     <div
@@ -728,6 +750,25 @@ export function OpenClawChatPanel({
           </div>
 
           <div className="border-t border-white/10 px-3 py-2.5">
+            {campaignScript ? (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-slate-300" data-testid="kampanj-radgivning-kvar">
+                  {formatAdviceRemaining(campaignScript.remaining)}
+                  {!campaignScript.followupsSkipped ? (
+                    <span className="ml-1.5 text-slate-400">· {KOSTNADSFRI_FOLLOWUP_SKIP_HINT}</span>
+                  ) : null}
+                </p>
+                {!campaignScript.followupsSkipped ? (
+                  <button
+                    type="button"
+                    onClick={handleSkipFollowups}
+                    className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-100 transition-colors hover:bg-white/10"
+                  >
+                    {KOSTNADSFRI_FOLLOWUP_SKIP_LABEL}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
               <textarea
                 ref={inputRef}

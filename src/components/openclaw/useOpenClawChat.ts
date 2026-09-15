@@ -7,6 +7,10 @@ import {
   useOpenClawStore,
   type OpenClawMessage,
 } from "@/lib/openclaw/openclaw-store";
+import {
+  KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
+  shouldEnforceCampaignAdviceQuota,
+} from "@/lib/kostnadsfri/agent-campaign-script";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
   parseGatewayStream,
@@ -44,6 +48,7 @@ export function useOpenClawChat() {
     setStreaming,
     scopeKey,
     setArmedMandate,
+    consumeCampaignAdviceRound,
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
@@ -84,6 +89,27 @@ export function useOpenClawChat() {
 
       if (streaming) return;
 
+      const clientContext = collectOpenClawClientContext();
+      const campaignScript = useOpenClawStore.getState().campaignScript;
+      if (shouldEnforceCampaignAdviceQuota(clientContext, campaignScript)) {
+        const quota = consumeCampaignAdviceRound();
+        if (quota === "exhausted") {
+          addMessage({
+            id: makeId(),
+            role: "user",
+            content: trimmed,
+            timestamp: Date.now(),
+          });
+          addMessage({
+            id: makeId(),
+            role: "assistant",
+            content: KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+      }
+
       const userMsg: OpenClawMessage = {
         id: makeId(),
         role: "user",
@@ -121,7 +147,7 @@ export function useOpenClawChat() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: apiMessages,
-            context: collectOpenClawClientContext(),
+            context: clientContext,
             // Which extra powers the user granted for THIS turn. The server ANDs
             // the list with its own OC_EDIT, so it can only narrow the edit
             // instructions — never unlock anything the deployment forbids.
@@ -210,7 +236,7 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [addMessage, updateAssistantMessage, setStreaming, setArmedMandate],
+    [addMessage, updateAssistantMessage, setStreaming, setArmedMandate, consumeCampaignAdviceRound],
   );
 
   const stop = useCallback(() => {
