@@ -312,14 +312,134 @@ describe("POST /api/kostnadsfri — bolagsprofil", () => {
         profile: { city: "Kista", contactPersonalId: "19748885-2517" },
       }),
     );
-    const body = await res.json();
+    const raw = await res.text();
+    const body = JSON.parse(raw) as { fields?: string[] };
 
     expect(res.status).toBe(400);
-    expect(body.fields).toEqual(["contactPersonalId"]);
-    expect(JSON.stringify(body)).not.toContain("19748885-2517");
+    expect(body.fields).toEqual(["profile"]);
+    expect(raw).not.toContain("19748885-2517");
+    expect(raw).not.toContain("contactPersonalId");
     expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
     expect(createKostnadsfriPage).not.toHaveBeenCalled();
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("ekar inte en avsändarstyrd personnummer-nyckel i create-svaret eller loggen", async () => {
+    const sentinel = "19811228-9874";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        profile: { [sentinel]: sentinel },
+      }),
+    );
+    const raw = await res.text();
+    const body = JSON.parse(raw) as { fields?: string[] };
+
+    expect(res.status).toBe(400);
+    expect(body.fields).toEqual(["profile"]);
+    expect(raw).not.toContain(sentinel);
+    expect(consoleError.mock.calls.flat().map(String).join(" ")).not.toContain(sentinel);
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+
+    consoleError.mockRestore();
+  });
+
+  it("avvisar PII på sentAt-upsert-vägen utan att patcha extra_data", async () => {
+    const sentinel = "Ledamot850101-1234";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        source: "python-utskick",
+        profile: { businessDescription: sentinel },
+      }),
+    );
+    const raw = await res.text();
+    const body = JSON.parse(raw) as { fields?: string[] };
+
+    expect(res.status).toBe(400);
+    expect(body.fields).toEqual(["businessDescription"]);
+    expect(raw).not.toContain(sentinel);
+    expect(raw).not.toContain("850101-1234");
+    expect(consoleError.mock.calls.flat().map(String).join(" ")).not.toContain(sentinel);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+
+    consoleError.mockRestore();
+  });
+
+  it("avvisar prefix, suffix och typografisk separator i hela HTTP-svaret", async () => {
+    for (const value of ["Ledamot850101-1234", "850101-1234x", "850101\u20131234", "1981 12 28-9874"]) {
+      const res = await POST(postRequest({ companyName: "Acme AB", profile: { city: value } }));
+      const raw = await res.text();
+      const body = JSON.parse(raw) as { fields?: string[] };
+
+      expect(res.status).toBe(400);
+      expect(body.fields).toEqual(["city"]);
+      expect(raw).not.toContain(value);
+      expect(raw).not.toContain("850101");
+      expect(raw).not.toContain("1981 12 28");
+      expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    }
+  });
+
+  it("avvisar mellanslag runt separatorn och osynliga tecken i hela HTTP-svaret", async () => {
+    for (const value of [
+      "850101 - 1234",
+      "850101- 1234",
+      "850101 -1234",
+      "850101\u200B-\u200B1234",
+      "850101\u00AD-1234",
+      "850101\u20151234",
+    ]) {
+      const res = await POST(postRequest({ companyName: "Acme AB", profile: { city: value } }));
+      const raw = await res.text();
+      const body = JSON.parse(raw) as { fields?: string[] };
+
+      expect(res.status).toBe(400);
+      expect(body.fields).toEqual(["city"]);
+      expect(raw).not.toContain(value);
+      expect(raw).not.toContain("850101");
+      expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    }
+  });
+
+  it("lagrar legitim bolagsdata med telefon, postnummer, belopp och ISO-datum", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPage.mockResolvedValueOnce(pageRow());
+
+    const businessDescription =
+      "omsättning 100000 - 200000 kr, 100 000-200 000, lägst 100000 och högst 500000. Ring 070-123 45 67, 0701234567, +46 70 123 45 67 eller 08-123 45 67. Post 164 40. Pris 25.000 SEK.";
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        profile: {
+          orgNumber: "559599-5639",
+          postalCode: "164 40",
+          registeredAt: "2026-07-10T14:30:00+02:00",
+          businessDescription,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(createKostnadsfriPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extraData: {
+          profile: {
+            orgNumber: "559599-5639",
+            postalCode: "164 40",
+            registeredAt: "2026-07-10",
+            businessDescription,
+          },
+        },
+      }),
+    );
   });
 
   it("avvisar ett orgNumber som inte är ett organisationsnummer", async () => {
