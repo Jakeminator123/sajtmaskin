@@ -95,7 +95,7 @@ describe("lanyard consent helpers", () => {
     expect(shouldPreloadLanyardCard()).toBe(false);
   });
 
-  it("keeps experience preload and gates the physics chunk in source", () => {
+  it("keeps experience preload and gates the physics chunk in source", async () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/components/landing-v2/lanyard-consent.ts"),
       "utf8",
@@ -105,5 +105,6 @@ describe("lanyard consent helpers", () => {
     expect(source).toContain("shouldPreloadLanyardCard");
     expect(source).toContain("readLanyardStaticOnly");
     expect(() => preloadReturningLanyard()).not.toThrow();
+    await expect(import("@/components/landing-v2/lanyard-experience")).resolves.toBeDefined();
   });
 });
