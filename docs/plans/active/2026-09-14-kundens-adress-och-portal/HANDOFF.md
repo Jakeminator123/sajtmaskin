@@ -54,4 +54,5 @@ D2 gated offer och A3 HTTPS-helper: pågår i egna worktrees, SHA saknas ännu
 | `C:\Users\jakem\dev\projects\sajtmaskin-codex-d2` | #1379 / `codex/hosting-d2-checkout-boundary` |
 
 Denna underlagsyta: `C:\Users\jakem\dev\projects\sajtmaskin-hosting-a1-dns`
-(`docs/hosting-a1-dns-underlag`). Ingen skarp DNS-/alias-/Vercel-skrivning.
+(`docs/hosting-a1-dns-underlag`, draft [#1380](https://github.com/Jakeminator123/sajtmaskin/pull/1380)).
+Ingen skarp DNS-/alias-/Vercel-skrivning.
