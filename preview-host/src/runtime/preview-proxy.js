@@ -14,7 +14,6 @@ const {
   clearPreviewSocketCandidate,
   findSessionByChatId,
   getPendingPreviewClientReloadToken,
-  getSessionChatId,
   hasPendingPreviewClientReload,
   isHmrProxyEnabled,
   markPreviewDocumentServed,
@@ -33,6 +32,7 @@ const {
   configuredAppOrigins,
   inspectInjectionScriptSrc: buildInspectInjectionScriptSrc,
 } = require("./inspect-bridge-src.js");
+const { renderPreviewPlaceholderPage } = require("./preview-placeholder-page.js");
 
 // Betrodda parent-origins för route-bryggan och Inspector-bryggan. De kommer
 // bara från hostens egen env och normaliseras till exakta HTTP(S)-origins. Att
@@ -296,66 +296,21 @@ function sendRuntimeStartingPage(res, session, options = {}) {
   // anroparen (proxy.on("error")) kan avsluta/förstöra svaret i stället för
   // att lämna iframen hängande när headers/body redan delvis skickats.
   if (!res || res.headersSent || res.writableEnded) return false;
+  void session;
   const recovering = options.recovering === true;
-  const heading = recovering ? "Startar om preview" : "Startar preview";
-  const intro = recovering
-    ? "Preview-runtimen startar om i bakgrunden. Sidan laddar om automatiskt om några sekunder."
-    : "Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.";
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-  res.end(`<!doctype html>
-<html lang="sv">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${heading}</title>
-    <meta http-equiv="refresh" content="4" />
-    <style>
-      body { font-family: system-ui, sans-serif; margin: 0; background: #0b0b0d; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
-      main { max-width: 40rem; padding: 2rem; text-align: center; }
-      .muted { color: #a3a3a3; }
-      code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>${heading}</h1>
-      <p class="muted">${intro}</p>
-      <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
-      <p class="muted">Status: <code>${session.status}</code></p>
-    </main>
-  </body>
-</html>`);
+  res.end(renderPreviewPlaceholderPage(recovering ? "recovering" : "starting"));
   return true;
 }
 
 function sendHeldPreviewErrorPage(res, session) {
   if (!res || res.headersSent || res.writableEnded) return false;
+  void session;
   res.writeHead(503, {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
   });
-  res.end(`<!doctype html>
-<html lang="sv">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Preview kunde inte starta</title>
-    <style>
-      body { font-family: system-ui, sans-serif; margin: 0; background: #0b0b0d; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
-      main { max-width: 40rem; padding: 2rem; text-align: center; }
-      .muted { color: #a3a3a3; }
-      code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Preview kunde inte starta</h1>
-      <p class="muted">Uppstarten misslyckades. Försök igen från byggaren.</p>
-      <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
-      <p class="muted">Status: <code>error</code></p>
-    </main>
-  </body>
-</html>`);
+  res.end(renderPreviewPlaceholderPage("error"));
   return true;
 }
 
