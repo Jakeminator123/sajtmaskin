@@ -9,11 +9,29 @@ describe("OpenClaw store assistant targeting", () => {
       isStreaming: false,
       scopeKey: "global",
       avatarMode: false,
+      panelPresentation: "bubble",
     });
   });
 
   it("opens text-first without starting the D-ID avatar", () => {
     expect(useOpenClawStore.getState().avatarMode).toBe(false);
+  });
+
+  it("keeps takeover in the store and separate from avatarMode", () => {
+    expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
+    useOpenClawStore.getState().setPanelPresentation("takeover");
+    expect(useOpenClawStore.getState().panelPresentation).toBe("takeover");
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+  });
+
+  it("returns to bubble when the panel closes or the scope changes", () => {
+    useOpenClawStore.setState({ isOpen: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().close();
+    expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
+
+    useOpenClawStore.setState({ isOpen: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().setScope("/builder::other");
+    expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
   });
 
   it("updates the targeted assistant message instead of the last one", () => {

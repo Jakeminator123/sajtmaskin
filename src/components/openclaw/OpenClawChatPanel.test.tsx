@@ -26,6 +26,7 @@ beforeEach(() => {
   act(() => {
     useOpenClawStore.setState({
       avatarMode: false,
+      panelPresentation: "bubble",
       editEnabled: false,
       powersOn: false,
       grantedPowers: [],

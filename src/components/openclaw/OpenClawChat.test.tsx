@@ -39,6 +39,7 @@ describe("OpenClawChat launcher", () => {
         messages: [],
         isStreaming: false,
         scopeKey: "/",
+        panelPresentation: "bubble",
       });
     });
   });
@@ -77,5 +78,17 @@ describe("OpenClawChat launcher", () => {
 
     expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
     expect(useOpenClawStore.getState().isOpen).toBe(true);
+  });
+
+  it("covers the preview surface at z-50 while takeover is on", () => {
+    act(() => {
+      useOpenClawStore.setState({ isOpen: true, panelPresentation: "takeover" });
+    });
+    const { container } = render(<OpenClawChat />);
+    const shell = container.firstElementChild as HTMLElement;
+
+    expect(shell.className).toContain("z-50");
+    expect(shell.className).toContain("inset-4");
+    expect(shell.className).not.toContain("z-[60]");
   });
 });
