@@ -25,8 +25,18 @@ import {
   Square,
   type LucideIcon,
 } from "lucide-react";
+import {
+  WIZARD_INDUSTRIES,
+  WIZARD_PURPOSES,
+  WIZARD_VIBES,
+  type WizardIndustryId,
+  type WizardPurposeId,
+  type WizardVibeId,
+} from "@/lib/builder/wizard-taxonomy";
 
 // ── Industry options with context ──────────────────────────────────
+// Id/label/suggestedFeatures ägs av `src/lib/builder/wizard-taxonomy.ts`.
+// Den här filen mappar bara id → Lucide-ikon.
 
 export type IndustryOption = {
   id: string;
@@ -35,74 +45,26 @@ export type IndustryOption = {
   suggestedFeatures: string[];
 };
 
-export const INDUSTRY_OPTIONS: IndustryOption[] = [
-  {
-    id: "cafe",
-    label: "Café/Konditori",
-    icon: Coffee,
-    suggestedFeatures: ["Meny", "Öppettider", "Bildgalleri", "Bordbokning"],
-  },
-  {
-    id: "restaurant",
-    label: "Restaurang/Bar",
-    icon: UtensilsCrossed,
-    suggestedFeatures: ["Meny", "Bordbokning", "Events", "Chef's specials"],
-  },
-  {
-    id: "retail",
-    label: "Butik/Detaljhandel",
-    icon: ShoppingBag,
-    suggestedFeatures: ["Produktkatalog", "Erbjudanden", "Hitta butik"],
-  },
-  {
-    id: "tech",
-    label: "Tech/IT-företag",
-    icon: Monitor,
-    suggestedFeatures: ["Tjänster", "Case studies", "Prissättning"],
-  },
-  {
-    id: "consulting",
-    label: "Konsult/Tjänster",
-    icon: BriefcaseBusiness,
-    suggestedFeatures: ["Tjänster", "Team", "Kontakt", "Testimonials"],
-  },
-  {
-    id: "health",
-    label: "Hälsa/Wellness",
-    icon: HeartPulse,
-    suggestedFeatures: ["Behandlingar", "Onlinebokning", "Prislista"],
-  },
-  {
-    id: "creative",
-    label: "Kreativ byrå",
-    icon: Brush,
-    suggestedFeatures: ["Portfolio", "Tjänster", "Process", "Kontakt"],
-  },
-  {
-    id: "education",
-    label: "Utbildning",
-    icon: GraduationCap,
-    suggestedFeatures: ["Kurser", "Schema", "Anmälan", "Lärare"],
-  },
-  {
-    id: "ecommerce",
-    label: "E-handel",
-    icon: Store,
-    suggestedFeatures: ["Produkter", "Varukorg", "Checkout", "Recensioner"],
-  },
-  {
-    id: "realestate",
-    label: "Fastigheter",
-    icon: House,
-    suggestedFeatures: ["Objekt", "Sök/Filter", "Kontakt", "Värdering"],
-  },
-  {
-    id: "other",
-    label: "Annat",
-    icon: Sparkles,
-    suggestedFeatures: [],
-  },
-];
+const INDUSTRY_ICONS: Record<WizardIndustryId, LucideIcon> = {
+  cafe: Coffee,
+  restaurant: UtensilsCrossed,
+  retail: ShoppingBag,
+  tech: Monitor,
+  consulting: BriefcaseBusiness,
+  health: HeartPulse,
+  creative: Brush,
+  education: GraduationCap,
+  ecommerce: Store,
+  realestate: House,
+  other: Sparkles,
+};
+
+export const INDUSTRY_OPTIONS: IndustryOption[] = WIZARD_INDUSTRIES.map((industry) => ({
+  id: industry.id,
+  label: industry.label,
+  icon: INDUSTRY_ICONS[industry.id],
+  suggestedFeatures: [...industry.suggestedFeatures],
+}));
 
 // Purpose options
 export type PurposeOption = {
@@ -112,16 +74,23 @@ export type PurposeOption = {
   desc: string;
 };
 
-export const PURPOSE_OPTIONS: PurposeOption[] = [
-  { id: "sell", label: "Sälja", icon: ShoppingCart, desc: "Produkter/tjänster" },
-  { id: "leads", label: "Leads", icon: Mail, desc: "Fånga kontakter" },
-  { id: "portfolio", label: "Portfolio", icon: ImageIcon, desc: "Visa arbeten" },
-  { id: "inform", label: "Informera", icon: BookOpenText, desc: "Dela kunskap" },
-  { id: "brand", label: "Varumärke", icon: BadgeCheck, desc: "Bygga identitet" },
-  { id: "booking", label: "Bokningar", icon: CalendarCheck, desc: "Ta emot bokningar" },
-  { id: "conversion", label: "Konvertering", icon: BarChart3, desc: "Öka konvertering" },
-  { id: "rebrand", label: "Rebrand", icon: RefreshCcw, desc: "Ny identitet" },
-];
+const PURPOSE_ICONS: Record<WizardPurposeId, LucideIcon> = {
+  sell: ShoppingCart,
+  leads: Mail,
+  portfolio: ImageIcon,
+  inform: BookOpenText,
+  brand: BadgeCheck,
+  booking: CalendarCheck,
+  conversion: BarChart3,
+  rebrand: RefreshCcw,
+};
+
+export const PURPOSE_OPTIONS: PurposeOption[] = WIZARD_PURPOSES.map((purpose) => ({
+  id: purpose.id,
+  label: purpose.label,
+  desc: purpose.desc,
+  icon: PURPOSE_ICONS[purpose.id],
+}));
 
 // Design vibe options
 export type VibeOption = {
@@ -130,14 +99,20 @@ export type VibeOption = {
   icon: LucideIcon;
 };
 
-export const VIBE_OPTIONS: VibeOption[] = [
-  { id: "modern", label: "Modern & Clean", icon: Sparkles },
-  { id: "playful", label: "Playful & Fun", icon: PartyPopper },
-  { id: "brutalist", label: "Brutalist", icon: Building2 },
-  { id: "luxury", label: "Luxury", icon: Gem },
-  { id: "tech", label: "Futuristic", icon: Cpu },
-  { id: "minimal", label: "Minimal", icon: Square },
-];
+const VIBE_ICONS: Record<WizardVibeId, LucideIcon> = {
+  modern: Sparkles,
+  playful: PartyPopper,
+  brutalist: Building2,
+  luxury: Gem,
+  tech: Cpu,
+  minimal: Square,
+};
+
+export const VIBE_OPTIONS: VibeOption[] = WIZARD_VIBES.map((vibe) => ({
+  id: vibe.id,
+  label: vibe.label,
+  icon: VIBE_ICONS[vibe.id],
+}));
 
 export const CLARIFY_FALLBACK_ID = "clarify_fallback";
 
