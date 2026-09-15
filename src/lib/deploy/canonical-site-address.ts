@@ -3,7 +3,7 @@ import {
   isCanonicalHttpsProof,
   type CanonicalHttpsProofResult,
 } from "@/lib/deploy/canonical-https-proof";
-import { normalizeDomainHostname } from "@/lib/live-site-url";
+import { isGitPreviewVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
 
 export const CANONICAL_ADDRESS_FEATURE_ENV = "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT";
 export const CANONICAL_SITE_URL_ENV = "NEXT_PUBLIC_SITE_URL";
@@ -122,7 +122,7 @@ function normalizeHttpsOrigin(value: string | null | undefined): string | null {
       return null;
     }
     const host = normalizeDomainHostname(url.hostname);
-    if (!host || isProtectedPlatformHost(host)) return null;
+    if (!host || isProtectedPlatformHost(host) || isGitPreviewVercelHost(host)) return null;
     return `https://${host}`;
   } catch {
     return null;
@@ -144,7 +144,7 @@ function normalizeBareHostname(value: string | null | undefined): string | null 
     return null;
   }
   const host = normalizeDomainHostname(raw);
-  return host && !isProtectedPlatformHost(host) ? host : null;
+  return host && !isProtectedPlatformHost(host) && !isGitPreviewVercelHost(host) ? host : null;
 }
 
 function normalizeCandidateHttpsOrigin(value: string): string | null {
@@ -302,10 +302,9 @@ export function prepareCanonicalAddressContract(
     }
     envVars[CANONICAL_SITE_URL_ENV] = policyUrl;
   } else if (configuredSiteUrl) {
-    delete envVars[CANONICAL_SITE_URL_ENV];
     warnings.push(
-      `Kundens ${CANONICAL_SITE_URL_ENV} används inte som kanonisk adress eller redirectmål ` +
-        "eftersom den inte kommer från verifierad projektidentitet.",
+      `Kundens ${CANONICAL_SITE_URL_ENV} behålls i bygget men används inte som kanonisk adress ` +
+        "eller redirectmål eftersom den inte kommer från verifierad projektidentitet.",
     );
   }
 

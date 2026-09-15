@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
-import { normalizeDomainHostname } from "@/lib/live-site-url";
+import { isGitPreviewVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
 
 export type VercelDeploymentTarget = "production" | "preview";
 
@@ -68,7 +68,7 @@ function isAttestedProductionVercelAppAlias(hostname: string): boolean {
     labels[1] === "vercel" &&
     labels[2] === "app" &&
     hostname !== PLATFORM_VERCEL_APP_HOST &&
-    !hostname.includes("-git-")
+    !isGitPreviewVercelHost(hostname)
   );
 }
 

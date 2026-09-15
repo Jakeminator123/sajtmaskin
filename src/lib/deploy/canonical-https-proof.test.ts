@@ -302,6 +302,9 @@ describe("proveCanonicalHttps", () => {
       [okObservation({ statusCode: 301, location: ORIGIN }), "self_redirect"],
       [okObservation({ statusCode: 302, location: "http://www.kund.se/next" }), "http_only"],
       [okObservation({ statusCode: 302, location: "https://annan.se/" }), "host_mismatch"],
+      [okObservation({ statusCode: 302, location: "" }), "http_error"],
+      [okObservation({ statusCode: 404 }), "http_error"],
+      [okObservation({ statusCode: 500 }), "http_error"],
       [{ errorKind: "http_only", protocol: "http" }, "http_only"],
       [{ errorKind: "cert_mismatch", authorized: false }, "cert_mismatch"],
     ];
@@ -404,5 +407,30 @@ describe("proveCanonicalHttps", () => {
         projectId: "project-1",
       }),
     ).toBe(false);
+  });
+
+  it("rejects a complete form-valid object and a JSON clone of a real proof", async () => {
+    const result = await proveCanonicalHttps(
+      { candidate: HOST, ...identity },
+      { probe: probeWith(okObservation()) },
+    );
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+
+    const forged = {
+      kind: CANONICAL_HTTPS_PROOF_KIND,
+      version: 1,
+      origin: ORIGIN,
+      hostname: HOST,
+      projectId: "project-1",
+      vercelProjectId: "prj_1",
+      verifiedAt: "2026-09-15T01:00:00.000Z",
+      certificateHosts: [HOST],
+      serverName: HOST,
+      statusCode: 200,
+    };
+    expect(isCanonicalHttpsProof(forged)).toBe(false);
+    expect(isCanonicalHttpsProof(JSON.parse(JSON.stringify(result.proof)))).toBe(false);
+    expect(isCanonicalHttpsProof(result.proof)).toBe(true);
   });
 });

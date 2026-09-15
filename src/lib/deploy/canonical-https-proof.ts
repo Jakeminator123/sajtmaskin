@@ -30,6 +30,18 @@ const MAX_REDIRECT_HOPS = 4;
 /** Proof never needs the body; abort before a host can fill process memory. */
 const MAX_PROOF_BODY_BYTES = 64 * 1024;
 
+/**
+ * In-process trust mark. JSON.parse / structured clone cannot recreate
+ * membership. `isCanonicalHttpsProof` is therefore not a trust boundary for
+ * stored or client-sent objects — A4 must call `proveCanonicalHttps`.
+ */
+const trustedCanonicalHttpsProofs = new WeakSet<object>();
+
+export function sealCanonicalHttpsProof(proof: CanonicalHttpsProof): CanonicalHttpsProof {
+  trustedCanonicalHttpsProofs.add(proof);
+  return proof;
+}
+
 export type CanonicalHttpsProviderStatus = "verified" | "invalid" | "unknown";
 
 export type CanonicalHttpsProofReason =
@@ -44,7 +56,8 @@ export type CanonicalHttpsProofReason =
   | "timeout"
   | "unknown_status"
   | "provider_invalid"
-  | "provider_unknown";
+  | "provider_unknown"
+  | "http_error";
 
 export type CanonicalHttpsProof = {
   kind: typeof CANONICAL_HTTPS_PROOF_KIND;
@@ -304,13 +317,16 @@ function classifyObservation(
     }
     return { status: "follow", nextUrl: target.nextUrl };
   }
+  if (statusCode >= 200 && statusCode < 300) {
+    return {
+      status: "ready",
+      statusCode,
+      certificateHosts,
+      serverName,
+    };
+  }
 
-  return {
-    status: "ready",
-    statusCode: statusCode || 200,
-    certificateHosts,
-    serverName,
-  };
+  return notReady("invalid", "http_error");
 }
 
 function collectCertificateHosts(cert: tls.PeerCertificate | undefined): string[] {
@@ -465,6 +481,7 @@ export function probeCanonicalHttpsOrigin(input: {
   });
 }
 
+/** Form + in-process seal. Not a trust boundary for serialized or client-sent objects. */
 export function isCanonicalHttpsProof(value: unknown): value is CanonicalHttpsProof {
   if (!value || typeof value !== "object") return false;
   const proof = value as CanonicalHttpsProof;
@@ -488,6 +505,7 @@ export function isCanonicalHttpsProof(value: unknown): value is CanonicalHttpsPr
   if (proof.vercelProjectId != null && !isExactIdentity(proof.vercelProjectId)) {
     return false;
   }
+  if (!trustedCanonicalHttpsProofs.has(proof)) return false;
   const parsed = parseCanonicalHttpsCandidate(proof.origin);
   return (
     parsed.status === "ok" &&
@@ -543,7 +561,7 @@ export async function proveCanonicalHttps(
 
     return {
       status: "ready",
-      proof: {
+      proof: sealCanonicalHttpsProof({
         kind: CANONICAL_HTTPS_PROOF_KIND,
         version: CANONICAL_HTTPS_PROOF_VERSION,
         origin: parsed.origin,
@@ -554,7 +572,7 @@ export async function proveCanonicalHttps(
         certificateHosts: classified.certificateHosts,
         serverName: classified.serverName,
         statusCode: classified.statusCode,
-      },
+      }),
     };
   }
 

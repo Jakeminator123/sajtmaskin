@@ -53,6 +53,7 @@ const {
   setDeploymentDomainForRequest,
   getLinkedDomainForChat,
   getLatestReadyDeploymentIdentityForChat,
+  pickProductionReadyIdentity,
   updateDeploymentStatus,
   resolveCanonicalVercelProjectForDomain,
 } = await import("./deployment");
@@ -157,20 +158,76 @@ describe("getLinkedDomainForChat (A2: domain project-name lock)", () => {
   });
 });
 
+describe("pickProductionReadyIdentity", () => {
+  const production = {
+    url: "https://demo.vercel.app",
+    providerUrl: "https://demo.vercel.app",
+    vercelProjectId: "vp_1",
+  };
+  const preview = {
+    url: "https://demo-git-feat-x-team.vercel.app",
+    providerUrl: "https://demo-git-feat-x-team.vercel.app",
+    vercelProjectId: "vp_1",
+  };
+
+  it("skips a newer preview READY and keeps the production identity", () => {
+    expect(
+      pickProductionReadyIdentity([preview, production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(production);
+  });
+
+  it("keeps an older READY row that lacks vercelProjectId when the host matches", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [{ ...production, vercelProjectId: null }],
+        { vercelProjectId: "vp_1", attestedProductionHost: "demo.vercel.app" },
+      ),
+    ).toEqual({ ...production, vercelProjectId: null });
+  });
+
+  it("keeps an older custom-host READY even without vercelProjectId", () => {
+    const custom = {
+      url: "https://www.kund.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: null,
+    };
+    expect(pickProductionReadyIdentity([custom], { vercelProjectId: "vp_1" })).toEqual(custom);
+  });
+
+  it("rejects an older vercel.app READY that does not match the attested alias", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [{ ...production, vercelProjectId: null }],
+        { vercelProjectId: "vp_1", attestedProductionHost: "other.vercel.app" },
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("getLatestReadyDeploymentIdentityForChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns the latest READY url and provider identity", async () => {
+  it("returns the latest production READY and skips a newer preview READY", async () => {
     selectLimit.mockResolvedValue([
+      {
+        url: "https://demo-git-feat-x-team.vercel.app",
+        providerUrl: "https://demo-git-feat-x-team.vercel.app",
+        vercelProjectId: "vp_1",
+      },
       {
         url: "https://www.kund.se",
         providerUrl: "https://kund-project.vercel.app",
         vercelProjectId: "vp_1",
       },
     ]);
-    await expect(getLatestReadyDeploymentIdentityForChat("chat_1")).resolves.toEqual({
+    await expect(
+      getLatestReadyDeploymentIdentityForChat("chat_1", { vercelProjectId: "vp_1" }),
+    ).resolves.toEqual({
       url: "https://www.kund.se",
       providerUrl: "https://kund-project.vercel.app",
       vercelProjectId: "vp_1",

@@ -2268,6 +2268,7 @@ describe("POST /api/v0/deployments", () => {
       OPENAI_API_KEY: "openai-runtime-sentinel",
       RESEND_API_KEY: "resend-runtime-sentinel",
       CONTACT_EMAIL_TO: "shoes@example.test",
+      NEXT_PUBLIC_SITE_URL: "https://customer.example",
     };
     expect((await res.json()).canonicalAddressGate).toEqual({
       requested: flag === "true",
@@ -2358,6 +2359,70 @@ describe("POST /api/v0/deployments", () => {
       "https://example.com",
     );
     expect(proveCanonicalHttps).not.toHaveBeenCalled();
+  });
+
+  it("does not let a newer preview READY become SITE_URL or noindex the production host", async () => {
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    }));
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_1",
+      name: "demo",
+      productionProviderAlias: "demo.vercel.app",
+      productionAliasStatus: "attested",
+    });
+    getLatestReadyDeploymentIdentityForChat.mockResolvedValue({
+      url: "https://demo-git-feat-x-team.vercel.app",
+      providerUrl: "https://demo-git-feat-x-team.vercel.app",
+      vercelProjectId: "vp_1",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: "vercel.json", content: "{}" },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.canonicalAddressGate).toMatchObject({
+      requested: false,
+      enabled: false,
+      redirectApplied: false,
+      noindexApplied: false,
+    });
+    expect(createVercelDeployment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        envVars: { NEXT_PUBLIC_SITE_URL: "https://demo.vercel.app" },
+      }),
+    );
+    const files = (
+      createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string }> }
+    ).files;
+    const vercelJson = JSON.parse(files.find((file) => file.name === "vercel.json")?.content ?? "{}");
+    expect(JSON.stringify(vercelJson)).not.toContain("noindex");
+    expect(JSON.stringify(vercelJson)).not.toContain("demo-git-feat-x-team.vercel.app");
+    expect(getLatestReadyDeploymentIdentityForChat).toHaveBeenCalledWith("chat_1", {
+      vercelProjectId: "vp_1",
+      attestedProductionHost: "demo.vercel.app",
+    });
   });
 
   it("does not apply host redirects on a protected preview deploy", async () => {

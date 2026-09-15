@@ -48,7 +48,7 @@ import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
-import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import { isGitPreviewVercelHost, normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
 import { proveCanonicalHttps } from "@/lib/deploy/canonical-https-proof";
 import {
   applyCanonicalHostRedirect,
@@ -600,19 +600,15 @@ export async function POST(req: Request) {
           customDomain: publishedIdentity.customDomain,
           customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
         });
-        const lastReadyIdentity = await getLatestReadyDeploymentIdentityForChat(chatId).catch(
-          () => null,
-        );
-        const lastWorkingSameProject =
-          lastReadyIdentity?.vercelProjectId &&
-          lastReadyIdentity.vercelProjectId === ensuredProject.id
-            ? lastReadyIdentity
-            : null;
         const featureRequested = isCanonicalAddressContractEnabled();
         const attestedProviderHost =
           ensuredProject.productionAliasStatus === "attested"
             ? ensuredProject.productionProviderAlias
             : null;
+        const lastWorkingSameProject = await getLatestReadyDeploymentIdentityForChat(chatId, {
+          vercelProjectId: ensuredProject.id,
+          attestedProductionHost: attestedProviderHost,
+        }).catch(() => null);
         let httpsProof = null;
         if (customDomainProviderStatus === "invalid") {
           httpsProof = {
@@ -770,7 +766,9 @@ export async function POST(req: Request) {
             noindexHost:
               deployTarget === "production" &&
               providerHostForNoindex &&
-              providerHostForNoindex !== canonicalAddress.contract.canonicalHost
+              canonicalAddress.contract.canonicalHost &&
+              providerHostForNoindex !== canonicalAddress.contract.canonicalHost &&
+              !isGitPreviewVercelHost(canonicalAddress.contract.canonicalHost)
                 ? providerHostForNoindex
                 : null,
             previewNoindex: deployTarget === "preview",

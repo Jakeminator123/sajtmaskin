@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PLACEHOLDER_SITE_URL } from "@/lib/seo/audit";
 import {
   CANONICAL_HTTPS_PROOF_KIND,
+  sealCanonicalHttpsProof,
   type CanonicalHttpsProofResult,
 } from "./canonical-https-proof";
 import {
@@ -42,7 +43,7 @@ function readyProof(
 ): CanonicalHttpsProofResult {
   return {
     status: "ready",
-    proof: {
+    proof: sealCanonicalHttpsProof({
       kind: CANONICAL_HTTPS_PROOF_KIND,
       version: 1,
       origin: "https://www.kund.se",
@@ -54,7 +55,7 @@ function readyProof(
       serverName: "www.kund.se",
       statusCode: 200,
       ...overrides,
-    },
+    }),
   };
 }
 
@@ -170,7 +171,7 @@ describe("canonical site address contract", () => {
     expect(result.hostRedirectCandidate).toEqual(candidate);
   });
 
-  it("never lets a free env value become the canonical or redirect target", () => {
+  it("keeps a free env SITE_URL in the build without making it canonical or a redirect", () => {
     const result = prepareCanonicalAddressContract({
       ...identity,
       verifiedLiveUrl: null,
@@ -178,9 +179,27 @@ describe("canonical site address contract", () => {
       featureRequested: true,
       configuredEnv: { NEXT_PUBLIC_SITE_URL: "https://old.example" },
     });
-    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBeUndefined();
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://old.example");
+    expect(result.contract.canonicalUrl).toBeNull();
     expect(result.hostRedirectCandidate).toBeNull();
-    expect(result.warnings[0]).toContain("verifierad projektidentitet");
+    expect(result.warnings[0]).toContain("behålls i bygget");
+  });
+
+  it("never lets a git preview URL become the last-working canonical address", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: false,
+      verifiedLiveUrl: null,
+      verifiedProviderDomain: "demo.vercel.app",
+      providerAliasStatus: "attested",
+      lastWorkingCanonicalUrl: "https://demo-git-feat-x-team.vercel.app",
+      lastWorkingProviderHost: "demo-git-feat-x-team.vercel.app",
+      configuredEnv: {},
+    });
+    expect(result.contract.canonicalUrl).toBe("https://demo.vercel.app");
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://demo.vercel.app");
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
   });
 
   it("never redirects protected preview deployments but still sets SITE_URL", () => {

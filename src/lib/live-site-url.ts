@@ -38,6 +38,12 @@ export function normalizeDomainHostname(value: string | null | undefined): strin
   return hostname;
 }
 
+/** Vercel git/preview aliases are never a production identity. */
+export function isGitPreviewVercelHost(value: string | null | undefined): boolean {
+  const host = normalizeDomainHostname(value);
+  return Boolean(host?.endsWith(".vercel.app") && host.includes("-git-"));
+}
+
 export function getBrandedLiveSiteDomain(): string | null {
   if (!isAffirmative(process.env.SAJTMASKIN_BRANDED_LIVE_URLS)) return null;
   return normalizeDomainHostname(process.env.SAJTMASKIN_LIVE_SITE_DOMAIN);

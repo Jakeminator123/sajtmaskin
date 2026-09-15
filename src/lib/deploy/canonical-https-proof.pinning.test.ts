@@ -1,12 +1,11 @@
 /**
- * Live probe tests. DNS and https.request are mocked so no customer host or
- * internal address is contacted. The fake request calls the same agent lookup
- * the production probe installs, then records a connect only if that lookup
- * accepted the address — the pin is the connected record.
+ * DNS-pin / body-cap / address-class tests. DNS and https.request are mocked
+ * so no customer host or internal address is contacted. These files run in
+ * the default Vitest suite — they are not network probes.
  */
 
 import { EventEmitter } from "node:events";
-import type { ClientRequest } from "node:http";
+import type { ClientRequest, IncomingMessage } from "node:http";
 import type { RequestOptions } from "node:https";
 import type { LookupAddress, LookupAllOptions } from "node:dns";
 import type { PeerCertificate } from "node:tls";
@@ -37,6 +36,7 @@ const { probeCanonicalHttpsOrigin } = await import("./canonical-https-proof");
 const HOST = "www.kund.se";
 const PUBLIC_IP = "93.184.216.34";
 const PRIVATE_IP = "10.10.1.1";
+const OVERFLOW_BODY = Buffer.alloc(65 * 1024, 1);
 
 type LookupCallback = {
   (err: NodeJS.ErrnoException | null, address: string, family: number): void;
@@ -94,9 +94,10 @@ function installPinnedRequestMock(input: {
   cert?: PeerCertificate;
   authorized?: boolean;
   tlsError?: NodeJS.ErrnoException;
+  body?: Buffer;
 }) {
   httpsRequest.mockImplementation(
-    (options: RequestOptions, callback?: (response: unknown) => void) => {
+    (options: RequestOptions, callback?: (response: IncomingMessage) => void) => {
       const req = new EventEmitter() as ClientRequest & EventEmitter;
       req.setTimeout = vi.fn() as unknown as ClientRequest["setTimeout"];
       req.destroy = vi.fn(() => {
@@ -134,12 +135,22 @@ function installPinnedRequestMock(input: {
             authorizationError: input.authorized === false ? "UNABLE_TO_VERIFY_LEAF_SIGNATURE" : null,
             getPeerCertificate: () => cert,
           };
-          callback?.({
-            socket,
-            statusCode: input.statusCode ?? 200,
-            headers: { location: input.location ?? undefined },
-            resume: () => undefined,
-          });
+          const response = new EventEmitter() as IncomingMessage & EventEmitter;
+          response.socket = socket as unknown as IncomingMessage["socket"];
+          response.statusCode = input.statusCode ?? 200;
+          response.headers = { location: input.location ?? undefined };
+          response.resume = vi.fn() as unknown as IncomingMessage["resume"];
+          response.destroy = vi.fn(() => {
+            response.emit("close");
+            return response;
+          }) as unknown as IncomingMessage["destroy"];
+          const originalOn = response.on.bind(response);
+          response.on = ((event: string, listener: (...args: unknown[]) => void) => {
+            originalOn(event, listener);
+            if (event === "data" && input.body) listener(input.body);
+            return response;
+          }) as IncomingMessage["on"];
+          callback?.(response);
         }) as LookupCallback);
         return req;
       }) as unknown as ClientRequest["end"];
@@ -202,6 +213,23 @@ describe("probeCanonicalHttpsOrigin pinning", () => {
     expect(observation).toMatchObject({ errorKind: "blocked_destination" });
     expect(dnsLookup).toHaveBeenCalled();
     expect(connectSpy).not.toHaveBeenCalled();
+  });
+
+  it("blocks CGNAT, loopback IPv6, link-local and mapped loopback at lookup", async () => {
+    for (const address of ["100.64.0.1", "::1", "fe80::1", "::ffff:127.0.0.1"]) {
+      vi.clearAllMocks();
+      connectSpy.mockReset();
+      resolveTo(address);
+      installPinnedRequestMock({});
+      const observation = await probeCanonicalHttpsOrigin({
+        hostname: HOST,
+        url: `https://${HOST}/`,
+        timeoutMs: 50,
+      });
+      expect(observation, address).toMatchObject({ errorKind: "blocked_destination" });
+      expect(dnsLookup, address).toHaveBeenCalled();
+      expect(connectSpy, address).not.toHaveBeenCalled();
+    }
   });
 
   it("uses the connect-time lookup as the pin so a rebound private address never connects", async () => {
@@ -299,6 +327,19 @@ describe("probeCanonicalHttpsOrigin pinning", () => {
       host: HOST,
       servername: HOST,
     });
+    expect(httpsRequest.mock.calls[0]?.[0].headers?.["accept-encoding"]).toBeUndefined();
+  });
+
+  it("caps the body by destroying the response instead of buffering it", async () => {
+    installPinnedRequestMock({ body: OVERFLOW_BODY });
+    const observation = await probeCanonicalHttpsOrigin({
+      hostname: HOST,
+      url: `https://${HOST}/`,
+      timeoutMs: 50,
+    });
+    expect(observation).toMatchObject({ statusCode: 200, protocol: "https" });
+    const req = httpsRequest.mock.results[0]?.value as { destroy: ReturnType<typeof vi.fn> };
+    expect(req.destroy).toHaveBeenCalled();
   });
 
   it("classifies a certificate identity failure without treating it as destination pinning", async () => {
