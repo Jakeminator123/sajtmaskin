@@ -46,6 +46,7 @@ const SNAPSHOT = {
   canActivate: false,
   canUnlink: true,
   redirectArmed: false,
+  canArmRedirect: false,
   publishedSlug: "kund",
   slugLocked: true,
   automaticDns: null,

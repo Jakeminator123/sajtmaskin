@@ -38,6 +38,7 @@ const READY_SNAPSHOT = {
   canActivate: false,
   canUnlink: true,
   redirectArmed: true,
+  canArmRedirect: false,
   publishedSlug: "kund",
   slugLocked: true,
   automaticDns: null,
@@ -130,5 +131,63 @@ describe("ByodDomainFlow", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: /Koppla loss/i })).toBeNull();
     });
+  });
+
+  it("offers a retry when redirect is ready but not armed, and does not say it is active", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      json({
+        success: true,
+        snapshot: {
+          ...READY_SNAPSHOT,
+          redirectArmed: false,
+          canArmRedirect: true,
+          canActivate: false,
+        },
+      }),
+    ) as unknown as typeof fetch;
+
+    render(
+      <ByodDomainFlow
+        projectId="proj_1"
+        chatId="chat_1"
+        publishedSlug="kund"
+        initialDomain="exempel.se"
+      />,
+    );
+
+    expect(await screen.findByText(/omdirigering inte aktiv/i)).toBeTruthy();
+    expect(screen.queryByText(/omdirigering aktiv/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /Aktivera omdirigering/i })).toBeTruthy();
+  });
+
+  it("labels unknown HTTPS as checking, matching the card status", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      json({
+        success: true,
+        snapshot: {
+          ...READY_SNAPSHOT,
+          redirectArmed: false,
+          canArmRedirect: false,
+          primary: {
+            ...READY_SNAPSHOT.primary,
+            https: "unknown",
+            status: "checking_https",
+            statusLabel: "Kontrollerar HTTPS",
+          },
+        },
+      }),
+    ) as unknown as typeof fetch;
+
+    render(
+      <ByodDomainFlow
+        projectId="proj_1"
+        chatId="chat_1"
+        publishedSlug="kund"
+        initialDomain="exempel.se"
+      />,
+    );
+
+    expect(await screen.findAllByText("Kontrollerar HTTPS")).toHaveLength(2);
+    expect(screen.queryByText("Okänd status")).toBeNull();
   });
 });

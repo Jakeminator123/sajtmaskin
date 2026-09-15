@@ -563,17 +563,27 @@ export async function setProjectCustomDomainCandidate(
   return rows[0] ?? null;
 }
 
-/** Drop the customer hostname entirely. Live URL falls back to branded/provider. */
-export async function clearProjectCustomDomain(id: string): Promise<void> {
+/**
+ * Drop the customer hostname we intended to remove. A row that has already
+ * become a different domain is left untouched (same idea as D2 expectedDesired).
+ */
+export async function clearProjectCustomDomain(
+  id: string,
+  expectedDomain: string,
+): Promise<boolean> {
   assertDbConfigured();
-  await db
+  const normalized = normalizeDomainHostname(expectedDomain);
+  if (!normalized) return false;
+  const rows = await db
     .update(appProjects)
     .set({
       custom_domain: null,
       custom_domain_verified_at: null,
       updated_at: new Date(),
     })
-    .where(eq(appProjects.id, id));
+    .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)))
+    .returning();
+  return rows.length > 0;
 }
 
 export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {

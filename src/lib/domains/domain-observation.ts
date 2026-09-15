@@ -138,7 +138,7 @@ export function humanDomainStatus(input: {
     return "unknown";
   }
   if (dns === "invalid") return "problem";
-  if (https === "invalid" && ownership === "verified" && dns === "valid") return "problem";
+  if (https === "invalid") return "problem";
   if (
     input.isLivePrimary &&
     connection === "connected" &&
@@ -188,6 +188,7 @@ export type CustomerDomainSnapshot = {
   canActivate: boolean;
   canUnlink: boolean;
   redirectArmed: boolean;
+  canArmRedirect: boolean;
   publishedSlug: string | null;
   slugLocked: boolean;
   automaticDns: null;

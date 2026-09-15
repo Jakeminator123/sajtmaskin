@@ -99,6 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
               canActivate: false,
               canUnlink: Boolean(owned.project.custom_domain),
               redirectArmed: false,
+              canArmRedirect: false,
               publishedSlug: owned.project.published_slug ?? null,
               slugLocked: Boolean(owned.project.published_slug),
               automaticDns: null,

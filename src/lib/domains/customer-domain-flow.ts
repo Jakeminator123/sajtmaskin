@@ -24,6 +24,7 @@ import {
 } from "@/lib/domains/domain-observation";
 import {
   addDomainToProject,
+  getProjectDomain,
   removeDomainFromProject,
   updateProjectDomainRedirect,
 } from "@/lib/vercel/vercel-client";
@@ -106,6 +107,20 @@ export async function checkCustomerHttps(
   }
 }
 
+function pairHosts(domain: string): Set<string> {
+  const pair = customerHostPair(domain);
+  return new Set([pair.entered, pair.apex, pair.www].filter((host): host is string => Boolean(host)));
+}
+
+function sameHostPair(left: string | null, right: string | null): boolean {
+  if (!left || !right) return false;
+  const other = pairHosts(right);
+  for (const host of pairHosts(left)) {
+    if (other.has(host)) return true;
+  }
+  return false;
+}
+
 function isFullyReady(host: HostCheck): boolean {
   return (
     host.connection === "connected" &&
@@ -182,6 +197,7 @@ export async function inspectCustomerDomain(params: {
       canActivate: false,
       canUnlink: Boolean(stored),
       redirectArmed: false,
+      canArmRedirect: false,
       publishedSlug,
       slugLocked: Boolean(publishedSlug),
       automaticDns: automaticDnsConnector(),
@@ -228,6 +244,14 @@ export async function inspectCustomerDomain(params: {
   const bothReady = Boolean(companion && isFullyReady(primary) && isFullyReady(companion));
   const canActivate =
     isFullyReady(primary) && (!storedVerified || stored !== primaryName);
+  const observedRedirect = companionName
+    ? await getProjectDomain(params.hosting.vercelProjectId, companionName, teamId())
+        .then((row) => normalizeDomainHostname(row.redirect ?? null))
+        .catch(() => null)
+    : null;
+  const redirectArmed = Boolean(
+    bothReady && observedRedirect && observedRedirect === normalizeDomainHostname(primaryName),
+  );
 
   return {
     primary,
@@ -236,7 +260,8 @@ export async function inspectCustomerDomain(params: {
     candidateDomain: stored && !storedVerified ? stored : target !== stored ? target : null,
     canActivate,
     canUnlink: Boolean(stored),
-    redirectArmed: bothReady,
+    redirectArmed,
+    canArmRedirect: Boolean(bothReady && !redirectArmed),
     publishedSlug,
     slugLocked: Boolean(publishedSlug),
     automaticDns: automaticDnsConnector(),
@@ -388,19 +413,31 @@ export async function verifyCustomerDomain(params: {
     if (activated.ok) return activated;
   }
 
+  if (snapshot.canArmRedirect) {
+    const armed = await armRedirectIfReady(params.hosting, snapshot);
+    if (armed) {
+      snapshot.redirectArmed = true;
+      snapshot.canArmRedirect = false;
+    } else {
+      snapshot.message =
+        snapshot.message ?? "Omdirigeringen kunde inte aktiveras. Försök igen.";
+    }
+  }
+
   snapshot.message = snapshot.primary
     ? snapshot.primary.status === "unknown"
       ? "Statusen är tillfälligt okänd. Den tidigare adressen är oförändrad."
-      : null
-    : null;
+      : snapshot.message
+    : snapshot.message;
   return { ok: true, snapshot };
 }
 
 async function armRedirectIfReady(
   hosting: ResolvedHosting,
   snapshot: CustomerDomainSnapshot,
-): Promise<void> {
-  if (!snapshot.redirectArmed || !snapshot.primary || !snapshot.companion) return;
+): Promise<boolean> {
+  if (!snapshot.primary || !snapshot.companion) return false;
+  if (!isFullyReady(snapshot.primary) || !isFullyReady(snapshot.companion)) return false;
   try {
     await updateProjectDomainRedirect(
       hosting.vercelProjectId,
@@ -408,8 +445,9 @@ async function armRedirectIfReady(
       snapshot.primary.domain,
       teamId(),
     );
+    return true;
   } catch {
-    // Redirect is an enhancement; the primary host already serves. Retry later.
+    return false;
   }
 }
 
@@ -452,7 +490,7 @@ async function activateFromSnapshot(
     await setLatestDeploymentLiveUrlForChat(hosting.chatId, domain);
   }
 
-  await armRedirectIfReady(hosting, snapshot);
+  const armed = await armRedirectIfReady(hosting, snapshot);
 
   if (previous && previousVerified && previous !== domain && previous !== snapshot.companion?.domain) {
     const oldPair = customerHostPair(previous);
@@ -464,6 +502,18 @@ async function activateFromSnapshot(
       );
       if (!removed.removed) {
         const next = await inspectCustomerDomain({ hosting, domain, checkHttps: true });
+        if (armed) {
+          next.redirectArmed = true;
+          next.canArmRedirect = false;
+        } else if (
+          next.primary &&
+          next.companion &&
+          isFullyReady(next.primary) &&
+          isFullyReady(next.companion)
+        ) {
+          next.redirectArmed = false;
+          next.canArmRedirect = true;
+        }
         next.message =
           "Nya adressen är primär, men den gamla kunde inte kopplas loss. Försök igen.";
         return { ok: true, snapshot: next };
@@ -472,7 +522,22 @@ async function activateFromSnapshot(
   }
 
   const next = await inspectCustomerDomain({ hosting, domain, checkHttps: true });
-  next.message = "Adressbytet är klart.";
+  if (armed) {
+    next.redirectArmed = true;
+    next.canArmRedirect = false;
+    next.message = "Adressbytet är klart.";
+  } else if (
+    next.primary &&
+    next.companion &&
+    isFullyReady(next.primary) &&
+    isFullyReady(next.companion)
+  ) {
+    next.redirectArmed = false;
+    next.canArmRedirect = true;
+    next.message = "Adressbytet är klart, men omdirigeringen kunde inte aktiveras. Försök igen.";
+  } else {
+    next.message = "Adressbytet är klart.";
+  }
   return { ok: true, snapshot: next };
 }
 
@@ -510,9 +575,9 @@ export async function unlinkCustomerDomain(params: {
   const stored = project?.custom_domain?.trim() || null;
   const candidate = params.domain ? normalizeObservedDomain(params.domain) : null;
   const extra = candidate && candidate.ok ? candidate.domain : null;
-  // A named host that is not the stored live domain is an unfinished swap —
-  // detach only that pair. Do not take the current live address offline.
-  const removingCandidateOnly = Boolean(extra && extra !== stored);
+  // Same apex/www pair as the stored live domain is the live domain — even
+  // when the typed host is www.* and the row stores apex, or the reverse.
+  const removingCandidateOnly = Boolean(extra && stored && !sameHostPair(extra, stored));
 
   const hosts = new Set<string>();
   for (const name of removingCandidateOnly ? [extra] : [stored, extra]) {
@@ -552,7 +617,7 @@ export async function unlinkCustomerDomain(params: {
 
   if (stored && !removingCandidateOnly) {
     await clearProjectCustomDomainVerification(params.hosting.appProjectId, stored);
-    await clearProjectCustomDomain(params.hosting.appProjectId);
+    await clearProjectCustomDomain(params.hosting.appProjectId, stored);
   }
   const snapshot = await inspectCustomerDomain({
     hosting: params.hosting,

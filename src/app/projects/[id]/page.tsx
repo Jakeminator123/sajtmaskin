@@ -13,7 +13,6 @@ import {
   Check,
   Copy,
   ExternalLink,
-  Globe,
   Github,
   Loader2,
   PencilLine,
@@ -365,19 +364,7 @@ export default function ProjectSitePage() {
                 description="Koppla en domän du redan äger. Ingen tillgänglighetskontroll eller köp."
               >
                 <div className="space-y-3">
-                  {site.customDomain ? (
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <Globe className="h-4 w-4 text-gray-500" />
-                      <code className="text-white">{site.customDomain}</code>
-                      <span
-                        className={`border px-2 py-0.5 text-xs ${
-                          site.customDomainVerified ? TONE_CLASS.live : TONE_CLASS.progress
-                        }`}
-                      >
-                        {site.customDomainVerified ? "Live" : "Väntar på DNS"}
-                      </span>
-                    </div>
-                  ) : (
+                  {!site.customDomain && (
                     <p className="text-sm text-gray-500">Ingen egen domän kopplad.</p>
                   )}
                   <ByodDomainFlow

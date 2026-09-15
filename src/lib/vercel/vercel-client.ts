@@ -205,6 +205,7 @@ export type ProjectDomainRecord = {
   name: string;
   apexName: string;
   verified: boolean;
+  redirect?: string | null;
 };
 
 /**

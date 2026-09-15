@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 const addDomainToProject = vi.hoisted(() => vi.fn());
+const getProjectDomain = vi.hoisted(() => vi.fn());
 const removeDomainFromProject = vi.hoisted(() => vi.fn());
 const updateProjectDomainRedirect = vi.hoisted(() => vi.fn());
 const observeVercelDomain = vi.hoisted(() => vi.fn());
@@ -19,6 +20,7 @@ vi.mock("@/lib/capture/pinned-fetch", () => ({
 }));
 vi.mock("@/lib/vercel/vercel-client", () => ({
   addDomainToProject,
+  getProjectDomain,
   removeDomainFromProject,
   updateProjectDomainRedirect,
 }));
@@ -91,10 +93,17 @@ beforeEach(() => {
   setProjectCustomDomainCandidate.mockResolvedValue({ id: "proj_1" });
   setProjectVerifiedCustomDomain.mockResolvedValue({ id: "proj_1" });
   removeDomainFromProject.mockResolvedValue({ removed: true, unknown: false });
+  getProjectDomain.mockResolvedValue({
+    name: "www.exempel.se",
+    apexName: "exempel.se",
+    verified: true,
+    redirect: null,
+  });
   updateProjectDomainRedirect.mockResolvedValue({
     name: "www.exempel.se",
     apexName: "exempel.se",
     verified: true,
+    redirect: "exempel.se",
   });
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ verified: true }), { status: 200 })));
 });
@@ -168,6 +177,12 @@ describe("inspectCustomerDomain HTTPS", () => {
       observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
         observation(domain, { ownership: "verified", dns: "valid" }),
       );
+      getProjectDomain.mockResolvedValue({
+        name: "www.exempel.se",
+        apexName: "exempel.se",
+        verified: true,
+        redirect: "exempel.se",
+      });
       fetchWithPinnedDns.mockImplementation(async (url: string) => {
         if (String(url).includes("www.exempel.se")) {
           return {
@@ -271,6 +286,36 @@ describe("verifyCustomerDomain", () => {
     expect(removeDomainFromProject).not.toHaveBeenCalled();
   });
 
+  it("retries a failed redirect from verify without claiming it is active", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+    observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+      observation(domain, { ownership: "verified", dns: "valid" }),
+    );
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("ok") });
+    getProjectDomain.mockResolvedValue({
+      name: "www.exempel.se",
+      apexName: "exempel.se",
+      verified: true,
+      redirect: null,
+    });
+    updateProjectDomainRedirect.mockRejectedValue(new Error("502 from provider"));
+
+    const result = await verifyCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+
+    expect(result.ok).toBe(true);
+    expect(updateProjectDomainRedirect).toHaveBeenCalled();
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+    if (result.ok) {
+      expect(result.snapshot.redirectArmed).toBe(false);
+      expect(result.snapshot.canArmRedirect).toBe(true);
+    }
+  });
+
   it.each([401, 404, 500])(
     "does not auto-activate a first-time candidate that returns %s",
     async (status) => {
@@ -348,6 +393,28 @@ describe("activateCustomerDomain", () => {
       "exempel.se",
       undefined,
     );
+    if (result.ok) {
+      expect(result.snapshot.redirectArmed).toBe(true);
+      expect(result.snapshot.canArmRedirect).toBe(false);
+    }
+  });
+
+  it("does not claim redirect is active when the PATCH fails, and leaves retry open", async () => {
+    observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+      observation(domain, { ownership: "verified", dns: "valid" }),
+    );
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("ok") });
+    updateProjectDomainRedirect.mockRejectedValue(new Error("502 from provider"));
+
+    const result = await activateCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+
+    expect(result.ok).toBe(true);
+    expect(setProjectVerifiedCustomDomain).toHaveBeenCalledWith("proj_1", "exempel.se");
+    if (result.ok) {
+      expect(result.snapshot.redirectArmed).toBe(false);
+      expect(result.snapshot.canArmRedirect).toBe(true);
+      expect(result.snapshot.message).toMatch(/omdirigeringen kunde inte/i);
+    }
   });
 });
 
@@ -366,7 +433,7 @@ describe("unlinkCustomerDomain", () => {
     expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "exempel.se", undefined);
     expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "www.exempel.se", undefined);
     expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith("proj_1", "exempel.se");
-    expect(clearProjectCustomDomain).toHaveBeenCalledWith("proj_1");
+    expect(clearProjectCustomDomain).toHaveBeenCalledWith("proj_1", "exempel.se");
     const removedAt = Math.min(...removeDomainFromProject.mock.invocationCallOrder);
     const clearedAt = clearProjectCustomDomainVerification.mock.invocationCallOrder[0];
     expect(removedAt).toBeLessThan(clearedAt);
@@ -407,5 +474,66 @@ describe("unlinkCustomerDomain", () => {
     expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
     expect(clearProjectCustomDomain).not.toHaveBeenCalled();
     if (result.ok) expect(result.snapshot.message).toMatch(/oförändrad/i);
+  });
+
+  it.each([
+    ["exempel.se", "www.exempel.se"],
+    ["www.exempel.se", "exempel.se"],
+    ["exempel.co.uk", "www.exempel.co.uk"],
+  ])("treats typed %s as the live pair stored as %s and runs the full unlink", async (typed, stored) => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: stored,
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+
+    const result = await unlinkCustomerDomain({ hosting: HOSTING, domain: typed });
+
+    expect(result.ok).toBe(true);
+    const storedPair = stored.startsWith("www.") ? stored.slice(4) : stored;
+    const www = stored.startsWith("www.") ? stored : `www.${stored}`;
+    const apex = storedPair;
+    expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", apex, undefined);
+    expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", www, undefined);
+    expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith("proj_1", stored);
+    expect(clearProjectCustomDomain).toHaveBeenCalledWith("proj_1", stored);
+  });
+
+  it("does not treat a subdomain as the live pair", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+
+    const result = await unlinkCustomerDomain({ hosting: HOSTING, domain: "shop.exempel.se" });
+
+    expect(result.ok).toBe(true);
+    expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "shop.exempel.se", undefined);
+    expect(removeDomainFromProject).not.toHaveBeenCalledWith("vp_owned", "exempel.se", undefined);
+    expect(removeDomainFromProject).not.toHaveBeenCalledWith("vp_owned", "www.exempel.se", undefined);
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+  });
+
+  it("leaves verification untouched when the second host in the pair fails", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+    removeDomainFromProject
+      .mockResolvedValueOnce({ removed: true, unknown: false })
+      .mockResolvedValueOnce({ removed: false, unknown: true });
+
+    const result = await unlinkCustomerDomain({ hosting: HOSTING });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(503);
+    expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
   });
 });

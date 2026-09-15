@@ -92,6 +92,15 @@ describe("humanDomainStatus", () => {
     expect(humanDomainStatus({ observation: base, isLivePrimary: false })).toBe("connected");
   });
 
+  it("shows HTTPS invalid as Problem even while ownership is still pending", () => {
+    expect(
+      humanDomainStatus({
+        observation: { ...base, ownership: "pending", https: "invalid" },
+        isLivePrimary: false,
+      }),
+    ).toBe("problem");
+  });
+
   it("shows waiting DNS and checking HTTPS as their own states", () => {
     expect(
       humanDomainStatus({

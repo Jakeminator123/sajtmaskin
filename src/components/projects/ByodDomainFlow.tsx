@@ -98,7 +98,7 @@ function HostCard({ host, title }: { host: HostCheck; title: string }) {
               ? "Fungerar"
               : host.https === "invalid"
                 ? "Problem"
-                : host.https === "not_checked"
+                : host.https === "not_checked" || host.https === "unknown"
                   ? "Kontrollerar HTTPS"
                   : "Okänd status"}
           </dd>
@@ -323,7 +323,9 @@ export function ByodDomainFlow({
           title={
             snapshot.redirectArmed
               ? "www/apex (omdirigering aktiv)"
-              : "www/apex (omdirigering när båda är klara)"
+              : snapshot.canArmRedirect
+                ? "www/apex (omdirigering inte aktiv)"
+                : "www/apex (omdirigering när båda är klara)"
           }
         />
       )}
@@ -358,6 +360,22 @@ export function ByodDomainFlow({
               <CheckCircle2 className="h-4 w-4" />
             )}
             Gör till primäradress
+          </Button>
+        )}
+        {snapshot?.canArmRedirect && (
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={() => void mutate("verify")}
+            disabled={busy !== null || !domain.trim()}
+          >
+            {busy === "verify" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Aktivera omdirigering
           </Button>
         )}
         {snapshot?.canUnlink && (
