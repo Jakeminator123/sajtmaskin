@@ -14,6 +14,7 @@ import {
   shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
   shouldGrantPeriodCredits,
+  shouldRetainPaidLifecycleAfterDelete,
 } from "./site-subscription-policy";
 
 const now = new Date("2026-09-15T12:00:00.000Z");
@@ -132,6 +133,44 @@ describe("två samtidiga checkouts", () => {
         now,
       }),
     ).toEqual({ action: "already_active", existingId: "sub_1", confirming: false });
+  });
+
+  it("håller complete-session som paid utan invoice.paid så reuse inte skapar ny", () => {
+    expect(
+      classifyCheckoutClaim({
+        now,
+        lookup: {
+          lookup: "reached",
+          session: {
+            id: "cs_complete",
+            status: "complete",
+            url: null,
+            expiresAt: new Date("2026-09-15T11:00:00.000Z"),
+            subscriptionId: null,
+          },
+        },
+      }),
+    ).toMatchObject({ paid: true, known: true });
+    expect(
+      decideCheckoutReuse({
+        openRow: {
+          id: "sub_1",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+          lifecycleState: "checkout_pending",
+          stripeCheckoutSessionId: "cs_complete",
+          stripeStatus: null,
+        },
+        session: {
+          id: "cs_complete",
+          status: "complete",
+          url: null,
+          expiresAt: new Date("2026-09-15T11:00:00.000Z"),
+        },
+        now,
+      }),
+    ).toEqual({ action: "already_active", existingId: "sub_1", confirming: true });
   });
 
   it("behandlar complete + checkout_pending som anspråkad, inte utgången", () => {
@@ -497,6 +536,62 @@ describe("omkastade events och payment_failed efter paid", () => {
         knownPeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
       }),
     ).toEqual({ apply: true, reason: "current_payment" });
+    expect(shouldApplyPaidSubscription({ stripeStatus: "incomplete" })).toEqual({
+      apply: false,
+      reason: "subscription_unpaid",
+    });
+    expect(shouldApplyPaidSubscription({ stripeStatus: "unpaid" })).toEqual({
+      apply: false,
+      reason: "subscription_unpaid",
+    });
+    expect(
+      shouldApplyPaidSubscription({
+        stripeStatus: "incomplete",
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: true, reason: "current_payment" });
+    expect(
+      shouldApplyPaidSubscription({
+        stripeStatus: "past_due",
+        invoicePeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
+        knownPeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
+      }),
+    ).toEqual({ apply: true, reason: "current_payment" });
+  });
+});
+
+describe("subscription.deleted mot lifecycle", () => {
+  const futureEnd = new Date("2026-10-15T12:00:00.000Z");
+  const pastEnd = new Date("2026-09-15T11:00:00.000Z");
+
+  it("promoverar inte checkout_pending till active även med framtida period", () => {
+    expect(
+      shouldRetainPaidLifecycleAfterDelete({
+        lifecycleState: "checkout_pending",
+        currentPeriodEnd: futureEnd,
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("behåller redan betald active medan perioden finns kvar", () => {
+    expect(
+      shouldRetainPaidLifecycleAfterDelete({
+        lifecycleState: "active",
+        currentPeriodEnd: futureEnd,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("avslutar active när perioden är slut", () => {
+    expect(
+      shouldRetainPaidLifecycleAfterDelete({
+        lifecycleState: "active",
+        currentPeriodEnd: pastEnd,
+        now,
+      }),
+    ).toBe(false);
   });
 });
 

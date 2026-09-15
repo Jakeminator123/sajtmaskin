@@ -19,7 +19,12 @@ import { resolveLastPublishedRef } from "./site-subscription-hosting";
 import { enqueueHostingJob } from "./site-subscription-reconcile";
 import {
   classifyCheckoutClaim,
+  computeGraceUntil,
   eventMatchesServerBillingMode,
+  shouldApplyPaidSubscription,
+  shouldApplyPaymentFailed,
+  shouldRetainPaidLifecycleAfterDelete,
+  type SiteSubscriptionLifecycleState,
 } from "./site-subscription-policy";
 import { SITE_SUBSCRIPTION_KIND } from "./site-subscription-offer";
 import {
@@ -34,11 +39,6 @@ import {
   retrieveSubscriptionFresh,
 } from "./site-subscription-stripe";
 import { getCheckoutCompletedDispatch, shouldDispatchSiteSubscription } from "./stripe-webhook-dispatch";
-import {
-  computeGraceUntil,
-  shouldApplyPaidSubscription,
-  shouldApplyPaymentFailed,
-} from "./site-subscription-policy";
 
 export type WebhookHandleResult = {
   status: number;
@@ -137,13 +137,20 @@ export async function applyPaidSubscription(input: {
   await snapshotPublishedRef(input.row);
 }
 
+function isPaidInvoiceForActivation(
+  invoice: Stripe.Invoice | null,
+  subscription: Stripe.Subscription,
+): boolean {
+  return invoice?.status === "paid" || isLatestInvoicePaid(subscription);
+}
+
 export async function fulfillPaidSubscriptionRow(input: {
   stripe: Stripe;
   row: SiteSubscriptionRow;
   stripeSubscriptionId: string;
   subscription?: Stripe.Subscription;
   invoice?: Stripe.Invoice | null;
-}): Promise<{ granted: boolean; status: string; reason: string }> {
+}): Promise<{ granted: boolean; status: string; reason: string; applied: boolean }> {
   const subscription =
     input.subscription ??
     (await retrieveSubscriptionFresh(input.stripe, input.stripeSubscriptionId));
@@ -156,13 +163,20 @@ export async function fulfillPaidSubscriptionRow(input: {
   const knownPeriodEnd = item?.current_period_end
     ? new Date(item.current_period_end * 1000)
     : null;
+  const invoicePaid = isPaidInvoiceForActivation(invoice, subscription);
   const applyState = shouldApplyPaidSubscription({
     stripeStatus: subscription.status,
     invoicePeriodEnd: period?.periodEnd ?? null,
     knownPeriodEnd,
+    invoicePaid,
   });
   if (!applyState.apply) {
-    return { granted: false, status: "skipped", reason: applyState.reason };
+    return { granted: false, status: "skipped", reason: applyState.reason, applied: false };
+  }
+  // Publiceringsrätt: första steget från checkout_pending kräver betald faktura.
+  // classifyCheckoutClaim.paid är en annan grind (hindra dubbel checkout).
+  if (input.row.lifecycle_state === "checkout_pending" && !invoicePaid) {
+    return { granted: false, status: "skipped", reason: "invoice_not_paid", applied: false };
   }
   await applyPaidSubscription({
     row: input.row,
@@ -173,9 +187,9 @@ export async function fulfillPaidSubscriptionRow(input: {
     stripeSubscriptionId: input.stripeSubscriptionId,
   });
   if (!period || !invoice) {
-    return { granted: false, status: "skipped", reason: "missing_period" };
+    return { granted: false, status: "skipped", reason: "missing_period", applied: true };
   }
-  return grantSiteSubscriptionPeriodCredits({
+  const grant = await grantSiteSubscriptionPeriodCredits({
     subscriptionId: input.row.id,
     userId: input.row.user_id,
     billingMode: input.row.billing_mode,
@@ -184,6 +198,7 @@ export async function fulfillPaidSubscriptionRow(input: {
     periodEnd: period.periodEnd,
     billingReason: readInvoiceBillingReason(invoice),
   });
+  return { ...grant, applied: true };
 }
 
 async function loadLatestInvoice(
@@ -445,8 +460,11 @@ async function handleSubscriptionDeleted(
   }
 
   const now = new Date();
-  const periodEnd = row.current_period_end;
-  const stillPaid = periodEnd !== null && periodEnd.getTime() > now.getTime();
+  const stillPaid = shouldRetainPaidLifecycleAfterDelete({
+    lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
+    currentPeriodEnd: row.current_period_end,
+    now,
+  });
 
   await updateSiteSubscription(row.id, billingMode, {
     stripe_status: current.status,
@@ -509,8 +527,7 @@ async function handleInvoicePaid(
   });
 
   if (
-    grant.reason !== "subscription_terminal" &&
-    grant.reason !== "stale_invoice_period" &&
+    grant.applied &&
     (row.hosting_state_actual === "paused" || row.hosting_state_actual === "pausing")
   ) {
     await enqueueHostingJob({

@@ -325,6 +325,39 @@ describe("repairPendingCheckoutClaim", () => {
     expect(updateSiteSubscription).not.toHaveBeenCalled();
   });
 
+  it("skriver inte active själv när fulfill nekar unpaid/incomplete", async () => {
+    const retrieve = vi.fn().mockResolvedValue({
+      status: "complete",
+      subscription: "sub_incomplete",
+    });
+    fulfillPaidSubscriptionRow.mockResolvedValue({
+      granted: false,
+      applied: false,
+      status: "skipped",
+      reason: "subscription_unpaid",
+    });
+
+    const result = await repairPendingCheckoutClaim({
+      stripe: { checkout: { sessions: { retrieve } } } as never,
+      row: pendingRow(new Date("2026-09-15T11:00:00.000Z")) as never,
+      now,
+    });
+
+    expect(result).toMatchObject({
+      action: "activate",
+      granted: false,
+    });
+    expect(fulfillPaidSubscriptionRow).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_incomplete" }),
+    );
+    expect(updateSiteSubscription).not.toHaveBeenCalledWith(
+      "sub_1",
+      "test",
+      expect.objectContaining({ lifecycle_state: "active" }),
+      expect.anything(),
+    );
+  });
+
   it("hittar subscription via kund+metadata när sessionen saknar id", async () => {
     const retrieve = vi.fn().mockResolvedValue({
       status: "complete",

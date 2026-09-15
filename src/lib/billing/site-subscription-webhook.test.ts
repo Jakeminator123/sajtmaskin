@@ -445,6 +445,184 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(claimStripeBillingEvent).not.toHaveBeenCalled();
   });
 
+  it("promoverar inte checkout_pending till active när deleted har framtida period", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_1",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.stillPaid).toBe(false);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        lifecycle_state: "ended",
+        ended_reason: "subscription_deleted",
+      }),
+    );
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
+      expect.objectContaining({ lifecycle_state: "active" }),
+    );
+    expect(enqueueHostingJob).toHaveBeenCalledWith({
+      subscriptionId: "sub_row",
+      billingMode: "test",
+      kind: "pause",
+    });
+  });
+
+  it("behåller redan betald active när deleted har tid kvar", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+      hosting_state_desired: "active",
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_1",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.body.stillPaid).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ lifecycle_state: "active" }),
+    );
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
+  });
+
+  it("promoverar inte checkout_pending via incomplete eller unpaid-sub", async () => {
+    const pending = { ...row, lifecycle_state: "checkout_pending" as const };
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_open",
+      status: "open",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+    });
+
+    for (const stripeStatus of ["incomplete", "unpaid"] as const) {
+      updateSiteSubscription.mockClear();
+      retrieveSubscriptionFresh.mockResolvedValue({
+        id: "sub_1",
+        status: stripeStatus,
+        cancel_at_period_end: false,
+        latest_invoice: { id: "in_open", status: "open" },
+        items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+      });
+
+      const result = await fulfillPaidSubscriptionRow({
+        stripe: {} as Stripe,
+        row: pending as never,
+        stripeSubscriptionId: "sub_1",
+      });
+
+      expect(result, stripeStatus).toMatchObject({
+        granted: false,
+        applied: false,
+        reason: "subscription_unpaid",
+      });
+      expect(updateSiteSubscription, stripeStatus).not.toHaveBeenCalled();
+    }
+  });
+
+  it("aktiverar checkout_pending först när fakturan är paid", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_paid",
+      status: "paid",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      lines: {
+        data: [
+          {
+            period: { start: 1726401600, end: 1729080000 },
+            parent: { type: "subscription_item_details" },
+          },
+        ],
+      },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_paid", status: "paid" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: { ...row, lifecycle_state: "checkout_pending" } as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.granted).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ lifecycle_state: "active" }),
+    );
+  });
+
+  it("lämnar checkout_pending orörd när Stripe-status är active men fakturan inte är paid", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_open",
+      status: "open",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_open", status: "open" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: { ...row, lifecycle_state: "checkout_pending" } as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(result).toMatchObject({
+      granted: false,
+      applied: false,
+      reason: "invoice_not_paid",
+    });
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
   it("återöppnar inte ett uppsagt abonnemang från ett gammalt invoice.paid", async () => {
     getSiteSubscriptionByStripeId.mockResolvedValue({
       ...row,

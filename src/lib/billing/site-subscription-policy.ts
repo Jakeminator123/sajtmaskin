@@ -106,18 +106,25 @@ export function shouldApplyPaymentFailed(current: {
 }
 
 const TERMINAL_STRIPE_STATUS = new Set(["canceled", "incomplete_expired"]);
+const UNPAID_STRIPE_STATUS = new Set(["incomplete", "unpaid"]);
 
 /**
  * Spegel mot `shouldApplyPaymentFailed`: ett gammalt `invoice.paid` får inte
  * återöppna ett uppsagt abonnemang eller rulla tillbaka en nyare period.
+ * `incomplete` / `unpaid` släpps bara när den här fakturan redan är betald
+ * (invoice.paid-race). Cron får inte promovera pending via obetald sub.
  */
 export function shouldApplyPaidSubscription(input: {
   stripeStatus: string | null;
   invoicePeriodEnd?: Date | null;
   knownPeriodEnd?: Date | null;
+  invoicePaid?: boolean;
 }): { apply: boolean; reason: string } {
   if (!input.stripeStatus || TERMINAL_STRIPE_STATUS.has(input.stripeStatus)) {
     return { apply: false, reason: "subscription_terminal" };
+  }
+  if (UNPAID_STRIPE_STATUS.has(input.stripeStatus) && input.invoicePaid !== true) {
+    return { apply: false, reason: "subscription_unpaid" };
   }
   if (
     input.invoicePeriodEnd &&
@@ -127,6 +134,23 @@ export function shouldApplyPaidSubscription(input: {
     return { apply: false, reason: "stale_invoice_period" };
   }
   return { apply: true, reason: "current_payment" };
+}
+
+/**
+ * `subscription.deleted` får bara behålla `active` när raden redan var betald
+ * och perioden finns kvar. `checkout_pending` + framtida period (skriven av
+ * `subscription.updated` utan invoice.paid) är inte betald tid.
+ */
+export function shouldRetainPaidLifecycleAfterDelete(input: {
+  lifecycleState: SiteSubscriptionLifecycleState;
+  currentPeriodEnd: Date | null;
+  now: Date;
+}): boolean {
+  return (
+    input.lifecycleState === "active" &&
+    input.currentPeriodEnd !== null &&
+    input.currentPeriodEnd.getTime() > input.now.getTime()
+  );
 }
 
 export function checkoutSessionLookupFrom(

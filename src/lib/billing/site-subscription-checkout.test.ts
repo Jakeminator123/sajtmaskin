@@ -182,6 +182,40 @@ describe("startSiteSubscriptionCheckout", () => {
     expect(expire).toHaveBeenCalledWith("cs_orphan");
   });
 
+  it("skapar inte ny session när complete-session saknar invoice.paid", async () => {
+    getOpenSiteSubscription.mockResolvedValue({
+      ...pendingClaim,
+      stripe_checkout_session_id: "cs_complete",
+    });
+    const create = vi.fn();
+    const retrieve = vi.fn().mockResolvedValue({
+      id: "cs_complete",
+      status: "complete",
+      url: null,
+      expires_at: Math.floor(Date.now() / 1000) - 60,
+      subscription: null,
+    });
+
+    const result = await startSiteSubscriptionCheckout({
+      stripe: { checkout: { sessions: { create, retrieve } } } as never,
+      userId: "user_1",
+      email: "a@b.se",
+      projectId: "prj_a",
+      billingMode: "test",
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(insertCheckoutClaim).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: true,
+      sessionId: "cs_complete",
+      url: null,
+      reused: true,
+      confirming: true,
+      message: "Betalningen är mottagen. Abonnemanget håller på att bekräftas.",
+    });
+  });
+
   it("lyckas med vinnarens URL även om expire kastar", async () => {
     getOpenSiteSubscription
       .mockResolvedValueOnce(null)
