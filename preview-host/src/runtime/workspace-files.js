@@ -13,6 +13,7 @@ const {
   readJsonIfExists,
   workspaceDirForChat,
 } = require("./shared.js");
+const { isSafeRelativePath } = require("../validate.js");
 
 /** Inject basePath env hook so Fly /{chatId} previews get CSS/JS. Handles .ts/.mjs/.js and common export patterns.
  *
@@ -413,6 +414,40 @@ function materializeBinaryContent(content) {
   return legacyDecoded && hasKnownTemplateAssetMagic(legacyDecoded) ? legacyDecoded : decoded;
 }
 
+function unsafeWorkspacePathError(relPath) {
+  return new Error(`Unsafe workspace path: "${relPath}"`);
+}
+
+/**
+ * Defense-in-depth jail for direct workspace write/rm. The HTTP API already
+ * rejects traversal via `isSafeRelativePath`; this re-checks the same contract
+ * and then requires the resolved path to stay strictly inside the workspace
+ * (Windows separators included). This is not a VM/sandbox boundary.
+ */
+function resolveInsideWorkspace(workspaceDir, relPath) {
+  if (!isSafeRelativePath(relPath)) {
+    throw unsafeWorkspacePathError(relPath);
+  }
+  let root;
+  try {
+    root = fs.realpathSync(path.resolve(workspaceDir));
+  } catch {
+    throw unsafeWorkspacePathError(relPath);
+  }
+  const resolved = path.resolve(root, relPath);
+  const relative = path.relative(root, resolved);
+  const posixRelative = relative.split(/[\\/]+/).join("/");
+  if (
+    posixRelative === "" ||
+    posixRelative === ".." ||
+    posixRelative.startsWith("../") ||
+    path.isAbsolute(relative)
+  ) {
+    throw unsafeWorkspacePathError(relPath);
+  }
+  return resolved;
+}
+
 function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   ensureDir(workspaceDir);
   // Removals are manifest-scoped: a file npm wrote that is not in the
@@ -422,13 +457,23 @@ function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   const previousFiles = Array.isArray(priorManifest?.files) ? priorManifest.files : [];
   const nextFiles = Object.keys(filesJson);
   const nextSet = new Set(nextFiles);
+  const removals = [];
   for (const relPath of previousFiles) {
     if (!nextSet.has(relPath)) {
-      fs.rmSync(path.join(workspaceDir, relPath), { recursive: true, force: true });
+      removals.push(resolveInsideWorkspace(workspaceDir, relPath));
     }
   }
+  const writes = [];
   for (const [relPath, content] of Object.entries(filesJson)) {
-    const absPath = path.join(workspaceDir, relPath);
+    writes.push({
+      absPath: resolveInsideWorkspace(workspaceDir, relPath),
+      content,
+    });
+  }
+  for (const absPath of removals) {
+    fs.rmSync(absPath, { recursive: true, force: true });
+  }
+  for (const { absPath, content } of writes) {
     ensureDir(path.dirname(absPath));
     if (typeof content === "string" && content.startsWith(BINARY_BASE64_PREFIX)) {
       fs.writeFileSync(absPath, materializeBinaryContent(content));
@@ -460,13 +505,24 @@ function patchWorkspaceFiles(chatId, files, removedPaths = []) {
   ensureDir(workspaceDir);
   const priorManifest = readJsonIfExists(manifestPathForWorkspace(workspaceDir));
   const manifestSet = new Set(Array.isArray(priorManifest?.files) ? priorManifest.files : []);
+  const removals = [];
   for (const relPath of removedPaths) {
     if (typeof relPath !== "string" || !relPath) continue;
-    fs.rmSync(path.join(workspaceDir, relPath), { recursive: true, force: true });
+    removals.push({ relPath, absPath: resolveInsideWorkspace(workspaceDir, relPath) });
+  }
+  const writes = [];
+  for (const [relPath, content] of Object.entries(files || {})) {
+    writes.push({
+      relPath,
+      absPath: resolveInsideWorkspace(workspaceDir, relPath),
+      content,
+    });
+  }
+  for (const { relPath, absPath } of removals) {
+    fs.rmSync(absPath, { recursive: true, force: true });
     manifestSet.delete(relPath);
   }
-  for (const [relPath, content] of Object.entries(files || {})) {
-    const absPath = path.join(workspaceDir, relPath);
+  for (const { relPath, absPath, content } of writes) {
     ensureDir(path.dirname(absPath));
     if (typeof content === "string" && content.startsWith(BINARY_BASE64_PREFIX)) {
       fs.writeFileSync(absPath, materializeBinaryContent(content));
