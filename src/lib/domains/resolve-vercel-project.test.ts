@@ -1,22 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectById = vi.hoisted(() => vi.fn());
 const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
+const dbSelect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
+  getAppProjectByIdForRequest,
 }));
 
 vi.mock("@/lib/db/services/projects", () => ({
   getProjectById,
 }));
 
+vi.mock("@/lib/db/client", () => ({
+  db: { select: dbSelect },
+}));
+
 vi.mock("@/lib/deployment", () => ({
   getLatestVercelProjectIdForChat,
 }));
 
-const { resolveVercelProjectForChat } = await import("./resolve-vercel-project");
+const { resolveVercelProjectForAppProject, resolveVercelProjectForChat } = await import(
+  "./resolve-vercel-project"
+);
 
 function req() {
   return new Request("http://localhost/api/domains/link", { method: "POST" });
@@ -60,6 +69,7 @@ describe("resolveVercelProjectForChat", () => {
       vercelProjectId: "vp_fresh",
       appProjectId: "proj_1",
       source: "deployment",
+      chatId: "chat_1",
     });
   });
 
@@ -74,6 +84,7 @@ describe("resolveVercelProjectForChat", () => {
       vercelProjectId: "vp_dep",
       appProjectId: "proj_1",
       source: "deployment",
+      chatId: "chat_1",
     });
   });
 
@@ -88,6 +99,7 @@ describe("resolveVercelProjectForChat", () => {
       vercelProjectId: "vp_app",
       appProjectId: "proj_1",
       source: "app_project",
+      chatId: "chat_1",
     });
   });
 
@@ -112,6 +124,42 @@ describe("resolveVercelProjectForChat", () => {
       vercelProjectId: "vp_dep",
       appProjectId: null,
       source: "deployment",
+      chatId: "chat_1",
+    });
+  });
+});
+
+describe("resolveVercelProjectForAppProject", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_app",
+    });
+    dbSelect.mockReturnValue({
+      from: () => ({ where: () => Promise.resolve([{ id: "chat_1" }]) }),
+    });
+    getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
+  });
+
+  it("returns 404 for a project the caller does not own", async () => {
+    getAppProjectByIdForRequest.mockResolvedValue(null);
+
+    const result = await resolveVercelProjectForAppProject(req(), "foreign");
+
+    expect(result).toEqual({ ok: false, status: 404, error: expect.any(String) });
+    expect(getLatestVercelProjectIdForChat).not.toHaveBeenCalled();
+  });
+
+  it("prefers the latest deployment over a stale app_projects link", async () => {
+    const result = await resolveVercelProjectForAppProject(req(), "proj_1");
+
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_fresh",
+      appProjectId: "proj_1",
+      source: "deployment",
+      chatId: "chat_1",
     });
   });
 });

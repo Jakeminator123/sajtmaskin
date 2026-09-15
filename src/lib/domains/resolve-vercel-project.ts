@@ -17,7 +17,10 @@
  *     persisted link can no longer win over the newest deployment.
  *  4. No project yet → 409 (the site must be published first).
  */
-import { getEngineChatByIdForRequest } from "@/lib/tenant";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { engineChats } from "@/lib/db/schema";
+import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getProjectById } from "@/lib/db/services/projects";
 import { getLatestVercelProjectIdForChat } from "@/lib/deployment";
 
@@ -27,6 +30,7 @@ export type VercelProjectResolution =
       vercelProjectId: string;
       appProjectId: string | null;
       source: "app_project" | "deployment";
+      chatId: string | null;
     }
   | { ok: false; status: 404 | 409; error: string };
 
@@ -63,10 +67,17 @@ export async function resolveVercelProjectForChat(
       vercelProjectId: deployed,
       appProjectId: projectId || null,
       source: "deployment",
+      chatId,
     };
   }
   if (linked) {
-    return { ok: true, vercelProjectId: linked, appProjectId: projectId, source: "app_project" };
+    return {
+      ok: true,
+      vercelProjectId: linked,
+      appProjectId: projectId,
+      source: "app_project",
+      chatId,
+    };
   }
 
   return {
@@ -109,4 +120,62 @@ export async function resolveChatProjectContext(
   const deployed =
     (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
   return { ok: true, appProjectId, vercelProjectId: deployed ?? linked };
+}
+
+/**
+ * Same hosting resolution as the chat path, but ownership is the app project
+ * in the portal URL — never a client-supplied Vercel id.
+ */
+export async function resolveVercelProjectForAppProject(
+  req: Request,
+  projectId: string,
+  options?: { sessionId?: string },
+): Promise<VercelProjectResolution> {
+  const project = await getAppProjectByIdForRequest(req, projectId, options);
+  if (!project) {
+    return { ok: false, status: 404, error: "Projektet hittades inte." };
+  }
+
+  const chats = await db
+    .select({ id: engineChats.id })
+    .from(engineChats)
+    .where(eq(engineChats.projectId, project.id));
+
+  let deployed: string | null = null;
+  let chatId: string | null = chats[0]?.id ?? null;
+  for (const chat of chats) {
+    const vercelId =
+      (await getLatestVercelProjectIdForChat(chat.id).catch(() => null))?.trim() || null;
+    if (vercelId) {
+      deployed = vercelId;
+      chatId = chat.id;
+      break;
+    }
+  }
+
+  const linked = project.vercel_project_id?.trim() || null;
+  if (deployed) {
+    return {
+      ok: true,
+      vercelProjectId: deployed,
+      appProjectId: project.id,
+      source: "deployment",
+      chatId,
+    };
+  }
+  if (linked) {
+    return {
+      ok: true,
+      vercelProjectId: linked,
+      appProjectId: project.id,
+      source: "app_project",
+      chatId,
+    };
+  }
+
+  return {
+    ok: false,
+    status: 409,
+    error: "Sajten måste publiceras innan en domän kan kopplas.",
+  };
 }

@@ -57,7 +57,7 @@ type VerifyResult = {
   }>;
 };
 
-type DomainManagerStep = "search" | "connect" | "verify" | "purchase";
+type DomainManagerStep = "search" | "own" | "connect" | "verify" | "purchase";
 
 type DomainOrderStatus = {
   id: string;
@@ -163,6 +163,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
 export function DomainManager({ open, onClose, chatId, deploymentId }: DomainManagerProps) {
   const [step, setStep] = useState<DomainManagerStep>("search");
   const [query, setQuery] = useState("");
+  const [ownQuery, setOwnQuery] = useState("");
   const [results, setResults] = useState<DomainSearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -195,6 +196,7 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
       searchGenerationRef.current += 1;
       setStep("search");
       setQuery("");
+      setOwnQuery("");
       setResults(null);
       setSearchError(null);
       // Clear the search spinner here too: handleSearch's finally only resets
@@ -385,6 +387,49 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
     [chatId],
   );
 
+  const ownDomainResult = useCallback((domain: string): DomainSearchResult => {
+    return {
+      domain,
+      available: false,
+      purchasable: false,
+      provider: "none",
+      price: null,
+      currency: "SEK",
+      purchaseUrl: null,
+      error: null,
+    };
+  }, []);
+
+  const handleOwnLink = useCallback(async () => {
+    const domain = ownQuery.trim().toLowerCase();
+    if (!domain || !chatId) return;
+    setSelectedDomain(ownDomainResult(domain));
+    setIsLinking(true);
+    setLinkError(null);
+    setSaveWarning(null);
+    try {
+      const res = await fetch("/api/domains/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain, chatId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 409) {
+        throw new Error(
+          "Sajten är inte publicerad ännu. Publicera sajten först för att koppla en domän.",
+        );
+      }
+      if (!res.ok) throw new Error(data?.error || "Kunde inte koppla domän");
+      setLinkResult(data);
+      setStep("verify");
+      startVerifyPolling(domain);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Okänt fel");
+    } finally {
+      setIsLinking(false);
+    }
+  }, [ownQuery, chatId, ownDomainResult, startVerifyPolling]);
+
   const handleLink = useCallback(async () => {
     if (!selectedDomain || !chatId) return;
     setIsLinking(true);
@@ -473,12 +518,14 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
             {step === "search" && "Hitta eller koppla domän"}
+            {step === "own" && "Jag har redan en domän"}
             {step === "connect" && "Koppla domän"}
             {step === "verify" && "Verifiera domän"}
             {step === "purchase" && "Domänköp"}
           </DialogTitle>
           <DialogDescription>
             {step === "search" && "Sök efter en domän att koppla till din sajt."}
+            {step === "own" && "Koppla en domän du redan äger. Ingen tillgänglighetskontroll eller köp."}
             {step === "connect" && `Koppla ${selectedDomain?.domain} till ditt projekt.`}
             {step === "verify" && "Verifiera att DNS-inställningarna är korrekta."}
             {step === "purchase" && "Status för ditt domänköp."}
@@ -640,6 +687,69 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                   Inga resultat hittades.
                 </p>
               )}
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setLinkError(null);
+                  setStep("own");
+                }}
+              >
+                Jag har redan en domän
+              </Button>
+            </>
+          )}
+
+          {step === "own" && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep("search")}
+                className="mb-2"
+              >
+                <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                Tillbaka
+              </Button>
+              <div className="space-y-3">
+                <Input
+                  value={ownQuery}
+                  onChange={(e) => setOwnQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void handleOwnLink()}
+                  placeholder="exempel.se"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={isLinking}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Ingen sökning, priskoll eller köpoffert. Domänen måste redan vara din.
+                </p>
+                {linkError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                    {linkError}
+                  </div>
+                )}
+                <Button
+                  onClick={() => void handleOwnLink()}
+                  disabled={isLinking || !ownQuery.trim() || !chatId}
+                  className="w-full"
+                >
+                  {isLinking ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Link2 className="mr-2 h-4 w-4" />
+                  )}
+                  Koppla {ownQuery.trim() || "domän"}
+                </Button>
+                {!chatId && (
+                  <p className="text-muted-foreground text-center text-xs">
+                    Publicera sajten först för att kunna koppla domän.
+                  </p>
+                )}
+              </div>
             </>
           )}
 
