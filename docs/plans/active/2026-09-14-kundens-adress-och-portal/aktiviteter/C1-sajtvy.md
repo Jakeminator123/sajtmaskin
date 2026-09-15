@@ -1,9 +1,10 @@
 # C1 — Sajtvy `/projects/[id]`
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-C1:s sajtvy är levererad i #1358. Domänhantering, export och abonnemang
-följs separat i C2, B1 och D2; kvarvarande följdkrav är märkta nedan.
+C1:s sajtvy är kod på `preview` (#1358). C2 (#1384) och B1 (#1367) är
+inkopplade i samma yta. Abonnemang och raderingssamordning väntar på D2
+(#1385). Det är inte kundaktivering.
 
 Område: [03](../03-kundportal.md). Leveransen gjordes före
 abonnemangsimplementationen och samordnades med A2/C3:s `src/proxy.ts`-skydd.
@@ -16,7 +17,7 @@ abonnemangsimplementationen och samordnades med A2/C3:s `src/proxy.ts`-skydd.
 | Status | Senaste verkliga publicering och bygger/fel; senare paus ägs av D3 |
 | Redigera | Öppnar rätt projekt/version i befintlig builder |
 | Publicera | Återanvänder deployflödet och dess kontroller; vald version visas |
-| Domän och export | Integrationspunkter för C2 och levererad B1-export |
+| Domän och export | C2-flödet och B1-exporten är inkopplade; C2-runtime mot riktig domän kvar |
 | SEO | Återanvänder inställningskomponenten; adresskontraktet gäller även opt-out |
 
 Projektkorten på `/projects` har adress/status och länk till sajtvyn. Den

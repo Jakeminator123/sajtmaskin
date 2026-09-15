@@ -1,11 +1,25 @@
 # A3 — Primäradress i metadata och runtime
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-En förberedande kodetapp pågår separat. Fullständigt adresskontrakt och
-driftverifiering återstår. Routing får inte aktiveras utan verifierad
-projektidentitet, HTTPS och A4:s slutliga bindning.
-Full A3 kräver de faktiska deploy-/rollback-proven nedan.
+**Kod på preview. Redirect-flagga av. Runtime inte verifierad.** #1369
+levererade det stängda adresskontraktet. #1386 är host-identitetsfixen:
+en host är produktion bara med aktuellt bevis. #1391 (`33935b8d`) är
+production-identitetsfixen: `liveVersionId` / Publicera om pekar på Vercels
+aktuella production-deployment, inte senaste READY. Okänd identitet gissas
+inte. Last-working 3-label provider behålls bara när alias-status är
+tillfälligt `unknown`.
+
+Två lager, inte en flagga:
+
+| Lager | Default på preview | Vad som krävs för att slå på |
+|---|---|---|
+| Identitet / `NEXT_PUBLIC_SITE_URL` | Alltid från aktuellt bevis | Ingen env-flagga. Utan bevis: ingen `SITE_URL`, inget `noindex`-gissning |
+| 307-redirect provider → primärhost | Av | `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT=true` **och** attesterat samma-projekt-alias **och** in-process HTTPS-bevis |
+
+Flaggan öppnar inte A4, C2 eller branded-pilot. Det är inte A3-klart i drift:
+två testhosts under `sites.*` över HTTPS saknas, och branded → egen domän →
+branded är inte kört på en faktisk kundtestdeployment.
 
 Område: [01](../01-varumarkta-adresser.md). Efter [A2](A2-branded-eligibility.md)
 för gemensamma deployfiler. Samordna kontrakt med [C2](C2-domanflode.md).
