@@ -36,6 +36,12 @@ export interface OpenClawSendOptions {
    * Defaults to true.
    */
   allowArming?: boolean;
+  /**
+   * Whether a successful campaign-advice turn burns one of the five client-side
+   * rounds. Armed continuation wake-ups pass `false` so a machine resume cannot
+   * spend the invited customer's quota. Defaults to true.
+   */
+  countTowardCampaignQuota?: boolean;
 }
 
 export function useOpenClawChat() {
@@ -91,23 +97,23 @@ export function useOpenClawChat() {
 
       const clientContext = collectOpenClawClientContext();
       const campaignScript = useOpenClawStore.getState().campaignScript;
-      if (shouldEnforceCampaignAdviceQuota(clientContext, campaignScript)) {
-        const quota = consumeCampaignAdviceRound();
-        if (quota === "exhausted") {
-          addMessage({
-            id: makeId(),
-            role: "user",
-            content: trimmed,
-            timestamp: Date.now(),
-          });
-          addMessage({
-            id: makeId(),
-            role: "assistant",
-            content: KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
-            timestamp: Date.now(),
-          });
-          return;
-        }
+      const shouldChargeQuota =
+        options?.countTowardCampaignQuota !== false &&
+        shouldEnforceCampaignAdviceQuota(clientContext, campaignScript);
+      if (shouldChargeQuota && (campaignScript?.remaining ?? 0) <= 0) {
+        addMessage({
+          id: makeId(),
+          role: "user",
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+        addMessage({
+          id: makeId(),
+          role: "assistant",
+          content: KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
+          timestamp: Date.now(),
+        });
+        return;
       }
 
       const userMsg: OpenClawMessage = {
@@ -221,6 +227,13 @@ export function useOpenClawChat() {
           );
         } else if (!accumulated) {
           updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
+        }
+
+        // Charge only after a stream that actually produced assistant text.
+        // HTTP errors, network/Abort, empty streams and a pure gateway-error
+        // chunk (200 + error envelope, no delta) must not burn a round.
+        if (shouldChargeQuota && accumulated.length > 0) {
+          consumeCampaignAdviceRound();
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
