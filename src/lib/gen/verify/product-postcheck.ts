@@ -8,6 +8,7 @@ import {
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
   classifyPreviewPageProbe,
+  collectPreviewHostBootPageProbe,
   type PreviewHostBootPageProbe,
 } from "@/lib/capture/preview-boot-page";
 import {
@@ -306,11 +307,7 @@ const PREVIEW_PROBE_UNREADABLE_MESSAGE =
 
 async function readPageProbe(page: Page): Promise<PreviewHostBootPageProbe | null> {
   return page
-    .evaluate(() => ({
-      title: document.title || "",
-      h1: document.querySelector("h1")?.textContent?.trim() || null,
-      bodyText: (document.body?.innerText || "").slice(0, 800),
-    }))
+    .evaluate(collectPreviewHostBootPageProbe)
     .catch(() => null);
 }
 
