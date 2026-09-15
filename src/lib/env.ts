@@ -168,6 +168,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
   /** Feature-gated branded standard URL rollout for generated public sites. */
   SAJTMASKIN_BRANDED_LIVE_URLS: z.string().optional(),
+  /** A3 address/build/redirect contract request. Default off. When on, emit a 307 only after attested same-project alias + in-process HTTPS proof. Does not open A4. */
+  SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT: z.string().optional(),
   /** Exact reviewed project/version/content-revision pairs for the branded pilot. */
   SAJTMASKIN_BRANDED_PILOT_ALLOWLIST: z.string().optional(),
   /** Parent hostname for exact generated-site aliases, e.g. sites.sajtmaskin.se. */

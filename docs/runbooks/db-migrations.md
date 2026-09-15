@@ -142,6 +142,17 @@ scannern; välj i stället en additiv datamodell eller den medvetna vägen nedan
 `master` gate:as inte: promoten **är** det medvetna beslutet, och där byter kod
 och schema plats samtidigt.
 
+### Inte i preview ännu (2026-09-15)
+
+`MIGRATION_ORDER` på `origin/preview`
+(`33935b8d048c311e138279cd8868c58cdbca9dfd`) slutar med
+`add-kostnadsfri-sent.sql`. D1:s `add-site-subscriptions.sql` och
+`upgrade-site-subscriptions-composite-keys.sql` är redan i ordningen.
+Öppen draft #1385 lägger till `add-stripe-billing-events.sql`. Den filen
+finns inte på preview, är inte applicerad, och ska inte beskrivas som körd
+mot den delade preview/prod-databasen förrän den landat och ledgern
+bekräftar den. Ingen `--apply` hör hit.
+
 **Blir grinden röd på preview:** migrationen är brytande. Välj medvetet.
 
 1. `npm run promote` — kod och schema byter samtidigt. Normalvägen.

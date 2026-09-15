@@ -11,6 +11,7 @@ import {
 import {
   checkVercelProjectDomain,
   getVercelDeployment,
+  getVercelProjectProductionIdentity,
   mapVercelReadyStateToStatus,
 } from "@/lib/vercel/vercel-deploy";
 import {
@@ -26,8 +27,9 @@ import {
   markProjectBrandedDomainVerified,
   touchProjectBrandedDomainCheckedAt,
 } from "@/lib/db/services/projects";
-import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import { getBrandedLiveSiteDomain, persistableDeploymentUrl } from "@/lib/live-site-url";
 import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
+import { selectLivePublishIdentity } from "@/lib/projects/site-overview";
 import { resolveLegacyProviderUrl } from "./legacy-provider-url";
 
 export async function GET(req: Request) {
@@ -66,8 +68,6 @@ export async function GET(req: Request) {
             .where(eq(deployments.chatId, internalChatId))
             .orderBy(desc(deployments.createdAt))
         : [];
-      const latestReadyDeployment = result.find((deployment) => deployment.status === "ready");
-
       // Contract with the builder UI: top-level `project` carries the persisted
       // Vercel project link (null-safe; legacy chats have no app_projects row).
       const appProject = appProjectId ? await getProjectById(appProjectId).catch(() => null) : null;
@@ -82,6 +82,13 @@ export async function GET(req: Request) {
       const effectiveVercelProjectId = internalChatId
         ? await resolveLatestOrCachedVercelProjectId(internalChatId, appProject?.vercel_project_id)
         : null;
+      const attestedProduction = effectiveVercelProjectId
+        ? await getVercelProjectProductionIdentity(effectiveVercelProjectId)
+        : null;
+      const published = selectLivePublishIdentity(result, {
+        vercelProjectId: effectiveVercelProjectId,
+        productionDeploymentId: attestedProduction?.productionDeploymentId ?? null,
+      });
       let brandedDomainVerifiedAt = appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt = appProject?.custom_domain_verified_at ?? null;
       const brandedDomainCheckedAt = appProject?.branded_domain_checked_at ?? null;
@@ -140,7 +147,7 @@ export async function GET(req: Request) {
           );
           const activationAllowed = resolveBrandedPilotEligibility({
             projectId: appProjectId,
-            versionId: latestReadyDeployment?.versionId,
+            versionId: published?.versionId,
           }).allowed;
           if (wasVerifiedBefore || activationAllowed) {
             const marked = await markProjectBrandedDomainVerified(
@@ -189,7 +196,7 @@ export async function GET(req: Request) {
       };
 
       if (!internalChatId) {
-        return NextResponse.json({ deployments: [], project });
+        return NextResponse.json({ deployments: [], project, production: null });
       }
 
       const refreshedById = new Map<
@@ -213,14 +220,13 @@ export async function GET(req: Request) {
         try {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
-          const refreshedLiveUrl = resolveLiveUrl({
-            projectId: appProjectId,
-            versionId: latestRefreshCandidate.versionId,
-            providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
-            brandedDomain: appProject?.branded_domain ?? null,
-            brandedDomainVerifiedAt,
-            customDomain: appProject?.custom_domain ?? null,
-            customDomainVerifiedAt,
+          const refreshedLiveUrl = persistableDeploymentUrl({
+            existingUrl: latestRefreshCandidate.url,
+            candidateUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
+            verifiedCustomerHosts: [
+              customDomainVerifiedAt ? (appProject?.custom_domain ?? null) : null,
+              brandedDomainVerifiedAt ? (appProject?.branded_domain ?? null) : null,
+            ],
           });
 
           const refreshWrite = await updateDeploymentStatus(
@@ -228,7 +234,7 @@ export async function GET(req: Request) {
             mapped.status,
             {
               providerUrl: vercel.url ?? undefined,
-              url: refreshedLiveUrl ?? undefined,
+              ...(refreshedLiveUrl ? { url: refreshedLiveUrl } : {}),
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             },
@@ -272,14 +278,13 @@ export async function GET(req: Request) {
             status: refreshed?.status ?? d.status,
             url:
               refreshed?.url ??
-              resolveLiveUrl({
-                projectId: appProjectId,
-                versionId: d.versionId,
-                providerUrl: d.providerUrl,
-                brandedDomain: appProject?.branded_domain ?? null,
-                brandedDomainVerifiedAt,
-                customDomain: appProject?.custom_domain ?? null,
-                customDomainVerifiedAt,
+              persistableDeploymentUrl({
+                existingUrl: d.url,
+                candidateUrl: d.providerUrl,
+                verifiedCustomerHosts: [
+                  customDomainVerifiedAt ? (appProject?.custom_domain ?? null) : null,
+                  brandedDomainVerifiedAt ? (appProject?.branded_domain ?? null) : null,
+                ],
               }) ??
               resolveLegacyProviderUrl(d.url),
             providerUrl: refreshed?.providerUrl ?? d.providerUrl,
@@ -291,6 +296,9 @@ export async function GET(req: Request) {
           };
         }),
         project,
+        production: published
+          ? { deploymentId: published.id, versionId: published.versionId ?? null }
+          : null,
       });
     } catch (err) {
       console.error("Get deployments error:", err);

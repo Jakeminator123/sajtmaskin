@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  KOSTNADSFRI_INFORMATION_PATH,
   isServerOnlyKostnadsfriPath,
   kostnadsfriEventPath,
   kostnadsfriVisitPath,
@@ -42,5 +43,6 @@ describe("kostnadsfri analytics paths", () => {
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/")).toBeNull();
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/okand")).toBeNull();
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab/skapad/mer")).toBeNull();
+    expect(parseKostnadsfriAnalyticsPath(KOSTNADSFRI_INFORMATION_PATH)).toBeNull();
   });
 });

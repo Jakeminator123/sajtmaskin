@@ -57,7 +57,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
-const guardedLookup: LookupFunction = (hostname, options, callback) => {
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
   const allOptions: LookupAllOptions = { ...options, all: true };
   dnsLookup(hostname, allOptions, (error, addresses) => {
     if (error) {

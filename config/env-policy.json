@@ -194,6 +194,7 @@
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+    "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFAULT_THINKING",
@@ -575,6 +576,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Default empty/deny. JSON array of exact reviewed objects {projectId, versionId, filesRevision}. This records review of the stored source revision only; autofix, SEO/LLM and image materialization run later, so it does not prove final provider bytes or authorize activation. A project approval never rolls forward to a new or edited engine version. A4 must add final-artifact proof and serialized attachment to an exact READY deployment before runtime activation. Source: src/lib/branded-pilot-eligibility.ts."
+    },
+    {
+      "key": "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Default off request signal for A3's shared canonical build/redirect contract. Even when unset, deploy injects NEXT_PUBLIC_SITE_URL from verified project identity. When set, a temporary 307 from the attested same-project production provider alias is emitted only after an in-process HTTPS proof passes; otherwise fail closed and keep the last working publish. Does not open A4 alias/migration activation. Source: src/lib/deploy/canonical-site-address.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",

@@ -32,6 +32,7 @@ import type {
   SeoPreferences,
   SeoPreferencesPersisted,
 } from "@/lib/projects/preferences-schema";
+import { PLACEHOLDER_SITE_URL } from "@/lib/seo/audit";
 
 export function resolveDeploySeoOptions(
   bodySeo: SeoPreferences | undefined,
@@ -48,7 +49,7 @@ export function resolveDeploySeoOptions(
       ? bodySeo.siteUrl
       : persisted.siteUrl;
   const siteUrl = projectLiveUrl ?? fallbackUrl;
-  if (!optedIn || !siteUrl) return null;
+  if (!optedIn || !siteUrl || siteUrl === PLACEHOLDER_SITE_URL) return null;
   const brand =
     bodySeo?.brand !== undefined
       ? (bodySeo.brand ?? undefined)

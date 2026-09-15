@@ -47,6 +47,7 @@ describe("useDeploymentHistory", () => {
             { id: "dep_err", status: "error", url: null, inspectorUrl: "https://vercel.com/i" },
             { id: "dep_ok", status: "ready", url: "https://site.vercel.app" },
           ],
+          production: { deploymentId: "dep_ok", versionId: "ver_ok" },
           project: null,
         },
         200,
@@ -71,6 +72,7 @@ describe("useDeploymentHistory", () => {
             { id: "dep_ok", status: "ready", url: "https://site.vercel.app" },
             { id: "dep_err", status: "error", url: null },
           ],
+          production: { deploymentId: "dep_ok", versionId: "ver_ok" },
           project: null,
         },
         200,
@@ -112,5 +114,59 @@ describe("useDeploymentHistory", () => {
 
     expect(result.current.hydrationFailed).toBe(false);
     expect(result.current.deployments).toEqual([]);
+  });
+
+  it("keeps production A after a later preview READY and a failed deploy", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      json(
+        {
+          deployments: [
+            { id: "dep_c", status: "error", url: null, versionId: "ver_c" },
+            {
+              id: "dep_b",
+              status: "ready",
+              url: "https://demo-8fyovx8jc-team.vercel.app",
+              versionId: "ver_b",
+            },
+            { id: "dep_a", status: "ready", url: "https://demo.vercel.app", versionId: "ver_a" },
+          ],
+          production: { deploymentId: "dep_a", versionId: "ver_a" },
+          project: null,
+        },
+        200,
+      ),
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useDeploymentHistory("chat_1"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.liveDeployment?.deploymentId).toBe("dep_a");
+    expect(result.current.liveDeployment?.versionId).toBe("ver_a");
+    expect(result.current.latestFailedDeployment?.id).toBe("dep_c");
+  });
+
+  it("does not guess the newest READY when production identity is missing", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      json(
+        {
+          deployments: [
+            { id: "dep_b", status: "ready", url: "https://demo.vercel.app", versionId: "ver_b" },
+            { id: "dep_a", status: "ready", url: "https://demo.vercel.app", versionId: "ver_a" },
+          ],
+          production: null,
+          project: null,
+        },
+        200,
+      ),
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useDeploymentHistory("chat_1"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.liveDeployment).toBeNull();
   });
 });

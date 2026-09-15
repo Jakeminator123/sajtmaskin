@@ -1,4 +1,8 @@
 import {
+  kostnadsfriAgentBriefLines,
+  normalizeKostnadsfriAgentBrief,
+} from "@/lib/kostnadsfri/agent-brief";
+import {
   decideOpenClawCodeContextMode,
   type OpenClawChatMessageLike,
   type OpenClawCodeContextMode,
@@ -88,6 +92,15 @@ export function buildOpenClawContextBlock(
   if (ctx.scaffoldMode) parts.push(`Scaffold-läge: ${ctx.scaffoldMode}`);
   if (ctx.scaffoldId) parts.push(`Scaffold: ${ctx.scaffoldId}`);
   if (ctx.isStreaming) parts.push("(AI genererar just nu)");
+
+  // Kampanjflödets faktaunderlag. Klientstyrt, så det normaliseras om här —
+  // objektet bär ingen auktoritet (se `agent-brief.ts`).
+  const kostnadsfriBriefLines = kostnadsfriAgentBriefLines(
+    normalizeKostnadsfriAgentBrief(ctx.kostnadsfriBrief),
+  );
+  if (kostnadsfriBriefLines.length > 0) {
+    parts.push("", ...kostnadsfriBriefLines);
+  }
 
   if (Array.isArray(ctx.recentMessages) && ctx.recentMessages.length > 0) {
     parts.push("\nSenaste meddelanden i buildern:");
