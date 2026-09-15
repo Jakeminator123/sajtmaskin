@@ -4,13 +4,16 @@ Område: [04](../04-abonnemang-och-livscykel.md). Grundschemat levererades innan
 D3:s policyförslag ratificerats: modellen håller policyvärden och aktivering
 åtskilda. D3:s driftimplementation kommer senare.
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
 Grundschema och retention guards levererade i #1361.
 `add-site-subscriptions.sql` och
 `upgrade-site-subscriptions-composite-keys.sql` är verifierade i den delade
 preview/prod-databasens ledger. Ingen checkout, entitlement eller pilot
-aktiveras av schemaetappen. Pris, inkluderade credits och rollover är förslag.
+aktiveras av schemaetappen. #1385:s `add-stripe-billing-events.sql` tillhör
+inte D1 och ska inte dokumenteras som applicerad förrän den finns i
+`MIGRATION_ORDER` på preview och ledgern bekräftar den. Pris, inkluderade
+credits och rollover är förslag.
 Den körbara ägaren är `src/lib/db/schema.ts` och migrationsfilerna; kontrakten
 nedan styr återstående writers och konsumenter.
 
