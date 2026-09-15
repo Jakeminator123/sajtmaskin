@@ -14,7 +14,7 @@ import {
   runProductPostcheck,
   type ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
-import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
+import { resolveUserRequestForVersion, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
   finishLiveReviewSession,
@@ -620,6 +620,12 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     try {
+      const userRequest = resolveUserRequestForVersion({
+        messages: scopedVersion.chat?.messages ?? [],
+        versionMessageId: scopedVersion.version.message_id,
+        versionCreatedAt: scopedVersion.version.created_at,
+        versionId: scopedVersion.version.id,
+      });
       result.liveReview = await finishLiveReviewSession(liveReviewSession, {
         skipped: result.skipped,
         findings: result.warnings.map((warning) => ({
@@ -630,7 +636,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         domSummary: result.domSummary,
         versionNumber: scopedVersion.version.version_number,
         filesJson: scopedVersion.version.files_json,
-        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
+        userRequest: userRequest.text,
+        userRequestSource: userRequest.source,
         briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
         isTargetCurrent,
       });

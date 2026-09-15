@@ -40,6 +40,7 @@ import {
   evaluateHydrationDomLossForViewports,
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
+  capturePostcheckJpeg,
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
   isMeaningfulCtaHref,
@@ -1582,6 +1583,40 @@ describe("shouldPersistPostcheckScreenshots", () => {
   });
 });
 
+describe("capturePostcheckJpeg", () => {
+  it("retry:ar en gång och returnerar buffern när andra försöket lyckas", async () => {
+    const page = {
+      screenshot: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("page.screenshot: Target page, context or browser has been closed"))
+        .mockResolvedValueOnce(Buffer.from("desk-ok")),
+    };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(
+      capturePostcheckJpeg(page as never, { attempts: 2, viewport: "desktop", versionId: "v1" }),
+    ).resolves.toEqual(Buffer.from("desk-ok"));
+    expect(page.screenshot).toHaveBeenCalledTimes(2);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("returnerar null efter slutförsök utan att kasta — inget postcheck-fynd", async () => {
+    const page = {
+      screenshot: vi.fn().mockRejectedValue(new Error("page.screenshot: Timeout")),
+    };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(
+      capturePostcheckJpeg(page as never, { attempts: 2, viewport: "desktop", versionId: "v1" }),
+    ).resolves.toBeNull();
+    expect(page.screenshot).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[product-postcheck] JPEG capture failed",
+      expect.objectContaining({ viewport: "desktop", attempts: 2, versionId: "v1" }),
+    );
+    warnSpy.mockRestore();
+  });
+});
+
 describe("runProductPostcheck screenshot best-effort", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1697,6 +1732,110 @@ describe("runProductPostcheck screenshot best-effort", () => {
       desktopUrl: "https://blob.example/desktop.jpg",
       mobileUrl: "https://blob.example/mobile.jpg",
     });
+  });
+
+  it("återhämtar desktop efter ett misslyckat första skott", async () => {
+    persistLiveReviewJpegMock
+      .mockResolvedValueOnce("https://blob.example/desktop.jpg")
+      .mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    let desktopShots = 0;
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => {
+        desktopShots += 1;
+        if (desktopShots === 1) {
+          throw new Error("page.screenshot: Target page, context or browser has been closed");
+        }
+        return Buffer.from("desk");
+      },
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "[REDACTED]/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      versionNumber: 1,
+      captureEnabled: true,
+      liveReviewAllowed: true,
+    });
+
+    expect(desktopShots).toBe(2);
+    expect(result.skipped).toBe(false);
+    expect(result.warnings.some((warning) => /screenshot|skärmbild/i.test(warning.message))).toBe(
+      false,
+    );
+    expect(result.screenshots).toEqual({
+      desktopUrl: "https://blob.example/desktop.jpg",
+      mobileUrl: "https://blob.example/mobile.jpg",
+    });
+  });
+
+  it("varnar när desktop saknas men lämnar mobil och blockerar inte", async () => {
+    persistLiveReviewJpegMock.mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => {
+        throw new Error("page.screenshot: Target page, context or browser has been closed");
+      },
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "[REDACTED]/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      versionNumber: 1,
+      captureEnabled: true,
+      liveReviewAllowed: true,
+    });
+
+    expect(desktop.screenshot).toHaveBeenCalledTimes(2);
+    expect(result.ok).toBe(true);
+    expect(result.productBlocked).toBe(false);
+    expect(result.warnings.some((warning) => /screenshot|skärmbild/i.test(warning.message))).toBe(
+      false,
+    );
+    expect(result.screenshots).toEqual({
+      desktopUrl: null,
+      mobileUrl: "https://blob.example/mobile.jpg",
+    });
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("desktop screenshot missing"))).toBe(
+      true,
+    );
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("desktopUrl missing"))).toBe(
+      true,
+    );
+    warnSpy.mockRestore();
   });
 
   it("skjuter med caret:'initial' — default caret:'hide' muterar inputs och fabricerar hydration-krasch", async () => {

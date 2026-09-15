@@ -18,6 +18,9 @@ const readProductPostcheckPreviewProbe = vi.hoisted(() => vi.fn());
 const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
 const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
 const readProductPostcheckVerdictForVersion = vi.hoisted(() => vi.fn());
+const resolveUserRequestForVersion = vi.hoisted(() =>
+  vi.fn(() => ({ text: "", source: "empty" as const })),
+);
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) =>
@@ -41,6 +44,7 @@ vi.mock("@/lib/gen/verify/product-postcheck", () => ({
 
 vi.mock("@/lib/gen/verify/live-review", () => ({
   pickUserRequest: () => "",
+  resolveUserRequestForVersion,
   summarizeBrief: () => "",
   LIVE_REVIEW_TOTAL_TIMEOUT_MS: 90_000,
 }));
@@ -167,6 +171,7 @@ function setF2ProductPostcheck(value: boolean): void {
 describe("POST product-postcheck", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resolveUserRequestForVersion.mockReturnValue({ text: "", source: "empty" });
     setF2ProductPostcheck(false);
     readProductPostcheckVerdictForVersion.mockResolvedValue({
       verdict: "pending",
@@ -567,6 +572,96 @@ describe("POST product-postcheck", () => {
     );
     expect(setLlmUsageContext).toHaveBeenCalledWith(
       expect.objectContaining({ versionId: "v1" }),
+    );
+  });
+
+  it("pinnar live-review-userRequest till versionens message_id och created_at", async () => {
+    setF2ProductPostcheck(true);
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: true,
+      allowed: true,
+      claim: { kind: "acquired" },
+      earlyResult: null,
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_a",
+      userId: "user_1",
+    });
+    const messages = [
+      { id: "u1", role: "user", content: "Bygg en mörk sajt", created_at: "2026-09-01T10:00:00Z" },
+      { id: "a1", role: "assistant", content: "v1 klar", created_at: "2026-09-01T10:01:00Z" },
+      {
+        id: "u2",
+        role: "user",
+        content: "Fixa prissektionen",
+        created_at: "2026-09-01T11:00:00Z",
+      },
+    ];
+    getVersion.mockResolvedValue({
+      version: {
+        id: "v1",
+        version_number: 1,
+        files_json: "[]",
+        files_revision: "rev_a",
+        message_id: "a1",
+        created_at: "2026-09-01T10:01:00Z",
+      },
+      chat: { messages, orchestration_snapshot: null },
+    });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_a",
+      lifecycleToken: "life_a",
+      previewUrl: "[REDACTED]/chat_1",
+      versionId: "v1",
+      filesRevision: "rev_a",
+      createdAt: 1,
+      lastUsedAt: 1,
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "[REDACTED]/chat_1",
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      domSummary: null,
+    });
+    resolveUserRequestForVersion.mockReturnValue({
+      text: "Bygg en mörk sajt",
+      source: "version_message_id",
+    });
+    finishLiveReviewSession.mockResolvedValue({
+      status: "completed",
+      decision: {
+        verdict: "pass",
+        confidence: 0.8,
+        rationale: "Sajten följer briefen.",
+        reasoning: "",
+        issues: [],
+      },
+      durationMs: 12,
+      modelId: "gpt-4o",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(res.status).toBe(200);
+    expect(resolveUserRequestForVersion).toHaveBeenCalledWith({
+      messages,
+      versionMessageId: "a1",
+      versionCreatedAt: "2026-09-01T10:01:00Z",
+      versionId: "v1",
+    });
+    expect(finishLiveReviewSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userRequest: "Bygg en mörk sajt",
+        userRequestSource: "version_message_id",
+      }),
     );
   });
 
