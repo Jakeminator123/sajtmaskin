@@ -167,3 +167,29 @@ describe("buildPromptFromWizardData — sidantal", () => {
     },
   );
 });
+
+describe("buildPromptFromWizardData — profilen når inte prompten", () => {
+  it("reads MiniWizardData only — a smuggled profile never enters the prompt", () => {
+    const leaked = {
+      ...wizardData({
+        description: "Användaren godkände den här texten",
+        location: "Kista",
+        industry: "creative",
+      }),
+      profile: {
+        streetAddress: "c/o Hemlig Revisorsgatan 1",
+        orgNumber: "559599-5639",
+        businessDescription: "HEMLIG PROFILTEXT",
+      },
+    };
+
+    const prompt = buildPromptFromWizardData(leaked as MiniWizardData);
+
+    expect("profile" in wizardData()).toBe(false);
+    expect(prompt).toContain("Användaren godkände den här texten");
+    expect(prompt).toContain("Kista");
+    expect(prompt).not.toContain("HEMLIG PROFILTEXT");
+    expect(prompt).not.toContain("Revisorsgatan");
+    expect(prompt).not.toContain("559599-5639");
+  });
+});
