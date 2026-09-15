@@ -1176,6 +1176,104 @@ function fixMissingIconValueImports(code: string): { code: string; fixes: AutoFi
 }
 
 /**
+ * Follow-ups often emit a generic `<Icon />` / `icon={Icon}` without a binding.
+ * Lucide has no `Icon` export, so the JSX/value scanners skip it and the
+ * preview crashes with `ReferenceError: Icon is not defined` (SM-077).
+ * Alias a real lucide icon (`Circle`) as `Icon`, or reuse an existing `Circle`.
+ */
+function fileUsesGenericIconIdentifier(code: string): boolean {
+  if (/<Icon[\s/>]/.test(code)) return true;
+  ICON_PROPERTY_VALUE_RE.lastIndex = 0;
+  ICON_PROPERTY_JSX_VALUE_RE.lastIndex = 0;
+  for (const match of code.matchAll(ICON_PROPERTY_VALUE_RE)) {
+    if (match[1] === "Icon") return true;
+  }
+  for (const match of code.matchAll(ICON_PROPERTY_JSX_VALUE_RE)) {
+    if (match[1] === "Icon") return true;
+  }
+  return false;
+}
+
+function fixUndeclaredGenericIcon(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const bound = collectImportBoundNames(code);
+  if (bound.value.has("Icon") || fileDeclaresSymbolLocally(code, "Icon")) {
+    return { code, fixes: [] };
+  }
+  if (!fileUsesGenericIconIdentifier(code)) return { code, fixes: [] };
+
+  const lines = code.split("\n");
+  const lucideIdx = lines.findIndex(
+    (line) =>
+      (line.includes('from "lucide-react"') || line.includes("from 'lucide-react'")) &&
+      /^\s*import\s+\{/.test(line) &&
+      !/^\s*import\s+type\s/.test(line),
+  );
+
+  if (lucideIdx >= 0) {
+    const braceMatch = lines[lucideIdx].match(/^(\s*import\s+\{)([^}]*)(\}\s+from\s+.+)$/);
+    if (braceMatch) {
+      const specs = braceMatch[2]
+        .split(",")
+        .map((spec) => spec.trim())
+        .filter(Boolean);
+      const hasCircle = specs.some((spec) => {
+        const aliased = spec.match(/^Circle(?:\s+as\s+[\w$]+)?$/);
+        return Boolean(aliased);
+      });
+      if (hasCircle) {
+        let insertAt = 0;
+        while (
+          insertAt < lines.length &&
+          (/^\s*import\b/.test(lines[insertAt] ?? "") || /^\s*$/.test(lines[insertAt] ?? ""))
+        ) {
+          insertAt += 1;
+        }
+        lines.splice(insertAt, 0, "const Icon = Circle;");
+        return {
+          code: lines.join("\n"),
+          fixes: [
+            {
+              fixer: "import-validator",
+              description: "Bound undeclared Icon identifier to existing lucide Circle",
+              line: insertAt + 1,
+            },
+          ],
+        };
+      }
+      specs.push("Circle as Icon");
+      lines[lucideIdx] = `${braceMatch[1]} ${specs.join(", ")} ${braceMatch[3]}`;
+      return {
+        code: lines.join("\n"),
+        fixes: [
+          {
+            fixer: "import-validator",
+            description: "Added lucide Circle as Icon for undeclared Icon identifier",
+            line: lucideIdx + 1,
+          },
+        ],
+      };
+    }
+  }
+
+  let insertIdx = 0;
+  if (/^['"]use client['"]/.test(lines[0]?.trim() ?? "")) insertIdx = 1;
+  while (insertIdx < lines.length && /^\s*import\b/.test(lines[insertIdx] ?? "")) {
+    insertIdx += 1;
+  }
+  lines.splice(insertIdx, 0, 'import { Circle as Icon } from "lucide-react"');
+  return {
+    code: lines.join("\n"),
+    fixes: [
+      {
+        fixer: "import-validator",
+        description: "Added lucide Circle as Icon for undeclared Icon identifier",
+        line: insertIdx + 1,
+      },
+    ],
+  };
+}
+
+/**
  * Validate all imports and return warnings for unknown components/icons.
  * Does not block — only flags for logging.
  */
@@ -1271,9 +1369,10 @@ export function runImportValidator(
   // Runs AFTER the JSX scan so a JSX-added lucide import is already present in
   // `missing.code` and the bare `icon:` value reference is not imported twice.
   const iconValues = fixMissingIconValueImports(missing.code);
-  const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes, ...iconValues.fixes];
-  const warnings = validateImports(iconValues.code);
-  return { code: iconValues.code, fixes, warnings };
+  const genericIcon = fixUndeclaredGenericIcon(iconValues.code);
+  const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes, ...iconValues.fixes, ...genericIcon.fixes];
+  const warnings = validateImports(genericIcon.code);
+  return { code: genericIcon.code, fixes, warnings };
 }
 
 /**
