@@ -17,9 +17,10 @@
  *     persisted link can no longer win over the newest deployment.
  *  4. No project yet → 409 (the site must be published first).
  */
-import { getEngineChatByIdForRequest } from "@/lib/tenant";
+import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getProjectById } from "@/lib/db/services/projects";
 import { getLatestVercelProjectIdForChat } from "@/lib/deployment";
+import { getProjectSiteOverview } from "@/lib/projects/site-overview";
 
 export type VercelProjectResolution =
   | {
@@ -27,6 +28,7 @@ export type VercelProjectResolution =
       vercelProjectId: string;
       appProjectId: string | null;
       source: "app_project" | "deployment";
+      chatId: string | null;
     }
   | { ok: false; status: 404 | 409; error: string };
 
@@ -63,10 +65,17 @@ export async function resolveVercelProjectForChat(
       vercelProjectId: deployed,
       appProjectId: projectId || null,
       source: "deployment",
+      chatId,
     };
   }
   if (linked) {
-    return { ok: true, vercelProjectId: linked, appProjectId: projectId, source: "app_project" };
+    return {
+      ok: true,
+      vercelProjectId: linked,
+      appProjectId: projectId,
+      source: "app_project",
+      chatId,
+    };
   }
 
   return {
@@ -109,4 +118,52 @@ export async function resolveChatProjectContext(
   const deployed =
     (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
   return { ok: true, appProjectId, vercelProjectId: deployed ?? linked };
+}
+
+/**
+ * Same hosting resolution as the site view: the chat behind the latest ready
+ * deployment, then that chat's Vercel project. Never the first chat in an
+ * unordered list — that can attach a domain to a stale host.
+ */
+export async function resolveVercelProjectForAppProject(
+  req: Request,
+  projectId: string,
+  options?: { sessionId?: string },
+): Promise<VercelProjectResolution> {
+  const project = await getAppProjectByIdForRequest(req, projectId, options);
+  if (!project) {
+    return { ok: false, status: 404, error: "Projektet hittades inte." };
+  }
+
+  const overview = await getProjectSiteOverview(project.id).catch(() => null);
+  const chatId = overview?.chatId ?? null;
+  const deployed = chatId
+    ? (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null
+    : null;
+  const linked = project.vercel_project_id?.trim() || null;
+
+  if (deployed) {
+    return {
+      ok: true,
+      vercelProjectId: deployed,
+      appProjectId: project.id,
+      source: "deployment",
+      chatId,
+    };
+  }
+  if (linked) {
+    return {
+      ok: true,
+      vercelProjectId: linked,
+      appProjectId: project.id,
+      source: "app_project",
+      chatId,
+    };
+  }
+
+  return {
+    ok: false,
+    status: 409,
+    error: "Sajten måste publiceras innan en domän kan kopplas.",
+  };
 }
