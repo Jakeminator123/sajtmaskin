@@ -658,16 +658,17 @@ export async function POST(request: NextRequest) {
         operation: Extract<ClaimedTemplateInit, { kind: "completed" | "imported" }>,
       ): Promise<Response> => {
         const replayProjectId = operation.projectId ?? projectId;
+        const claimedChatId = operation.chatId;
         const replayed = existing ?? (await loadExisting(replayProjectId));
         if (replayed === "lookup_failed") return respondLookupFailed();
         const fromClaim =
           replayed ??
-          (operation.chatId && replayProjectId
+          (claimedChatId && replayProjectId
             ? await (async () => {
                 try {
                   return await loadExistingTemplateInitByIds({
                     projectId: replayProjectId,
-                    chatId: operation.chatId,
+                    chatId: claimedChatId,
                     versionId: operation.versionId,
                   });
                 } catch (error) {
