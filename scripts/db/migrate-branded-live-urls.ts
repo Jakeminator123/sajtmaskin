@@ -6,6 +6,7 @@
  */
 import { config } from "dotenv";
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { getBrandedLiveSiteDomain } from "@/lib/live-site-url";
 import {
   assertBrandedLiveUrlMigrationMode,
   brandedMigrationBindState,
@@ -21,6 +22,13 @@ const cli = parseBrandedLiveUrlMigrationArgs(process.argv);
 const apply = cli.apply;
 assertBrandedLiveUrlMigrationMode(process.argv);
 config({ path: ".env.local" });
+if (!getBrandedLiveSiteDomain()) {
+  throw new Error(
+    "Set SAJTMASKIN_BRANDED_LIVE_URLS=true and SAJTMASKIN_LIVE_SITE_DOMAIN before migration.",
+  );
+}
+
+async function main(): Promise<void> {
 const [
   { db },
   { appProjects, deployments, engineChats },
@@ -47,7 +55,7 @@ const {
   setProjectVercelLink,
   setProjectVerifiedCustomDomain,
 } = projectServices;
-const { getBrandedLiveSiteDomain, slugCandidate } = liveUrls;
+const { slugCandidate } = liveUrls;
 const { checkVercelProjectDomain, ensureVercelProjectDomain } = vercelDeploy;
 const { setLatestDeploymentLiveUrlForChat } = deploymentServices;
 const { getVersionFilesSnapshot } = versionManager;
@@ -55,12 +63,6 @@ const { resolveSelectedDossiersWithVersionPresence } = dossierPresence;
 const limit = cli.limit;
 const onlyProjectId = cli.onlyProjectId;
 const attestedProductionDeploymentId = cli.attestedProductionDeploymentId;
-
-if (!getBrandedLiveSiteDomain()) {
-  throw new Error(
-    "Set SAJTMASKIN_BRANDED_LIVE_URLS=true and SAJTMASKIN_LIVE_SITE_DOMAIN before migration.",
-  );
-}
 const rows = await db
   .select()
   .from(appProjects)
@@ -265,3 +267,6 @@ for (const project of rows) {
     }),
   );
 }
+}
+
+void main();
