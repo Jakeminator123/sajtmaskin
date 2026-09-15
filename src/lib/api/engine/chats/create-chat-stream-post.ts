@@ -51,7 +51,6 @@ import {
 import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
@@ -68,12 +67,11 @@ import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import {
   computePlanModePlannerPrompts,
-  createPlanModePipelineStream,
   dumpPlanModePlannerPrompts,
   logPlanModeGenerationStart,
   resolvePlanModePlannerSettings,
 } from "@/lib/own-engine/session/own-engine-plan-mode";
-import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
+import { startTracedCreateChatPlanModeResponse } from "./create-chat-plan-mode-trace";
 import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "@/lib/gen/scaffolds/types";
@@ -655,20 +653,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedThinking: plannerSettings.thinking,
           });
 
-          const pipelineStream = createPlanModePipelineStream({
-            optimizedMessage,
-            planSystemPrompt,
-            planModel,
-            plannerThinking: plannerSettings.thinking,
-            plannerReasoningEffort: plannerSettings.reasoningEffort,
-            plannerReasoningMode: plannerSettings.reasoningMode,
-            abortSignal: req.signal,
-            referenceAttachments: [
-              ...planOrchestration.variantTemplateReferenceAttachments,
-              ...requestAttachments,
-            ],
-          });
-
           const projectIdForChat = await resolveAppProjectIdForRequest(
             req,
             { appProjectId: metaAppProjectId, projectId },
@@ -714,18 +698,35 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             chatId: plannerChat.id,
           });
 
-          const planModeResponse = createOwnEnginePlanModeResponse({
-            pipelineStream,
+          // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
+          // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
+          // plansummering. Entry/exit går via plan-mode-trace.ts.
+          const planModeResponse = await startTracedCreateChatPlanModeResponse({
             chatId: plannerChat.id,
+            sessionId,
+            userId: creditUser?.id ?? null,
+            appProjectId: projectIdForChat,
             modelTier: resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            thinking: plannerSettings.thinking,
+            plannerSettings,
+            planModel,
+            message,
+            optimizedMessage,
+            planSystemPrompt,
+            abortSignal: req.signal,
+            referenceAttachments: [
+              ...planOrchestration.variantTemplateReferenceAttachments,
+              ...requestAttachments,
+            ],
             promptStrategyMeta: strategyMeta,
             buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planOrchestration.resolvedScaffold,
             variantTemplateId: planOrchestration.variantTemplateId,
             scaffoldMode: parsedMeta.scaffoldMode,
+            promptSourceKind: parsedMeta.promptSourceKind,
+            commitCredits: commitCreditsOnce,
+            promptStartedAt: requestStartedAt,
             onResolved: (planData, hasBlockers, accumulatedContent) => {
               const blockerCount = Array.isArray(planData?.blockers)
                 ? (planData.blockers as unknown[]).length
@@ -747,37 +748,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 contentLength: accumulatedContent.length,
               });
             },
-            // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
-            // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
-            // plansummering.
-            persistAssistantSummary: async (planData, hasBlockers, context) => {
-              const assistantMessage = buildPlanModeAssistantMessage({
-                planData,
-                hasBlockers,
-                hasPlanArtifact: context.hasPlanArtifact,
-                plannerText: context.accumulatedContent,
-                upstreamErrorMessage: context.upstreamErrorMessage,
-              });
-              try {
-                await chatRepo.addMessage(
-                  plannerChat.id,
-                  "assistant",
-                  assistantMessage.content,
-                  undefined,
-                  assistantMessage.uiParts,
-                );
-              } catch (error) {
-                console.warn("[plan] Failed to persist planner assistant summary:", error);
-              }
-            },
-            buildDonePayload: (planData, hasBlockers) => ({
-              chatId: plannerChat.id,
-              planArtifact: planData,
-              awaitingInput: hasBlockers,
-              planMode: true,
-            }),
-            commitCredits: commitCreditsOnce,
-            commitCreditsPosition: "before-done",
           });
           debugLog("engine", "Create chat pre-stream complete", {
             durationMs: Date.now() - requestStartedAt,
