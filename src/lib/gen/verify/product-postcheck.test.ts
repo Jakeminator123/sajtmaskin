@@ -678,6 +678,25 @@ describe("isRenderFatalError", () => {
 });
 
 describe("isPreviewHostBootPage", () => {
+  it("detects the explicit host boot marker as the primary signal", () => {
+    expect(
+      isPreviewHostBootPage({
+        title: "Startar preview",
+        h1: "Sajten startar",
+        bodyText: "Preview byggs och startas.",
+        bootMarker: "starting",
+      }),
+    ).toBe(true);
+    expect(
+      isPreviewHostBootPage({
+        title: "Jakob & Johan Stays",
+        h1: "Hero",
+        bodyText: "Handplockade.",
+        bootMarker: "recovering",
+      }),
+    ).toBe(true);
+  });
+
   it("detects the preview-host starting / recovering placeholder", () => {
     expect(
       isPreviewHostBootPage({
@@ -846,8 +865,9 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
   const bootPageProbe = {
     title: "Startar preview",
-    h1: "Startar preview",
-    bodyText: "Preview-host bygger projektet och startar Next.js i bakgrunden.",
+    h1: "Sajten startar",
+    bodyText: "Preview byggs och startas.",
+    bootMarker: "starting",
   };
 
   const liveBootProbe = {

@@ -532,11 +532,9 @@ describe("captureThumbnailScreenshot", () => {
         if (classifyEvaluateScript(fn) === "probe") {
           return {
             title: "Startar preview",
-            h1: "Startar preview",
-            bodyText:
-              "Preview-host bygger projektet och startar Next.js i bakgrunden.\n" +
-              "Chat: 8aeac552-f309-4610-b9c0-6be7309d5c38\n" +
-              "Status: warm_project",
+            h1: "Sajten startar",
+            bodyText: "Preview byggs och startas.",
+            bootMarker: "starting",
           };
         }
         return defaultEvaluate(fn);
@@ -561,6 +559,36 @@ describe("captureThumbnailScreenshot", () => {
         (call) => classifyEvaluateScript(call[0]) === "scroll",
       ),
     ).toBe(false);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("still skips the screenshot when only the legacy title/body markers remain", async () => {
+    const page = makeFakePage({
+      evaluate: vi.fn(async (fn: unknown) => {
+        if (classifyEvaluateScript(fn) === "probe") {
+          return {
+            title: "Startar preview",
+            h1: "Startar preview",
+            bodyText:
+              "Preview-host bygger projektet och startar Next.js i bakgrunden.\n" +
+              "Status: warm_project",
+          };
+        }
+        return defaultEvaluate(fn);
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    }).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
+
+    expect(err).toBeInstanceOf(PreviewHostBootPageError);
+    expect(page.screenshot).not.toHaveBeenCalled();
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
