@@ -22,6 +22,11 @@ import {
   extractKostnadsfriOpenClawConfig,
   type KostnadsfriOpenClawConfig,
 } from "./openclaw-config";
+import {
+  applyFollowupAnswersToWizard,
+  buildFollowupAddendum,
+  type KostnadsfriFollowupAnswers,
+} from "./agent-followups";
 
 // ============================================================================
 // TYPES
@@ -230,35 +235,43 @@ function resolvePageStructure(
  *  - Full design direction with tone, colors, and typography hints
  *  - Scope guidance that defers to the structured page-count hint
  *
- * Läser bara `MiniWizardData`. `extra_data.profile` når aldrig den här
- * funktionen — profilen förifyller wizarden, och prompten byggs av utdata.
+ * Läser `MiniWizardData` plus valfria, kundbekräftade
+ * `KostnadsfriFollowupAnswers`. `extra_data.profile`, chattranskript och rå
+ * registerdata når aldrig den här funktionen — profilen förifyller wizarden,
+ * och prompten byggs av wizardens utdata + uttryckligen bekräftade följdsvar
+ * (ägarbeslut 2026-09-15).
  *
  * Sidantalet finns medvetet inte i prompt-API:t eller prompttexten: ruttplanen
  * får det strukturerat via `meta.pageCountHint` från kampanjhandoffen. Annars
  * skulle prompten bli en andra sanning som kan motsäga ett uttryckligt byggval
  * på exempelvis en eller två sidor (ägarbeslut 2026-09-14).
  */
-export function buildPromptFromWizardData(data: MiniWizardData): string {
-  const industryLabel = wizardIndustryLabel(data.industry, data.industry || "general");
-  const vibeLabel = wizardVibeLabel(data.designVibe, data.designVibe || "Modern & Clean");
-  const { pages, extraSections } = resolvePageStructure(data.industry, data.purposes);
+export function buildPromptFromWizardData(
+  data: MiniWizardData,
+  followupAnswers?: KostnadsfriFollowupAnswers | null,
+): string {
+  const confirmed = followupAnswers ?? {};
+  const wizard = applyFollowupAnswersToWizard(data, confirmed);
+  const industryLabel = wizardIndustryLabel(wizard.industry, wizard.industry || "general");
+  const vibeLabel = wizardVibeLabel(wizard.designVibe, wizard.designVibe || "Modern & Clean");
+  const { pages, extraSections } = resolvePageStructure(wizard.industry, wizard.purposes);
 
   const sections: string[] = [];
 
   // 1. Core request — detailed content without a page-count signal
   sections.push(
-    `Build a professional website for "${data.companyName}", a ${industryLabel} company` +
-      (data.location ? ` based in ${data.location}` : "") +
+    `Build a professional website for "${wizard.companyName}", a ${industryLabel} company` +
+      (wizard.location ? ` based in ${wizard.location}` : "") +
       `. The site should feel polished, premium, and conversion-oriented with rich content across the planned structure.`,
   );
 
   // 2. Business profile (who they are, goals, audience)
   const businessContext: string[] = [];
-  if (data.description) businessContext.push(`About the company: ${data.description}`);
-  if (data.usp) businessContext.push(`Unique selling point (USP): ${data.usp}`);
-  if (data.targetAudience) businessContext.push(`Target audience: ${data.targetAudience}`);
-  if (data.purposes.length > 0) {
-    const purposeLabels = data.purposes.map((p) => wizardPurposeLabel(p));
+  if (wizard.description) businessContext.push(`About the company: ${wizard.description}`);
+  if (wizard.usp) businessContext.push(`Unique selling point (USP): ${wizard.usp}`);
+  if (wizard.targetAudience) businessContext.push(`Target audience: ${wizard.targetAudience}`);
+  if (wizard.purposes.length > 0) {
+    const purposeLabels = wizard.purposes.map((p) => wizardPurposeLabel(p));
     businessContext.push(`Primary website goals: ${purposeLabels.join(", ")}`);
   }
   if (businessContext.length > 0) {
@@ -281,24 +294,24 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
   // 5. Design direction (style, colors, typography)
   const designParts: string[] = [];
   designParts.push(`Visual style / vibe: ${vibeLabel}`);
-  if (data.colorPrimary || data.colorSecondary || data.colorAccent) {
+  if (wizard.colorPrimary || wizard.colorSecondary || wizard.colorAccent) {
     const colors = [
-      data.colorPrimary && `primary ${data.colorPrimary}`,
-      data.colorSecondary && `secondary ${data.colorSecondary}`,
-      data.colorAccent && `accent ${data.colorAccent}`,
+      wizard.colorPrimary && `primary ${wizard.colorPrimary}`,
+      wizard.colorSecondary && `secondary ${wizard.colorSecondary}`,
+      wizard.colorAccent && `accent ${wizard.colorAccent}`,
     ].filter(Boolean);
     designParts.push(`Color palette: ${colors.join(", ")}`);
-  } else if (data.paletteName) {
-    designParts.push(`Color palette: ${data.paletteName}`);
+  } else if (wizard.paletteName) {
+    designParts.push(`Color palette: ${wizard.paletteName}`);
   }
   designParts.push("Use a distinct font pairing that fits the brand identity");
   designParts.push("Apply layered backgrounds, gradients, and section bands for visual depth");
   sections.push(`\nDesign direction:\n${designParts.map((l) => `- ${l}`).join("\n")}`);
 
   // 6. Existing site context
-  if (data.website) {
+  if (wizard.website) {
     sections.push(
-      `\nExisting website:\n- Current site: ${data.website}\n- Analyze the existing site for content inspiration, brand voice, and structure reference\n- The new site should be a significant upgrade in design quality and user experience`,
+      `\nExisting website:\n- Current site: ${wizard.website}\n- Analyze the existing site for content inspiration, brand voice, and structure reference\n- The new site should be a significant upgrade in design quality and user experience`,
     );
   }
 
@@ -312,6 +325,9 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
   sections.push(
     `\nScope: Follow the page count supplied separately as a strict constraint. Treat the page priorities above as non-binding route suggestions and adapt them to that count. Fully flesh out every planned page with relevant content sections, consistent navigation, and a professional footer. Aim for 8-15 sections total across the site.`,
   );
+
+  const addendum = buildFollowupAddendum(confirmed);
+  if (addendum) sections.push(addendum);
 
   return sections.join("\n");
 }
