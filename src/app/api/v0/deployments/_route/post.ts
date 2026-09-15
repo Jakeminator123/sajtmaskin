@@ -769,7 +769,7 @@ export async function POST(req: Request) {
           seoPass ? seoPass.files : fixedFiles,
           policyUrl,
         );
-        const currentPrimaryHost = normalizeDomainHostname(verifiedLiveUrl);
+        const policyHost = canonicalAddress.contract.canonicalHost;
         const providerHostForNoindex = attestedProviderHost;
         const canonicalHostRedirect = applyCanonicalHostRedirect(
           metadataFiles.files,
@@ -780,14 +780,13 @@ export async function POST(req: Request) {
             target: deployTarget,
           },
           {
-            primaryHost: currentPrimaryHost,
+            primaryHost: policyHost,
             noindexHost:
               deployTarget === "production" &&
               providerHostForNoindex &&
-              currentPrimaryHost &&
-              providerHostForNoindex !== currentPrimaryHost &&
-              !canonicalAddress.contract.usedLastWorkingIdentity &&
-              !isGitPreviewVercelHost(currentPrimaryHost)
+              policyHost &&
+              providerHostForNoindex !== policyHost &&
+              !isGitPreviewVercelHost(policyHost)
                 ? providerHostForNoindex
                 : null,
             previewNoindex: deployTarget === "preview",

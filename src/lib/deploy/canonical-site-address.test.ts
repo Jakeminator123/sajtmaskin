@@ -601,6 +601,17 @@ describe("canonical site address contract", () => {
     ]);
   });
 
+  it("never noindexes the selected policy host when HTTPS proof is invalid", () => {
+    const result = applyCanonicalHostRedirect(
+      [{ name: "vercel.json", content: JSON.stringify({ framework: "nextjs" }) }],
+      null,
+      deployIdentity,
+      { noindexHost: candidate.providerHost, primaryHost: candidate.providerHost },
+    );
+    expect(result).toMatchObject({ applied: false, noindexApplied: false });
+    expect(result.files[0].content).toBe(JSON.stringify({ framework: "nextjs" }));
+  });
+
   it("adds provider-only noindex and never tags the primary host", () => {
     const result = applyCanonicalHostRedirect(
       [{ name: "vercel.json", content: JSON.stringify({ framework: "nextjs" }) }],
