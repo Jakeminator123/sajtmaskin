@@ -143,6 +143,17 @@ async function attachSession(
   );
 }
 
+async function expireOrphanCheckoutSession(stripe: Stripe, sessionId: string): Promise<void> {
+  try {
+    await stripe.checkout.sessions.expire(sessionId);
+  } catch (error) {
+    console.error("[site-subscription] failed to expire orphan checkout session", {
+      sessionId,
+      error,
+    });
+  }
+}
+
 export async function startSiteSubscriptionCheckout(input: {
   stripe: Stripe;
   userId: string;
@@ -315,15 +326,18 @@ export async function startSiteSubscriptionCheckout(input: {
     });
     const attached = await attachSession(claim, created);
     if (!attached) {
+      await expireOrphanCheckoutSession(input.stripe, created.id);
       const latest = await getOpenSiteSubscription(input.projectId, input.billingMode);
       if (latest?.stripe_checkout_session_id) {
         const winner = await lookupCheckoutSession(input.stripe, latest.stripe_checkout_session_id);
-        return {
-          ok: true,
-          sessionId: latest.stripe_checkout_session_id,
-          url: winner.session?.url ?? created.url,
-          reused: true,
-        };
+        if (winner.session?.url) {
+          return {
+            ok: true,
+            sessionId: latest.stripe_checkout_session_id,
+            url: winner.session.url,
+            reused: true,
+          };
+        }
       }
       return {
         ok: false,

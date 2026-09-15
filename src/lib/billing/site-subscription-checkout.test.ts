@@ -115,4 +115,104 @@ describe("startSiteSubscriptionCheckout", () => {
       reused: true,
     });
   });
+
+  it("lämnar inte ut orphan-URL när attach förloras och vinnarens uppslagning failar", async () => {
+    getOpenSiteSubscription
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ ...pendingClaim, stripe_checkout_session_id: "cs_winner" });
+    insertCheckoutClaim.mockResolvedValue(pendingClaim);
+    updateSiteSubscription.mockResolvedValue(null);
+    const create = vi.fn().mockResolvedValue({
+      id: "cs_orphan",
+      url: "https://checkout.stripe.com/cs_orphan",
+    });
+    const retrieve = vi.fn().mockRejectedValue(new Error("stripe_timeout"));
+    const expire = vi.fn().mockResolvedValue({});
+
+    const result = await startSiteSubscriptionCheckout({
+      stripe: { checkout: { sessions: { create, retrieve, expire } } } as never,
+      userId: "user_1",
+      email: "a@b.se",
+      projectId: "prj_a",
+      billingMode: "test",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "En checkout pågår redan. Försök igen om en stund.",
+      code: "checkout_in_progress",
+    });
+    expect(JSON.stringify(result)).not.toContain("cs_orphan");
+    expect(expire).toHaveBeenCalledWith("cs_orphan");
+  });
+
+  it("returnerar bara vinnarens session när attach förloras och uppslagningen lyckas", async () => {
+    getOpenSiteSubscription
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ ...pendingClaim, stripe_checkout_session_id: "cs_winner" });
+    insertCheckoutClaim.mockResolvedValue(pendingClaim);
+    updateSiteSubscription.mockResolvedValue(null);
+    const create = vi.fn().mockResolvedValue({
+      id: "cs_orphan",
+      url: "https://checkout.stripe.com/cs_orphan",
+    });
+    const retrieve = vi.fn().mockResolvedValue({
+      id: "cs_winner",
+      status: "open",
+      url: "https://checkout.stripe.com/cs_winner",
+    });
+    const expire = vi.fn().mockResolvedValue({});
+
+    const result = await startSiteSubscriptionCheckout({
+      stripe: { checkout: { sessions: { create, retrieve, expire } } } as never,
+      userId: "user_1",
+      email: "a@b.se",
+      projectId: "prj_a",
+      billingMode: "test",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      sessionId: "cs_winner",
+      url: "https://checkout.stripe.com/cs_winner",
+      reused: true,
+    });
+    expect(JSON.stringify(result)).not.toContain("cs_orphan");
+    expect(expire).toHaveBeenCalledWith("cs_orphan");
+  });
+
+  it("lyckas med vinnarens URL även om expire kastar", async () => {
+    getOpenSiteSubscription
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ ...pendingClaim, stripe_checkout_session_id: "cs_winner" });
+    insertCheckoutClaim.mockResolvedValue(pendingClaim);
+    updateSiteSubscription.mockResolvedValue(null);
+    const create = vi.fn().mockResolvedValue({
+      id: "cs_orphan",
+      url: "https://checkout.stripe.com/cs_orphan",
+    });
+    const retrieve = vi.fn().mockResolvedValue({
+      id: "cs_winner",
+      status: "open",
+      url: "https://checkout.stripe.com/cs_winner",
+    });
+    const expire = vi.fn().mockRejectedValue(new Error("expire_failed"));
+
+    const result = await startSiteSubscriptionCheckout({
+      stripe: { checkout: { sessions: { create, retrieve, expire } } } as never,
+      userId: "user_1",
+      email: "a@b.se",
+      projectId: "prj_a",
+      billingMode: "test",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      sessionId: "cs_winner",
+      url: "https://checkout.stripe.com/cs_winner",
+      reused: true,
+    });
+    expect(expire).toHaveBeenCalledWith("cs_orphan");
+  });
 });
