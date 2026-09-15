@@ -77,6 +77,20 @@ vi.mock("@/lib/db/services/domain-orders", () => ({
   markDomainOrderExpired: (...args: unknown[]) => calls.markExpired(...(args as [])),
 }));
 
+const handleSiteSubscriptionStripeEvent = vi.hoisted(() =>
+  vi.fn(async () => ({ status: 200, body: { received: true, site: true } })),
+);
+
+vi.mock("@/lib/billing/site-subscription-webhook", () => ({
+  handleSiteSubscriptionStripeEvent: (...args: unknown[]) =>
+    handleSiteSubscriptionStripeEvent(...(args as [])),
+  webhookResultToResponse: (result: { status: number; body: Record<string, unknown> }) =>
+    new Response(JSON.stringify(result.body), {
+      status: result.status,
+      headers: { "Content-Type": "application/json" },
+    }),
+}));
+
 const { POST } = await import("./route");
 
 function webhookRequest(): Request {
@@ -134,7 +148,6 @@ describe("stripe webhook — checkout dispatch boundary", () => {
   it.each([
     ["subscription without kind", "subscription", null],
     ["subscription domain purchase", "subscription", { kind: "domain_purchase" }],
-    ["subscription site subscription", "subscription", { kind: "site_subscription" }],
     ["subscription unknown kind", "subscription", { kind: "future_kind" }],
     ["payment site subscription", "payment", { kind: "site_subscription" }],
     ["setup domain purchase", "setup", { kind: "domain_purchase" }],
@@ -161,6 +174,29 @@ describe("stripe webhook — checkout dispatch boundary", () => {
 
     expect(res.status).toBe(503);
     expect(body).toEqual({ error: "checkout_contract_not_activated" });
+    expectNoCheckoutDispatch();
+  });
+
+  it("skickar sajt-abonnemang till egen lane och rör inte credits/domän", async () => {
+    constructedEvent = {
+      id: "evt_site",
+      type: "checkout.session.completed",
+      livemode: false,
+      data: {
+        object: {
+          id: "cs_site",
+          mode: "subscription",
+          metadata: { kind: "site_subscription", projectId: "prj_1", userId: "usr_1" },
+        },
+      },
+    };
+
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.site).toBe(true);
+    expect(handleSiteSubscriptionStripeEvent).toHaveBeenCalled();
     expectNoCheckoutDispatch();
   });
 

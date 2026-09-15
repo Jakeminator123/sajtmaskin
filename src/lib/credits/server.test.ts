@@ -8,6 +8,7 @@ const resolvePricingSettings = vi.hoisted(() =>
   vi.fn(async () => ({ creditActionPrices: {} as Record<string, unknown> })),
 );
 const getKostnadsfriCampaignPolicy = vi.hoisted(() => vi.fn());
+const evaluateProjectPublishEntitlement = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/transactions", () => ({
@@ -18,6 +19,9 @@ vi.mock("@/lib/db/services/users", () => ({ isTestUser }));
 vi.mock("@/lib/db/services/pricing-settings", () => ({ resolvePricingSettings }));
 vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
   getKostnadsfriCampaignPolicy,
+}));
+vi.mock("@/lib/billing/site-subscription-publish-gate", () => ({
+  evaluateProjectPublishEntitlement,
 }));
 
 const { prepareCredits, remainingCreditsAfterCharge } = await import("./server");
@@ -37,8 +41,14 @@ beforeEach(() => {
   isTestUser.mockReturnValue(false);
   getTransactionByIdempotency.mockResolvedValue(null);
   resolvePricingSettings.mockResolvedValue({ creditActionPrices: {} });
-  getKostnadsfriCampaignPolicy.mockResolvedValue(null);
-});
+    getKostnadsfriCampaignPolicy.mockResolvedValue(null);
+    evaluateProjectPublishEntitlement.mockResolvedValue({
+      entitled: false,
+      waiveDeployFee: false,
+      reason: "grandfathered",
+      graceActive: false,
+    });
+  });
 
 describe("prepareCredits kostnadsfri campaign", () => {
   it("admits an existing account through the project-bound campaign slot", async () => {
@@ -255,6 +265,72 @@ describe("prepareCredits reads the operator-set price", () => {
     const prepared = await prepareCredits(new Request("https://example.test"), "wizard.enrich");
 
     expect(prepared.cost).toBe(11);
+  });
+});
+
+describe("sajt-abonnemang waivar deploy.production", () => {
+  it("nollar deploy-avgiften bara för den sajten", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
+    evaluateProjectPublishEntitlement.mockResolvedValue({
+      entitled: true,
+      waiveDeployFee: true,
+      reason: "valid_subscription",
+      graceActive: false,
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "deploy.production",
+      {},
+      { siteProjectId: "prj_a" },
+    );
+
+    expect(prepared.ok).toBe(true);
+    expect(prepared.cost).toBe(0);
+    expect(evaluateProjectPublishEntitlement).toHaveBeenCalledWith({
+      projectId: "prj_a",
+      userId: "user_1",
+    });
+  });
+
+  it("litar på siteProjectId från anroparen — routen får inte skicka body.projectId", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
+    evaluateProjectPublishEntitlement.mockResolvedValue({
+      entitled: true,
+      waiveDeployFee: true,
+      reason: "valid_subscription",
+      graceActive: false,
+    });
+
+    await prepareCredits(
+      new Request("https://example.test"),
+      "deploy.production",
+      {},
+      { siteProjectId: "prj_paid_sibling" },
+    );
+
+    expect(evaluateProjectPublishEntitlement).toHaveBeenCalledWith({
+      projectId: "prj_paid_sibling",
+      userId: "user_1",
+    });
+  });
+
+  it("låser inte upp en annan sajt utan siteProjectId", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
+    evaluateProjectPublishEntitlement.mockResolvedValue({
+      entitled: true,
+      waiveDeployFee: true,
+      reason: "valid_subscription",
+      graceActive: false,
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "deploy.production",
+    );
+
+    expect(prepared.ok).toBe(false);
+    expect(evaluateProjectPublishEntitlement).not.toHaveBeenCalled();
   });
 });
 

@@ -104,17 +104,6 @@ export async function POST(req: Request) {
       const deployTarget = target === "preview" ? "preview" : "production";
 
       let creditCheck: Awaited<ReturnType<typeof prepareCredits>> | null = null;
-      if (!precheckOnly) {
-        const prepared = await prepareCredits(
-          req,
-          deployTarget === "preview" ? "deploy.preview" : "deploy.production",
-          { target: deployTarget },
-        );
-        if (!prepared.ok) {
-          return prepared.response;
-        }
-        creditCheck = prepared;
-      }
 
       // Tenant-scoped resolution: the version AND its engine chat must belong to
       // the caller's own app-project. `getEngineVersionForChatByIdForRequest`
@@ -218,7 +207,22 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
-      // Canonical Vercel project id + linked domain for this chat (BB#deploy4
+      // Credits after tenant-verified `engineProjectId`. Waiver uses that id
+      // only — never `body.projectId` (a paid sibling site must not unlock this
+      // chat's deploy).
+      if (!precheckOnly) {
+        const prepared = await prepareCredits(
+          req,
+          deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+          { target: deployTarget },
+          deployTarget === "production" ? { siteProjectId: engineProjectId } : {},
+        );
+        if (!prepared.ok) {
+          return prepared.response;
+        }
+        creditCheck = prepared;
+      }
+      // Canonical Vercel project id + linked domain for this chat (BB#deploy4)
       // + #519 P1/bugbot round 3): ONE call, so the domain the lock reports
       // (`linkedDomain`) and the project id it (and the deploy target below)
       // resolve to (`existingVercelProjectId`) can never diverge again — the
