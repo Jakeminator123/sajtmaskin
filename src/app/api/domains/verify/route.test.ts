@@ -1,44 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
-const getVercelToken = vi.hoisted(() => vi.fn());
-const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getProjectById = vi.hoisted(() => vi.fn());
+const resolveVercelProjectForChat = vi.hoisted(() => vi.fn());
+const verifyCustomerDomain = vi.hoisted(() => vi.fn());
 const setProjectVerifiedCustomDomain = vi.hoisted(() => vi.fn());
 const clearProjectCustomDomainVerification = vi.hoisted(() => vi.fn());
-const checkVercelProjectDomain = vi.hoisted(() => vi.fn());
-const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
-const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth/auth", () => ({
-  getCurrentUser,
-}));
-
+vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
-
-vi.mock("@/lib/vercel", () => ({
-  getVercelToken,
-}));
-
-// Resolution dependencies (resolveVercelProjectForChat runs for real).
-vi.mock("@/lib/tenant", () => ({
-  getEngineChatByIdForRequest,
-}));
-
+vi.mock("@/lib/domains/resolve-vercel-project", () => ({ resolveVercelProjectForChat }));
+vi.mock("@/lib/domains/customer-domain-flow", () => ({ verifyCustomerDomain }));
 vi.mock("@/lib/db/services/projects", () => ({
-  clearProjectCustomDomainVerification,
-  getProjectById,
   setProjectVerifiedCustomDomain,
-}));
-vi.mock("@/lib/vercel/vercel-deploy", () => ({
-  checkVercelProjectDomain,
-}));
-
-vi.mock("@/lib/deployment", () => ({
-  getLatestVercelProjectIdForChat,
-  setLatestDeploymentLiveUrlForChat,
+  clearProjectCustomDomainVerification,
 }));
 
 const { POST } = await import("./route");
@@ -51,113 +27,93 @@ function verifyRequest(body: Record<string, unknown>) {
   }) as never;
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  getCurrentUser.mockResolvedValue({ id: "user_1" });
+  resolveVercelProjectForChat.mockResolvedValue({
+    ok: true,
+    vercelProjectId: "vp_app",
+    appProjectId: "proj_1",
+    source: "app_project",
+    chatId: "chat_1",
+  });
+  verifyCustomerDomain.mockResolvedValue({
+    ok: true,
+    snapshot: {
+      primary: {
+        connection: "connected",
+        ownership: "verified",
+        dns: "valid",
+        https: "valid",
+        status: "live",
+        statusLabel: "Live",
+      },
+    },
+  });
+});
+
 describe("POST /api/domains/verify", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    getCurrentUser.mockResolvedValue({ id: "user_1" });
-    getVercelToken.mockReturnValue("token");
-    getEngineChatByIdForRequest.mockResolvedValue({
-      id: "chat_1",
-      project_id: "proj_1",
-      messages: [],
-    });
-    getProjectById.mockResolvedValue({
-      id: "proj_1",
-      vercel_project_id: "vp_app",
-      vercel_project_name: "sajtmaskin-chat_1",
-    });
-    getLatestVercelProjectIdForChat.mockResolvedValue(null);
-    setProjectVerifiedCustomDomain.mockResolvedValue({ id: "proj_1" });
-    checkVercelProjectDomain.mockResolvedValue(true);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json({ name: "site.example", verified: true })),
-    );
-  });
-
-  it("does not promote provider ownership verification when DNS is misconfigured", async () => {
-    checkVercelProjectDomain.mockResolvedValue(false);
-
-    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
-
-    expect(res.status).toBe(200);
-    expect((await res.json()).verified).toBe(false);
-    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
-    expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith(
-      "proj_1",
-      "site.example",
-    );
-  });
-
-  it("returns a tenant-safe conflict when the domain is already owned", async () => {
-    setProjectVerifiedCustomDomain.mockRejectedValue(
-      Object.assign(new Error("duplicate"), { code: "23505" }),
-    );
-
-    const res = await POST(
-      verifyRequest({ domain: "site.example", chatId: "chat_1" }),
-    );
-
-    expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/redan kopplad/i);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("verifies against the project's persisted Vercel project (app_projects)", async () => {
-    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
-
-    expect(res.status).toBe(200);
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/v9/projects/vp_app/domains/site.example/verify"),
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(setProjectVerifiedCustomDomain).toHaveBeenCalledWith("proj_1", "site.example");
-    expect(setLatestDeploymentLiveUrlForChat).toHaveBeenCalledWith(
-      "chat_1",
-      "site.example",
-    );
-  });
-
-  it("falls back to the latest deployment's Vercel project when the app project has no link", async () => {
-    getProjectById.mockResolvedValue({
-      id: "proj_1",
-      vercel_project_id: null,
-      vercel_project_name: null,
-    });
-    getLatestVercelProjectIdForChat.mockResolvedValue("vp_dep");
-
-    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
-
-    expect(res.status).toBe(200);
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/v9/projects/vp_dep/domains/site.example/verify"),
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-
-  it("returns 409 when the site has not been published yet", async () => {
-    getProjectById.mockResolvedValue({
-      id: "proj_1",
-      vercel_project_id: null,
-      vercel_project_name: null,
-    });
-    getLatestVercelProjectIdForChat.mockResolvedValue(null);
-
-    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
-
-    expect(res.status).toBe(409);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
   it("returns 404 for a chat the caller does not own", async () => {
-    getEngineChatByIdForRequest.mockResolvedValue(null);
+    resolveVercelProjectForChat.mockResolvedValue({
+      ok: false,
+      status: 404,
+      error: "Chatten hittades inte.",
+    });
 
     const res = await POST(verifyRequest({ domain: "site.example", chatId: "someone_elses_chat" }));
 
     expect(res.status).toBe(404);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(verifyCustomerDomain).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reserved hostname before verify", async () => {
+    const res = await POST(verifyRequest({ domain: "preview.sajtmaskin.se", chatId: "chat_1" }));
+    expect(res.status).toBe(400);
+    expect(verifyCustomerDomain).not.toHaveBeenCalled();
+  });
+
+  it("returns the three separate checks and never a provider project id", async () => {
+    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(verifyCustomerDomain).toHaveBeenCalledWith({
+      hosting: { vercelProjectId: "vp_app", appProjectId: "proj_1", chatId: "chat_1" },
+      domain: "site.example",
+    });
+    expect(body).toMatchObject({
+      verified: true,
+      ownership: "verified",
+      dns: "valid",
+      https: "valid",
+      statusLabel: "Live",
+    });
+    expect(JSON.stringify(body)).not.toContain("vp_app");
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+  });
+
+  it("does not treat an unknown snapshot as unverified-and-revoked", async () => {
+    verifyCustomerDomain.mockResolvedValue({
+      ok: true,
+      snapshot: {
+        primary: {
+          connection: "unknown",
+          ownership: "unknown",
+          dns: "unknown",
+          https: "unknown",
+          status: "unknown",
+          statusLabel: "Okänd status",
+        },
+      },
+    });
+
+    const res = await POST(verifyRequest({ domain: "site.example", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.verified).toBe(false);
+    expect(body.status).toBe("unknown");
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
   });
 });

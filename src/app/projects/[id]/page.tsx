@@ -13,7 +13,6 @@ import {
   Check,
   Copy,
   ExternalLink,
-  Globe,
   Github,
   Loader2,
   PencilLine,
@@ -37,7 +36,7 @@ import {
 } from "@/lib/projects/site-labels";
 import { useAuth } from "@/lib/auth/auth-store";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
-import { ByodDomainStatus } from "@/components/projects/ByodDomainStatus";
+import { ByodDomainFlow } from "@/components/projects/ByodDomainFlow";
 
 const TONE_CLASS: Record<SiteStateTone, string> = {
   live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -362,25 +361,19 @@ export default function ProjectSitePage() {
 
               <Section
                 title="Egen domän"
-                description="Kontrollera en domän du redan äger utan att ändra sajtens aktiva adress."
+                description="Koppla en domän du redan äger. Ingen tillgänglighetskontroll eller köp."
               >
                 <div className="space-y-3">
-                  {site.customDomain ? (
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <Globe className="h-4 w-4 text-gray-500" />
-                      <code className="text-white">{site.customDomain}</code>
-                      <span
-                        className={`border px-2 py-0.5 text-xs ${
-                          site.customDomainVerified ? TONE_CLASS.live : TONE_CLASS.progress
-                        }`}
-                      >
-                        {site.customDomainVerified ? "Verifierad" : "Väntar på DNS"}
-                      </span>
-                    </div>
-                  ) : (
+                  {!site.customDomain && (
                     <p className="text-sm text-gray-500">Ingen egen domän kopplad.</p>
                   )}
-                  <ByodDomainStatus chatId={site.chatId} initialDomain={site.customDomain} />
+                  <ByodDomainFlow
+                    projectId={site.projectId}
+                    chatId={site.chatId}
+                    publishedSlug={site.publishedSlug}
+                    initialDomain={site.customDomain}
+                    onChanged={() => void load()}
+                  />
                 </div>
               </Section>
 
