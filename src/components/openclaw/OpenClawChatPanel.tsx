@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   Bot,
+  Expand,
   Maximize2,
   Mic,
   MicOff,
@@ -113,8 +114,16 @@ export function OpenClawChatPanel({
   // resumes OpenClaw once the builder turn it started is done. The panel stays
   // mounted while collapsed, so a running mandate survives a closed chat.
   useOpenClawArmedContinuation(send);
-  const { avatarMode, setAvatarMode, setDebugEnabled, setEditEnabled, armedMandate } =
-    useOpenClawStore();
+  const {
+    avatarMode,
+    setAvatarMode,
+    setDebugEnabled,
+    setEditEnabled,
+    armedMandate,
+    panelPresentation,
+    setPanelPresentation,
+  } = useOpenClawStore();
+  const isTakeover = panelPresentation === "takeover";
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
   const [avatarExpanded, setAvatarExpanded] = useState(false);
@@ -149,11 +158,28 @@ export function OpenClawChatPanel({
   // React äger inte `transform` under själva dragningen. Då kan en orelaterad
   // re-render (streaming/avatarstatus) inte skriva tillbaka den senast
   // committade state-positionen ovanpå den live-position som ligger i refen.
+  // Takeover nollställer bara DOM-transformen — sessionStorage-offseten lämnas
+  // orörd så bubblan kan återgå till samma plats.
   useEffect(() => {
     if (!panelRef.current) return;
+    if (isTakeover) {
+      panelRef.current.style.transform = "translate3d(0px, 0px, 0)";
+      return;
+    }
     panelRef.current.style.transform =
       `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`;
-  }, [dragOffset]);
+  }, [dragOffset, isTakeover]);
+
+  useEffect(() => {
+    if (!isOpen || !isTakeover) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setPanelPresentation("bubble");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, isTakeover, setPanelPresentation]);
 
   // Learn the server OC_DEBUG state once so the armed-autonomy auto-send path is
   // gated client-side too (defense in depth). Best-effort: failure leaves debug
@@ -323,6 +349,7 @@ export function OpenClawChatPanel({
 
   const handleHeaderPointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
+      if (panelPresentation === "takeover") return;
       // Ignore drags initiated on the action buttons (header right cluster)
       const target = e.target as HTMLElement | null;
       if (target?.closest("[data-no-drag]")) return;
@@ -344,7 +371,7 @@ export function OpenClawChatPanel({
         /* ignore */
       }
     },
-    [],
+    [panelPresentation],
   );
 
   const handleHeaderPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
@@ -389,9 +416,16 @@ export function OpenClawChatPanel({
   }, []);
 
   const showAvatar = avatarMode && DID_AVATAR_AVAILABLE;
+  const showLiveAvatar = showAvatar && avatar.avatarReady;
   const panelWidthClass = avatarExpanded
     ? "w-[min(520px,calc(100vw-1rem))]"
     : "w-[min(380px,calc(100vw-1rem))]";
+  const exitTakeover = useCallback(() => {
+    setPanelPresentation("bubble");
+  }, [setPanelPresentation]);
+  const enterTakeover = useCallback(() => {
+    setPanelPresentation("takeover");
+  }, [setPanelPresentation]);
 
   return (
     <div
@@ -405,22 +439,31 @@ export function OpenClawChatPanel({
       }}
       className={cn(
         "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/[0.98] text-slate-50 shadow-2xl shadow-cyan-950/35",
-        "h-[min(580px,calc(100dvh-4.5rem))] max-w-[calc(100vw-1rem)]",
-        "transition-[width] duration-300 ease-out",
-        panelWidthClass,
+        isTakeover
+          ? "h-full w-full max-w-none"
+          : cn(
+              "h-[min(580px,calc(100dvh-4.5rem))] max-w-[calc(100vw-1rem)]",
+              "transition-[width] duration-300 ease-out",
+              panelWidthClass,
+            ),
       )}
     >
-      {/* Header — draggable */}
+      {/* Header — draggable in bubble only. Takeover pins the panel in place. */}
       <div
         onPointerDown={handleHeaderPointerDown}
-        onPointerMove={handleHeaderPointerMove}
-        onPointerUp={handleHeaderPointerUp}
-        onPointerCancel={handleHeaderPointerUp}
-        onDoubleClick={resetPanelPosition}
-        title="Dra för att flytta — dubbelklicka för att återställa position"
+        onPointerMove={isTakeover ? undefined : handleHeaderPointerMove}
+        onPointerUp={isTakeover ? undefined : handleHeaderPointerUp}
+        onPointerCancel={isTakeover ? undefined : handleHeaderPointerUp}
+        onDoubleClick={isTakeover ? undefined : resetPanelPosition}
+        title={
+          isTakeover
+            ? undefined
+            : "Dra för att flytta — dubbelklicka för att återställa position"
+        }
         className={cn(
-          "flex touch-none items-center justify-between gap-2 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5 select-none",
-          isDragging ? "cursor-grabbing" : "cursor-grab",
+          "flex items-center justify-between gap-2 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5 select-none",
+          isTakeover ? null : "touch-none",
+          isTakeover ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5">
@@ -455,7 +498,17 @@ export function OpenClawChatPanel({
         </div>
         <div data-no-drag className="flex items-center gap-0.5">
           {powersAvailable ? <OpenClawPowersControl /> : null}
-          {showAvatar ? (
+          <button
+            type="button"
+            onClick={isTakeover ? exitTakeover : enterTakeover}
+            className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-white"
+            aria-pressed={isTakeover}
+            aria-label={isTakeover ? "Tillbaka till bubbla" : "Visa över ytan"}
+            title={isTakeover ? "Tillbaka till bubbla" : "Visa över ytan"}
+          >
+            {isTakeover ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
+          </button>
+          {showAvatar && !isTakeover ? (
             <button
               type="button"
               onClick={() => setAvatarExpanded((v) => !v)}
@@ -510,12 +563,30 @@ export function OpenClawChatPanel({
         </div>
       </div>
 
-      {/* Avatar video. Anslutningsfel tar aldrig över halva chatten: textchatten
-          fortsätter fungera och avataren kan startas om eller stängas av. */}
-      {showAvatar ? (
-        avatar.avatarReady ? (
-          <div className="shrink-0 border-b border-white/10 bg-slate-950/40 p-3">
-            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          isTakeover && showLiveAvatar && "lg:flex-row",
+        )}
+      >
+        {/* Live video only when D-ID actually has a stream. Connecting/error/
+            gated-off never renders a black video hole — takeover stays a
+            text chat with a compact status strip. */}
+        {showLiveAvatar ? (
+          <div
+            className={cn(
+              "shrink-0 bg-slate-950/40 p-3",
+              isTakeover
+                ? "border-b border-white/10 lg:w-[min(640px,52%)] lg:border-r lg:border-b-0 lg:p-4"
+                : "border-b border-white/10",
+            )}
+          >
+            <div
+              className={cn(
+                "relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20",
+                isTakeover && "max-h-[32dvh] lg:max-h-[min(560px,calc(100dvh-10rem))]",
+              )}
+            >
               <video
                 ref={avatar.videoRef}
                 autoPlay
@@ -526,22 +597,24 @@ export function OpenClawChatPanel({
               {avatar.connectionState === "speaking" ? (
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
               ) : null}
-              <button
-                type="button"
-                onClick={() => setAvatarExpanded((v) => !v)}
-                className="absolute top-2 right-2 rounded-md bg-black/55 p-1 text-slate-200 transition-colors hover:bg-black/75 hover:text-white"
-                aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-                title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-              >
-                {avatarExpanded ? (
-                  <Minimize2 className="h-3 w-3" />
-                ) : (
-                  <Maximize2 className="h-3 w-3" />
-                )}
-              </button>
+              {!isTakeover ? (
+                <button
+                  type="button"
+                  onClick={() => setAvatarExpanded((v) => !v)}
+                  className="absolute top-2 right-2 rounded-md bg-black/55 p-1 text-slate-200 transition-colors hover:bg-black/75 hover:text-white"
+                  aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+                  title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+                >
+                  {avatarExpanded ? (
+                    <Minimize2 className="h-3 w-3" />
+                  ) : (
+                    <Maximize2 className="h-3 w-3" />
+                  )}
+                </button>
+              ) : null}
             </div>
           </div>
-        ) : (
+        ) : showAvatar ? (
           <div
             className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.035] px-4 py-3"
             aria-live="polite"
@@ -583,101 +656,129 @@ export function OpenClawChatPanel({
               </button>
             </div>
           </div>
-        )
-      ) : null}
+        ) : isTakeover ? (
+          <div
+            className="flex shrink-0 items-center gap-2.5 border-b border-white/10 bg-white/[0.035] px-4 py-3"
+            aria-live="polite"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-200">
+              <Bot className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-100">Textläge</p>
+              <p className="truncate text-[10px] text-slate-400">
+                Avataren är av. Chatten fungerar som vanligt.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
-      <div ref={scrollRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto px-4 py-3">
-        <div ref={scrollContentRef} className="flex min-h-full flex-col space-y-3">
-          {messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center text-sm text-slate-300">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-                <Bot className="h-5 w-5 text-cyan-200" />
-              </div>
-              <div>
-                <p className="font-medium text-white">{content.emptyTitle}</p>
-                <p className="mx-auto mt-1.5 max-w-[270px] text-xs leading-5 text-slate-300/80">
-                  {content.emptyBody}
-                </p>
-              </div>
-              {DID_AVATAR_AVAILABLE && !avatarMode ? (
-                <button
-                  type="button"
-                  onClick={() => setAvatarMode(true)}
-                  className="mt-1 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
-                >
-                  <Video className="h-3.5 w-3.5" />
-                  Starta med avatar
-                </button>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div
+            ref={scrollRef}
+            onScroll={handleChatScroll}
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+          >
+            <div ref={scrollContentRef} className="flex min-h-full flex-col space-y-3">
+              {messages.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center text-sm text-slate-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
+                    <Bot className="h-5 w-5 text-cyan-200" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">{content.emptyTitle}</p>
+                    <p
+                      className={cn(
+                        "mx-auto mt-1.5 text-xs leading-5 text-slate-300/80",
+                        isTakeover ? "max-w-md" : "max-w-[270px]",
+                      )}
+                    >
+                      {content.emptyBody}
+                    </p>
+                  </div>
+                  {DID_AVATAR_AVAILABLE && !avatarMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarMode(true)}
+                      className="mt-1 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Starta med avatar
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              {messages.map((msg, index) => (
+                <OpenClawMessage
+                  key={msg.id}
+                  msg={msg}
+                  streaming={
+                    isStreaming && index === messages.length - 1 && msg.role === "assistant"
+                  }
+                />
+              ))}
+              {listening && interimTranscript ? (
+                <div className="flex w-full justify-end">
+                  <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md border border-cyan-400/40 bg-cyan-400/15 px-3.5 py-2.5 text-sm leading-relaxed text-cyan-100/90 italic">
+                    {interimTranscript}
+                  </div>
+                </div>
               ) : null}
             </div>
-          ) : null}
-          {messages.map((msg, index) => (
-            <OpenClawMessage
-              key={msg.id}
-              msg={msg}
-              streaming={isStreaming && index === messages.length - 1 && msg.role === "assistant"}
-            />
-          ))}
-          {listening && interimTranscript ? (
-            <div className="flex w-full justify-end">
-              <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md border border-cyan-400/40 bg-cyan-400/15 px-3.5 py-2.5 text-sm leading-relaxed text-cyan-100/90 italic">
-                {interimTranscript}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
+          </div>
 
-      <div className="border-t border-white/10 px-3 py-2.5">
-        <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={listening ? "Lyssnar — prata på svenska..." : content.inputPlaceholder}
-            rows={1}
-            disabled={listening}
-            className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400 disabled:opacity-60"
-          />
-          {speechSupported ? (
-            <button
-              type="button"
-              onClick={listening ? stopListening : startListening}
-              disabled={isStreaming}
-              className={cn(
-                "shrink-0 rounded-full p-1.5 transition-colors",
-                listening
-                  ? "bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white",
-                "disabled:opacity-30",
+          <div className="border-t border-white/10 px-3 py-2.5">
+            <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={listening ? "Lyssnar — prata på svenska..." : content.inputPlaceholder}
+                rows={1}
+                disabled={listening}
+                className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400 disabled:opacity-60"
+              />
+              {speechSupported ? (
+                <button
+                  type="button"
+                  onClick={listening ? stopListening : startListening}
+                  disabled={isStreaming}
+                  className={cn(
+                    "shrink-0 rounded-full p-1.5 transition-colors",
+                    listening
+                      ? "bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white",
+                    "disabled:opacity-30",
+                  )}
+                  aria-label={listening ? "Stoppa inspelning" : "Tala in meddelande"}
+                  title={listening ? "Stoppa inspelning" : "Tala in (sv-SE)"}
+                >
+                  {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              ) : null}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
+                  aria-label="Stoppa"
+                >
+                  <Square className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!input.trim() || listening}
+                  className="shrink-0 p-1 text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30"
+                  aria-label="Skicka"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
               )}
-              aria-label={listening ? "Stoppa inspelning" : "Tala in meddelande"}
-              title={listening ? "Stoppa inspelning" : "Tala in (sv-SE)"}
-            >
-              {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </button>
-          ) : null}
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
-              aria-label="Stoppa"
-            >
-              <Square className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!input.trim() || listening}
-              className="shrink-0 p-1 text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30"
-              aria-label="Skicka"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
