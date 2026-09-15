@@ -151,9 +151,14 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
         ) : null}
       </div>
 
+      {/*
+        Nederkant vänster, inte höger: Sajtagentens launcher ligger
+        `fixed … sm:right-6 sm:bottom-6 z-50` och skulle annars täcka den här
+        kontrollen i buildern (observerat i preview-deployen för PR #1387).
+      */}
       {motion && clientMounted && !mediaFailed ? (
         stillOnly ? (
-          <p className="pointer-events-none absolute right-4 bottom-4 z-20 rounded-lg border border-violet-200/25 bg-violet-950/85 px-2.5 py-1.5 text-[11px] text-violet-50">
+          <p className="pointer-events-none absolute bottom-4 left-4 z-20 rounded-lg border border-violet-200/25 bg-violet-950/85 px-2.5 py-1.5 text-[11px] text-violet-50">
             {prefersReducedMotion ? "Minskad rörelse: stillbild" : "Datasparläge: stillbild"}
           </p>
         ) : (
@@ -161,7 +166,7 @@ export function PreviewBackdrop({ motion }: PreviewBackdropProps) {
             type="button"
             onClick={toggleMotion}
             aria-pressed={paused}
-            className="absolute right-4 bottom-4 z-20 inline-flex items-center gap-1.5 rounded-lg border border-violet-200/25 bg-violet-950/85 px-2.5 py-1.5 text-[11px] text-violet-50 transition-colors hover:bg-violet-900/85 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:outline-none"
+            className="absolute bottom-4 left-4 z-20 inline-flex items-center gap-1.5 rounded-lg border border-violet-200/25 bg-violet-950/85 px-2.5 py-1.5 text-[11px] text-violet-50 transition-colors hover:bg-violet-900/85 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:outline-none"
           >
             {paused ? (
               <Play className="h-3 w-3" aria-hidden="true" />
