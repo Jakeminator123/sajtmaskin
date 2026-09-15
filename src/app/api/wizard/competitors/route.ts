@@ -17,8 +17,11 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { braveWebSearch } from "@/lib/brave-search";
+import { withWizardRouteBudget } from "@/lib/wizard/route-budget";
+import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadline";
 
 export const runtime = "nodejs";
+/** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
 export const maxDuration = 25;
 
 const requestSchema = z.object({
@@ -107,48 +110,65 @@ function normalizeResponse(raw: unknown): CompetitorsResponse {
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, "ai:chat", async () => {
-    try {
-      const botError = requireNotBot(req);
-      if (botError) return botError;
+  return withRateLimit(req, "ai:chat", () =>
+    withWizardRouteBudget(
+      req,
+      { route: "competitors", maxDurationSeconds: maxDuration },
+      async ({ deadline, stages, setOutcome }) => {
+        try {
+          stages.mark("validate");
+          const botError = requireNotBot(req);
+          if (botError) {
+            setOutcome("client_error");
+            return botError;
+          }
 
-      const body = await req.json().catch(() => null);
-      const parsed = requestSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json({ error: "Validation failed", ...EMPTY }, { status: 400 });
-      }
+          const body = await req.json().catch(() => null);
+          const parsed = requestSchema.safeParse(body);
+          if (!parsed.success) {
+            setOutcome("client_error");
+            return NextResponse.json({ error: "Validation failed", ...EMPTY }, { status: 400 });
+          }
 
-      const { companyName, industry, location, existingWebsite, wizardRunId } = parsed.data;
-      debugLog("WIZARD", "Competitors request", { companyName, industry, location });
+          const { companyName, industry, location, existingWebsite, wizardRunId } = parsed.data;
+          debugLog("WIZARD", "Competitors request", { companyName, industry, location });
 
-      const authorized = await authorizeWizardRun(req, wizardRunId);
-      if (!authorized.ok) return authorized.response;
+          stages.mark("authorize");
+          const authorized = await authorizeWizardRun(req, wizardRunId);
+          if (!authorized.ok) {
+            setOutcome("auth_denied");
+            return authorized.response;
+          }
 
-      if (!FEATURES.useResponsesApi) {
-        if (!SECRETS.openaiApiKey) {
-          return NextResponse.json({ error: "OPENAI_API_KEY saknas", ...EMPTY }, { status: 503 });
-        }
-      }
+          if (!FEATURES.useResponsesApi) {
+            if (!SECRETS.openaiApiKey) {
+              setOutcome("unavailable");
+              return NextResponse.json({ error: "OPENAI_API_KEY saknas", ...EMPTY }, { status: 503 });
+            }
+          }
 
-      const locationHint = location ? `i ${location}` : "i Sverige";
-      const websiteHint = existingWebsite ? `\nDeras nuvarande sajt: ${existingWebsite}` : "";
+          const locationHint = location ? `i ${location}` : "i Sverige";
+          const websiteHint = existingWebsite ? `\nDeras nuvarande sajt: ${existingWebsite}` : "";
 
-      let braveContext = "";
-      if (FEATURES.useBraveSearch) {
-        const braveQuery = [companyName, industry, location, "konkurrenter"]
-          .filter(Boolean)
-          .join(" ");
-        const searchResults = await braveWebSearch(braveQuery, 8);
-        if (searchResults.length > 0) {
-          const formatted = searchResults
-            .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.description}`)
-            .join("\n");
-          braveContext = `\n\nRiktiga sökresultat att basera analysen på:\n${formatted}\n\nAnvänd informationen ovan för att identifiera verkliga konkurrenter. Prioritera företag som finns i sökresultaten.`;
-          debugLog("WIZARD", "Brave search for competitors", { query: braveQuery, count: searchResults.length });
-        }
-      }
+          let braveContext = "";
+          if (FEATURES.useBraveSearch) {
+            stages.mark("search");
+            const braveQuery = [companyName, industry, location, "konkurrenter"]
+              .filter(Boolean)
+              .join(" ");
+            const searchResults = await raceWizardDeadline(deadline.signal, () =>
+              braveWebSearch(braveQuery, 8),
+            );
+            if (searchResults.length > 0) {
+              const formatted = searchResults
+                .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.description}`)
+                .join("\n");
+              braveContext = `\n\nRiktiga sökresultat att basera analysen på:\n${formatted}\n\nAnvänd informationen ovan för att identifiera verkliga konkurrenter. Prioritera företag som finns i sökresultaten.`;
+              debugLog("WIZARD", "Brave search for competitors", { query: braveQuery, count: searchResults.length });
+            }
+          }
 
-      const competitorsPrompt = `Du är en svensk marknadsanalytiker. Analysera konkurrenter.
+          const competitorsPrompt = `Du är en svensk marknadsanalytiker. Analysera konkurrenter.
 
 Företag: ${companyName}
 Bransch: ${industry}
@@ -161,66 +181,82 @@ Regler:
 - website ska vara verklig URL om möjlig (null om okänd)
 - Allt på svenska`;
 
-      let normalized: CompetitorsResponse;
+          let normalized: CompetitorsResponse;
+          stages.mark("llm");
 
-      if (FEATURES.useResponsesApi) {
-        // ── Responses API path (structured output) ──────────────
-        const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
-        const RESPONSES_MODEL = "gpt-5-mini";
+          if (FEATURES.useResponsesApi) {
+            const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+            const RESPONSES_MODEL = "gpt-5-mini";
 
-        const response = await openai.responses.create({
-          model: RESPONSES_MODEL,
-          instructions: competitorsPrompt,
-          input: "Generera konkurrentanalys baserat på instruktionerna.",
-          text: {
-            format: {
-              type: "json_schema",
-              name: "competitor_analysis",
-              schema: COMPETITORS_JSON_SCHEMA,
-              strict: true,
-            },
-          },
-          store: false,
-        });
+            const response = await raceWizardDeadline(deadline.signal, () =>
+              openai.responses.create(
+                {
+                  model: RESPONSES_MODEL,
+                  instructions: competitorsPrompt,
+                  input: "Generera konkurrentanalys baserat på instruktionerna.",
+                  text: {
+                    format: {
+                      type: "json_schema",
+                      name: "competitor_analysis",
+                      schema: COMPETITORS_JSON_SCHEMA,
+                      strict: true,
+                    },
+                  },
+                  store: false,
+                },
+                { signal: deadline.signal },
+              ),
+            );
 
-        const rawParsed = JSON.parse(response.output_text);
-        normalized = normalizeResponse(rawParsed);
-        debugLog("WIZARD", "Responses API competitors completed", { model: RESPONSES_MODEL });
-      } else {
-        // ── Legacy fallback path (AI SDK + direct provider key) ─
-        const result = await generateText({
-          model: createDirectModel("openai/gpt-5-mini"),
-          prompt: `${competitorsPrompt}
+            const rawParsed = JSON.parse(response.output_text);
+            normalized = normalizeResponse(rawParsed);
+            debugLog("WIZARD", "Responses API competitors completed", { model: RESPONSES_MODEL });
+          } else {
+            const result = await raceWizardDeadline(deadline.signal, () =>
+              generateText({
+                model: createDirectModel("openai/gpt-5-mini"),
+                prompt: `${competitorsPrompt}
 
 Returnera BARA JSON (inget annat):
 {"competitors":[{"name":"","description":"Kort beskrivning","website":"https://...","lat":59.33,"lng":18.07,"isInspiration":true}],"marketInsight":"Kort marknadsinblick"}
 
 - Bara JSON, inget annat`,
-          maxRetries: 1,
-          maxOutputTokens: 600,
-        });
+                maxRetries: 1,
+                maxOutputTokens: 600,
+                abortSignal: deadline.signal,
+              }),
+            );
 
-        let parsedResponse: unknown = {};
-        try {
-          const text = result.text?.trim() || "";
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) parsedResponse = JSON.parse(jsonMatch[0]);
-        } catch {
-          debugLog("WIZARD", "Failed to parse competitors JSON");
+            let parsedResponse: unknown = {};
+            try {
+              const text = result.text?.trim() || "";
+              const jsonMatch = text.match(/\{[\s\S]*\}/);
+              if (jsonMatch) parsedResponse = JSON.parse(jsonMatch[0]);
+            } catch {
+              debugLog("WIZARD", "Failed to parse competitors JSON");
+            }
+
+            normalized = normalizeResponse(parsedResponse);
+          }
+
+          stages.mark("respond");
+          debugLog("WIZARD", "Competitors response", {
+            count: normalized.competitors.length,
+            hasInsight: Boolean(normalized.marketInsight),
+          });
+
+          setOutcome("ok");
+          return NextResponse.json(normalized);
+        } catch (err) {
+          if (isWizardAbortError(err, deadline.signal)) {
+            setOutcome("deadline");
+            return NextResponse.json(EMPTY);
+          }
+          setOutcome("error");
+          errorLog("WIZARD", "Competitors error", err);
+          return NextResponse.json(EMPTY);
         }
-
-        normalized = normalizeResponse(parsedResponse);
-      }
-
-      debugLog("WIZARD", "Competitors response", {
-        count: normalized.competitors.length,
-        hasInsight: Boolean(normalized.marketInsight),
-      });
-
-      return NextResponse.json(normalized);
-    } catch (err) {
-      errorLog("WIZARD", "Competitors error", err);
-      return NextResponse.json(EMPTY);
-    }
-  });
+      },
+    ),
+  );
 }

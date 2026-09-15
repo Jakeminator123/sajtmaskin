@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { WIZARD_ENRICH_MAX_DURATION_S } from "@/lib/wizard/route-deadline";
 
 const config = vi.hoisted(() => ({
   features: { useResponsesApi: false },
@@ -11,6 +16,15 @@ const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const scrapeWebsite = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
 const errorLog = vi.hoisted(() => vi.fn());
+const emitWizardRouteTerminal = vi.hoisted(() => vi.fn());
+const deadlineActual = vi.hoisted(() => ({
+  race: undefined as
+    | undefined
+    | ((signal: AbortSignal, work: () => Promise<unknown>) => Promise<unknown>),
+}));
+const raceWizardDeadline = vi.hoisted(() =>
+  vi.fn((signal: AbortSignal, work: () => Promise<unknown>) => deadlineActual.race!(signal, work)),
+);
 
 vi.mock("@/lib/config", () => ({
   FEATURES: config.features,
@@ -26,8 +40,17 @@ vi.mock("ai", () => ({ generateText }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/webscraper", () => ({ scrapeWebsite }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog, errorLog }));
+vi.mock("@/lib/wizard/route-telemetry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/wizard/route-telemetry")>();
+  return { ...actual, emitWizardRouteTerminal };
+});
+vi.mock("@/lib/wizard/route-deadline", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/wizard/route-deadline")>();
+  deadlineActual.race = actual.raceWizardDeadline;
+  return { ...actual, raceWizardDeadline };
+});
 
-const { POST } = await import("./route");
+const { POST, maxDuration } = await import("./route");
 
 const WIZARD_RUN_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -151,8 +174,55 @@ describe("POST /api/wizard/enrich", () => {
       expect.objectContaining({
         model: "model",
         prompt: expect.stringContaining('Befintlig sajt: "Befintlig sajt"'),
+        abortSignal: expect.any(AbortSignal),
       }),
     );
     expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
+    expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "enrich",
+        outcome: "ok",
+        aborted: false,
+      }),
+    );
+  });
+
+  it("keeps the 30s route budget and emits a terminal event on validation failure", async () => {
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "route.ts"), "utf8");
+    expect(maxDuration).toBe(30);
+    expect(maxDuration).toBe(WIZARD_ENRICH_MAX_DURATION_S);
+    expect(source.match(/export const maxDuration = 30;/g)).toHaveLength(1);
+
+    await POST(makeRequest({ step: 9, data: {} }));
+    expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "enrich",
+        outcome: "client_error",
+        dominantStage: "validate",
+      }),
+    );
+  });
+
+  it("does not swallow a scrape abort and emits a deadline terminal event", async () => {
+    raceWizardDeadline.mockRejectedValueOnce(
+      Object.assign(new Error("The operation was aborted."), { name: "AbortError" }),
+    );
+
+    const response = await POST(makeRequest(validBody({ scrapeUrl: "https://sajtstudio.se" })));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({
+      error: "Deadline exceeded",
+      questions: [],
+      suggestions: [],
+    });
+    expect(generateText).not.toHaveBeenCalled();
+    expect(emitWizardRouteTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "enrich",
+        outcome: "deadline",
+      }),
+    );
   });
 });
