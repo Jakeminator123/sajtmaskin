@@ -17,12 +17,10 @@
  *     persisted link can no longer win over the newest deployment.
  *  4. No project yet → 409 (the site must be published first).
  */
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { engineChats } from "@/lib/db/schema";
 import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getProjectById } from "@/lib/db/services/projects";
 import { getLatestVercelProjectIdForChat } from "@/lib/deployment";
+import { getProjectSiteOverview } from "@/lib/projects/site-overview";
 
 export type VercelProjectResolution =
   | {
@@ -123,8 +121,9 @@ export async function resolveChatProjectContext(
 }
 
 /**
- * Same hosting resolution as the chat path, but ownership is the app project
- * in the portal URL — never a client-supplied Vercel id.
+ * Same hosting resolution as the site view: the chat behind the latest ready
+ * deployment, then that chat's Vercel project. Never the first chat in an
+ * unordered list — that can attach a domain to a stale host.
  */
 export async function resolveVercelProjectForAppProject(
   req: Request,
@@ -136,24 +135,13 @@ export async function resolveVercelProjectForAppProject(
     return { ok: false, status: 404, error: "Projektet hittades inte." };
   }
 
-  const chats = await db
-    .select({ id: engineChats.id })
-    .from(engineChats)
-    .where(eq(engineChats.projectId, project.id));
-
-  let deployed: string | null = null;
-  let chatId: string | null = chats[0]?.id ?? null;
-  for (const chat of chats) {
-    const vercelId =
-      (await getLatestVercelProjectIdForChat(chat.id).catch(() => null))?.trim() || null;
-    if (vercelId) {
-      deployed = vercelId;
-      chatId = chat.id;
-      break;
-    }
-  }
-
+  const overview = await getProjectSiteOverview(project.id).catch(() => null);
+  const chatId = overview?.chatId ?? null;
+  const deployed = chatId
+    ? (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null
+    : null;
   const linked = project.vercel_project_id?.trim() || null;
+
   if (deployed) {
     return {
       ok: true,

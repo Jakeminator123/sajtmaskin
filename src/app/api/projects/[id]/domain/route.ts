@@ -177,7 +177,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return jsonResult(await activateCustomerDomain({ hosting, domain }));
     }
     if (action === "unlink") {
-      return jsonResult(await unlinkCustomerDomain({ hosting }));
+      return jsonResult(await unlinkCustomerDomain({ hosting, domain }));
     }
 
     return NextResponse.json(

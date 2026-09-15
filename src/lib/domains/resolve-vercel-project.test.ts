@@ -4,7 +4,7 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getAppProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectById = vi.hoisted(() => vi.fn());
 const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
-const dbSelect = vi.hoisted(() => vi.fn());
+const getProjectSiteOverview = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
@@ -15,8 +15,8 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectById,
 }));
 
-vi.mock("@/lib/db/client", () => ({
-  db: { select: dbSelect },
+vi.mock("@/lib/projects/site-overview", () => ({
+  getProjectSiteOverview,
 }));
 
 vi.mock("@/lib/deployment", () => ({
@@ -136,8 +136,9 @@ describe("resolveVercelProjectForAppProject", () => {
       id: "proj_1",
       vercel_project_id: "vp_app",
     });
-    dbSelect.mockReturnValue({
-      from: () => ({ where: () => Promise.resolve([{ id: "chat_1" }]) }),
+    getProjectSiteOverview.mockResolvedValue({
+      chatId: "chat_1",
+      vercelProjectId: "vp_app",
     });
     getLatestVercelProjectIdForChat.mockResolvedValue("vp_fresh");
   });
@@ -161,5 +162,34 @@ describe("resolveVercelProjectForAppProject", () => {
       source: "deployment",
       chatId: "chat_1",
     });
+  });
+
+  it("uses the site view's latest-ready chat, not an older chat with another Vercel id", async () => {
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_stale_cache",
+    });
+    getProjectSiteOverview.mockResolvedValue({
+      chatId: "chat_ready",
+      vercelProjectId: "vp_stale_cache",
+    });
+    getLatestVercelProjectIdForChat.mockImplementation(async (chatId: string) => {
+      if (chatId === "chat_ready") return "vp_ready";
+      if (chatId === "chat_old") return "vp_old";
+      return null;
+    });
+
+    const result = await resolveVercelProjectForAppProject(req(), "proj_1");
+
+    expect(result).toEqual({
+      ok: true,
+      vercelProjectId: "vp_ready",
+      appProjectId: "proj_1",
+      source: "deployment",
+      chatId: "chat_ready",
+    });
+    expect(getProjectSiteOverview).toHaveBeenCalledWith("proj_1");
+    expect(getLatestVercelProjectIdForChat).toHaveBeenCalledWith("chat_ready");
+    expect(getLatestVercelProjectIdForChat).not.toHaveBeenCalledWith("chat_old");
   });
 });

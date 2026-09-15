@@ -108,6 +108,16 @@ describe("checkCustomerHttps", () => {
     fetchWithPinnedDns.mockRejectedValue(new Error("unable to verify the first certificate"));
     await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
   });
+
+  it.each([401, 404, 500])("treats HTTP %s as invalid, not valid", async (status) => {
+    fetchWithPinnedDns.mockResolvedValue({ status, headers: {}, body: Buffer.from("no") });
+    await expect(checkCustomerHttps("ny.se")).resolves.toBe("invalid");
+  });
+
+  it("treats only 2xx as valid", async () => {
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("ok") });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
+  });
 });
 
 describe("linkCustomerDomain", () => {
@@ -168,6 +178,42 @@ describe("verifyCustomerDomain", () => {
       expect(result.snapshot.message).toMatch(/just nu|okänd|oförändrad/i);
     }
   });
+
+  it("does not auto-activate a builder-poll candidate when a live site is already verified", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+    observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+      observation(domain, { ownership: "verified", dns: "valid" }),
+    );
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("ok") });
+
+    const result = await verifyCustomerDomain({ hosting: HOSTING, domain: "ny.se" });
+
+    expect(result.ok).toBe(true);
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+    expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+    expect(removeDomainFromProject).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 404, 500])(
+    "does not auto-activate a first-time candidate that returns %s",
+    async (status) => {
+      observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+        observation(domain, { ownership: "verified", dns: "valid" }),
+      );
+      fetchWithPinnedDns.mockResolvedValue({ status, headers: {}, body: Buffer.from("no") });
+
+      const result = await verifyCustomerDomain({ hosting: HOSTING, domain: "ny.se" });
+
+      expect(result.ok).toBe(true);
+      expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("activateCustomerDomain", () => {
@@ -190,6 +236,29 @@ describe("activateCustomerDomain", () => {
     expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
   });
 
+  it.each([401, 404, 500])(
+    "refuses to replace a live domain when the candidate returns %s",
+    async (status) => {
+      getProjectById.mockResolvedValue({
+        id: "proj_1",
+        custom_domain: "exempel.se",
+        custom_domain_verified_at: new Date("2026-09-01"),
+        published_slug: "kund",
+      });
+      observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+        observation(domain, { ownership: "verified", dns: "valid" }),
+      );
+      fetchWithPinnedDns.mockResolvedValue({ status, headers: {}, body: Buffer.from("no") });
+
+      const result = await activateCustomerDomain({ hosting: HOSTING, domain: "ny.se" });
+
+      expect(result.ok).toBe(false);
+      expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+      expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+      expect(removeDomainFromProject).not.toHaveBeenCalled();
+    },
+  );
+
   it("promotes only a fully ready host and arms www redirect", async () => {
     observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
       observation(domain, { ownership: "verified", dns: "valid" }),
@@ -211,7 +280,7 @@ describe("activateCustomerDomain", () => {
 });
 
 describe("unlinkCustomerDomain", () => {
-  it("drops live advertising first and removes the apex/www pair", async () => {
+  it("removes the apex/www pair at the provider before clearing live advertising", async () => {
     getProjectById.mockResolvedValue({
       id: "proj_1",
       custom_domain: "exempel.se",
@@ -222,13 +291,16 @@ describe("unlinkCustomerDomain", () => {
     const result = await unlinkCustomerDomain({ hosting: HOSTING });
 
     expect(result.ok).toBe(true);
-    expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith("proj_1", "exempel.se");
     expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "exempel.se", undefined);
     expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "www.exempel.se", undefined);
+    expect(clearProjectCustomDomainVerification).toHaveBeenCalledWith("proj_1", "exempel.se");
     expect(clearProjectCustomDomain).toHaveBeenCalledWith("proj_1");
+    const removedAt = Math.min(...removeDomainFromProject.mock.invocationCallOrder);
+    const clearedAt = clearProjectCustomDomainVerification.mock.invocationCallOrder[0];
+    expect(removedAt).toBeLessThan(clearedAt);
   });
 
-  it("does not clear the stored hostname when provider remove is unknown", async () => {
+  it("does not change verification when provider remove fails", async () => {
     getProjectById.mockResolvedValue({
       id: "proj_1",
       custom_domain: "exempel.se",
@@ -240,7 +312,28 @@ describe("unlinkCustomerDomain", () => {
     const result = await unlinkCustomerDomain({ hosting: HOSTING });
 
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(503);
     expect(clearProjectCustomDomain).not.toHaveBeenCalled();
-    expect(clearProjectCustomDomainVerification).toHaveBeenCalled();
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+  });
+
+  it("removes an unfinished candidate host without touching the live address", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+
+    const result = await unlinkCustomerDomain({ hosting: HOSTING, domain: "ny.se" });
+
+    expect(result.ok).toBe(true);
+    expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "ny.se", undefined);
+    expect(removeDomainFromProject).toHaveBeenCalledWith("vp_owned", "www.ny.se", undefined);
+    expect(removeDomainFromProject).not.toHaveBeenCalledWith("vp_owned", "exempel.se", undefined);
+    expect(removeDomainFromProject).not.toHaveBeenCalledWith("vp_owned", "www.exempel.se", undefined);
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+    if (result.ok) expect(result.snapshot.message).toMatch(/oförändrad/i);
   });
 });

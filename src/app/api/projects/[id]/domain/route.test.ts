@@ -144,6 +144,7 @@ describe("POST /api/projects/[id]/domain", () => {
     expect(response.status).toBe(200);
     expect(unlinkCustomerDomain).toHaveBeenCalledWith({
       hosting: { vercelProjectId: "vp_owned", appProjectId: "proj_1", chatId: "chat_1" },
+      domain: "",
     });
   });
 });

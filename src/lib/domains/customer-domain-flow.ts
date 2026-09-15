@@ -75,9 +75,9 @@ export async function checkCustomerHttps(hostname: string): Promise<DomainHttpsS
       timeoutMs: HTTPS_TIMEOUT_MS,
       maxBodyBytes: HTTPS_MAX_BODY_BYTES,
     });
-    if (result.status >= 200 && result.status < 500) return "valid";
-    if (result.status >= 500) return "unknown";
-    return "unknown";
+    if (result.status >= 200 && result.status < 300) return "valid";
+    if (result.status >= 400) return "invalid";
+    return "invalid";
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message.includes(PINNED_ADDRESS_BLOCKED_MESSAGE)) return "invalid";
@@ -471,8 +471,11 @@ export async function activateCustomerDomain(params: {
     checkHttps: true,
   });
 
-  if (snapshot.primary?.status === "unknown" || snapshot.primary?.https === "unknown") {
-    snapshot.message = "Statusen är tillfälligt okänd. Senaste fungerande adress är kvar.";
+  if (snapshot.primary?.https !== "valid") {
+    snapshot.message =
+      snapshot.primary?.https === "unknown"
+        ? "Statusen är tillfälligt okänd. Senaste fungerande adress är kvar."
+        : "HTTPS är inte bevisat. Senaste fungerande adress är kvar.";
     return { ok: false, status: 409, error: snapshot.message, snapshot };
   }
 
@@ -481,10 +484,26 @@ export async function activateCustomerDomain(params: {
 
 export async function unlinkCustomerDomain(params: {
   hosting: ResolvedHosting;
+  domain?: string;
 }): Promise<FlowResult> {
   const project = await getProjectById(params.hosting.appProjectId);
   const stored = project?.custom_domain?.trim() || null;
-  if (!stored) {
+  const candidate = params.domain ? normalizeObservedDomain(params.domain) : null;
+  const extra = candidate && candidate.ok ? candidate.domain : null;
+  // A named host that is not the stored live domain is an unfinished swap —
+  // detach only that pair. Do not take the current live address offline.
+  const removingCandidateOnly = Boolean(extra && extra !== stored);
+
+  const hosts = new Set<string>();
+  for (const name of removingCandidateOnly ? [extra] : [stored, extra]) {
+    if (!name) continue;
+    const pair = customerHostPair(name);
+    for (const host of [pair.entered, pair.apex, pair.www]) {
+      if (host) hosts.add(host);
+    }
+  }
+
+  if (hosts.size === 0) {
     const snapshot = await inspectCustomerDomain({
       hosting: params.hosting,
       domain: null,
@@ -493,40 +512,36 @@ export async function unlinkCustomerDomain(params: {
     return { ok: true, snapshot };
   }
 
-  const pair = customerHostPair(stored);
-  const hosts = Array.from(new Set([pair.entered, pair.apex, pair.www].filter(Boolean))) as string[];
-
-  // Drop live advertising first so a half-removed provider state cannot loop.
-  await clearProjectCustomDomainVerification(params.hosting.appProjectId, stored);
-
-  let unknown = false;
   for (const host of hosts) {
     const result = await removeDomainFromProject(
       params.hosting.vercelProjectId,
       host,
       teamId(),
     ).catch(() => ({ removed: false, unknown: true }));
-    if (!result.removed) unknown = unknown || result.unknown;
+    if (!result.removed) {
+      const snapshot = await inspectCustomerDomain({
+        hosting: params.hosting,
+        domain: stored ?? extra,
+        checkHttps: false,
+      });
+      snapshot.message =
+        "Kunde inte koppla loss hos hostingleverantören. Senaste fungerande adress är kvar. Försök igen.";
+      return { ok: false, status: 503, error: snapshot.message, snapshot };
+    }
   }
 
-  if (unknown) {
-    const snapshot = await inspectCustomerDomain({
-      hosting: params.hosting,
-      domain: stored,
-      checkHttps: false,
-    });
-    snapshot.message =
-      "Kunde inte koppla loss helt. Sajten pekar inte längre på den egna domänen. Försök igen.";
-    return { ok: false, status: 503, error: snapshot.message, snapshot };
+  if (stored && !removingCandidateOnly) {
+    await clearProjectCustomDomainVerification(params.hosting.appProjectId, stored);
+    await clearProjectCustomDomain(params.hosting.appProjectId);
   }
-
-  await clearProjectCustomDomain(params.hosting.appProjectId);
   const snapshot = await inspectCustomerDomain({
     hosting: params.hosting,
-    domain: null,
+    domain: removingCandidateOnly ? stored : null,
     checkHttps: false,
   });
-  snapshot.message = "Domänen är bortkopplad. Sajten använder Sajtmaskin-adressen eller den tekniska adressen.";
+  snapshot.message = removingCandidateOnly
+    ? "Den påbörjade domänen är bortkopplad. Den nuvarande adressen är oförändrad."
+    : "Domänen är bortkopplad. Sajten använder Sajtmaskin-adressen eller den tekniska adressen.";
   return { ok: true, snapshot };
 }
 
