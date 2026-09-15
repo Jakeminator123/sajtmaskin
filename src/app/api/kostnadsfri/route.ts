@@ -10,6 +10,11 @@ import {
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { kostnadsfriVisitPath } from "@/lib/kostnadsfri/analytics-paths";
+import {
+  findPersonalIdentityViolations,
+  hasInvalidOrgNumber,
+  normalizeKostnadsfriCompanyProfile,
+} from "@/lib/kostnadsfri/company-profile";
 import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
@@ -53,6 +58,14 @@ const createSchema = z.object({
       starterPrompts: z.array(z.string().trim().min(1).max(120)).max(3).optional(),
     })
     .optional(),
+  /**
+   * Bolagsfakta från utskicksverktyget. Medvetet otypad här och normaliserad av
+   * `normalizeKostnadsfriCompanyProfile`: guarden nedan ska se den **råa**
+   * nyckeluppsättningen, så ett fält som inte finns i allowlisten kan fälla
+   * requesten i stället för att tyst försvinna. Fältlista och motiv:
+   * `src/lib/kostnadsfri/company-profile.ts`.
+   */
+  profile: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** Default `source` when a send is registered without naming its origin. */
@@ -60,6 +73,18 @@ const DEFAULT_SEND_SOURCE = "api";
 
 /** Hard cap on the register read so the list can never grow unbounded. */
 const LIST_LIMIT = 2000;
+
+/** Konstant 500-text: felutdata får inte variera med det underliggande felet. */
+const INTERNAL_ERROR_MESSAGE = "Internt fel. Försök igen senare.";
+
+/**
+ * Loggar ett oväntat fel med bara uttryckligt säker metadata — felets typ,
+ * aldrig dess meddelande, `cause`, query eller parametrar.
+ */
+function logKostnadsfriFailure(operation: string, error: unknown) {
+  const kind = error instanceof Error ? error.name : typeof error;
+  console.error(`[API/kostnadsfri] Failed to ${operation} (${kind})`);
+}
 
 function isAuthorized(request: NextRequest): boolean {
   const expectedKey = process.env.KOSTNADSFRI_API_KEY;
@@ -119,7 +144,30 @@ export async function POST(request: NextRequest) {
       sentAt,
       source,
       openclaw,
+      profile,
     } = validation.data;
+
+    // Personnummer och ledamöters hemadresser finns i källan men hör inte i en
+    // sajt, och `extra_data` går både till browsern och in i wizarden. Fältnamn
+    // i svaret, aldrig värdet — ett personnummer ska inte vidare till loggar.
+    const identityViolations = findPersonalIdentityViolations(profile);
+    if (identityViolations.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Profilen innehåller personnummerformade värden och avvisades.",
+          fields: identityViolations,
+        },
+        { status: 400 },
+      );
+    }
+    if (hasInvalidOrgNumber(profile)) {
+      return NextResponse.json(
+        { success: false, error: "profile.orgNumber måste vara ett organisationsnummer." },
+        { status: 400 },
+      );
+    }
+    const companyProfile = normalizeKostnadsfriCompanyProfile(profile);
 
     // The slug is pure (no seed involved), so an existing row can be looked
     // up — and a send registered on it — without the password seed at all.
@@ -147,6 +195,10 @@ export async function POST(request: NextRequest) {
         sentAt: new Date(sentAt),
         source: source || DEFAULT_SEND_SOURCE,
         contactEmail,
+        // Utskicksverktyget skickar ofta profilen i samma anrop som
+        // sändregistreringen. Utan den här patchen tappades den på upsert-vägen.
+        // Nyckeln utelämnas helt utan profil — en tom patch är inget att skriva.
+        ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
       });
       if (!updated) {
         // Row disappeared between the lookup and the update.
@@ -188,6 +240,9 @@ export async function POST(request: NextRequest) {
       : undefined;
 
     const openclawConfig = normalizeKostnadsfriOpenClawConfig(openclaw);
+    const extraData: Record<string, unknown> = {};
+    if (openclawConfig) extraData.openclaw = openclawConfig;
+    if (companyProfile) extraData.profile = companyProfile;
 
     const page = await createKostnadsfriPage({
       slug,
@@ -197,7 +252,7 @@ export async function POST(request: NextRequest) {
       website,
       contactEmail,
       contactName,
-      extraData: openclawConfig ? { openclaw: openclawConfig } : undefined,
+      extraData: Object.keys(extraData).length > 0 ? extraData : undefined,
       expiresAt,
       sentAt: sentAt ? new Date(sentAt) : undefined,
       source: sentAt ? source || DEFAULT_SEND_SOURCE : undefined,
@@ -212,12 +267,16 @@ export async function POST(request: NextRequest) {
         password,
         url,
         openclaw: openclawConfig,
+        profile: companyProfile,
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[API/kostnadsfri] Failed to create page:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    // Aldrig `error.message` ut, och aldrig hela felobjektet i loggen: ett
+    // Drizzle-fel bär SQL:ens parametrar, och de innehåller här profil,
+    // kontakt-e-post och lösenordshash. Parameteriserad SQL skyddar
+    // frågan, inte felutdatan.
+    logKostnadsfriFailure("create page", error);
+    return NextResponse.json({ success: false, error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
   }
 }
 
@@ -228,8 +287,7 @@ export async function GET(request: NextRequest) {
     const rows = await listKostnadsfriPages(LIST_LIMIT);
     return NextResponse.json({ success: true, pages: rows.map(serializePage) });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[API/kostnadsfri] Failed to list pages:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    logKostnadsfriFailure("list pages", error);
+    return NextResponse.json({ success: false, error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
   }
 }
