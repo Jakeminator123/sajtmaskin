@@ -224,6 +224,24 @@ describe("PreviewBackdrop — mediafel", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("låter MP4-reserven vara kvar när första source-elementet felar", () => {
+    const { container } = render(<PreviewBackdrop motion />);
+    const video = container.querySelector("video");
+    const sources = [...container.querySelectorAll("video source")];
+    expect(video).toBeTruthy();
+    expect(sources.map((source) => source.getAttribute("type"))).toEqual([
+      "video/webm",
+      "video/mp4",
+    ]);
+    fireEvent.error(sources[0]!);
+    expect(container.querySelector("video")).toBe(video);
+    expect(screen.getByRole("button", { name: PAUSE_LABEL })).toBeTruthy();
+    fireEvent.error(sources[1]!);
+    expect(container.querySelector("video")).toBeNull();
+    expect(container.querySelector("img")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("erbjuder en gest när autoplay blockeras", async () => {
     play.mockRejectedValue(new DOMException("blocked", "NotAllowedError"));
     render(<PreviewBackdrop motion />);

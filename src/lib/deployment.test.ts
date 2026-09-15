@@ -19,6 +19,11 @@ vi.mock("@/lib/db/client", () => ({
         // är ett lat "thenable": `.then()` triggar `selectLimit()` bara om
         // den awaitas DIREKT (inget efterföljande `.limit()`), så en kedja
         // som ANROPAR `.limit(n)` konsumerar inte av misstag en extra kö-post.
+        innerJoin: () => ({
+          where: () => ({
+            limit: selectLimit,
+          }),
+        }),
         where: () => ({
           limit: selectLimit,
           orderBy: () => ({
@@ -52,6 +57,9 @@ vi.mock("@/lib/tenant", () => ({
 const {
   setDeploymentDomainForRequest,
   getLinkedDomainForChat,
+  getLatestReadyDeploymentIdentityForChat,
+  pickProductionReadyIdentity,
+  resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
   resolveCanonicalVercelProjectForDomain,
 } = await import("./deployment");
@@ -153,6 +161,155 @@ describe("getLinkedDomainForChat (A2: domain project-name lock)", () => {
     const result = await getLinkedDomainForChat("chat_1");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("pickProductionReadyIdentity", () => {
+  const production = {
+    url: "https://demo.vercel.app",
+    providerUrl: "https://demo.vercel.app",
+    vercelProjectId: "vp_1",
+  };
+  const preview = {
+    url: "https://demo-git-feat-x-team.vercel.app",
+    providerUrl: "https://demo-git-feat-x-team.vercel.app",
+    vercelProjectId: "vp_1",
+  };
+
+  it("skips a newer preview READY and keeps the production identity", () => {
+    expect(
+      pickProductionReadyIdentity([preview, production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(production);
+  });
+
+  it("keeps an older READY row that lacks vercelProjectId when the host matches", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [{ ...production, vercelProjectId: null }],
+        { vercelProjectId: "vp_1", attestedProductionHost: "demo.vercel.app" },
+      ),
+    ).toEqual({ ...production, vercelProjectId: null });
+  });
+
+  it("keeps an older custom-host READY only when that host is currently verified", () => {
+    const custom = {
+      url: "https://www.kund.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: null,
+    };
+    expect(
+      pickProductionReadyIdentity([custom], {
+        vercelProjectId: "vp_1",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).toEqual(custom);
+    expect(pickProductionReadyIdentity([custom], { vercelProjectId: "vp_1" })).toBeNull();
+    expect(
+      pickProductionReadyIdentity([custom], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(custom);
+  });
+
+  it("rejects an unverified branded last-working host", () => {
+    const branded = {
+      url: "https://demo.sites.sajtmaskin.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: "vp_1",
+    };
+    expect(pickProductionReadyIdentity([branded], { vercelProjectId: "vp_1" })).toBeNull();
+    expect(
+      pickProductionReadyIdentity([branded], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(branded);
+  });
+
+  it("keeps a last-working provider alias while the attested alias is unknown", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        allowLastWorkingProvider: true,
+      }),
+    ).toEqual(production);
+  });
+
+  it("rejects an older vercel.app READY that does not match the attested alias", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [{ ...production, vercelProjectId: null }],
+        { vercelProjectId: "vp_1", attestedProductionHost: "other.vercel.app" },
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects a per-deployment READY even when vercelProjectId matches", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [
+          {
+            url: "https://demo-a1b2c3-team.vercel.app",
+            providerUrl: "https://demo-a1b2c3-team.vercel.app",
+            vercelProjectId: "vp_1",
+          },
+        ],
+        { vercelProjectId: "vp_1", attestedProductionHost: "demo.vercel.app" },
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects the attested alias when it belongs to another project host", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "annat.vercel.app",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts the attested production alias", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(production);
+  });
+});
+
+describe("getLatestReadyDeploymentIdentityForChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the latest production READY and skips a newer preview READY", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        url: "https://demo-git-feat-x-team.vercel.app",
+        providerUrl: "https://demo-git-feat-x-team.vercel.app",
+        vercelProjectId: "vp_1",
+      },
+      {
+        url: "https://www.kund.se",
+        providerUrl: "https://kund-project.vercel.app",
+        vercelProjectId: "vp_1",
+      },
+    ]);
+    await expect(
+      getLatestReadyDeploymentIdentityForChat("chat_1", {
+        vercelProjectId: "vp_1",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).resolves.toEqual({
+      url: "https://www.kund.se",
+      providerUrl: "https://kund-project.vercel.app",
+      vercelProjectId: "vp_1",
+    });
   });
 });
 
@@ -316,5 +473,74 @@ describe("resolveCanonicalVercelProjectForDomain (#519 bugbot round 3)", () => {
       source: "none",
       projectId: "vp_cache",
     });
+  });
+});
+
+describe("resolveDeploymentLiveUrlForChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps a stored alias when custom is verified", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: "www.kund.se",
+        customDomainVerifiedAt: new Date("2026-09-01"),
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        fallbackUrl: "https://demo.vercel.app",
+      }),
+    ).resolves.toBe("https://demo.vercel.app");
+  });
+
+  it("keeps an attested production alias on webhook/GET refresh", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: null,
+        customDomainVerifiedAt: null,
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-8fyovx8jc.vercel.app",
+        fallbackUrl: "https://sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+      }),
+    ).resolves.toBe("https://sajtmaskin-bygg-en-komplett-fungera.vercel.app");
+  });
+
+  it("does not persist custom when there is no stored persist-url", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: "www.kund.se",
+        customDomainVerifiedAt: new Date("2026-09-01"),
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        fallbackUrl: null,
+      }),
+    ).resolves.toBeNull();
   });
 });
