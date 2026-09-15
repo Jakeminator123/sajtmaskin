@@ -539,6 +539,53 @@ export async function clearProjectCustomDomainVerification(
     .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)));
 }
 
+/**
+ * Remember a candidate hostname without making it live. Refuses to overwrite a
+ * domain that already has `custom_domain_verified_at` — fail-closed for switch.
+ */
+export async function setProjectCustomDomainCandidate(
+  id: string,
+  domain: string,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) {
+    throw new Error("Invalid custom domain");
+  }
+  const rows = await db
+    .update(appProjects)
+    .set({
+      custom_domain: normalized,
+      updated_at: new Date(),
+    })
+    .where(and(eq(appProjects.id, id), isNull(appProjects.custom_domain_verified_at)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
+ * Drop the customer hostname we intended to remove. A row that has already
+ * become a different domain is left untouched (same idea as D2 expectedDesired).
+ */
+export async function clearProjectCustomDomain(
+  id: string,
+  expectedDomain: string,
+): Promise<boolean> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(expectedDomain);
+  if (!normalized) return false;
+  const rows = await db
+    .update(appProjects)
+    .set({
+      custom_domain: null,
+      custom_domain_verified_at: null,
+      updated_at: new Date(),
+    })
+    .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)))
+    .returning();
+  return rows.length > 0;
+}
+
 export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {
   assertDbConfigured();
   const existing = scope ? await getProjectByIdForOwner(id, scope) : await getProjectById(id);

@@ -436,4 +436,43 @@ describe("DomainManager error/status surfacing", () => {
     // Still on connect step: the link button is present, verify status is not.
     expect(screen.queryByText(/Väntar på DNS-propagering/i)).toBeNull();
   });
+
+  it("links an already-owned domain without availability or purchase", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/domains/link")) {
+        return json({
+          success: true,
+          linked: true,
+          domain: "exempel.se",
+          verified: false,
+          dnsSetup: null,
+          dnsInstructions: {
+            message: "Peka din domän",
+            records: [{ type: "A", host: "exempel.se", value: "192.0.2.10", ttl: 3600 }],
+          },
+        });
+      }
+      if (url.includes("/api/domains/verify")) {
+        return json({ verified: false }, 200);
+      }
+      return json({ error: "unexpected" }, 500);
+    });
+
+    render(<DomainManager open onClose={() => {}} chatId="chat_1" />);
+    fireEvent.click(screen.getByRole("button", { name: /Jag har redan en domän/i }));
+    fireEvent.change(screen.getByPlaceholderText("exempel.se"), {
+      target: { value: "exempel.se" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Koppla exempel\.se/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Väntar på DNS-propagering/i)).toBeTruthy();
+    });
+    expect(screen.getByText("192.0.2.10")).toBeTruthy();
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map(([input]) =>
+      typeof input === "string" ? input : input.toString(),
+    );
+    expect(urls.some((url) => url.includes("/api/domains/check"))).toBe(false);
+    expect(urls.some((url) => url.includes("/api/domains/purchase"))).toBe(false);
+  });
 });

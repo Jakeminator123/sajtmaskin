@@ -201,33 +201,99 @@ export async function buyDomain(
   };
 }
 
+export type ProjectDomainRecord = {
+  name: string;
+  apexName: string;
+  verified: boolean;
+  redirect?: string | null;
+};
+
 /**
- * Add a domain to a project
+ * Add a domain to a project. Idempotent on the same project: a domain that is
+ * already attached is returned instead of failing the customer link.
  */
 export async function addDomainToProject(
   projectId: string,
   domain: string,
   teamId?: string,
-): Promise<{
-  name: string;
-  apexName: string;
-  verified: boolean;
-}> {
-  try {
-    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  options?: { redirect?: string; redirectStatusCode?: 307 | 308 },
+): Promise<ProjectDomainRecord> {
+  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  const body: Record<string, unknown> = { name: domain };
+  if (options?.redirect) {
+    body.redirect = options.redirect;
+    body.redirectStatusCode = options.redirectStatusCode ?? 307;
+  }
 
-    return await vercelFetch<{
-      name: string;
-      apexName: string;
-      verified: boolean;
-    }>(`/v9/projects/${projectId}/domains${query}`, {
+  try {
+    return await vercelFetch<ProjectDomainRecord>(`/v9/projects/${projectId}/domains${query}`, {
       method: "POST",
-      body: JSON.stringify({ name: domain }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
+    const existing = await getProjectDomain(projectId, domain, teamId).catch(() => null);
+    if (existing) return existing;
     console.error("[Vercel] Failed to add domain to project:", error);
     throw error;
   }
+}
+
+export async function getProjectDomain(
+  projectId: string,
+  domain: string,
+  teamId?: string,
+): Promise<ProjectDomainRecord> {
+  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  return vercelFetch<ProjectDomainRecord>(
+    `/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}${query}`,
+  );
+}
+
+export async function removeDomainFromProject(
+  projectId: string,
+  domain: string,
+  teamId?: string,
+): Promise<{ removed: boolean; unknown: boolean }> {
+  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  const token = requireToken();
+  const res = await fetch(
+    `${VERCEL_API_BASE}/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}${query}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  if (res.status === 404) return { removed: true, unknown: false };
+  if (res.ok || res.status === 204) return { removed: true, unknown: false };
+  if (res.status >= 500) return { removed: false, unknown: true };
+  const text = await res.text().catch(() => "");
+  throw new Error(`[Vercel] ${res.status} ${res.statusText} for domain remove: ${text}`);
+}
+
+/**
+ * Set or clear the host redirect. Only call this after both hosts are attached.
+ * 307 is the provisional default (A3 has not ratified 308 yet).
+ */
+export async function updateProjectDomainRedirect(
+  projectId: string,
+  domain: string,
+  redirect: string | null,
+  teamId?: string,
+): Promise<ProjectDomainRecord> {
+  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  return vercelFetch<ProjectDomainRecord>(
+    `/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}${query}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        redirect,
+        redirectStatusCode: redirect ? 307 : undefined,
+      }),
+    },
+  );
 }
 
 // ============ Team Info ============
