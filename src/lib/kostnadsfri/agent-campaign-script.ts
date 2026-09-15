@@ -167,9 +167,60 @@ export function clearCampaignScriptStorageForTests(
   storage: CampaignScriptStorage = campaignScriptStorage(),
 ): void {
   memoryStorage.clear();
+  if (typeof sessionStorage !== "undefined") {
+    const keys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (key && (key.startsWith(STORAGE_PREFIX) || key === ACTIVE_SLUG_KEY)) {
+        keys.push(key);
+      }
+    }
+    for (const key of keys) sessionStorage.removeItem(key);
+  }
   const slug = readActiveCampaignSlug(storage);
   if (slug) storage.removeItem?.(`${STORAGE_PREFIX}${slug}`);
   storage.removeItem?.(ACTIVE_SLUG_KEY);
+}
+
+export function reusableBoundCampaignProjectId(
+  slug: string,
+  liveScript?: KostnadsfriCampaignScriptState | null,
+  storage: CampaignScriptStorage = campaignScriptStorage(),
+): string | null {
+  if (liveScript?.slug === slug && liveScript.projectId) {
+    return liveScript.projectId;
+  }
+  return readCampaignScript(slug, storage).projectId;
+}
+
+function pathnameFromScopeKey(scopeKey: string): string {
+  return scopeKey.split("::")[0] ?? "";
+}
+
+/**
+ * In-memory-manuset får följa med till samma slug och till buildern
+ * (kvoten överlever handoff-redirect). Annan slug, /konto och övriga
+ * ytor nollställer bara storet — persistensen per slug ligger kvar.
+ */
+export function shouldRetainCampaignScriptInScope(
+  script: KostnadsfriCampaignScriptState,
+  scopeKey: string,
+): boolean {
+  const pathname = pathnameFromScopeKey(scopeKey);
+  const pathSlug = kostnadsfriSlugFromPathname(pathname);
+  if (pathSlug) return pathSlug === script.slug;
+  return pathname.startsWith("/builder");
+}
+
+export function shouldRecordCampaignFollowupInScope(
+  script: KostnadsfriCampaignScriptState,
+  scopeKey: string,
+): boolean {
+  const pathname = pathnameFromScopeKey(scopeKey);
+  const pathSlug = kostnadsfriSlugFromPathname(pathname);
+  if (pathSlug) return pathSlug === script.slug;
+  if (!pathname || pathname === "global") return true;
+  return false;
 }
 
 export function consumeAdviceRound(

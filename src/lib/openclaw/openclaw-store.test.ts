@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   clearCampaignScriptStorageForTests,
+  emptyCampaignScript,
   KOSTNADSFRI_ADVICE_ROUND_LIMIT,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { readOpenClawPowers, useOpenClawStore } from "./openclaw-store";
@@ -311,7 +312,7 @@ describe("OpenClaw store — withdrawing an extra power", () => {
 describe("OpenClaw store — kampanjrådgivning", () => {
   beforeEach(() => {
     clearCampaignScriptStorageForTests();
-    useOpenClawStore.setState({ campaignScript: null, messages: [] });
+    useOpenClawStore.setState({ campaignScript: null, messages: [], scopeKey: "global" });
   });
 
   it("räknar ned kvoten, stannar på noll och överlever setScope", () => {
@@ -334,5 +335,70 @@ describe("OpenClaw store — kampanjrådgivning", () => {
     useOpenClawStore.setState({ campaignScript: null });
     useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
     expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+  });
+
+  it("nollställer campaignScript vid byte till /konto men behåller persistensen", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+
+    useOpenClawStore.getState().setScope("/konto::account");
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("nollställer campaignScript vid byte till annan slug", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+
+    useOpenClawStore.getState().setScope("/kostnadsfri/other-campaign::kostnadsfri");
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+  });
+
+  it("behåller campaignScript vid refresh på samma kampanjsida", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+
+    useOpenClawStore.setState({ campaignScript: null });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.questionIds).toEqual([
+      "usp",
+    ]);
+
+    useOpenClawStore.getState().setScope("/kostnadsfri/zax-2-0-ab::kostnadsfri");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("registrerar ingen follow-up-reply utanför kampanjscopet", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+
+    expect(useOpenClawStore.getState().recordCampaignFollowupReply("Unik USP från kampanjen")).toBe(
+      "complete",
+    );
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.answers.usp).toBe(
+      "Unik USP från kampanjen",
+    );
+
+    clearCampaignScriptStorageForTests();
+    useOpenClawStore.setState({
+      scopeKey: "/konto::account",
+      campaignScript: emptyCampaignScript("zax-2-0-ab"),
+    });
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+    expect(useOpenClawStore.getState().recordCampaignFollowupReply("Ska inte sparas")).toBe(
+      "inactive",
+    );
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.answers.usp).toBeUndefined();
   });
 });

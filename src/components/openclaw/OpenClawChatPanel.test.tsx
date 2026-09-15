@@ -132,4 +132,40 @@ describe("OpenClawChatPanel", () => {
     expect(screen.queryByRole("button", { name: "Hoppa över frågorna" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Fortsätt" })).toBeNull();
   });
+
+  it("tar bort kvot-chrome vid scope-byte till /konto", () => {
+    act(() => {
+      useOpenClawStore.setState({
+        scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri",
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+    });
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(screen.getByTestId("kampanj-radgivning-kvar")).toBeTruthy();
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/konto::account");
+    });
+
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+    expect(screen.queryByTestId("kampanj-radgivning-kvar")).toBeNull();
+  });
+
+  it("tar bort kvot-chrome vid scope-byte till annan slug", () => {
+    act(() => {
+      useOpenClawStore.setState({
+        scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri",
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+    });
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(screen.getByTestId("kampanj-radgivning-kvar")).toBeTruthy();
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/kostnadsfri/other-campaign::kostnadsfri");
+    });
+
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+    expect(screen.queryByTestId("kampanj-radgivning-kvar")).toBeNull();
+  });
 });

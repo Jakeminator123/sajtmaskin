@@ -10,6 +10,7 @@ import {
 import {
   KOSTNADSFRI_ADVICE_EXHAUSTED_COPY,
   shouldEnforceCampaignAdviceQuota,
+  shouldRecordCampaignFollowupInScope,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
@@ -116,7 +117,13 @@ export function useOpenClawChat() {
         return;
       }
 
-      useOpenClawStore.getState().recordCampaignFollowupReply(trimmed);
+      const live = useOpenClawStore.getState();
+      if (
+        live.campaignScript &&
+        shouldRecordCampaignFollowupInScope(live.campaignScript, live.scopeKey)
+      ) {
+        live.recordCampaignFollowupReply(trimmed);
+      }
 
       const userMsg: OpenClawMessage = {
         id: makeId(),

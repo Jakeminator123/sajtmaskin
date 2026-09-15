@@ -11,6 +11,7 @@ import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
 import { buildKostnadsfriAgentBrief } from "@/lib/kostnadsfri/agent-brief";
 import {
   persistBoundCampaignProjectId,
+  reusableBoundCampaignProjectId,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import {
   KOSTNADSFRI_FOLLOWUPS_READY_EVENT,
@@ -120,15 +121,24 @@ export function KostnadsfriPage({
 
       let projectId = createdProjectIdRef.current;
       if (!projectId) {
-        const project = await createProject(
-          `${companyName} - Kostnadsfri`,
-          "kostnadsfri",
-          prompt.substring(0, 100),
-        );
-        projectId = project.id;
-        createdProjectIdRef.current = project.id;
-        persistBoundCampaignProjectId(project.id, { slug });
-        useOpenClawStore.getState().bindCampaignProjectId(project.id);
+        const liveScript = useOpenClawStore.getState().campaignScript;
+        projectId = reusableBoundCampaignProjectId(slug, liveScript);
+        if (projectId) {
+          createdProjectIdRef.current = projectId;
+        } else {
+          const project = await createProject(
+            `${companyName} - Kostnadsfri`,
+            "kostnadsfri",
+            prompt.substring(0, 100),
+          );
+          projectId = project.id;
+          createdProjectIdRef.current = project.id;
+          persistBoundCampaignProjectId(project.id, { slug });
+        }
+        if (useOpenClawStore.getState().campaignScript?.slug !== slug) {
+          useOpenClawStore.getState().hydrateCampaignScript(slug);
+        }
+        useOpenClawStore.getState().bindCampaignProjectId(projectId);
       }
 
       const response = await fetch("/api/prompts", {

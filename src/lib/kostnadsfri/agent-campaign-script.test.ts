@@ -13,9 +13,12 @@ import {
   kostnadsfriCampaignManuscriptLines,
   markHandoffOpened,
   persistBoundCampaignProjectId,
+  reusableBoundCampaignProjectId,
   shouldActivateCampaignScriptChrome,
   shouldAttachCampaignContext,
   shouldEnforceCampaignAdviceQuota,
+  shouldRecordCampaignFollowupInScope,
+  shouldRetainCampaignScriptInScope,
   writeCampaignScript,
   type CampaignScriptStorage,
 } from "./agent-campaign-script";
@@ -267,5 +270,55 @@ describe("F6 projectId-bindning", () => {
         script,
       }),
     ).toBe(true);
+  });
+});
+
+describe("slugbunden projectId-återanvändning", () => {
+  it("återanvänder persistat projectId för samma slug, inte för en annan", () => {
+    const storage = memoryStorage();
+    writeCampaignScript({ ...emptyCampaignScript("slug-a"), projectId: "proj-a" }, storage);
+
+    expect(
+      reusableBoundCampaignProjectId("slug-a", emptyCampaignScript("slug-a"), storage),
+    ).toBe("proj-a");
+    expect(
+      reusableBoundCampaignProjectId(
+        "slug-a",
+        { ...emptyCampaignScript("slug-a"), projectId: "proj-live" },
+        storage,
+      ),
+    ).toBe("proj-live");
+    expect(
+      reusableBoundCampaignProjectId(
+        "slug-b",
+        { ...emptyCampaignScript("slug-a"), projectId: "proj-a" },
+        storage,
+      ),
+    ).toBeNull();
+  });
+
+  it("behåller script i minnet för samma slug och builder, inte /konto", () => {
+    const script = { ...emptyCampaignScript("zax-2-0-ab"), projectId: "proj-a" };
+    expect(
+      shouldRetainCampaignScriptInScope(script, "/kostnadsfri/zax-2-0-ab::kostnadsfri"),
+    ).toBe(true);
+    expect(shouldRetainCampaignScriptInScope(script, "/builder::builder::chat_1")).toBe(true);
+    expect(shouldRetainCampaignScriptInScope(script, "/konto::account")).toBe(false);
+    expect(
+      shouldRetainCampaignScriptInScope(script, "/kostnadsfri/other-campaign::kostnadsfri"),
+    ).toBe(false);
+  });
+
+  it("gatar follow-up-reply till kampanjscopet", () => {
+    const script = emptyCampaignScript("zax-2-0-ab");
+    expect(
+      shouldRecordCampaignFollowupInScope(script, "/kostnadsfri/zax-2-0-ab::kostnadsfri"),
+    ).toBe(true);
+    expect(shouldRecordCampaignFollowupInScope(script, "global")).toBe(true);
+    expect(shouldRecordCampaignFollowupInScope(script, "/konto::account")).toBe(false);
+    expect(shouldRecordCampaignFollowupInScope(script, "/builder::builder::chat_1")).toBe(false);
+    expect(
+      shouldRecordCampaignFollowupInScope(script, "/kostnadsfri/other-campaign::kostnadsfri"),
+    ).toBe(false);
   });
 });

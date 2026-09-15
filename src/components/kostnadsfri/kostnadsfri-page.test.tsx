@@ -218,6 +218,108 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
   });
 
+  it("återanvänder samma projectId efter remount när prompten misslyckats", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Något gick fel. Försök igen.")).toBeTruthy();
+    });
+    expect(projects.createProject).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+
+    unmount();
+    act(() => {
+      useOpenClawStore.setState({ campaignScript: null });
+    });
+
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ promptId: "prompt_remount" }),
+    }));
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalled();
+    });
+    expect(projects.createProject).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("återanvänder inte projectId från en annan kampanjslug", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Något gick fel. Försök igen.")).toBeTruthy();
+    });
+    expect(projects.createProject).toHaveBeenCalledTimes(1);
+    unmount();
+
+    act(() => {
+      useOpenClawStore.setState({
+        campaignScript: {
+          ...emptyCampaignScript("zax-2-0-ab"),
+          projectId: "proj-a",
+        },
+      });
+    });
+    projects.createProject.mockImplementation(async () => ({
+      id: "proj-b",
+      name: "Other - Kostnadsfri",
+      created_at: "",
+      updated_at: "",
+    }));
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ promptId: "prompt_other" }),
+    }));
+
+    render(<KostnadsfriPage slug="other-campaign" companyName="Other AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(projects.createProject).toHaveBeenCalledTimes(2);
+    });
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("other-campaign");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-b");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).not.toBe("proj-a");
+  });
+
   it("lägger unik bekräftad fras i handoff-prompten", async () => {
     render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
     fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));

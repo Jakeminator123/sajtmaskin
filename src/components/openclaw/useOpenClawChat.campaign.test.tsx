@@ -199,4 +199,27 @@ describe("useOpenClawChat — kampanjrådgivning", () => {
     expect(remaining()).toBe(KOSTNADSFRI_ADVICE_ROUND_LIMIT);
     expect(fetchMock()).toHaveBeenCalledTimes(1);
   });
+
+  it("registrerar ingen follow-up-reply efter scope-byte till /konto", async () => {
+    act(() => {
+      useOpenClawStore.setState({
+        scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri",
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+      useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+    });
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/konto::account");
+    });
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send("Ska inte bli follow-up på /konto");
+    });
+
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.answers.usp).toBeUndefined();
+  });
 });

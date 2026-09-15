@@ -17,6 +17,8 @@ import {
   reannounceFollowupsReady,
   readCampaignScript,
   recordCampaignFollowupReply as applyCampaignFollowupReply,
+  shouldRecordCampaignFollowupInScope,
+  shouldRetainCampaignScriptInScope,
   skipCurrentCampaignFollowup as applySkipCurrentCampaignFollowup,
   writeCampaignScript,
   type KostnadsfriCampaignScriptState,
@@ -77,8 +79,10 @@ interface OpenClawState {
    * carried it is sent. */
   preparedFill: OpenClawPreparedFill | null;
   /**
-   * Kampanjmanus per slug (rådgivningskvot + hoppa-över). Lever utanför
-   * `setScope` så en redirect till buildern inte nollställer kvoten.
+   * Kampanjmanus per slug (rådgivningskvot + hoppa-över). Persistensen är
+   * slugbunden i sessionStorage så refresh på samma kampanj kan hydrera om.
+   * In-memory nollställs vid byte till annan slug eller /konto; builder
+   * behåller kvoten så handoff-redirecten inte tappar den.
    */
   campaignScript: KostnadsfriCampaignScriptState | null;
 
@@ -195,6 +199,10 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             powersOn: false,
             grantedPowers: [],
             panelPresentation: "bubble",
+            ...(state.campaignScript &&
+            !shouldRetainCampaignScriptInScope(state.campaignScript, scopeKey)
+              ? { campaignScript: null }
+              : {}),
           },
     ),
 
@@ -285,6 +293,10 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
     let result: "inactive" | "pending" | "complete" = "inactive";
     set((s) => {
       if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      if (!shouldRecordCampaignFollowupInScope(s.campaignScript, s.scopeKey)) {
         result = "inactive";
         return s;
       }
