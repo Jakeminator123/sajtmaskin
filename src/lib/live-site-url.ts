@@ -176,6 +176,47 @@ export function toHttpsUrl(hostname: string | null | undefined): string | null {
   return normalized ? `https://${normalized}` : null;
 }
 
+export type PersistableDeploymentUrlParams = {
+  /** Contract URL from this publish. Wins when present; may be custom. */
+  policyUrl?: string | null;
+  /** Already stored `deployments.url`. Kept when it is persist-safe. */
+  existingUrl?: string | null;
+  /** Provider URL only. Persisted when it is alias-shaped, never custom. */
+  candidateUrl?: string | null;
+  verifiedCustomerHosts?: CurrentProductionHostProof["verifiedCustomerHosts"];
+};
+
+function persistSafeHost(value: string | null | undefined): string | null {
+  const host = normalizeDomainHostname(value);
+  if (!host || isGitPreviewVercelHost(host) || isUniqueVercelDeploymentHost(host)) return null;
+  return host;
+}
+
+/**
+ * URL we may write to `deployments.url`. That column is last-working for the
+ * next publish — never a dead custom from `resolveLiveUrl`, never unique/git.
+ */
+export function persistableDeploymentUrl(params: PersistableDeploymentUrlParams): string | null {
+  if (params.policyUrl != null && params.policyUrl.trim() !== "") {
+    const policyHost = normalizeDomainHostname(params.policyUrl);
+    if (!policyHost || isGitPreviewVercelHost(policyHost)) return null;
+    return `https://${policyHost}`;
+  }
+
+  const existingHost = persistSafeHost(params.existingUrl);
+  if (existingHost) {
+    if (isProductionProviderVercelHost(existingHost)) return `https://${existingHost}`;
+    if (verifiedCustomerHostSet(params.verifiedCustomerHosts).has(existingHost)) {
+      return `https://${existingHost}`;
+    }
+  }
+
+  const candidateHost = persistSafeHost(params.candidateUrl);
+  return candidateHost && isProductionProviderVercelHost(candidateHost)
+    ? `https://${candidateHost}`
+    : null;
+}
+
 export function resolveLiveUrl(params: {
   projectId?: string | null;
   versionId?: string | null;

@@ -26,7 +26,7 @@ import {
   markProjectBrandedDomainVerified,
   touchProjectBrandedDomainCheckedAt,
 } from "@/lib/db/services/projects";
-import { getBrandedLiveSiteDomain, resolveLiveUrl } from "@/lib/live-site-url";
+import { getBrandedLiveSiteDomain, persistableDeploymentUrl } from "@/lib/live-site-url";
 import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
 import { resolveLegacyProviderUrl } from "./legacy-provider-url";
 
@@ -213,14 +213,13 @@ export async function GET(req: Request) {
         try {
           const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
           const mapped = mapVercelReadyStateToStatus(vercel.readyState);
-          const refreshedLiveUrl = resolveLiveUrl({
-            projectId: appProjectId,
-            versionId: latestRefreshCandidate.versionId,
-            providerUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
-            brandedDomain: appProject?.branded_domain ?? null,
-            brandedDomainVerifiedAt,
-            customDomain: appProject?.custom_domain ?? null,
-            customDomainVerifiedAt,
+          const refreshedLiveUrl = persistableDeploymentUrl({
+            existingUrl: latestRefreshCandidate.url,
+            candidateUrl: vercel.url ?? latestRefreshCandidate.providerUrl ?? null,
+            verifiedCustomerHosts: [
+              customDomainVerifiedAt ? (appProject?.custom_domain ?? null) : null,
+              brandedDomainVerifiedAt ? (appProject?.branded_domain ?? null) : null,
+            ],
           });
 
           const refreshWrite = await updateDeploymentStatus(
@@ -228,7 +227,7 @@ export async function GET(req: Request) {
             mapped.status,
             {
               providerUrl: vercel.url ?? undefined,
-              url: refreshedLiveUrl ?? undefined,
+              url: refreshedLiveUrl,
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             },
@@ -272,14 +271,13 @@ export async function GET(req: Request) {
             status: refreshed?.status ?? d.status,
             url:
               refreshed?.url ??
-              resolveLiveUrl({
-                projectId: appProjectId,
-                versionId: d.versionId,
-                providerUrl: d.providerUrl,
-                brandedDomain: appProject?.branded_domain ?? null,
-                brandedDomainVerifiedAt,
-                customDomain: appProject?.custom_domain ?? null,
-                customDomainVerifiedAt,
+              persistableDeploymentUrl({
+                existingUrl: d.url,
+                candidateUrl: d.providerUrl,
+                verifiedCustomerHosts: [
+                  customDomainVerifiedAt ? (appProject?.custom_domain ?? null) : null,
+                  brandedDomainVerifiedAt ? (appProject?.branded_domain ?? null) : null,
+                ],
               }) ??
               resolveLegacyProviderUrl(d.url),
             providerUrl: refreshed?.providerUrl ?? d.providerUrl,

@@ -19,6 +19,11 @@ vi.mock("@/lib/db/client", () => ({
         // är ett lat "thenable": `.then()` triggar `selectLimit()` bara om
         // den awaitas DIREKT (inget efterföljande `.limit()`), så en kedja
         // som ANROPAR `.limit(n)` konsumerar inte av misstag en extra kö-post.
+        innerJoin: () => ({
+          where: () => ({
+            limit: selectLimit,
+          }),
+        }),
         where: () => ({
           limit: selectLimit,
           orderBy: () => ({
@@ -54,6 +59,7 @@ const {
   getLinkedDomainForChat,
   getLatestReadyDeploymentIdentityForChat,
   pickProductionReadyIdentity,
+  resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
   resolveCanonicalVercelProjectForDomain,
 } = await import("./deployment");
@@ -467,5 +473,53 @@ describe("resolveCanonicalVercelProjectForDomain (#519 bugbot round 3)", () => {
       source: "none",
       projectId: "vp_cache",
     });
+  });
+});
+
+describe("resolveDeploymentLiveUrlForChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps a stored alias when custom is verified", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: "www.kund.se",
+        customDomainVerifiedAt: new Date("2026-09-01"),
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        fallbackUrl: "https://demo.vercel.app",
+      }),
+    ).resolves.toBe("https://demo.vercel.app");
+  });
+
+  it("does not persist custom when there is no stored persist-url", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: "www.kund.se",
+        customDomainVerifiedAt: new Date("2026-09-01"),
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        fallbackUrl: null,
+      }),
+    ).resolves.toBeNull();
   });
 });

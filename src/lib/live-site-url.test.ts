@@ -4,6 +4,7 @@ import {
   isGitPreviewVercelHost,
   isProductionProviderVercelHost,
   isUniqueVercelDeploymentHost,
+  persistableDeploymentUrl,
   pickCustomerFacingProductionAlias,
   selectCurrentProductionIdentityUrl,
 } from "./live-site-url";
@@ -136,6 +137,104 @@ describe("selectCurrentProductionIdentityUrl", () => {
         },
         { attestedProductionHost: "sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app" },
       ),
+    ).toBeNull();
+  });
+});
+
+describe("persistableDeploymentUrl", () => {
+  it("writes policyUrl when present, including proven custom", () => {
+    expect(
+      persistableDeploymentUrl({
+        policyUrl: "https://demo.vercel.app",
+        candidateUrl: "https://www.kund.se",
+      }),
+    ).toBe("https://demo.vercel.app");
+    expect(
+      persistableDeploymentUrl({
+        policyUrl: "https://www.kund.se",
+        candidateUrl: "https://demo.vercel.app",
+      }),
+    ).toBe("https://www.kund.se");
+  });
+
+  it("does not persist resolveLiveUrl-custom when policy is absent", () => {
+    expect(
+      persistableDeploymentUrl({
+        policyUrl: null,
+        candidateUrl: "https://www.kund.se",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps an already stored alias instead of overwriting with custom", () => {
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://demo.vercel.app",
+        candidateUrl: "https://www.kund.se",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).toBe("https://demo.vercel.app");
+  });
+
+  it("keeps an already stored verified custom host", () => {
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://www.kund.se",
+        candidateUrl: "https://demo.vercel.app",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).toBe("https://www.kund.se");
+  });
+
+  it("does not keep unverified custom or branded hosts as last-working", () => {
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://www.kund.se",
+        candidateUrl: "https://demo.vercel.app",
+      }),
+    ).toBe("https://demo.vercel.app");
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://old.sites.sajtmaskin.se",
+        candidateUrl: "https://legacy-provider.vercel.app",
+      }),
+    ).toBe("https://legacy-provider.vercel.app");
+  });
+
+  it("persists a provider alias candidate and rejects unique or git hosts", () => {
+    expect(persistableDeploymentUrl({ candidateUrl: "https://demo.vercel.app" })).toBe(
+      "https://demo.vercel.app",
+    );
+    expect(persistableDeploymentUrl({ candidateUrl: "demo.vercel.app" })).toBe(
+      "https://demo.vercel.app",
+    );
+    expect(
+      persistableDeploymentUrl({ candidateUrl: "https://demo-8fyovx8jc-team.vercel.app" }),
+    ).toBeNull();
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        candidateUrl: "https://demo-git-feat-x-team.vercel.app",
+      }),
+    ).toBeNull();
+  });
+
+  it("writes an attested policy alias even when the 8–12 heuristic would flag it", () => {
+    expect(
+      persistableDeploymentUrl({
+        policyUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+        candidateUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      }),
+    ).toBe("https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app");
+  });
+
+  it("rejects a git policyUrl", () => {
+    expect(
+      persistableDeploymentUrl({
+        policyUrl: "https://demo-git-feat-x-team.vercel.app",
+        candidateUrl: "https://demo.vercel.app",
+      }),
     ).toBeNull();
   });
 });

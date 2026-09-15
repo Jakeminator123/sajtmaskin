@@ -26,6 +26,7 @@ const setLatestDeploymentLiveUrlForChat = vi.hoisted(() => vi.fn());
 const getLatestReadyDeploymentIdentityForChat = vi.hoisted(() => vi.fn());
 const proveCanonicalHttps = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
+const getVercelDeployment = vi.hoisted(() => vi.fn());
 const ensureVercelProjectDomain = vi.hoisted(() => vi.fn());
 const ensureVercelProject = vi.hoisted(() => vi.fn());
 const checkVercelProjectDomain = vi.hoisted(() => vi.fn());
@@ -82,7 +83,7 @@ vi.mock("@/lib/deploy/canonical-https-proof", async (importOriginal) => ({
 
 vi.mock("@/lib/vercel/vercel-deploy", () => ({
   createVercelDeployment,
-  getVercelDeployment: vi.fn(),
+  getVercelDeployment,
   mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
   buildGeneratedVercelProjectName: (name: string) => name,
   sanitizeVercelProjectName: (name: string) => name,
@@ -2831,6 +2832,104 @@ describe("POST /api/v0/deployments", () => {
     expect(JSON.stringify(files)).not.toContain("X-Robots-Tag");
   });
 
+  it("keeps the persisted alias on GET refresh when custom is verified without HTTPS", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_1",
+      custom_domain: "www.kund.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+    });
+    checkVercelProjectDomain.mockResolvedValue(true);
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_refresh",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        status: "building",
+        url: "https://demo.vercel.app",
+        providerUrl: "https://demo.vercel.app",
+        inspectorUrl: null,
+        vercelDeploymentId: "dpl_refresh",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-15T00:00:00Z"),
+        updatedAt: new Date("2026-09-15T00:00:00Z"),
+      },
+    ]);
+    getVercelDeployment.mockResolvedValue({
+      readyState: "READY",
+      url: "https://demo-8fyovx8jc-team.vercel.app",
+      inspectorUrl: null,
+      vercelProjectId: "vp_1",
+    });
+
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_refresh",
+      "ready",
+      expect.objectContaining({ url: "https://demo.vercel.app" }),
+    );
+    expect(updateDeploymentStatus).not.toHaveBeenCalledWith(
+      "dep_refresh",
+      "ready",
+      expect.objectContaining({ url: "https://www.kund.se" }),
+    );
+    expect(body.deployments).toEqual([
+      expect.objectContaining({
+        id: "dep_refresh",
+        url: "https://demo.vercel.app",
+      }),
+    ]);
+  });
+
+  it("shows the stored policy URL on GET instead of resolveLiveUrl custom", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_1",
+      custom_domain: "www.kund.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+    });
+    checkVercelProjectDomain.mockResolvedValue(true);
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_ready",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        status: "ready",
+        url: "https://demo.vercel.app",
+        providerUrl: "https://demo.vercel.app",
+        inspectorUrl: null,
+        vercelDeploymentId: "dpl_ready",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-15T00:00:00Z"),
+        updatedAt: new Date("2026-09-15T00:00:00Z"),
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(getVercelDeployment).not.toHaveBeenCalled();
+    expect(body.deployments).toEqual([
+      expect.objectContaining({
+        id: "dep_ready",
+        url: "https://demo.vercel.app",
+      }),
+    ]);
+    expect(body.deployments[0].url).not.toBe("https://www.kund.se");
+  });
+
   it("does not noindex the attested alias when HTTPS proof is unknown", async () => {
     vi.stubEnv("SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT", "true");
     const commit = vi.fn(async () => undefined);
@@ -2892,6 +2991,11 @@ describe("POST /api/v0/deployments", () => {
         envVars: { NEXT_PUBLIC_SITE_URL: "https://demo.vercel.app" },
       }),
     );
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_1",
+      "ready",
+      expect.objectContaining({ url: "https://demo.vercel.app" }),
+    );
     const files = (
       createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string }> }
     ).files;
@@ -2947,7 +3051,8 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(200);
-    expect((await res.json()).canonicalAddressGate).toMatchObject({
+    const body = await res.json();
+    expect(body.canonicalAddressGate).toMatchObject({
       requested: true,
       enabled: false,
       reason: "provider_unknown",
@@ -2956,6 +3061,63 @@ describe("POST /api/v0/deployments", () => {
       expect.objectContaining({
         envVars: { NEXT_PUBLIC_SITE_URL: "https://customer.example" },
       }),
+    );
+    expect(body.url).not.toBe("https://www.kund.se");
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_1",
+      "ready",
+      expect.objectContaining({ url: null }),
+    );
+  });
+
+  it("does not persist custom when alias is unknown and there is no last-working policy", async () => {
+    vi.stubEnv("SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT", "true");
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    }));
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Demo",
+      custom_domain: "www.kund.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+    });
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_1",
+      name: "demo",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
+    });
+    getLatestReadyDeploymentIdentityForChat.mockResolvedValue(null);
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo-8fyovx8jc-team.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.url).toBeNull();
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_1",
+      "ready",
+      expect.objectContaining({ url: null }),
     );
   });
 
@@ -3092,6 +3254,11 @@ describe("POST /api/v0/deployments", () => {
       expect.objectContaining({
         envVars: { NEXT_PUBLIC_SITE_URL: "https://demo.vercel.app" },
       }),
+    );
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_1",
+      "ready",
+      expect.objectContaining({ url: "https://demo.vercel.app" }),
     );
     const files = (
       createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string }> }

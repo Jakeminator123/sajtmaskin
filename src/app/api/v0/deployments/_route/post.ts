@@ -51,6 +51,7 @@ import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
 import {
   isGitPreviewVercelHost,
   normalizeDomainHostname,
+  persistableDeploymentUrl,
   resolveLiveUrl,
   selectCurrentProductionIdentityUrl,
 } from "@/lib/live-site-url";
@@ -840,17 +841,10 @@ export async function POST(req: Request) {
           console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
         }
 
-        const liveUrl =
-          policyUrl ??
-          resolveLiveUrl({
-            projectId: engineProjectId,
-            versionId,
-            providerUrl: created.url,
-            brandedDomain: publishedIdentity.brandedDomain,
-            brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
-            customDomain: publishedIdentity.customDomain,
-            customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
-          });
+        const liveUrl = persistableDeploymentUrl({
+          policyUrl,
+          candidateUrl: created.url,
+        });
 
         // `syncEnvVarsToVercelProject` upserts env vars on the Vercel PROJECT
         // so a later redeploy triggered outside Sajtmaskin (dashboard restart,
@@ -878,7 +872,7 @@ export async function POST(req: Request) {
           vercelDeploymentId: created.vercelDeploymentId,
           vercelProjectId: effectiveProjectId ?? undefined,
           providerUrl: created.url ?? undefined,
-          url: liveUrl ?? undefined,
+          url: liveUrl,
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
         // BB#deploy2: den som VINNER den atomiska övergången till `error` äger
