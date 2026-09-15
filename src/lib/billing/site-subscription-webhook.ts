@@ -172,6 +172,14 @@ export async function fulfillPaidSubscriptionRow(input: {
   subscription?: Stripe.Subscription;
   invoice?: Stripe.Invoice | null;
 }): Promise<{ granted: boolean; status: string; reason: string; applied: boolean }> {
+  if (
+    !canBindOpenRow({
+      existingStripeSubscriptionId: input.row.stripe_subscription_id,
+      eventStripeSubscriptionId: input.stripeSubscriptionId,
+    })
+  ) {
+    return { granted: false, status: "skipped", reason: "foreign_subscription", applied: false };
+  }
   const subscription =
     input.subscription ??
     (await retrieveSubscriptionFresh(input.stripe, input.stripeSubscriptionId));

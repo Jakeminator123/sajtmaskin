@@ -271,7 +271,6 @@ describe("repairPendingCheckoutClaim", () => {
       expires_at: Math.floor(now.getTime() / 1000) - 60,
       subscription: null,
     });
-    getBillingCustomer.mockResolvedValue({ stripe_customer_id: "cus_1" });
     const list = vi.fn().mockResolvedValue({ data: [] });
     updateSiteSubscription.mockResolvedValue({ id: "sub_1", lifecycle_state: "ended" });
 
@@ -285,6 +284,7 @@ describe("repairPendingCheckoutClaim", () => {
     });
 
     expect(result).toEqual({ action: "end_claim", reason: "session_expired" });
+    expect(list).not.toHaveBeenCalled();
     expect(fulfillPaidSubscriptionRow).not.toHaveBeenCalled();
     expect(updateSiteSubscription).toHaveBeenCalledWith(
       "sub_1",
@@ -358,11 +358,93 @@ describe("repairPendingCheckoutClaim", () => {
     );
   });
 
-  it("hittar subscription via kund+metadata när sessionen saknar id", async () => {
+  it("gissar inte subscription från kundlistan när session-id finns men sub-id saknas", async () => {
     const retrieve = vi.fn().mockResolvedValue({
       status: "complete",
       subscription: null,
     });
+    getBillingCustomer.mockResolvedValue({ stripe_customer_id: "cus_1" });
+    const list = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "sub_orphan",
+          metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+        },
+      ],
+    });
+
+    const result = await repairPendingCheckoutClaim({
+      stripe: {
+        checkout: { sessions: { retrieve } },
+        subscriptions: { list },
+      } as never,
+      row: pendingRow(new Date("2026-09-15T11:00:00.000Z")) as never,
+      now,
+    });
+
+    expect(result).toEqual({ action: "leave", reason: "complete_without_subscription" });
+    expect(list).not.toHaveBeenCalled();
+    expect(getBillingCustomer).not.toHaveBeenCalled();
+    expect(fulfillPaidSubscriptionRow).not.toHaveBeenCalled();
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("använder radens stripe-id när complete-session saknar subscription", async () => {
+    const retrieve = vi.fn().mockResolvedValue({
+      status: "complete",
+      subscription: null,
+    });
+    const list = vi.fn();
+    fulfillPaidSubscriptionRow.mockResolvedValue({
+      granted: true,
+      status: "simulated",
+      reason: "test_simulated",
+    });
+
+    const result = await repairPendingCheckoutClaim({
+      stripe: {
+        checkout: { sessions: { retrieve } },
+        subscriptions: { list },
+      } as never,
+      row: {
+        ...pendingRow(new Date("2026-09-15T11:00:00.000Z")),
+        stripe_subscription_id: "sub_row",
+      } as never,
+      now,
+    });
+
+    expect(result).toMatchObject({ action: "activate", reason: "session_complete" });
+    expect(list).not.toHaveBeenCalled();
+    expect(fulfillPaidSubscriptionRow).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_row" }),
+    );
+  });
+
+  it("binder inte complete-session mot annat stripe-id än radens", async () => {
+    const retrieve = vi.fn().mockResolvedValue({
+      status: "complete",
+      subscription: "sub_orphan",
+    });
+    const list = vi.fn();
+
+    const result = await repairPendingCheckoutClaim({
+      stripe: {
+        checkout: { sessions: { retrieve } },
+        subscriptions: { list },
+      } as never,
+      row: {
+        ...pendingRow(new Date("2026-09-15T11:00:00.000Z")),
+        stripe_subscription_id: "sub_winner",
+      } as never,
+      now,
+    });
+
+    expect(result).toEqual({ action: "leave", reason: "foreign_subscription" });
+    expect(list).not.toHaveBeenCalled();
+    expect(fulfillPaidSubscriptionRow).not.toHaveBeenCalled();
+  });
+
+  it("söker kundlistan bara i nöd utan session-id och stripe-id", async () => {
     getBillingCustomer.mockResolvedValue({ stripe_customer_id: "cus_1" });
     const list = vi.fn().mockResolvedValue({
       data: [
@@ -380,38 +462,44 @@ describe("repairPendingCheckoutClaim", () => {
 
     const result = await repairPendingCheckoutClaim({
       stripe: {
-        checkout: { sessions: { retrieve } },
+        checkout: { sessions: { retrieve: vi.fn() } },
         subscriptions: { list },
       } as never,
-      row: pendingRow(new Date("2026-09-15T11:00:00.000Z")) as never,
+      row: {
+        ...pendingRow(new Date("2026-09-15T11:00:00.000Z")),
+        stripe_checkout_session_id: null,
+        stripe_subscription_id: null,
+      } as never,
       now,
     });
 
     expect(result).toMatchObject({ action: "activate", reason: "session_complete" });
+    expect(list).toHaveBeenCalled();
     expect(fulfillPaidSubscriptionRow).toHaveBeenCalledWith(
       expect.objectContaining({ stripeSubscriptionId: "sub_found" }),
     );
   });
 
-  it("släpper inte anspråk när kundlistan mot Stripe failar", async () => {
-    const retrieve = vi.fn().mockResolvedValue({
-      status: "expired",
-      subscription: null,
-    });
+  it("släpper inte nöd-anspråk när kundlistan mot Stripe failar", async () => {
     getBillingCustomer.mockResolvedValue({ stripe_customer_id: "cus_1" });
     const list = vi.fn().mockRejectedValue(new Error("stripe_5xx"));
 
     const result = await repairPendingCheckoutClaim({
       stripe: {
-        checkout: { sessions: { retrieve } },
+        checkout: { sessions: { retrieve: vi.fn() } },
         subscriptions: { list },
       } as never,
-      row: pendingRow(new Date("2026-09-15T11:00:00.000Z")) as never,
+      row: {
+        ...pendingRow(new Date("2026-09-15T11:00:00.000Z")),
+        stripe_checkout_session_id: null,
+        stripe_subscription_id: null,
+      } as never,
       now,
     });
 
     expect(result).toEqual({ action: "leave", reason: "session_unreachable" });
     expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(fulfillPaidSubscriptionRow).not.toHaveBeenCalled();
   });
 
   it("märker complete utan subscription-id efter operatorgräns", async () => {

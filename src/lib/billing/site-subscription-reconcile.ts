@@ -19,6 +19,7 @@ import { isUniqueViolation } from "./site-subscription-errors";
 import { getSiteHostingProvider, type HostingTarget } from "./site-subscription-hosting";
 import {
   applyHostingProviderResult,
+  canBindOpenRow,
   decidePendingCheckoutRepair,
   decideReconcileAction,
   type CheckoutSessionLookupKind,
@@ -214,6 +215,12 @@ async function findProjectSubscriptionId(
   }
 }
 
+function hasBoundStripePointer(row: SiteSubscriptionRow): boolean {
+  return Boolean(
+    row.stripe_checkout_session_id?.trim() || row.stripe_subscription_id?.trim(),
+  );
+}
+
 export async function repairPendingCheckoutClaim(input: {
   stripe: Stripe;
   row: SiteSubscriptionRow;
@@ -224,18 +231,20 @@ export async function repairPendingCheckoutClaim(input: {
     input.stripe,
     input.row.stripe_checkout_session_id,
   );
-  let session = lookedUp.session;
+  const session = lookedUp.session;
   let foundSubscriptionId =
     session?.subscriptionId ?? input.row.stripe_subscription_id ?? null;
   let searchKnown = true;
 
-  if (!foundSubscriptionId && lookedUp.lookup !== "unreachable") {
+  // Nöd utan session: båda Stripe-fälten tomma. Session-id ⇒ aldrig list.find.
+  if (
+    !foundSubscriptionId &&
+    !hasBoundStripePointer(input.row) &&
+    lookedUp.lookup !== "unreachable"
+  ) {
     const searched = await findProjectSubscriptionId(input.stripe, input.row);
     searchKnown = searched.known;
     foundSubscriptionId = searched.id;
-    if (foundSubscriptionId && session) {
-      session = { ...session, subscriptionId: foundSubscriptionId };
-    }
   }
 
   const decision = decidePendingCheckoutRepair({
@@ -293,6 +302,14 @@ export async function repairPendingCheckoutClaim(input: {
   const stripeSubscriptionId = foundSubscriptionId ?? session?.subscriptionId;
   if (!stripeSubscriptionId) {
     return { action: "leave", reason: "complete_without_subscription" };
+  }
+  if (
+    !canBindOpenRow({
+      existingStripeSubscriptionId: input.row.stripe_subscription_id,
+      eventStripeSubscriptionId: stripeSubscriptionId,
+    })
+  ) {
+    return { action: "leave", reason: "foreign_subscription" };
   }
 
   const { fulfillPaidSubscriptionRow } = await import("./site-subscription-webhook");

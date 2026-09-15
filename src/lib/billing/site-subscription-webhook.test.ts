@@ -530,6 +530,23 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(enqueueHostingJob).not.toHaveBeenCalled();
   });
 
+  it("binder inte fulfill till rad med annat stripe-id", async () => {
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: { ...row, stripe_subscription_id: "sub_winner" } as never,
+      stripeSubscriptionId: "sub_orphan",
+    });
+
+    expect(result).toMatchObject({
+      granted: false,
+      applied: false,
+      reason: "foreign_subscription",
+    });
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(retrieveSubscriptionFresh).not.toHaveBeenCalled();
+    expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+  });
+
   it("promoverar inte checkout_pending via incomplete eller unpaid-sub", async () => {
     const pending = { ...row, lifecycle_state: "checkout_pending" as const };
     retrieveInvoiceFresh.mockResolvedValue({
