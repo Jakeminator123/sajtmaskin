@@ -12,6 +12,9 @@
 
 export const KOSTNADSFRI_PATH_PREFIX = "/kostnadsfri/";
 
+/** Invite-only offer page. Sibling of the slug prefix, not a funnel path. */
+export const KOSTNADSFRI_INFORMATION_PATH = "/kostnadsfri-information";
+
 export type KostnadsfriAnalyticsEvent = "besok" | "verifierad" | "skapad";
 
 const EVENT_SEGMENTS: Record<Exclude<KostnadsfriAnalyticsEvent, "besok">, string> = {
