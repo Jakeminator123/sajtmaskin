@@ -143,7 +143,7 @@ export async function GET(
               try {
                 const result = await updateDeploymentStatus(deploymentId, mapped.status, {
                   providerUrl: vd.url || undefined,
-                  url: liveUrl ?? undefined,
+                  ...(liveUrl ? { url: liveUrl } : {}),
                   inspectorUrl: vd.inspectorUrl || undefined,
                 });
                 transitionedToError = result.transitionedToError;
