@@ -38,21 +38,26 @@ Mergeordning: **#1369 först**, därefter rebase #1378 + #1379 på ny preview-ti
 
 #1372 / #1374 kostnadsfri. #1375 / #1376 / #1377 bugg-PR:er. Dependabot.
 
-## Nästa implementationsskivor
+## Nästa implementationsskivor (öppna drafts)
 
-D2 gated offer och A3 HTTPS-helper: pågår i egna worktrees, SHA saknas ännu
-(`gh pr list` 2026-09-15 visade inga PR-nummer). Lokal D2-offer-yta
-`C:\Users\jakem\dev\projects\sajtmaskin-hosting-d2-offer`
-(`feat/hosting-d2-offer-gate`) stod på samma preview-tip utan egen head.
+Inte full D2 / A3 / A4. Ingen aktivering.
 
-## Worktrees — radera inte de tre hosting-ytorna
+| PR | Gren | Head | Base | Vad |
+| --- | --- | --- | --- | --- |
+| [#1381](https://github.com/Jakeminator123/sajtmaskin/pull/1381) D2 gated offer | `feat/hosting-d2-offer-gate` | `432a2c685750fc976d3ce29ce67a551dde0dee33` | `e398d2b3c3bb7531436ae8f1befd44e0bea60e56` | Serverägt erbjudande + `POST /api/stripe/site-subscription/checkout` som alltid 503. Ingen Stripe-session, ingen DB-write. Worktree `C:\Users\jakem\dev\projects\sajtmaskin-hosting-d2-offer`. |
+| [#1382](https://github.com/Jakeminator123/sajtmaskin/pull/1382) A3 HTTPS-helper | `feat/hosting-a3-https-proof` | `794d43a90dea88f8882405a0ddd449239eeeeb0f` | `e398d2b3c3bb7531436ae8f1befd44e0bea60e56` | Fristående `proveCanonicalHttps`. Inte importerad från deploy-POST. Worktree `C:\Users\jakem\dev\projects\sajtmaskin-hosting-a3-https`. |
+
+Denna underlags-PR: [#1380](https://github.com/Jakeminator123/sajtmaskin/pull/1380).
+
+## Worktrees — radera inte hosting-ytorna
 
 | Yta | Gren / PR |
 | --- | --- |
 | `C:\Users\jakem\dev\projects\sajtmaskin-codex-hosting` | #1369 / `feat/address-contract-a3` |
 | `C:\Users\jakem\dev\projects\sajtmaskin-codex-c2` | #1378 / `codex/hosting-c2-domain-observation` |
 | `C:\Users\jakem\dev\projects\sajtmaskin-codex-d2` | #1379 / `codex/hosting-d2-checkout-boundary` |
+| `C:\Users\jakem\dev\projects\sajtmaskin-hosting-d2-offer` | #1381 / `feat/hosting-d2-offer-gate` |
+| `C:\Users\jakem\dev\projects\sajtmaskin-hosting-a3-https` | #1382 / `feat/hosting-a3-https-proof` |
+| `C:\Users\jakem\dev\projects\sajtmaskin-hosting-a1-dns` | #1380 / `docs/hosting-a1-dns-underlag` |
 
-Denna underlagsyta: `C:\Users\jakem\dev\projects\sajtmaskin-hosting-a1-dns`
-(`docs/hosting-a1-dns-underlag`, draft [#1380](https://github.com/Jakeminator123/sajtmaskin/pull/1380)).
 Ingen skarp DNS-/alias-/Vercel-skrivning.
