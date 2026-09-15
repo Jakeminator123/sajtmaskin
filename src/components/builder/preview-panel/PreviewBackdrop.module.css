@@ -1,0 +1,16 @@
+/* Bakgrundsvideon tonas in först när den faktiskt spelar, så en kall
+   dekodning aldrig blottar en svart ruta över postern. */
+.video {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.videoPlaying {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video {
+    transition: none;
+  }
+}
