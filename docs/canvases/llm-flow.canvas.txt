@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "1c547d2f1",
+    "commit": "1765c3de3",
     "commitDate": "2026-09-15",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 10,
     "openP2": 8,
-    "openP3": 1,
+    "openP3": 2,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 5,
+      "churn": 4,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "Aktiv: 4 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -134,17 +134,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 1,
+        "P3": 2,
         "other": 0
       },
-      "churn": 12,
+      "churn": 13,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 12,
+      "churn": 11,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
@@ -223,6 +223,12 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
     {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
+    },
+    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -233,12 +239,6 @@ const DATA: CanvasData = {
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "2 oppna backlog-rader (P0:0 P1:1 P2:1 P3:0)"
-    },
-    {
-      "name": "ai_models",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "topOpenRisks": [
