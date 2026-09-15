@@ -83,7 +83,8 @@ export function KostnadsfriPage({
       setError(null);
 
       try {
-        // Build prompt from wizard data
+        // Build prompt from wizard data. Sidantalet finns inte i prompten utan
+        // skickas strukturerat till ruttplanen av auto-starten i buildern.
         const prompt = buildPromptFromWizardData(wizardData);
 
         // Create app project first (same pattern as category page)
@@ -139,7 +140,7 @@ export function KostnadsfriPage({
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background">
       {phase === "password" && (
         <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
       )}

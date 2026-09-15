@@ -276,6 +276,43 @@ describe("proxy CSP — Vercel Toolbar / Live allowlist", () => {
   });
 });
 
+describe("proxy CSP — Vercel Blob media host", () => {
+  it("allows the public Blob store on media-src so the kostnadsfri intro film can play", async () => {
+    const mediaSrc = directive(
+      await cspFor("https://sajtmaskin.example/kostnadsfri/exempel-ab"),
+      "media-src",
+    );
+
+    // `blob:` is the URL scheme, not the Blob storage domain. Both are needed:
+    // dropping either one blocks the film or the in-page blob: media sources.
+    expect(mediaSrc).toContain("https://*.public.blob.vercel-storage.com");
+    expect(mediaSrc.split(/\s+/)).toContain("blob:");
+  });
+
+  it("keeps the Blob media host once CSP enforcement is switched on", async () => {
+    const previous = process.env.CSP_ENFORCE;
+    process.env.CSP_ENFORCE = "true";
+
+    try {
+      const response = await proxy(
+        new NextRequest(new URL("https://sajtmaskin.example/kostnadsfri/exempel-ab")),
+      );
+      const enforced = response.headers.get("Content-Security-Policy") ?? "";
+
+      expect(response.headers.get("Content-Security-Policy-Report-Only")).toBeNull();
+      expect(directive(enforced, "media-src")).toContain(
+        "https://*.public.blob.vercel-storage.com",
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CSP_ENFORCE;
+      } else {
+        process.env.CSP_ENFORCE = previous;
+      }
+    }
+  });
+});
+
 describe("proxy CSP — first-party third-party egress allowlist", () => {
   it("allows Google Sign-In fonts + Mixpanel so they stop flooding /api/csp-report", async () => {
     const csp = await cspFor("https://sajtmaskin.example/");
