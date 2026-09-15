@@ -11,6 +11,7 @@ import {
 import {
   checkVercelProjectDomain,
   getVercelDeployment,
+  getVercelProjectProductionIdentity,
   mapVercelReadyStateToStatus,
 } from "@/lib/vercel/vercel-deploy";
 import {
@@ -28,6 +29,7 @@ import {
 } from "@/lib/db/services/projects";
 import { getBrandedLiveSiteDomain, persistableDeploymentUrl } from "@/lib/live-site-url";
 import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
+import { selectLivePublishIdentity } from "@/lib/projects/site-overview";
 import { resolveLegacyProviderUrl } from "./legacy-provider-url";
 
 export async function GET(req: Request) {
@@ -66,8 +68,6 @@ export async function GET(req: Request) {
             .where(eq(deployments.chatId, internalChatId))
             .orderBy(desc(deployments.createdAt))
         : [];
-      const latestReadyDeployment = result.find((deployment) => deployment.status === "ready");
-
       // Contract with the builder UI: top-level `project` carries the persisted
       // Vercel project link (null-safe; legacy chats have no app_projects row).
       const appProject = appProjectId ? await getProjectById(appProjectId).catch(() => null) : null;
@@ -82,6 +82,13 @@ export async function GET(req: Request) {
       const effectiveVercelProjectId = internalChatId
         ? await resolveLatestOrCachedVercelProjectId(internalChatId, appProject?.vercel_project_id)
         : null;
+      const attestedProduction = effectiveVercelProjectId
+        ? await getVercelProjectProductionIdentity(effectiveVercelProjectId)
+        : null;
+      const published = selectLivePublishIdentity(result, {
+        vercelProjectId: effectiveVercelProjectId,
+        productionDeploymentId: attestedProduction?.productionDeploymentId ?? null,
+      });
       let brandedDomainVerifiedAt = appProject?.branded_domain_verified_at ?? null;
       let customDomainVerifiedAt = appProject?.custom_domain_verified_at ?? null;
       const brandedDomainCheckedAt = appProject?.branded_domain_checked_at ?? null;
@@ -140,7 +147,7 @@ export async function GET(req: Request) {
           );
           const activationAllowed = resolveBrandedPilotEligibility({
             projectId: appProjectId,
-            versionId: latestReadyDeployment?.versionId,
+            versionId: published?.versionId,
           }).allowed;
           if (wasVerifiedBefore || activationAllowed) {
             const marked = await markProjectBrandedDomainVerified(
@@ -189,7 +196,7 @@ export async function GET(req: Request) {
       };
 
       if (!internalChatId) {
-        return NextResponse.json({ deployments: [], project });
+        return NextResponse.json({ deployments: [], project, production: null });
       }
 
       const refreshedById = new Map<
@@ -289,6 +296,9 @@ export async function GET(req: Request) {
           };
         }),
         project,
+        production: published
+          ? { deploymentId: published.id, versionId: published.versionId ?? null }
+          : null,
       });
     } catch (err) {
       console.error("Get deployments error:", err);

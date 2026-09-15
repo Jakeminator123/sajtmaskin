@@ -46,10 +46,17 @@ export type ReviewFinding = {
   message: string;
 };
 
+export type UserRequestPinSource =
+  | "version_message_id"
+  | "version_created_at"
+  | "latest_user_fallback"
+  | "empty";
+
 export type ReviewBundle = {
   versionId: string;
   parentVersionId: string | null;
   userRequest: string;
+  userRequestSource?: UserRequestPinSource;
   briefSummary: string;
   changedFiles: string[];
   screenshots: LiveReviewScreenshotSet;

@@ -7,6 +7,7 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import { buildKostnadsfriAgentBrief } from "@/lib/kostnadsfri/agent-brief";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -45,6 +46,10 @@ export function KostnadsfriPage({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("password");
   const [companyData, setCompanyData] = useState<KostnadsfriCompanyData | null>(null);
+  // Sajtagentens underlag växer med flödet: bolagsdata efter lösenordet,
+  // wizardens svar när de bekräftats. Sparas separat från prompten eftersom
+  // prompten är en engångsartefakt medan underlaget lever kvar i samtalet.
+  const [wizardData, setWizardData] = useState<MiniWizardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const activeCompanyName = companyData?.companyName ?? companyName;
   const activeOpenclawConfig = useMemo(
@@ -52,11 +57,25 @@ export function KostnadsfriPage({
     [companyData?.openclawConfig, openclawConfig],
   );
 
+  // Underlaget speglar vad som är bestämt just nu, så Sajtagenten kan ställa en
+  // riktad följdfråga i stället för en allmän. Allowlistat i `agent-brief.ts`.
+  const agentBrief = useMemo(
+    () =>
+      buildKostnadsfriAgentBrief({
+        stage: phase === "password" ? "gate" : phase === "wizard" ? "wizard" : "handoff",
+        companyData,
+        fallbackCompanyName: companyName,
+        wizardData,
+      }),
+    [phase, companyData, companyName, wizardData],
+  );
+
   useEffect(() => {
     window.__SITEMASKIN_CONTEXT = {
       page: "kostnadsfri",
       slug,
       companyName: activeCompanyName,
+      kostnadsfriBrief: agentBrief,
       openclawSurface: {
         companyName: activeCompanyName,
         ...(activeOpenclawConfig ?? {}),
@@ -68,7 +87,7 @@ export function KostnadsfriPage({
       delete window.__SITEMASKIN_CONTEXT;
       window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
     };
-  }, [slug, activeCompanyName, activeOpenclawConfig]);
+  }, [slug, activeCompanyName, activeOpenclawConfig, agentBrief]);
 
   // Phase 1 -> Phase 2: Password verified
   const handlePasswordSuccess = useCallback((data: KostnadsfriCompanyData) => {
@@ -80,6 +99,7 @@ export function KostnadsfriPage({
   const handleWizardComplete = useCallback(
     async (wizardData: MiniWizardData) => {
       setPhase("thinking");
+      setWizardData(wizardData);
       setError(null);
 
       try {
@@ -133,6 +153,9 @@ export function KostnadsfriPage({
       } catch (err) {
         console.error("[Kostnadsfri] Failed to generate prompt:", err);
         setError("Något gick fel. Försök igen.");
+        // MiniWizard remountas tom mot companyData. Rensa handoff-svaren så
+        // `__SITEMASKIN_CONTEXT.kostnadsfriBrief` inte ligger kvar som bekräftade.
+        setWizardData(null);
         setPhase("wizard");
       }
     },

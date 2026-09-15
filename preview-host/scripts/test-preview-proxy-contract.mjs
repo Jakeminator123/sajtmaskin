@@ -841,7 +841,11 @@ try {
   const prewarm = writeSession({ chatId: "prewarm-running", prewarm: true });
   const prewarmHtml = await html(`/${prewarm.chatId}`);
   assert.equal(prewarmHtml.status, 200);
-  assert.match(prewarmHtml.body, /Startar preview/);
+  assert.match(prewarmHtml.body, /<title>Startar preview<\/title>/);
+  assert.match(prewarmHtml.body, /data-sajtmaskin-preview-boot="starting"/);
+  assert.match(prewarmHtml.body, /<h1>Sajten startar<\/h1>/);
+  assert.match(prewarmHtml.body, /http-equiv="refresh" content="4"/);
+  assert.doesNotMatch(prewarmHtml.body, /Status:\s*warm_project/);
   assert.doesNotMatch(prewarmHtml.body, /SKELETON_OR_LAST_GOOD_HTML/);
   const prewarmWs = await websocketHandshake(`/${prewarm.chatId}/app-socket`);
   assert.match(prewarmWs, /^HTTP\/1\.1 503 Service Unavailable/m);
@@ -856,6 +860,8 @@ try {
   const queuedBeforeFailedPrewarm = queuedBoots.length;
   const failedPrewarmHtml = await html(`/${failedPrewarm.chatId}`);
   assert.equal(failedPrewarmHtml.status, 503);
+  assert.match(failedPrewarmHtml.body, /<title>Preview kunde inte starta<\/title>/);
+  assert.match(failedPrewarmHtml.body, /data-sajtmaskin-preview-boot="error"/);
   assert.match(failedPrewarmHtml.body, /Preview kunde inte starta/);
   assert.doesNotMatch(failedPrewarmHtml.body, /http-equiv="refresh"/i);
   assert.doesNotMatch(failedPrewarmHtml.body, /SKELETON_OR_LAST_GOOD_HTML/);
@@ -882,7 +888,8 @@ try {
     booting: true,
   });
   const replacementHtml = await html(`/${replacement.chatId}`);
-  assert.match(replacementHtml.body, /Startar preview/);
+  assert.match(replacementHtml.body, /<title>Startar preview<\/title>/);
+  assert.match(replacementHtml.body, /data-sajtmaskin-preview-boot="starting"/);
   assert.doesNotMatch(replacementHtml.body, /SKELETON_OR_LAST_GOOD_HTML/);
   const replacementStatus = await json(
     `/preview/session/${replacement.previewSessionId}/status`,
@@ -906,7 +913,8 @@ try {
   const queuedBeforeFailedTraffic = queuedBoots.length;
   const failedHtml = await html(`/${failed.chatId}`);
   assert.equal(failedHtml.status, 503);
-  assert.match(failedHtml.body, /Preview kunde inte starta/);
+  assert.match(failedHtml.body, /<title>Preview kunde inte starta<\/title>/);
+  assert.match(failedHtml.body, /data-sajtmaskin-preview-boot="error"/);
   assert.doesNotMatch(failedHtml.body, /http-equiv="refresh"/i);
   assert.doesNotMatch(failedHtml.body, /SKELETON_OR_LAST_GOOD_HTML/);
   assert.equal(runtime.getRuntimeStateForChat(failed.chatId).booting, false);

@@ -1,7 +1,23 @@
 # A1 — DNS för riktiga kundvärdnamn och PSL-underlag
 
-Område: [01](../01-varumarkta-adresser.md). Driftpaket, inte utfört i plan-PR:n.
-DNS-delen behövs före [A4](A4-aktivering-och-migrering.md); PSL-spåret är separat.
+## Genomförandestatus 2026-09-15
+
+**Inte klart.** Read-only mätning 2026-09-15 03:49 CEST (resolver
+`80.58.61.254`, auktoritativ `ns01.one.com` = `195.206.121.10`) visade
+samma zonägare som 2026-08-24 och att `sites.sajtmaskin.se` plus
+`pilot-a1-test.sites.sajtmaskin.se` är NXDOMAIN. Tabellen ligger i
+[adressrunbooken](../../../../runbooks/branded-user-urls.md). Det är underlag,
+inte HTTPS-bevis och inte aktivering.
+
+PSL: avvakta. Ingen ansökan. Litet/beta, ingen `sites.*`-volym, portalens
+cookie-skydd ägs av A2.
+
+#1380 bar samma mätning plus en SHA-bunden `HANDOFF.md`. HANDOFF:en är stale
+efter #1369–#1386; stäng #1380 utan merge i stället för att hålla en andra
+masterplan.
+
+Område: [01](../01-varumarkta-adresser.md). Driftpaket. DNS-delen behövs före
+[A4](A4-aktivering-och-migrering.md); PSL-spåret är separat.
 
 ## Leverans
 
@@ -12,7 +28,8 @@ eller CNAME-post ger inte DNS för underliggande sluggar.
 ## Gör
 
 1. Läs aktuell zon och projektens rekommenderade DNS-värden. Runbookens
-   one.com/NXDOMAIN-uppgifter är från 2026-08-24 och måste mätas på nytt.
+   one.com/NXDOMAIN-rad från 2026-09-15 är senaste mätningen; mät om före
+   skarp skrivning.
 2. MVP-standard: lägg exakta CNAME-poster för pilotens sluggar hos aktuell
    DNS-operatör och exakta alias på respektive Vercel-projekt. Domäner får inte
    alla bindas till Sajtmaskins eget app-projekt.

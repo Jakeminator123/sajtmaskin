@@ -6,10 +6,10 @@
 > (`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`). Bolagsdatans PII-gräns och
 > pre-genereringen avgjordes 2026-09-15 — se
 > [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
-> Ingesten är byggd och ligger på `preview` via #1372; wizardens förifyllning
-> och taxonomins lib-ägare ligger i den här PR:n. `master` är auktoritet tills
-> promote skett. Avsnitt 2 och 3 nedan
-> är **underlaget** som ledde till besluten — läs beslutsraderna för gällande läge.
+> Ingest #1372, wizard-förifyllning + taxonomi-ägare #1374 och PII-hårdning
+> #1383 ligger på `preview`. `master` är auktoritet tills promote skett.
+> Avsnitt 2 och 3 nedan är **underlaget** som ledde till besluten — läs
+> beslutsraderna för gällande läge.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
