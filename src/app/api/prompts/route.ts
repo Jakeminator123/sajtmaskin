@@ -90,13 +90,21 @@ export async function POST(request: NextRequest) {
       }
 
       if (source === "kostnadsfri") {
+        if (!user?.id) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { success: false, error: "Logga in för att bygga hemsidan.", requiresAuth: true },
+              { status: 401 },
+            ),
+          );
+        }
         if (!kostnadsfriSlug || !projectId) {
           return attachSessionCookie(
             NextResponse.json({ success: false, error: "Ogiltig inbjudan." }, { status: 403 }),
           );
         }
         const project = await getProjectByIdForOwner(projectId, {
-          userId: user?.id ?? null,
+          userId: user.id,
           sessionId,
         });
         if (!project) {

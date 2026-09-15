@@ -13,14 +13,24 @@ import {
   markEmailVerified,
 } from "@/lib/db/services/users";
 import { URLS } from "@/lib/config";
+import { sanitizeKostnadsfriAuthReturnTo } from "@/lib/kostnadsfri/auth-return";
+
+function verifiedRedirect(appOrigin: string, path: string, query: string): string {
+  const target = path === "/" ? `${appOrigin}/?${query}` : `${appOrigin}${path}?${query}`;
+  return target;
+}
 
 export async function GET(req: NextRequest) {
   const appOrigin = URLS.baseUrl;
   const token = req.nextUrl.searchParams.get("token");
+  const returnTo = sanitizeKostnadsfriAuthReturnTo(
+    req.nextUrl.searchParams.get("returnTo"),
+    appOrigin,
+  ) ?? "/";
 
   if (!token) {
     return NextResponse.redirect(
-      `${appOrigin}/?verified=error&reason=missing_token`,
+      verifiedRedirect(appOrigin, returnTo, "verified=error&reason=missing_token"),
     );
   }
 
@@ -29,17 +39,17 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.redirect(
-        `${appOrigin}/?verified=error&reason=invalid_or_expired`,
+        verifiedRedirect(appOrigin, returnTo, "verified=error&reason=invalid_or_expired"),
       );
     }
 
     await markEmailVerified(user.id);
 
-    return NextResponse.redirect(`${appOrigin}/?verified=success`);
+    return NextResponse.redirect(verifiedRedirect(appOrigin, returnTo, "verified=success"));
   } catch (error) {
     console.error("[API/auth/verify-email] Error:", error);
     return NextResponse.redirect(
-      `${appOrigin}/?verified=error&reason=server_error`,
+      verifiedRedirect(appOrigin, returnTo, "verified=error&reason=server_error"),
     );
   }
 }
