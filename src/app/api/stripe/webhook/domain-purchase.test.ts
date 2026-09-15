@@ -20,6 +20,7 @@ const state = {
     string,
     unknown
   >,
+  constructEventError: null as Error | null,
 };
 
 const calls = {
@@ -32,6 +33,7 @@ const calls = {
   refundCreate: vi.fn(async () => ({ id: "re_1" })),
   createTransaction: vi.fn(async () => ({})),
   getTransactionByStripeSession: vi.fn(async () => null),
+  getUserById: vi.fn(async () => ({ id: "usr_1", email: "a@b.c" })),
 };
 
 let constructedEvent: unknown = null;
@@ -39,7 +41,10 @@ let constructedEvent: unknown = null;
 vi.mock("stripe", () => ({
   default: class FakeStripe {
     webhooks = {
-      constructEvent: () => constructedEvent,
+      constructEvent: () => {
+        if (state.constructEventError) throw state.constructEventError;
+        return constructedEvent;
+      },
     };
     refunds = {
       create: (...args: unknown[]) => calls.refundCreate(...(args as [])),
@@ -59,7 +64,7 @@ vi.mock("@/lib/db/services/transactions", () => ({
 }));
 
 vi.mock("@/lib/db/services/users", () => ({
-  getUserById: async () => ({ id: "usr_1", email: "a@b.c" }),
+  getUserById: (...args: unknown[]) => calls.getUserById(...(args as [])),
 }));
 
 vi.mock("@/lib/domains/fulfilment", () => ({
@@ -82,6 +87,13 @@ function webhookRequest(): Request {
   });
 }
 
+function unsignedWebhookRequest(): Request {
+  return new Request("http://localhost/api/stripe/webhook", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 function domainSessionEvent(type: string, sessionId = "cs_domain_1") {
   return {
     id: "evt_1",
@@ -89,6 +101,7 @@ function domainSessionEvent(type: string, sessionId = "cs_domain_1") {
     data: {
       object: {
         id: sessionId,
+        mode: "payment",
         payment_intent: "pi_1",
         metadata: { kind: "domain_purchase", domainOrderId: "ord_1", userId: "usr_1" },
       },
@@ -98,11 +111,96 @@ function domainSessionEvent(type: string, sessionId = "cs_domain_1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  state.constructEventError = null;
   state.markPaidResult = { outcome: "paid", order: { id: "ord_1", domain: "x.com" } };
   calls.markPaid.mockImplementation(async () => state.markPaidResult);
   calls.fulfil.mockImplementation(async () => ({ status: "registered" }));
   calls.refundOrder.mockImplementation(async () => true);
   calls.refundCreate.mockImplementation(async () => ({ id: "re_1" }));
+});
+
+function expectNoCheckoutDispatch(): void {
+  expect(calls.getTransactionByStripeSession).not.toHaveBeenCalled();
+  expect(calls.createTransaction).not.toHaveBeenCalled();
+  expect(calls.getUserById).not.toHaveBeenCalled();
+  expect(calls.markPaid).not.toHaveBeenCalled();
+  expect(calls.fulfil).not.toHaveBeenCalled();
+  expect(calls.refundOrder).not.toHaveBeenCalled();
+  expect(calls.refundCreate).not.toHaveBeenCalled();
+  expect(calls.markExpired).not.toHaveBeenCalled();
+}
+
+describe("stripe webhook — checkout dispatch boundary", () => {
+  it.each([
+    ["subscription without kind", "subscription", null],
+    ["subscription domain purchase", "subscription", { kind: "domain_purchase" }],
+    ["subscription site subscription", "subscription", { kind: "site_subscription" }],
+    ["subscription unknown kind", "subscription", { kind: "future_kind" }],
+    ["payment site subscription", "payment", { kind: "site_subscription" }],
+    ["setup domain purchase", "setup", { kind: "domain_purchase" }],
+    ["setup site subscription", "setup", { kind: "site_subscription" }],
+    ["payment unknown kind", "payment", { kind: "other_purchase" }],
+    ["payment empty kind", "payment", { kind: "" }],
+    ["payment whitespace kind", "payment", { kind: "   " }],
+    ["missing mode", undefined, null],
+    ["unknown mode", "future_mode", null],
+    ["payment null kind", "payment", { kind: null }],
+    ["payment numeric kind", "payment", { kind: 42 }],
+    ["payment object kind", "payment", { kind: { nested: true } }],
+    ["payment array metadata", "payment", ["kind", "domain_purchase"]],
+    ["payment string metadata", "payment", "domain_purchase"],
+  ])("fails closed for %s before any mutation lane", async (_label, mode, metadata) => {
+    constructedEvent = {
+      id: "evt_fenced",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_fenced", mode, metadata } },
+    };
+
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toEqual({ error: "checkout_contract_not_activated" });
+    expectNoCheckoutDispatch();
+  });
+
+  it.each([
+    ["null metadata", null],
+    ["missing kind", {}],
+    ["unknown kind", { kind: "future_kind" }],
+    ["empty kind", { kind: "" }],
+    ["whitespace kind", { kind: "   " }],
+  ])("ignores setup mode with %s", async (_label, metadata) => {
+    constructedEvent = {
+      id: "evt_setup",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_setup", mode: "setup", metadata } },
+    };
+
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ received: true, ignored: "unsupported_mode" });
+    expectNoCheckoutDispatch();
+  });
+
+  it("verifies the signature before dispatching", async () => {
+    constructedEvent = {
+      id: "evt_unsigned",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_unsigned", mode: "payment", metadata: null } },
+    };
+
+    const missingSignature = await POST(unsignedWebhookRequest() as never);
+    expect(missingSignature.status).toBe(400);
+    expectNoCheckoutDispatch();
+
+    state.constructEventError = new Error("bad signature");
+    const invalidSignature = await POST(webhookRequest() as never);
+    expect(invalidSignature.status).toBe(400);
+    expectNoCheckoutDispatch();
+  });
 });
 
 describe("stripe webhook — domain purchase", () => {
@@ -201,6 +299,7 @@ describe("stripe webhook — domain purchase", () => {
       data: {
         object: {
           id: "cs_domain_x",
+          mode: "payment",
           payment_intent: "pi_x",
           metadata: { kind: "domain_purchase" },
         },
@@ -264,6 +363,7 @@ describe("stripe webhook — domain purchase", () => {
       data: {
         object: {
           id: "cs_credits_1",
+          mode: "payment",
           payment_intent: "pi_2",
           metadata: { userId: "usr_1", packageId: "pkg_10", diamonds: "10" },
         },
