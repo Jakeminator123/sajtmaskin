@@ -27,6 +27,12 @@ export const STABILITY_TEST_GLOBS = ["**/*.stability.test.{ts,tsx}"];
  */
 export const POSTGRES_TEST_GLOBS = ["**/*.postgres.test.ts"];
 
+/**
+ * Live-shaped HTTPS probe tests. They mock dns/https so they do not contact
+ * customer hosts, but they are not part of the default CI suite.
+ */
+export const NETWORK_PROBE_TEST_GLOBS = ["**/*.probe.test.ts"];
+
 /** Delade exclude-globs (vendor-/build-träd) som båda lane-configarna använder. */
 export const SHARED_TEST_EXCLUDE = [
   "node_modules/**",
@@ -90,6 +96,11 @@ export default defineConfig({
       "tests/**/*.{test,spec}.{ts,tsx}",
       "scripts/**/*.{test,spec}.ts",
     ],
-    exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS, ...POSTGRES_TEST_GLOBS],
+    exclude: [
+      ...SHARED_TEST_EXCLUDE,
+      ...STABILITY_TEST_GLOBS,
+      ...POSTGRES_TEST_GLOBS,
+      ...NETWORK_PROBE_TEST_GLOBS,
+    ],
   },
 });

@@ -52,6 +52,7 @@ vi.mock("@/lib/tenant", () => ({
 const {
   setDeploymentDomainForRequest,
   getLinkedDomainForChat,
+  getLatestReadyDeploymentIdentityForChat,
   updateDeploymentStatus,
   resolveCanonicalVercelProjectForDomain,
 } = await import("./deployment");
@@ -153,6 +154,27 @@ describe("getLinkedDomainForChat (A2: domain project-name lock)", () => {
     const result = await getLinkedDomainForChat("chat_1");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("getLatestReadyDeploymentIdentityForChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the latest READY url and provider identity", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        url: "https://www.kund.se",
+        providerUrl: "https://kund-project.vercel.app",
+        vercelProjectId: "vp_1",
+      },
+    ]);
+    await expect(getLatestReadyDeploymentIdentityForChat("chat_1")).resolves.toEqual({
+      url: "https://www.kund.se",
+      providerUrl: "https://kund-project.vercel.app",
+      vercelProjectId: "vp_1",
+    });
   });
 });
 

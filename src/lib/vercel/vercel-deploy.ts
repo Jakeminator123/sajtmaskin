@@ -38,9 +38,13 @@ export type VercelProjectDomain = {
   verified: boolean;
 };
 
+export type ProductionAliasStatus = "attested" | "unknown" | "missing";
+
 export type EnsuredVercelProject = {
   id: string;
   name: string;
+  productionProviderAlias: string | null;
+  productionAliasStatus: ProductionAliasStatus;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -53,6 +57,68 @@ function readStringField(obj: JsonObject | null, key: string): string | null {
   if (!obj) return null;
   const value = obj[key];
   return typeof value === "string" ? value : null;
+}
+
+const PLATFORM_VERCEL_APP_HOST = "sajtmaskin.vercel.app";
+
+function isAttestedProductionVercelAppAlias(hostname: string): boolean {
+  const labels = hostname.split(".");
+  return (
+    labels.length === 3 &&
+    labels[1] === "vercel" &&
+    labels[2] === "app" &&
+    hostname !== PLATFORM_VERCEL_APP_HOST &&
+    !hostname.includes("-git-")
+  );
+}
+
+/**
+ * Read the exact same-project production provider alias from a Vercel project
+ * payload. Never invent an alias from the project name. Missing `targets`
+ * is unknown (keep last-working); an empty production alias list is missing.
+ */
+export function readAttestedProductionProviderAlias(payload: unknown): {
+  alias: string | null;
+  status: ProductionAliasStatus;
+} {
+  const root = asJsonObject(payload);
+  if (!root || !("targets" in root)) {
+    return { alias: null, status: "unknown" };
+  }
+  const targets = asJsonObject(root.targets);
+  if (!targets || !("production" in targets)) {
+    return { alias: null, status: "missing" };
+  }
+  const production = asJsonObject(targets.production);
+  if (!production) {
+    return { alias: null, status: "missing" };
+  }
+  const aliases = Array.isArray(production.alias) ? production.alias : [];
+  const attested = aliases
+    .map((entry) => (typeof entry === "string" ? normalizeDomainHostname(entry) : null))
+    .filter((host): host is string => Boolean(host && isAttestedProductionVercelAppAlias(host)));
+  const projectName = readStringField(root, "name");
+  const preferred =
+    (projectName && attested.find((host) => host === `${projectName}.vercel.app`)) ||
+    attested[0] ||
+    null;
+  return preferred
+    ? { alias: preferred, status: "attested" }
+    : { alias: null, status: "missing" };
+}
+
+function withProductionAlias(
+  id: string,
+  name: string,
+  payload: unknown,
+): EnsuredVercelProject {
+  const alias = readAttestedProductionProviderAlias(payload);
+  return {
+    id,
+    name,
+    productionProviderAlias: alias.alias,
+    productionAliasStatus: alias.status,
+  };
 }
 
 function extractVercelErrorMessage(payload: unknown): string | null {
@@ -409,7 +475,7 @@ export async function ensureVercelProject(
     if (expectedProjectId?.trim() && id !== expectedProjectId.trim()) {
       throw new Error("Persisted Vercel project ownership mismatch");
     }
-    return { id, name: readStringField(root, "name") ?? name };
+    return withProductionAlias(id, readStringField(root, "name") ?? name, existingPayload);
   }
   if (existing.status !== 404) {
     throw new Error(
@@ -439,10 +505,11 @@ export async function ensureVercelProject(
       const racedRoot = asJsonObject(racedPayload);
       const racedId = readStringField(racedRoot, "id");
       if (racedId) {
-        return {
-          id: racedId,
-          name: readStringField(racedRoot, "name") ?? name,
-        };
+        return withProductionAlias(
+          racedId,
+          readStringField(racedRoot, "name") ?? name,
+          racedPayload,
+        );
       }
     }
   }
@@ -455,7 +522,7 @@ export async function ensureVercelProject(
   const root = asJsonObject(createdPayload);
   const id = readStringField(root, "id");
   if (!id) throw new Error("Vercel project creation response missing id");
-  return { id, name: readStringField(root, "name") ?? name };
+  return withProductionAlias(id, readStringField(root, "name") ?? name, createdPayload);
 }
 
 /**

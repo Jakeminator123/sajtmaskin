@@ -5,6 +5,7 @@ import {
   isCanonicalHttpsProof,
   parseCanonicalHttpsCandidate,
   parseCanonicalHttpsIdentity,
+  probeCanonicalHttpsOrigin,
   proveCanonicalHttps,
   type CanonicalHttpsObservation,
   type ProbeCanonicalHttpsOrigin,
@@ -90,6 +91,8 @@ describe("parseCanonicalHttpsCandidate", () => {
       "169.254.169.254",
       "https://127.0.0.1/",
       "https://169.254.169.254/",
+      "8.8.8.8",
+      "https://1.1.1.1/",
     ];
     for (const candidate of blocked) {
       expect(parseCanonicalHttpsCandidate(candidate)).toEqual({
@@ -379,5 +382,27 @@ describe("proveCanonicalHttps", () => {
     await expect(proveCanonicalHttps({ candidate: HOST, ...identity })).rejects.toThrow(
       /refused to probe the network under Vitest/,
     );
+  });
+
+  it("does not let a caller-controlled URL host steer the socket", async () => {
+    await expect(
+      probeCanonicalHttpsOrigin({
+        hostname: HOST,
+        url: "https://evil.example/",
+        timeoutMs: 50,
+      }),
+    ).resolves.toEqual({ errorKind: "blocked_destination" });
+  });
+
+  it("does not accept a forged proof object as a type-guard pass", () => {
+    expect(
+      isCanonicalHttpsProof({
+        kind: CANONICAL_HTTPS_PROOF_KIND,
+        version: 1,
+        origin: "https://www.kund.se",
+        hostname: "www.kund.se",
+        projectId: "project-1",
+      }),
+    ).toBe(false);
   });
 });

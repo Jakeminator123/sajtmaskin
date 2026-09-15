@@ -16,6 +16,7 @@ const {
   checkVercelProjectDomain,
   ensureVercelProject,
   ensureVercelProjectDomain,
+  readAttestedProductionProviderAlias,
 } = await import("./vercel-deploy");
 
 afterEach(() => {
@@ -216,6 +217,8 @@ describe("ensureVercelProject", () => {
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_existing",
       name: "bistro",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -230,6 +233,8 @@ describe("ensureVercelProject", () => {
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_new",
       name: "bistro",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
     });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
@@ -260,7 +265,66 @@ describe("ensureVercelProject", () => {
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_winner",
       name: "bistro",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
     });
+  });
+
+  it("attests only an exact production *.vercel.app alias from the payload", async () => {
+    const payload = {
+      id: "prj_existing",
+      name: "bistro",
+      targets: {
+        production: {
+          alias: [
+            "kund.se",
+            "bistro-git-main-team.vercel.app",
+            "sajtmaskin.vercel.app",
+            "bistro.vercel.app",
+          ],
+        },
+      },
+    };
+    expect(readAttestedProductionProviderAlias(payload)).toEqual({
+      alias: "bistro.vercel.app",
+      status: "attested",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(payload));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await ensureVercelProject("bistro");
+    expect(result.productionAliasStatus).toBe("attested");
+    expect(result.productionProviderAlias).toBe("bistro.vercel.app");
+    expect(result.id).toBe("prj_existing");
+  });
+});
+
+describe("readAttestedProductionProviderAlias", () => {
+  it("does not invent an alias from the project name", () => {
+    expect(readAttestedProductionProviderAlias({ id: "prj", name: "bistro" })).toEqual({
+      alias: null,
+      status: "unknown",
+    });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: { alias: [] } },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: null },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: { alias: ["bistro-git-main-team.vercel.app"] } },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
   });
 });
 

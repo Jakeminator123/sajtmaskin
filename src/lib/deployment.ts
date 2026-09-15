@@ -115,6 +115,32 @@ export async function updateDeploymentStatus(
  * including sites published before the cache column existed. Prefers a `ready`
  * deployment; otherwise takes the most recent one that carries a project id.
  */
+export type LatestReadyDeploymentIdentity = {
+  url: string | null;
+  providerUrl: string | null;
+  vercelProjectId: string | null;
+};
+
+/**
+ * Latest READY publish for this chat. Callers must still check that
+ * `vercelProjectId` matches the project being deployed before reusing it.
+ */
+export async function getLatestReadyDeploymentIdentityForChat(
+  chatId: string,
+): Promise<LatestReadyDeploymentIdentity | null> {
+  const [row] = await db
+    .select({
+      url: deployments.url,
+      providerUrl: deployments.providerUrl,
+      vercelProjectId: deployments.vercelProjectId,
+    })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), eq(deployments.status, "ready")))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getLatestVercelProjectIdForChat(chatId: string): Promise<string | null> {
   const rows = await db
     .select({

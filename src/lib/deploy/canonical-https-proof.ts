@@ -1,15 +1,19 @@
 /**
  * Server-side HTTPS proof for a candidate customer host.
  *
- * A4 can call this later when it binds an exact READY deployment. This module
- * is intentionally standalone: it must not be imported from deploy POST, and
- * it never writes env, vercel.json, aliases, DNS or the database.
+ * The probe keeps the hostname in the URL so TLS/SNI validate against the
+ * name. `guardedLookup` is the only DNS lookup and the same records go to
+ * the socket — never rewrite the URL to an IP with a Host header.
+ *
+ * The proof object is built only from our parsed identity plus the TLS
+ * observation. Response body and Location never choose the destination.
  *
  * Unknown provider/network status is not the same as a confirmed invalid host.
  * Callers must keep the last working identity when the verdict is `unknown`.
  */
 
 import https from "node:https";
+import net from "node:net";
 import tls from "node:tls";
 import {
   guardedLookup,
@@ -23,6 +27,8 @@ export const CANONICAL_HTTPS_PROOF_VERSION = 1 as const;
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_REDIRECT_HOPS = 4;
+/** Proof never needs the body; abort before a host can fill process memory. */
+const MAX_PROOF_BODY_BYTES = 64 * 1024;
 
 export type CanonicalHttpsProviderStatus = "verified" | "invalid" | "unknown";
 
@@ -169,14 +175,18 @@ export function parseCanonicalHttpsCandidate(candidate: string): ParsedHttpsOrig
     }
     const hostname = normalizeDomainHostname(url.hostname);
     if (!hostname) return notReady("invalid", "invalid_origin");
-    if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
+    if (net.isIP(hostname) !== 0 || isDisallowedHost(hostname)) {
+      return notReady("invalid", "blocked_destination");
+    }
     return { status: "ok", origin: `https://${hostname}`, hostname };
   }
 
   if (/[:/?#@]/.test(raw)) return notReady("invalid", "invalid_origin");
   const hostname = normalizeDomainHostname(raw);
   if (!hostname) return notReady("invalid", "invalid_origin");
-  if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
+  if (net.isIP(hostname) !== 0 || isDisallowedHost(hostname)) {
+    return notReady("invalid", "blocked_destination");
+  }
   return { status: "ok", origin: `https://${hostname}`, hostname };
 }
 
@@ -238,7 +248,9 @@ function parseRedirectTarget(
   }
   const hostname = normalizeDomainHostname(target.hostname);
   if (!hostname) return notReady("invalid", "invalid_origin");
-  if (isDisallowedHost(hostname)) return notReady("invalid", "blocked_destination");
+  if (net.isIP(hostname) !== 0 || isDisallowedHost(hostname)) {
+    return notReady("invalid", "blocked_destination");
+  }
   if (hostname !== expectedHostname) return notReady("invalid", "host_mismatch");
   return { status: "follow", nextUrl: toRequestUrl(target) };
 }
@@ -367,12 +379,21 @@ export function probeCanonicalHttpsOrigin(input: {
   if (parsed.protocol !== "https:") {
     return Promise.resolve({ errorKind: "http_only", protocol: "http" });
   }
-  if (isDisallowedHost(input.hostname) || isDisallowedHost(parsed.hostname)) {
+  const requestHost = normalizeDomainHostname(input.hostname);
+  const urlHost = normalizeDomainHostname(parsed.hostname);
+  if (
+    !requestHost ||
+    !urlHost ||
+    requestHost !== urlHost ||
+    net.isIP(requestHost) !== 0 ||
+    isDisallowedHost(requestHost)
+  ) {
     return Promise.resolve({ errorKind: "blocked_destination" });
   }
 
   return new Promise((resolve) => {
     let settled = false;
+    let received = 0;
     // Same pin as capture: the lookup that validates is the lookup the socket
     // uses. fetchWithPinnedDns is not used because it does not expose the peer
     // certificate fields this proof needs (SAN/CN via getPeerCertificate).
@@ -386,12 +407,14 @@ export function probeCanonicalHttpsOrigin(input: {
 
     const request = https.request(
       {
-        host: input.hostname,
-        servername: input.hostname,
+        host: requestHost,
+        servername: requestHost,
         port: 443,
         path: `${parsed.pathname}${parsed.search}` || "/",
         method: "GET",
         timeout: input.timeoutMs,
+        // Inspect the peer cert ourselves; authorized + SAN/CN still decide
+        // the verdict. The hostname stays in the request so SNI is not an IP.
         rejectUnauthorized: false,
         agent,
       },
@@ -401,13 +424,19 @@ export function probeCanonicalHttpsOrigin(input: {
           typeof socket.getPeerCertificate === "function" ? socket.getPeerCertificate() : undefined;
         const identityError =
           cert && Object.keys(cert).length > 0
-            ? tls.checkServerIdentity(input.hostname, cert)
+            ? tls.checkServerIdentity(requestHost, cert)
             : new Error("missing certificate");
         const locationHeader = response.headers.location;
         const location = Array.isArray(locationHeader)
           ? locationHeader[0]
           : (locationHeader ?? null);
-        response.resume();
+        response.on("data", (chunk: Buffer) => {
+          received += chunk.byteLength;
+          if (received > MAX_PROOF_BODY_BYTES) {
+            response.destroy();
+            request.destroy();
+          }
+        });
         settle({
           protocol: "https",
           authorized: socket.authorized === true && !identityError,
@@ -415,12 +444,13 @@ export function probeCanonicalHttpsOrigin(input: {
             identityError?.message ??
             (socket.authorizationError ? String(socket.authorizationError) : null),
           certificateHosts: collectCertificateHosts(cert),
-          serverName: input.hostname,
-          responseHost: input.hostname,
+          serverName: requestHost,
+          responseHost: requestHost,
           statusCode: response.statusCode ?? 0,
           location,
         });
         request.destroy();
+        response.destroy();
       },
     );
 
@@ -438,12 +468,32 @@ export function probeCanonicalHttpsOrigin(input: {
 export function isCanonicalHttpsProof(value: unknown): value is CanonicalHttpsProof {
   if (!value || typeof value !== "object") return false;
   const proof = value as CanonicalHttpsProof;
+  if (
+    proof.kind !== CANONICAL_HTTPS_PROOF_KIND ||
+    proof.version !== CANONICAL_HTTPS_PROOF_VERSION ||
+    typeof proof.origin !== "string" ||
+    typeof proof.hostname !== "string" ||
+    typeof proof.projectId !== "string" ||
+    !isExactIdentity(proof.projectId) ||
+    typeof proof.verifiedAt !== "string" ||
+    !Number.isFinite(Date.parse(proof.verifiedAt)) ||
+    !Array.isArray(proof.certificateHosts) ||
+    proof.certificateHosts.some((entry) => typeof entry !== "string") ||
+    typeof proof.serverName !== "string" ||
+    typeof proof.statusCode !== "number" ||
+    !Number.isInteger(proof.statusCode)
+  ) {
+    return false;
+  }
+  if (proof.vercelProjectId != null && !isExactIdentity(proof.vercelProjectId)) {
+    return false;
+  }
+  const parsed = parseCanonicalHttpsCandidate(proof.origin);
   return (
-    proof.kind === CANONICAL_HTTPS_PROOF_KIND &&
-    proof.version === CANONICAL_HTTPS_PROOF_VERSION &&
-    typeof proof.origin === "string" &&
-    typeof proof.hostname === "string" &&
-    typeof proof.projectId === "string"
+    parsed.status === "ok" &&
+    parsed.origin === proof.origin &&
+    parsed.hostname === proof.hostname &&
+    proof.serverName === proof.hostname
   );
 }
 
