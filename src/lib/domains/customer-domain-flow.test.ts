@@ -135,38 +135,116 @@ describe("checkCustomerHttps", () => {
   });
 
   it.each([301, 308])(
-    "treats a %s to the intended primary host as valid",
+    "follows a %s to the intended primary host and requires a terminal 2xx",
     async (status) => {
-      fetchWithPinnedDns.mockResolvedValue({
-        status,
-        headers: { location: "https://exempel.se/" },
-        body: Buffer.from(""),
+      fetchWithPinnedDns.mockImplementation(async (url: string) => {
+        if (String(url).startsWith("https://www.exempel.se/")) {
+          return { status, headers: { location: "https://exempel.se/" }, body: Buffer.from("") };
+        }
+        return { status: 200, headers: {}, body: Buffer.from("ok") };
       });
       await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.toBe("valid");
+      expect(fetchWithPinnedDns).toHaveBeenCalledTimes(2);
     },
   );
 
-  it("treats a 302 to another host as not valid", async () => {
+  it("does not fetch a hop to a foreign host", async () => {
     fetchWithPinnedDns.mockResolvedValue({
       status: 302,
       headers: { location: "https://annan.se/" },
       body: Buffer.from(""),
     });
-    await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.not.toBe("valid");
+    await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.toBe("invalid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+    expect(String(fetchWithPinnedDns.mock.calls[0]?.[0])).not.toContain("annan.se");
   });
 
-  it.each([
-    ["https://exempel.se/", "invalid"],
-    ["/", "invalid"],
-    ["https://exempel.se/en", "valid"],
-    ["/en", "valid"],
-  ] as const)("treats Location %s as %s (loop vs path redirect)", async (location, expected) => {
+  it.each(["https://exempel.se/", "/"])("treats Location %s as a loop", async (location) => {
     fetchWithPinnedDns.mockResolvedValue({
       status: 301,
       headers: { location },
       body: Buffer.from(""),
     });
-    await expect(checkCustomerHttps("exempel.se")).resolves.toBe(expected);
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats 302 → /en → 200 as valid", async () => {
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      if (String(url) === "https://exempel.se/") {
+        return { status: 302, headers: { location: "/en" }, body: Buffer.from("") };
+      }
+      if (String(url) === "https://exempel.se/en") {
+        return { status: 200, headers: {}, body: Buffer.from("ok") };
+      }
+      return { status: 500, headers: {}, body: Buffer.from("no") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
+  });
+
+  it("treats 302 → /en → 404 as invalid", async () => {
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      if (String(url) === "https://exempel.se/") {
+        return { status: 302, headers: { location: "/en" }, body: Buffer.from("") };
+      }
+      return { status: 404, headers: {}, body: Buffer.from("no") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
+  });
+
+  it("treats a redirect loop A → B → A as invalid", async () => {
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      if (String(url) === "https://exempel.se/") {
+        return { status: 302, headers: { location: "https://exempel.se/en" }, body: Buffer.from("") };
+      }
+      return { status: 302, headers: { location: "https://exempel.se/" }, body: Buffer.from("") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a three-hop language chain that ends in 2xx as valid", async () => {
+    const hops = [
+      "https://exempel.se/",
+      "https://exempel.se/sv",
+      "https://exempel.se/sv/start",
+    ];
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      const index = hops.indexOf(String(url));
+      const next = hops[index + 1];
+      if (next) return { status: 302, headers: { location: next }, body: Buffer.from("") };
+      return { status: 200, headers: {}, body: Buffer.from("ok") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(3);
+  });
+
+  it("treats a four-hop chain as invalid", async () => {
+    const hops = [
+      "https://exempel.se/",
+      "https://exempel.se/a",
+      "https://exempel.se/b",
+      "https://exempel.se/c",
+      "https://exempel.se/d",
+    ];
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      const index = hops.indexOf(String(url));
+      const next = hops[index + 1];
+      if (next) return { status: 302, headers: { location: next }, body: Buffer.from("") };
+      return { status: 200, headers: {}, body: Buffer.from("ok") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(4);
+  });
+
+  it("treats 503 in the middle of the chain as unknown", async () => {
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      if (String(url) === "https://exempel.se/") {
+        return { status: 302, headers: { location: "/en" }, body: Buffer.from("") };
+      }
+      return { status: 503, headers: {}, body: Buffer.from("blip") };
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("unknown");
   });
 });
 
@@ -239,6 +317,29 @@ describe("linkCustomerDomain", () => {
     expect(result.ok).toBe(false);
     expect(setProjectCustomDomainCandidate).not.toHaveBeenCalled();
     expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+    if (!result.ok) {
+      expect(result.snapshot?.hostResults).toEqual([
+        { domain: "exempel.se", outcome: "ok" },
+        { domain: "www.exempel.se", outcome: "failed" },
+      ]);
+    }
+  });
+
+  it("retries a partial attach and only needs the missing host to succeed", async () => {
+    addDomainToProject
+      .mockResolvedValueOnce({ name: "exempel.se", apexName: "exempel.se", verified: false })
+      .mockRejectedValueOnce(new Error("503 gateway"))
+      .mockResolvedValueOnce({ name: "exempel.se", apexName: "exempel.se", verified: false })
+      .mockResolvedValueOnce({ name: "www.exempel.se", apexName: "exempel.se", verified: false });
+
+    const first = await linkCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+    expect(first.ok).toBe(false);
+    expect(setProjectCustomDomainCandidate).not.toHaveBeenCalled();
+
+    const retry = await linkCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+    expect(retry.ok).toBe(true);
+    expect(setProjectCustomDomainCandidate).toHaveBeenCalledWith("proj_1", "exempel.se");
+    expect(addDomainToProject).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -351,6 +452,32 @@ describe("activateCustomerDomain", () => {
     expect(result.ok).toBe(false);
     expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
     expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+  });
+
+  it("refuses to activate when 302 → /en lands on 404", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+    observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+      observation(domain, { ownership: "verified", dns: "valid" }),
+    );
+    fetchWithPinnedDns.mockImplementation(async (url: string) => {
+      if (String(url).endsWith("/en")) {
+        return { status: 404, headers: {}, body: Buffer.from("no") };
+      }
+      if (String(url).includes("ny.se")) {
+        return { status: 302, headers: { location: "/en" }, body: Buffer.from("") };
+      }
+      return { status: 200, headers: {}, body: Buffer.from("ok") };
+    });
+
+    const result = await activateCustomerDomain({ hosting: HOSTING, domain: "ny.se" });
+
+    expect(result.ok).toBe(false);
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
   });
 
   it.each([401, 404, 500])(
@@ -535,5 +662,34 @@ describe("unlinkCustomerDomain", () => {
     if (!result.ok) expect(result.status).toBe(503);
     expect(clearProjectCustomDomain).not.toHaveBeenCalled();
     expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+  });
+
+  it("resumes unlink after a partial remove and treats already-removed as done", async () => {
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      custom_domain: "exempel.se",
+      custom_domain_verified_at: new Date("2026-09-01"),
+      published_slug: "kund",
+    });
+    removeDomainFromProject
+      .mockResolvedValueOnce({ removed: true, unknown: false })
+      .mockResolvedValueOnce({ removed: false, unknown: true })
+      .mockResolvedValueOnce({ removed: true, unknown: false })
+      .mockResolvedValueOnce({ removed: true, unknown: false });
+
+    const first = await unlinkCustomerDomain({ hosting: HOSTING });
+    expect(first.ok).toBe(false);
+    if (!first.ok) expect(first.status).toBe(503);
+    expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+    expect(first.ok === false && first.snapshot?.hostResults).toEqual(
+      expect.arrayContaining([
+        { domain: "exempel.se", outcome: "ok" },
+        { domain: "www.exempel.se", outcome: "failed" },
+      ]),
+    );
+
+    const retry = await unlinkCustomerDomain({ hosting: HOSTING });
+    expect(retry.ok).toBe(true);
+    expect(clearProjectCustomDomain).toHaveBeenCalledWith("proj_1", "exempel.se");
   });
 });

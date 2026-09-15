@@ -180,6 +180,11 @@ export type HostCheck = {
   records: DnsRecord[];
 };
 
+export type HostOpResult = {
+  domain: string;
+  outcome: "ok" | "failed";
+};
+
 export type CustomerDomainSnapshot = {
   primary: HostCheck | null;
   companion: HostCheck | null;
@@ -193,6 +198,8 @@ export type CustomerDomainSnapshot = {
   slugLocked: boolean;
   automaticDns: null;
   message: string | null;
+  /** Set on link/unlink so a retry can see which hosts remain. Not persisted. */
+  hostResults?: HostOpResult[];
 };
 
 export function unknownDomainObservation(domain: string): DomainObservation {

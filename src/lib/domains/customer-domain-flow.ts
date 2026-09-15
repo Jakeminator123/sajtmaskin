@@ -21,6 +21,7 @@ import {
   type DomainHttpsStatus,
   type DomainObservation,
   type HostCheck,
+  type HostOpResult,
 } from "@/lib/domains/domain-observation";
 import {
   addDomainToProject,
@@ -42,6 +43,7 @@ import { getVercelToken } from "@/lib/vercel";
 
 const HTTPS_TIMEOUT_MS = 8_000;
 const HTTPS_MAX_BODY_BYTES = 2_048;
+const HTTPS_MAX_REDIRECTS = 3;
 
 export type { CustomerDomainSnapshot, HostCheck };
 
@@ -70,41 +72,73 @@ function teamId(): string | undefined {
   return value || undefined;
 }
 
+function allowedHttpsHop(
+  location: string,
+  currentUrl: string,
+  self: string | null,
+  primary: string | null,
+): string | null {
+  try {
+    const dest = new URL(location, currentUrl);
+    if (dest.protocol !== "https:") return null;
+    const host = normalizeDomainHostname(dest.hostname);
+    if (!host || (host !== self && host !== primary)) return null;
+    return `https://${host}${dest.pathname || "/"}${dest.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function pinnedFetchFailureStatus(error: unknown): DomainHttpsStatus {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes(PINNED_ADDRESS_BLOCKED_MESSAGE)) return "invalid";
+  if (/ENOTFOUND|CERT_|certificate|ERR_TLS|SSL|unable to verify/i.test(message)) {
+    return "invalid";
+  }
+  return "unknown";
+}
+
+/**
+ * Prove HTTPS by following a short same-host / primary-host chain. Each hop is
+ * a fresh `fetchWithPinnedDns` so SSRF pinning is re-applied — never rewrite
+ * the URL to an IP and never reuse a socket across hops.
+ */
 export async function checkCustomerHttps(
   hostname: string,
   intendedPrimary?: string,
 ): Promise<DomainHttpsStatus> {
-  try {
-    const result = await fetchWithPinnedDns(`https://${hostname}/`, {
-      method: "GET",
-      timeoutMs: HTTPS_TIMEOUT_MS,
-      maxBodyBytes: HTTPS_MAX_BODY_BYTES,
-    });
+  const self = normalizeDomainHostname(hostname);
+  const primary = normalizeDomainHostname(intendedPrimary ?? hostname);
+  const visited = new Set<string>();
+  let currentUrl = `https://${hostname}/`;
+
+  for (let redirects = 0; redirects <= HTTPS_MAX_REDIRECTS; redirects += 1) {
+    if (visited.has(currentUrl)) return "invalid";
+    visited.add(currentUrl);
+
+    let result: Awaited<ReturnType<typeof fetchWithPinnedDns>>;
+    try {
+      result = await fetchWithPinnedDns(currentUrl, {
+        method: "GET",
+        timeoutMs: HTTPS_TIMEOUT_MS,
+        maxBodyBytes: HTTPS_MAX_BODY_BYTES,
+      });
+    } catch (error) {
+      return pinnedFetchFailureStatus(error);
+    }
+
     if (result.status >= 200 && result.status < 300) return "valid";
     if (result.status >= 500) return "unknown";
-    if (result.status >= 400) return "invalid";
-    if (result.status >= 300 && result.status < 400) {
-      const requestedUrl = `https://${hostname}/`;
-      try {
-        const destUrl = new URL(result.headers["location"] ?? "", requestedUrl);
-        if (destUrl.href === new URL(requestedUrl).href) return "invalid";
-        const destHost = normalizeDomainHostname(destUrl.hostname);
-        const self = normalizeDomainHostname(hostname);
-        const primary = normalizeDomainHostname(intendedPrimary ?? hostname);
-        if (destHost && (destHost === primary || destHost === self)) return "valid";
-      } catch {
-        return "invalid";
-      }
-    }
-    return "invalid";
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes(PINNED_ADDRESS_BLOCKED_MESSAGE)) return "invalid";
-    if (/ENOTFOUND|CERT_|certificate|ERR_TLS|SSL|unable to verify/i.test(message)) {
-      return "invalid";
-    }
-    return "unknown";
+    if (result.status < 300 || result.status >= 400) return "invalid";
+
+    if (redirects === HTTPS_MAX_REDIRECTS) return "invalid";
+    const nextUrl = allowedHttpsHop(result.headers["location"] ?? "", currentUrl, self, primary);
+    if (!nextUrl) return "invalid";
+    if (visited.has(nextUrl)) return "invalid";
+    currentUrl = nextUrl;
   }
+
+  return "invalid";
 }
 
 function pairHosts(domain: string): Set<string> {
@@ -289,6 +323,23 @@ async function attachHost(
   }
 }
 
+function applyHostResults(
+  snapshot: CustomerDomainSnapshot,
+  results: HostOpResult[],
+  partialMessage: string,
+): CustomerDomainSnapshot {
+  snapshot.hostResults = results;
+  const failed = results.filter((row) => row.outcome === "failed").map((row) => row.domain);
+  const done = results.filter((row) => row.outcome === "ok").map((row) => row.domain);
+  if (failed.length > 0) {
+    snapshot.message =
+      done.length > 0
+        ? `${partialMessage} Klart: ${done.join(", ")}. Kvar: ${failed.join(", ")}. Försök igen.`
+        : `${partialMessage} Försök igen.`;
+  }
+  return snapshot;
+}
+
 export async function linkCustomerDomain(params: {
   hosting: ResolvedHosting;
   domain: string;
@@ -306,24 +357,30 @@ export async function linkCustomerDomain(params: {
     hosts.push(pair.apex);
   }
 
-  const attached: string[] = [];
+  const hostResults: HostOpResult[] = [];
+  let unknown = false;
   for (const host of hosts) {
     const result = await attachHost(params.hosting.vercelProjectId, host);
-    if (!result.ok) {
-      const snapshot = await inspectCustomerDomain({
+    hostResults.push({ domain: host, outcome: result.ok ? "ok" : "failed" });
+    if (!result.ok) unknown = unknown || result.unknown;
+  }
+
+  if (hostResults.some((row) => row.outcome === "failed")) {
+    const snapshot = applyHostResults(
+      await inspectCustomerDomain({
         hosting: params.hosting,
         domain: normalized.domain,
         checkHttps: false,
-      });
-      snapshot.message = result.error;
-      return {
-        ok: false,
-        status: result.unknown ? 503 : 502,
-        error: result.error,
-        snapshot,
-      };
-    }
-    attached.push(host);
+      }),
+      hostResults,
+      "Alla hostar är inte kopplade. Den tidigare adressen är oförändrad.",
+    );
+    return {
+      ok: false,
+      status: unknown ? 503 : 502,
+      error: snapshot.message ?? "Domänen kunde inte kopplas helt.",
+      snapshot,
+    };
   }
 
   const project = await getProjectById(params.hosting.appProjectId);
@@ -343,8 +400,9 @@ export async function linkCustomerDomain(params: {
     domain: pair.entered,
     checkHttps: false,
   });
+  snapshot.hostResults = hostResults;
   snapshot.message =
-    attached.length > 1
+    hostResults.length > 1
       ? "Domänen är kopplad. Lägg in DNS-posterna nedan. www och apex kopplas som par."
       : "Domänen är kopplad. Lägg in DNS-posterna nedan hos din registrar.";
   return { ok: true, snapshot };
@@ -597,22 +655,27 @@ export async function unlinkCustomerDomain(params: {
     return { ok: true, snapshot };
   }
 
+  const hostResults: HostOpResult[] = [];
   for (const host of hosts) {
     const result = await removeDomainFromProject(
       params.hosting.vercelProjectId,
       host,
       teamId(),
     ).catch(() => ({ removed: false, unknown: true }));
-    if (!result.removed) {
-      const snapshot = await inspectCustomerDomain({
+    hostResults.push({ domain: host, outcome: result.removed ? "ok" : "failed" });
+  }
+
+  if (hostResults.some((row) => row.outcome === "failed")) {
+    const snapshot = applyHostResults(
+      await inspectCustomerDomain({
         hosting: params.hosting,
         domain: stored ?? extra,
         checkHttps: false,
-      });
-      snapshot.message =
-        "Kunde inte koppla loss hos hostingleverantören. Senaste fungerande adress är kvar. Försök igen.";
-      return { ok: false, status: 503, error: snapshot.message, snapshot };
-    }
+      }),
+      hostResults,
+      "Kunde inte koppla loss helt hos hostingleverantören. Senaste fungerande adress är kvar.",
+    );
+    return { ok: false, status: 503, error: snapshot.message ?? "Kopplingen är ofullständig.", snapshot };
   }
 
   if (stored && !removingCandidateOnly) {
@@ -624,6 +687,7 @@ export async function unlinkCustomerDomain(params: {
     domain: removingCandidateOnly ? stored : null,
     checkHttps: false,
   });
+  snapshot.hostResults = hostResults;
   snapshot.message = removingCandidateOnly
     ? "Den påbörjade domänen är bortkopplad. Den nuvarande adressen är oförändrad."
     : "Domänen är bortkopplad. Sajten använder Sajtmaskin-adressen eller den tekniska adressen.";
