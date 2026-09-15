@@ -15,7 +15,7 @@ import { KostnadsfriPage } from "@/components/kostnadsfri/kostnadsfri-page";
  * 2. Without DB record: derives company name from slug, password verified deterministically
  *
  * This means ANY slug works — no pre-creation needed.
- * Flow: PasswordGate -> MiniWizard -> ThinkingSpinner -> Builder redirect
+ * Flow: PasswordGate -> MiniWizard -> follow-up wait -> one init-build -> Builder
  */
 
 interface PageProps {
