@@ -36,6 +36,7 @@ vi.mock("@/lib/vercel", () => ({ getVercelToken }));
 const {
   activateCustomerDomain,
   checkCustomerHttps,
+  inspectCustomerDomain,
   linkCustomerDomain,
   unlinkCustomerDomain,
   verifyCustomerDomain,
@@ -109,15 +110,72 @@ describe("checkCustomerHttps", () => {
     await expect(checkCustomerHttps("exempel.se")).resolves.toBe("invalid");
   });
 
-  it.each([401, 404, 500])("treats HTTP %s as invalid, not valid", async (status) => {
+  it.each([401, 404])("treats HTTP %s as invalid, not valid", async (status) => {
     fetchWithPinnedDns.mockResolvedValue({ status, headers: {}, body: Buffer.from("no") });
     await expect(checkCustomerHttps("ny.se")).resolves.toBe("invalid");
   });
 
-  it("treats only 2xx as valid", async () => {
+  it.each([502, 503])("treats HTTP %s as unknown, not invalid", async (status) => {
+    fetchWithPinnedDns.mockResolvedValue({ status, headers: {}, body: Buffer.from("blip") });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("unknown");
+  });
+
+  it("treats 2xx as valid", async () => {
     fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.from("ok") });
     await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
   });
+
+  it.each([301, 308])(
+    "treats a %s to the intended primary host as valid",
+    async (status) => {
+      fetchWithPinnedDns.mockResolvedValue({
+        status,
+        headers: { location: "https://exempel.se/" },
+        body: Buffer.from(""),
+      });
+      await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.toBe("valid");
+    },
+  );
+
+  it("treats a 302 to another host as not valid", async () => {
+    fetchWithPinnedDns.mockResolvedValue({
+      status: 302,
+      headers: { location: "https://annan.se/" },
+      body: Buffer.from(""),
+    });
+    await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.not.toBe("valid");
+  });
+});
+
+describe("inspectCustomerDomain HTTPS", () => {
+  it.each([301, 308])(
+    "keeps a companion %s to primary as ready, not Problem",
+    async (status) => {
+      observeVercelDomain.mockImplementation(async ({ domain }: { domain: string }) =>
+        observation(domain, { ownership: "verified", dns: "valid" }),
+      );
+      fetchWithPinnedDns.mockImplementation(async (url: string) => {
+        if (String(url).includes("www.exempel.se")) {
+          return {
+            status,
+            headers: { location: "https://exempel.se/" },
+            body: Buffer.from(""),
+          };
+        }
+        return { status: 200, headers: {}, body: Buffer.from("ok") };
+      });
+
+      const snapshot = await inspectCustomerDomain({
+        hosting: HOSTING,
+        domain: "exempel.se",
+        checkHttps: true,
+      });
+
+      expect(snapshot.companion?.https).toBe("valid");
+      expect(snapshot.companion?.status).not.toBe("problem");
+      expect(snapshot.redirectArmed).toBe(true);
+    },
+  );
 });
 
 describe("linkCustomerDomain", () => {

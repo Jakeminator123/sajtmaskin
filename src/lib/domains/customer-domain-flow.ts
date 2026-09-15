@@ -36,6 +36,7 @@ import {
   setProjectVerifiedCustomDomain,
 } from "@/lib/db/services/projects";
 import { setLatestDeploymentLiveUrlForChat } from "@/lib/deployment";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
 import { getVercelToken } from "@/lib/vercel";
 
 const HTTPS_TIMEOUT_MS = 8_000;
@@ -68,7 +69,10 @@ function teamId(): string | undefined {
   return value || undefined;
 }
 
-export async function checkCustomerHttps(hostname: string): Promise<DomainHttpsStatus> {
+export async function checkCustomerHttps(
+  hostname: string,
+  intendedPrimary?: string,
+): Promise<DomainHttpsStatus> {
   try {
     const result = await fetchWithPinnedDns(`https://${hostname}/`, {
       method: "GET",
@@ -76,7 +80,14 @@ export async function checkCustomerHttps(hostname: string): Promise<DomainHttpsS
       maxBodyBytes: HTTPS_MAX_BODY_BYTES,
     });
     if (result.status >= 200 && result.status < 300) return "valid";
+    if (result.status >= 500) return "unknown";
     if (result.status >= 400) return "invalid";
+    if (result.status >= 300 && result.status < 400) {
+      const dest = normalizeDomainHostname(result.headers["location"] ?? "");
+      const self = normalizeDomainHostname(hostname);
+      const primary = normalizeDomainHostname(intendedPrimary ?? hostname);
+      if (dest && (dest === self || dest === primary)) return "valid";
+    }
     return "invalid";
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -183,8 +194,10 @@ export async function inspectCustomerDomain(params: {
 
   const [primaryHttps, companionHttps] = params.checkHttps
     ? await Promise.all([
-        checkCustomerHttps(primaryName),
-        companionName ? checkCustomerHttps(companionName) : Promise.resolve("not_checked" as const),
+        checkCustomerHttps(primaryName, primaryName),
+        companionName
+          ? checkCustomerHttps(companionName, primaryName)
+          : Promise.resolve("not_checked" as const),
       ])
     : (["not_checked", "not_checked"] as const);
 
