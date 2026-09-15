@@ -21,7 +21,7 @@ export type CheckoutReuseDecision =
   | { action: "create_new" }
   | { action: "reuse_session"; sessionId: string; url: string | null }
   | { action: "replace_expired"; existingId: string }
-  | { action: "already_active"; existingId: string }
+  | { action: "already_active"; existingId: string; confirming: boolean }
   | { action: "wait_for_session"; existingId: string };
 
 export type OpenSubscriptionSnapshot = {
@@ -94,7 +94,7 @@ export function decideCheckoutReuse(input: {
   if (!row) return { action: "create_new" };
 
   if (row.lifecycleState === "active") {
-    return { action: "already_active", existingId: row.id };
+    return { action: "already_active", existingId: row.id, confirming: false };
   }
 
   if (row.lifecycleState === "ended") {
@@ -111,7 +111,11 @@ export function decideCheckoutReuse(input: {
   }
 
   if (session.status === "complete") {
-    return { action: "already_active", existingId: row.id };
+    return {
+      action: "already_active",
+      existingId: row.id,
+      confirming: row.lifecycleState === "checkout_pending",
+    };
   }
 
   const expired =
@@ -132,6 +136,87 @@ export function decideCheckoutReuse(input: {
   }
 
   return { action: "wait_for_session", existingId: row.id };
+}
+
+export type PendingCheckoutSessionSnapshot = {
+  status: string;
+  expiresAt: Date | null;
+  subscriptionId: string | null;
+};
+
+export type PendingCheckoutRepairDecision =
+  | { action: "activate"; reason: "session_complete" | "paid_without_period" }
+  | { action: "end_claim"; reason: "session_expired" | "session_missing" }
+  | {
+      action: "leave";
+      reason:
+        | "too_fresh"
+        | "session_open"
+        | "complete_without_subscription"
+        | "not_pending";
+    };
+
+/**
+ * Reparerar ett stale checkout-anspråk. Ingen I/O — sessionen är redan hämtad.
+ * Hosting-tillstånd beslutas av `decideReconcileAction`, inte här.
+ */
+export function decidePendingCheckoutRepair(input: {
+  now: Date;
+  createdAt: Date;
+  thresholdMinutes: number;
+  lifecycleState: SiteSubscriptionLifecycleState;
+  currentPeriodEnd?: Date | null;
+  stripeSubscriptionId?: string | null;
+  session: PendingCheckoutSessionSnapshot | null;
+}): PendingCheckoutRepairDecision {
+  const knownSubscriptionId =
+    input.session?.subscriptionId ?? input.stripeSubscriptionId ?? null;
+
+  if (input.lifecycleState === "active") {
+    if (!input.currentPeriodEnd && knownSubscriptionId) {
+      return { action: "activate", reason: "paid_without_period" };
+    }
+    return { action: "leave", reason: "not_pending" };
+  }
+
+  if (input.lifecycleState !== "checkout_pending") {
+    return { action: "leave", reason: "not_pending" };
+  }
+
+  const ageMs = input.now.getTime() - input.createdAt.getTime();
+  if (ageMs < input.thresholdMinutes * 60_000) {
+    return { action: "leave", reason: "too_fresh" };
+  }
+
+  const session = input.session;
+  if (!session) {
+    return { action: "end_claim", reason: "session_missing" };
+  }
+
+  if (session.status === "complete" && session.subscriptionId) {
+    return { action: "activate", reason: "session_complete" };
+  }
+  if (session.status === "complete") {
+    return { action: "leave", reason: "complete_without_subscription" };
+  }
+
+  const expired =
+    session.status === "expired" ||
+    (session.status === "open" &&
+      session.expiresAt !== null &&
+      session.expiresAt.getTime() <= input.now.getTime());
+
+  if (expired && session.subscriptionId) {
+    return { action: "activate", reason: "session_complete" };
+  }
+  if (expired) {
+    return { action: "end_claim", reason: "session_expired" };
+  }
+  if (session.status === "open") {
+    return { action: "leave", reason: "session_open" };
+  }
+
+  return { action: "leave", reason: "session_open" };
 }
 
 export function computeGraceUntil(now: Date, graceDays: number): Date {

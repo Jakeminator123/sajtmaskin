@@ -46,7 +46,9 @@ vi.mock("./site-subscription-stripe", async (importOriginal) => {
   };
 });
 
-const { handleSiteSubscriptionStripeEvent } = await import("./site-subscription-webhook");
+const { fulfillPaidSubscriptionRow, handleSiteSubscriptionStripeEvent } = await import(
+  "./site-subscription-webhook"
+);
 
 const row = {
   id: "sub_row",
@@ -253,6 +255,58 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       "test",
       expect.objectContaining({ grace_until: existingGrace }),
     );
+  });
+
+  it("delar periodnyckel mellan repair och invoice.paid", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_1",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      lines: {
+        data: [
+          {
+            period: { start: 1726401600, end: 1729080000 },
+            parent: { type: "subscription_item_details" },
+          },
+        ],
+      },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_1" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+    grantSiteSubscriptionPeriodCredits
+      .mockResolvedValueOnce({
+        granted: true,
+        status: "simulated",
+        reason: "test_simulated",
+      })
+      .mockResolvedValue({
+        granted: false,
+        status: "simulated",
+        reason: "already_granted",
+      });
+
+    const first = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: row as never,
+      stripeSubscriptionId: "sub_1",
+    });
+    const second = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: row as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(first.granted).toBe(true);
+    expect(second.granted).toBe(false);
+    expect(grantSiteSubscriptionPeriodCredits).toHaveBeenCalledTimes(2);
+    expect(grantSiteSubscriptionPeriodCredits.mock.calls[0]?.[0].periodId).toBe("p1726401600");
+    expect(grantSiteSubscriptionPeriodCredits.mock.calls[1]?.[0].periodId).toBe("p1726401600");
   });
 
   it("anspråkar inte en främmande subscription-invoice", async () => {

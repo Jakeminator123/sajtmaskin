@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -217,6 +217,7 @@ export async function updateSiteSubscription(
   >,
   guard?: {
     expectedDesired?: string;
+    expectedLifecycle?: string;
   },
 ): Promise<SiteSubscriptionRow | null> {
   assertDbConfigured();
@@ -230,6 +231,9 @@ export async function updateSiteSubscription(
         guard?.expectedDesired
           ? eq(siteSubscriptions.hosting_state_desired, guard.expectedDesired)
           : undefined,
+        guard?.expectedLifecycle
+          ? eq(siteSubscriptions.lifecycle_state, guard.expectedLifecycle)
+          : undefined,
       ),
     )
     .returning();
@@ -238,15 +242,25 @@ export async function updateSiteSubscription(
 
 export async function listSubscriptionsNeedingReconcile(
   billingMode: BillingMode,
+  options?: { pendingCreatedBefore?: Date },
 ): Promise<SiteSubscriptionRow[]> {
   assertDbConfigured();
+  const pendingCutoff = options?.pendingCreatedBefore;
   return db
     .select()
     .from(siteSubscriptions)
     .where(
       and(
         eq(siteSubscriptions.billing_mode, billingMode),
-        eq(siteSubscriptions.lifecycle_state, "active"),
+        pendingCutoff
+          ? or(
+              eq(siteSubscriptions.lifecycle_state, "active"),
+              and(
+                eq(siteSubscriptions.lifecycle_state, "checkout_pending"),
+                lte(siteSubscriptions.created_at, pendingCutoff),
+              ),
+            )
+          : eq(siteSubscriptions.lifecycle_state, "active"),
       ),
     );
 }

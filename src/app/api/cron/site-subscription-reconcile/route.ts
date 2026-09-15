@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { isCronRefreshAuthorized } from "@/app/api/shadcn/registry/refresh/cron-auth";
 import { reconcileSiteSubscriptions } from "@/lib/billing/site-subscription-reconcile";
 import {
@@ -29,7 +30,8 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "billing_mode_unavailable" }, { status: 503 });
   }
 
-  const result = await reconcileSiteSubscriptions({ billingMode });
+  const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
+  const result = await reconcileSiteSubscriptions({ billingMode, stripe });
   return NextResponse.json({ ok: true, billingMode, ...result });
 }
 

@@ -96,7 +96,7 @@ async function snapshotPublishedRef(row: SiteSubscriptionRow): Promise<void> {
   });
 }
 
-async function applyPaidSubscription(input: {
+export async function applyPaidSubscription(input: {
   row: SiteSubscriptionRow;
   stripeStatus: string;
   periodStart: Date | null;
@@ -117,6 +117,53 @@ async function applyPaidSubscription(input: {
     cancel_at_period_end: input.cancelAtPeriodEnd,
   });
   await snapshotPublishedRef(input.row);
+}
+
+export async function fulfillPaidSubscriptionRow(input: {
+  stripe: Stripe;
+  row: SiteSubscriptionRow;
+  stripeSubscriptionId: string;
+  subscription?: Stripe.Subscription;
+  invoice?: Stripe.Invoice | null;
+}): Promise<{ granted: boolean; status: string; reason: string }> {
+  const subscription =
+    input.subscription ??
+    (await retrieveSubscriptionFresh(input.stripe, input.stripeSubscriptionId));
+  const invoice =
+    input.invoice === undefined
+      ? await loadLatestInvoice(input.stripe, subscription)
+      : input.invoice;
+  const period = invoice ? readInvoicePeriod(invoice) : null;
+  const item = subscription.items.data[0];
+  await applyPaidSubscription({
+    row: input.row,
+    stripeStatus: subscription.status,
+    periodStart: period?.periodStart ?? (item ? new Date(item.current_period_start * 1000) : null),
+    periodEnd: period?.periodEnd ?? (item ? new Date(item.current_period_end * 1000) : null),
+    cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
+    stripeSubscriptionId: input.stripeSubscriptionId,
+  });
+  if (!period || !invoice) {
+    return { granted: false, status: "skipped", reason: "missing_period" };
+  }
+  return grantSiteSubscriptionPeriodCredits({
+    subscriptionId: input.row.id,
+    userId: input.row.user_id,
+    billingMode: input.row.billing_mode,
+    periodId: period.periodId,
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
+    billingReason: readInvoiceBillingReason(invoice),
+  });
+}
+
+async function loadLatestInvoice(
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+): Promise<Stripe.Invoice | null> {
+  const invoiceId = readStripeId(subscription.latest_invoice);
+  if (!invoiceId) return null;
+  return retrieveInvoiceFresh(stripe, invoiceId);
 }
 
 async function eventBelongsToSiteSubscription(
@@ -401,29 +448,12 @@ async function handleInvoicePaid(
     return reject(400, "tenant_mismatch");
   }
 
-  const period = readInvoicePeriod(invoice);
-  const item = subscription.items.data[0];
-  await applyPaidSubscription({
+  const grant = await fulfillPaidSubscriptionRow({
+    stripe,
     row,
-    stripeStatus: subscription.status,
-    periodStart: period?.periodStart ?? (item ? new Date(item.current_period_start * 1000) : null),
-    periodEnd: period?.periodEnd ?? (item ? new Date(item.current_period_end * 1000) : null),
-    cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     stripeSubscriptionId,
-  });
-
-  if (!period) {
-    return ok({ paid: true, granted: false, reason: "missing_period" });
-  }
-
-  const grant = await grantSiteSubscriptionPeriodCredits({
-    subscriptionId: row.id,
-    userId: row.user_id,
-    billingMode,
-    periodId: period.periodId,
-    periodStart: period.periodStart,
-    periodEnd: period.periodEnd,
-    billingReason: readInvoiceBillingReason(invoice),
+    subscription,
+    invoice,
   });
 
   if (row.hosting_state_actual === "paused" || row.hosting_state_actual === "pausing") {

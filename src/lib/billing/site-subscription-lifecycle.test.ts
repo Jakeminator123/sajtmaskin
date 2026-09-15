@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS } from "./site-subscription-config";
 import {
   applyHostingProviderResult,
   billingModeFromLivemode,
   buildPeriodId,
   decideCheckoutReuse,
+  decidePendingCheckoutRepair,
   decideReconcileAction,
   evaluateSitePublishEntitlement,
   eventMatchesServerBillingMode,
@@ -108,7 +110,7 @@ describe("två samtidiga checkouts", () => {
         session: null,
         now,
       }),
-    ).toEqual({ action: "already_active", existingId: "sub_1" });
+    ).toEqual({ action: "already_active", existingId: "sub_1", confirming: false });
   });
 
   it("behandlar complete + checkout_pending som anspråkad, inte utgången", () => {
@@ -131,7 +133,92 @@ describe("två samtidiga checkouts", () => {
         },
         now,
       }),
-    ).toEqual({ action: "already_active", existingId: "sub_1" });
+    ).toEqual({ action: "already_active", existingId: "sub_1", confirming: true });
+  });
+});
+
+describe("stale checkout-reparation", () => {
+  const threshold = SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutRepairMinutes;
+  const createdAt = new Date("2026-09-15T11:00:00.000Z");
+
+  it("aktiverar complete session med subscription efter tröskeln", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: { status: "complete", expiresAt: createdAt, subscriptionId: "sub_stripe" },
+      }),
+    ).toEqual({ action: "activate", reason: "session_complete" });
+  });
+
+  it("släpper expired session så ny checkout kan skapas", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: { status: "expired", expiresAt: createdAt, subscriptionId: null },
+      }),
+    ).toEqual({ action: "end_claim", reason: "session_expired" });
+    expect(
+      decideCheckoutReuse({
+        openRow: null,
+        session: null,
+        now,
+      }),
+    ).toEqual({ action: "create_new" });
+  });
+
+  it("lämnar anspråk inom tröskeln orörda", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt: new Date("2026-09-15T11:50:00.000Z"),
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: { status: "complete", expiresAt: null, subscriptionId: "sub_stripe" },
+      }),
+    ).toEqual({ action: "leave", reason: "too_fresh" });
+  });
+
+  it("lämnar öppen giltig session och saknad subscription på complete", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: {
+          status: "open",
+          expiresAt: new Date("2026-09-15T13:00:00.000Z"),
+          subscriptionId: null,
+        },
+      }),
+    ).toEqual({ action: "leave", reason: "session_open" });
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: { status: "complete", expiresAt: null, subscriptionId: null },
+      }),
+    ).toEqual({ action: "leave", reason: "complete_without_subscription" });
+  });
+
+  it("avslutar saknad session efter tröskeln", () => {
+    expect(
+      decidePendingCheckoutRepair({
+        now,
+        createdAt,
+        thresholdMinutes: threshold,
+        lifecycleState: "checkout_pending",
+        session: null,
+      }),
+    ).toEqual({ action: "end_claim", reason: "session_missing" });
   });
 });
 

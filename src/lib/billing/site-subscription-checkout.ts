@@ -25,6 +25,8 @@ export type SiteSubscriptionCheckoutResult =
       sessionId: string;
       url: string | null;
       reused: boolean;
+      confirming?: boolean;
+      message?: string;
     }
   | {
       ok: false;
@@ -191,6 +193,16 @@ export async function startSiteSubscriptionCheckout(input: {
     });
 
     if (decision.action === "already_active") {
+      if (decision.confirming) {
+        return {
+          ok: true,
+          sessionId: claim.stripe_checkout_session_id ?? decision.existingId,
+          url: null,
+          reused: true,
+          confirming: true,
+          message: "Betalningen är mottagen. Abonnemanget håller på att bekräftas.",
+        };
+      }
       return {
         ok: false,
         status: 409,

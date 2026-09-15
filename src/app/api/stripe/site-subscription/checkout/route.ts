@@ -128,6 +128,9 @@ export async function POST(req: NextRequest) {
         url: result.url,
         reused: result.reused,
         offer,
+        ...(result.confirming
+          ? { code: "confirming", message: result.message }
+          : {}),
       });
     } catch (error) {
       console.error("[Stripe/site-subscription/checkout]", error);

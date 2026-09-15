@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import type { BillingMode } from "@/lib/db/schema";
 import { getProjectById } from "@/lib/db/services/projects";
 import {
@@ -16,11 +17,13 @@ import { isUniqueViolation } from "./site-subscription-errors";
 import { getSiteHostingProvider, type HostingTarget } from "./site-subscription-hosting";
 import {
   applyHostingProviderResult,
+  decidePendingCheckoutRepair,
   decideReconcileAction,
   type HostingActualState,
   type HostingDesiredState,
   type SiteSubscriptionLifecycleState,
 } from "./site-subscription-policy";
+import { readStripeId } from "./site-subscription-stripe";
 
 export async function enqueueHostingJob(input: {
   subscriptionId: string;
@@ -142,21 +145,136 @@ export async function processHostingJob(
   return { reportSuccess: applied.reportSuccess, actual: applied.actual };
 }
 
+async function retrieveCheckoutSessionSnapshot(
+  stripe: Stripe,
+  sessionId: string | null,
+): Promise<{
+  status: string;
+  expiresAt: Date | null;
+  subscriptionId: string | null;
+} | null> {
+  if (!sessionId) return null;
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    return {
+      status: session.status ?? "open",
+      expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+      subscriptionId: readStripeId(session.subscription),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function repairPendingCheckoutClaim(input: {
+  stripe: Stripe;
+  row: SiteSubscriptionRow;
+  now?: Date;
+}): Promise<{ action: string; reason: string; granted?: boolean }> {
+  const now = input.now ?? new Date();
+  const session = await retrieveCheckoutSessionSnapshot(
+    input.stripe,
+    input.row.stripe_checkout_session_id,
+  );
+  const decision = decidePendingCheckoutRepair({
+    now,
+    createdAt: input.row.created_at,
+    thresholdMinutes: SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutRepairMinutes,
+    lifecycleState: input.row.lifecycle_state as SiteSubscriptionLifecycleState,
+    currentPeriodEnd: input.row.current_period_end,
+    stripeSubscriptionId: input.row.stripe_subscription_id,
+    session,
+  });
+
+  if (decision.action === "leave") {
+    return decision;
+  }
+
+  if (decision.action === "end_claim") {
+    const written = await updateSiteSubscription(
+      input.row.id,
+      input.row.billing_mode,
+      {
+        lifecycle_state: "ended",
+        ended_reason: "checkout_expired",
+        ended_at: now,
+      },
+      { expectedLifecycle: "checkout_pending" },
+    );
+    return {
+      action: written ? "end_claim" : "leave",
+      reason: written ? decision.reason : "stale_lifecycle_skipped",
+    };
+  }
+
+  const stripeSubscriptionId =
+    session?.subscriptionId ?? input.row.stripe_subscription_id;
+  if (!stripeSubscriptionId) {
+    return { action: "leave", reason: "complete_without_subscription" };
+  }
+
+  const { fulfillPaidSubscriptionRow } = await import("./site-subscription-webhook");
+  const grant = await fulfillPaidSubscriptionRow({
+    stripe: input.stripe,
+    row: input.row,
+    stripeSubscriptionId,
+  });
+  return {
+    action: "activate",
+    reason: decision.reason,
+    granted: grant.granted,
+  };
+}
+
 export async function reconcileSiteSubscriptions(input: {
   billingMode: BillingMode;
   now?: Date;
+  stripe?: Stripe | null;
 }): Promise<{
   scanned: number;
   pauses: number;
   resumes: number;
   jobs: number;
+  repaired: number;
+  released: number;
 }> {
   const now = input.now ?? new Date();
-  const rows = await listSubscriptionsNeedingReconcile(input.billingMode);
+  const pendingCreatedBefore = new Date(
+    now.getTime() -
+      SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.pendingCheckoutRepairMinutes * 60_000,
+  );
+  const rows = await listSubscriptionsNeedingReconcile(input.billingMode, {
+    pendingCreatedBefore,
+  });
   let pauses = 0;
   let resumes = 0;
+  let repaired = 0;
+  let released = 0;
 
   for (const row of rows) {
+    if (input.stripe && row.lifecycle_state === "checkout_pending") {
+      const repair = await repairPendingCheckoutClaim({
+        stripe: input.stripe,
+        row,
+        now,
+      });
+      if (repair.action === "activate") repaired += 1;
+      if (repair.action === "end_claim") released += 1;
+      continue;
+    }
+    if (
+      input.stripe &&
+      row.lifecycle_state === "active" &&
+      !row.current_period_end &&
+      row.stripe_subscription_id
+    ) {
+      const repair = await repairPendingCheckoutClaim({
+        stripe: input.stripe,
+        row,
+        now,
+      });
+      if (repair.action === "activate") repaired += 1;
+    }
     const decision = decideReconcileAction({
       now,
       lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
@@ -200,5 +318,5 @@ export async function reconcileSiteSubscriptions(input: {
     await processHostingJob(job, now);
   }
 
-  return { scanned: rows.length, pauses, resumes, jobs: jobs.length };
+  return { scanned: rows.length, pauses, resumes, jobs: jobs.length, repaired, released };
 }

@@ -30,6 +30,11 @@ export const SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS = {
   rollover: true,
   graceDays: 7,
   retentionDays: 90,
+  /**
+   * Hur länge en `checkout_pending`-rad får vänta på webhook innan
+   * cron läser om sanningen från Stripe. Provisoriskt.
+   */
+  pendingCheckoutRepairMinutes: 20,
   interval: "month" as const,
   productName: "Sajtmaskin sajt-abonnemang",
   productDescription:
