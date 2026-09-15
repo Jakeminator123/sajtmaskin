@@ -54,6 +54,21 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
     NoopObserver as unknown as typeof IntersectionObserver;
 }
 
+/**
+ * jsdom har `HTMLMediaElement.prototype.play`, men den är en `notImplemented`-
+ * stubb: den returnerar `undefined` och skriver "Not implemented" till konsolen
+ * i varje test som råkar mounta en `<video>` (builderns previewbakgrund gör
+ * det). Stubben ersätts därför med en muted-autoplay som lyckas — samma
+ * beteende som en riktig webbläsare ger en `muted playsInline`-video. Tester som
+ * behöver blockerad autoplay eller mediafel skriver över den per test.
+ */
+if (typeof HTMLMediaElement !== "undefined") {
+  HTMLMediaElement.prototype.play = function play(): Promise<void> {
+    return Promise.resolve();
+  };
+  HTMLMediaElement.prototype.pause = function pause(): void {};
+}
+
 if (typeof Element !== "undefined") {
   if (typeof Element.prototype.scrollTo !== "function") {
     Element.prototype.scrollTo = function scrollTo(): void {};
