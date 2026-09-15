@@ -27,6 +27,7 @@ const getLatestReadyDeploymentIdentityForChat = vi.hoisted(() => vi.fn());
 const proveCanonicalHttps = vi.hoisted(() => vi.fn());
 const createVercelDeployment = vi.hoisted(() => vi.fn());
 const getVercelDeployment = vi.hoisted(() => vi.fn());
+const getVercelProjectProductionIdentity = vi.hoisted(() => vi.fn());
 const ensureVercelProjectDomain = vi.hoisted(() => vi.fn());
 const ensureVercelProject = vi.hoisted(() => vi.fn());
 const checkVercelProjectDomain = vi.hoisted(() => vi.fn());
@@ -84,6 +85,7 @@ vi.mock("@/lib/deploy/canonical-https-proof", async (importOriginal) => ({
 vi.mock("@/lib/vercel/vercel-deploy", () => ({
   createVercelDeployment,
   getVercelDeployment,
+  getVercelProjectProductionIdentity,
   mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
   buildGeneratedVercelProjectName: (name: string) => name,
   sanitizeVercelProjectName: (name: string) => name,
@@ -199,6 +201,7 @@ describe("POST /api/v0/deployments", () => {
       productionAliasStatus: "missing",
     });
     getLatestReadyDeploymentIdentityForChat.mockResolvedValue(null);
+    getVercelProjectProductionIdentity.mockResolvedValue(null);
     proveCanonicalHttps.mockResolvedValue({
       status: "not_ready",
       verdict: "invalid",
@@ -2130,6 +2133,67 @@ describe("POST /api/v0/deployments", () => {
       const body = await res.json();
       expect(body.project.brandedDomainVerifiedAt).toBeFalsy();
     });
+  });
+
+  it("GET live production identity keeps A after preview READY and failed C", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_1",
+    });
+    resolveLatestOrCachedVercelProjectId.mockResolvedValue("vp_1");
+    getVercelProjectProductionIdentity.mockResolvedValue({
+      vercelProjectId: "vp_1",
+      productionDeploymentId: "dpl_a",
+    });
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_c",
+        chatId: "chat_1",
+        versionId: "ver_c",
+        status: "error",
+        url: null,
+        providerUrl: null,
+        vercelDeploymentId: "dpl_c",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-12T00:00:00Z"),
+        updatedAt: new Date("2026-09-12T00:00:00Z"),
+      },
+      {
+        id: "dep_b",
+        chatId: "chat_1",
+        versionId: "ver_b",
+        status: "ready",
+        url: "https://demo-8fyovx8jc-team.vercel.app",
+        providerUrl: "https://demo-8fyovx8jc-team.vercel.app",
+        vercelDeploymentId: "dpl_b",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-11T00:00:00Z"),
+        updatedAt: new Date("2026-09-11T00:00:00Z"),
+      },
+      {
+        id: "dep_a",
+        chatId: "chat_1",
+        versionId: "ver_a",
+        status: "ready",
+        url: "https://demo.vercel.app",
+        providerUrl: "https://demo.vercel.app",
+        vercelDeploymentId: "dpl_a",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-10T00:00:00Z"),
+        updatedAt: new Date("2026-09-10T00:00:00Z"),
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.production).toEqual({ deploymentId: "dep_a", versionId: "ver_a" });
+    expect(getVercelProjectProductionIdentity).toHaveBeenCalledWith("vp_1");
   });
 
   it("only falls back to legacy Vercel hosts in deployment history", async () => {
