@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
+import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =
@@ -43,6 +44,7 @@ type Args = {
   appProjectId: string | null;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
   promptHandoffId?: string | null;
+  auditHandoff?: AuditComposerToken | null;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
@@ -85,7 +87,8 @@ export function useBuilderPromptActions({
   designTheme: _designTheme,
   appProjectId: _appProjectId,
   pendingBriefRef,
-  promptHandoffId = null,
+  promptHandoffId: _promptHandoffId = null,
+  auditHandoff = null,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   templateInitAttemptKeyRef,
@@ -169,7 +172,7 @@ export function useBuilderPromptActions({
       if (chatId) return null;
       const trimmed = message.trim();
       if (!trimmed) return null;
-      if (promptHandoffId) {
+      if (auditHandoff?.payloadKind === "audit") {
         pendingBriefRef.current = null;
         const baseInstructions = customInstructions.trim();
         const paletteHint = buildPaletteInstruction(paletteState);
@@ -211,7 +214,7 @@ export function useBuilderPromptActions({
       generateDynamicInstructions,
       paletteState,
       pendingBriefRef,
-      promptHandoffId,
+      auditHandoff,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
       setIsPreparingPrompt,

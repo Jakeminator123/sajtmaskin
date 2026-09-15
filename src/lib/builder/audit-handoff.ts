@@ -237,10 +237,10 @@ export function publicAuditHandoffView(
   payload: unknown,
 ): PublicAuditHandoffView {
   const parsed = auditHandoffPayloadSchema.safeParse(payload);
-  const isAudit = source === "audit" || parsed.success;
+  const isAudit = source === "audit";
   return {
     payloadKind: isAudit ? AUDIT_HANDOFF_PAYLOAD_KIND : null,
-    domain: parsed.success ? resolveAuditHandoffDomain(parsed.data) : null,
+    domain: isAudit && parsed.success ? resolveAuditHandoffDomain(parsed.data) : null,
   };
 }
 

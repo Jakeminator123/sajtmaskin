@@ -61,6 +61,7 @@ import {
   buildAuditCodegenPrompt,
   deriveAuditInitHints,
   mergeRequestedCapabilities,
+  resolveAuditHandoffDomain,
 } from "@/lib/builder/audit-handoff";
 import { resolveAuditHandoffForOwner } from "@/lib/builder/audit-handoff-resolve";
 import { rehostAuditSourceImages } from "@/lib/media/rehost-remote-image";
@@ -1036,7 +1037,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                   {
                     type: "prompt-source",
                     sourceKind: "audit",
-                    domain: auditPayload.domain ?? auditPayload.url ?? null,
+                    domain: resolveAuditHandoffDomain(auditPayload),
                   },
                 ]
               : undefined,

@@ -126,6 +126,14 @@ describe("publicAuditHandoffView", () => {
     expect(view).toEqual({ payloadKind: "audit", domain: "granit.se" });
     expect(JSON.stringify(view)).not.toContain("generation_prompt");
   });
+
+  it("does not treat a parsable payload as audit unless source is audit", () => {
+    const payload = extractAuditHandoffPayload(sampleResult());
+    expect(publicAuditHandoffView("kostnadsfri", payload)).toEqual({
+      payloadKind: null,
+      domain: null,
+    });
+  });
 });
 
 describe("buildAuditDisplayPrompt", () => {
