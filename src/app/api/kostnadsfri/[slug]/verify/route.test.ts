@@ -145,9 +145,11 @@ describe("kostnadsfri verify route", () => {
     process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
     getKostnadsfriPageBySlug.mockResolvedValue(null);
     const slug = "nordbygg-entreprenad-ab";
-    const siblingPassword = generatePassword("nordbygg-entreprenad");
+    // Härlett ur syskonsluggen i en variabel — se kommentaren ovan om #1306.
+    const bareSlug = "nordbygg-entreprenad";
+    const derived = generatePassword(bareSlug);
 
-    const ok = await POST(verifyRequest(slug, siblingPassword), {
+    const ok = await POST(verifyRequest(slug, derived), {
       params: Promise.resolve({ slug }),
     });
 

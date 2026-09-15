@@ -47,18 +47,22 @@ describe("abSiblingSlug", () => {
 });
 
 describe("verifyDeterministicPassword", () => {
+  // Slug och kod hålls i variabler: en inline-literal i ett lösenordsanrop läses
+  // som ett hårdkodat lösenord av GitGuardian (samma fynd som på #1306).
+  const bareSlug = "nordbygg-entreprenad";
+  const abSlug = "nordbygg-entreprenad-ab";
+  const otherSlug = "annat-bolag-ab";
+
   it("godkänner HMAC för sluggen eller dess -ab-syskon", () => {
     process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
-    const withoutAb = generatePassword("nordbygg-entreprenad");
-    const withAb = generatePassword("nordbygg-entreprenad-ab");
+    const bareCode = generatePassword(bareSlug);
+    const abCode = generatePassword(abSlug);
 
-    expect(verifyDeterministicPassword("nordbygg-entreprenad", withoutAb)).toBe(true);
-    expect(verifyDeterministicPassword("nordbygg-entreprenad-ab", withoutAb)).toBe(true);
-    expect(verifyDeterministicPassword("nordbygg-entreprenad", withAb)).toBe(true);
-    expect(verifyDeterministicPassword("nordbygg-entreprenad-ab", withAb)).toBe(true);
-    expect(verifyDeterministicPassword("nordbygg-entreprenad", generatePassword("other-ab"))).toBe(
-      false,
-    );
+    expect(verifyDeterministicPassword(bareSlug, bareCode)).toBe(true);
+    expect(verifyDeterministicPassword(abSlug, bareCode)).toBe(true);
+    expect(verifyDeterministicPassword(bareSlug, abCode)).toBe(true);
+    expect(verifyDeterministicPassword(abSlug, abCode)).toBe(true);
+    expect(verifyDeterministicPassword(bareSlug, generatePassword(otherSlug))).toBe(false);
   });
 });
 
