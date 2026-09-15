@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildKostnadsfriProfileFallback,
   extractKostnadsfriCompanyProfile,
   isKostnadsfriProfileFallbackSettled,
   isKostnadsfriProfileSlotEmpty,
   findPersonalIdentityViolations,
   hasInvalidOrgNumber,
+  KOSTNADSFRI_PROFILE_FALLBACK_EMPTY_TTL_MS,
+  KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS,
   normalizeKostnadsfriCompanyProfile,
 } from "./company-profile";
 
@@ -363,22 +366,95 @@ describe("isKostnadsfriProfileSlotEmpty", () => {
     expect(isKostnadsfriProfileSlotEmpty({ profile: {} })).toBe(true);
   });
 
+  it("är tom för ogiltig legacy som inte överlever normalisering", () => {
+    expect(
+      isKostnadsfriProfileSlotEmpty({
+        profile: { personer: [{ namn: "X" }], aktiekapital: "25.000 SEK" },
+      }),
+    ).toBe(true);
+    expect(isKostnadsfriProfileSlotEmpty({ profile: { city: "" } })).toBe(true);
+    expect(isKostnadsfriProfileSlotEmpty({ profile: { orgNumber: "123" } })).toBe(true);
+  });
+
   it("är inte tom för en giltig pushad profil", () => {
     expect(isKostnadsfriProfileSlotEmpty({ profile: { city: "Kista" } })).toBe(false);
+    expect(
+      isKostnadsfriProfileSlotEmpty({
+        profile: { city: "Kista", personer: [{ namn: "X" }] },
+      }),
+    ).toBe(false);
   });
 });
 
 describe("isKostnadsfriProfileFallbackSettled", () => {
-  it("känner igen negativ sentinel och ignorerar annat", () => {
-    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "miss" } })).toBe(
-      true,
-    );
-    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "empty" } })).toBe(
-      true,
-    );
-    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "hit" } })).toBe(
+  const now = new Date("2026-09-15T12:00:00.000Z");
+
+  it("kräver outcome + checkedAt — saknad timestamp är inte permanent", () => {
+    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "miss" } }, now)).toBe(
       false,
     );
-    expect(isKostnadsfriProfileFallbackSettled({ profile: { city: "Kista" } })).toBe(false);
+    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "empty" } }, now)).toBe(
+      false,
+    );
+    expect(
+      isKostnadsfriProfileFallbackSettled(
+        { profileFallback: { outcome: "hit", checkedAt: now.toISOString() } },
+        now,
+      ),
+    ).toBe(false);
+    expect(isKostnadsfriProfileFallbackSettled({ profile: { city: "Kista" } }, now)).toBe(false);
+  });
+
+  it("håller miss i 24 h och empty i 6 h, sedan expirerar", () => {
+    expect(
+      isKostnadsfriProfileFallbackSettled(
+        { profileFallback: buildKostnadsfriProfileFallback("miss", new Date(now.getTime() - 1)) },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isKostnadsfriProfileFallbackSettled(
+        {
+          profileFallback: buildKostnadsfriProfileFallback(
+            "miss",
+            new Date(now.getTime() - KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS),
+          ),
+        },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isKostnadsfriProfileFallbackSettled(
+        {
+          profileFallback: buildKostnadsfriProfileFallback(
+            "empty",
+            new Date(now.getTime() - KOSTNADSFRI_PROFILE_FALLBACK_EMPTY_TTL_MS + 1),
+          ),
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isKostnadsfriProfileFallbackSettled(
+        {
+          profileFallback: buildKostnadsfriProfileFallback(
+            "empty",
+            new Date(now.getTime() - KOSTNADSFRI_PROFILE_FALLBACK_EMPTY_TTL_MS),
+          ),
+        },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("bygger exakt { outcome, checkedAt } som ISO-timestamp", () => {
+    expect(buildKostnadsfriProfileFallback("miss", now)).toEqual({
+      outcome: "miss",
+      checkedAt: "2026-09-15T12:00:00.000Z",
+    });
+    expect(buildKostnadsfriProfileFallback("empty", now)).toEqual({
+      outcome: "empty",
+      checkedAt: "2026-09-15T12:00:00.000Z",
+    });
   });
 });

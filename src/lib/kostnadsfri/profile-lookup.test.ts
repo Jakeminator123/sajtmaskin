@@ -181,4 +181,59 @@ describe("lookupKostnadsfriProfile", () => {
     expect(result).toEqual({ status: "unavailable", reason: "timeout" });
     expect(Date.now() - started).toBeLessThan(2_000);
   });
+
+  it("avbryter när body hänger efter headers — timeout täcker json-läsning", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async (_url, init) => {
+      return {
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise<unknown>((_resolve, reject) => {
+            const abort = () => {
+              const error = new Error("aborted");
+              error.name = "AbortError";
+              reject(error);
+            };
+            if (init?.signal?.aborted) {
+              abort();
+              return;
+            }
+            init?.signal?.addEventListener("abort", abort, { once: true });
+          }),
+      } as Response;
+    });
+
+    const started = Date.now();
+    const result = await lookupKostnadsfriProfile("zax-2-0-ab", {
+      fetchImpl,
+      secret: SECRET,
+      timeoutMs: 30,
+    });
+
+    expect(result).toEqual({ status: "unavailable", reason: "timeout" });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it("rensar timeout efter lyckad snabb body-läsning", async () => {
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    const fetchImpl = fetchReturning(200, {
+      companyName: "Zax 2.0 AB",
+      profile: { city: "Kista" },
+    });
+
+    const result = await lookupKostnadsfriProfile("zax-2-0-ab", {
+      fetchImpl,
+      secret: SECRET,
+      timeoutMs: 5_000,
+    });
+
+    expect(result).toEqual({
+      status: "hit",
+      companyName: "Zax 2.0 AB",
+      contactEmail: null,
+      profile: { city: "Kista" },
+    });
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
 });

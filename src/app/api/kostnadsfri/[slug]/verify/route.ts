@@ -42,10 +42,11 @@ import {
  * `/kostnadsfri/<slug>/verifierad` so the admin console can see which invited
  * companies actually got past the gate (see lib/kostnadsfri/analytics-paths).
  *
- * Profilfallback: saknas `extra_data.profile` efter ett korrekt lösenord hämtas
- * den från utskicksverktyget (`lib/kostnadsfri/profile-lookup`), med bunden
- * tid och våra egna PII-guards på svaret. Push förblir huvudvägen; det här
- * täcker rader utan profil. Träffen skrivs tillbaka så anropet sker en gång.
+ * Profilfallback: saknas den *normaliserade* profilen efter ett korrekt
+ * lösenord hämtas den från utskicksverktyget (`lib/kostnadsfri/profile-lookup`),
+ * med bunden tid och våra egna PII-guards på svaret. Push förblir huvudvägen;
+ * ogiltig legacy räknas som saknad. Träffen skrivs tillbaka så anropet sker
+ * en gång. Negativ sentinel (`profileFallback`) har TTL; timeout/5xx cacheas inte.
  */
 
 /**

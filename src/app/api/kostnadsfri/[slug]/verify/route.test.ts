@@ -36,6 +36,10 @@ vi.mock("next/server", async (importOriginal) => {
 
 import { POST } from "./route";
 import { generatePassword } from "@/lib/kostnadsfri";
+import {
+  buildKostnadsfriProfileFallback,
+  KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS,
+} from "@/lib/kostnadsfri/company-profile";
 
 const SESSION_ID = "sess_ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb";
 
@@ -293,11 +297,11 @@ describe("kostnadsfri verify route — profilfallback", () => {
     expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
   });
 
-  it("frågar inte dashen när negativ sentinel redan finns", async () => {
+  it("frågar inte dashen när negativ sentinel fortfarande gäller", async () => {
     isKostnadsfriLookupConfigured.mockReturnValue(true);
     verifyPassword.mockReturnValue(true);
     getKostnadsfriPageBySlug.mockResolvedValue(
-      pageRow({ extra_data: { profileFallback: { outcome: "miss" } } }),
+      pageRow({ extra_data: { profileFallback: buildKostnadsfriProfileFallback("miss") } }),
     );
 
     const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.9"), params);
@@ -305,6 +309,28 @@ describe("kostnadsfri verify route — profilfallback", () => {
     expect(res.status).toBe(200);
     expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
     expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+
+  it("frågar dashen igen när miss-sentinel har passerat 24 h", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(
+      pageRow({
+        extra_data: {
+          profileFallback: buildKostnadsfriProfileFallback(
+            "miss",
+            new Date(Date.now() - KOSTNADSFRI_PROFILE_FALLBACK_MISS_TTL_MS),
+          ),
+        },
+      }),
+    );
+    lookupKostnadsfriProfile.mockResolvedValue(LOOKUP_HIT);
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.11"), params);
+
+    expect(res.status).toBe(200);
+    expect(lookupKostnadsfriProfile).toHaveBeenCalledWith("zax-2-0-ab");
+    expect(backfillKostnadsfriPageProfile).toHaveBeenCalledWith("zax-2-0-ab", LOOKUP_HIT.profile);
   });
 
   it("frågar dashen när profilnyckeln är JSON-null — slotten är tom, inte en giltig push", async () => {
@@ -320,5 +346,40 @@ describe("kostnadsfri verify route — profilfallback", () => {
     expect(lookupKostnadsfriProfile).toHaveBeenCalledWith("zax-2-0-ab");
     expect(body.companyData.profile).toEqual(LOOKUP_HIT.profile);
     expect(backfillKostnadsfriPageProfile).toHaveBeenCalledWith("zax-2-0-ab", LOOKUP_HIT.profile);
+  });
+
+  it("skriver fallback när legacy-profilen inte överlever normalisering", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(
+      pageRow({
+        extra_data: { profile: { personer: [{ namn: "X" }], aktiekapital: "25.000 SEK" } },
+      }),
+    );
+    lookupKostnadsfriProfile.mockResolvedValue(LOOKUP_HIT);
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.12"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(lookupKostnadsfriProfile).toHaveBeenCalledWith("zax-2-0-ab");
+    expect(body.companyData.profile).toEqual(LOOKUP_HIT.profile);
+    expect(backfillKostnadsfriPageProfile).toHaveBeenCalledWith("zax-2-0-ab", LOOKUP_HIT.profile);
+  });
+
+  it("låter giltig push vinna — ingen lookup och ingen overwrite", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(
+      pageRow({ extra_data: { profile: { city: "Kista", orgNumber: "559599-5639" } } }),
+    );
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.13"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.companyData.profile).toEqual({ city: "Kista", orgNumber: "559599-5639" });
+    expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
+    expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
   });
 });

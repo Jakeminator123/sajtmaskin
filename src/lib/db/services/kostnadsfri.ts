@@ -6,6 +6,7 @@ import {
   parseKostnadsfriAnalyticsPath,
   type KostnadsfriAnalyticsEvent,
 } from "@/lib/kostnadsfri/analytics-paths";
+import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profile";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
 
@@ -99,15 +100,45 @@ export async function markKostnadsfriPageSent(
 }
 
 /**
+ * SQL-skydd mot att skriva över en giltig push. Speglar
+ * `isKostnadsfriProfileSlotEmpty`: skrivbart när den *normaliserade*
+ * profilen saknas. Ogiltig legacy (nonempty men inte allowlistad JSON-sträng)
+ * får fallback. En giltig pushad profil vinner alltid.
+ */
+function storedProfileLacksNormalizedValueSql(extraData: ReturnType<typeof sql>) {
+  const profile = sql`${extraData} -> 'profile'`;
+  const nonemptyText = (key: "city" | "registeredOffice" | "postalCode" | "streetAddress" | "businessDescription") =>
+    sql`(jsonb_typeof(${profile} -> ${key}) = 'string' AND length(btrim(${profile} ->> ${key})) > 0)`;
+  return sql`(
+    jsonb_typeof(${profile}) IS DISTINCT FROM 'object'
+    OR NOT (
+      ${nonemptyText("city")}
+      OR ${nonemptyText("registeredOffice")}
+      OR ${nonemptyText("postalCode")}
+      OR ${nonemptyText("streetAddress")}
+      OR ${nonemptyText("businessDescription")}
+      OR (
+        jsonb_typeof(${profile} -> 'orgNumber') = 'string'
+        AND btrim(${profile} ->> 'orgNumber') ~ '^\\d{6}-?\\d{4}$'
+        AND substring(regexp_replace(btrim(${profile} ->> 'orgNumber'), '-', '', 'g') from 3 for 1) ~ '[2-9]'
+      )
+      OR (
+        jsonb_typeof(${profile} -> 'registeredAt') = 'string'
+        AND btrim(${profile} ->> 'registeredAt') ~ '^\\d{4}-\\d{2}-\\d{2}'
+      )
+    )
+  )`;
+}
+
+/**
  * Skriver in en profil som profilfallbacken hämtade från utskicksverktyget, så
  * att nästa besök på länken slipper anropet. Samma `jsonb ||`-sammanslagning
  * som `markKostnadsfriPageSent`: `profile` byts ut, `openclaw` lämnas orörd.
  *
- * Skriver bara när profilslotten är tom: nyckeln saknas, är JSON-null,
- * primitiv, array eller `{}`. `-> 'profile' IS NULL` räcker inte — i Postgres
- * är `'{"profile": null}'::jsonb -> 'profile' IS NULL` false. Ett icke-tomt
- * objekt är en giltig push och vinner alltid. Returnerar true när en rad
- * uppdaterades.
+ * Skriver när den normaliserade profilen saknas — saknad nyckel, JSON-null,
+ * primitiv, array, `{}` eller ogiltig legacy. `-> 'profile' IS NULL` räcker
+ * inte: i Postgres är `'{"profile": null}'::jsonb -> 'profile' IS NULL` false.
+ * Returnerar true när en rad uppdaterades.
  */
 export async function backfillKostnadsfriPageProfile(
   slug: string,
@@ -122,19 +153,15 @@ export async function backfillKostnadsfriPageProfile(
       extra_data: sql`${extraData} || ${JSON.stringify({ profile })}::jsonb`,
       updated_at: new Date(),
     })
-    .where(
-      and(
-        eq(kostnadsfriPages.slug, slug),
-        sql`(jsonb_typeof(${extraData} -> 'profile') IS DISTINCT FROM 'object' OR ${extraData} -> 'profile' = '{}'::jsonb)`,
-      ),
-    )
+    .where(and(eq(kostnadsfriPages.slug, slug), storedProfileLacksNormalizedValueSql(extraData)))
     .returning({ id: kostnadsfriPages.id });
   return rows.length > 0;
 }
 
 /**
  * Negativ cache för miss / träff utan publicerbar profil. Rör inte `profile`,
- * så en push som landar samtidigt vinner fortfarande.
+ * så en push som landar samtidigt vinner fortfarande. `unavailable` anropas
+ * aldrig här. Sentinel bär `checkedAt` så TTL kan expira.
  */
 export async function markKostnadsfriProfileLookupSettled(
   slug: string,
@@ -146,7 +173,7 @@ export async function markKostnadsfriProfileLookupSettled(
     .update(kostnadsfriPages)
     .set({
       extra_data: sql`${extraData} || ${JSON.stringify({
-        profileFallback: { outcome },
+        profileFallback: buildKostnadsfriProfileFallback(outcome),
       })}::jsonb`,
       updated_at: new Date(),
     })

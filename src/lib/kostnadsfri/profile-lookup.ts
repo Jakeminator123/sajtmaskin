@@ -69,6 +69,10 @@ export function isKostnadsfriLookupConfigured(env: NodeJS.ProcessEnv = process.e
   return Boolean(readEnv(KOSTNADSFRI_LOOKUP_SECRET_ENV, env));
 }
 
+function isAbortReason(error: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || (error instanceof Error && error.name === "AbortError");
+}
+
 function text(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -103,45 +107,47 @@ export async function lookupKostnadsfriProfile(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  let response: Response;
   try {
-    response = await fetchImpl(url, {
-      method: "GET",
-      headers: { "x-api-key": secret, accept: "application/json" },
-      cache: "no-store",
-      redirect: "error",
-      signal: controller.signal,
-    });
-  } catch (error) {
+    let response: Response;
+    try {
+      response = await fetchImpl(url, {
+        method: "GET",
+        headers: { "x-api-key": secret, accept: "application/json" },
+        cache: "no-store",
+        redirect: "error",
+        signal: controller.signal,
+      });
+    } catch (error) {
+      return { status: "unavailable", reason: isAbortReason(error, controller.signal) ? "timeout" : "network" };
+    }
+
+    if (response.status === 404) return { status: "miss" };
+    if (response.status === 401) return { status: "unavailable", reason: "unauthorized" };
+    if (!response.ok) return { status: "unavailable", reason: "upstream" };
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch (error) {
+      return {
+        status: "unavailable",
+        reason: isAbortReason(error, controller.signal) ? "timeout" : "malformed",
+      };
+    }
+    if (!body || typeof body !== "object") {
+      return { status: "unavailable", reason: "malformed" };
+    }
+    const record = body as Record<string, unknown>;
+    const companyName = text(record.companyName, 200);
+    if (!companyName) return { status: "unavailable", reason: "malformed" };
+
+    return {
+      status: "hit",
+      companyName,
+      contactEmail: text(record.contactEmail, 320),
+      profile: guardRemoteProfile(record.profile),
+    };
+  } finally {
     clearTimeout(timer);
-    const aborted =
-      controller.signal.aborted ||
-      (error instanceof Error && error.name === "AbortError");
-    return { status: "unavailable", reason: aborted ? "timeout" : "network" };
   }
-  clearTimeout(timer);
-
-  if (response.status === 404) return { status: "miss" };
-  if (response.status === 401) return { status: "unavailable", reason: "unauthorized" };
-  if (!response.ok) return { status: "unavailable", reason: "upstream" };
-
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    return { status: "unavailable", reason: "malformed" };
-  }
-  if (!body || typeof body !== "object") {
-    return { status: "unavailable", reason: "malformed" };
-  }
-  const record = body as Record<string, unknown>;
-  const companyName = text(record.companyName, 200);
-  if (!companyName) return { status: "unavailable", reason: "malformed" };
-
-  return {
-    status: "hit",
-    companyName,
-    contactEmail: text(record.contactEmail, 320),
-    profile: guardRemoteProfile(record.profile),
-  };
 }
