@@ -2425,7 +2425,159 @@ describe("POST /api/v0/deployments", () => {
     expect(getLatestReadyDeploymentIdentityForChat).toHaveBeenCalledWith("chat_1", {
       vercelProjectId: "vp_1",
       attestedProductionHost: "demo.vercel.app",
+      verifiedCustomerHosts: [null, null],
+      allowLastWorkingProvider: false,
     });
+  });
+
+  it("does not let an unverified custom last-working URL set SITE_URL or noindex the production host", async () => {
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    }));
+    getAppProjectByIdForRequest.mockResolvedValue({
+      id: "proj_1",
+      name: "Demo",
+      custom_domain: "www.kund.se",
+      custom_domain_verified_at: null,
+    });
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_1",
+      name: "demo",
+      productionProviderAlias: "demo.vercel.app",
+      productionAliasStatus: "attested",
+    });
+    getLatestReadyDeploymentIdentityForChat.mockResolvedValue({
+      url: "https://www.kund.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: "vp_1",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: "vercel.json", content: "{}" },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).canonicalAddressGate).toMatchObject({
+      noindexApplied: false,
+    });
+    expect(createVercelDeployment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        envVars: { NEXT_PUBLIC_SITE_URL: "https://demo.vercel.app" },
+      }),
+    );
+    const files = (
+      createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string }> }
+    ).files;
+    expect(JSON.stringify(files)).not.toContain("noindex");
+  });
+
+  it("does not let an unverified branded last-working URL set SITE_URL or noindex", async () => {
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    }));
+    // Do not set branded_domain on the project: A4 blocks republish with 409
+    // whenever that column is populated. The stale host lives in deployments.url.
+    ensureVercelProject.mockResolvedValue({
+      id: "vp_1",
+      name: "demo",
+      productionProviderAlias: "demo.vercel.app",
+      productionAliasStatus: "attested",
+    });
+    getLatestReadyDeploymentIdentityForChat.mockResolvedValue({
+      url: "https://demo.sites.sajtmaskin.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: "vp_1",
+    });
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: "vercel.json", content: "{}" },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).canonicalAddressGate).toMatchObject({ noindexApplied: false });
+    expect(createVercelDeployment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        envVars: { NEXT_PUBLIC_SITE_URL: "https://demo.vercel.app" },
+      }),
+    );
+  });
+
+  it("rewrites leftover example.com when no policy URL exists", async () => {
+    const commit = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({
+      ok: true,
+      commit,
+      refund: vi.fn(async () => undefined),
+    }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      {
+        path: "app/layout.tsx",
+        content: 'const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";',
+      },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const files = (
+      createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string }> }
+    ).files;
+    const layout = files.find((file) => file.name === "app/layout.tsx")?.content ?? "";
+    expect(layout).not.toContain("https://example.com");
+    expect(layout).toContain("process.env.NEXT_PUBLIC_SITE_URL");
   });
 
   it("keeps configured SITE_URL when attested alias is missing and last READY is a per-deployment host", async () => {

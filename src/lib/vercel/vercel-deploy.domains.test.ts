@@ -227,19 +227,27 @@ describe("ensureVercelProject", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(Response.json({ error: { message: "not found" } }, { status: 404 }))
-      .mockResolvedValueOnce(Response.json({ id: "prj_new", name: "bistro" }));
+      .mockResolvedValueOnce(Response.json({ id: "prj_new", name: "bistro" }))
+      .mockResolvedValueOnce(
+        Response.json({
+          id: "prj_new",
+          name: "bistro",
+          targets: { production: { alias: ["bistro.vercel.app"] } },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_new",
       name: "bistro",
-      productionProviderAlias: null,
-      productionAliasStatus: "unknown",
+      productionProviderAlias: "bistro.vercel.app",
+      productionAliasStatus: "attested",
     });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({ name: "bistro", framework: "nextjs" }),
     });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("refuses to retarget a persisted customer project id", async () => {

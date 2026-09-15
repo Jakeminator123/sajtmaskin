@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
-import { isGitPreviewVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
+import { isProductionProviderVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
 
 export type VercelDeploymentTarget = "production" | "preview";
 
@@ -59,17 +59,8 @@ function readStringField(obj: JsonObject | null, key: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
-const PLATFORM_VERCEL_APP_HOST = "sajtmaskin.vercel.app";
-
 function isAttestedProductionVercelAppAlias(hostname: string): boolean {
-  const labels = hostname.split(".");
-  return (
-    labels.length === 3 &&
-    labels[1] === "vercel" &&
-    labels[2] === "app" &&
-    hostname !== PLATFORM_VERCEL_APP_HOST &&
-    !isGitPreviewVercelHost(hostname)
-  );
+  return isProductionProviderVercelHost(hostname);
 }
 
 /**
@@ -522,7 +513,23 @@ export async function ensureVercelProject(
   const root = asJsonObject(createdPayload);
   const id = readStringField(root, "id");
   if (!id) throw new Error("Vercel project creation response missing id");
-  return withProductionAlias(id, readStringField(root, "name") ?? name, createdPayload);
+  const createdName = readStringField(root, "name") ?? name;
+  const createdAlias = withProductionAlias(id, createdName, createdPayload);
+  if (createdAlias.productionAliasStatus !== "unknown") return createdAlias;
+
+  const rereadEndpoint = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(id)}`);
+  if (teamId) rereadEndpoint.searchParams.set("teamId", teamId);
+  const reread = await fetch(rereadEndpoint.toString(), { headers });
+  const rereadPayload = await reread.json().catch(() => null);
+  if (reread.ok) {
+    const rereadRoot = asJsonObject(rereadPayload);
+    return withProductionAlias(
+      readStringField(rereadRoot, "id") ?? id,
+      readStringField(rereadRoot, "name") ?? createdName,
+      rereadPayload,
+    );
+  }
+  return createdAlias;
 }
 
 /**

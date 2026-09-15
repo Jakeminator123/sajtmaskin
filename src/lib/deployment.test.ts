@@ -188,13 +188,49 @@ describe("pickProductionReadyIdentity", () => {
     ).toEqual({ ...production, vercelProjectId: null });
   });
 
-  it("keeps an older custom-host READY even without vercelProjectId", () => {
+  it("keeps an older custom-host READY only when that host is currently verified", () => {
     const custom = {
       url: "https://www.kund.se",
       providerUrl: "https://demo.vercel.app",
       vercelProjectId: null,
     };
-    expect(pickProductionReadyIdentity([custom], { vercelProjectId: "vp_1" })).toEqual(custom);
+    expect(
+      pickProductionReadyIdentity([custom], {
+        vercelProjectId: "vp_1",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
+    ).toEqual(custom);
+    expect(pickProductionReadyIdentity([custom], { vercelProjectId: "vp_1" })).toBeNull();
+    expect(
+      pickProductionReadyIdentity([custom], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(custom);
+  });
+
+  it("rejects an unverified branded last-working host", () => {
+    const branded = {
+      url: "https://demo.sites.sajtmaskin.se",
+      providerUrl: "https://demo.vercel.app",
+      vercelProjectId: "vp_1",
+    };
+    expect(pickProductionReadyIdentity([branded], { vercelProjectId: "vp_1" })).toBeNull();
+    expect(
+      pickProductionReadyIdentity([branded], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(branded);
+  });
+
+  it("keeps a last-working provider alias while the attested alias is unknown", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        allowLastWorkingProvider: true,
+      }),
+    ).toEqual(production);
   });
 
   it("rejects an older vercel.app READY that does not match the attested alias", () => {
@@ -259,7 +295,10 @@ describe("getLatestReadyDeploymentIdentityForChat", () => {
       },
     ]);
     await expect(
-      getLatestReadyDeploymentIdentityForChat("chat_1", { vercelProjectId: "vp_1" }),
+      getLatestReadyDeploymentIdentityForChat("chat_1", {
+        vercelProjectId: "vp_1",
+        verifiedCustomerHosts: ["www.kund.se"],
+      }),
     ).resolves.toEqual({
       url: "https://www.kund.se",
       providerUrl: "https://kund-project.vercel.app",

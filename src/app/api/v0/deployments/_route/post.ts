@@ -48,7 +48,12 @@ import { runSeoPublishPass } from "@/lib/seo";
 import { resolveSeoCopyModelId, toSeoReportPayload } from "../seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
-import { isGitPreviewVercelHost, normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  isGitPreviewVercelHost,
+  normalizeDomainHostname,
+  resolveLiveUrl,
+  selectCurrentProductionIdentityUrl,
+} from "@/lib/live-site-url";
 import { proveCanonicalHttps } from "@/lib/deploy/canonical-https-proof";
 import {
   applyCanonicalHostRedirect,
@@ -605,10 +610,22 @@ export async function POST(req: Request) {
           ensuredProject.productionAliasStatus === "attested"
             ? ensuredProject.productionProviderAlias
             : null;
-        const lastWorkingSameProject = await getLatestReadyDeploymentIdentityForChat(chatId, {
+        const verifiedCustomerHosts = [
+          currentCustomDomain && currentCustomDomainVerifiedAt ? currentCustomDomain : null,
+          ownedProject.branded_domain?.trim() && ownedProject.branded_domain_verified_at
+            ? ownedProject.branded_domain.trim()
+            : null,
+        ];
+        const lastWorkingIdentityOptions = {
           vercelProjectId: ensuredProject.id,
           attestedProductionHost: attestedProviderHost,
-        }).catch(() => null);
+          verifiedCustomerHosts,
+          allowLastWorkingProvider: ensuredProject.productionAliasStatus === "unknown",
+        };
+        const lastWorkingSameProject = await getLatestReadyDeploymentIdentityForChat(
+          chatId,
+          lastWorkingIdentityOptions,
+        ).catch(() => null);
         let httpsProof = null;
         if (customDomainProviderStatus === "invalid") {
           httpsProof = {
@@ -652,8 +669,11 @@ export async function POST(req: Request) {
           target: deployTarget,
           verifiedLiveUrl,
           verifiedProviderDomain: attestedProviderHost,
+          verifiedCustomerHosts,
           providerAliasStatus: ensuredProject.productionAliasStatus,
-          lastWorkingCanonicalUrl: lastWorkingSameProject?.url ?? null,
+          lastWorkingCanonicalUrl: lastWorkingSameProject
+            ? selectCurrentProductionIdentityUrl(lastWorkingSameProject, lastWorkingIdentityOptions)
+            : null,
           lastWorkingProviderHost: normalizeDomainHostname(
             lastWorkingSameProject?.providerUrl ?? null,
           ),
@@ -749,10 +769,8 @@ export async function POST(req: Request) {
           seoPass ? seoPass.files : fixedFiles,
           policyUrl,
         );
-        const providerHostForNoindex =
-          canonicalAddress.hostRedirectCandidate?.providerHost ??
-          attestedProviderHost ??
-          canonicalAddress.contract.providerHost;
+        const currentPrimaryHost = normalizeDomainHostname(verifiedLiveUrl);
+        const providerHostForNoindex = attestedProviderHost;
         const canonicalHostRedirect = applyCanonicalHostRedirect(
           metadataFiles.files,
           canonicalAddress.hostRedirectCandidate,
@@ -762,13 +780,14 @@ export async function POST(req: Request) {
             target: deployTarget,
           },
           {
-            primaryHost: canonicalAddress.contract.canonicalHost,
+            primaryHost: currentPrimaryHost,
             noindexHost:
               deployTarget === "production" &&
               providerHostForNoindex &&
-              canonicalAddress.contract.canonicalHost &&
-              providerHostForNoindex !== canonicalAddress.contract.canonicalHost &&
-              !isGitPreviewVercelHost(canonicalAddress.contract.canonicalHost)
+              currentPrimaryHost &&
+              providerHostForNoindex !== currentPrimaryHost &&
+              !canonicalAddress.contract.usedLastWorkingIdentity &&
+              !isGitPreviewVercelHost(currentPrimaryHost)
                 ? providerHostForNoindex
                 : null,
             previewNoindex: deployTarget === "preview",

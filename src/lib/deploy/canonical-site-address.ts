@@ -4,9 +4,10 @@ import {
   type CanonicalHttpsProofResult,
 } from "@/lib/deploy/canonical-https-proof";
 import {
+  isCurrentProductionSiteHost,
   isGitPreviewVercelHost,
-  isVerifiedProductionSiteHost,
   normalizeDomainHostname,
+  type CurrentProductionHostProof,
 } from "@/lib/live-site-url";
 
 export const CANONICAL_ADDRESS_FEATURE_ENV = "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT";
@@ -88,6 +89,7 @@ export type CanonicalAddressProofInput = {
   target: "production" | "preview";
   verifiedLiveUrl: string | null;
   verifiedProviderDomain: string | null;
+  verifiedCustomerHosts?: ReadonlyArray<string | null | undefined> | null;
   lastWorkingCanonicalUrl?: string | null;
   lastWorkingProviderHost?: string | null;
   httpsProof?: CanonicalHttpsProofResult | null;
@@ -198,15 +200,27 @@ function providerOrigin(host: string | null): string | null {
   return host ? `https://${host}` : null;
 }
 
+function productionHostProof(
+  attestedProductionHost: string | null | undefined,
+  verifiedCustomerHosts?: CanonicalAddressProofInput["verifiedCustomerHosts"],
+  allowLastWorkingProvider = false,
+): CurrentProductionHostProof {
+  return {
+    attestedProductionHost,
+    verifiedCustomerHosts,
+    allowLastWorkingProvider,
+  };
+}
+
 function usablePolicyUrl(
   url: string | null | undefined,
-  attestedProductionHost?: string | null,
+  proof: CurrentProductionHostProof = {},
 ): string | null {
   const origin = normalizeHttpsOrigin(url);
   if (!origin) return null;
   const host = originHost(origin);
   if (!host || isProtectedPlatformHost(host)) return null;
-  return isVerifiedProductionSiteHost(host, attestedProductionHost) ? origin : null;
+  return isCurrentProductionSiteHost(host, proof) ? origin : null;
 }
 
 export function shouldProbeCanonicalHttps(params: {
@@ -216,7 +230,11 @@ export function shouldProbeCanonicalHttps(params: {
   attestedProviderHost: string | null;
 }): boolean {
   if (!params.featureRequested || params.target !== "production") return false;
-  const canonical = usablePolicyUrl(params.verifiedLiveUrl, params.attestedProviderHost);
+  const liveHost = originHost(normalizeHttpsOrigin(params.verifiedLiveUrl));
+  const canonical = usablePolicyUrl(
+    params.verifiedLiveUrl,
+    productionHostProof(params.attestedProviderHost, liveHost ? [liveHost] : null),
+  );
   const provider = normalizeBareHostname(params.attestedProviderHost);
   const host = originHost(canonical);
   return Boolean(canonical && provider && host && host !== provider && !isProtectedPlatformHost(provider));
@@ -229,8 +247,14 @@ function lastWorkingRedirectCandidate(
 ): CanonicalHostRedirectCandidate | null {
   if (!params.featureRequested || params.target !== "production") return null;
   if (!isExactIdentity(params.projectId) || !isExactIdentity(params.vercelProjectId)) return null;
-  const attested = normalizeBareHostname(params.verifiedProviderDomain);
-  const canonicalUrl = usablePolicyUrl(lastWorkingUrl, attested);
+  const proof = productionHostProof(
+    params.providerAliasStatus === "attested"
+      ? normalizeBareHostname(params.verifiedProviderDomain)
+      : null,
+    params.verifiedCustomerHosts,
+    params.providerAliasStatus === "unknown",
+  );
+  const canonicalUrl = usablePolicyUrl(lastWorkingUrl, proof);
   const providerHost = normalizeBareHostname(lastWorkingProvider);
   const host = originHost(canonicalUrl);
   if (!canonicalUrl || !providerHost || !host || host === providerHost) return null;
@@ -279,8 +303,14 @@ export function prepareCanonicalAddressContract(
   const attestedProvider = aliasStatus === "attested"
     ? normalizeBareHostname(params.verifiedProviderDomain)
     : null;
-  const candidateUrl = usablePolicyUrl(params.verifiedLiveUrl, attestedProvider);
-  const lastWorkingUrl = usablePolicyUrl(params.lastWorkingCanonicalUrl, attestedProvider);
+  const hostProof = productionHostProof(
+    attestedProvider,
+    params.verifiedCustomerHosts,
+    aliasStatus === "unknown",
+  );
+  const attemptedUrl = normalizeHttpsOrigin(params.verifiedLiveUrl);
+  const candidateUrl = usablePolicyUrl(params.verifiedLiveUrl, hostProof);
+  const lastWorkingUrl = usablePolicyUrl(params.lastWorkingCanonicalUrl, hostProof);
   const lastWorkingProvider = normalizeBareHostname(params.lastWorkingProviderHost);
   const proof = params.httpsProof;
   const proofUnknown = proof?.status === "not_ready" && proof.verdict === "unknown";
@@ -293,18 +323,17 @@ export function prepareCanonicalAddressContract(
   if (proofUnknown || aliasStatus === "unknown") {
     policyUrl = lastWorkingUrl ?? candidateUrl ?? providerOrigin(attestedProvider);
     usedLastWorkingIdentity = Boolean(lastWorkingUrl && policyUrl === lastWorkingUrl);
-    pendingAddress = candidateUrl && candidateUrl !== policyUrl ? candidateUrl : null;
   } else if (proofInvalid) {
     const keptLastWorking = lastWorkingUrl && lastWorkingUrl !== candidateUrl ? lastWorkingUrl : null;
     policyUrl = keptLastWorking ?? providerOrigin(attestedProvider);
     usedLastWorkingIdentity = Boolean(keptLastWorking && policyUrl === keptLastWorking);
-    pendingAddress = candidateUrl;
   } else {
     policyUrl = candidateUrl ?? lastWorkingUrl ?? providerOrigin(attestedProvider);
     usedLastWorkingIdentity = Boolean(!candidateUrl && lastWorkingUrl && policyUrl === lastWorkingUrl);
   }
 
-  policyUrl = usablePolicyUrl(policyUrl, attestedProvider);
+  policyUrl = usablePolicyUrl(policyUrl, hostProof);
+  pendingAddress = attemptedUrl && attemptedUrl !== policyUrl ? attemptedUrl : null;
 
   const configuredSiteUrl = params.configuredEnv[CANONICAL_SITE_URL_ENV];
   if (policyUrl) {
@@ -426,7 +455,7 @@ export function prepareCanonicalAddressContract(
           : "https_invalid"
       : "https_not_ready";
     return closedPreparation(
-      { ...baseContract, activationReason: reason, pendingAddress: candidateUrl ?? pendingAddress },
+      { ...baseContract, activationReason: reason, pendingAddress: attemptedUrl ?? pendingAddress },
       envVars,
       warnings,
       preservedRedirect,
@@ -721,14 +750,23 @@ export function applyCanonicalMetadataToFiles(
   canonicalUrl: string | null,
 ): { files: DeployTextFile[]; rewritten: string[] } {
   const origin = normalizeHttpsOrigin(canonicalUrl);
-  if (!origin) return { files, rewritten: [] };
   const rewritten: string[] = [];
   const next = files.map((file) => {
     if (!isMetadataPath(file.name) || !file.content.includes(PLACEHOLDER_SITE_URL)) {
       return file;
     }
     rewritten.push(file.name);
-    return { ...file, content: file.content.split(PLACEHOLDER_SITE_URL).join(origin) };
+    if (origin) {
+      return { ...file, content: file.content.split(PLACEHOLDER_SITE_URL).join(origin) };
+    }
+    return {
+      ...file,
+      content: file.content
+        .replaceAll(` || "${PLACEHOLDER_SITE_URL}"`, "")
+        .replaceAll(` || '${PLACEHOLDER_SITE_URL}'`, "")
+        .split(PLACEHOLDER_SITE_URL)
+        .join(""),
+    };
   });
   return { files: next, rewritten };
 }

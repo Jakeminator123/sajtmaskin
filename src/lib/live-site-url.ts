@@ -38,6 +38,8 @@ export function normalizeDomainHostname(value: string | null | undefined): strin
   return hostname;
 }
 
+const PLATFORM_VERCEL_APP_HOST = "sajtmaskin.vercel.app";
+
 /**
  * Extra reject for Vercel git-branch aliases. Not the production gate:
  * per-deployment hosts (`*-a1b2c3-*.vercel.app`) have no `-git-`.
@@ -47,19 +49,70 @@ export function isGitPreviewVercelHost(value: string | null | undefined): boolea
   return Boolean(host?.endsWith(".vercel.app") && host.includes("-git-"));
 }
 
+/** Vercel per-deployment host: `{project}-{hash}-{scope}.vercel.app`. */
+export function isUniqueVercelDeploymentHost(value: string | null | undefined): boolean {
+  const host = normalizeDomainHostname(value);
+  if (!host?.endsWith(".vercel.app") || isGitPreviewVercelHost(host)) return false;
+  const head = host.slice(0, -".vercel.app".length);
+  return /-[0-9a-f]{6,}-[a-z0-9]/i.test(head);
+}
+
+/** 3-label same-project production alias. Preview and platform hosts are not. */
+export function isProductionProviderVercelHost(value: string | null | undefined): boolean {
+  const host = normalizeDomainHostname(value);
+  if (!host || isGitPreviewVercelHost(host) || isUniqueVercelDeploymentHost(host)) return false;
+  if (host === PLATFORM_VERCEL_APP_HOST) return false;
+  const labels = host.split(".");
+  return labels.length === 3 && labels[1] === "vercel" && labels[2] === "app";
+}
+
+export type CurrentProductionHostProof = {
+  attestedProductionHost?: string | null;
+  verifiedCustomerHosts?: ReadonlyArray<string | null | undefined> | null;
+  /** Temporary alias-read failure: keep a last-working 3-label provider host. */
+  allowLastWorkingProvider?: boolean;
+};
+
+function verifiedCustomerHostSet(
+  hosts: CurrentProductionHostProof["verifiedCustomerHosts"],
+): Set<string> {
+  const next = new Set<string>();
+  for (const entry of hosts ?? []) {
+    const host = normalizeDomainHostname(entry);
+    if (host) next.add(host);
+  }
+  return next;
+}
+
 /**
- * Positive production identity. A host counts only when it is the attested
- * same-project `*.vercel.app` alias, or a customer domain outside `*.vercel.app`.
+ * Current production identity. A host counts only with live proof: the
+ * attested same-project alias, a currently verified customer/branded host,
+ * or — when the alias read is temporarily unknown — a last-working
+ * 3-label provider host.
  */
-export function isVerifiedProductionSiteHost(
+export function selectCurrentProductionIdentityUrl(
+  row: { url?: string | null; providerUrl?: string | null },
+  proof: CurrentProductionHostProof = {},
+): string | null {
+  const urlHost = normalizeDomainHostname(row.url);
+  if (urlHost && isCurrentProductionSiteHost(urlHost, proof)) return `https://${urlHost}`;
+  const providerHost = normalizeDomainHostname(row.providerUrl);
+  if (providerHost && isCurrentProductionSiteHost(providerHost, proof)) {
+    return `https://${providerHost}`;
+  }
+  return null;
+}
+
+export function isCurrentProductionSiteHost(
   value: string | null | undefined,
-  attestedProductionHost?: string | null,
+  proof: CurrentProductionHostProof = {},
 ): boolean {
   const host = normalizeDomainHostname(value);
   if (!host || isGitPreviewVercelHost(host)) return false;
-  if (!host.endsWith(".vercel.app")) return true;
-  const attested = normalizeDomainHostname(attestedProductionHost);
-  return Boolean(attested && host === attested);
+  if (verifiedCustomerHostSet(proof.verifiedCustomerHosts).has(host)) return true;
+  const attested = normalizeDomainHostname(proof.attestedProductionHost);
+  if (attested && host === attested) return true;
+  return Boolean(proof.allowLastWorkingProvider && isProductionProviderVercelHost(host));
 }
 
 export function getBrandedLiveSiteDomain(): string | null {
