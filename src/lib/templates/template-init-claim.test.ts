@@ -17,6 +17,7 @@ import {
   claimTemplateInit,
   completeTemplateInitClaim,
   failTemplateInitClaim,
+  recordTemplateInitImport,
 } from "./template-init-claim";
 
 function existsProbe() {
@@ -174,6 +175,73 @@ describe("claimTemplateInit", () => {
     expect(second).toMatchObject({ kind: "acquired", operationId: "op_b", projectId: "proj_b" });
   });
 
+  it("returns imported when a pending row already has chat and version", async () => {
+    execute
+      .mockResolvedValueOnce(existsProbe())
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          insertRow({
+            expires_at: new Date(Date.now() + 60_000),
+            chat_id: "chat_1",
+            version_id: "ver_1",
+          }),
+        ],
+      });
+
+    await expect(
+      claimTemplateInit({
+        projectId: "proj_1",
+        templateId: "tmpl_1",
+      }),
+    ).resolves.toMatchObject({
+      kind: "imported",
+      operationId: "op_1",
+      chatId: "chat_1",
+      versionId: "ver_1",
+    });
+  });
+
+  it("reclaims a failed row without clearing a recorded import", async () => {
+    execute
+      .mockResolvedValueOnce(existsProbe())
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          insertRow({
+            status: "failed",
+            operation_id: "op_same",
+            chat_id: "chat_kept",
+            version_id: "ver_kept",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          insertRow({
+            status: "pending",
+            operation_id: "op_same",
+            claim_generation: 2,
+            chat_id: "chat_kept",
+            version_id: "ver_kept",
+          }),
+        ],
+      });
+
+    await expect(
+      claimTemplateInit({
+        projectId: "proj_1",
+        templateId: "tmpl_1",
+      }),
+    ).resolves.toMatchObject({
+      kind: "imported",
+      operationId: "op_same",
+      claimGeneration: 2,
+      chatId: "chat_kept",
+      versionId: "ver_kept",
+    });
+  });
+
   it("fails closed when the claim table probe is unavailable", async () => {
     execute.mockRejectedValueOnce(new Error("probe failed"));
     await expect(
@@ -194,6 +262,22 @@ describe("complete/fail template init claim", () => {
     });
     await expect(
       completeTemplateInitClaim({
+        claimKey: "project:proj_1:tmpl_1",
+        operationId: "op_1",
+        claimGeneration: 1,
+        projectId: "proj_1",
+        chatId: "chat_1",
+        versionId: "ver_1",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("records chat and version on the owned pending generation only", async () => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({
+      rows: [{ operation_id: "op_1" }],
+    });
+    await expect(
+      recordTemplateInitImport({
         claimKey: "project:proj_1:tmpl_1",
         operationId: "op_1",
         claimGeneration: 1,

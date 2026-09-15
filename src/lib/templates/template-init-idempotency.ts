@@ -222,6 +222,43 @@ export async function findExistingTemplateInit(
   };
 }
 
+/**
+ * Replay from a durable claim that already recorded chat/version.
+ * Used when snapshot lookup misses on retry (lost projectId, empty list).
+ */
+export async function loadExistingTemplateInitByIds(input: {
+  projectId: string;
+  chatId: string;
+  versionId?: string | null;
+}): Promise<ExistingTemplateInit | null> {
+  const scopedProjectId = trimId(input.projectId);
+  const chatId = trimId(input.chatId);
+  if (!scopedProjectId || !chatId) return null;
+
+  let chat;
+  try {
+    chat = await chatRepo.getChat(chatId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa den sparade template-chatten.", {
+      cause: error,
+    });
+  }
+  if (!chat || chat.project_id !== scopedProjectId) return null;
+
+  const version = await readImportedVersion(chat.id);
+  if (!version) return null;
+  const files = parseTemplateInitFiles(version.files_json);
+  return {
+    chatId: chat.id,
+    projectId: scopedProjectId,
+    versionId: version.id,
+    previewUrl: trimId(version.preview_url),
+    files,
+    code: pickMainTemplateCode(files),
+    model: typeof chat.model === "string" && chat.model.trim() ? chat.model : "",
+  };
+}
+
 export async function markTemplateInitPending(
   projectId: string,
   templateId: string,

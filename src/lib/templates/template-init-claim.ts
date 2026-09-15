@@ -19,6 +19,17 @@ export type ClaimedTemplateInit =
       operationId: string;
       claimGeneration: number;
       projectId: string | null;
+      chatId: string | null;
+      versionId: string | null;
+    }
+  | {
+      kind: "imported";
+      claimKey: string;
+      operationId: string;
+      claimGeneration: number;
+      projectId: string | null;
+      chatId: string;
+      versionId: string;
     }
   | {
       kind: "busy";
@@ -68,6 +79,33 @@ function mapRow(row: ClaimRow) {
     projectId: trimId(row.project_id),
     chatId: trimId(row.chat_id),
     versionId: trimId(row.version_id),
+  };
+}
+
+function asImported(
+  mapped: ReturnType<typeof mapRow>,
+): Extract<ClaimedTemplateInit, { kind: "imported" }> | null {
+  if (!mapped.chatId || !mapped.versionId) return null;
+  return {
+    kind: "imported",
+    claimKey: mapped.claimKey,
+    operationId: mapped.operationId,
+    claimGeneration: mapped.claimGeneration,
+    projectId: mapped.projectId,
+    chatId: mapped.chatId,
+    versionId: mapped.versionId,
+  };
+}
+
+function asAcquired(mapped: ReturnType<typeof mapRow>): Extract<ClaimedTemplateInit, { kind: "acquired" }> {
+  return {
+    kind: "acquired",
+    claimKey: mapped.claimKey,
+    operationId: mapped.operationId,
+    claimGeneration: mapped.claimGeneration,
+    projectId: mapped.projectId,
+    chatId: mapped.chatId,
+    versionId: mapped.versionId,
   };
 }
 
@@ -164,14 +202,7 @@ export async function claimTemplateInit(input: {
       `),
     );
     if (inserted[0]) {
-      const row = mapRow(inserted[0]);
-      return {
-        kind: "acquired",
-        claimKey: row.claimKey,
-        operationId: row.operationId,
-        claimGeneration: row.claimGeneration,
-        projectId: row.projectId,
-      };
+      return asAcquired(mapRow(inserted[0]));
     }
 
     const existing = await selectClaimRow(claimKey);
@@ -191,6 +222,8 @@ export async function claimTemplateInit(input: {
     }
 
     if (existing.status === "pending") {
+      const imported = asImported(mapped);
+      if (imported) return imported;
       const expiresAt = existing.expires_at;
       const expired =
         expiresAt != null &&
@@ -213,8 +246,6 @@ export async function claimTemplateInit(input: {
         SET status = 'pending',
             claim_generation = claim_generation + 1,
             error = NULL,
-            chat_id = NULL,
-            version_id = NULL,
             updated_at = now(),
             expires_at = now() + ${leaseSeconds} * interval '1 second'
         WHERE claim_key = ${claimKey}
@@ -230,13 +261,7 @@ export async function claimTemplateInit(input: {
     );
     if (taken[0]) {
       const row = mapRow(taken[0]);
-      return {
-        kind: "acquired",
-        claimKey: row.claimKey,
-        operationId: row.operationId,
-        claimGeneration: row.claimGeneration,
-        projectId: row.projectId,
-      };
+      return asImported(row) ?? asAcquired(row);
     }
 
     const raced = await selectClaimRow(claimKey);
@@ -253,6 +278,8 @@ export async function claimTemplateInit(input: {
         versionId: racedMapped.versionId,
       };
     }
+    const racedImported = asImported(racedMapped);
+    if (racedImported) return racedImported;
     return {
       kind: "busy",
       claimKey: racedMapped.claimKey,
@@ -277,6 +304,33 @@ export async function bindTemplateInitProject(input: {
   const result = await db.execute(sql`
     UPDATE template_init_operations
     SET project_id = ${input.projectId},
+        updated_at = now()
+    WHERE claim_key = ${input.claimKey}
+      AND operation_id = ${input.operationId}
+      AND claim_generation = ${input.claimGeneration}
+      AND status = 'pending'
+    RETURNING operation_id
+  `);
+  return asRows(result).length > 0;
+}
+
+export async function recordTemplateInitImport(input: {
+  claimKey: string;
+  operationId: string;
+  claimGeneration: number;
+  projectId: string;
+  chatId: string;
+  versionId: string;
+}): Promise<boolean> {
+  if (!dbConfigured) return false;
+  const presence = await templateInitOperationsTablePresence();
+  if (presence !== "exists") return false;
+  const result = await db.execute(sql`
+    UPDATE template_init_operations
+    SET project_id = ${input.projectId},
+        chat_id = ${input.chatId},
+        version_id = ${input.versionId},
+        error = NULL,
         updated_at = now()
     WHERE claim_key = ${input.claimKey}
       AND operation_id = ${input.operationId}

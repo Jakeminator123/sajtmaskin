@@ -37,6 +37,9 @@ const claimState = vi.hoisted(() => ({
     }
   >(),
   seq: 0,
+  bindResult: true,
+  recordResult: true,
+  completeResult: true,
 }));
 
 vi.mock("@/lib/db/services/projects", () => ({
@@ -124,6 +127,9 @@ vi.mock("@/lib/templates/template-init-claim", () => {
       if (existing?.status === "completed") {
         return { kind: "completed", ...existing };
       }
+      if (existing?.status === "pending" && existing.chatId && existing.versionId) {
+        return { kind: "imported", ...existing };
+      }
       if (existing?.status === "pending") {
         return { kind: "busy", ...existing };
       }
@@ -145,30 +151,86 @@ vi.mock("@/lib/templates/template-init-claim", () => {
       claimState.store.set(claimKey, row);
       return { kind: "acquired", ...row };
     },
-    bindTemplateInitProject: async (input: { claimKey: string; projectId: string }) => {
+    bindTemplateInitProject: async (input: {
+      claimKey: string;
+      operationId: string;
+      claimGeneration: number;
+      projectId: string;
+    }) => {
       const row = claimState.store.get(input.claimKey);
-      if (!row) return false;
+      if (
+        !row ||
+        row.operationId !== input.operationId ||
+        row.claimGeneration !== input.claimGeneration ||
+        row.status !== "pending"
+      ) {
+        return false;
+      }
+      if (!claimState.bindResult) return false;
       row.projectId = input.projectId;
       return true;
     },
-    completeTemplateInitClaim: async (input: {
+    recordTemplateInitImport: async (input: {
       claimKey: string;
       operationId: string;
+      claimGeneration: number;
       projectId: string;
       chatId: string;
       versionId: string;
     }) => {
       const row = claimState.store.get(input.claimKey);
-      if (!row || row.operationId !== input.operationId) return false;
+      if (
+        !row ||
+        row.operationId !== input.operationId ||
+        row.claimGeneration !== input.claimGeneration ||
+        row.status !== "pending"
+      ) {
+        return false;
+      }
+      if (!claimState.recordResult) return false;
+      row.projectId = input.projectId;
+      row.chatId = input.chatId;
+      row.versionId = input.versionId;
+      return true;
+    },
+    completeTemplateInitClaim: async (input: {
+      claimKey: string;
+      operationId: string;
+      claimGeneration: number;
+      projectId: string;
+      chatId: string;
+      versionId: string;
+    }) => {
+      const row = claimState.store.get(input.claimKey);
+      if (
+        !row ||
+        row.operationId !== input.operationId ||
+        row.claimGeneration !== input.claimGeneration ||
+        row.status !== "pending"
+      ) {
+        return false;
+      }
+      if (!claimState.completeResult) return false;
       row.status = "completed";
       row.projectId = input.projectId;
       row.chatId = input.chatId;
       row.versionId = input.versionId;
       return true;
     },
-    failTemplateInitClaim: async (input: { claimKey: string }) => {
+    failTemplateInitClaim: async (input: {
+      claimKey: string;
+      operationId: string;
+      claimGeneration: number;
+    }) => {
       const row = claimState.store.get(input.claimKey);
-      if (!row) return false;
+      if (
+        !row ||
+        row.operationId !== input.operationId ||
+        row.claimGeneration !== input.claimGeneration ||
+        row.status !== "pending"
+      ) {
+        return false;
+      }
       row.status = "failed";
       return true;
     },
@@ -233,6 +295,9 @@ describe("POST /api/template", () => {
     recordImportedRepoPreviewOutcome.mockReset();
     claimState.store.clear();
     claimState.seq = 0;
+    claimState.bindResult = true;
+    claimState.recordResult = true;
+    claimState.completeResult = true;
 
     getCurrentUser.mockResolvedValue(null);
     resolveAppProjectIdForRequest.mockResolvedValue(null);
@@ -1001,6 +1066,85 @@ describe("POST /api/template", () => {
     });
     expect(chatRepoCreateChat).not.toHaveBeenCalled();
     expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed credit-commit on the same operation without a second import", async () => {
+    stubLocalTemplateSource();
+    chatRepoGetChat.mockResolvedValue({
+      id: "chat_import",
+      project_id: "proj_new",
+      model: "gpt-import",
+      messages: [],
+    });
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_import",
+        model: "gpt-import",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_import",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://vm-fly-jakem.fly.dev/chat_import",
+    });
+    commitCredits.mockRejectedValueOnce(new Error("ledger down")).mockResolvedValue(undefined);
+
+    const first = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    const second = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    const firstJson = await first.json();
+    const secondJson = await second.json();
+
+    expect(first.status).toBe(503);
+    expect(firstJson).toMatchObject({ success: false, retryable: true });
+    expect(second.status).toBe(200);
+    expect(secondJson).toMatchObject({
+      success: true,
+      cached: true,
+      chatId: "chat_import",
+      projectId: "proj_new",
+      versionId: "ver_import",
+    });
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(2);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
+      "op_1",
+      "op_1",
+    ]);
+  });
+
+  it("releases the reservation when prepareCredits throws so the next attempt is not busy", async () => {
+    stubLocalTemplateSource();
+    prepareCredits.mockRejectedValueOnce(new Error("credits lookup down"));
+
+    const first = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    const second = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+
+    expect(first.status).toBe(500);
+    expect(second.status).toBe(200);
+    expect((await second.json()).chatId).toBe("chat_import");
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not import when bindTemplateInitProject rejects the write", async () => {
+    stubLocalTemplateSource();
+    claimState.bindResult = false;
+
+    const response = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json).toMatchObject({ success: false, retryable: true });
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
     expect(commitCredits).not.toHaveBeenCalled();
   });
 });
