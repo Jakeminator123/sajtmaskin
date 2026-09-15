@@ -63,6 +63,12 @@ interface PreviewPanelEmptyStateProps {
    */
   versionlessAborted?: boolean;
   onRestartGeneration?: (() => void) | null;
+  /**
+   * Failed `POST /api/template` while `?templateId=` is still in the URL.
+   * Spinner must not represent this — show the error and «Försök igen».
+   */
+  templateInitError?: string | null;
+  onRetryTemplateInit?: (() => void) | null;
 }
 
 export function PreviewPanelEmptyState({
@@ -86,6 +92,8 @@ export function PreviewPanelEmptyState({
   isGenerating = false,
   versionlessAborted = false,
   onRestartGeneration,
+  templateInitError = null,
+  onRetryTemplateInit = null,
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
@@ -97,6 +105,7 @@ export function PreviewPanelEmptyState({
   // disables this branch there.
   const searchParams = useSearchParams();
   const pendingTemplateInit = Boolean(searchParams?.get("templateId")) && !chatId;
+  const templateInitFailed = pendingTemplateInit && Boolean(templateInitError);
   const isInitialEmpty = !chatId && !versionId && !externalLoading && !pendingTemplateInit;
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
@@ -138,6 +147,8 @@ export function PreviewPanelEmptyState({
               : null;
   const title = previewBuildError
     ? previewBuildErrorTitle(previewBuildError)
+    : templateInitFailed
+      ? "Kunde inte läsa in templaten"
     : versionlessAborted
       ? "Genereringen avbröts"
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -160,6 +171,8 @@ export function PreviewPanelEmptyState({
   // the chrome banner's collapsed detail, not in the empty-state headline.
   const subtitle = previewBuildError
     ? previewBuildError.message
+    : templateInitFailed
+      ? templateInitError || "Templaten kunde inte startas. Försök igen."
     : versionlessAborted
       ? "Strömmen avbröts innan en version sparades. Den här chatten kan inte repareras — starta om genereringen i en ny chat."
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -183,6 +196,9 @@ export function PreviewPanelEmptyState({
   // parent maps to a fresh chat). The "repair preview" button is
   // suppressed so the user cannot send a followup_general into a chat
   // that has nothing to repair.
+  const showRetryTemplateInit = Boolean(
+    templateInitFailed && onRetryTemplateInit && !externalLoading && !previewPending,
+  );
   const showRestartAction = Boolean(
     versionlessAborted && onRestartGeneration && !externalLoading && !previewPending,
   );
@@ -201,6 +217,8 @@ export function PreviewPanelEmptyState({
     ? previewBuildError.severity === "info"
       ? MessageCircleQuestion
       : AlertCircle
+    : templateInitFailed
+      ? AlertCircle
     : versionlessAborted
       ? RotateCcw
       : previewPending || pendingTemplateInit
@@ -257,7 +275,10 @@ export function PreviewPanelEmptyState({
   return (
     <PreviewBackdropStage motion={backdropMotion} statusKey={title}>
       <EmptyIcon
-        className={cn("mb-4 h-12 w-12", (previewPending || pendingTemplateInit) && "animate-spin")}
+        className={cn(
+          "mb-4 h-12 w-12",
+          (previewPending || (pendingTemplateInit && !templateInitFailed)) && "animate-spin",
+        )}
       />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
@@ -284,6 +305,12 @@ export function PreviewPanelEmptyState({
             <p className="text-xs text-amber-200/80">Svara i chatten till vänster för att fortsätta.</p>
           )}
         </div>
+      ) : null}
+      {showRetryTemplateInit ? (
+        <Button className="mt-4" onClick={onRetryTemplateInit!} disabled={externalLoading}>
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Försök igen
+        </Button>
       ) : null}
       {showRestartAction ? (
         <Button className="mt-4" onClick={onRestartGeneration!} disabled={externalLoading}>

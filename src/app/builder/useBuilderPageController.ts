@@ -590,7 +590,7 @@ export function useBuilderPageController() {
   });
 
   // ── Template init effects ────────────────────────────────────────────
-  useBuilderEffects({
+  const { templateInitError, retryTemplateInit } = useBuilderEffects({
     auditPromptLoaded: state.auditPromptLoaded,
     templateId: state.templateId,
     chatId: state.chatId,
@@ -839,6 +839,8 @@ export function useBuilderPageController() {
     isDeploying: state.isDeploying,
     isSavingProject: state.isSavingProject,
     isTemplateLoading: state.isTemplateLoading,
+    templateInitError,
+    retryTemplateInit,
     isPreparingPrompt: state.isPreparingPrompt,
     deployNameDialogOpen: state.deployNameDialogOpen,
     deployNameInput: state.deployNameInput,

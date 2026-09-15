@@ -30,6 +30,7 @@ beforeEach(() => {
       armedContinuation: null,
       messages: [],
       isStreaming: false,
+      campaignScript: null,
     });
   });
 });

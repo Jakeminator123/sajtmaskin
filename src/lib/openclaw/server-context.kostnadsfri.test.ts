@@ -65,4 +65,18 @@ describe("buildOpenClawContextBlock — kampanjunderlag", () => {
     });
     expect(block).not.toContain("KAMPANJ-UNDERLAG");
   });
+
+  it("skriver uppföljningsdirektiv i systemkanalen, inte som chattreplik", () => {
+    const block = buildOpenClawContextBlock({
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "handoff", companyName: "Zax Frisör" },
+      kostnadsfriCampaign: { followupsSkipped: false, remaining: 5, buildStarted: false },
+    });
+
+    expect(block).toContain("[KAMPANJ-MANUS]");
+    expect(block).toContain("Uppföljningsdirektiv");
+    expect(block).toContain("Fråga vad som skiljer dem från konkurrenterna.");
+    expect(block).toContain("Rådgivningskvot: 5");
+    expect(block.toLowerCase()).not.toMatch(/generering|ombyggnad/);
+  });
 });
