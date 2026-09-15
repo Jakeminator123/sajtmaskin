@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 const addDomainToProject = vi.hoisted(() => vi.fn());
@@ -50,6 +50,9 @@ const HOSTING = {
   chatId: "chat_1",
 };
 
+/** Vercels `POST …/domains/<d>/verify` går via global fetch, inte vercel-client. */
+let fetchMock: ReturnType<typeof vi.fn>;
+
 function observation(
   domain: string,
   overrides: Partial<{
@@ -79,6 +82,9 @@ function observation(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  // Writes are gated off by default; the flow suite exercises the open path.
+  vi.stubEnv("SAJTMASKIN_CUSTOMER_DOMAIN_WRITES", "true");
   getProjectById.mockResolvedValue({
     id: "proj_1",
     custom_domain: null,
@@ -105,7 +111,77 @@ beforeEach(() => {
     verified: true,
     redirect: "exempel.se",
   });
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ verified: true }), { status: 200 })));
+  fetchMock = vi.fn(async () => new Response(JSON.stringify({ verified: true }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+// C2 är inte runtime-bevisat mot en riktig kunddomän. Tills det är gjort ska
+// varje providerskrivning fail:a closed, medan läsvägen förblir öppen.
+describe("customer-domain write gate", () => {
+  beforeEach(() => {
+    vi.stubEnv("SAJTMASKIN_CUSTOMER_DOMAIN_WRITES", "");
+  });
+
+  it("stänger link/verify/activate/unlink utan providerskrivning", async () => {
+    const calls = [
+      await linkCustomerDomain({ hosting: HOSTING, domain: "exempel.se" }),
+      await verifyCustomerDomain({ hosting: HOSTING, domain: "exempel.se" }),
+      await activateCustomerDomain({ hosting: HOSTING, domain: "exempel.se" }),
+      await unlinkCustomerDomain({ hosting: HOSTING }),
+    ];
+
+    for (const result of calls) {
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.status).toBe(503);
+      expect(result.code).toBe("customer_domain_writes_closed");
+    }
+
+    expect(addDomainToProject).not.toHaveBeenCalled();
+    expect(removeDomainFromProject).not.toHaveBeenCalled();
+    expect(updateProjectDomainRedirect).not.toHaveBeenCalled();
+    expect(setProjectCustomDomainCandidate).not.toHaveBeenCalled();
+    expect(setProjectVerifiedCustomDomain).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomain).not.toHaveBeenCalled();
+    // Verify-vägens providerskrivning och demotering av en levande adress.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(clearProjectCustomDomainVerification).not.toHaveBeenCalled();
+    expect(setLatestDeploymentLiveUrlForChat).not.toHaveBeenCalled();
+  });
+
+  it("stänger även när domänen är ogiltig, före normalisering", async () => {
+    const result = await linkCustomerDomain({ hosting: HOSTING, domain: "inte en domän" });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("customer_domain_writes_closed");
+  });
+
+  it("lämnar läsvägen öppen så status och DNS-poster fortfarande visas", async () => {
+    const snapshot = await inspectCustomerDomain({
+      hosting: HOSTING,
+      domain: "exempel.se",
+      checkHttps: false,
+    });
+
+    expect(snapshot.primary?.domain).toBe("exempel.se");
+    expect(snapshot.primary?.records.length).toBeGreaterThan(0);
+    expect(addDomainToProject).not.toHaveBeenCalled();
+  });
+
+  it("öppnar bara på ett uttryckligt affirmativt värde", async () => {
+    vi.stubEnv("SAJTMASKIN_CUSTOMER_DOMAIN_WRITES", "no");
+    const denied = await linkCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+    expect(denied.ok).toBe(false);
+
+    vi.stubEnv("SAJTMASKIN_CUSTOMER_DOMAIN_WRITES", "true");
+    const allowed = await linkCustomerDomain({ hosting: HOSTING, domain: "exempel.se" });
+    expect(allowed.ok).toBe(true);
+    expect(addDomainToProject).toHaveBeenCalled();
+  });
 });
 
 describe("checkCustomerHttps", () => {

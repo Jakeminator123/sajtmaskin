@@ -63,7 +63,11 @@ export async function POST(req: NextRequest) {
       const result = await verifyCustomerDomain({ hosting, domain: normalized.domain });
       if (!result.ok) {
         return NextResponse.json(
-          { error: result.error, snapshot: result.snapshot ?? null },
+          {
+            error: result.error,
+            ...(result.code ? { code: result.code } : {}),
+            snapshot: result.snapshot ?? null,
+          },
           { status: result.status },
         );
       }

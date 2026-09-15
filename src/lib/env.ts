@@ -177,6 +177,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_BRANDED_PILOT_ALLOWLIST: z.string().optional(),
   /** Parent hostname for exact generated-site aliases, e.g. sites.sajtmaskin.se. */
   SAJTMASKIN_LIVE_SITE_DOMAIN: z.string().optional(),
+  /** C2 customer-domain provider writes (link/verify/activate/unlink). Default off until the flow is proven end-to-end on a throwaway domain; read-only inspection stays open. Read via `customerDomainWritesEnabled` in `src/lib/domains/customer-domain-flow.ts`. */
+  SAJTMASKIN_CUSTOMER_DOMAIN_WRITES: z.string().optional(),
   /** Fast Edit Lane hot patch (server): when `"true"`, a quick edit pushes changed files into the live preview VM workspace without restarting Next dev. Read via `isPreviewPatchLaneEnabled` in `src/lib/gen/preview/preview-session.ts`. Default off. */
   SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
   /** Innehållsrevision steg 3: when `"true"`, verdict/receipt readers compare `files_revision` instead of trusting `versionId` (promote-guard, preview-ready receipt + cache, terminal status projection). Known mismatch only; unknown revision stays fail-open. Read via `isContentRevisionGateEnabled` in `src/lib/gen/verify/content-revision.ts`. Default off. */
