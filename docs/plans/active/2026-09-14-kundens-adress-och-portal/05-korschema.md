@@ -6,14 +6,13 @@ i [masterplanen](00-master-plan.md).
 ## Genomförandestatus 2026-09-15
 
 Etapp 1–2 är kodmässigt inne på `preview` för C1, C3e1, A2, B1, C2 och A3
-(identitetsfix #1386). C2 har ingen kill-switch. A3-redirect och branded är
-av. D3-adaptern saknas. A1:s två testhosts, A4-pilot, D2/D3-livscykel och
-C3e2 återstår. Samlad tabell: [masterplanen](00-master-plan.md).
+(#1386 + #1391). #1389 är kod på preview; Fly är inte deployad. C2 har ingen
+kill-switch. A3-redirect och branded är av. D3-adaptern saknas. A1, A4 och
+D2/D3 (#1385, nästa våg) återstår. Samlad tabell:
+[masterplanen](00-master-plan.md).
 
-Kvarvarande körordning mot preview: #1385 (D2/D3 + C3e2 + D3-adapter, separat
-produkt-PR) → A1 HTTPS-bevis → A4 pilot. #1389 är post-promotion, inte i
-denna ordning. #1380 stängs; den ska inte styra mergeordning. Ingen promote
-i detta körschema.
+#1385, #1376, #1377 och Dependabot ingår inte i denna release. #1380 stängs.
+Ingen promote i detta körschema.
 
 ## Etapper
 

@@ -145,7 +145,7 @@ och schema plats samtidigt.
 ### Inte i preview ännu (2026-09-15)
 
 `MIGRATION_ORDER` på `origin/preview`
-(`65c8f06f95a8f370cfb1ba1ff442714d28b8180d`) slutar med
+(`33935b8d048c311e138279cd8868c58cdbca9dfd`) slutar med
 `add-kostnadsfri-sent.sql`. D1:s `add-site-subscriptions.sql` och
 `upgrade-site-subscriptions-composite-keys.sql` är redan i ordningen.
 Öppen draft #1385 lägger till `add-stripe-billing-events.sql`. Den filen

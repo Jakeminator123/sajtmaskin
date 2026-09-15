@@ -3,10 +3,12 @@
 ## Genomförandestatus 2026-09-15
 
 **Kod på preview. Redirect-flagga av. Runtime inte verifierad.** #1369
-levererade det stängda adresskontraktet. #1386 (`4316c7b99`) är
-identitetsfixen: en host är produktion bara med aktuellt bevis. Okänd
-identitet gissas inte till senaste READY. Last-working 3-label provider
-behålls bara när alias-status är tillfälligt `unknown`.
+levererade det stängda adresskontraktet. #1386 är host-identitetsfixen:
+en host är produktion bara med aktuellt bevis. #1391 (`33935b8d`) är
+production-identitetsfixen: `liveVersionId` / Publicera om pekar på Vercels
+aktuella production-deployment, inte senaste READY. Okänd identitet gissas
+inte. Last-working 3-label provider behålls bara när alias-status är
+tillfälligt `unknown`.
 
 Två lager, inte en flagga:
 

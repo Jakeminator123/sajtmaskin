@@ -4,10 +4,11 @@
 > Inga nya produktval ratificeras här. Förslagen nedan flyttas till
 > [beslutsloggen](../../../decisions/README.md) först efter Jakobs svar.
 
-Avläst mot live GitHub 2026-09-15. `origin/preview` =
-`65c8f06f95a8f370cfb1ba1ff442714d28b8180d` (inkl. #1375). `origin/master` =
-`fb14ab3d65103f5e9b40e0d31baf9c9d3c32df2e`. Kod på preview är inte samma sak
-som flagga på, runtime verifierad eller kundaktiverad.
+Avläst mot låst `origin/preview`
+`33935b8d048c311e138279cd8868c58cdbca9dfd` (2026-09-15, inkl. #1389 + #1391).
+`origin/master` = `fb14ab3d65103f5e9b40e0d31baf9c9d3c32df2e`. Inga ad hoc-PR:er
+före promote. Kod på preview är inte samma sak som flagga på, runtime
+verifierad eller kundaktiverad.
 
 ## Genomförandestatus 2026-09-15
 
@@ -18,26 +19,22 @@ som flagga på, runtime verifierad eller kundaktiverad.
 | C3 etapp 1 | Ja — #1359 | — | Konto, saldo och köphistorik i staging-appen | Nej |
 | C3 etapp 2 | Nej — öppen draft #1385 | — | Nej | Nej |
 | A2 grundskydd + pilotgrind | Ja — #1360 / #1365 / #1366 (`e7bdbb2d`) | `activation_not_ready`; `SAJTMASKIN_BRANDED_LIVE_URLS` av | HTTPS-cookieprov och gästsession-återställning kvar | Nej |
-| A3 adresskontrakt | Ja — #1369 (kontrakt) + #1386 identitetsfix (`4316c7b99`) | Identitet/`SITE_URL`: alltid från aktuellt bevis. 307-redirect: `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
+| A3 adresskontrakt | Ja — #1369 + #1386 + #1391 (`33935b8d`, production-identitet) | Identitet/`SITE_URL`: alltid från aktuellt bevis. Live-version = Vercel production, inte senaste READY. 307-redirect: `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
 | A1 DNS / PSL | Inget runtime-paket | — | 2026-09-15: `sites.*` och `pilot-a1-test.sites.*` NXDOMAIN. PSL avvaktas | Nej |
 | A4 pilot / migrering | Nej | `SAJTMASKIN_BRANDED_LIVE_URLS` av | Nej | Nej |
 | B1 export | Ja — #1367 (`934eda6c7`) | — | Kodverifierad export; ingen separat kundpilot | Nej |
 | D1 schema | Ja — #1361 / #1364 | — | Båda D1-migrationerna i delad preview/prod-ledger (tidigare read-only kontroll) | Nej |
 | D2 / D3 livscykel | Bara stängsel: #1379 (webhook-dispatch) + #1381 (checkout hårdstängd). Full implementation i #1385 | `SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false` (inte env-styrd på preview). D3-adaptern `site-subscription-hosting.ts` **saknas på preview** | Nej. #1385:s `add-stripe-billing-events.sql` finns inte i preview och är inte applicerad | Nej |
 
-Identitetsregeln från #1386: en host är produktion bara med aktuellt bevis
-(attesterat samma-projekt-alias eller just nu verifierad kund-/branded-host).
-Okänd identitet gissas inte till senaste READY. Undantag: last-working
-3-label provider när alias-status är tillfälligt `unknown`.
+Identitet på preview: #1386 (host kräver aktuellt bevis) + #1391 (live-version
+är Vercel production-deployment, inte senaste READY). Okänd identitet gissas
+inte. Undantag: last-working 3-label provider när alias-status är tillfälligt
+`unknown`.
 
-#1380 (A1-mätning + `HANDOFF.md`) är stale efter #1369–#1386. **Stäng utan
-merge.** Bestående DNS-fakta ligger i
-[adressrunbooken](../../../runbooks/branded-user-urls.md). Ingen andra
-masterplan skapas.
-
-#1389 (preview-host boot-backdrop) väntas **inte** av den här hygien-PR:en;
-den är post-promotion. Öppna PR:er som kan göra portalstatus stale: #1385
-(D2/D3 + C3e2). #1376 och #1377 är buggspår, inte portalaktivering.
+#1389 är kod på preview (`b760ea919`). Fly-hosten är **inte** deployad.
+#1385 är nästa våg, inte denna release. #1376, #1377 och Dependabot ligger
+utanför. #1380 stängs utan merge; DNS-fakta ligger i
+[adressrunbooken](../../../runbooks/branded-user-urls.md).
 
 Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande
 är fortsatt förslag. Ingen branded-pilot, ingen betalstart, ingen promote.
