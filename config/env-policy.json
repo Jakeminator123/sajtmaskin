@@ -194,6 +194,7 @@
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+    "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFAULT_THINKING",
@@ -575,6 +576,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Default empty/deny. JSON array of exact reviewed objects {projectId, versionId, filesRevision}. This records review of the stored source revision only; autofix, SEO/LLM and image materialization run later, so it does not prove final provider bytes or authorize activation. A project approval never rolls forward to a new or edited engine version. A4 must add final-artifact proof and serialized attachment to an exact READY deployment before runtime activation. Source: src/lib/branded-pilot-eligibility.ts."
+    },
+    {
+      "key": "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Default off request signal for A3's shared canonical build/redirect contract. A3 always returns a null redirect candidate and keeps runtime activation hard-closed with activation_not_ready even when set; customer env remains unchanged. A4 must add server-trusted HTTPS proof and an exact production provider alias attested for the same Vercel project before this may mutate generated env or routing. Source: src/lib/deploy/canonical-site-address.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",
