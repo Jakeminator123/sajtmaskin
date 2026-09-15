@@ -1,14 +1,59 @@
 import { describe, expect, it } from "vitest";
 import {
+  PREVIEW_HOST_BOOT_MARKER_NAME,
   PreviewHostBootPageError,
   PreviewProbeUnreadableError,
   classifyPreviewPageProbe,
+  collectPreviewHostBootPageProbe,
   isPreviewHostBootPage,
   isPreviewHostBootPageError,
   isPreviewProbeUnreadableError,
 } from "./preview-boot-page";
 
 describe("classifyPreviewPageProbe", () => {
+  it("treats the explicit host boot marker as the primary boot_page signal", () => {
+    expect(
+      classifyPreviewPageProbe({
+        title: "Startar preview",
+        h1: "Sajten startar",
+        bodyText: "Preview byggs och startas.",
+        bootMarker: "starting",
+      }),
+    ).toBe("boot_page");
+    expect(
+      classifyPreviewPageProbe({
+        title: "Startar om preview",
+        h1: "Sajten startas om",
+        bodyText: "Preview startas om.",
+        bootMarker: "recovering",
+      }),
+    ).toBe("boot_page");
+    expect(
+      classifyPreviewPageProbe({
+        title: "Preview kunde inte starta",
+        h1: "Preview kunde inte starta",
+        bodyText: "Uppstarten misslyckades.",
+        bootMarker: "error",
+      }),
+    ).toBe("boot_page");
+    expect(
+      classifyPreviewPageProbe({
+        title: "",
+        h1: null,
+        bodyText: "",
+        bootMarker: "starting",
+      }),
+    ).toBe("boot_page");
+    expect(
+      classifyPreviewPageProbe({
+        title: "Jakob & Johan Stays",
+        h1: "Hero",
+        bodyText: "Handplockade.",
+        bootMarker: "nope",
+      }),
+    ).toBe("live");
+  });
+
   it("detects the preview-host starting / recovering placeholder as boot_page", () => {
     expect(
       classifyPreviewPageProbe({
@@ -113,5 +158,22 @@ describe("isPreviewProbeUnreadableError", () => {
     ).toBe(true);
     expect(isPreviewProbeUnreadableError(new PreviewHostBootPageError())).toBe(false);
     expect(isPreviewHostBootPageError(direct)).toBe(false);
+  });
+});
+
+describe("collectPreviewHostBootPageProbe", () => {
+  it("is self-contained for Playwright evaluate and reads data/meta markers", () => {
+    expect(collectPreviewHostBootPageProbe.toString()).toContain(PREVIEW_HOST_BOOT_MARKER_NAME);
+    document.documentElement.setAttribute(`data-${PREVIEW_HOST_BOOT_MARKER_NAME}`, "starting");
+    document.head.innerHTML = `<meta name="${PREVIEW_HOST_BOOT_MARKER_NAME}" content="starting"><title>Startar preview</title>`;
+    document.body.innerHTML = "<h1>Sajten startar</h1><p>Preview byggs och startas.</p>";
+    const probe = collectPreviewHostBootPageProbe();
+    expect(probe.title).toBe("Startar preview");
+    expect(probe.h1).toBe("Sajten startar");
+    expect(probe.bootMarker).toBe("starting");
+    // jsdom leaves `innerText` empty; Playwright fills `bodyText` in capture.
+    document.documentElement.removeAttribute(`data-${PREVIEW_HOST_BOOT_MARKER_NAME}`);
+    document.head.innerHTML = "";
+    document.body.innerHTML = "";
   });
 });

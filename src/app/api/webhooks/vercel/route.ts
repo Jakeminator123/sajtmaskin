@@ -173,6 +173,7 @@ export async function POST(req: Request) {
   const inspectorUrl = extractInspectorUrl(body);
   const liveUrl = await resolveDeploymentLiveUrlForChat({
     chatId: match[0].chatId,
+    versionId: match[0].versionId,
     providerUrl: url,
     fallbackUrl: match[0].url,
   });

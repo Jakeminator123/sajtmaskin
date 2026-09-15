@@ -124,8 +124,34 @@ falsklarm skulle göra grinden till något man stänger av: `DROP POLICY`,
 backfill-`UPDATE`. Kommentarer och stränglitteraler maskeras, men en
 `DO $$ … $$`-kropp granskas — inklusive dynamisk `EXECUTE '…'`.
 
+`UNIQUE` och `CHECK` räknas normalt som brytande eftersom de kan få gamla
+INSERT:ar att falla. Två katalogbevisade undantag finns:
+
+- Constraints som deklareras inuti en tabell som samma pending-omgång skapar,
+  när tabellen ännu inte finns live.
+- En strikt nullkompatibel `CHECK` eller ett partiellt unikt index som bara
+  använder nullable `TEXT`-kolumner deklarerade tidigare i omgången. Live-
+  katalogen måste bevisa att kolumnerna och INSERT/UPDATE-triggers saknas, så
+  gammal kod fortsätter skriva `NULL` och passerar eller utesluts från indexet.
+  Alla tabellmål i det beviset måste vara explicit `public.`-kvalificerade.
+
+Saknad katalogmetadata, en redan existerande proof-kolumn, dynamisk SQL eller
+en delvis applicerad form failar stängt. Skriv inte om SQL för att undvika
+scannern; välj i stället en additiv datamodell eller den medvetna vägen nedan.
+
 `master` gate:as inte: promoten **är** det medvetna beslutet, och där byter kod
 och schema plats samtidigt.
+
+### Inte i preview ännu (2026-09-15)
+
+`MIGRATION_ORDER` på `origin/preview`
+(`33935b8d048c311e138279cd8868c58cdbca9dfd`) slutar med
+`add-kostnadsfri-sent.sql`. D1:s `add-site-subscriptions.sql` och
+`upgrade-site-subscriptions-composite-keys.sql` är redan i ordningen.
+Öppen draft #1385 lägger till `add-stripe-billing-events.sql`. Den filen
+finns inte på preview, är inte applicerad, och ska inte beskrivas som körd
+mot den delade preview/prod-databasen förrän den landat och ledgern
+bekräftar den. Ingen `--apply` hör hit.
 
 **Blir grinden röd på preview:** migrationen är brytande. Välj medvetet.
 

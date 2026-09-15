@@ -161,6 +161,35 @@ export async function getProjectById(id: string): Promise<Project | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * Attach every still-unclaimed project of one guest session to a user.
+ *
+ * Currently uncalled: the login path must not claim from a leftover cookie,
+ * because a subdomain can plant a `sess_` id and a login only proves the
+ * account (see `setAuthCookie`). Reserved for the controlled restore where the
+ * user proves the project — do not wire it to anything a client can supply.
+ *
+ * Unlike {@link getProjectByIdForOwner} this never widens to `user_id IS NULL`
+ * without a session match: only rows carrying exactly this `session_id` move.
+ */
+export async function claimUnclaimedSessionProjects(
+  sessionId: string,
+  userId: string,
+): Promise<string[]> {
+  assertDbConfigured();
+  const session = sessionId.trim();
+  const owner = userId.trim();
+  if (!session || !owner) return [];
+
+  const rows = await db
+    .update(appProjects)
+    .set({ user_id: owner, updated_at: new Date() })
+    .where(and(isNull(appProjects.user_id), eq(appProjects.session_id, session)))
+    .returning({ id: appProjects.id });
+
+  return rows.map((row) => row.id);
+}
+
 export async function getProjectByIdForOwner(
   id: string,
   scope: ProjectOwnerScope,
@@ -508,6 +537,53 @@ export async function clearProjectCustomDomainVerification(
     .update(appProjects)
     .set({ custom_domain_verified_at: null, updated_at: new Date() })
     .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)));
+}
+
+/**
+ * Remember a candidate hostname without making it live. Refuses to overwrite a
+ * domain that already has `custom_domain_verified_at` — fail-closed for switch.
+ */
+export async function setProjectCustomDomainCandidate(
+  id: string,
+  domain: string,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(domain);
+  if (!normalized) {
+    throw new Error("Invalid custom domain");
+  }
+  const rows = await db
+    .update(appProjects)
+    .set({
+      custom_domain: normalized,
+      updated_at: new Date(),
+    })
+    .where(and(eq(appProjects.id, id), isNull(appProjects.custom_domain_verified_at)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
+ * Drop the customer hostname we intended to remove. A row that has already
+ * become a different domain is left untouched (same idea as D2 expectedDesired).
+ */
+export async function clearProjectCustomDomain(
+  id: string,
+  expectedDomain: string,
+): Promise<boolean> {
+  assertDbConfigured();
+  const normalized = normalizeDomainHostname(expectedDomain);
+  if (!normalized) return false;
+  const rows = await db
+    .update(appProjects)
+    .set({
+      custom_domain: null,
+      custom_domain_verified_at: null,
+      updated_at: new Date(),
+    })
+    .where(and(eq(appProjects.id, id), eq(appProjects.custom_domain, normalized)))
+    .returning();
+  return rows.length > 0;
 }
 
 export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {

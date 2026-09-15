@@ -228,26 +228,7 @@ export const landingJourneySteps = [
   },
 ]
 
-export const stats = [
-  { value: "~30 sek", label: "Första utkast", tooltip: "Beroende på komplexitet" },
-  { value: "95+", label: "Google-poäng", tooltip: "Prestanda, tillgänglighet, SEO" },
-  { value: "100%", label: "Mobilanpassat", tooltip: "Responsiv design på alla skärmar" },
-  { value: "0 kr", label: "Att starta", tooltip: "Inga kreditkort, inga bindningstider" },
-]
-
 export { creditPackageCopy } from "@/lib/billing/credit-package-copy"
-
-export const studioTiers = [
-  { name: "Start", range: "5 000 - 10 000 kr", description: "1-5 sidor, grundläggande anpassning" },
-  { name: "Plus", range: "10 000 - 20 000 kr", description: "5-10 sidor, mer funktionalitet" },
-  { name: "Pro", range: "20 000 - 40 000+ kr", description: "Unika lösningar, integrationer och e-handel" },
-]
-
-export const studioTeam = [
-  { name: "Strategi", role: "Mål, struktur & flöden" },
-  { name: "Design", role: "Visuellt uttryck & konvertering" },
-  { name: "Leverans", role: "Kod, integrationer & lansering" },
-]
 
 export const trustLogos = [
   "Netflix",
@@ -598,7 +579,8 @@ export const siteTypes = [
   "Redovisningssajt",
   "Bokningssajt",
   "Hantverkarsajt",
-  "Portfolio",
+  "Kliniksajt",
+  "Mäklarsajt",
 ]
 
 // Längsta ordet i listan — används som osynlig platshållare i heron så att

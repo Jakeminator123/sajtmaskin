@@ -31,6 +31,7 @@ import {
   LIVE_REVIEW_TOTAL_TIMEOUT_MS,
   liveReviewJpegFilename,
   assembleReviewBundle,
+  describeScreenshotCoverage,
   hasCurrentScreenshots,
   isAttachableScreenshotUrl,
   isChatFollowUpVersion,
@@ -42,7 +43,10 @@ import {
   pickPreviousVersionInChat,
   pickUserRequest,
   resolveLiveReviewModelIds,
+  resolveUserRequestForVersion,
+  reviewScreenshotContentParts,
   runLiveReview,
+  screenshotViewportCoverage,
   shouldRunLiveReview,
   summarizeBrief,
 } from "./live-review";
@@ -208,6 +212,126 @@ describe("bundle helpers", () => {
       ]),
     ).toBe("Bygg en mörk sajt");
   });
+});
+
+describe("resolveUserRequestForVersion", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const chat_5efde3c4 = [
+    {
+      id: "u1",
+      role: "user",
+      content: "Bygg en mörk sajt för Jakob & Johan Stays",
+      created_at: "2026-09-01T10:00:00.000Z",
+    },
+    {
+      id: "a1",
+      role: "assistant",
+      content: "v1 klar",
+      created_at: "2026-09-01T10:01:00.000Z",
+    },
+    {
+      id: "u2",
+      role: "user",
+      content: "Prissektionen är otydlig — gör den mer konkret",
+      created_at: "2026-09-01T11:00:00.000Z",
+    },
+    {
+      id: "a2",
+      role: "assistant",
+      content: "v2 klar",
+      created_at: "2026-09-01T11:01:00.000Z",
+    },
+  ];
+
+  it("dömer sen resume av v1 mot v1:s user-turn, inte uppföljningens priskritik", () => {
+    const picked = resolveUserRequestForVersion({
+      messages: chat_5efde3c4,
+      versionMessageId: "a1",
+      versionCreatedAt: "2026-09-01T10:01:00.000Z",
+      versionId: "v1",
+    });
+    expect(picked).toEqual({
+      text: "Bygg en mörk sajt för Jakob & Johan Stays",
+      source: "version_message_id",
+    });
+    expect(picked.text).not.toMatch(/[Pp]ris/);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("pinnar v2 till uppföljningens user-turn", () => {
+    const picked = resolveUserRequestForVersion({
+      messages: chat_5efde3c4,
+      versionMessageId: "a2",
+      versionCreatedAt: "2026-09-01T11:01:00.000Z",
+      versionId: "v2",
+    });
+    expect(picked.source).toBe("version_message_id");
+    expect(picked.text).toBe("Prissektionen är otydlig — gör den mer konkret");
+  });
+
+  it("faller till created_at när message_id saknas i listan", () => {
+    const picked = resolveUserRequestForVersion({
+      messages: chat_5efde3c4,
+      versionMessageId: "missing-assistant",
+      versionCreatedAt: "2026-09-01T10:01:00.000Z",
+      versionId: "v1",
+    });
+    expect(picked).toEqual({
+      text: "Bygg en mörk sajt för Jakob & Johan Stays",
+      source: "version_created_at",
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("hoppar över AUTO-FIX även när den ligger före versionens assistant", () => {
+    const picked = resolveUserRequestForVersion({
+      messages: [
+        { id: "u1", role: "user", content: "Bygg en mörk sajt", created_at: "2026-09-01T10:00:00Z" },
+        {
+          id: "u-fix",
+          role: "user",
+          content: "AUTO-FIX REQUEST\nfixa overlay",
+          created_at: "2026-09-01T10:02:00Z",
+        },
+        { id: "a1", role: "assistant", content: "reparerad", created_at: "2026-09-01T10:03:00Z" },
+      ],
+      versionMessageId: "a1",
+      versionCreatedAt: "2026-09-01T10:03:00Z",
+      versionId: "v1",
+    });
+    expect(picked.text).toBe("Bygg en mörk sajt");
+    expect(picked.source).toBe("version_message_id");
+  });
+
+  it("markerar latest-user-fallback synligt när versionsspärr saknas", () => {
+    const picked = resolveUserRequestForVersion({
+      messages: chat_5efde3c4,
+      versionMessageId: null,
+      versionCreatedAt: null,
+      versionId: "v1",
+    });
+    expect(picked).toEqual({
+      text: "Prissektionen är otydlig — gör den mer konkret",
+      source: "latest_user_fallback",
+      reason: "missing_version_pin",
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[live-review] userRequest fallback to latest user prompt",
+      expect.objectContaining({ versionId: "v1", reason: "missing_version_pin" }),
+    );
+  });
+});
+
+describe("bundle helpers (files/brief)", () => {
 
   it("listar ändrade filer mot föräldern", () => {
     const current = JSON.stringify([
@@ -548,6 +672,43 @@ describe("hasCurrentScreenshots", () => {
       hasCurrentScreenshots({ desktopUrl: "https://blob.example/d.jpg", mobileUrl: null }),
     ).toBe(true);
   });
+
+  it("behandlar enbart mobil som ofullständig — inte båda viewportarna", () => {
+    const mobileOnly = {
+      desktopUrl: null,
+      mobileUrl: "https://blob.example/m.jpg",
+    };
+    expect(hasCurrentScreenshots(mobileOnly)).toBe(true);
+    expect(screenshotViewportCoverage(mobileOnly)).toEqual({
+      hasDesktop: false,
+      hasMobile: true,
+      complete: false,
+    });
+    expect(describeScreenshotCoverage(mobileOnly)).toBe("mobile_only");
+    expect(describeScreenshotCoverage({
+      desktopUrl: "https://blob.example/d.jpg",
+      mobileUrl: "https://blob.example/m.jpg",
+    })).toBe("desktop+mobile");
+  });
+
+  it("labelar mobil-only så första bilden inte kan tas för desktop", () => {
+    const parts = reviewScreenshotContentParts({
+      desktopUrl: null,
+      mobileUrl: "https://blob.example/m.jpg",
+    });
+    const texts = parts.filter((part) => part.type === "text").map((part) => part.text);
+    expect(texts.some((text) => /desktop screenshot: MISSING/i.test(text))).toBe(true);
+    expect(texts.some((text) => /^Current mobile screenshot:$/i.test(text))).toBe(true);
+    const firstImageIndex = parts.findIndex((part) => part.type === "image");
+    expect(firstImageIndex).toBeGreaterThan(0);
+    expect(parts[firstImageIndex - 1]).toEqual({
+      type: "text",
+      text: "Current mobile screenshot:",
+    });
+    expect(parts.some((part) => part.type === "text" && /^Current desktop screenshot:$/.test(part.text))).toBe(
+      false,
+    );
+  });
 });
 
 describe("maybeAttachLiveReview", () => {
@@ -590,5 +751,47 @@ describe("maybeAttachLiveReview", () => {
     });
     expect(result).toMatchObject({ status: "skipped", reason: "no_screenshots" });
     expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it("kör advisory live review på enbart mobil men påstår inte båda viewportarna", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    generateObject.mockResolvedValue({
+      object: {
+        verdict: "advisory",
+        confidence: 0.4,
+        rationale: "Bara mobilskottet fanns.",
+        reasoning: "",
+        issues: [],
+      },
+      usage: {},
+    });
+    const result = await maybeAttachLiveReview({
+      enabled: true,
+      skipped: false,
+      findings: [],
+      screenshots: { desktopUrl: null, mobileUrl: "https://blob.example/m.jpg" },
+      domSummary: null,
+      versionId: "v1",
+      versionNumber: 1,
+      filesJson: "[]",
+      userRequest: "mörk sajt",
+      briefSummary: "mörk",
+    });
+    expect(result.status).toBe("completed");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[live-review] desktop screenshot missing; continuing as incomplete viewport set",
+      expect.objectContaining({ versionId: "v1", coverage: "mobile_only" }),
+    );
+    const content = generateObject.mock.calls[0]?.[0]?.messages?.[0]?.content as Array<{
+      type: string;
+      text?: string;
+    }>;
+    const prompt = content.find((part) => part.type === "text")?.text ?? "";
+    expect(prompt).toMatch(/screenshotCoverage: mobile_only/);
+    expect(prompt).toMatch(/incomplete; do not treat this as both viewports/);
+    expect(content.some((part) => /desktop screenshot: MISSING/i.test(part.text ?? ""))).toBe(
+      true,
+    );
+    warnSpy.mockRestore();
   });
 });

@@ -21,12 +21,10 @@ export function LandingFooter() {
             <p className="mt-3 max-w-[200px] text-[10px] leading-relaxed text-muted-foreground/70">
               En tj&auml;nst fr&aring;n{" "}
               <a
-                href="https://sajtstudio.se"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/om"
                 className="underline-offset-2 hover:text-foreground hover:underline"
               >
-                Pretty Good AB
+                Pretty Good B.V.
               </a>
               .
             </p>
@@ -118,7 +116,7 @@ export function LandingFooter() {
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 border-t border-border/15">
           <p className="text-xs text-muted-foreground/60">
-            &copy; {new Date().getFullYear()} Pretty Good AB. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
+            &copy; {new Date().getFullYear()} Pretty Good B.V. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
           </p>
         </div>
       </div>

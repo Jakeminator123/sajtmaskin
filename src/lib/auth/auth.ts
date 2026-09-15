@@ -5,7 +5,7 @@
  */
 
 import crypto from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   createGoogleUser,
   createUser,
@@ -18,6 +18,19 @@ import {
 } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
+import {
+  AUTH_COOKIE_HOST_NAME,
+  AUTH_COOKIE_LEGACY_NAME,
+  authCookieWriteName,
+  cookieMapFromList,
+  expireCookieSetOptions,
+  expireLeftoverCookieOptions,
+  forwardedProtoIsHttps,
+  getAuthTokenFromRequest,
+  hostCookieSetOptions,
+  parseCookieHeader,
+  pickHostOrLegacyCookie,
+} from "@/lib/auth/host-cookies";
 
 /** Default diamond balance for admin/superuser accounts. */
 const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;
@@ -46,7 +59,6 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 // JWT configuration - use centralized secrets
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
-const AUTH_COOKIE_NAME = "sajtmaskin_auth";
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
@@ -126,54 +138,136 @@ export function verifyToken(token: string): JWTPayload | null {
 
 // ============ Cookie Management ============
 
-/**
- * Set auth cookie with JWT token
- */
-export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION,
-    sameSite: "lax",
-    path: "/",
-    maxAge: JWT_EXPIRY,
-  });
+function resolveAuthCookieSecure(options?: { secure?: boolean }): boolean {
+  return typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION;
+}
+
+type IncomingHeaderList = { get(name: string): string | null };
+
+/** `headers()`, or null in the unit-test mocks / render phases where it throws. */
+async function incomingHeaders(): Promise<IncomingHeaderList | null> {
+  try {
+    return await headers();
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Clear auth cookie (logout)
+ * HTTPS cookie policy for a request that has no `Request` object. The write side
+ * uses `IS_PRODUCTION`, so `OR` here can only make the reader stricter than the
+ * writer — never laxer, which would re-open the leftover as an identity.
  */
-export async function clearAuthCookie(): Promise<void> {
+function secureCookiePolicy(headerList: IncomingHeaderList | null): boolean {
+  return (
+    resolveAuthCookieSecure() ||
+    forwardedProtoIsHttps(headerList?.get("x-forwarded-proto"))
+  );
+}
+
+/** Request host for the parent-`Domain` clears, or null when unavailable. */
+function requestHostFromHeaders(headerList: IncomingHeaderList | null): string | null {
+  return (
+    headerList?.get("host") ?? headerList?.get("x-forwarded-host") ?? null
+  );
+}
+
+/**
+ * The raw `Cookie` header is the only view that still shows two cookies sharing
+ * a name — `cookies()` has already collapsed them. So a successful header read
+ * is authoritative, including when it refuses: falling through to `cookies()`
+ * would let the lossy parser hand back one of the conflicting values anyway.
+ * `cookies()` is a fallback only for the case where `headers()` is unavailable.
+ */
+async function readAuthTokenFromIncomingCookies(): Promise<string | null> {
+  const headerList = await incomingHeaders();
+  const secure = secureCookiePolicy(headerList);
+
+  if (headerList) {
+    return (
+      pickHostOrLegacyCookie(
+        parseCookieHeader(headerList.get("cookie")),
+        AUTH_COOKIE_HOST_NAME,
+        AUTH_COOKIE_LEGACY_NAME,
+        { secure },
+      )?.value ?? null
+    );
+  }
+
   const cookieStore = await cookies();
-  cookieStore.delete(AUTH_COOKIE_NAME);
+  const list =
+    typeof cookieStore.getAll === "function" ? cookieStore.getAll() : [];
+  return (
+    pickHostOrLegacyCookie(
+      cookieMapFromList(list),
+      AUTH_COOKIE_HOST_NAME,
+      AUTH_COOKIE_LEGACY_NAME,
+      { secure },
+    )?.value ?? null
+  );
+}
+
+/**
+ * Set auth cookie with JWT token.
+ * `__Host-` is used only when `Secure` is on — browsers reject `__Host-` without it.
+ *
+ * Writes auth cookies only. A login proves the *account*; it says nothing about
+ * who wrote a leftover `sajtmaskin_session` cookie or whether that session's
+ * projects belong to this user. A subdomain on `Domain=.sajtmaskin.se` can plant
+ * a known `sess_` id, so claiming from it here would let a plantable cookie
+ * transfer `app_projects` ownership permanently — expiring the cookie afterwards
+ * does not undo a transfer. Automatic legacy claim is therefore off.
+ *
+ * Follow-up before the branded pilot: a controlled restore where the user proves
+ * the project (not a cookie). Unclaimed guest rows keep their original
+ * `session_id` in the database until then, so nothing is lost — only unreachable
+ * without that restore. Projects that already carry `user_id` need no claim and
+ * stay visible after re-login.
+ */
+export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
+  const secure = resolveAuthCookieSecure(options);
+  const cookieStore = await cookies();
+  cookieStore.set(
+    authCookieWriteName(secure),
+    token,
+    hostCookieSetOptions({ secure, maxAge: JWT_EXPIRY }),
+  );
+  if (!secure) return;
+
+  const host = requestHostFromHeaders(await incomingHeaders());
+  // Production must not keep the unprefixed name as a live permission cookie.
+  cookieStore.set(
+    AUTH_COOKIE_LEGACY_NAME,
+    "",
+    expireLeftoverCookieOptions(host),
+  );
+}
+
+/**
+ * Clear the `__Host-` cookie and the pre-migration name, on HTTPS including the
+ * parent `Domain` a subdomain could have planted it on.
+ */
+export async function clearAuthCookie(options?: { secure?: boolean }): Promise<void> {
+  const secure = resolveAuthCookieSecure(options);
+  const cookieStore = await cookies();
+  cookieStore.set(AUTH_COOKIE_HOST_NAME, "", expireCookieSetOptions(true));
+  if (!secure) {
+    cookieStore.set(AUTH_COOKIE_LEGACY_NAME, "", expireCookieSetOptions(false));
+    return;
+  }
+  const host = requestHostFromHeaders(await incomingHeaders());
+  cookieStore.set(
+    AUTH_COOKIE_LEGACY_NAME,
+    "",
+    expireLeftoverCookieOptions(host),
+  );
 }
 
 /**
  * Get auth token from request headers (for API routes)
  */
 export function getTokenFromRequest(request: Request): string | null {
-  // Check Authorization header
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.substring(7);
-  }
-
-  // Check cookie header
-  const cookieHeader = request.headers.get("cookie");
-  if (cookieHeader) {
-    const cookies = cookieHeader.split(";").map((c) => c.trim());
-    for (const cookie of cookies) {
-      const equalIndex = cookie.indexOf("=");
-      if (equalIndex === -1) continue;
-      const name = cookie.substring(0, equalIndex);
-      const value = cookie.substring(equalIndex + 1);
-      if (name === AUTH_COOKIE_NAME) {
-        return value;
-      }
-    }
-  }
-
-  return null;
+  return getAuthTokenFromRequest(request);
 }
 
 // ============ User Authentication ============
@@ -201,8 +295,7 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
  * single-sourced in this module.
  */
 export async function getCurrentUserFromCookies(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const token = await readAuthTokenFromIncomingCookies();
   if (!token) return null;
 
   const payload = verifyToken(token);

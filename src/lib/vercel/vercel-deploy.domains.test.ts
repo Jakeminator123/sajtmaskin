@@ -16,6 +16,9 @@ const {
   checkVercelProjectDomain,
   ensureVercelProject,
   ensureVercelProjectDomain,
+  getVercelProjectProductionIdentity,
+  readAttestedProductionDeploymentId,
+  readAttestedProductionProviderAlias,
 } = await import("./vercel-deploy");
 
 afterEach(() => {
@@ -34,6 +37,13 @@ it("makes provider project names collision-safe across customer projects", () =>
 });
 
 describe("branded live URL policy", () => {
+  function allowReviewedVersion(projectId = "project_1", versionId = "version_1") {
+    vi.stubEnv(
+      "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
+      JSON.stringify([{ projectId, versionId, filesRevision: "revision_1" }]),
+    );
+  }
+
   it("requires both rollout flag and base domain", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "");
@@ -48,9 +58,10 @@ describe("branded live URL policy", () => {
     expect(buildBrandedLiveDomain("preview")).toBeNull();
   });
 
-  it("resolves verified custom, branded and provider URL precedence", () => {
+  it("keeps reviewed branded hosts inactive while preserving custom and provider URLs", () => {
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         customDomain: "kund.se",
@@ -58,6 +69,8 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.se");
     expect(
@@ -67,13 +80,17 @@ describe("branded live URL policy", () => {
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
-    ).toBe("https://kund.sites.sajtmaskin.se");
+    ).toBe("https://kund.vercel.app");
     expect(
       resolveLiveUrl({
         brandedDomain: "kund.sites.sajtmaskin.se",
         brandedDomainVerifiedAt: null,
         providerUrl: "kund.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://kund.vercel.app");
   });
@@ -88,13 +105,42 @@ describe("branded live URL policy", () => {
     ).toBe("https://kund.vercel.app");
     vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
     vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
     expect(
       resolveLiveUrl({
         brandedDomain: "attacker.example.com",
         brandedDomainVerifiedAt: new Date(),
         providerUrl: "safe.vercel.app",
+        projectId: "project_1",
+        versionId: "version_1",
       }),
     ).toBe("https://safe.vercel.app");
+  });
+
+  it("does not display branded for a different version, while custom stays available", () => {
+    vi.stubEnv("SAJTMASKIN_BRANDED_LIVE_URLS", "true");
+    vi.stubEnv("SAJTMASKIN_LIVE_SITE_DOMAIN", "sites.sajtmaskin.se");
+    allowReviewedVersion();
+
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        providerUrl: "kund.vercel.app",
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.vercel.app");
+    expect(
+      resolveLiveUrl({
+        projectId: "project_1",
+        versionId: "version_2",
+        customDomain: "kund.se",
+        customDomainVerifiedAt: new Date(),
+        brandedDomain: "kund.sites.sajtmaskin.se",
+        brandedDomainVerifiedAt: new Date(),
+      }),
+    ).toBe("https://kund.se");
   });
 
   it("normalizes provider URLs and stable slug candidates", () => {
@@ -109,16 +155,9 @@ describe("branded live URL policy", () => {
 it("marks public builder previews as non-indexable and non-cacheable", () => {
   // `applyPublicPreviewHeaders` moved from the server.js monolith to the
   // http module in the server/-split; the pinned header contract is the same.
-  const source = readFileSync(
-    resolve(process.cwd(), "preview-host/src/server/http.js"),
-    "utf8",
-  );
-  expect(source).toContain(
-    'res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive")',
-  );
-  expect(source).toContain(
-    'res.setHeader("Cache-Control", "private, no-store")',
-  );
+  const source = readFileSync(resolve(process.cwd(), "preview-host/src/server/http.js"), "utf8");
+  expect(source).toContain('res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive")');
+  expect(source).toContain('res.setHeader("Cache-Control", "private, no-store")');
 });
 
 describe("ensureVercelProjectDomain", () => {
@@ -134,12 +173,12 @@ describe("ensureVercelProjectDomain", () => {
       .mockResolvedValueOnce(Response.json({ misconfigured: false }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se"),
-    ).resolves.toEqual({
-      name: "bistro.sites.sajtmaskin.se",
-      verified: true,
-    });
+    await expect(ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se")).resolves.toEqual(
+      {
+        name: "bistro.sites.sajtmaskin.se",
+        verified: true,
+      },
+    );
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
@@ -156,12 +195,12 @@ describe("ensureVercelProjectDomain", () => {
       .mockResolvedValueOnce(Response.json({ misconfigured: false }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se"),
-    ).resolves.toEqual({
-      name: "bistro.sites.sajtmaskin.se",
-      verified: true,
-    });
+    await expect(ensureVercelProjectDomain("prj_1", "bistro.sites.sajtmaskin.se")).resolves.toEqual(
+      {
+        name: "bistro.sites.sajtmaskin.se",
+        verified: true,
+      },
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
@@ -172,14 +211,16 @@ describe("ensureVercelProject", () => {
   });
 
   it("reuses an existing generated project", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ id: "prj_existing", name: "bistro" }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ id: "prj_existing", name: "bistro" }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_existing",
       name: "bistro",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -188,29 +229,37 @@ describe("ensureVercelProject", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(Response.json({ error: { message: "not found" } }, { status: 404 }))
-      .mockResolvedValueOnce(Response.json({ id: "prj_new", name: "bistro" }));
+      .mockResolvedValueOnce(Response.json({ id: "prj_new", name: "bistro" }))
+      .mockResolvedValueOnce(
+        Response.json({
+          id: "prj_new",
+          name: "bistro",
+          targets: { production: { alias: ["bistro.vercel.app"] } },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_new",
       name: "bistro",
+      productionProviderAlias: "bistro.vercel.app",
+      productionAliasStatus: "attested",
     });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({ name: "bistro", framework: "nextjs" }),
     });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("refuses to retarget a persisted customer project id", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json({ id: "prj_other", name: "other" }),
-      ),
+      vi.fn().mockResolvedValue(Response.json({ id: "prj_other", name: "other" })),
     );
-    await expect(
-      ensureVercelProject("bistro", "prj_expected"),
-    ).rejects.toThrow(/ownership mismatch/i);
+    await expect(ensureVercelProject("bistro", "prj_expected")).rejects.toThrow(
+      /ownership mismatch/i,
+    );
   });
 
   it("reuses the winner of a parallel first-project creation race", async () => {
@@ -220,15 +269,163 @@ describe("ensureVercelProject", () => {
         .fn()
         .mockResolvedValueOnce(Response.json({}, { status: 404 }))
         .mockResolvedValueOnce(Response.json({}, { status: 409 }))
-        .mockResolvedValueOnce(
-          Response.json({ id: "prj_winner", name: "bistro" }),
-        ),
+        .mockResolvedValueOnce(Response.json({ id: "prj_winner", name: "bistro" })),
     );
 
     await expect(ensureVercelProject("bistro")).resolves.toEqual({
       id: "prj_winner",
       name: "bistro",
+      productionProviderAlias: null,
+      productionAliasStatus: "unknown",
     });
+  });
+
+  it("attests only an exact production *.vercel.app alias from the payload", async () => {
+    const payload = {
+      id: "prj_existing",
+      name: "bistro",
+      targets: {
+        production: {
+          alias: [
+            "kund.se",
+            "bistro-git-main-team.vercel.app",
+            "sajtmaskin.vercel.app",
+            "bistro.vercel.app",
+          ],
+        },
+      },
+    };
+    expect(readAttestedProductionProviderAlias(payload)).toEqual({
+      alias: "bistro.vercel.app",
+      status: "attested",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(payload));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await ensureVercelProject("bistro");
+    expect(result.productionAliasStatus).toBe("attested");
+    expect(result.productionProviderAlias).toBe("bistro.vercel.app");
+    expect(result.id).toBe("prj_existing");
+  });
+});
+
+describe("getVercelProjectProductionIdentity", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the attested production deployment id for the same project", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          id: "vp_1",
+          targets: { production: { id: "dpl_a", alias: ["demo.vercel.app"] } },
+        }),
+      ),
+    );
+
+    await expect(getVercelProjectProductionIdentity("vp_1")).resolves.toEqual({
+      vercelProjectId: "vp_1",
+      productionDeploymentId: "dpl_a",
+    });
+  });
+
+  it("returns null when the project id does not match", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ id: "vp_other", targets: { production: { id: "dpl_a" } } })),
+    );
+
+    await expect(getVercelProjectProductionIdentity("vp_1")).resolves.toBeNull();
+  });
+});
+
+describe("readAttestedProductionDeploymentId", () => {
+  it("reads the current production deployment id and stays fail-closed", () => {
+    expect(
+      readAttestedProductionDeploymentId({
+        id: "prj_1",
+        targets: { production: { id: "dpl_a", alias: ["demo.vercel.app"] } },
+      }),
+    ).toBe("dpl_a");
+    expect(readAttestedProductionDeploymentId({ id: "prj_1" })).toBeNull();
+    expect(
+      readAttestedProductionDeploymentId({
+        id: "prj_1",
+        targets: { production: { alias: ["demo.vercel.app"] } },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("readAttestedProductionProviderAlias", () => {
+  it("picks the shortest customer-facing alias among several production aliases", () => {
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "sajtmaskin-simon-1f7c897f",
+        targets: {
+          production: {
+            alias: [
+              "sajtmaskin-simon-1f7c897f-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-simon-1f7c897f-jakeminator0-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-simon-1f7c897f.vercel.app",
+            ],
+          },
+        },
+      }),
+    ).toEqual({
+      alias: "sajtmaskin-simon-1f7c897f.vercel.app",
+      status: "attested",
+    });
+  });
+
+  it("uses a truncated payload alias instead of deriving one from the project name", () => {
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f",
+        targets: {
+          production: {
+            alias: [
+              "sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+            ],
+          },
+        },
+      }),
+    ).toEqual({
+      alias: "sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+      status: "attested",
+    });
+  });
+
+  it("does not invent an alias from the project name", () => {
+    expect(readAttestedProductionProviderAlias({ id: "prj", name: "bistro" })).toEqual({
+      alias: null,
+      status: "unknown",
+    });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: { alias: [] } },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: null },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "bistro",
+        targets: { production: { alias: ["bistro-git-main-team.vercel.app"] } },
+      }),
+    ).toEqual({ alias: null, status: "missing" });
   });
 });
 
@@ -242,9 +439,7 @@ describe("checkVercelProjectDomain", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValueOnce(
-          Response.json({ domains: [{ name: "kund.se", verified: true }] }),
-        )
+        .mockResolvedValueOnce(Response.json({ domains: [{ name: "kund.se", verified: true }] }))
         .mockResolvedValueOnce(Response.json({ misconfigured: true })),
     );
     await expect(checkVercelProjectDomain("prj_1", "kund.se")).resolves.toBe(false);

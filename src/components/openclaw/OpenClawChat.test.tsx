@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { OpenClawChat } from "./OpenClawChat";
 
+const navigation = vi.hoisted(() => ({ pathname: "/" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => navigation.pathname,
 }));
 
 vi.mock("./OpenClawChatPanel", () => ({
@@ -30,6 +32,7 @@ vi.mock("./OpenClawChatPanel", () => ({
 
 describe("OpenClawChat launcher", () => {
   beforeEach(() => {
+    navigation.pathname = "/";
     act(() => {
       useOpenClawStore.setState({
         isOpen: false,
@@ -59,5 +62,20 @@ describe("OpenClawChat launcher", () => {
         screen.getByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
       ).toBeTruthy();
     });
+  });
+
+  it("hides the kostnadsfri teaser card but keeps the chat launcher", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    render(<OpenClawChat />);
+
+    expect(screen.queryByText(/Visa Zax 2 0 AB med/i)).toBeNull();
+    expect(screen.queryByText(/Prova Sajtagenten för/i)).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
+    );
+
+    expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
+    expect(useOpenClawStore.getState().isOpen).toBe(true);
   });
 });

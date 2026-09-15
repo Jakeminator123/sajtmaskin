@@ -3,13 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GitHubExportDialog } from "./GitHubExportDialog";
 
 vi.mock("@/components/auth/auth-modal", () => ({
-  AuthModal: ({
-    isOpen,
-    defaultMode,
-  }: {
-    isOpen: boolean;
-    defaultMode: "login" | "register";
-  }) => (isOpen ? <div data-testid="auth-modal">{defaultMode}</div> : null),
+  AuthModal: ({ isOpen, defaultMode }: { isOpen: boolean; defaultMode: "login" | "register" }) =>
+    isOpen ? <div data-testid="auth-modal">{defaultMode}</div> : null,
 }));
 
 afterEach(() => {
@@ -71,5 +66,37 @@ describe("GitHubExportDialog", () => {
       expect(screen.getByText(/inget repo returnerades/i)).toBeTruthy();
     });
     expect(screen.queryByText(/Koden exporterades till GitHub/i)).toBeNull();
+  });
+
+  it("sends project scope and the customer-owned destination address", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ repoUrl: "https://github.com/alice/site" }), {
+          status: 200,
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    render(
+      <GitHubExportDialog
+        open
+        onClose={() => {}}
+        chatId="chat_1"
+        versionId="ver_1"
+        projectId="proj_1"
+        suggestedSiteUrl="https://kund.se"
+        hasGitHub
+        isAuthenticated
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Exportera$/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init).toBeDefined();
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      projectId: "proj_1",
+      siteUrl: "https://kund.se",
+    });
   });
 });

@@ -197,6 +197,43 @@ describe("POST /api/webhooks/vercel", () => {
     expect(logDeployError).not.toHaveBeenCalled();
   });
 
+  it("persists the helper live URL and keeps a stored alias as fallback", async () => {
+    dbSelectResult.rows = [
+      {
+        id: "dep_row_alias",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        url: "https://demo.vercel.app",
+      },
+    ];
+    resolveDeploymentLiveUrlForChat.mockResolvedValue("https://demo.vercel.app");
+
+    const res = await POST(
+      signedRequest({
+        type: "deployment.succeeded",
+        payload: { deployment: { id: "dpl_alias", url: "www.kund.se" } },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(resolveDeploymentLiveUrlForChat).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      providerUrl: "www.kund.se",
+      fallbackUrl: "https://demo.vercel.app",
+    });
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_row_alias",
+      "ready",
+      expect.objectContaining({ url: "https://demo.vercel.app" }),
+    );
+    expect(updateDeploymentStatus).toHaveBeenCalledWith(
+      "dep_row_alias",
+      "ready",
+      expect.not.objectContaining({ url: "https://www.kund.se" }),
+    );
+  });
+
   it("rejects a request with an invalid signature", async () => {
     const raw = JSON.stringify({ type: "deployment.succeeded" });
     const res = await POST(

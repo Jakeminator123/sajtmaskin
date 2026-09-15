@@ -1,5 +1,3 @@
-import type { CodeFile } from "@/lib/gen/parser";
-
 const BLOCKED_PATHS = ["node_modules/", ".git/"];
 /**
  * GitHub export additionally refuses dotenv files that ZIP may still ship.
@@ -21,8 +19,13 @@ export const GITHUB_EXPORT_MANIFEST_VERSION = 1 as const;
 
 export interface GitHubExportFile {
   path: string;
-  content: string;
+  content: string | Buffer;
 }
+
+export type GitHubExportSourceFile = {
+  path: string;
+  content: string | Buffer;
+};
 
 export interface GitHubExportPlan {
   files: GitHubExportFile[];
@@ -134,10 +137,13 @@ function pathsConflictAsFileAndDirectory(a: string, b: string): boolean {
   return a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 }
 
-function collectCurrentFiles(projectFiles: CodeFile[]): Map<string, GitHubExportFile> {
+function collectCurrentFiles(projectFiles: GitHubExportSourceFile[]): Map<string, GitHubExportFile> {
   const currentFiles = new Map<string, GitHubExportFile>();
   for (const file of projectFiles) {
-    if (typeof file.path !== "string" || typeof file.content !== "string") continue;
+    if (
+      typeof file.path !== "string" ||
+      (typeof file.content !== "string" && !Buffer.isBuffer(file.content))
+    ) continue;
     const path = normalizeGitHubExportPath(file.path);
     if (!path || path === GITHUB_EXPORT_MANIFEST_PATH) continue;
     currentFiles.set(path, { path, content: file.content });
@@ -162,7 +168,7 @@ function collectCurrentFiles(projectFiles: CodeFile[]): Map<string, GitHubExport
  * unowned conflict fails closed instead of deleting a user file.
  */
 export function buildGitHubExportPlan(
-  projectFiles: CodeFile[],
+  projectFiles: GitHubExportSourceFile[],
   options: GitHubExportPlanOptions = {},
 ): GitHubExportPlan {
   const currentFiles = collectCurrentFiles(projectFiles);

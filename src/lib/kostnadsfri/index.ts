@@ -7,7 +7,16 @@
  */
 
 import crypto from "crypto";
+import {
+  wizardIndustryLabel,
+  wizardPurposeLabel,
+  wizardVibeLabel,
+} from "@/lib/builder/wizard-taxonomy";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
+import {
+  extractKostnadsfriCompanyProfile,
+  type KostnadsfriCompanyProfile,
+} from "./company-profile";
 import { companyNameFromSlug } from "./company-name";
 import {
   extractKostnadsfriOpenClawConfig,
@@ -26,8 +35,18 @@ export interface KostnadsfriCompanyData {
   website: string | null;
   contactEmail: string | null;
   contactName: string | null;
-  extraData: Record<string, unknown> | null;
+  /**
+   * Medvetet **ingen** rå `extraData` här. DTO:n går till browsern efter
+   * lösenordsverifiering, och en post som skapades före allowlisten (eller
+   * lades in för hand i databasen) kan bära personnummer och hemadresser i
+   * `extra_data`. Bara typade, normaliserade projektioner exponeras.
+   */
   openclawConfig: KostnadsfriOpenClawConfig | null;
+  /**
+   * Bolagsfakta från utskicksverktyget. Förifyller mini-wizarden; går aldrig
+   * direkt in i generationsprompten (ägarbeslut 2026-09-15).
+   */
+  profile: KostnadsfriCompanyProfile | null;
 }
 
 /** Data collected by the mini-wizard */
@@ -96,8 +115,8 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     website: page.website,
     contactEmail: page.contact_email,
     contactName: page.contact_name,
-    extraData,
     openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
+    profile: extractKostnadsfriCompanyProfile(extraData),
   };
 }
 
@@ -113,8 +132,8 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     website: null,
     contactEmail: null,
     contactName: null,
-    extraData: null,
     openclawConfig: null,
+    profile: null,
   };
 }
 
@@ -132,60 +151,36 @@ export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
 }
 
 // ============================================================================
-// LABEL MAPS (mirrors PromptWizardModalV2 constants)
-// ============================================================================
-
-const INDUSTRY_LABELS: Record<string, string> = {
-  cafe: "Café/Konditori",
-  restaurant: "Restaurang/Bar",
-  retail: "Butik/Detaljhandel",
-  tech: "Tech/IT-företag",
-  consulting: "Konsult/Tjänster",
-  health: "Hälsa/Wellness",
-  creative: "Kreativ byrå",
-  education: "Utbildning",
-  ecommerce: "E-handel",
-  realestate: "Fastigheter",
-  other: "Annat",
-};
-
-const PURPOSE_LABELS: Record<string, string> = {
-  sell: "Sälja",
-  leads: "Leads",
-  portfolio: "Portfolio",
-  inform: "Informera",
-  brand: "Varumärke",
-  booking: "Bokningar",
-  conversion: "Konvertering",
-  rebrand: "Rebrand",
-};
-
-const VIBE_LABELS: Record<string, string> = {
-  modern: "Modern & Clean",
-  playful: "Playful & Fun",
-  brutalist: "Brutalist",
-  luxury: "Luxury",
-  tech: "Futuristic",
-  minimal: "Minimal",
-};
-
-// ============================================================================
 // PAGE STRUCTURE (industry-aware, purpose-aware)
 // ============================================================================
 
-/** Suggested pages based on industry and purposes */
+/**
+ * Sidnamn per bransch i **prioritetsordning** — inte ett sidantal.
+ *
+ * Id:na ägs av `src/lib/builder/wizard-taxonomy.ts` — lägg inte till ett fack
+ * här utan att det finns där först.
+ *
+ * Listorna namngav tidigare 4–5 sidor och `buildPromptFromWizardData` skrev ut
+ * antalet i prompten, vilket lät kampanjflödet sätta ett tal som ruttplanen och
+ * byggvalsreglaget redan äger (ägarbeslut 2026-09-14, `docs/decisions/README.md`).
+ * Antalet kommer nu enbart från `meta.pageCountHint`; ordningen här är
+ * icke-bindande prioriteringar som ruttplanen kan välja inom det strukturerade
+ * antalet. Prioriteringar som inte blir egna rutter kan bli sektioner i stället.
+ */
 const INDUSTRY_PAGES: Record<string, string[]> = {
-  cafe: ["Hem", "Meny", "Om oss", "Hitta hit"],
-  restaurant: ["Hem", "Meny", "Om oss", "Boka bord", "Kontakt"],
-  retail: ["Hem", "Produkter", "Om oss", "Kontakt"],
-  tech: ["Hem", "Tjänster", "Case", "Om oss", "Kontakt"],
-  consulting: ["Hem", "Tjänster", "Om oss", "Kunder", "Kontakt"],
-  health: ["Hem", "Behandlingar", "Om oss", "Boka tid", "Kontakt"],
-  creative: ["Hem", "Portfolio", "Tjänster", "Om oss", "Kontakt"],
-  education: ["Hem", "Kurser", "Om oss", "Kontakt"],
-  ecommerce: ["Hem", "Produkter", "Om oss", "FAQ", "Kontakt"],
-  realestate: ["Hem", "Objekt", "Tjänster", "Om oss", "Kontakt"],
+  cafe: ["Hem", "Meny", "Hitta hit", "Om oss"],
+  restaurant: ["Hem", "Meny", "Kontakt", "Boka bord", "Om oss"],
+  retail: ["Hem", "Produkter", "Kontakt", "Om oss"],
+  tech: ["Hem", "Tjänster", "Kontakt", "Case", "Om oss"],
+  consulting: ["Hem", "Tjänster", "Kontakt", "Kunder", "Om oss"],
+  health: ["Hem", "Behandlingar", "Kontakt", "Boka tid", "Om oss"],
+  creative: ["Hem", "Portfolio", "Kontakt", "Tjänster", "Om oss"],
+  education: ["Hem", "Kurser", "Kontakt", "Om oss"],
+  ecommerce: ["Hem", "Produkter", "Kontakt", "FAQ", "Om oss"],
+  realestate: ["Hem", "Objekt", "Kontakt", "Tjänster", "Om oss"],
 };
+
+const FALLBACK_INDUSTRY_PAGES = ["Hem", "Tjänster", "Kontakt", "Om oss"];
 
 const PURPOSE_SECTIONS: Record<string, string[]> = {
   sell: ["product showcase", "pricing / plans", "testimonials", "trust badges"],
@@ -199,14 +194,13 @@ const PURPOSE_SECTIONS: Record<string, string[]> = {
 };
 
 /**
- * Determine the recommended page structure for the company.
- * Returns page names and extra section suggestions.
+ * Determine ordered, non-binding page priorities for the company.
  */
 function resolvePageStructure(
   industry: string,
   purposes: string[],
 ): { pages: string[]; extraSections: string[] } {
-  const base = INDUSTRY_PAGES[industry] || ["Hem", "Om oss", "Tjänster", "Kontakt"];
+  const base = INDUSTRY_PAGES[industry] || FALLBACK_INDUSTRY_PAGES;
   const extraSections: string[] = [];
   for (const purpose of purposes) {
     const sections = PURPOSE_SECTIONS[purpose];
@@ -228,27 +222,34 @@ function resolvePageStructure(
  *
  * Designed to produce enough detail (~800-1200 chars) so the downstream
  * pipeline (brief generation, dynamic instructions, spec file) interprets
- * this as a "detailed request" and generates a multi-page brief with
- * 10-15+ sections instead of a minimal one-pager.
+ * this as a detailed request without deciding the number of pages.
  *
  * The prompt includes:
- *  - Explicit multi-page structure with named pages
+ *  - Ordered, non-binding page priorities
  *  - Purpose-driven section suggestions
  *  - Full design direction with tone, colors, and typography hints
- *  - Scope override to prevent brief model from down-scoping
+ *  - Scope guidance that defers to the structured page-count hint
+ *
+ * Läser bara `MiniWizardData`. `extra_data.profile` når aldrig den här
+ * funktionen — profilen förifyller wizarden, och prompten byggs av utdata.
+ *
+ * Sidantalet finns medvetet inte i prompt-API:t eller prompttexten: ruttplanen
+ * får det strukturerat via `meta.pageCountHint` från kampanjhandoffen. Annars
+ * skulle prompten bli en andra sanning som kan motsäga ett uttryckligt byggval
+ * på exempelvis en eller två sidor (ägarbeslut 2026-09-14).
  */
 export function buildPromptFromWizardData(data: MiniWizardData): string {
-  const industryLabel = INDUSTRY_LABELS[data.industry] || data.industry || "general";
-  const vibeLabel = VIBE_LABELS[data.designVibe] || data.designVibe || "Modern & Clean";
+  const industryLabel = wizardIndustryLabel(data.industry, data.industry || "general");
+  const vibeLabel = wizardVibeLabel(data.designVibe, data.designVibe || "Modern & Clean");
   const { pages, extraSections } = resolvePageStructure(data.industry, data.purposes);
 
   const sections: string[] = [];
 
-  // 1. Core request — explicit multi-page signal
+  // 1. Core request — detailed content without a page-count signal
   sections.push(
-    `Build a professional, multi-page website for "${data.companyName}", a ${industryLabel} company` +
+    `Build a professional website for "${data.companyName}", a ${industryLabel} company` +
       (data.location ? ` based in ${data.location}` : "") +
-      `. The site should feel polished, premium, and conversion-oriented with rich content across multiple pages.`,
+      `. The site should feel polished, premium, and conversion-oriented with rich content across the planned structure.`,
   );
 
   // 2. Business profile (who they are, goals, audience)
@@ -257,17 +258,17 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
   if (data.usp) businessContext.push(`Unique selling point (USP): ${data.usp}`);
   if (data.targetAudience) businessContext.push(`Target audience: ${data.targetAudience}`);
   if (data.purposes.length > 0) {
-    const purposeLabels = data.purposes.map((p) => PURPOSE_LABELS[p] || p);
+    const purposeLabels = data.purposes.map((p) => wizardPurposeLabel(p));
     businessContext.push(`Primary website goals: ${purposeLabels.join(", ")}`);
   }
   if (businessContext.length > 0) {
     sections.push(`\nBusiness profile:\n${businessContext.map((l) => `- ${l}`).join("\n")}`);
   }
 
-  // 3. Page structure — named pages with purpose
+  // 3. Page priorities — suggestions only; structured meta owns the count
   const pageLines = pages.map((p) => `- ${p}`).join("\n");
   sections.push(
-    `\nSite structure (pages to include):\n${pageLines}\n\nEach page should have its own clear purpose, unique hero/header, and relevant content sections. Use a shared navigation bar and footer across all pages.`,
+    `\nPage priorities (ordered suggestions, not an exact page list):\n${pageLines}\n\nUse these as content priorities within the page count supplied separately. Suggestions that do not become standalone routes should be represented as sections when relevant. Use a shared navigation bar and footer across the planned site.`,
   );
 
   // 4. Recommended sections based on purposes
@@ -306,9 +307,10 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
     `\nContent & requirements:\n- All text content must be in Swedish\n- Premium, trustworthy design with attention to detail\n- Include realistic placeholder content (not lorem ipsum) that matches the industry\n- Every page should include relevant images and icons\n- Mobile-first responsive design\n- Smooth scroll-reveal animations and tasteful hover states`,
   );
 
-  // 8. Explicit scope override — prevents brief model from down-scoping
+  // 8. Scope guidance. The separately supplied structured hint is the only
+  // page-count truth; the priorities above must not create orphan routes.
   sections.push(
-    `\nScope: This is a comprehensive, multi-page company website (${pages.length} pages). Do NOT reduce this to a single-page site. Each page should be fully fleshed out with multiple content sections, proper navigation between pages, and a professional footer. Aim for 8-15 sections total across all pages.`,
+    `\nScope: Follow the page count supplied separately as a strict constraint. Treat the page priorities above as non-binding route suggestions and adapt them to that count. Fully flesh out every planned page with relevant content sections, consistent navigation, and a professional footer. Aim for 8-15 sections total across the site.`,
   );
 
   return sections.join("\n");

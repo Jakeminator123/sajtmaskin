@@ -137,6 +137,7 @@ function extractIdsFromSse(text: string): { chatId?: string; versionId?: string 
 
 export function createHttpEngineClient(options: HttpEngineClientOptions): BugHuntEngineClient {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
+  const baseOrigin = new URL(baseUrl).origin;
   const doFetch = options.fetchImpl ?? fetch;
   const modelId = options.modelId ?? "premium";
   const appProjectId = options.appProjectId?.trim() || undefined;
@@ -154,6 +155,10 @@ export function createHttpEngineClient(options: HttpEngineClientOptions): BugHun
     "Content-Type": "application/json",
     ...(options.authHeaders ?? {}),
     ...(extra ?? {}),
+    // The run route forwards cookie auth over HTTP to the real engine routes.
+    // Mark those server-owned calls with their exact configured portal origin
+    // so the browser CSRF guard can keep rejecting origin-less cookie traffic.
+    Origin: baseOrigin,
   });
 
   async function readNewestVersionId(chatId: string): Promise<string | null> {

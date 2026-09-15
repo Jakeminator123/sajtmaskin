@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
-import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
+import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder, Settings2 } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/projects/project-client";
 import { ProjectThumbnail } from "@/components/projects/project-thumbnail";
 import {
@@ -258,6 +258,12 @@ function ProjectsPageInner() {
                         <Button size="sm" className="bg-brand-teal hover:bg-brand-teal/90 gap-2">
                           <ExternalLink className="h-4 w-4" />
                           Öppna
+                        </Button>
+                      </Link>
+                      <Link href={`/projects/${project.id}`}>
+                        <Button size="sm" variant="outline" className="gap-2">
+                          <Settings2 className="h-4 w-4" />
+                          Hantera
                         </Button>
                       </Link>
                     </div>

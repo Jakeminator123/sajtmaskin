@@ -19,6 +19,7 @@
  * This is the concrete answer to "env-policy.json looks like the runtime
  * contract but src/lib/env.ts is": the test pins env.ts as authority.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
@@ -63,6 +64,36 @@ describe("env-policy strict schema", () => {
 });
 
 describe("env-policy rules integrity", () => {
+  it("classifies VERCEL_BRANCH_URL as platform-managed in both audit consumers", () => {
+    const expected = {
+      key: "VERCEL_BRANCH_URL",
+      classification: "vercel_managed",
+      recommendedVercelTargets: [],
+    };
+
+    expect(policy.rules.find((rule) => rule.key === expected.key)).toMatchObject(expected);
+    expect(getEnvRule(expected.key)).toMatchObject(expected);
+
+    const python = spawnSync(
+      process.execPath,
+      [
+        join(REPO_ROOT, "scripts", "dev", "run-python.mjs"),
+        "-c",
+        [
+          "import json",
+          "import sys",
+          "import types",
+          "sys.modules['requests'] = types.ModuleType('requests')",
+          "from scripts.env.manage_env import get_rule, load_policy",
+          `print(json.dumps(get_rule(load_policy(), ${JSON.stringify(expected.key)})))`,
+        ].join("; "),
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8" },
+    );
+    expect(python.status, python.stderr).toBe(0);
+    expect(JSON.parse(python.stdout)).toMatchObject(expected);
+  });
+
   it("has no duplicate rule keys", () => {
     // Both runtime consumers collapse rules by key (new Map(...) in env-audit.ts,
     // a Python dict in manage_env.py), so a duplicate would silently let the

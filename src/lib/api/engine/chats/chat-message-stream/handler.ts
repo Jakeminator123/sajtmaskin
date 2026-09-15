@@ -94,8 +94,10 @@ export async function handleMessageStreamRequest(
   const session = ensureSessionIdFromRequest(req);
   const sessionId = session.sessionId;
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };
@@ -435,6 +437,9 @@ export async function handleMessageStreamRequest(
         const creditCheck = await prepareGenerationCredits(req, "prompt.refine", creditContext, {
           sessionId,
           allowFreeGeneration: !metaPlanMode,
+          campaignProjectId: !metaPlanMode ? engineChat.project_id : null,
+          campaignPhase: "continuation",
+          campaignChatId: chatId,
         });
         if (!creditCheck.ok) {
           // Grinden ligger före prompt-loggen och före user-raden, så ett avslag

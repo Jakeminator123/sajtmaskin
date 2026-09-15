@@ -383,17 +383,18 @@ async function initializeLocalTemplateProject(params: {
 
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "template:init", async () => {
-    let setCookie: string | null = null;
+    let setCookies: string[] = [];
     const attachSessionCookie = (response: Response) => {
-      if (setCookie) {
-        response.headers.set("Set-Cookie", setCookie);
+      for (const setCookie of setCookies) {
+        response.headers.append("Set-Cookie", setCookie);
       }
       return response;
     };
     try {
       const session = ensureSessionIdFromRequest(request);
       const sessionId = session.sessionId;
-      setCookie = session.setCookie;
+      setCookies =
+        session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
 
       const body = await request.json();
       const { templateId, quality = "max" } = body as {

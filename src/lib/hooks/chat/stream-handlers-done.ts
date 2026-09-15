@@ -1,4 +1,4 @@
-import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
+import { buildPlanSummaryMessage, planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
   F3_REJECT_ACK_REASON,
@@ -334,6 +334,9 @@ export function handleDoneEvent(
           : [],
         blockers: Array.isArray(planArtifact.blockers) ? planArtifact.blockers : [],
         assumptions: Array.isArray(planArtifact.assumptions) ? planArtifact.assumptions : [],
+        ...(typeof doneData.awaitingInput === "boolean"
+          ? { awaitingInput: doneData.awaitingInput }
+          : {}),
         raw: planArtifact,
       },
     };
@@ -346,8 +349,21 @@ export function handleDoneEvent(
     );
   }
   
+  const planSummary = hasPlanArtifact
+    ? buildPlanSummaryMessage(
+        (doneData.planArtifact ?? null) as Record<string, unknown> | null,
+        awaitingInput,
+      )
+    : null;
   ctx.setMessages((prev) =>
-    prev.map((m) => (m.id === ctx.assistantMessageId ? { ...m, isStreaming: false } : m)),
+    prev.map((m) => {
+      if (m.id !== ctx.assistantMessageId) return m;
+      return {
+        ...m,
+        ...(planSummary ? { content: planSummary } : {}),
+        isStreaming: false,
+      };
+    }),
   );
   if (state.pendingStreamErrorMessage) {
     const errTail = state.pendingStreamErrorMessage.slice(0, 280);

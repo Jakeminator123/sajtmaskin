@@ -25,6 +25,10 @@ test("POST /api/v0/deployments precheckOnly returns deployReadiness", async ({ r
     headers: {
       Cookie: cookie,
       "Content-Type": "application/json",
+      // APIRequestContext is a machine client and does not add browser Origin.
+      // Supply its exact configured target because this smoke forwards a real
+      // session cookie to a mutation protected by the portal's CSRF guard.
+      Origin: new URL(base).origin,
     },
     data: {
       chatId,

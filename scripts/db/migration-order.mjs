@@ -69,6 +69,9 @@ export const MIGRATION_ORDER = [
   // migration. This nullable per-marker lower bound prevents a newly created
   // historical repair marker from charging the version's old usage.
   "add-generation-billing-usage-start.sql",
+  // Verified invitation pilot: one free init and one free follow-up, settled
+  // on successful version markers without consuming the account entitlement.
+  "add-kostnadsfri-campaign-entitlements.sql",
   "add-app-projects-vercel-project.sql",
   "add-branded-site-domains.sql",
   "drop-deployments-legacy-fks.sql",
@@ -122,6 +125,16 @@ export const MIGRATION_ORDER = [
   // CREATE utan beroenden; seedas med exakt dagens hårdkodade värden så
   // migrationen i sig inte ändrar någon debitering.
   "add-pricing-settings.sql",
+  // D1: abonnemang per publicerad sajt och per Stripe-läge. Fyra fristående
+  // CREATE TABLE med FK mot users/app_projects/transactions, som alla skapas
+  // tidigare. Endast schema — ingen checkout, webhook eller worker aktiveras.
+  "add-site-subscriptions.sql",
+  // D1-uppföljning: samma fyra tabeller, men uppgraderingsvägen. CREATE TABLE
+  // IF NOT EXISTS rör inte en tabell som redan finns, så de sammansatta
+  // unikheterna och FK-tuplerna (läge + ägare ärvs av databasen) måste läggas
+  // till idempotent för databaser som fick den första versionen. Måste ligga
+  // direkt efter basfilen: den refererar constraints som basen skapar.
+  "upgrade-site-subscriptions-composite-keys.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via
@@ -134,6 +147,11 @@ export const MIGRATION_ORDER = [
   // rör ledgern (som redan finns när migrationer körs) och inte får blockera
   // någon schemaändring före sig.
   "harden-schema-migrations-ledger.sql",
+  // Utskicksregister för kostnadsfri-länkar (`sent_at`, `source`). Rent additiv
+  // ALTER utan beroenden åt någon riktning — den kan därför ligga efter de två
+  // "sist"-posterna ovan (parity + ledger-härdning), som bara rör äldre tabeller
+  // respektive ledgern själv.
+  "add-kostnadsfri-sent.sql",
 ];
 
 /**

@@ -224,6 +224,13 @@ describe("buildCompleteProject", () => {
     ];
 
     const files = buildCompleteProject(generated);
+    const layout = files.find((f) => f.path === "app/layout.tsx")?.content ?? "";
+    const robots = files.find((f) => f.path === "app/robots.ts")?.content ?? "";
+    const sitemap = files.find((f) => f.path === "app/sitemap.ts")?.content ?? "";
+    expect(layout).not.toContain("https://example.com");
+    expect(robots).not.toContain("https://example.com");
+    expect(sitemap).not.toContain("https://example.com");
+    expect(layout).toContain("process.env.NEXT_PUBLIC_SITE_URL");
     const pkg = files.find((f) => f.path === "package.json");
     expect(pkg).toBeDefined();
     const parsed = JSON.parse(pkg!.content) as { scripts: Record<string, string> };
