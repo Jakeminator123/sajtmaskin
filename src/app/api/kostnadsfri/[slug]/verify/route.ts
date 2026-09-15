@@ -13,6 +13,7 @@ import {
   companyDataFromSlug,
   hasKostnadsfriPasswordSecret,
   isPageAccessible,
+  abSiblingSlug,
   verifyDeterministicPassword,
   type KostnadsfriCompanyData,
 } from "@/lib/kostnadsfri";
@@ -201,22 +202,29 @@ export async function POST(
 
     const { password } = validation.data;
 
-    // Try DB first (pre-created pages with enriched data)
+    // Try DB first (pre-created pages with enriched data). Same company is
+    // often registered as `foo-ab` while the mail linked `foo` — look up both.
     let page;
     try {
       page = await getKostnadsfriPageBySlug(slug);
+      if (!page) {
+        const sibling = abSiblingSlug(slug);
+        if (sibling) page = await getKostnadsfriPageBySlug(sibling);
+      }
     } catch {
       // DB not available — fall through to deterministic verification
     }
 
     if (page) {
-      // Mode 1: DB record exists — use stored hash + check accessibility
+      // Mode 1: DB record exists — stored hash, or the HMAC for this slug / `-ab`
       const access = isPageAccessible(page);
       if (!access.accessible) {
         return NextResponse.json({ success: false, error: access.reason }, { status: 403 });
       }
 
-      if (!verifyPassword(password, page.password_hash)) {
+      const hashOk = verifyPassword(password, page.password_hash);
+      const hmacOk = hasKostnadsfriPasswordSecret() && verifyDeterministicPassword(slug, password);
+      if (!hashOk && !hmacOk) {
         return NextResponse.json({ success: false, error: "Felaktigt lösenord." }, { status: 401 });
       }
 

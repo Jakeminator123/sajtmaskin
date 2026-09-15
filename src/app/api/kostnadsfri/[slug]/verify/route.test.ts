@@ -141,6 +141,26 @@ describe("kostnadsfri verify route", () => {
     );
   });
 
+  it("accepts the HMAC of the -ab sibling when no DB row exists", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    getKostnadsfriPageBySlug.mockResolvedValue(null);
+    const slug = "nordbygg-entreprenad-ab";
+    const siblingPassword = generatePassword("nordbygg-entreprenad");
+
+    const ok = await POST(verifyRequest(slug, siblingPassword), {
+      params: Promise.resolve({ slug }),
+    });
+
+    expect(ok.status).toBe(200);
+    expect(recordPageView).toHaveBeenCalledWith(
+      "/kostnadsfri/nordbygg-entreprenad-ab/verifierad",
+      SESSION_ID,
+      undefined,
+      "10.0.0.1",
+      undefined,
+    );
+  });
+
   it("returns the host session and expires an HTTPS parent-domain leftover", async () => {
     process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
     getKostnadsfriPageBySlug.mockResolvedValue(null);

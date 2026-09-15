@@ -6,10 +6,12 @@ import {
 import { buildRoutePlan, detectExplicitPageCount } from "@/lib/gen/route-plan";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import {
+  abSiblingSlug,
   buildPromptFromWizardData,
   extractCompanyData,
   generatePassword,
   hasKostnadsfriPasswordSecret,
+  verifyDeterministicPassword,
   type MiniWizardData,
 } from "./index";
 
@@ -30,6 +32,33 @@ describe("generatePassword", () => {
     expect(hasKostnadsfriPasswordSecret()).toBe(true);
     expect(generatePassword("acme-ab")).toBe(generatePassword("acme-ab"));
     expect(generatePassword("acme-ab")).not.toBe(generatePassword("other-ab"));
+  });
+});
+
+describe("abSiblingSlug", () => {
+  it("växlar ett avslutande -ab", () => {
+    expect(abSiblingSlug("nordbygg-entreprenad")).toBe("nordbygg-entreprenad-ab");
+    expect(abSiblingSlug("nordbygg-entreprenad-ab")).toBe("nordbygg-entreprenad");
+    expect(abSiblingSlug("lab")).toBe("lab-ab");
+    expect(abSiblingSlug("ab")).toBe("ab-ab");
+    expect(abSiblingSlug("-ab")).toBeNull();
+    expect(abSiblingSlug("")).toBeNull();
+  });
+});
+
+describe("verifyDeterministicPassword", () => {
+  it("godkänner HMAC för sluggen eller dess -ab-syskon", () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    const withoutAb = generatePassword("nordbygg-entreprenad");
+    const withAb = generatePassword("nordbygg-entreprenad-ab");
+
+    expect(verifyDeterministicPassword("nordbygg-entreprenad", withoutAb)).toBe(true);
+    expect(verifyDeterministicPassword("nordbygg-entreprenad-ab", withoutAb)).toBe(true);
+    expect(verifyDeterministicPassword("nordbygg-entreprenad", withAb)).toBe(true);
+    expect(verifyDeterministicPassword("nordbygg-entreprenad-ab", withAb)).toBe(true);
+    expect(verifyDeterministicPassword("nordbygg-entreprenad", generatePassword("other-ab"))).toBe(
+      false,
+    );
   });
 });
 
