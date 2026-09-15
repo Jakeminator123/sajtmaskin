@@ -23,6 +23,7 @@ vi.mock("@/lib/db/services/projects", () => ({
 
 import {
   findExistingTemplateInit,
+  isTemplateInitLookupError,
   markTemplateInitPending,
   parseTemplateInitFiles,
   pickMainTemplateCode,
@@ -166,6 +167,47 @@ describe("findExistingTemplateInit", () => {
     ]);
 
     await expect(findExistingTemplateInit("proj_1", "tmpl_1")).resolves.toBeNull();
+  });
+
+  it("throws a retryable lookup error when both version reads fail", async () => {
+    listChatsByProject.mockResolvedValue([
+      {
+        id: "chat_hit",
+        model: "gpt-hit",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    getPreferredVersion.mockRejectedValue(new Error("preferred down"));
+    getLatestVersion.mockRejectedValue(new Error("latest down"));
+
+    await expect(findExistingTemplateInit("proj_1", "tmpl_1")).rejects.toSatisfy(
+      (error: unknown) => isTemplateInitLookupError(error) && (error as { retryable: boolean }).retryable,
+    );
+    expect(getLatestVersion).not.toHaveBeenCalled();
+  });
+
+  it("throws a retryable lookup error when preferred is missing and latest fails", async () => {
+    listChatsByProject.mockResolvedValue([
+      {
+        id: "chat_hit",
+        model: "gpt-hit",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    getPreferredVersion.mockResolvedValue(null);
+    getLatestVersion.mockRejectedValue(new Error("latest down"));
+
+    await expect(findExistingTemplateInit("proj_1", "tmpl_1")).rejects.toSatisfy((error: unknown) =>
+      isTemplateInitLookupError(error),
+    );
   });
 });
 

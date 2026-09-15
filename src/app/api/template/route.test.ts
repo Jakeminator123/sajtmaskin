@@ -23,6 +23,21 @@ const chatRepoGetChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
 const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
 const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
+const claimState = vi.hoisted(() => ({
+  store: new Map<
+    string,
+    {
+      claimKey: string;
+      operationId: string;
+      status: "pending" | "completed" | "failed";
+      claimGeneration: number;
+      projectId: string | null;
+      chatId: string | null;
+      versionId: string | null;
+    }
+  >(),
+  seq: 0,
+}));
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -81,6 +96,85 @@ vi.mock("@/lib/templates/imported-repo-initialization", () => ({
   recordImportedRepoPreviewOutcome,
 }));
 
+vi.mock("@/lib/templates/template-init-claim", () => {
+  function claimKeyOf(input: {
+    projectId?: string | null;
+    templateId: string;
+    userId?: string | null;
+    sessionId?: string | null;
+  }) {
+    const projectId = input.projectId?.trim();
+    if (projectId) return `project:${projectId}:${input.templateId}`;
+    const userId = input.userId?.trim();
+    if (userId) return `owner:user:${userId}:${input.templateId}`;
+    const sessionId = input.sessionId?.trim() || "sess_1";
+    return `owner:session:${sessionId}:${input.templateId}`;
+  }
+
+  return {
+    buildTemplateInitClaimKey: claimKeyOf,
+    claimTemplateInit: async (input: {
+      projectId?: string | null;
+      templateId: string;
+      userId?: string | null;
+      sessionId?: string | null;
+    }) => {
+      const claimKey = claimKeyOf(input);
+      const existing = claimState.store.get(claimKey);
+      if (existing?.status === "completed") {
+        return { kind: "completed", ...existing };
+      }
+      if (existing?.status === "pending") {
+        return { kind: "busy", ...existing };
+      }
+      if (existing?.status === "failed") {
+        existing.status = "pending";
+        existing.claimGeneration += 1;
+        return { kind: "acquired", ...existing };
+      }
+      claimState.seq += 1;
+      const row = {
+        claimKey,
+        operationId: `op_${claimState.seq}`,
+        status: "pending" as const,
+        claimGeneration: 1,
+        projectId: input.projectId?.trim() || null,
+        chatId: null,
+        versionId: null,
+      };
+      claimState.store.set(claimKey, row);
+      return { kind: "acquired", ...row };
+    },
+    bindTemplateInitProject: async (input: { claimKey: string; projectId: string }) => {
+      const row = claimState.store.get(input.claimKey);
+      if (!row) return false;
+      row.projectId = input.projectId;
+      return true;
+    },
+    completeTemplateInitClaim: async (input: {
+      claimKey: string;
+      operationId: string;
+      projectId: string;
+      chatId: string;
+      versionId: string;
+    }) => {
+      const row = claimState.store.get(input.claimKey);
+      if (!row || row.operationId !== input.operationId) return false;
+      row.status = "completed";
+      row.projectId = input.projectId;
+      row.chatId = input.chatId;
+      row.versionId = input.versionId;
+      return true;
+    },
+    failTemplateInitClaim: async (input: { claimKey: string }) => {
+      const row = claimState.store.get(input.claimKey);
+      if (!row) return false;
+      row.status = "failed";
+      return true;
+    },
+  };
+});
+
 vi.mock("@/lib/templates/template-data", () => ({
   getTemplateById: (id: string) =>
     id === "tmpl_1"
@@ -137,6 +231,8 @@ describe("POST /api/template", () => {
     devLogAppend.mockReset();
     persistImportedRepoInitialization.mockReset();
     recordImportedRepoPreviewOutcome.mockReset();
+    claimState.store.clear();
+    claimState.seq = 0;
 
     getCurrentUser.mockResolvedValue(null);
     resolveAppProjectIdForRequest.mockResolvedValue(null);
@@ -749,5 +845,162 @@ describe("POST /api/template", () => {
     expect(createProject).toHaveBeenCalledTimes(1);
     expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
     expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  async function postTemplate(body: Record<string, unknown>) {
+    return POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }) as never,
+    );
+  }
+
+  it("imports and charges at most once when two explicit-project inits race", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    let releaseFirstCreate: (() => void) | undefined;
+    const firstCreateStarted = new Promise<void>((resolve) => {
+      releaseFirstCreate = resolve;
+    });
+    let releaseFirstHold: (() => void) | undefined;
+    const firstCreateHold = new Promise<void>((resolve) => {
+      releaseFirstHold = resolve;
+    });
+    let creates = 0;
+    chatRepoCreateChat.mockImplementation(async () => {
+      creates += 1;
+      if (creates === 1) {
+        releaseFirstCreate?.();
+        await firstCreateHold;
+      }
+      return { id: `chat_race_${creates}` };
+    });
+
+    const pending = postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    await firstCreateStarted;
+    const lostRetry = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+
+    expect(lostRetry.status).toBeGreaterThanOrEqual(400);
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).not.toHaveBeenCalled();
+    releaseFirstHold?.();
+    await pending;
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports and charges at most once when two no-project inits race", async () => {
+    stubLocalTemplateSource();
+    findLatestTemplateInitProjectIdForOwner.mockResolvedValue(null);
+    let releaseFirstCreate: (() => void) | undefined;
+    const firstCreateStarted = new Promise<void>((resolve) => {
+      releaseFirstCreate = resolve;
+    });
+    let releaseFirstHold: (() => void) | undefined;
+    const firstCreateHold = new Promise<void>((resolve) => {
+      releaseFirstHold = resolve;
+    });
+    let creates = 0;
+    chatRepoCreateChat.mockImplementation(async () => {
+      creates += 1;
+      if (creates === 1) {
+        releaseFirstCreate?.();
+        await firstCreateHold;
+      }
+      return { id: `chat_owner_${creates}` };
+    });
+
+    const pending = postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    await firstCreateStarted;
+    const lostRetry = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+
+    expect(lostRetry.status).toBeGreaterThanOrEqual(400);
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).not.toHaveBeenCalled();
+    releaseFirstHold?.();
+    await pending;
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("still allows two different new projects with the same template", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest
+      .mockResolvedValueOnce("proj_a")
+      .mockResolvedValueOnce("proj_b");
+    chatRepoCreateChat
+      .mockResolvedValueOnce({ id: "chat_a" })
+      .mockResolvedValueOnce({ id: "chat_b" });
+
+    const first = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_a",
+    });
+    const second = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_b",
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await first.json()).chatId).toBe("chat_a");
+    expect((await second.json()).chatId).toBe("chat_b");
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(2);
+    expect(commitCredits).toHaveBeenCalledTimes(2);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
+      expect.stringMatching(/\S/),
+      expect.stringMatching(/\S/),
+    ]);
+    expect(prepareCredits.mock.calls[0][3]?.idempotencyKey).not.toBe(
+      prepareCredits.mock.calls[1][3]?.idempotencyKey,
+    );
+  });
+
+  it("does not create or charge when both version reads fail", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_existing",
+        model: "gpt-existing",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { kind: "v0_template", templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockRejectedValue(new Error("preferred down"));
+    chatRepoGetLatestVersion.mockRejectedValue(new Error("latest down"));
+
+    const response = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(json).toMatchObject({
+      success: false,
+      retryable: true,
+    });
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
   });
 });

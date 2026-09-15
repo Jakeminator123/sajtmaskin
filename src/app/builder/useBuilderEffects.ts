@@ -35,6 +35,14 @@ type UseBuilderEffectsArgs = {
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
 };
 
+export function buildTemplateInitAttemptKey(
+  projectId: string | null,
+  templateId: string,
+  tier: ModelTier,
+): string {
+  return `${projectId ?? ""}:${templateId}:${tier}`;
+}
+
 export function useBuilderEffects({
   auditPromptLoaded,
   templateId,
@@ -52,7 +60,20 @@ export function useBuilderEffects({
   templateInitAttemptKeyRef,
 }: UseBuilderEffectsArgs) {
   const [templateInitError, setTemplateInitError] = useState<string | null>(null);
-  const runGenerationRef = useRef(0);
+  // Object box so an in-flight request keeps the same counter that cleanup
+  // increments. A remounted hook instance gets a new box; the discarded
+  // request still sees its own box go stale.
+  const generationBoxRef = useRef({ n: 0 });
+  const abortRef = useRef<AbortController | null>(null);
+  const contextRef = useRef({
+    templateId,
+    appProjectId,
+    chatId,
+  });
+  const contextEpochKeyRef = useRef<string | null>(null);
+  contextRef.current = { templateId, appProjectId, chatId };
+
+  const contextEpochKey = `${appProjectId ?? ""}:${templateId ?? ""}:${chatId ?? ""}`;
 
   useEffect(() => {
     if (templateId) return;
@@ -60,9 +81,46 @@ export function useBuilderEffects({
     setTemplateInitError(null);
   }, [templateId, templateInitAttemptKeyRef]);
 
+  useEffect(() => {
+    const generationBox = generationBoxRef.current;
+    const previous = contextEpochKeyRef.current;
+    contextEpochKeyRef.current = contextEpochKey;
+    if (previous !== null && previous !== contextEpochKey) {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      generationBox.n += 1;
+      templateInitAttemptKeyRef.current = null;
+      setTemplateInitError(null);
+      setIsTemplateLoading(false);
+    }
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      generationBox.n += 1;
+      templateInitAttemptKeyRef.current = null;
+    };
+  }, [contextEpochKey, templateInitAttemptKeyRef, setIsTemplateLoading]);
+
   const runTemplateInit = useCallback(async () => {
     if (!templateId) return;
-    const generation = ++runGenerationRef.current;
+    const started = {
+      templateId,
+      appProjectId,
+      generation: ++generationBoxRef.current.n,
+    };
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
+    const isCurrent = () => {
+      if (started.generation !== generationBoxRef.current.n) return false;
+      const current = contextRef.current;
+      if (current.templateId !== started.templateId) return false;
+      if ((current.appProjectId ?? null) !== (started.appProjectId ?? null)) return false;
+      if (current.chatId) return false;
+      return true;
+    };
+
     setTemplateInitError(null);
     setIsTemplateLoading(true);
     try {
@@ -75,12 +133,13 @@ export function useBuilderEffects({
           quality,
           ...(appProjectId ? { projectId: appProjectId } : {}),
         }),
+        signal: controller.signal,
       });
       const data = await response.json();
       if (!response.ok || !data?.success) {
         throw new Error(data?.error || "Template init failed");
       }
-      if (runGenerationRef.current !== generation) return;
+      if (!isCurrent()) return;
 
       if (data?.chatId) {
         setChatId(data.chatId);
@@ -119,9 +178,10 @@ export function useBuilderEffects({
         });
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : "Template init failed";
       console.error("[Builder] Template init failed:", error);
-      if (runGenerationRef.current !== generation) return;
+      if (!isCurrent()) return;
       setTemplateInitError(message);
       toast.error(message);
       // Keep `templateId` in the URL on failure so this stays a template
@@ -131,7 +191,7 @@ export function useBuilderEffects({
       // Repeated AUTO-init loops are already prevented by
       // `templateInitAttemptKeyRef`.
     } finally {
-      if (runGenerationRef.current === generation) {
+      if (started.generation === generationBoxRef.current.n) {
         setIsTemplateLoading(false);
       }
     }
@@ -151,7 +211,7 @@ export function useBuilderEffects({
     if (!auditPromptLoaded) return;
     if (!templateId || chatId) return;
     if (isCreatingChat || isAnyStreaming) return;
-    const initKey = `${templateId}:${selectedModelTier}`;
+    const initKey = buildTemplateInitAttemptKey(appProjectId, templateId, selectedModelTier);
     if (templateInitAttemptKeyRef.current === initKey) return;
     templateInitAttemptKeyRef.current = initKey;
     void runTemplateInit();
@@ -162,16 +222,24 @@ export function useBuilderEffects({
     isCreatingChat,
     isAnyStreaming,
     selectedModelTier,
+    appProjectId,
     runTemplateInit,
     templateInitAttemptKeyRef,
   ]);
 
   const retryTemplateInit = useCallback(() => {
     if (!templateId || chatId) return;
-    const initKey = `${templateId}:${selectedModelTier}`;
+    const initKey = buildTemplateInitAttemptKey(appProjectId, templateId, selectedModelTier);
     templateInitAttemptKeyRef.current = initKey;
     void runTemplateInit();
-  }, [templateId, chatId, selectedModelTier, runTemplateInit, templateInitAttemptKeyRef]);
+  }, [
+    templateId,
+    chatId,
+    selectedModelTier,
+    appProjectId,
+    runTemplateInit,
+    templateInitAttemptKeyRef,
+  ]);
 
   return {
     templateInitError,

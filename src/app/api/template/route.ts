@@ -7,9 +7,16 @@ import {
 } from "@/lib/db/services/projects";
 import {
   findExistingTemplateInit,
-  markTemplateInitPending,
+  isTemplateInitLookupError,
   type ExistingTemplateInit,
 } from "@/lib/templates/template-init-idempotency";
+import {
+  bindTemplateInitProject,
+  claimTemplateInit,
+  completeTemplateInitClaim,
+  failTemplateInitClaim,
+  type ClaimedTemplateInit,
+} from "@/lib/templates/template-init-claim";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
@@ -519,7 +526,8 @@ export async function POST(request: NextRequest) {
       // Idempotency key: (projectId, templateId) when the client already has a
       // project (gallery + template-switch). Without projectId, reuse the
       // owner's latest project_data.meta.templateId row so a lost response
-      // cannot mint a second project+chat.
+      // cannot mint a second project+chat. The durable claim below is the
+      // concurrency lock; this read only replays work that already finished.
       let projectId = resolvedRequestedProjectId;
       if (!projectId) {
         projectId = await findLatestTemplateInitProjectIdForOwner(
@@ -527,23 +535,101 @@ export async function POST(request: NextRequest) {
           templateId,
         );
       }
+
+      const respondLookupFailed = () =>
+        attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Kunde inte läsa tidigare template-import. Försök igen om en stund.",
+            },
+            { status: 503 },
+          ),
+        );
+
       if (projectId) {
-        const existing = await findExistingTemplateInit(projectId, templateId);
+        let existing: ExistingTemplateInit | null;
+        try {
+          existing = await findExistingTemplateInit(projectId, templateId);
+        } catch (error) {
+          if (isTemplateInitLookupError(error)) return respondLookupFailed();
+          throw error;
+        }
         if (existing) {
           return respondExisting(existing);
         }
       }
 
+      const claimed = await claimTemplateInit({
+        projectId,
+        templateId,
+        userId,
+        sessionId,
+      });
+      if (claimed.kind === "unavailable") {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Template-init kunde inte reserveras just nu. Försök igen om en stund.",
+            },
+            { status: 503 },
+          ),
+        );
+      }
+      if (claimed.kind === "completed") {
+        const replayProjectId = claimed.projectId ?? projectId;
+        if (!replayProjectId) return respondLookupFailed();
+        let replayed: ExistingTemplateInit | null;
+        try {
+          replayed = await findExistingTemplateInit(replayProjectId, templateId);
+        } catch (error) {
+          if (isTemplateInitLookupError(error)) return respondLookupFailed();
+          throw error;
+        }
+        if (!replayed) return respondLookupFailed();
+        return respondExisting(replayed);
+      }
+      if (claimed.kind === "busy") {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Templaten importeras redan. Försök igen om en stund.",
+              projectId: claimed.projectId ?? projectId,
+            },
+            { status: 409 },
+          ),
+        );
+      }
+
+      const acquired: Extract<ClaimedTemplateInit, { kind: "acquired" }> = claimed;
+      const failAcquiredClaim = async (message?: string) => {
+        await failTemplateInitClaim({
+          claimKey: acquired.claimKey,
+          operationId: acquired.operationId,
+          claimGeneration: acquired.claimGeneration,
+          error: message,
+        });
+      };
+
       const creditCheck = await prepareCredits(
         request,
         "prompt.template",
         { quality },
-        { sessionId },
+        { sessionId, idempotencyKey: acquired.operationId },
       );
       if (!creditCheck.ok) {
+        await failAcquiredClaim("credits_denied");
         return attachSessionCookie(creditCheck.response);
       }
 
+      if (!projectId) {
+        projectId = acquired.projectId;
+      }
       if (!projectId) {
         projectId = (
           await createAppProject(
@@ -554,13 +640,32 @@ export async function POST(request: NextRequest) {
             user?.id,
           )
         ).id;
-        await markTemplateInitPending(projectId, templateId);
+        await bindTemplateInitProject({
+          claimKey: acquired.claimKey,
+          operationId: acquired.operationId,
+          claimGeneration: acquired.claimGeneration,
+          projectId,
+        });
       }
 
-      const imported = await initializeLocalTemplateProject({
-        projectId,
-        template: templateMeta,
-      });
+      let imported;
+      try {
+        imported = await initializeLocalTemplateProject({
+          projectId,
+          template: templateMeta,
+        });
+        await completeTemplateInitClaim({
+          claimKey: acquired.claimKey,
+          operationId: acquired.operationId,
+          claimGeneration: acquired.claimGeneration,
+          projectId,
+          chatId: imported.chatId,
+          versionId: imported.versionId,
+        });
+      } catch (error) {
+        await failAcquiredClaim(error instanceof Error ? error.message : "import_failed");
+        throw error;
+      }
 
       if (sourceMetadata.stale) {
         devLogAppend("latest", {

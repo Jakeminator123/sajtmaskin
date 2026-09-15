@@ -16,6 +16,43 @@ export type ExistingTemplateInit = {
   model: string;
 };
 
+export class TemplateInitLookupError extends Error {
+  readonly code = "TEMPLATE_INIT_LOOKUP_FAILED" as const;
+  readonly retryable = true;
+  constructor(message = "Kunde inte läsa tidigare template-import.", options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "TemplateInitLookupError";
+  }
+}
+
+export function isTemplateInitLookupError(error: unknown): error is TemplateInitLookupError {
+  return (
+    error instanceof TemplateInitLookupError ||
+    (typeof error === "object" &&
+      error !== null &&
+      (error as { code?: string }).code === "TEMPLATE_INIT_LOOKUP_FAILED")
+  );
+}
+
+async function readImportedVersion(chatId: string) {
+  let preferred;
+  try {
+    preferred = await chatRepo.getPreferredVersion(chatId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa tidigare template-version.", {
+      cause: error,
+    });
+  }
+  if (preferred) return preferred;
+  try {
+    return await chatRepo.getLatestVersion(chatId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa tidigare template-version.", {
+      cause: error,
+    });
+  }
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -107,13 +144,23 @@ export async function findExistingTemplateInit(
   const scopedProjectId = trimId(projectId);
   if (!wanted || !scopedProjectId) return null;
 
-  const chats = await chatRepo.listChatsByProject(scopedProjectId);
+  let chats;
+  try {
+    chats = await chatRepo.listChatsByProject(scopedProjectId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa projektets chattar.", { cause: error });
+  }
   for (const chat of chats) {
-    const snapshot = await loadChatSnapshot(chat);
+    let snapshot;
+    try {
+      snapshot = await loadChatSnapshot(chat);
+    } catch (error) {
+      throw new TemplateInitLookupError("Kunde inte läsa chat-snapshot för template-import.", {
+        cause: error,
+      });
+    }
     if (readTemplateIdFromOrchestrationSnapshot(snapshot) !== wanted) continue;
-    const version =
-      (await chatRepo.getPreferredVersion(chat.id).catch(() => null)) ??
-      (await chatRepo.getLatestVersion(chat.id).catch(() => null));
+    const version = await readImportedVersion(chat.id);
     if (!version) continue;
     const files = parseTemplateInitFiles(version.files_json);
     return {
@@ -127,7 +174,14 @@ export async function findExistingTemplateInit(
     };
   }
 
-  const projectData = await getProjectData(scopedProjectId);
+  let projectData;
+  try {
+    projectData = await getProjectData(scopedProjectId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa projektets template-metadata.", {
+      cause: error,
+    });
+  }
   const persistedChatId = trimId(projectData?.chat_id);
   if (!persistedChatId || readTemplateIdFromProjectMeta(projectData?.meta) !== wanted) {
     return null;
@@ -136,13 +190,25 @@ export async function findExistingTemplateInit(
   const alreadySeen = chats.some((chat) => chat.id === persistedChatId);
   if (alreadySeen) return null;
 
-  const chat = await chatRepo.getChat(persistedChatId);
+  let chat;
+  try {
+    chat = await chatRepo.getChat(persistedChatId);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa den sparade template-chatten.", {
+      cause: error,
+    });
+  }
   if (!chat || chat.project_id !== scopedProjectId) return null;
-  const snapshot = await loadChatSnapshot(chat);
+  let snapshot;
+  try {
+    snapshot = await loadChatSnapshot(chat);
+  } catch (error) {
+    throw new TemplateInitLookupError("Kunde inte läsa chat-snapshot för template-import.", {
+      cause: error,
+    });
+  }
   if (readTemplateIdFromOrchestrationSnapshot(snapshot) !== wanted) return null;
-  const version =
-    (await chatRepo.getPreferredVersion(chat.id).catch(() => null)) ??
-    (await chatRepo.getLatestVersion(chat.id).catch(() => null));
+  const version = await readImportedVersion(chat.id);
   if (!version) return null;
   const files = parseTemplateInitFiles(version.files_json);
   return {
