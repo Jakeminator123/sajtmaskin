@@ -3,7 +3,8 @@
 ## Genomförandestatus 2026-09-15
 
 **Inte levererad.** Ingen aliasbindning, ingen `--apply`, ingen branded
-live-URL. A3:s kodflagga öppnar inte A4. Vänta på A1:s två testhosts.
+live-URL. A3:s kodflagga öppnar inte A4. A1:s DNS-del är levererad; A4 väntar
+nu på A3:s runtimebevis och ett konkret driftmandat.
 
 Område: [01](../01-varumarkta-adresser.md). Drift efter A1:s DNS-del, A2 och A3.
 Behörig operatör eller agent utför med konkret mandat. Denna plan-PR ändrar inget
@@ -12,7 +13,8 @@ på Vercel, i DNS eller i databasen.
 ## Före pilot
 
 - Valet i [masterplanen](../00-master-plan.md) om begränsad utrullning är fastställt.
-- Två exakta testalias når rätt separata projekt med giltig HTTPS.
+- Två exakta testalias når rätt separata projekt med giltig HTTPS. Uppfyllt av
+  A1:s `pilot-a`/`pilot-b` 2026-09-15.
 - Eligibility gäller både publicering och migreringsskriptet; portalens
   grundskydd är kontrollerat.
 - Primäradress, redirects och rollback har verifierats på kundtestdeployment.

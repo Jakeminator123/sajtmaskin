@@ -18,8 +18,11 @@ Två lager, inte en flagga:
 | 307-redirect provider → primärhost | Av | `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT=true` **och** attesterat samma-projekt-alias **och** in-process HTTPS-bevis |
 
 Flaggan öppnar inte A4, C2 eller branded-pilot. Det är inte A3-klart i drift:
-två testhosts under `sites.*` över HTTPS saknas, och branded → egen domän →
-branded är inte kört på en faktisk kundtestdeployment.
+branded → egen domän → branded är inte kört på en faktisk kundtestdeployment,
+och 307-redirecten är inte prövad i runtime. A1:s testhostar finns sedan
+2026-09-15 (`pilot-a`/`pilot-b`, se
+[adressrunbooken](../../../../runbooks/branded-user-urls.md)) — det som återstår
+i A3 är kedjan på en kunddeployment, inte DNS.
 
 Område: [01](../01-varumarkta-adresser.md). Efter [A2](A2-branded-eligibility.md)
 för gemensamma deployfiler. Samordna kontrakt med [C2](C2-domanflode.md).
