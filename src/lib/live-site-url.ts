@@ -57,13 +57,43 @@ export function isUniqueVercelDeploymentHost(value: string | null | undefined): 
   return /-[0-9a-f]{6,}-[a-z0-9]/i.test(head);
 }
 
-/** 3-label same-project production alias. Preview and platform hosts are not. */
-export function isProductionProviderVercelHost(value: string | null | undefined): boolean {
+/**
+ * 3-label `*.vercel.app` production-alias shape. Team/user suffixes are
+ * included. Git aliases and the platform host are not. Per-deployment
+ * URLs have the same shape — do not use this as a SITE_URL source; read
+ * aliases from the project payload instead.
+ */
+export function isVercelProductionAliasHost(value: string | null | undefined): boolean {
   const host = normalizeDomainHostname(value);
-  if (!host || isGitPreviewVercelHost(host) || isUniqueVercelDeploymentHost(host)) return false;
-  if (host === PLATFORM_VERCEL_APP_HOST) return false;
+  if (!host || isGitPreviewVercelHost(host) || host === PLATFORM_VERCEL_APP_HOST) return false;
   const labels = host.split(".");
   return labels.length === 3 && labels[1] === "vercel" && labels[2] === "app";
+}
+
+/**
+ * Last-working provider host we may keep while the alias read is unknown.
+ * Rejects unique-deployment-shaped hosts so a stored per-deployment URL
+ * cannot become SITE_URL.
+ */
+export function isProductionProviderVercelHost(value: string | null | undefined): boolean {
+  const host = normalizeDomainHostname(value);
+  return Boolean(host && isVercelProductionAliasHost(host) && !isUniqueVercelDeploymentHost(host));
+}
+
+/**
+ * Customer-facing production alias from a Vercel payload list. Deterministic:
+ * shortest hostname, then lexicographic. Never invents a name and never
+ * uses word/suffix heuristics — truncated and `aaa-red-one` aliases stay
+ * exactly as Vercel returned them.
+ */
+export function pickCustomerFacingProductionAlias(
+  aliases: ReadonlyArray<string | null | undefined>,
+): string | null {
+  const attested = aliases
+    .map((entry) => normalizeDomainHostname(entry))
+    .filter((host): host is string => Boolean(host && isVercelProductionAliasHost(host)));
+  attested.sort((left, right) => left.length - right.length || (left < right ? -1 : left > right ? 1 : 0));
+  return attested[0] ?? null;
 }
 
 export type CurrentProductionHostProof = {

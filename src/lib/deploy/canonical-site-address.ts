@@ -308,6 +308,7 @@ export function prepareCanonicalAddressContract(
     params.verifiedCustomerHosts,
     aliasStatus === "unknown",
   );
+  const attestedOrigin = providerOrigin(attestedProvider);
   const attemptedUrl = normalizeHttpsOrigin(params.verifiedLiveUrl);
   const candidateUrl = usablePolicyUrl(params.verifiedLiveUrl, hostProof);
   const lastWorkingUrl = usablePolicyUrl(params.lastWorkingCanonicalUrl, hostProof);
@@ -320,16 +321,21 @@ export function prepareCanonicalAddressContract(
   let pendingAddress: string | null = null;
   let usedLastWorkingIdentity = false;
 
+  // 1. verified customer domain  2. attested production alias (the address,
+  // not a match key against deployments.url)  3. last-working provider only
+  // while the alias read is unknown  4. keep env. Never invent an origin.
   if (proofUnknown || aliasStatus === "unknown") {
-    policyUrl = lastWorkingUrl ?? candidateUrl ?? providerOrigin(attestedProvider);
+    policyUrl = lastWorkingUrl ?? candidateUrl ?? attestedOrigin;
     usedLastWorkingIdentity = Boolean(lastWorkingUrl && policyUrl === lastWorkingUrl);
   } else if (proofInvalid) {
     const keptLastWorking = lastWorkingUrl && lastWorkingUrl !== candidateUrl ? lastWorkingUrl : null;
-    policyUrl = keptLastWorking ?? providerOrigin(attestedProvider);
+    policyUrl = keptLastWorking ?? attestedOrigin;
     usedLastWorkingIdentity = Boolean(keptLastWorking && policyUrl === keptLastWorking);
   } else {
-    policyUrl = candidateUrl ?? lastWorkingUrl ?? providerOrigin(attestedProvider);
-    usedLastWorkingIdentity = Boolean(!candidateUrl && lastWorkingUrl && policyUrl === lastWorkingUrl);
+    policyUrl = candidateUrl ?? attestedOrigin ?? lastWorkingUrl;
+    usedLastWorkingIdentity = Boolean(
+      !candidateUrl && !attestedOrigin && lastWorkingUrl && policyUrl === lastWorkingUrl,
+    );
   }
 
   policyUrl = usablePolicyUrl(policyUrl, hostProof);
@@ -501,20 +507,14 @@ function isManagedProviderRedirect(value: unknown, providerHost: string): boolea
   return match.eq === providerHost;
 }
 
-function isManagedProviderNoindex(value: unknown, providerHost: string | null): boolean {
+function isManagedNoindexHeader(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
-  const rule = value as Record<string, unknown>;
+  const header = value as { key?: unknown; value?: unknown };
+  return header.key === "X-Robots-Tag" && typeof header.value === "string" && header.value.includes("noindex");
+}
+
+function matchesManagedNoindexHost(rule: Record<string, unknown>, providerHost: string | null): boolean {
   if (rule.source !== "/:path*") return false;
-  const headers = Array.isArray(rule.headers) ? rule.headers : [];
-  const robots = headers.find(
-    (header) =>
-      header &&
-      typeof header === "object" &&
-      (header as { key?: unknown }).key === "X-Robots-Tag",
-  ) as { value?: unknown } | undefined;
-  if (!robots || typeof robots.value !== "string" || !robots.value.includes("noindex")) {
-    return false;
-  }
   const conditions = Array.isArray(rule.has) ? rule.has : [];
   if (conditions.length === 0) {
     return providerHost === null;
@@ -525,6 +525,26 @@ function isManagedProviderNoindex(value: unknown, providerHost: string | null): 
   const item = condition as Record<string, unknown>;
   if (item.type !== "host" || !item.value || typeof item.value !== "object") return false;
   return (item.value as { eq?: unknown }).eq === providerHost;
+}
+
+function isManagedProviderNoindex(value: unknown, providerHost: string | null): boolean {
+  if (!value || typeof value !== "object") return false;
+  const rule = value as Record<string, unknown>;
+  const headers = Array.isArray(rule.headers) ? rule.headers : [];
+  return headers.some(isManagedNoindexHeader) && matchesManagedNoindexHost(rule, providerHost);
+}
+
+/** Remove only our X-Robots-Tag. Keep the rule when other headers remain. */
+function stripManagedNoindexRule(value: unknown, providerHost: string | null): unknown | null {
+  if (!isManagedProviderNoindex(value, providerHost) || !value || typeof value !== "object") {
+    return value;
+  }
+  const rule = value as Record<string, unknown>;
+  const headers = (Array.isArray(rule.headers) ? rule.headers : []).filter(
+    (header) => !isManagedNoindexHeader(header),
+  );
+  if (headers.length === 0) return null;
+  return { ...rule, headers };
 }
 
 function isExactIdentityPair(
@@ -711,9 +731,9 @@ export function applyCanonicalHostRedirect(
     Boolean(validated && noindexTarget === new URL(validated.canonicalUrl).hostname);
   if ((previewNoindex || noindexTarget) && !skipNoindexOnPrimary) {
     const existingHeaders = Array.isArray(config.headers) ? config.headers : [];
-    const headers = existingHeaders.filter(
-      (header) => !isManagedProviderNoindex(header, previewNoindex ? null : noindexTarget),
-    );
+    const headers = existingHeaders
+      .map((header) => stripManagedNoindexRule(header, previewNoindex ? null : noindexTarget))
+      .filter((header): header is NonNullable<typeof header> => header != null);
     const rule: Record<string, unknown> = {
       source: "/:path*",
       headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],

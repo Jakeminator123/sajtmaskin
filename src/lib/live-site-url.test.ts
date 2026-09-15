@@ -3,6 +3,7 @@ import {
   isCurrentProductionSiteHost,
   isGitPreviewVercelHost,
   isProductionProviderVercelHost,
+  pickCustomerFacingProductionAlias,
   selectCurrentProductionIdentityUrl,
 } from "./live-site-url";
 
@@ -98,5 +99,41 @@ describe("selectCurrentProductionIdentityUrl", () => {
         {},
       ),
     ).toBeNull();
+    expect(
+      selectCurrentProductionIdentityUrl(
+        {
+          url: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+          providerUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+        },
+        { attestedProductionHost: "sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app" },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("pickCustomerFacingProductionAlias", () => {
+  it("picks the shortest customer-facing alias among team and user suffixes", () => {
+    expect(
+      pickCustomerFacingProductionAlias([
+        "sajtmaskin-simon-1f7c897f-jakeminator0-jakeminator123s-projects.vercel.app",
+        "sajtmaskin-simon-1f7c897f-jakeminator123s-projects.vercel.app",
+        "sajtmaskin-simon-1f7c897f.vercel.app",
+      ]),
+    ).toBe("sajtmaskin-simon-1f7c897f.vercel.app");
+  });
+
+  it("uses the payload alias when Vercel truncated the project name", () => {
+    expect(
+      pickCustomerFacingProductionAlias([
+        "sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-jakeminator123s-projects.vercel.app",
+        "sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+      ]),
+    ).toBe("sajtmaskin-bygg-en-komplett-fungera.vercel.app");
+  });
+
+  it("does not invent a shorter host from project-name-like words", () => {
+    expect(pickCustomerFacingProductionAlias(["aaa-red-one.vercel.app"])).toBe(
+      "aaa-red-one.vercel.app",
+    );
   });
 });

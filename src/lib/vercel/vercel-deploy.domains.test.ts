@@ -307,6 +307,47 @@ describe("ensureVercelProject", () => {
 });
 
 describe("readAttestedProductionProviderAlias", () => {
+  it("picks the shortest customer-facing alias among several production aliases", () => {
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "sajtmaskin-simon-1f7c897f",
+        targets: {
+          production: {
+            alias: [
+              "sajtmaskin-simon-1f7c897f-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-simon-1f7c897f-jakeminator0-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-simon-1f7c897f.vercel.app",
+            ],
+          },
+        },
+      }),
+    ).toEqual({
+      alias: "sajtmaskin-simon-1f7c897f.vercel.app",
+      status: "attested",
+    });
+  });
+
+  it("uses a truncated payload alias instead of deriving one from the project name", () => {
+    expect(
+      readAttestedProductionProviderAlias({
+        id: "prj",
+        name: "sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f",
+        targets: {
+          production: {
+            alias: [
+              "sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-jakeminator123s-projects.vercel.app",
+              "sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+            ],
+          },
+        },
+      }),
+    ).toEqual({
+      alias: "sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+      status: "attested",
+    });
+  });
+
   it("does not invent an alias from the project name", () => {
     expect(readAttestedProductionProviderAlias({ id: "prj", name: "bistro" })).toEqual({
       alias: null,

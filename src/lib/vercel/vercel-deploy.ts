@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
-import { isProductionProviderVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
+import {
+  normalizeDomainHostname,
+  pickCustomerFacingProductionAlias,
+} from "@/lib/live-site-url";
 
 export type VercelDeploymentTarget = "production" | "preview";
 
@@ -59,14 +62,11 @@ function readStringField(obj: JsonObject | null, key: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function isAttestedProductionVercelAppAlias(hostname: string): boolean {
-  return isProductionProviderVercelHost(hostname);
-}
-
 /**
- * Read the exact same-project production provider alias from a Vercel project
+ * Read the same-project production provider alias from a Vercel project
  * payload. Never invent an alias from the project name. Missing `targets`
- * is unknown (keep last-working); an empty production alias list is missing.
+ * is unknown; an empty production alias list is missing. When several
+ * aliases are present, pick the shortest customer-facing host.
  */
 export function readAttestedProductionProviderAlias(payload: unknown): {
   alias: string | null;
@@ -85,14 +85,9 @@ export function readAttestedProductionProviderAlias(payload: unknown): {
     return { alias: null, status: "missing" };
   }
   const aliases = Array.isArray(production.alias) ? production.alias : [];
-  const attested = aliases
-    .map((entry) => (typeof entry === "string" ? normalizeDomainHostname(entry) : null))
-    .filter((host): host is string => Boolean(host && isAttestedProductionVercelAppAlias(host)));
-  const projectName = readStringField(root, "name");
-  const preferred =
-    (projectName && attested.find((host) => host === `${projectName}.vercel.app`)) ||
-    attested[0] ||
-    null;
+  const preferred = pickCustomerFacingProductionAlias(
+    aliases.filter((entry): entry is string => typeof entry === "string"),
+  );
   return preferred
     ? { alias: preferred, status: "attested" }
     : { alias: null, status: "missing" };

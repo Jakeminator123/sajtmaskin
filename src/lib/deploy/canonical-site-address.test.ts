@@ -258,6 +258,57 @@ describe("canonical site address contract", () => {
     expect(branded.contract.usedLastWorkingIdentity).toBe(false);
   });
 
+  it("uses the attested alias when last-working is a per-deployment URL and there is no custom domain", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: false,
+      verifiedLiveUrl: null,
+      verifiedCustomerHosts: [],
+      verifiedProviderDomain: "sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+      providerAliasStatus: "attested",
+      lastWorkingCanonicalUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      lastWorkingProviderHost: "sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe(
+      "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+    );
+    expect(result.contract.canonicalUrl).toBe(
+      "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+    );
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    const files = applyCanonicalMetadataToFiles(
+      [
+        {
+          name: "app/layout.tsx",
+          content: `const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "${PLACEHOLDER_SITE_URL}";`,
+        },
+      ],
+      result.contract.canonicalUrl,
+    );
+    expect(files.files[0].content).toContain("https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app");
+    expect(files.files[0].content).not.toContain("example.com");
+  });
+
+  it("keeps env and does not invent a provider origin while the alias is unknown", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: false,
+      verifiedLiveUrl: null,
+      verifiedCustomerHosts: [],
+      verifiedProviderDomain: null,
+      providerAliasStatus: "unknown",
+      lastWorkingCanonicalUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      lastWorkingProviderHost: "sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      httpsProof: { status: "not_ready", verdict: "unknown", reason: "provider_unknown" },
+      configuredEnv: { NEXT_PUBLIC_SITE_URL: "https://old.example" },
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://old.example");
+    expect(result.contract.canonicalUrl).toBeNull();
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
   it("never lets a git preview URL become the last-working canonical address", () => {
     const result = prepareCanonicalAddressContract({
       ...identity,
@@ -590,6 +641,44 @@ describe("canonical site address contract", () => {
     expect(result.noindexApplied).toBe(true);
     expect(config.headers[0]).toEqual({
       source: "/:path*",
+      headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
+    });
+  });
+
+  it("strips only our X-Robots-Tag and keeps other headers on the same rule", () => {
+    const files = [
+      {
+        name: "vercel.json",
+        content: JSON.stringify({
+          headers: [
+            {
+              source: "/:path*",
+              has: [{ type: "host", value: { eq: candidate.providerHost } }],
+              headers: [
+                { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+                { key: "Content-Security-Policy", value: "default-src 'self'" },
+              ],
+            },
+          ],
+        }),
+      },
+    ];
+    const result = applyCanonicalHostRedirect(files, candidate, deployIdentity, {
+      noindexHost: candidate.providerHost,
+      primaryHost: "www.kund.se",
+    });
+    const config = JSON.parse(result.files[0].content) as {
+      headers: Array<{ headers: Array<{ key: string; value: string }> }>;
+    };
+    const cspRule = config.headers.find((rule) =>
+      rule.headers.some((header) => header.key === "Content-Security-Policy"),
+    );
+    expect(cspRule?.headers).toEqual([
+      { key: "Content-Security-Policy", value: "default-src 'self'" },
+    ]);
+    expect(config.headers[0]).toEqual({
+      source: "/:path*",
+      has: [{ type: "host", value: { eq: candidate.providerHost } }],
       headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
     });
   });
