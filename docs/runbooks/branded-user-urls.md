@@ -16,19 +16,23 @@ där, inte i Vercels DNS-panel. Det finns **ingen** wildcard för
 `*.sajtmaskin.se` eller `*.sites.sajtmaskin.se`, så varje värdnamn måste skapas
 explicit.
 
-Read-only mätning 2026-09-15 03:49 CEST. Resolver `80.58.61.254`
+Rader utan tidsstämpel är från read-only mätningen 2026-09-15 03:49 CEST;
+pilotraderna mättes om 21:55 CEST. Resolver `80.58.61.254`
 (`254.red-80-58-61.staticip.rima-tde.net`). Auktoritativ `ns01` =
 `195.206.121.10`. Verktyg: `Resolve-DnsName`, `nslookup`. Inga hårdkodade
-universella Vercel-värden som facit. **A1 är inte driftklart** — två testhosts
-under `sites.sajtmaskin.se` når inte två olika projekt över HTTPS.
+universella Vercel-värden som facit. **A1:s DNS-del är uppfylld** — två
+testhosts under `sites.sajtmaskin.se` når skilda mål över giltig HTTPS.
+Aktivering av kundsajter är fortfarande A4 och avstängd.
 
-| Värdnamn | Läge 2026-09-15 03:49 CEST | Följd |
+| Värdnamn | Läge | Följd |
 | --- | --- | --- |
 | `sajtmaskin.se` | A TTL 3600 → `76.76.21.21`. HTTPS HEAD `200`, `Server: Vercel` | Appens rot. Rör inte. |
 | `www.sajtmaskin.se` | CNAME TTL 3600 → `98a450bd71e44b00.vercel-dns-016.com` | Appen. Rör inte. |
 | `preview.sajtmaskin.se` | CNAME TTL 3600 → samma mål. HTTPS HEAD `302` → följd `200` | Appens staging. Ska ligga kvar på Vercel. |
-| `sites.sajtmaskin.se` | NXDOMAIN (rekursiv + `ns01`) | Inte påbörjad. |
-| `pilot-a1-test.sites.sajtmaskin.se` | NXDOMAIN. Wildcard saknas | Inte A1-bevis. |
+| `sites.sajtmaskin.se` | Ingen egen A-post | Väntat. MVP använder exakt CNAME per slug, inte wildcard. |
+| `pilot-a.sites.sajtmaskin.se` | 21:55: CNAME → `dd208d0d1d5d62f6.vercel-dns-016.com`. HTTPS `200`, `A1 PILOT A`, `noindex` | A1-bevis, host 1. |
+| `pilot-b.sites.sajtmaskin.se` | 21:55: CNAME → `5cad42c9d9941af8.vercel-dns-016.com`. HTTPS `200`, `A1 PILOT B`, `noindex` | A1-bevis, host 2. Skilt mål från host 1. |
+| `pilot-a1-test.sites.sajtmaskin.se` | NXDOMAIN. Aldrig upplagd | Inget bevis åt något håll — piloterna heter `pilot-a`/`pilot-b`. |
 
 Rekursiv A på CNAME-målet: `216.150.16.193` / `216.150.1.193`
 (`Resolve-DnsName`); `nslookup` visade `216.150.16.1` / `216.150.1.1`.
