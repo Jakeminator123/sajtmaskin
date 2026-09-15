@@ -160,6 +160,34 @@ export function kostnadsfriPasswordSlugs(slug: string): string[] {
   return [...new Set(slugs)];
 }
 
+/** Shared brute-force bucket for `foo` and `foo-ab` so the pair is not 2×5 tries. */
+export function kostnadsfriAttemptBucket(slug: string): string {
+  return kostnadsfriPasswordSlugs(slug).slice().sort().join("|");
+}
+
+export function pickKostnadsfriPageForSlug<T extends { slug: string }>(
+  pages: readonly T[],
+  requestedSlug: string,
+): T | null {
+  const bySlug = new Map(pages.map((page) => [page.slug, page]));
+  for (const candidate of kostnadsfriPasswordSlugs(requestedSlug)) {
+    const page = bySlug.get(candidate);
+    if (page) return page;
+  }
+  return null;
+}
+
+export async function findKostnadsfriPageForSlug<T>(
+  slug: string,
+  getBySlug: (candidate: string) => Promise<T | null>,
+): Promise<T | null> {
+  for (const candidate of kostnadsfriPasswordSlugs(slug)) {
+    const page = await getBySlug(candidate);
+    if (page) return page;
+  }
+  return null;
+}
+
 /**
  * Verify a password against the deterministic generator (no DB needed).
  * Accepts the HMAC for this slug **or** its `-ab` sibling, so a mail that

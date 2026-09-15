@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_INIT_BUILD_CHOICES,
   buildInitBuildChoicesMeta,
@@ -9,8 +9,11 @@ import {
   abSiblingSlug,
   buildPromptFromWizardData,
   extractCompanyData,
+  findKostnadsfriPageForSlug,
   generatePassword,
   hasKostnadsfriPasswordSecret,
+  kostnadsfriAttemptBucket,
+  pickKostnadsfriPageForSlug,
   verifyDeterministicPassword,
   type MiniWizardData,
 } from "./index";
@@ -43,6 +46,40 @@ describe("abSiblingSlug", () => {
     expect(abSiblingSlug("ab")).toBe("ab-ab");
     expect(abSiblingSlug("-ab")).toBeNull();
     expect(abSiblingSlug("")).toBeNull();
+  });
+});
+
+describe("kostnadsfriAttemptBucket", () => {
+  it("delar hink mellan slug och -ab-syskon", () => {
+    expect(kostnadsfriAttemptBucket("nordbygg-entreprenad")).toBe(
+      kostnadsfriAttemptBucket("nordbygg-entreprenad-ab"),
+    );
+    expect(kostnadsfriAttemptBucket("nordbygg-entreprenad")).not.toBe(
+      kostnadsfriAttemptBucket("annat-bolag-ab"),
+    );
+  });
+});
+
+describe("pickKostnadsfriPageForSlug", () => {
+  it("föredrar exakt slug när båda raderna finns", () => {
+    const pages = [{ slug: "foo" }, { slug: "foo-ab" }];
+    expect(pickKostnadsfriPageForSlug(pages, "foo")?.slug).toBe("foo");
+    expect(pickKostnadsfriPageForSlug(pages, "foo-ab")?.slug).toBe("foo-ab");
+  });
+
+  it("faller tillbaka till syskonraden", () => {
+    expect(pickKostnadsfriPageForSlug([{ slug: "foo-ab" }], "foo")?.slug).toBe("foo-ab");
+    expect(pickKostnadsfriPageForSlug([{ slug: "foo" }], "foo-ab")?.slug).toBe("foo");
+  });
+});
+
+describe("findKostnadsfriPageForSlug", () => {
+  it("slår upp syskonet när den begärda sluggen saknas", async () => {
+    const getBySlug = vi.fn(async (candidate: string) =>
+      candidate === "foo-ab" ? { slug: candidate } : null,
+    );
+    await expect(findKostnadsfriPageForSlug("foo", getBySlug)).resolves.toEqual({ slug: "foo-ab" });
+    expect(getBySlug.mock.calls.map((call) => call[0])).toEqual(["foo", "foo-ab"]);
   });
 });
 

@@ -80,6 +80,17 @@ const LOOKUP_HIT = {
   profile: { city: "Kista", businessDescription: "Bolaget skall bedriva frisörverksamhet." },
 };
 
+function campaignReceiptSlug(setCookie: string | null): string | null {
+  const match = setCookie?.match(/sajtmaskin_kostnadsfri_campaign=([^;]+)/);
+  if (!match) return null;
+  const encoded = decodeURIComponent(match[1]).split(".")[0];
+  if (!encoded) return null;
+  const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
+    slug?: string;
+  };
+  return payload.slug ?? null;
+}
+
 function verifyRequest(slug: string, password: string, forwardedFor?: string) {
   return new NextRequest(`http://localhost/api/kostnadsfri/${slug}/verify`, {
     method: "POST",
@@ -161,6 +172,73 @@ describe("kostnadsfri verify route", () => {
       "10.0.0.1",
       undefined,
     );
+  });
+
+  it("binds the campaign receipt to the URL slug when the DB row is the -ab sibling", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    const urlSlug = "nordbygg-entreprenad";
+    const rowSlug = "nordbygg-entreprenad-ab";
+    getKostnadsfriPageBySlug
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(pageRow({ slug: rowSlug, company_name: "Nordbygg Entreprenad AB" }));
+    const derived = generatePassword(urlSlug);
+
+    const ok = await POST(verifyRequest(urlSlug, derived, "10.9.1.1"), {
+      params: Promise.resolve({ slug: urlSlug }),
+    });
+    const body = await ok.json();
+
+    expect(ok.status).toBe(200);
+    expect(body.companyData.slug).toBe(rowSlug);
+    expect(campaignReceiptSlug(ok.headers.get("set-cookie"))).toBe(urlSlug);
+  });
+
+  it("godtar HMAC i Mode 1 när hashen inte matchar — revocation är seed-rotation", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    verifyPassword.mockReturnValue(false);
+    const slug = "zax-2-0-ab";
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow({ slug }));
+    const derived = generatePassword(slug);
+
+    const ok = await POST(verifyRequest(slug, derived, "10.9.1.2"), {
+      params: Promise.resolve({ slug }),
+    });
+
+    expect(ok.status).toBe(200);
+    expect(verifyPassword).toHaveBeenCalled();
+  });
+
+  it("delar rate-limit mellan slug och -ab-syskon", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    getKostnadsfriPageBySlug.mockResolvedValue(null);
+    const bareSlug = "rate-limit-bolag";
+    const abSlug = "rate-limit-bolag-ab";
+    const ip = "10.9.1.3";
+    const wrong = "fel";
+
+    for (let i = 0; i < 5; i += 1) {
+      const blocked = await POST(verifyRequest(bareSlug, wrong, ip), {
+        params: Promise.resolve({ slug: bareSlug }),
+      });
+      expect(blocked.status).toBe(401);
+    }
+
+    const limited = await POST(verifyRequest(abSlug, generatePassword(abSlug), ip), {
+      params: Promise.resolve({ slug: abSlug }),
+    });
+    expect(limited.status).toBe(429);
+  });
+
+  it("stänger expired syskonrad även när URL-en saknar -ab", async () => {
+    getKostnadsfriPageBySlug
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(pageRow({ slug: "zax-2-0-ab", status: "expired" }));
+
+    const res = await POST(verifyRequest("zax-2-0", "fel", "10.9.1.4"), {
+      params: Promise.resolve({ slug: "zax-2-0" }),
+    });
+
+    expect(res.status).toBe(403);
   });
 
   it("returns the host session and expires an HTTPS parent-domain leftover", async () => {
