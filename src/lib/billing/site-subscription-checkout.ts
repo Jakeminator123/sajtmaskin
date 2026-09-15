@@ -134,10 +134,13 @@ async function createStripeSubscriptionSession(input: {
 async function attachSession(
   row: SiteSubscriptionRow,
   session: Stripe.Checkout.Session,
-): Promise<void> {
-  await updateSiteSubscription(row.id, row.billing_mode, {
-    stripe_checkout_session_id: session.id,
-  });
+): Promise<SiteSubscriptionRow | null> {
+  return updateSiteSubscription(
+    row.id,
+    row.billing_mode,
+    { stripe_checkout_session_id: session.id },
+    { expectedEmptyCheckoutSession: true },
+  );
 }
 
 export async function startSiteSubscriptionCheckout(input: {
@@ -155,6 +158,7 @@ export async function startSiteSubscriptionCheckout(input: {
   });
 
   let claim = await getOpenSiteSubscription(input.projectId, input.billingMode);
+  let createdClaimThisRequest = false;
 
   if (!claim) {
     try {
@@ -166,6 +170,7 @@ export async function startSiteSubscriptionCheckout(input: {
         priceRef: SITE_SUBSCRIPTION_PRICE_REF,
         amountOre: SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.amountOre,
       });
+      createdClaimThisRequest = true;
     } catch (error) {
       if (!isUniqueViolation(error, "site_subscriptions_open_claim_unique")) {
         throw error;
@@ -210,6 +215,7 @@ export async function startSiteSubscriptionCheckout(input: {
         : null,
       lookup: lookedUp.lookup,
       now: new Date(),
+      allowCreateWithoutSession: createdClaimThisRequest && !claim.stripe_checkout_session_id,
     });
 
     if (decision.action === "already_active") {
@@ -242,7 +248,12 @@ export async function startSiteSubscriptionCheckout(input: {
 
     if (decision.action === "wait_for_session") {
       const wait = SESSION_WAIT_MS[attempt];
-      if (wait === undefined) {
+      if (wait !== undefined) {
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        claim = (await getOpenSiteSubscription(input.projectId, input.billingMode)) ?? claim;
+        continue;
+      }
+      if (claim.stripe_checkout_session_id) {
         return {
           ok: false,
           status: 409,
@@ -250,9 +261,7 @@ export async function startSiteSubscriptionCheckout(input: {
           code: "checkout_in_progress",
         };
       }
-      await new Promise((resolve) => setTimeout(resolve, wait));
-      claim = (await getOpenSiteSubscription(input.projectId, input.billingMode)) ?? claim;
-      continue;
+      // Tomt anspråk efter väntan: den andra fliken skrev aldrig sessionen.
     }
 
     if (decision.action === "replace_expired") {
@@ -304,7 +313,25 @@ export async function startSiteSubscriptionCheckout(input: {
       billingMode: input.billingMode,
       email: input.email,
     });
-    await attachSession(claim, created);
+    const attached = await attachSession(claim, created);
+    if (!attached) {
+      const latest = await getOpenSiteSubscription(input.projectId, input.billingMode);
+      if (latest?.stripe_checkout_session_id) {
+        const winner = await lookupCheckoutSession(input.stripe, latest.stripe_checkout_session_id);
+        return {
+          ok: true,
+          sessionId: latest.stripe_checkout_session_id,
+          url: winner.session?.url ?? created.url,
+          reused: true,
+        };
+      }
+      return {
+        ok: false,
+        status: 409,
+        error: "En checkout pågår redan. Försök igen om en stund.",
+        code: "checkout_in_progress",
+      };
+    }
     return {
       ok: true,
       sessionId: created.id,

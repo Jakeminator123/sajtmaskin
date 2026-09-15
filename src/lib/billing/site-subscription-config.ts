@@ -16,8 +16,9 @@ export const SITE_SUBSCRIPTION_PRICE_REF = "proposal:site_subscription.monthly" 
 export const SITE_SUBSCRIPTION_CURRENCY = "sek" as const;
 
 /**
- * Provisoriska defaults (ägarbeslut 2026-09-15: 7 dagar grace / 90 dagar
- * retention). Månadspris och creditkvot är medvetet enkla att byta här.
+ * Provisoriska defaults — inte ratificerade. 7 dagar grace / 90 dagar
+ * retention är förslag, inte ett ägarbeslut. Månadspris och creditkvot
+ * är medvetet enkla att byta här.
  */
 export const SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS = {
   ratification: SITE_SUBSCRIPTION_COMMERCIAL_RATIFICATION,

@@ -105,6 +105,30 @@ export function shouldApplyPaymentFailed(current: {
   return true;
 }
 
+const TERMINAL_STRIPE_STATUS = new Set(["canceled", "incomplete_expired"]);
+
+/**
+ * Spegel mot `shouldApplyPaymentFailed`: ett gammalt `invoice.paid` får inte
+ * återöppna ett uppsagt abonnemang eller rulla tillbaka en nyare period.
+ */
+export function shouldApplyPaidSubscription(input: {
+  stripeStatus: string | null;
+  invoicePeriodEnd?: Date | null;
+  knownPeriodEnd?: Date | null;
+}): { apply: boolean; reason: string } {
+  if (!input.stripeStatus || TERMINAL_STRIPE_STATUS.has(input.stripeStatus)) {
+    return { apply: false, reason: "subscription_terminal" };
+  }
+  if (
+    input.invoicePeriodEnd &&
+    input.knownPeriodEnd &&
+    input.invoicePeriodEnd.getTime() < input.knownPeriodEnd.getTime()
+  ) {
+    return { apply: false, reason: "stale_invoice_period" };
+  }
+  return { apply: true, reason: "current_payment" };
+}
+
 export function checkoutSessionLookupFrom(
   session: CheckoutSessionSnapshot | null | undefined,
   lookup?: CheckoutSessionLookupKind,
@@ -171,6 +195,11 @@ export function decideCheckoutReuse(input: {
   session: CheckoutSessionSnapshot | null;
   lookup?: CheckoutSessionLookupKind;
   now: Date;
+  /**
+   * True när den här requesten just skapade raden och därför ska skriva
+   * sessionen. False när raden redan fanns — då väntar vi på den andra fliken.
+   */
+  allowCreateWithoutSession?: boolean;
 }): CheckoutReuseDecision {
   const row = input.openRow;
   if (!row) return { action: "create_new" };
@@ -184,6 +213,9 @@ export function decideCheckoutReuse(input: {
   }
 
   if (!row.stripeCheckoutSessionId && input.lookup !== "absent") {
+    if (input.allowCreateWithoutSession) {
+      return { action: "create_new" };
+    }
     return { action: "wait_for_session", existingId: row.id };
   }
 

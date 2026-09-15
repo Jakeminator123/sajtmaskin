@@ -34,7 +34,11 @@ import {
   retrieveSubscriptionFresh,
 } from "./site-subscription-stripe";
 import { getCheckoutCompletedDispatch, shouldDispatchSiteSubscription } from "./stripe-webhook-dispatch";
-import { computeGraceUntil, shouldApplyPaymentFailed } from "./site-subscription-policy";
+import {
+  computeGraceUntil,
+  shouldApplyPaidSubscription,
+  shouldApplyPaymentFailed,
+} from "./site-subscription-policy";
 
 export type WebhookHandleResult = {
   status: number;
@@ -136,6 +140,17 @@ export async function fulfillPaidSubscriptionRow(input: {
       : input.invoice;
   const period = invoice ? readInvoicePeriod(invoice) : null;
   const item = subscription.items.data[0];
+  const knownPeriodEnd = item?.current_period_end
+    ? new Date(item.current_period_end * 1000)
+    : null;
+  const applyState = shouldApplyPaidSubscription({
+    stripeStatus: subscription.status,
+    invoicePeriodEnd: period?.periodEnd ?? null,
+    knownPeriodEnd,
+  });
+  if (!applyState.apply) {
+    return { granted: false, status: "skipped", reason: applyState.reason };
+  }
   await applyPaidSubscription({
     row: input.row,
     stripeStatus: subscription.status,
@@ -479,7 +494,11 @@ async function handleInvoicePaid(
     invoice,
   });
 
-  if (row.hosting_state_actual === "paused" || row.hosting_state_actual === "pausing") {
+  if (
+    grant.reason !== "subscription_terminal" &&
+    grant.reason !== "stale_invoice_period" &&
+    (row.hosting_state_actual === "paused" || row.hosting_state_actual === "pausing")
+  ) {
     await enqueueHostingJob({
       subscriptionId: row.id,
       billingMode,

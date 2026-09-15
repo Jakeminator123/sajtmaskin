@@ -11,6 +11,7 @@ const updateSiteSubscription = vi.hoisted(() => vi.fn());
 const grantSiteSubscriptionPeriodCredits = vi.hoisted(() => vi.fn());
 const retrieveSubscriptionFresh = vi.hoisted(() => vi.fn());
 const retrieveInvoiceFresh = vi.hoisted(() => vi.fn());
+const enqueueHostingJob = vi.hoisted(() => vi.fn());
 
 vi.mock("./site-subscription-events", () => ({
   claimStripeBillingEvent,
@@ -30,7 +31,7 @@ vi.mock("./site-subscription-credits", () => ({
 }));
 
 vi.mock("./site-subscription-reconcile", () => ({
-  enqueueHostingJob: vi.fn(),
+  enqueueHostingJob,
 }));
 
 vi.mock("./site-subscription-hosting", () => ({
@@ -363,5 +364,39 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(result.status).toBe(200);
     expect(result.body.ignored).toBe("not_site_subscription");
     expect(claimStripeBillingEvent).not.toHaveBeenCalled();
+  });
+
+  it("återöppnar inte ett uppsagt abonnemang från ett gammalt invoice.paid", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "ended",
+      hosting_state_desired: "paused",
+      hosting_state_actual: "paused",
+    });
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_old",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      parent: { subscription_details: { subscription: "sub_1" } },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      cancel_at_period_end: false,
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("invoice.paid", siteInvoice({ id: "in_old" })),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.grant).toMatchObject({ granted: false, reason: "subscription_terminal" });
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
   });
 });

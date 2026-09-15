@@ -57,10 +57,10 @@ const job = {
   open_job_key: "pause:sub_1",
 };
 
-function row(desired: "active" | "paused") {
+function row(desired: "active" | "paused", billingMode: "test" | "live" = "test") {
   return {
     id: "sub_1",
-    billing_mode: "test",
+    billing_mode: billingMode,
     project_id: "prj_a",
     hosting_state_desired: desired,
     hosting_state_actual: "active",
@@ -71,6 +71,8 @@ function row(desired: "active" | "paused") {
     pause_requested_at: null,
   };
 }
+
+const liveJob = { ...job, billing_mode: "live" as const };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -110,14 +112,29 @@ describe("processHostingJob", () => {
   });
 
   it("kör restore när resume fortfarande matchar desired=active", async () => {
-    const resumeJob = { ...job, kind: "resume" as const, open_job_key: "resume:sub_1" };
+    const resumeJob = { ...liveJob, kind: "resume" as const, open_job_key: "resume:sub_1" };
     claimRunnableBillingJob.mockResolvedValue(resumeJob);
-    getSiteSubscriptionById.mockResolvedValue(row("active"));
+    getSiteSubscriptionById.mockResolvedValue(row("active", "live"));
 
     await processHostingJob(resumeJob, new Date("2026-09-15T12:00:00.000Z"));
 
     expect(restore).toHaveBeenCalledTimes(1);
     expect(pause).not.toHaveBeenCalled();
+  });
+
+  it("låter inte testläge nå hosting-providern", async () => {
+    claimRunnableBillingJob.mockResolvedValue(job);
+    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+
+    const result = await processHostingJob(job, new Date("2026-09-15T12:00:00.000Z"));
+
+    expect(pause).not.toHaveBeenCalled();
+    expect(restore).not.toHaveBeenCalled();
+    expect(result.reportSuccess).toBe(true);
+    expect(updateBillingJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({ status: "done", last_error: "test_mode_no_provider" }),
+    );
   });
 
   it("anropar inte restore när resume köades under paused och desired hunnit ändras", async () => {
@@ -140,13 +157,13 @@ describe("processHostingJob", () => {
   });
 
   it("anropar providern exakt en gång när två körningar tävlar om samma jobb", async () => {
-    getSiteSubscriptionById.mockResolvedValue(row("paused"));
-    claimRunnableBillingJob.mockResolvedValueOnce(job).mockResolvedValueOnce(null);
+    getSiteSubscriptionById.mockResolvedValue(row("paused", "live"));
+    claimRunnableBillingJob.mockResolvedValueOnce(liveJob).mockResolvedValueOnce(null);
 
     const now = new Date("2026-09-15T12:00:00.000Z");
     const [first, second] = await Promise.all([
-      processHostingJob(job, now),
-      processHostingJob(job, now),
+      processHostingJob(liveJob, now),
+      processHostingJob(liveJob, now),
     ]);
 
     expect(pause).toHaveBeenCalledTimes(1);
@@ -156,11 +173,11 @@ describe("processHostingJob", () => {
 
   it("låter utgången lease plockas igen men bara av en körning", async () => {
     const expired = {
-      ...job,
+      ...liveJob,
       status: "running" as const,
       lease_expires_at: new Date("2026-09-15T11:59:00.000Z"),
     };
-    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+    getSiteSubscriptionById.mockResolvedValue(row("paused", "live"));
     claimRunnableBillingJob.mockResolvedValueOnce(expired).mockResolvedValueOnce(null);
 
     const now = new Date("2026-09-15T12:00:00.000Z");
@@ -171,7 +188,8 @@ describe("processHostingJob", () => {
   });
 
   it("villkorar skrivningen på färsk desired efter provideranrop", async () => {
-    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+    getSiteSubscriptionById.mockResolvedValue(row("paused", "live"));
+    claimRunnableBillingJob.mockResolvedValue(liveJob);
     pause.mockResolvedValue({
       ok: false,
       written: false,
@@ -179,11 +197,11 @@ describe("processHostingJob", () => {
       code: "provider_error",
     });
 
-    await processHostingJob(job, new Date("2026-09-15T12:00:00.000Z"));
+    await processHostingJob(liveJob, new Date("2026-09-15T12:00:00.000Z"));
 
     expect(updateSiteSubscription).toHaveBeenCalledWith(
       "sub_1",
-      "test",
+      "live",
       expect.objectContaining({ hosting_state_actual: "pausing" }),
       { expectedDesired: "paused" },
     );
@@ -426,5 +444,38 @@ describe("reconcileSiteSubscriptions", () => {
       },
     );
     expect(result.pauses).toBe(0);
+  });
+
+  it("köar paus för ended rad vars actual inte är paused", async () => {
+    listSubscriptionsNeedingReconcile.mockResolvedValue([
+      {
+        id: "sub_ended",
+        billing_mode: "test",
+        lifecycle_state: "ended",
+        hosting_state_desired: "paused",
+        hosting_state_actual: "active",
+        grace_until: null,
+        current_period_end: new Date("2026-09-01T12:00:00.000Z"),
+        cancel_at_period_end: true,
+        stripe_status: "canceled",
+        updated_at: new Date("2026-09-15T11:00:00.000Z"),
+        ended_reason: "subscription_deleted",
+        ended_at: new Date("2026-09-15T11:00:00.000Z"),
+      },
+    ]);
+    updateSiteSubscription.mockResolvedValue({ id: "sub_ended" });
+
+    const result = await reconcileSiteSubscriptions({
+      billingMode: "test",
+      now: new Date("2026-09-15T12:00:00.000Z"),
+    });
+
+    expect(result.pauses).toBe(1);
+    expect(updateSiteSubscription).not.toHaveBeenCalledWith(
+      "sub_ended",
+      "test",
+      expect.objectContaining({ lifecycle_state: "active" }),
+      expect.anything(),
+    );
   });
 });

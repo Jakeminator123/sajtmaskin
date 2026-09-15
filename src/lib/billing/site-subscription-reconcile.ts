@@ -99,6 +99,15 @@ export async function processHostingJob(
     return { reportSuccess: true, actual: latestBeforeProvider.hosting_state_actual };
   }
 
+  if (latestBeforeProvider.billing_mode === "test") {
+    await updateBillingJob(claimed.id, {
+      status: "done",
+      last_error: "test_mode_no_provider",
+      completed_at: now,
+    });
+    return { reportSuccess: true, actual: latestBeforeProvider.hosting_state_actual };
+  }
+
   const provider = getSiteHostingProvider();
   const target = await hostingTargetFor(latestBeforeProvider);
   const providerResult =

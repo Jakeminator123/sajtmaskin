@@ -11,6 +11,7 @@ import {
   evaluateSitePublishEntitlement,
   eventMatchesServerBillingMode,
   isPlatformVercelProject,
+  shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
   shouldGrantPeriodCredits,
 } from "./site-subscription-policy";
@@ -73,6 +74,25 @@ describe("två samtidiga checkouts", () => {
         now,
       }),
     ).toEqual({ action: "wait_for_session", existingId: "sub_1" });
+  });
+
+  it("skapar session när den här requesten just skapade det tomma anspråket", () => {
+    expect(
+      decideCheckoutReuse({
+        openRow: {
+          id: "sub_1",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+          lifecycleState: "checkout_pending",
+          stripeCheckoutSessionId: null,
+          stripeStatus: null,
+        },
+        session: null,
+        allowCreateWithoutSession: true,
+        now,
+      }),
+    ).toEqual({ action: "create_new" });
   });
 
   it("ersätter utgången session och nekar redan aktiv", () => {
@@ -453,6 +473,30 @@ describe("omkastade events och payment_failed efter paid", () => {
     expect(
       shouldApplyPaymentFailed({ stripeStatus: "past_due", latestInvoicePaid: false }),
     ).toBe(true);
+  });
+
+  it("låter inte ett gammalt invoice.paid återöppna ett uppsagt abonnemang", () => {
+    expect(
+      shouldApplyPaidSubscription({
+        stripeStatus: "canceled",
+        invoicePeriodEnd: new Date("2026-09-15T12:00:00.000Z"),
+        knownPeriodEnd: new Date("2026-09-15T12:00:00.000Z"),
+      }),
+    ).toEqual({ apply: false, reason: "subscription_terminal" });
+    expect(
+      shouldApplyPaidSubscription({
+        stripeStatus: "active",
+        invoicePeriodEnd: new Date("2026-08-15T12:00:00.000Z"),
+        knownPeriodEnd: new Date("2026-09-15T12:00:00.000Z"),
+      }),
+    ).toEqual({ apply: false, reason: "stale_invoice_period" });
+    expect(
+      shouldApplyPaidSubscription({
+        stripeStatus: "active",
+        invoicePeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
+        knownPeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
+      }),
+    ).toEqual({ apply: true, reason: "current_payment" });
   });
 });
 

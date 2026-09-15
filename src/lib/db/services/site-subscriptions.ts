@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -219,6 +219,7 @@ export async function updateSiteSubscription(
     expectedDesired?: string;
     expectedLifecycle?: string;
     expectedUpdatedAt?: Date;
+    expectedEmptyCheckoutSession?: boolean;
   },
 ): Promise<SiteSubscriptionRow | null> {
   assertDbConfigured();
@@ -237,6 +238,9 @@ export async function updateSiteSubscription(
           : undefined,
         guard?.expectedUpdatedAt
           ? eq(siteSubscriptions.updated_at, guard.expectedUpdatedAt)
+          : undefined,
+        guard?.expectedEmptyCheckoutSession
+          ? isNull(siteSubscriptions.stripe_checkout_session_id)
           : undefined,
       ),
     )
@@ -263,8 +267,18 @@ export async function listSubscriptionsNeedingReconcile(
                 eq(siteSubscriptions.lifecycle_state, "checkout_pending"),
                 lte(siteSubscriptions.created_at, pendingCutoff),
               ),
+              and(
+                eq(siteSubscriptions.lifecycle_state, "ended"),
+                ne(siteSubscriptions.hosting_state_actual, "paused"),
+              ),
             )
-          : eq(siteSubscriptions.lifecycle_state, "active"),
+          : or(
+              eq(siteSubscriptions.lifecycle_state, "active"),
+              and(
+                eq(siteSubscriptions.lifecycle_state, "ended"),
+                ne(siteSubscriptions.hosting_state_actual, "paused"),
+              ),
+            ),
       ),
     );
 }
@@ -406,11 +420,27 @@ export function isBillingJobClaimable(input: {
   leaseExpiresAt: Date | null;
   now: Date;
 }): boolean {
-  if (input.status === "pending") return true;
+  if (input.status === "pending" || input.status === "failed") return true;
   if (input.status === "running") {
     return !input.leaseExpiresAt || input.leaseExpiresAt.getTime() <= input.now.getTime();
   }
   return false;
+}
+
+export function isRunnableBillingJob(input: {
+  status: string;
+  runAfter: Date;
+  leaseExpiresAt: Date | null;
+  now: Date;
+}): boolean {
+  const due = input.runAfter.getTime() <= input.now.getTime();
+  const leaseFree =
+    !input.leaseExpiresAt || input.leaseExpiresAt.getTime() <= input.now.getTime();
+  return isBillingJobClaimable({
+    status: input.status,
+    leaseExpiresAt: input.leaseExpiresAt,
+    now: input.now,
+  }) && due && leaseFree;
 }
 
 /**
@@ -438,6 +468,7 @@ export async function claimRunnableBillingJob(
         eq(billingJobs.id, id),
         or(
           eq(billingJobs.status, "pending"),
+          eq(billingJobs.status, "failed"),
           and(
             eq(billingJobs.status, "running"),
             or(isNull(billingJobs.lease_expires_at), lte(billingJobs.lease_expires_at, now)),
@@ -458,14 +489,14 @@ export async function listRunnableBillingJobs(
     .select()
     .from(billingJobs)
     .where(eq(billingJobs.billing_mode, billingMode));
-  return rows.filter((row) => {
-    const due = row.run_after.getTime() <= now.getTime();
-    const leaseFree =
-      !row.lease_expires_at || row.lease_expires_at.getTime() <= now.getTime();
-    return (
-      (row.status === "pending" || row.status === "running") && due && leaseFree
-    );
-  });
+  return rows.filter((row) =>
+    isRunnableBillingJob({
+      status: row.status,
+      runAfter: row.run_after,
+      leaseExpiresAt: row.lease_expires_at,
+      now,
+    }),
+  );
 }
 
 export async function getStripeBillingEvent(

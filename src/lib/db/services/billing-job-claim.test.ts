@@ -5,7 +5,7 @@ vi.mock("@/lib/db/client", () => ({
   dbConfigured: false,
 }));
 
-const { isBillingJobClaimable } = await import("./site-subscriptions");
+const { isBillingJobClaimable, isRunnableBillingJob } = await import("./site-subscriptions");
 
 const now = new Date("2026-09-15T12:00:00.000Z");
 
@@ -39,6 +39,27 @@ describe("isBillingJobClaimable", () => {
     expect(
       isBillingJobClaimable({
         status: "failed",
+        leaseExpiresAt: new Date("2026-09-15T11:00:00.000Z"),
+        now,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("isRunnableBillingJob", () => {
+  it("återförsöker failed jobb efter backoff", () => {
+    expect(
+      isRunnableBillingJob({
+        status: "failed",
+        runAfter: new Date("2026-09-15T11:45:00.000Z"),
+        leaseExpiresAt: new Date("2026-09-15T11:00:00.000Z"),
+        now,
+      }),
+    ).toBe(true);
+    expect(
+      isRunnableBillingJob({
+        status: "failed",
+        runAfter: new Date("2026-09-15T12:15:00.000Z"),
         leaseExpiresAt: new Date("2026-09-15T11:00:00.000Z"),
         now,
       }),
