@@ -37,6 +37,7 @@ import {
 } from "@/lib/projects/site-labels";
 import { useAuth } from "@/lib/auth/auth-store";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
+import { ByodDomainStatus } from "@/components/projects/ByodDomainStatus";
 
 const TONE_CLASS: Record<SiteStateTone, string> = {
   live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -361,7 +362,7 @@ export default function ProjectSitePage() {
 
               <Section
                 title="Egen domän"
-                description="Du äger din domän hos din leverantör. Vi kopplar den till sajten."
+                description="Kontrollera en domän du redan äger utan att ändra sajtens aktiva adress."
               >
                 <div className="space-y-3">
                   {site.customDomain ? (
@@ -379,9 +380,7 @@ export default function ProjectSitePage() {
                   ) : (
                     <p className="text-sm text-gray-500">Ingen egen domän kopplad.</p>
                   )}
-                  <p className="text-xs text-gray-600">
-                    Domänen kopplas och verifieras i byggaren under Publicering → Hantera domän.
-                  </p>
+                  <ByodDomainStatus chatId={site.chatId} initialDomain={site.customDomain} />
                 </div>
               </Section>
 

@@ -55,10 +55,20 @@ export async function createKostnadsfriPage(data: {
  * re-registers a send without repeating the address must not blank the one
  * already stored. Returns null when the slug has no row (the caller decides
  * whether to create one).
+ *
+ * `extraDataPatch` slås ihop med `jsonb ||` i databasen i stället för att läsas
+ * och skrivas tillbaka. Den ytliga sammanslagningen är avsiktlig här: patchen
+ * ska byta ut hela `profile`-nyckeln men lämna `openclaw` orörd, och en
+ * read-modify-write hade kunnat tappa en samtidig skrivning.
  */
 export async function markKostnadsfriPageSent(
   slug: string,
-  data: { sentAt: Date; source: string; contactEmail?: string | null },
+  data: {
+    sentAt: Date;
+    source: string;
+    contactEmail?: string | null;
+    extraDataPatch?: Record<string, unknown> | null;
+  },
 ): Promise<KostnadsfriPage | null> {
   assertDbConfigured();
   const updates: {
@@ -66,6 +76,7 @@ export async function markKostnadsfriPageSent(
     source: string;
     updated_at: Date;
     contact_email?: string;
+    extra_data?: ReturnType<typeof sql>;
   } = {
     sent_at: data.sentAt,
     source: data.source,
@@ -73,6 +84,11 @@ export async function markKostnadsfriPageSent(
   };
   const contactEmail = data.contactEmail?.trim();
   if (contactEmail) updates.contact_email = contactEmail;
+  if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
+    updates.extra_data = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
+      data.extraDataPatch,
+    )}::jsonb`;
+  }
 
   const rows = await db
     .update(kostnadsfriPages)
