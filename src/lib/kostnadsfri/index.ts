@@ -138,12 +138,63 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
 }
 
 /**
+ * Den andra vanliga kampanjvarianten av samma bolag: `foo` ↔ `foo-ab`.
+ * Bara ett avslutande `-ab` — `lab` och `foo-ab-ab` rörs inte som specialfall
+ * utöver den enda suffix-regeln. Tom stem efter strip ger `null`.
+ */
+export function abSiblingSlug(slug: string): string | null {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.endsWith("-ab")) {
+    const stem = normalized.slice(0, -3);
+    return stem || null;
+  }
+  return `${normalized}-ab`;
+}
+
+export function kostnadsfriPasswordSlugs(slug: string): string[] {
+  const normalized = slug.trim().toLowerCase();
+  const slugs = [normalized, abSiblingSlug(normalized)].filter((value): value is string =>
+    Boolean(value),
+  );
+  return [...new Set(slugs)];
+}
+
+/** Shared brute-force bucket for `foo` and `foo-ab` so the pair is not 2×5 tries. */
+export function kostnadsfriAttemptBucket(slug: string): string {
+  return kostnadsfriPasswordSlugs(slug).slice().sort().join("|");
+}
+
+export function pickKostnadsfriPageForSlug<T extends { slug: string }>(
+  pages: readonly T[],
+  requestedSlug: string,
+): T | null {
+  const bySlug = new Map(pages.map((page) => [page.slug, page]));
+  for (const candidate of kostnadsfriPasswordSlugs(requestedSlug)) {
+    const page = bySlug.get(candidate);
+    if (page) return page;
+  }
+  return null;
+}
+
+export async function findKostnadsfriPageForSlug<T>(
+  slug: string,
+  getBySlug: (candidate: string) => Promise<T | null>,
+): Promise<T | null> {
+  for (const candidate of kostnadsfriPasswordSlugs(slug)) {
+    const page = await getBySlug(candidate);
+    if (page) return page;
+  }
+  return null;
+}
+
+/**
  * Verify a password against the deterministic generator (no DB needed).
- * Returns true if the password matches what generatePassword would produce.
+ * Accepts the HMAC for this slug **or** its `-ab` sibling, so a mail that
+ * used "Nordbygg Entreprenad" still opens `/nordbygg-entreprenad-ab`.
  */
 export function verifyDeterministicPassword(slug: string, password: string): boolean {
-  const expected = generatePassword(slug);
-  return password === expected;
+  return kostnadsfriPasswordSlugs(slug).some((candidate) => generatePassword(candidate) === password);
 }
 
 export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {

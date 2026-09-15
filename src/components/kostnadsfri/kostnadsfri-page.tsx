@@ -122,7 +122,8 @@ export function KostnadsfriPage({
             prompt,
             source: "kostnadsfri",
             projectId: project.id,
-            // Lets the server record the "skapad" funnel step for this slug.
+            // URL-sluggen, inte `companyData.slug`: kvittot från verify är
+            // bundet till page-parametern så syskonraden inte ger 401.
             kostnadsfriSlug: slug,
           }),
         });

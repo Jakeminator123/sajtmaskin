@@ -11,8 +11,10 @@ import {
 import {
   extractCompanyData,
   companyDataFromSlug,
+  findKostnadsfriPageForSlug,
   hasKostnadsfriPasswordSecret,
   isPageAccessible,
+  kostnadsfriAttemptBucket,
   verifyDeterministicPassword,
   type KostnadsfriCompanyData,
 } from "@/lib/kostnadsfri";
@@ -164,6 +166,8 @@ export async function POST(
     const verifiedResponse = (companyData: ReturnType<typeof companyDataFromSlug>) => {
       recordVerified(request, slug, session.sessionId);
       const response = NextResponse.json({ success: true, companyData });
+      // Bind the receipt to the URL the client redeems (`kostnadsfriSlug` =
+      // page param), not the DB row slug when that is the `-ab` sibling.
       response.cookies.set({
         name: KOSTNADSFRI_CAMPAIGN_COOKIE,
         value: createKostnadsfriCampaignReceipt({ slug, sessionId: session.sessionId }),
@@ -180,9 +184,9 @@ export async function POST(
       return response;
     };
 
-    // Rate limit by IP + slug
+    // Rate limit by IP + password family (`foo` and `foo-ab` share the bucket).
     const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimitKey = `${ip}:${slug}`;
+    const rateLimitKey = `${ip}:${kostnadsfriAttemptBucket(slug)}`;
 
     if (!checkAttemptLimit(rateLimitKey)) {
       return NextResponse.json(
@@ -201,22 +205,27 @@ export async function POST(
 
     const { password } = validation.data;
 
-    // Try DB first (pre-created pages with enriched data)
+    // Try DB first (pre-created pages with enriched data). Same company is
+    // often registered as `foo-ab` while the mail linked `foo` — look up both.
     let page;
     try {
-      page = await getKostnadsfriPageBySlug(slug);
+      page = await findKostnadsfriPageForSlug(slug, getKostnadsfriPageBySlug);
     } catch {
       // DB not available — fall through to deterministic verification
     }
 
     if (page) {
-      // Mode 1: DB record exists — use stored hash + check accessibility
+      // Mode 1: stored hash, or the mailed HMAC for this slug / `-ab`.
+      // Rotating `password_hash` alone does not revoke a mailed code; rotate
+      // `KOSTNADSFRI_PASSWORD_SEED` (and re-send) to lock the company out.
       const access = isPageAccessible(page);
       if (!access.accessible) {
         return NextResponse.json({ success: false, error: access.reason }, { status: 403 });
       }
 
-      if (!verifyPassword(password, page.password_hash)) {
+      const hashOk = verifyPassword(password, page.password_hash);
+      const hmacOk = hasKostnadsfriPasswordSecret() && verifyDeterministicPassword(slug, password);
+      if (!hashOk && !hmacOk) {
         return NextResponse.json({ success: false, error: "Felaktigt lösenord." }, { status: 401 });
       }
 

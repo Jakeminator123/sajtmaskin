@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -8,7 +8,11 @@ import {
   kostnadsfriCampaignEntitlements,
   kostnadsfriPages,
 } from "@/lib/db/schema";
-import { isPageAccessible } from "@/lib/kostnadsfri";
+import {
+  isPageAccessible,
+  kostnadsfriPasswordSlugs,
+  pickKostnadsfriPageForSlug,
+} from "@/lib/kostnadsfri";
 import { verifyKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
 import { assertDbConfigured } from "./shared";
 
@@ -228,9 +232,8 @@ export async function bindVerifiedKostnadsfriCampaign(input: {
     const pageRows = await tx
       .select()
       .from(kostnadsfriPages)
-      .where(eq(kostnadsfriPages.slug, input.invitationSlug))
-      .limit(1);
-    const page = pageRows[0] ?? null;
+      .where(inArray(kostnadsfriPages.slug, kostnadsfriPasswordSlugs(input.invitationSlug)));
+    const page = pickKostnadsfriPageForSlug(pageRows, input.invitationSlug);
     if (page && !isPageAccessible(page).accessible) return null;
 
     const existingRows = await tx

@@ -76,6 +76,7 @@ import { KostnadsfriPage } from "./kostnadsfri-page";
 afterEach(() => {
   cleanup();
   createProject.mockReset();
+  vi.unstubAllGlobals();
   delete window.__SITEMASKIN_CONTEXT;
 });
 
@@ -105,5 +106,31 @@ describe("KostnadsfriPage", () => {
     );
     expect(brief.businessDescriptionSource).toBe("register");
     expect(brief.purposeLabels).toBeUndefined();
+  });
+
+  it("löser inbjudan mot URL-sluggen även när bolagsdatan bär syskonsluggen", async () => {
+    createProject.mockResolvedValue({ id: "proj_1" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ promptId: "prompt_1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<KostnadsfriPage slug="zax-2-0" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "verifiera" }));
+    fireEvent.click(screen.getByRole("button", { name: "skicka wizard" }));
+
+    await waitFor(
+      () => {
+        expect(fetchMock).toHaveBeenCalled();
+      },
+      { timeout: 5000 },
+    );
+
+    const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(init.body)).toMatchObject({
+      source: "kostnadsfri",
+      kostnadsfriSlug: "zax-2-0",
+    });
   });
 });

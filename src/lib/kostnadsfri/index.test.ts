@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_INIT_BUILD_CHOICES,
   buildInitBuildChoicesMeta,
@@ -6,10 +6,15 @@ import {
 import { buildRoutePlan, detectExplicitPageCount } from "@/lib/gen/route-plan";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import {
+  abSiblingSlug,
   buildPromptFromWizardData,
   extractCompanyData,
+  findKostnadsfriPageForSlug,
   generatePassword,
   hasKostnadsfriPasswordSecret,
+  kostnadsfriAttemptBucket,
+  pickKostnadsfriPageForSlug,
+  verifyDeterministicPassword,
   type MiniWizardData,
 } from "./index";
 
@@ -30,6 +35,71 @@ describe("generatePassword", () => {
     expect(hasKostnadsfriPasswordSecret()).toBe(true);
     expect(generatePassword("acme-ab")).toBe(generatePassword("acme-ab"));
     expect(generatePassword("acme-ab")).not.toBe(generatePassword("other-ab"));
+  });
+});
+
+describe("abSiblingSlug", () => {
+  it("växlar ett avslutande -ab", () => {
+    expect(abSiblingSlug("nordbygg-entreprenad")).toBe("nordbygg-entreprenad-ab");
+    expect(abSiblingSlug("nordbygg-entreprenad-ab")).toBe("nordbygg-entreprenad");
+    expect(abSiblingSlug("lab")).toBe("lab-ab");
+    expect(abSiblingSlug("ab")).toBe("ab-ab");
+    expect(abSiblingSlug("-ab")).toBeNull();
+    expect(abSiblingSlug("")).toBeNull();
+  });
+});
+
+describe("kostnadsfriAttemptBucket", () => {
+  it("delar hink mellan slug och -ab-syskon", () => {
+    expect(kostnadsfriAttemptBucket("nordbygg-entreprenad")).toBe(
+      kostnadsfriAttemptBucket("nordbygg-entreprenad-ab"),
+    );
+    expect(kostnadsfriAttemptBucket("nordbygg-entreprenad")).not.toBe(
+      kostnadsfriAttemptBucket("annat-bolag-ab"),
+    );
+  });
+});
+
+describe("pickKostnadsfriPageForSlug", () => {
+  it("föredrar exakt slug när båda raderna finns", () => {
+    const pages = [{ slug: "foo" }, { slug: "foo-ab" }];
+    expect(pickKostnadsfriPageForSlug(pages, "foo")?.slug).toBe("foo");
+    expect(pickKostnadsfriPageForSlug(pages, "foo-ab")?.slug).toBe("foo-ab");
+  });
+
+  it("faller tillbaka till syskonraden", () => {
+    expect(pickKostnadsfriPageForSlug([{ slug: "foo-ab" }], "foo")?.slug).toBe("foo-ab");
+    expect(pickKostnadsfriPageForSlug([{ slug: "foo" }], "foo-ab")?.slug).toBe("foo");
+  });
+});
+
+describe("findKostnadsfriPageForSlug", () => {
+  it("slår upp syskonet när den begärda sluggen saknas", async () => {
+    const getBySlug = vi.fn(async (candidate: string) =>
+      candidate === "foo-ab" ? { slug: candidate } : null,
+    );
+    await expect(findKostnadsfriPageForSlug("foo", getBySlug)).resolves.toEqual({ slug: "foo-ab" });
+    expect(getBySlug.mock.calls.map((call) => call[0])).toEqual(["foo", "foo-ab"]);
+  });
+});
+
+describe("verifyDeterministicPassword", () => {
+  // Slug och kod hålls i variabler: en inline-literal i ett lösenordsanrop läses
+  // som ett hårdkodat lösenord av GitGuardian (samma fynd som på #1306).
+  const bareSlug = "nordbygg-entreprenad";
+  const abSlug = "nordbygg-entreprenad-ab";
+  const otherSlug = "annat-bolag-ab";
+
+  it("godkänner HMAC för sluggen eller dess -ab-syskon", () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    const bareCode = generatePassword(bareSlug);
+    const abCode = generatePassword(abSlug);
+
+    expect(verifyDeterministicPassword(bareSlug, bareCode)).toBe(true);
+    expect(verifyDeterministicPassword(abSlug, bareCode)).toBe(true);
+    expect(verifyDeterministicPassword(bareSlug, abCode)).toBe(true);
+    expect(verifyDeterministicPassword(abSlug, abCode)).toBe(true);
+    expect(verifyDeterministicPassword(bareSlug, generatePassword(otherSlug))).toBe(false);
   });
 });
 
