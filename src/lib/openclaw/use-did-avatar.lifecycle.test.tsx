@@ -146,6 +146,23 @@ function captureSdkCallbacks() {
   return captured;
 }
 
+function AvatarVideo({
+  ready,
+  attachVideo,
+  fallback = "empty",
+}: {
+  ready: boolean;
+  attachVideo: (node: HTMLVideoElement | null) => void;
+  fallback?: "empty" | "pending";
+}) {
+  if (!ready) {
+    return fallback === "pending" ? (
+      <div data-testid="did-avatar-pending" />
+    ) : null;
+  }
+  return <video data-testid="did-avatar-video" ref={attachVideo} />;
+}
+
 describe("useDidAvatar video srcObject mount", () => {
   it("assigns srcObject after onSrcObjectReady when <video> mounts later", async () => {
     const callbacks = captureSdkCallbacks();
@@ -153,11 +170,15 @@ describe("useDidAvatar video srcObject mount", () => {
     const { useDidAvatar } = await loadHook();
 
     function Harness() {
-      const avatar = useDidAvatar({ enabled: true });
-      return avatar.avatarReady ? (
-        <video data-testid="did-avatar-video" ref={avatar.videoRef} />
-      ) : (
-        <div data-testid="did-avatar-pending" />
+      const { avatarReady, videoRef: attachVideo } = useDidAvatar({
+        enabled: true,
+      });
+      return (
+        <AvatarVideo
+          ready={avatarReady}
+          attachVideo={attachVideo}
+          fallback="pending"
+        />
       );
     }
 
@@ -179,16 +200,16 @@ describe("useDidAvatar video srcObject mount", () => {
     const first = fakeMediaStream("stream-1");
     const second = fakeMediaStream("stream-2");
     const { useDidAvatar } = await loadHook();
-    const apiRef: { current: ReturnType<typeof useDidAvatar> | null } = {
-      current: null,
-    };
+    const reconnectRef = { current: async () => {} };
 
     function Harness() {
-      const avatar = useDidAvatar({ enabled: true });
-      apiRef.current = avatar;
-      return avatar.avatarReady ? (
-        <video data-testid="did-avatar-video" ref={avatar.videoRef} />
-      ) : null;
+      const { avatarReady, videoRef: attachVideo, reconnect } = useDidAvatar({
+        enabled: true,
+      });
+      useEffect(() => {
+        reconnectRef.current = reconnect;
+      }, [reconnect]);
+      return <AvatarVideo ready={avatarReady} attachVideo={attachVideo} />;
     }
 
     render(<Harness />);
@@ -201,7 +222,7 @@ describe("useDidAvatar video srcObject mount", () => {
     ).toBe(first);
 
     await act(async () => {
-      await apiRef.current!.reconnect();
+      await reconnectRef.current();
     });
     expect(screen.queryByTestId("did-avatar-video")).toBeNull();
     await waitFor(() => expect(callbacks.current).toBeTruthy());
@@ -221,10 +242,10 @@ describe("useDidAvatar video srcObject mount", () => {
     const { useDidAvatar } = await loadHook();
 
     function Harness() {
-      const avatar = useDidAvatar({ enabled: true });
-      return avatar.avatarReady ? (
-        <video data-testid="did-avatar-video" ref={avatar.videoRef} />
-      ) : null;
+      const { avatarReady, videoRef: attachVideo } = useDidAvatar({
+        enabled: true,
+      });
+      return <AvatarVideo ready={avatarReady} attachVideo={attachVideo} />;
     }
 
     render(<Harness />);
@@ -247,16 +268,18 @@ describe("useDidAvatar video srcObject mount", () => {
     const callbacks = captureSdkCallbacks();
     const stream = fakeMediaStream("stream-stable");
     const { useDidAvatar } = await loadHook();
-    let videoRef: ((node: HTMLVideoElement | null) => void) | undefined;
+    const attachVideoRef = { current: undefined as
+      | ((node: HTMLVideoElement | null) => void)
+      | undefined };
 
     function Harness() {
-      const avatar = useDidAvatar({ enabled: true });
-      useEffect(() => {
-        videoRef = avatar.videoRef;
+      const { avatarReady, videoRef: attachVideo } = useDidAvatar({
+        enabled: true,
       });
-      return avatar.avatarReady ? (
-        <video data-testid="did-avatar-video" ref={avatar.videoRef} />
-      ) : null;
+      useEffect(() => {
+        attachVideoRef.current = attachVideo;
+      }, [attachVideo]);
+      return <AvatarVideo ready={avatarReady} attachVideo={attachVideo} />;
     }
 
     render(<Harness />);
@@ -269,11 +292,11 @@ describe("useDidAvatar video srcObject mount", () => {
     )) as HTMLVideoElement;
     expect(video.srcObject).toBe(stream);
 
-    expect(videoRef).toEqual(expect.any(Function));
+    expect(attachVideoRef.current).toEqual(expect.any(Function));
     expect(() => {
       act(() => {
-        videoRef!(video);
-        videoRef!(video);
+        attachVideoRef.current!(video);
+        attachVideoRef.current!(video);
         callbacks.current!.onSrcObjectReady(stream);
       });
     }).not.toThrow();
