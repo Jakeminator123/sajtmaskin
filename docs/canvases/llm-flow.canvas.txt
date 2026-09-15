@@ -63,14 +63,14 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "fb69ac237",
+    "commit": "1c547d2f1",
     "commitDate": "2026-09-15",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 9,
+    "openP1": 10,
     "openP2": 8,
     "openP3": 1,
     "blocked": 1,
@@ -288,6 +288,11 @@ const DATA: CanvasData = {
       "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
     },
     {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-088` Plan-läge dör tyst efter besvarade frågor: `Godkänn plan och bygg` (`BuildPlanCard` → `handleApprove…"
+    },
+    {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-084` Verify-lanens `tsc` rapporterar `TS1005`-syntaxfel från Nexts genererade `.next/dev/types/routes.d.t…"
@@ -296,14 +301,9 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-001` Repair accepterar nya filer genom att skriva över samma versions `files_json`; ingen användbar rollb…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-003` Deploy-repair betraktar versionsglobal `repair_available` som bevis för att just den failade deploym…"
     }
   ],
-  "topOpenRisksOmitted": 5,
+  "topOpenRisksOmitted": 6,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

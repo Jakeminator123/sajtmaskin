@@ -2,11 +2,13 @@
 
 > **Status: alla tre besluten fattade; inget i `master`.** Sidantalet avgjordes
 > 2026-09-14 (3 sidor) och är levererat till `preview` via
-> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370). Bolagsdatans
-> PII-gräns och pre-genereringen avgjordes 2026-09-15 — se
+> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370)
+> (`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`). Bolagsdatans PII-gräns och
+> pre-genereringen avgjordes 2026-09-15 — se
 > [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
-> Ingesten är byggd; wizardens förifyllning och taxonomins lib-ägare ligger i en
-> staplad PR. `master` är auktoritet tills promote skett. Avsnitt 2 och 3 nedan
+> Ingesten är byggd och ligger på `preview` via #1372; wizardens förifyllning
+> och taxonomins lib-ägare ligger i den här PR:n. `master` är auktoritet tills
+> promote skett. Avsnitt 2 och 3 nedan
 > är **underlaget** som ledde till besluten — läs beslutsraderna för gällande läge.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
@@ -42,8 +44,9 @@ utan att någon behövde ompröva det.
 `MAX_PAGE_COUNT_CHOICE` — och kostnadsfri-modulen slutar bestämma det själv.
 Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 
-**Väg B valdes och är implementerad (ej mergad).** Talet reser strukturerat, inte
-i prosa:
+**Väg B valdes och är levererad på `preview` i #1370 som
+`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`.** Talet reser strukturerat, inte i
+prosa:
 
 | Fil | Ändring |
 |---|---|
@@ -101,9 +104,9 @@ se beslutsraderna «Kostnadsfri / bolagsdata» och «Kostnadsfri / bransch»:
    bransch blir en hint, eller så växer taxonomin — men då måste den växa på det
    ställe som äger den (se städlistan), inte i tre kopior.
 
-Lucka att täcka i implementationen: `markKostnadsfriPageSent` (upsert-vägen när
-`sentAt` skickas) skriver inte `extra_data` i dag, så en dash som skickar profilen
-tillsammans med sändregistreringen får den tappad.
+`markKostnadsfriPageSent` patchar `extra_data.profile` på upsert-vägen när
+avsändaren skickar `profile` tillsammans med `sentAt`. Utan profil utelämnas
+nyckeln — en tom patch skrivs inte. Avsändaren är `send.py` i JakobScrape.
 
 ## 3. Pre-generering vid lösenordsverifiering
 
@@ -155,8 +158,8 @@ ovan och körs i samma ändring.
 |---|---|---|
 | ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är icke-bindande prioriteringar, antalet kommer strukturerat |
 | ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — varken tal eller exakt sidlista i prosa |
-| `INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS` | `src/lib/kostnadsfri/index.ts` | **Öppet** — filens egen kommentar säger «mirrors PromptWizardModalV2 constants», alltså en medveten kopia av `src/components/modals/prompt-wizard/constants.ts`. |
-| `INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS` | `src/components/kostnadsfri/mini-wizard.tsx` | **Öppet** — tredje kopian av samma taxonomi (emoji i stället för Lucide-ikoner). Värdena är identiska i dag, så inget är fel än, men en bransch kan bara läggas till på ett av tre ställen och då driftar de tyst. |
+| ~~`INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS`~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — id/label ägs av `src/lib/builder/wizard-taxonomy.ts`; kostnadsfri-modulen importerar därifrån. |
+| ~~`INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS`~~ | `src/components/kostnadsfri/mini-wizard.tsx` | **Klart** — samma lib-ägare; emoji stannar i UI-lagret. |
 
 Taxonomistädningen är förutsättning för punkt 2: att lägga till ett
 frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
