@@ -10,7 +10,9 @@
 
 import { resolveBrandedPilotEligibility } from "@/lib/branded-pilot-eligibility";
 
-const DEFAULT_RESERVED_SLUGS = new Set(["admin", "api", "app", "assets", "preview", "www"]);
+export const RESERVED_BRANDED_SLUGS = ["admin", "api", "app", "assets", "preview", "www"] as const;
+
+const DEFAULT_RESERVED_SLUGS = new Set<string>(RESERVED_BRANDED_SLUGS);
 
 function isAffirmative(value: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(value?.trim().toLowerCase() ?? "");
