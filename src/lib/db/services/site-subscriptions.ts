@@ -215,12 +215,23 @@ export async function updateSiteSubscription(
       | "last_published_at"
     >
   >,
+  guard?: {
+    expectedDesired?: string;
+  },
 ): Promise<SiteSubscriptionRow | null> {
   assertDbConfigured();
   const rows = await db
     .update(siteSubscriptions)
     .set({ ...patch, updated_at: new Date() })
-    .where(and(eq(siteSubscriptions.id, id), eq(siteSubscriptions.billing_mode, billingMode)))
+    .where(
+      and(
+        eq(siteSubscriptions.id, id),
+        eq(siteSubscriptions.billing_mode, billingMode),
+        guard?.expectedDesired
+          ? eq(siteSubscriptions.hosting_state_desired, guard.expectedDesired)
+          : undefined,
+      ),
+    )
     .returning();
   return rows[0] ?? null;
 }
@@ -232,7 +243,12 @@ export async function listSubscriptionsNeedingReconcile(
   return db
     .select()
     .from(siteSubscriptions)
-    .where(eq(siteSubscriptions.billing_mode, billingMode));
+    .where(
+      and(
+        eq(siteSubscriptions.billing_mode, billingMode),
+        eq(siteSubscriptions.lifecycle_state, "active"),
+      ),
+    );
 }
 
 export async function getPeriodGrant(
@@ -372,11 +388,14 @@ export async function listRunnableBillingJobs(
     .select()
     .from(billingJobs)
     .where(eq(billingJobs.billing_mode, billingMode));
-  return rows.filter(
-    (row) =>
-      (row.status === "pending" || row.status === "running") &&
-      row.run_after.getTime() <= now.getTime(),
-  );
+  return rows.filter((row) => {
+    const due = row.run_after.getTime() <= now.getTime();
+    const leaseFree =
+      !row.lease_expires_at || row.lease_expires_at.getTime() <= now.getTime();
+    return (
+      (row.status === "pending" || row.status === "running") && due && leaseFree
+    );
+  });
 }
 
 export async function getStripeBillingEvent(

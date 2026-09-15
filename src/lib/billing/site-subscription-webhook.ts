@@ -32,7 +32,7 @@ import {
   retrieveInvoiceFresh,
   retrieveSubscriptionFresh,
 } from "./site-subscription-stripe";
-import { getCheckoutCompletedDispatch } from "./stripe-webhook-dispatch";
+import { getCheckoutCompletedDispatch, shouldDispatchSiteSubscription } from "./stripe-webhook-dispatch";
 import { computeGraceUntil, shouldApplyPaymentFailed } from "./site-subscription-policy";
 
 export type WebhookHandleResult = {
@@ -87,9 +87,9 @@ function assertTenant(row: SiteSubscriptionRow, userId: string | null, projectId
 }
 
 async function snapshotPublishedRef(row: SiteSubscriptionRow): Promise<void> {
-  if (row.last_published_ref) return;
+  if (row.last_published_ref?.startsWith("dpl:")) return;
   const ref = await resolveLastPublishedRef(row.project_id);
-  if (!ref) return;
+  if (!ref?.startsWith("dpl:")) return;
   await updateSiteSubscription(row.id, row.billing_mode, {
     last_published_ref: ref,
     last_published_at: new Date(),
@@ -119,11 +119,31 @@ async function applyPaidSubscription(input: {
   await snapshotPublishedRef(input.row);
 }
 
+async function eventBelongsToSiteSubscription(
+  event: Stripe.Event,
+  billingMode: BillingMode,
+): Promise<boolean> {
+  if (shouldDispatchSiteSubscription(event)) return true;
+  if (event.type !== "invoice.paid" && event.type !== "invoice.payment_failed") {
+    return false;
+  }
+  const invoice = event.data.object as Stripe.Invoice;
+  const stripeSubscriptionId = readInvoiceSubscriptionId(invoice);
+  if (!stripeSubscriptionId) return false;
+  const row = await getSiteSubscriptionByStripeId(stripeSubscriptionId, billingMode);
+  return Boolean(row);
+}
+
 export async function handleSiteSubscriptionStripeEvent(input: {
   stripe: Stripe;
   event: Stripe.Event;
   serverBillingMode: BillingMode;
 }): Promise<WebhookHandleResult> {
+  const belongs = await eventBelongsToSiteSubscription(input.event, input.serverBillingMode);
+  if (!belongs) {
+    return ok({ ignored: "not_site_subscription" });
+  }
+
   if (!eventMatchesServerBillingMode(input.event.livemode, input.serverBillingMode)) {
     console.error("[Stripe/webhook] site_subscription livemode mismatch", input.event.id);
     return reject(400, "livemode_mismatch");
@@ -228,10 +248,11 @@ async function handleCheckoutCompleted(
     stripe_checkout_session_id: session.id,
     stripe_subscription_id: stripeSubscriptionId ?? row.stripe_subscription_id,
     billing_customer_id: row.billing_customer_id,
+    lifecycle_state: "active",
   });
 
-  // Checkout-success ger inte publiceringsrätt. invoice.paid gör det.
-  return ok({ attached: true, granted: false });
+  // Checkout-success håller anspråket. invoice.paid ger publiceringsrätt.
+  return ok({ attached: true, granted: false, claimed: true });
 }
 
 async function handleCheckoutExpired(
@@ -456,9 +477,11 @@ async function handleInvoicePaymentFailed(
   await updateSiteSubscription(row.id, billingMode, {
     stripe_status: subscription.status,
     hosting_state_desired: "grace",
-    grace_until: computeGraceUntil(now, SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.graceDays),
+    grace_until:
+      row.grace_until ??
+      computeGraceUntil(now, SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.graceDays),
   });
-  return ok({ grace: true, paused: false });
+  return ok({ grace: true, paused: false, graceReused: Boolean(row.grace_until) });
 }
 
 export function webhookResultToResponse(result: WebhookHandleResult): NextResponse {

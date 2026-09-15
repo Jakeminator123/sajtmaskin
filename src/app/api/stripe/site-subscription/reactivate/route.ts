@@ -71,6 +71,30 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = new Stripe(SECRETS.stripeSecretKey);
+    let stripeStatus = row.stripe_status;
+    let latestInvoicePaid = false;
+    if (row.stripe_subscription_id) {
+      const current = await retrieveSubscriptionFresh(stripe, row.stripe_subscription_id);
+      stripeStatus = current.status;
+      latestInvoicePaid = isLatestInvoicePaid(current);
+    }
+    const paidEnough =
+      stripeStatus === "active" ||
+      stripeStatus === "trialing" ||
+      latestInvoicePaid ||
+      isGraceActive(row.grace_until, new Date());
+
+    if (!paidEnough) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sajten kan inte återställas utan giltig betalning.",
+          code: "needs_payment",
+        },
+        { status: 409 },
+      );
+    }
+
     let cancelAtPeriodEnd = row.cancel_at_period_end;
     if (row.stripe_subscription_id && cancelAtPeriodEnd) {
       await updateCancelAtPeriodEnd({
@@ -86,31 +110,6 @@ export async function POST(req: NextRequest) {
       row.hosting_state_actual === "paused" ||
       row.hosting_state_actual === "pausing" ||
       row.hosting_state_desired === "paused";
-
-    if (needsResume) {
-      let stripeStatus = row.stripe_status;
-      let latestInvoicePaid = false;
-      if (row.stripe_subscription_id) {
-        const current = await retrieveSubscriptionFresh(stripe, row.stripe_subscription_id);
-        stripeStatus = current.status;
-        latestInvoicePaid = isLatestInvoicePaid(current);
-      }
-      const paidEnough =
-        stripeStatus === "active" ||
-        stripeStatus === "trialing" ||
-        latestInvoicePaid ||
-        isGraceActive(row.grace_until, new Date());
-      if (!paidEnough) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Sajten kan inte återställas utan giltig betalning.",
-            code: "needs_payment",
-          },
-          { status: 409 },
-        );
-      }
-    }
 
     if (needsResume) {
       await updateSiteSubscription(row.id, billingMode, {

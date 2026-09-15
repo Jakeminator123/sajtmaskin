@@ -5,6 +5,7 @@ const claimStripeBillingEvent = vi.hoisted(() => vi.fn());
 const completeStripeBillingEvent = vi.hoisted(() => vi.fn());
 const failStripeBillingEvent = vi.hoisted(() => vi.fn());
 const getSiteSubscriptionByStripeId = vi.hoisted(() => vi.fn());
+const getSiteSubscriptionByCheckoutSession = vi.hoisted(() => vi.fn());
 const getOpenSiteSubscription = vi.hoisted(() => vi.fn());
 const updateSiteSubscription = vi.hoisted(() => vi.fn());
 const grantSiteSubscriptionPeriodCredits = vi.hoisted(() => vi.fn());
@@ -19,7 +20,7 @@ vi.mock("./site-subscription-events", () => ({
 
 vi.mock("@/lib/db/services/site-subscriptions", () => ({
   getSiteSubscriptionByStripeId,
-  getSiteSubscriptionByCheckoutSession: vi.fn(),
+  getSiteSubscriptionByCheckoutSession,
   getOpenSiteSubscription,
   updateSiteSubscription,
 }));
@@ -68,12 +69,25 @@ function event(type: string, object: unknown, livemode = false): Stripe.Event {
   return { id: "evt_1", type, livemode, data: { object } } as Stripe.Event;
 }
 
+function siteInvoice(overrides: Record<string, unknown> = {}) {
+  return {
+    parent: {
+      subscription_details: {
+        metadata: { kind: "site_subscription" },
+        subscription: "sub_1",
+      },
+    },
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   claimStripeBillingEvent.mockResolvedValue({ action: "process" });
   completeStripeBillingEvent.mockResolvedValue(undefined);
   failStripeBillingEvent.mockResolvedValue(undefined);
   getSiteSubscriptionByStripeId.mockResolvedValue(row);
+  getSiteSubscriptionByCheckoutSession.mockResolvedValue(row);
   getOpenSiteSubscription.mockResolvedValue(row);
   updateSiteSubscription.mockResolvedValue(row);
   grantSiteSubscriptionPeriodCredits.mockResolvedValue({
@@ -87,7 +101,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
   it("avvisar live-event mot testserver", async () => {
     const result = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
-      event: event("invoice.paid", {}, true),
+      event: event("invoice.paid", siteInvoice(), true),
       serverBillingMode: "test",
     });
     expect(result.status).toBe(400);
@@ -99,7 +113,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     claimStripeBillingEvent.mockResolvedValue({ action: "already_completed" });
     const result = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
-      event: event("invoice.paid", { id: "in_1" }),
+      event: event("invoice.paid", siteInvoice({ id: "in_1" })),
       serverBillingMode: "test",
     });
     expect(result.status).toBe(200);
@@ -111,7 +125,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     claimStripeBillingEvent.mockResolvedValue({ action: "in_flight" });
     const result = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
-      event: event("invoice.paid", { id: "in_1" }),
+      event: event("invoice.paid", siteInvoice({ id: "in_1" })),
       serverBillingMode: "test",
     });
     expect(result.status).toBe(500);
@@ -133,7 +147,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
 
     const result = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
-      event: event("invoice.payment_failed", { id: "in_old" }),
+      event: event("invoice.payment_failed", siteInvoice({ id: "in_old" })),
       serverBillingMode: "test",
     });
 
@@ -160,12 +174,99 @@ describe("handleSiteSubscriptionStripeEvent", () => {
 
     const result = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
-      event: event("invoice.paid", { id: "in_1" }),
+      event: event("invoice.paid", siteInvoice({ id: "in_1" })),
       serverBillingMode: "test",
     });
 
     expect(result.status).toBe(400);
     expect(result.body.error).toBe("tenant_mismatch");
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+  });
+
+  it("markerar complete checkout som aktivt anspråk utan periodförmån", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+      current_period_end: null,
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_1",
+        mode: "subscription",
+        subscription: "sub_1",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ attached: true, claimed: true, granted: false });
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        lifecycle_state: "active",
+        stripe_checkout_session_id: "cs_1",
+        stripe_subscription_id: "sub_1",
+      }),
+    );
+    expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+  });
+
+  it("förlänger inte grace_until vid ny payment_failed i samma period", async () => {
+    const existingGrace = new Date("2026-09-22T12:00:00.000Z");
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      grace_until: existingGrace,
+    });
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_fail",
+      parent: { subscription_details: { subscription: "sub_1" } },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "past_due",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      latest_invoice: { status: "open" },
+      items: { data: [{ current_period_start: 1, current_period_end: 2 }] },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("invoice.payment_failed", siteInvoice({ id: "in_fail" })),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.graceReused).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ grace_until: existingGrace }),
+    );
+  });
+
+  it("anspråkar inte en främmande subscription-invoice", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("invoice.paid", {
+        billing_reason: "subscription_cycle",
+        parent: { subscription_details: { subscription: "sub_other", metadata: { kind: "other" } } },
+      }),
+      serverBillingMode: "test",
+    });
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("not_site_subscription");
+    expect(claimStripeBillingEvent).not.toHaveBeenCalled();
   });
 });

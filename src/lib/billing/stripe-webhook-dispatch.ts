@@ -85,12 +85,7 @@ export function shouldDispatchSiteSubscription(event: Stripe.Event): boolean {
   }
   if (event.type === "invoice.paid" || event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice;
-    const meta = invoice.parent?.subscription_details?.metadata;
-    return (
-      meta?.kind === "site_subscription" ||
-      Boolean(invoice.parent?.subscription_details) ||
-      Boolean(invoice.billing_reason?.startsWith("subscription"))
-    );
+    return invoice.parent?.subscription_details?.metadata?.kind === "site_subscription";
   }
   return false;
 }

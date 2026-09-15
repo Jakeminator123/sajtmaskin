@@ -8,12 +8,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isCronRefreshAuthorized } from "@/app/api/shadcn/registry/refresh/cron-auth";
 import { reconcileSiteSubscriptions } from "@/lib/billing/site-subscription-reconcile";
+import {
+  isSiteSubscriptionCheckoutEnvEnabled,
+  isSiteSubscriptionHostingWritesEnabled,
+} from "@/lib/billing/site-subscription-flags";
 import { resolveServerBillingMode } from "@/lib/billing/site-subscription-offer";
 import { SECRETS } from "@/lib/config";
 
 async function run(req: NextRequest) {
   if (!isCronRefreshAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isSiteSubscriptionCheckoutEnvEnabled() && !isSiteSubscriptionHostingWritesEnabled()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "feature_off" });
   }
 
   const billingMode = resolveServerBillingMode(SECRETS.stripeSecretKey);

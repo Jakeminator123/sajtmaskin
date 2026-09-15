@@ -60,6 +60,26 @@ export function assertSafeHostingTarget(target: HostingTarget): HostingProviderR
   return null;
 }
 
+export function pickLastPublishedDeploymentRef(
+  rows: Array<{
+    vercelDeploymentId: string | null;
+    status: string | null;
+    url?: string | null;
+  }>,
+): string | null {
+  const published = rows.find((row) => {
+    const status = (row.status ?? "").toLowerCase();
+    const ready = status === "ready" || status === "success" || status === "ok";
+    const liveUrl = Boolean(row.url?.trim());
+    return Boolean(row.vercelDeploymentId) && ready && liveUrl;
+  });
+  return published?.vercelDeploymentId ? `dpl:${published.vercelDeploymentId}` : null;
+}
+
+export function isPublishedDeploymentRef(ref: string | null | undefined): boolean {
+  return Boolean(ref?.startsWith("dpl:"));
+}
+
 export async function resolveLastPublishedRef(projectId: string): Promise<string | null> {
   const project = await getProjectById(projectId);
   if (!project?.vercel_project_id) return null;
@@ -68,25 +88,14 @@ export async function resolveLastPublishedRef(projectId: string): Promise<string
     .select({
       vercelDeploymentId: deployments.vercelDeploymentId,
       status: deployments.status,
+      url: deployments.url,
     })
     .from(deployments)
     .where(eq(deployments.vercelProjectId, project.vercel_project_id))
     .orderBy(desc(deployments.createdAt))
     .limit(20);
 
-  const published = rows.find((row) => {
-    const status = (row.status ?? "").toLowerCase();
-    return (
-      Boolean(row.vercelDeploymentId) &&
-      (status === "ready" || status === "success" || status === "ok")
-    );
-  });
-
-  if (published?.vercelDeploymentId) {
-    return `dpl:${published.vercelDeploymentId}`;
-  }
-
-  return project.vercel_project_id ? `prj:${project.vercel_project_id}` : null;
+  return pickLastPublishedDeploymentRef(rows);
 }
 
 export function createDisabledHostingProvider(): SiteHostingProvider {
@@ -114,13 +123,13 @@ export function createDisabledHostingProvider(): SiteHostingProvider {
           error: "Ingen senast publicerad version att återställa.",
         };
       }
-      if (target.publishedRef.startsWith("draft:")) {
+      if (target.publishedRef.startsWith("draft:") || target.publishedRef.startsWith("prj:")) {
         return {
           ok: false,
           written: false,
           confirmed: false,
           code: "draft_ref_forbidden",
-          error: "Utkast får inte återställas.",
+          error: "Utkast eller projekt-id får inte återställas.",
         };
       }
       return {

@@ -107,13 +107,19 @@ export function decideCheckoutReuse(input: {
 
   const session = input.session;
   if (!session) {
-    return { action: "replace_expired", existingId: row.id };
+    return { action: "wait_for_session", existingId: row.id };
+  }
+
+  if (session.status === "complete") {
+    return { action: "already_active", existingId: row.id };
   }
 
   const expired =
     session.status === "expired" ||
-    (session.expiresAt !== null && session.expiresAt.getTime() <= input.now.getTime());
-  if (expired || session.status === "complete") {
+    (session.status === "open" &&
+      session.expiresAt !== null &&
+      session.expiresAt.getTime() <= input.now.getTime());
+  if (expired) {
     return { action: "replace_expired", existingId: row.id };
   }
 
@@ -125,7 +131,7 @@ export function decideCheckoutReuse(input: {
     };
   }
 
-  return { action: "replace_expired", existingId: row.id };
+  return { action: "wait_for_session", existingId: row.id };
 }
 
 export function computeGraceUntil(now: Date, graceDays: number): Date {
@@ -248,7 +254,8 @@ export function evaluateSitePublishEntitlement(input: {
   }
 
   const periodValid =
-    !input.currentPeriodEnd || input.currentPeriodEnd.getTime() > input.now.getTime();
+    Boolean(input.currentPeriodEnd) &&
+    input.currentPeriodEnd!.getTime() > input.now.getTime();
 
   if (input.lifecycleState === "active" && periodValid) {
     return {
@@ -450,6 +457,7 @@ export function isPlatformVercelProject(
 ): boolean {
   const target = targetProjectId?.trim();
   const platform = platformProjectId?.trim();
-  if (!target || !platform) return false;
+  if (!platform) return true;
+  if (!target) return false;
   return target === platform;
 }

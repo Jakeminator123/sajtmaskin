@@ -110,6 +110,29 @@ describe("två samtidiga checkouts", () => {
       }),
     ).toEqual({ action: "already_active", existingId: "sub_1" });
   });
+
+  it("behandlar complete + checkout_pending som anspråkad, inte utgången", () => {
+    expect(
+      decideCheckoutReuse({
+        openRow: {
+          id: "sub_1",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+          lifecycleState: "checkout_pending",
+          stripeCheckoutSessionId: "cs_paid",
+          stripeStatus: null,
+        },
+        session: {
+          id: "cs_paid",
+          status: "complete",
+          url: null,
+          expiresAt: new Date("2026-09-15T11:00:00.000Z"),
+        },
+        now,
+      }),
+    ).toEqual({ action: "already_active", existingId: "sub_1" });
+  });
 });
 
 describe("periodförmån och dubbletter", () => {
@@ -314,6 +337,19 @@ describe("en aktiv sajt låser inte upp en annan", () => {
         enforce: false,
       }),
     ).toMatchObject({ entitled: true, waiveDeployFee: true, reason: "valid_subscription" });
+
+    expect(
+      evaluateSitePublishEntitlement({
+        projectId: "prj_a",
+        rowProjectId: "prj_a",
+        billingMode: "test",
+        rowBillingMode: "test",
+        lifecycleState: "active",
+        hostingDesired: "active",
+        now,
+        enforce: true,
+      }),
+    ).toMatchObject({ entitled: false, waiveDeployFee: false });
   });
 });
 
@@ -321,5 +357,7 @@ describe("plattformens eget projekt", () => {
   it("får aldrig väljas som pausmål", () => {
     expect(isPlatformVercelProject("prj_platform", "prj_platform")).toBe(true);
     expect(isPlatformVercelProject("prj_customer", "prj_platform")).toBe(false);
+    expect(isPlatformVercelProject("prj_customer", null)).toBe(true);
+    expect(isPlatformVercelProject("prj_customer", "")).toBe(true);
   });
 });

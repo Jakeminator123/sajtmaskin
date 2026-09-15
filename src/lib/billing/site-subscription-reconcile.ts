@@ -69,28 +69,64 @@ export async function processHostingJob(
     lease_expires_at: new Date(now.getTime() + 60_000),
   });
 
+  const kind = job.kind === "resume" ? "resume" : "pause";
+  const latestBeforeProvider = await getSiteSubscriptionById(job.subscription_id, job.billing_mode);
+  if (!latestBeforeProvider) {
+    await updateBillingJob(job.id, { status: "failed", last_error: "subscription_missing", completed_at: now });
+    return { reportSuccess: false, actual: "missing" };
+  }
+
+  if (kind === "pause" && latestBeforeProvider.hosting_state_desired === "active") {
+    await updateBillingJob(job.id, {
+      status: "done",
+      last_error: "stale_pause_after_reactivate",
+      completed_at: now,
+    });
+    return { reportSuccess: true, actual: latestBeforeProvider.hosting_state_actual };
+  }
+
   const provider = getSiteHostingProvider();
-  const target = await hostingTargetFor(row);
+  const target = await hostingTargetFor(latestBeforeProvider);
   const providerResult =
-    job.kind === "pause" ? await provider.pause(target) : await provider.restore(target);
+    kind === "pause" ? await provider.pause(target) : await provider.restore(target);
+
+  const fresh = await getSiteSubscriptionById(job.subscription_id, job.billing_mode);
+  if (!fresh) {
+    await updateBillingJob(job.id, { status: "failed", last_error: "subscription_missing", completed_at: now });
+    return { reportSuccess: false, actual: "missing" };
+  }
 
   const applied = applyHostingProviderResult({
-    kind: job.kind === "resume" ? "resume" : "pause",
-    desired: row.hosting_state_desired as HostingDesiredState,
+    kind,
+    desired: fresh.hosting_state_desired as HostingDesiredState,
     now,
     retentionDays: SITE_SUBSCRIPTION_COMMERCIAL_DEFAULTS.retentionDays,
-    lastPublishedRef: row.last_published_ref,
+    lastPublishedRef: fresh.last_published_ref,
     provider: providerResult,
   });
 
-  await updateSiteSubscription(row.id, row.billing_mode, {
-    hosting_state_actual: applied.actual,
-    paused_at: applied.pausedAt ?? row.paused_at,
-    resumed_at: applied.resumedAt ?? row.resumed_at,
-    retain_until: applied.retainUntil ?? row.retain_until,
-    pause_requested_at:
-      job.kind === "pause" && applied.actual === "pausing" ? now : row.pause_requested_at,
-  });
+  const written = await updateSiteSubscription(
+    fresh.id,
+    fresh.billing_mode,
+    {
+      hosting_state_actual: applied.actual,
+      paused_at: applied.pausedAt ?? fresh.paused_at,
+      resumed_at: applied.resumedAt ?? fresh.resumed_at,
+      retain_until: applied.retainUntil ?? fresh.retain_until,
+      pause_requested_at:
+        kind === "pause" && applied.actual === "pausing" ? now : fresh.pause_requested_at,
+    },
+    { expectedDesired: fresh.hosting_state_desired },
+  );
+
+  if (!written) {
+    await updateBillingJob(job.id, {
+      status: "done",
+      last_error: "stale_desired_skipped",
+      completed_at: now,
+    });
+    return { reportSuccess: false, actual: fresh.hosting_state_actual };
+  }
 
   await updateBillingJob(job.id, {
     status: applied.jobStatus,

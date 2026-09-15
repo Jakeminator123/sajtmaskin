@@ -55,17 +55,21 @@ export async function POST(req: NextRequest) {
   console.info("[Stripe/webhook] Received event:", event.type);
 
   const serverBillingMode = resolveServerBillingMode(SECRETS.stripeSecretKey);
-  if (
-    isSiteSubscriptionStripeEventType(event.type) &&
-    shouldDispatchSiteSubscription(event) &&
-    serverBillingMode
-  ) {
-    const result = await handleSiteSubscriptionStripeEvent({
-      stripe,
-      event,
-      serverBillingMode,
-    });
-    return webhookResultToResponse(result);
+  if (isSiteSubscriptionStripeEventType(event.type) && serverBillingMode) {
+    const maybeOurs =
+      shouldDispatchSiteSubscription(event) ||
+      event.type === "invoice.paid" ||
+      event.type === "invoice.payment_failed";
+    if (maybeOurs) {
+      const result = await handleSiteSubscriptionStripeEvent({
+        stripe,
+        event,
+        serverBillingMode,
+      });
+      if (result.body.ignored !== "not_site_subscription") {
+        return webhookResultToResponse(result);
+      }
+    }
   }
 
   // Handle the event

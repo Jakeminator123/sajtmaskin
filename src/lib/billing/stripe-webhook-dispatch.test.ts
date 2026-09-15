@@ -55,5 +55,16 @@ describe("shouldDispatchSiteSubscription", () => {
         },
       } as unknown as Stripe.Event),
     ).toBe(true);
+    expect(
+      shouldDispatchSiteSubscription({
+        type: "invoice.paid",
+        data: {
+          object: {
+            billing_reason: "subscription_cycle",
+            parent: { subscription_details: { subscription: "sub_other" } },
+          },
+        },
+      } as unknown as Stripe.Event),
+    ).toBe(false);
   });
 });
