@@ -10,6 +10,7 @@ const fulfillPaidSubscriptionRow = vi.hoisted(() => vi.fn());
 const getBillingCustomer = vi.hoisted(() => vi.fn());
 const listSubscriptionsNeedingReconcile = vi.hoisted(() => vi.fn());
 const listRunnableBillingJobs = vi.hoisted(() => vi.fn());
+const insertBillingJob = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/site-subscriptions", () => ({
   getSiteSubscriptionById,
@@ -17,7 +18,7 @@ vi.mock("@/lib/db/services/site-subscriptions", () => ({
   updateBillingJob,
   claimRunnableBillingJob,
   getOpenBillingJob: vi.fn(),
-  insertBillingJob: vi.fn(),
+  insertBillingJob,
   listRunnableBillingJobs,
   listSubscriptionsNeedingReconcile,
   getBillingCustomer,
@@ -598,5 +599,34 @@ describe("reconcileSiteSubscriptions", () => {
       expect.objectContaining({ lifecycle_state: "active" }),
       expect.anything(),
     );
+  });
+
+  it("pausar inte ended+checkout_expired med actual=active", async () => {
+    listSubscriptionsNeedingReconcile.mockResolvedValue([
+      {
+        id: "sub_expired",
+        billing_mode: "test",
+        lifecycle_state: "ended",
+        hosting_state_desired: "active",
+        hosting_state_actual: "active",
+        grace_until: null,
+        current_period_end: null,
+        cancel_at_period_end: false,
+        stripe_status: "expired",
+        updated_at: new Date("2026-09-15T11:00:00.000Z"),
+        ended_reason: "checkout_expired",
+        ended_at: new Date("2026-09-15T11:00:00.000Z"),
+      },
+    ]);
+
+    const result = await reconcileSiteSubscriptions({
+      billingMode: "test",
+      now: new Date("2026-09-15T12:00:00.000Z"),
+    });
+
+    expect(result.pauses).toBe(0);
+    expect(pause).not.toHaveBeenCalled();
+    expect(insertBillingJob).not.toHaveBeenCalled();
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
   });
 });

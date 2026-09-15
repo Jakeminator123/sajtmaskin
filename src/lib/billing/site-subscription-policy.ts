@@ -578,6 +578,8 @@ export type ReconcileDecision = {
 /**
  * Tidsstyrd avstämning. En webhook dag 0 sätter bara grace_until —
  * den här funktionen avgör dag 7. past_due ensamt pausar inte.
+ * `ended` + `checkout_expired` rör inte hosting — samma klass som
+ * webhook-grinden `shouldPauseHostingAfterSubscriptionDeleted`.
  */
 export function decideReconcileAction(input: {
   now: Date;
@@ -588,6 +590,7 @@ export function decideReconcileAction(input: {
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
   stripeStatus: string | null;
+  endedReason: string | null;
 }): ReconcileDecision {
   if (input.lifecycleState === "checkout_pending") {
     return {
@@ -596,6 +599,16 @@ export function decideReconcileAction(input: {
       enqueueResume: false,
       endLifecycle: false,
       reason: "checkout_pending",
+    };
+  }
+
+  if (input.lifecycleState === "ended" && input.endedReason === "checkout_expired") {
+    return {
+      desired: input.hostingDesired,
+      enqueuePause: false,
+      enqueueResume: false,
+      endLifecycle: false,
+      reason: "checkout_expired_no_hosting_change",
     };
   }
 

@@ -737,6 +737,7 @@ describe("uppsägning vid periodslut och respit dag 7", () => {
       currentPeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
       cancelAtPeriodEnd: false,
       stripeStatus: "past_due",
+      endedReason: null,
     });
     expect(duringGrace).toMatchObject({
       desired: "grace",
@@ -753,6 +754,7 @@ describe("uppsägning vid periodslut och respit dag 7", () => {
       currentPeriodEnd: new Date("2026-10-15T12:00:00.000Z"),
       cancelAtPeriodEnd: false,
       stripeStatus: "past_due",
+      endedReason: null,
     });
     expect(afterGrace).toMatchObject({
       desired: "paused",
@@ -772,12 +774,57 @@ describe("uppsägning vid periodslut och respit dag 7", () => {
         currentPeriodEnd: new Date("2026-09-15T11:00:00.000Z"),
         cancelAtPeriodEnd: true,
         stripeStatus: "active",
+        endedReason: null,
       }),
     ).toMatchObject({
       desired: "paused",
       enqueuePause: true,
       endLifecycle: true,
       reason: "period_ended_after_cancel",
+    });
+  });
+
+  it("pausar inte ended + checkout_expired när hosting redan är active", () => {
+    expect(
+      decideReconcileAction({
+        now,
+        lifecycleState: "ended",
+        hostingDesired: "active",
+        hostingActual: "active",
+        graceUntil: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        stripeStatus: "expired",
+        endedReason: "checkout_expired",
+      }),
+    ).toEqual({
+      desired: "active",
+      enqueuePause: false,
+      enqueueResume: false,
+      endLifecycle: false,
+      reason: "checkout_expired_no_hosting_change",
+    });
+  });
+
+  it("köar fortfarande pause för ended + subscription_deleted när actual är active", () => {
+    expect(
+      decideReconcileAction({
+        now,
+        lifecycleState: "ended",
+        hostingDesired: "paused",
+        hostingActual: "active",
+        graceUntil: null,
+        currentPeriodEnd: new Date("2026-09-01T12:00:00.000Z"),
+        cancelAtPeriodEnd: true,
+        stripeStatus: "canceled",
+        endedReason: "subscription_deleted",
+      }),
+    ).toMatchObject({
+      desired: "paused",
+      enqueuePause: true,
+      enqueueResume: false,
+      endLifecycle: false,
+      reason: "already_ended",
     });
   });
 });

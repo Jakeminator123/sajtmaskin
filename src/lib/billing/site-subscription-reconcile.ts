@@ -383,6 +383,7 @@ export async function reconcileSiteSubscriptions(input: {
       currentPeriodEnd: row.current_period_end,
       cancelAtPeriodEnd: row.cancel_at_period_end,
       stripeStatus: row.stripe_status,
+      endedReason: row.ended_reason,
     });
 
     if (decision.desired !== row.hosting_state_desired || decision.endLifecycle) {
