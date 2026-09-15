@@ -260,6 +260,25 @@ export function shouldEnforceCampaignAdviceQuota(
   return false;
 }
 
+/**
+ * Skip-knapp och rådgivningskvot hör efter wizarden, inte på
+ * lösenordssteget. Hydrera bara när underlaget är handoff, när buildern
+ * kör kampanj, eller när sluggen redan öppnat manuset.
+ */
+export function shouldActivateCampaignScriptChrome(input: {
+  pathname: string;
+  context: Record<string, unknown> | null | undefined;
+  script?: KostnadsfriCampaignScriptState | null;
+}): boolean {
+  const brief = normalizeKostnadsfriAgentBrief(input.context?.kostnadsfriBrief);
+  if (brief?.stage === "handoff") return true;
+  if (input.pathname.startsWith("/builder") && input.context?.buildMethod === "kostnadsfri") {
+    return true;
+  }
+  const script = input.script;
+  return Boolean(script?.handoffOpened || script?.buildStartedAnnounced);
+}
+
 export function campaignContextForClient(
   storage: CampaignScriptStorage = campaignScriptStorage(),
 ): KostnadsfriCampaignClientContext | null {

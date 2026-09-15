@@ -7,6 +7,7 @@ import {
   buildKostnadsfriHandoffIntro,
   decideKostnadsfriBuildStartedAnnounce,
   decideKostnadsfriHandoffOpen,
+  shouldActivateCampaignScriptChrome,
   KOSTNADSFRI_BUILD_STARTED_COPY,
   KOSTNADSFRI_BUILD_STARTED_ID,
   KOSTNADSFRI_HANDOFF_INTRO_ID,
@@ -131,7 +132,16 @@ function applyKostnadsfriCampaignTriggers(pathname: string) {
 
   const pathSlug = kostnadsfriSlugFromPathname(pathname);
   const activeSlug = pathSlug ?? readActiveCampaignSlug();
-  if (activeSlug) store.hydrateCampaignScript(activeSlug);
+  if (
+    activeSlug &&
+    shouldActivateCampaignScriptChrome({
+      pathname,
+      context,
+      script: store.campaignScript,
+    })
+  ) {
+    store.hydrateCampaignScript(activeSlug);
+  }
 
   const script = useOpenClawStore.getState().campaignScript;
   const handoff = decideKostnadsfriHandoffOpen({

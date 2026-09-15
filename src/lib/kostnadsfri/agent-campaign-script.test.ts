@@ -10,6 +10,7 @@ import {
   KOSTNADSFRI_ADVICE_ROUND_LIMIT,
   kostnadsfriCampaignManuscriptLines,
   markHandoffOpened,
+  shouldActivateCampaignScriptChrome,
   shouldEnforceCampaignAdviceQuota,
 } from "./agent-campaign-script";
 
@@ -90,6 +91,34 @@ describe("rådgivningskvot", () => {
     ).toBe(true);
     expect(shouldEnforceCampaignAdviceQuota({ page: "landing" }, script)).toBe(false);
     expect(shouldEnforceCampaignAdviceQuota({ page: "kostnadsfri" }, null)).toBe(false);
+  });
+
+  it("visar inte skip/kvot på lösenordssteget eller i wizarden", () => {
+    expect(
+      shouldActivateCampaignScriptChrome({
+        pathname: "/kostnadsfri/zax-2-0-ab",
+        context: { page: "kostnadsfri", kostnadsfriBrief: { stage: "gate", companyName: "Zax" } },
+      }),
+    ).toBe(false);
+    expect(
+      shouldActivateCampaignScriptChrome({
+        pathname: "/kostnadsfri/zax-2-0-ab",
+        context: { page: "kostnadsfri", kostnadsfriBrief: { stage: "wizard", companyName: "Zax" } },
+      }),
+    ).toBe(false);
+    expect(
+      shouldActivateCampaignScriptChrome({
+        pathname: "/kostnadsfri/zax-2-0-ab",
+        context: handoffContext,
+      }),
+    ).toBe(true);
+    expect(
+      shouldActivateCampaignScriptChrome({
+        pathname: "/kostnadsfri/zax-2-0-ab",
+        context: { page: "kostnadsfri", kostnadsfriBrief: { stage: "gate", companyName: "Zax" } },
+        script: markHandoffOpened(emptyCampaignScript("zax-2-0-ab")),
+      }),
+    ).toBe(true);
   });
 });
 

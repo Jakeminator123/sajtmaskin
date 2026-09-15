@@ -99,6 +99,21 @@ describe("OpenClawChat launcher", () => {
     expect(shell.className).not.toContain("z-[60]");
   });
 
+  it("hydrerar inte kampanjmanus på lösenordssteget", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "gate", companyName: "Zax 2.0 AB" },
+    };
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().campaignScript).toBeNull();
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+  });
+
   it("öppnar takeover exakt en gång när kampanjen når handoff", async () => {
     navigation.pathname = "/kostnadsfri/zax-2-0-ab";
     window.__SITEMASKIN_CONTEXT = {
