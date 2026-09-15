@@ -83,10 +83,17 @@ export async function checkCustomerHttps(
     if (result.status >= 500) return "unknown";
     if (result.status >= 400) return "invalid";
     if (result.status >= 300 && result.status < 400) {
-      const dest = normalizeDomainHostname(result.headers["location"] ?? "");
-      const self = normalizeDomainHostname(hostname);
-      const primary = normalizeDomainHostname(intendedPrimary ?? hostname);
-      if (dest && (dest === self || dest === primary)) return "valid";
+      const requestedUrl = `https://${hostname}/`;
+      try {
+        const destUrl = new URL(result.headers["location"] ?? "", requestedUrl);
+        if (destUrl.href === new URL(requestedUrl).href) return "invalid";
+        const destHost = normalizeDomainHostname(destUrl.hostname);
+        const self = normalizeDomainHostname(hostname);
+        const primary = normalizeDomainHostname(intendedPrimary ?? hostname);
+        if (destHost && (destHost === primary || destHost === self)) return "valid";
+      } catch {
+        return "invalid";
+      }
     }
     return "invalid";
   } catch (error) {

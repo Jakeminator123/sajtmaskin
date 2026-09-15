@@ -145,6 +145,20 @@ describe("checkCustomerHttps", () => {
     });
     await expect(checkCustomerHttps("www.exempel.se", "exempel.se")).resolves.not.toBe("valid");
   });
+
+  it.each([
+    ["https://exempel.se/", "invalid"],
+    ["/", "invalid"],
+    ["https://exempel.se/en", "valid"],
+    ["/en", "valid"],
+  ] as const)("treats Location %s as %s (loop vs path redirect)", async (location, expected) => {
+    fetchWithPinnedDns.mockResolvedValue({
+      status: 301,
+      headers: { location },
+      body: Buffer.from(""),
+    });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe(expected);
+  });
 });
 
 describe("inspectCustomerDomain HTTPS", () => {
