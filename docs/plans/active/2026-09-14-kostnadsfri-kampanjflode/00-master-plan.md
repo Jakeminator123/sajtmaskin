@@ -2,8 +2,9 @@
 
 > **Status: alla tre besluten fattade; inget i `master`.** Sidantalet avgjordes
 > 2026-09-14 (3 sidor) och är levererat till `preview` via
-> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370). Bolagsdatans
-> PII-gräns och pre-genereringen avgjordes 2026-09-15 — se
+> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370)
+> (`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`). Bolagsdatans PII-gräns och
+> pre-genereringen avgjordes 2026-09-15 — se
 > [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
 > Ingesten är byggd; wizardens förifyllning och taxonomins lib-ägare ligger i en
 > staplad PR. `master` är auktoritet tills promote skett. Avsnitt 2 och 3 nedan
@@ -42,8 +43,9 @@ utan att någon behövde ompröva det.
 `MAX_PAGE_COUNT_CHOICE` — och kostnadsfri-modulen slutar bestämma det själv.
 Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 
-**Väg B valdes och är implementerad (ej mergad).** Talet reser strukturerat, inte
-i prosa:
+**Väg B valdes och är levererad på `preview` i #1370 som
+`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`.** Talet reser strukturerat, inte i
+prosa:
 
 | Fil | Ändring |
 |---|---|
@@ -101,9 +103,9 @@ se beslutsraderna «Kostnadsfri / bolagsdata» och «Kostnadsfri / bransch»:
    bransch blir en hint, eller så växer taxonomin — men då måste den växa på det
    ställe som äger den (se städlistan), inte i tre kopior.
 
-Lucka att täcka i implementationen: `markKostnadsfriPageSent` (upsert-vägen när
-`sentAt` skickas) skriver inte `extra_data` i dag, så en dash som skickar profilen
-tillsammans med sändregistreringen får den tappad.
+`markKostnadsfriPageSent` patchar `extra_data.profile` på upsert-vägen när
+avsändaren skickar `profile` tillsammans med `sentAt`. Utan profil utelämnas
+nyckeln — en tom patch skrivs inte. Avsändaren är `send.py` i JakobScrape.
 
 ## 3. Pre-generering vid lösenordsverifiering
 

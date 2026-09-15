@@ -16,6 +16,7 @@ type PlanData = {
   steps?: PlanStepDisplay[];
   actions?: string[];
   content?: string;
+  awaitingInput?: boolean;
   raw?: Record<string, unknown>;
 };
 type PlanStepDisplay =
@@ -273,6 +274,8 @@ function toPlanData(value: Record<string, unknown>): PlanData {
 
   const steps = coercePlanSteps(value.steps ?? raw.steps ?? value.items ?? value.checklist);
   const actions = coerceStringArray(value.actions ?? value.nextActions);
+  const awaitingInput =
+    typeof value.awaitingInput === "boolean" ? value.awaitingInput : undefined;
 
   return {
     title,
@@ -280,6 +283,7 @@ function toPlanData(value: Record<string, unknown>): PlanData {
     content,
     steps: steps.length > 0 ? steps : undefined,
     actions: actions.length > 0 ? actions : undefined,
+    awaitingInput,
     raw,
   };
 }
