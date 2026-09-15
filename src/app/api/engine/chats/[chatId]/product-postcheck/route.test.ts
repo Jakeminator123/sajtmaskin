@@ -19,7 +19,7 @@ const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
 const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
 const readProductPostcheckVerdictForVersion = vi.hoisted(() => vi.fn());
 const resolveUserRequestForVersion = vi.hoisted(() =>
-  vi.fn(() => ({ text: "", source: "empty" as const })),
+  vi.fn(() => ({ text: "", source: "empty" as "empty" | "version_message_id" | "version_created_at" | "latest_user_fallback" })),
 );
 
 vi.mock("@/lib/rate-limit", () => ({

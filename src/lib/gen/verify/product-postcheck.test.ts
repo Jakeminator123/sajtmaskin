@@ -1766,7 +1766,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
     });
 
     const result = await runProductPostcheck({
-      previewUrl: "[REDACTED]/chat_1",
+      previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
       versionNumber: 1,
@@ -1811,7 +1811,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
     });
 
     const result = await runProductPostcheck({
-      previewUrl: "[REDACTED]/chat_1",
+      previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
       versionNumber: 1,
