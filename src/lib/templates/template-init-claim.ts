@@ -109,6 +109,12 @@ function asAcquired(mapped: ReturnType<typeof mapRow>): Extract<ClaimedTemplateI
   };
 }
 
+/**
+ * Durable key for one logical template-init.
+ * Pass only a client-supplied projectId. A project recovered from owner-scoped
+ * persist must not be passed in — that switches family and mints a new
+ * operation_id, so credit idempotency no longer applies.
+ */
 export function buildTemplateInitClaimKey(input: {
   projectId?: string | null;
   templateId: string;
@@ -374,14 +380,17 @@ export async function failTemplateInitClaim(input: {
   operationId: string;
   claimGeneration: number;
   error?: string;
+  projectId?: string | null;
 }): Promise<boolean> {
   if (!dbConfigured) return false;
   const presence = await templateInitOperationsTablePresence();
   if (presence !== "exists") return false;
+  const projectId = trimId(input.projectId);
   const result = await db.execute(sql`
     UPDATE template_init_operations
     SET status = 'failed',
         error = ${input.error ?? null},
+        project_id = COALESCE(${projectId}, project_id),
         updated_at = now()
     WHERE claim_key = ${input.claimKey}
       AND operation_id = ${input.operationId}

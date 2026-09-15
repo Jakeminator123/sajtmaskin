@@ -525,13 +525,14 @@ export async function POST(request: NextRequest) {
         );
       };
 
-      // Idempotency key: (projectId, templateId) when the client already has a
-      // project (gallery + template-switch). Without projectId, reuse the
-      // owner's latest project_data.meta.templateId row so a lost response
-      // cannot mint a second project+chat. The durable claim is the lock.
-      // An existing snapshot is not enough to return success: import-done and
-      // debit-done are separate, and a live first request may still be finishing.
-      let projectId = resolvedRequestedProjectId;
+      // Claim family is locked to the client-supplied projectId (gallery /
+      // template-switch) or the owner key (cold start). A recovered
+      // project_data.meta.templateId row is only for persist lookup / reuse —
+      // feeding it into the claim would switch family and mint a new
+      // operation_id. Import-done and debit-done are separate: an existing
+      // snapshot is not enough to return success.
+      const claimProjectId = resolvedRequestedProjectId;
+      let projectId = claimProjectId;
       if (!projectId) {
         projectId = await findLatestTemplateInitProjectIdForOwner(
           { userId, sessionId },
@@ -633,7 +634,7 @@ export async function POST(request: NextRequest) {
       }
 
       const claimed = await claimTemplateInit({
-        projectId,
+        projectId: claimProjectId,
         templateId,
         userId,
         sessionId,
@@ -686,18 +687,21 @@ export async function POST(request: NextRequest) {
       }
 
       const acquired: Extract<ClaimedTemplateInit, { kind: "acquired" }> = claimed;
-      const failAcquiredClaim = async (message?: string) => {
+      const failAcquiredClaim = async (
+        message?: string,
+        extras?: { projectId?: string | null },
+      ) => {
         await failTemplateInitClaim({
           claimKey: acquired.claimKey,
           operationId: acquired.operationId,
           claimGeneration: acquired.claimGeneration,
           error: message,
+          projectId: extras?.projectId,
         });
       };
 
       if (existing && !acquired.chatId && !acquired.versionId) {
-        await failAcquiredClaim("replay_existing_import");
-        return respondExisting(existing);
+        return settleExistingInit(existing, acquired);
       }
 
       if (existing && (acquired.chatId || acquired.versionId)) {
@@ -736,7 +740,7 @@ export async function POST(request: NextRequest) {
             projectId,
           });
           if (!bound) {
-            await failAcquiredClaim("bind_failed");
+            await failAcquiredClaim("bind_failed", { projectId });
             return attachSessionCookie(
               NextResponse.json(
                 {

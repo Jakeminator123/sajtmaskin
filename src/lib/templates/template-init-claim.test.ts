@@ -298,6 +298,7 @@ describe("complete/fail template init claim", () => {
         operationId: "op_1",
         claimGeneration: 1,
         error: "import failed",
+        projectId: "proj_orphaned",
       }),
     ).resolves.toBe(true);
   });
