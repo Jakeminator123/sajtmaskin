@@ -23,7 +23,7 @@ describe("isGitPreviewVercelHost", () => {
 });
 
 describe("isUniqueVercelDeploymentHost", () => {
-  it("matches Vercel {name}-{hash}-{scope} with an 8–12 alphanumeric hash", () => {
+  it("matches Vercel {name}-{hash}-{scope} when the hash is opaque and not last", () => {
     expect(isUniqueVercelDeploymentHost("demo-8fyovx8jc-team.vercel.app")).toBe(true);
     expect(isUniqueVercelDeploymentHost("demo-a1b2c3d4-team.vercel.app")).toBe(true);
     expect(isUniqueVercelDeploymentHost("https://demo-8fyovx8jc-team.vercel.app")).toBe(true);
@@ -32,10 +32,16 @@ describe("isUniqueVercelDeploymentHost", () => {
     ).toBe(true);
   });
 
-  it("does not treat production-alias hyphen words as a unique hash", () => {
+  it("does not treat production aliases as unique deployment hosts", () => {
     expect(isUniqueVercelDeploymentHost("demo.vercel.app")).toBe(false);
     expect(isUniqueVercelDeploymentHost("kund-projekt-team.vercel.app")).toBe(false);
     expect(isUniqueVercelDeploymentHost("demo-a1b2c3-team.vercel.app")).toBe(false);
+    expect(
+      isUniqueVercelDeploymentHost("sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app"),
+    ).toBe(false);
+    expect(
+      isUniqueVercelDeploymentHost("sajtmaskin-bygg-en-komplett-fungera.vercel.app"),
+    ).toBe(false);
   });
 });
 
@@ -53,6 +59,12 @@ describe("isProductionProviderVercelHost", () => {
     expect(
       isProductionProviderVercelHost("sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app"),
     ).toBe(false);
+    expect(isProductionProviderVercelHost("sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app")).toBe(
+      true,
+    );
+    expect(isProductionProviderVercelHost("sajtmaskin-bygg-en-komplett-fungera.vercel.app")).toBe(
+      true,
+    );
   });
 });
 
@@ -227,6 +239,21 @@ describe("persistableDeploymentUrl", () => {
         candidateUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
       }),
     ).toBe("https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app");
+  });
+
+  it("GET-refresh after POST keeps attested production aliases", () => {
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+        candidateUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      }),
+    ).toBe("https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app");
+    expect(
+      persistableDeploymentUrl({
+        existingUrl: "https://sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+        candidateUrl: "https://sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-8fyovx8jc.vercel.app",
+      }),
+    ).toBe("https://sajtmaskin-bygg-en-komplett-fungera.vercel.app");
   });
 
   it("rejects a git policyUrl", () => {

@@ -227,7 +227,7 @@ export async function GET(req: Request) {
             mapped.status,
             {
               providerUrl: vercel.url ?? undefined,
-              url: refreshedLiveUrl,
+              ...(refreshedLiveUrl ? { url: refreshedLiveUrl } : {}),
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             },

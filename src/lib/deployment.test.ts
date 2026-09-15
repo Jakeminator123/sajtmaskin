@@ -502,6 +502,27 @@ describe("resolveDeploymentLiveUrlForChat", () => {
     ).resolves.toBe("https://demo.vercel.app");
   });
 
+  it("keeps an attested production alias on webhook/GET refresh", async () => {
+    selectLimit.mockResolvedValue([
+      {
+        projectId: "proj_1",
+        brandedDomain: null,
+        brandedDomainVerifiedAt: null,
+        customDomain: null,
+        customDomainVerifiedAt: null,
+      },
+    ]);
+
+    await expect(
+      resolveDeploymentLiveUrlForChat({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        providerUrl: "https://sajtmaskin-bygg-en-komplett-fungerande-oc-a846ed4f-8fyovx8jc.vercel.app",
+        fallbackUrl: "https://sajtmaskin-bygg-en-komplett-fungera.vercel.app",
+      }),
+    ).resolves.toBe("https://sajtmaskin-bygg-en-komplett-fungera.vercel.app");
+  });
+
   it("does not persist custom when there is no stored persist-url", async () => {
     selectLimit.mockResolvedValue([
       {

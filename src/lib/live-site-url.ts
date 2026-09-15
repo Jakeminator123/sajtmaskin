@@ -52,15 +52,26 @@ export function isGitPreviewVercelHost(value: string | null | undefined): boolea
 }
 
 /**
+ * Opaque Vercel deployment token: 8–12 `[a-z0-9]` and at least one digit.
+ * Dictionary hyphen-words (`bonanova`, `komplett`) are not hashes.
+ */
+function isOpaqueVercelDeploymentHash(token: string): boolean {
+  return /^[a-z0-9]{8,12}$/i.test(token) && /[0-9]/.test(token);
+}
+
+/**
  * Vercel per-deployment host: `{name}-{hash}-{scope}.vercel.app`.
- * Hash is 8–12 `[a-z0-9]` (not hex-only, not 6). Shorter hyphen words such as
- * `kund-projekt-team` stay production-alias shaped.
+ * The hash is an opaque 8–12 token that is followed by a scope (team slug
+ * may itself contain hyphens). A trailing project hash alone
+ * (`…-ec66b7c6.vercel.app`) is a production alias, not a unique deploy host.
  */
 export function isUniqueVercelDeploymentHost(value: string | null | undefined): boolean {
   const host = normalizeDomainHostname(value);
   if (!host?.endsWith(".vercel.app") || isGitPreviewVercelHost(host)) return false;
-  const head = host.slice(0, -".vercel.app".length);
-  return /-[a-z0-9]{8,12}-[a-z0-9]/i.test(head);
+  const parts = host.slice(0, -".vercel.app".length).split("-");
+  return parts.some(
+    (part, index) => index < parts.length - 1 && isOpaqueVercelDeploymentHash(part),
+  );
 }
 
 /**

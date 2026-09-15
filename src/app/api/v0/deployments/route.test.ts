@@ -2888,6 +2888,56 @@ describe("POST /api/v0/deployments", () => {
     ]);
   });
 
+  it("does not null an attested production alias on GET refresh after POST", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+    });
+    getProjectById.mockResolvedValue({
+      id: "proj_1",
+      vercel_project_id: "vp_1",
+    });
+    deploymentRows.mockResolvedValue([
+      {
+        id: "dep_refresh",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        status: "building",
+        url: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+        providerUrl: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+        inspectorUrl: null,
+        vercelDeploymentId: "dpl_refresh",
+        vercelProjectId: "vp_1",
+        createdAt: new Date("2026-09-15T00:00:00Z"),
+        updatedAt: new Date("2026-09-15T00:00:00Z"),
+      },
+    ]);
+    getVercelDeployment.mockResolvedValue({
+      readyState: "READY",
+      url: "https://sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app",
+      inspectorUrl: null,
+      vercelProjectId: "vp_1",
+    });
+
+    const res = await GET(new Request("http://localhost/api/v0/deployments?chatId=chat_1"));
+    const body = await res.json();
+    const refreshPatch = updateDeploymentStatus.mock.calls.find(
+      (call) => call[0] === "dep_refresh",
+    )?.[2] as { url?: string | null } | undefined;
+
+    expect(res.status).toBe(200);
+    expect(refreshPatch).toEqual(
+      expect.objectContaining({ url: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app" }),
+    );
+    expect(refreshPatch).not.toHaveProperty("url", null);
+    expect(body.deployments).toEqual([
+      expect.objectContaining({
+        id: "dep_refresh",
+        url: "https://sajtmaskin-lotta-bonanova-ec66b7c6.vercel.app",
+      }),
+    ]);
+  });
+
   it("shows the stored policy URL on GET instead of resolveLiveUrl custom", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
