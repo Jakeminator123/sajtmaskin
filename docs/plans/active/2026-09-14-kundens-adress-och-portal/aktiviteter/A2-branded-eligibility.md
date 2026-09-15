@@ -2,15 +2,24 @@
 
 ## Genomförandestatus 2026-09-15
 
-**Kod på preview. Inte aktiverad.** Cookie-/Origin-skydd #1360/#1365 och
-pilotgrind #1366 (`e7bdbb2d`) är mergade. CI efter #1366 var grön, inklusive
-migrationer och schemaparitet. Grinden returnerar `activation_not_ready`.
-Branded-flaggor är av.
+**Kod på preview `712090882`. Inte aktiverad.** Cookie-/Origin-skydd #1360/#1365
+och pilotgrind #1366 är mergade. A2-readonly mot samma SHA: 133/133 i
+`host-cookies`, `auth`, `session`, `oauth-state`, `origin-guard` och `proxy`.
+Ingen reproducerad cookie-bugg; ingen kod-PR.
 
-Kvar innan kundaktivering: verkligt HTTPS-cookieprov mot parent-domain
-shadowing, och verifierad återställning av legitima äldre gästsessioner.
-Dokumentera eventuell ny inloggning för befintliga användare. Ursprunglig
-analys och acceptanskrav följer nedan.
+HTTPS-browser mot `preview.sajtmaskin.se` kördes inte: Vercel Authentication
+SSO (302 `vercel.com/sso-api`). `vercel` CLI var utloggad; Cursor-browsern
+skapade ingen flik. `sites.sajtmaskin.se` har inget A-record (SOA-only).
+Live Origin mot produktion `https://sajtmaskin.se` (inga cookie-writes): sibling
+och `*.sajtmaskin.se` POST/OPTIONS → 403 `origin_not_allowed`; exact OPTIONS →
+204 + `Access-Control-Allow-Origin: https://sajtmaskin.se`. GET med leftover
+`sajtmaskin_session` reflekterade inte untrusted Origin.
+
+Kvar innan kundaktivering: browser-HTTPS mot parent-domain shadowing (kräver
+Vercel-session eller `vercel login`, plus syskonvärd under `sites.*`), och
+verifierad återställning av legitima äldre gästsessioner (medvetet spärrad;
+login claimar inte leftover). Dokumentera eventuell ny inloggning för
+befintliga användare. Ursprunglig analys och acceptanskrav följer nedan.
 
 Område: [01](../01-varumarkta-adresser.md). Föreslaget svar: fråga 1 i
 [masterplanen](../00-master-plan.md). Kör före A3 och A4.
