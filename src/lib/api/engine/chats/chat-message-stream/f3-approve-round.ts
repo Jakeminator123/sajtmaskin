@@ -6,6 +6,7 @@ import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
 } from "@/lib/gen/dossiers/version-presence";
+import { resolveEffectiveF3ApprovedProviders } from "@/lib/gen/dossiers/align-database-marker";
 import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import {
   mapProviderKeysToBackingDossierIds,
@@ -49,10 +50,10 @@ export function approveRoundNeedsDossierInjection(params: {
   parentSpecProviderKeys: ReadonlySet<string>;
 }): boolean {
   const persistedApproved = readF3ApprovedFromSnapshot(params.snapshot);
-  const effectiveApprovedProviders =
-    params.markerSuggestedProviders.length > 0
-      ? params.markerSuggestedProviders
-      : persistedApproved.providers;
+  const effectiveApprovedProviders = resolveEffectiveF3ApprovedProviders({
+    markerSuggestedProviders: params.markerSuggestedProviders,
+    snapshot: params.snapshot,
+  });
 
   // Provider approvals compare at DOSSIER-ID granularity (Codex P1 on #503):
   // capability granularity would treat a present SIBLING dossier

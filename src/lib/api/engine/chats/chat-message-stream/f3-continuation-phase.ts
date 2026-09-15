@@ -6,6 +6,10 @@
  */
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import {
+  alignDatabaseMarker,
+  resolveEffectiveF3ApprovedProviders,
+} from "@/lib/gen/dossiers/align-database-marker";
 import { resolveCapabilitiesPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -422,9 +426,17 @@ export async function prepareF3ApprovalBuildRound(params: {
     const persistedApproved = readF3ApprovedFromSnapshot(
       engineChat.orchestration_snapshot as Record<string, unknown> | null,
     );
-    const markerProviders = f3ContinuationDecision.markerSuggestedProviders;
-    f3EffectiveApprovedProviders =
-      markerProviders.length > 0 ? markerProviders : persistedApproved.providers;
+    const alignedApproval = alignDatabaseMarker({
+      suggestedProviders: f3ContinuationDecision.markerSuggestedProviders,
+      requestedEnvKeys: f3ContinuationDecision.markerRequestedEnvKeys,
+      snapshot: engineChat.orchestration_snapshot,
+      versionFiles: previousFiles,
+    });
+    f3EffectiveApprovedProviders = resolveEffectiveF3ApprovedProviders({
+      markerSuggestedProviders: alignedApproval.suggestedProviders,
+      snapshot: engineChat.orchestration_snapshot,
+      versionFiles: previousFiles,
+    });
     try {
       f3ApprovedDossierCapabilities = mapProviderKeysToDossierCapabilities(
         f3EffectiveApprovedProviders,
@@ -518,8 +530,8 @@ export async function prepareF3ApprovalBuildRound(params: {
           f3EffectiveApprovedProviders.length > 0
             ? `Approved integration providers: ${f3EffectiveApprovedProviders.join(", ")}.`
             : "The approved proposal is described in the chat history above.",
-          f3ContinuationDecision.markerRequestedEnvKeys.length > 0
-            ? `Requested env keys from the approved proposal: ${f3ContinuationDecision.markerRequestedEnvKeys.join(", ")}.`
+          alignedApproval.requestedEnvKeys.length > 0
+            ? `Requested env keys from the approved proposal: ${alignedApproval.requestedEnvKeys.join(", ")}.`
             : "",
           "Build the approved integration(s) end-to-end NOW, in this response: the user-facing UI entry points (e.g. purchase/checkout CTA on the site), the complete server API route(s), and the wiring between them. Output code files.",
           "Do NOT suggest integrations again. Do NOT ask for another confirmation. A response without code files is a failure.",

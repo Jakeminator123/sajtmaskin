@@ -41,6 +41,11 @@ export type {
 export { resolvePendingIntegrationDossiers } from "./pending-integrations";
 export { preferPendingIntegrationDossiers } from "./pending-integrations";
 export { isPlannedDossierCoveredByModelBuiltBlock } from "./pending-integrations";
+export {
+  alignDatabaseMarker,
+  resolveEffectiveF3ApprovedProviders,
+  resolveSelectedDatabaseDossier,
+} from "./align-database-marker";
 
 export { defaultInjectionMode, dossierRequiresF3 } from "./types";
 export type {

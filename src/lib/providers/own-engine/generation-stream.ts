@@ -21,6 +21,7 @@ import {
   F3_EMPTY_NO_CODE_REASON,
   F3_TOOL_ONLY_EXHAUSTED_REASON,
 } from "@/lib/gen/stream/f3-continuation";
+import { alignDatabaseMarker } from "@/lib/gen/dossiers/align-database-marker";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/dev-log";
@@ -531,7 +532,7 @@ export function createOwnEngineGenerationStream(
           // Best-effort: a persist failure degrades to the old behavior
           // instead of breaking the stream.
           if (isF3Round) {
-            const markerSuggestedProviders = Array.from(
+            const rawSuggestedProviders = Array.from(
               new Set([
                 ...(f3PriorSuggestedProviders ?? []),
                 // Full-set (Codex P2, PR #383): env-lösa välformade förslag
@@ -540,9 +541,20 @@ export function createOwnEngineGenerationStream(
                 ...toolSignaledProviders,
               ]),
             );
-            const markerRequestedEnvKeys = Array.from(
+            const rawRequestedEnvKeys = Array.from(
               new Set([...(f3PriorRequestedEnvKeys ?? []), ...requestedEnvKeys]),
             );
+            // SM-030: a saved postgres-drizzle dossier must not coexist with a
+            // later tool-only Mongo marker. Dossierless Mongo stays when no
+            // database dossier is selected.
+            const alignedMarker = alignDatabaseMarker({
+              suggestedProviders: rawSuggestedProviders,
+              requestedEnvKeys: rawRequestedEnvKeys,
+              extraDossierIds: meta.mutedDossierIds,
+              versionFiles: previousFiles,
+            });
+            const markerSuggestedProviders = alignedMarker.suggestedProviders;
+            const markerRequestedEnvKeys = alignedMarker.requestedEnvKeys;
             await chatRepo
               .addMessage(chatId, "assistant", awaitingInputPrompt, undefined, [
                 buildF3AwaitingInputUiPart({

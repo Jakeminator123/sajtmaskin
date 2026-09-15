@@ -9,6 +9,7 @@ import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import {
   getDossierById,
   resolveDossierIdsPresentInVersion,
+  resolveEffectiveF3ApprovedProviders,
 } from "@/lib/gen/dossiers";
 import type { CodeFile } from "@/lib/gen/parser";
 import { resolveChatPreferredVersionId } from "@/lib/gen/version-manager";
@@ -156,16 +157,12 @@ export async function runF3ReadinessGate(params: {
       if (gateVersionId) {
         const pendingApprovedProviderKeys =
           f3ContinuationDecision?.replyIntent === "approve"
-            ? (() => {
-                const persistedApproved = readF3ApprovedFromSnapshot(
-                  (engineChat.orchestration_snapshot as Record<string, unknown> | null) ??
-                    null,
-                );
-                const markerProviders = f3ContinuationDecision.markerSuggestedProviders;
-                return markerProviders.length > 0
-                  ? markerProviders
-                  : persistedApproved.providers;
-              })()
+            ? resolveEffectiveF3ApprovedProviders({
+                markerSuggestedProviders:
+                  f3ContinuationDecision.markerSuggestedProviders,
+                snapshot: engineChat.orchestration_snapshot,
+                versionFiles: previousFiles,
+              })
             : [];
         const persistedApprovedDossierIds = readF3ApprovedFromSnapshot(
           (engineChat.orchestration_snapshot as Record<string, unknown> | null) ?? null,
@@ -279,8 +276,7 @@ export async function runF3ReadinessGate(params: {
           const approveNeedsDossierInjection =
             f3ContinuationDecision?.replyIntent === "approve" &&
             approveRoundNeedsDossierInjection({
-              markerSuggestedProviders:
-                f3ContinuationDecision.markerSuggestedProviders,
+              markerSuggestedProviders: pendingApprovedProviderKeys,
               snapshot:
                 (engineChat.orchestration_snapshot as
                   | Record<string, unknown>

@@ -35,6 +35,8 @@ vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   // over `capabilities` (f3-approve-round.ts), so a providers-only stub throws
   // and the gate answers `tier3_readiness_unavailable` instead of its verdict.
   readF3ApprovedFromSnapshot,
+  readMutedDossierIdsFromSnapshot: vi.fn(() => []),
+  readMutedCapabilitiesFromSnapshot: vi.fn(() => []),
 }));
 vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
