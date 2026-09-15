@@ -8,6 +8,7 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { getServerEnv } from "@/lib/env";
 import { getProjectById } from "@/lib/db/services/projects";
+import { normalizeDomainHostname } from "@/lib/live-site-url";
 import {
   isSiteSubscriptionHostingWritesEnabled,
 } from "./site-subscription-flags";
@@ -60,18 +61,59 @@ export function assertSafeHostingTarget(target: HostingTarget): HostingProviderR
   return null;
 }
 
+export type ProductionHostProof = {
+  attestedProductionHost?: string | null;
+  verifiedCustomerHosts?: ReadonlyArray<string | null | undefined> | null;
+};
+
+/**
+ * Samma positiva identitet som #1386 `isVerifiedProductionSiteHost` /
+ * `isCurrentProductionSiteHost` i `src/lib/live-site-url.ts` (finns inte på
+ * den här branchen). Slå ihop ägarna när båda PR:arna landat — importera
+ * därifrån och ta bort den här kopian.
+ *
+ * Regel: `*.vercel.app` är produktion bara vid exakt likhet med attesterat
+ * produktionsalias. Annan host bara när den är en just nu verifierad
+ * kund-/branded-domän. Ingen label-räkning och ingen `-git-`-gissning —
+ * per-deployment-URL:en har samma form som aliaset.
+ */
+export function isVerifiedProductionSiteHost(
+  host: string | null | undefined,
+  proof: ProductionHostProof,
+): boolean {
+  const normalized = normalizeDomainHostname(host);
+  if (!normalized) return false;
+  const attested = normalizeDomainHostname(proof.attestedProductionHost);
+  if (attested && normalized === attested) return true;
+  if (normalized.endsWith(".vercel.app")) return false;
+  const verified = new Set<string>();
+  for (const entry of proof.verifiedCustomerHosts ?? []) {
+    const candidate = normalizeDomainHostname(entry);
+    if (candidate && !candidate.endsWith(".vercel.app")) verified.add(candidate);
+  }
+  return verified.has(normalized);
+}
+
+function deploymentIsReady(status: string | null | undefined): boolean {
+  const normalized = (status ?? "").toLowerCase();
+  return normalized === "ready" || normalized === "success" || normalized === "ok";
+}
+
 export function pickLastPublishedDeploymentRef(
   rows: Array<{
     vercelDeploymentId: string | null;
     status: string | null;
     url?: string | null;
+    providerUrl?: string | null;
   }>,
+  proof: ProductionHostProof,
 ): string | null {
   const published = rows.find((row) => {
-    const status = (row.status ?? "").toLowerCase();
-    const ready = status === "ready" || status === "success" || status === "ok";
-    const liveUrl = Boolean(row.url?.trim());
-    return Boolean(row.vercelDeploymentId) && ready && liveUrl;
+    if (!row.vercelDeploymentId || !deploymentIsReady(row.status)) return false;
+    return (
+      isVerifiedProductionSiteHost(row.url, proof) ||
+      isVerifiedProductionSiteHost(row.providerUrl, proof)
+    );
   });
   return published?.vercelDeploymentId ? `dpl:${published.vercelDeploymentId}` : null;
 }
@@ -89,13 +131,21 @@ export async function resolveLastPublishedRef(projectId: string): Promise<string
       vercelDeploymentId: deployments.vercelDeploymentId,
       status: deployments.status,
       url: deployments.url,
+      providerUrl: deployments.providerUrl,
     })
     .from(deployments)
     .where(eq(deployments.vercelProjectId, project.vercel_project_id))
     .orderBy(desc(deployments.createdAt))
     .limit(20);
 
-  return pickLastPublishedDeploymentRef(rows);
+  return pickLastPublishedDeploymentRef(rows, {
+    // A3 (#1386) attesterar produktionsaliaset. Utan det fältet: null, gissa inte.
+    attestedProductionHost: null,
+    verifiedCustomerHosts: [
+      project.custom_domain_verified_at ? project.custom_domain : null,
+      project.branded_domain_verified_at ? project.branded_domain : null,
+    ],
+  });
 }
 
 export function createDisabledHostingProvider(): SiteHostingProvider {

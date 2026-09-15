@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getSiteSubscriptionById = vi.hoisted(() => vi.fn());
 const updateSiteSubscription = vi.hoisted(() => vi.fn());
 const updateBillingJob = vi.hoisted(() => vi.fn());
+const claimRunnableBillingJob = vi.hoisted(() => vi.fn());
 const pause = vi.hoisted(() => vi.fn());
+const restore = vi.hoisted(() => vi.fn());
 const fulfillPaidSubscriptionRow = vi.hoisted(() => vi.fn());
 const getBillingCustomer = vi.hoisted(() => vi.fn());
 const listSubscriptionsNeedingReconcile = vi.hoisted(() => vi.fn());
@@ -13,6 +15,7 @@ vi.mock("@/lib/db/services/site-subscriptions", () => ({
   getSiteSubscriptionById,
   updateSiteSubscription,
   updateBillingJob,
+  claimRunnableBillingJob,
   getOpenBillingJob: vi.fn(),
   insertBillingJob: vi.fn(),
   listRunnableBillingJobs,
@@ -25,7 +28,7 @@ vi.mock("@/lib/db/services/projects", () => ({
 }));
 
 vi.mock("./site-subscription-hosting", () => ({
-  getSiteHostingProvider: () => ({ pause, restore: vi.fn() }),
+  getSiteHostingProvider: () => ({ pause, restore }),
 }));
 
 vi.mock("./site-subscription-webhook", () => ({
@@ -73,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   updateBillingJob.mockResolvedValue({});
   updateSiteSubscription.mockResolvedValue(row("paused"));
+  claimRunnableBillingJob.mockResolvedValue(job);
   getBillingCustomer.mockResolvedValue(null);
   listSubscriptionsNeedingReconcile.mockResolvedValue([]);
   listRunnableBillingJobs.mockResolvedValue([]);
@@ -82,13 +86,17 @@ beforeEach(() => {
     confirmed: false,
     code: "writes_disabled",
   });
+  restore.mockResolvedValue({
+    ok: false,
+    written: false,
+    confirmed: false,
+    code: "writes_disabled",
+  });
 });
 
 describe("processHostingJob", () => {
   it("skippar ett gammalt pausjobb när desired blivit active igen", async () => {
-    getSiteSubscriptionById
-      .mockResolvedValueOnce(row("paused"))
-      .mockResolvedValueOnce(row("active"));
+    getSiteSubscriptionById.mockResolvedValue(row("active"));
 
     const result = await processHostingJob(job, new Date("2026-09-15T12:00:00.000Z"));
 
@@ -101,11 +109,69 @@ describe("processHostingJob", () => {
     );
   });
 
+  it("kör restore när resume fortfarande matchar desired=active", async () => {
+    const resumeJob = { ...job, kind: "resume" as const, open_job_key: "resume:sub_1" };
+    claimRunnableBillingJob.mockResolvedValue(resumeJob);
+    getSiteSubscriptionById.mockResolvedValue(row("active"));
+
+    await processHostingJob(resumeJob, new Date("2026-09-15T12:00:00.000Z"));
+
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(pause).not.toHaveBeenCalled();
+  });
+
+  it("anropar inte restore när resume köades under paused och desired hunnit ändras", async () => {
+    const resumeJob = { ...job, kind: "resume" as const, open_job_key: "resume:sub_1" };
+    claimRunnableBillingJob.mockResolvedValue(resumeJob);
+    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+
+    const result = await processHostingJob(resumeJob, new Date("2026-09-15T12:00:00.000Z"));
+
+    expect(restore).not.toHaveBeenCalled();
+    expect(pause).not.toHaveBeenCalled();
+    expect(result.reportSuccess).toBe(true);
+    expect(updateBillingJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        status: "done",
+        last_error: "stale_resume_after_desired_change",
+      }),
+    );
+  });
+
+  it("anropar providern exakt en gång när två körningar tävlar om samma jobb", async () => {
+    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+    claimRunnableBillingJob.mockResolvedValueOnce(job).mockResolvedValueOnce(null);
+
+    const now = new Date("2026-09-15T12:00:00.000Z");
+    const [first, second] = await Promise.all([
+      processHostingJob(job, now),
+      processHostingJob(job, now),
+    ]);
+
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(second.actual).toBe("claimed_elsewhere");
+    expect(first.actual).not.toBe("claimed_elsewhere");
+  });
+
+  it("låter utgången lease plockas igen men bara av en körning", async () => {
+    const expired = {
+      ...job,
+      status: "running" as const,
+      lease_expires_at: new Date("2026-09-15T11:59:00.000Z"),
+    };
+    getSiteSubscriptionById.mockResolvedValue(row("paused"));
+    claimRunnableBillingJob.mockResolvedValueOnce(expired).mockResolvedValueOnce(null);
+
+    const now = new Date("2026-09-15T12:00:00.000Z");
+    await Promise.all([processHostingJob(expired, now), processHostingJob(expired, now)]);
+
+    expect(claimRunnableBillingJob).toHaveBeenCalledTimes(2);
+    expect(pause).toHaveBeenCalledTimes(1);
+  });
+
   it("villkorar skrivningen på färsk desired efter provideranrop", async () => {
-    getSiteSubscriptionById
-      .mockResolvedValueOnce(row("paused"))
-      .mockResolvedValueOnce(row("paused"))
-      .mockResolvedValueOnce(row("paused"));
+    getSiteSubscriptionById.mockResolvedValue(row("paused"));
     pause.mockResolvedValue({
       ok: false,
       written: false,

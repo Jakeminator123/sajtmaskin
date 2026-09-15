@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import type { BillingMode } from "@/lib/db/schema";
 import { getProjectById } from "@/lib/db/services/projects";
 import {
+  claimRunnableBillingJob,
   getBillingCustomer,
   getOpenBillingJob,
   getSiteSubscriptionById,
@@ -57,13 +58,30 @@ async function hostingTargetFor(row: SiteSubscriptionRow): Promise<HostingTarget
   };
 }
 
+function jobMatchesDesired(
+  kind: "pause" | "resume",
+  desired: string,
+): boolean {
+  if (kind === "pause") return desired === "paused";
+  return desired === "active";
+}
+
 export async function processHostingJob(
   job: BillingJobRow,
   now = new Date(),
 ): Promise<{ reportSuccess: boolean; actual: string }> {
-  const row = await getSiteSubscriptionById(job.subscription_id, job.billing_mode);
-  if (!row) {
-    await updateBillingJob(job.id, {
+  const claimed = await claimRunnableBillingJob(job.id, now, "reconcile");
+  if (!claimed) {
+    return { reportSuccess: false, actual: "claimed_elsewhere" };
+  }
+
+  const kind = claimed.kind === "resume" ? "resume" : "pause";
+  const latestBeforeProvider = await getSiteSubscriptionById(
+    claimed.subscription_id,
+    claimed.billing_mode,
+  );
+  if (!latestBeforeProvider) {
+    await updateBillingJob(claimed.id, {
       status: "failed",
       last_error: "subscription_missing",
       completed_at: now,
@@ -71,24 +89,11 @@ export async function processHostingJob(
     return { reportSuccess: false, actual: "missing" };
   }
 
-  await updateBillingJob(job.id, {
-    status: "running",
-    attempts: job.attempts + 1,
-    lease_owner: "reconcile",
-    lease_expires_at: new Date(now.getTime() + 60_000),
-  });
-
-  const kind = job.kind === "resume" ? "resume" : "pause";
-  const latestBeforeProvider = await getSiteSubscriptionById(job.subscription_id, job.billing_mode);
-  if (!latestBeforeProvider) {
-    await updateBillingJob(job.id, { status: "failed", last_error: "subscription_missing", completed_at: now });
-    return { reportSuccess: false, actual: "missing" };
-  }
-
-  if (kind === "pause" && latestBeforeProvider.hosting_state_desired === "active") {
-    await updateBillingJob(job.id, {
+  if (!jobMatchesDesired(kind, latestBeforeProvider.hosting_state_desired)) {
+    await updateBillingJob(claimed.id, {
       status: "done",
-      last_error: "stale_pause_after_reactivate",
+      last_error:
+        kind === "pause" ? "stale_pause_after_reactivate" : "stale_resume_after_desired_change",
       completed_at: now,
     });
     return { reportSuccess: true, actual: latestBeforeProvider.hosting_state_actual };

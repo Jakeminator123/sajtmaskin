@@ -1,4 +1,4 @@
-import { and, desc, eq, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -393,6 +393,58 @@ export async function updateBillingJob(
     .update(billingJobs)
     .set({ ...patch, updated_at: new Date() })
     .where(eq(billingJobs.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
+ * Ett jobb är ledigt om det är pending, eller running med utgången/saknad lease.
+ * Avslutade jobb får inte plockas om — även om lease_expires_at ligger i dåtid.
+ */
+export function isBillingJobClaimable(input: {
+  status: string;
+  leaseExpiresAt: Date | null;
+  now: Date;
+}): boolean {
+  if (input.status === "pending") return true;
+  if (input.status === "running") {
+    return !input.leaseExpiresAt || input.leaseExpiresAt.getTime() <= input.now.getTime();
+  }
+  return false;
+}
+
+/**
+ * Atomiskt anspråk: bara en körning får raden via RETURNING.
+ * Tom RETURNING = någon annan äger jobbet; anropa inte providern.
+ */
+export async function claimRunnableBillingJob(
+  id: string,
+  now: Date,
+  leaseOwner: string,
+  leaseMs = 60_000,
+): Promise<BillingJobRow | null> {
+  assertDbConfigured();
+  const rows = await db
+    .update(billingJobs)
+    .set({
+      status: "running",
+      attempts: sql`${billingJobs.attempts} + 1`,
+      lease_owner: leaseOwner,
+      lease_expires_at: new Date(now.getTime() + leaseMs),
+      updated_at: now,
+    })
+    .where(
+      and(
+        eq(billingJobs.id, id),
+        or(
+          eq(billingJobs.status, "pending"),
+          and(
+            eq(billingJobs.status, "running"),
+            or(isNull(billingJobs.lease_expires_at), lte(billingJobs.lease_expires_at, now)),
+          ),
+        ),
+      ),
+    )
     .returning();
   return rows[0] ?? null;
 }

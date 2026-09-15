@@ -13,22 +13,69 @@ vi.mock("@/lib/db/services/projects", () => ({
 
 const { pickLastPublishedDeploymentRef } = await import("./site-subscription-hosting");
 
+const previewOnly = [
+  {
+    vercelDeploymentId: "dpl_preview",
+    status: "ready",
+    url: "https://kund-a1b2c3d-team.vercel.app",
+  },
+];
+
 describe("pickLastPublishedDeploymentRef", () => {
-  it("tar senaste ready-rad med live-URL och hoppar preview utan url", () => {
+  it("vägrar restore från enbart preview-/per-deployment-rad", () => {
     expect(
-      pickLastPublishedDeploymentRef([
-        { vercelDeploymentId: "dpl_preview", status: "ready", url: null },
-        { vercelDeploymentId: "dpl_prod", status: "READY", url: "https://kund.se" },
-      ]),
+      pickLastPublishedDeploymentRef(previewOnly, {
+        attestedProductionHost: "kund-team.vercel.app",
+        verifiedCustomerHosts: ["kund.se"],
+      }),
+    ).toBeNull();
+  });
+
+  it("kräver bevisad produktionsidentitet, inte bara ready+url", () => {
+    expect(
+      pickLastPublishedDeploymentRef(
+        [
+          { vercelDeploymentId: "dpl_preview", status: "ready", url: "https://kund-a1b2c3d-team.vercel.app" },
+          { vercelDeploymentId: "dpl_guess", status: "READY", url: "https://kund-team.vercel.app" },
+        ],
+        {},
+      ),
+    ).toBeNull();
+  });
+
+  it("godkänner exakt attesterat produktionsalias", () => {
+    expect(
+      pickLastPublishedDeploymentRef(
+        [
+          { vercelDeploymentId: "dpl_preview", status: "ready", url: "https://kund-a1b2c3d-team.vercel.app" },
+          { vercelDeploymentId: "dpl_prod", status: "READY", url: "https://kund-team.vercel.app" },
+        ],
+        { attestedProductionHost: "kund-team.vercel.app" },
+      ),
     ).toBe("dpl:dpl_prod");
   });
 
-  it("returnerar null i stället för prj-fallback när publicerad version saknas", () => {
+  it("godkänner verifierad kunddomän utanför vercel.app", () => {
     expect(
-      pickLastPublishedDeploymentRef([
-        { vercelDeploymentId: "dpl_draft", status: "building", url: null },
-        { vercelDeploymentId: "dpl_ready_preview", status: "ready", url: "" },
-      ]),
+      pickLastPublishedDeploymentRef(
+        [
+          { vercelDeploymentId: "dpl_preview", status: "ready", url: null },
+          { vercelDeploymentId: "dpl_prod", status: "READY", url: "https://kund.se" },
+        ],
+        { verifiedCustomerHosts: ["kund.se"] },
+      ),
+    ).toBe("dpl:dpl_prod");
+  });
+
+  it("returnerar null i stället för att gissa när bevis saknas", () => {
+    expect(
+      pickLastPublishedDeploymentRef(
+        [
+          { vercelDeploymentId: "dpl_draft", status: "building", url: null },
+          { vercelDeploymentId: "dpl_ready_preview", status: "ready", url: "" },
+        ],
+        { attestedProductionHost: "kund-team.vercel.app" },
+      ),
     ).toBeNull();
   });
 });
