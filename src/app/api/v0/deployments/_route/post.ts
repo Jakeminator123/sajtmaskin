@@ -49,6 +49,11 @@ import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zi
 import { buildEnvDegradationWarnings } from "../env-degradation-warnings";
 import { resolveLiveUrl } from "@/lib/live-site-url";
 import {
+  applyCanonicalHostRedirect,
+  isCanonicalAddressContractEnabled,
+  prepareCanonicalAddressContract,
+} from "@/lib/deploy/canonical-site-address";
+import {
   collectBrandedPilotCapabilitySignals,
   resolveBrandedPilotArtifactReview,
   resolveBrandedPilotRuntimeActivation,
@@ -579,20 +584,29 @@ export async function POST(req: Request) {
           vercelProjectName,
           existingVercelProjectId,
         );
-        const domainWarnings: string[] = [];
-        const resolvedSeoOptions = resolveDeploySeoOptions(
-          bodySeo,
-          persistedSeo,
-          resolveLiveUrl({
-            projectId: engineProjectId,
-            versionId,
-            brandedDomain: publishedIdentity.brandedDomain,
-            brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
-            customDomain: publishedIdentity.customDomain,
-            customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
-          }),
-        );
-        const envVarsForDeploy = projectEnv.configuredMap;
+        const verifiedLiveUrl = resolveLiveUrl({
+          projectId: engineProjectId,
+          versionId,
+          brandedDomain: publishedIdentity.brandedDomain,
+          brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
+          customDomain: publishedIdentity.customDomain,
+          customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
+        });
+        const canonicalAddress = prepareCanonicalAddressContract({
+          featureRequested: isCanonicalAddressContractEnabled(),
+          projectId: engineProjectId,
+          vercelProjectId: ensuredProject.id,
+          target: deployTarget,
+          verifiedLiveUrl,
+          // A3 cannot safely infer a production provider alias from a project
+          // name or deployment URL. A4 must supply an exact same-project alias
+          // together with HTTPS proof before runtime activation can open.
+          verifiedProviderDomain: null,
+          configuredEnv: projectEnv.configuredMap,
+        });
+        const domainWarnings: string[] = [...canonicalAddress.warnings];
+        const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo, verifiedLiveUrl);
+        const envVarsForDeploy = canonicalAddress.envVars;
         if (fixesApplied.length > 0) {
           console.info("[deploy] applied fixes:", fixesApplied);
         }
@@ -674,7 +688,23 @@ export async function POST(req: Request) {
             scoreAfter: seoPass.report.after.score,
           });
         }
-        const filesForDeploy = seoPass ? seoPass.files : fixedFiles;
+        const canonicalHostRedirect = applyCanonicalHostRedirect(
+          seoPass ? seoPass.files : fixedFiles,
+          canonicalAddress.hostRedirectCandidate,
+          {
+            projectId: engineProjectId,
+            vercelProjectId: ensuredProject.id,
+            target: deployTarget,
+          },
+        );
+        domainWarnings.push(...canonicalHostRedirect.warnings);
+        const filesForDeploy = canonicalHostRedirect.files;
+        const canonicalAddressGate = {
+          requested: canonicalAddress.contract.requested,
+          enabled: canonicalAddress.contract.enabled,
+          reason: canonicalAddress.contract.activationReason,
+          redirectApplied: canonicalHostRedirect.applied,
+        };
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
@@ -783,6 +813,7 @@ export async function POST(req: Request) {
           readyState: created.readyState,
           projectId: engineProjectId,
           brandedPilotGate,
+          canonicalAddressGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           url: liveUrl,
           providerUrl: created.url ?? null,
@@ -803,6 +834,7 @@ export async function POST(req: Request) {
           readyState: created.readyState,
           projectId: engineProjectId,
           brandedPilotGate,
+          canonicalAddressGate,
           envVarCount: Object.keys(envVarsForDeploy).length,
           fixesApplied,
           preDeployWarnings: warnings,

@@ -2205,14 +2205,19 @@ describe("POST /api/v0/deployments", () => {
     expect(filePaths).toContain("package.json");
   });
 
-  it("delivers every configured project env value inline and to the Vercel project", async () => {
+  it.each(["false", "true"])("preserves configured env and customer redirects with the canonical flag=%s", async (flag) => {
+    vi.stubEnv("SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT", flag);
     const commit = vi.fn(async () => undefined);
     const refund = vi.fn(async () => undefined);
     const configuredEnv = {
       OPENAI_API_KEY: "openai-runtime-sentinel",
       RESEND_API_KEY: "resend-runtime-sentinel",
       CONTACT_EMAIL_TO: "shoes@example.test",
+      NEXT_PUBLIC_SITE_URL: "https://customer.example",
     };
+    const customerConfig = JSON.stringify({
+      redirects: [{ source: "/old", destination: "/new", permanent: true }],
+    });
     prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
     getStoredProjectEnvVarMap.mockResolvedValue(configuredEnv);
     createDeploymentRecord.mockResolvedValue("dep_1");
@@ -2225,6 +2230,7 @@ describe("POST /api/v0/deployments", () => {
     });
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: "vercel.json", content: customerConfig },
       {
         path: "env.example",
         content: "OPENAI_API_KEY=\nRESEND_API_KEY=\nCONTACT_EMAIL_TO=\n",
@@ -2240,6 +2246,12 @@ describe("POST /api/v0/deployments", () => {
     );
 
     expect(res.status).toBe(200);
+    expect((await res.json()).canonicalAddressGate).toEqual({
+      requested: flag === "true",
+      enabled: false,
+      reason: flag === "true" ? "activation_not_ready" : "feature_disabled",
+      redirectApplied: false,
+    });
     expect(createVercelDeployment).toHaveBeenCalledWith(
       expect.objectContaining({ envVars: configuredEnv }),
     );
@@ -2249,6 +2261,7 @@ describe("POST /api/v0/deployments", () => {
       files: Array<{ name: string; content: string }>;
     };
     const envExample = deployCall.files.find((file) => file.name === "env.example");
+    expect(deployCall.files.find((file) => file.name === "vercel.json")?.content).toBe(customerConfig);
     expect(envExample?.content).toContain("OPENAI_API_KEY=");
     expect(envExample?.content).toContain("RESEND_API_KEY=");
     expect(envExample?.content).toContain("CONTACT_EMAIL_TO=");
