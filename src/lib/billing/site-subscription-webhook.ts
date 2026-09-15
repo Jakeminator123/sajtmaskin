@@ -23,6 +23,8 @@ import {
   eventMatchesServerBillingMode,
   shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
+  shouldFulfillEndedRow,
+  shouldPauseHostingAfterSubscriptionDeleted,
   shouldRetainPaidLifecycleAfterDelete,
   type SiteSubscriptionLifecycleState,
 } from "./site-subscription-policy";
@@ -35,6 +37,7 @@ import {
   readInvoiceSubscriptionId,
   readSiteSubscriptionMetadata,
   readStripeId,
+  retrieveCheckoutSessionFresh,
   retrieveInvoiceFresh,
   retrieveSubscriptionFresh,
 } from "./site-subscription-stripe";
@@ -178,6 +181,14 @@ export async function fulfillPaidSubscriptionRow(input: {
   if (input.row.lifecycle_state === "checkout_pending" && !invoicePaid) {
     return { granted: false, status: "skipped", reason: "invoice_not_paid", applied: false };
   }
+  const endedGate = shouldFulfillEndedRow({
+    lifecycleState: input.row.lifecycle_state as SiteSubscriptionLifecycleState,
+    endedReason: input.row.ended_reason,
+    invoicePaid,
+  });
+  if (!endedGate.apply) {
+    return { granted: false, status: "skipped", reason: endedGate.reason, applied: false };
+  }
   await applyPaidSubscription({
     row: input.row,
     stripeStatus: subscription.status,
@@ -286,7 +297,7 @@ async function dispatchSiteSubscriptionEvent(input: {
     case "checkout.session.expired": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (!isSiteSubscriptionMetadata(session.metadata)) return ok({ ignored: "not_site_subscription" });
-      return handleCheckoutExpired(session, serverBillingMode);
+      return handleCheckoutExpired(stripe, session, serverBillingMode);
     }
     case "customer.subscription.created":
     case "customer.subscription.updated": {
@@ -335,11 +346,40 @@ async function handleCheckoutCompleted(
     return retry("subscription_row_missing");
   }
 
-  await updateSiteSubscription(row.id, billingMode, {
-    stripe_checkout_session_id: session.id,
-    stripe_subscription_id: stripeSubscriptionId ?? row.stripe_subscription_id,
-    billing_customer_id: row.billing_customer_id,
-  });
+  const existingSessionId = row.stripe_checkout_session_id;
+  const existingSubscriptionId = row.stripe_subscription_id;
+  if (existingSessionId && existingSessionId !== session.id) {
+    return ok({ ignored: "foreign_checkout_session" });
+  }
+  if (
+    existingSubscriptionId &&
+    stripeSubscriptionId &&
+    existingSubscriptionId !== stripeSubscriptionId
+  ) {
+    return ok({ ignored: "foreign_subscription" });
+  }
+
+  const patch: {
+    stripe_checkout_session_id?: string;
+    stripe_subscription_id?: string;
+  } = {};
+  if (!existingSessionId) {
+    patch.stripe_checkout_session_id = session.id;
+  }
+  if (!existingSubscriptionId && stripeSubscriptionId) {
+    patch.stripe_subscription_id = stripeSubscriptionId;
+  }
+
+  if (Object.keys(patch).length > 0) {
+    const written = existingSessionId
+      ? await updateSiteSubscription(row.id, billingMode, patch)
+      : await updateSiteSubscription(row.id, billingMode, patch, {
+          expectedEmptyCheckoutSession: true,
+        });
+    if (!written) {
+      return ok({ ignored: "checkout_session_already_set" });
+    }
+  }
 
   // Checkout-success knyter Stripe-id:n. Raden stannar i checkout_pending
   // tills invoice.paid skriver period + active. Sätt inte lifecycle här —
@@ -348,12 +388,19 @@ async function handleCheckoutCompleted(
 }
 
 async function handleCheckoutExpired(
-  session: Stripe.Checkout.Session,
+  stripe: Stripe,
+  incoming: Stripe.Checkout.Session,
   billingMode: BillingMode,
 ): Promise<WebhookHandleResult> {
-  const row = await getSiteSubscriptionByCheckoutSession(session.id, billingMode);
+  const row = await getSiteSubscriptionByCheckoutSession(incoming.id, billingMode);
   if (!row || row.lifecycle_state !== "checkout_pending") {
     return ok({ ignored: "no_pending_claim" });
+  }
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await retrieveCheckoutSessionFresh(stripe, incoming.id);
+  } catch {
+    return retry("checkout_session_retrieve_failed");
   }
   const claim = classifyCheckoutClaim({
     now: new Date(),
@@ -465,6 +512,10 @@ async function handleSubscriptionDeleted(
     currentPeriodEnd: row.current_period_end,
     now,
   });
+  const pauseHosting = shouldPauseHostingAfterSubscriptionDeleted({
+    lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
+    stillPaid,
+  });
 
   await updateSiteSubscription(row.id, billingMode, {
     stripe_status: current.status,
@@ -472,10 +523,10 @@ async function handleSubscriptionDeleted(
     ended_reason: stillPaid ? row.ended_reason : "subscription_deleted",
     ended_at: stillPaid ? row.ended_at : now,
     cancel_at_period_end: true,
-    hosting_state_desired: stillPaid ? row.hosting_state_desired : "paused",
+    ...(pauseHosting ? { hosting_state_desired: "paused" as const } : {}),
   });
 
-  if (!stillPaid) {
+  if (pauseHosting) {
     await enqueueHostingJob({
       subscriptionId: row.id,
       billingMode,

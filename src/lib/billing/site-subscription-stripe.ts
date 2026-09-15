@@ -131,6 +131,13 @@ export async function retrieveInvoiceFresh(
   });
 }
 
+export async function retrieveCheckoutSessionFresh(
+  stripe: Stripe,
+  sessionId: string,
+): Promise<Stripe.Checkout.Session> {
+  return stripe.checkout.sessions.retrieve(sessionId);
+}
+
 export function isLatestInvoicePaid(subscription: Stripe.Subscription): boolean {
   const latest = subscription.latest_invoice;
   if (!latest || typeof latest === "string") return false;

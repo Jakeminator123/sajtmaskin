@@ -11,6 +11,7 @@ const updateSiteSubscription = vi.hoisted(() => vi.fn());
 const grantSiteSubscriptionPeriodCredits = vi.hoisted(() => vi.fn());
 const retrieveSubscriptionFresh = vi.hoisted(() => vi.fn());
 const retrieveInvoiceFresh = vi.hoisted(() => vi.fn());
+const retrieveCheckoutSessionFresh = vi.hoisted(() => vi.fn());
 const enqueueHostingJob = vi.hoisted(() => vi.fn());
 
 vi.mock("./site-subscription-events", () => ({
@@ -44,6 +45,7 @@ vi.mock("./site-subscription-stripe", async (importOriginal) => {
     ...actual,
     retrieveSubscriptionFresh,
     retrieveInvoiceFresh,
+    retrieveCheckoutSessionFresh,
   };
 });
 
@@ -266,12 +268,12 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(updateSiteSubscription).toHaveBeenCalledWith(
       "sub_row",
       "test",
-      expect.objectContaining({
-        stripe_checkout_session_id: "cs_1",
-        stripe_subscription_id: "sub_1",
-      }),
+      { stripe_subscription_id: "sub_1" },
     );
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("lifecycle_state");
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty(
+      "stripe_checkout_session_id",
+    );
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
   });
 
@@ -300,7 +302,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
 
     expect(result.status).toBe(200);
     expect(result.body.granted).toBe(false);
-    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("lifecycle_state");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
   });
 
@@ -395,6 +397,12 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       lifecycle_state: "checkout_pending",
       stripe_subscription_id: null,
     });
+    retrieveCheckoutSessionFresh.mockResolvedValue({
+      id: "cs_1",
+      status: "expired",
+      subscription: "sub_1",
+      expires_at: 1_726_401_600,
+    });
 
     const paid = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
@@ -411,6 +419,12 @@ describe("handleSiteSubscriptionStripeEvent", () => {
 
     updateSiteSubscription.mockClear();
     updateSiteSubscription.mockResolvedValue({ ...row, lifecycle_state: "ended" });
+    retrieveCheckoutSessionFresh.mockResolvedValue({
+      id: "cs_1",
+      status: "expired",
+      subscription: null,
+      expires_at: 1_726_401_600,
+    });
     const unpaid = await handleSiteSubscriptionStripeEvent({
       stripe: {} as Stripe,
       event: event("checkout.session.expired", {
@@ -480,11 +494,8 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
       expect.objectContaining({ lifecycle_state: "active" }),
     );
-    expect(enqueueHostingJob).toHaveBeenCalledWith({
-      subscriptionId: "sub_row",
-      billingMode: "test",
-      kind: "pause",
-    });
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("hosting_state_desired");
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
   });
 
   it("behåller redan betald active när deleted har tid kvar", async () => {
@@ -655,5 +666,352 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(result.body.grant).toMatchObject({ granted: false, reason: "subscription_terminal" });
     expect(updateSiteSubscription).not.toHaveBeenCalled();
     expect(enqueueHostingJob).not.toHaveBeenCalled();
+  });
+
+  it("återöppnar inte ended+subscription_deleted även när Stripe-sub fortfarande är active", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_paid",
+      status: "paid",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      lines: {
+        data: [
+          {
+            period: { start: 1726401600, end: 1729080000 },
+            parent: { type: "subscription_item_details" },
+          },
+        ],
+      },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_paid", status: "paid" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: {
+        ...row,
+        lifecycle_state: "ended",
+        ended_reason: "subscription_deleted",
+      } as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(result).toMatchObject({
+      granted: false,
+      applied: false,
+      reason: "ended_terminal",
+    });
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("reparerar ended+checkout_expired när fakturan är paid", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_paid",
+      status: "paid",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+      lines: {
+        data: [
+          {
+            period: { start: 1726401600, end: 1729080000 },
+            parent: { type: "subscription_item_details" },
+          },
+        ],
+      },
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_paid", status: "paid" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: {
+        ...row,
+        lifecycle_state: "ended",
+        ended_reason: "checkout_expired",
+      } as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.granted).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({ lifecycle_state: "active", ended_reason: null }),
+    );
+  });
+
+  it("reparerar inte ended+checkout_expired utan paid invoice", async () => {
+    retrieveInvoiceFresh.mockResolvedValue({
+      id: "in_open",
+      status: "open",
+      billing_reason: "subscription_create",
+      period_start: 1726401600,
+      period_end: 1729080000,
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      latest_invoice: { id: "in_open", status: "open" },
+      items: { data: [{ current_period_start: 1726401600, current_period_end: 1729080000 }] },
+    });
+
+    const result = await fulfillPaidSubscriptionRow({
+      stripe: {} as Stripe,
+      row: {
+        ...row,
+        lifecycle_state: "ended",
+        ended_reason: "checkout_expired",
+      } as never,
+      stripeSubscriptionId: "sub_1",
+    });
+
+    expect(result).toMatchObject({
+      granted: false,
+      applied: false,
+      reason: "ended_terminal",
+    });
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("pausar active som deleted utan kvarvarande period", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      current_period_end: new Date("2026-09-14T12:00:00.000Z"),
+      hosting_state_desired: "active",
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_1",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.body.stillPaid).toBe(false);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        lifecycle_state: "ended",
+        hosting_state_desired: "paused",
+      }),
+    );
+    expect(enqueueHostingJob).toHaveBeenCalledWith({
+      subscriptionId: "sub_row",
+      billingMode: "test",
+      kind: "pause",
+    });
+  });
+
+  it("skriver inte över vinnarens checkout- eller subscription-id från orphan complete", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_checkout_session_id: "cs_winner",
+      stripe_subscription_id: "sub_winner",
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_orphan",
+        mode: "subscription",
+        subscription: "sub_orphan",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("foreign_checkout_session");
+    expect(result.body.attached).not.toBe(true);
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("ignorerar orphan complete som bara skiljer subscription-id", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_checkout_session_id: "cs_1",
+      stripe_subscription_id: "sub_winner",
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_1",
+        mode: "subscription",
+        subscription: "sub_orphan",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.body.ignored).toBe("foreign_subscription");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("fyller tomt session-id bakom CAS och lämnar redan satt id", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_checkout_session_id: null,
+      stripe_subscription_id: null,
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_new",
+        mode: "subscription",
+        subscription: "sub_1",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.body.attached).toBe(true);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      {
+        stripe_checkout_session_id: "cs_new",
+        stripe_subscription_id: "sub_1",
+      },
+      { expectedEmptyCheckoutSession: true },
+    );
+  });
+
+  it("ignorerar checkout.completed när CAS förlorar mot vinnarens session", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue(null);
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue(null);
+    getOpenSiteSubscription.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_checkout_session_id: null,
+      stripe_subscription_id: null,
+    });
+    updateSiteSubscription.mockResolvedValue(null);
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_orphan",
+        mode: "subscription",
+        subscription: "sub_orphan",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("checkout_session_already_set");
+    expect(result.body.attached).not.toBe(true);
+  });
+
+  it("ignorerar expired-payload utan subscription när fresh retrieve är paid", async () => {
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+    });
+    retrieveCheckoutSessionFresh.mockResolvedValue({
+      id: "cs_1",
+      status: "complete",
+      subscription: "sub_paid",
+      expires_at: 1_726_401_600,
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.expired", {
+        id: "cs_1",
+        status: "expired",
+        subscription: null,
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ignored).toBe("paid_claim");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
+
+  it("retrysar checkout.expired när fresh retrieve failar i stället för att end_claim", async () => {
+    getSiteSubscriptionByCheckoutSession.mockResolvedValue({
+      ...row,
+      lifecycle_state: "checkout_pending",
+      stripe_subscription_id: null,
+    });
+    retrieveCheckoutSessionFresh.mockRejectedValue(new Error("stripe_timeout"));
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.expired", {
+        id: "cs_1",
+        status: "expired",
+        subscription: null,
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(500);
+    expect(result.body.error).toBe("checkout_session_retrieve_failed");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(completeStripeBillingEvent).not.toHaveBeenCalled();
+    expect(failStripeBillingEvent).toHaveBeenCalledWith(
+      "evt_1",
+      "checkout_session_retrieve_failed",
+    );
   });
 });

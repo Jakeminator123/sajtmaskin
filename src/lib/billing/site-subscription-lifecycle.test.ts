@@ -13,7 +13,9 @@ import {
   isPlatformVercelProject,
   shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
+  shouldFulfillEndedRow,
   shouldGrantPeriodCredits,
+  shouldPauseHostingAfterSubscriptionDeleted,
   shouldRetainPaidLifecycleAfterDelete,
 } from "./site-subscription-policy";
 
@@ -592,6 +594,80 @@ describe("subscription.deleted mot lifecycle", () => {
         now,
       }),
     ).toBe(false);
+  });
+
+  it("köar pause bara för tidigare active, inte pending", () => {
+    expect(
+      shouldPauseHostingAfterSubscriptionDeleted({
+        lifecycleState: "checkout_pending",
+        stillPaid: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPauseHostingAfterSubscriptionDeleted({
+        lifecycleState: "active",
+        stillPaid: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPauseHostingAfterSubscriptionDeleted({
+        lifecycleState: "active",
+        stillPaid: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("ended + fulfill", () => {
+  it("återöppnar inte subscription_deleted eller user_canceled", () => {
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "ended",
+        endedReason: "subscription_deleted",
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: false, reason: "ended_terminal" });
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "ended",
+        endedReason: "user_canceled",
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: false, reason: "ended_terminal" });
+  });
+
+  it("låter checkout_expired + paid invoice reparera, inte unpaid", () => {
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "ended",
+        endedReason: "checkout_expired",
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: true, reason: "repair_expired_paid" });
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "ended",
+        endedReason: "checkout_expired",
+        invoicePaid: false,
+      }),
+    ).toEqual({ apply: false, reason: "ended_terminal" });
+  });
+
+  it("lämnar checkout_pending och active till de vanliga grindarna", () => {
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "checkout_pending",
+        endedReason: null,
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: true, reason: "not_ended" });
+    expect(
+      shouldFulfillEndedRow({
+        lifecycleState: "active",
+        endedReason: null,
+        invoicePaid: true,
+      }),
+    ).toEqual({ apply: true, reason: "not_ended" });
   });
 });
 

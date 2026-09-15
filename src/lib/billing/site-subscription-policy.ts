@@ -136,6 +136,41 @@ export function shouldApplyPaidSubscription(input: {
   return { apply: true, reason: "current_payment" };
 }
 
+const TERMINAL_ENDED_REASONS = new Set(["subscription_deleted", "user_canceled"]);
+
+/**
+ * `ended` får inte bli `active` igen via fulfill, utom reparation av en
+ * felstängd betald checkout (`checkout_expired` + paid invoice).
+ * `checkout_pending` och `active` lämnas till de vanliga grindarna.
+ */
+export function shouldFulfillEndedRow(input: {
+  lifecycleState: SiteSubscriptionLifecycleState;
+  endedReason: string | null | undefined;
+  invoicePaid: boolean;
+}): { apply: boolean; reason: string } {
+  if (input.lifecycleState !== "ended") {
+    return { apply: true, reason: "not_ended" };
+  }
+  if (input.endedReason === "checkout_expired" && input.invoicePaid) {
+    return { apply: true, reason: "repair_expired_paid" };
+  }
+  if (TERMINAL_ENDED_REASONS.has(input.endedReason ?? "")) {
+    return { apply: false, reason: "ended_terminal" };
+  }
+  return { apply: false, reason: "ended_terminal" };
+}
+
+/**
+ * Pause-jobb efter `subscription.deleted` bara för tidigare `active`.
+ * Aldrig-betald `checkout_pending` ska inte pausa sajten.
+ */
+export function shouldPauseHostingAfterSubscriptionDeleted(input: {
+  lifecycleState: SiteSubscriptionLifecycleState;
+  stillPaid: boolean;
+}): boolean {
+  return input.lifecycleState === "active" && !input.stillPaid;
+}
+
 /**
  * `subscription.deleted` får bara behålla `active` när raden redan var betald
  * och perioden finns kvar. `checkout_pending` + framtida period (skriven av
