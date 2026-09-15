@@ -7,8 +7,28 @@ import {
   WIZARD_PURPOSES,
   WIZARD_VIBE_IDS,
   WIZARD_VIBES,
+  isWizardIndustryId,
   resolveWizardIndustryHint,
+  wizardIndustryLabel,
+  wizardPurposeLabel,
+  wizardVibeLabel,
 } from "./wizard-taxonomy";
+
+const INHERITED_OBJECT_KEYS = [
+  "constructor",
+  "toString",
+  "valueOf",
+  "hasOwnProperty",
+  "__proto__",
+] as const;
+
+function expectAllowedIndustryHint(value: unknown) {
+  expect(typeof value).toBe("string");
+  expect(value === "" || isWizardIndustryId(value as string)).toBe(true);
+  if (value !== "") {
+    expect([...WIZARD_INDUSTRY_IDS]).toContain(value);
+  }
+}
 
 describe("wizard-taxonomy", () => {
   it("owns the same eleven industry ids as both wizards used before the move", () => {
@@ -99,5 +119,59 @@ describe("resolveWizardIndustryHint", () => {
     expect(resolveWizardIndustryHint(null)).toBe("");
     expect(resolveWizardIndustryHint("   ")).toBe("");
     expect(resolveWizardIndustryHint("okänd bransch")).toBe("");
+  });
+
+  it("does not treat inherited Object keys as industry ids", () => {
+    for (const key of INHERITED_OBJECT_KEYS) {
+      const resolved = resolveWizardIndustryHint(key);
+      expect(resolved, key).toBe("");
+      expectAllowedIndustryHint(resolved);
+      expect(typeof resolved).toBe("string");
+    }
+  });
+
+  it("returns only empty or an allowed industry id for known inputs", () => {
+    const samples = [
+      ...WIZARD_INDUSTRY_IDS,
+      ...WIZARD_INDUSTRIES.map((industry) => industry.label),
+      "hälsa",
+      "e-handel",
+      "annat",
+      "konditori",
+      "restaurang",
+      "frisörverksamhet",
+      "constructor",
+      null,
+      "   ",
+    ];
+    for (const sample of samples) {
+      expectAllowedIndustryHint(resolveWizardIndustryHint(sample));
+    }
+  });
+});
+
+describe("wizard label lookups", () => {
+  it("returns known purpose and vibe labels", () => {
+    expect(wizardPurposeLabel("booking")).toBe("Bokningar");
+    expect(wizardPurposeLabel("sell")).toBe("Sälja");
+    expect(wizardVibeLabel("modern")).toBe("Modern & Clean");
+    expect(wizardIndustryLabel("health")).toBe("Hälsa/Wellness");
+  });
+
+  it("falls back for inherited Object keys instead of returning a function", () => {
+    for (const key of INHERITED_OBJECT_KEYS) {
+      expect(wizardPurposeLabel(key, "purpose-fallback")).toBe("purpose-fallback");
+      expect(wizardPurposeLabel(key)).toBe(key);
+      expect(typeof wizardPurposeLabel(key)).toBe("string");
+      expect(wizardPurposeLabel(key)).not.toBeTypeOf("function");
+
+      expect(wizardVibeLabel(key, "vibe-fallback")).toBe("vibe-fallback");
+      expect(wizardVibeLabel(key)).toBe(key);
+      expect(typeof wizardVibeLabel(key)).toBe("string");
+      expect(wizardVibeLabel(key)).not.toBeTypeOf("function");
+
+      expect(wizardIndustryLabel(key, "industry-fallback")).toBe("industry-fallback");
+      expect(typeof wizardIndustryLabel(key)).toBe("string");
+    }
   });
 });

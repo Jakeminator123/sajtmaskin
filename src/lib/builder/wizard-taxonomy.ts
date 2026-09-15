@@ -147,10 +147,17 @@ export const WIZARD_VIBES: readonly WizardVibe[] = [
 function labelsFrom<T extends { id: string; label: string }>(
   items: readonly T[],
 ): Record<T["id"], string> {
-  return Object.fromEntries(items.map((item) => [item.id, item.label])) as Record<
-    T["id"],
-    string
-  >;
+  return Object.assign(
+    Object.create(null),
+    Object.fromEntries(items.map((item) => [item.id, item.label])),
+  ) as Record<T["id"], string>;
+}
+
+/** Own enumerable string only — inherited `Object` keys must not leak through. */
+function ownStringLabel(labels: object, id: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(labels, id)) return undefined;
+  const value = (labels as Record<string, unknown>)[id];
+  return typeof value === "string" ? value : undefined;
 }
 
 export const WIZARD_INDUSTRY_LABELS: Record<WizardIndustryId, string> =
@@ -187,34 +194,34 @@ export function normalizeWizardIndustryHint(value: string): string {
  * Helsträngsalias efter `normalizeWizardIndustryHint`. Bara uppenbara synonymer
  * till de elva id:na — inte yrkesgissningar.
  */
-const INDUSTRY_ALIASES: Record<string, WizardIndustryId> = {
-  konditori: "cafe",
-  "cafe konditori": "cafe",
-  restaurang: "restaurant",
-  bar: "restaurant",
-  "restaurang bar": "restaurant",
-  butik: "retail",
-  detaljhandel: "retail",
-  "butik detaljhandel": "retail",
-  it: "tech",
-  "it foretag": "tech",
-  "tech it": "tech",
-  "tech it foretag": "tech",
-  konsult: "consulting",
-  "konsult tjanster": "consulting",
-  halsa: "health",
-  wellness: "health",
-  "halsa wellness": "health",
-  kreativ: "creative",
-  "kreativ byra": "creative",
-  utbildning: "education",
-  ehandel: "ecommerce",
-  "e handel": "ecommerce",
-  "real estate": "realestate",
-  fastigheter: "realestate",
-  fastighet: "realestate",
-  annat: "other",
-};
+const INDUSTRY_ALIASES = new Map<string, WizardIndustryId>([
+  ["konditori", "cafe"],
+  ["cafe konditori", "cafe"],
+  ["restaurang", "restaurant"],
+  ["bar", "restaurant"],
+  ["restaurang bar", "restaurant"],
+  ["butik", "retail"],
+  ["detaljhandel", "retail"],
+  ["butik detaljhandel", "retail"],
+  ["it", "tech"],
+  ["it foretag", "tech"],
+  ["tech it", "tech"],
+  ["tech it foretag", "tech"],
+  ["konsult", "consulting"],
+  ["konsult tjanster", "consulting"],
+  ["halsa", "health"],
+  ["wellness", "health"],
+  ["halsa wellness", "health"],
+  ["kreativ", "creative"],
+  ["kreativ byra", "creative"],
+  ["utbildning", "education"],
+  ["ehandel", "ecommerce"],
+  ["e handel", "ecommerce"],
+  ["real estate", "realestate"],
+  ["fastigheter", "realestate"],
+  ["fastighet", "realestate"],
+  ["annat", "other"],
+]);
 
 /**
  * Sätter industry-id bara vid exakt id, visad label eller känd alias.
@@ -231,17 +238,18 @@ export function resolveWizardIndustryHint(
     (industry) => normalizeWizardIndustryHint(industry.label) === normalized,
   );
   if (fromLabel) return fromLabel.id;
-  return INDUSTRY_ALIASES[normalized] ?? "";
+  const aliased = INDUSTRY_ALIASES.get(normalized);
+  return aliased && isWizardIndustryId(aliased) ? aliased : "";
 }
 
 export function wizardIndustryLabel(id: string, fallback = id || "general"): string {
-  return isWizardIndustryId(id) ? WIZARD_INDUSTRY_LABELS[id] : fallback;
+  return ownStringLabel(WIZARD_INDUSTRY_LABELS, id) ?? fallback;
 }
 
 export function wizardPurposeLabel(id: string, fallback = id): string {
-  return (WIZARD_PURPOSE_LABELS as Record<string, string>)[id] ?? fallback;
+  return ownStringLabel(WIZARD_PURPOSE_LABELS, id) ?? fallback;
 }
 
 export function wizardVibeLabel(id: string, fallback = id): string {
-  return (WIZARD_VIBE_LABELS as Record<string, string>)[id] ?? fallback;
+  return ownStringLabel(WIZARD_VIBE_LABELS, id) ?? fallback;
 }
