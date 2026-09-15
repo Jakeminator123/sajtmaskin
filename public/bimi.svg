@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny-ps" width="512" height="512" viewBox="0 0 512 512">
   <title>Sajtmaskin</title>
   <rect width="512" height="512" fill="#05080A"/>
-  <g transform="translate(256 268) rotate(-28)">
+  <g transform="translate(256 220) rotate(-28)">
     <path d="M0 -120 C34 -86 56 -38 56 20 C56 92 22 136 0 160 C-22 136 -56 92 -56 20 C-56 -38 -34 -86 0 -120 Z" fill="none" stroke="#5EFFF6" stroke-width="22" stroke-linejoin="round"/>
     <circle cx="0" cy="16" r="16" fill="none" stroke="#5EFFF6" stroke-width="16"/>
     <path d="M-56 68 L-104 104" fill="none" stroke="#5EFFF6" stroke-width="22" stroke-linecap="round"/>
