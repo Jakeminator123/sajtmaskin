@@ -6,6 +6,7 @@ import { recordPageView } from "@/lib/db/services/analytics";
 import {
   backfillKostnadsfriPageProfile,
   getKostnadsfriPageBySlug,
+  markKostnadsfriProfileLookupSettled,
 } from "@/lib/db/services/kostnadsfri";
 import {
   extractCompanyData,
@@ -21,6 +22,7 @@ import {
   KOSTNADSFRI_CAMPAIGN_COOKIE,
   KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE,
 } from "@/lib/kostnadsfri/campaign-receipt";
+import { isKostnadsfriProfileFallbackSettled } from "@/lib/kostnadsfri/company-profile";
 import {
   isKostnadsfriLookupConfigured,
   lookupKostnadsfriProfile,
@@ -52,18 +54,33 @@ import {
  * uppräkning. Alla utfall utom träff lämnar `companyData` orörd — kunden får
  * då samma tomma wizard som före fallbacken, aldrig ett fel.
  */
+function settleProfileLookup(slug: string, outcome: "miss" | "empty") {
+  after(async () => {
+    try {
+      await markKostnadsfriProfileLookupSettled(slug, outcome);
+    } catch (error) {
+      const kind = error instanceof Error ? error.name : typeof error;
+      console.error(`[API/kostnadsfri/verify] Failed to settle profile lookup (${kind})`);
+    }
+  });
+}
+
 async function withProfileFallback(
   companyData: KostnadsfriCompanyData,
-  options: { hasRow: boolean },
+  options: { hasRow: boolean; extraData?: unknown },
 ): Promise<KostnadsfriCompanyData> {
   if (companyData.profile) return companyData;
+  if (isKostnadsfriProfileFallbackSettled(options.extraData)) return companyData;
   if (!isKostnadsfriLookupConfigured()) return companyData;
 
   const result = await lookupKostnadsfriProfile(companyData.slug);
   if (result.status !== "hit") {
     if (result.status === "unavailable") {
       // Orsakskod räcker för drift; inget ur svaret loggas.
+      // Timeout/503 ska kunna retrys — ingen negativ sentinel.
       console.warn(`[API/kostnadsfri/verify] Profile lookup unavailable (${result.reason})`);
+    } else if (result.status === "miss" && options.hasRow) {
+      settleProfileLookup(companyData.slug, "miss");
     }
     return companyData;
   }
@@ -78,6 +95,8 @@ async function withProfileFallback(
         console.error(`[API/kostnadsfri/verify] Failed to backfill profile (${kind})`);
       }
     });
+  } else if (options.hasRow && !result.profile) {
+    settleProfileLookup(companyData.slug, "empty");
   }
 
   return {
@@ -201,7 +220,10 @@ export async function POST(
       }
 
       return verifiedResponse(
-        await withProfileFallback(extractCompanyData(page), { hasRow: true }),
+        await withProfileFallback(extractCompanyData(page), {
+          hasRow: true,
+          extraData: page.extra_data,
+        }),
       );
     }
 

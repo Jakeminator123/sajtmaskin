@@ -48,6 +48,7 @@ describe("lookupKostnadsfriProfile", () => {
     expect(url).toBe(`${DEFAULT_KOSTNADSFRI_LOOKUP_URL}/api/kostnadsfri/lookup?slug=zax-2-0-ab`);
     expect((init?.headers as Record<string, string>)["x-api-key"]).toBe(SECRET);
     expect(init?.cache).toBe("no-store");
+    expect(init?.redirect).toBe("error");
     expect(result).toEqual({
       status: "hit",
       companyName: "Zax 2.0 AB",

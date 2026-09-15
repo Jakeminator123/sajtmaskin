@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   extractKostnadsfriCompanyProfile,
+  isKostnadsfriProfileFallbackSettled,
+  isKostnadsfriProfileSlotEmpty,
   findPersonalIdentityViolations,
   hasInvalidOrgNumber,
   normalizeKostnadsfriCompanyProfile,
@@ -349,5 +351,34 @@ describe("extractKostnadsfriCompanyProfile", () => {
   it("är null när extra_data saknas eller inte bär någon profil", () => {
     expect(extractKostnadsfriCompanyProfile(null)).toBeNull();
     expect(extractKostnadsfriCompanyProfile({ openclaw: {} })).toBeNull();
+    expect(extractKostnadsfriCompanyProfile({ profile: null })).toBeNull();
+  });
+});
+
+describe("isKostnadsfriProfileSlotEmpty", () => {
+  it("är tom när nyckeln saknas, är JSON-null eller {}", () => {
+    expect(isKostnadsfriProfileSlotEmpty(null)).toBe(true);
+    expect(isKostnadsfriProfileSlotEmpty({})).toBe(true);
+    expect(isKostnadsfriProfileSlotEmpty({ profile: null })).toBe(true);
+    expect(isKostnadsfriProfileSlotEmpty({ profile: {} })).toBe(true);
+  });
+
+  it("är inte tom för en giltig pushad profil", () => {
+    expect(isKostnadsfriProfileSlotEmpty({ profile: { city: "Kista" } })).toBe(false);
+  });
+});
+
+describe("isKostnadsfriProfileFallbackSettled", () => {
+  it("känner igen negativ sentinel och ignorerar annat", () => {
+    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "miss" } })).toBe(
+      true,
+    );
+    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "empty" } })).toBe(
+      true,
+    );
+    expect(isKostnadsfriProfileFallbackSettled({ profileFallback: { outcome: "hit" } })).toBe(
+      false,
+    );
+    expect(isKostnadsfriProfileFallbackSettled({ profile: { city: "Kista" } })).toBe(false);
   });
 });

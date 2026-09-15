@@ -376,3 +376,36 @@ export function extractKostnadsfriCompanyProfile(
   if (!extraData) return null;
   return normalizeKostnadsfriCompanyProfile(extraData.profile);
 }
+
+/**
+ * True när `extra_data.profile` inte är ett ifyllt objekt. Speglar SQL-villkoret
+ * i `backfillKostnadsfriPageProfile`: saknad nyckel, JSON-null, primitiv,
+ * array eller `{}` är skrivbart. Ett icke-tomt objekt är en giltig push och
+ * får inte skrivas över.
+ */
+export function isKostnadsfriProfileSlotEmpty(extraData: unknown): boolean {
+  if (!extraData || typeof extraData !== "object" || Array.isArray(extraData)) {
+    return true;
+  }
+  const record = extraData as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(record, "profile")) return true;
+  const profile = record.profile;
+  if (profile === null || profile === undefined) return true;
+  if (typeof profile !== "object" || Array.isArray(profile)) return true;
+  return Object.keys(profile).length === 0;
+}
+
+/** Negativ sentinel efter miss eller träff utan publicerbar profil. */
+export type KostnadsfriProfileFallbackOutcome = "miss" | "empty";
+
+export function isKostnadsfriProfileFallbackSettled(extraData: unknown): boolean {
+  if (!extraData || typeof extraData !== "object" || Array.isArray(extraData)) {
+    return false;
+  }
+  const fallback = (extraData as Record<string, unknown>).profileFallback;
+  if (!fallback || typeof fallback !== "object" || Array.isArray(fallback)) {
+    return false;
+  }
+  const outcome = (fallback as Record<string, unknown>).outcome;
+  return outcome === "miss" || outcome === "empty";
+}

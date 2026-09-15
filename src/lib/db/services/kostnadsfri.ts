@@ -103,10 +103,11 @@ export async function markKostnadsfriPageSent(
  * att nästa besök på länken slipper anropet. Samma `jsonb ||`-sammanslagning
  * som `markKostnadsfriPageSent`: `profile` byts ut, `openclaw` lämnas orörd.
  *
- * Skriver bara när raden fortfarande saknar profil (`extra_data->'profile'` är
- * null). En profil som kom in via push under tiden vinner alltid — den är
- * avsändarens färskaste, och en fallback får inte skriva över den. Returnerar
- * true när en rad uppdaterades.
+ * Skriver bara när profilslotten är tom: nyckeln saknas, är JSON-null,
+ * primitiv, array eller `{}`. `-> 'profile' IS NULL` räcker inte — i Postgres
+ * är `'{"profile": null}'::jsonb -> 'profile' IS NULL` false. Ett icke-tomt
+ * objekt är en giltig push och vinner alltid. Returnerar true när en rad
+ * uppdaterades.
  */
 export async function backfillKostnadsfriPageProfile(
   slug: string,
@@ -114,20 +115,42 @@ export async function backfillKostnadsfriPageProfile(
 ): Promise<boolean> {
   assertDbConfigured();
   if (Object.keys(profile).length === 0) return false;
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
   const rows = await db
     .update(kostnadsfriPages)
     .set({
-      extra_data: sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
-        { profile },
-      )}::jsonb`,
+      extra_data: sql`${extraData} || ${JSON.stringify({ profile })}::jsonb`,
       updated_at: new Date(),
     })
     .where(
       and(
         eq(kostnadsfriPages.slug, slug),
-        sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) -> 'profile' IS NULL`,
+        sql`(jsonb_typeof(${extraData} -> 'profile') IS DISTINCT FROM 'object' OR ${extraData} -> 'profile' = '{}'::jsonb)`,
       ),
     )
+    .returning({ id: kostnadsfriPages.id });
+  return rows.length > 0;
+}
+
+/**
+ * Negativ cache för miss / träff utan publicerbar profil. Rör inte `profile`,
+ * så en push som landar samtidigt vinner fortfarande.
+ */
+export async function markKostnadsfriProfileLookupSettled(
+  slug: string,
+  outcome: "miss" | "empty",
+): Promise<boolean> {
+  assertDbConfigured();
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`${extraData} || ${JSON.stringify({
+        profileFallback: { outcome },
+      })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(eq(kostnadsfriPages.slug, slug))
     .returning({ id: kostnadsfriPages.id });
   return rows.length > 0;
 }

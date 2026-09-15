@@ -109,6 +109,7 @@ export async function lookupKostnadsfriProfile(
       method: "GET",
       headers: { "x-api-key": secret, accept: "application/json" },
       cache: "no-store",
+      redirect: "error",
       signal: controller.signal,
     });
   } catch (error) {
