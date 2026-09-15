@@ -3,13 +3,17 @@ import { z } from "zod/v4";
 import { verifyPassword } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
-import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
+import {
+  backfillKostnadsfriPageProfile,
+  getKostnadsfriPageBySlug,
+} from "@/lib/db/services/kostnadsfri";
 import {
   extractCompanyData,
   companyDataFromSlug,
   hasKostnadsfriPasswordSecret,
   isPageAccessible,
   verifyDeterministicPassword,
+  type KostnadsfriCompanyData,
 } from "@/lib/kostnadsfri";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import {
@@ -17,6 +21,10 @@ import {
   KOSTNADSFRI_CAMPAIGN_COOKIE,
   KOSTNADSFRI_CAMPAIGN_RECEIPT_MAX_AGE,
 } from "@/lib/kostnadsfri/campaign-receipt";
+import {
+  isKostnadsfriLookupConfigured,
+  lookupKostnadsfriProfile,
+} from "@/lib/kostnadsfri/profile-lookup";
 
 /**
  * POST /api/kostnadsfri/[slug]/verify — Verify password for a kostnadsfri page
@@ -31,7 +39,55 @@ import {
  * A successful verification is recorded as a `page_views` row at
  * `/kostnadsfri/<slug>/verifierad` so the admin console can see which invited
  * companies actually got past the gate (see lib/kostnadsfri/analytics-paths).
+ *
+ * Profilfallback: saknas `extra_data.profile` efter ett korrekt lösenord hämtas
+ * den från utskicksverktyget (`lib/kostnadsfri/profile-lookup`), med bunden
+ * tid och våra egna PII-guards på svaret. Push förblir huvudvägen; det här
+ * täcker rader utan profil. Träffen skrivs tillbaka så anropet sker en gång.
  */
+
+/**
+ * Fyller på en saknad profil från utskicksverktyget. Körs bara när lösenordet
+ * redan är verifierat och profilen saknas, så anropet kan inte användas för
+ * uppräkning. Alla utfall utom träff lämnar `companyData` orörd — kunden får
+ * då samma tomma wizard som före fallbacken, aldrig ett fel.
+ */
+async function withProfileFallback(
+  companyData: KostnadsfriCompanyData,
+  options: { hasRow: boolean },
+): Promise<KostnadsfriCompanyData> {
+  if (companyData.profile) return companyData;
+  if (!isKostnadsfriLookupConfigured()) return companyData;
+
+  const result = await lookupKostnadsfriProfile(companyData.slug);
+  if (result.status !== "hit") {
+    if (result.status === "unavailable") {
+      // Orsakskod räcker för drift; inget ur svaret loggas.
+      console.warn(`[API/kostnadsfri/verify] Profile lookup unavailable (${result.reason})`);
+    }
+    return companyData;
+  }
+
+  if (options.hasRow && result.profile) {
+    const profile = result.profile as Record<string, unknown>;
+    after(async () => {
+      try {
+        await backfillKostnadsfriPageProfile(companyData.slug, profile);
+      } catch (error) {
+        const kind = error instanceof Error ? error.name : typeof error;
+        console.error(`[API/kostnadsfri/verify] Failed to backfill profile (${kind})`);
+      }
+    });
+  }
+
+  return {
+    ...companyData,
+    // Utan DB-rad är namnet härlett ur sluggen («Zax 2 0 Ab»). Registrets namn
+    // är det företaget känner igen. Med rad äger raden namnet.
+    companyName: options.hasRow ? companyData.companyName : result.companyName,
+    profile: result.profile,
+  };
+}
 
 function recordVerified(request: NextRequest, slug: string, sessionId: string) {
   const ip =
@@ -144,7 +200,9 @@ export async function POST(
         return NextResponse.json({ success: false, error: "Felaktigt lösenord." }, { status: 401 });
       }
 
-      return verifiedResponse(extractCompanyData(page));
+      return verifiedResponse(
+        await withProfileFallback(extractCompanyData(page), { hasRow: true }),
+      );
     }
 
     // Mode 2: No DB record — verify deterministically
@@ -159,8 +217,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Felaktigt lösenord." }, { status: 401 });
     }
 
-    // Success — return slug-derived company data
-    return verifiedResponse(companyDataFromSlug(slug));
+    // Success — slug-derived company data, enriched from the send tool when it
+    // knows the company (no row to backfill in this mode).
+    return verifiedResponse(
+      await withProfileFallback(companyDataFromSlug(slug), { hasRow: false }),
+    );
   } catch (error: unknown) {
     console.error("[API/kostnadsfri/verify] Error:", error);
     return NextResponse.json(
