@@ -1012,6 +1012,89 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
   });
 
+  it("traces init plan-mode with the resolved project id when only projectId is sent", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createOwnEnginePlanModeResponse.mockReturnValueOnce(
+      new Response("event: done\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        projectId: "proj_fallback_1",
+        system: "",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          planMode: true,
+        },
+      },
+    }));
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_resolved_1");
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Planera en ny marknadssajt.",
+          projectId: "proj_fallback_1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_entry",
+        appProjectId: "proj_resolved_1",
+      }),
+    );
+
+    const persist = (
+      createOwnEnginePlanModeResponse.mock.calls[0]?.[0] as {
+        persistAssistantSummary: (
+          planData: Record<string, unknown>,
+          hasBlockers: boolean,
+          context: {
+            hasPlanArtifact: boolean;
+            accumulatedContent: string;
+            upstreamErrorMessage: string | null;
+          },
+        ) => Promise<void>;
+      }
+    ).persistAssistantSummary;
+    await persist(
+      { goal: "Bygg", pages: [{ path: "/", name: "Start", intent: "sälja" }] },
+      false,
+      {
+        hasPlanArtifact: true,
+        accumulatedContent: "",
+        upstreamErrorMessage: null,
+      },
+    );
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_exit",
+        appProjectId: "proj_resolved_1",
+      }),
+    );
+  });
+
   it("pins the scaffold on the chat when the create/init round actually generates", async () => {
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([

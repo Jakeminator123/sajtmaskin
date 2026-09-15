@@ -705,7 +705,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             chatId: plannerChat.id,
             sessionId,
             userId: creditUser?.id ?? null,
-            appProjectId: parsedMeta.appProjectId,
+            appProjectId: projectIdForChat,
             modelTier: resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
