@@ -42,6 +42,7 @@ type Args = {
   designTheme: DesignTheme;
   appProjectId: string | null;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
+  promptHandoffId?: string | null;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
@@ -84,6 +85,7 @@ export function useBuilderPromptActions({
   designTheme: _designTheme,
   appProjectId: _appProjectId,
   pendingBriefRef,
+  promptHandoffId = null,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   templateInitAttemptKeyRef,
@@ -167,6 +169,18 @@ export function useBuilderPromptActions({
       if (chatId) return null;
       const trimmed = message.trim();
       if (!trimmed) return null;
+      if (promptHandoffId) {
+        pendingBriefRef.current = null;
+        const baseInstructions = customInstructions.trim();
+        const paletteHint = buildPaletteInstruction(paletteState);
+        const combined = [baseInstructions, paletteHint].filter(Boolean).join("\n\n");
+        if (combined) {
+          setCustomInstructions(combined);
+        }
+        pendingInstructionsRef.current = combined || null;
+        pendingInstructionsOnceRef.current = false;
+        return combined || null;
+      }
       setIsPreparingPrompt(true);
       try {
         pendingBriefRef.current = await generateDynamicInstructions(trimmed, {
@@ -197,6 +211,7 @@ export function useBuilderPromptActions({
       generateDynamicInstructions,
       paletteState,
       pendingBriefRef,
+      promptHandoffId,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
       setIsPreparingPrompt,

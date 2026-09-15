@@ -15,6 +15,19 @@ describe("deriveBuilderEntryState", () => {
     expect(entry.chatIdParam).toBeNull();
   });
 
+  it("classifies source=audit as an audit entry and still fetches the handoff", () => {
+    const entry = deriveBuilderEntryState(
+      params("source=audit&promptId=handoff_1&project=project_1&buildMethod=audit"),
+    );
+
+    expect(entry.entryKind).toBe("audit");
+    expect(entry.isAuditEntry).toBe(true);
+    expect(entry.source).toBe("audit");
+    expect(entry.buildMethodParam).toBe("audit");
+    expect(entry.shouldFetchPromptHandoff).toBe(true);
+    expect(entry.promptId).toBe("handoff_1");
+  });
+
   it("keeps explicit project links as restore entries", () => {
     const entry = deriveBuilderEntryState(params("project=project_1"));
 

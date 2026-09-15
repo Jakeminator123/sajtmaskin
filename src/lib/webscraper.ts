@@ -3,7 +3,7 @@
  * Extracts multi-page content so the audit is not limited to a weak landing page.
  */
 
-import type { WebsiteContent } from "@/types/audit";
+import type { ScrapedSiteImage, WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 // Crawl settings
@@ -55,9 +55,12 @@ const EMAIL_REGEX = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 // longer numeric runs (e.g. phone numbers).
 const ORG_NUMBER_REGEX = /(?<!\d)\d{6}-\d{4}(?!\d)/g;
 
+const IMAGE_EXTENSION_RE = /\.(jpe?g|png|gif|webp)(?:\?|#|$)/i;
+
 type ParsedPage = WebsiteContent & {
   linksForFollow: CandidateLink[];
   contact: ContactSignals;
+  imageCandidates: ScrapedSiteImage[];
 };
 
 function pageRichnessScore(page: ParsedPage): number {
@@ -106,6 +109,86 @@ function absoluteUrl(href: string, base: URL): string | null {
   } catch {
     return null;
   }
+}
+
+function looksLikeLogo(value: string): boolean {
+  return /logo|logotyp|brand|wordmark/i.test(value);
+}
+
+type CheerioRoot = ReturnType<Awaited<ReturnType<typeof getCheerio>>["load"]>;
+
+function extractSiteImages($: CheerioRoot, baseUrl: URL): ScrapedSiteImage[] {
+  const seen = new Set<string>();
+  const collected: ScrapedSiteImage[] = [];
+
+  const push = (raw: string | undefined, alt: string | undefined, kind: ScrapedSiteImage["kind"]) => {
+    const abs = raw ? absoluteUrl(raw, baseUrl) : null;
+    if (!abs || !IMAGE_EXTENSION_RE.test(abs) || seen.has(abs)) return;
+    seen.add(abs);
+    collected.push({
+      url: abs,
+      ...(alt?.trim() ? { alt: alt.trim() } : {}),
+      kind,
+    });
+  };
+
+  push(
+    $('meta[property="og:image"]').attr("content") || $('meta[name="og:image"]').attr("content"),
+    $('meta[property="og:image:alt"]').attr("content"),
+    "og",
+  );
+
+  const logoEl = $("img").toArray().find((el) => {
+    const node = $(el);
+    return looksLikeLogo(
+      [node.attr("alt"), node.attr("src"), node.attr("class"), node.attr("id")].filter(Boolean).join(" "),
+    );
+  });
+  if (logoEl) {
+    const node = $(logoEl);
+    push(node.attr("src"), node.attr("alt"), "logo");
+  } else {
+    push($('link[rel="icon"][type^="image/"]').attr("href"), "logo", "logo");
+  }
+
+  $("img").each((_, el) => {
+    const node = $(el);
+    const src = node.attr("src");
+    const alt = node.attr("alt");
+    if (!src) return;
+    if (looksLikeLogo([alt, src, node.attr("class"), node.attr("id")].filter(Boolean).join(" "))) {
+      return;
+    }
+    push(src, alt, "content");
+  });
+
+  return collected;
+}
+
+export async function collectSiteImagesFromHtml(
+  html: string,
+  url: string,
+): Promise<ScrapedSiteImage[]> {
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+  return extractSiteImages($, new URL(url));
+}
+
+function mergeSiteImages(pages: ParsedPage[]): ScrapedSiteImage[] {
+  const seen = new Set<string>();
+  const og: ScrapedSiteImage[] = [];
+  const logos: ScrapedSiteImage[] = [];
+  const content: ScrapedSiteImage[] = [];
+  for (const page of pages) {
+    for (const image of page.imageCandidates ?? []) {
+      if (seen.has(image.url)) continue;
+      seen.add(image.url);
+      if (image.kind === "og") og.push(image);
+      else if (image.kind === "logo") logos.push(image);
+      else content.push(image);
+    }
+  }
+  return [...og.slice(0, 1), ...logos.slice(0, 1), ...content.slice(0, 3)];
 }
 
 function scoreLink(url: string, anchor?: string): number {
@@ -672,6 +755,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
   let internalLinks = 0;
   let externalLinks = 0;
   const images = $("img").length;
+  const imageCandidates = extractSiteImages($, new URL(url));
 
   const linksForFollow: CandidateLink[] = [];
 
@@ -752,6 +836,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     textPreview,
     linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
     contact,
+    imageCandidates,
   };
 }
 
@@ -988,6 +1073,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     wordCount: aggregatedWordCount,
     textPreview,
     sampledUrls: pagesForAggregation.map((p) => p.url),
+    imageCandidates: mergeSiteImages(pagesForAggregation),
   };
 }
 

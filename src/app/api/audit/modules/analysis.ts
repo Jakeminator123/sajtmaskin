@@ -242,14 +242,6 @@ function createFallbackResult(
           "Sätt HSTS, CSP och SameSite/HttpOnly/Secure på cookies där det är relevant.",
       },
     ],
-    competitor_benchmarking: {
-      industry_leaders: ["Branschledare med stark SEO och tydlig positionering"],
-      common_features: ["Tydligt värdeerbjudande", "Snabba laddtider", "Social proof (case/logos)"],
-      differentiation_opportunities: [
-        "Tydligare nischpositionering",
-        "Mer konkret affärsnytta i copy",
-      ],
-    },
     target_audience_analysis: {
       demographics:
         "Okänt i fallback-läge. Utgå från att besökare är beslutsfattare och stakeholders som vill förstå värde snabbt.",
@@ -279,48 +271,11 @@ function createFallbackResult(
       ],
       accessibility_level: "WCAG 2.1 AA",
     },
-    technical_architecture: {
-      recommended_stack: {
-        frontend: "Next.js",
-        backend: "Node.js",
-        cms: "Headless CMS",
-        hosting: "Vercel",
-      },
-      integrations: ["Analytics", "CRM", "Email"],
-      security_measures: ["HTTPS", "CSP", "HSTS"],
-    },
     priority_matrix: {
       quick_wins: ["Tydlig CTA", "Meta-beskrivningar", "Fokusstilar"],
       major_projects: ["Omstrukturera tjänstesidor", "Casebibliotek"],
       fill_ins: ["FAQ", "Team/om oss"],
       thankless_tasks: ["Cookie-policy och compliance"],
-    },
-    implementation_roadmap: {
-      phase_1: {
-        duration: "1-2 veckor",
-        deliverables: ["Copy-uppdatering", "CTA-struktur"],
-        activities: ["Inventera copy", "Uppdatera hero + tjänstesidor"],
-      },
-      phase_2: {
-        duration: "2-4 veckor",
-        deliverables: ["Nya sektioner", "SEO-grund"],
-        activities: ["Bygga case/FAQ", "Metadata och sitemap"],
-      },
-      phase_3: {
-        duration: "4-6 veckor",
-        deliverables: ["Prestandaoptimering", "A11y"],
-        activities: ["Core Web Vitals", "Tillgänglighetsfixar"],
-      },
-      launch: {
-        duration: "1 vecka",
-        deliverables: ["Lansering", "Tracking"],
-        activities: ["QA", "GA4 events", "Sitemap submit"],
-      },
-    },
-    success_metrics: {
-      kpis: ["Organisk trafik", "Konvertering", "CTA-klick"],
-      tracking_setup: "GA4 + events + enkel dashboard",
-      review_schedule: "Månadsvis uppföljning",
     },
     // Minimal site_content based on scraped data
     site_content: {

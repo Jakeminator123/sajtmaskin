@@ -55,6 +55,15 @@ import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { getCurrentUser } from "@/lib/auth/auth";
+import {
+  buildAuditBriefContext,
+  buildAuditCodegenPrompt,
+  deriveAuditInitHints,
+  mergeRequestedCapabilities,
+} from "@/lib/builder/audit-handoff";
+import { resolveAuditHandoffForOwner } from "@/lib/builder/audit-handoff-resolve";
+import { rehostAuditSourceImages } from "@/lib/media/rehost-remote-image";
 import { logRequestKindClassification } from "./request-kind-log";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
@@ -185,7 +194,37 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           meta,
         } = validationResult.data;
         const requestAttachments = normalizeRequestAttachments(attachments);
-        const parsedMeta = parseChatRequestMeta(meta);
+        let parsedMeta = parseChatRequestMeta(meta);
+        const ownerUser = await getCurrentUser(req).catch(() => null);
+        const auditPayload = await resolveAuditHandoffForOwner({
+          promptHandoffId: parsedMeta.promptHandoffId,
+          userId: ownerUser?.id ?? null,
+          sessionId,
+        });
+        const auditHints = auditPayload ? deriveAuditInitHints(auditPayload) : null;
+        const auditContext = auditPayload ? buildAuditBriefContext(auditPayload) : undefined;
+        const codegenMessage = auditPayload ? buildAuditCodegenPrompt(auditPayload) : message;
+        if (auditHints) {
+          parsedMeta = {
+            ...parsedMeta,
+            pageCountHint: parsedMeta.pageCountHint ?? auditHints.pageCountHint,
+            styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : auditHints.styleKeywordsHint,
+            toneKeywordsHint: parsedMeta.toneKeywordsHint.length
+              ? parsedMeta.toneKeywordsHint
+              : auditHints.toneKeywordsHint,
+            colorModeHint: parsedMeta.colorModeHint ?? auditHints.colorModeHint,
+            themeColors: parsedMeta.themeColors ?? auditHints.themeColors,
+          };
+        }
+        if (auditPayload?.source_images?.length && requestAttachments.length === 0) {
+          const rehosted = await rehostAuditSourceImages({
+            images: auditPayload.source_images,
+            userId: ownerUser?.id ?? null,
+          });
+          requestAttachments.push(...rehosted);
+        }
         const modelSelection = resolveModelSelection({
           requestedModelId: modelId,
           requestedModelTier: parsedMeta.modelTier,
@@ -201,7 +240,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const metaPlanMode = parsedMeta.planMode;
         const metaAppProjectId = parsedMeta.appProjectId;
         const promptOrchestration = orchestratePromptMessage({
-          message,
+          message: codegenMessage,
           buildMethod: metaBuildMethod,
           buildIntent: metaBuildIntent,
           isFirstPrompt: true,
@@ -359,6 +398,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             imageGenerations: resolvedImageGenerations,
             signal: createServerAutoBriefSignal(req.signal),
             variantHints: variantHintsText,
+            auditContext,
           });
           if (generated) {
             serverAutoBrief = generated.brief;
@@ -392,7 +432,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             });
           }
         }
-        const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+        let effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+        if (effectiveBrief && auditHints?.requestedCapabilities.length) {
+          effectiveBrief = mergeRequestedCapabilities(
+            effectiveBrief,
+            auditHints.requestedCapabilities,
+          );
+        }
         const briefQuality: "full" | "server-auto" | "none" = (() => {
           const clientQuality = clientBriefFromMeta?.briefQuality;
           if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
@@ -980,7 +1026,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             }
           }
           await attachCreateChatPromptLogChatId(createChatPromptLogId, engineChat.id);
-          await chatRepo.addMessage(engineChat.id, "user", message);
+          await chatRepo.addMessage(
+            engineChat.id,
+            "user",
+            message,
+            undefined,
+            auditPayload
+              ? [
+                  {
+                    type: "prompt-source",
+                    sourceKind: "audit",
+                    domain: auditPayload.domain ?? auditPayload.url ?? null,
+                  },
+                ]
+              : undefined,
+          );
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
           attachChatToPendingUsage(sessionId, engineChat.id);

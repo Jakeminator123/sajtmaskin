@@ -172,4 +172,34 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(res.status).toBe(400);
     expect(createPromptHandoff).not.toHaveBeenCalled();
   });
+
+  it("stores a validated audit payload and rejects unknown top-level keys", async () => {
+    const accepted = await POST(
+      promptRequest({
+        prompt: "Bygg en förbättrad sajt för granit.se",
+        source: "audit",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+    expect(accepted.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "audit",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+
+    const rejected = await POST(
+      promptRequest({
+        prompt: "Bygg en förbättrad sajt för granit.se",
+        source: "audit",
+        payload: {
+          domain: "granit.se",
+          technical_architecture: { stack: "next" },
+        },
+      }),
+    );
+    expect(rejected.status).toBe(400);
+    expect(createPromptHandoff).toHaveBeenCalledTimes(1);
+  });
 });

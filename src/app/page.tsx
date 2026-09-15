@@ -21,6 +21,7 @@ import {
   type BuildIntent,
 } from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
+import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { toast } from "sonner";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -187,9 +188,11 @@ function RootLandingContent() {
   }, []);
 
   const handleBuildFromAudit = useCallback(
-    async (prompt: string) => {
+    async (result: AuditResult, url: string) => {
       setShowAuditModal(false);
       try {
+        const payload = extractAuditHandoffPayload(result, url);
+        const prompt = buildAuditDisplayPrompt(payload);
         const project = await createProject(
           `Audit - ${new Date().toLocaleDateString("sv-SE")}`,
           "audit",
@@ -198,7 +201,7 @@ function RootLandingContent() {
         const response = await fetch("/api/prompts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, source: "audit", projectId: project.id }),
+          body: JSON.stringify({ prompt, source: "audit", projectId: project.id, payload }),
         });
         const data = (await response.json().catch(() => null)) as {
           success?: boolean;

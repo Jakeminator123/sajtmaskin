@@ -9,6 +9,7 @@ import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryState } from "../builder-entry";
+import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 
 /** Max non-404 failures before stopping prompt handoff retries (avoids toast/network spam). */
 const MAX_PROMPT_HANDOFF_RETRIES = 5;
@@ -43,6 +44,8 @@ type Params = {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   setResolvedPrompt: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
+  setPromptHandoffId: Dispatch<SetStateAction<string | null>>;
+  setAuditHandoff: Dispatch<SetStateAction<AuditComposerToken | null>>;
 };
 
 /**
@@ -80,6 +83,8 @@ export function useBuilderEntryHydration({
   setMessages,
   setResolvedPrompt,
   setSelectedVersionId,
+  setPromptHandoffId,
+  setAuditHandoff,
 }: Params) {
   const [promptFetchRetryNonce, setPromptFetchRetryNonce] = useState(0);
 
@@ -110,6 +115,8 @@ export function useBuilderEntryHydration({
           prompt?: string;
           error?: string;
           projectId?: string | null;
+          payloadKind?: string | null;
+          domain?: string | null;
         } | null;
         if (!response.ok || !data?.prompt) {
           const failure = new Error(data?.error || "Prompten hittades inte") as Error & {
@@ -122,6 +129,13 @@ export function useBuilderEntryHydration({
         promptFetchDoneRef.current = promptId;
         setEntryIntentActive(true);
         setResolvedPrompt(data.prompt);
+        setPromptHandoffId(promptId);
+        if (data.payloadKind === "audit") {
+          setAuditHandoff({
+            payloadKind: "audit",
+            domain: typeof data.domain === "string" && data.domain.trim() ? data.domain : null,
+          });
+        }
         if (data.projectId) {
           setAppProjectId((prev) => prev ?? data.projectId!);
         }
@@ -195,6 +209,8 @@ export function useBuilderEntryHydration({
     promptFetchRetryNonce,
     setEntryIntentActive,
     setResolvedPrompt,
+    setPromptHandoffId,
+    setAuditHandoff,
     setAppProjectId,
     setAuditPromptLoaded,
     router,

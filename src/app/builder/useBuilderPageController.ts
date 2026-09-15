@@ -492,6 +492,8 @@ export function useBuilderPageController() {
       themeColors: state.themeColors,
       paletteState: state.paletteState,
       pendingBriefRef: state.pendingBriefRef,
+      promptHandoffId: state.promptHandoffId,
+      auditHandoffDomain: state.auditHandoff?.domain ?? null,
       mutateVersions,
       setCurrentPreviewUrl: state.setCurrentPreviewUrl,
       setPreviewBuildError,
@@ -537,6 +539,7 @@ export function useBuilderPageController() {
     designTheme: state.designTheme,
     appProjectId: state.appProjectId,
     pendingBriefRef: state.pendingBriefRef,
+    promptHandoffId: state.promptHandoffId,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
     templateInitAttemptKeyRef: state.templateInitAttemptKeyRef,
@@ -641,6 +644,8 @@ export function useBuilderPageController() {
     setMessages,
     setResolvedPrompt,
     setSelectedVersionId,
+    setPromptHandoffId: state.setPromptHandoffId,
+    setAuditHandoff: state.setAuditHandoff,
   });
 
   useBuilderGenerationPreferences({
@@ -929,6 +934,7 @@ export function useBuilderPageController() {
     mediaEnabled: derived.mediaEnabled,
     initialPrompt: derived.initialPrompt,
     auditPromptLoaded: state.auditPromptLoaded,
+    auditHandoff: state.auditHandoff,
 
     // External data
     versions,

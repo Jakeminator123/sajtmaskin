@@ -156,6 +156,9 @@ export const MIGRATION_ORDER = [
   // FK-beroenden. claim_key är PRIMARY KEY (inserten är låset);
   // operation_id är credit-idempotensnyckeln.
   "add-template-init-operations.sql",
+  // Structured audit→builder handoff: payload stays server-side; GET only
+  // exposes payloadKind + domain for the composer chip.
+  "add-prompt-handoffs-payload.sql",
 ];
 
 /**
