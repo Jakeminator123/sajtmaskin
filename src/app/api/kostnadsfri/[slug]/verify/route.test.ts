@@ -2,10 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
+const backfillKostnadsfriPageProfile = vi.hoisted(() => vi.fn(async () => true));
 const recordPageView = vi.hoisted(() => vi.fn(async () => undefined));
+const verifyPassword = vi.hoisted(() => vi.fn(() => false));
+const isKostnadsfriLookupConfigured = vi.hoisted(() => vi.fn(() => false));
+const lookupKostnadsfriProfile = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
+  backfillKostnadsfriPageProfile,
 }));
 
 vi.mock("@/lib/db/services/analytics", () => ({
@@ -13,7 +18,12 @@ vi.mock("@/lib/db/services/analytics", () => ({
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
-  verifyPassword: vi.fn(() => false),
+  verifyPassword,
+}));
+
+vi.mock("@/lib/kostnadsfri/profile-lookup", () => ({
+  isKostnadsfriLookupConfigured,
+  lookupKostnadsfriProfile,
 }));
 
 // `after()` needs a request scope in Next; run the callback inline in tests.
@@ -29,17 +39,51 @@ const SESSION_ID = "sess_ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb";
 
 afterEach(() => {
   vi.clearAllMocks();
+  verifyPassword.mockReturnValue(false);
+  isKostnadsfriLookupConfigured.mockReturnValue(false);
   delete process.env.KOSTNADSFRI_PASSWORD_SEED;
   delete process.env.KOSTNADSFRI_API_KEY;
 });
 
-function verifyRequest(slug: string, password: string) {
+function pageRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    slug: "zax-2-0-ab",
+    password_hash: "hash",
+    company_name: "Zax 2.0 AB",
+    industry: null,
+    website: null,
+    contact_email: null,
+    contact_name: null,
+    extra_data: null,
+    status: "active",
+    created_at: new Date("2026-09-01T00:00:00Z"),
+    updated_at: new Date("2026-09-01T00:00:00Z"),
+    expires_at: null,
+    consumed_at: null,
+    sent_at: null,
+    source: null,
+    ...overrides,
+  };
+}
+
+const LOOKUP_HIT = {
+  status: "hit" as const,
+  companyName: "Zax 2.0 Aktiebolag",
+  contactEmail: "info@zax.example",
+  profile: { city: "Kista", businessDescription: "Bolaget skall bedriva frisörverksamhet." },
+};
+
+function verifyRequest(slug: string, password: string, forwardedFor?: string) {
   return new NextRequest(`http://localhost/api/kostnadsfri/${slug}/verify`, {
     method: "POST",
     body: JSON.stringify({ password }),
     headers: {
       "content-type": "application/json",
       "x-real-ip": "10.0.0.1",
+      // Rate-limitern nycklar på x-forwarded-for + slug (5/timme, in-memory).
+      // Tester som delar slug måste därför skilja sig här.
+      ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
       cookie: `sajtmaskin_session=${SESSION_ID}`,
     },
   });
@@ -125,5 +169,106 @@ describe("kostnadsfri verify route", () => {
           header.includes("Max-Age=0"),
       ),
     ).toBe(true);
+  });
+});
+
+// Profilfallbacken (beslutsrad 2026-09-15 «Kostnadsfri / bolagsdata», vänd):
+// bara efter korrekt lösenord, bara när profilen saknas, aldrig ett fel.
+describe("kostnadsfri verify route — profilfallback", () => {
+  const params = { params: Promise.resolve({ slug: "zax-2-0-ab" }) };
+
+  it("frågar inte dashen när raden redan bär en profil", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(
+      pageRow({ extra_data: { profile: { city: "Kista" } } }),
+    );
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.1"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.companyData.profile).toEqual({ city: "Kista" });
+    expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
+    expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+
+  it("frågar inte dashen alls när fallbacken inte är konfigurerad", async () => {
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.2"), params);
+
+    expect(res.status).toBe(200);
+    expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
+  });
+
+  it("frågar inte dashen vid fel lösenord", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "fel", "10.9.0.3"), params);
+
+    expect(res.status).toBe(401);
+    expect(lookupKostnadsfriProfile).not.toHaveBeenCalled();
+  });
+
+  it("fyller profilen från dashen och skriver tillbaka den till raden", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    lookupKostnadsfriProfile.mockResolvedValue(LOOKUP_HIT);
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.4"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(lookupKostnadsfriProfile).toHaveBeenCalledWith("zax-2-0-ab");
+    expect(body.companyData.profile).toEqual(LOOKUP_HIT.profile);
+    // Raden äger namnet — dashens variant skriver inte över det.
+    expect(body.companyData.companyName).toBe("Zax 2.0 AB");
+    expect(backfillKostnadsfriPageProfile).toHaveBeenCalledWith("zax-2-0-ab", LOOKUP_HIT.profile);
+  });
+
+  it("tar registrets namn utan DB-rad, men skriver inte tillbaka något", async () => {
+    process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(null);
+    lookupKostnadsfriProfile.mockResolvedValue(LOOKUP_HIT);
+
+    const res = await POST(verifyRequest("zax-2-0-ab", generatePassword("zax-2-0-ab"), "10.9.0.5"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.companyData.companyName).toBe("Zax 2.0 Aktiebolag");
+    expect(body.companyData.profile).toEqual(LOOKUP_HIT.profile);
+    expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+
+  it("degraderar till dagens svar när dashen inte svarar", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    lookupKostnadsfriProfile.mockResolvedValue({ status: "unavailable", reason: "timeout" });
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.6"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.companyData.profile).toBeNull();
+    expect(body.companyData.companyName).toBe("Zax 2.0 AB");
+    expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
+  });
+
+  it("skriver inte tillbaka en träff utan profil", async () => {
+    isKostnadsfriLookupConfigured.mockReturnValue(true);
+    verifyPassword.mockReturnValue(true);
+    getKostnadsfriPageBySlug.mockResolvedValue(pageRow());
+    lookupKostnadsfriProfile.mockResolvedValue({ ...LOOKUP_HIT, profile: null });
+
+    const res = await POST(verifyRequest("zax-2-0-ab", "rätt", "10.9.0.7"), params);
+
+    expect(res.status).toBe(200);
+    expect(backfillKostnadsfriPageProfile).not.toHaveBeenCalled();
   });
 });

@@ -98,6 +98,40 @@ export async function markKostnadsfriPageSent(
   return rows[0] ?? null;
 }
 
+/**
+ * Skriver in en profil som profilfallbacken hämtade från utskicksverktyget, så
+ * att nästa besök på länken slipper anropet. Samma `jsonb ||`-sammanslagning
+ * som `markKostnadsfriPageSent`: `profile` byts ut, `openclaw` lämnas orörd.
+ *
+ * Skriver bara när raden fortfarande saknar profil (`extra_data->'profile'` är
+ * null). En profil som kom in via push under tiden vinner alltid — den är
+ * avsändarens färskaste, och en fallback får inte skriva över den. Returnerar
+ * true när en rad uppdaterades.
+ */
+export async function backfillKostnadsfriPageProfile(
+  slug: string,
+  profile: Record<string, unknown>,
+): Promise<boolean> {
+  assertDbConfigured();
+  if (Object.keys(profile).length === 0) return false;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
+        { profile },
+      )}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(kostnadsfriPages.slug, slug),
+        sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) -> 'profile' IS NULL`,
+      ),
+    )
+    .returning({ id: kostnadsfriPages.id });
+  return rows.length > 0;
+}
+
 export async function getKostnadsfriPageBySlug(slug: string): Promise<KostnadsfriPage | null> {
   assertDbConfigured();
   const rows = await db
