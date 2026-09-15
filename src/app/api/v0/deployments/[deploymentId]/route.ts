@@ -57,7 +57,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
           try {
             const refreshWrite = await updateDeploymentStatus(deploymentId, mapped.status, {
               providerUrl: vercel.url ?? undefined,
-              url: liveUrl ?? undefined,
+              ...(liveUrl ? { url: liveUrl } : {}),
               inspectorUrl: vercel.inspectorUrl ?? undefined,
               vercelProjectId: vercel.vercelProjectId ?? undefined,
             });
