@@ -112,6 +112,9 @@ export const serverSchema = z.object({
   LEGACY_EMAIL_AUTO_VERIFY_BEFORE: z.string().optional(),
   KOSTNADSFRI_API_KEY: z.string().optional(),
   KOSTNADSFRI_PASSWORD_SEED: z.string().optional(),
+  /** Profilfallback mot utskicksverktyget — av när secret saknas. */
+  KOSTNADSFRI_LOOKUP_SECRET: z.string().optional(),
+  KOSTNADSFRI_LOOKUP_URL: z.string().url().optional(),
 
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
