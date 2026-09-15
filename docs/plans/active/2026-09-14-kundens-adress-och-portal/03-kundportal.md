@@ -28,7 +28,7 @@ kostnad är klarlagda. Ingen knapp får utlova automatisk ändring innan den fun
 | Ref | Leverans | Beroende |
 |---|---|---|
 | [C1](aktiviteter/C1-sajtvy.md) | Sajtvy och bättre projektkort | Kod på preview (#1358) |
-| [C2](aktiviteter/C2-domanflode.md) | BYOD, primäradress och DNS-status | Kod på preview (#1378/#1384). Runtime mot riktig kunddomän kvar |
+| [C2](aktiviteter/C2-domanflode.md) | BYOD, primäradress och DNS-status | Kod på preview (#1378/#1384), ingen C2-kill-switch. Runtime mot riktig kunddomän kvar |
 | [B1](aktiviteter/B1-exportkontrakt.md) | Export och äganderättsbesked | Kod på preview (#1367) |
 | [C3](aktiviteter/C3-kontosida.md) | Konto, credits och fakturering | Etapp 1 på preview (#1359). Etapp 2 via #1385 |
 

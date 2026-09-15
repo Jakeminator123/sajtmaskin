@@ -2,11 +2,15 @@
 
 ## Genomförandestatus 2026-09-15
 
-**Kod på preview. Runtime inte verifierad.** #1378 levererade read-only
-observation. #1384 (`873c7b85f`) levererade koppla / verifiera / byt /
-koppla loss från `/projects/[id]`, med apex+www, tenantisolering och
-okänd-status vid tillfälligt providerfel. Domänköp är av. Automatisk DNS
-(`automaticDnsConnector()`) returnerar `null`.
+**Kod på preview. Ingen C2-kill-switch. Runtime inte verifierad.** #1378
+levererade read-only observation. #1384 (`873c7b85f`) levererade koppla /
+verifiera / byt / koppla loss från `/projects/[id]`, med apex+www,
+tenantisolering och okänd-status vid tillfälligt providerfel.
+
+Flaggor: C2 BYOD har ingen egen env-grind — UI och `/api/projects/[id]/domain`
+är på. `SAJTMASKIN_DOMAIN_PURCHASE` / `FEATURES.useDomainPurchase` styr bara
+**köp** och är av. Automatisk DNS (`automaticDnsConnector()`) returnerar
+`null`. A3:s redirect-flagga styr inte C2.
 
 Kvar: riktig kunddomän över HTTPS, hela kedjan koppla → verifiera → byt
 primär → koppla loss. Entri eller motsvarande är inte byggt.

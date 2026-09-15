@@ -7,9 +7,13 @@ fastställs före kundaktivering; driftimplementationen följer D1 och D2.
 ## Genomförandestatus 2026-09-15
 
 Policyn är inte ratificerad. Faktisk paus/återställning är inte på preview.
-#1385 innehåller konfigurerbar D3-mekanik bakom avstängda flaggor, men den
-PR:en är öppen draft. 7 dagars respit, 90 dagars bevarande och övriga utfall
-nedan är fortsatt förslag. Inga hosting-writes och ingen kundaktivering.
+**D3-adaptern saknas:** `src/lib/billing/site-subscription-hosting.ts` finns
+inte på `origin/preview`. Ingen Vercel-paus/restore-provider, ingen
+`SAJTMASKIN_SITE_SUBSCRIPTION_HOSTING_WRITES`.
+
+#1385 (öppen draft) skulle lägga till adaptern bakom den flaggan (default
+av). Dokumentera inte adaptern som levererad eller flaggad förrän den filen
+finns på preview. 7/90 och övriga utfall nedan är fortsatt förslag.
 
 ## Föreslagen policy att svara ja till
 

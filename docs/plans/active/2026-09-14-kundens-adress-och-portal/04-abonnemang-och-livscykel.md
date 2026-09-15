@@ -13,11 +13,13 @@ read-only kontroll. Det är inte betalaktivering.
 
 D2/D3 är inte levererade till preview. På preview finns bara stängsel: #1379
 skiljer subscription-events från credit-/domänköp, och #1381 håller checkout
-hårdstängd (`SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false`). Full webhook-
-livscykel, Billing Portal, C3 etapp 2 och D3-drift ligger i öppen draft #1385.
-Den PR:en bär `add-stripe-billing-events.sql`, som **inte** finns i preview-
-ordningen och **inte** är applicerad. Preview/prod delar Postgres — dokumentera
-inte den filen som körd.
+hårdstängd (`SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false`).
+**D3-adaptern saknas** — `site-subscription-hosting.ts` finns inte på preview,
+så ingen Vercel-paus/restore och ingen `SAJTMASKIN_SITE_SUBSCRIPTION_HOSTING_WRITES`.
+Full webhook-livscykel, Billing Portal, C3 etapp 2 och D3-adapter ligger i
+öppen draft #1385. Den PR:en bär `add-stripe-billing-events.sql`, som **inte**
+finns i preview-ordningen och **inte** är applicerad. Preview/prod delar
+Postgres — dokumentera inte den filen som körd.
 
 D1 ratificerar inte pris, credits, rollover eller 7/90 dagar.
 

@@ -14,24 +14,30 @@ som flagga på, runtime verifierad eller kundaktiverad.
 | Del | Kod på preview | Flagga / default | Runtime verifierad | Kundaktiverad |
 |---|---|---|---|---|
 | C1 sajtvy | Ja — #1358 | — | Ytan finns i staging-appen | Nej |
-| C2 domänflöde | Ja — #1378 (observation) + #1384 (koppla/verifiera) | Domänköp av | Inte bevisad mot riktig kunddomän över HTTPS | Nej |
+| C2 domänflöde | Ja — #1378 (observation) + #1384 (koppla/verifiera) | Ingen C2-kill-switch. BYOD-UI/API är på. `SAJTMASKIN_DOMAIN_PURCHASE` / `FEATURES.useDomainPurchase` av. Automatisk DNS = `null` | Inte bevisad mot riktig kunddomän över HTTPS | Nej |
 | C3 etapp 1 | Ja — #1359 | — | Konto, saldo och köphistorik i staging-appen | Nej |
 | C3 etapp 2 | Nej — öppen draft #1385 | — | Nej | Nej |
-| A2 grundskydd + pilotgrind | Ja — #1360 / #1365 / #1366 (`e7bdbb2d`) | `activation_not_ready`; branded-flaggor av | HTTPS-cookieprov och gästsession-återställning kvar | Nej |
-| A3 adresskontrakt | Ja — #1369 (kontrakt) + #1386 (deploy-wire, `4316c7b99`) | `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
+| A2 grundskydd + pilotgrind | Ja — #1360 / #1365 / #1366 (`e7bdbb2d`) | `activation_not_ready`; `SAJTMASKIN_BRANDED_LIVE_URLS` av | HTTPS-cookieprov och gästsession-återställning kvar | Nej |
+| A3 adresskontrakt | Ja — #1369 (kontrakt) + #1386 identitetsfix (`4316c7b99`) | Identitet/`SITE_URL`: alltid från aktuellt bevis. 307-redirect: `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
 | A1 DNS / PSL | Inget runtime-paket | — | 2026-09-15: `sites.*` och `pilot-a1-test.sites.*` NXDOMAIN. PSL avvaktas | Nej |
 | A4 pilot / migrering | Nej | `SAJTMASKIN_BRANDED_LIVE_URLS` av | Nej | Nej |
 | B1 export | Ja — #1367 (`934eda6c7`) | — | Kodverifierad export; ingen separat kundpilot | Nej |
 | D1 schema | Ja — #1361 / #1364 | — | Båda D1-migrationerna i delad preview/prod-ledger (tidigare read-only kontroll) | Nej |
-| D2 / D3 livscykel | Bara stängsel: #1379 (webhook-dispatch) + #1381 (checkout hårdstängd). Full implementation i #1385 | `SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false` (inte env-styrd på preview) | Nej. #1385:s `add-stripe-billing-events.sql` finns inte i preview och är inte applicerad | Nej |
+| D2 / D3 livscykel | Bara stängsel: #1379 (webhook-dispatch) + #1381 (checkout hårdstängd). Full implementation i #1385 | `SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false` (inte env-styrd på preview). D3-adaptern `site-subscription-hosting.ts` **saknas på preview** | Nej. #1385:s `add-stripe-billing-events.sql` finns inte i preview och är inte applicerad | Nej |
+
+Identitetsregeln från #1386: en host är produktion bara med aktuellt bevis
+(attesterat samma-projekt-alias eller just nu verifierad kund-/branded-host).
+Okänd identitet gissas inte till senaste READY. Undantag: last-working
+3-label provider när alias-status är tillfälligt `unknown`.
 
 #1380 (A1-mätning + `HANDOFF.md`) är stale efter #1369–#1386. **Stäng utan
 merge.** Bestående DNS-fakta ligger i
 [adressrunbooken](../../../runbooks/branded-user-urls.md). Ingen andra
 masterplan skapas.
 
-Öppna PR:er som kan göra statusen stale igen: #1385 (D2/D3 + C3e2), #1389
-(preview-host boot), #1376, #1377.
+#1389 (preview-host boot-backdrop) väntas **inte** av den här hygien-PR:en;
+den är post-promotion. Öppna PR:er som kan göra portalstatus stale: #1385
+(D2/D3 + C3e2). #1376 och #1377 är buggspår, inte portalaktivering.
 
 Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande
 är fortsatt förslag. Ingen branded-pilot, ingen betalstart, ingen promote.
