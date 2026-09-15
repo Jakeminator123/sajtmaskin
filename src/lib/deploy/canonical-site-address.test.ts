@@ -185,6 +185,23 @@ describe("canonical site address contract", () => {
     expect(result.warnings[0]).toContain("behålls i bygget");
   });
 
+  it("keeps env SITE_URL when the attested alias is missing and last-working is a preview host", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: false,
+      verifiedLiveUrl: null,
+      verifiedProviderDomain: "demo.vercel.app",
+      providerAliasStatus: "missing",
+      lastWorkingCanonicalUrl: "https://demo-a1b2c3-team.vercel.app",
+      lastWorkingProviderHost: "demo-a1b2c3-team.vercel.app",
+      configuredEnv: { NEXT_PUBLIC_SITE_URL: "https://old.example" },
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://old.example");
+    expect(result.contract.canonicalUrl).toBeNull();
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
   it("never lets a git preview URL become the last-working canonical address", () => {
     const result = prepareCanonicalAddressContract({
       ...identity,

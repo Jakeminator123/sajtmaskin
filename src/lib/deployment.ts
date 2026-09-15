@@ -3,7 +3,12 @@ import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import { isGitPreviewVercelHost, normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  isGitPreviewVercelHost,
+  isVerifiedProductionSiteHost,
+  normalizeDomainHostname,
+  resolveLiveUrl,
+} from "@/lib/live-site-url";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -136,25 +141,21 @@ function isProductionReadyIdentity(
 ): boolean {
   const urlHost = hostFromMaybeUrl(row.url);
   const providerHost = hostFromMaybeUrl(row.providerUrl);
-  if (isGitPreviewVercelHost(urlHost)) return false;
-  if (!urlHost && isGitPreviewVercelHost(providerHost)) return false;
+  const hostToJudge = urlHost ?? providerHost;
+  if (!hostToJudge || isGitPreviewVercelHost(urlHost) || isGitPreviewVercelHost(hostToJudge)) {
+    return false;
+  }
   const expectedProjectId = options?.vercelProjectId?.trim() || null;
   const rowProjectId = row.vercelProjectId?.trim() || null;
   if (expectedProjectId && rowProjectId && rowProjectId !== expectedProjectId) {
     return false;
   }
-  if (expectedProjectId && !rowProjectId) {
-    const attested = normalizeDomainHostname(options?.attestedProductionHost);
-    const matchesAlias = Boolean(attested && (urlHost === attested || providerHost === attested));
-    const customHost = Boolean(urlHost && !urlHost.endsWith(".vercel.app"));
-    if (!matchesAlias && !customHost) return false;
-  }
-  return true;
+  return isVerifiedProductionSiteHost(hostToJudge, options?.attestedProductionHost);
 }
 
 /**
- * Newest READY row that is a production identity. Preview aliases
- * (`*-git-*.vercel.app`) never count, even if they are newer.
+ * Newest READY row that is a production identity. Only the attested
+ * production alias or a customer host outside `*.vercel.app` count.
  */
 export function pickProductionReadyIdentity(
   rows: LatestReadyDeploymentIdentity[],
@@ -164,9 +165,9 @@ export function pickProductionReadyIdentity(
 }
 
 /**
- * Latest READY production identity for this chat. Preview and other-project
- * rows are skipped. Older rows without `vercelProjectId` are kept when the
- * host matches the attested production alias or a non-provider custom host.
+ * Latest READY production identity for this chat. Other-project rows are
+ * skipped. A `*.vercel.app` host counts only when it equals the attested
+ * production alias; otherwise only a customer host is kept.
  */
 export async function getLatestReadyDeploymentIdentityForChat(
   chatId: string,

@@ -3,7 +3,11 @@ import {
   isCanonicalHttpsProof,
   type CanonicalHttpsProofResult,
 } from "@/lib/deploy/canonical-https-proof";
-import { isGitPreviewVercelHost, normalizeDomainHostname } from "@/lib/live-site-url";
+import {
+  isGitPreviewVercelHost,
+  isVerifiedProductionSiteHost,
+  normalizeDomainHostname,
+} from "@/lib/live-site-url";
 
 export const CANONICAL_ADDRESS_FEATURE_ENV = "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT";
 export const CANONICAL_SITE_URL_ENV = "NEXT_PUBLIC_SITE_URL";
@@ -194,9 +198,15 @@ function providerOrigin(host: string | null): string | null {
   return host ? `https://${host}` : null;
 }
 
-function usablePolicyUrl(url: string | null | undefined): string | null {
+function usablePolicyUrl(
+  url: string | null | undefined,
+  attestedProductionHost?: string | null,
+): string | null {
   const origin = normalizeHttpsOrigin(url);
-  return origin && !isProtectedPlatformHost(originHost(origin)) ? origin : null;
+  if (!origin) return null;
+  const host = originHost(origin);
+  if (!host || isProtectedPlatformHost(host)) return null;
+  return isVerifiedProductionSiteHost(host, attestedProductionHost) ? origin : null;
 }
 
 export function shouldProbeCanonicalHttps(params: {
@@ -206,7 +216,7 @@ export function shouldProbeCanonicalHttps(params: {
   attestedProviderHost: string | null;
 }): boolean {
   if (!params.featureRequested || params.target !== "production") return false;
-  const canonical = usablePolicyUrl(params.verifiedLiveUrl);
+  const canonical = usablePolicyUrl(params.verifiedLiveUrl, params.attestedProviderHost);
   const provider = normalizeBareHostname(params.attestedProviderHost);
   const host = originHost(canonical);
   return Boolean(canonical && provider && host && host !== provider && !isProtectedPlatformHost(provider));
@@ -219,7 +229,8 @@ function lastWorkingRedirectCandidate(
 ): CanonicalHostRedirectCandidate | null {
   if (!params.featureRequested || params.target !== "production") return null;
   if (!isExactIdentity(params.projectId) || !isExactIdentity(params.vercelProjectId)) return null;
-  const canonicalUrl = usablePolicyUrl(lastWorkingUrl);
+  const attested = normalizeBareHostname(params.verifiedProviderDomain);
+  const canonicalUrl = usablePolicyUrl(lastWorkingUrl, attested);
   const providerHost = normalizeBareHostname(lastWorkingProvider);
   const host = originHost(canonicalUrl);
   if (!canonicalUrl || !providerHost || !host || host === providerHost) return null;
@@ -265,11 +276,11 @@ export function prepareCanonicalAddressContract(
   const warnings: string[] = [];
   const requested = params.featureRequested;
   const aliasStatus = params.providerAliasStatus ?? "missing";
-  const candidateUrl = usablePolicyUrl(params.verifiedLiveUrl);
-  const lastWorkingUrl = usablePolicyUrl(params.lastWorkingCanonicalUrl);
   const attestedProvider = aliasStatus === "attested"
     ? normalizeBareHostname(params.verifiedProviderDomain)
     : null;
+  const candidateUrl = usablePolicyUrl(params.verifiedLiveUrl, attestedProvider);
+  const lastWorkingUrl = usablePolicyUrl(params.lastWorkingCanonicalUrl, attestedProvider);
   const lastWorkingProvider = normalizeBareHostname(params.lastWorkingProviderHost);
   const proof = params.httpsProof;
   const proofUnknown = proof?.status === "not_ready" && proof.verdict === "unknown";
@@ -293,7 +304,7 @@ export function prepareCanonicalAddressContract(
     usedLastWorkingIdentity = Boolean(!candidateUrl && lastWorkingUrl && policyUrl === lastWorkingUrl);
   }
 
-  policyUrl = usablePolicyUrl(policyUrl);
+  policyUrl = usablePolicyUrl(policyUrl, attestedProvider);
 
   const configuredSiteUrl = params.configuredEnv[CANONICAL_SITE_URL_ENV];
   if (policyUrl) {

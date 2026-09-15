@@ -205,6 +205,39 @@ describe("pickProductionReadyIdentity", () => {
       ),
     ).toBeNull();
   });
+
+  it("rejects a per-deployment READY even when vercelProjectId matches", () => {
+    expect(
+      pickProductionReadyIdentity(
+        [
+          {
+            url: "https://demo-a1b2c3-team.vercel.app",
+            providerUrl: "https://demo-a1b2c3-team.vercel.app",
+            vercelProjectId: "vp_1",
+          },
+        ],
+        { vercelProjectId: "vp_1", attestedProductionHost: "demo.vercel.app" },
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects the attested alias when it belongs to another project host", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "annat.vercel.app",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts the attested production alias", () => {
+    expect(
+      pickProductionReadyIdentity([production], {
+        vercelProjectId: "vp_1",
+        attestedProductionHost: "demo.vercel.app",
+      }),
+    ).toEqual(production);
+  });
 });
 
 describe("getLatestReadyDeploymentIdentityForChat", () => {

@@ -38,10 +38,28 @@ export function normalizeDomainHostname(value: string | null | undefined): strin
   return hostname;
 }
 
-/** Vercel git/preview aliases are never a production identity. */
+/**
+ * Extra reject for Vercel git-branch aliases. Not the production gate:
+ * per-deployment hosts (`*-a1b2c3-*.vercel.app`) have no `-git-`.
+ */
 export function isGitPreviewVercelHost(value: string | null | undefined): boolean {
   const host = normalizeDomainHostname(value);
   return Boolean(host?.endsWith(".vercel.app") && host.includes("-git-"));
+}
+
+/**
+ * Positive production identity. A host counts only when it is the attested
+ * same-project `*.vercel.app` alias, or a customer domain outside `*.vercel.app`.
+ */
+export function isVerifiedProductionSiteHost(
+  value: string | null | undefined,
+  attestedProductionHost?: string | null,
+): boolean {
+  const host = normalizeDomainHostname(value);
+  if (!host || isGitPreviewVercelHost(host)) return false;
+  if (!host.endsWith(".vercel.app")) return true;
+  const attested = normalizeDomainHostname(attestedProductionHost);
+  return Boolean(attested && host === attested);
 }
 
 export function getBrandedLiveSiteDomain(): string | null {
