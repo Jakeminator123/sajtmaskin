@@ -1,14 +1,14 @@
 # Kostnadsfri-kampanjflödet — sidantal, bolagsdata och pre-generering (2026-09-14)
 
-> **Status: ett beslut fattat och implementerat, två kvar.** Sidantalet är avgjort
-> 2026-09-14 (3 sidor, se [`docs/decisions/README.md`](../../../decisions/README.md))
-> och koden är levererad på `preview` i #1370 som
-> `53daaa6ebc6766f4cd919f1e792af4162d53aaf0`. Den leveransen ändrade inte
-> `master`. Vad som ändrades står i avsnitt 1. Bolagsdata och
-> pre-generering ligger kvar som rader i
-> [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Väntar på
-> ägarbeslut. Städlistan längst ned hänger på besluten och ska köras i samma
-> ändring som respektive beslut, inte som ett eget "senare".
+> **Status: alla tre besluten fattade; inget i `master`.** Sidantalet avgjordes
+> 2026-09-14 (3 sidor) och är levererat till `preview` via
+> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370)
+> (`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`). Bolagsdatans PII-gräns och
+> pre-genereringen avgjordes 2026-09-15 — se
+> [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
+> Ingesten är byggd; wizardens förifyllning och taxonomins lib-ägare ligger i en
+> staplad PR. `master` är auktoritet tills promote skett. Avsnitt 2 och 3 nedan
+> är **underlaget** som ledde till besluten — läs beslutsraderna för gällande läge.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
@@ -87,7 +87,8 @@ Pull åt andra riktningen är sämre: dashen ligger på Render free tier med
 kallstarter, och en pull skulle lägga ett externt anrop i exakt det ögonblick
 användaren väntar.
 
-**Två saker måste avgöras innan koden skrivs:**
+**Två saker måste avgöras innan koden skrivs** — båda är avgjorda 2026-09-15,
+se beslutsraderna «Kostnadsfri / bolagsdata» och «Kostnadsfri / bransch»:
 
 1. **PII-gränsen.** Dashen visar personnummer och styrelseledamöternas
    hemadresser. `extra_data` skickas till browsern efter lösenordsverifiering —
@@ -102,9 +103,9 @@ användaren väntar.
    bransch blir en hint, eller så växer taxonomin — men då måste den växa på det
    ställe som äger den (se städlistan), inte i tre kopior.
 
-Lucka att täcka i implementationen: `markKostnadsfriPageSent` (upsert-vägen när
-`sentAt` skickas) skriver inte `extra_data` i dag, så en dash som skickar profilen
-tillsammans med sändregistreringen får den tappad.
+`markKostnadsfriPageSent` patchar `extra_data.profile` på upsert-vägen när
+avsändaren skickar `profile` tillsammans med `sentAt`. Utan profil utelämnas
+nyckeln — en tom patch skrivs inte. Avsändaren är `send.py` i JakobScrape.
 
 ## 3. Pre-generering vid lösenordsverifiering
 
@@ -162,15 +163,37 @@ ovan och körs i samma ändring.
 Taxonomistädningen är förutsättning för punkt 2: att lägga till ett
 frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
 
+## Säkerhetsfixar efter första granskningen
+
+Tre läckvägar fanns kvar i ingest-koden och är stängda i samma PR:
+
+| Väg | Vad höll inte | Nu |
+|---|---|---|
+| `orgNumber` runt PII-guarden | Fältet är undantaget mönsterkontrollen, men valideringen strök bort alla icke-siffror och godtog vilka tio siffror som helst — ett personnummer lagrades som org.nr | Strikt rått format (`NNNNNN-NNNN` eller tio siffror), gruppnummer ≥ 2 på tredje siffran och Luhn-kontrollsiffra |
+| 500-svar från `POST /api/kostnadsfri` | `error.message` gick till anroparen och hela felobjektet till loggen; ett Drizzle-fel bär querytexten och dess parametrar, alltså profil, kontakt-e-post och lösenordshash | Konstant `Internt fel…` ut, och loggen får bara felets typnamn |
+| Rå `extra_data` i publik DTO | `extractCompanyData` returnerade hela kolumnen till browsern efter lösenordsverifiering, vilket gick runt allowlisten för poster som lagrades före den eller lades in för hand | Fältet finns inte längre på DTO:n; bara `profile` och `openclawConfig` (båda normaliserade) exponeras |
+
+Gruppnummerregeln är det som gör undantaget för `orgNumber` försvarbart: ett
+personnummer bär månaden (01–12) på position 3–4, så dess tredje siffra är alltid
+0 eller 1. Luhn ensam räcker inte — båda formerna använder samma kontrollsiffra.
+
+Samtidigt härdat: PII-guarden går nu igenom nästlade objekt och arrayer till fyra
+nivåer och räknar även JSON-tal, men rapporterar fortfarande bara toppnivåns
+nyckel — en nästlad sökväg är avsändarstyrd text och hör inte i vårt felsvar.
+`registeredAt` kräver ett verkligt kalenderdatum (`2026-02-31` och
+`2026-07-10 (osäkert)` avvisas) men tar fortfarande dashens hela ISO-timestamp.
+
 ## Inte avgjort
 
-- Om spekulativ init är värd risken att företaget känner igen sig dåligt i en
-  sajt som redan är byggd när de kommer till wizarden.
-- Om `profile` ska vara ett fritt `extra_data`-objekt eller ett schemalagt fält
-  med egen validering. Ett fritt objekt går snabbare; ett schema är det som
-  faktiskt hindrar personnummer från att åka med.
-- Om taxonomin ska växa (frisör/skönhet, hantverk, transport) eller ersättas av
-  fritext plus hint. Registreringsunderlag är fritext i grunden.
+- Om taxonomin ska växa (frisör/skönhet, hantverk, transport). Beslutet
+  2026-09-15 gjorde bransch till en **hint** — fritext plus känd alias — så
+  frågan är inte längre blockerande, bara en framtida utbyggnad.
+- Om `SAJTMASKIN_PREVIEW_PREWARM` ska slås på för init-genereringen. Spekulativ
+  init före mini-wizarden är avgjord (nej), men prewarm-flaggan kräver mätning på
+  preview-hosten först.
+
+Avgjort sedan planen skrevs: `profile` är **schemalagt med egen validering**, inte
+ett fritt `extra_data`-objekt.
 
 ## Kopplingar
 

@@ -236,6 +236,147 @@ describe("POST /api/kostnadsfri", () => {
   });
 });
 
+// Ägarbeslut 2026-09-15: utskicksverktyget får pusha in en allowlistad
+// bolagsprofil, och personnummer är hårdspärrade. Fältlista och motiv i
+// `src/lib/kostnadsfri/company-profile.ts`.
+describe("POST /api/kostnadsfri — bolagsprofil", () => {
+  const profile = {
+    orgNumber: "5595995639",
+    registeredOffice: "Stockholm",
+    city: "Kista",
+    postalCode: "164 40",
+    streetAddress: "c/o Klippoteket Zax 2000 AB, Kistagången",
+    businessDescription: "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
+    registeredAt: "2026-07-10",
+  };
+
+  it("lagrar den normaliserade profilen på extra_data vid create", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPage.mockResolvedValueOnce(pageRow());
+
+    const res = await POST(postRequest({ companyName: "Acme AB", profile }));
+
+    expect(res.status).toBe(200);
+    expect(createKostnadsfriPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extraData: { profile: { ...profile, orgNumber: "559599-5639" } },
+      }),
+    );
+  });
+
+  it("behåller openclaw-konfigurationen bredvid profilen", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPage.mockResolvedValueOnce(pageRow());
+
+    await POST(
+      postRequest({
+        companyName: "Acme AB",
+        openclaw: { roleLabel: "Sajtagenten" },
+        profile: { city: "Kista" },
+      }),
+    );
+
+    expect(createKostnadsfriPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extraData: { openclaw: { roleLabel: "Sajtagenten" }, profile: { city: "Kista" } },
+      }),
+    );
+  });
+
+  it("patchar profilen på upsert-vägen när utskicket registreras", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    markKostnadsfriPageSent.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-09-14T08:30:00.000Z"), source: "python-utskick" }),
+    );
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        source: "python-utskick",
+        profile: { city: "Kista" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(markKostnadsfriPageSent).toHaveBeenCalledWith(
+      "acme-ab",
+      expect.objectContaining({ extraDataPatch: { profile: { city: "Kista" } } }),
+    );
+  });
+
+  it("avvisar personnummerformade värden med fältnamn men aldrig värdet", async () => {
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        profile: { city: "Kista", contactPersonalId: "19748885-2517" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.fields).toEqual(["contactPersonalId"]);
+    expect(JSON.stringify(body)).not.toContain("19748885-2517");
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("avvisar ett orgNumber som inte är ett organisationsnummer", async () => {
+    const res = await POST(
+      postRequest({ companyName: "Acme AB", profile: { orgNumber: "5595-99" } }),
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/organisationsnummer/);
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+  });
+
+  it("tappar fält utanför allowlisten i stället för att lagra dem", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPage.mockResolvedValueOnce(pageRow());
+
+    await POST(
+      postRequest({
+        companyName: "Acme AB",
+        profile: {
+          city: "Kista",
+          shareCapital: "25.000 SEK",
+          homeAddress: "HÖGNÄSVÄGEN 4, 196 34 KUNGSÄNGEN",
+        },
+      }),
+    );
+
+    expect(createKostnadsfriPage).toHaveBeenCalledWith(
+      expect.objectContaining({ extraData: { profile: { city: "Kista" } } }),
+    );
+  });
+
+  // Parameteriserad SQL skyddar frågan, inte felutdatan: ett Drizzle-fel bär
+  // querytexten och dess parametrar, och de innehåller här profil, kontakt-
+  // e-post och lösenordshash.
+  it("läcker inte databasfelets text i svaret eller loggen", async () => {
+    const sentinel = "SENTINEL-19748885-2517-hash:hemligt";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    getKostnadsfriPageBySlug.mockRejectedValueOnce(
+      new Error(`insert into "kostnadsfri_pages" … params: ${sentinel}`),
+    );
+
+    const res = await POST(postRequest({ companyName: "Acme AB" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ success: false, error: "Internt fel. Försök igen senare." });
+    expect(JSON.stringify(body)).not.toContain(sentinel);
+
+    const logged = consoleError.mock.calls.flat().map(String).join(" ");
+    expect(logged).not.toContain(sentinel);
+    expect(logged).toContain("Failed to create page");
+
+    consoleError.mockRestore();
+  });
+});
+
 describe("GET /api/kostnadsfri", () => {
   it("rejects a missing or wrong api key", async () => {
     for (const key of [null, "fel-nyckel"]) {
