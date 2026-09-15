@@ -2,8 +2,9 @@
 
 > **Status: ett beslut fattat och implementerat, två kvar.** Sidantalet är avgjort
 > 2026-09-14 (3 sidor, se [`docs/decisions/README.md`](../../../decisions/README.md))
-> och koden är skriven — men **inte mergad**, så `master` är auktoritet tills den
-> är det. Vad som ändrades står i avsnitt 1. Bolagsdata och
+> och koden är levererad på `preview` i #1370 som
+> `53daaa6ebc6766f4cd919f1e792af4162d53aaf0`. Den leveransen ändrade inte
+> `master`. Vad som ändrades står i avsnitt 1. Bolagsdata och
 > pre-generering ligger kvar som rader i
 > [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Väntar på
 > ägarbeslut. Städlistan längst ned hänger på besluten och ska köras i samma
@@ -42,8 +43,9 @@ utan att någon behövde ompröva det.
 `MAX_PAGE_COUNT_CHOICE` — och kostnadsfri-modulen slutar bestämma det själv.
 Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 
-**Väg B valdes och är implementerad (ej mergad).** Talet reser strukturerat, inte
-i prosa:
+**Väg B valdes och är levererad på `preview` i #1370 som
+`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`.** Talet reser strukturerat, inte i
+prosa:
 
 | Fil | Ändring |
 |---|---|
