@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny-ps" width="512" height="512" viewBox="0 0 512 512">
+  <title>Sajtmaskin</title>
+  <rect width="512" height="512" fill="#05080A"/>
+  <g transform="translate(256 220) rotate(-28)">
+    <path d="M0 -120 C34 -86 56 -38 56 20 C56 92 22 136 0 160 C-22 136 -56 92 -56 20 C-56 -38 -34 -86 0 -120 Z" fill="none" stroke="#5EFFF6" stroke-width="22" stroke-linejoin="round"/>
+    <circle cx="0" cy="16" r="16" fill="none" stroke="#5EFFF6" stroke-width="16"/>
+    <path d="M-56 68 L-104 104" fill="none" stroke="#5EFFF6" stroke-width="22" stroke-linecap="round"/>
+    <path d="M56 68 L104 104" fill="none" stroke="#5EFFF6" stroke-width="22" stroke-linecap="round"/>
+    <path d="M0 186 C16 210 14 236 0 254 C-14 236 -16 210 0 186 Z" fill="#5EFFF6"/>
+    <path d="M-34 250 L-52 286" fill="none" stroke="#5EFFF6" stroke-width="16" stroke-linecap="round"/>
+    <path d="M0 262 L0 304" fill="none" stroke="#5EFFF6" stroke-width="16" stroke-linecap="round"/>
+    <path d="M34 250 L52 286" fill="none" stroke="#5EFFF6" stroke-width="16" stroke-linecap="round"/>
+  </g>
+</svg>
