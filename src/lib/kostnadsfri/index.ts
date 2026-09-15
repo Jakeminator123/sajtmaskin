@@ -7,7 +7,16 @@
  */
 
 import crypto from "crypto";
+import {
+  wizardIndustryLabel,
+  wizardPurposeLabel,
+  wizardVibeLabel,
+} from "@/lib/builder/wizard-taxonomy";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
+import {
+  extractKostnadsfriCompanyProfile,
+  type KostnadsfriCompanyProfile,
+} from "./company-profile";
 import { companyNameFromSlug } from "./company-name";
 import {
   extractKostnadsfriOpenClawConfig,
@@ -26,8 +35,18 @@ export interface KostnadsfriCompanyData {
   website: string | null;
   contactEmail: string | null;
   contactName: string | null;
-  extraData: Record<string, unknown> | null;
+  /**
+   * Medvetet **ingen** rå `extraData` här. DTO:n går till browsern efter
+   * lösenordsverifiering, och en post som skapades före allowlisten (eller
+   * lades in för hand i databasen) kan bära personnummer och hemadresser i
+   * `extra_data`. Bara typade, normaliserade projektioner exponeras.
+   */
   openclawConfig: KostnadsfriOpenClawConfig | null;
+  /**
+   * Bolagsfakta från utskicksverktyget. Förifyller mini-wizarden; går aldrig
+   * direkt in i generationsprompten (ägarbeslut 2026-09-15).
+   */
+  profile: KostnadsfriCompanyProfile | null;
 }
 
 /** Data collected by the mini-wizard */
@@ -96,8 +115,8 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     website: page.website,
     contactEmail: page.contact_email,
     contactName: page.contact_name,
-    extraData,
     openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
+    profile: extractKostnadsfriCompanyProfile(extraData),
   };
 }
 
@@ -113,8 +132,8 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     website: null,
     contactEmail: null,
     contactName: null,
-    extraData: null,
     openclawConfig: null,
+    profile: null,
   };
 }
 
@@ -132,49 +151,14 @@ export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
 }
 
 // ============================================================================
-// LABEL MAPS (mirrors PromptWizardModalV2 constants)
-// ============================================================================
-
-const INDUSTRY_LABELS: Record<string, string> = {
-  cafe: "Café/Konditori",
-  restaurant: "Restaurang/Bar",
-  retail: "Butik/Detaljhandel",
-  tech: "Tech/IT-företag",
-  consulting: "Konsult/Tjänster",
-  health: "Hälsa/Wellness",
-  creative: "Kreativ byrå",
-  education: "Utbildning",
-  ecommerce: "E-handel",
-  realestate: "Fastigheter",
-  other: "Annat",
-};
-
-const PURPOSE_LABELS: Record<string, string> = {
-  sell: "Sälja",
-  leads: "Leads",
-  portfolio: "Portfolio",
-  inform: "Informera",
-  brand: "Varumärke",
-  booking: "Bokningar",
-  conversion: "Konvertering",
-  rebrand: "Rebrand",
-};
-
-const VIBE_LABELS: Record<string, string> = {
-  modern: "Modern & Clean",
-  playful: "Playful & Fun",
-  brutalist: "Brutalist",
-  luxury: "Luxury",
-  tech: "Futuristic",
-  minimal: "Minimal",
-};
-
-// ============================================================================
 // PAGE STRUCTURE (industry-aware, purpose-aware)
 // ============================================================================
 
 /**
  * Sidnamn per bransch i **prioritetsordning** — inte ett sidantal.
+ *
+ * Id:na ägs av `src/lib/builder/wizard-taxonomy.ts` — lägg inte till ett fack
+ * här utan att det finns där först.
  *
  * Listorna namngav tidigare 4–5 sidor och `buildPromptFromWizardData` skrev ut
  * antalet i prompten, vilket lät kampanjflödet sätta ett tal som ruttplanen och
@@ -246,14 +230,17 @@ function resolvePageStructure(
  *  - Full design direction with tone, colors, and typography hints
  *  - Scope guidance that defers to the structured page-count hint
  *
+ * Läser bara `MiniWizardData`. `extra_data.profile` når aldrig den här
+ * funktionen — profilen förifyller wizarden, och prompten byggs av utdata.
+ *
  * Sidantalet finns medvetet inte i prompt-API:t eller prompttexten: ruttplanen
  * får det strukturerat via `meta.pageCountHint` från kampanjhandoffen. Annars
  * skulle prompten bli en andra sanning som kan motsäga ett uttryckligt byggval
  * på exempelvis en eller två sidor (ägarbeslut 2026-09-14).
  */
 export function buildPromptFromWizardData(data: MiniWizardData): string {
-  const industryLabel = INDUSTRY_LABELS[data.industry] || data.industry || "general";
-  const vibeLabel = VIBE_LABELS[data.designVibe] || data.designVibe || "Modern & Clean";
+  const industryLabel = wizardIndustryLabel(data.industry, data.industry || "general");
+  const vibeLabel = wizardVibeLabel(data.designVibe, data.designVibe || "Modern & Clean");
   const { pages, extraSections } = resolvePageStructure(data.industry, data.purposes);
 
   const sections: string[] = [];
@@ -271,7 +258,7 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
   if (data.usp) businessContext.push(`Unique selling point (USP): ${data.usp}`);
   if (data.targetAudience) businessContext.push(`Target audience: ${data.targetAudience}`);
   if (data.purposes.length > 0) {
-    const purposeLabels = data.purposes.map((p) => PURPOSE_LABELS[p] || p);
+    const purposeLabels = data.purposes.map((p) => wizardPurposeLabel(p));
     businessContext.push(`Primary website goals: ${purposeLabels.join(", ")}`);
   }
   if (businessContext.length > 0) {

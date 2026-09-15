@@ -495,7 +495,17 @@ describe("handleSseStream", () => {
       ) => {
         onEvent("chatId", { id: "chat_1" }, "");
         onEvent("content", { text: "Här är planen." }, "");
-        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact, versionId: null }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            planMode: true,
+            planArtifact,
+            awaitingInput: false,
+            versionId: null,
+          },
+          "",
+        );
       },
     );
 
@@ -508,12 +518,51 @@ describe("handleSseStream", () => {
     expect(toast.error).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
     // Planen ska monteras som eget uiPart, inte skrivas över av felmeddelandet.
-    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
-    expect(store.getMessages()[0]?.content).toContain("Här är planen.");
+    const planPart = store.getMessages()[0]?.uiParts?.find((part) => part.type === "plan");
+    expect(planPart).toBeTruthy();
+    expect((planPart?.plan as { awaitingInput?: unknown })?.awaitingInput).toBe(false);
+    expect(store.getMessages()[0]?.content).toContain("Plan skapad");
+    expect(store.getMessages()[0]?.content).not.toContain("Här är planen.");
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
     // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).toHaveBeenCalled();
+  });
+
+  it("stämplar canonical awaiting-input på en live-plan trots tom blockerlista", async () => {
+    const planArtifact = {
+      goal: "Koppla på nyhetsbrev",
+      scope: ["components/newsletter-signup-form.tsx"],
+      steps: [{ title: "Lägg till formulär", description: "I sidfoten", phase: "build" }],
+      blockers: [],
+    };
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            planMode: true,
+            planArtifact,
+            awaitingInput: true,
+            versionId: null,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const planPart = store.getMessages()[0]?.uiParts?.find((part) => part.type === "plan");
+    expect((planPart?.plan as { awaitingInput?: unknown })?.awaitingInput).toBe(true);
   });
 
   // Bugbot på MVP-svepet: serverns persist-beslut räknar pages/scope som
