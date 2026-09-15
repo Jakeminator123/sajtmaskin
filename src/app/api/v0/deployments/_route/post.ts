@@ -840,15 +840,17 @@ export async function POST(req: Request) {
           console.warn("[deploy] Kunde inte spara Vercel-projektkoppling:", linkErr);
         }
 
-        const liveUrl = resolveLiveUrl({
-          projectId: engineProjectId,
-          versionId,
-          providerUrl: created.url,
-          brandedDomain: publishedIdentity.brandedDomain,
-          brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
-          customDomain: publishedIdentity.customDomain,
-          customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
-        });
+        const liveUrl =
+          policyUrl ??
+          resolveLiveUrl({
+            projectId: engineProjectId,
+            versionId,
+            providerUrl: created.url,
+            brandedDomain: publishedIdentity.brandedDomain,
+            brandedDomainVerifiedAt: publishedIdentity.brandedDomainVerifiedAt,
+            customDomain: publishedIdentity.customDomain,
+            customDomainVerifiedAt: publishedIdentity.customDomainVerifiedAt,
+          });
 
         // `syncEnvVarsToVercelProject` upserts env vars on the Vercel PROJECT
         // so a later redeploy triggered outside Sajtmaskin (dashboard restart,

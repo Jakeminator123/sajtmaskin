@@ -118,6 +118,54 @@ describe("canonical site address contract", () => {
     );
   });
 
+  it("does not promote an unproven custom candidate while HTTPS proof is unknown", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      providerAliasStatus: "attested",
+      httpsProof: { status: "not_ready", verdict: "unknown", reason: "unknown_status" },
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://kund-project.vercel.app");
+    expect(result.contract.canonicalUrl).toBe("https://kund-project.vercel.app");
+    expect(result.contract.pendingAddress).toBe("https://www.kund.se");
+    expect(result.contract.enabled).toBe(false);
+    expect(result.contract.activationReason).not.toBe("ready");
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
+  it("does not invent custom or a unique last-working host while alias and proof are unknown", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      verifiedProviderDomain: null,
+      providerAliasStatus: "unknown",
+      lastWorkingCanonicalUrl: "https://demo-8fyovx8jc-team.vercel.app",
+      lastWorkingProviderHost: "demo-8fyovx8jc-team.vercel.app",
+      httpsProof: { status: "not_ready", verdict: "unknown", reason: "provider_unknown" },
+      configuredEnv: { NEXT_PUBLIC_SITE_URL: "https://old.example" },
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://old.example");
+    expect(result.contract.canonicalUrl).toBeNull();
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
+  it("keeps the attested alias when a verified custom candidate has invalid HTTPS", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      providerAliasStatus: "attested",
+      httpsProof: { status: "not_ready", verdict: "invalid", reason: "cert_mismatch" },
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://kund-project.vercel.app");
+    expect(result.contract.canonicalUrl).toBe("https://kund-project.vercel.app");
+    expect(result.contract.pendingAddress).toBe("https://www.kund.se");
+    expect(result.contract.enabled).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
   it("emits a 307 candidate only when flag, attested alias and HTTPS proof all hold", () => {
     const result = prepareCanonicalAddressContract({
       ...identity,
@@ -217,8 +265,8 @@ describe("canonical site address contract", () => {
       verifiedCustomerHosts: [],
       verifiedProviderDomain: "demo.vercel.app",
       providerAliasStatus: "missing",
-      lastWorkingCanonicalUrl: "https://demo-a1b2c3-team.vercel.app",
-      lastWorkingProviderHost: "demo-a1b2c3-team.vercel.app",
+      lastWorkingCanonicalUrl: "https://demo-8fyovx8jc-team.vercel.app",
+      lastWorkingProviderHost: "demo-8fyovx8jc-team.vercel.app",
       configuredEnv: { NEXT_PUBLIC_SITE_URL: "https://old.example" },
     });
     expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://old.example");

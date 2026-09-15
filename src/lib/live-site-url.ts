@@ -44,19 +44,23 @@ const PLATFORM_VERCEL_APP_HOST = "sajtmaskin.vercel.app";
 
 /**
  * Extra reject for Vercel git-branch aliases. Not the production gate:
- * per-deployment hosts (`*-a1b2c3-*.vercel.app`) have no `-git-`.
+ * per-deployment hosts (`{name}-{hash}-{scope}.vercel.app`) have no `-git-`.
  */
 export function isGitPreviewVercelHost(value: string | null | undefined): boolean {
   const host = normalizeDomainHostname(value);
   return Boolean(host?.endsWith(".vercel.app") && host.includes("-git-"));
 }
 
-/** Vercel per-deployment host: `{project}-{hash}-{scope}.vercel.app`. */
+/**
+ * Vercel per-deployment host: `{name}-{hash}-{scope}.vercel.app`.
+ * Hash is 8–12 `[a-z0-9]` (not hex-only, not 6). Shorter hyphen words such as
+ * `kund-projekt-team` stay production-alias shaped.
+ */
 export function isUniqueVercelDeploymentHost(value: string | null | undefined): boolean {
   const host = normalizeDomainHostname(value);
   if (!host?.endsWith(".vercel.app") || isGitPreviewVercelHost(host)) return false;
   const head = host.slice(0, -".vercel.app".length);
-  return /-[0-9a-f]{6,}-[a-z0-9]/i.test(head);
+  return /-[a-z0-9]{8,12}-[a-z0-9]/i.test(head);
 }
 
 /**

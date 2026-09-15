@@ -3,6 +3,7 @@ import {
   isCurrentProductionSiteHost,
   isGitPreviewVercelHost,
   isProductionProviderVercelHost,
+  isUniqueVercelDeploymentHost,
   pickCustomerFacingProductionAlias,
   selectCurrentProductionIdentityUrl,
 } from "./live-site-url";
@@ -20,15 +21,37 @@ describe("isGitPreviewVercelHost", () => {
   });
 });
 
+describe("isUniqueVercelDeploymentHost", () => {
+  it("matches Vercel {name}-{hash}-{scope} with an 8–12 alphanumeric hash", () => {
+    expect(isUniqueVercelDeploymentHost("demo-8fyovx8jc-team.vercel.app")).toBe(true);
+    expect(isUniqueVercelDeploymentHost("demo-a1b2c3d4-team.vercel.app")).toBe(true);
+    expect(isUniqueVercelDeploymentHost("https://demo-8fyovx8jc-team.vercel.app")).toBe(true);
+    expect(
+      isUniqueVercelDeploymentHost("sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app"),
+    ).toBe(true);
+  });
+
+  it("does not treat production-alias hyphen words as a unique hash", () => {
+    expect(isUniqueVercelDeploymentHost("demo.vercel.app")).toBe(false);
+    expect(isUniqueVercelDeploymentHost("kund-projekt-team.vercel.app")).toBe(false);
+    expect(isUniqueVercelDeploymentHost("demo-a1b2c3-team.vercel.app")).toBe(false);
+  });
+});
+
 describe("isProductionProviderVercelHost", () => {
   it("accepts a production alias and rejects git and unique-deployment hosts", () => {
     expect(isProductionProviderVercelHost("demo.vercel.app")).toBe(true);
-    expect(isProductionProviderVercelHost("demo-a1b2c3-team.vercel.app")).toBe(false);
+    expect(isProductionProviderVercelHost("kund-projekt-team.vercel.app")).toBe(true);
+    expect(isProductionProviderVercelHost("demo-8fyovx8jc-team.vercel.app")).toBe(false);
+    expect(isProductionProviderVercelHost("demo-a1b2c3d4-team.vercel.app")).toBe(false);
     expect(
-      isProductionProviderVercelHost("sajtmaskin-a1b2c3-jakeminator123s-projects.vercel.app"),
+      isProductionProviderVercelHost("sajtmaskin-8fyovx8jc-jakeminator123s-projects.vercel.app"),
     ).toBe(false);
     expect(isProductionProviderVercelHost("demo-git-feat-x-team.vercel.app")).toBe(false);
     expect(isProductionProviderVercelHost("sajtmaskin.vercel.app")).toBe(false);
+    expect(
+      isProductionProviderVercelHost("sajtmaskin-lotta-bonanova-ec66b7c6-8fyovx8jc.vercel.app"),
+    ).toBe(false);
   });
 });
 
@@ -51,7 +74,7 @@ describe("isCurrentProductionSiteHost", () => {
 
   it("rejects preview-shaped vercel.app hosts even with a matching project", () => {
     expect(
-      isCurrentProductionSiteHost("demo-a1b2c3-team.vercel.app", {
+      isCurrentProductionSiteHost("demo-8fyovx8jc-team.vercel.app", {
         attestedProductionHost: "demo.vercel.app",
       }),
     ).toBe(false);
@@ -71,7 +94,13 @@ describe("isCurrentProductionSiteHost", () => {
       isCurrentProductionSiteHost("kund-project.vercel.app", { allowLastWorkingProvider: true }),
     ).toBe(true);
     expect(
-      isCurrentProductionSiteHost("demo-a1b2c3-team.vercel.app", { allowLastWorkingProvider: true }),
+      isCurrentProductionSiteHost("kund-projekt-team.vercel.app", { allowLastWorkingProvider: true }),
+    ).toBe(true);
+    expect(
+      isCurrentProductionSiteHost("demo-8fyovx8jc-team.vercel.app", { allowLastWorkingProvider: true }),
+    ).toBe(false);
+    expect(
+      isCurrentProductionSiteHost("demo-a1b2c3d4-team.vercel.app", { allowLastWorkingProvider: true }),
     ).toBe(false);
     expect(
       isCurrentProductionSiteHost("www.kund.se", { allowLastWorkingProvider: true }),

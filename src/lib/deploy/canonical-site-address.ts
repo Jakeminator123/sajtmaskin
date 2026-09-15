@@ -321,11 +321,12 @@ export function prepareCanonicalAddressContract(
   let pendingAddress: string | null = null;
   let usedLastWorkingIdentity = false;
 
-  // 1. verified customer domain  2. attested production alias (the address,
-  // not a match key against deployments.url)  3. last-working provider only
-  // while the alias read is unknown  4. keep env. Never invent an origin.
+  // 1. verified customer domain (only with valid HTTPS)  2. attested
+  // production alias  3. last-working provider while the alias read is
+  // unknown  4. keep env. Never invent an origin. Unknown proof/alias
+  // must not promote the unproven custom candidate.
   if (proofUnknown || aliasStatus === "unknown") {
-    policyUrl = lastWorkingUrl ?? candidateUrl ?? attestedOrigin;
+    policyUrl = lastWorkingUrl ?? attestedOrigin;
     usedLastWorkingIdentity = Boolean(lastWorkingUrl && policyUrl === lastWorkingUrl);
   } else if (proofInvalid) {
     const keptLastWorking = lastWorkingUrl && lastWorkingUrl !== candidateUrl ? lastWorkingUrl : null;
