@@ -1,15 +1,18 @@
 # 05 — Körschema
 
-Denna plan-PR levererar underlag och ratificerar inte nya produktförslag i
-[masterplanen](00-master-plan.md). Separata implementationsuppdrag har startat.
+Körschemat styr implementationsordning. Det ratificerar inte nya produktförslag
+i [masterplanen](00-master-plan.md).
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-C1, C3 etapp 1, A2:s cookie-/Origin-skydd och D1 är levererade på `preview`.
-PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontrollerna på preview är gröna, inklusive migrationer och schemaparitet (CI 34899457800). Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`.
-B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden.
-A3:s förberedande kodetapp pågår separat; fullständigt adresskontrakt och driftverifiering samt A1/A4, C2 och D2/D3:s kund-/driftflöden återstår.
-Aktuell samlad status finns i [masterplanen](00-master-plan.md).
+Etapp 1–2 är kodmässigt inne på `preview` för C1, C3e1, A2, B1, C2 och A3
+(#1386 + #1391). #1389 är kod på preview; Fly är inte deployad. C2 har ingen
+kill-switch. A3-redirect och branded är av. D3-adaptern saknas. A1, A4 och
+D2/D3 (#1385, nästa våg) återstår. Samlad tabell:
+[masterplanen](00-master-plan.md).
+
+#1385, #1376, #1377 och Dependabot ingår inte i denna release. #1380 stängs.
+Ingen promote i detta körschema.
 
 ## Etapper
 
@@ -53,9 +56,9 @@ GPT-5.6 Sol med `high` inför draft → ready.
 Parallella agenter används när uppdrag och faktiskt disjunkta filer tillåter
 det; högst tre samtidiga skrivande uppdrag i detta initiativ. Drift kan utföras
 av behörig operatör eller agent med befintligt mandat. Det finns inget generellt
-tekniskt krav på att Jakob själv skriver kommandona. Denna dokumentations-PR
-ändrar bara underlaget. Separata implementationsuppdrag gäller `preview`,
-inte produktion, kundmeddelanden eller dataradering.
+tekniskt krav på att Jakob själv skriver kommandona. Separata
+implementationsuppdrag gäller `preview`, inte produktion, kundmeddelanden
+eller dataradering.
 
 Före push: `npm run verify:pr -- --plan --base origin/preview` och berörda
 riktade kontroller. Runtime: typecheck och tester för ändrat beteende. A3/A4
