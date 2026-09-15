@@ -675,6 +675,25 @@ describe("en aktiv sajt låser inte upp en annan", () => {
       }),
     ).toMatchObject({ entitled: false, waiveDeployFee: false });
   });
+
+  it("ger inte publiceringsrätt åt checkout_pending", () => {
+    expect(
+      evaluateSitePublishEntitlement({
+        projectId: "prj_a",
+        rowProjectId: "prj_a",
+        billingMode: "test",
+        rowBillingMode: "test",
+        lifecycleState: "checkout_pending",
+        hostingDesired: "active",
+        now,
+        enforce: true,
+      }),
+    ).toMatchObject({
+      entitled: false,
+      waiveDeployFee: false,
+      reason: "checkout_pending",
+    });
+  });
 });
 
 describe("plattformens eget projekt", () => {

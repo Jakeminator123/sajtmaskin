@@ -30,14 +30,17 @@ describe("transactionLabel", () => {
   });
 });
 
-describe("konto page copy — no invented subscription", () => {
-  it("does not render a plan, invoice or subscription section", () => {
+describe("konto page copy — sajt-abonnemang utan påhittad plan", () => {
+  it("renders the site-subscription section without invented price copy", () => {
     const src = readFileSync(join(__dirname, "../../app/konto/page.tsx"), "utf8");
 
-    expect(src).not.toMatch(/abonnemang/i);
+    expect(src).toMatch(/Sajt-abonnemang/);
+    expect(src).toMatch(/abonnemang/i);
+    expect(src).toContain("Inga sajt-abonnemang ännu.");
     expect(src).not.toMatch(/Ingen plan/);
-    expect(src).not.toMatch(/faktur/i);
     expect(src).not.toMatch(/10 credits\/månad/);
+    expect(src).not.toMatch(/\d+\s*kr\/månad/i);
+    expect(src).not.toMatch(/Premium|Starter-plan|Pro-plan/);
   });
 });
 

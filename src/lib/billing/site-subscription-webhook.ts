@@ -57,6 +57,19 @@ function reject(status: number, error: string): WebhookHandleResult {
   return { status, body: { error } };
 }
 
+/** Tenant/mode 4xx must stay open so Stripe retries after metadata or row is fixed. */
+const RETRYABLE_CLIENT_ERRORS = new Set([
+  "tenant_mismatch",
+  "livemode_mismatch",
+  "metadata_mode_mismatch",
+]);
+
+function shouldKeepStripeEventOpen(result: WebhookHandleResult): boolean {
+  if (result.status >= 500) return true;
+  const error = typeof result.body.error === "string" ? result.body.error : "";
+  return RETRYABLE_CLIENT_ERRORS.has(error);
+}
+
 async function resolveSubscriptionRow(input: {
   billingMode: BillingMode;
   stripeSubscriptionId?: string | null;
@@ -209,7 +222,7 @@ export async function handleSiteSubscriptionStripeEvent(input: {
 
   if (!eventMatchesServerBillingMode(input.event.livemode, input.serverBillingMode)) {
     console.error("[Stripe/webhook] site_subscription livemode mismatch", input.event.id);
-    return reject(400, "livemode_mismatch");
+    return retry("livemode_mismatch");
   }
 
   const claim = await claimStripeBillingEvent({
@@ -226,9 +239,9 @@ export async function handleSiteSubscriptionStripeEvent(input: {
 
   try {
     const result = await dispatchSiteSubscriptionEvent(input);
-    if (result.status >= 500) {
+    if (shouldKeepStripeEventOpen(result)) {
       await failStripeBillingEvent(input.event.id, String(result.body.error ?? "retry"));
-      return result;
+      return result.status >= 500 ? result : retry(String(result.body.error ?? "retry"));
     }
     await completeStripeBillingEvent(input.event.id);
     return result;
@@ -311,11 +324,12 @@ async function handleCheckoutCompleted(
     stripe_checkout_session_id: session.id,
     stripe_subscription_id: stripeSubscriptionId ?? row.stripe_subscription_id,
     billing_customer_id: row.billing_customer_id,
-    lifecycle_state: "active",
   });
 
-  // Checkout-success håller anspråket. invoice.paid ger publiceringsrätt.
-  return ok({ attached: true, granted: false, claimed: true });
+  // Checkout-success knyter Stripe-id:n. Raden stannar i checkout_pending
+  // tills invoice.paid skriver period + active. Sätt inte lifecycle här —
+  // en sen completed får inte skriva ner en redan betald rad.
+  return ok({ attached: true, granted: false, claimed: true, pending: true });
 }
 
 async function handleCheckoutExpired(

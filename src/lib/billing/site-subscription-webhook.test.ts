@@ -107,9 +107,10 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       event: event("invoice.paid", siteInvoice(), true),
       serverBillingMode: "test",
     });
-    expect(result.status).toBe(400);
+    expect(result.status).toBe(500);
     expect(result.body.error).toBe("livemode_mismatch");
     expect(claimStripeBillingEvent).not.toHaveBeenCalled();
+    expect(completeStripeBillingEvent).not.toHaveBeenCalled();
   });
 
   it("kvitterar dubblettevent utan ny mutation", async () => {
@@ -181,12 +182,56 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       serverBillingMode: "test",
     });
 
-    expect(result.status).toBe(400);
+    expect(result.status).toBe(500);
     expect(result.body.error).toBe("tenant_mismatch");
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+    expect(completeStripeBillingEvent).not.toHaveBeenCalled();
+    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "tenant_mismatch");
   });
 
-  it("markerar complete checkout som aktivt anspråk utan periodförmån", async () => {
+  it("retrysar metadata_mode_mismatch i stället för att kvittera eventet", async () => {
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_1",
+        mode: "subscription",
+        subscription: "sub_1",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billing_mode: "live",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(500);
+    expect(result.body.error).toBe("metadata_mode_mismatch");
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+    expect(completeStripeBillingEvent).not.toHaveBeenCalled();
+    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "metadata_mode_mismatch");
+  });
+
+  it("kvitterar permanent ogiltig checkout-metadata så Stripe inte retrysar för evigt", async () => {
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_1",
+        mode: "subscription",
+        subscription: "sub_1",
+        metadata: { kind: "site_subscription" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body.error).toBe("invalid_site_subscription_metadata");
+    expect(completeStripeBillingEvent).toHaveBeenCalledWith("evt_1");
+    expect(failStripeBillingEvent).not.toHaveBeenCalled();
+  });
+
+  it("håller checkout_pending tills invoice.paid skriver period", async () => {
     getSiteSubscriptionByStripeId.mockResolvedValue(null);
     getSiteSubscriptionByCheckoutSession.mockResolvedValue({
       ...row,
@@ -212,16 +257,50 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     });
 
     expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ attached: true, claimed: true, granted: false });
+    expect(result.body).toMatchObject({
+      attached: true,
+      claimed: true,
+      granted: false,
+      pending: true,
+    });
     expect(updateSiteSubscription).toHaveBeenCalledWith(
       "sub_row",
       "test",
       expect.objectContaining({
-        lifecycle_state: "active",
         stripe_checkout_session_id: "cs_1",
         stripe_subscription_id: "sub_1",
       }),
     );
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("lifecycle_state");
+    expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
+  });
+
+  it("skriver inte ner en redan betald rad när checkout.completed kommer sent", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "active",
+      current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("checkout.session.completed", {
+        id: "cs_1",
+        mode: "subscription",
+        subscription: "sub_1",
+        metadata: {
+          kind: "site_subscription",
+          projectId: "prj_a",
+          userId: "user_1",
+          billingMode: "test",
+        },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.granted).toBe(false);
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("lifecycle_state");
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
   });
 
