@@ -173,9 +173,47 @@ export function OpenClawChatPanel({
   useEffect(() => {
     if (!isOpen || !isTakeover) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setPanelPresentation("bubble");
+      if (event.key === "Escape") {
+        if (event.defaultPrevented) return;
+        const target = event.target;
+        if (target instanceof Element) {
+          const ownerDialog = target.closest('[role="dialog"]');
+          if (ownerDialog && ownerDialog !== panelRef.current) return;
+        }
+        event.preventDefault();
+        setPanelPresentation("bubble");
+        return;
+      }
+
+      if (event.key !== "Tab" || event.defaultPrevented) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const target = event.target;
+      if (target instanceof Element) {
+        const ownerDialog = target.closest('[role="dialog"]');
+        if (ownerDialog && ownerDialog !== panel) return;
+      }
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !panel.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !panel.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -431,6 +469,7 @@ export function OpenClawChatPanel({
     <div
       ref={panelRef}
       role={isOpen ? "dialog" : undefined}
+      aria-modal={isTakeover ? true : undefined}
       aria-label={isOpen ? `${content.assistantLabel} chatt` : undefined}
       aria-hidden={!isOpen}
       inert={!isOpen}
