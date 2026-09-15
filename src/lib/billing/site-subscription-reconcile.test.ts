@@ -629,4 +629,33 @@ describe("reconcileSiteSubscriptions", () => {
     expect(insertBillingJob).not.toHaveBeenCalled();
     expect(updateSiteSubscription).not.toHaveBeenCalled();
   });
+
+  it("pausar inte ended utan betald reason (pending-deleted / null)", async () => {
+    listSubscriptionsNeedingReconcile.mockResolvedValue([
+      {
+        id: "sub_pending_deleted",
+        billing_mode: "test",
+        lifecycle_state: "ended",
+        hosting_state_desired: "active",
+        hosting_state_actual: "active",
+        grace_until: null,
+        current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+        cancel_at_period_end: true,
+        stripe_status: "canceled",
+        updated_at: new Date("2026-09-15T11:00:00.000Z"),
+        ended_reason: "checkout_expired",
+        ended_at: new Date("2026-09-15T11:00:00.000Z"),
+      },
+    ]);
+
+    const result = await reconcileSiteSubscriptions({
+      billingMode: "test",
+      now: new Date("2026-09-15T12:00:00.000Z"),
+    });
+
+    expect(result.pauses).toBe(0);
+    expect(pause).not.toHaveBeenCalled();
+    expect(insertBillingJob).not.toHaveBeenCalled();
+    expect(updateSiteSubscription).not.toHaveBeenCalled();
+  });
 });

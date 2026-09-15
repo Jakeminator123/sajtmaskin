@@ -488,11 +488,54 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       "test",
       expect.objectContaining({
         lifecycle_state: "ended",
-        ended_reason: "subscription_deleted",
+        ended_reason: "checkout_expired",
       }),
     );
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
       expect.objectContaining({ lifecycle_state: "active" }),
+    );
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("hosting_state_desired");
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
+      expect.objectContaining({ ended_reason: "subscription_deleted" }),
+    );
+    expect(enqueueHostingJob).not.toHaveBeenCalled();
+  });
+
+  it("skriver inte över ended+checkout_expired när Stripe sedan skickar deleted", async () => {
+    getSiteSubscriptionByStripeId.mockResolvedValue({
+      ...row,
+      lifecycle_state: "ended",
+      ended_reason: "checkout_expired",
+      ended_at: new Date("2026-09-15T11:00:00.000Z"),
+      current_period_end: null,
+    });
+    retrieveSubscriptionFresh.mockResolvedValue({
+      id: "sub_1",
+      status: "canceled",
+      metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+    });
+
+    const result = await handleSiteSubscriptionStripeEvent({
+      stripe: {} as Stripe,
+      event: event("customer.subscription.deleted", {
+        id: "sub_1",
+        status: "canceled",
+        metadata: { kind: "site_subscription", projectId: "prj_a", userId: "user_1" },
+      }),
+      serverBillingMode: "test",
+    });
+
+    expect(result.status).toBe(200);
+    expect(updateSiteSubscription).toHaveBeenCalledWith(
+      "sub_row",
+      "test",
+      expect.objectContaining({
+        lifecycle_state: "ended",
+        ended_reason: "checkout_expired",
+      }),
+    );
+    expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toEqual(
+      expect.objectContaining({ ended_reason: "subscription_deleted" }),
     );
     expect(updateSiteSubscription.mock.calls[0]?.[2]).not.toHaveProperty("hosting_state_desired");
     expect(enqueueHostingJob).not.toHaveBeenCalled();
@@ -833,6 +876,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
       "test",
       expect.objectContaining({
         lifecycle_state: "ended",
+        ended_reason: "subscription_deleted",
         hosting_state_desired: "paused",
       }),
     );

@@ -158,6 +158,52 @@ export function shouldApplyPaidSubscription(input: {
 
 const TERMINAL_ENDED_REASONS = new Set(["subscription_deleted", "user_canceled"]);
 
+/** Betald livscykel: cron får pausa hosting. Övriga ended-reasons är never-paid. */
+const PAID_ENDED_HOSTING_REASONS = new Set([
+  "subscription_deleted",
+  "user_canceled",
+  "period_ended",
+]);
+
+export function isPaidEndedHostingReason(reason: string | null | undefined): boolean {
+  return PAID_ENDED_HOSTING_REASONS.has(reason ?? "");
+}
+
+/**
+ * `checkout_pending`, eller `ended` utan betald hosting-reason
+ * (`checkout_expired`, null, okänd).
+ */
+export function isNeverPaidSubscriptionRow(input: {
+  lifecycleState: SiteSubscriptionLifecycleState;
+  endedReason?: string | null;
+}): boolean {
+  if (input.lifecycleState === "checkout_pending") return true;
+  return input.lifecycleState === "ended" && !isPaidEndedHostingReason(input.endedReason);
+}
+
+/**
+ * Never-paid rad behåller befintlig never-paid reason, annars `checkout_expired`.
+ * Betald `active` som slutar utan kvarvarande period får `subscription_deleted`.
+ */
+export function endedReasonAfterSubscriptionDeleted(input: {
+  lifecycleState: SiteSubscriptionLifecycleState;
+  currentEndedReason: string | null | undefined;
+  stillPaid: boolean;
+}): string | null {
+  if (input.stillPaid) return input.currentEndedReason ?? null;
+  if (
+    isNeverPaidSubscriptionRow({
+      lifecycleState: input.lifecycleState,
+      endedReason: input.currentEndedReason,
+    })
+  ) {
+    return input.currentEndedReason && !isPaidEndedHostingReason(input.currentEndedReason)
+      ? input.currentEndedReason
+      : "checkout_expired";
+  }
+  return "subscription_deleted";
+}
+
 /**
  * `ended` får inte bli `active` igen via fulfill, utom reparation av en
  * felstängd betald checkout (`checkout_expired` + paid invoice).
@@ -578,8 +624,10 @@ export type ReconcileDecision = {
 /**
  * Tidsstyrd avstämning. En webhook dag 0 sätter bara grace_until —
  * den här funktionen avgör dag 7. past_due ensamt pausar inte.
- * `ended` + `checkout_expired` rör inte hosting — samma klass som
- * webhook-grinden `shouldPauseHostingAfterSubscriptionDeleted`.
+ * `ended` pausar bara för betald livscykel-reason
+ * (`subscription_deleted` | `user_canceled` | `period_ended`).
+ * Never-paid (`checkout_expired`, null, okänd) rör inte hosting —
+ * samma klass som webhook-grinden `shouldPauseHostingAfterSubscriptionDeleted`.
  */
 export function decideReconcileAction(input: {
   now: Date;
@@ -602,13 +650,16 @@ export function decideReconcileAction(input: {
     };
   }
 
-  if (input.lifecycleState === "ended" && input.endedReason === "checkout_expired") {
+  if (
+    input.lifecycleState === "ended" &&
+    !isPaidEndedHostingReason(input.endedReason)
+  ) {
     return {
       desired: input.hostingDesired,
       enqueuePause: false,
       enqueueResume: false,
       endLifecycle: false,
-      reason: "checkout_expired_no_hosting_change",
+      reason: "never_paid_ended_no_hosting_change",
     };
   }
 

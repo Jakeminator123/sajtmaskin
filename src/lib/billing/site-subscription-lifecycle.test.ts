@@ -10,8 +10,11 @@ import {
   decideCheckoutReuse,
   decidePendingCheckoutRepair,
   decideReconcileAction,
+  endedReasonAfterSubscriptionDeleted,
   evaluateSitePublishEntitlement,
   eventMatchesServerBillingMode,
+  isNeverPaidSubscriptionRow,
+  isPaidEndedHostingReason,
   isPlatformVercelProject,
   shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
@@ -802,8 +805,32 @@ describe("uppsägning vid periodslut och respit dag 7", () => {
       enqueuePause: false,
       enqueueResume: false,
       endLifecycle: false,
-      reason: "checkout_expired_no_hosting_change",
+      reason: "never_paid_ended_no_hosting_change",
     });
+  });
+
+  it("pausar inte ended utan betald reason (null eller okänd)", () => {
+    for (const endedReason of [null, "unknown_orphan"]) {
+      expect(
+        decideReconcileAction({
+          now,
+          lifecycleState: "ended",
+          hostingDesired: "active",
+          hostingActual: "active",
+          graceUntil: null,
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          stripeStatus: "canceled",
+          endedReason,
+        }),
+      ).toEqual({
+        desired: "active",
+        enqueuePause: false,
+        enqueueResume: false,
+        endLifecycle: false,
+        reason: "never_paid_ended_no_hosting_change",
+      });
+    }
   });
 
   it("köar fortfarande pause för ended + subscription_deleted när actual är active", () => {
@@ -826,6 +853,90 @@ describe("uppsägning vid periodslut och respit dag 7", () => {
       endLifecycle: false,
       reason: "already_ended",
     });
+  });
+
+  it("köar pause för user_canceled och period_ended", () => {
+    for (const endedReason of ["user_canceled", "period_ended"] as const) {
+      expect(
+        decideReconcileAction({
+          now,
+          lifecycleState: "ended",
+          hostingDesired: "paused",
+          hostingActual: "active",
+          graceUntil: null,
+          currentPeriodEnd: new Date("2026-09-01T12:00:00.000Z"),
+          cancelAtPeriodEnd: true,
+          stripeStatus: "canceled",
+          endedReason,
+        }),
+      ).toMatchObject({
+        desired: "paused",
+        enqueuePause: true,
+        reason: "already_ended",
+      });
+    }
+  });
+});
+
+describe("never-paid ended-reason efter subscription.deleted", () => {
+  it("klassificerar pending och expired som never-paid, inte betald deleted", () => {
+    expect(
+      isNeverPaidSubscriptionRow({
+        lifecycleState: "checkout_pending",
+        endedReason: null,
+      }),
+    ).toBe(true);
+    expect(
+      isNeverPaidSubscriptionRow({
+        lifecycleState: "ended",
+        endedReason: "checkout_expired",
+      }),
+    ).toBe(true);
+    expect(
+      isNeverPaidSubscriptionRow({
+        lifecycleState: "ended",
+        endedReason: null,
+      }),
+    ).toBe(true);
+    expect(
+      isNeverPaidSubscriptionRow({
+        lifecycleState: "ended",
+        endedReason: "subscription_deleted",
+      }),
+    ).toBe(false);
+    expect(isPaidEndedHostingReason("subscription_deleted")).toBe(true);
+    expect(isPaidEndedHostingReason("checkout_expired")).toBe(false);
+  });
+
+  it("sätter checkout_expired på pending, skriver inte över expired", () => {
+    expect(
+      endedReasonAfterSubscriptionDeleted({
+        lifecycleState: "checkout_pending",
+        currentEndedReason: null,
+        stillPaid: false,
+      }),
+    ).toBe("checkout_expired");
+    expect(
+      endedReasonAfterSubscriptionDeleted({
+        lifecycleState: "ended",
+        currentEndedReason: "checkout_expired",
+        stillPaid: false,
+      }),
+    ).toBe("checkout_expired");
+    expect(
+      endedReasonAfterSubscriptionDeleted({
+        lifecycleState: "active",
+        currentEndedReason: null,
+        stillPaid: false,
+      }),
+    ).toBe("subscription_deleted");
+    expect(
+      endedReasonAfterSubscriptionDeleted({
+        lifecycleState: "active",
+        currentEndedReason: null,
+        stillPaid: true,
+      }),
+    ).toBeNull();
   });
 });
 

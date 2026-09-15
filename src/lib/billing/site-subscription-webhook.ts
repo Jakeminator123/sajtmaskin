@@ -23,6 +23,7 @@ import {
   classifyCheckoutClaim,
   computeGraceUntil,
   eventMatchesServerBillingMode,
+  endedReasonAfterSubscriptionDeleted,
   shouldApplyPaidSubscription,
   shouldApplyPaymentFailed,
   shouldFulfillEndedRow,
@@ -554,7 +555,11 @@ async function handleSubscriptionDeleted(
   await updateSiteSubscription(row.id, billingMode, {
     stripe_status: current.status,
     lifecycle_state: stillPaid ? "active" : "ended",
-    ended_reason: stillPaid ? row.ended_reason : "subscription_deleted",
+    ended_reason: endedReasonAfterSubscriptionDeleted({
+      lifecycleState: row.lifecycle_state as SiteSubscriptionLifecycleState,
+      currentEndedReason: row.ended_reason,
+      stillPaid,
+    }),
     ended_at: stillPaid ? row.ended_at : now,
     cancel_at_period_end: true,
     ...(pauseHosting ? { hosting_state_desired: "paused" as const } : {}),
