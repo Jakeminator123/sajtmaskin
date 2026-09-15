@@ -808,11 +808,8 @@ describe("POST /api/template", () => {
     });
     expect(createProject).not.toHaveBeenCalled();
     expect(chatRepoCreateChat).not.toHaveBeenCalled();
-    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
-      "op_1",
-      "op_1",
-    ]);
-    expect(commitCredits).toHaveBeenCalled();
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
   });
 
   it("reuses the owner+templateId project when the client omitted projectId", async () => {
@@ -1207,6 +1204,19 @@ describe("POST /api/template", () => {
     stubLocalTemplateSource();
     resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
     claimState.recordResult = false;
+    chatRepoGetChat.mockResolvedValue({
+      id: "chat_import",
+      project_id: "proj_existing",
+      model: "gpt-import",
+      messages: [],
+    });
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_import",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://vm-fly-jakem.fly.dev/chat_import",
+    });
 
     const first = await postTemplate({
       templateId: "tmpl_1",
@@ -1214,7 +1224,6 @@ describe("POST /api/template", () => {
       projectId: "proj_existing",
     });
 
-    claimState.recordResult = true;
     chatRepoListChatsByProject.mockResolvedValue([
       {
         id: "chat_import",
@@ -1226,13 +1235,6 @@ describe("POST /api/template", () => {
         },
       },
     ]);
-    chatRepoGetPreferredVersion.mockResolvedValue({
-      id: "ver_import",
-      files_json: JSON.stringify([
-        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
-      ]),
-      preview_url: "https://vm-fly-jakem.fly.dev/chat_import",
-    });
 
     const second = await postTemplate({
       templateId: "tmpl_1",
@@ -1242,8 +1244,12 @@ describe("POST /api/template", () => {
     const firstJson = await first.json();
     const secondJson = await second.json();
 
-    expect(first.status).toBe(409);
-    expect(firstJson).toMatchObject({ success: false, retryable: true });
+    expect(first.status).toBe(200);
+    expect(firstJson).toMatchObject({
+      success: true,
+      chatId: "chat_import",
+      projectId: "proj_existing",
+    });
     expect(second.status).toBe(200);
     expect(secondJson).toMatchObject({
       success: true,
@@ -1252,8 +1258,9 @@ describe("POST /api/template", () => {
       projectId: "proj_existing",
     });
     expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
-    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(2);
     expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
+      "op_1",
       "op_1",
       "op_1",
     ]);

@@ -701,7 +701,8 @@ export async function POST(request: NextRequest) {
       };
 
       if (existing && !acquired.chatId && !acquired.versionId) {
-        return settleExistingInit(existing, acquired);
+        await failAcquiredClaim("replay_existing_import");
+        return respondExisting(existing);
       }
 
       if (existing && (acquired.chatId || acquired.versionId)) {
@@ -767,16 +768,19 @@ export async function POST(request: NextRequest) {
           versionId: imported.versionId,
         });
         if (!recorded) {
-          await failAcquiredClaim("record_failed");
-          return attachSessionCookie(
-            NextResponse.json(
-              {
-                success: false,
-                retryable: true,
-                error: "Template-importen kunde inte låsas. Försök igen.",
-              },
-              { status: 409 },
-            ),
+          // Persist already landed. Settling here charges this operation_id
+          // so a later respondExisting replay cannot skip debit.
+          return settleExistingInit(
+            {
+              chatId: imported.chatId,
+              projectId,
+              versionId: imported.versionId,
+              previewUrl: imported.previewUrl,
+              files: imported.files,
+              code: imported.code,
+              model: imported.model,
+            },
+            acquired,
           );
         }
 
