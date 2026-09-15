@@ -35,7 +35,12 @@ export interface KostnadsfriCompanyData {
   website: string | null;
   contactEmail: string | null;
   contactName: string | null;
-  extraData: Record<string, unknown> | null;
+  /**
+   * Medvetet **ingen** rå `extraData` här. DTO:n går till browsern efter
+   * lösenordsverifiering, och en post som skapades före allowlisten (eller
+   * lades in för hand i databasen) kan bära personnummer och hemadresser i
+   * `extra_data`. Bara typade, normaliserade projektioner exponeras.
+   */
   openclawConfig: KostnadsfriOpenClawConfig | null;
   /**
    * Bolagsfakta från utskicksverktyget. Förifyller mini-wizarden; går aldrig
@@ -110,7 +115,6 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     website: page.website,
     contactEmail: page.contact_email,
     contactName: page.contact_name,
-    extraData,
     openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
     profile: extractKostnadsfriCompanyProfile(extraData),
   };
@@ -128,7 +132,6 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     website: null,
     contactEmail: null,
     contactName: null,
-    extraData: null,
     openclawConfig: null,
     profile: null,
   };
@@ -160,9 +163,9 @@ export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
  * Listorna namngav tidigare 4–5 sidor och `buildPromptFromWizardData` skrev ut
  * antalet i prompten, vilket lät kampanjflödet sätta ett tal som ruttplanen och
  * byggvalsreglaget redan äger (ägarbeslut 2026-09-14, `docs/decisions/README.md`).
- * Antalet kommer nu utifrån via `maxPages`; ordningen här avgör bara *vilka*
- * sidor som ryms. Sidor som faller utanför taket blir sektioner i stället —
- * `PURPOSE_SECTIONS` bär den delen.
+ * Antalet kommer nu enbart från `meta.pageCountHint`; ordningen här är
+ * icke-bindande prioriteringar som ruttplanen kan välja inom det strukturerade
+ * antalet. Prioriteringar som inte blir egna rutter kan bli sektioner i stället.
  */
 const INDUSTRY_PAGES: Record<string, string[]> = {
   cafe: ["Hem", "Meny", "Hitta hit", "Om oss"],
@@ -191,19 +194,13 @@ const PURPOSE_SECTIONS: Record<string, string[]> = {
 };
 
 /**
- * Determine the recommended page structure for the company.
- *
- * `maxPages` ägs av anroparen (`MAX_PAGE_COUNT_CHOICE`) — den här modulen
- * bestämmer bara ordningen. Ett tal under 1 behandlas som 1: en sajt utan
- * startsida är inget flödet kan leverera.
+ * Determine ordered, non-binding page priorities for the company.
  */
 function resolvePageStructure(
   industry: string,
   purposes: string[],
-  maxPages: number,
 ): { pages: string[]; extraSections: string[] } {
-  const limit = Math.max(1, Math.trunc(maxPages));
-  const base = (INDUSTRY_PAGES[industry] || FALLBACK_INDUSTRY_PAGES).slice(0, limit);
+  const base = INDUSTRY_PAGES[industry] || FALLBACK_INDUSTRY_PAGES;
   const extraSections: string[] = [];
   for (const purpose of purposes) {
     const sections = PURPOSE_SECTIONS[purpose];
@@ -225,42 +222,34 @@ function resolvePageStructure(
  *
  * Designed to produce enough detail (~800-1200 chars) so the downstream
  * pipeline (brief generation, dynamic instructions, spec file) interprets
- * this as a "detailed request" and generates a multi-page brief with
- * 10-15+ sections instead of a minimal one-pager.
+ * this as a detailed request without deciding the number of pages.
  *
  * The prompt includes:
- *  - Explicit multi-page structure with named pages
+ *  - Ordered, non-binding page priorities
  *  - Purpose-driven section suggestions
  *  - Full design direction with tone, colors, and typography hints
- *  - Scope override to prevent brief model from down-scoping
+ *  - Scope guidance that defers to the structured page-count hint
  *
  * Läser bara `MiniWizardData`. `extra_data.profile` når aldrig den här
  * funktionen — profilen förifyller wizarden, och prompten byggs av utdata.
  *
- * Sidantalet skickas in (`maxPages`) och skrivs medvetet **inte** som ett tal i
- * prompttexten: ruttplanen får det strukturerat via `meta.pageCountHint` från
- * kampanjhandoffen, och ett tal i prosa som en annan fil bestämmer blir en andra
- * sanning som `detectExplicitPageCount` läser tillbaka (ägarbeslut 2026-09-14).
+ * Sidantalet finns medvetet inte i prompt-API:t eller prompttexten: ruttplanen
+ * får det strukturerat via `meta.pageCountHint` från kampanjhandoffen. Annars
+ * skulle prompten bli en andra sanning som kan motsäga ett uttryckligt byggval
+ * på exempelvis en eller två sidor (ägarbeslut 2026-09-14).
  */
-export function buildPromptFromWizardData(
-  data: MiniWizardData,
-  options: { maxPages: number },
-): string {
+export function buildPromptFromWizardData(data: MiniWizardData): string {
   const industryLabel = wizardIndustryLabel(data.industry, data.industry || "general");
   const vibeLabel = wizardVibeLabel(data.designVibe, data.designVibe || "Modern & Clean");
-  const { pages, extraSections } = resolvePageStructure(
-    data.industry,
-    data.purposes,
-    options.maxPages,
-  );
+  const { pages, extraSections } = resolvePageStructure(data.industry, data.purposes);
 
   const sections: string[] = [];
 
-  // 1. Core request — explicit multi-page signal
+  // 1. Core request — detailed content without a page-count signal
   sections.push(
-    `Build a professional, multi-page website for "${data.companyName}", a ${industryLabel} company` +
+    `Build a professional website for "${data.companyName}", a ${industryLabel} company` +
       (data.location ? ` based in ${data.location}` : "") +
-      `. The site should feel polished, premium, and conversion-oriented with rich content across multiple pages.`,
+      `. The site should feel polished, premium, and conversion-oriented with rich content across the planned structure.`,
   );
 
   // 2. Business profile (who they are, goals, audience)
@@ -276,10 +265,10 @@ export function buildPromptFromWizardData(
     sections.push(`\nBusiness profile:\n${businessContext.map((l) => `- ${l}`).join("\n")}`);
   }
 
-  // 3. Page structure — named pages with purpose
+  // 3. Page priorities — suggestions only; structured meta owns the count
   const pageLines = pages.map((p) => `- ${p}`).join("\n");
   sections.push(
-    `\nSite structure (pages to include):\n${pageLines}\n\nEach page should have its own clear purpose, unique hero/header, and relevant content sections. Use a shared navigation bar and footer across all pages.`,
+    `\nPage priorities (ordered suggestions, not an exact page list):\n${pageLines}\n\nUse these as content priorities within the page count supplied separately. Suggestions that do not become standalone routes should be represented as sections when relevant. Use a shared navigation bar and footer across the planned site.`,
   );
 
   // 4. Recommended sections based on purposes
@@ -318,11 +307,10 @@ export function buildPromptFromWizardData(
     `\nContent & requirements:\n- All text content must be in Swedish\n- Premium, trustworthy design with attention to detail\n- Include realistic placeholder content (not lorem ipsum) that matches the industry\n- Every page should include relevant images and icons\n- Mobile-first responsive design\n- Smooth scroll-reveal animations and tasteful hover states`,
   );
 
-  // 8. Explicit scope override — prevents brief model from down-scoping.
-  // Inget sidantal här: sidorna är redan namngivna ovan och antalet kommer
-  // strukturerat via `meta.pageCountHint`.
+  // 8. Scope guidance. The separately supplied structured hint is the only
+  // page-count truth; the priorities above must not create orphan routes.
   sections.push(
-    `\nScope: This is a comprehensive, multi-page company website covering exactly the pages listed above. Do NOT reduce this to a single-page site, and do NOT add pages beyond that list. Each page should be fully fleshed out with multiple content sections, proper navigation between pages, and a professional footer. Aim for 8-15 sections total across all pages.`,
+    `\nScope: Follow the page count supplied separately as a strict constraint. Treat the page priorities above as non-binding route suggestions and adapt them to that count. Fully flesh out every planned page with relevant content sections, consistent navigation, and a professional footer. Aim for 8-15 sections total across the site.`,
   );
 
   return sections.join("\n");

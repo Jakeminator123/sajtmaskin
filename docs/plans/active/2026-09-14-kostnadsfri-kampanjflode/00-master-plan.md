@@ -1,12 +1,13 @@
 # Kostnadsfri-kampanjflödet — sidantal, bolagsdata och pre-generering (2026-09-14)
 
-> **Status: besluten är fattade.** Sidantal (3), bolagsdata (allowlist +
-> wizard-prefill, aldrig direkt i prompten), bransch som hint, gemensam
-> taxonomiägare och **ingen** verify-prewarm/spekulativ init — se
-> [`docs/decisions/README.md`](../../../decisions/README.md). Koden är skriven men
-> **inte mergad**, så `master` är auktoritet tills den är det. Inget kvar i
-> [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Väntar på
-> ägarbeslut för det här spåret.
+> **Status: alla tre besluten fattade; inget i `master`.** Sidantalet avgjordes
+> 2026-09-14 (3 sidor) och är levererat till `preview` via
+> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370). Bolagsdatans
+> PII-gräns och pre-genereringen avgjordes 2026-09-15 — se
+> [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
+> Ingesten är byggd; wizardens förifyllning och taxonomins lib-ägare ligger i en
+> staplad PR. `master` är auktoritet tills promote skett. Avsnitt 2 och 3 nedan
+> är **underlaget** som ledde till besluten — läs beslutsraderna för gällande läge.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
@@ -47,8 +48,7 @@ i prosa:
 | Fil | Ändring |
 |---|---|
 | `src/app/builder/page-controller/useBuilderAutoStartGeneration.ts` | Fyller `pageCount` i byggvalsstoren före auto-starten, men bara när inget val redan uttalats (`0 = auto`). `buildInitBuildChoicesMeta` gör det till `meta.pageCountHint`. |
-| `src/lib/kostnadsfri/index.ts` | `resolvePageStructure` tar `maxPages` utifrån; `INDUSTRY_PAGES` är prioritetsordning utan eget tal; `Scope`-raden slutade skriva ut `(N pages)` |
-| `src/components/kostnadsfri/kostnadsfri-page.tsx` | Skickar `MAX_PAGE_COUNT_CHOICE` som `maxPages` |
+| `src/lib/kostnadsfri/index.ts` | `INDUSTRY_PAGES` är icke-bindande prioriteringar utan eget tal; prompten uttrycker varken `(N pages)` eller en exakt sidlista. |
 
 Bieffekt värd att känna till: när hinten är satt blir `earlyExplicitPageCount` 3,
 vilket är under `MAX_ROUTES_PER_GENERATION`. Då sätts `allowCeilingExemptions`
@@ -56,13 +56,14 @@ inte alls, så namngivna sidor kan inte längre lyfta bygget över taket. Det ä
 själva mekanismen som gjorde sajten femsidig, och den är nu stängd för
 kampanjflödet utan att ruttplanens regler ändrades.
 
-Sidlistorna omordnades samtidigt så att de tre som ryms är `Hem`, kärnsidan och
-`Kontakt` — tidigare låg `Om oss` på tredje plats och `Kontakt` sist, vilket vid
-en kapning hade tappat kontaktsidan. Sidor utanför taket blir sektioner i stället.
+Sidprioriteringarna omordnades samtidigt så att `Hem`, branschens kärnsida och
+`Kontakt` kommer först. De är uttryckligen önskemål, inte en andra route-lista:
+`pageCountHint` är enda antalssanningen och ruttplanen kapar till 1, 2 eller
+kampanjstandarden 3. Prioriteringar som inte blir egna rutter kan bli sektioner.
 
-Verifierat: 35 tester i `src/lib/kostnadsfri`, `src/components/kostnadsfri` och
-`src/app/builder/page-controller`, plus `npm run typecheck` och lint på de
-ändrade filerna.
+Verifierat med prompt→ruttplan-regressioner för uttryckliga val på 1 och 2,
+auto-startens standard/preserve-fall, route-planens tester, `npm run typecheck`
+och riktad lint.
 
 ## 2. Bolagsdata: push in, inte pull ut
 
@@ -84,46 +85,25 @@ Pull åt andra riktningen är sämre: dashen ligger på Render free tier med
 kallstarter, och en pull skulle lägga ett externt anrop i exakt det ögonblick
 användaren väntar.
 
-**Beslutat 2026-09-15 och byggt (ingest):** allowlistad profil på
-`extra_data.profile`, och profilen matar **mini-wizarden** — aldrig
-generationsprompten direkt. Prompten byggs som förut av wizardens utdata, så
-inget kan nå den publicerade sajten som företaget inte har sett och kunnat rätta.
-Det löser samtidigt oron för vad som händer när de vill ändra ett förifyllt
-värde. Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
+**Två saker måste avgöras innan koden skrivs** — båda är avgjorda 2026-09-15,
+se beslutsraderna «Kostnadsfri / bolagsdata» och «Kostnadsfri / bransch»:
 
-| Fält | Varför |
-|---|---|
-| `orgNumber` | Standard i svensk sidfot. Normaliseras till `NNNNNN-NNNN` |
-| `registeredOffice`, `city`, `postalCode` | «based in», lokal SEO, kontaktsida |
-| `streetAddress` | Ofta c/o hos revisor eller annat bolag — lagras men förifylls **inte** som besöksadress |
-| `businessDescription` | Mest användbara fältet: bär både bransch och vad bolaget faktiskt gör |
-| `registeredAt` | «Grundat 2026» som copy |
+1. **PII-gränsen.** Dashen visar personnummer och styrelseledamöternas
+   hemadresser. `extra_data` skickas till browsern efter lösenordsverifiering —
+   rutten säger det själv i kommentaren till `serializePage` — och blir dessutom
+   LLM-input. Utan en uttrycklig fältlista kan en ledamots hemadress hamna
+   publicerad på den genererade sajten. Föreslagen gräns: företagsnamn, org.nr,
+   säte/ort, företagets c/o-adress, verksamhetstext, primärkontaktens förnamn och
+   e-post. Inga personnummer, inga hemadresser, inga åldrar.
+2. **Bransch som fack eller fritext.** Dashen ger fritext; koden kräver ett av
+   elva id:n. `frisörverksamhet` har inget fack och landar närmast på `health`
+   («Hälsa/Wellness»). Antingen används verksamhetstexten som beskrivning och
+   bransch blir en hint, eller så växer taxonomin — men då måste den växa på det
+   ställe som äger den (se städlistan), inte i tre kopior.
 
-Företagsnamn, bransch, webbplats, kontaktnamn och kontakt-e-post har egna
-kolumner på `kostnadsfri_pages` och dubbleras inte hit. Personnummer,
-hemadresser, åldrar, aktiekapital och den råa kungörelsetexten skickas inte, och
-`findPersonalIdentityViolations` fäller requesten med 400 om de ändå kommer — med
-fältnamn, aldrig värdet, eftersom `extra_data` går både till browsern och in i
-wizarden. Organisationsnummer har identisk form som personnummer, så `orgNumber`
-undantas mönsterkontrollen och valideras i stället som exakt ett org.nr.
-
-Luckan i `markKostnadsfriPageSent` är stängd: upsert-vägen tar en
-`extraDataPatch` som slås ihop med `jsonb ||`, så en profil som skickas
-tillsammans med sändregistreringen inte längre tappas. Den ytliga
-sammanslagningen är avsiktlig — patchen ska byta ut `profile` men lämna
-`openclaw` orörd.
-
-**Beslutat 2026-09-15 och byggt (prefill + hint):** `mini-wizard.tsx` läser
-profilen. `city` vinner över `registeredOffice` för plats; `businessDescription`
-förifyller beskrivningen; `streetAddress` lämnas tomt som besöksadress.
-`companyData.industry` sätter bransch-state **bara** vid exakt id eller känd
-alias mot de elva facken. `frisörverksamhet` lämnar facket tomt — användaren
-väljer. Inget nytt frisör-/skönhets-id. Prompten byggs fortfarande bara av
-`buildPromptFromWizardData(wizardData)`.
-
-Taxonomin (id + label + suggestedFeatures / purpose desc) ägs av
-`src/lib/builder/wizard-taxonomy.ts`. Prompt-wizardens Lucide-ikoner och
-mini-wizardens emoji mappar bara id → ikon.
+Lucka att täcka i implementationen: `markKostnadsfriPageSent` (upsert-vägen när
+`sentAt` skickas) skriver inte `extra_data` i dag, så en dash som skickar profilen
+tillsammans med sändregistreringen får den tappad.
 
 ## 3. Pre-generering vid lösenordsverifiering
 
@@ -157,12 +137,8 @@ billiga att rätta. Nuvarande auto-start (`canAutoStartKostnadsfriGeneration` i
 `src/app/builder/page-controller/auto-start-generation.ts`) startar först efter
 hela wizarden och är den yta som i så fall byter läge.
 
-**Beslutat 2026-09-15: ingen spekulativ init och ingen ny prewarm vid
-lösenordsverify.** `preview-prewarm` är chat-nycklad och
-`FEATURES.previewPrewarm` är av som default. Verify-rutten startar varken VM
-eller generation. Auto-start sker som förut efter mini-wizarden; vibe och palett
-måste vara valda först. Beslutsrad:
-[`docs/decisions/README.md`](../../../decisions/README.md).
+**Beslutet som behövs:** bara prewarm (ingen tokenkostnad, ingen felrisk), eller
+prewarm plus spekulativ init efter vibe-valet?
 
 Om väntan behöver fyllas: buildern strömmar redan synligt. En andra video direkt
 efter den treminuters som ligger på landningssidan är sannolikt för mycket, och
@@ -177,19 +153,45 @@ ovan och körs i samma ändring.
 
 | Vad | Var | Status |
 |---|---|---|
-| ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är prioritetsordning, taket kommer utifrån |
-| ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — inget tal i prosa längre |
-| ~~`INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS`~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — importerar labels från `src/lib/builder/wizard-taxonomy.ts` |
-| ~~`INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS`~~ | `src/components/kostnadsfri/mini-wizard.tsx` | **Klart** — samma id/label-lista; emoji stannar i UI-lagret |
+| ~~`INDUSTRY_PAGES` satte sidantal~~ | `src/lib/kostnadsfri/index.ts` | **Klart** — listorna är icke-bindande prioriteringar, antalet kommer strukturerat |
+| ~~`Scope: … (${pages.length} pages)`~~ | `buildPromptFromWizardData`, samma fil | **Klart** — varken tal eller exakt sidlista i prosa |
+| `INDUSTRY_LABELS` / `PURPOSE_LABELS` / `VIBE_LABELS` | `src/lib/kostnadsfri/index.ts` | **Öppet** — filens egen kommentar säger «mirrors PromptWizardModalV2 constants», alltså en medveten kopia av `src/components/modals/prompt-wizard/constants.ts`. |
+| `INDUSTRY_OPTIONS` / `PURPOSE_OPTIONS` / `VIBE_OPTIONS` | `src/components/kostnadsfri/mini-wizard.tsx` | **Öppet** — tredje kopian av samma taxonomi (emoji i stället för Lucide-ikoner). Värdena är identiska i dag, så inget är fel än, men en bransch kan bara läggas till på ett av tre ställen och då driftar de tyst. |
 
-Taxonomistädningen var förutsättning för punkt 2: att lägga till ett
-frisör-/skönhetsfack i tre filer är hur divergensen uppstår. Facket lades inte
-till — hint-beslutet gör att det inte behövs.
+Taxonomistädningen är förutsättning för punkt 2: att lägga till ett
+frisör-/skönhetsfack i tre filer är hur divergensen uppstår igen.
+
+## Säkerhetsfixar efter första granskningen
+
+Tre läckvägar fanns kvar i ingest-koden och är stängda i samma PR:
+
+| Väg | Vad höll inte | Nu |
+|---|---|---|
+| `orgNumber` runt PII-guarden | Fältet är undantaget mönsterkontrollen, men valideringen strök bort alla icke-siffror och godtog vilka tio siffror som helst — ett personnummer lagrades som org.nr | Strikt rått format (`NNNNNN-NNNN` eller tio siffror), gruppnummer ≥ 2 på tredje siffran och Luhn-kontrollsiffra |
+| 500-svar från `POST /api/kostnadsfri` | `error.message` gick till anroparen och hela felobjektet till loggen; ett Drizzle-fel bär querytexten och dess parametrar, alltså profil, kontakt-e-post och lösenordshash | Konstant `Internt fel…` ut, och loggen får bara felets typnamn |
+| Rå `extra_data` i publik DTO | `extractCompanyData` returnerade hela kolumnen till browsern efter lösenordsverifiering, vilket gick runt allowlisten för poster som lagrades före den eller lades in för hand | Fältet finns inte längre på DTO:n; bara `profile` och `openclawConfig` (båda normaliserade) exponeras |
+
+Gruppnummerregeln är det som gör undantaget för `orgNumber` försvarbart: ett
+personnummer bär månaden (01–12) på position 3–4, så dess tredje siffra är alltid
+0 eller 1. Luhn ensam räcker inte — båda formerna använder samma kontrollsiffra.
+
+Samtidigt härdat: PII-guarden går nu igenom nästlade objekt och arrayer till fyra
+nivåer och räknar även JSON-tal, men rapporterar fortfarande bara toppnivåns
+nyckel — en nästlad sökväg är avsändarstyrd text och hör inte i vårt felsvar.
+`registeredAt` kräver ett verkligt kalenderdatum (`2026-02-31` och
+`2026-07-10 (osäkert)` avvisas) men tar fortfarande dashens hela ISO-timestamp.
 
 ## Inte avgjort
 
-- Hur väntan efter wizarden ska fyllas (strömmen, copy om «Kista»/verksamhet,
-  extra video). Smak, inte grind.
+- Om taxonomin ska växa (frisör/skönhet, hantverk, transport). Beslutet
+  2026-09-15 gjorde bransch till en **hint** — fritext plus känd alias — så
+  frågan är inte längre blockerande, bara en framtida utbyggnad.
+- Om `SAJTMASKIN_PREVIEW_PREWARM` ska slås på för init-genereringen. Spekulativ
+  init före mini-wizarden är avgjord (nej), men prewarm-flaggan kräver mätning på
+  preview-hosten först.
+
+Avgjort sedan planen skrevs: `profile` är **schemalagt med egen validering**, inte
+ett fritt `extra_data`-objekt.
 
 ## Kopplingar
 
@@ -202,5 +204,4 @@ till — hint-beslutet gör att det inte behövs.
   publicerade hamnar i den framtida månadsavgiften, vilket påverkar hur mycket
   gratisgenerering som är försvarbar.
 - `docs/schemas/builder-entry-contract.md` beskriver `kostnadsfri`-entryns
-  auto-generate-väg. Triggern flyttas **inte** till verifieringen (beslut
-  2026-09-15); kontraktet behöver därför inte ändras för den här frågan.
+  auto-generate-väg och måste uppdateras om triggern flyttas till verifieringen.

@@ -123,8 +123,8 @@ describe("useBuilderAutoStartGeneration", () => {
     expect(requestCreateChat).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves an explicit page-count choice alone", () => {
-    setCurrentInitBuildChoices({ ...DEFAULT_INIT_BUILD_CHOICES, pageCount: 2 });
+  it.each([1, 2])("leaves an explicit page-count choice of %i alone", (pageCount) => {
+    setCurrentInitBuildChoices({ ...DEFAULT_INIT_BUILD_CHOICES, pageCount });
     const requestCreateChat = vi.fn();
     const { rerender } = renderHook(
       (props: HookProps) => useBuilderAutoStartGeneration(props),
@@ -139,7 +139,7 @@ describe("useBuilderAutoStartGeneration", () => {
       }),
     );
 
-    expect(getCurrentInitBuildChoices().pageCount).toBe(2);
+    expect(getCurrentInitBuildChoices().pageCount).toBe(pageCount);
   });
 
   it("does not touch byggvalen when auto-start is refused", () => {

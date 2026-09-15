@@ -95,7 +95,7 @@ function getKostnadsfriSurfaceContent(
     teaserCta: `Prova Sajtagenten för ${companyName}`,
     fabTitle: "Fråga Sajtagenten",
     fabSubtitle: `${companyName} · text eller avatar`,
-    showTeaser: true,
+    showTeaser: false,
   };
 }
 

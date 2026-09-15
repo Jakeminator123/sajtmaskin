@@ -57,7 +57,18 @@ const PERSONAL_IDENTITY_RE = /\b(?:\d{8}|\d{6})[-+]?\d{4}\b/;
 /** Exakt ett organisationsnummer, inte en sifferföljd inbäddad i text. */
 const ORG_NUMBER_RE = /^\d{6}-\d{4}$/;
 
+/**
+ * Tillåtet **rått** format för `orgNumber`: tio siffror, med eller utan
+ * bindestycket. Tidigare ströks alla icke-siffror bort före kontrollen, så
+ * `født 850709-1234!` reducerades till ett giltigt tal — fältet är undantaget
+ * personnummerguarden och blev därmed vägen runt den.
+ */
+const ORG_NUMBER_RAW_RE = /^(\d{6})-?(\d{4})$/;
+
 const GUARD_EXEMPT_FIELDS = new Set(["orgNumber"]);
+
+/** Hur djupt PII-guarden går i en nästlad payload. */
+const GUARD_MAX_DEPTH = 4;
 
 function normalizeString(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -66,20 +77,82 @@ function normalizeString(value: unknown, maxLength: number): string | undefined 
   return trimmed.slice(0, maxLength);
 }
 
+/** Mod-10 (Luhn), kontrollsiffran i både org.nr och personnummer. */
+function isLuhnValid(digits: string): boolean {
+  let sum = 0;
+  for (let index = 0; index < digits.length; index += 1) {
+    let digit = Number(digits[index]);
+    if (index % 2 === 0) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
+
 function normalizeOrgNumber(value: unknown): string | undefined {
   const raw = normalizeString(value, 20);
   if (!raw) return undefined;
-  // Dashen kan skicka med eller utan bindestreck; lagra en form.
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length !== 10) return undefined;
+  const match = ORG_NUMBER_RAW_RE.exec(raw);
+  if (!match) return undefined;
+  const digits = `${match[1]}${match[2]}`;
+  // Tredje siffran är gruppnummer och är minst 2 för juridiska personer.
+  // Ett personnummer bär månaden (01–12) på position 3–4, så dess tredje
+  // siffra är alltid 0 eller 1. Det är den enda formskillnaden mellan de två,
+  // och därmed det som gör undantaget från guarden försvarbart.
+  if (Number(digits[2]) < 2) return undefined;
+  if (!isLuhnValid(digits)) return undefined;
   return `${digits.slice(0, 6)}-${digits.slice(6)}`;
 }
+
+/**
+ * Registreringsdatum, lagrat som `YYYY-MM-DD`.
+ *
+ * Accepterar ett bart datum eller en hel ISO-timestamp (dashen skickar
+ * `datetime.isoformat()`), men inget annat: prefixmatchningen släppte tidigare
+ * igenom både `2026-02-31` och `2026-07-10 (osäkert)`.
+ */
+const ISO_DATE_RE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
 function normalizeIsoDate(value: unknown): string | undefined {
   const raw = normalizeString(value, 40);
   if (!raw) return undefined;
-  const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
-  return match ? match[1] : undefined;
+  const match = ISO_DATE_RE.exec(raw);
+  if (!match) return undefined;
+  const [, year, month, day] = match;
+  const iso = `${year}-${month}-${day}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  // `new Date` rullar över (31 feb → 3 mars), så jämför tillbaka mot indata.
+  if (
+    parsed.getUTCFullYear() !== Number(year) ||
+    parsed.getUTCMonth() + 1 !== Number(month) ||
+    parsed.getUTCDate() !== Number(day)
+  ) {
+    return undefined;
+  }
+  return iso;
+}
+
+/** True om något värde i grenen bär en personnummerform. */
+function branchHasPersonalIdentity(value: unknown, depth: number): boolean {
+  if (typeof value === "string") return PERSONAL_IDENTITY_RE.test(value);
+  // Siffror räknas: `8507091234` som JSON-tal är samma läcka som strängen.
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return PERSONAL_IDENTITY_RE.test(String(value));
+  }
+  if (depth >= GUARD_MAX_DEPTH) return false;
+  if (Array.isArray(value)) {
+    return value.some((item) => branchHasPersonalIdentity(item, depth + 1));
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some((item) =>
+      branchHasPersonalIdentity(item, depth + 1),
+    );
+  }
+  return false;
 }
 
 /**
@@ -89,6 +162,10 @@ function normalizeIsoDate(value: unknown): string | undefined {
  * släpper okända nycklar, och ett tyst bortfall lär inte avsändaren att den
  * skickade något förbjudet. Returnerar fältnamn — aldrig värdet, som inte ska
  * vidare till loggar eller felsvar.
+ *
+ * Söker igenom nästlade objekt och arrayer till `GUARD_MAX_DEPTH`, men
+ * rapporterar bara **toppnivåns** nyckel: en nästlad sökväg är avsändarstyrd
+ * text och hör inte i vårt felsvar.
  */
 export function findPersonalIdentityViolations(value: unknown): string[] {
   if (!value || typeof value !== "object") return [];
@@ -96,13 +173,7 @@ export function findPersonalIdentityViolations(value: unknown): string[] {
 
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
     if (GUARD_EXEMPT_FIELDS.has(key)) continue;
-    const candidates =
-      typeof entry === "string"
-        ? [entry]
-        : Array.isArray(entry)
-          ? entry.filter((item): item is string => typeof item === "string")
-          : [];
-    if (candidates.some((candidate) => PERSONAL_IDENTITY_RE.test(candidate))) {
+    if (branchHasPersonalIdentity(entry, 0)) {
       violations.push(key);
     }
   }

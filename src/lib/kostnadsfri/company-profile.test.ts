@@ -25,6 +25,25 @@ describe("findPersonalIdentityViolations", () => {
     expect(findPersonalIdentityViolations({ d: "7488852517" })).toEqual(["d"]);
   });
 
+  // Guarden gick tidigare bara på toppnivåns strängar, så dashen kunde nästla
+  // ledamöterna ett steg ned och passera tyst.
+  it("hittar numret nästlat i objekt och i array-av-objekt", () => {
+    expect(
+      findPersonalIdentityViolations({
+        boardMembers: [{ name: "Didar", personalId: "19748885-2517" }],
+      }),
+    ).toEqual(["boardMembers"]);
+    expect(
+      findPersonalIdentityViolations({ owner: { identity: { ssn: "748885-2517" } } }),
+    ).toEqual(["owner"]);
+  });
+
+  it("fäller ett personnummer skickat som JSON-tal", () => {
+    expect(findPersonalIdentityViolations({ contactPersonalId: 7488852517 })).toEqual([
+      "contactPersonalId",
+    ]);
+  });
+
   it("hittar numret även inbäddat i fritext och i en lista", () => {
     expect(
       findPersonalIdentityViolations({
@@ -75,6 +94,27 @@ describe("hasInvalidOrgNumber", () => {
     expect(hasInvalidOrgNumber({ orgNumber: "5595-99" })).toBe(true);
     expect(hasInvalidOrgNumber({ orgNumber: "197488852517" })).toBe(true);
     expect(hasInvalidOrgNumber({ orgNumber: "inte ett nummer" })).toBe(true);
+  });
+
+  // Fältet är undantaget personnummerguarden, så det här är enda spärren mot
+  // att ett personnummer lagras och returneras som organisationsnummer.
+  it("avvisar ett personnummer trots att formen är identisk", () => {
+    // Luhn-giltigt personnummer: bara gruppnummerregeln (tredje siffran ≥ 2)
+    // skiljer det från ett org.nr, eftersom position 3–4 bär månaden.
+    expect(hasInvalidOrgNumber({ orgNumber: "811228-9874" })).toBe(true);
+    expect(hasInvalidOrgNumber({ orgNumber: "8112289874" })).toBe(true);
+    expect(hasInvalidOrgNumber({ orgNumber: "850709-1234" })).toBe(true);
+  });
+
+  it("avvisar fel kontrollsiffra", () => {
+    expect(hasInvalidOrgNumber({ orgNumber: "559599-5630" })).toBe(true);
+  });
+
+  it("avvisar skräp runt en i övrigt giltig sifferföljd", () => {
+    // Tidigare ströks alla icke-siffror bort före kontrollen.
+    expect(hasInvalidOrgNumber({ orgNumber: "född 850709-1234!" })).toBe(true);
+    expect(hasInvalidOrgNumber({ orgNumber: "org 559599-5639" })).toBe(true);
+    expect(hasInvalidOrgNumber({ orgNumber: "55 95 99 56 39" })).toBe(true);
   });
 
   it("är tyst när fältet saknas", () => {
@@ -135,6 +175,21 @@ describe("normalizeKostnadsfriCompanyProfile", () => {
     });
 
     expect(profile).toEqual({ city: "Kista" });
+  });
+
+  it("släpper registeredAt som inte är ett verkligt kalenderdatum", () => {
+    expect(normalizeKostnadsfriCompanyProfile({ registeredAt: "2026-02-31" })).toBeNull();
+    expect(normalizeKostnadsfriCompanyProfile({ registeredAt: "2026-13-01" })).toBeNull();
+    // Prefixmatchningen släppte tidigare igenom efterföljande skräp.
+    expect(
+      normalizeKostnadsfriCompanyProfile({ registeredAt: "2026-07-10 (osäkert)" }),
+    ).toBeNull();
+  });
+
+  it("lagrar inte ett personnummer i orgNumber", () => {
+    expect(
+      normalizeKostnadsfriCompanyProfile({ city: "Kista", orgNumber: "811228-9874" }),
+    ).toEqual({ city: "Kista" });
   });
 
   it("kapar långa värden i stället för att avvisa dem", () => {

@@ -74,6 +74,18 @@ const DEFAULT_SEND_SOURCE = "api";
 /** Hard cap on the register read so the list can never grow unbounded. */
 const LIST_LIMIT = 2000;
 
+/** Konstant 500-text: felutdata får inte variera med det underliggande felet. */
+const INTERNAL_ERROR_MESSAGE = "Internt fel. Försök igen senare.";
+
+/**
+ * Loggar ett oväntat fel med bara uttryckligt säker metadata — felets typ,
+ * aldrig dess meddelande, `cause`, query eller parametrar.
+ */
+function logKostnadsfriFailure(operation: string, error: unknown) {
+  const kind = error instanceof Error ? error.name : typeof error;
+  console.error(`[API/kostnadsfri] Failed to ${operation} (${kind})`);
+}
+
 function isAuthorized(request: NextRequest): boolean {
   const expectedKey = process.env.KOSTNADSFRI_API_KEY;
   return Boolean(expectedKey) && request.headers.get("x-api-key") === expectedKey;
@@ -259,9 +271,12 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[API/kostnadsfri] Failed to create page:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    // Aldrig `error.message` ut, och aldrig hela felobjektet i loggen: ett
+    // Drizzle-fel bär SQL:ens parametrar, och de innehåller här profil,
+    // kontakt-e-post och lösenordshash. Parameteriserad SQL skyddar
+    // frågan, inte felutdatan.
+    logKostnadsfriFailure("create page", error);
+    return NextResponse.json({ success: false, error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
   }
 }
 
@@ -272,8 +287,7 @@ export async function GET(request: NextRequest) {
     const rows = await listKostnadsfriPages(LIST_LIMIT);
     return NextResponse.json({ success: true, pages: rows.map(serializePage) });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[API/kostnadsfri] Failed to list pages:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    logKostnadsfriFailure("list pages", error);
+    return NextResponse.json({ success: false, error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
   }
 }

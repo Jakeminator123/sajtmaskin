@@ -4,12 +4,10 @@ import { useState, useEffect } from "react";
 
 /**
  * ThinkingSpinner — Phase 3 of the kostnadsfri flow.
- * Full-screen animated overlay shown while generating the prompt + creating the project.
+ * Full-screen overlay shown while generating the prompt + creating the project.
  *
- * Features:
- * - Animated gradient orb with morphing shapes
- * - Rotating phase text messages
- * - Time-based progress indicator
+ * One slow brand-tinted wash instead of the stacked morphing orbs and particle
+ * ring it used to carry: the wait should read as calm, not as a light show.
  */
 
 const PHASE_MESSAGES = [
@@ -49,57 +47,39 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-      {/* Animated gradient background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* Primary orb */}
-        <div
-          className="absolute left-1/2 top-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30 blur-[80px]"
-          style={{
-            background: "radial-gradient(circle, #2dd4bf 0%, #6366f1 50%, #0f172a 100%)",
-            animation: "morphOrb 8s ease-in-out infinite, rotateOrb 12s linear infinite",
-          }}
-        />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background"
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        aria-hidden
+        className="orb pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[110px]"
+      />
 
-        {/* Secondary orb */}
-        <div
-          className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 blur-[60px]"
-          style={{
-            background: "radial-gradient(circle, #a78bfa 0%, #2dd4bf 60%, transparent 100%)",
-            animation: "morphOrb 6s ease-in-out infinite reverse, rotateOrb 10s linear infinite reverse",
-          }}
-        />
-
-        {/* Particle ring */}
-        <div
-          className="absolute left-1/2 top-1/2 h-[250px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand-teal/10 opacity-40"
-          style={{ animation: "rotateOrb 20s linear infinite" }}
-        >
-          <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-brand-teal/60" />
-          <div className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-purple-400/60" />
-          <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-brand-teal/40" />
-        </div>
-      </div>
+      {/* One calm sentence for assistive tech — the rotating copy below would
+          otherwise be announced every 2.5 seconds. */}
+      <p className="sr-only">Vi bygger ert förslag. Det tar en liten stund.</p>
 
       {/* Content */}
-      <div className="relative z-10 text-center">
-        {/* Company name */}
-        <h2 className="mb-6 text-lg font-medium text-gray-400">{companyName}</h2>
+      <div className="relative z-10 px-6 text-center">
+        <h2 className="mb-6 text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
+          {companyName}
+        </h2>
 
-        {/* Phase message */}
         <p
           key={messageIndex}
-          className="mb-10 text-xl font-light text-white"
-          style={{ animation: "fadeInUp 0.5s ease-out" }}
+          aria-hidden
+          className="phase mb-10 text-xl font-(--font-heading) tracking-tight text-foreground sm:text-2xl"
         >
           {PHASE_MESSAGES[messageIndex]}
         </p>
 
         {/* Progress bar */}
         <div className="mx-auto w-64">
-          <div className="h-1 overflow-hidden rounded-full bg-gray-800">
+          <div className="h-1 overflow-hidden rounded-full bg-border">
             <div
-              className="h-full rounded-full bg-linear-to-r from-brand-teal to-purple-400 transition-all duration-300"
+              className="h-full rounded-full bg-brand-teal transition-all duration-300"
               style={{ width: `${Math.min(progress, 95)}%` }}
             />
           </div>
@@ -108,28 +88,33 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
 
       {/* Keyframe animations */}
       <style jsx>{`
-        @keyframes morphOrb {
-          0%, 100% {
-            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-            transform: translate(-50%, -50%) scale(1);
-          }
-          25% {
-            border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
-            transform: translate(-50%, -50%) scale(1.05);
-          }
-          50% {
-            border-radius: 50% 60% 30% 60% / 30% 50% 70% 50%;
-            transform: translate(-50%, -50%) scale(0.95);
-          }
-          75% {
-            border-radius: 40% 60% 50% 40% / 60% 40% 60% 30%;
-            transform: translate(-50%, -50%) scale(1.02);
-          }
+        .orb {
+          background: radial-gradient(
+            circle,
+            hsl(var(--brand-teal)) 0%,
+            hsl(var(--primary)) 55%,
+            transparent 75%
+          );
+          opacity: 0.22;
+          animation: breathe 9s ease-in-out infinite;
         }
 
-        @keyframes rotateOrb {
-          from { rotate: 0deg; }
-          to { rotate: 360deg; }
+        .phase {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        /* Only scale + opacity: Tailwind v4 centres the orb with the standalone
+           translate property, so a transform here would shift it off-centre. */
+        @keyframes breathe {
+          0%,
+          100% {
+            scale: 1;
+            opacity: 0.22;
+          }
+          50% {
+            scale: 1.08;
+            opacity: 0.32;
+          }
         }
 
         @keyframes fadeInUp {
@@ -140,6 +125,13 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .orb,
+          .phase {
+            animation: none;
           }
         }
       `}</style>

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  DEFAULT_INIT_BUILD_CHOICES,
+  buildInitBuildChoicesMeta,
+} from "@/lib/builder/init-build-choices";
+import { buildRoutePlan, detectExplicitPageCount } from "@/lib/gen/route-plan";
+import type { KostnadsfriPage } from "@/lib/db/services/shared";
+import {
   buildPromptFromWizardData,
+  extractCompanyData,
   generatePassword,
   hasKostnadsfriPasswordSecret,
   type MiniWizardData,
@@ -26,6 +33,56 @@ describe("generatePassword", () => {
   });
 });
 
+// DTO:n går till browsern efter lösenordsverifiering. En post som lagrades före
+// allowlisten — eller lades in för hand — kan bära personnummer och hemadresser
+// i `extra_data`, så den råa kolumnen får inte följa med ut.
+describe("extractCompanyData", () => {
+  const page = (extraData: Record<string, unknown> | null) =>
+    ({
+      slug: "zax-2-0-ab",
+      company_name: "Zax 2.0 AB",
+      industry: "health",
+      website: null,
+      contact_email: "post@example.se",
+      contact_name: "Didar",
+      extra_data: extraData,
+    }) as unknown as KostnadsfriPage;
+
+  it("exponerar inte rå extra_data", () => {
+    const data = extractCompanyData(
+      page({
+        profile: { city: "Kista" },
+        homeAddress: "HÖGNÄSVÄGEN 4, 196 34 KUNGSÄNGEN",
+        boardMembers: [{ name: "Didar", personalId: "19748885-2517" }],
+      }),
+    );
+
+    expect(data).not.toHaveProperty("extraData");
+    expect(JSON.stringify(data)).not.toContain("HÖGNÄSVÄGEN");
+    expect(JSON.stringify(data)).not.toContain("19748885-2517");
+  });
+
+  it("behåller de normaliserade projektionerna", () => {
+    const data = extractCompanyData(
+      page({
+        openclaw: { roleLabel: "Sajtagenten" },
+        profile: { city: "Kista", orgNumber: "559599-5639", shareCapital: "25.000 SEK" },
+      }),
+    );
+
+    expect(data.profile).toEqual({ city: "Kista", orgNumber: "559599-5639" });
+    expect(data.openclawConfig?.roleLabel).toBe("Sajtagenten");
+    expect(data.companyName).toBe("Zax 2.0 AB");
+  });
+
+  it("är tyst när extra_data saknas", () => {
+    const data = extractCompanyData(page(null));
+
+    expect(data.profile).toBeNull();
+    expect(data.openclawConfig).toBeNull();
+  });
+});
+
 function wizardData(overrides: Partial<MiniWizardData> = {}): MiniWizardData {
   return {
     companyName: "Zax 2.0 AB",
@@ -45,8 +102,9 @@ function wizardData(overrides: Partial<MiniWizardData> = {}): MiniWizardData {
   };
 }
 
-function promptPageNames(prompt: string): string[] {
-  const block = prompt.split("Site structure (pages to include):")[1] ?? "";
+function promptPagePriorities(prompt: string): string[] {
+  const block =
+    prompt.split("Page priorities (ordered suggestions, not an exact page list):")[1] ?? "";
   const [list] = block.split("\n\n");
   return (list ?? "")
     .split("\n")
@@ -54,45 +112,60 @@ function promptPageNames(prompt: string): string[] {
     .filter(Boolean);
 }
 
-// Ägarbeslut 2026-09-14: kampanjflödet äger inte sidantalet. Anroparen skickar
-// taket och prompten skriver inte ut något tal — ruttplanen får det som
+// Ägarbeslut 2026-09-14: kampanjflödet äger inte sidantalet. Prompten ger
+// enbart prioriteringar; ruttplanen får enda antalssanningen som
 // `meta.pageCountHint`.
 describe("buildPromptFromWizardData — sidantal", () => {
-  it("names exactly as many pages as the caller allows, starting with Hem", () => {
-    const pages = promptPageNames(buildPromptFromWizardData(wizardData(), { maxPages: 3 }));
+  it("lists ordered page priorities without turning them into an exact route list", () => {
+    const prompt = buildPromptFromWizardData(wizardData());
 
-    expect(pages).toEqual(["Hem", "Portfolio", "Kontakt"]);
-  });
-
-  it("keeps lower and higher caps honest for an industry with a long list", () => {
-    expect(promptPageNames(buildPromptFromWizardData(wizardData(), { maxPages: 1 }))).toEqual([
+    expect(promptPagePriorities(prompt)).toEqual([
       "Hem",
+      "Portfolio",
+      "Kontakt",
+      "Tjänster",
+      "Om oss",
     ]);
-    expect(
-      promptPageNames(buildPromptFromWizardData(wizardData(), { maxPages: 5 })).length,
-    ).toBe(5);
-  });
-
-  it("never drops below a single page", () => {
-    expect(promptPageNames(buildPromptFromWizardData(wizardData(), { maxPages: 0 }))).toEqual([
-      "Hem",
-    ]);
+    expect(prompt).toMatch(/not an exact page list/i);
+    expect(prompt).toMatch(/non-binding route suggestions/i);
   });
 
   it("falls back to a generic order for an unknown industry", () => {
-    const pages = promptPageNames(
-      buildPromptFromWizardData(wizardData({ industry: "frisor" }), { maxPages: 3 }),
+    const pages = promptPagePriorities(
+      buildPromptFromWizardData(wizardData({ industry: "frisor" })),
     );
 
-    expect(pages).toEqual(["Hem", "Tjänster", "Kontakt"]);
+    expect(pages).toEqual(["Hem", "Tjänster", "Kontakt", "Om oss"]);
   });
 
   it("states no page count in prose, so detectExplicitPageCount has nothing to read back", () => {
-    const prompt = buildPromptFromWizardData(wizardData(), { maxPages: 3 });
+    const prompt = buildPromptFromWizardData(wizardData());
 
-    expect(prompt).not.toMatch(/\d+\s*(pages|sidor)/i);
-    expect(prompt).toMatch(/Do NOT reduce this to a single-page site/);
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+    expect(prompt).not.toMatch(/multi-page|single-page|pages to include|exactly the pages/i);
   });
+
+  it.each([1, 2])(
+    "honors an explicit page-count choice of %i through prompt to route plan",
+    (pageCount) => {
+      const prompt = buildPromptFromWizardData(wizardData());
+      const meta = buildInitBuildChoicesMeta({
+        ...DEFAULT_INIT_BUILD_CHOICES,
+        pageCount,
+      });
+      const plan = buildRoutePlan({
+        prompt,
+        buildIntent: "website",
+        resolvedScaffold: null,
+        pageCountHint: meta.pageCountHint,
+      });
+
+      expect(meta.pageCountHint).toBe(pageCount);
+      expect(plan.routes).toHaveLength(pageCount);
+      expect(plan.routes[0]?.path).toBe("/");
+      expect(plan.siteType === "one-page").toBe(pageCount === 1);
+    },
+  );
 });
 
 describe("buildPromptFromWizardData — profilen når inte prompten", () => {
@@ -110,7 +183,7 @@ describe("buildPromptFromWizardData — profilen når inte prompten", () => {
       },
     };
 
-    const prompt = buildPromptFromWizardData(leaked as MiniWizardData, { maxPages: 3 });
+    const prompt = buildPromptFromWizardData(leaked as MiniWizardData);
 
     expect("profile" in wizardData()).toBe(false);
     expect(prompt).toContain("Användaren godkände den här texten");
