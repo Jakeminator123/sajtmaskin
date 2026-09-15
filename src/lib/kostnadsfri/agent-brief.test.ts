@@ -58,6 +58,7 @@ describe("buildKostnadsfriAgentBrief", () => {
       city: "Kista",
       businessDescription:
         "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
+      businessDescriptionSource: "register",
     });
   });
 
@@ -73,6 +74,7 @@ describe("buildKostnadsfriAgentBrief", () => {
     expect(brief.industryLabel).toBe("Hälsa/Wellness");
     expect(brief.website).toBe("https://zax.example");
     expect(brief.businessDescription).toBe("Vi klipper och färgar hår i Kista sedan 2026.");
+    expect(brief.businessDescriptionSource).toBe("wizard");
     expect(brief.purposeLabels).toEqual(["Bokningar", "Leads"]);
     expect(brief.targetAudience).toBe("Boende i Kista och norra Stockholm");
     expect(brief.usp).toBe("Drop-in på kvällar");
@@ -194,6 +196,30 @@ describe("normalizeKostnadsfriAgentBrief", () => {
         ?.industryLabel,
     ).toBeUndefined();
   });
+
+  it("godtar bara register- eller wizard-källa för verksamhetstexten", () => {
+    expect(
+      normalizeKostnadsfriAgentBrief({
+        companyName: "Zax",
+        businessDescription: "Bekräftad",
+        businessDescriptionSource: "wizard",
+      })?.businessDescriptionSource,
+    ).toBe("wizard");
+    expect(
+      normalizeKostnadsfriAgentBrief({
+        companyName: "Zax",
+        businessDescription: "Register",
+        businessDescriptionSource: "register",
+      })?.businessDescriptionSource,
+    ).toBe("register");
+    expect(
+      normalizeKostnadsfriAgentBrief({
+        companyName: "Zax",
+        businessDescription: "Okänd",
+        businessDescriptionSource: "gpt",
+      })?.businessDescriptionSource,
+    ).toBeUndefined();
+  });
 });
 
 describe("kostnadsfriAgentBriefLines", () => {
@@ -201,22 +227,40 @@ describe("kostnadsfriAgentBriefLines", () => {
     expect(kostnadsfriAgentBriefLines(null)).toEqual([]);
   });
 
-  it("skriver ut gränserna tillsammans med fakta", () => {
+  it("märker registertext som torr prosa som ska omformuleras", () => {
     const lines = kostnadsfriAgentBriefLines(
       buildKostnadsfriAgentBrief({
-        stage: "handoff",
+        stage: "wizard",
         companyData,
         fallbackCompanyName: "Zax 2 0 Ab",
-        wizardData,
       }),
     );
     const block = lines.join("\n");
 
+    expect(block).toContain(
+      "Verksamhet enligt registret (torr registerprosa — omformulera, citera inte)",
+    );
+    expect(block).not.toContain("kundens bekräftade beskrivning");
+  });
+
+  it("märker wizardens bekräftade beskrivning som kundens underlag", () => {
+    const brief = buildKostnadsfriAgentBrief({
+      stage: "handoff",
+      companyData,
+      fallbackCompanyName: "Zax 2 0 Ab",
+      wizardData,
+    });
+    const lines = kostnadsfriAgentBriefLines(brief);
+    const block = lines.join("\n");
+
+    expect(brief.businessDescriptionSource).toBe("wizard");
     expect(lines[0]).toBe("[KAMPANJ-UNDERLAG]");
     expect(lines.at(-1)).toBe("[/KAMPANJ-UNDERLAG]");
     expect(block).toContain("Steg: wizardsvaren klara, bygget startar");
     expect(block).toContain("Företag: Zax Frisör");
     expect(block).toContain("aldrig i sajtens innehåll");
-    expect(block).toContain("omformulera, citera inte");
+    expect(block).toContain("Verksamhet (kundens bekräftade beskrivning — utgå från den)");
+    expect(block).not.toContain("enligt registret");
+    expect(block).not.toContain("omformulera, citera inte");
   });
 });

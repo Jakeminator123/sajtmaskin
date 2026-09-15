@@ -153,6 +153,9 @@ export function KostnadsfriPage({
       } catch (err) {
         console.error("[Kostnadsfri] Failed to generate prompt:", err);
         setError("Något gick fel. Försök igen.");
+        // MiniWizard remountas tom mot companyData. Rensa handoff-svaren så
+        // `__SITEMASKIN_CONTEXT.kostnadsfriBrief` inte ligger kvar som bekräftade.
+        setWizardData(null);
         setPhase("wizard");
       }
     },
