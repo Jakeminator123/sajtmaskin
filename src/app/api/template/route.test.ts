@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createProject = vi.hoisted(() => vi.fn());
 const saveProjectData = vi.hoisted(() => vi.fn());
+const getProjectData = vi.hoisted(() => vi.fn());
+const findLatestTemplateInitProjectIdForOwner = vi.hoisted(() => vi.fn());
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
@@ -14,6 +16,10 @@ const chatRepoAddMessage = vi.hoisted(() => vi.fn());
 const chatRepoCreateDraftVersion = vi.hoisted(() => vi.fn());
 const chatRepoUpdateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const chatRepoGetChat = vi.hoisted(() => vi.fn());
+const chatRepoListChatsByProject = vi.hoisted(() => vi.fn());
+const chatRepoGetPreferredVersion = vi.hoisted(() => vi.fn());
+const chatRepoGetLatestVersion = vi.hoisted(() => vi.fn());
+const chatRepoGetChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
 const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
 const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
@@ -21,6 +27,8 @@ const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
   saveProjectData,
+  getProjectData,
+  findLatestTemplateInitProjectIdForOwner,
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
@@ -54,6 +62,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createDraftVersion: chatRepoCreateDraftVersion,
   updateVersionPreviewUrl: chatRepoUpdateVersionPreviewUrl,
   getChat: chatRepoGetChat,
+  listChatsByProject: chatRepoListChatsByProject,
+  getPreferredVersion: chatRepoGetPreferredVersion,
+  getLatestVersion: chatRepoGetLatestVersion,
+  getChatOrchestrationSnapshot: chatRepoGetChatOrchestrationSnapshot,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -104,6 +116,8 @@ describe("POST /api/template", () => {
   beforeEach(() => {
     createProject.mockReset();
     saveProjectData.mockReset();
+    getProjectData.mockReset();
+    findLatestTemplateInitProjectIdForOwner.mockReset();
     getCurrentUser.mockReset();
     prepareCredits.mockReset();
     commitCredits.mockReset();
@@ -116,6 +130,10 @@ describe("POST /api/template", () => {
     chatRepoCreateDraftVersion.mockReset();
     chatRepoUpdateVersionPreviewUrl.mockReset();
     chatRepoGetChat.mockReset();
+    chatRepoListChatsByProject.mockReset();
+    chatRepoGetPreferredVersion.mockReset();
+    chatRepoGetLatestVersion.mockReset();
+    chatRepoGetChatOrchestrationSnapshot.mockReset();
     devLogAppend.mockReset();
     persistImportedRepoInitialization.mockReset();
     recordImportedRepoPreviewOutcome.mockReset();
@@ -144,6 +162,12 @@ describe("POST /api/template", () => {
     });
     chatRepoUpdateVersionPreviewUrl.mockResolvedValue(true);
     chatRepoGetChat.mockResolvedValue({ messages: [] });
+    chatRepoListChatsByProject.mockResolvedValue([]);
+    chatRepoGetPreferredVersion.mockResolvedValue(null);
+    chatRepoGetLatestVersion.mockResolvedValue(null);
+    chatRepoGetChatOrchestrationSnapshot.mockResolvedValue(null);
+    getProjectData.mockResolvedValue(null);
+    findLatestTemplateInitProjectIdForOwner.mockResolvedValue(null);
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
     createProject.mockResolvedValue({ id: "proj_new" });
     persistImportedRepoInitialization.mockResolvedValue({
@@ -530,5 +554,200 @@ describe("POST /api/template", () => {
       archiveUrl: null,
     });
     expect(devLogAppend).not.toHaveBeenCalled();
+  });
+
+  function stubLocalTemplateSource() {
+    const source = {
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: ["ai"],
+      sourceLabelsSv: ["AI"],
+      categoryLabel: "AI",
+      timestamp: freshTimestamp(),
+      archiveSha256: "a".repeat(64),
+    };
+    getLocalV0TemplateSourceById.mockResolvedValue(source);
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source,
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+      ],
+    });
+  }
+
+  it("replays the same projectId+templateId without creating a second chat or charging again", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_existing",
+        model: "gpt-existing",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { kind: "v0_template", templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_existing",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://preview.example/chat_existing",
+    });
+
+    const body = JSON.stringify({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const first = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }) as never,
+    );
+    const second = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: "tmpl_1",
+          quality: "standard",
+          projectId: "proj_existing",
+        }),
+      }) as never,
+    );
+    const firstJson = await first.json();
+    const secondJson = await second.json();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(firstJson).toMatchObject({
+      success: true,
+      cached: true,
+      chatId: "chat_existing",
+      projectId: "proj_existing",
+      versionId: "ver_existing",
+    });
+    expect(secondJson).toMatchObject({
+      success: true,
+      cached: true,
+      chatId: "chat_existing",
+      projectId: "proj_existing",
+    });
+    expect(createProject).not.toHaveBeenCalled();
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
+  });
+
+  it("reuses the owner+templateId project when the client omitted projectId", async () => {
+    stubLocalTemplateSource();
+    findLatestTemplateInitProjectIdForOwner.mockResolvedValue("proj_reused");
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_reused",
+        model: "gpt-reused",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_reused",
+      files_json: JSON.stringify([{ path: "app/page.tsx", content: "const reused = true;" }]),
+      preview_url: null,
+    });
+
+    const first = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const second = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await first.json()).chatId).toBe("chat_reused");
+    expect((await second.json()).chatId).toBe("chat_reused");
+    expect(createProject).not.toHaveBeenCalled();
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(findLatestTemplateInitProjectIdForOwner).toHaveBeenCalledWith(
+      { userId: null, sessionId: "sess_1" },
+      "tmpl_1",
+    );
+  });
+
+  it("creates only one project+chat across two cold inits of the same templateId", async () => {
+    stubLocalTemplateSource();
+    findLatestTemplateInitProjectIdForOwner
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue("proj_new");
+    // First POST has no projectId yet, so it never lists chats. The retry
+    // looks up the pending project and must see the chat created by init.
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_import",
+        model: "gpt-import",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_import",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "[REDACTED]/chat_import",
+    });
+
+    const first = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const second = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const firstJson = await first.json();
+    const secondJson = await second.json();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(firstJson.cached).toBe(false);
+    expect(secondJson).toMatchObject({
+      cached: true,
+      chatId: "chat_import",
+      projectId: "proj_new",
+    });
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
   });
 });

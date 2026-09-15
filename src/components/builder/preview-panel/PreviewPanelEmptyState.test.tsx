@@ -28,6 +28,8 @@ function renderEmptyState(
       previewPending={props.previewPending ?? false}
       onFixPreview={props.onFixPreview ?? vi.fn()}
       isGenerating={props.isGenerating ?? false}
+      templateInitError={props.templateInitError ?? null}
+      onRetryTemplateInit={props.onRetryTemplateInit ?? null}
     />,
   );
 }
@@ -82,5 +84,24 @@ describe("PreviewPanelEmptyState — template-entry", () => {
     searchParamsMock.current = new URLSearchParams("project=proj_1&templateId=tmpl_1");
     renderEmptyState({ chatId: "chat_1", versionId: "ver_1" });
     expect(screen.queryByText("Läser in templaten")).toBeNull();
+  });
+
+  it("visar felläge och Försök igen när template-init misslyckats", () => {
+    const onRetryTemplateInit = vi.fn();
+    searchParamsMock.current = new URLSearchParams("project=proj_1&templateId=tmpl_1");
+    renderEmptyState({
+      chatId: null,
+      versionId: null,
+      templateInitError: "Nätverket svarade inte.",
+      onRetryTemplateInit,
+    });
+    expect(screen.queryByText("Läser in templaten")).toBeNull();
+    expect(screen.queryByText(WELCOME_TITLE)).toBeNull();
+    expect(screen.getByText("Kunde inte läsa in templaten")).toBeTruthy();
+    expect(screen.getByText("Nätverket svarade inte.")).toBeTruthy();
+    const retry = screen.getByRole("button", { name: "Försök igen" });
+    retry.click();
+    expect(onRetryTemplateInit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
   });
 });

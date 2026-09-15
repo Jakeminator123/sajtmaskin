@@ -453,6 +453,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}
+              templateInitError={vm.templateInitError}
+              onRetryTemplateInit={vm.retryTemplateInit}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}

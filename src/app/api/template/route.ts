@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
+import {
+  createProject as createAppProject,
+  findLatestTemplateInitProjectIdForOwner,
+  saveProjectData,
+} from "@/lib/db/services/projects";
+import {
+  findExistingTemplateInit,
+  markTemplateInitPending,
+  type ExistingTemplateInit,
+} from "@/lib/templates/template-init-idempotency";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
@@ -479,6 +488,52 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const sourceMetadata = buildTemplateSourceMetadata(localTemplateSource);
+
+      const respondExisting = (existing: ExistingTemplateInit) => {
+        if (sourceMetadata.stale) {
+          devLogAppend("latest", {
+            type: "v0-import.stale-source",
+            templateId: sourceMetadata.templateId,
+            ageSeconds: sourceMetadata.ageSeconds,
+            timestamp: sourceMetadata.timestamp,
+          });
+        }
+        return attachSessionCookie(
+          NextResponse.json({
+            success: true,
+            message: getRandomMessage(),
+            code: existing.code,
+            files: existing.files,
+            chatId: existing.chatId,
+            projectId: existing.projectId,
+            versionId: existing.versionId,
+            ...previewUrlField(existing.previewUrl),
+            model: existing.model,
+            cached: true,
+            source: sourceMetadata,
+          }),
+        );
+      };
+
+      // Idempotency key: (projectId, templateId) when the client already has a
+      // project (gallery + template-switch). Without projectId, reuse the
+      // owner's latest project_data.meta.templateId row so a lost response
+      // cannot mint a second project+chat.
+      let projectId = resolvedRequestedProjectId;
+      if (!projectId) {
+        projectId = await findLatestTemplateInitProjectIdForOwner(
+          { userId, sessionId },
+          templateId,
+        );
+      }
+      if (projectId) {
+        const existing = await findExistingTemplateInit(projectId, templateId);
+        if (existing) {
+          return respondExisting(existing);
+        }
+      }
+
       const creditCheck = await prepareCredits(
         request,
         "prompt.template",
@@ -489,9 +544,8 @@ export async function POST(request: NextRequest) {
         return attachSessionCookie(creditCheck.response);
       }
 
-      const projectId =
-        resolvedRequestedProjectId ??
-        (
+      if (!projectId) {
+        projectId = (
           await createAppProject(
             `Template: ${templateMeta.title}`,
             "template",
@@ -500,13 +554,14 @@ export async function POST(request: NextRequest) {
             user?.id,
           )
         ).id;
+        await markTemplateInitPending(projectId, templateId);
+      }
 
       const imported = await initializeLocalTemplateProject({
         projectId,
         template: templateMeta,
       });
 
-      const sourceMetadata = buildTemplateSourceMetadata(localTemplateSource);
       if (sourceMetadata.stale) {
         devLogAppend("latest", {
           type: "v0-import.stale-source",

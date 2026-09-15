@@ -216,7 +216,7 @@ export function useBuilderPromptActions({
       // templateId stays in the URL.
       if (isNewChat && templateId) {
         toast.error(
-          "Templaten laddas fortfarande eller kunde inte startas. Vänta ett ögonblick, eller ladda om sidan för att försöka igen.",
+          "Templaten laddas fortfarande eller kunde inte startas. Vänta ett ögonblick, eller använd «Försök igen» i förhandsvisningen.",
         );
         return false;
       }
