@@ -375,6 +375,50 @@ export async function completeTemplateInitClaim(input: {
   return asRows(result).length > 0;
 }
 
+/**
+ * True when a prior template-init for the same logical scope was fully debited
+ * (claim row reached `completed`). Persist alone is not payment proof.
+ */
+export async function hasTemplateInitPaymentProof(input: {
+  projectId?: string | null;
+  templateId: string;
+  userId?: string | null;
+  sessionId?: string | null;
+}): Promise<boolean> {
+  if (!dbConfigured) return false;
+  const presence = await templateInitOperationsTablePresence();
+  if (presence !== "exists") return false;
+
+  const templateId = trimId(input.templateId);
+  if (!templateId) return false;
+
+  const claimKeys = new Set<string>();
+  const projectKey = buildTemplateInitClaimKey({
+    projectId: input.projectId,
+    templateId,
+    userId: input.userId,
+    sessionId: input.sessionId,
+  });
+  if (projectKey) claimKeys.add(projectKey);
+  const ownerKey = buildTemplateInitClaimKey({
+    templateId,
+    userId: input.userId,
+    sessionId: input.sessionId,
+  });
+  if (ownerKey) claimKeys.add(ownerKey);
+  if (claimKeys.size === 0) return false;
+
+  try {
+    for (const claimKey of claimKeys) {
+      const row = await selectClaimRow(claimKey);
+      if (row?.status === "completed") return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function failTemplateInitClaim(input: {
   claimKey: string;
   operationId: string;

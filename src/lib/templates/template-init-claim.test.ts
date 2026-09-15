@@ -17,6 +17,7 @@ import {
   claimTemplateInit,
   completeTemplateInitClaim,
   failTemplateInitClaim,
+  hasTemplateInitPaymentProof,
   recordTemplateInitImport,
 } from "./template-init-claim";
 
@@ -247,6 +248,41 @@ describe("claimTemplateInit", () => {
     await expect(
       claimTemplateInit({ projectId: "proj_1", templateId: "tmpl_1" }),
     ).resolves.toMatchObject({ kind: "unavailable", reason: "unavailable" });
+  });
+});
+
+describe("hasTemplateInitPaymentProof", () => {
+  beforeEach(() => {
+    execute.mockReset();
+    dbConfigured.value = true;
+  });
+
+  it("returns true only for a completed claim on the project or owner key", async () => {
+    execute
+      .mockResolvedValueOnce(existsProbe())
+      .mockResolvedValueOnce({
+        rows: [insertRow({ status: "pending" })],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce(existsProbe())
+      .mockResolvedValueOnce({
+        rows: [insertRow({ status: "completed" })],
+      });
+
+    await expect(
+      hasTemplateInitPaymentProof({
+        projectId: "proj_1",
+        templateId: "tmpl_1",
+        sessionId: "sess_1",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      hasTemplateInitPaymentProof({
+        projectId: "proj_1",
+        templateId: "tmpl_1",
+        sessionId: "sess_1",
+      }),
+    ).resolves.toBe(true);
   });
 });
 

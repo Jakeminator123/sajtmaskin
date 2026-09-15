@@ -16,6 +16,7 @@ import {
   claimTemplateInit,
   completeTemplateInitClaim,
   failTemplateInitClaim,
+  hasTemplateInitPaymentProof,
   recordTemplateInitImport,
   type ClaimedTemplateInit,
 } from "@/lib/templates/template-init-claim";
@@ -563,14 +564,13 @@ export async function POST(request: NextRequest) {
             { status: 503 },
           ),
         );
-      const respondClaimBusy = (busyProjectId: string | null) =>
+      const respondClaimBusy = () =>
         attachSessionCookie(
           NextResponse.json(
             {
               success: false,
               retryable: true,
               error: "Templaten importeras redan. Försök igen om en stund.",
-              projectId: busyProjectId,
             },
             { status: 409 },
           ),
@@ -652,7 +652,7 @@ export async function POST(request: NextRequest) {
         );
       }
       if (claimed.kind === "busy") {
-        return respondClaimBusy(claimed.projectId ?? projectId);
+        return respondClaimBusy();
       }
 
       const replayFromClaim = async (
@@ -679,6 +679,9 @@ export async function POST(request: NextRequest) {
               })()
             : null);
         if (fromClaim === "lookup_failed" || !fromClaim) return respondLookupFailed();
+        if (operation.kind === "completed") {
+          return respondExisting(fromClaim);
+        }
         return settleExistingInit(fromClaim, operation);
       };
 
@@ -701,8 +704,17 @@ export async function POST(request: NextRequest) {
       };
 
       if (existing && !acquired.chatId && !acquired.versionId) {
-        await failAcquiredClaim("replay_existing_import");
-        return respondExisting(existing);
+        const paid = await hasTemplateInitPaymentProof({
+          projectId: existing.projectId ?? projectId,
+          templateId,
+          userId,
+          sessionId,
+        });
+        if (paid) {
+          await failAcquiredClaim("replay_existing_import");
+          return respondExisting(existing);
+        }
+        return settleExistingInit(existing, acquired);
       }
 
       if (existing && (acquired.chatId || acquired.versionId)) {
@@ -759,14 +771,31 @@ export async function POST(request: NextRequest) {
           projectId,
           template: templateMeta,
         });
-        const recorded = await recordTemplateInitImport({
-          claimKey: acquired.claimKey,
-          operationId: acquired.operationId,
-          claimGeneration: acquired.claimGeneration,
-          projectId,
-          chatId: imported.chatId,
-          versionId: imported.versionId,
-        });
+        let recorded: boolean;
+        try {
+          recorded = await recordTemplateInitImport({
+            claimKey: acquired.claimKey,
+            operationId: acquired.operationId,
+            claimGeneration: acquired.claimGeneration,
+            projectId,
+            chatId: imported.chatId,
+            versionId: imported.versionId,
+          });
+        } catch (recordError) {
+          console.error("[API /template] Failed to record template-init import:", recordError);
+          return settleExistingInit(
+            {
+              chatId: imported.chatId,
+              projectId,
+              versionId: imported.versionId,
+              previewUrl: imported.previewUrl,
+              files: imported.files,
+              code: imported.code,
+              model: imported.model,
+            },
+            acquired,
+          );
+        }
         if (!recorded) {
           // Persist already landed. Settling here charges this operation_id
           // so a later respondExisting replay cannot skip debit.

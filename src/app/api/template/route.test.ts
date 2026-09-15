@@ -39,6 +39,7 @@ const claimState = vi.hoisted(() => ({
   seq: 0,
   bindResult: true,
   recordResult: true,
+  recordThrows: false,
   completeResult: true,
 }));
 
@@ -178,6 +179,9 @@ vi.mock("@/lib/templates/template-init-claim", () => {
       chatId: string;
       versionId: string;
     }) => {
+      if (claimState.recordThrows) {
+        throw new Error("record db unavailable");
+      }
       const row = claimState.store.get(input.claimKey);
       if (
         !row ||
@@ -192,6 +196,22 @@ vi.mock("@/lib/templates/template-init-claim", () => {
       row.chatId = input.chatId;
       row.versionId = input.versionId;
       return true;
+    },
+    hasTemplateInitPaymentProof: async (input: {
+      projectId?: string | null;
+      templateId: string;
+      userId?: string | null;
+      sessionId?: string | null;
+    }) => {
+      const keys = [
+        input.projectId?.trim()
+          ? `project:${input.projectId.trim()}:${input.templateId}`
+          : null,
+        input.userId?.trim()
+          ? `owner:user:${input.userId.trim()}:${input.templateId}`
+          : `owner:session:${input.sessionId?.trim() || "sess_1"}:${input.templateId}`,
+      ].filter(Boolean) as string[];
+      return keys.some((key) => claimState.store.get(key)?.status === "completed");
     },
     completeTemplateInitClaim: async (input: {
       claimKey: string;
@@ -300,6 +320,7 @@ describe("POST /api/template", () => {
     claimState.seq = 0;
     claimState.bindResult = true;
     claimState.recordResult = true;
+    claimState.recordThrows = false;
     claimState.completeResult = true;
 
     getCurrentUser.mockResolvedValue(null);
@@ -746,6 +767,15 @@ describe("POST /api/template", () => {
   it("replays the same projectId+templateId without creating a second chat or charging again", async () => {
     stubLocalTemplateSource();
     resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    claimState.store.set("project:proj_existing:tmpl_1", {
+      claimKey: "project:proj_existing:tmpl_1",
+      operationId: "op_paid",
+      status: "completed",
+      claimGeneration: 1,
+      projectId: "proj_existing",
+      chatId: "chat_existing",
+      versionId: "ver_existing",
+    });
     chatRepoListChatsByProject.mockResolvedValue([
       {
         id: "chat_existing",
@@ -815,6 +845,15 @@ describe("POST /api/template", () => {
   it("reuses the owner+templateId project when the client omitted projectId", async () => {
     stubLocalTemplateSource();
     findLatestTemplateInitProjectIdForOwner.mockResolvedValue("proj_reused");
+    claimState.store.set("owner:session:sess_1:tmpl_1", {
+      claimKey: "owner:session:sess_1:tmpl_1",
+      operationId: "op_paid",
+      status: "completed",
+      claimGeneration: 1,
+      projectId: "proj_reused",
+      chatId: "chat_reused",
+      versionId: "ver_reused",
+    });
     chatRepoListChatsByProject.mockResolvedValue([
       {
         id: "chat_reused",
@@ -912,10 +951,8 @@ describe("POST /api/template", () => {
     });
     expect(createProject).toHaveBeenCalledTimes(1);
     expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
-    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
-      "op_1",
-      "op_1",
-    ]);
+    expect(prepareCredits).toHaveBeenCalledTimes(1);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual(["op_1"]);
   });
 
   async function postTemplate(body: Record<string, unknown>) {
@@ -1194,10 +1231,8 @@ describe("POST /api/template", () => {
     expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
     expect(claimState.store.size).toBe(1);
     expect([...claimState.store.values()].map((row) => row.operationId)).toEqual(["op_1"]);
-    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
-      "op_1",
-      "op_1",
-    ]);
+    expect(prepareCredits).toHaveBeenCalledTimes(1);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual(["op_1"]);
   });
 
   it("does not return a free import after record_failed when persist already exists", async () => {
@@ -1258,12 +1293,204 @@ describe("POST /api/template", () => {
       projectId: "proj_existing",
     });
     expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
-    expect(commitCredits).toHaveBeenCalledTimes(2);
-    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual([
-      "op_1",
-      "op_1",
-      "op_1",
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual(["op_1", "op_1"]);
+  });
+
+  it("settles and charges when record throws after persist instead of leaving a free replay", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    claimState.recordThrows = true;
+    chatRepoGetChat.mockResolvedValue({
+      id: "chat_import",
+      project_id: "proj_existing",
+      model: "gpt-import",
+      messages: [],
+    });
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_import",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://vm-fly-jakem.fly.dev/chat_import",
+    });
+
+    const first = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const firstJson = await first.json();
+
+    expect(first.status).toBe(200);
+    expect(firstJson).toMatchObject({
+      success: true,
+      chatId: "chat_import",
+      projectId: "proj_existing",
+    });
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual(["op_1", "op_1"]);
+
+    claimState.recordThrows = false;
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_import",
+        model: "gpt-import",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { templateId: "tmpl_1" } },
+          },
+        },
+      },
     ]);
+    claimState.store.set("project:proj_existing:tmpl_1", {
+      claimKey: "project:proj_existing:tmpl_1",
+      operationId: "op_1",
+      status: "completed",
+      claimGeneration: 1,
+      projectId: "proj_existing",
+      chatId: "chat_import",
+      versionId: "ver_import",
+    });
+
+    const second = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const secondJson = await second.json();
+
+    expect(second.status).toBe(200);
+    expect(secondJson).toMatchObject({ success: true, cached: true, chatId: "chat_import" });
+    expect(chatRepoCreateChat).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(prepareCredits.mock.calls.map((call) => call[3]?.idempotencyKey)).toEqual(["op_1", "op_1"]);
+  });
+
+  it("charges on retry when persist exists but no completed claim proves payment", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_existing",
+        model: "gpt-existing",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { kind: "v0_template", templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_existing",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://preview.example/chat_existing",
+    });
+    claimState.store.set("owner:session:sess_1:tmpl_1", {
+      claimKey: "owner:session:sess_1:tmpl_1",
+      operationId: "op_failed",
+      status: "failed",
+      claimGeneration: 1,
+      projectId: "proj_existing",
+      chatId: null,
+      versionId: null,
+    });
+
+    const response = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      cached: true,
+      chatId: "chat_existing",
+      projectId: "proj_existing",
+    });
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(prepareCredits).toHaveBeenCalledTimes(1);
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay a truly paid template init without charging again", async () => {
+    stubLocalTemplateSource();
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_existing");
+    claimState.store.set("project:proj_existing:tmpl_1", {
+      claimKey: "project:proj_existing:tmpl_1",
+      operationId: "op_paid",
+      status: "completed",
+      claimGeneration: 1,
+      projectId: "proj_existing",
+      chatId: "chat_existing",
+      versionId: "ver_existing",
+    });
+    chatRepoListChatsByProject.mockResolvedValue([
+      {
+        id: "chat_existing",
+        model: "gpt-existing",
+        orchestration_snapshot: {
+          importedRepoBaseline: {
+            contract: { origin: { kind: "v0_template", templateId: "tmpl_1" } },
+          },
+        },
+      },
+    ]);
+    chatRepoGetPreferredVersion.mockResolvedValue({
+      id: "ver_existing",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page() { return <div>Repo</div>; }" },
+      ]),
+      preview_url: "https://preview.example/chat_existing",
+    });
+
+    const response = await postTemplate({
+      templateId: "tmpl_1",
+      quality: "standard",
+      projectId: "proj_existing",
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      cached: true,
+      chatId: "chat_existing",
+      projectId: "proj_existing",
+    });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+  });
+
+  it("does not leak projectId on busy 409 so a retry cannot open a parallel project claim", async () => {
+    stubLocalTemplateSource();
+    claimState.store.set("owner:session:sess_1:tmpl_1", {
+      claimKey: "owner:session:sess_1:tmpl_1",
+      operationId: "op_owner",
+      status: "pending",
+      claimGeneration: 1,
+      projectId: "proj_inflight",
+      chatId: null,
+      versionId: null,
+    });
+
+    const busy = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    const busyJson = await busy.json();
+
+    expect(busy.status).toBe(409);
+    expect(busyJson).toMatchObject({ success: false, retryable: true });
+    expect(busyJson).not.toHaveProperty("projectId");
+
+    const retry = await postTemplate({ templateId: "tmpl_1", quality: "standard" });
+    expect(retry.status).toBe(409);
+    expect(chatRepoCreateChat).not.toHaveBeenCalled();
+    expect(commitCredits).not.toHaveBeenCalled();
+    expect([...claimState.store.values()].filter((row) => row.status === "pending")).toHaveLength(1);
   });
 
   it("reuses the minted project when bind fails and the next attempt succeeds", async () => {
