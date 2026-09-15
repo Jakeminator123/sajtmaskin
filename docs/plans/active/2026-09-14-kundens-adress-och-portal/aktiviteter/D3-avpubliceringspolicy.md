@@ -4,10 +4,12 @@ Område: [04](../04-abonnemang-och-livscykel.md). D1:s policyneutrala
 grundschema är levererat utan att dessa policyförslag ratificerats. Policyn
 fastställs före kundaktivering; driftimplementationen följer D1 och D2.
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-Policyn är inte ratificerad och faktisk paus/återställning är inte levererad.
-7 dagars respit, 90 dagars bevarande och övriga utfall nedan är fortsatt förslag.
+Policyn är inte ratificerad. Faktisk paus/återställning är inte på preview.
+#1385 innehåller konfigurerbar D3-mekanik bakom avstängda flaggor, men den
+PR:en är öppen draft. 7 dagars respit, 90 dagars bevarande och övriga utfall
+nedan är fortsatt förslag. Inga hosting-writes och ingen kundaktivering.
 
 ## Föreslagen policy att svara ja till
 

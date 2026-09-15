@@ -5,12 +5,21 @@ Per-sajt-modellen och att publicering ingår är redan beslutade. Nya detaljer o
 respit, paus, bevarande och kvotens rollover är förslag tills Jakob svarat på
 [frågorna](00-master-plan.md); tidigare beslut behöver inte fattas på nytt.
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-D1:s schema och retention guards är levererade på `preview` i #1361.
-Båda D1-migrationerna är verifierade i den delade preview/prod-databasens
-ledger. D2, D3:s driftimplementation och betalaktivering återstår. D1
-ratificerar inte förslagen om pris, credits, rollover eller 7/90 dagar.
+D1:s schema och retention guards är kod på `preview` (#1361 / #1364). Båda
+D1-migrationerna finns i den delade preview/prod-ledgern enligt tidigare
+read-only kontroll. Det är inte betalaktivering.
+
+D2/D3 är inte levererade till preview. På preview finns bara stängsel: #1379
+skiljer subscription-events från credit-/domänköp, och #1381 håller checkout
+hårdstängd (`SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false`). Full webhook-
+livscykel, Billing Portal, C3 etapp 2 och D3-drift ligger i öppen draft #1385.
+Den PR:en bär `add-stripe-billing-events.sql`, som **inte** finns i preview-
+ordningen och **inte** är applicerad. Preview/prod delar Postgres — dokumentera
+inte den filen som körd.
+
+D1 ratificerar inte pris, credits, rollover eller 7/90 dagar.
 
 ## Modell
 

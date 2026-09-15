@@ -1,36 +1,40 @@
 # Kundens adress och portal — reviderat MVP-förslag (2026-09-14)
 
-> **Status: genomförande pågår mot `preview`.** Grundläggande portal- och
-> databaspaket är levererade. Denna dokumentations-PR uppdaterar underlaget
-> utan att ratificera nya produktval eller aktivera kundsajter, DNS eller
-> betalning. Förslagen nedan flyttas till
+> **Status: genomförande pågår mot `preview`.** Ingen produktionspromote.
+> Inga nya produktval ratificeras här. Förslagen nedan flyttas till
 > [beslutsloggen](../../../decisions/README.md) först efter Jakobs svar.
 
-Ursprungligt underlag: bifogade planfiler och kod på `preview`
-`5cbdc34f0166e989ad9d7a7231dbf9dac6e1b1dc`. Genomförandestatusen nedan
-kontrollerades senare samma dag via GitHub, Vercel och Supabase. DNS-/env-text
-i äldre runbooks är historiska observationer, inte nya driftmätningar.
+Avläst mot live GitHub 2026-09-15. `origin/preview` =
+`65c8f06f95a8f370cfb1ba1ff442714d28b8180d` (inkl. #1375). `origin/master` =
+`fb14ab3d65103f5e9b40e0d31baf9c9d3c32df2e`. Kod på preview är inte samma sak
+som flagga på, runtime verifierad eller kundaktiverad.
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-Statusen beskriver verifierad leverans och ratificerar inga nya produktförslag.
+| Del | Kod på preview | Flagga / default | Runtime verifierad | Kundaktiverad |
+|---|---|---|---|---|
+| C1 sajtvy | Ja — #1358 | — | Ytan finns i staging-appen | Nej |
+| C2 domänflöde | Ja — #1378 (observation) + #1384 (koppla/verifiera) | Domänköp av | Inte bevisad mot riktig kunddomän över HTTPS | Nej |
+| C3 etapp 1 | Ja — #1359 | — | Konto, saldo och köphistorik i staging-appen | Nej |
+| C3 etapp 2 | Nej — öppen draft #1385 | — | Nej | Nej |
+| A2 grundskydd + pilotgrind | Ja — #1360 / #1365 / #1366 (`e7bdbb2d`) | `activation_not_ready`; branded-flaggor av | HTTPS-cookieprov och gästsession-återställning kvar | Nej |
+| A3 adresskontrakt | Ja — #1369 (kontrakt) + #1386 (deploy-wire, `4316c7b99`) | `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
+| A1 DNS / PSL | Inget runtime-paket | — | 2026-09-15: `sites.*` och `pilot-a1-test.sites.*` NXDOMAIN. PSL avvaktas | Nej |
+| A4 pilot / migrering | Nej | `SAJTMASKIN_BRANDED_LIVE_URLS` av | Nej | Nej |
+| B1 export | Ja — #1367 (`934eda6c7`) | — | Kodverifierad export; ingen separat kundpilot | Nej |
+| D1 schema | Ja — #1361 / #1364 | — | Båda D1-migrationerna i delad preview/prod-ledger (tidigare read-only kontroll) | Nej |
+| D2 / D3 livscykel | Bara stängsel: #1379 (webhook-dispatch) + #1381 (checkout hårdstängd). Full implementation i #1385 | `SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED = false` (inte env-styrd på preview) | Nej. #1385:s `add-stripe-billing-events.sql` finns inte i preview och är inte applicerad | Nej |
 
-| Del | Status |
-|---|---|
-| C1 | Sajtvy levererad på `preview` i #1358. |
-| C3 etapp 1 | Konto, saldo och köphistorik levererade i #1359. Abonnemang/Billing Portal återstår. |
-| A2 grundskydd | Cookies #1360 och exakt Origin #1365 är levererade. PR #1366 är mergad till preview som `e7bdbb2d3600d7dd652a054250d7a30e111a4c93` efter oberoende Sol/high PASS, grön full ready-CI och Vercel READY. Efterkontrollerna på preview är gröna, inklusive migrationer och schemaparitet (CI 34899457800). Faktisk pilotaktivering är fortfarande stängd med `activation_not_ready`. |
-| D1 | Schema och retention guards levererade i #1361; #1364 löste migrationskompatibiliteten. Read-only Supabase-kontroll bekräftar båda D1-migrationerna i den delade preview/prod-databasens ledger. |
-| Portalens följdleveranser | #1362–#1365 är mergade till `preview`. |
-| B1 | B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden. |
-| A3 | En förberedande kodetapp pågår separat. Fullständigt adresskontrakt och driftverifiering återstår. Ingen ny adressregel är aktiverad. |
-| A1/A4 | Verkligt HTTPS-bevis, slutligt deploypaket → exakt READY-deployment → serialiserad aliasbindning och kontrollerad pilot/migrering återstår. |
-| C2, D2/D3 | Kundens domänflöde, abonnemangsflöde och faktisk paus/återställning återstår. |
-| Produktval | Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande är fortsatt förslag. |
+#1380 (A1-mätning + `HANDOFF.md`) är stale efter #1369–#1386. **Stäng utan
+merge.** Bestående DNS-fakta ligger i
+[adressrunbooken](../../../runbooks/branded-user-urls.md). Ingen andra
+masterplan skapas.
 
-Branded-piloten är fortsatt avstängd. Verkligt HTTPS-cookieprov och verifierad
-återställning av legitima äldre gästsessioner återstår. Ingen
-produktionspromote ingår i denna våg.
+Öppna PR:er som kan göra statusen stale igen: #1385 (D2/D3 + C3e2), #1389
+(preview-host boot), #1376, #1377.
+
+Pris, inkluderade credits, rollover, 7 dagars respit och 90 dagars bevarande
+är fortsatt förslag. Ingen branded-pilot, ingen betalstart, ingen promote.
 
 ## Idén
 

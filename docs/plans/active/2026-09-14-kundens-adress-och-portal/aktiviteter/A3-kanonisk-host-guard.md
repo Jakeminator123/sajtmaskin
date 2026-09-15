@@ -1,11 +1,17 @@
 # A3 — Primäradress i metadata och runtime
 
-## Genomförandestatus 2026-09-14
+## Genomförandestatus 2026-09-15
 
-En förberedande kodetapp pågår separat. Fullständigt adresskontrakt och
-driftverifiering återstår. Routing får inte aktiveras utan verifierad
-projektidentitet, HTTPS och A4:s slutliga bindning.
-Full A3 kräver de faktiska deploy-/rollback-proven nedan.
+**Kod på preview. Flagga av. Runtime inte verifierad.** #1369 levererade det
+stängda adresskontraktet. #1386 (`4316c7b99`) kopplade verifierad primäradress
+och in-process HTTPS-bevis till deployvägen bakom
+`SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` (default av). Även med flaggan av
+sätts `NEXT_PUBLIC_SITE_URL` från bevisad projektidentitet; 307-redirect
+kräver flagga + attesterat samma-projekt-alias + HTTPS-bevis.
+
+Det är inte A3-klart i drift: två testhosts under `sites.*` över HTTPS
+saknas, och branded → egen domän → branded är inte kört på en faktisk
+kundtestdeployment. A4:s aliasbindning öppnas inte av flaggan.
 
 Område: [01](../01-varumarkta-adresser.md). Efter [A2](A2-branded-eligibility.md)
 för gemensamma deployfiler. Samordna kontrakt med [C2](C2-domanflode.md).

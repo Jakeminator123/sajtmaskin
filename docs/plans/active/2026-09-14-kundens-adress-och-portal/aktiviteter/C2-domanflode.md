@@ -1,5 +1,16 @@
 # C2 — Koppla egen domän och hantera primäradress
 
+## Genomförandestatus 2026-09-15
+
+**Kod på preview. Runtime inte verifierad.** #1378 levererade read-only
+observation. #1384 (`873c7b85f`) levererade koppla / verifiera / byt /
+koppla loss från `/projects/[id]`, med apex+www, tenantisolering och
+okänd-status vid tillfälligt providerfel. Domänköp är av. Automatisk DNS
+(`automaticDnsConnector()`) returnerar `null`.
+
+Kvar: riktig kunddomän över HTTPS, hela kedjan koppla → verifiera → byt
+primär → koppla loss. Entri eller motsvarande är inte byggt.
+
 Område: [03](../03-kundportal.md). Efter C1; använd A3:s adresskontrakt.
 
 ## Återanvänd
