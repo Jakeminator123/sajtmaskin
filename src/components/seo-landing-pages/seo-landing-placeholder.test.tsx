@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
   SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
+  assertSeoLandingPlaceholderAllowed,
   getSeoLandingEntry,
 } from "@/lib/seo-landing-pages/registry";
 import { SeoLandingPlaceholder } from "./seo-landing-placeholder";
@@ -19,6 +20,7 @@ vi.mock("@/lib/seo-landing-pages/registry", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/seo-landing-pages/registry")>();
   return {
     ...actual,
+    assertSeoLandingPlaceholderAllowed: vi.fn(actual.assertSeoLandingPlaceholderAllowed),
     getSeoLandingEntry: vi.fn(actual.getSeoLandingEntry),
   };
 });
@@ -40,7 +42,18 @@ describe("SeoLandingPlaceholder", () => {
     );
   });
 
-  it("throws when a ready registry entry still uses the placeholder", () => {
+  it("runs the ready-guard before painting the blue test surface", () => {
+    render(<SeoLandingPlaceholder slug="skapa-hemsida-med-ai" />);
+
+    expect(assertSeoLandingPlaceholderAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: "skapa-hemsida-med-ai",
+        status: "placeholder",
+      }),
+    );
+  });
+
+  it("refuses to construct a ready registry entry as a placeholder", () => {
     vi.mocked(getSeoLandingEntry).mockReturnValueOnce({
       slug: "skapa-hemsida-med-ai",
       title: "Skapa hemsida med AI – se hur det fungerar",
@@ -52,7 +65,7 @@ describe("SeoLandingPlaceholder", () => {
       ctaHref: SEO_LANDING_CTA_HREF,
     });
 
-    expect(() => render(<SeoLandingPlaceholder slug="skapa-hemsida-med-ai" />)).toThrow(
+    expect(() => SeoLandingPlaceholder({ slug: "skapa-hemsida-med-ai" })).toThrow(
       SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
     );
   });
