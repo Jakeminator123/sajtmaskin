@@ -3,8 +3,9 @@
  * Shared by eval checks and Visual QA so new token families cannot drift
  * past one lane while the other stays on the old allowlist.
  *
- * Index access (`T[K]`, `Foo[Key]`, `getMap()[Key]`) is not copy: the `[`
- * sits directly after an identifier, `?`/`!`, a call, or another index.
+ * Index access (`T[K]`, `Foo[Key]`, `getMap()[Key]`, `record?.[Key]`) is
+ * not copy: the `[` sits directly after an identifier, `?.` / `!`, a
+ * call, or another index.
  */
 
 const CODE_LIKE_INNER =
@@ -18,7 +19,7 @@ const LOWERCASE_SCAFFOLD_TOKENS = new Set(["produkttyp"]);
 const TITLE_CASE_OR_PHRASE =
   /^[A-ZÅÄÖ][A-Za-zÅÄÖåäö0-9-]*(?:[ \t]+[^[\]]+)?$/;
 
-const INDEX_ACCESS_PREFIX = /[A-Za-z0-9_$?!)\]]/;
+const INDEX_ACCESS_PREFIX = /[A-Za-z0-9_$?!.)\]]/;
 
 export function isScaffoldBracketPlaceholder(inner: string): boolean {
   const token = inner.trim();
