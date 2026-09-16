@@ -63,16 +63,16 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "41687de6e",
+    "commit": "4775d65e2",
     "commitDate": "2026-09-17",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 10,
-    "openP2": 8,
-    "openP3": 2,
+    "openP1": 6,
+    "openP2": 2,
+    "openP3": 1,
     "blocked": 1,
     "shaky": 2,
     "evalExactHitPct": null
@@ -134,17 +134,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 0,
-        "P3": 2,
+        "P3": 1,
         "other": 0
       },
       "churn": 7,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 13,
+      "openBugs": 6,
       "openByPrio": {
         "P0": 0,
-        "P1": 6,
-        "P2": 6,
+        "P1": 4,
+        "P2": 1,
         "P3": 1,
         "other": 0
       },
@@ -226,7 +226,7 @@ const DATA: CanvasData = {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -239,65 +239,53 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": true,
+      "kind": "blocker",
       "fynd": "`SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projekts filer."
     },
     {
       "prio": "P1",
       "blocker": false,
+      "kind": "open",
       "fynd": "`SM-078` Tidigare: `wizard_runs` läs-/skrivbar via publika roller. Live ACL 2026-09-17: RLS på; anon/authenti…"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-079` Google-koppling kunde aktivera lösenordet från en overifierad förregistrering. Fixkod finns: `create…"
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
+      "kind": "open",
       "fynd": "`SM-081` Parallella genereringar kunde passera samma förkontroll innan AI-kostnaden uppstod. Kontolås finns: …"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-082` `icon-component-value-fixer` skrev om `{x.icon}` inne i attribut och införde TS2322/TS2339/TS2604; f…"
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
-      "fynd": "`SM-083` Advisory-promotad designversion med typfel kunde publiceras till Vercel."
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
+      "kind": "open",
       "fynd": "`SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans; burst kan döda nästa launch och visa Degrade…"
     },
     {
       "prio": "P1",
       "blocker": false,
+      "kind": "verify",
       "fynd": "`SM-073` Preview-hostens inspector-bridge kunde sakna identitetsstämpel när sessionsmetadata tappats; parent …"
     },
     {
       "prio": "P1",
       "blocker": false,
+      "kind": "open",
       "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
     },
     {
-      "prio": "P1",
-      "blocker": false,
-      "fynd": "`SM-088` Plan-läge dog tyst efter besvarade frågor: `BuildPlanCard` syntes bara i felsökningsvy."
-    },
-    {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-084` Verify-lanens `tsc` kunde räkna `TS1005` från Nexts `.next/dev/types/routes.d.ts` som fallen typeche…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
+      "kind": "open",
       "fynd": "`SM-001` Repair accepterar nya filer genom att skriva över samma versions `files_json`; ingen användbar rollb…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget kan visa ”Läser in templat…"
     }
   ],
-  "topOpenRisksOmitted": 6,
+  "topOpenRisksOmitted": 0,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
@@ -332,7 +320,7 @@ export default function LLMFlowCanvas() {
   return (
     <Stack gap={24} style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
       <Stack gap={6}>
-        <H1>LLM-flode - status mot master</H1>
+        <H1>LLM-flode - status mot Aktiv ko</H1>
         <Text tone="secondary">
           {d.meta.repo} {"·"} commit {d.meta.commit}
           {d.meta.commitDate ? " (" + d.meta.commitDate + ")" : ""} {"·"} auto-genererad fran repo-signaler
@@ -409,7 +397,11 @@ export default function LLMFlowCanvas() {
             headers={["Prio", "Typ", "Fynd"]}
             columnAlign={["left", "left", "left"]}
             rowTone={d.topOpenRisks.map((r) => (r.prio === "P0" || r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
-            rows={d.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "oppen", r.fynd])}
+            rows={d.topOpenRisks.map((r) => [
+              r.prio,
+              r.blocker ? "BLOCKER" : r.kind === "verify" ? "driftprov" : "oppen",
+              r.fynd,
+            ])}
           />
           {d.topOpenRisksOmitted > 0 && (
             <Text size="small" tone="tertiary">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseBacklogRows, selectTopOpenRisks } from "./build-llm-flow-canvas.mjs";
+import { parseBacklogRows, remainingBacklogWork, selectTopOpenRisks } from "./build-llm-flow-canvas.mjs";
 
 /** Bygger en minimal "## Aktiv ko"-tabell i samma format som BUG-SWARM-BACKLOG.md.
  *  Kolumner: | Klar | Status | Prio | Fynd | Kalla | Beslut | */
@@ -47,6 +47,24 @@ describe("parseBacklogRows", () => {
     const rows = parseBacklogRows(md);
     expect(rows).toHaveLength(1);
     expect(rows[0].fynd).toBe("Reell defekt");
+  });
+
+  it("markerar landad kodfix sa den inte styr ny implementation", () => {
+    const rows = parseBacklogRows(
+      backlog([
+        "| [ ] | Kodfix i master | P1 | `SM-082` ikonfixaren | src/lib/gen/autofix/rules/icon.ts | Bestall inte igen. |",
+        "| [ ] | Kodfix i preview | P2 | `SM-077` omverifiering | src/lib/hooks/chat/useResume.ts | Vantar promotion. |",
+        "| [ ] | Öppen kodbugg | P1 | `SM-080` isolering | preview-host/src/runtime/x.js | BLOCKER |",
+        "| [ ] | Kvarvarande driftprov | P1 | `SM-073` inspector | preview-host/src/runtime/y.js | Stickprov. |",
+      ]),
+    );
+    expect(rows.map((r) => r.workKind)).toEqual(["landed", "landed", "open", "verify"]);
+    const remaining = remainingBacklogWork(rows);
+    expect(remaining.map((r) => r.fynd)).toEqual(["`SM-080` isolering", "`SM-073` inspector"]);
+    const { rows: risks } = selectTopOpenRisks(remaining, 12);
+    expect(risks.some((r) => String(r.fynd).includes("SM-082"))).toBe(false);
+    expect(risks.some((r) => String(r.fynd).includes("SM-080") && r.blocker)).toBe(true);
+    expect(risks.some((r) => String(r.fynd).includes("SM-073") && r.kind === "verify")).toBe(true);
   });
 
   it("faller tillbaka pa hela filen om '## Aktiv ko' saknas", () => {

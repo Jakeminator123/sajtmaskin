@@ -208,8 +208,20 @@ function keywordsFor(name, page) {
 
 // --- signalkallor --------------------------------------------------------
 
+/** Status-celler som redan har landad kod. De stannar i Aktiv kö tills
+ *  arkivflytt vid master-merge, men ar inte nya implementationsrisker. */
+const LANDED_STATUS_RE = /^kodfix i (master|preview)$/iu;
+const VERIFY_STATUS_RE = /^kvarvarande driftprov$/iu;
+
+export function classifyBacklogWorkKind(status) {
+  const value = String(status || "").trim();
+  if (LANDED_STATUS_RE.test(value)) return "landed";
+  if (VERIFY_STATUS_RE.test(value)) return "verify";
+  return "open";
+}
+
 /** Plockar ut oppna backlog-rader ur "## Aktiv ko"-sektionen.
- *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift.
+ *  Returnerar [{ prio, blocker, text, status, workKind }]. Helt defensiv mot formatdrift.
  *
  *  Bara rader UNDER rubriken "## Aktiv ko" (fram till nasta "## ") raknas, sa
  *  att "Vantar pa agarbeslut"-, "Behover repro"-, skuld- och arkiv-tabeller aldrig blastas
@@ -235,6 +247,7 @@ export function parseBacklogRows(md) {
     if (cells.length < 7) continue;
     const klar = cells[1];
     if (!/^\[\s?\]$/.test(klar) && klar !== "[ ]") continue; // bara oppna
+    const status = cells[2] || "";
     const prioRaw = (cells[3] || "").toUpperCase();
     const prioM = prioRaw.match(/P[0-3]/);
     const fynd = cells[4] || "";
@@ -246,9 +259,16 @@ export function parseBacklogRows(md) {
       blocker: /BLOCKER/.test(beslut.toUpperCase()),
       text: blob.toLowerCase(),
       fynd,
+      status,
+      workKind: classifyBacklogWorkKind(status),
     });
   }
   return rows;
+}
+
+/** Rader som fortfarande styr processrisk: inte redan landad kodfix. */
+export function remainingBacklogWork(rows) {
+  return (rows || []).filter((row) => row.workKind !== "landed");
 }
 
 const SM_ID_RE = /SM-\d{3}/g;
@@ -313,6 +333,7 @@ export function normalizeBacklogDerivedCanvas(data) {
     topOpenRisks: risks.map((r) => ({
       prio: r?.prio ?? "-",
       blocker: Boolean(r?.blocker),
+      kind: r?.kind ?? (r?.blocker ? "blocker" : "open"),
       fynd: String(r?.fynd ?? ""),
     })),
     processes: processes.map((p) => ({
@@ -371,6 +392,7 @@ export function selectTopOpenRisks(backlogRows, cap = 12) {
     rows: shown.map((r) => ({
       prio: r.prio || "-",
       blocker: r.blocker,
+      kind: r.blocker ? "blocker" : r.workKind === "verify" ? "verify" : "open",
       fynd: truncate(r.fynd, 110),
     })),
     omitted: candidates.length - shown.length,
@@ -464,7 +486,7 @@ export function buildData() {
   }
 
   const backlogMd = readText(BACKLOG_REL);
-  const backlogRows = parseBacklogRows(backlogMd);
+  const backlogRows = remainingBacklogWork(parseBacklogRows(backlogMd));
   const evals = evalSignal(readFirstJson(EVAL_SUMMARY_CANDIDATES));
 
   const processes = [];
@@ -658,7 +680,7 @@ export default function LLMFlowCanvas() {
   return (
     <Stack gap={24} style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
       <Stack gap={6}>
-        <H1>LLM-flode - status mot master</H1>
+        <H1>LLM-flode - status mot Aktiv ko</H1>
         <Text tone="secondary">
           {d.meta.repo} {"\u00b7"} commit {d.meta.commit}
           {d.meta.commitDate ? " (" + d.meta.commitDate + ")" : ""} {"\u00b7"} auto-genererad fran repo-signaler
@@ -735,7 +757,11 @@ export default function LLMFlowCanvas() {
             headers={["Prio", "Typ", "Fynd"]}
             columnAlign={["left", "left", "left"]}
             rowTone={d.topOpenRisks.map((r) => (r.prio === "P0" || r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
-            rows={d.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "oppen", r.fynd])}
+            rows={d.topOpenRisks.map((r) => [
+              r.prio,
+              r.blocker ? "BLOCKER" : r.kind === "verify" ? "driftprov" : "oppen",
+              r.fynd,
+            ])}
           />
           {d.topOpenRisksOmitted > 0 && (
             <Text size="small" tone="tertiary">
