@@ -1158,6 +1158,175 @@ describe("check workflow provenance", () => {
     expect(state.identityCollisions).toEqual([]);
   });
 
+  it("klassar äldre same-repo push som stale när senare PR-ägd run är grön", async () => {
+    const prCheck = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const pushCheck = timedRun("quality", 100, 110, { id: 202, conclusion: "success" });
+    const rawChecks = [
+      { ...prCheck, check_suite: { id: 803 }, provenance: undefined },
+      { ...pushCheck, check_suite: { id: 801 }, provenance: undefined },
+    ];
+    const prRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const pushRun = {
+      ...canonicalWorkflowRun(),
+      id: 35102262613,
+      check_suite_id: 801,
+      event: "push",
+      pull_requests: [],
+      created_at: at(100),
+      status: "completed",
+      conclusion: "success",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [pushRun, prRun] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        if (path.startsWith("/actions/runs/35104112661/attempts/1/jobs")) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 202)?.provenance).toMatchObject({
+      kind: "stale-workflow-job",
+      valid: false,
+      collision: false,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 301)?.provenance).toMatchObject({
+      valid: true,
+      collision: false,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
+  });
+
+  it.each([
+    { event: "workflow_dispatch", name: "senare röd workflow_dispatch + äldre grön PR" },
+    { event: "schedule", name: "senare röd schedule + äldre grön PR" },
+  ])("$name blockerar protected checknamn", async ({ event }) => {
+    const prCheck = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const otherCheck = timedRun("quality", 300, 310, { id: 404, conclusion: "failure" });
+    const rawChecks = [
+      { ...prCheck, check_suite: { id: 803 }, provenance: undefined },
+      { ...otherCheck, check_suite: { id: 904 }, provenance: undefined },
+    ];
+    const prRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const otherRun = {
+      ...canonicalWorkflowRun(),
+      id: 35109999999,
+      check_suite_id: 904,
+      event,
+      pull_requests: [],
+      created_at: at(300),
+      status: "completed",
+      conclusion: "failure",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [prRun, otherRun] };
+        }
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        if (suiteId === 904) return { workflow_runs: [otherRun] };
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (runId === 35104112661) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        if (runId === 35109999999) {
+          return [
+            {
+              id: 8404,
+              name: "quality",
+              status: "completed",
+              conclusion: "failure",
+              started_at: at(300),
+              completed_at: at(310),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/404`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 404)?.provenance).toMatchObject({
+      valid: false,
+      collision: true,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(false);
+    expect(state.requiredCollisions).toContain("quality");
+  });
+
   it("håller spoofad checknamnskollision fail-closed även med senare grön owned run", async () => {
     const canonical = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
     const fake = timedRun("quality", 200, 210, { id: 202, conclusion: "success" });
