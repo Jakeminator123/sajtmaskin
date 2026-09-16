@@ -7,7 +7,10 @@ export type UnsubscribePayload = {
   slug: string;
 };
 
-function unsubscribeSecret(env: NodeJS.ProcessEnv = process.env): string {
+/** HMAC-seed-lookup. Inte ProcessEnv — tester skickar bara seed, utan NODE_ENV. */
+export type UnsubscribeEnvLookup = Record<string, string | undefined>;
+
+function unsubscribeSecret(env: UnsubscribeEnvLookup = process.env): string {
   return (env.KOSTNADSFRI_PASSWORD_SEED || env.KOSTNADSFRI_API_KEY || "").trim();
 }
 
@@ -29,7 +32,7 @@ function sign(payload: string, secret: string): string {
 
 export function createUnsubscribeToken(
   input: UnsubscribePayload,
-  env: NodeJS.ProcessEnv = process.env,
+  env: UnsubscribeEnvLookup = process.env,
 ): string | null {
   const secret = unsubscribeSecret(env);
   const email = normalizeUnsubscribeEmail(input.email);
@@ -41,7 +44,7 @@ export function createUnsubscribeToken(
 
 export function verifyUnsubscribeToken(
   token: string | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
+  env: UnsubscribeEnvLookup = process.env,
 ): UnsubscribePayload | null {
   if (!token) return null;
   const secret = unsubscribeSecret(env);
