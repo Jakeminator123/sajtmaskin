@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAllScaffolds } from "./registry";
-import { serializeScaffoldForPrompt } from "./serialize";
+import { resolveScaffoldSerializeMode, serializeScaffoldForPrompt } from "./serialize";
 import type { ScaffoldManifest } from "./types";
 
 function makeLongFile(label: string): string {
@@ -388,6 +388,138 @@ describe("serializeScaffoldForPrompt", () => {
       ).toBeLessThanOrEqual(6_000);
       expect(criticalWithoutHints).not.toMatch(/```tsx file="(?:app|src\/app)\/[^"]*page\.tsx"/);
       expect(criticalWithoutHints).toContain("FileContract");
+    }
+  });
+});
+
+describe("resolveScaffoldSerializeMode", () => {
+  it("keeps a normal auto website init inspirational", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("keeps Scaffold: Av inspirational on a normal init", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "off",
+        siteKind: "app",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("keeps a manual landing-page or base-nextjs pick inspirational on a normal init", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "landing-page",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "base-nextjs",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("makes a manual saas-landing pick structural even when context is normal", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "saas-landing",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
+  });
+
+  it("makes a manual commerce scaffold structural even when context is normal", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "ecommerce",
+        siteKind: "commerce",
+      }),
+    ).toBe("structural");
+  });
+
+  it("makes follow-up and heavy context structural", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "followUp",
+        contextPolicy: "normal",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "heavy",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
+  });
+});
+
+describe("structural serialize copy", () => {
+  it("tells the model to keep an explicit scaffold choice instead of collapsing to a landing", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "app-shell",
+      label: "App Shell",
+      description: "Workspace shell.",
+      siteKind: "app",
+      structureProfile: "application-shell",
+      contentProfile: "workspace-tools",
+      allowedBuildIntents: ["app"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: "export default function Root() { return null; }" },
+        { path: "app/page.tsx", content: "export default function Home() { return null; }" },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 12_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain("keep its architecture and required or Route-Plan-selected pages");
+    expect(out).toContain("do not resurrect routes omitted by the Route Plan");
+    expect(out).toContain("do not collapse it into a generic marketing landing");
+  });
+
+  it("does not tell inspirational landing-page or base-nextjs to keep architecture", () => {
+    for (const id of ["landing-page", "base-nextjs"] as const) {
+      const scaffold = getAllScaffolds().find((entry) => entry.id === id);
+      expect(scaffold, id).toBeTruthy();
+      const out = serializeScaffoldForPrompt(scaffold!, "inspirational", {
+        maxChars: 12_000,
+        contextPolicy: "normal",
+      });
+      expect(out).toContain("Invent a unique page flow");
+      expect(out).toContain("create the visual design, layout, and page structure from scratch");
+      expect(out).not.toContain("keep its architecture");
     }
   });
 });

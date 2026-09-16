@@ -1013,6 +1013,137 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     expect(findings.blocking).toEqual([]);
   });
 
+  it("does not force Terra for a submit CTA on a /api/contact form", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              "components/contact-form.tsx: submit button in the contact form has no href.",
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "components/contact-form.tsx",
+          content: [
+            'export function ContactForm() {',
+            '  const send = () => fetch("/api/contact", { method: "POST" });',
+            '  return <form action="/api/contact" onSubmit={send}><button type="submit">Skicka</button></form>;',
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toEqual([]);
+  });
+
+  it("keeps a broken sibling form submit even when the same file has a /api/contact form", () => {
+    const contactAndNewsletter = [
+      "export function ContactAndNewsletter() {",
+      "  return (",
+      "    <>",
+      '      <form action="/api/contact">',
+      '        <button type="submit">Skicka</button>',
+      "      </form>",
+      "      <form>",
+      '        <button type="submit">Prenumerera</button>',
+      "      </form>",
+      "    </>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const kept = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              "components/contact-form.tsx: newsletter submit button has no action or handler.",
+          },
+        ],
+        quality: [],
+      },
+      [{ path: "components/contact-form.tsx", content: contactAndNewsletter }],
+    );
+    expect(kept.blocking).toHaveLength(1);
+    expect(kept.blocking[0]?.detail).toContain("newsletter");
+
+    const suppressed = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              "components/contact-form.tsx: submit button in the contact form has no href.",
+          },
+        ],
+        quality: [],
+      },
+      [{ path: "components/contact-form.tsx", content: contactAndNewsletter }],
+    );
+    expect(suppressed.blocking).toEqual([]);
+  });
+
+  it("keeps a dead sibling button even when the same file has a /api/contact form", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              'components/contact-form.tsx: "Boka möte" button has no href or onClick.',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "components/contact-form.tsx",
+          content: [
+            "export function ContactForm() {",
+            "  return (",
+            '    <form action="/api/contact">',
+            '      <button type="submit">Skicka</button>',
+            "    </form>",
+            '    <button type="button">Boka möte</button>',
+            "  );",
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+    expect(findings.blocking[0]?.detail).toContain("Boka möte");
+  });
+
+  it("still blocks a dead href on a page that is not a contact integration", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail: 'app/page.tsx: hero CTA uses href="#".',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "app/page.tsx",
+          content: 'export default function Page() { return <a href="#">Läs mer</a>; }',
+        },
+      ],
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+  });
+
   it("keeps hash navigation findings when the target id is missing", () => {
     const findings = suppressValidInPageAnchorNavigationFindings(
       {

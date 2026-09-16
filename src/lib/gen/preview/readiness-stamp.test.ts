@@ -45,11 +45,19 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionFiles,
 }));
 
+const fetchPreviewHostReadinessVerdict = vi.hoisted(() =>
+  vi.fn(async () => null as unknown),
+);
+vi.mock("./preview-host-client", () => ({
+  fetchPreviewHostReadinessVerdict,
+}));
+
 import {
   __resetPersistedLockfileGuardForTesting,
   applyPreviewReadinessOutcome,
   decidePreviewReadinessOutcome,
   persistRegeneratedLockfileForVersion,
+  pollAndApplyPreviewReadinessOutcome,
 } from "./readiness-stamp";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
 
@@ -162,7 +170,9 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       },
     });
 
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringContaining("radix-ui"),
+    });
     expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
     const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
       Array<{ versionId: string; level: string; message: string }>,
@@ -239,7 +249,9 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       },
     });
 
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringMatching(/body text still empty/i),
+    });
     expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
     const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
       Array<{
@@ -472,5 +484,69 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
     });
     expect(second).toBe(true);
     expect(updateVersionFiles).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("pollAndApplyPreviewReadinessOutcome — headless auth-boot receipt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetPersistedLockfileGuardForTesting();
+    fetchPreviewHostReadinessVerdict.mockReset();
+  });
+
+  it("stamps false + blocking reason when a later host poll reports failed", async () => {
+    fetchPreviewHostReadinessVerdict
+      .mockResolvedValueOnce({
+        running: true,
+        versionId: "v1",
+        readinessState: "starting",
+        readinessError: null,
+        httpReady: false,
+        regeneratedLockfile: null,
+      })
+      .mockResolvedValueOnce({
+        running: false,
+        versionId: "v1",
+        readinessState: "failed",
+        readinessError: "Publishable key not valid",
+        httpReady: false,
+        regeneratedLockfile: null,
+      });
+
+    const decision = await pollAndApplyPreviewReadinessOutcome({
+      chatId: "7723af5b",
+      versionId: "v1",
+      previewSessionId: "ps_auth",
+      maxWaitMs: 50,
+      intervalMs: 5,
+    });
+
+    expect(decision?.previewSuccess).toBe(false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringContaining("Publishable key not valid"),
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves telemetry pending when the host never reaches a verdict", async () => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: true,
+      versionId: "v1",
+      readinessState: "starting",
+      readinessError: null,
+      httpReady: false,
+      regeneratedLockfile: null,
+    });
+
+    const decision = await pollAndApplyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      previewSessionId: "ps_1",
+      maxWaitMs: 15,
+      intervalMs: 5,
+    });
+
+    expect(decision).toBeNull();
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 });

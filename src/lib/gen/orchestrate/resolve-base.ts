@@ -16,6 +16,7 @@ import {
   type ScaffoldSelectionMeta,
 } from "../scaffolds";
 import {
+  resolveScaffoldSerializeMode,
   serializeScaffoldForPrompt,
 } from "../scaffolds/serialize";
 import {
@@ -35,6 +36,7 @@ import type { PlannedRoute } from "../route-plan";
 import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
 import { buildOrchestrationContract } from "../orchestration-contract";
 import { deriveBuildSpec } from "../build-spec";
+import { isTargetedRepairPrompt } from "../build-spec/prompt-patterns";
 import { estimateCharsForTokens } from "../tokens";
 import { FEATURES } from "@/lib/config";
 import {
@@ -221,11 +223,18 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
-  const uiRecipesPromise = resolveShadcnUiRecipes({
-    capabilities,
-    prompt: intentSourcePrompt,
-    maxRecipes: 3,
-  }).catch(() => []);
+  // Targeted repair / AUTO-FIX must not pick new hero/testimonial recipes
+  // from the original brief words. Inspect the raw request only — wrapped
+  // `prompt` can carry previous-file dumps that mention "quality gate".
+  const repairIntentPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? prompt;
+  const freezeUiRecipesForRepair = isTargetedRepairPrompt(repairIntentPrompt);
+  const uiRecipesPromise = freezeUiRecipesForRepair
+    ? Promise.resolve([] as ShadcnUiRecipe[])
+    : resolveShadcnUiRecipes({
+        capabilities,
+        prompt: intentSourcePrompt,
+        maxRecipes: 3,
+      }).catch(() => []);
   let uiRecipes: ShadcnUiRecipe[] = [];
   let resolvedUiRecipes = false;
 
@@ -643,10 +652,13 @@ export async function resolveOrchestrationBase(
   let scaffoldContext: string | undefined;
   let resolvedSerializeMode: "inspirational" | "structural" | null = null;
   if (resolvedScaffold) {
-    resolvedSerializeMode =
-      resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
-        ? "structural"
-        : "inspirational";
+    resolvedSerializeMode = resolveScaffoldSerializeMode({
+      generationMode: resolvedMode,
+      contextPolicy: buildSpec.contextPolicy,
+      scaffoldMode: effectiveScaffoldMode,
+      scaffoldId: resolvedScaffold.id,
+      siteKind: resolvedScaffold.siteKind,
+    });
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);

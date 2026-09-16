@@ -37,6 +37,15 @@ describe("fixer-registry", () => {
     expect(getFixerRiskById("not-a-real-fixer")).toBeUndefined();
   });
 
+  it("A2: mechanical import alone is not the Luna trigger — both import-validator and jsx-checker are already risky", () => {
+    // Nordlunden eval: all 10 runs had jsx-checker (risky). Fast-path skips
+    // Luna only for safe_fixes_only. Reclassifying import-validator would not
+    // change that. Do not flip either risk class in this package.
+    expect(getFixerRiskById("import-validator")).toBe("risky");
+    expect(getFixerRiskById("jsx-checker")).toBe("risky");
+    expect(getFixerRiskById("react-import-fixer")).toBe("safe");
+  });
+
   it("listFixersByCategory groups all entries", () => {
     const grouped = listFixersByCategory();
     const total = Object.values(grouped).reduce((sum, list) => sum + list.length, 0);

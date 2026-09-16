@@ -66,6 +66,7 @@ import {
 } from "./sections/scaffold-stack";
 import { renderCapabilityModifyHintBlock, renderDossierBlocks } from "./sections/dossiers";
 import {
+  renderAppRouterModuleContractBlock,
   renderExistingRoutePagesBlock,
   renderHydrationDeterminismBlock,
   renderLucideIconsReminderBlock,
@@ -302,6 +303,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
       compactMode: compactFollowUpContext,
     }),
   );
+  parts.push(...renderAppRouterModuleContractBlock());
   if (!compactFollowUpContext) {
     parts.push(...renderLucideIconsReminderBlock());
   }
