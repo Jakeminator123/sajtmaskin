@@ -131,9 +131,59 @@ function OpenClawAvatarStage({
   onTextOnly: () => void;
 }) {
   const isError = connectionState === "error";
+  // Takeover without a ready stream must stay a compact status row. The
+  // portrait 4:5 box is only for live video; reserving ~46dvh while
+  // connecting or in error crowds the transcript on short viewports.
+  if (isTakeover && !showLiveAvatar) {
+    return (
+      <div
+        data-testid="openclaw-avatar-stage"
+        data-avatar-stage="compact"
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.035] px-4 py-2.5"
+        aria-live="polite"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={cn(
+              "h-2.5 w-2.5 shrink-0 rounded-full",
+              isError ? "bg-amber-400" : "animate-pulse bg-cyan-300",
+            )}
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-100">
+              {isError ? "Avataren kunde inte ansluta" : "Startar avataren..."}
+            </p>
+            <p className="truncate text-[10px] text-slate-400">
+              Textchatten fungerar under tiden.
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {isError ? (
+            <button
+              type="button"
+              onClick={onReconnect}
+              className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-medium text-slate-100 transition-colors hover:bg-white/10"
+            >
+              Försök igen
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onTextOnly}
+            className="rounded-full px-2.5 py-1.5 text-[10px] text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            Endast text
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="openclaw-avatar-stage"
+      data-avatar-stage="portrait"
       className={cn(
         "flex shrink-0 justify-center border-b border-white/10 bg-slate-950/40",
         isTakeover ? "px-4 py-4" : "p-3",
@@ -430,6 +480,7 @@ export function OpenClawChatPanel({
   }, [avatarMode]);
   useEffect(() => {
     if (!isOpen || !avatarMode) return;
+    if (!avatar.avatarReady) return;
     if (avatar.connectionState !== "connected") return;
     if (greetedIntroRef.current) return;
     const intro = messages.find((message) => message.id === KOSTNADSFRI_HANDOFF_INTRO_ID);
@@ -438,7 +489,7 @@ export function OpenClawChatPanel({
     if (!speechText) return;
     greetedIntroRef.current = true;
     void avatar.speak(speechText);
-  }, [isOpen, avatarMode, avatar, messages]);
+  }, [isOpen, avatarMode, avatar, avatar.avatarReady, avatar.connectionState, messages]);
 
   // Cleanup speech recognition on unmount
   useEffect(() => {
