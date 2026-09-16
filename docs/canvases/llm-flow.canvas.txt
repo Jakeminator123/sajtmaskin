@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "1765c3de3",
-    "commitDate": "2026-09-15",
+    "commit": "41687de6e",
+    "commitDate": "2026-09-17",
     "sinceDays": 14
   },
   "totals": {
@@ -74,15 +74,15 @@ const DATA: CanvasData = {
     "openP2": 8,
     "openP3": 2,
     "blocked": 1,
-    "shaky": 3,
+    "shaky": 2,
     "evalExactHitPct": null
   },
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -91,26 +91,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 4,
+      "churn": 3,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 4 commits / 14d"
+      "note": "3 commits / 14d"
     },
     {
       "name": "Codegen core",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 2,
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
+      "openBugs": 0,
       "openByPrio": {
         "P0": 0,
-        "P1": 1,
-        "P2": 1,
+        "P1": 0,
+        "P2": 0,
         "P3": 0,
         "other": 0
       },
       "churn": 0,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "2 oppna backlog-rader (P0:0 P1:1 P2:1 P3:0)"
+      "note": "Inga oppna signaler"
     },
     {
       "name": "prompt-core",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 13,
+      "churn": 7,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:0 P3:2)"
     },
@@ -151,23 +151,23 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 1,
+        "P2": 0,
         "P3": 1,
         "other": 0
       },
       "churn": 1,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 5,
+      "churn": 0,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "Inga oppna signaler"
     },
     {
       "name": "Preview och versioner",
@@ -188,12 +188,12 @@ const DATA: CanvasData = {
       "openBugs": 13,
       "openByPrio": {
         "P0": 0,
-        "P1": 8,
-        "P2": 5,
-        "P3": 0,
+        "P1": 6,
+        "P2": 6,
+        "P3": 1,
         "other": 0
       },
-      "churn": 11,
+      "churn": 7,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projek…"
     },
@@ -232,13 +232,7 @@ const DATA: CanvasData = {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
-    },
-    {
-      "name": "Codegen core",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:1 P2:1 P3:0)"
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     }
   ],
   "topOpenRisks": [
@@ -249,38 +243,38 @@ const DATA: CanvasData = {
     },
     {
       "prio": "P1",
-      "blocker": true,
-      "fynd": "`SM-083` En designversion som advisory-promotats med typfel kan publiceras till Vercel; `resolveDeployRelease…"
+      "blocker": false,
+      "fynd": "`SM-078` Tidigare: `wizard_runs` läs-/skrivbar via publika roller. Live ACL 2026-09-17: RLS på; anon/authenti…"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-078` `wizard_runs` kan läsas och ändras via publika databasroller; en egen aktiv rad kan kringgå wizardav…"
+      "fynd": "`SM-079` Google-koppling kunde aktivera lösenordet från en overifierad förregistrering. Fixkod finns: `create…"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-079` Google-koppling aktiverar lösenordet från en overifierad förregistrering."
+      "fynd": "`SM-081` Parallella genereringar kunde passera samma förkontroll innan AI-kostnaden uppstod. Kontolås finns: …"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-081` Parallella genereringar i olika chattar kan passera samma fria/saldobaserade förkontroll innan AI-ko…"
+      "fynd": "`SM-082` `icon-component-value-fixer` skrev om `{x.icon}` inne i attribut och införde TS2322/TS2339/TS2604; f…"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-082` `icon-component-value-fixer` skriver om `{x.icon}` även inne i attribut (`name={product.icon}` → ter…"
+      "fynd": "`SM-083` Advisory-promotad designversion med typfel kunde publiceras till Vercel."
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans: burst av postcheck/live review läcker tills …"
+      "fynd": "`SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans; burst kan döda nästa launch och visa Degrade…"
     },
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-073` Preview-hostens injicerade inspector-bridge saknar identitetsstämpel (`versionId`/`previewSessionId`…"
+      "fynd": "`SM-073` Preview-hostens inspector-bridge kunde sakna identitetsstämpel när sessionsmetadata tappats; parent …"
     },
     {
       "prio": "P1",
@@ -290,12 +284,12 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-088` Plan-läge dör tyst efter besvarade frågor: `Godkänn plan och bygg` (`BuildPlanCard` → `handleApprove…"
+      "fynd": "`SM-088` Plan-läge dog tyst efter besvarade frågor: `BuildPlanCard` syntes bara i felsökningsvy."
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-084` Verify-lanens `tsc` rapporterar `TS1005`-syntaxfel från Nexts genererade `.next/dev/types/routes.d.t…"
+      "fynd": "`SM-084` Verify-lanens `tsc` kunde räkna `TS1005` från Nexts `.next/dev/types/routes.d.ts` som fallen typeche…"
     },
     {
       "prio": "P2",
