@@ -1,6 +1,7 @@
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { KOSTNADSFRI_HANDOFF_INTRO_ID } from "@/lib/kostnadsfri/agent-campaign-script";
 import { OpenClawChatPanel } from "./OpenClawChatPanel";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 
@@ -27,16 +28,18 @@ vi.mock("./useOpenClawChat", () => ({
   }),
 }));
 
+const avatarMock = vi.hoisted(() => ({
+  videoRef: vi.fn(),
+  connectionState: "error" as "idle" | "connecting" | "connected" | "speaking" | "error",
+  avatarReady: false,
+  speak: vi.fn(),
+  reconnect: vi.fn(),
+  available: true,
+}));
+
 vi.mock("@/lib/openclaw/use-did-avatar", () => ({
   DID_AVATAR_AVAILABLE: true,
-  useDidAvatar: () => ({
-    videoRef: { current: null },
-    connectionState: "error",
-    avatarReady: false,
-    speak: vi.fn(),
-    reconnect: vi.fn(),
-    available: true,
-  }),
+  useDidAvatar: () => ({ ...avatarMock }),
   truncateForSpeech: (text: string) => text,
 }));
 
@@ -63,6 +66,12 @@ beforeEach(() => {
     },
   ];
   chatMock.isStreaming = false;
+  avatarMock.videoRef = vi.fn();
+  avatarMock.connectionState = "error";
+  avatarMock.avatarReady = false;
+  avatarMock.speak = vi.fn();
+  avatarMock.reconnect = vi.fn();
+  avatarMock.available = true;
   act(() => {
     useOpenClawStore.setState({
       isOpen: true,
@@ -71,21 +80,39 @@ beforeEach(() => {
       editEnabled: false,
       powersOn: false,
       grantedPowers: [],
+      messages: [],
     });
   });
 });
 
 describe("OpenClawChatPanel takeover degradation", () => {
   it("keeps the message list and chat input when the avatar is unavailable", () => {
-    const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
 
     expect(screen.getByPlaceholderText("Fråga Sajtagenten...")).toBeTruthy();
     expect(screen.getByText("Hej från takeover-test")).toBeTruthy();
     expect(screen.getByText("Textsvaret syns utan avatar")).toBeTruthy();
     expect(screen.getByText("Avataren kunde inte ansluta")).toBeTruthy();
     expect(screen.getByText("Textchatten fungerar under tiden.")).toBeTruthy();
-    expect(container.querySelector("video")).toBeNull();
+    const stage = screen.getByTestId("openclaw-avatar-stage");
+    expect(stage.getAttribute("data-avatar-stage")).toBe("compact");
+    expect(stage.className).not.toContain("lg:flex-row");
+    expect(stage.className).not.toContain("46dvh");
+    expect(screen.queryByTestId("openclaw-avatar-video")).toBeNull();
     expect(screen.getByRole("button", { name: "Tillbaka till bubbla" })).toBeTruthy();
+  });
+
+  it("keeps connecting status compact until the live portrait is ready", () => {
+    avatarMock.connectionState = "connecting";
+    avatarMock.avatarReady = false;
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    const stage = screen.getByTestId("openclaw-avatar-stage");
+    expect(stage.getAttribute("data-avatar-stage")).toBe("compact");
+    expect(screen.getByText("Startar avataren...")).toBeTruthy();
+    expect(screen.queryByTestId("openclaw-avatar-video")).toBeNull();
+    expect(stage.innerHTML).not.toContain("46dvh");
+    expect(stage.className).not.toContain("h-[min(400px,46dvh)]");
   });
 
   it("returns to bubble from the visible button and from Escape", () => {
@@ -175,5 +202,62 @@ describe("OpenClawChatPanel takeover degradation", () => {
     });
 
     expect(panel.style.transform).toBe("translate3d(0px, 0px, 0)");
+  });
+
+  it("places a live portrait avatar above the transcript, not beside it", () => {
+    avatarMock.avatarReady = true;
+    avatarMock.connectionState = "connected";
+    const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    const stage = screen.getByTestId("openclaw-avatar-stage");
+    const video = screen.getByTestId("openclaw-avatar-video");
+    const transcript = screen.getByText("Hej från takeover-test");
+    const body = container.firstElementChild?.children[1];
+
+    expect(stage.compareDocumentPosition(transcript) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(stage.getAttribute("data-avatar-stage")).toBe("portrait");
+    expect(video.className).toContain("object-cover");
+    expect(video.className).toContain("object-top");
+    expect(video.className).toContain("opacity-100");
+    expect(stage.firstElementChild?.className).toContain("aspect-4/5");
+    expect(stage.firstElementChild?.className).toContain("h-[min(400px,46dvh)]");
+    expect(body?.className).toBe("flex min-h-0 flex-1 flex-col");
+    expect(body?.className).not.toContain("lg:flex-row");
+  });
+
+  it("speaks the seeded campaign greeting once, only when ready and connected", () => {
+    avatarMock.avatarReady = false;
+    avatarMock.connectionState = "connected";
+    chatMock.messages = [
+      {
+        id: KOSTNADSFRI_HANDOFF_INTRO_ID,
+        role: "assistant",
+        content: "Välkommen Cabanellas. Skriv i chatten under min skärmbild.",
+        timestamp: 1,
+      },
+    ];
+
+    const { rerender } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).not.toHaveBeenCalled();
+
+    avatarMock.avatarReady = true;
+    avatarMock.connectionState = "connecting";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).not.toHaveBeenCalled();
+
+    avatarMock.connectionState = "connected";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).toHaveBeenCalledTimes(1);
+    expect(avatarMock.speak).toHaveBeenCalledWith(
+      "Välkommen Cabanellas. Skriv i chatten under min skärmbild.",
+    );
+
+    avatarMock.connectionState = "speaking";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    avatarMock.connectionState = "connected";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).toHaveBeenCalledTimes(1);
   });
 });
