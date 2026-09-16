@@ -11,12 +11,17 @@ import { createVerificationToken, getUserByEmail } from "@/lib/db/services/users
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
+import { sanitizeKostnadsfriAuthReturnTo } from "@/lib/kostnadsfri/auth-return";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:resend-verification", async () => {
     try {
       const body = await req.json().catch(() => null);
       const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+      const safeReturnTo = sanitizeKostnadsfriAuthReturnTo(
+        typeof body?.returnTo === "string" ? body.returnTo : null,
+        URLS.baseUrl,
+      );
       if (!email) {
         return NextResponse.json(
           { success: false, error: "E-post krävs" },
@@ -38,6 +43,7 @@ export async function POST(req: NextRequest) {
       const result = await sendVerificationEmail(user.email, token, {
         name: user.name,
         baseUrl: URLS.baseUrl,
+        returnTo: safeReturnTo,
       });
 
       if (!result.success) {

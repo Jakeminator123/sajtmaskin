@@ -10,9 +10,11 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: "login" | "register";
+  /** First-party path to resume after Google or e-postverifiering. */
+  returnTo?: string;
 }
 
-export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -92,7 +94,9 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const body =
-        mode === "login" ? { email, password } : { email, password, name: name || undefined };
+        mode === "login"
+          ? { email, password }
+          : { email, password, name: name || undefined, returnTo };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -156,7 +160,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       const response = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, returnTo }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -175,9 +179,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
   const handleGoogleLogin = () => {
     // Redirect to Google OAuth
     const redirectTarget =
-      typeof window !== "undefined"
+      returnTo ||
+      (typeof window !== "undefined"
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-        : "/";
+        : "/");
     // The path is a route handler that 302s to accounts.google.com, not a Next
     // page: the client router cannot follow a cross-origin redirect, so this has
     // to be a document navigation.
