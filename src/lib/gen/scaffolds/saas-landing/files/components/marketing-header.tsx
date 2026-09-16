@@ -11,7 +11,7 @@ export function MarketingHeader() {
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="font-semibold tracking-tight">
-          {"{{PRODUCT_NAME}}"}
+          [Produktnamn]
         </a>
 
         <nav className="hidden items-center gap-7 md:flex">

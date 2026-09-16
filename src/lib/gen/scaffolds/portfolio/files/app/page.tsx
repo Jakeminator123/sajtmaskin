@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { ProjectCard } from "@/components/project-card";
 
 const projects = [
@@ -54,22 +55,23 @@ export default function HomePage() {
             />
             <div className="absolute inset-0 bg-linear-to-t from-background via-background/55 to-background/10" />
             <div className="relative z-10 flex min-h-[28rem] flex-col justify-end space-y-6 p-6 sm:min-h-[32rem] sm:p-10">
-              <Badge className="rounded-full px-3 py-1">Portfoliostart</Badge>
+              <Badge className="rounded-full px-3 py-1">[Namn]</Badge>
               <div className="max-w-3xl space-y-4">
                 <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
-                  En personlig sajt med starkare arbete, text och trovärdighetsstruktur.
+                  [En mening om det utvalda arbetet]
                 </h1>
                 <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                  Inspirerad av renare portfolioreferenser ger den här starten en skarpare form för kreatörer,
-                  konsulter, fotografer eller små studior som behöver en sajt med personlighet.
+                  [Kort presentation av personen, studion eller praktiken.]
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" className="rounded-full px-7">
-                  Visa utvalt arbete <ArrowRight className="ml-2 h-4 w-4" />
+                <Button asChild size="lg" className="rounded-full px-7">
+                  <Link href="#work">
+                    Visa utvalt arbete <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
                 </Button>
-                <Button size="lg" variant="outline" className="rounded-full px-7">
-                  Läs texter
+                <Button asChild size="lg" variant="outline" className="rounded-full px-7">
+                  <Link href="#text">Läs texter</Link>
                 </Button>
               </div>
             </div>
@@ -79,9 +81,9 @@ export default function HomePage() {
         <section id="work" className="space-y-8">
           <div className="max-w-2xl space-y-3">
             <Badge variant="secondary" className="rounded-full">Utvalt arbete</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Projektkort som redan känns som case studies</h2>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Utvalda case</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Byt ut titlar, bilder och beskrivningar mot användarens eget arbete, men behåll rytm och avstånd.
+              [Kort om vilka uppdrag eller projekt som visas här.]
             </p>
           </div>
           <div className="grid gap-6 lg:grid-cols-3">
@@ -114,12 +116,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="grid gap-10 rounded-4xl border bg-card/70 p-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <section id="text" className="grid gap-10 rounded-4xl border bg-card/70 p-8 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-3">
             <Badge variant="secondary" className="rounded-full">Text</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight">En portfolio som också kan bära idéer</h2>
+            <h2 className="text-3xl font-semibold tracking-tight">Anteckningar och essäer</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Inspirerad av portfolio-plus-blogg-referenser. Det ger modellen en självklar plats för essäer, anteckningar eller case-tänk.
+              [Kort om vilka texter som publiceras här.]
             </p>
           </div>
           <div className="space-y-3">

@@ -16,6 +16,7 @@ import {
   type ScaffoldSelectionMeta,
 } from "../scaffolds";
 import {
+  resolveScaffoldSerializeMode,
   serializeScaffoldForPrompt,
 } from "../scaffolds/serialize";
 import {
@@ -643,10 +644,13 @@ export async function resolveOrchestrationBase(
   let scaffoldContext: string | undefined;
   let resolvedSerializeMode: "inspirational" | "structural" | null = null;
   if (resolvedScaffold) {
-    resolvedSerializeMode =
-      resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
-        ? "structural"
-        : "inspirational";
+    resolvedSerializeMode = resolveScaffoldSerializeMode({
+      generationMode: resolvedMode,
+      contextPolicy: buildSpec.contextPolicy,
+      scaffoldMode: effectiveScaffoldMode,
+      scaffoldId: resolvedScaffold.id,
+      siteKind: resolvedScaffold.siteKind,
+    });
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
