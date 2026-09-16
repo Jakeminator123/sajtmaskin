@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/refs -- useDidAvatar exposes ref-like fields for video and connection UI */
 
 import {
   useCallback,
@@ -329,8 +328,10 @@ export function OpenClawChatPanel({
   useEffect(() => {
     const storedOffset = readStoredOffset();
     liveDragOffsetRef.current = storedOffset;
+    /* eslint-disable react-hooks/set-state-in-effect -- client-only hydrate from sessionStorage/SpeechRecognition; SSR stays at 0,0/false */
     setDragOffset(storedOffset);
     setSpeechSupported(getSpeechRecognitionCtor() !== null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // React äger inte `transform` under själva dragningen. Då kan en orelaterad
