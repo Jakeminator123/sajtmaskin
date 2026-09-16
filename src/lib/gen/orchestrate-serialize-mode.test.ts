@@ -73,7 +73,25 @@ describe("resolveOrchestrationBase serializeMode", () => {
     expect(base.serializeMode).toBe("inspirational");
   });
 
-  it("uses structural for a manual ecommerce pick even when context stays normal", async () => {
+  it("uses structural for a manual editorial pick even when context stays normal", async () => {
+    const base = await resolveOrchestrationBase({
+      prompt: simpleWebsitePrompt,
+      buildIntent: "website",
+      generationMode: "init",
+      scaffoldMode: "manual",
+      scaffoldId: "portfolio",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(base.resolvedScaffold?.id).toBe("portfolio");
+    expect(base.resolvedScaffold?.siteKind).toBe("editorial");
+    expect(base.buildSpec.contextPolicy).not.toBe("heavy");
+    expect(base.serializeMode).toBe("structural");
+  });
+
+  it("uses structural for a manual ecommerce pick", async () => {
     const base = await resolveOrchestrationBase({
       prompt: simpleWebsitePrompt,
       buildIntent: "website",
@@ -87,7 +105,6 @@ describe("resolveOrchestrationBase serializeMode", () => {
 
     expect(base.resolvedScaffold?.id).toBe("ecommerce");
     expect(base.resolvedScaffold?.siteKind).toBe("commerce");
-    expect(base.buildSpec.contextPolicy).toBe("normal");
     expect(base.serializeMode).toBe("structural");
   });
 
