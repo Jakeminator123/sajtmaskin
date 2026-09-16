@@ -1041,6 +1041,39 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     expect(findings.blocking).toEqual([]);
   });
 
+  it("keeps a dead sibling button even when the same file has a /api/contact form", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              'components/contact-form.tsx: "Boka möte" button has no href or onClick.',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "components/contact-form.tsx",
+          content: [
+            "export function ContactForm() {",
+            "  return (",
+            '    <form action="/api/contact">',
+            '      <button type="submit">Skicka</button>',
+            "    </form>",
+            '    <button type="button">Boka möte</button>',
+            "  );",
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+    expect(findings.blocking[0]?.detail).toContain("Boka möte");
+  });
+
   it("still blocks a dead href on a page that is not a contact integration", () => {
     const findings = suppressValidInPageAnchorNavigationFindings(
       {

@@ -304,20 +304,28 @@ export function checkNavigationPlaceholderActions(
 
 const CONTACT_INTEGRATION_RE =
   /fetch\(\s*["'`]\/api\/contact(?:["'`]|\/|\?)|action\s*=\s*["'`]\/api\/contact|data-integration-endpoint\s*=\s*["'`]\/api\/contact/;
-const CONTACT_FORM_FINDING_RE = /form|submit|kontakt|contact|\/api\/contact/i;
+// Path tokens like `contact-form.tsx` must not count — only the finding prose.
+const CONTACT_SUBMIT_FINDING_RE =
+  /\b(?:submit|type=["']submit["']|form(?:ular(?:et)?)?\s+action|\/api\/contact|skicka(?:\s+meddelande)?)\b/i;
 
 function fileHasContactIntegration(content: string): boolean {
   return CONTACT_INTEGRATION_RE.test(content);
+}
+
+function stripDetailFilePaths(detail: string): string {
+  DETAIL_FILE_PATH_RE.lastIndex = 0;
+  return detail.replace(DETAIL_FILE_PATH_RE, "$1");
 }
 
 function isIntegratedContactFormNavigationFinding(
   detail: string,
   files: Array<Pick<CodeFile, "path" | "content">>,
 ): boolean {
-  if (!CONTACT_FORM_FINDING_RE.test(detail)) return false;
+  const prose = stripDetailFilePaths(detail);
+  if (!CONTACT_SUBMIT_FINDING_RE.test(prose)) return false;
   const mentionedFiles = extractDetailFilePaths(detail);
   if (mentionedFiles.length === 0) {
-    return /\/api\/contact/.test(detail) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
+    return /\/api\/contact/.test(prose) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
   }
   const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
   return mentionedFiles.some((path) => fileHasContactIntegration(fileMap.get(path) ?? ""));
