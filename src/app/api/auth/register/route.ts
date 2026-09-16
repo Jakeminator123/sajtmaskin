@@ -17,6 +17,7 @@ import {
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
+import { sanitizeKostnadsfriAuthReturnTo } from "@/lib/kostnadsfri/auth-return";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:register", async () => {
@@ -25,11 +26,13 @@ export async function POST(req: NextRequest) {
       if (!body || typeof body !== "object") {
         return NextResponse.json({ success: false, error: "Ogiltig request body" }, { status: 400 });
       }
-      const { email, password, name } = body as {
+      const { email, password, name, returnTo } = body as {
         email?: string;
         password?: string;
         name?: string;
+        returnTo?: string;
       };
+      const safeReturnTo = sanitizeKostnadsfriAuthReturnTo(returnTo, URLS.baseUrl);
 
       // Validate input
       if (!email || !password) {
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
         const sendResult = await sendVerificationEmail(normalizedEmail, token, {
           name,
           baseUrl: URLS.baseUrl,
+          returnTo: safeReturnTo,
         });
         emailVerificationSent = sendResult.success;
         if (!sendResult.success) {

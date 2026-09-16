@@ -553,6 +553,7 @@ export async function POST(request: NextRequest) {
             word_count_source: wordCountSource,
             headings_count: websiteContent.headings.length,
             images_count: websiteContent.images,
+            images: websiteContent.imageCandidates,
             response_time_ms: websiteContent.responseTime,
             is_js_rendered: isJsRendered,
             web_search_calls: webSearchCallCount,

@@ -128,6 +128,7 @@ const setupQueries = [
     project_id TEXT,
     user_id TEXT,
     session_id TEXT,
+    payload JSONB,
     consumed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
@@ -728,6 +729,7 @@ const schemaQueries = [
   `ALTER TABLE project_data ADD COLUMN IF NOT EXISTS meta JSONB`,
   `ALTER TABLE deployments ADD COLUMN IF NOT EXISTS domain TEXT`,
   `ALTER TABLE deployments ADD COLUMN IF NOT EXISTS provider_url TEXT`,
+  `ALTER TABLE prompt_handoffs ADD COLUMN IF NOT EXISTS payload JSONB`,
   `ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS published_slug TEXT`,
   `ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS branded_domain TEXT`,
   `ALTER TABLE app_projects ADD COLUMN IF NOT EXISTS branded_domain_verified_at TIMESTAMPTZ`,

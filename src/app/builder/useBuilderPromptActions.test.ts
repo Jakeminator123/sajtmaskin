@@ -130,6 +130,51 @@ describe("useBuilderPromptActions", () => {
     expect(generateDynamicInstructions).not.toHaveBeenCalled();
   });
 
+  it("skips client Deep Brief for an audit handoff so the server brief runs once", async () => {
+    const generateDynamicInstructions = vi.fn(async () => ({ projectTitle: "should not run" }));
+    const createNewChat = vi.fn(async () => true);
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          promptHandoffId: "handoff_audit",
+          auditHandoff: { payloadKind: "audit", domain: "example.se" },
+          generateDynamicInstructions,
+          createNewChat,
+        }),
+      ),
+    );
+
+    await act(async () => {
+      await result.current.requestCreateChat("Bygg en förbättrad sajt för example.se");
+    });
+
+    expect(generateDynamicInstructions).not.toHaveBeenCalled();
+    expect(createNewChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("still runs client Deep Brief for a non-audit prompt handoff", async () => {
+    const generateDynamicInstructions = vi.fn(async () => ({ projectTitle: "wizard brief" }));
+    const createNewChat = vi.fn(async () => true);
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          promptHandoffId: "handoff_kostnadsfri",
+          generateDynamicInstructions,
+          createNewChat,
+        }),
+      ),
+    );
+
+    await act(async () => {
+      await result.current.requestCreateChat("Bygg en sajt för IKEA");
+    });
+
+    expect(generateDynamicInstructions).toHaveBeenCalledTimes(1);
+    expect(createNewChat).toHaveBeenCalledTimes(1);
+  });
+
   it("still creates a chat for a non-template entry with no chat", async () => {
     const createNewChat = vi.fn(async () => true);
 

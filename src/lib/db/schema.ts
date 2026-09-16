@@ -199,6 +199,7 @@ export const promptHandoffs = pgTable(
     project_id: text("project_id"),
     user_id: text("user_id"),
     session_id: text("session_id"),
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
     consumed_at: timestamptz("consumed_at"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },

@@ -367,6 +367,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <ChatInterface
               chatId={vm.chatId}
               initialPrompt={vm.initialPrompt}
+              auditHandoff={vm.auditHandoff}
               onCreateChat={vm.requestCreateChat}
               onSendMessage={sendMessage}
               isFigmaInputOpen={isFigmaInputOpen}
