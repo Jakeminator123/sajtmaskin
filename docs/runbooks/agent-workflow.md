@@ -165,10 +165,11 @@ betrodda controllern räknar om core-checkar, botstatus, live sign-off och
 sjuminutersgolvet från den senaste serverbundna körningen av varje
 deklarerad ägar-workflow (`.github/workflows/ci.yml` och separat ägd
 `dossier-acceptance.yml`) på eventet `pull_request`. Äldre eller avbrutna
-körningar på samma head-SHA efter draft→ready, och same-SHA `push`-CI på
+körningar på samma head-SHA efter draft→ready, och en äldre same-SHA `push`-CI på
 samma ägarfil (t.ex. preview-tipp som återanvänds som promote-head), är stale, inte
-checknamnskollision, när en senare owned `pull_request`-run med samma skyddade checks är
-verifierbart grön. En spoofad check från annan workflow spärrar fortfarande.
+checknamnskollision, när en senare PR-associerad owned `pull_request`-run med samma skyddade checks är
+verifierbart grön. `workflow_dispatch`, `schedule` och andra event på samma SHA är inte
+stale-undantag. En spoofad check från annan workflow spärrar fortfarande.
 Varje required check knyts
 till sitt exakta jobb via GitHubs job-/check-run-URL och måste ha
 serverreturnerade Actions-steg; en steglös custom check räknas inte som ett

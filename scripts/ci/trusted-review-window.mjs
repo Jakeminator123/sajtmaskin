@@ -824,10 +824,10 @@ async function loadOwnedWorkflowSelection({
       expectedHeadSha,
     )}&exclude_pull_requests=false&per_page=100`,
   );
-  // Senaste PR-associerade owned run är trust-rot. Same-file same-SHA-runs på
-  // annat event (push när preview-tipp återanvänds som promote-head) läggs i
-  // suiteIds och blir stale. Fork-head_repository hålls utanför om den inte
-  // är live-associerad.
+  // Senaste PR-associerade owned run är trust-rot. Bara en äldre same-repo
+  // `push` på samma ägarfil och SHA (preview-tipp som promote-head) läggs i
+  // suiteIds och blir stale. workflow_dispatch, schedule och andra event
+  // failar closed. Fork-head_repository hålls utanför.
   const ownedHeadRuns = (payload.workflow_runs ?? []).filter(
     (run) =>
       normalizedWorkflowPath(run.path) === spec.path &&
@@ -849,11 +849,17 @@ async function loadOwnedWorkflowSelection({
       }),
   );
   const { selected, ambiguous, attemptOverflow } = selectOwnedWorkflowRun(runs);
-  const extraSameRepoRuns = ownedHeadRuns.filter(
-    (run) =>
-      run.event !== spec.event &&
-      (!run.head_repository?.full_name || run.head_repository.full_name === repository),
-  );
+  const extraOlderSameRepoPushRuns = selected
+    ? ownedHeadRuns.filter((run) => {
+        if (run.event !== "push") return false;
+        if (run.head_repository?.full_name && run.head_repository.full_name !== repository) {
+          return false;
+        }
+        const pushCreated = epoch(run.created_at);
+        const selectedCreated = epoch(selected.created_at);
+        return pushCreated !== null && selectedCreated !== null && pushCreated < selectedCreated;
+      })
+    : [];
   const jobs = selected
     ? (
         await Promise.all(
@@ -877,7 +883,7 @@ async function loadOwnedWorkflowSelection({
     jobs,
     ...indexSelectedJobs(jobs),
     suiteIds: new Set(
-      [...runs, ...extraSameRepoRuns].map((run) => Number(run.check_suite_id)),
+      [...runs, ...extraOlderSameRepoPushRuns].map((run) => Number(run.check_suite_id)),
     ),
   };
 }
