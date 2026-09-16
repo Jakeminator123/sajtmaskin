@@ -203,7 +203,7 @@ describe("OpenClawChatPanel takeover degradation", () => {
     expect(stage.compareDocumentPosition(transcript) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(video.className).toContain("object-contain");
+    expect(video.className).toContain("object-cover");
     expect(video.className).toContain("object-top");
     expect(video.className).toContain("opacity-100");
     expect(stage.firstElementChild?.className).toContain("aspect-4/5");

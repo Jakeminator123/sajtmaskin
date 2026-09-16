@@ -157,7 +157,7 @@ function OpenClawAvatarStage({
           muted={connectionState !== "speaking"}
           data-testid="openclaw-avatar-video"
           className={cn(
-            "h-full w-full object-contain object-top",
+            "h-full w-full object-cover object-top",
             showLiveAvatar ? "opacity-100" : "opacity-0",
           )}
         />
