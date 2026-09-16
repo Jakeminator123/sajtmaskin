@@ -58,13 +58,25 @@ describe("parseBacklogRows", () => {
         "| [ ] | Kvarvarande driftprov | P1 | `SM-073` inspector | preview-host/src/runtime/y.js | Stickprov. |",
       ]),
     );
-    expect(rows.map((r) => r.workKind)).toEqual(["landed", "landed", "open", "verify"]);
+    expect(rows.map((row: { workKind: string }) => row.workKind)).toEqual([
+      "landed",
+      "landed",
+      "open",
+      "verify",
+    ]);
     const remaining = remainingBacklogWork(rows);
-    expect(remaining.map((r) => r.fynd)).toEqual(["`SM-080` isolering", "`SM-073` inspector"]);
+    expect(remaining.map((row: { fynd: string }) => row.fynd)).toEqual([
+      "`SM-080` isolering",
+      "`SM-073` inspector",
+    ]);
     const { rows: risks } = selectTopOpenRisks(remaining, 12);
-    expect(risks.some((r) => String(r.fynd).includes("SM-082"))).toBe(false);
-    expect(risks.some((r) => String(r.fynd).includes("SM-080") && r.blocker)).toBe(true);
-    expect(risks.some((r) => String(r.fynd).includes("SM-073") && r.kind === "verify")).toBe(true);
+    expect(risks.some((risk: { fynd: string }) => String(risk.fynd).includes("SM-082"))).toBe(false);
+    expect(
+      risks.some((risk: { fynd: string; blocker: boolean }) => String(risk.fynd).includes("SM-080") && risk.blocker),
+    ).toBe(true);
+    expect(
+      risks.some((risk: { fynd: string; kind: string }) => String(risk.fynd).includes("SM-073") && risk.kind === "verify"),
+    ).toBe(true);
   });
 
   it("faller tillbaka pa hela filen om '## Aktiv ko' saknas", () => {
