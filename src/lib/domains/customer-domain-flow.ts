@@ -10,6 +10,7 @@ import {
   fetchWithPinnedDns,
   PINNED_ADDRESS_BLOCKED_MESSAGE,
 } from "@/lib/capture/pinned-fetch";
+import { isAffirmativeEnvValue } from "@/lib/env-affirmative";
 import {
   automaticDnsConnector,
   customerHostPair,
@@ -51,8 +52,34 @@ export type FlowFailure = {
   ok: false;
   status: number;
   error: string;
+  code?: string;
   snapshot?: CustomerDomainSnapshot;
 };
+
+export const CUSTOMER_DOMAIN_WRITES_CLOSED_CODE = "customer_domain_writes_closed";
+
+/**
+ * C2 provider writes are closed until the flow has been proven end-to-end on a
+ * throwaway domain. Read-only inspection stays open, so the sajtvy can still
+ * show status and DNS instructions while the gate is shut.
+ *
+ * The gate lives here rather than in a route because three endpoints reach
+ * these writes: `POST /api/projects/[id]/domain`, `POST /api/domains/link` and
+ * `POST /api/domains/verify`.
+ */
+export function customerDomainWritesEnabled(): boolean {
+  return isAffirmativeEnvValue(process.env.SAJTMASKIN_CUSTOMER_DOMAIN_WRITES);
+}
+
+function writesClosed(): FlowFailure {
+  return {
+    ok: false,
+    status: 503,
+    error:
+      "Domänändringar är tillfälligt stängda i den här miljön. Den nuvarande adressen är oförändrad.",
+    code: CUSTOMER_DOMAIN_WRITES_CLOSED_CODE,
+  };
+}
 
 export type FlowSuccess = {
   ok: true;
@@ -344,6 +371,7 @@ export async function linkCustomerDomain(params: {
   hosting: ResolvedHosting;
   domain: string;
 }): Promise<FlowResult> {
+  if (!customerDomainWritesEnabled()) return writesClosed();
   const normalized = normalizeObservedDomain(params.domain);
   if (!normalized.ok) {
     return { ok: false, status: 400, error: normalized.error };
@@ -412,6 +440,7 @@ export async function verifyCustomerDomain(params: {
   hosting: ResolvedHosting;
   domain: string;
 }): Promise<FlowResult> {
+  if (!customerDomainWritesEnabled()) return writesClosed();
   const normalized = normalizeObservedDomain(params.domain);
   if (!normalized.ok) {
     return { ok: false, status: 400, error: normalized.error };
@@ -603,6 +632,7 @@ export async function activateCustomerDomain(params: {
   hosting: ResolvedHosting;
   domain: string;
 }): Promise<FlowResult> {
+  if (!customerDomainWritesEnabled()) return writesClosed();
   const normalized = normalizeObservedDomain(params.domain);
   if (!normalized.ok) {
     return { ok: false, status: 400, error: normalized.error };
@@ -629,6 +659,7 @@ export async function unlinkCustomerDomain(params: {
   hosting: ResolvedHosting;
   domain?: string;
 }): Promise<FlowResult> {
+  if (!customerDomainWritesEnabled()) return writesClosed();
   const project = await getProjectById(params.hosting.appProjectId);
   const stored = project?.custom_domain?.trim() || null;
   const candidate = params.domain ? normalizeObservedDomain(params.domain) : null;

@@ -37,7 +37,11 @@ function toHosting(
 function jsonResult(result: FlowResult): NextResponse {
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error, snapshot: result.snapshot ?? null },
+      {
+        error: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        snapshot: result.snapshot ?? null,
+      },
       {
         status: result.status,
         headers: { "Cache-Control": "private, no-store" },

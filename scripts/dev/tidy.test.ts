@@ -9,9 +9,11 @@ import {
   classifyRemoteBranch,
   classifyWorktree,
   dedupeVercelIgnoreLines,
+  isBranchLockedByLiveWorktree,
   isExactMergedPr,
   isNextCacheStale,
   isProtectedBranch,
+  isPrunablePorcelainLine,
   isWorktreeDirty,
   parsePrLifecycle,
   parsePrLifecycleTsv,
@@ -88,6 +90,12 @@ describe("classifyLocalBranch", () => {
     expect(classifyLocalBranch({ ...merged, name: "JAKOB_BRA_9999_INNNAN_MVP_BRA" }).action).toBe(
       "keep",
     );
+  });
+
+  it("behåller en landad branch som fortfarande är utcheckad i en levande worktree", () => {
+    const v = classifyLocalBranch({ ...merged, name: "fix/klar", lockedByLiveWorktree: true });
+    expect(v.action).toBe("keep");
+    expect(v.reason).toContain("levande worktree");
   });
 });
 
@@ -227,6 +235,46 @@ describe("PR lifecycle proof", () => {
   });
 });
 
+describe("isPrunablePorcelainLine", () => {
+  it("känner igen både bar prunable och prunable med orsak", () => {
+    expect(isPrunablePorcelainLine("prunable")).toBe(true);
+    expect(isPrunablePorcelainLine("prunable gitdir file points to non-existent location")).toBe(
+      true,
+    );
+    expect(isPrunablePorcelainLine("  prunable gitdir file points to non-existent location  ")).toBe(
+      true,
+    );
+  });
+
+  it("missar inte worktree-sökvägar eller andra porcelain-nycklar", () => {
+    expect(isPrunablePorcelainLine("worktree C:/repo-prunable")).toBe(false);
+    expect(isPrunablePorcelainLine("branch refs/heads/fix/klar")).toBe(false);
+    expect(isPrunablePorcelainLine("")).toBe(false);
+  });
+});
+
+describe("isBranchLockedByLiveWorktree", () => {
+  const ghost = {
+    path: "C:/repo-ghost",
+    branch: "fix/klar",
+    prunable: true,
+  };
+  const live = {
+    path: "C:/repo-live",
+    branch: "fix/klar",
+    prunable: false,
+  };
+
+  it("räknar inte ett spöklås — prune släpper branchen", () => {
+    expect(isBranchLockedByLiveWorktree("fix/klar", [ghost])).toBe(false);
+  });
+
+  it("håller låset när en levande worktree fortfarande har branchen", () => {
+    expect(isBranchLockedByLiveWorktree("fix/klar", [ghost, live])).toBe(true);
+    expect(isBranchLockedByLiveWorktree("fix/annan", [live])).toBe(false);
+  });
+});
+
 describe("parsePorcelainWorktrees", () => {
   it("läser sökväg och branch, och lämnar detached som null", () => {
     const lines = [
@@ -239,14 +287,30 @@ describe("parsePorcelainWorktrees", () => {
       "detached",
     ];
     expect(parsePorcelainWorktrees(lines)).toEqual([
-      { path: "C:/repo", branch: "master" },
-      { path: "C:/repo-review", branch: null },
+      { path: "C:/repo", branch: "master", prunable: false },
+      { path: "C:/repo-review", branch: null, prunable: false },
     ]);
   });
 
   it("behandlar första posten som huvudträdet", () => {
     const wts = parsePorcelainWorktrees(["worktree /a", "branch refs/heads/master", "worktree /b"]);
     expect(wts[0].path).toBe("/a");
+  });
+
+  it("sätter prunable när porcelain-raden har en orsak", () => {
+    const wts = parsePorcelainWorktrees([
+      "worktree C:/repo",
+      "branch refs/heads/preview",
+      "worktree C:/repo-ghost",
+      "branch refs/heads/fix/klar",
+      "prunable gitdir file points to non-existent location",
+    ]);
+    expect(wts[1]).toEqual({
+      path: "C:/repo-ghost",
+      branch: "fix/klar",
+      prunable: true,
+    });
+    expect(isBranchLockedByLiveWorktree("fix/klar", wts)).toBe(false);
   });
 });
 

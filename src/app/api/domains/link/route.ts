@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
       const linked = await linkCustomerDomain({ hosting, domain: normalized.domain });
       if (!linked.ok) {
         return NextResponse.json(
-          { error: linked.error, snapshot: linked.snapshot ?? null },
+          {
+            error: linked.error,
+            ...(linked.code ? { code: linked.code } : {}),
+            snapshot: linked.snapshot ?? null,
+          },
           { status: linked.status },
         );
       }
