@@ -17,6 +17,7 @@ namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
+| SEO-landningssidor | Organisk kanal via vanliga App Router-sidor. Foundation #1437: register + noindex-placeholders + fail-closed mot `ready`. Första riktiga sida efter merge: `/skapa-hemsida-med-ai`. Ingen promote. | [`2026-09-16-seo-landningssidor/00-master-plan.md`](2026-09-16-seo-landningssidor/00-master-plan.md) |
 | Scaffold-bindning och hygien | Explicit butik-/app-val blir `structural`; hint från pre-match låser inte; filhygien. Inte reparationspipen (annan agent). | [`2026-09-16-scaffold-bindning/00-master-plan.md`](2026-09-16-scaffold-bindning/00-master-plan.md) |
 | Kundens adress och portal | C1/C2/C3e1/A2/A3(#1386+#1391)/B1/D1/#1389 är kod på preview. Fly ej deployad. C2 utan kill-switch; A3-redirect och branded av. D3-adapter saknas. #1385 nästa våg. Ingen produktionspromote. | [`2026-09-14-kundens-adress-och-portal/00-master-plan.md`](2026-09-14-kundens-adress-och-portal/00-master-plan.md) |
 | MVP-säkerhet och releaseberedskap | Konto-/wizard-/kostnadsskydd, releaseidentitet och kundinformation. En samlad PR; preview och produktion fortsätter dela databas enligt ägarbeslut. | [`2026-09-09-mvp-sakerhet/00-master-plan.md`](2026-09-09-mvp-sakerhet/00-master-plan.md) |
