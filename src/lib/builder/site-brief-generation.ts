@@ -451,14 +451,16 @@ function buildBriefUserPrompt(
   imageGenerations: boolean,
   variantHints?: string,
   priorDesignContext?: string,
+  auditContext?: string,
 ): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   // Order: raw prompt -> prior design context (for clear-redesign followups)
-  // -> variant hints (scaffold variant tokens the orchestrator pre-matched)
+  // -> audit context (structured audit handoff) -> variant hints
   // -> site-type domain hint -> imagery guidance. Each block optional.
   return (
     prompt +
     (priorDesignContext ? `\n\n${priorDesignContext}` : "") +
+    (auditContext ? `\n\n${auditContext}` : "") +
     (variantHints ? `\n\n${variantHints}` : "") +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
     (imageGenerations
@@ -566,6 +568,7 @@ export async function generateSiteBriefObject(
     source?: string;
     variantHints?: string;
     priorDesignContext?: string;
+    auditContext?: string;
     /** Extra fields hashed into the brief trace (Byggval cache identity). */
     extraHashFields?: Record<string, unknown>;
   },
@@ -580,6 +583,7 @@ export async function generateSiteBriefObject(
     source,
     variantHints,
     priorDesignContext,
+    auditContext,
     extraHashFields,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
@@ -590,6 +594,7 @@ export async function generateSiteBriefObject(
     imageGenerations,
     variantHints,
     priorDesignContext,
+    auditContext,
   );
   const promptLength = userPrompt?.length ?? 0;
   const dynamicMaxTokens =
@@ -607,7 +612,10 @@ export async function generateSiteBriefObject(
     imageGenerations,
     temperature,
     maxTokens: requestedMaxTokens,
-    extraHashFields,
+    extraHashFields: {
+      ...(extraHashFields ?? {}),
+      auditContext: auditContext ?? null,
+    },
   });
 
   debugLog("AI", "Brief model call started (same request, direct provider)", {
@@ -888,6 +896,8 @@ export async function tryGenerateServerAutoBrief(params: {
    *  clear-redesign follow-ups to preserve brand/structure while allowing
    *  visual changes. */
   priorDesignContext?: string;
+  /** Structured audit handoff context (brand, pages, palette, capabilities). */
+  auditContext?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string; trace: BriefTrace } | null> {
   const normalized = resolveServerAutoBriefPreferredModel(params);
   const runnable = resolveRunnableBriefModel(normalized);
@@ -902,6 +912,7 @@ export async function tryGenerateServerAutoBrief(params: {
       source: "server_auto_brief",
       variantHints: params.variantHints,
       priorDesignContext: params.priorDesignContext,
+      auditContext: params.auditContext,
     });
     return { brief, modelUsed: normalizedModel, trace };
   } catch (e) {

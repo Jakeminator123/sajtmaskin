@@ -32,7 +32,6 @@ export function shouldRunServerAutoBrief(params: {
   }
   if (params.hasClientBrief) return false;
   if (params.promptSourceTechnical || params.promptSourcePreservePayload) return false;
-  if (params.promptType === "audit") return false;
   if (params.promptType === "followup_general" || params.promptType === "followup_technical") {
     return false;
   }

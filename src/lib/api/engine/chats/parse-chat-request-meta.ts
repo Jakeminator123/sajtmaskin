@@ -81,6 +81,8 @@ export interface ParsedChatRequestMeta {
    * Stored as `engine_versions.parent_version_id`.
    */
   parentVersionId: string | null;
+  /** Server-owned audit handoff; payload is never sent in the chat body. */
+  promptHandoffId: string | null;
 }
 
 /**
@@ -119,5 +121,6 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     lifecycleStage:
       metaString(meta, "lifecycleStage") === "integrations" ? "integrations" : "design",
     parentVersionId: metaString(meta, "parentVersionId")?.trim() || null,
+    promptHandoffId: metaString(meta, "promptHandoffId")?.trim() || null,
   };
 }

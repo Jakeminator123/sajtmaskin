@@ -71,6 +71,9 @@ export function useCreateChat(
     themeColors,
     paletteState,
     pendingBriefRef,
+    promptHandoffId,
+    isAuditHandoff = false,
+    auditHandoffDomain,
     mutateVersions,
     setCurrentPreviewUrl,
     setPreviewBuildError,
@@ -220,7 +223,20 @@ export function useCreateChat(
       });
 
       setMessages([
-        { id: userMessageId, role: "user", content: initialMessage },
+        {
+          id: userMessageId,
+          role: "user",
+          content: initialMessage,
+          uiParts: isAuditHandoff
+            ? [
+                {
+                  type: "prompt-source",
+                  sourceKind: "audit",
+                  domain: auditHandoffDomain ?? null,
+                },
+              ]
+            : undefined,
+        },
         {
           id: assistantMessageId,
           role: "assistant",
@@ -527,6 +543,7 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
+        if (isAuditHandoff && promptHandoffId) promptMeta.promptHandoffId = promptHandoffId;
         requestIncludedBrief = Boolean(promptMeta.brief);
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
@@ -747,6 +764,9 @@ export function useCreateChat(
       themeColors,
       paletteState,
       pendingBriefRef,
+      promptHandoffId,
+      isAuditHandoff,
+      auditHandoffDomain,
       promptAssistModel,
       promptAssistDeep,
       chatPrivacy,

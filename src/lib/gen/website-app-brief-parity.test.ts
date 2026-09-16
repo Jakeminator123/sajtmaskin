@@ -128,12 +128,12 @@ describe("B8 — brief-grinden har ingen längdgräns", () => {
     ).toBe(shouldRunServerAutoBrief(briefGateParams(SHORT_WEBSITE_PROMPT)));
   });
 
-  it("behåller de riktiga undantagen — B8 vidgade inte grinden", () => {
+  it("behåller de riktiga undantagen — audit kör nu server-brief", () => {
     const base = briefGateParams(SHORT_WEBSITE_PROMPT);
     expect(shouldRunServerAutoBrief({ ...base, hasClientBrief: true })).toBe(false);
     expect(shouldRunServerAutoBrief({ ...base, promptSourceTechnical: true })).toBe(false);
     expect(shouldRunServerAutoBrief({ ...base, promptSourcePreservePayload: true })).toBe(false);
-    expect(shouldRunServerAutoBrief({ ...base, promptType: "audit" })).toBe(false);
+    expect(shouldRunServerAutoBrief({ ...base, promptType: "audit" })).toBe(true);
     expect(shouldRunServerAutoBrief({ ...base, promptType: "followup_general" })).toBe(false);
   });
 

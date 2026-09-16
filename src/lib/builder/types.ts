@@ -44,7 +44,7 @@ export const F3_KICK_PROMPT =
 
 function hasPromptSourceMarker(
   message: Pick<ChatMessage, "uiParts">,
-  sourceKind: "autofix" | "f3-kick",
+  sourceKind: "autofix" | "f3-kick" | "audit",
 ): boolean {
   return Boolean(
     message.uiParts?.some(
@@ -67,6 +67,22 @@ export function isF3KickPromptMessage(
   if (message.role !== "user") return false;
   if (hasPromptSourceMarker(message, "f3-kick")) return true;
   return message.content.trim() === F3_KICK_PROMPT;
+}
+
+export function isAuditPromptMessage(
+  message: Pick<ChatMessage, "role" | "uiParts">,
+): boolean {
+  if (message.role !== "user") return false;
+  return hasPromptSourceMarker(message, "audit");
+}
+
+export function getAuditPromptDomain(
+  message: Pick<ChatMessage, "uiParts">,
+): string | null {
+  const part = message.uiParts?.find(
+    (entry) => entry.type === PROMPT_SOURCE_UI_PART_TYPE && entry.sourceKind === "audit",
+  );
+  return typeof part?.domain === "string" && part.domain.trim() ? part.domain : null;
 }
 
 export interface FileNode {
