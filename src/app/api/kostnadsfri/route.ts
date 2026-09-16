@@ -4,9 +4,11 @@ import { hashPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
   getKostnadsfriPageBySlug,
+  getKostnadsfriVisitStats,
   listKostnadsfriPages,
   markKostnadsfriPageSent,
 } from "@/lib/db/services/kostnadsfri";
+import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { kostnadsfriVisitPath } from "@/lib/kostnadsfri/analytics-paths";
@@ -106,7 +108,10 @@ function toIso(value: Date | string | null): string | null {
  * Register-safe view of a row: never the password hash, never `extra_data`
  * (which is handed to the browser after a successful password verification).
  */
-function serializePage(page: KostnadsfriPage) {
+function serializePage(
+  page: KostnadsfriPage,
+  visits?: { visits: number; verified: number; started: number },
+) {
   return {
     slug: page.slug,
     companyName: page.company_name,
@@ -117,6 +122,10 @@ function serializePage(page: KostnadsfriPage) {
     source: page.source,
     createdAt: toIso(page.created_at),
     expiresAt: toIso(page.expires_at),
+    unsubscribedAt: unsubscribedAtFromExtra(page.extra_data),
+    visits: visits?.visits ?? 0,
+    verified: visits?.verified ?? 0,
+    started: visits?.started ?? 0,
   };
 }
 
@@ -287,8 +296,20 @@ export async function GET(request: NextRequest) {
   try {
     if (!isAuthorized(request)) return unauthorized();
 
-    const rows = await listKostnadsfriPages(LIST_LIMIT);
-    return NextResponse.json({ success: true, pages: rows.map(serializePage) });
+    const [rows, visitStats] = await Promise.all([
+      listKostnadsfriPages(LIST_LIMIT),
+      getKostnadsfriVisitStats(90, 0).catch(() => null),
+    ]);
+    const visitsBySlug = new Map(
+      (visitStats?.perSlug ?? []).map((stat) => [
+        stat.slug,
+        { visits: stat.visits, verified: stat.verified, started: stat.started },
+      ]),
+    );
+    return NextResponse.json({
+      success: true,
+      pages: rows.map((row) => serializePage(row, visitsBySlug.get(row.slug))),
+    });
   } catch (error: unknown) {
     logKostnadsfriFailure("list pages", error);
     return NextResponse.json({ success: false, error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
