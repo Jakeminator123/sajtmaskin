@@ -5,12 +5,14 @@ const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
 const createKostnadsfriPage = vi.hoisted(() => vi.fn());
 const markKostnadsfriPageSent = vi.hoisted(() => vi.fn());
 const listKostnadsfriPages = vi.hoisted(() => vi.fn());
+const getKostnadsfriVisitStats = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
   createKostnadsfriPage,
   markKostnadsfriPageSent,
   listKostnadsfriPages,
+  getKostnadsfriVisitStats,
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
@@ -63,6 +65,7 @@ function getRequest(apiKey: string | null = API_KEY) {
 beforeEach(() => {
   process.env.KOSTNADSFRI_API_KEY = API_KEY;
   process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
+  getKostnadsfriVisitStats.mockResolvedValue({ perSlug: [], recent: [], truncated: false });
 });
 
 afterEach(() => {
@@ -545,6 +548,10 @@ describe("GET /api/kostnadsfri", () => {
         source: "python-utskick",
         createdAt: "2026-09-01T10:00:00.000Z",
         expiresAt: null,
+        unsubscribedAt: null,
+        visits: 0,
+        verified: 0,
+        started: 0,
       },
       {
         slug: "beta-ab",
@@ -556,9 +563,39 @@ describe("GET /api/kostnadsfri", () => {
         source: null,
         createdAt: "2026-09-01T10:00:00.000Z",
         expiresAt: null,
+        unsubscribedAt: null,
+        visits: 0,
+        verified: 0,
+        started: 0,
       },
     ]);
     expect(JSON.stringify(body)).not.toContain("password_hash");
+    expect(JSON.stringify(body)).not.toContain("hemligt");
+  });
+
+  it("attaches visit counts and unsubscribedAt without leaking extra_data", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([
+      pageRow({
+        extra_data: { unsubscribedAt: "2026-09-16T12:00:00.000Z", openclaw: { roleLabel: "hemligt" } },
+      }),
+    ]);
+    getKostnadsfriVisitStats.mockResolvedValueOnce({
+      perSlug: [{ slug: "acme-ab", visits: 3, uniqueVisitors: 2, verified: 1, started: 0 }],
+      recent: [],
+      truncated: false,
+    });
+
+    const res = await GET(getRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.pages[0]).toMatchObject({
+      slug: "acme-ab",
+      unsubscribedAt: "2026-09-16T12:00:00.000Z",
+      visits: 3,
+      verified: 1,
+      started: 0,
+    });
     expect(JSON.stringify(body)).not.toContain("hemligt");
   });
 });
