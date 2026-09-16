@@ -7,7 +7,14 @@ import {
   verifyUnsubscribeToken,
 } from "./unsubscribe";
 
-const ENV = { KOSTNADSFRI_PASSWORD_SEED: "test-unsub-seed" };
+function testEnv(seed?: string): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: "test",
+    ...(seed === undefined ? {} : { KOSTNADSFRI_PASSWORD_SEED: seed }),
+  };
+}
+
+const ENV = testEnv("test-unsub-seed");
 
 describe("kostnadsfri unsubscribe token", () => {
   it("round-trips email and slug", () => {
@@ -22,8 +29,8 @@ describe("kostnadsfri unsubscribe token", () => {
   it("rejects a tampered token and a missing seed", () => {
     const token = createUnsubscribeToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
     expect(verifyUnsubscribeToken(`${token}x`, ENV)).toBeNull();
-    expect(verifyUnsubscribeToken(token, { KOSTNADSFRI_PASSWORD_SEED: "other" })).toBeNull();
-    expect(createUnsubscribeToken({ email: "ada@acme.se", slug: "acme-ab" }, {})).toBeNull();
+    expect(verifyUnsubscribeToken(token, testEnv("other"))).toBeNull();
+    expect(createUnsubscribeToken({ email: "ada@acme.se", slug: "acme-ab" }, testEnv())).toBeNull();
   });
 
   it("builds the one-click URL and reads unsubscribedAt from extra_data only", () => {

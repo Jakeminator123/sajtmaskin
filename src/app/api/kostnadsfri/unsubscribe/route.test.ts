@@ -14,7 +14,10 @@ vi.mock("@/lib/rate-limit", () => ({
 import { createUnsubscribeToken } from "@/lib/kostnadsfri/unsubscribe";
 import { POST } from "./route";
 
-const ENV = { KOSTNADSFRI_PASSWORD_SEED: "test-unsub-seed" };
+const ENV: NodeJS.ProcessEnv = {
+  NODE_ENV: "test",
+  KOSTNADSFRI_PASSWORD_SEED: "test-unsub-seed",
+};
 
 function post(token: string | null) {
   const url = token
