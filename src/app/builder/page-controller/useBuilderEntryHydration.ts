@@ -34,7 +34,7 @@ type Params = {
   searchParams: ReadonlyURLSearchParams;
   setAppProjectId: Dispatch<SetStateAction<string | null>>;
   setAuditPromptLoaded: Dispatch<SetStateAction<boolean>>;
-  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | null>>;
+  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | "generation" | "refine" | null>>;
   setBuildIntent: Dispatch<SetStateAction<BuildIntent>>;
   setBuildMethod: Dispatch<SetStateAction<BuildMethod | null>>;
   setChatId: Dispatch<SetStateAction<string | null>>;

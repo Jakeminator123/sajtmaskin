@@ -19,6 +19,7 @@ import {
   resolveDeepBriefModelInfoFields,
   resolveDeepBriefVisibilityFields,
   buildApiErrorMessage,
+  isSajtmaskinAuthRequired,
   buildCreateChatKey,
   clearCreateChatLock,
   CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
@@ -86,6 +87,9 @@ export function useCreateChat(
     onLinkedProjectId,
     setMessages,
     resetBeforeCreateChat,
+    isAuthReady,
+    isAuthenticated,
+    onAuthRequired,
   } = params;
 
   const {
@@ -107,6 +111,10 @@ export function useCreateChat(
       if (isCreatingChat || createChatInFlightRef.current) return false;
       if (!initialMessage?.trim()) {
         toast.error("Please enter a message to start a new chat");
+        return false;
+      }
+      if (isAuthReady && isAuthenticated === false) {
+        onAuthRequired?.("generation");
         return false;
       }
 
@@ -615,6 +623,11 @@ export function useCreateChat(
             );
             return Boolean(recoveredChatId);
           }
+          if (isSajtmaskinAuthRequired(errorData)) {
+            onAuthRequired?.("generation");
+            setMessages([]);
+            return false;
+          }
           throw new Error(
             buildApiErrorMessage({ response, errorData, fallbackMessage: "Failed to create chat" }),
           );
@@ -777,6 +790,9 @@ export function useCreateChat(
       autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
+      isAuthReady,
+      isAuthenticated,
+      onAuthRequired,
     ],
   );
 

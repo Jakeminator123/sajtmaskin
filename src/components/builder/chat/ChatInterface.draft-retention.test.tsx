@@ -56,6 +56,15 @@ describe("ChatInterface draft retention", () => {
     await waitFor(() => expect(textarea.value).toBe(DRAFT));
   });
 
+  it("keeps the draft when generation is refused for missing Sajtmaskin login", async () => {
+    const textarea = await typeAndSend({
+      status: "rejected",
+      reason: "auth_required",
+      turnRecorded: false,
+    });
+    await waitFor(() => expect(textarea.value).toBe(DRAFT));
+  });
+
   it("clears the draft once a generation actually started", async () => {
     const textarea = await typeAndSend({ status: "started", via: "stream" });
     await waitFor(() => expect(textarea.value).toBe(""));
