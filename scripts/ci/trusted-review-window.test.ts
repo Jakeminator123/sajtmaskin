@@ -65,6 +65,36 @@ describe("trusted gate event filter", () => {
       expected: { run: false, reason: "comment" },
     },
     {
+      name: "kör betrodd gate-only refresh-kommentar",
+      input: { eventName: "issue_comment", eventAction: "created", gateRefresh: true },
+      expected: { run: true, reason: "gate_refresh" },
+    },
+    {
+      name: "hoppar över gate-refresh på draft",
+      input: {
+        eventName: "issue_comment",
+        eventAction: "created",
+        gateRefresh: true,
+        draft: true,
+      },
+      expected: { run: false, reason: "draft" },
+    },
+    {
+      name: "hoppar över editerad refresh-kommentar",
+      input: { eventName: "issue_comment", eventAction: "edited", gateRefresh: true },
+      expected: { run: false, reason: "comment" },
+    },
+    {
+      name: "kör workflow_dispatch utan att kräva pull_request-event",
+      input: { eventName: "workflow_dispatch" },
+      expected: { run: true, reason: "workflow_dispatch" },
+    },
+    {
+      name: "hoppar över workflow_dispatch på draft",
+      input: { eventName: "workflow_dispatch", draft: true },
+      expected: { run: false, reason: "draft" },
+    },
+    {
       name: "hoppar över draft utom ready_for_review",
       input: { eventName: "pull_request_target", eventAction: "synchronize", draft: true },
       expected: { run: false, reason: "draft" },
@@ -920,6 +950,254 @@ describe("check workflow provenance", () => {
     expect(state.requiredCollisions).toEqual([]);
   });
 
+  it("klassar äldre success och cancelled same-SHA-runs som stale när senare owned run är grön", async () => {
+    const ciNames = ["quality", "build", "schema-drift", "backoffice-tests"] as const;
+    const makeCheck = (
+      name: string,
+      id: number,
+      suiteId: number,
+      created: number,
+      conclusion: string,
+    ) =>
+      run(name, {
+        id,
+        check_suite: { id: suiteId },
+        status: "completed",
+        conclusion,
+        started_at: at(created),
+        completed_at: at(created + 10),
+        provenance: undefined,
+      });
+    const makeJob = (
+      name: string,
+      jobId: number,
+      checkId: number,
+      created: number,
+      conclusion: string,
+    ) => ({
+      id: jobId,
+      name,
+      status: "completed",
+      conclusion,
+      started_at: at(created),
+      completed_at: at(created + 10),
+      steps: [{ name: "Complete job" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
+    });
+    const oldCi = {
+      ...canonicalWorkflowRun(),
+      id: 35102323454,
+      check_suite_id: 801,
+      created_at: at(100),
+      status: "completed",
+      conclusion: "success",
+    };
+    const cancelledCi = {
+      ...canonicalWorkflowRun(),
+      id: 35104111053,
+      check_suite_id: 802,
+      created_at: at(200),
+      status: "completed",
+      conclusion: "cancelled",
+      pull_requests: [],
+    };
+    const newCi = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const dossierOwner = {
+      path: ".github/workflows/dossier-acceptance.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      pull_requests: [{ number: 1, head: { sha: HEAD } }],
+      run_attempt: 1,
+    };
+    const oldDossier = {
+      ...dossierOwner,
+      id: 35102323443,
+      check_suite_id: 901,
+      created_at: at(100),
+      status: "completed",
+      conclusion: "success",
+    };
+    const cancelledDossier = {
+      ...dossierOwner,
+      id: 35104111068,
+      check_suite_id: 902,
+      created_at: at(200),
+      status: "completed",
+      conclusion: "cancelled",
+    };
+    const newDossier = {
+      ...dossierOwner,
+      id: 35104112455,
+      check_suite_id: 903,
+      created_at: at(200),
+      status: "completed",
+      conclusion: "success",
+    };
+    const rawChecks = [
+      ...ciNames.map((name, index) => makeCheck(name, 101 + index, 801, 100, "success")),
+      ...ciNames.map((name, index) => makeCheck(name, 201 + index, 802, 200, "cancelled")),
+      ...ciNames.map((name, index) => makeCheck(name, 301 + index, 803, 201, "success")),
+      makeCheck("dossier-acceptance", 401, 901, 100, "success"),
+      makeCheck("dossier-acceptance", 402, 902, 200, "cancelled"),
+      makeCheck("dossier-acceptance", 403, 903, 200, "success"),
+    ];
+    const jobsByRun = new Map<number, ReturnType<typeof makeJob>[]>([
+      [35102323454, ciNames.map((name, index) => makeJob(name, 8101 + index, 101 + index, 100, "success"))],
+      [35104111053, ciNames.map((name, index) => makeJob(name, 8201 + index, 201 + index, 200, "cancelled"))],
+      [35104112661, ciNames.map((name, index) => makeJob(name, 8301 + index, 301 + index, 201, "success"))],
+      [35102323443, [makeJob("dossier-acceptance", 8401, 401, 100, "success")]],
+      [35104111068, [makeJob("dossier-acceptance", 8402, 402, 200, "cancelled")]],
+      [35104112455, [makeJob("dossier-acceptance", 8403, 403, 200, "success")]],
+    ]);
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [oldCi, cancelledCi, newCi] };
+        }
+        if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+          return { workflow_runs: [oldDossier, cancelledDossier, newDossier] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (jobsByRun.has(runId)) return jobsByRun.get(runId);
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    const provenanceOf = (id: number) =>
+      enriched.find((check: { id?: unknown; provenance?: Record<string, unknown> }) => check.id === id)
+        ?.provenance;
+    for (const id of [101, 102, 103, 104, 201, 202, 203, 204, 401, 402]) {
+      expect(provenanceOf(id)).toMatchObject({
+        kind: "stale-workflow-job",
+        valid: false,
+        collision: false,
+      });
+    }
+    for (const id of [301, 302, 303, 304, 403]) {
+      expect(provenanceOf(id)).toMatchObject({
+        valid: true,
+        collision: false,
+      });
+    }
+    const state = evaluateHeadChecks(enriched, policy as never, TRUSTED_REVIEW);
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
+    expect(state.identityCollisions).toEqual([]);
+  });
+
+  it("håller spoofad checknamnskollision fail-closed även med senare grön owned run", async () => {
+    const canonical = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const fake = timedRun("quality", 200, 210, { id: 202, conclusion: "success" });
+    const rawChecks = [
+      { ...canonical, check_suite: { id: 803 }, provenance: undefined },
+      { ...fake, check_suite: { id: 702 }, provenance: undefined },
+    ];
+    const ownedRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const fakeRun = {
+      id: 9002,
+      check_suite_id: 702,
+      path: ".github/workflows/fake.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      pull_requests: [{ number: 1, head: { sha: HEAD } }],
+      created_at: at(200),
+      run_attempt: 1,
+      status: "completed",
+      conclusion: "success",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [ownedRun] };
+        }
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        if (suiteId === 702) return { workflow_runs: [fakeRun] };
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (runId === 35104112661) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        if (runId === 9002) {
+          return [
+            {
+              id: 8202,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(200),
+              completed_at: at(210),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/202`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(
+      enriched.find((check: { id?: unknown }) => check.id === 202)?.provenance,
+    ).toMatchObject({
+      valid: false,
+      collision: true,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(false);
+    expect(state.requiredCollisions).toContain("quality");
+  });
+
   it("keeps earlier green jobs when a partial rerun only replaces failed jobs", async () => {
     const rawChecks = [
       run("quality", { id: 101, check_suite: { id: 701 }, provenance: undefined }),
@@ -1414,6 +1692,9 @@ describe("check workflow provenance", () => {
           if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
             return { workflow_runs: [] };
           }
+          if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+            return { workflow_runs: [workflowRun] };
+          }
           if (path.startsWith("/actions/runs?check_suite_id=761")) {
             return { workflow_runs: [workflowRun] };
           }
@@ -1475,6 +1756,12 @@ describe("check workflow provenance", () => {
     const client = {
       async request(path: string) {
         if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [canonicalRun] };
+        }
+        if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+          return { workflow_runs: [] };
+        }
+        if (path.startsWith("/actions/runs?check_suite_id=701")) {
           return { workflow_runs: [canonicalRun] };
         }
         throw new Error(`unexpected request ${path}`);
@@ -1691,6 +1978,20 @@ describe("trusted review-window check decisions", () => {
     );
     expect(state.botsDone).toBe(false);
     expect(state.securityFailed).toBe(1);
+  });
+
+  it("låter inte en stale required-check med collision-flagga förgifta namnet", () => {
+    const stale = run("quality", {
+      provenance: { kind: "stale-workflow-job", valid: false, collision: true },
+    });
+    const live = greenRequiredRuns().find((item) => item.name === "quality");
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), stale, live],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
   });
 
   it("blockerar ett vanligt Actions-jobb som återanvänder reviewkvittots namn", () => {
@@ -2090,6 +2391,10 @@ function integrationHarness({
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
       }
+      if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+        const owned = ownedWorkflowRunForSuite(checks, 761);
+        return { workflow_runs: owned ? [owned] : [] };
+      }
       if (path.startsWith("/actions/runs?check_suite_id=")) {
         const suiteId = Number(
           new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
@@ -2211,6 +2516,10 @@ function mergeHarness({
       }
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
+      }
+      if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+        const owned = ownedWorkflowRunForSuite(checks, 761);
+        return { workflow_runs: owned ? [owned] : [] };
       }
       if (path.startsWith("/actions/runs?check_suite_id=")) {
         const suiteId = Number(
