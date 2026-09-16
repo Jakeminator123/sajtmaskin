@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
   SEO_LANDING_PAGES,
+  SEO_LANDING_SLUGS,
   getIndexableSeoLandingRelPaths,
   getPlaceholderSeoLandingRelPaths,
   getSeoLandingEntry,
@@ -22,6 +23,7 @@ function existingAppFirstSegments(): string[] {
 describe("SEO landing registry", () => {
   it("lists unique ASCII slugs once", () => {
     const slugs = SEO_LANDING_PAGES.map((page) => page.slug);
+    expect(slugs).toEqual([...SEO_LANDING_SLUGS]);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const slug of slugs) {
       expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
@@ -35,7 +37,7 @@ describe("SEO landing registry", () => {
   });
 
   it("does not collide with other first-segment product routes", () => {
-    const registered = new Set(SEO_LANDING_PAGES.map((page) => page.slug));
+    const registered = new Set<string>(SEO_LANDING_PAGES.map((page) => page.slug));
     const reserved = existingAppFirstSegments().filter((name) => !registered.has(name));
     for (const page of SEO_LANDING_PAGES) {
       expect(reserved).not.toContain(page.slug);

@@ -22,17 +22,29 @@
 
 export const SEO_LANDING_CTA_HREF = "/builder?new=1" as const;
 
+export const SEO_LANDING_SLUGS = [
+  "skapa-hemsida-med-ai",
+  "ai-hemsidebyggare",
+  "hemsida-till-foretag",
+  "hemsideprogram",
+  "skapa-hemsida",
+  "wix-alternativ",
+  "wordpress-alternativ",
+  "lovable-alternativ",
+] as const;
+
+export type SeoLandingSlug = (typeof SEO_LANDING_SLUGS)[number];
 export type SeoLandingStatus = "placeholder" | "ready";
 
 export type SeoLandingPageEntry = {
-  slug: string;
+  slug: SeoLandingSlug;
   title: string;
   description: string;
   status: SeoLandingStatus;
   ctaHref: typeof SEO_LANDING_CTA_HREF;
 };
 
-export const SEO_LANDING_PAGES = [
+export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
   {
     slug: "skapa-hemsida-med-ai",
     title: "Skapa hemsida med AI",
@@ -97,16 +109,16 @@ export const SEO_LANDING_PAGES = [
     status: "placeholder",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
-] as const satisfies readonly SeoLandingPageEntry[];
+];
 
-export type SeoLandingSlug = (typeof SEO_LANDING_PAGES)[number]["slug"];
+const SEO_LANDING_SLUG_SET = new Set<string>(SEO_LANDING_SLUGS);
 
-const SEO_LANDING_BY_SLUG = new Map<string, (typeof SEO_LANDING_PAGES)[number]>(
+const SEO_LANDING_BY_SLUG = new Map<string, SeoLandingPageEntry>(
   SEO_LANDING_PAGES.map((page) => [page.slug, page]),
 );
 
 export function isSeoLandingSlug(value: string): value is SeoLandingSlug {
-  return SEO_LANDING_BY_SLUG.has(value);
+  return SEO_LANDING_SLUG_SET.has(value);
 }
 
 export function getSeoLandingEntry(slug: SeoLandingSlug) {
