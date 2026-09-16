@@ -53,6 +53,10 @@ import {
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
+import {
+  consumeMatchingPendingBuilderDraft,
+  currentBuilderReturnTo,
+} from "@/lib/builder/pending-builder-draft";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
 import {
   FILL_CHAT_INPUT_EVENT,
@@ -301,6 +305,7 @@ export function ChatInterface({
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
+  const restoredOauthDraftRef = useRef(false);
   useEffect(() => {
     if (chatId) return;
     if (auditHandoff) return;
@@ -310,6 +315,27 @@ export function ChatInterface({
     setInput(initialPrompt);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input, auditHandoff]);
+
+  useEffect(() => {
+    if (restoredOauthDraftRef.current) return;
+    restoredOauthDraftRef.current = true;
+    const draft = consumeMatchingPendingBuilderDraft(currentBuilderReturnTo());
+    if (!draft) return;
+    setInput(draft.text);
+    if (draft.attachmentUrls.length > 0) {
+      setFiles(
+        draft.attachmentUrls.map((url, index) => ({
+          id: `oauth-restored-${index}`,
+          url,
+          filename: url.split("/").pop()?.split("?")[0] || "bilaga",
+          mimeType: "application/octet-stream",
+          size: 0,
+          status: "success" as const,
+          isPublicUrl: true,
+        })),
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const prevChatId = lastChatIdRef.current;

@@ -13,6 +13,7 @@ import {
 } from "@/components/builder/readiness/F3RequirementsSurface";
 import { TipCard } from "@/components/builder/shell/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
 import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
@@ -529,6 +530,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           vm.setAuthModalReason(null);
         }}
         reason={vm.authModalReason ?? "builder"}
+        returnTo={currentBuilderReturnTo()}
       />
     </BuilderLayout>
   );

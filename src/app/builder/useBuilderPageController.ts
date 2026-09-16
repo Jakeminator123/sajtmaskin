@@ -566,6 +566,9 @@ export function useBuilderPageController() {
     cancelActiveGeneration,
     resetBeforeCreateChat,
     applyAppProjectId: projectActions.applyAppProjectId,
+    isAuthReady: isInitialized,
+    isAuthenticated,
+    onAuthRequired: (reason) => setAuthModalReason(reason),
   });
 
   // ── Preview / version callbacks ──────────────────────────────────────

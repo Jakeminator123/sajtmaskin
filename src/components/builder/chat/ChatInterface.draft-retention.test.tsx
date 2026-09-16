@@ -11,8 +11,9 @@
  * need a browser runtime are mocked (same pattern as the base-badge test).
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import { savePendingBuilderDraft } from "@/lib/builder/pending-builder-draft";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -47,6 +48,10 @@ async function typeAndSend(outcome: SendMessageOutcome) {
 }
 
 describe("ChatInterface draft retention", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
   it("keeps the draft when the rejected turn was never written down", async () => {
     const textarea = await typeAndSend({
       status: "rejected",
@@ -85,6 +90,17 @@ describe("ChatInterface draft retention", () => {
   // The F3 deterministic ReleaseGate round consumes the prompt (and may promote
   // a version), so it must NOT be treated as a rejection at all — that would
   // leave the whole draft behind for a turn that completed.
+  it("restores a Google OAuth pending prompt into the same builder project context", async () => {
+    window.history.replaceState({}, "", "/builder?project=proj_1");
+    savePendingBuilderDraft({
+      text: "Bygg en pizzeria i Malmö",
+      returnTo: "/builder?project=proj_1",
+    });
+    render(<ChatInterface chatId={null} />);
+    const textarea = await screen.findByLabelText("Beskriv vad du vill bygga");
+    await waitFor(() => expect((textarea as HTMLTextAreaElement).value).toBe("Bygg en pizzeria i Malmö"));
+  });
+
   it("clears the draft when the turn settled as an F3 ReleaseGate round", async () => {
     const textarea = await typeAndSend({
       status: "settled",

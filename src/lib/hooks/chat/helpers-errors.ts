@@ -47,6 +47,28 @@ export function readAuthRequiredMessage(
   return message || SAJT_MASKIN_AUTH_REQUIRED_FALLBACK;
 }
 
+export class BuilderAuthRequiredError extends Error {
+  readonly code = "auth_required" as const;
+  constructor(message = SAJT_MASKIN_AUTH_REQUIRED_FALLBACK) {
+    super(message);
+    this.name = "BuilderAuthRequiredError";
+  }
+}
+
+export function isBuilderAuthRequiredError(error: unknown): error is BuilderAuthRequiredError {
+  return error instanceof BuilderAuthRequiredError;
+}
+
+/** `/api/ai/brief` 401 is Sajtmaskin login, including the legacy `{ error: "unauthorized" }` body. */
+export function isBriefRouteAuthRefusal(
+  status: number,
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (isSajtmaskinAuthRequired(errorData)) return true;
+  if (status !== 401) return false;
+  return typeof errorData?.error === "string" && errorData.error === "unauthorized";
+}
+
 export function buildApiErrorMessage(params: {
   response: Response;
   errorData: Record<string, unknown> | null;

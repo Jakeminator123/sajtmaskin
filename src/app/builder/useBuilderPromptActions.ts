@@ -19,6 +19,11 @@ import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
+import {
+  savePendingBuilderDraft,
+  serializeAttachmentUrls,
+} from "@/lib/builder/pending-builder-draft";
+import { isBuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
 import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =
@@ -67,6 +72,9 @@ type Args = {
   cancelActiveGeneration: () => void;
   resetBeforeCreateChat: () => void;
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
+  isAuthReady?: boolean;
+  isAuthenticated?: boolean;
+  onAuthRequired?: (reason: "generation" | "refine") => void;
 };
 
 export function useBuilderPromptActions({
@@ -108,6 +116,9 @@ export function useBuilderPromptActions({
   cancelActiveGeneration,
   resetBeforeCreateChat: _resetBeforeCreateChat,
   applyAppProjectId: _applyAppProjectId,
+  isAuthReady,
+  isAuthenticated,
+  onAuthRequired,
 }: Args) {
   const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
   const createPreparationInFlightRef = useRef(false);
@@ -202,6 +213,7 @@ export function useBuilderPromptActions({
         pendingInstructionsOnceRef.current = false;
         return combined || null;
       } catch (error) {
+        if (isBuilderAuthRequiredError(error)) throw error;
         debugLog("builder", "Dynamic instructions failed", error);
         return null;
       } finally {
@@ -238,6 +250,14 @@ export function useBuilderPromptActions({
         );
         return false;
       }
+      if (isAuthReady && isAuthenticated === false) {
+        savePendingBuilderDraft({
+          text: message,
+          attachmentUrls: serializeAttachmentUrls(options?.attachments),
+        });
+        onAuthRequired?.("generation");
+        return false;
+      }
       if (
         isNewChat &&
         (createPreparationInFlightRef.current || isPreparingPrompt || isCreatingChat || isAnyStreaming)
@@ -260,6 +280,16 @@ export function useBuilderPromptActions({
         }
         const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
         return await createNewChat(message, options, systemOverride);
+      } catch (error) {
+        if (isBuilderAuthRequiredError(error)) {
+          savePendingBuilderDraft({
+            text: message,
+            attachmentUrls: serializeAttachmentUrls(options?.attachments),
+          });
+          onAuthRequired?.("generation");
+          return false;
+        }
+        throw error;
       } finally {
         if (isNewChat) {
           createPreparationInFlightRef.current = false;
@@ -275,6 +305,9 @@ export function useBuilderPromptActions({
       isAnyStreaming,
       isCreatingChat,
       isPreparingPrompt,
+      isAuthReady,
+      isAuthenticated,
+      onAuthRequired,
       setEntryIntentActive,
     ],
   );

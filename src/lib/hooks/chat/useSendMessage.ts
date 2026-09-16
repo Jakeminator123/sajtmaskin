@@ -22,6 +22,11 @@ import {
 import { abortPostChecksForChat } from "./post-checks";
 import { handleSseStream } from "./stream-handlers";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import {
+  clearPendingBuilderDraft,
+  savePendingBuilderDraft,
+  serializeAttachmentUrls,
+} from "@/lib/builder/pending-builder-draft";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
 import {
@@ -104,6 +109,10 @@ export function useSendMessage(
       }
 
       if (isAuthReady && isAuthenticated === false) {
+        savePendingBuilderDraft({
+          text: messageText,
+          attachmentUrls: serializeAttachmentUrls(options.attachments),
+        });
         onAuthRequired?.(chatId ? "refine" : "generation");
         return { status: "rejected", reason: "auth_required", turnRecorded: false };
       }
@@ -112,6 +121,7 @@ export function useSendMessage(
         if (!(await createNewChat(messageText, options))) {
           return { status: "rejected", reason: "create_chat_failed", turnRecorded: false };
         }
+        clearPendingBuilderDraft();
         return { status: "started", via: "new_chat" };
       }
 
@@ -622,6 +632,10 @@ export function useSendMessage(
             return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
           }
           if (isSajtmaskinAuthRequired(errorData)) {
+            savePendingBuilderDraft({
+              text: messageText,
+              attachmentUrls: serializeAttachmentUrls(options.attachments),
+            });
             onAuthRequired?.("refine");
             setMessages((prev) =>
               prev.filter((m) => m.id !== userMessageId && m.id !== assistantMessageId),
@@ -668,6 +682,7 @@ export function useSendMessage(
         if (isFirstBuildAfterGate && streamResult?.versionIdFromStream) {
           resetInitBuildChoices();
         }
+        clearPendingBuilderDraft();
         return { status: "started", via: "stream" };
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
