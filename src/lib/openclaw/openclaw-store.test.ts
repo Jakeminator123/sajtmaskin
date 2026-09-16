@@ -41,6 +41,33 @@ describe("OpenClaw store assistant targeting", () => {
     expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
   });
 
+  it("drops campaign avatar mode on close, toggle-close, and scope change", () => {
+    useOpenClawStore.setState({ isOpen: true, avatarMode: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().close();
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+
+    useOpenClawStore.setState({ isOpen: true, avatarMode: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().toggle();
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: false,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+
+    useOpenClawStore.setState({
+      isOpen: true,
+      avatarMode: true,
+      panelPresentation: "takeover",
+      scopeKey: "/kostnadsfri/zax::kostnadsfri",
+    });
+    useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: false,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+  });
+
   it("updates the targeted assistant message instead of the last one", () => {
     const firstAssistantId = "assistant-1";
     const secondAssistantId = "assistant-2";
