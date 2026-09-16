@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildApiErrorMessage,
   buildStreamErrorMessage,
+  isBriefRouteAuthRefusal,
   isSajtmaskinAuthRequired,
   readAuthRequiredMessage,
 } from "./helpers-errors";
@@ -9,6 +10,15 @@ import {
 function jsonResponse(status: number): Response {
   return new Response(null, { status });
 }
+
+describe("isBriefRouteAuthRefusal", () => {
+  it("treats requiresAuth and the legacy brief unauthorized body as login", () => {
+    expect(isBriefRouteAuthRefusal(401, { requiresAuth: true })).toBe(true);
+    expect(isBriefRouteAuthRefusal(401, { error: "unauthorized" })).toBe(true);
+    expect(isBriefRouteAuthRefusal(401, { code: "unauthorized" })).toBe(false);
+    expect(isBriefRouteAuthRefusal(500, { error: "unauthorized" })).toBe(false);
+  });
+});
 
 describe("isSajtmaskinAuthRequired", () => {
   it("matches requiresAuth and auth_required, not provider unauthorized", () => {

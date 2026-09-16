@@ -35,6 +35,11 @@ import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import {
+  clearPendingBuilderDraft,
+  savePendingBuilderDraft,
+  serializeAttachmentUrls,
+} from "@/lib/builder/pending-builder-draft";
 
 export function useCreateChat(
   params: ChatMessagingParams,
@@ -114,6 +119,10 @@ export function useCreateChat(
         return false;
       }
       if (isAuthReady && isAuthenticated === false) {
+        savePendingBuilderDraft({
+          text: initialMessage,
+          attachmentUrls: serializeAttachmentUrls(options.attachments),
+        });
         onAuthRequired?.("generation");
         return false;
       }
@@ -624,6 +633,10 @@ export function useCreateChat(
             return Boolean(recoveredChatId);
           }
           if (isSajtmaskinAuthRequired(errorData)) {
+            savePendingBuilderDraft({
+              text: initialMessage,
+              attachmentUrls: serializeAttachmentUrls(options.attachments),
+            });
             onAuthRequired?.("generation");
             setMessages([]);
             return false;
@@ -695,6 +708,7 @@ export function useCreateChat(
         if (createdVersionId) {
           resetInitBuildChoices();
         }
+        clearPendingBuilderDraft();
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Create chat stream aborted by client");

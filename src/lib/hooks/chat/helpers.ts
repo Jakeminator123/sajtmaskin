@@ -41,7 +41,10 @@ export {
 
 export {
   buildApiErrorMessage,
+  BuilderAuthRequiredError,
   CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
+  isBriefRouteAuthRefusal,
+  isBuilderAuthRequiredError,
   isNetworkError,
   isAbortLikeError,
   isClientInitiatedAbort,

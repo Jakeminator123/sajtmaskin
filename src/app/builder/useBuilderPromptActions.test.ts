@@ -1,5 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { BuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
+import { readPendingBuilderDraft } from "@/lib/builder/pending-builder-draft";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 
 vi.mock("sonner", () => ({
@@ -63,6 +65,10 @@ function makeArgs(
 }
 
 describe("useBuilderPromptActions", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
   it("does not start two Deep Brief requests for duplicate init submits", async () => {
     const brief = deferred<Record<string, unknown> | null>();
     const generateDynamicInstructions = vi.fn(() => brief.promise);
@@ -193,5 +199,65 @@ describe("useBuilderPromptActions", () => {
     });
 
     expect(createNewChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens generation login before Deep Brief when the client knows the user is logged out", async () => {
+    const generateDynamicInstructions = vi.fn(async () => ({ projectTitle: "should not run" }));
+    const createNewChat = vi.fn(async () => true);
+    const onAuthRequired = vi.fn();
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          isAuthReady: true,
+          isAuthenticated: false,
+          onAuthRequired,
+          generateDynamicInstructions,
+          createNewChat,
+        }),
+      ),
+    );
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.requestCreateChat("Bygg en pizzeria");
+    });
+
+    expect(outcome).toBe(false);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(generateDynamicInstructions).not.toHaveBeenCalled();
+    expect(createNewChat).not.toHaveBeenCalled();
+    expect(readPendingBuilderDraft()?.text).toBe("Bygg en pizzeria");
+  });
+
+  it("opens generation login on a stale-session brief 401 without creating a chat", async () => {
+    const generateDynamicInstructions = vi.fn(async () => {
+      throw new BuilderAuthRequiredError("unauthorized");
+    });
+    const createNewChat = vi.fn(async () => true);
+    const onAuthRequired = vi.fn();
+
+    const { result } = renderHook(() =>
+      useBuilderPromptActions(
+        makeArgs({
+          isAuthReady: true,
+          isAuthenticated: true,
+          onAuthRequired,
+          generateDynamicInstructions,
+          createNewChat,
+        }),
+      ),
+    );
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.requestCreateChat("Bygg en pizzeria");
+    });
+
+    expect(outcome).toBe(false);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(generateDynamicInstructions).toHaveBeenCalledTimes(1);
+    expect(createNewChat).not.toHaveBeenCalled();
+    expect(readPendingBuilderDraft()?.text).toBe("Bygg en pizzeria");
   });
 });
