@@ -820,28 +820,40 @@ async function loadOwnedWorkflowSelection({
 }) {
   const file = spec.file || workflowFileFromPath(spec.path);
   const payload = await client.request(
-    `/actions/workflows/${encodeURIComponent(file)}/runs?event=${encodeURIComponent(
-      spec.event,
-    )}&head_sha=${encodeURIComponent(expectedHeadSha)}&exclude_pull_requests=false&per_page=100`,
+    `/actions/workflows/${encodeURIComponent(file)}/runs?head_sha=${encodeURIComponent(
+      expectedHeadSha,
+    )}&exclude_pull_requests=false&per_page=100`,
   );
-  const runs = (payload.workflow_runs ?? []).filter(
+  // Senaste PR-associerade owned run är trust-rot. Same-file same-SHA-runs på
+  // annat event (push när preview-tipp återanvänds som promote-head) läggs i
+  // suiteIds och blir stale. Fork-head_repository hålls utanför om den inte
+  // är live-associerad.
+  const ownedHeadRuns = (payload.workflow_runs ?? []).filter(
     (run) =>
       normalizedWorkflowPath(run.path) === spec.path &&
-      run.event === spec.event &&
       run.head_sha === expectedHeadSha &&
       run.repository?.full_name === repository &&
+      Number.isSafeInteger(Number(run.check_suite_id)) &&
+      Number.isSafeInteger(Number(run.run_attempt)) &&
+      Number(run.run_attempt) > 0,
+  );
+  const runs = ownedHeadRuns.filter(
+    (run) =>
+      run.event === spec.event &&
       runAssociatedWithCurrentPr(run, {
         expectedHeadSha,
         prNumber,
         repository,
         expectedHeadRepository,
         expectedHeadRef,
-      }) &&
-      Number.isSafeInteger(Number(run.check_suite_id)) &&
-      Number.isSafeInteger(Number(run.run_attempt)) &&
-      Number(run.run_attempt) > 0,
+      }),
   );
   const { selected, ambiguous, attemptOverflow } = selectOwnedWorkflowRun(runs);
+  const extraSameRepoRuns = ownedHeadRuns.filter(
+    (run) =>
+      run.event !== spec.event &&
+      (!run.head_repository?.full_name || run.head_repository.full_name === repository),
+  );
   const jobs = selected
     ? (
         await Promise.all(
@@ -864,7 +876,9 @@ async function loadOwnedWorkflowSelection({
     attemptOverflow,
     jobs,
     ...indexSelectedJobs(jobs),
-    suiteIds: new Set(runs.map((run) => Number(run.check_suite_id))),
+    suiteIds: new Set(
+      [...runs, ...extraSameRepoRuns].map((run) => Number(run.check_suite_id)),
+    ),
   };
 }
 
