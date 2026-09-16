@@ -692,6 +692,10 @@ describe("decideMergeReadyAction", () => {
     expect(workflow).not.toContain("review-event-listener");
     expect(workflow).toContain("node scripts/ci/trusted-review-window.mjs merge");
     expect(workflow).toContain("startsWith(github.event.comment.body, 'merge:execute')");
+    expect(workflow).toContain("github.event.comment.body == 'review-window:refresh'");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("GATE_REFRESH:");
+    expect(workflow).toContain("inputs.pr_number");
   });
 
   it("kör label-skrivningar från betrodd default-branch och täcker master-push", () => {
