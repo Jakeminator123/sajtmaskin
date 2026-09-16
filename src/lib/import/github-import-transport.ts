@@ -22,6 +22,8 @@ export type ResolvedGithubImport = {
   branch: string;
   commitSha: string;
   private: boolean;
+  /** Token to use for later GitHub calls. Null after a public auth fallback. */
+  accessToken: string | null;
 };
 
 export function githubImportHeaders(token?: string | null): Record<string, string> {
@@ -147,6 +149,46 @@ export async function fetchGithubRepoMeta(
   };
 }
 
+function isGithubAuthFailure(error: unknown): error is ImportInitError {
+  return (
+    error instanceof ImportInitError &&
+    (error.code === "github_auth_required" || error.code === "github_forbidden")
+  );
+}
+
+/**
+ * A stale saved GitHub token must not block a public repo.
+ * Private repos stay gated: auth-failure + unauthenticated 404 keeps the auth error.
+ */
+export async function fetchGithubRepoMetaAllowingStaleToken(
+  repo: GithubRepoRef,
+  token?: string | null,
+): Promise<{ meta: GithubRepoMeta; accessToken: string | null }> {
+  if (!token) {
+    return { meta: await fetchGithubRepoMeta(repo, null), accessToken: null };
+  }
+  try {
+    return { meta: await fetchGithubRepoMeta(repo, token), accessToken: token };
+  } catch (error) {
+    if (!isGithubAuthFailure(error)) throw error;
+    try {
+      const meta = await fetchGithubRepoMeta(repo, null);
+      if (meta.private) {
+        throw error;
+      }
+      return { meta, accessToken: null };
+    } catch (publicError) {
+      if (
+        publicError instanceof ImportInitError &&
+        (publicError.code === "github_not_found" || publicError.code === "github_forbidden")
+      ) {
+        throw error;
+      }
+      throw publicError;
+    }
+  }
+}
+
 async function resolveCommitSha(params: {
   repo: GithubRepoRef;
   ref: string;
@@ -217,7 +259,7 @@ export async function resolveGithubImport(params: {
       status: 400,
     });
   }
-  const meta = await fetchGithubRepoMeta(repo, params.token);
+  const { meta, accessToken } = await fetchGithubRepoMetaAllowingStaleToken(repo, params.token);
 
   if (parsed.kind === "commit" && !explicit) {
     return {
@@ -225,11 +267,12 @@ export async function resolveGithubImport(params: {
       branch: parsed.sha,
       commitSha: parsed.sha,
       private: meta.private,
+      accessToken,
     };
   }
 
   if (explicit) {
-    const sha = await resolveCommitSha({ repo, ref: explicit, token: params.token });
+    const sha = await resolveCommitSha({ repo, ref: explicit, token: accessToken });
     if (!sha) {
       throw new ImportInitError({
         message: "Den angivna branchen eller committen finns inte.",
@@ -253,16 +296,16 @@ export async function resolveGithubImport(params: {
         });
       }
     }
-    return { repo, branch: explicit, commitSha: sha, private: meta.private };
+    return { repo, branch: explicit, commitSha: sha, private: meta.private, accessToken };
   }
 
   if (parsed.kind === "tree") {
     const resolved = await resolveTreeRef({
       repo,
       pathSegments: parsed.pathSegments,
-      token: params.token,
+      token: accessToken,
     });
-    return { repo, ...resolved, private: meta.private };
+    return { repo, ...resolved, private: meta.private, accessToken };
   }
 
   const defaultBranch = meta.defaultBranch.trim();
@@ -274,7 +317,7 @@ export async function resolveGithubImport(params: {
       status: 400,
     });
   }
-  const sha = await resolveCommitSha({ repo, ref: defaultBranch, token: params.token });
+  const sha = await resolveCommitSha({ repo, ref: defaultBranch, token: accessToken });
   if (!sha) {
     throw new ImportInitError({
       message: "Kunde inte läsa standardbranchen.",
@@ -283,7 +326,7 @@ export async function resolveGithubImport(params: {
       status: 400,
     });
   }
-  return { repo, branch: defaultBranch, commitSha: sha, private: meta.private };
+  return { repo, branch: defaultBranch, commitSha: sha, private: meta.private, accessToken };
 }
 
 const ZIP_UPSTREAM_ERRORS: Record<number, { message: string; code: ImportErrorCode }> = {

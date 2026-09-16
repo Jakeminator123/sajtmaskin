@@ -110,5 +110,35 @@ describe("InitFromRepoModal", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/för stor/i));
     });
+    const errorMessage = vi.mocked(toast.error).mock.calls.at(-1)?.[0];
+    expect(String(errorMessage)).not.toMatch(/2,5/);
+  });
+
+  it("does not close via X or backdrop while the import request is in flight", async () => {
+    const onClose = vi.fn();
+    (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    render(<InitFromRepoModal isOpen onClose={onClose} onSuccess={() => {}} />);
+    fireEvent.change(screen.getByLabelText(/Repository-adress/i), {
+      target: { value: "https://github.com/acme/site" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Importera projekt/i }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Avbryt/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Stäng/i }));
+    fireEvent.click(screen.getByTestId("import-modal-backdrop"));
+    fireEvent.click(screen.getByRole("button", { name: /Avbryt/i }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect((screen.getByRole("button", { name: /Stäng/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 });

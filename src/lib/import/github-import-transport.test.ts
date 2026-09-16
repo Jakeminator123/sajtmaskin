@@ -139,6 +139,57 @@ describe("resolveGithubImport", () => {
       step: "github_meta",
     });
   });
+
+  it("retries a public repo without Authorization after a stale token 401", async () => {
+    safeFetch
+      .mockResolvedValueOnce(new Response("bad credentials", { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ private: false, default_branch: "main" }))
+      .mockResolvedValueOnce(jsonResponse({ sha: "abc1234" }));
+
+    const resolved = await resolveGithubImport({
+      url: "https://github.com/acme/site",
+      token: "stale-token",
+    });
+
+    expect(resolved).toMatchObject({
+      repo: { owner: "acme", repo: "site" },
+      branch: "main",
+      commitSha: "abc1234",
+      private: false,
+      accessToken: null,
+    });
+    expect(safeFetch.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer stale-token" }),
+      }),
+    );
+    expect(safeFetch.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ Authorization: expect.anything() }),
+      }),
+    );
+    expect(safeFetch.mock.calls[2]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ Authorization: expect.anything() }),
+      }),
+    );
+  });
+
+  it("keeps the auth error when a stale token cannot see a private repo", async () => {
+    safeFetch
+      .mockResolvedValueOnce(new Response("bad credentials", { status: 401 }))
+      .mockResolvedValueOnce(new Response("missing", { status: 404 }));
+
+    await expect(
+      resolveGithubImport({
+        url: "https://github.com/acme/private-site",
+        token: "stale-token",
+      }),
+    ).rejects.toMatchObject({
+      code: "github_auth_required",
+      step: "github_meta",
+    });
+  });
 });
 
 describe("assertPrivateGithubAccess", () => {

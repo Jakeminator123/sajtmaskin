@@ -492,4 +492,113 @@ describe("POST /api/engine/chats/init", () => {
     expect(safeFetch).not.toHaveBeenCalled();
     expect(createChat).not.toHaveBeenCalled();
   });
+
+  it("imports a public GitHub repo after a stale saved token fails metadata auth", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return <div>Hej</div>; }");
+    zip.file("repo-root/package.json", '{ "name": "demo" }');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    getCurrentUser.mockResolvedValueOnce({
+      id: "user_import",
+      email: "importer@example.com",
+      diamonds: 0,
+      free_generation_available: true,
+      github_token: "stale-token",
+    });
+    safeFetch
+      .mockResolvedValueOnce(new Response("bad credentials", { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ private: false, default_branch: "main" }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ sha: "abc1234def" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(new Uint8Array(buffer), { status: 200 }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "github", url: "https://github.com/acme/site" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      projectId: "proj_import",
+      chatId: "chat_import",
+    });
+    expect(safeFetch.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer stale-token" }),
+      }),
+    );
+    expect(safeFetch.mock.calls[3]?.[0]).toBe("https://github.com/acme/site/archive/abc1234def.zip");
+    expect(safeFetch.mock.calls[3]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ Authorization: expect.anything() }),
+      }),
+    );
+  });
+
+  it("returns the saved import when startPreviewSession throws", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");
+    zip.file("repo-root/package.json", '{"scripts":{"dev":"next dev"}}');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    startPreviewSession.mockRejectedValueOnce(new Error("preview host exploded"));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      chatId: "chat_import",
+      projectId: "proj_import",
+      versionId: "ver_import",
+      preview: { status: "failed", retryable: true },
+    });
+    expect(commitCredits).toHaveBeenCalled();
+    expect(createChat).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["recordImportedRepoPreviewOutcome", () => recordImportedRepoPreviewOutcome.mockRejectedValueOnce(new Error("outcome write failed"))],
+    ["updateVersionPreviewUrl", () => updateVersionPreviewUrl.mockRejectedValueOnce(new Error("preview url write failed"))],
+    ["saveProjectData", () => {
+      saveProjectData.mockResolvedValueOnce(undefined);
+      saveProjectData.mockRejectedValueOnce(new Error("preview project save failed"));
+    }],
+  ] as const)("returns the saved import when %s throws after persist", async (_name, arrange) => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");
+    zip.file("repo-root/package.json", '{"scripts":{"dev":"next dev"}}');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    arrange();
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      chatId: "chat_import",
+      projectId: "proj_import",
+      versionId: "ver_import",
+      preview: { status: "failed", retryable: true },
+    });
+    expect(commitCredits).toHaveBeenCalled();
+  });
 });

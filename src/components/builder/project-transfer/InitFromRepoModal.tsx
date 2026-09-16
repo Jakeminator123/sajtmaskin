@@ -71,6 +71,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
   };
 
   const handleClose = () => {
+    if (isLoading) return;
     requestIdRef.current += 1;
     abortRef.current?.abort();
     if (typeof window === "undefined") {
@@ -211,7 +212,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         toast.success("Projektet importerades.");
       }
       onSuccess(parsed);
-      handleClose();
+      onClose();
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (requestId !== requestIdRef.current) return;
@@ -226,7 +227,11 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+      <div
+        data-testid="import-modal-backdrop"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
 
       <div
         data-testid="import-drop-root"
@@ -243,7 +248,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            disabled={isLoading}
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Stäng"
           >
             <X className="h-5 w-5" />

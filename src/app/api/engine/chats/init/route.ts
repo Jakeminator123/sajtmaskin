@@ -150,21 +150,20 @@ export async function POST(req: Request) {
       let importedFiles: CodeFile[] = [];
 
       if (source.type === "github") {
-        const githubToken = user.github_token || null;
         const resolved = await resolveGithubImport({
           url: source.url,
           explicitBranch: source.branch,
-          token: githubToken,
+          token: user.github_token || null,
         });
         assertPrivateGithubAccess({
           isPrivate: resolved.private,
-          token: githubToken,
+          token: resolved.accessToken,
         });
 
         const zipBuffer = await downloadGithubZipBuffer({
           repo: resolved.repo,
           commitSha: resolved.commitSha,
-          token: githubToken,
+          token: resolved.accessToken,
           maxBytes: MAX_REMOTE_ARCHIVE_BYTES,
         });
 
@@ -288,32 +287,20 @@ export async function POST(req: Request) {
         status: "failed",
         runtimeReady: false,
         retryable: true,
-        message: "Preview kunde inte startas. Använd Försök igen i buildern.",
+        message: "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
       };
       let previewUrl: string | null = null;
 
-      const previewSessionStarted = await startPreviewSession(importedFiles, {
-        chatId: chat.id,
-        appProjectId: project.id,
-        versionIdForSession: version.id,
-        filesRevisionForSession: version.files_revision,
-        skipRepair: true,
-        skipProjectScaffold: true,
-      });
-      if (!previewSessionStarted.ok) {
-        await recordImportedRepoPreviewOutcome({
-          versionId: version.id,
-          outcome: "failed",
+      try {
+        const previewSessionStarted = await startPreviewSession(importedFiles, {
+          chatId: chat.id,
+          appProjectId: project.id,
+          versionIdForSession: version.id,
+          filesRevisionForSession: version.files_revision,
+          skipRepair: true,
+          skipProjectScaffold: true,
         });
-        preview = {
-          status: "failed",
-          runtimeReady: false,
-          retryable: true,
-          message: `Preview kunde inte startas (${previewSessionStarted.error.stage}). Använd Försök igen i buildern — ingen ny import behövs.`,
-        };
-      } else {
-        previewUrl = previewSessionStarted.result.previewUrl?.trim() || null;
-        if (!previewUrl) {
+        if (!previewSessionStarted.ok) {
           await recordImportedRepoPreviewOutcome({
             versionId: version.id,
             outcome: "failed",
@@ -322,36 +309,69 @@ export async function POST(req: Request) {
             status: "failed",
             runtimeReady: false,
             retryable: true,
-            message: "Preview startade utan adress. Använd Försök igen i buildern — ingen ny import behövs.",
+            message: `Preview kunde inte startas (${previewSessionStarted.error.stage}). Använd Försök igen i buildern — ingen ny import behövs.`,
           };
         } else {
-          const runtimeReady = previewSessionStarted.result.runtimeReady === true;
+          previewUrl = previewSessionStarted.result.previewUrl?.trim() || null;
+          if (!previewUrl) {
+            await recordImportedRepoPreviewOutcome({
+              versionId: version.id,
+              outcome: "failed",
+            });
+            preview = {
+              status: "failed",
+              runtimeReady: false,
+              retryable: true,
+              message: "Preview startade utan adress. Använd Försök igen i buildern — ingen ny import behövs.",
+            };
+          } else {
+            const runtimeReady = previewSessionStarted.result.runtimeReady === true;
+            await recordImportedRepoPreviewOutcome({
+              versionId: version.id,
+              filesRevision:
+                previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
+              outcome: runtimeReady ? "runtime-ready" : "pending",
+            });
+            await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
+            await saveProjectData({
+              project_id: project.id,
+              chat_id: chat.id,
+              demo_url: previewUrl,
+              meta_patch: {
+                source: "import-init:own-engine",
+                importSource: source.type,
+                importLockedFiles: configLockedFiles,
+              },
+            });
+            preview = {
+              status: runtimeReady ? "ready" : "starting",
+              runtimeReady,
+              retryable: !runtimeReady,
+              ...(runtimeReady
+                ? {}
+                : { message: "Importen är sparad. Preview startar i buildern." }),
+            };
+          }
+        }
+      } catch (previewError) {
+        console.error("[API /engine/chats/init] Preview after persist failed:", previewError);
+        try {
           await recordImportedRepoPreviewOutcome({
             versionId: version.id,
-            filesRevision:
-              previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
-            outcome: runtimeReady ? "runtime-ready" : "pending",
+            outcome: "failed",
           });
-          await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
-          await saveProjectData({
-            project_id: project.id,
-            chat_id: chat.id,
-            demo_url: previewUrl,
-            meta_patch: {
-              source: "import-init:own-engine",
-              importSource: source.type,
-              importLockedFiles: configLockedFiles,
-            },
-          });
-          preview = {
-            status: runtimeReady ? "ready" : "starting",
-            runtimeReady,
-            retryable: !runtimeReady,
-            ...(runtimeReady
-              ? {}
-              : { message: "Importen är sparad. Preview startar i buildern." }),
-          };
+        } catch (outcomeError) {
+          console.error(
+            "[API /engine/chats/init] Failed to record preview outcome:",
+            outcomeError,
+          );
         }
+        preview = {
+          status: "failed",
+          runtimeReady: false,
+          retryable: true,
+          message: "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
+        };
       }
 
       const payload: ImportInitSuccess = {

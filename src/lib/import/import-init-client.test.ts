@@ -84,9 +84,27 @@ describe("parseImportInitSuccess", () => {
 });
 
 describe("readImportInitFailure", () => {
-  it("handles a 413 without JSON", async () => {
+  it("handles a 413 without JSON without claiming the local ZIP limit", async () => {
     const failure = await readImportInitFailure(new Response("payload too large", { status: 413 }));
     expect(failure.code).toBe("zip_too_large");
     expect(failure.error).toMatch(/för stor/i);
+    expect(failure.error).not.toMatch(/2,5/);
+    expect(failure.error).not.toMatch(/lokal ZIP/i);
+  });
+
+  it("keeps a server-provided 413 JSON message", async () => {
+    const failure = await readImportInitFailure(
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: "ZIP-arkivet är för stort för import.",
+          code: "zip_too_large",
+          step: "download",
+        }),
+        { status: 413, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    expect(failure.error).toBe("ZIP-arkivet är för stort för import.");
+    expect(failure.error).not.toMatch(/2,5/);
   });
 });

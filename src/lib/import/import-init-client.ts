@@ -78,23 +78,17 @@ export function parseImportInitSuccess(data: unknown): ImportInitSuccess | null 
   };
 }
 
+const OVERSIZED_IMPORT_MESSAGE = "Arkivet eller uppladdningen är för stor för import.";
+
 export async function readImportInitFailure(response: Response): Promise<ImportInitFailure> {
   const contentType = response.headers.get("content-type") ?? "";
-  if (response.status === 413) {
-    return {
-      success: false,
-      error: `Uppladdningen är för stor (max ${LOCAL_ZIP_LIMIT_LABEL} för lokal ZIP).`,
-      code: "zip_too_large",
-      step: "download",
-    };
-  }
 
   if (!contentType.includes("application/json")) {
     return {
       success: false,
       error:
         response.status === 413
-          ? `Uppladdningen är för stor (max ${LOCAL_ZIP_LIMIT_LABEL} för lokal ZIP).`
+          ? OVERSIZED_IMPORT_MESSAGE
           : "Importen misslyckades. Servern svarade inte med JSON.",
       code: response.status === 413 ? "zip_too_large" : "import_failed",
       step: "download",
