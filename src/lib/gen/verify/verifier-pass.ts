@@ -307,9 +307,15 @@ const CONTACT_INTEGRATION_RE =
 // Path tokens like `contact-form.tsx` must not count — only the finding prose.
 const CONTACT_SUBMIT_FINDING_RE =
   /\b(?:submit|type=["']submit["']|form(?:ular(?:et)?)?\s+action|\/api\/contact|skicka(?:\s+meddelande)?)\b/i;
+const CONTACT_FORM_IDENTITY_RE =
+  /\/api\/contact|\bcontact form\b|\bkontaktformulär\w*\b|\bkontaktform(?:en|uläret)?\b/i;
 
 function fileHasContactIntegration(content: string): boolean {
   return CONTACT_INTEGRATION_RE.test(content);
+}
+
+function countHtmlForms(content: string): number {
+  return content.match(/<form\b/gi)?.length ?? 0;
 }
 
 function stripDetailFilePaths(detail: string): string {
@@ -328,7 +334,16 @@ function isIntegratedContactFormNavigationFinding(
     return /\/api\/contact/.test(prose) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
   }
   const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
-  return mentionedFiles.some((path) => fileHasContactIntegration(fileMap.get(path) ?? ""));
+  return mentionedFiles.some((path) => {
+    const content = fileMap.get(path) ?? "";
+    if (!fileHasContactIntegration(content)) return false;
+    // A working /api/contact form must not silence another form's submit
+    // in the same file. Multi-form files need an explicit contact identity.
+    if (countHtmlForms(content) > 1 && !CONTACT_FORM_IDENTITY_RE.test(prose)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function suppressValidInPageAnchorNavigationFindings(
