@@ -8,6 +8,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type RefCallback,
 } from "react";
 import {
   Bot,
@@ -31,12 +32,14 @@ import {
   KOSTNADSFRI_FOLLOWUP_SKIP_HINT,
   KOSTNADSFRI_FOLLOWUP_SKIP_ID,
   KOSTNADSFRI_FOLLOWUP_SKIP_LABEL,
+  KOSTNADSFRI_HANDOFF_INTRO_ID,
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   DID_AVATAR_AVAILABLE,
   useDidAvatar,
   truncateForSpeech,
+  type DidConnectionState,
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
 import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
@@ -101,6 +104,119 @@ function readStoredOffset(): { x: number; y: number } {
   } catch {
     return { x: 0, y: 0 };
   }
+}
+
+/**
+ * Portrait stage above the transcript. D-ID's presenter is a person, not a
+ * 16:9 landscape strip, and the campaign greeting tells the visitor to write
+ * «i chatten under min skärmbild».
+ */
+function OpenClawAvatarStage({
+  isTakeover,
+  avatarExpanded,
+  showLiveAvatar,
+  connectionState,
+  videoRef,
+  onToggleExpanded,
+  onReconnect,
+  onTextOnly,
+}: {
+  isTakeover: boolean;
+  avatarExpanded: boolean;
+  showLiveAvatar: boolean;
+  connectionState: DidConnectionState;
+  videoRef: RefCallback<HTMLVideoElement>;
+  onToggleExpanded: () => void;
+  onReconnect: () => void;
+  onTextOnly: () => void;
+}) {
+  const isError = connectionState === "error";
+  return (
+    <div
+      data-testid="openclaw-avatar-stage"
+      className={cn(
+        "flex shrink-0 justify-center border-b border-white/10 bg-slate-950/40",
+        isTakeover ? "px-4 py-4" : "p-3",
+      )}
+    >
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20",
+          "aspect-4/5 w-auto",
+          isTakeover
+            ? "h-[min(400px,46dvh)] max-w-[min(320px,70vw)]"
+            : avatarExpanded
+              ? "h-[min(240px,32dvh)] max-w-[200px]"
+              : "h-[min(180px,28dvh)] max-w-[148px]",
+        )}
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={connectionState !== "speaking"}
+          data-testid="openclaw-avatar-video"
+          className={cn(
+            "h-full w-full object-contain object-top",
+            showLiveAvatar ? "opacity-100" : "opacity-0",
+          )}
+        />
+        {showLiveAvatar && connectionState === "speaking" ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
+        ) : null}
+        {showLiveAvatar && !isTakeover ? (
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="absolute top-2 right-2 rounded-md bg-black/55 p-1 text-slate-200 transition-colors hover:bg-black/75 hover:text-white"
+            aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+            title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+          >
+            {avatarExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+          </button>
+        ) : null}
+        {!showLiveAvatar ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/80 px-4 text-center"
+            aria-live="polite"
+          >
+            <span
+              className={cn(
+                "h-2.5 w-2.5 rounded-full",
+                isError ? "bg-amber-400" : "animate-pulse bg-cyan-300",
+              )}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-100">
+                {isError ? "Avataren kunde inte ansluta" : "Startar avataren..."}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Textchatten fungerar under tiden.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {isError ? (
+                <button
+                  type="button"
+                  onClick={onReconnect}
+                  className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-medium text-slate-100 transition-colors hover:bg-white/10"
+                >
+                  Försök igen
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onTextOnly}
+                className="rounded-full px-2.5 py-1.5 text-[10px] text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Endast text
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function OpenClawChatPanel({
@@ -305,6 +421,24 @@ export function OpenClawChatPanel({
     const speechText = truncateForSpeech(lastAssistant.content);
     if (speechText) void avatar.speak(speechText);
   }, [isStreaming, avatarMode, avatar, messages]);
+
+  // Seeded campaign intro never goes through the streaming path, so the
+  // greeting would otherwise stay silent even after the avatar connects.
+  const greetedIntroRef = useRef(false);
+  useEffect(() => {
+    if (!avatarMode) greetedIntroRef.current = false;
+  }, [avatarMode]);
+  useEffect(() => {
+    if (!isOpen || !avatarMode) return;
+    if (avatar.connectionState !== "connected") return;
+    if (greetedIntroRef.current) return;
+    const intro = messages.find((message) => message.id === KOSTNADSFRI_HANDOFF_INTRO_ID);
+    if (!intro?.content) return;
+    const speechText = truncateForSpeech(intro.content);
+    if (!speechText) return;
+    greetedIntroRef.current = true;
+    void avatar.speak(speechText);
+  }, [isOpen, avatarMode, avatar, messages]);
 
   // Cleanup speech recognition on unmount
   useEffect(() => {
@@ -629,99 +763,18 @@ export function OpenClawChatPanel({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col",
-          isTakeover && showLiveAvatar && "lg:flex-row",
-        )}
-      >
-        {/* Live video only when D-ID actually has a stream. Connecting/error/
-            gated-off never renders a black video hole — takeover stays a
-            text chat with a compact status strip. */}
-        {showLiveAvatar ? (
-          <div
-            className={cn(
-              "shrink-0 bg-slate-950/40 p-3",
-              isTakeover
-                ? "border-b border-white/10 lg:w-[min(640px,52%)] lg:border-r lg:border-b-0 lg:p-4"
-                : "border-b border-white/10",
-            )}
-          >
-            <div
-              className={cn(
-                "relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20",
-                isTakeover && "max-h-[32dvh] lg:max-h-[min(560px,calc(100dvh-10rem))]",
-              )}
-            >
-              <video
-                ref={avatar.videoRef}
-                autoPlay
-                playsInline
-                muted={avatar.connectionState !== "speaking"}
-                className="h-full w-full object-cover"
-              />
-              {avatar.connectionState === "speaking" ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
-              ) : null}
-              {!isTakeover ? (
-                <button
-                  type="button"
-                  onClick={() => setAvatarExpanded((v) => !v)}
-                  className="absolute top-2 right-2 rounded-md bg-black/55 p-1 text-slate-200 transition-colors hover:bg-black/75 hover:text-white"
-                  aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-                  title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-                >
-                  {avatarExpanded ? (
-                    <Minimize2 className="h-3 w-3" />
-                  ) : (
-                    <Maximize2 className="h-3 w-3" />
-                  )}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : showAvatar ? (
-          <div
-            className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.035] px-4 py-3"
-            aria-live="polite"
-          >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full",
-                  avatar.connectionState === "error" ? "bg-amber-400" : "animate-pulse bg-cyan-300",
-                )}
-              />
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-100">
-                  {avatar.connectionState === "error"
-                    ? "Avataren kunde inte ansluta"
-                    : "Startar avataren..."}
-                </p>
-                <p className="truncate text-[10px] text-slate-400">
-                  Textchatten fungerar under tiden.
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {avatar.connectionState === "error" ? (
-                <button
-                  type="button"
-                  onClick={() => void avatar.reconnect()}
-                  className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-medium text-slate-100 transition-colors hover:bg-white/10"
-                >
-                  Försök igen
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setAvatarMode(false)}
-                className="rounded-full px-2.5 py-1.5 text-[10px] text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                Endast text
-              </button>
-            </div>
-          </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {showAvatar ? (
+          <OpenClawAvatarStage
+            isTakeover={isTakeover}
+            avatarExpanded={avatarExpanded}
+            showLiveAvatar={showLiveAvatar}
+            connectionState={avatar.connectionState}
+            videoRef={avatar.videoRef}
+            onToggleExpanded={() => setAvatarExpanded((value) => !value)}
+            onReconnect={() => void avatar.reconnect()}
+            onTextOnly={() => setAvatarMode(false)}
+          />
         ) : isTakeover ? (
           <div
             className="flex shrink-0 items-center gap-2.5 border-b border-white/10 bg-white/[0.035] px-4 py-3"

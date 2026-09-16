@@ -46,6 +46,7 @@ describe("OpenClawChat launcher", () => {
         messages: [],
         isStreaming: false,
         scopeKey: "/",
+        avatarMode: false,
         panelPresentation: "bubble",
         campaignScript: null,
       });
@@ -61,6 +62,7 @@ describe("OpenClawChat launcher", () => {
     fireEvent.click(launcher);
 
     expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
     expect(
       screen.queryByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
     ).toBeNull();
@@ -86,6 +88,7 @@ describe("OpenClawChat launcher", () => {
 
     expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
     expect(useOpenClawStore.getState().isOpen).toBe(true);
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
   });
 
   it("covers the preview surface at z-50 while takeover is on", () => {
@@ -144,6 +147,7 @@ describe("OpenClawChat launcher", () => {
       const state = useOpenClawStore.getState();
       expect(state.isOpen).toBe(true);
       expect(state.panelPresentation).toBe("takeover");
+      expect(state.avatarMode).toBe(true);
       expect(state.messages.some((message) => message.id === KOSTNADSFRI_HANDOFF_INTRO_ID)).toBe(
         true,
       );

@@ -124,7 +124,8 @@ function seedAssistantMessage(id: string, content: string) {
 
 /**
  * Handoff-triggern ägs här, där `__SITEMASKIN_CONTEXT` redan läses.
- * Kampanjsidan startar inte takeover.
+ * Efter mini-wizarden öppnas takeover med avatar så skärmbilden sitter
+ * ovanför chatten — hälsningen säger uttryckligen «under min skärmbild».
  */
 function applyKostnadsfriCampaignTriggers(pathname: string) {
   if (typeof window === "undefined") return;
@@ -167,6 +168,7 @@ function applyKostnadsfriCampaignTriggers(pathname: string) {
     store.beginCampaignFollowups(followups.map((item) => item.id));
     store.open();
     store.setPanelPresentation("takeover");
+    store.setAvatarMode(true);
     seedAssistantMessage(KOSTNADSFRI_HANDOFF_INTRO_ID, buildKostnadsfriHandoffIntro(handoff.brief));
     const first = followups[0];
     if (first) {
