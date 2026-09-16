@@ -26,6 +26,27 @@ function looksLikeUnsupportedModelError(message: string | null | undefined): boo
   );
 }
 
+/** Sajtmaskin login-refusal, not an AI-provider API-key failure. */
+export const SAJT_MASKIN_AUTH_REQUIRED_FALLBACK =
+  "Skapa ett konto eller logga in för att generera.";
+
+export function isSajtmaskinAuthRequired(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!errorData || typeof errorData !== "object") return false;
+  if (errorData.requiresAuth === true) return true;
+  return errorData.code === "auth_required";
+}
+
+export function readAuthRequiredMessage(
+  errorData: Record<string, unknown> | null | undefined,
+): string {
+  const error = typeof errorData?.error === "string" ? errorData.error.trim() : "";
+  if (error) return error;
+  const message = typeof errorData?.message === "string" ? errorData.message.trim() : "";
+  return message || SAJT_MASKIN_AUTH_REQUIRED_FALLBACK;
+}
+
 export function buildApiErrorMessage(params: {
   response: Response;
   errorData: Record<string, unknown> | null;
@@ -50,6 +71,9 @@ export function buildApiErrorMessage(params: {
   }
   if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (isSajtmaskinAuthRequired(errorData)) {
+    return readAuthRequiredMessage(errorData);
   }
   if (status === 401 || code === "unauthorized") {
     return "API-nyckel saknas eller är ogiltig.";
@@ -160,6 +184,9 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
   }
   if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (isSajtmaskinAuthRequired(errorData)) {
+    return readAuthRequiredMessage(errorData);
   }
   if (code === "unauthorized") {
     return "API-nyckel saknas eller är ogiltig.";

@@ -45,6 +45,8 @@ export {
   isNetworkError,
   isAbortLikeError,
   isClientInitiatedAbort,
+  isSajtmaskinAuthRequired,
+  readAuthRequiredMessage,
   buildStreamErrorMessage,
 } from "./helpers-errors";
 

@@ -14,6 +14,7 @@ import {
   appendAttachmentPrompt,
   buildApiErrorMessage,
   CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
+  isSajtmaskinAuthRequired,
   isAbortLikeError,
   isClientInitiatedAbort,
   isNetworkError,
@@ -78,6 +79,9 @@ export function useSendMessage(
     onGenerationComplete,
     onPreviewSessionMeta,
     setMessages,
+    isAuthReady,
+    isAuthenticated,
+    onAuthRequired,
   } = params;
 
   const {
@@ -97,6 +101,11 @@ export function useSendMessage(
     ): Promise<SendMessageOutcome> => {
       if (!messageText?.trim()) {
         return { status: "rejected", reason: "empty_message", turnRecorded: false };
+      }
+
+      if (isAuthReady && isAuthenticated === false) {
+        onAuthRequired?.(chatId ? "refine" : "generation");
+        return { status: "rejected", reason: "auth_required", turnRecorded: false };
       }
 
       if (!chatId) {
@@ -612,6 +621,13 @@ export function useSendMessage(
           if (handleStaleBaseVersion(response.status, errorData)) {
             return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
           }
+          if (isSajtmaskinAuthRequired(errorData)) {
+            onAuthRequired?.("refine");
+            setMessages((prev) =>
+              prev.filter((m) => m.id !== userMessageId && m.id !== assistantMessageId),
+            );
+            return { status: "rejected", reason: "auth_required", turnRecorded: false };
+          }
           throw new Error(
             buildApiErrorMessage({
               response,
@@ -739,6 +755,9 @@ export function useSendMessage(
       autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
+      isAuthReady,
+      isAuthenticated,
+      onAuthRequired,
     ],
   );
 

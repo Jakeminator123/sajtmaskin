@@ -691,6 +691,89 @@ describe("useSendMessage outcome contract", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("opens the generation login modal when a new chat is refused client-side", async () => {
+    const onAuthRequired = vi.fn();
+    const createNewChat = vi.fn(async () => true);
+    const { result } = createHarness(
+      {
+        chatId: null,
+        isAuthReady: true,
+        isAuthenticated: false,
+        onAuthRequired,
+      },
+      { createNewChat },
+    );
+
+    expect(await send(result, "Bygg en portfoliosajt")).toEqual({
+      status: "rejected",
+      reason: "auth_required",
+      turnRecorded: false,
+    });
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(createNewChat).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("opens login and reports auth_required before fetch when the user is logged out", async () => {
+    const onAuthRequired = vi.fn();
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: false,
+      onAuthRequired,
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "rejected",
+      reason: "auth_required",
+      turnRecorded: false,
+    });
+    expect(onAuthRequired).toHaveBeenCalledWith("refine");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("opens login and reports auth_required on a server requiresAuth 401", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(
+      jsonResponse(401, {
+        requiresAuth: true,
+        error: "Logga in för att fortsätta bygga.",
+      }),
+    );
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "rejected",
+      reason: "auth_required",
+      turnRecorded: false,
+    });
+    expect(onAuthRequired).toHaveBeenCalledWith("refine");
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("still surfaces a provider 401 as an API-key failure", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "unauthorized" }));
+    const { result } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "failed",
+      message: "API-nyckel saknas eller är ogiltig.",
+    });
+    expect(onAuthRequired).not.toHaveBeenCalled();
+    expect(String(toast.error.mock.calls[0]?.[0])).toBe("API-nyckel saknas eller är ogiltig.");
+  });
+
   it("reports rejected/stale_base_version when the rebase retry also hits 409", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(409, {
