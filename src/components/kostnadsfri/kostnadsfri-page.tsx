@@ -66,7 +66,7 @@ export function KostnadsfriPage({
   openclawConfig = null,
 }: KostnadsfriPageProps) {
   const router = useRouter();
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { isAuthenticated, isInitialized, fetchUser } = useAuth();
   const [phase, setPhase] = useState<Phase>("password");
   const [companyData, setCompanyData] = useState<KostnadsfriCompanyData | null>(null);
   // Sajtagentens underlag växer med flödet: bolagsdata efter lösenordet,
@@ -117,6 +117,10 @@ export function KostnadsfriPage({
       window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
     };
   }, [slug, activeCompanyName, activeOpenclawConfig, agentBrief]);
+
+  useEffect(() => {
+    void fetchUser();
+  }, [fetchUser]);
 
   useEffect(() => {
     const pending = readPendingInitBuild(slug);
@@ -343,11 +347,16 @@ export function KostnadsfriPage({
   }, [phase, requestInitBuild]);
 
   useEffect(() => {
-    if (!isInitialized) return;
     const pending = readPendingInitBuild(slug);
     if (!pending) return;
     if (!wizardData) setWizardData(pending.wizardData);
     if (!pending.ready) return;
+    // Skip the password gate after Google / e-post return so the user
+    // does not re-enter the invitation while the session hydrates.
+    if (phase === "password") {
+      setPhase("auth");
+    }
+    if (!isInitialized) return;
     if (phase !== "password" && phase !== "auth") return;
     if (!isAuthenticated) {
       setPhase("auth");

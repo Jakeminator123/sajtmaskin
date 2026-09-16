@@ -7,7 +7,10 @@ import {
   clearCampaignScriptStorageForTests,
   emptyCampaignScript,
 } from "@/lib/kostnadsfri/agent-campaign-script";
-import { clearPendingInitBuildStorageForTests } from "@/lib/kostnadsfri/pending-init-build";
+import {
+  clearPendingInitBuildStorageForTests,
+  persistPendingInitBuild,
+} from "@/lib/kostnadsfri/pending-init-build";
 import { KOSTNADSFRI_FOLLOWUPS_READY_EVENT } from "@/lib/kostnadsfri/agent-followups";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { KostnadsfriPage } from "./kostnadsfri-page";
@@ -62,6 +65,7 @@ const router = vi.hoisted(() => ({ push: vi.fn() }));
 const auth = vi.hoisted(() => ({
   isAuthenticated: true,
   isInitialized: true,
+  fetchUser: vi.fn(async () => undefined),
 }));
 const projects = vi.hoisted(() => ({
   createProject: vi.fn(async () => ({
@@ -85,6 +89,7 @@ vi.mock("@/lib/auth/auth-store", () => ({
     isAuthenticated: auth.isAuthenticated,
     isInitialized: auth.isInitialized,
     user: auth.isAuthenticated ? { id: "user_1" } : null,
+    fetchUser: auth.fetchUser,
   }),
 }));
 
@@ -136,6 +141,8 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     fixtures.completeWith = "f1";
     auth.isAuthenticated = true;
     auth.isInitialized = true;
+    auth.fetchUser.mockReset();
+    auth.fetchUser.mockResolvedValue(undefined);
     router.push.mockReset();
     projects.createProject.mockReset();
     clearPendingInitBuildStorageForTests();
@@ -398,6 +405,61 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as { prompt?: string };
     expect(body.prompt).toContain("SM-F1-CONFIRM-PHRASE-7f3a");
   });
+
+  it("hämtar sessionen så Google-retur kan starta precis ett bygge", async () => {
+    persistPendingInitBuild({
+      slug: "zax-2-0-ab",
+      wizardData: fixtures.f1Wizard,
+      ready: true,
+    });
+    auth.isAuthenticated = false;
+    auth.isInitialized = false;
+
+    const { rerender } = render(
+      <KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />,
+    );
+
+    await waitFor(() => {
+      expect(auth.fetchUser).toHaveBeenCalled();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+    expect(screen.getByText("Ett konto behövs för att bygga hemsidan")).toBeTruthy();
+
+    auth.isAuthenticated = true;
+    auth.isInitialized = true;
+    rerender(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+
+    await waitFor(() => {
+      expect(projects.createProject).toHaveBeenCalledTimes(1);
+    });
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
+  it("öppnar inloggning efter e-postretur när sessionen saknas", async () => {
+    persistPendingInitBuild({
+      slug: "zax-2-0-ab",
+      wizardData: fixtures.f1Wizard,
+      ready: true,
+    });
+    auth.isAuthenticated = false;
+    auth.isInitialized = false;
+
+    const { rerender } = render(
+      <KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />,
+    );
+
+    await waitFor(() => {
+      expect(auth.fetchUser).toHaveBeenCalled();
+    });
+
+    auth.isInitialized = true;
+    rerender(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Logga in för att bygga hemsidan")).toBeTruthy();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+  });
 });
 
 describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
@@ -405,6 +467,8 @@ describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
     fixtures.completeWith = "preview";
     auth.isAuthenticated = true;
     auth.isInitialized = true;
+    auth.fetchUser.mockReset();
+    auth.fetchUser.mockResolvedValue(undefined);
     router.push.mockReset();
     projects.createProject.mockReset();
     clearPendingInitBuildStorageForTests();
