@@ -362,8 +362,8 @@ export async function shouldPromoteAfterRepair(params: {
    * Optional ABSOLUTE deadline (ms) by which the verify must have aborted. The
    * manual-repair final gate passes a budget-derived value so a late verify
    * aborts before the route's `maxDuration` and the lease is always released
-   * (Codex P1 #286). Undefined = static verify timeout (back-compat;
-   * server-verify passes nothing).
+   * (Codex P1 #286). Server-verify threads the same option from the
+   * repair-loop final gate. Undefined = static verify timeout (back-compat).
    */
   verifyDeadlineEpochMs?: number;
 }): Promise<PostRepairGateDecision> {
