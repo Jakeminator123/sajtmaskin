@@ -7,7 +7,7 @@ vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
   return { ...actual, safeFetch };
 });
 
-import { GITHUB_IMPORT_USER_AGENT } from "./import-init-contract";
+import { GITHUB_IMPORT_USER_AGENT, MAX_GITHUB_TREE_SEGMENTS } from "./import-init-contract";
 import { ImportInitError } from "./github-import-errors";
 import {
   assertPrivateGithubAccess,
@@ -111,6 +111,19 @@ describe("resolveGithubImport", () => {
     ).rejects.toMatchObject({
       code: "github_subdir_unsupported",
     });
+  });
+
+  it("rejects a long /tree/a/b/c/... URL before any GitHub request", async () => {
+    const segments = Array.from({ length: MAX_GITHUB_TREE_SEGMENTS + 1 }, (_, index) => `s${index}`);
+    await expect(
+      resolveGithubImport({
+        url: `https://github.com/acme/site/tree/${segments.join("/")}`,
+      }),
+    ).rejects.toMatchObject({
+      code: "github_url_invalid",
+      step: "parse",
+    });
+    expect(safeFetch).not.toHaveBeenCalled();
   });
 
   it("does not treat a metadata 404 as a missing branch", async () => {

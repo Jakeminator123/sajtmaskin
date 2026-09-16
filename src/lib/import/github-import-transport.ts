@@ -2,6 +2,7 @@ import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 import { ImportInitError } from "./github-import-errors";
 import {
   GITHUB_IMPORT_USER_AGENT,
+  MAX_GITHUB_REF_LENGTH,
   MAX_REMOTE_ARCHIVE_BYTES,
   type ImportErrorCode,
 } from "./import-init-contract";
@@ -207,8 +208,16 @@ export async function resolveGithubImport(params: {
 }): Promise<ResolvedGithubImport> {
   const parsed = parseGithubImportUrl(params.url);
   const repo = { owner: parsed.owner, repo: parsed.repo };
-  const meta = await fetchGithubRepoMeta(repo, params.token);
   const explicit = params.explicitBranch?.trim() ?? "";
+  if (explicit.length > MAX_GITHUB_REF_LENGTH) {
+    throw new ImportInitError({
+      message: "GitHub-branchen eller sökvägen är för lång.",
+      code: "github_url_invalid",
+      step: "parse",
+      status: 400,
+    });
+  }
+  const meta = await fetchGithubRepoMeta(repo, params.token);
 
   if (parsed.kind === "commit" && !explicit) {
     return {

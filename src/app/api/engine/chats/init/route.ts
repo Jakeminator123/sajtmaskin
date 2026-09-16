@@ -31,6 +31,8 @@ import {
   resolveGithubImport,
 } from "@/lib/import/github-import-transport";
 import {
+  MAX_GITHUB_IMPORT_URL_LENGTH,
+  MAX_GITHUB_REF_LENGTH,
   MAX_REMOTE_ARCHIVE_BYTES,
   type ImportInitPreview,
   type ImportInitSuccess,
@@ -42,8 +44,8 @@ const initChatSchema = z.object({
   source: z.union([
     z.object({
       type: z.literal("github"),
-      url: z.string().url("Invalid GitHub URL"),
-      branch: z.string().optional(),
+      url: z.string().url("Invalid GitHub URL").max(MAX_GITHUB_IMPORT_URL_LENGTH),
+      branch: z.string().max(MAX_GITHUB_REF_LENGTH).optional(),
       preferZip: z.boolean().optional(),
     }),
     z.object({

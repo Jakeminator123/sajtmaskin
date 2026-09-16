@@ -69,6 +69,7 @@ vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
 });
 
 import { POST } from "./route";
+import { MAX_GITHUB_TREE_SEGMENTS } from "@/lib/import/import-init-contract";
 
 describe("POST /api/engine/chats/init", () => {
   beforeEach(() => {
@@ -466,5 +467,29 @@ describe("POST /api/engine/chats/init", () => {
         }),
       }),
     );
+  });
+
+  it("rejects a long /tree/a/b/c/... GitHub URL before any GitHub request", async () => {
+    const segments = Array.from({ length: MAX_GITHUB_TREE_SEGMENTS + 1 }, (_, index) => `s${index}`);
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: {
+            type: "github",
+            url: `https://github.com/acme/site/tree/${segments.join("/")}`,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "github_url_invalid",
+      step: "parse",
+    });
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(createChat).not.toHaveBeenCalled();
   });
 });

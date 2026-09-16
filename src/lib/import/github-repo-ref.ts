@@ -1,4 +1,9 @@
 import { ImportInitError } from "./github-import-errors";
+import {
+  MAX_GITHUB_IMPORT_URL_LENGTH,
+  MAX_GITHUB_REF_LENGTH,
+  MAX_GITHUB_TREE_SEGMENTS,
+} from "./import-init-contract";
 
 export type GithubRepoRef = {
   owner: string;
@@ -57,10 +62,41 @@ export function parseGithubRepo(repoUrl: string): GithubRepoRef | null {
  * Parse a GitHub web/clone URL. Tree segments stay complete so
  * `feature/new-ui` is not truncated to `feature`.
  */
+function assertBoundedGithubPath(pathSegments: string[]): void {
+  if (pathSegments.length > MAX_GITHUB_TREE_SEGMENTS) {
+    throw new ImportInitError({
+      message:
+        "GitHub-adressen har för många sökvägsdelar. Ange repository-roten eller en kort branch.",
+      code: "github_url_invalid",
+      step: "parse",
+      status: 400,
+    });
+  }
+  const joined = pathSegments.join("/");
+  if (joined.length > MAX_GITHUB_REF_LENGTH) {
+    throw new ImportInitError({
+      message: "GitHub-branchen eller sökvägen är för lång.",
+      code: "github_url_invalid",
+      step: "parse",
+      status: 400,
+    });
+  }
+}
+
 export function parseGithubImportUrl(inputUrl: string): ParsedGithubImportUrl {
+  const trimmed = inputUrl.trim();
+  if (trimmed.length > MAX_GITHUB_IMPORT_URL_LENGTH) {
+    throw new ImportInitError({
+      message: "GitHub-adressen är för lång.",
+      code: "github_url_invalid",
+      step: "parse",
+      status: 400,
+    });
+  }
+
   let url: URL;
   try {
-    url = new URL(inputUrl.trim());
+    url = new URL(trimmed);
   } catch {
     throw new ImportInitError({
       message: "Ogiltig GitHub-adress.",
@@ -105,6 +141,7 @@ export function parseGithubImportUrl(inputUrl: string): ParsedGithubImportUrl {
     if (pathSegments.length === 0) {
       return { ok: true, owner, repo, kind: "root" };
     }
+    assertBoundedGithubPath(pathSegments);
     return { ok: true, owner, repo, kind: "tree", pathSegments };
   }
 
@@ -130,6 +167,7 @@ export function parseGithubImportUrl(inputUrl: string): ParsedGithubImportUrl {
 }
 
 export function candidateRefPrefixes(pathSegments: string[]): string[] {
+  assertBoundedGithubPath(pathSegments);
   const prefixes: string[] = [];
   for (let end = pathSegments.length; end >= 1; end -= 1) {
     prefixes.push(pathSegments.slice(0, end).join("/"));

@@ -8,6 +8,11 @@
 
 export const GITHUB_IMPORT_USER_AGENT = "Sajtmaskin-Import/1.0 (+https://sajtmaskin.se)";
 
+/** Hard cap so a /tree/a/b/c/... URL cannot fan out into unbounded GitHub probes. */
+export const MAX_GITHUB_IMPORT_URL_LENGTH = 512;
+export const MAX_GITHUB_REF_LENGTH = 244;
+export const MAX_GITHUB_TREE_SEGMENTS = 8;
+
 /** Conservative local JSON/base64 upload limit (Vercel Function body ~4.5 MB). */
 export const MAX_LOCAL_ZIP_UPLOAD_BYTES = 2.5 * 1024 * 1024;
 
