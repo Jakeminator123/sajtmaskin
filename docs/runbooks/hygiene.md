@@ -85,12 +85,16 @@ Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är
 
 | Yta             | Policy                                                                                                                                                                                                                                       |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/preview` eller `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                    |
+| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/preview` eller `origin/master`. Omergat = pågående arbete, rörs inte. En branch som fortfarande är utcheckad i en **levande** worktree behålls. Misslyckad `branch -D` loggas. |
 | Skyddade namn   | `master`, `main`, `preview`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                                               |
-| Worktrees       | `git worktree prune` på avregistrerade poster, plus en **klassning av levande worktrees**: varje sekundär yta rapporteras som `FRI` eller `behåll` med skäl. `tidy` raderar aldrig en katalog — det gör `npm run worktree:remove`. Se nedan. |
+| Worktrees       | Först `git worktree prune` på porcelain-rader `prunable` **eller** `prunable <orsak>` (Git skriver orsaken på samma rad). Därefter klassas **levande** ytor som `FRI` eller `behåll`. Spökposter körs inte genom `git status` — en borta-katalog såg annars ut som smutsig. `tidy` raderar aldrig en katalog — det gör `npm run worktree:remove`. |
 | `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                                                 |
 | `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna.                      |
 | Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                                      |
+
+Ordningen är medveten: **prune först, sedan branch-delete**. En spök-worktree
+(katalogen borta, Git har kvar posten) låser fortfarande branchen. Körs
+`branch -D` före prune failar delete och felet syntes tidigare inte.
 
 GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge`
 raderar normalt varje PR-mergad remote-branch. Lokala brancher och worktrees
