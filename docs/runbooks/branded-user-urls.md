@@ -156,3 +156,95 @@ Domänen blir kanonisk först när Vercels verify-endpoint returnerar `verified:
 ## Preview
 
 Preview-hosten behåller path-routing på `chatId`; ingen wildcard-/host-routing krävs. Alla publika preview-svar skickar `X-Robots-Tag: noindex, nofollow, noarchive` och `Cache-Control: private, no-store`.
+
+## A3 offline-bevis (2026-09-15)
+
+Kodfacit: `origin/preview` `712090882`. Redirect-flaggan
+`SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` är default av. Identitet och
+`NEXT_PUBLIC_SITE_URL` kommer från verifierad projektidentitet även när
+flaggan och SEO-copy är av. Unik per-deployment `*.vercel.app` och
+plattformshost (`preview.sajtmaskin.se`, `sites.sajtmaskin.se` som parent)
+blir inte SITE_URL. Egen verifierad domän vinner över branded last-working.
+Okänd provider-/HTTPS-status behåller last-working 3-label alias och
+promotar inte en oprövad custom-kandidat. Hanterad 307 är tillfällig
+(`permanent: false`) med `/:path*`. Rollback till same-host rensar bara vår
+hanterade 307/noindex. Äldre `example.com` i `app/layout.tsx`,
+`app/robots.ts` och `app/sitemap.ts` skrivs om vid publicering.
+
+Detta är enhetsbevis, inte HTTPS-bevis på en kundtestdeployment.
+
+## A4 dry-run (ingen `--apply`)
+
+Preview-DB är samma Postgres som produktion. Kopiera inte `.env.local` till
+ett worktree för att “bara kolla”. `--apply` ska kasta innan DB-skrivning.
+
+Lokalt, utan prod-DB:
+
+```powershell
+$env:SAJTMASKIN_BRANDED_LIVE_URLS = "true"
+# Utan SAJTMASKIN_LIVE_SITE_DOMAIN ska skriptet stanna före DB.
+npx tsx scripts/db/migrate-branded-live-urls.ts --limit=1
+npx tsx scripts/db/migrate-branded-live-urls.ts --apply --project-id=proj_x
+```
+
+När A4 får mandat att läsa prod-DB (fortfarande utan `--apply`):
+
+```powershell
+$env:SAJTMASKIN_BRANDED_LIVE_URLS = "true"
+$env:SAJTMASKIN_LIVE_SITE_DOMAIN = "sites.sajtmaskin.se"
+npx tsx scripts/db/migrate-branded-live-urls.ts --project-id=<app_projects.id> --production-deployment-id=<dpl_...> --limit=1
+```
+
+Utan `--production-deployment-id=` är senaste READY bara diagnostik.
+Utan `--project-id=` varnar skriptet `unbounded_limit_scan`. En verifierad
+`custom_domain` vinner i dry-run-rapporten; branded-aliaset ska inte bli
+primäradress. Idempotens är `idempotent` när samma branded host redan är
+verifierad. Rollbackplanen raderar inte den host en publicerad redirect
+redan pekar mot.
+
+## A3/A4 runtime-protokoll (ingen DNS-write)
+
+A1:s testhosts `pilot-a`/`pilot-b` finns redan med giltig HTTPS. Inga
+nya Vercel-alias, inga one.com-poster och inga `sajtmaskin.se`/`.com`-testdomäner
+i detta spår. Flaggan `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` förblir av
+tills steg 6 uttryckligen slås på i testshellet.
+
+Förberedelse (separat mandat, inte detta spår):
+
+1. Återanvänd `pilot-a.sites.sajtmaskin.se` → tesprojekt A.
+2. Återanvänd `pilot-b.sites.sajtmaskin.se` → tesprojekt B.
+3. Extern custom-testdomän som **inte** är `*.sajtmaskin.se` eller
+   `*.sajtmaskin.com`. Operatören måste ange det exakta värdnamnet.
+   Utan det stannar runtime-kedjan här.
+
+Runtime-kedja på tesprojekt A, efter att hostarna svarar HTTPS:
+
+1. **Branded.** Publicera den granskade versionen. Förvänta
+   `NEXT_PUBLIC_SITE_URL=https://pilot-a.sites.sajtmaskin.se`,
+   sitemap/robots/metadata mot samma origin, ingen 307 medan flaggan är av.
+2. **Egen domän.** Koppla den externa testdomänen (separat C2-mandat).
+   Publicera om **samma** Vercel production-version, inte senaste READY.
+   Förvänta custom som primärhost. Provider-host ska inte noindex:as som
+   primär.
+3. **Branded igen.** Ta bort/avverifiera custom. Publicera om samma
+   production-identitet. SITE_URL tillbaka till branded. Stale 307 mot
+   custom ska vara borta (ingen loop).
+4. **Metadata.** `metadataBase` / canonical / Open Graph-url = primärhost.
+   Primärhosten har inte `X-Robots-Tag: noindex`.
+5. **Sitemap.** `https://<primärhost>/sitemap.xml` listar primärorigin, inte
+   `example.com` och inte provider-host när custom/branded finns.
+6. **Provider-redirect.** I ett isolerat testshell:
+   `$env:SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT="true"`, publicera om.
+   `https://<provider-host>/sok?q=1` → **307** till
+   `https://<primärhost>/sok?q=1`. Inte 308. Inte annan projekthost. Inte
+   `preview.sajtmaskin.se`.
+7. **Rollback.** Slå av flaggan eller avverifiera den nya hosten. Publicera
+   om. Last-working primärhost ligger kvar. Hanterad 307 ersätts eller
+   rensas. Appflaggan ensam räcker inte om kundbygget fortfarande har
+   gammal `vercel.json`.
+8. **Inga loopar.** Provider → primär är envägs. Self-redirect och
+   redirect-loop i HTTPS-proof är `invalid`. After rollback: provider-host
+   får inte 307:a till en död custom som 307:ar tillbaka.
+
+Tesprojekt B (`pilot-b`) används bara för att bevisa att A:s redirect
+inte kan träffa B:s host.

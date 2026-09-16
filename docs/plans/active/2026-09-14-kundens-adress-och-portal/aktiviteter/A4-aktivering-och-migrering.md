@@ -2,9 +2,14 @@
 
 ## Genomförandestatus 2026-09-15
 
-**Inte levererad.** Ingen aliasbindning, ingen `--apply`, ingen branded
-live-URL. A3:s kodflagga öppnar inte A4. A1:s DNS-del är levererad; A4 väntar
-nu på A3:s runtimebevis och ett konkret driftmandat.
+**Inte levererad. Dry-run-kontraktet är offline-klart.** Ingen
+aliasbindning, ingen `--apply`, ingen branded live-URL. A3:s kodflagga
+öppnar inte A4. Skriptet väljer inte längre senaste READY som mål; utan
+`--production-deployment-id=` loggas den raden bara som diagnostik.
+Eligibility, explicit `--project-id=`, idempotens och rollbackplan finns som
+rena funktioner. Preview-DB är delad prod — kör inte skriptet mot den utan
+mandat. A1:s DNS-del är levererad (`pilot-a`/`pilot-b`); A4 väntar nu på
+A3:s runtimebevis och ett konkret driftmandat.
 
 Område: [01](../01-varumarkta-adresser.md). Drift efter A1:s DNS-del, A2 och A3.
 Behörig operatör eller agent utför med konkret mandat. Denna plan-PR ändrar inget
