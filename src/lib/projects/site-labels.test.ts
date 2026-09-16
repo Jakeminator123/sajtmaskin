@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { addressKindHelp, addressKindLabel, publishStateLabel } from "./site-labels";
+import {
+  addressKindHelp,
+  addressKindLabel,
+  cardAddressText,
+  publishStateLabel,
+} from "./site-labels";
 import type { SiteAddressKind, SitePublishState } from "./project-client";
 
 describe("addressKindLabel / addressKindHelp", () => {
@@ -27,6 +32,25 @@ describe("addressKindLabel / addressKindHelp", () => {
     for (const kind of kinds) {
       expect(addressKindLabel(kind)).toBeTruthy();
     }
+  });
+});
+
+describe("cardAddressText", () => {
+  it("shows the host when a live URL exists", () => {
+    expect(
+      cardAddressText({ liveUrl: "https://butik.example/se", kind: "custom" }),
+    ).toBe("butik.example");
+  });
+
+  it("falls back to the kind label when nothing is published", () => {
+    expect(cardAddressText({ liveUrl: null, kind: "none" })).toBe("Ingen adress än");
+  });
+
+  it("does not rewrite a provider host into customer-owned copy", () => {
+    expect(
+      cardAddressText({ liveUrl: "https://proj-abc.vercel.app", kind: "provider" }),
+    ).toBe("proj-abc.vercel.app");
+    expect(addressKindLabel("provider")).toBe("Teknisk adress");
   });
 });
 
