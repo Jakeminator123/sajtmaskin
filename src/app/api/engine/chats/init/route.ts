@@ -366,6 +366,7 @@ export async function POST(req: Request) {
             outcomeError,
           );
         }
+        previewUrl = null;
         preview = {
           status: "failed",
           runtimeReady: false,

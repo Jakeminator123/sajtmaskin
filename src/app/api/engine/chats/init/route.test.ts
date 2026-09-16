@@ -563,6 +563,7 @@ describe("POST /api/engine/chats/init", () => {
       chatId: "chat_import",
       projectId: "proj_import",
       versionId: "ver_import",
+      previewUrl: null,
       preview: { status: "failed", retryable: true },
     });
     expect(commitCredits).toHaveBeenCalled();
@@ -592,13 +593,16 @@ describe("POST /api/engine/chats/init", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
+    const json = await response.json();
+    expect(json).toMatchObject({
       success: true,
       chatId: "chat_import",
       projectId: "proj_import",
       versionId: "ver_import",
+      previewUrl: null,
       preview: { status: "failed", retryable: true },
     });
+    expect(json.previewUrl).toBeNull();
     expect(commitCredits).toHaveBeenCalled();
   });
 });
