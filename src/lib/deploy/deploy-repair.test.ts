@@ -47,6 +47,7 @@ describe("runDeployBuildRepair", () => {
     const result = await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       vercelDeploymentId: "dpl_1",
       fallbackMessage: "fallback",
     });
@@ -62,6 +63,10 @@ describe("runDeployBuildRepair", () => {
     expect(call.force).toBe(true);
     expect(typeof call.repairDeadlineEpochMs).toBe("number");
     expect(call.buildError.stage).toBe("vercel-deploy");
+    expect(call.repairProvenance).toEqual({
+      origin: "deploy-repair",
+      deploymentId: "dep_1",
+    });
   });
 
   it("uses the fetched Vercel build-log text as repair context when available", async () => {
@@ -70,6 +75,7 @@ describe("runDeployBuildRepair", () => {
     await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       vercelDeploymentId: "dpl_1",
       fallbackMessage: "fallback message",
     });
@@ -84,6 +90,7 @@ describe("runDeployBuildRepair", () => {
     await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       vercelDeploymentId: null,
       fallbackMessage: "fallback message",
     });
@@ -103,6 +110,7 @@ describe("runDeployBuildRepair", () => {
     const result = await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       fallbackMessage: "fallback",
     });
     expect(result.status).toBe("repairing");
@@ -117,6 +125,7 @@ describe("runDeployBuildRepair", () => {
     const result = await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       fallbackMessage: "fallback",
     });
     expect(result.status).toBe("superseded");
@@ -127,6 +136,7 @@ describe("runDeployBuildRepair", () => {
     const result = await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       fallbackMessage: "fallback",
     });
     expect(result.status).toBe("failed");
@@ -137,6 +147,7 @@ describe("runDeployBuildRepair", () => {
     const result = await runDeployBuildRepair({
       chatId: "chat_1",
       versionId: "ver_1",
+      deploymentId: "dep_1",
       fallbackMessage: "fallback",
     });
     expect(result.status).toBe("unavailable");

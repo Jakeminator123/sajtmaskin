@@ -5,6 +5,7 @@ import {
   interpretProductPostcheckClaim,
   interpretProductPostcheckLogs,
   interpretProductPostcheckSummaryRead,
+  isNonBlockingPreviewBootResult,
   isRetryableProductPostcheckVerdict,
   isUnattestedProductPostcheckVerdictWriteAllowed,
   productPostcheckF3GateReason,
@@ -90,6 +91,32 @@ describe("Product Postcheck verdict (L2)", () => {
     ).toBe("passed");
     expect(f3MayReleaseOnVerdict("passed")).toBe(true);
     expect(productPostcheckF3GateReason("passed")).toBeNull();
+  });
+
+  it("icke-blockerande preview_boot_page är pending — aldrig pass (SM-077)", () => {
+    const boot = result({
+      warnings: [{ code: "preview_boot_page", message: "boot" }],
+      warningCount: 1,
+      productBlocked: false,
+    });
+    expect(isNonBlockingPreviewBootResult(boot)).toBe(true);
+    expect(verdictFromProductPostcheckResult(boot)).toBe("pending");
+    expect(f3MayReleaseOnVerdict("pending")).toBe(false);
+    expect(
+      isNonBlockingPreviewBootResult(
+        result({
+          warnings: [{ code: "preview_boot_page", message: "boot" }],
+          productBlocked: true,
+        }),
+      ),
+    ).toBe(false);
+    const noWarnings = {
+      skipped: false,
+      productBlocked: false,
+      attestation: ATTESTATION,
+    } as ProductPostcheckResult;
+    expect(isNonBlockingPreviewBootResult(noWarnings)).toBe(false);
+    expect(verdictFromProductPostcheckResult(noWarnings)).toBe("passed");
   });
 
   it("(g) superseded är retrybar — aldrig pass", () => {

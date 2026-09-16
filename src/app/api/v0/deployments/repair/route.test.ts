@@ -46,6 +46,28 @@ vi.mock("@/lib/deploy/deploy-repair", () => ({
 }));
 
 const { POST } = await import("./route");
+const {
+  DEPLOY_REPAIR_ORIGIN,
+  encodeRepairedFilesEnvelope,
+} = await import("@/lib/db/repair-files-payload");
+
+const REPAIR_BASE = '[{"path":"app/page.tsx","content":"A"}]';
+const REPAIR_FILES = '[{"path":"app/page.tsx","content":"A-fixed"}]';
+
+function stampedDeployRepair(deploymentId: string): string {
+  return encodeRepairedFilesEnvelope({
+    repairedFilesJson: REPAIR_FILES,
+    baseFilesJson: REPAIR_BASE,
+    provenance: { origin: DEPLOY_REPAIR_ORIGIN, deploymentId },
+  });
+}
+
+function previewOnlyRepair(): string {
+  return encodeRepairedFilesEnvelope({
+    repairedFilesJson: REPAIR_FILES,
+    baseFilesJson: REPAIR_BASE,
+  });
+}
 
 function repairRequest(body: Record<string, unknown>): Request {
   return new Request("http://localhost/api/v0/deployments/repair", {
@@ -94,6 +116,7 @@ describe("POST /api/v0/deployments/repair", () => {
       expect.objectContaining({
         chatId: "chat_1",
         versionId: "ver_1",
+        deploymentId: "dep_1",
         vercelDeploymentId: "dpl_1",
       }),
     );
@@ -119,7 +142,7 @@ describe("POST /api/v0/deployments/repair", () => {
     );
   });
 
-  it("is idempotent: a second call on an already-repaired version is a no-op", async () => {
+  it("is idempotent only when the pending repair is stamped for this deployment", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1", project_id: "proj_1" },
       version: {
@@ -127,6 +150,7 @@ describe("POST /api/v0/deployments/repair", () => {
         chat_id: "chat_1",
         verification_state: "repair_available",
         verification_summary: "Server repair passed quality gate.",
+        repaired_files_json: stampedDeployRepair("dep_1"),
       },
     });
 
@@ -135,8 +159,45 @@ describe("POST /api/v0/deployments/repair", () => {
     const json = (await res.json()) as { status?: string; alreadyAvailable?: boolean };
     expect(json.status).toBe("repair_available");
     expect(json.alreadyAvailable).toBe(true);
-    // No second repair run.
     expect(runDeployBuildRepair).not.toHaveBeenCalled();
+  });
+
+  it("does not treat version-global repair_available as proof for this deployment", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: {
+        id: "ver_1",
+        chat_id: "chat_1",
+        verification_state: "repair_available",
+        verification_summary: "Preview repair awaiting acceptance.",
+        repaired_files_json: previewOnlyRepair(),
+      },
+    });
+
+    const res = await POST(repairRequest({ chatId: "chat_1", versionId: "ver_1", deploymentId: "dep_1" }));
+    expect(res.status).toBe(200);
+    expect(runDeployBuildRepair).toHaveBeenCalledTimes(1);
+    expect(runDeployBuildRepair).toHaveBeenCalledWith(
+      expect.objectContaining({ deploymentId: "dep_1", versionId: "ver_1" }),
+    );
+    const json = (await res.json()) as { alreadyAvailable?: boolean };
+    expect(json.alreadyAvailable).toBeUndefined();
+  });
+
+  it("reruns repair when an existing stamp belongs to a different failed deployment", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1", project_id: "proj_1" },
+      version: {
+        id: "ver_1",
+        chat_id: "chat_1",
+        verification_state: "repair_available",
+        repaired_files_json: stampedDeployRepair("dep_OTHER"),
+      },
+    });
+
+    const res = await POST(repairRequest({ chatId: "chat_1", versionId: "ver_1", deploymentId: "dep_1" }));
+    expect(res.status).toBe(200);
+    expect(runDeployBuildRepair).toHaveBeenCalledTimes(1);
   });
 
   it("returns 404 for a version/chat not owned by the requester (tenant guard)", async () => {
