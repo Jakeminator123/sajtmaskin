@@ -950,13 +950,17 @@ describe("check workflow provenance", () => {
     expect(state.requiredCollisions).toEqual([]);
   });
 
-  it("klassar äldre success och cancelled same-SHA-runs som stale när senare owned run är grön", async () => {
-    const ciNames = ["quality", "build", "schema-drift", "backoffice-tests"] as const;
+  it("klassar live #1418 same-SHA CI-runs som stale och väljer senaste PR-ägda run", async () => {
+    // Live snapshot 2026-09-16: #1418 head a7ae0b0e… är också preview-tipp, så
+    // samma SHA har ci.yml på push plus tre pull_request-runs.
+    const liveHead = "a7ae0b0e60914c81e575e31694932150de3a8cc9";
+    const livePr = 1418;
     const makeCheck = (
       name: string,
       id: number,
       suiteId: number,
-      created: number,
+      startedAt: string,
+      completedAt: string,
       conclusion: string,
     ) =>
       run(name, {
@@ -964,103 +968,133 @@ describe("check workflow provenance", () => {
         check_suite: { id: suiteId },
         status: "completed",
         conclusion,
-        started_at: at(created),
-        completed_at: at(created + 10),
+        started_at: startedAt,
+        completed_at: completedAt,
         provenance: undefined,
       });
     const makeJob = (
       name: string,
       jobId: number,
       checkId: number,
-      created: number,
+      startedAt: string,
+      completedAt: string,
       conclusion: string,
     ) => ({
       id: jobId,
       name,
       status: "completed",
       conclusion,
-      started_at: at(created),
-      completed_at: at(created + 10),
+      started_at: startedAt,
+      completed_at: completedAt,
       steps: [{ name: "Complete job" }],
       check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
     });
+    const prAssociation = [{ number: livePr, head: { sha: liveHead } }];
+    const pushCi = {
+      ...canonicalWorkflowRun(),
+      id: 35102262613,
+      check_suite_id: 95059190323,
+      event: "push",
+      head_sha: liveHead,
+      head_branch: "preview",
+      pull_requests: [],
+      created_at: "2026-09-16T13:29:39Z",
+      status: "completed",
+      conclusion: "success",
+    };
     const oldCi = {
       ...canonicalWorkflowRun(),
       id: 35102323454,
-      check_suite_id: 801,
-      created_at: at(100),
+      check_suite_id: 95059354684,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:30:12Z",
       status: "completed",
       conclusion: "success",
     };
     const cancelledCi = {
       ...canonicalWorkflowRun(),
       id: 35104111053,
-      check_suite_id: 802,
-      created_at: at(200),
+      check_suite_id: 95064472557,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:46:44Z",
       status: "completed",
       conclusion: "cancelled",
-      pull_requests: [],
     };
     const newCi = {
       ...canonicalWorkflowRun(),
       id: 35104112661,
-      check_suite_id: 803,
-      created_at: at(201),
+      check_suite_id: 95064477804,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:46:45Z",
       status: "completed",
       conclusion: "success",
     };
     const dossierOwner = {
       path: ".github/workflows/dossier-acceptance.yml",
       event: "pull_request",
-      head_sha: HEAD,
+      head_sha: liveHead,
       repository: { full_name: REPOSITORY },
-      pull_requests: [{ number: 1, head: { sha: HEAD } }],
+      pull_requests: prAssociation,
       run_attempt: 1,
     };
     const oldDossier = {
       ...dossierOwner,
       id: 35102323443,
-      check_suite_id: 901,
-      created_at: at(100),
+      check_suite_id: 95059354650,
+      created_at: "2026-09-16T13:30:12Z",
       status: "completed",
       conclusion: "success",
     };
     const cancelledDossier = {
       ...dossierOwner,
       id: 35104111068,
-      check_suite_id: 902,
-      created_at: at(200),
+      check_suite_id: 95064472638,
+      created_at: "2026-09-16T13:46:44Z",
       status: "completed",
       conclusion: "cancelled",
     };
     const newDossier = {
       ...dossierOwner,
       id: 35104112455,
-      check_suite_id: 903,
-      created_at: at(200),
+      check_suite_id: 95064477189,
+      created_at: "2026-09-16T13:46:45Z",
       status: "completed",
       conclusion: "success",
     };
     const rawChecks = [
-      ...ciNames.map((name, index) => makeCheck(name, 101 + index, 801, 100, "success")),
-      ...ciNames.map((name, index) => makeCheck(name, 201 + index, 802, 200, "cancelled")),
-      ...ciNames.map((name, index) => makeCheck(name, 301 + index, 803, 201, "success")),
-      makeCheck("dossier-acceptance", 401, 901, 100, "success"),
-      makeCheck("dossier-acceptance", 402, 902, 200, "cancelled"),
-      makeCheck("dossier-acceptance", 403, 903, 200, "success"),
+      makeCheck("quality", 104824971213, 95064477804, "2026-09-16T13:58:06Z", "2026-09-16T13:58:09Z", "success"),
+      makeCheck("build", 104820896568, 95064477804, "2026-09-16T13:47:13Z", "2026-09-16T13:49:25Z", "success"),
+      makeCheck("schema-drift", 104820896591, 95064477804, "2026-09-16T13:47:13Z", "2026-09-16T13:47:54Z", "success"),
+      makeCheck("backoffice-tests", 104820896580, 95064477804, "2026-09-16T13:47:14Z", "2026-09-16T13:48:50Z", "success"),
+      makeCheck("quality", 104820746495, 95064472557, "2026-09-16T13:46:47Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("build", 104820743395, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("schema-drift", 104820743427, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("backoffice-tests", 104820742908, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("quality", 104819009866, 95059354684, "2026-09-16T13:42:12Z", "2026-09-16T13:42:15Z", "success"),
+      makeCheck("build", 104814741385, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:32:56Z", "success"),
+      makeCheck("schema-drift", 104814741286, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:31:18Z", "success"),
+      makeCheck("backoffice-tests", 104814741340, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:32:15Z", "success"),
+      makeCheck("quality", 104818792119, 95059190323, "2026-09-16T13:41:37Z", "2026-09-16T13:41:40Z", "success"),
+      makeCheck("build", 104814511884, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:32:12Z", "success"),
+      makeCheck("schema-drift", 104814511990, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:30:46Z", "success"),
+      makeCheck("backoffice-tests", 104814511860, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:31:36Z", "success"),
+      makeCheck("dossier-acceptance", 104820892110, 95064477189, "2026-09-16T13:47:13Z", "2026-09-16T13:47:16Z", "success"),
+      makeCheck("dossier-acceptance", 104820742926, 95064472638, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("dossier-acceptance", 104814696012, 95059354650, "2026-09-16T13:30:34Z", "2026-09-16T13:30:37Z", "success"),
     ];
-    const jobsByRun = new Map<number, ReturnType<typeof makeJob>[]>([
-      [35102323454, ciNames.map((name, index) => makeJob(name, 8101 + index, 101 + index, 100, "success"))],
-      [35104111053, ciNames.map((name, index) => makeJob(name, 8201 + index, 201 + index, 200, "cancelled"))],
-      [35104112661, ciNames.map((name, index) => makeJob(name, 8301 + index, 301 + index, 201, "success"))],
-      [35102323443, [makeJob("dossier-acceptance", 8401, 401, 100, "success")]],
-      [35104111068, [makeJob("dossier-acceptance", 8402, 402, 200, "cancelled")]],
-      [35104112455, [makeJob("dossier-acceptance", 8403, 403, 200, "success")]],
-    ]);
+    const selectedCiJobs = [
+      makeJob("quality", 104824971213, 104824971213, "2026-09-16T13:58:06Z", "2026-09-16T13:58:09Z", "success"),
+      makeJob("build", 104820896568, 104820896568, "2026-09-16T13:47:13Z", "2026-09-16T13:49:25Z", "success"),
+      makeJob("schema-drift", 104820896591, 104820896591, "2026-09-16T13:47:13Z", "2026-09-16T13:47:54Z", "success"),
+      makeJob("backoffice-tests", 104820896580, 104820896580, "2026-09-16T13:47:14Z", "2026-09-16T13:48:50Z", "success"),
+    ];
     const client = {
       async request(path: string) {
         if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
-          return { workflow_runs: [oldCi, cancelledCi, newCi] };
+          return { workflow_runs: [pushCi, oldCi, cancelledCi, newCi] };
         }
         if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
           return { workflow_runs: [oldDossier, cancelledDossier, newDossier] };
@@ -1069,34 +1103,55 @@ describe("check workflow provenance", () => {
       },
       async paginate(path: string) {
         const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
-        if (jobsByRun.has(runId)) return jobsByRun.get(runId);
+        if (runId === 35104112661) return selectedCiJobs;
+        if (runId === 35104112455) {
+          return [
+            makeJob(
+              "dossier-acceptance",
+              104820892110,
+              104820892110,
+              "2026-09-16T13:47:13Z",
+              "2026-09-16T13:47:16Z",
+              "success",
+            ),
+          ];
+        }
         throw new Error(`unexpected paginate ${path}`);
       },
     };
     const enriched = await enrichCheckRunProvenance({
       client: client as never,
       checkRuns: rawChecks,
-      expectedHeadSha: HEAD,
-      prNumber: 1,
+      expectedHeadSha: liveHead,
+      prNumber: livePr,
       repository: REPOSITORY,
       policy: policy as never,
     });
     const provenanceOf = (id: number) =>
       enriched.find((check: { id?: unknown; provenance?: Record<string, unknown> }) => check.id === id)
         ?.provenance;
-    for (const id of [101, 102, 103, 104, 201, 202, 203, 204, 401, 402]) {
+    const staleIds = [
+      104818792119, 104814511884, 104814511990, 104814511860, 104819009866, 104814741385,
+      104814741286, 104814741340, 104820746495, 104820743395, 104820743427, 104820742908,
+      104814696012, 104820742926,
+    ];
+    const selectedIds = [104824971213, 104820896568, 104820896591, 104820896580, 104820892110];
+    for (const id of staleIds) {
       expect(provenanceOf(id)).toMatchObject({
         kind: "stale-workflow-job",
         valid: false,
         collision: false,
       });
     }
-    for (const id of [301, 302, 303, 304, 403]) {
+    for (const id of selectedIds) {
       expect(provenanceOf(id)).toMatchObject({
         valid: true,
         collision: false,
       });
     }
+    expect((provenanceOf(104824971213) as { workflowRun?: { id?: number } })?.workflowRun?.id).toBe(
+      35104112661,
+    );
     const state = evaluateHeadChecks(enriched, policy as never, TRUSTED_REVIEW);
     expect(state.requiredDone).toBe(true);
     expect(state.requiredCollisions).toEqual([]);
