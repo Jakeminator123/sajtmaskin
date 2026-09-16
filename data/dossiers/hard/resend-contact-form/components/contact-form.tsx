@@ -103,7 +103,14 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
   const notConfigured = state.kind === "not-configured";
 
   return (
-    <form className={className} onSubmit={handleSubmit} noValidate>
+    <form
+      className={className}
+      action="/api/contact"
+      method="POST"
+      data-integration-endpoint="/api/contact"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-foreground">Namn</span>

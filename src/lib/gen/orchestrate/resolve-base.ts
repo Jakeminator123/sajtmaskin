@@ -36,6 +36,7 @@ import type { PlannedRoute } from "../route-plan";
 import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
 import { buildOrchestrationContract } from "../orchestration-contract";
 import { deriveBuildSpec } from "../build-spec";
+import { isTargetedRepairPrompt } from "../build-spec/prompt-patterns";
 import { estimateCharsForTokens } from "../tokens";
 import { FEATURES } from "@/lib/config";
 import {
@@ -222,11 +223,18 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
-  const uiRecipesPromise = resolveShadcnUiRecipes({
-    capabilities,
-    prompt: intentSourcePrompt,
-    maxRecipes: 3,
-  }).catch(() => []);
+  // Targeted repair / AUTO-FIX must not pick new hero/testimonial recipes
+  // from the original brief words. Inspect the raw request only — wrapped
+  // `prompt` can carry previous-file dumps that mention "quality gate".
+  const repairIntentPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? prompt;
+  const freezeUiRecipesForRepair = isTargetedRepairPrompt(repairIntentPrompt);
+  const uiRecipesPromise = freezeUiRecipesForRepair
+    ? Promise.resolve([] as ShadcnUiRecipe[])
+    : resolveShadcnUiRecipes({
+        capabilities,
+        prompt: intentSourcePrompt,
+        maxRecipes: 3,
+      }).catch(() => []);
   let uiRecipes: ShadcnUiRecipe[] = [];
   let resolvedUiRecipes = false;
 

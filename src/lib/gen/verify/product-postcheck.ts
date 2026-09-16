@@ -258,6 +258,13 @@ type DomSnapshot = {
     ariaDisabled: boolean;
     demoOnly: boolean;
     text: string | null;
+    /**
+     * Integration endpoint declared on the form (`data-integration-endpoint`
+     * or an `/api/…` action). A fetch-backed contact form has no HTML action
+     * unless the dossier keeps this contract — without it postcheck flags
+     * `fake_form` even though `fetch("/api/contact")` is real.
+     */
+    integrationEndpoint?: string | null;
   }>;
 };
 
@@ -711,6 +718,27 @@ async function serverCtaBaselineFromResponse(
   return extractServerCtaBaseline(html);
 }
 
+function isInternalApiEndpoint(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  try {
+    const path = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? new URL(trimmed).pathname
+      : trimmed.split(/[?#]/)[0] ?? trimmed;
+    return path === "/api" || path.startsWith("/api/");
+  } catch {
+    return trimmed === "/api" || trimmed.startsWith("/api/");
+  }
+}
+
+/** Real integration (dossier contact form) vs empty demo surface. */
+export function formHasIntegrationAction(form: {
+  action?: string | null;
+  integrationEndpoint?: string | null;
+}): boolean {
+  return isInternalApiEndpoint(form.action) || isInternalApiEndpoint(form.integrationEndpoint);
+}
+
 function warning(
   code: ProductPostcheckWarningCode,
   message: string,
@@ -806,6 +834,7 @@ export function evaluateProductDomSnapshot(
   for (const form of snapshot.forms) {
     if (form.disabled || form.ariaDisabled || form.demoOnly) continue;
     if (form.action?.trim()) continue;
+    if (isInternalApiEndpoint(form.integrationEndpoint)) continue;
     if (form.hasSubmitControl) {
       warnings.push(
         warning("fake_form", "Formulär ser aktivt ut men saknar action/integration.", {
@@ -1708,6 +1737,7 @@ export async function runProductPostcheck(params: {
             ariaDisabled: form.getAttribute("aria-disabled") === "true",
             demoOnly: isDemoOnly(form),
             text: text(form),
+            integrationEndpoint: form.getAttribute("data-integration-endpoint"),
           })),
       };
     },

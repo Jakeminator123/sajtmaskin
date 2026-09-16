@@ -65,6 +65,10 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   // detector keeps flagging (same rationale as the AI SDK contract block).
   { match: /^render determinism/i, priority: 88, required: true },
   { match: /^required imports checklist$/i, priority: 83 },
+  // Nordlunden A1: short import/route-default contract. Dropping it under a
+  // compact follow-up budget reintroduces the 164-autofix waste this block
+  // exists to prevent. Same required treatment as render-determinism.
+  { match: /^app router module contract$/i, priority: 84, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },
   { match: /^selected dossier instructions$/i, priority: 84 },

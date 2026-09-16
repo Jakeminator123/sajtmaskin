@@ -90,10 +90,18 @@ export async function applyPreviewReadinessOutcome(params: {
     );
     if (decision.previewSuccess !== null) {
       const revision = params.bootedFilesRevision?.trim() || null;
-      if (revision) {
-        await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess, {
-          bootedFilesRevision: revision,
-        });
+      const stampOpts = {
+        ...(revision ? { bootedFilesRevision: revision } : {}),
+        ...(decision.previewSuccess === false && decision.buildError
+          ? { previewBlockingReason: decision.buildError }
+          : {}),
+      };
+      if (Object.keys(stampOpts).length > 0) {
+        await recordPreviewRuntimeOutcomeForVersion(
+          params.versionId,
+          decision.previewSuccess,
+          stampOpts,
+        );
       } else {
         await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess);
       }
@@ -225,6 +233,47 @@ export async function persistRegeneratedLockfileForVersion(
     console.warn("[preview-readiness] Failed to persist regenerated lockfile:", err);
     return false;
   }
+}
+
+/**
+ * Headless receipt for a freshly queued boot. Auth-eval chat `7723af5b`
+ * left `preview_success` and `preview_blocking_reason` null because
+ * `waitForReady` finished after finalize and no iframe polled
+ * preview-status. Poll the host until ready/failed, then reuse
+ * {@link applyPreviewReadinessOutcome}. No new drain.
+ */
+export async function pollAndApplyPreviewReadinessOutcome(params: {
+  chatId: string;
+  versionId: string;
+  previewSessionId: string;
+  bootedFilesRevision?: string | null;
+  expectedLifecycleToken?: string | null;
+  maxWaitMs?: number;
+  intervalMs?: number;
+}): Promise<PreviewReadinessDecision | null> {
+  const maxWaitMs = params.maxWaitMs ?? 180_000;
+  const intervalMs = params.intervalMs ?? 8_000;
+  const startedAt = Date.now();
+  const { fetchPreviewHostReadinessVerdict } = await import("./preview-host-client");
+
+  while (Date.now() - startedAt <= maxWaitMs) {
+    const verdict = await fetchPreviewHostReadinessVerdict(params.previewSessionId, {
+      expectedVersionId: params.versionId,
+      expectedLifecycleToken: params.expectedLifecycleToken ?? null,
+    }).catch(() => null);
+    if (verdict?.readinessState === "ready" || verdict?.readinessState === "failed") {
+      return applyPreviewReadinessOutcome({
+        chatId: params.chatId,
+        versionId: params.versionId,
+        bootedFilesRevision: params.bootedFilesRevision,
+        resumed: verdict,
+      });
+    }
+    const remaining = maxWaitMs - (Date.now() - startedAt);
+    if (remaining <= 0) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(intervalMs, remaining)));
+  }
+  return null;
 }
 
 /** Test-only reset of the per-instance persist + failure-log guards. */

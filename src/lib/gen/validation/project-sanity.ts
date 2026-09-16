@@ -281,6 +281,72 @@ function routePatternMatches(pattern: string[], segments: string[]): boolean {
  * `next.config` rewrite or a proxy could still serve a path with no local
  * handler, and a false `error` here would block an otherwise shippable build.
  */
+function findMatchingPair(
+  content: string,
+  openIdx: number,
+  open: string,
+  close: string,
+): number {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | null = null;
+  let escaped = false;
+  for (let i = openIdx; i < content.length; i++) {
+    const ch = content[i];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === open) depth += 1;
+    else if (ch === close) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Argument spans of `createRouteMatcher(...)` — including multiline
+ * Clerk arrays. Literals inside these spans are matcher config, not fetches.
+ */
+function findCreateRouteMatcherArgRanges(
+  content: string,
+): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+  const needle = /\bcreateRouteMatcher\b/g;
+  let found: RegExpExecArray | null;
+  while ((found = needle.exec(content)) !== null) {
+    let i = found.index + found[0].length;
+    while (i < content.length && /\s/.test(content[i] ?? "")) i += 1;
+    if (content[i] !== "(") continue;
+    const end = findMatchingPair(content, i, "(", ")");
+    if (end < 0) continue;
+    ranges.push({ start: i, end });
+    needle.lastIndex = end + 1;
+  }
+  return ranges;
+}
+
+function lineContaining(content: string, index: number): string {
+  const start = content.lastIndexOf("\n", index - 1) + 1;
+  let end = content.indexOf("\n", index);
+  if (end < 0) end = content.length;
+  if (end > start && content[end - 1] === "\r") end -= 1;
+  return content.slice(start, end);
+}
+
 function collectDanglingInternalApiReferences(files: CodeFile[]): SanityIssue[] {
   const patterns = collectApiRoutePatterns(files);
   const issues: SanityIssue[] = [];
@@ -289,28 +355,32 @@ function collectDanglingInternalApiReferences(files: CodeFile[]): SanityIssue[] 
   for (const file of files) {
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
     if (APP_ROUTE_HANDLER_RE.test(file.path.replace(/\\/g, "/"))) continue;
-    for (const line of file.content.split(/\r?\n/)) {
-      if (isCommentLine(line)) continue;
-      for (const match of line.matchAll(INTERNAL_API_LITERAL_RE)) {
-        const raw = match[1];
-        if (raw.includes("${")) continue;
-        const apiPath = normalizeApiPath(raw);
-        if (RUNTIME_PROVIDED_API_PATHS.has(apiPath)) continue;
-        const segments = apiPath.split("/").filter(Boolean);
-        if (patterns.some((pattern) => routePatternMatches(pattern, segments))) continue;
-        const key = `${file.path}|${apiPath}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        issues.push(
-          createSanityIssue(
-            file.path,
-            "warning",
-            `References the internal API path "${apiPath}" but no route handler serves it (expected app/${segments.join("/")}/route.ts). The call will 404 at runtime.`,
-            "non_blocking_quality_warning",
-            `dangling-api-route:${apiPath}`,
-          ),
-        );
+    const matcherArgRanges = findCreateRouteMatcherArgRanges(file.content);
+    INTERNAL_API_LITERAL_RE.lastIndex = 0;
+    for (const match of file.content.matchAll(INTERNAL_API_LITERAL_RE)) {
+      const raw = match[1];
+      const index = match.index ?? 0;
+      if (raw.includes("${")) continue;
+      if (isCommentLine(lineContaining(file.content, index))) continue;
+      if (matcherArgRanges.some((range) => index >= range.start && index <= range.end)) {
+        continue;
       }
+      const apiPath = normalizeApiPath(raw);
+      if (RUNTIME_PROVIDED_API_PATHS.has(apiPath)) continue;
+      const segments = apiPath.split("/").filter(Boolean);
+      if (patterns.some((pattern) => routePatternMatches(pattern, segments))) continue;
+      const key = `${file.path}|${apiPath}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      issues.push(
+        createSanityIssue(
+          file.path,
+          "warning",
+          `References the internal API path "${apiPath}" but no route handler serves it (expected app/${segments.join("/")}/route.ts). The call will 404 at runtime.`,
+          "non_blocking_quality_warning",
+          `dangling-api-route:${apiPath}`,
+        ),
+      );
     }
   }
   return issues;

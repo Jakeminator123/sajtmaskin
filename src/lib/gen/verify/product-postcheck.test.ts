@@ -532,6 +532,32 @@ describe("evaluateProductDomSnapshot", () => {
     });
   });
 
+  it("does not report a contact form that posts to /api/contact", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [],
+        forms: [
+          {
+            id: "contact",
+            action: "/api/contact",
+            method: "post",
+            hasSubmitControl: true,
+            disabled: false,
+            ariaDisabled: false,
+            demoOnly: false,
+            text: "Skicka meddelande",
+          },
+        ],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).not.toContain("fake_form");
+    expect(evaluation.productBlocked).toBe(false);
+  });
+
   it("reports fake forms", () => {
     const evaluation = evaluateProductDomSnapshot(
       {

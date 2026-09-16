@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  renderAppRouterModuleContractBlock,
   renderRequiredImportsChecklistBlock,
   renderLucideIconsReminderBlock,
   __testing,
@@ -119,6 +120,49 @@ describe("renderRequiredImportsChecklistBlock", () => {
     for (const baseline of __testing.BASELINE_GROUPS) {
       expect(groups).toContain(baseline);
     }
+  });
+});
+
+describe("renderAppRouterModuleContractBlock", () => {
+  /**
+   * Nordlunden jsx-checker classification (eval data lives in gitignored
+   * `övrigt/`; this table is the A1 receipt the prompt contract is allowed
+   * to encode):
+   *
+   * | Hit class              | Examples                         | Default export? |
+   * |------------------------|----------------------------------|-----------------|
+   * | App Router route/layout| `app/** /page.tsx`, `layout.tsx` | required        |
+   * | Named UI module        | SiteHeader, ContactForm, SiteFooter | named OK     |
+   *
+   * jsx-checker `fixMissingDefaultExport` also rewrote the named-UI class.
+   * This block must NOT tell the model every component file needs a default.
+   */
+  const block = () => renderAppRouterModuleContractBlock().join("\n");
+
+  it("locks Button/Link/Badge/Label import completeness", () => {
+    expect(block()).toContain("## App Router module contract");
+    expect(block()).toMatch(/<Button>/);
+    expect(block()).toMatch(/<Link>/);
+    expect(block()).toMatch(/<Badge>/);
+    expect(block()).toMatch(/<Label>/);
+    expect(block()).toContain("next/link");
+  });
+
+  it("requires React/ReactNode imports on app/layout.tsx when used", () => {
+    expect(block()).toContain("app/layout.tsx");
+    expect(block()).toContain("ReactNode");
+    expect(block()).toContain('import type { ReactNode } from "react"');
+  });
+
+  it("requires export default only on page.tsx and layout.tsx", () => {
+    expect(block()).toContain("app/**/page.tsx");
+    expect(block()).toContain("app/**/layout.tsx");
+    expect(block()).toContain("exactly one `export default`");
+    expect(block()).toContain("MAY use named exports");
+    expect(block()).toContain("SiteHeader");
+    expect(block()).toContain("ContactForm");
+    expect(block()).toContain("SiteFooter");
+    expect(block()).not.toMatch(/every component file.*export default/i);
   });
 });
 
