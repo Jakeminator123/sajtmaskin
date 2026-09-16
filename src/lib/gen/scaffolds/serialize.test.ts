@@ -415,15 +415,37 @@ describe("resolveScaffoldSerializeMode", () => {
     ).toBe("inspirational");
   });
 
-  it("keeps a manual marketing scaffold inspirational on a normal init", () => {
+  it("keeps a manual landing-page or base-nextjs pick inspirational on a normal init", () => {
     expect(
       resolveScaffoldSerializeMode({
         generationMode: "init",
         contextPolicy: "normal",
         scaffoldMode: "manual",
+        scaffoldId: "landing-page",
         siteKind: "marketing",
       }),
     ).toBe("inspirational");
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "base-nextjs",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("makes a manual saas-landing pick structural even when context is normal", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        scaffoldId: "saas-landing",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
   });
 
   it("makes a manual commerce scaffold structural even when context is normal", () => {
@@ -432,6 +454,7 @@ describe("resolveScaffoldSerializeMode", () => {
         generationMode: "init",
         contextPolicy: "normal",
         scaffoldMode: "manual",
+        scaffoldId: "ecommerce",
         siteKind: "commerce",
       }),
     ).toBe("structural");
@@ -481,7 +504,8 @@ describe("structural serialize copy", () => {
       contextPolicy: "normal",
     });
 
-    expect(out).toContain("If the user explicitly chose this scaffold, keep its architecture");
+    expect(out).toContain("keep its architecture and required or Route-Plan-selected pages");
+    expect(out).toContain("do not resurrect routes omitted by the Route Plan");
     expect(out).toContain("do not collapse it into a generic marketing landing");
   });
 });

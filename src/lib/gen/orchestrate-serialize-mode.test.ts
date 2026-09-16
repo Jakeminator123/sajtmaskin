@@ -108,6 +108,24 @@ describe("resolveOrchestrationBase serializeMode", () => {
     expect(base.serializeMode).toBe("structural");
   });
 
+  it("uses structural for a manual saas-landing pick even when siteKind is marketing", async () => {
+    const base = await resolveOrchestrationBase({
+      prompt: simpleWebsitePrompt,
+      buildIntent: "website",
+      generationMode: "init",
+      scaffoldMode: "manual",
+      scaffoldId: "saas-landing",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(base.resolvedScaffold?.id).toBe("saas-landing");
+    expect(base.resolvedScaffold?.siteKind).toBe("marketing");
+    expect(base.buildSpec.contextPolicy).not.toBe("heavy");
+    expect(base.serializeMode).toBe("structural");
+  });
+
   it("keeps a manual landing-page pick inspirational on a normal init", async () => {
     const base = await resolveOrchestrationBase({
       prompt: simpleWebsitePrompt,

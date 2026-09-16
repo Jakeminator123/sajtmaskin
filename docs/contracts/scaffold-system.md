@@ -100,7 +100,7 @@ gamla repo-cache-/template-library-mappen.
 | 2   | HUR kom requesten in?       | `BuildMethod`                 | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri`              |
 | 2   | Prompt-typ                  | `PromptType`                  | `wizard` / `freeform` / `template` / `audit` / `followup_*`               |
 | 3   | VILKEN startstruktur?       | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids                               |
-| 4   | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode`       | `structural` / `inspirational` (followUp, heavy, eller manual icke-marketing) |
+| 4   | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode`       | `structural` / `inspirational` (followUp, heavy, eller manual utom landing-page/base-nextjs) |
 | 5   | VAD BERIKAR scaffolden?     | Buildtime/runtime stöddata    | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
 
 ---
@@ -163,10 +163,10 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 | Mode            | Triggas av                                                                                          | Vad som injiceras                                                                                                               |
 | --------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `inspirational` | `init` + INTE heavy, utom manuellt val av icke-marketing-scaffold                                   | Filträd + layout/theme-filer. "Invent a unique page flow."                                                                      |
-| `structural`    | `followUp`, **eller** heavy contextPolicy, **eller** `manual` + `siteKind !== "marketing"`          | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Explicit val behåller arkitekturen.   |
+| `inspirational` | `init` + INTE heavy, utom manuellt val som inte är `landing-page` / `base-nextjs`                    | Filträd + layout/theme-filer. "Invent a unique page flow."                                                                      |
+| `structural`    | `followUp`, **eller** heavy contextPolicy, **eller** `manual` utom tunna starters                    | Filträd + kritiska filer renderade per **Scaffold Contract V2**. Explicit val behåller arkitektur och required/Route-Plan-sidor. |
 
-Mode bestäms mekaniskt i `resolve-base.ts` via `resolveScaffoldSerializeMode()` (`serialize.ts`). Auto, Scaffold: Av och manuella marketing-scaffolds (`landing-page`, `saas-landing`, `base-nextjs`) stannar inspirational på vanlig init. Manuell `ecommerce` / app / editorial blir structural även när contextPolicy är `normal`. Tvinga inte `heavy` bara för att låsa struktur. `detectScaffoldMode()` med kreativa nyckelord anropas inte i production.
+Mode bestäms mekaniskt i `resolve-base.ts` via `resolveScaffoldSerializeMode()` (`serialize.ts`). Auto, Scaffold: Av och manuella `landing-page` / `base-nextjs` stannar inspirational på vanlig init. Manuell `saas-landing`, `ecommerce`, app och editorial blir structural även när contextPolicy är `normal`. Tvinga inte `heavy` bara för att låsa struktur. `detectScaffoldMode()` med kreativa nyckelord anropas inte i production. Structural-texten säger att Route Plan-utvalda/required sidor ska behållas — inte declared-only rutter som `/categories` eller `/om`.
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans. Rangordningen i `CRITICAL_PATH_PATTERNS` sätter nästlade route-filer (`app/blog/page.tsx`, nästlad `layout.tsx`) **över** generiska `components/**`, och statiska routes över dynamiska (`[slug]`) — route-sidor är `llm-owned`/`mustEmit`, så en struken sida blir en sida modellen aldrig skriver.
 

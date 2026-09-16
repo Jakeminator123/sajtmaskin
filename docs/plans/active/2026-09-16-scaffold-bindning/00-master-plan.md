@@ -14,11 +14,11 @@ att app-shell kunde bli landning även i `structural`. Augusti-spåret
 
 ## I den här PR:n
 
-1. Init + `manual` + `siteKind !== "marketing"` → `structural`. Auto, Av och
-   manuella marketing-scaffolds behåller `inspirational` om context inte är
-   `heavy`.
-2. Structural-texten: explicit val behåller arkitektur; briefen får inte
-   kollapsa den till landning.
+1. Init + `manual` → `structural`, utom tunna starters `landing-page` och
+   `base-nextjs`. `saas-landing` är structural trots `siteKind: marketing`.
+   Auto och Av behåller `inspirational` om context inte är `heavy`.
+2. Structural-texten: explicit val behåller arkitektur och
+   required/Route-Plan-sidor; återuppliva inte rutter som planen strukit.
 3. Init-`variantHintId` från pre-match är inte lås. Bara Byggval Stil och
    follow-up-lock.
 4. Självklara filbuggar i `files/` (app-shell-namn/ikoner, ecommerce-länk,

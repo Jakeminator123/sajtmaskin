@@ -13,25 +13,34 @@ import { buildFileContext } from "../context/file-context-builder";
 export type ScaffoldSerializeMode = "structural" | "inspirational";
 
 /**
- * Follow-up and heavy context stay structural. An explicit builder pick of a
- * non-marketing scaffold (commerce / app / editorial) is structural even on a
- * normal init, so "E-handel" does not get "invent a unique page flow".
- * Auto, Scaffold: Av, and manual marketing scaffolds keep inspirational unless
- * contextPolicy is already heavy.
+ * Thin one-page starters. An explicit pick still invents page flow so August
+ * composition variation survives. `saas-landing` is marketing by siteKind but
+ * its manifest owns product narrative / pricing / FAQ, so it is not listed.
+ */
+const MANUAL_INSPIRATIONAL_SCAFFOLD_IDS = new Set(["landing-page", "base-nextjs"]);
+
+/**
+ * Follow-up and heavy context stay structural. An explicit builder pick is
+ * structural unless it is a thin marketing starter. Auto and Scaffold: Av
+ * stay inspirational unless contextPolicy is already heavy.
  */
 export function resolveScaffoldSerializeMode(input: {
   generationMode: "init" | "followUp";
   contextPolicy: BuildSpecContextPolicy;
   scaffoldMode?: "auto" | "manual" | "off" | null;
+  scaffoldId?: string | null;
   siteKind?: ScaffoldSiteKind | null;
 }): ScaffoldSerializeMode {
   if (input.generationMode === "followUp" || input.contextPolicy === "heavy") {
     return "structural";
   }
-  if (input.scaffoldMode === "manual" && input.siteKind && input.siteKind !== "marketing") {
-    return "structural";
+  if (input.scaffoldMode !== "manual" || !input.scaffoldId) {
+    return "inspirational";
   }
-  return "inspirational";
+  if (MANUAL_INSPIRATIONAL_SCAFFOLD_IDS.has(input.scaffoldId)) {
+    return "inspirational";
+  }
+  return "structural";
 }
 
 export interface ScaffoldSerializeOptions {
@@ -408,7 +417,7 @@ export function serializeScaffoldForPrompt(
     scaffold.features?.length ? `- features: ${scaffold.features.join(", ")}` : null,
   ].filter(Boolean);
   const roleSplit = traitLines.length
-    ? `\n\nScaffold role split (important):\n${traitLines.join("\n")}\n- Use structure_profile as the project/file architecture baseline.\n- Use content_profile as direction only; adapt pages and sections to the user request.\n- If the user explicitly chose this scaffold, keep its architecture (sidebar and workspace, storefront and cart, auth routes, declared pages). Adapt copy, palette, and domain — do not collapse it into a generic marketing landing just because the brief is a simple company.\n- Never treat one scaffold as the full identity of the final site.`
+    ? `\n\nScaffold role split (important):\n${traitLines.join("\n")}\n- Use structure_profile as the project/file architecture baseline.\n- Use content_profile as direction only; adapt pages and sections to the user request.\n- If the user explicitly chose this scaffold, keep its architecture (sidebar and workspace, storefront and cart, auth routes) and required or Route-Plan-selected pages. Do not resurrect routes omitted by the Route Plan. Adapt copy, palette, and domain — do not collapse it into a generic marketing landing just because the brief is a simple company.\n- Never treat one scaffold as the full identity of the final site.`
     : "";
 
   if (mode === "inspirational") {
@@ -471,7 +480,7 @@ export function serializeScaffoldForPrompt(
     `${FILE_CONTRACT_HEADER}\n\n` +
     "Scaffold files are rendered using a per-role policy: `layout.tsx`, `globals.css`, and config files are complete code fences; `page.tsx` becomes a FileContract; shared components and route handlers become FileContracts with imports/exports/signature only.\n\n";
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Visual design and copy stay free. If the user explicitly chose this scaffold, keep its architecture (sidebar and workspace, storefront and cart, auth routes, and declared pages) and do not collapse it into a generic marketing landing just because the brief is a simple company. Adapt pages to the user's domain without dropping the scaffold's character. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${criticalIntro}`;
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Visual design and copy stay free. If the user explicitly chose this scaffold, keep its architecture and required or Route-Plan-selected pages; do not resurrect routes omitted by the Route Plan. Do not collapse it into a generic marketing landing just because the brief is a simple company. Adapt pages to the user's domain without dropping the scaffold's character. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${criticalIntro}`;
   const requestedCriticalBudget = Math.max(
     3_000,
     maxChars - usedBeforeCritical.length - hints.length,

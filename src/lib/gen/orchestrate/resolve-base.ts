@@ -648,6 +648,7 @@ export async function resolveOrchestrationBase(
       generationMode: resolvedMode,
       contextPolicy: buildSpec.contextPolicy,
       scaffoldMode: effectiveScaffoldMode,
+      scaffoldId: resolvedScaffold.id,
       siteKind: resolvedScaffold.siteKind,
     });
     const scaffoldBudgetChars =
