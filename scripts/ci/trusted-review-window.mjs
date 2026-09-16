@@ -824,9 +824,10 @@ async function loadOwnedWorkflowSelection({
       expectedHeadSha,
     )}&exclude_pull_requests=false&per_page=100`,
   );
-  // Same owner-file + SHA + repo is enough to mark a suite as owned. A later
-  // pull_request-run is still the selected trust root; push/workflow_dispatch
-  // on the same SHA (preview tip reused as promote head) is stale, not spoof.
+  // Senaste PR-associerade owned run är trust-rot. Same-file same-SHA-runs på
+  // annat event (push när preview-tipp återanvänds som promote-head) läggs i
+  // suiteIds och blir stale. Fork-head_repository hålls utanför om den inte
+  // är live-associerad.
   const ownedHeadRuns = (payload.workflow_runs ?? []).filter(
     (run) =>
       normalizedWorkflowPath(run.path) === spec.path &&
