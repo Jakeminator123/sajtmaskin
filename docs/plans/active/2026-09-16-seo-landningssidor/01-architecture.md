@@ -41,6 +41,13 @@ När en färdig demosida kommer:
 `src/app/sitemap.ts` läser `getIndexableSeoLandingRelPaths()`. Lägg inte
 placeholders i `STATIC_SITEMAP_REL_PATHS`.
 
+## Fail-closed: ready + placeholder
+
+`SeoLandingPlaceholder` anropar `assertSeoLandingPlaceholderAllowed`.
+En registry-rad med `status: "ready"` som fortfarande mountar placeholdern
+kastar vid render (build/test faller). Byt ut den blå ytan först, kör
+SEO-QA, sätt `ready` sist.
+
 ## Structured data
 
 Root-layouten har redan organisations-/software-JSON-LD. Lägg sidunik data

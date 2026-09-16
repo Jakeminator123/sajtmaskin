@@ -19,15 +19,15 @@ Kodkontrakt: vanliga App Router-routes. Sitemap och index följer
 
 | Del | Läget |
 |---|---|
-| Foundation | Landad i draft-PR #1437 på `cursor/seo-landing-pages-42fd` |
+| Foundation | #1437: register + noindex-placeholders + fail-closed mot `ready` |
 | Register + metadata + sitemap-grind | Finns |
 | Referensroute `/skapa-hemsida-med-ai` | Finns som noindex-placeholder |
 | Övriga slugs i matrisen | Routes finns, fortfarande placeholders |
 | Unikt innehåll / demo / internlänkar | Inte skrivet |
 | Indexering | Ingen sida är `ready` |
 
-Coachpaketet skrevs mot `preview` `41687de6ea1af83ed0a7a47d7867b81ee180e5b8`.
-Kontrollera alltid live `origin/preview` före nästa kodsteg.
+Synka alltid mot live `origin/preview` före nästa kodsteg. #1437 mergas
+av en annan agent; fyll inte den PR:n med riktigt sidinnehåll.
 
 ## Avvikelse från coachpaketet
 
@@ -66,9 +66,10 @@ Se [`02-page-matrix.md`](02-page-matrix.md). Brief per sida ligger i
 | E Batch 2 | Kostnad + konkurrentjämförelser, faktagranskade | Väntar färdig design/content |
 | F Indexering | `ready` + sitemap + Search Console | Inte förrän DoD per sida |
 
-Nästa mekaniska steg när en färdig sida kommer: extrahera innehåll till
-`src/app/<slug>/page.tsx`, behåll metadatahjälparen, sätt `ready` först när
-[`03-seo-qa-checklist.md`](03-seo-qa-checklist.md) är uppfylld.
+Nästa PR efter att #1437 är mergad till `preview`: bara
+`/skapa-hemsida-med-ai` som första riktiga sida. Handover:
+[`aktiviteter/05-forsta-riktiga-sidan.md`](aktiviteter/05-forsta-riktiga-sidan.md).
+Batcha inte övriga sidor förrän den modellen är granskad.
 
 ## Definition of Done per sida
 
@@ -85,7 +86,7 @@ nämner en konkurrent. Se checklistan.
 | [`02-page-matrix.md`](02-page-matrix.md) | Intention och kannibalisering |
 | [`03-seo-qa-checklist.md`](03-seo-qa-checklist.md) | Före merge/publicering |
 | [`04-sources.md`](04-sources.md) | Google-riktlinjer och faktakällor |
-| [`aktiviteter/`](aktiviteter/) | Foundation, batch 1, jämförelser, review |
+| [`aktiviteter/`](aktiviteter/) | Foundation, första riktiga sida, batch, review |
 | [`pages/`](pages/) | En brief per slug |
 
 Kod vinner över den här mappen. Ändra registret först när en slug eller

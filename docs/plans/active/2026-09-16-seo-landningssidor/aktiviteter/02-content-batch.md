@@ -1,6 +1,8 @@
 # Content-batch 1
 
-Starta efter att referenskontraktet är godkänt. Routes finns redan.
+Starta **efter** att #1437 är mergad till `preview` **och** den första
+riktiga sidan `/skapa-hemsida-med-ai` är granskad. Batcha inte tio sidor
+i samma PR. Routes finns redan som placeholders.
 
 ## Sidor
 

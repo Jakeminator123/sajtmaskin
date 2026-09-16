@@ -8,6 +8,7 @@
 
 Routes får finnas som `noindex`-placeholders (ägarbeslut). De får **inte**
 sättas till `ready` eller läggas i sitemap bara för att reservera sluggen.
+`SeoLandingPlaceholder` + `status: "ready"` är fail-closed (test/build faller).
 
 ## On-page
 
@@ -40,6 +41,7 @@ sättas till `ready` eller läggas i sitemap bara för att reservera sluggen.
 
 ## Sitemap / Search Console
 
+- [ ] `SeoLandingPlaceholder` är borta från sidans `page.tsx`.
 - [ ] Sidan ligger i sitemap först när den är klar (`status: "ready"`).
 - [ ] Sitemap-testet speglar det.
 - [ ] Production-URL fungerar efter promote.
