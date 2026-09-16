@@ -132,9 +132,10 @@ core-proveniens. Även när ett custom reviewkvitto delar suite med en annan
 workflow hämtas samtliga attempts och check-ID:t binds mot jobbens
 `check_run_url`; utan sådan jobb-bindning är kvittot bara UX och live review-ID
 är fortsatt auktoritet. Äldre eller avbrutna körningar på samma head-SHA efter
-draft→ready, och same-SHA `push`-CI på samma ägarfil, är stale, inte
-checknamnskollision, när en senare owned `pull_request`-run med samma skyddade
-checks är verifierbart grön. Jobb som inte kördes om i en
+draft→ready, och en äldre same-SHA `push`-CI på samma ägarfil, är stale, inte
+checknamnskollision, när en senare PR-associerad owned `pull_request`-run med
+samma skyddade checks är verifierbart grön. `workflow_dispatch`, `schedule` och
+andra event på samma SHA failar closed om de krockar med skyddade namn. Jobb som inte kördes om i en
 partial rerun behåller sitt senaste serververifierade försök.
 Dubbla skyddade jobbnamn i samma attempt, eller en spoofad check från annan
 workflow, är fortfarande en kollision och stoppar.
