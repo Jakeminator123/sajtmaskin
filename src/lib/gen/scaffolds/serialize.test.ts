@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAllScaffolds } from "./registry";
-import { serializeScaffoldForPrompt } from "./serialize";
+import { resolveScaffoldSerializeMode, serializeScaffoldForPrompt } from "./serialize";
 import type { ScaffoldManifest } from "./types";
 
 function makeLongFile(label: string): string {
@@ -389,5 +389,99 @@ describe("serializeScaffoldForPrompt", () => {
       expect(criticalWithoutHints).not.toMatch(/```tsx file="(?:app|src\/app)\/[^"]*page\.tsx"/);
       expect(criticalWithoutHints).toContain("FileContract");
     }
+  });
+});
+
+describe("resolveScaffoldSerializeMode", () => {
+  it("keeps a normal auto website init inspirational", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("keeps Scaffold: Av inspirational on a normal init", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "off",
+        siteKind: "app",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("keeps a manual marketing scaffold inspirational on a normal init", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        siteKind: "marketing",
+      }),
+    ).toBe("inspirational");
+  });
+
+  it("makes a manual commerce scaffold structural even when context is normal", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "normal",
+        scaffoldMode: "manual",
+        siteKind: "commerce",
+      }),
+    ).toBe("structural");
+  });
+
+  it("makes follow-up and heavy context structural", () => {
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "followUp",
+        contextPolicy: "normal",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
+    expect(
+      resolveScaffoldSerializeMode({
+        generationMode: "init",
+        contextPolicy: "heavy",
+        scaffoldMode: "auto",
+        siteKind: "marketing",
+      }),
+    ).toBe("structural");
+  });
+});
+
+describe("structural serialize copy", () => {
+  it("tells the model to keep an explicit scaffold choice instead of collapsing to a landing", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "app-shell",
+      label: "App Shell",
+      description: "Workspace shell.",
+      siteKind: "app",
+      structureProfile: "application-shell",
+      contentProfile: "workspace-tools",
+      allowedBuildIntents: ["app"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: "export default function Root() { return null; }" },
+        { path: "app/page.tsx", content: "export default function Home() { return null; }" },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 12_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain("If the user explicitly chose this scaffold, keep its architecture");
+    expect(out).toContain("do not collapse it into a generic marketing landing");
   });
 });
