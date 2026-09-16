@@ -296,6 +296,10 @@ function collectDanglingInternalApiReferences(files: CodeFile[]): SanityIssue[] 
         if (raw.includes("${")) continue;
         const apiPath = normalizeApiPath(raw);
         if (RUNTIME_PROVIDED_API_PATHS.has(apiPath)) continue;
+        // Clerk `createRouteMatcher(["/api/protected(.*)"])` is a matcher
+        // pattern, not a fetch target. A literal with `(` is never a real
+        // `/api/...` call — skip it so auth middleware does not warn.
+        if (line.includes("createRouteMatcher") || apiPath.includes("(")) continue;
         const segments = apiPath.split("/").filter(Boolean);
         if (patterns.some((pattern) => routePatternMatches(pattern, segments))) continue;
         const key = `${file.path}|${apiPath}`;

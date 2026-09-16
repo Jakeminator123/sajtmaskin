@@ -514,6 +514,34 @@ import { Button } from "@/components/ui/button"
       expect(issues).toEqual([]);
     });
 
+    it("does not warn on Clerk createRouteMatcher /api/protected(.*)", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "middleware.ts",
+          language: "ts",
+          content: [
+            'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";',
+            "const isProtectedRoute = createRouteMatcher([",
+            '  "/dashboard(.*)",',
+            '  "/api/protected(.*)",',
+            "]);",
+            "export default clerkMiddleware();",
+          ].join("\n"),
+        },
+        {
+          path: "components/widget.tsx",
+          language: "tsx",
+          content: 'export const Widget = () => fetch("/api/missing");',
+        },
+      ]);
+
+      expect(issues.map((issue) => issue.subject)).toEqual(["dangling-api-route:/api/missing"]);
+      expect(issues.some((issue) => issue.subject === "dangling-api-route:/api/protected(.*)")).toBe(
+        false,
+      );
+    });
+
     it("never blocks the build on its own", () => {
       const result = runProjectSanityChecks([
         pkg,
