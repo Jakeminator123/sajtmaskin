@@ -55,13 +55,6 @@ export interface CompetitorInsights {
   unique_strengths: string;
 }
 
-// Competitor benchmarking
-export interface CompetitorBenchmarking {
-  industry_leaders?: string[];
-  common_features?: string[];
-  differentiation_opportunities?: string[];
-}
-
 // Business profile (advanced)
 export interface BusinessProfile {
   industry: string;
@@ -122,42 +115,6 @@ export interface DesignDirection {
   color_psychology: string;
   ui_patterns?: string[];
   accessibility_level: string;
-}
-
-// Technical architecture
-export interface TechnicalArchitecture {
-  recommended_stack?: {
-    frontend?: string;
-    backend?: string;
-    cms?: string;
-    hosting?: string;
-    [key: string]: string | undefined;
-  };
-  integrations?: string[];
-  security_measures?: string[];
-}
-
-// Implementation roadmap phase
-export interface RoadmapPhase {
-  duration?: string;
-  deliverables?: string[];
-  activities?: string[];
-}
-
-// Implementation roadmap
-export interface ImplementationRoadmap {
-  phase_1?: RoadmapPhase;
-  phase_2?: RoadmapPhase;
-  phase_3?: RoadmapPhase;
-  launch?: RoadmapPhase;
-  [key: string]: RoadmapPhase | undefined;
-}
-
-// Success metrics
-export interface SuccessMetrics {
-  kpis?: string[];
-  tracking_setup?: string;
-  review_schedule?: string;
 }
 
 // Priority matrix for improvements
@@ -274,6 +231,12 @@ export interface AuditCost {
 }
 
 // Scrape/debug metadata (helps explain data quality in the report)
+export interface ScrapedSiteImage {
+  url: string;
+  alt?: string;
+  kind: "og" | "logo" | "content";
+}
+
 export interface ScrapeSummary {
   sampled_urls: string[];
   pages_sampled: number;
@@ -281,6 +244,7 @@ export interface ScrapeSummary {
   word_count_source?: "scraper" | "ai_estimate";
   headings_count: number;
   images_count: number;
+  images?: ScrapedSiteImage[];
   response_time_ms: number;
   is_js_rendered: boolean;
   web_search_calls?: number;
@@ -310,17 +274,12 @@ export interface AuditResult {
   budget_estimate?: BudgetEstimate;
   expected_outcomes?: string[];
 
-  // For recommendation mode
-  website_type_recommendation?: string;
-
   // Technical analysis
   security_analysis?: SecurityAnalysis;
   technical_recommendations?: TechnicalRecommendation[];
-  technical_architecture?: TechnicalArchitecture;
 
   // Business analysis
   competitor_insights?: CompetitorInsights;
-  competitor_benchmarking?: CompetitorBenchmarking;
   target_audience_analysis?: TargetAudienceAnalysis;
   business_profile?: BusinessProfile;
   market_context?: MarketContext;
@@ -331,10 +290,6 @@ export interface AuditResult {
   content_strategy?: ContentStrategy;
   design_direction?: DesignDirection;
   priority_matrix?: PriorityMatrix;
-
-  // Planning
-  implementation_roadmap?: ImplementationRoadmap;
-  success_metrics?: SuccessMetrics;
 
   // NEW: Extracted site content for template generation
   site_content?: SiteContentExtraction;
@@ -371,6 +326,7 @@ export interface WebsiteContent {
   wordCount: number;
   textPreview: string;
   sampledUrls?: string[];
+  imageCandidates?: ScrapedSiteImage[];
 }
 
 // API request body

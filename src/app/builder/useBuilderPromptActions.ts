@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
+import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =
@@ -42,6 +43,8 @@ type Args = {
   designTheme: DesignTheme;
   appProjectId: string | null;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
+  promptHandoffId?: string | null;
+  auditHandoff?: AuditComposerToken | null;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
@@ -84,6 +87,8 @@ export function useBuilderPromptActions({
   designTheme: _designTheme,
   appProjectId: _appProjectId,
   pendingBriefRef,
+  promptHandoffId: _promptHandoffId = null,
+  auditHandoff = null,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   templateInitAttemptKeyRef,
@@ -167,6 +172,18 @@ export function useBuilderPromptActions({
       if (chatId) return null;
       const trimmed = message.trim();
       if (!trimmed) return null;
+      if (auditHandoff?.payloadKind === "audit") {
+        pendingBriefRef.current = null;
+        const baseInstructions = customInstructions.trim();
+        const paletteHint = buildPaletteInstruction(paletteState);
+        const combined = [baseInstructions, paletteHint].filter(Boolean).join("\n\n");
+        if (combined) {
+          setCustomInstructions(combined);
+        }
+        pendingInstructionsRef.current = combined || null;
+        pendingInstructionsOnceRef.current = false;
+        return combined || null;
+      }
       setIsPreparingPrompt(true);
       try {
         pendingBriefRef.current = await generateDynamicInstructions(trimmed, {
@@ -197,6 +214,7 @@ export function useBuilderPromptActions({
       generateDynamicInstructions,
       paletteState,
       pendingBriefRef,
+      auditHandoff,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
       setIsPreparingPrompt,
@@ -216,7 +234,7 @@ export function useBuilderPromptActions({
       // templateId stays in the URL.
       if (isNewChat && templateId) {
         toast.error(
-          "Templaten laddas fortfarande eller kunde inte startas. Vänta ett ögonblick, eller ladda om sidan för att försöka igen.",
+          "Templaten laddas fortfarande eller kunde inte startas. Vänta ett ögonblick, eller använd «Försök igen» i förhandsvisningen.",
         );
         return false;
       }

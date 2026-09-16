@@ -36,7 +36,9 @@ const bindVerifiedKostnadsfriCampaign = vi.hoisted(() =>
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
-vi.mock("@/lib/auth/auth", () => ({ getCurrentUser: vi.fn(async () => null) }));
+const getCurrentUser = vi.hoisted(() => vi.fn(async () => null as { id: string } | null));
+
+vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/auth/session", () => ({
   ensureSessionIdFromRequest,
 }));
@@ -68,6 +70,7 @@ function promptRequest(body: Record<string, unknown>, verified = false) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  getCurrentUser.mockResolvedValue(null);
 });
 
 describe("POST /api/prompts — kostnadsfri funnel", () => {
@@ -110,7 +113,26 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     ).toBe(true);
   });
 
+  it("rejects a guest kostnadsfri handoff even with a verified receipt", async () => {
+    const res = await POST(
+      promptRequest(
+        {
+          prompt: "Bygg en sajt",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+        },
+        true,
+      ),
+    );
+
+    expect(res.status).toBe(401);
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+    expect(recordPageView).not.toHaveBeenCalled();
+  });
+
   it("records `skapad` server-side when the kostnadsfri flow hands off", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
     const res = await POST(
       promptRequest(
         {
@@ -127,13 +149,14 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(recordPageView).toHaveBeenCalledWith(
       "/kostnadsfri/ikea-ab/skapad",
       "sess_1",
-      undefined,
+      "user_1",
       "10.0.0.1",
       undefined,
     );
   });
 
   it("rejects client-provided source and slug without a verified receipt", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
     const res = await POST(
       promptRequest({
         prompt: "Bygg en sajt",
@@ -171,5 +194,52 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
 
     expect(res.status).toBe(400);
     expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
+
+  it("stores a validated audit payload and rejects unknown top-level keys", async () => {
+    const accepted = await POST(
+      promptRequest({
+        prompt: "Bygg en förbättrad sajt för granit.se",
+        source: "audit",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+    expect(accepted.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "audit",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+
+    const rejected = await POST(
+      promptRequest({
+        prompt: "Bygg en förbättrad sajt för granit.se",
+        source: "audit",
+        payload: {
+          domain: "granit.se",
+          technical_architecture: { stack: "next" },
+        },
+      }),
+    );
+    expect(rejected.status).toBe(400);
+    expect(createPromptHandoff).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops payload unless source is audit", async () => {
+    const stored = await POST(
+      promptRequest({
+        prompt: "Bygg en sajt",
+        source: "wizard",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+    expect(stored.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "wizard",
+        payload: null,
+      }),
+    );
   });
 });

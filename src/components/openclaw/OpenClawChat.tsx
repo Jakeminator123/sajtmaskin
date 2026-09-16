@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles, X } from "lucide-react";
+import {
+  buildKostnadsfriHandoffIntro,
+  decideKostnadsfriBuildStartedAnnounce,
+  decideKostnadsfriHandoffOpen,
+  shouldActivateCampaignScriptChrome,
+  shouldAttachCampaignContext,
+  KOSTNADSFRI_BUILD_STARTED_COPY,
+  KOSTNADSFRI_BUILD_STARTED_ID,
+  KOSTNADSFRI_HANDOFF_INTRO_ID,
+  kostnadsfriSlugFromPathname,
+} from "@/lib/kostnadsfri/agent-campaign-script";
+import { selectKostnadsfriFollowups } from "@/lib/kostnadsfri/agent-followups";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   normalizeKostnadsfriOpenClawConfig,
@@ -99,6 +111,81 @@ function getKostnadsfriSurfaceContent(
   };
 }
 
+function seedAssistantMessage(id: string, content: string) {
+  const { messages, addMessage } = useOpenClawStore.getState();
+  if (messages.some((message) => message.id === id)) return;
+  addMessage({
+    id,
+    role: "assistant",
+    content,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Handoff-triggern ägs här, där `__SITEMASKIN_CONTEXT` redan läses.
+ * Kampanjsidan startar inte takeover.
+ */
+function applyKostnadsfriCampaignTriggers(pathname: string) {
+  if (typeof window === "undefined") return;
+  const context = window.__SITEMASKIN_CONTEXT;
+  const store = useOpenClawStore.getState();
+
+  const pathSlug = kostnadsfriSlugFromPathname(pathname);
+  const existingScript = store.campaignScript;
+  const attachExisting = shouldAttachCampaignContext({
+    pathname,
+    page: context?.page,
+    buildMethod: context?.buildMethod,
+    currentProjectId: typeof context?.projectId === "string" ? context.projectId : null,
+    script: existingScript,
+  });
+  const hydrateSlug =
+    pathSlug &&
+    shouldActivateCampaignScriptChrome({
+      pathname,
+      context,
+      script: existingScript,
+    })
+      ? pathSlug
+      : attachExisting
+        ? existingScript?.slug
+        : null;
+  if (hydrateSlug) {
+    store.hydrateCampaignScript(hydrateSlug);
+  }
+
+  const script = useOpenClawStore.getState().campaignScript;
+  const handoff = decideKostnadsfriHandoffOpen({
+    pathname,
+    context,
+    script,
+  });
+  if (handoff.open) {
+    store.markCampaignHandoffOpened(handoff.slug);
+    const followups = selectKostnadsfriFollowups(handoff.brief);
+    store.beginCampaignFollowups(followups.map((item) => item.id));
+    store.open();
+    store.setPanelPresentation("takeover");
+    seedAssistantMessage(KOSTNADSFRI_HANDOFF_INTRO_ID, buildKostnadsfriHandoffIntro(handoff.brief));
+    const first = followups[0];
+    if (first) {
+      seedAssistantMessage(`oc-kampanj-foljd-${first.id}`, first.question);
+    }
+    return;
+  }
+
+  const buildStarted = decideKostnadsfriBuildStartedAnnounce({
+    pathname,
+    context,
+    script: useOpenClawStore.getState().campaignScript,
+  });
+  if (!buildStarted.announce) return;
+  store.hydrateCampaignScript(buildStarted.slug);
+  store.markCampaignBuildStartedAnnounced();
+  seedAssistantMessage(KOSTNADSFRI_BUILD_STARTED_ID, KOSTNADSFRI_BUILD_STARTED_COPY);
+}
+
 function getSurfaceContent(
   pathname: string,
   contextSurface: KostnadsfriOpenClawSurfaceContext | null,
@@ -125,7 +212,8 @@ function getSurfaceContent(
 
 export function OpenClawChat() {
   const pathname = usePathname();
-  const { isOpen, open, close, setScope } = useOpenClawStore();
+  const { isOpen, open, close, setScope, panelPresentation } = useOpenClawStore();
+  const isTakeover = isOpen && panelPresentation === "takeover";
   const [showTeaser, setShowTeaser] = useState(true);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
     null,
@@ -155,7 +243,10 @@ export function OpenClawChat() {
   useEffect(() => {
     const syncContext = () => {
       setContextSurface(readKostnadsfriSurfaceContext());
-      setScopeKey(readOpenClawScopeKey(pathname));
+      const nextScope = readOpenClawScopeKey(pathname);
+      setScopeKey(nextScope);
+      // Scope oförändrat: wizard → handoff fyrar här, inte via setScope-effekten.
+      if (nextScope === scopeKey) applyKostnadsfriCampaignTriggers(pathname);
     };
 
     syncContext();
@@ -163,11 +254,17 @@ export function OpenClawChat() {
     return () => {
       window.removeEventListener("sajtmaskin:context-updated", syncContext);
     };
-  }, [pathname]);
+  }, [pathname, scopeKey]);
 
   useEffect(() => {
     setScope(scopeKey);
   }, [scopeKey, setScope]);
+
+  useEffect(() => {
+    const expected = readOpenClawScopeKey(pathname);
+    if (scopeKey !== expected) return;
+    applyKostnadsfriCampaignTriggers(pathname);
+  }, [pathname, scopeKey]);
 
   const handleOpen = () => {
     setShowTeaser(false);
@@ -184,11 +281,18 @@ export function OpenClawChat() {
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-x-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end",
-        // Buildern äger nederkanten på mobil: chatinputens Skicka-knapp ligger
-        // längst ned till höger och låg tidigare under bubblan. Lyft bubblan
-        // ovanför inputraden — desktop (sm+) har egen kolumn och rörs inte.
-        sharesBottomEdgeWithInput ? "bottom-28" : "bottom-3",
+        "pointer-events-none fixed z-50 flex flex-col",
+        // z-50: samma lager som bubblan — över builderns preview-overlays
+        // (z-10–z-40) men under kampanjens mini-wizard (z-[60]), så wizarden
+        // fortsätter täcka takeover.
+        isTakeover
+          ? "inset-4 items-stretch"
+          : cn(
+              "inset-x-3 items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end",
+              // Buildern äger nederkanten på mobil: chatinputens Skicka-knapp
+              // ligger längst ned till höger och låg tidigare under bubblan.
+              sharesBottomEdgeWithInput ? "bottom-28" : "bottom-3",
+            ),
       )}
     >
       {showRouteTeaser ? (
@@ -239,17 +343,22 @@ export function OpenClawChat() {
       {/* Chat panel */}
       <div
         className={cn(
-          "origin-bottom-right self-end overflow-hidden transition-all duration-200 ease-out",
-          isOpen
-            ? "pointer-events-auto scale-100 opacity-100"
-            : "max-h-0 scale-95 opacity-0",
-          // Panelen får aldrig växa förbi skärmen — den lyfta bubblan äter
-          // extra höjd i buildern på mobil.
-          isOpen && sharesBottomEdgeWithInput
-            ? "max-h-[min(640px,calc(100vh-13rem))] sm:max-h-[min(640px,calc(100vh-5rem))]"
-            : isOpen
-              ? "max-h-[min(640px,calc(100vh-5rem))]"
-              : null,
+          "overflow-hidden transition-all duration-200 ease-out",
+          isTakeover
+            ? "pointer-events-auto h-full w-full self-stretch"
+            : cn(
+                "origin-bottom-right self-end",
+                isOpen
+                  ? "pointer-events-auto scale-100 opacity-100"
+                  : "max-h-0 scale-95 opacity-0",
+                // Panelen får aldrig växa förbi skärmen — den lyfta bubblan
+                // äter extra höjd i buildern på mobil.
+                isOpen && sharesBottomEdgeWithInput
+                  ? "max-h-[min(640px,calc(100vh-13rem))] sm:max-h-[min(640px,calc(100vh-5rem))]"
+                  : isOpen
+                    ? "max-h-[min(640px,calc(100vh-5rem))]"
+                    : null,
+              ),
         )}
       >
         <OpenClawChatPanel

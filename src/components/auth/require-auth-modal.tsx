@@ -9,7 +9,9 @@ import { Coins, Wand2, Lock, X } from "lucide-react";
 interface RequireAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reason: "generation" | "refine" | "credits" | "download" | "save" | "builder";
+  reason: "generation" | "refine" | "credits" | "download" | "save" | "builder" | "kostnadsfri";
+  /** First-party path Google / e-postverifiering ska återvända till. */
+  returnTo?: string;
 }
 
 const REASONS = {
@@ -45,9 +47,15 @@ const REASONS = {
     description: "Du måste vara inloggad för att skapa och redigera webbplatser i Builder.",
     icon: Lock,
   },
+  kostnadsfri: {
+    title: "Logga in för att bygga hemsidan",
+    description:
+      "Efter frågorna behövs ett konto. Första bygget och en ändringsrunda ingår i inbjudan.",
+    icon: Wand2,
+  },
 };
 
-export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalProps) {
+export function RequireAuthModal({ isOpen, onClose, reason, returnTo }: RequireAuthModalProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const router = useRouter();
@@ -101,7 +109,9 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
               <div className="border-primary/25 bg-primary/10 mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2">
                 <Wand2 className="text-primary h-4 w-4" />
                 <span className="text-primary text-sm font-medium">
-                  Första genereringen utan coin-debitering
+                  {reason === "kostnadsfri"
+                    ? "Första bygget och en ändringsrunda ingår"
+                    : "Första genereringen utan coin-debitering"}
                 </span>
               </div>
             )}
@@ -160,6 +170,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
           onClose();
         }}
         defaultMode={authMode}
+        returnTo={returnTo}
       />
     </>
   );

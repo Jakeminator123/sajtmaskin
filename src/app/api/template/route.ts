@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
+import {
+  createProject as createAppProject,
+  findLatestTemplateInitProjectIdForOwner,
+  saveProjectData,
+} from "@/lib/db/services/projects";
+import {
+  findExistingTemplateInit,
+  isTemplateInitLookupError,
+  loadExistingTemplateInitByIds,
+  type ExistingTemplateInit,
+} from "@/lib/templates/template-init-idempotency";
+import {
+  bindTemplateInitProject,
+  claimTemplateInit,
+  completeTemplateInitClaim,
+  failTemplateInitClaim,
+  hasTemplateInitPaymentProof,
+  recordTemplateInitImport,
+  type ClaimedTemplateInit,
+} from "@/lib/templates/template-init-claim";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
@@ -479,70 +498,371 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const creditCheck = await prepareCredits(
-        request,
-        "prompt.template",
-        { quality },
-        { sessionId },
-      );
-      if (!creditCheck.ok) {
-        return attachSessionCookie(creditCheck.response);
+      const sourceMetadata = buildTemplateSourceMetadata(localTemplateSource);
+
+      const respondExisting = (existing: ExistingTemplateInit) => {
+        if (sourceMetadata.stale) {
+          devLogAppend("latest", {
+            type: "v0-import.stale-source",
+            templateId: sourceMetadata.templateId,
+            ageSeconds: sourceMetadata.ageSeconds,
+            timestamp: sourceMetadata.timestamp,
+          });
+        }
+        return attachSessionCookie(
+          NextResponse.json({
+            success: true,
+            message: getRandomMessage(),
+            code: existing.code,
+            files: existing.files,
+            chatId: existing.chatId,
+            projectId: existing.projectId,
+            versionId: existing.versionId,
+            ...previewUrlField(existing.previewUrl),
+            model: existing.model,
+            cached: true,
+            source: sourceMetadata,
+          }),
+        );
+      };
+
+      // Claim family is locked to the client-supplied projectId (gallery /
+      // template-switch) or the owner key (cold start). A recovered
+      // project_data.meta.templateId row is only for persist lookup / reuse —
+      // feeding it into the claim would switch family and mint a new
+      // operation_id. Import-done and debit-done are separate: an existing
+      // snapshot is not enough to return success.
+      const claimProjectId = resolvedRequestedProjectId;
+      let projectId = claimProjectId;
+      if (!projectId) {
+        projectId = await findLatestTemplateInitProjectIdForOwner(
+          { userId, sessionId },
+          templateId,
+        );
       }
 
-      const projectId =
-        resolvedRequestedProjectId ??
-        (
-          await createAppProject(
-            `Template: ${templateMeta.title}`,
-            "template",
-            `Own-engine startmall for ${templateMeta.title}`,
-            user ? undefined : sessionId || undefined,
-            user?.id,
-          )
-        ).id;
+      const respondLookupFailed = () =>
+        attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Kunde inte läsa tidigare template-import. Försök igen om en stund.",
+            },
+            { status: 503 },
+          ),
+        );
+      const respondSettlementFailed = () =>
+        attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error:
+                "Templaten importerades, men debiteringen kunde inte slutföras. Försök igen.",
+            },
+            { status: 503 },
+          ),
+        );
+      const respondClaimBusy = () =>
+        attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Templaten importeras redan. Försök igen om en stund.",
+            },
+            { status: 409 },
+          ),
+        );
 
-      const imported = await initializeLocalTemplateProject({
-        projectId,
-        template: templateMeta,
-      });
+      type OwnedInit = {
+        claimKey: string;
+        operationId: string;
+        claimGeneration: number;
+        projectId: string | null;
+      };
 
-      const sourceMetadata = buildTemplateSourceMetadata(localTemplateSource);
-      if (sourceMetadata.stale) {
-        devLogAppend("latest", {
-          type: "v0-import.stale-source",
-          templateId: sourceMetadata.templateId,
-          ageSeconds: sourceMetadata.ageSeconds,
-          timestamp: sourceMetadata.timestamp,
+      const loadExisting = async (
+        scopedProjectId: string | null,
+      ): Promise<ExistingTemplateInit | "lookup_failed" | null> => {
+        if (!scopedProjectId) return null;
+        try {
+          return await findExistingTemplateInit(scopedProjectId, templateId);
+        } catch (error) {
+          if (isTemplateInitLookupError(error)) return "lookup_failed";
+          throw error;
+        }
+      };
+
+      const settleExistingInit = async (
+        existing: ExistingTemplateInit,
+        operation: OwnedInit,
+      ): Promise<Response> => {
+        const creditCheck = await prepareCredits(
+          request,
+          "prompt.template",
+          { quality },
+          { sessionId, idempotencyKey: operation.operationId },
+        );
+        if (!creditCheck.ok) return attachSessionCookie(creditCheck.response);
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge template:", error);
+          return respondSettlementFailed();
+        }
+        await completeTemplateInitClaim({
+          claimKey: operation.claimKey,
+          operationId: operation.operationId,
+          claimGeneration: operation.claimGeneration,
+          projectId: existing.projectId,
+          chatId: existing.chatId,
+          versionId: existing.versionId,
         });
+        return respondExisting(existing);
+      };
+
+      let existing: ExistingTemplateInit | null = null;
+      if (projectId) {
+        try {
+          existing = await findExistingTemplateInit(projectId, templateId);
+        } catch (error) {
+          if (isTemplateInitLookupError(error)) return respondLookupFailed();
+          throw error;
+        }
+      }
+
+      const claimed = await claimTemplateInit({
+        projectId: claimProjectId,
+        templateId,
+        userId,
+        sessionId,
+      });
+      if (claimed.kind === "unavailable") {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              retryable: true,
+              error: "Template-init kunde inte reserveras just nu. Försök igen om en stund.",
+            },
+            { status: 503 },
+          ),
+        );
+      }
+      if (claimed.kind === "busy") {
+        return respondClaimBusy();
+      }
+
+      const replayFromClaim = async (
+        operation: Extract<ClaimedTemplateInit, { kind: "completed" | "imported" }>,
+      ): Promise<Response> => {
+        const replayProjectId = operation.projectId ?? projectId;
+        const claimedChatId = operation.chatId;
+        const replayed = existing ?? (await loadExisting(replayProjectId));
+        if (replayed === "lookup_failed") return respondLookupFailed();
+        const fromClaim =
+          replayed ??
+          (claimedChatId && replayProjectId
+            ? await (async () => {
+                try {
+                  return await loadExistingTemplateInitByIds({
+                    projectId: replayProjectId,
+                    chatId: claimedChatId,
+                    versionId: operation.versionId,
+                  });
+                } catch (error) {
+                  if (isTemplateInitLookupError(error)) return "lookup_failed" as const;
+                  throw error;
+                }
+              })()
+            : null);
+        if (fromClaim === "lookup_failed" || !fromClaim) return respondLookupFailed();
+        if (operation.kind === "completed") {
+          return respondExisting(fromClaim);
+        }
+        return settleExistingInit(fromClaim, operation);
+      };
+
+      if (claimed.kind === "completed" || claimed.kind === "imported") {
+        return replayFromClaim(claimed);
+      }
+
+      const acquired: Extract<ClaimedTemplateInit, { kind: "acquired" }> = claimed;
+      const failAcquiredClaim = async (
+        message?: string,
+        extras?: { projectId?: string | null },
+      ) => {
+        await failTemplateInitClaim({
+          claimKey: acquired.claimKey,
+          operationId: acquired.operationId,
+          claimGeneration: acquired.claimGeneration,
+          error: message,
+          projectId: extras?.projectId,
+        });
+      };
+
+      if (existing && !acquired.chatId && !acquired.versionId) {
+        const paid = await hasTemplateInitPaymentProof({
+          projectId: existing.projectId ?? projectId,
+          templateId,
+          userId,
+          sessionId,
+        });
+        if (paid) {
+          await failAcquiredClaim("replay_existing_import");
+          return respondExisting(existing);
+        }
+        return settleExistingInit(existing, acquired);
+      }
+
+      if (existing && (acquired.chatId || acquired.versionId)) {
+        return settleExistingInit(existing, acquired);
       }
 
       try {
-        await creditCheck.commit();
-      } catch (error) {
-        console.error("[credits] Failed to charge template:", error);
-      }
+        const creditCheck = await prepareCredits(
+          request,
+          "prompt.template",
+          { quality },
+          { sessionId, idempotencyKey: acquired.operationId },
+        );
+        if (!creditCheck.ok) {
+          await failAcquiredClaim("credits_denied");
+          return attachSessionCookie(creditCheck.response);
+        }
 
-      return attachSessionCookie(
-        NextResponse.json({
-          success: true,
-          message: getRandomMessage(),
-          code: imported.code,
-          files: imported.files,
+        if (!projectId) {
+          projectId = acquired.projectId;
+        }
+        if (!projectId) {
+          projectId = (
+            await createAppProject(
+              `Template: ${templateMeta.title}`,
+              "template",
+              `Own-engine startmall for ${templateMeta.title}`,
+              user ? undefined : sessionId || undefined,
+              user?.id,
+            )
+          ).id;
+          const bound = await bindTemplateInitProject({
+            claimKey: acquired.claimKey,
+            operationId: acquired.operationId,
+            claimGeneration: acquired.claimGeneration,
+            projectId,
+          });
+          if (!bound) {
+            await failAcquiredClaim("bind_failed", { projectId });
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  success: false,
+                  retryable: true,
+                  error: "Template-init kunde inte knytas till projektet. Försök igen.",
+                },
+                { status: 409 },
+              ),
+            );
+          }
+        }
+
+        const imported = await initializeLocalTemplateProject({
+          projectId,
+          template: templateMeta,
+        });
+        let recorded: boolean;
+        try {
+          recorded = await recordTemplateInitImport({
+            claimKey: acquired.claimKey,
+            operationId: acquired.operationId,
+            claimGeneration: acquired.claimGeneration,
+            projectId,
+            chatId: imported.chatId,
+            versionId: imported.versionId,
+          });
+        } catch (recordError) {
+          console.error("[API /template] Failed to record template-init import:", recordError);
+          return settleExistingInit(
+            {
+              chatId: imported.chatId,
+              projectId,
+              versionId: imported.versionId,
+              previewUrl: imported.previewUrl,
+              files: imported.files,
+              code: imported.code,
+              model: imported.model,
+            },
+            acquired,
+          );
+        }
+        if (!recorded) {
+          // Persist already landed. Settling here charges this operation_id
+          // so a later respondExisting replay cannot skip debit.
+          return settleExistingInit(
+            {
+              chatId: imported.chatId,
+              projectId,
+              versionId: imported.versionId,
+              previewUrl: imported.previewUrl,
+              files: imported.files,
+              code: imported.code,
+              model: imported.model,
+            },
+            acquired,
+          );
+        }
+
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge template:", error);
+          return respondSettlementFailed();
+        }
+
+        await completeTemplateInitClaim({
+          claimKey: acquired.claimKey,
+          operationId: acquired.operationId,
+          claimGeneration: acquired.claimGeneration,
+          projectId,
           chatId: imported.chatId,
-          projectId: imported.projectId,
           versionId: imported.versionId,
-          ...previewUrlField(imported.previewUrl),
-          ...(imported.previewStartFailed
-            ? {
-                previewStartFailed: true,
-                previewStartError: imported.previewStartError,
-              }
-            : {}),
-          model: imported.model,
-          cached: false,
-          source: sourceMetadata,
-        }),
-      );
+        });
+
+        if (sourceMetadata.stale) {
+          devLogAppend("latest", {
+            type: "v0-import.stale-source",
+            templateId: sourceMetadata.templateId,
+            ageSeconds: sourceMetadata.ageSeconds,
+            timestamp: sourceMetadata.timestamp,
+          });
+        }
+
+        return attachSessionCookie(
+          NextResponse.json({
+            success: true,
+            message: getRandomMessage(),
+            code: imported.code,
+            files: imported.files,
+            chatId: imported.chatId,
+            projectId: imported.projectId,
+            versionId: imported.versionId,
+            ...previewUrlField(imported.previewUrl),
+            ...(imported.previewStartFailed
+              ? {
+                  previewStartFailed: true,
+                  previewStartError: imported.previewStartError,
+                }
+              : {}),
+            model: imported.model,
+            cached: false,
+            source: sourceMetadata,
+          }),
+        );
+      } catch (error) {
+        await failAcquiredClaim(error instanceof Error ? error.message : "import_failed");
+        throw error;
+      }
     } catch (error) {
       console.error("[API /template] Error:", error);
 

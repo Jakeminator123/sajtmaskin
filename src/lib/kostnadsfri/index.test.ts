@@ -193,3 +193,21 @@ describe("buildPromptFromWizardData — profilen når inte prompten", () => {
     expect(prompt).not.toContain("559599-5639");
   });
 });
+
+describe("buildPromptFromWizardData — kundbekräftade follow-up-svar", () => {
+  it("tar med unik bekräftad fras och addendum, aldrig transkript eller profil", () => {
+    const phrase = "SM-F1-CONFIRM-PHRASE-7f3a";
+    const prompt = buildPromptFromWizardData(wizardData(), {
+      usp: phrase,
+      bookingHours: "Öppet 10-18, boka via mejl",
+      price: "Klippning från 420 kr",
+    });
+
+    expect(prompt).toContain(phrase);
+    expect(prompt).toContain("Customer-confirmed follow-up");
+    expect(prompt).toContain("Öppet 10-18, boka via mejl");
+    expect(prompt).toContain("Klippning från 420 kr");
+    expect(prompt).not.toContain("HEMLIG PROFILTEXT");
+    expect(prompt).not.toContain("user: hela chatten");
+  });
+});

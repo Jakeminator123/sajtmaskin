@@ -367,6 +367,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <ChatInterface
               chatId={vm.chatId}
               initialPrompt={vm.initialPrompt}
+              auditHandoff={vm.auditHandoff}
               onCreateChat={vm.requestCreateChat}
               onSendMessage={sendMessage}
               isFigmaInputOpen={isFigmaInputOpen}
@@ -453,6 +454,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}
+              templateInitError={vm.templateInitError}
+              onRetryTemplateInit={vm.retryTemplateInit}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}

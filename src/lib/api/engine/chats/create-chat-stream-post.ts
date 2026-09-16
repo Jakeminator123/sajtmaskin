@@ -51,11 +51,20 @@ import {
 import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { getCurrentUser } from "@/lib/auth/auth";
+import {
+  buildAuditBriefContext,
+  buildAuditCodegenPrompt,
+  deriveAuditInitHints,
+  mergeRequestedCapabilities,
+  resolveAuditHandoffDomain,
+} from "@/lib/builder/audit-handoff";
+import { resolveAuditHandoffForOwner } from "@/lib/builder/audit-handoff-resolve";
+import { rehostAuditSourceImages } from "@/lib/media/rehost-remote-image";
 import { logRequestKindClassification } from "./request-kind-log";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
@@ -68,12 +77,11 @@ import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import {
   computePlanModePlannerPrompts,
-  createPlanModePipelineStream,
   dumpPlanModePlannerPrompts,
   logPlanModeGenerationStart,
   resolvePlanModePlannerSettings,
 } from "@/lib/own-engine/session/own-engine-plan-mode";
-import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
+import { startTracedCreateChatPlanModeResponse } from "./create-chat-plan-mode-trace";
 import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "@/lib/gen/scaffolds/types";
@@ -187,7 +195,37 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           meta,
         } = validationResult.data;
         const requestAttachments = normalizeRequestAttachments(attachments);
-        const parsedMeta = parseChatRequestMeta(meta);
+        let parsedMeta = parseChatRequestMeta(meta);
+        const ownerUser = await getCurrentUser(req).catch(() => null);
+        const auditPayload = await resolveAuditHandoffForOwner({
+          promptHandoffId: parsedMeta.promptHandoffId,
+          userId: ownerUser?.id ?? null,
+          sessionId,
+        });
+        const auditHints = auditPayload ? deriveAuditInitHints(auditPayload) : null;
+        const auditContext = auditPayload ? buildAuditBriefContext(auditPayload) : undefined;
+        const codegenMessage = auditPayload ? buildAuditCodegenPrompt(auditPayload) : message;
+        if (auditHints) {
+          parsedMeta = {
+            ...parsedMeta,
+            pageCountHint: parsedMeta.pageCountHint ?? auditHints.pageCountHint,
+            styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : auditHints.styleKeywordsHint,
+            toneKeywordsHint: parsedMeta.toneKeywordsHint.length
+              ? parsedMeta.toneKeywordsHint
+              : auditHints.toneKeywordsHint,
+            colorModeHint: parsedMeta.colorModeHint ?? auditHints.colorModeHint,
+            themeColors: parsedMeta.themeColors ?? auditHints.themeColors,
+          };
+        }
+        if (auditPayload?.source_images?.length && requestAttachments.length === 0) {
+          const rehosted = await rehostAuditSourceImages({
+            images: auditPayload.source_images,
+            userId: ownerUser?.id ?? null,
+          });
+          requestAttachments.push(...rehosted);
+        }
         const modelSelection = resolveModelSelection({
           requestedModelId: modelId,
           requestedModelTier: parsedMeta.modelTier,
@@ -203,7 +241,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const metaPlanMode = parsedMeta.planMode;
         const metaAppProjectId = parsedMeta.appProjectId;
         const promptOrchestration = orchestratePromptMessage({
-          message,
+          message: codegenMessage,
           buildMethod: metaBuildMethod,
           buildIntent: metaBuildIntent,
           isFirstPrompt: true,
@@ -361,6 +399,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             imageGenerations: resolvedImageGenerations,
             signal: createServerAutoBriefSignal(req.signal),
             variantHints: variantHintsText,
+            auditContext,
           });
           if (generated) {
             serverAutoBrief = generated.brief;
@@ -394,7 +433,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             });
           }
         }
-        const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+        let effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+        if (effectiveBrief && auditHints?.requestedCapabilities.length) {
+          effectiveBrief = mergeRequestedCapabilities(
+            effectiveBrief,
+            auditHints.requestedCapabilities,
+          );
+        }
         const briefQuality: "full" | "server-auto" | "none" = (() => {
           const clientQuality = clientBriefFromMeta?.briefQuality;
           if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
@@ -655,20 +700,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedThinking: plannerSettings.thinking,
           });
 
-          const pipelineStream = createPlanModePipelineStream({
-            optimizedMessage,
-            planSystemPrompt,
-            planModel,
-            plannerThinking: plannerSettings.thinking,
-            plannerReasoningEffort: plannerSettings.reasoningEffort,
-            plannerReasoningMode: plannerSettings.reasoningMode,
-            abortSignal: req.signal,
-            referenceAttachments: [
-              ...planOrchestration.variantTemplateReferenceAttachments,
-              ...requestAttachments,
-            ],
-          });
-
           const projectIdForChat = await resolveAppProjectIdForRequest(
             req,
             { appProjectId: metaAppProjectId, projectId },
@@ -714,18 +745,35 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             chatId: plannerChat.id,
           });
 
-          const planModeResponse = createOwnEnginePlanModeResponse({
-            pipelineStream,
+          // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
+          // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
+          // plansummering. Entry/exit går via plan-mode-trace.ts.
+          const planModeResponse = await startTracedCreateChatPlanModeResponse({
             chatId: plannerChat.id,
+            sessionId,
+            userId: creditUser?.id ?? null,
+            appProjectId: projectIdForChat,
             modelTier: resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            thinking: plannerSettings.thinking,
+            plannerSettings,
+            planModel,
+            message,
+            optimizedMessage,
+            planSystemPrompt,
+            abortSignal: req.signal,
+            referenceAttachments: [
+              ...planOrchestration.variantTemplateReferenceAttachments,
+              ...requestAttachments,
+            ],
             promptStrategyMeta: strategyMeta,
             buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planOrchestration.resolvedScaffold,
             variantTemplateId: planOrchestration.variantTemplateId,
             scaffoldMode: parsedMeta.scaffoldMode,
+            promptSourceKind: parsedMeta.promptSourceKind,
+            commitCredits: commitCreditsOnce,
+            promptStartedAt: requestStartedAt,
             onResolved: (planData, hasBlockers, accumulatedContent) => {
               const blockerCount = Array.isArray(planData?.blockers)
                 ? (planData.blockers as unknown[]).length
@@ -747,37 +795,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 contentLength: accumulatedContent.length,
               });
             },
-            // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
-            // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
-            // plansummering.
-            persistAssistantSummary: async (planData, hasBlockers, context) => {
-              const assistantMessage = buildPlanModeAssistantMessage({
-                planData,
-                hasBlockers,
-                hasPlanArtifact: context.hasPlanArtifact,
-                plannerText: context.accumulatedContent,
-                upstreamErrorMessage: context.upstreamErrorMessage,
-              });
-              try {
-                await chatRepo.addMessage(
-                  plannerChat.id,
-                  "assistant",
-                  assistantMessage.content,
-                  undefined,
-                  assistantMessage.uiParts,
-                );
-              } catch (error) {
-                console.warn("[plan] Failed to persist planner assistant summary:", error);
-              }
-            },
-            buildDonePayload: (planData, hasBlockers) => ({
-              chatId: plannerChat.id,
-              planArtifact: planData,
-              awaitingInput: hasBlockers,
-              planMode: true,
-            }),
-            commitCredits: commitCreditsOnce,
-            commitCreditsPosition: "before-done",
           });
           debugLog("engine", "Create chat pre-stream complete", {
             durationMs: Date.now() - requestStartedAt,
@@ -1010,7 +1027,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             }
           }
           await attachCreateChatPromptLogChatId(createChatPromptLogId, engineChat.id);
-          await chatRepo.addMessage(engineChat.id, "user", message);
+          await chatRepo.addMessage(
+            engineChat.id,
+            "user",
+            message,
+            undefined,
+            auditPayload
+              ? [
+                  {
+                    type: "prompt-source",
+                    sourceKind: "audit",
+                    domain: resolveAuditHandoffDomain(auditPayload),
+                  },
+                ]
+              : undefined,
+          );
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
           attachChatToPendingUsage(sessionId, engineChat.id);

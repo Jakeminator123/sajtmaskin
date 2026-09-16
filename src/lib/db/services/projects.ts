@@ -68,6 +68,7 @@ export async function createPromptHandoff(params: {
   projectId?: string | null;
   userId?: string | null;
   sessionId?: string | null;
+  payload?: Record<string, unknown> | null;
 }): Promise<PromptHandoff> {
   assertDbConfigured();
   const id = nanoid();
@@ -81,6 +82,7 @@ export async function createPromptHandoff(params: {
       project_id: params.projectId || null,
       user_id: params.userId || null,
       session_id: params.sessionId || null,
+      payload: params.payload ?? null,
       created_at: now,
     })
     .returning();
@@ -153,6 +155,30 @@ export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<
     .from(appProjects)
     .where(ownerCondition)
     .orderBy(desc(appProjects.updated_at));
+}
+
+/**
+ * Latest project this owner already started from `templateId`.
+ * Used by `POST /api/template` when the client has no `projectId` so a retry
+ * does not mint a second project. Gallery clicks always send `projectId` and
+ * never go through this lookup.
+ */
+export async function findLatestTemplateInitProjectIdForOwner(
+  scope: ProjectOwnerScope,
+  templateId: string,
+): Promise<string | null> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  const trimmedTemplateId = templateId.trim();
+  if (!ownerCondition || !trimmedTemplateId) return null;
+  const rows = await db
+    .select({ id: appProjects.id })
+    .from(appProjects)
+    .innerJoin(projectData, eq(projectData.project_id, appProjects.id))
+    .where(and(ownerCondition, sql`${projectData.meta}->>'templateId' = ${trimmedTemplateId}`))
+    .orderBy(desc(projectData.updated_at))
+    .limit(1);
+  return rows[0]?.id ?? null;
 }
 
 export async function getProjectById(id: string): Promise<Project | null> {

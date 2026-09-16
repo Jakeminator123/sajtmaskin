@@ -9,10 +9,10 @@ På granskad `preview` finns `resolveLiveUrl` (custom → branded → provider),
 slug-reservation, exakta Vercel-alias och ett migreringsskript. De är byggstenar;
 de bevisar inte att DNS, TLS eller produktionsflaggor är aktiva.
 
-`sites.sajtmaskin.se` och `pilot-a1-test.sites.sajtmaskin.se` var NXDOMAIN vid
-read-only mätning 2026-09-15; se
-[adressrunbooken](../../../runbooks/branded-user-urls.md). Det är inte A1-klart:
-två testhosts måste nå två olika projekt över HTTPS. Inget produktions-DNS
+A1:s DNS-krav är uppfyllt: `pilot-a` och `pilot-b.sites.sajtmaskin.se` når
+skilda mål över giltig HTTPS vid read-only mätning 2026-09-15 21:55; se
+[adressrunbooken](../../../runbooks/branded-user-urls.md). Det gör inte
+kundaktivering klar — den ägs av A4 och är avstängd. Inget produktions-DNS
 ändras av dokumentations-PR:er.
 
 ## Adresskontrakt

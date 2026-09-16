@@ -492,7 +492,7 @@ export function prepareCanonicalAddressContract(
   };
 }
 
-function isManagedProviderRedirect(value: unknown, providerHost: string): boolean {
+function isManagedRedirectShape(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const rule = value as Record<string, unknown>;
   if (rule.source !== "/:path*" || rule.permanent !== false) return false;
@@ -504,8 +504,14 @@ function isManagedProviderRedirect(value: unknown, providerHost: string): boolea
   if (!condition || typeof condition !== "object") return false;
   const item = condition as Record<string, unknown>;
   if (item.type !== "host" || !item.value || typeof item.value !== "object") return false;
-  const match = item.value as Record<string, unknown>;
-  return match.eq === providerHost;
+  return typeof (item.value as { eq?: unknown }).eq === "string";
+}
+
+function isManagedProviderRedirect(value: unknown, providerHost: string): boolean {
+  if (!isManagedRedirectShape(value) || !value || typeof value !== "object") return false;
+  const rule = value as Record<string, unknown>;
+  const condition = (Array.isArray(rule.has) ? rule.has : [])[0] as { value?: { eq?: unknown } };
+  return condition.value?.eq === providerHost;
 }
 
 function isManagedNoindexHeader(value: unknown): boolean {
@@ -673,7 +679,9 @@ function writeVercelConfig(
 /**
  * Merge the temporary provider-host 307 and provider-only noindex into static
  * Vercel config. Existing JSON fields and customer redirects/headers are
- * preserved. Invalid or competing config fails closed.
+ * preserved. Invalid or competing config fails closed. A null candidate
+ * strips only our managed 307/noindex so rollback to same-host cannot leave
+ * a stale provider → old-custom loop.
  */
 export function applyCanonicalHostRedirect(
   files: DeployTextFile[],
@@ -699,21 +707,21 @@ export function applyCanonicalHostRedirect(
     validated = result.candidate;
   }
 
-  if (!validated && !wantsNoindex) {
-    return { files, warnings: [], applied: false, noindexApplied: false };
-  }
-
   const parsed = parseVercelConfig(files);
   if (parsed.warning) {
     return { files, warnings: [parsed.warning], applied: false, noindexApplied: false };
+  }
+  if (!validated && !wantsNoindex && parsed.configIndex < 0) {
+    return { files, warnings: [], applied: false, noindexApplied: false };
   }
 
   const config = { ...parsed.config };
   let applied = false;
   let noindexApplied = false;
+  let strippedManaged = false;
 
+  const existingRedirects = Array.isArray(config.redirects) ? config.redirects : [];
   if (validated) {
-    const existingRedirects = Array.isArray(config.redirects) ? config.redirects : [];
     const redirects = existingRedirects.filter(
       (redirect) => !isManagedProviderRedirect(redirect, validated.providerHost),
     );
@@ -725,6 +733,13 @@ export function applyCanonicalHostRedirect(
     });
     config.redirects = redirects;
     applied = true;
+  } else {
+    const redirects = existingRedirects.filter((redirect) => !isManagedRedirectShape(redirect));
+    if (redirects.length !== existingRedirects.length) {
+      if (redirects.length > 0) config.redirects = redirects;
+      else delete config.redirects;
+      strippedManaged = true;
+    }
   }
 
   const noindexTarget = validated ? validated.providerHost : noindexHost;
@@ -745,6 +760,19 @@ export function applyCanonicalHostRedirect(
     headers.unshift(rule);
     config.headers = headers;
     noindexApplied = true;
+  } else if (primaryHost && Array.isArray(config.headers)) {
+    const headers = config.headers
+      .map((header) => stripManagedNoindexRule(header, primaryHost))
+      .filter((header): header is NonNullable<typeof header> => header != null);
+    if (headers.length !== config.headers.length) {
+      if (headers.length > 0) config.headers = headers;
+      else delete config.headers;
+      strippedManaged = true;
+    }
+  }
+
+  if (!validated && !wantsNoindex && !strippedManaged) {
+    return { files, warnings: [], applied: false, noindexApplied: false };
   }
 
   return {

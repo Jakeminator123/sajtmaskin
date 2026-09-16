@@ -309,6 +309,12 @@ export type ChatMessagingParams = {
   themeColors?: ThemeColors | null;
   paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
+  /** Server-owned audit handoff; forwarded as `meta.promptHandoffId`. */
+  promptHandoffId?: string | null;
+  /** True only when GET /api/prompts returned payloadKind=audit. */
+  isAuditHandoff?: boolean;
+  /** Composer/chat chip label for an audit entry. */
+  auditHandoffDomain?: string | null;
   mutateVersions: () => void;
   setCurrentPreviewUrl: (url: string | null) => void;
   /** Cleared on `preview-ready`; set on SSE build-error for inline preview UI. */

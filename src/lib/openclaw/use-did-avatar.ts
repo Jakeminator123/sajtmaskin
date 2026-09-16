@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefCallback,
+} from "react";
 
 export type DidConnectionState =
   | "idle"
@@ -57,7 +63,7 @@ export function truncateForSpeech(text: string, maxSentences = 3): string {
 export function useDidAvatar(options?: { enabled?: boolean }) {
   const enabled = (options?.enabled ?? true) && DID_AVATAR_AVAILABLE;
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoNodeRef = useRef<HTMLVideoElement | null>(null);
   const agentRef = useRef<DidAgentManager | null>(null);
   const sdkModuleRef = useRef<DidClientSdk | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -77,13 +83,22 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   }, []);
 
   const syncVideoPlayback = useCallback(() => {
-    const video = videoRef.current;
+    const video = videoNodeRef.current;
     if (!video) return;
-    if (streamRef.current && video.srcObject !== streamRef.current) {
-      video.srcObject = streamRef.current;
+    const stream = streamRef.current;
+    if (stream && video.srcObject !== stream) {
+      video.srcObject = stream;
       void video.play().catch(() => {});
     }
   }, []);
+
+  // <video> renderas först när avatarReady är true, så onSrcObjectReady
+  // hinner köra medan noden fortfarande saknas. Callback-ref fäster
+  // streamen vid mount; ny MediaStream ersätter den gamla.
+  const videoRef = useCallback<RefCallback<HTMLVideoElement>>((node) => {
+    videoNodeRef.current = node;
+    if (node) syncVideoPlayback();
+  }, [syncVideoPlayback]);
 
   const loadSdk = useCallback(async () => {
     if (sdkModuleRef.current) return sdkModuleRef.current;
@@ -210,6 +225,11 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       disconnect();
     }
   }, [connect, disconnect, enabled]);
+
+  useEffect(() => {
+    if (!avatarReady) return;
+    syncVideoPlayback();
+  }, [avatarReady, syncVideoPlayback]);
 
   useEffect(() => {
     const generation = connectionGenerationRef;
