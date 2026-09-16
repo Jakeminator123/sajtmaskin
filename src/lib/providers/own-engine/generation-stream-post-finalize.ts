@@ -12,6 +12,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { pollAndApplyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp";
 import { getPreviewHostBaseUrl, isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
@@ -429,6 +430,26 @@ export async function runOwnEngineStreamPostFinalize(params: {
         // counts as success. A freshly-created/updated session has only queued
         // the boot, so it stays pending (null) until confirmed elsewhere.
         previewRuntimeOutcome = sr.runtimeReady ? true : null;
+        // Fresh boot: host `waitForReady` finishes after this SSE handoff.
+        // Without a client preview-status poll the auth-eval dump kept
+        // `preview_success=null` and never wrote the host error. Attach the
+        // existing readiness stamp — do not start a long poller when `after()`
+        // is unavailable (scripts/tests).
+        if (!sr.runtimeReady && sr.previewSessionId) {
+          try {
+            after(
+              pollAndApplyPreviewReadinessOutcome({
+                chatId,
+                versionId: finalized.version.id,
+                previewSessionId: sr.previewSessionId,
+                bootedFilesRevision: sr.filesRevision ?? bootedFilesRevision,
+                expectedLifecycleToken: sr.lifecycleToken ?? null,
+              }),
+            );
+          } catch {
+            /* no request scope — heartbeat/status remain the receipt path */
+          }
+        }
         logPreviewLifecycleTelemetry({
           kind: "preview_start_outcome",
           chatId,

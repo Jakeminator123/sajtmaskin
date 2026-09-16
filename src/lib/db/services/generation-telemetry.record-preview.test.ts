@@ -127,6 +127,17 @@ describe("recordPreviewRuntimeOutcomeForVersion (M#pv1, atomic SQL-side monotoni
     expect(params).toContain("ver_1");
   });
 
+  it("false-stamp writes preview_blocking_reason when the host verdict is known", async () => {
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", false, {
+      previewBlockingReason: "Publishable key not valid",
+    });
+
+    expect(updateSet.value).toEqual({
+      previewSuccess: false,
+      previewBlockingReason: "Publishable key not valid",
+    });
+  });
+
   it("caches a MATCHED true-stamp per instance — repeat polls do no DB round-trip at all", async () => {
     updateResult.rowCount = 1;
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
