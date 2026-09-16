@@ -105,4 +105,26 @@ describe("A4 — freeze UI recipes only on AUTO-FIX / targeted repair", () => {
     expect(mockedResolveShadcnUiRecipes).toHaveBeenCalled();
     expect(base.uiRecipes.map((recipe) => recipe.name)).toEqual(["hero3"]);
   });
+
+  it("does not freeze recipes when only the wrapped file context mentions quality gate", async () => {
+    const userPrompt = "Lägg till testimonials under heron";
+    const wrappedPrompt = [
+      "Previous files:",
+      "// quality gate failed on the hero contact section",
+      "components/hero.tsx",
+      userPrompt,
+    ].join("\n");
+    const base = await resolveOrchestrationBase(
+      followUpInput(userPrompt, {
+        prompt: wrappedPrompt,
+        rawPrompt: userPrompt,
+        capabilitiesPrompt: userPrompt,
+      }),
+    );
+
+    expect(isTargetedRepairPrompt(wrappedPrompt)).toBe(true);
+    expect(isTargetedRepairPrompt(userPrompt)).toBe(false);
+    expect(mockedResolveShadcnUiRecipes).toHaveBeenCalled();
+    expect(base.uiRecipes.map((recipe) => recipe.name)).toEqual(["hero3"]);
+  });
 });

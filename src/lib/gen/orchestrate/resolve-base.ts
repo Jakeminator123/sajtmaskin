@@ -223,9 +223,10 @@ export async function resolveOrchestrationBase(
     importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
   // Targeted repair / AUTO-FIX must not pick new hero/testimonial recipes
-  // from the original brief words. Regular follow-ups still resolve recipes.
-  const freezeUiRecipesForRepair =
-    isTargetedRepairPrompt(prompt) || isTargetedRepairPrompt(intentSourcePrompt);
+  // from the original brief words. Inspect the raw request only — wrapped
+  // `prompt` can carry previous-file dumps that mention "quality gate".
+  const repairIntentPrompt = input.rawPrompt ?? input.capabilitiesPrompt ?? prompt;
+  const freezeUiRecipesForRepair = isTargetedRepairPrompt(repairIntentPrompt);
   const uiRecipesPromise = freezeUiRecipesForRepair
     ? Promise.resolve([] as ShadcnUiRecipe[])
     : resolveShadcnUiRecipes({
