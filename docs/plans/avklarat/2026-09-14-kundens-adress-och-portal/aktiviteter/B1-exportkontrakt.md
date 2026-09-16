@@ -2,7 +2,7 @@
 
 ## Genomförandestatus 2026-09-15
 
-B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön ready-CI, Dossier acceptance och Vercel READY. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden.
+B1 är levererad på `preview` i #1367 som `934eda6c7b189b84d1ecf7c18f774838a7245843` efter oberoende Sol/high PASS, grön CI, Dossier acceptance och Vercel-deploy. GitGuardian-checken hanterades uttryckligen som false positive och blev `skipped` före merge. Kodens riktade verifiering omfattade 45 lokala tester och typecheck samt en fristående byggd Next-export med verklig PNG, ny origin och tomma env-värden.
 
 Område: [02](../02-agandeskap-och-exit.md). Leveransen bygger vidare på
 [C1](C1-sajtvy.md). C2 (#1384) är kodinkopplad i samma sajtvy; C2-runtime mot

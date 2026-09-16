@@ -4,7 +4,7 @@
 
 **Inte levererad. Dry-run-kontraktet är offline-klart.** Ingen
 aliasbindning, ingen `--apply`, ingen branded live-URL. A3:s kodflagga
-öppnar inte A4. Skriptet väljer inte längre senaste READY som mål; utan
+öppnar inte A4. Skriptet väljer inte längre senaste Vercel-raden som mål; utan
 `--production-deployment-id=` loggas den raden bara som diagnostik.
 Eligibility, explicit `--project-id=`, idempotens och rollbackplan finns som
 rena funktioner. Preview-DB är delad prod — kör inte skriptet mot den utan

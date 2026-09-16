@@ -1,14 +1,14 @@
 # Kundens adress och portal — reviderat MVP-förslag (2026-09-14)
 
-> **Status: genomförande pågår mot `preview`.** Ingen produktionspromote.
+> **Status: delivered.** Kod på preview. Runtime-bevis styrs av
+> [branded-runtime-aktivering](../../active/2026-09-16-branded-runtime-aktivering/00-master-plan.md).
 > Inga nya produktval ratificeras här. Förslagen nedan flyttas till
 > [beslutsloggen](../../../decisions/README.md) först efter Jakobs svar.
 
-Avläst mot låst `origin/preview`
+Historisk avläsning mot `origin/preview`
 `33935b8d048c311e138279cd8868c58cdbca9dfd` (2026-09-15, inkl. #1389 + #1391).
-`origin/master` = `fb14ab3d65103f5e9b40e0d31baf9c9d3c32df2e`. Inga ad hoc-PR:er
-före promote. Kod på preview är inte samma sak som flagga på, runtime
-verifierad eller kundaktiverad.
+Nyare preview-fakta hör i runtime-spåret, inte här. Kod på preview är inte
+samma sak som flagga på, runtime verifierad eller kundaktiverad.
 
 ## Genomförandestatus 2026-09-15
 
