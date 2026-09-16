@@ -1,14 +1,23 @@
 import Link from "next/link";
-import { getSeoLandingEntry, type SeoLandingSlug } from "@/lib/seo-landing-pages/registry";
+import {
+  assertSeoLandingPlaceholderAllowed,
+  getSeoLandingEntry,
+  type SeoLandingSlug,
+} from "@/lib/seo-landing-pages/registry";
 
 /**
  * Shared blue test surface for unfinished SEO landing routes.
  * Future finished pages should replace this per-route instead of extending
  * it into a page-builder. Styles stay on this wrapper so they cannot leak
  * into `globals.css`.
+ *
+ * Fail-closed: a registry entry with `status: "ready"` must not mount this
+ * component. The assert throws so build/test cannot ship a blue test page
+ * as indexable.
  */
 export function SeoLandingPlaceholder({ slug }: { slug: SeoLandingSlug }) {
   const entry = getSeoLandingEntry(slug);
+  assertSeoLandingPlaceholderAllowed(entry);
 
   return (
     <main className="flex min-h-screen flex-col bg-blue-600 text-white">

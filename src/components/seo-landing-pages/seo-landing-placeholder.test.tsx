@@ -2,6 +2,11 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import {
+  SEO_LANDING_CTA_HREF,
+  SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
+  getSeoLandingEntry,
+} from "@/lib/seo-landing-pages/registry";
 import { SeoLandingPlaceholder } from "./seo-landing-placeholder";
 
 vi.mock("next/link", () => ({
@@ -9,6 +14,14 @@ vi.mock("next/link", () => ({
     <a href={href}>{children}</a>
   ),
 }));
+
+vi.mock("@/lib/seo-landing-pages/registry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/seo-landing-pages/registry")>();
+  return {
+    ...actual,
+    getSeoLandingEntry: vi.fn(actual.getSeoLandingEntry),
+  };
+});
 
 describe("SeoLandingPlaceholder", () => {
   it("renders the shared test heading, slug and product CTA", () => {
@@ -24,6 +37,23 @@ describe("SeoLandingPlaceholder", () => {
     );
     expect(screen.getByRole("link", { name: "Öppna Sajtmaskin" }).getAttribute("href")).toBe(
       "/builder?new=1",
+    );
+  });
+
+  it("throws when a ready registry entry still uses the placeholder", () => {
+    vi.mocked(getSeoLandingEntry).mockReturnValueOnce({
+      slug: "skapa-hemsida-med-ai",
+      title: "Skapa hemsida med AI – se hur det fungerar",
+      description: "Riktig landningssida.",
+      plannedH1: "Skapa hemsida med AI – från beskrivning till första version",
+      intent: "Hur man skapar en hemsida med AI",
+      relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida", "hemsida-utan-kod"],
+      status: "ready",
+      ctaHref: SEO_LANDING_CTA_HREF,
+    });
+
+    expect(() => render(<SeoLandingPlaceholder slug="skapa-hemsida-med-ai" />)).toThrow(
+      SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
     );
   });
 });

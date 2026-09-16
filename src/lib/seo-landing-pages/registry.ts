@@ -17,10 +17,15 @@
  *    do not dump imported globals into `src/app/globals.css`.
  * 4. Keep `status: "placeholder"` until the page has unique content.
  *    Sitemap and indexable metadata follow this flag automatically.
- * 5. Set `status: "ready"` only when the page should be indexed.
+ * 5. Set `status: "ready"` only after `SeoLandingPlaceholder` is gone from
+ *    that route. The placeholder throws (and tests fail) if a ready entry
+ *    still mounts it — fail-closed so a forgotten swap cannot go indexable.
  *
  * Do not list unfinished slugs in `STATIC_SITEMAP_REL_PATHS`.
  */
+
+export const SEO_LANDING_PLACEHOLDER_READY_MESSAGE =
+  'SeoLandingPlaceholder cannot render a registry entry with status "ready"';
 
 export const SEO_LANDING_CTA_HREF = "/builder?new=1" as const;
 
@@ -180,6 +185,20 @@ export function getSeoLandingEntry(slug: SeoLandingSlug) {
     throw new Error(`Unknown SEO landing slug: ${slug}`);
   }
   return entry;
+}
+
+/**
+ * Runtime + test invariant: a `ready` page must already have real content.
+ * Calling this from `SeoLandingPlaceholder` makes a forgotten swap fail
+ * closed at render/build instead of quietly becoming indexable.
+ */
+export function assertSeoLandingPlaceholderAllowed(entry: SeoLandingPageEntry): void {
+  if (entry.status !== "ready") {
+    return;
+  }
+  throw new Error(
+    `${SEO_LANDING_PLACEHOLDER_READY_MESSAGE}: /${entry.slug}. Replace SeoLandingPlaceholder with real page content before flipping status.`,
+  );
 }
 
 export function indexableSeoLandingRelPathsFrom(

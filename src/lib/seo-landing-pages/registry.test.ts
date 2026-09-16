@@ -1,10 +1,12 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
   SEO_LANDING_PAGES,
+  SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
   SEO_LANDING_SLUGS,
+  assertSeoLandingPlaceholderAllowed,
   getIndexableSeoLandingRelPaths,
   getPlaceholderSeoLandingRelPaths,
   getSeoLandingEntry,
@@ -126,6 +128,31 @@ describe("SEO landing registry", () => {
       for (const related of page.relatedSlugs) {
         expect(isSeoLandingSlug(related)).toBe(true);
         expect(related).not.toBe(page.slug);
+      }
+    }
+  });
+
+  it("allows the shared placeholder only for placeholder entries", () => {
+    expect(() =>
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("skapa-hemsida-med-ai")),
+    ).not.toThrow();
+    expect(() =>
+      assertSeoLandingPlaceholderAllowed({
+        ...getSeoLandingEntry("skapa-hemsida-med-ai"),
+        status: "ready",
+      }),
+    ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
+  });
+
+  it("fails closed when a ready route still mounts SeoLandingPlaceholder", () => {
+    for (const page of SEO_LANDING_PAGES) {
+      const source = readFileSync(join(APP_DIR, page.slug, "page.tsx"), "utf8");
+      const usesPlaceholder = source.includes("SeoLandingPlaceholder");
+      if (usesPlaceholder) {
+        expect(page.status).toBe("placeholder");
+      }
+      if (page.status === "ready") {
+        expect(usesPlaceholder).toBe(false);
       }
     }
   });

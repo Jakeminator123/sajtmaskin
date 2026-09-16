@@ -10,7 +10,9 @@ import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
  * - ordinary App Router URL on the main domain
  * - product CTA via the registry (`/builder?new=1`)
  * - replace `SeoLandingPlaceholder` with extracted design/content
- * - flip `status` to `"ready"` in the registry before sitemap/index
+ * - flip `status` to `"ready"` in the registry only after that swap.
+ *   The placeholder is fail-closed: a ready entry still mounting it
+ *   throws at render and fails tests.
  *
  * Do not embed a second app, iframe, or subdomain here.
  */
