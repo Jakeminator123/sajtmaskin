@@ -31,6 +31,7 @@ describe("isScaffoldBracketPlaceholder", () => {
     expect(isScaffoldBracketPlaceholder("0.2em")).toBe(false);
     expect(isScaffoldBracketPlaceholder("title, items")).toBe(false);
     expect(isScaffoldBracketPlaceholder("Key in keyof T")).toBe(false);
+    expect(isScaffoldBracketPlaceholder("K")).toBe(false);
   });
 });
 
@@ -47,6 +48,20 @@ describe("countBracketPlaceholders", () => {
     ].join("\n");
 
     expect(countBracketPlaceholders(content)).toBe(4);
+  });
+
+  it("does not flag TypeScript index access or tuple-looking type params", () => {
+    const content = [
+      "type Value<T, K extends keyof T> = T[K];",
+      "type FromFoo = Foo[Key];",
+      "const value = records[Key];",
+      "const nested = getMap()[Key];",
+      "const optional = record?.[Key];",
+      "type Pair = [Key, Value];",
+      "export default function Page() { return <h1>[Namn]</h1>; }",
+    ].join("\n");
+
+    expect(countBracketPlaceholders(content)).toBe(1);
   });
 
   it("flags the new portfolio and blog leftovers in the real scaffold files", () => {
