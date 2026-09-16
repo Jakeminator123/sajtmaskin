@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planImportedProjectHandoff } from "./import-project-handoff";
+import { planImportedProjectHandoff, shouldSkipFreshEntryChatReset } from "./import-project-handoff";
 import type { ImportInitSuccess } from "@/lib/import/import-init-contract";
 
 const success = (overrides: Partial<ImportInitSuccess> = {}): ImportInitSuccess => ({
@@ -32,6 +32,24 @@ describe("planImportedProjectHandoff", () => {
       }),
     );
     expect(plan.nextPreviewUrl).toBeNull();
-    expect(plan.shouldRetryPreview).toBe(true);
+  });
+
+  it("keeps the imported chat before the new chatId reaches the URL", () => {
+    expect(
+      shouldSkipFreshEntryChatReset({
+        chatIdParam: null,
+        isCreatingChat: false,
+        pendingImportedChatId: "chat_new",
+        currentChatId: "chat_new",
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipFreshEntryChatReset({
+        chatIdParam: null,
+        isCreatingChat: false,
+        pendingImportedChatId: "chat_new",
+        currentChatId: "chat_old",
+      }),
+    ).toBe(false);
   });
 });

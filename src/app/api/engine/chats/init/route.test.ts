@@ -188,6 +188,16 @@ describe("POST /api/engine/chats/init", () => {
     expect(persistImportedRepoInitialization.mock.invocationCallOrder[0]).toBeLessThan(
       startPreviewSession.mock.invocationCallOrder[0],
     );
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        skipRepair: true,
+        skipProjectScaffold: true,
+        chatId: "chat_import",
+        appProjectId: "proj_import",
+        versionIdForSession: "ver_import",
+      }),
+    );
     expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
       versionId: "ver_import",
       filesRevision: "revision_import",

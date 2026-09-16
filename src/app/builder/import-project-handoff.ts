@@ -6,7 +6,6 @@ export type ImportedProjectHandoff = {
   nextVersionId: string;
   nextPreviewUrl: string | null;
   shouldClearOldPreview: boolean;
-  shouldRetryPreview: boolean;
 };
 
 /**
@@ -26,6 +25,21 @@ export function planImportedProjectHandoff(result: ImportInitSuccess): ImportedP
     nextVersionId: result.versionId,
     nextPreviewUrl,
     shouldClearOldPreview: true,
-    shouldRetryPreview: result.preview.status === "failed" || result.preview.retryable,
   };
+}
+
+/** Keep a just-imported chat while `router.replace` has not yet written `chatId` to the URL. */
+export function shouldSkipFreshEntryChatReset(params: {
+  chatIdParam: string | null;
+  isCreatingChat: boolean;
+  pendingImportedChatId?: string | null;
+  currentChatId?: string | null;
+}): boolean {
+  if (params.chatIdParam) return true;
+  if (params.isCreatingChat) return true;
+  return Boolean(
+    params.pendingImportedChatId &&
+      params.currentChatId &&
+      params.pendingImportedChatId === params.currentChatId,
+  );
 }

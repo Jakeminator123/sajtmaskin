@@ -127,6 +127,7 @@ export function useBuilderPageController() {
   // settle, quick edit). Owned here because `useBuilderDeployActions` runs
   // before `useBuilderVersionSelectionSync` in the hook order; both need it.
   const pendingCreatedVersionRef = useRef<PendingCreatedVersion | null>(null);
+  const pendingImportHandoffRef = useRef<{ chatId: string; projectId: string } | null>(null);
   const shouldHoldChatHooksForFreshEntry = Boolean(
     chatId && !chatIdParam && !templateId && hasEntryParams && entryIntentActive,
   );
@@ -450,6 +451,10 @@ export function useBuilderPageController() {
   const handleImportedRepoSuccess = useCallback(
     (result: ImportInitSuccess) => {
       const plan = planImportedProjectHandoff(result);
+      pendingImportHandoffRef.current = {
+        chatId: plan.nextChatId,
+        projectId: plan.nextProjectId,
+      };
       markPendingCreatedVersion(pendingCreatedVersionRef, plan.nextVersionId);
       setSelectedVersionId(plan.nextVersionId);
       setChatId(plan.nextChatId);
@@ -663,6 +668,7 @@ export function useBuilderPageController() {
     isAuthenticated,
     isAuthLoading,
     isCreatingChat,
+    pendingImportHandoffRef,
     fetchUser,
     cancelActiveGeneration,
     pendingBriefRef,

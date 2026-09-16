@@ -513,7 +513,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         <div className="mt-4 flex gap-3 border-t border-border pt-4">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isLoading}
             className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50 disabled:opacity-50"
           >

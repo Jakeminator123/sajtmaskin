@@ -10,6 +10,7 @@ vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
 import { GITHUB_IMPORT_USER_AGENT } from "./import-init-contract";
 import { ImportInitError } from "./github-import-errors";
 import {
+  assertPrivateGithubAccess,
   downloadGithubZipBuffer,
   fetchGithubRepoMeta,
   githubImportHeaders,
@@ -127,12 +128,21 @@ describe("resolveGithubImport", () => {
   });
 });
 
+describe("assertPrivateGithubAccess", () => {
+  it("rejects a private repo when the user has no GitHub token", () => {
+    expect(() => assertPrivateGithubAccess({ isPrivate: true, token: null })).toThrowError(
+      /Anslut GitHub/,
+    );
+    expect(() => assertPrivateGithubAccess({ isPrivate: false, token: null })).not.toThrow();
+  });
+});
+
 describe("downloadGithubZipBuffer", () => {
   beforeEach(() => {
     safeFetch.mockReset();
   });
 
-  it("uses the authenticated zipball and keeps the token off a foreign redirect host", async () => {
+  it("downloads a private zipball with User-Agent and Authorization", async () => {
     safeFetch.mockResolvedValueOnce(new Response(Buffer.from("PK\u0003\u0004"), { status: 200 }));
 
     await downloadGithubZipBuffer({
