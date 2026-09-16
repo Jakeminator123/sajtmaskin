@@ -6,6 +6,7 @@ import {
   checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
   checkUseReducedMotionStub,
+  didVerifierLlmComplete,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   parseImportRepairRefsFromFinding,
@@ -1439,5 +1440,20 @@ describe("resolveVerifierProviderOptions", () => {
         reasoningEffort: "low",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("didVerifierLlmComplete", () => {
+  it("treats an explicit completed receipt as authoritative", () => {
+    expect(didVerifierLlmComplete({ llmAvailability: "completed" })).toBe(true);
+  });
+
+  it("keeps legacy mocks without a receipt as completed (back-compat)", () => {
+    expect(didVerifierLlmComplete({})).toBe(true);
+  });
+
+  it("is fail-closed on provider failure or an intentional skip", () => {
+    expect(didVerifierLlmComplete({ llmAvailability: "unavailable" })).toBe(false);
+    expect(didVerifierLlmComplete({ llmAvailability: "skipped" })).toBe(false);
   });
 });

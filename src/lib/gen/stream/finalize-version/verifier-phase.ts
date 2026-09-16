@@ -22,6 +22,10 @@
  *   them" lesson. Residual blockers remain in `verifierBlockingFindings`
  *   (the re-run set), so downstream F2/F3 gating still sees them — the fixer
  *   never green-lights a version whose blockers it only partially cleared.
+ *
+ *   A confirmation rerun that does not complete the LLM review (provider
+ *   error, timeout, invalid structured output, skipped) is unverified — same
+ *   as a thrown rerun. Deterministic-only empty findings are not “clean”.
  */
 
 import type { BuildSpec } from "@/lib/gen/build-spec";
@@ -29,6 +33,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
+  didVerifierLlmComplete,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   parseImportRepairRefsFromFinding,
@@ -430,30 +435,47 @@ export async function runVerifierPhase(params: {
             const rerunPrepared = prepareVerifierPackageJson(contentForVersion, {
               skipBaselineMerge: skipBaselinePackageJsonMerge,
             });
-            const rerunRaw = suppressTier3StrippedImportFindings(
-              await runVerifierPass(rerunPrepared.verifierContent, {
-                resolvedTier: verifierTier,
-                abortSignal: rerunAbort.signal,
-              }),
-              { previewPolicy: params.buildSpec?.previewPolicy },
-            );
-            const rerunStale = dropResolvedVerifierFindings(
-              rerunRaw.blocking,
-              rerunPrepared.filesForDependencyCheck,
-              { classes: ["package-json"] },
-            );
-            const rerunFindings = { ...rerunRaw, blocking: rerunStale.kept };
-            rerunDurationMs = Date.now() - rerunStartedAt;
-            rerunBlockingCount = rerunFindings.blocking.length;
-            verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
-            devLogAppend("in-progress", {
-              type: "verifier_rerun_after_fix",
-              chatId,
-              before: findings.blocking.length,
-              after: rerunFindings.blocking.length,
-              durationMs: rerunDurationMs,
-              scaffoldId: resolvedScaffold?.id ?? null,
+            const rerunPass = await runVerifierPass(rerunPrepared.verifierContent, {
+              resolvedTier: verifierTier,
+              abortSignal: rerunAbort.signal,
             });
+            // Provider/timeout/invalid structured output used to return only
+            // deterministic findings (often []). That looked like “LLM found
+            // zero blockers” and stamped the pre-fix semantic finding `fixed`.
+            if (!didVerifierLlmComplete(rerunPass)) {
+              rerunDurationMs = Date.now() - rerunStartedAt;
+              devLogAppend("in-progress", {
+                type: "verifier_rerun_after_fix.unavailable",
+                chatId,
+                llmAvailability: rerunPass.llmAvailability,
+                before: findings.blocking.length,
+                durationMs: rerunDurationMs,
+                scaffoldId: resolvedScaffold?.id ?? null,
+              });
+              // Leave `rerunBlockingCount` null and keep pre-fix findings —
+              // same fail-closed path as a thrown rerun.
+            } else {
+              const rerunRaw = suppressTier3StrippedImportFindings(rerunPass, {
+                previewPolicy: params.buildSpec?.previewPolicy,
+              });
+              const rerunStale = dropResolvedVerifierFindings(
+                rerunRaw.blocking,
+                rerunPrepared.filesForDependencyCheck,
+                { classes: ["package-json"] },
+              );
+              const rerunFindings = { ...rerunRaw, blocking: rerunStale.kept };
+              rerunDurationMs = Date.now() - rerunStartedAt;
+              rerunBlockingCount = rerunFindings.blocking.length;
+              verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
+              devLogAppend("in-progress", {
+                type: "verifier_rerun_after_fix",
+                chatId,
+                before: findings.blocking.length,
+                after: rerunFindings.blocking.length,
+                durationMs: rerunDurationMs,
+                scaffoldId: resolvedScaffold?.id ?? null,
+              });
+            }
           } catch (rerunErr) {
             console.warn(
               "[verifier-pass] Re-run after fix failed (non-fatal):",

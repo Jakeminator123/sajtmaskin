@@ -672,6 +672,67 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
     });
   });
 
+  it("C1: provider-failed confirmation rerun does not mark an LLM-only blocker as fixed", async () => {
+    const llmOnlyBlocker = {
+      id: "navigation-placeholder-actions",
+      detail: "app/page.tsx Button label='Boka demo' has empty href",
+    };
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [llmOnlyBlocker],
+        quality: [],
+        llmAvailability: "completed",
+      })
+      // Rerun: provider/timeout — only deterministic findings (none) come back.
+      .mockResolvedValueOnce({
+        blocking: [],
+        quality: [],
+        llmAvailability: "unavailable",
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE),
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "navigation-placeholder-actions" }),
+    ]);
+    expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "fixed",
+      }),
+    );
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fix-failed", fixerImproved: false }),
+    });
+    expect(progressEvents).not.toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fixed" }),
+    });
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier_rerun_after_fix.unavailable" }),
+    );
+  });
+
   it("rerun rejects (throws) → no verifier-fixer RAG row, original blockers kept, fix-failed SSE", async () => {
     runVerifierPass
       .mockResolvedValueOnce({
