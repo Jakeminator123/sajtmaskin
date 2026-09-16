@@ -1,12 +1,26 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { MiniWizardData } from "@/lib/kostnadsfri";
 import {
+  KOSTNADSFRI_PENDING_INIT_STORAGE_KEY,
   KOSTNADSFRI_PENDING_INIT_TTL_MS,
   clearPendingInitBuild,
   clearPendingInitBuildStorageForTests,
   persistPendingInitBuild,
   readPendingInitBuild,
 } from "./pending-init-build";
+
+function memoryPendingStorage() {
+  const data = new Map<string, string>();
+  return {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      data.set(key, value);
+    },
+    removeItem: (key: string) => {
+      data.delete(key);
+    },
+  };
+}
 
 const wizard: MiniWizardData = {
   companyName: "Zax 2.0 AB",
@@ -57,5 +71,21 @@ describe("pending kostnadsfri init build", () => {
     expect(readPendingInitBuild("zax-2-0-ab")).not.toBeNull();
     clearPendingInitBuild("zax-2-0-ab");
     expect(readPendingInitBuild("zax-2-0-ab")).toBeNull();
+  });
+
+  it("removes an expired pending record instead of leaving it in storage", () => {
+    const storage = memoryPendingStorage();
+    const now = 1_000_000;
+    persistPendingInitBuild({ slug: "zax-2-0-ab", wizardData: wizard }, storage, now);
+    expect(storage.getItem(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY)).toBeTruthy();
+
+    expect(
+      readPendingInitBuild(
+        "other-campaign",
+        storage,
+        now + KOSTNADSFRI_PENDING_INIT_TTL_MS + 1,
+      ),
+    ).toBeNull();
+    expect(storage.getItem(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY)).toBeNull();
   });
 });

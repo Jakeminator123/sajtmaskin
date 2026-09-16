@@ -103,6 +103,24 @@ export function normalizePendingInitBuild(
   };
 }
 
+function removePendingStorage(storage: PendingStorage): void {
+  try {
+    storage.removeItem(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY);
+  } catch {
+    /* privat läge */
+  }
+  memoryStorage.delete(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY);
+}
+
+function isExpiredPendingRecord(value: unknown, now: number): boolean {
+  if (!value || typeof value !== "object") return false;
+  const savedAt = (value as Record<string, unknown>).savedAt;
+  if (typeof savedAt !== "number" || !Number.isFinite(savedAt) || savedAt <= 0) {
+    return false;
+  }
+  return now - savedAt > KOSTNADSFRI_PENDING_INIT_TTL_MS;
+}
+
 export function persistPendingInitBuild(
   input: {
     slug: string;
@@ -140,7 +158,12 @@ export function readPendingInitBuild(
   try {
     const raw = storage.getItem(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY);
     if (!raw) return null;
-    const pending = normalizePendingInitBuild(JSON.parse(raw) as unknown, now);
+    const parsed = JSON.parse(raw) as unknown;
+    if (isExpiredPendingRecord(parsed, now)) {
+      removePendingStorage(storage);
+      return null;
+    }
+    const pending = normalizePendingInitBuild(parsed, now);
     if (!pending || pending.slug !== slug) return null;
     return pending;
   } catch {
@@ -156,12 +179,7 @@ export function clearPendingInitBuild(
     const current = readPendingInitBuild(slug, storage);
     if (!current) return;
   }
-  try {
-    storage.removeItem(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY);
-  } catch {
-    /* privat läge */
-  }
-  memoryStorage.delete(KOSTNADSFRI_PENDING_INIT_STORAGE_KEY);
+  removePendingStorage(storage);
 }
 
 export function clearPendingInitBuildStorageForTests(
