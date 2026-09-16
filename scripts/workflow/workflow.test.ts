@@ -699,7 +699,7 @@ describe("agent workflow repository contract", () => {
           "github.event_name == 'issue_comment') &&\n",
       ),
       source.replace(
-        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}\n",
+        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}\n",
         "      group: trusted-review-window\n",
       ),
       source.replace(

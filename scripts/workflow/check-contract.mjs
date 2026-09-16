@@ -390,9 +390,14 @@ const REJECT_NON_MASTER_DISPATCH =
 const TRUSTED_REVIEW_GATE_JOB_IF =
   "github.event_name == 'pull_request_target' && " +
   "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
-  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' )";
+  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' ) || " +
+  "( github.event_name == 'issue_comment' && github.event.action == 'created' && " +
+  "github.event.issue.pull_request != null && " +
+  "contains(fromJSON('[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"]'), github.event.comment.author_association) && " +
+  "github.event.comment.body == 'review-window:refresh' ) || " +
+  "( github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' )";
 const TRUSTED_REVIEW_GATE_CONCURRENCY =
-  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}";
+  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}";
 // Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
@@ -531,7 +536,7 @@ export function evaluateTrustedReviewWindowGate(source) {
   }
   if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
     errors.push(
-      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize and ready_for_review",
+      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize, ready_for_review and a trusted gate-only refresh",
     );
   }
   if (!hasExactExpression(gate?.concurrency?.group, TRUSTED_REVIEW_GATE_CONCURRENCY)) {
@@ -1176,13 +1181,13 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     // Den generella YAML-valideringen ovan rapporterar det exakta parse-felet.
   }
   if (
-    privilegedEvents.length !== 3 ||
-    !["pull_request_target", "issue_comment", "push"].every((event) =>
+    privilegedEvents.length !== 4 ||
+    !["pull_request_target", "issue_comment", "push", "workflow_dispatch"].every((event) =>
       privilegedEvents.includes(event),
     )
   ) {
     errors.push(
-      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment and master push events",
+      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment, master push and gate-only workflow_dispatch events",
     );
   }
   if (
@@ -1198,6 +1203,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !freshness.includes("actions: read") ||
     !freshness.includes("checks: write") ||
     !freshness.includes("node scripts/ci/trusted-review-window.mjs gate") ||
+    !freshness.includes("review-window:refresh") ||
+    !freshness.includes("GATE_REFRESH") ||
     !freshness.includes("node scripts/ci/trusted-review-window.mjs invalidate-base") ||
     !trustedReviewWindow.includes('const CHECK_NAME = "review-window"') ||
     !trustedReviewWindow.includes(
@@ -1219,6 +1226,11 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes('from "../workflow/required-check-owners.mjs"') ||
     !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
     !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
+    !trustedReviewWindow.includes(
+      "äldre eller avbruten owned workflow-run ersatt av en senare run på samma head",
+    ) ||
+    !trustedReviewWindow.includes("sameRepoEmptyAssociation") ||
+    !trustedReviewWindow.includes('reason: "gate_refresh"') ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
     !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
