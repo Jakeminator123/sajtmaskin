@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { requireNotBot } from "@/lib/bot-protection";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runDeployBuildRepair } from "@/lib/deploy/deploy-repair";
+import { isDeployRepairForDeployment } from "@/lib/db/repair-files-payload";
 
 export const runtime = "nodejs";
 // Synkron repair-loop (LLM-pass + preview-host verify). Håll linje med den
@@ -31,8 +32,9 @@ const requestSchema = z.object({
  * filer med bygg-felstexten som kontext och sparar en `repair_available`-version
  * som användaren sedan accepterar + publicerar om MANUELLT.
  *
- * Låst beslut Ö3: promota ALDRIG, redeploya ALDRIG. Idempotent — ett andra
- * anrop på en redan reparerad (eller pågående) version blir en no-op.
+ * Låst beslut Ö3: promota ALDRIG, redeploya ALDRIG. Idempotent per
+ * `deploymentId` + deploy-repair-origin — inte per versionsglobal
+ * `repair_available`.
  */
 export async function POST(req: Request) {
   return withRateLimit(req, "deployment:repair", async () => {
@@ -86,11 +88,14 @@ export async function POST(req: Request) {
         );
       }
 
-      // Idempotens (per failad deployment): en redan producerad repair
-      // (`repair_available`) betyder att ett tidigare anrop redan lyckats —
-      // andra anropet blir en no-op. Distributed lease + `inflight` täcker den
-      // SAMTIDIGA dubbelkörningen inne i `triggerBuildErrorRepair`.
-      if (scoped.version.verification_state === "repair_available") {
+      // Idempotens (SM-003): bara no-op när den pending repairen faktiskt
+      // producerades för DENNA failade deployment. Versionsglobal
+      // `repair_available` från preview/verify (eller en annan deploy) är inte
+      // bevis. Distributed lease + `inflight` täcker samtidig dubbelkörning.
+      if (
+        scoped.version.verification_state === "repair_available" &&
+        isDeployRepairForDeployment(scoped.version.repaired_files_json, deploymentId)
+      ) {
         return NextResponse.json({
           status: "repair_available",
           alreadyAvailable: true,
@@ -110,6 +115,7 @@ export async function POST(req: Request) {
       const result = await runDeployBuildRepair({
         chatId,
         versionId,
+        deploymentId,
         vercelDeploymentId: deployment.vercelDeploymentId,
         fallbackMessage,
       });

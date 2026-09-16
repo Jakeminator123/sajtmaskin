@@ -12,6 +12,7 @@ import {
   decodeRepairedFilesPayload,
   encodeRepairedFilesEnvelope,
   hashFilesJson,
+  type RepairProvenance,
 } from "../repair-files-payload";
 import type { Version, VersionRepairStatus } from "./types";
 import { toRow, getStoredVersion, versionWriteWhere } from "./internal";
@@ -44,11 +45,17 @@ export async function saveRepairedFiles(
    * accept. Omitting it preserves the legacy unguarded write (no base known).
    */
   baseFilesJson?: string,
+  /**
+   * SM-003: stamp deploy-repair origin + deploymentId into the same envelope so
+   * a later call can prove the pending repair belongs to that failed deploy.
+   * Ignored on the legacy unguarded write (no envelope).
+   */
+  provenance?: RepairProvenance,
 ): Promise<SaveRepairedFilesResult> {
   if (!repairedFilesJson.trim()) return { status: "failed" };
   const storedPayload =
     baseFilesJson != null
-      ? encodeRepairedFilesEnvelope({ repairedFilesJson, baseFilesJson })
+      ? encodeRepairedFilesEnvelope({ repairedFilesJson, baseFilesJson, provenance })
       : repairedFilesJson;
   const where =
     baseFilesJson != null
