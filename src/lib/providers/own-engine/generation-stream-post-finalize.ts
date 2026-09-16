@@ -437,7 +437,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         // is unavailable (scripts/tests).
         if (!sr.runtimeReady && sr.previewSessionId) {
           try {
-            after(
+            after(() =>
               pollAndApplyPreviewReadinessOutcome({
                 chatId,
                 versionId: finalized.version.id,
