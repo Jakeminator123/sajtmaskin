@@ -15,7 +15,10 @@ describe("SeoLandingPlaceholder", () => {
     render(<SeoLandingPlaceholder slug="skapa-hemsida-med-ai" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Testsida Sajtmaskin" })).toBeTruthy();
-    expect(screen.getByText("Skapa hemsida med AI — /skapa-hemsida-med-ai")).toBeTruthy();
+    expect(
+      screen.getByText("Skapa hemsida med AI – från beskrivning till första version"),
+    ).toBeTruthy();
+    expect(screen.getByText("/skapa-hemsida-med-ai")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "Skapa hemsida" })[0]?.getAttribute("href")).toBe(
       "/builder?new=1",
     );

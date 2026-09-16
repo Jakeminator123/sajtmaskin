@@ -30,9 +30,8 @@ export function SeoLandingPlaceholder({ slug }: { slug: SeoLandingSlug }) {
         <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
           Testsida Sajtmaskin
         </h1>
-        <p className="max-w-xl text-base text-blue-50 md:text-lg">
-          {entry.title} — /{entry.slug}
-        </p>
+        <p className="max-w-xl text-base text-blue-50 md:text-lg">{entry.plannedH1}</p>
+        <p className="text-sm text-blue-100">/{entry.slug}</p>
         <Link
           href={entry.ctaHref}
           className="mt-2 rounded-lg bg-white px-5 py-3 text-sm font-medium text-blue-700 hover:bg-blue-50"

@@ -23,6 +23,9 @@ describe("SEO landing metadata", () => {
       slug: "skapa-hemsida-med-ai",
       title: "Skapa hemsida med AI",
       description: "Riktig landningssida.",
+      plannedH1: "Skapa hemsida med AI – från beskrivning till första version",
+      intent: "Hur man skapar en hemsida med AI",
+      relatedSlugs: ["skapa-hemsida"],
       status: "ready",
       ctaHref: SEO_LANDING_CTA_HREF,
     });

@@ -78,6 +78,9 @@ describe("SEO landing registry", () => {
           slug: "skapa-hemsida-med-ai",
           title: "Skapa hemsida med AI",
           description: "Riktig landningssida.",
+          plannedH1: "Skapa hemsida med AI – från beskrivning till första version",
+          intent: "Hur man skapar en hemsida med AI",
+          relatedSlugs: ["skapa-hemsida"],
           status: "ready",
           ctaHref: SEO_LANDING_CTA_HREF,
         },
@@ -85,6 +88,9 @@ describe("SEO landing registry", () => {
           slug: "wix-alternativ",
           title: "Wix-alternativ",
           description: "Placeholder.",
+          plannedH1: "Wix-alternativ – jämför arbetssätt innan du byter",
+          intent: "Saklig Wix-jämförelse",
+          relatedSlugs: ["hemsideprogram"],
           status: "placeholder",
           ctaHref: SEO_LANDING_CTA_HREF,
         },
@@ -109,6 +115,18 @@ describe("SEO landing registry", () => {
 
   it("narrows known slugs", () => {
     expect(isSeoLandingSlug("skapa-hemsida-med-ai")).toBe(true);
+    expect(isSeoLandingSlug("hemsida-utan-kod")).toBe(true);
+    expect(isSeoLandingSlug("vad-kostar-en-hemsida")).toBe(true);
     expect(isSeoLandingSlug("teknik")).toBe(false);
+  });
+
+  it("keeps related slugs inside the register and off the same page", () => {
+    for (const page of SEO_LANDING_PAGES) {
+      expect(page.relatedSlugs.length).toBeGreaterThan(0);
+      for (const related of page.relatedSlugs) {
+        expect(isSeoLandingSlug(related)).toBe(true);
+        expect(related).not.toBe(page.slug);
+      }
+    }
   });
 });
