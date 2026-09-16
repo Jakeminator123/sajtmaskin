@@ -19,8 +19,8 @@ verifierad eller kundaktiverad.
 | C3 etapp 1 | Ja — #1359 | — | Konto, saldo och köphistorik i staging-appen | Nej |
 | C3 etapp 2 | Nej — öppen draft #1385 | — | Nej | Nej |
 | A2 grundskydd + pilotgrind | Ja — #1360 / #1365 / #1366 (`e7bdbb2d`) | `activation_not_ready`; `SAJTMASKIN_BRANDED_LIVE_URLS` av | HTTPS-cookieprov och gästsession-återställning kvar | Nej |
-| A3 adresskontrakt | Ja — #1369 + #1386 + #1391 (`33935b8d`, production-identitet) | Identitet/`SITE_URL`: alltid från aktuellt bevis. Live-version = Vercel production, inte senaste READY. 307-redirect: `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Två testhosts under `sites.*` över HTTPS kvar | Nej |
-| A1 DNS / PSL | Inget runtime-paket | — | 2026-09-15: `sites.*` och `pilot-a1-test.sites.*` NXDOMAIN. PSL avvaktas | Nej |
+| A3 adresskontrakt | Ja — #1369 + #1386 + #1391 (`33935b8d`, production-identitet) | Identitet/`SITE_URL`: alltid från aktuellt bevis. Live-version = Vercel production, inte senaste READY. 307-redirect: `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT` default av | Branded → egen domän → branded på kundtestdeployment kvar; A1:s testhostar finns | Nej |
+| A1 DNS / PSL | Inget runtime-paket | — | DNS-delen uppfylld 2026-09-15 21:55: `pilot-a`/`pilot-b.sites.*` når skilda mål över giltig HTTPS. PSL avvaktas | Nej |
 | A4 pilot / migrering | Nej | `SAJTMASKIN_BRANDED_LIVE_URLS` av | Nej | Nej |
 | B1 export | Ja — #1367 (`934eda6c7`) | — | Kodverifierad export; ingen separat kundpilot | Nej |
 | D1 schema | Ja — #1361 / #1364 | — | Båda D1-migrationerna i delad preview/prod-ledger (tidigare read-only kontroll) | Nej |

@@ -46,6 +46,7 @@ describe("OpenClawChat launcher", () => {
         messages: [],
         isStreaming: false,
         scopeKey: "/",
+        avatarMode: false,
         panelPresentation: "bubble",
         campaignScript: null,
       });
@@ -61,6 +62,7 @@ describe("OpenClawChat launcher", () => {
     fireEvent.click(launcher);
 
     expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
     expect(
       screen.queryByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
     ).toBeNull();
@@ -86,6 +88,7 @@ describe("OpenClawChat launcher", () => {
 
     expect(await screen.findByRole("dialog", { name: "Sajtagenten chatt" })).toBeTruthy();
     expect(useOpenClawStore.getState().isOpen).toBe(true);
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
   });
 
   it("covers the preview surface at z-50 while takeover is on", () => {
@@ -144,6 +147,7 @@ describe("OpenClawChat launcher", () => {
       const state = useOpenClawStore.getState();
       expect(state.isOpen).toBe(true);
       expect(state.panelPresentation).toBe("takeover");
+      expect(state.avatarMode).toBe(true);
       expect(state.messages.some((message) => message.id === KOSTNADSFRI_HANDOFF_INTRO_ID)).toBe(
         true,
       );
@@ -168,6 +172,89 @@ describe("OpenClawChat launcher", () => {
 
     expect(useOpenClawStore.getState().isOpen).toBe(false);
     expect(useOpenClawStore.getState().messages).toEqual([]);
+  });
+
+  it("håller FAB text-first efter att kampanjhandoffen stängt avataren", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "wizard", companyName: "Zax Frisör" },
+    };
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+
+    act(() => {
+      window.__SITEMASKIN_CONTEXT = {
+        page: "kostnadsfri",
+        kostnadsfriBrief: {
+          stage: "handoff",
+          companyName: "Zax Frisör",
+          contactFirstName: "Jan",
+        },
+      };
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    });
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().avatarMode).toBe(true);
+      expect(useOpenClawStore.getState().panelPresentation).toBe("takeover");
+    });
+
+    act(() => {
+      useOpenClawStore.getState().close();
+    });
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
+    );
+
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: true,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+  });
+
+  it("tar inte med kampanjavataren till en annan yta", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "wizard", companyName: "Zax Frisör" },
+    };
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+
+    act(() => {
+      window.__SITEMASKIN_CONTEXT = {
+        page: "kostnadsfri",
+        kostnadsfriBrief: { stage: "handoff", companyName: "Zax Frisör" },
+      };
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    });
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().avatarMode).toBe(true);
+    });
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+      useOpenClawStore.getState().open();
+    });
+
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: true,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
   });
 
   it("hydrerar inte kampanjmanus på /konto från senast aktiva slug", async () => {

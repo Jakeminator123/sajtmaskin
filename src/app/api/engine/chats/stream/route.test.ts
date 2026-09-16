@@ -204,6 +204,9 @@ vi.mock("@/lib/config", () => ({
     testUserEmail: "",
     superadminEmail: "",
   },
+  URLS: {
+    googleCallbackUrl: "http://localhost:3000/api/auth/google/callback",
+  },
   PATHS: {
     uploads: "/tmp/uploads",
   },

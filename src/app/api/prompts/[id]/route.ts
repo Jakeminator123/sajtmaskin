@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/services/projects";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { publicAuditHandoffView } from "@/lib/builder/audit-handoff";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       await deletePromptHandoffCache(promptId);
 
+      const publicView = publicAuditHandoffView(existing.source, existing.payload);
       return attachSessionCookie(
         NextResponse.json({
           success: true,
@@ -89,12 +91,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           projectId: existing.project_id || null,
           consumedAt: existing.consumed_at ? String(existing.consumed_at) : null,
           alreadyConsumed: Boolean(existing.consumed_at),
+          payloadKind: publicView.payloadKind,
+          domain: publicView.domain,
         }),
       );
     }
 
     await deletePromptHandoffCache(promptId);
 
+    const publicView = publicAuditHandoffView(consumed.source, consumed.payload);
     return attachSessionCookie(
       NextResponse.json({
         success: true,
@@ -103,6 +108,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         projectId: consumed.project_id || null,
         consumedAt: consumed.consumed_at ? String(consumed.consumed_at) : null,
         alreadyConsumed: false,
+        payloadKind: publicView.payloadKind,
+        domain: publicView.domain,
       }),
     );
   });

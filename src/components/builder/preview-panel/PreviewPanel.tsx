@@ -92,6 +92,8 @@ export function PreviewPanel({
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
+  templateInitError = null,
+  onRetryTemplateInit,
   refreshToken,
   onFilesSaved,
   imageGenerationsEnabled = true,
@@ -979,6 +981,8 @@ export function PreviewPanel({
         themeLocked={themeLocked}
         versionlessAborted={versionlessAborted}
         onRestartGeneration={onRestartGeneration}
+        templateInitError={templateInitError}
+        onRetryTemplateInit={onRetryTemplateInit}
         externalLoading={externalLoading}
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}

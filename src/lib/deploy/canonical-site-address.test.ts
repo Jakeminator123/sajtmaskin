@@ -783,4 +783,166 @@ describe("canonical site address contract", () => {
     expect(result.files[0].content).not.toContain(PLACEHOLDER_SITE_URL);
     expect(result.files[0].content).not.toContain("example.com");
   });
+
+  it("lets a verified custom host win over a branded last-working candidate", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      verifiedLiveUrl: "https://www.kund.se",
+      verifiedCustomerHosts: ["www.kund.se", "demo.sites.sajtmaskin.se"],
+      lastWorkingCanonicalUrl: "https://demo.sites.sajtmaskin.se",
+      lastWorkingProviderHost: "kund-project.vercel.app",
+      providerAliasStatus: "attested",
+      httpsProof: readyProof(),
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://www.kund.se");
+    expect(result.contract.canonicalUrl).toBe("https://www.kund.se");
+    expect(result.hostRedirectCandidate).toEqual(candidate);
+  });
+
+  it("uses branded identity when that is the verified live URL and no custom host exists", () => {
+    const brandedProof = readyProof({
+      origin: "https://demo.sites.sajtmaskin.se",
+      hostname: "demo.sites.sajtmaskin.se",
+      certificateHosts: ["demo.sites.sajtmaskin.se"],
+      serverName: "demo.sites.sajtmaskin.se",
+    });
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      verifiedLiveUrl: "https://demo.sites.sajtmaskin.se",
+      verifiedCustomerHosts: ["demo.sites.sajtmaskin.se"],
+      providerAliasStatus: "attested",
+      httpsProof: brandedProof,
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://demo.sites.sajtmaskin.se");
+    expect(result.contract.canonicalHost).toBe("demo.sites.sajtmaskin.se");
+    expect(result.hostRedirectCandidate).toEqual({
+      ...candidate,
+      canonicalUrl: "https://demo.sites.sajtmaskin.se",
+    });
+  });
+
+  it("never promotes a unique READY deployment URL to SITE_URL", () => {
+    const result = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: false,
+      verifiedLiveUrl: "https://kund-project-8fyovx8jc-team.vercel.app",
+      verifiedCustomerHosts: [],
+      providerAliasStatus: "attested",
+      lastWorkingCanonicalUrl: "https://kund-project-8fyovx8jc-team.vercel.app",
+      lastWorkingProviderHost: "kund-project-8fyovx8jc-team.vercel.app",
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBe("https://kund-project.vercel.app");
+    expect(result.contract.canonicalUrl).toBe("https://kund-project.vercel.app");
+    expect(result.contract.usedLastWorkingIdentity).toBe(false);
+    expect(result.hostRedirectCandidate).toBeNull();
+  });
+
+  it("does not invent SITE_URL or noindex when there is no proven identity", () => {
+    const result = prepareCanonicalAddressContract({
+      projectId: "project-1",
+      vercelProjectId: "prj_1",
+      target: "production",
+      verifiedLiveUrl: null,
+      verifiedProviderDomain: null,
+      verifiedCustomerHosts: [],
+      featureRequested: true,
+      configuredEnv: {},
+    });
+    expect(result.envVars.NEXT_PUBLIC_SITE_URL).toBeUndefined();
+    expect(result.contract.canonicalUrl).toBeNull();
+    expect(result.contract.activationReason).toBe("missing_alias");
+    const files = [{ name: "app/page.tsx", content: "export default function Page() { return null; }" }];
+    expect(applyCanonicalHostRedirect(files, result.hostRedirectCandidate, deployIdentity)).toEqual({
+      files,
+      warnings: [],
+      applied: false,
+      noindexApplied: false,
+    });
+  });
+
+  it("keeps path and query in the managed 307 and rejects a platform host target", () => {
+    const applied = applyCanonicalHostRedirect(
+      [{ name: "vercel.json", content: "{}" }],
+      candidate,
+      deployIdentity,
+    );
+    const config = JSON.parse(applied.files[0].content) as {
+      redirects: Array<{ destination: string; permanent: boolean }>;
+    };
+    expect(config.redirects[0].destination).toBe("https://www.kund.se/:path*");
+    expect(config.redirects[0].permanent).toBe(false);
+
+    const platform = prepareCanonicalAddressContract({
+      ...identity,
+      featureRequested: true,
+      verifiedLiveUrl: "https://preview.sajtmaskin.se",
+      verifiedCustomerHosts: ["preview.sajtmaskin.se"],
+      providerAliasStatus: "attested",
+      httpsProof: readyProof({
+        origin: "https://preview.sajtmaskin.se",
+        hostname: "preview.sajtmaskin.se",
+      }),
+      configuredEnv: {},
+    });
+    expect(platform.contract.canonicalUrl).toBe("https://kund-project.vercel.app");
+    expect(platform.hostRedirectCandidate).toBeNull();
+  });
+
+  it("strips a stale managed 307 and provider noindex when rolling back to same-host", () => {
+    const files = [
+      {
+        name: "vercel.json",
+        content: JSON.stringify({
+          framework: "nextjs",
+          redirects: [
+            {
+              source: "/:path*",
+              has: [{ type: "host", value: { eq: candidate.providerHost } }],
+              destination: "https://old.kund.se/:path*",
+              permanent: false,
+            },
+            { source: "/old", destination: "/new", permanent: true },
+          ],
+          headers: [
+            {
+              source: "/:path*",
+              has: [{ type: "host", value: { eq: candidate.providerHost } }],
+              headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
+            },
+          ],
+        }),
+      },
+    ];
+    const result = applyCanonicalHostRedirect(files, null, deployIdentity, {
+      primaryHost: candidate.providerHost,
+    });
+    const config = JSON.parse(result.files[0].content) as {
+      framework: string;
+      redirects: unknown[];
+      headers?: unknown[];
+    };
+    expect(result.applied).toBe(false);
+    expect(result.noindexApplied).toBe(false);
+    expect(config.framework).toBe("nextjs");
+    expect(config.redirects).toEqual([{ source: "/old", destination: "/new", permanent: true }]);
+    expect(config.headers).toBeUndefined();
+  });
+
+  it("rewrites leftover robots placeholders in already generated metadata", () => {
+    const files = [
+      {
+        name: "app/robots.ts",
+        content: `export default function robots() { return { sitemap: "${PLACEHOLDER_SITE_URL}/sitemap.xml" }; }`,
+      },
+    ];
+    const result = applyCanonicalMetadataToFiles(files, "https://www.kund.se");
+    expect(result.rewritten).toEqual(["app/robots.ts"]);
+    expect(result.files[0].content).toContain("https://www.kund.se/sitemap.xml");
+    expect(result.files[0].content).not.toContain("example.com");
+  });
 });

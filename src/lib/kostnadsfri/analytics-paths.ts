@@ -17,10 +17,31 @@ export const KOSTNADSFRI_INFORMATION_PATH = "/kostnadsfri-information";
 
 export type KostnadsfriAnalyticsEvent = "besok" | "verifierad" | "skapad";
 
+/** How a `/kostnadsfri/<slug>` visit relates to the send register. */
+export type KostnadsfriSlugKind = "utskick" | "ej_utskick" | "skrap";
+
 const EVENT_SEGMENTS: Record<Exclude<KostnadsfriAnalyticsEvent, "besok">, string> = {
   verifierad: "verifierad",
   skapad: "skapad",
 };
+
+/** Same shape the dash lookup accepts: lowercase company slugs, not arbitrary tokens. */
+const INVITE_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const INVITE_SLUG_MAX = 120;
+
+export function isInviteSlug(slug: string): boolean {
+  return slug.length > 0 && slug.length <= INVITE_SLUG_MAX && INVITE_SLUG_RE.test(slug);
+}
+
+/**
+ * `utskick` — giltig slug som finns i registret (sparad rad).
+ * `ej_utskick` — giltig slug men aldrig sparad.
+ * `skrap` — versaler, base64 eller annat som generateSlug inte kan ge.
+ */
+export function classifyKostnadsfriSlug(slug: string, registered: boolean): KostnadsfriSlugKind {
+  if (!isInviteSlug(slug)) return "skrap";
+  return registered ? "utskick" : "ej_utskick";
+}
 
 /** Path of the landing page itself — what the analytics tracker records. */
 export function kostnadsfriVisitPath(slug: string): string {

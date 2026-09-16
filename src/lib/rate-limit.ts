@@ -36,6 +36,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "analyze:presentation": { maxRequests: 8, windowMs: 60 * 1000 },
   "wizard:quick-scrape": { maxRequests: 20, windowMs: 60 * 1000 },
   "analytics:pageview": { maxRequests: 60, windowMs: 60 * 1000 },
+  "kostnadsfri:unsubscribe": { maxRequests: 30, windowMs: 60 * 60 * 1000 },
   "media:upload": { maxRequests: 20, windowMs: 60 * 1000 },
   "media:upload-url": { maxRequests: 12, windowMs: 60 * 1000 },
   "audio:transcribe": { maxRequests: 10, windowMs: 60 * 1000 },

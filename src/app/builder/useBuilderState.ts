@@ -29,6 +29,7 @@ import {
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 
 export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const entry = deriveBuilderEntryState(searchParams);
@@ -85,6 +86,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const autoProjectInitRef = useRef(false);
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
+  const [promptHandoffId, setPromptHandoffId] = useState<string | null>(null);
+  const [auditHandoff, setAuditHandoff] = useState<AuditComposerToken | null>(null);
   const [entryIntentActive, setEntryIntentActive] = useState(
     hasEntryParams && !isAuditEntry ? Boolean(promptParam || promptId) : isAuditEntry,
   );
@@ -223,6 +226,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setAuditPromptLoaded,
     resolvedPrompt,
     setResolvedPrompt,
+    promptHandoffId,
+    setPromptHandoffId,
+    auditHandoff,
+    setAuditHandoff,
     entryIntentActive,
     setEntryIntentActive,
     isTemplateLoading,

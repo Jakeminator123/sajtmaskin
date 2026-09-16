@@ -88,5 +88,44 @@ describe("POST /api/auth/register", () => {
       "Test",
     );
     expect(createVerificationToken).toHaveBeenCalledWith("user_1");
+    expect(sendVerificationEmail).toHaveBeenCalledWith(
+      "customer@example.test",
+      "verification-token",
+      expect.objectContaining({ returnTo: null }),
+    );
+  });
+
+  it("forwards a sanitized kostnadsfri returnTo to the verification email", async () => {
+    registerUser.mockResolvedValue({
+      user: {
+        id: "user_1",
+        email: "customer@example.test",
+        name: "Customer",
+        diamonds: 0,
+        free_generation_available: true,
+        provider: "email",
+      },
+      token: "unused-token",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "customer@example.test",
+          name: "Test",
+          password: "password123",
+          returnTo: "/kostnadsfri/zax-2-0-ab",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendVerificationEmail).toHaveBeenCalledWith(
+      "customer@example.test",
+      "verification-token",
+      expect.objectContaining({ returnTo: "/kostnadsfri/zax-2-0-ab" }),
+    );
   });
 });

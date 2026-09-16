@@ -59,6 +59,7 @@ const EXPECTED_TABLES = [
   "user_integrations",
   "transactions",
   "wizard_runs",
+  "template_init_operations",
   "guest_usage",
   "company_profiles",
   "template_cache",

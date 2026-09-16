@@ -67,11 +67,6 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "missing_features": "Saker sajten saknar jämfört med konkurrenter",
     "unique_strengths": "Unika fördelar"
   },
-  "competitor_benchmarking": {
-    "industry_leaders": ["Exempel på ledare i branschen"],
-    "common_features": ["Gemensamma mönster/funktioner"],
-    "differentiation_opportunities": ["Sätt att särskilja sig"]
-  },
   "business_profile": {
     "industry": "Bransch/vertikal",
     "company_size": "Uppskattad storlek (t.ex. 1-5 pers, 6-20, 20+)",
@@ -110,16 +105,6 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
       "implementation": "Kort kod/konfiguration om relevant"
     }
   ],
-  "technical_architecture": {
-    "recommended_stack": {
-      "frontend": "Förslag",
-      "backend": "Förslag",
-      "cms": "Förslag",
-      "hosting": "Förslag"
-    },
-    "integrations": ["Rekommenderade integrationer"],
-    "security_measures": ["Prioriterade säkerhetsåtgärder"]
-  },
   "priority_matrix": {
     "quick_wins": ["Snabba förbättringar med stor effekt"],
     "major_projects": ["Större projekt som kräver planering"],
@@ -144,18 +129,6 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "ui_patterns": ["Rekommenderade UI-mönster"],
     "accessibility_level": "WCAG-nivå"
   },
-  "implementation_roadmap": {
-    "phase_1": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
-    "phase_2": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
-    "phase_3": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
-    "launch": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] }
-  },
-  "success_metrics": {
-    "kpis": ["Konkreta KPI:er att följa"],
-    "tracking_setup": "Rekommenderat analytics-upplägg",
-    "review_schedule": "Uppföljningsfrekvens"
-  },
-
   "site_content": {
     "company_name": "Exakt företagsnamn från sidan",
     "tagline": "Slogan/tagline om den finns",

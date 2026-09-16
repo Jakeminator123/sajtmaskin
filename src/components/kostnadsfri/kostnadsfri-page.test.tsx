@@ -7,6 +7,10 @@ import {
   clearCampaignScriptStorageForTests,
   emptyCampaignScript,
 } from "@/lib/kostnadsfri/agent-campaign-script";
+import {
+  clearPendingInitBuildStorageForTests,
+  persistPendingInitBuild,
+} from "@/lib/kostnadsfri/pending-init-build";
 import { KOSTNADSFRI_FOLLOWUPS_READY_EVENT } from "@/lib/kostnadsfri/agent-followups";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { KostnadsfriPage } from "./kostnadsfri-page";
@@ -58,6 +62,11 @@ const fixtures = vi.hoisted(() => {
 });
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
+const auth = vi.hoisted(() => ({
+  isAuthenticated: true,
+  isInitialized: true,
+  fetchUser: vi.fn(async () => undefined),
+}));
 const projects = vi.hoisted(() => ({
   createProject: vi.fn(async () => ({
     id: "proj-a",
@@ -73,6 +82,20 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/projects/project-client", () => ({
   createProject: projects.createProject,
+}));
+
+vi.mock("@/lib/auth/auth-store", () => ({
+  useAuth: () => ({
+    isAuthenticated: auth.isAuthenticated,
+    isInitialized: auth.isInitialized,
+    user: auth.isAuthenticated ? { id: "user_1" } : null,
+    fetchUser: auth.fetchUser,
+  }),
+}));
+
+vi.mock("@/components/auth/require-auth-modal", () => ({
+  RequireAuthModal: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div>Logga in för att bygga hemsidan</div> : null,
 }));
 
 vi.mock("./password-gate", () => ({
@@ -116,8 +139,13 @@ vi.mock("./thinking-spinner", () => ({
 describe("KostnadsfriPage — F1 wait then one build", () => {
   beforeEach(() => {
     fixtures.completeWith = "f1";
+    auth.isAuthenticated = true;
+    auth.isInitialized = true;
+    auth.fetchUser.mockReset();
+    auth.fetchUser.mockResolvedValue(undefined);
     router.push.mockReset();
     projects.createProject.mockReset();
+    clearPendingInitBuildStorageForTests();
     projects.createProject.mockImplementation(async () => ({
       id: "proj-a",
       name: "Zax - Kostnadsfri",
@@ -144,7 +172,25 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     clearCampaignScriptStorageForTests();
+    clearPendingInitBuildStorageForTests();
     delete window.__SITEMASKIN_CONTEXT;
+  });
+
+  it("kräver inloggning före projekt och prompt", async () => {
+    auth.isAuthenticated = false;
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Ett konto behövs för att bygga hemsidan")).toBeTruthy();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("startar inte bygget efter tyst 3s — skip ger exakt ett init-bygge", async () => {
@@ -182,6 +228,29 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     });
     expect(projects.createProject).toHaveBeenCalledTimes(1);
     expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("öppnar lösenordssteget igen när inbjudan inte kan verifieras", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Inbjudan kunde inte verifieras.")).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Öppna wizard" })).toBeTruthy();
+    expect(projects.createProject).toHaveBeenCalledTimes(1);
   });
 
   it("startar ett nytt init-bygge via Fortsätt efter prompt-fel, samma projekt", async () => {
@@ -250,12 +319,6 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     }));
 
     render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
-    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
-    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
-
-    await act(async () => {
-      useOpenClawStore.getState().continueCampaignFollowups();
-    });
 
     await waitFor(() => {
       expect(router.push).toHaveBeenCalled();
@@ -342,13 +405,73 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as { prompt?: string };
     expect(body.prompt).toContain("SM-F1-CONFIRM-PHRASE-7f3a");
   });
+
+  it("hämtar sessionen så Google-retur kan starta precis ett bygge", async () => {
+    persistPendingInitBuild({
+      slug: "zax-2-0-ab",
+      wizardData: fixtures.f1Wizard,
+      ready: true,
+    });
+    auth.isAuthenticated = false;
+    auth.isInitialized = false;
+
+    const { rerender } = render(
+      <KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />,
+    );
+
+    await waitFor(() => {
+      expect(auth.fetchUser).toHaveBeenCalled();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+    expect(screen.getByText("Ett konto behövs för att bygga hemsidan")).toBeTruthy();
+
+    auth.isAuthenticated = true;
+    auth.isInitialized = true;
+    rerender(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+
+    await waitFor(() => {
+      expect(projects.createProject).toHaveBeenCalledTimes(1);
+    });
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
+  it("öppnar inloggning efter e-postretur när sessionen saknas", async () => {
+    persistPendingInitBuild({
+      slug: "zax-2-0-ab",
+      wizardData: fixtures.f1Wizard,
+      ready: true,
+    });
+    auth.isAuthenticated = false;
+    auth.isInitialized = false;
+
+    const { rerender } = render(
+      <KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />,
+    );
+
+    await waitFor(() => {
+      expect(auth.fetchUser).toHaveBeenCalled();
+    });
+
+    auth.isInitialized = true;
+    rerender(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Logga in för att bygga hemsidan")).toBeTruthy();
+    });
+    expect(projects.createProject).not.toHaveBeenCalled();
+  });
 });
 
 describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
   beforeEach(() => {
     fixtures.completeWith = "preview";
+    auth.isAuthenticated = true;
+    auth.isInitialized = true;
+    auth.fetchUser.mockReset();
+    auth.fetchUser.mockResolvedValue(undefined);
     router.push.mockReset();
     projects.createProject.mockReset();
+    clearPendingInitBuildStorageForTests();
     clearCampaignScriptStorageForTests();
     vi.stubGlobal(
       "fetch",
@@ -368,10 +491,11 @@ describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
     cleanup();
     vi.unstubAllGlobals();
     clearCampaignScriptStorageForTests();
+    clearPendingInitBuildStorageForTests();
     delete window.__SITEMASKIN_CONTEXT;
   });
 
-  it("rensar wizard-underlaget i kontexten när projekt-handoffen misslyckas före projectId", async () => {
+  it("behåller wizard-svaren när projekt-handoffen misslyckas före projectId", async () => {
     projects.createProject.mockRejectedValue(new Error("projektfel"));
 
     render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
@@ -392,16 +516,10 @@ describe("KostnadsfriPage — wizard-underlag i kontexten", () => {
 
     const brief = window.__SITEMASKIN_CONTEXT?.kostnadsfriBrief as {
       stage?: string;
-      businessDescription?: string;
-      businessDescriptionSource?: string;
       purposeLabels?: string[];
     };
 
-    expect(brief.stage).toBe("wizard");
-    expect(brief.businessDescription).toBe(
-      "Bolaget skall bedriva frisörverksamhet samt därmed förenlig verksamhet.",
-    );
-    expect(brief.businessDescriptionSource).toBe("register");
-    expect(brief.purposeLabels).toBeUndefined();
+    expect(brief.stage).toBe("handoff");
+    expect(brief.purposeLabels).toEqual(["Bokningar", "Leads"]);
   });
 });

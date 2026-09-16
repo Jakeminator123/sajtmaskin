@@ -215,6 +215,7 @@ describe("guard scope", () => {
     "/api/webhooks/openai",
     "/api/webhooks/v0",
     "/api/webhooks/vercel",
+    "/api/kostnadsfri/unsubscribe",
   ])("keeps exact machine receiver %s under its route-owned authentication", (pathname) => {
     expect(isExternalMachineEndpoint(pathname)).toBe(true);
     expect(isExternalMachineEndpoint(`${pathname}/extra`)).toBe(false);
