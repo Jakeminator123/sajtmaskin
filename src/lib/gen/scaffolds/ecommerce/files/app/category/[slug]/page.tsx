@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SlidersHorizontal } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 const categoryProducts: Record<string, { title: string; description: string; products: Array<{ id: string; name: string; price: string; image: string; badge?: string }> }> = {
   "category-1": {
@@ -34,7 +35,8 @@ const categoryProducts: Record<string, { title: string; description: string; pro
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const category = categoryProducts[slug] ?? categoryProducts["category-1"];
+  const category = categoryProducts[slug];
+  if (!category) notFound();
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-6 py-16">
