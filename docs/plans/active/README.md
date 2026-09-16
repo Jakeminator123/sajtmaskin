@@ -17,6 +17,7 @@ namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
+| SEO-landningssidor | Organisk kanal via vanliga App Router-sidor. Foundation i draft #1437: register + noindex-placeholders. Unikt innehåll och `ready`/sitemap saknas. Ingen promote. | [`2026-09-16-seo-landningssidor/00-master-plan.md`](2026-09-16-seo-landningssidor/00-master-plan.md) |
 | Kundens adress och portal | C1/C2/C3e1/A2/A3(#1386+#1391)/B1/D1/#1389 är kod på preview. Fly ej deployad. C2 utan kill-switch; A3-redirect och branded av. D3-adapter saknas. #1385 nästa våg. Ingen produktionspromote. | [`2026-09-14-kundens-adress-och-portal/00-master-plan.md`](2026-09-14-kundens-adress-och-portal/00-master-plan.md) |
 | MVP-säkerhet och releaseberedskap | Konto-/wizard-/kostnadsskydd, releaseidentitet och kundinformation. En samlad PR; preview och produktion fortsätter dela databas enligt ägarbeslut. | [`2026-09-09-mvp-sakerhet/00-master-plan.md`](2026-09-09-mvp-sakerhet/00-master-plan.md) |
 | Bug-kö | **Start här.** Aktuella verifierade fel och deras stabila ID:n. `SM-014`, `SM-015`, `SM-018`, `SM-032`, `SM-038` och `SM-040` är arkiverade med mergebevis; `SM-007`/`SM-070` redovisas separat som flaggade releaseblockerare och `SM-071` väntar ny repro efter senare scaffoldändringar. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
