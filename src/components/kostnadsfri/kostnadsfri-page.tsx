@@ -132,8 +132,19 @@ export function KostnadsfriPage({
 
   const handlePasswordSuccess = useCallback((data: KostnadsfriCompanyData) => {
     setCompanyData(data);
+    setError(null);
+    if (wizardData) {
+      persistPendingInitBuild({
+        slug,
+        wizardData,
+        followupAnswers: readPendingInitBuild(slug)?.followupAnswers ?? {},
+        ready: false,
+      });
+      setPhase("followup");
+      return;
+    }
     setPhase("wizard");
-  }, []);
+  }, [slug, wizardData]);
 
   const persistReadyHandoff = useCallback(
     (nextWizardData: MiniWizardData) => {
@@ -223,7 +234,9 @@ export function KostnadsfriPage({
       }
 
       if (response.status === 401 || response.status === 403) {
-        createdProjectIdRef.current = null;
+        if (response.status === 401) {
+          createdProjectIdRef.current = null;
+        }
         throw new Error(
           response.status === 401
             ? "Logga in för att bygga hemsidan."
@@ -267,6 +280,20 @@ export function KostnadsfriPage({
       if (message === "Logga in för att bygga hemsidan.") {
         setPhase("auth");
         setAuthModalOpen(true);
+        return;
+      }
+      if (message === "Inbjudan kunde inte verifieras.") {
+        persistPendingInitBuild({
+          slug,
+          wizardData: activeWizard,
+          followupAnswers:
+            pending?.followupAnswers ??
+            useOpenClawStore.getState().campaignScript?.followupSession?.answers ??
+            {},
+          ready: false,
+        });
+        setWizardData(activeWizard);
+        setPhase("password");
         return;
       }
       if (!createdProjectIdRef.current) {
@@ -339,7 +366,14 @@ export function KostnadsfriPage({
   return (
     <div className="min-h-screen bg-background">
       {phase === "password" && (
-        <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
+        <>
+          {error ? (
+            <p role="alert" className="text-destructive mx-auto max-w-lg px-6 pt-6 text-sm">
+              {error}
+            </p>
+          ) : null}
+          <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
+        </>
       )}
 
       {phase === "wizard" && companyData && (

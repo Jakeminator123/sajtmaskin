@@ -223,6 +223,29 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
   });
 
+  it("öppnar lösenordssteget igen när inbjudan inte kan verifieras", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Inbjudan kunde inte verifieras.")).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Öppna wizard" })).toBeTruthy();
+    expect(projects.createProject).toHaveBeenCalledTimes(1);
+  });
+
   it("startar ett nytt init-bygge via Fortsätt efter prompt-fel, samma projekt", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,
