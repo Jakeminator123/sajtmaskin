@@ -44,6 +44,8 @@ import {
   type PendingCreatedVersion,
 } from "./page-controller/useBuilderVersionSelectionSync";
 import { usePreviewHandoff } from "./page-controller/usePreviewHandoff";
+import { planImportedProjectHandoff } from "./import-project-handoff";
+import type { ImportInitSuccess } from "@/lib/import/import-init-contract";
 
 /**
  * Builder page facade. Owns the shared wiring between the builder's hooks and
@@ -444,6 +446,40 @@ export function useBuilderPageController() {
   /* eslint-disable react-hooks/refs -- wire bootstrap success callback without putting resetRecoverAttempts in effect deps */
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
   /* eslint-enable react-hooks/refs */
+
+  const handleImportedRepoSuccess = useCallback(
+    (result: ImportInitSuccess) => {
+      const plan = planImportedProjectHandoff(result);
+      markPendingCreatedVersion(pendingCreatedVersionRef, plan.nextVersionId);
+      setSelectedVersionId(plan.nextVersionId);
+      setChatId(plan.nextChatId);
+      projectActions.applyAppProjectId(plan.nextProjectId, { chatId: plan.nextChatId });
+      setMessages([]);
+      clearPreviewSessionState(plan.nextVersionId);
+      setClearedPreviewVersionId(plan.nextVersionId);
+      if (plan.nextPreviewUrl) {
+        applyPreviewHandoff({
+          url: plan.nextPreviewUrl,
+          versionId: plan.nextVersionId,
+          force: true,
+        });
+      } else {
+        setCurrentPreviewUrl(null);
+      }
+      void mutateVersions();
+    },
+    [
+      applyPreviewHandoff,
+      clearPreviewSessionState,
+      mutateVersions,
+      projectActions,
+      setChatId,
+      setClearedPreviewVersionId,
+      setCurrentPreviewUrl,
+      setMessages,
+      setSelectedVersionId,
+    ],
+  );
 
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentPreviewUrl(null);
@@ -950,6 +986,7 @@ export function useBuilderPageController() {
 
     // Project actions
     applyAppProjectId: projectActions.applyAppProjectId,
+    handleImportedRepoSuccess,
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
       if (state.chatId && state.messages.length > 0) {

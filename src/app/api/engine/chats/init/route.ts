@@ -1,4 +1,3 @@
-import JSZip from "jszip";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod/v4";
@@ -13,368 +12,31 @@ import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
 import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
 import {
   persistImportedRepoInitialization,
   recordImportedRepoPreviewOutcome,
 } from "@/lib/templates/imported-repo-initialization";
-import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
+import {
+  decodeLocalZipContent,
+  extractImportedFilesFromZip,
+  findPrimaryImportedFile,
+} from "@/lib/import/extract-imported-archive";
+import { ImportInitError, importErrorJson } from "@/lib/import/github-import-errors";
+import {
+  assertPrivateGithubAccess,
+  downloadGithubZipBuffer,
+  downloadZipBufferFromUrl,
+  resolveGithubImport,
+} from "@/lib/import/github-import-transport";
+import {
+  MAX_REMOTE_ARCHIVE_BYTES,
+  type ImportInitPreview,
+  type ImportInitSuccess,
+} from "@/lib/import/import-init-contract";
 
 export const runtime = "nodejs";
-
-const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
-const MAX_IMPORTED_FILES = 600;
-const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
-const BLOCKED_IMPORT_PREFIXES = [
-  "node_modules/",
-  ".git/",
-  ".next/",
-  "dist/",
-  "build/",
-  "coverage/",
-  "out/",
-] as const;
-const SKIPPED_IMPORT_FILENAMES = new Set([".ds_store"]);
-const TEXT_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".json",
-  ".css",
-  ".scss",
-  ".sass",
-  ".less",
-  ".html",
-  ".md",
-  ".mdx",
-  ".txt",
-  ".yml",
-  ".yaml",
-  ".toml",
-  ".env",
-  ".example",
-  ".svg",
-  ".sql",
-  ".sh",
-  ".prisma",
-  ".graphql",
-  ".gql",
-]);
-const TEXT_BASENAMES = new Set([
-  "dockerfile",
-  "makefile",
-  ".gitignore",
-  ".npmrc",
-  ".nvmrc",
-  ".env",
-  ".env.local",
-  ".env.example",
-  ".env.production",
-  ".env.development",
-  ".env.test",
-  "readme",
-  "license",
-  // Lockfiles without a recognised extension. package-lock.json / pnpm-lock.yaml
-  // / pnpm-lock.yml are already caught by TEXT_EXTENSIONS (.json/.yaml/.yml).
-  // yarn.lock and bun.lock* have no extension in TEXT_EXTENSIONS — without an
-  // explicit basename entry the route drops them, so the preview-host falls back
-  // to `npm install` even when the imported repo ships a yarn.lock (A#7, P1).
-  // bun.lock/bun.lockb are included for preservation; the preview-host ignores
-  // them at install-command selection time (see normalize-imported-package-json.ts
-  // LOCKFILE_NAMES) but they round-trip cleanly as text.
-  "yarn.lock",
-  "bun.lock",
-  "bun.lockb",
-]);
-
-type GitHubRepoRef = {
-  owner: string;
-  repo: string;
-};
-
-function normalizeGithubRepoUrl(
-  inputUrl: string,
-  inputBranch?: string,
-): { repoUrl: string; branch?: string } {
-  try {
-    const url = new URL(inputUrl);
-    const host = url.hostname.replace(/^www\./, "");
-    const parts = url.pathname.split("/").filter(Boolean);
-
-    if (host !== "github.com") {
-      return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
-    }
-
-    const owner = parts[0];
-    const repoRaw = parts[1];
-    if (!owner || !repoRaw) {
-      return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
-    }
-
-    const repo = repoRaw.replace(/\.git$/i, "");
-    let branch = inputBranch?.trim() || "";
-    if (!branch) {
-      const treeIdx = parts.indexOf("tree");
-      if (treeIdx >= 0 && typeof parts[treeIdx + 1] === "string") {
-        branch = parts[treeIdx + 1];
-      }
-    }
-
-    return {
-      repoUrl: `https://github.com/${owner}/${repo}`,
-      ...(branch ? { branch } : {}),
-    };
-  } catch {
-    return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
-  }
-}
-
-function parseGithubRepo(repoUrl: string): GitHubRepoRef | null {
-  try {
-    const url = new URL(repoUrl);
-    const host = url.hostname.replace(/^www\./, "");
-    if (host !== "github.com") return null;
-    const [owner, repoRaw] = url.pathname.split("/").filter(Boolean);
-    if (!owner || !repoRaw) return null;
-    return { owner, repo: repoRaw.replace(/\.git$/i, "") };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchGithubRepoMeta(
-  repo: GitHubRepoRef,
-  token?: string | null,
-): Promise<{ private: boolean; defaultBranch: string } | null> {
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`, {
-    headers,
-  }).catch(() => null);
-  if (!response || !response.ok) return null;
-
-  const data = (await response.json()) as { private?: boolean; default_branch?: string };
-  return {
-    private: Boolean(data.private),
-    defaultBranch: data.default_branch || "",
-  };
-}
-
-function buildGithubZipUrl(repo: GitHubRepoRef, branch: string): string {
-  const safeBranch = branch.trim();
-  return `https://github.com/${repo.owner}/${repo.repo}/archive/refs/heads/${encodeURIComponent(
-    safeBranch,
-  )}.zip`;
-}
-
-class ZipImportError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "ZipImportError";
-    this.status = status;
-  }
-}
-
-const ZIP_UPSTREAM_ERRORS: Record<number, string> = {
-  401: "Archive download unauthorized",
-  403: "Archive download forbidden",
-  404: "Archive not found",
-  429: "Archive download rate limited",
-};
-
-function isSafeFetchSsrfBlock(status: number, body: string): boolean {
-  if (status !== 400 && status !== 403) return false;
-  return (
-    body.includes("Request blocked") ||
-    body.includes("Redirect blocked") ||
-    body === "Invalid URL" ||
-    body === "Too many redirects"
-  );
-}
-
-async function downloadZipBufferFromUrl(params: {
-  url: string;
-  maxBytes: number;
-  headers?: Record<string, string>;
-}): Promise<Buffer> {
-  let parsed: URL;
-  try {
-    parsed = new URL(params.url);
-  } catch {
-    throw new ZipImportError("Invalid ZIP URL", 400);
-  }
-  const ssrfCheck = validateSsrfTarget(parsed);
-  if (!ssrfCheck.ok) {
-    throw new ZipImportError("ZIP URL is not allowed", 400);
-  }
-
-  const response = await safeFetch(params.url, {
-    headers: params.headers,
-    timeoutMs: 30_000,
-    maxBodyBytes: params.maxBytes,
-  });
-
-  if (!response.ok) {
-    if (response.status === 413) {
-      throw new ZipImportError("Repository ZIP is too large for import", 413);
-    }
-    const body = await response.text();
-    if (isSafeFetchSsrfBlock(response.status, body)) {
-      throw new ZipImportError("ZIP URL is not allowed", 400);
-    }
-    const mapped = ZIP_UPSTREAM_ERRORS[response.status];
-    if (mapped) {
-      throw new ZipImportError(mapped, response.status);
-    }
-    throw new ZipImportError(`Failed to download ZIP archive (HTTP ${response.status})`, 500);
-  }
-
-  const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > params.maxBytes) {
-    throw new Error("Repository ZIP is too large for import");
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > params.maxBytes) {
-    throw new Error("Repository ZIP is too large for import");
-  }
-
-  return buffer;
-}
-
-async function downloadGithubZipBuffer(params: {
-  repo: GitHubRepoRef;
-  branch: string;
-  token: string;
-  maxBytes: number;
-}): Promise<Buffer> {
-  return downloadZipBufferFromUrl({
-    url: `https://api.github.com/repos/${params.repo.owner}/${params.repo.repo}/zipball/${encodeURIComponent(
-      params.branch,
-    )}`,
-    maxBytes: params.maxBytes,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${params.token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
-}
-
-function normalizeImportedPath(rawPath: string): string | null {
-  const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
-  if (!normalized || normalized.includes("\0")) return null;
-  if (normalized.split("/").some((segment) => segment === "..")) return null;
-  if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
-  const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
-  if (SKIPPED_IMPORT_FILENAMES.has(basename)) return null;
-  // Secret hygiene: never import a real .env from a template archive (#38).
-  if (isBlockedEnvImportFilename(basename)) return null;
-  return normalized;
-}
-
-function shouldTreatAsText(filePath: string): boolean {
-  const lowerPath = filePath.toLowerCase();
-  const basename = lowerPath.split("/").pop() ?? "";
-  if (TEXT_BASENAMES.has(basename)) return true;
-  for (const extension of TEXT_EXTENSIONS) {
-    if (lowerPath.endsWith(extension)) return true;
-  }
-  return false;
-}
-
-function looksBinary(buffer: Buffer): boolean {
-  if (buffer.length === 0) return false;
-  let suspicious = 0;
-  const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
-  for (const byte of sample) {
-    if (byte === 0) return true;
-    if ((byte < 7 || (byte > 14 && byte < 32)) && byte !== 9 && byte !== 10 && byte !== 13) {
-      suspicious += 1;
-    }
-  }
-  return suspicious / sample.length > 0.1;
-}
-
-function stripCommonArchiveRoot(paths: string[]): string[] {
-  if (paths.length === 0) return paths;
-  const segments = paths.map((filePath) => filePath.split("/").filter(Boolean));
-  const first = segments[0]?.[0];
-  if (!first) return paths;
-  const shouldStrip = segments.every((parts) => parts.length > 1 && parts[0] === first);
-  if (!shouldStrip) return paths;
-  return segments.map((parts) => parts.slice(1).join("/"));
-}
-
-async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> {
-  const zip = await JSZip.loadAsync(buffer);
-  const rawEntries = Object.values(zip.files)
-    .filter((entry) => !entry.dir)
-    .map((entry) => entry.name);
-  const normalizedEntries = stripCommonArchiveRoot(rawEntries);
-
-  const files: CodeFile[] = [];
-  let totalBytes = 0;
-
-  for (let index = 0; index < rawEntries.length; index += 1) {
-    const originalName = rawEntries[index];
-    const strippedName = normalizedEntries[index];
-    const safePath = normalizeImportedPath(strippedName);
-    if (!safePath) continue;
-    if (!shouldTreatAsText(safePath)) continue;
-
-    const entry = zip.files[originalName];
-    const contentBuffer = Buffer.from(await entry.async("uint8array"));
-    if (looksBinary(contentBuffer)) continue;
-
-    totalBytes += contentBuffer.byteLength;
-    if (files.length >= MAX_IMPORTED_FILES) {
-      throw new Error(`Too many files in import (${files.length} >= ${MAX_IMPORTED_FILES})`);
-    }
-    if (totalBytes > MAX_IMPORTED_TEXT_BYTES) {
-      throw new Error(
-        `Imported project contains too much text content (${totalBytes} bytes > ${MAX_IMPORTED_TEXT_BYTES})`,
-      );
-    }
-
-    files.push({
-      path: safePath,
-      content: contentBuffer.toString("utf8"),
-      language: inferFileLanguage(safePath),
-    });
-  }
-
-  return files;
-}
-
-function findPrimaryImportedFile(files: Array<{ path: string; content: string }>): string {
-  if (files.length === 0) return "";
-  const mainFile =
-    files.find(
-      (file) =>
-        file.path.includes("app/page.tsx") ||
-        file.path.includes("src/app/page.tsx") ||
-        file.path.endsWith("page.tsx") ||
-        file.path.endsWith("Page.tsx"),
-    ) ??
-    files.find((file) => file.path.endsWith(".tsx")) ??
-    files[0];
-  return mainFile?.content ?? "";
-}
 
 const initChatSchema = z.object({
   source: z.union([
@@ -399,12 +61,15 @@ const initChatSchema = z.object({
   lockedFiles: z.array(z.string()).optional(),
 });
 
+function toErrorResponse(error: ImportInitError, attachSessionCookie: (response: Response) => Response) {
+  return attachSessionCookie(NextResponse.json(importErrorJson(error), { status: error.status }));
+}
+
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
   const sessionId = session.sessionId;
   const attachSessionCookie = (response: Response) => {
-    const setCookies =
-      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    const setCookies = session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
     for (const setCookie of setCookies) {
       response.headers.append("Set-Cookie", setCookie);
     }
@@ -418,7 +83,13 @@ export async function POST(req: Request) {
       if (!validationResult.success) {
         return attachSessionCookie(
           NextResponse.json(
-            { error: "Validation failed", details: validationResult.error.issues },
+            {
+              success: false,
+              error: "Ogiltiga importuppgifter.",
+              code: "validation_failed",
+              step: "parse",
+              details: validationResult.error.issues,
+            },
             { status: 400 },
           ),
         );
@@ -432,6 +103,8 @@ export async function POST(req: Request) {
             {
               success: false,
               error: "Skapa ett konto eller logga in för att importera ett projekt.",
+              code: "auth_required",
+              step: "auth",
               requiresAuth: true,
             },
             { status: 401 },
@@ -460,11 +133,14 @@ export async function POST(req: Request) {
         ? await resolveAppProjectIdForRequest(req, { appProjectId: projectId }, { sessionId })
         : null;
       if (projectId && !resolvedProjectId) {
-        return attachSessionCookie(
-          NextResponse.json(
-            { error: "Project not found or not accessible for this session" },
-            { status: 404 },
-          ),
+        return toErrorResponse(
+          new ImportInitError({
+            message: "Projektet hittades inte eller är inte tillgängligt för den här sessionen.",
+            code: "project_not_found",
+            step: "persist",
+            status: 404,
+          }),
+          attachSessionCookie,
         );
       }
 
@@ -472,77 +148,50 @@ export async function POST(req: Request) {
       let importedFiles: CodeFile[] = [];
 
       if (source.type === "github") {
-        const normalized = normalizeGithubRepoUrl(source.url, source.branch);
-        const repoRef = parseGithubRepo(normalized.repoUrl);
-        if (!repoRef) {
-          return attachSessionCookie(
-            NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 }),
-          );
-        }
+        const githubToken = user.github_token || null;
+        const resolved = await resolveGithubImport({
+          url: source.url,
+          explicitBranch: source.branch,
+          token: githubToken,
+        });
+        assertPrivateGithubAccess({
+          isPrivate: resolved.private,
+          token: githubToken,
+        });
 
-        const githubToken = user?.github_token || null;
-        const repoMeta = await fetchGithubRepoMeta(repoRef, githubToken);
-        const resolvedBranch = normalized.branch || repoMeta?.defaultBranch || "";
-        const isPrivate = repoMeta?.private ?? false;
+        const zipBuffer = await downloadGithubZipBuffer({
+          repo: resolved.repo,
+          commitSha: resolved.commitSha,
+          token: githubToken,
+          maxBytes: MAX_REMOTE_ARCHIVE_BYTES,
+        });
 
-        if (!resolvedBranch) {
-          return attachSessionCookie(
-            NextResponse.json(
-              { error: "Branch is required for ZIP import. Please specify a branch." },
-              { status: 400 },
-            ),
-          );
-        }
-
-        const zipBuffer = isPrivate
-          ? (() => {
-              if (!githubToken) {
-                throw new Error("Connect GitHub to import private repositories.");
-              }
-              return downloadGithubZipBuffer({
-                repo: repoRef,
-                branch: resolvedBranch,
-                token: githubToken,
-                maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
-              });
-            })()
-          : downloadZipBufferFromUrl({
-              url: buildGithubZipUrl(repoRef, resolvedBranch),
-              maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
-            });
-
-        importedFiles = await extractImportedFilesFromZip(await zipBuffer);
-        importLabel = `Import: ${repoRef.owner}/${repoRef.repo}`;
+        importedFiles = await extractImportedFilesFromZip(zipBuffer);
+        importLabel = `Import: ${resolved.repo.owner}/${resolved.repo.repo}`;
       } else {
         const zipBuffer =
           "content" in source
-            ? Buffer.from(source.content, "base64")
+            ? decodeLocalZipContent(source.content)
             : await downloadZipBufferFromUrl({
                 url: source.url,
-                maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
+                maxBytes: MAX_REMOTE_ARCHIVE_BYTES,
               });
-
-        if (zipBuffer.byteLength > MAX_IMPORT_ARCHIVE_BYTES) {
-          throw new Error("Repository ZIP is too large for import");
-        }
         importedFiles = await extractImportedFilesFromZip(zipBuffer);
       }
 
       if (importedFiles.length === 0) {
-        return attachSessionCookie(
-          NextResponse.json(
-            {
-              error: "No supported text files found in import archive",
-              details:
-                "Import currently keeps text-based project files only (code, config, styles, markdown, svg).",
-            },
-            { status: 400 },
-          ),
+        return toErrorResponse(
+          new ImportInitError({
+            message:
+              "Inga stödda textfiler hittades i arkivet. Importen tar just nu bara med kod, config, stil och markdown.",
+            code: "zip_empty",
+            step: "extract",
+            status: 400,
+          }),
+          attachSessionCookie,
         );
       }
 
-      // Normalize: safe deterministic package.json repairs (same pass as the
-      // template route — e.g. framer-motion / motion-dom lockstep skew).
       const importNormalize = normalizeImportedRepoFiles(importedFiles);
       if (importNormalize.applied.length > 0) {
         console.info(
@@ -584,11 +233,6 @@ export async function POST(req: Request) {
         ? "Projektet importerades till own-engine och ar redo for vidare andringar. Din startinstruktion sparades i chatten, men har inte korsts automatiskt an."
         : "Projektet importerades till own-engine och ar redo for vidare andringar.";
       const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
-      // Provenance: a ZIP/GitHub import is a verbatim repo import, exactly like
-      // the template route. The marker (a) excludes the row from the browser
-      // resume-verify lane (it never had a post-check lane to resume) and
-      // (b) opts follow-ups into the imported-repo preflight relaxation in
-      // finalize (arbitrary repos don't conform to the scaffold contract).
       const version = await chatRepo.createDraftVersion(
         chat.id,
         assistantMessage.id,
@@ -613,43 +257,11 @@ export async function POST(req: Request) {
         origin: importedRepoOrigin,
         baseline: importedRepoBaseline,
       });
-      const previewSessionStarted = await startPreviewSession(importedFiles, {
-        chatId: chat.id,
-        appProjectId: project.id,
-        versionIdForSession: version.id,
-        filesRevisionForSession: version.files_revision,
-        skipRepair: true,
-        // Imported project is already complete (zip source) and should not be scaffold-merged.
-        skipProjectScaffold: true,
-      });
-      if (!previewSessionStarted.ok) {
-        await recordImportedRepoPreviewOutcome({
-          versionId: version.id,
-          outcome: "failed",
-        });
-        throw new Error(
-          `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
-        );
-      }
-      const previewUrl = previewSessionStarted.result.previewUrl?.trim();
-      if (!previewUrl) {
-        await recordImportedRepoPreviewOutcome({
-          versionId: version.id,
-          outcome: "failed",
-        });
-        throw new Error("Tier-2 preview started without a preview URL.");
-      }
-      await recordImportedRepoPreviewOutcome({
-        versionId: version.id,
-        filesRevision: previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
-        outcome: previewSessionStarted.result.runtimeReady === true ? "runtime-ready" : "pending",
-      });
-      await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
 
       await saveProjectData({
         project_id: project.id,
         chat_id: chat.id,
-        demo_url: previewUrl,
+        demo_url: null,
         current_code: findPrimaryImportedFile(importedFiles),
         files: importedFiles.map((file) => ({
           name: file.path,
@@ -670,32 +282,106 @@ export async function POST(req: Request) {
         console.error("[credits] Failed to charge init:", error);
       }
 
-      return attachSessionCookie(
-        NextResponse.json({
-          success: true,
-          id: chat.id,
-          chatId: chat.id,
+      let preview: ImportInitPreview = {
+        status: "failed",
+        runtimeReady: false,
+        retryable: true,
+        message: "Preview kunde inte startas. Använd Försök igen i buildern.",
+      };
+      let previewUrl: string | null = null;
+
+      const previewSessionStarted = await startPreviewSession(importedFiles, {
+        chatId: chat.id,
+        appProjectId: project.id,
+        versionIdForSession: version.id,
+        filesRevisionForSession: version.files_revision,
+        skipRepair: true,
+        skipProjectScaffold: true,
+      });
+      if (!previewSessionStarted.ok) {
+        await recordImportedRepoPreviewOutcome({
           versionId: version.id,
-          ...previewUrlField(previewUrl),
-          projectId: project.id,
-          source: source.type,
-          lockedFiles: configLockedFiles,
-        }),
-      );
+          outcome: "failed",
+        });
+        preview = {
+          status: "failed",
+          runtimeReady: false,
+          retryable: true,
+          message: `Preview kunde inte startas (${previewSessionStarted.error.stage}). Använd Försök igen i buildern — ingen ny import behövs.`,
+        };
+      } else {
+        previewUrl = previewSessionStarted.result.previewUrl?.trim() || null;
+        if (!previewUrl) {
+          await recordImportedRepoPreviewOutcome({
+            versionId: version.id,
+            outcome: "failed",
+          });
+          preview = {
+            status: "failed",
+            runtimeReady: false,
+            retryable: true,
+            message: "Preview startade utan adress. Använd Försök igen i buildern — ingen ny import behövs.",
+          };
+        } else {
+          const runtimeReady = previewSessionStarted.result.runtimeReady === true;
+          await recordImportedRepoPreviewOutcome({
+            versionId: version.id,
+            filesRevision:
+              previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
+            outcome: runtimeReady ? "runtime-ready" : "pending",
+          });
+          await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
+          await saveProjectData({
+            project_id: project.id,
+            chat_id: chat.id,
+            demo_url: previewUrl,
+            meta_patch: {
+              source: "import-init:own-engine",
+              importSource: source.type,
+              importLockedFiles: configLockedFiles,
+            },
+          });
+          preview = {
+            status: runtimeReady ? "ready" : "starting",
+            runtimeReady,
+            retryable: !runtimeReady,
+            ...(runtimeReady
+              ? {}
+              : { message: "Importen är sparad. Preview startar i buildern." }),
+          };
+        }
+      }
+
+      const payload: ImportInitSuccess = {
+        success: true,
+        id: chat.id,
+        chatId: chat.id,
+        versionId: version.id,
+        ...previewUrlField(previewUrl),
+        preview,
+        projectId: project.id,
+        source: source.type,
+        lockedFiles: configLockedFiles,
+      };
+
+      return attachSessionCookie(NextResponse.json(payload));
     } catch (err) {
       console.error("Init chat error:", err);
-      if (err instanceof ZipImportError) {
-        return attachSessionCookie(
-          NextResponse.json({ error: err.message }, { status: err.status }),
-        );
+      if (err instanceof ImportInitError) {
+        return toErrorResponse(err, attachSessionCookie);
       }
-      const message = err instanceof Error ? err.message : "Unknown error";
-      const status = message.includes("Connect GitHub")
-        ? 401
-        : message.includes("too large")
-          ? 413
-          : 500;
-      return attachSessionCookie(NextResponse.json({ error: message }, { status }));
+      const message = err instanceof Error ? err.message : "Importen misslyckades.";
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: message,
+            code: "import_failed",
+            step: "persist",
+          },
+          { status: 500 },
+        ),
+      );
     }
   });
 }
