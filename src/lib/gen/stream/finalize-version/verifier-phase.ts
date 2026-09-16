@@ -335,7 +335,8 @@ export async function runVerifierPhase(params: {
       });
     }
 
-    verifierBlockingFindings = findings.blocking.slice(0, 5);
+    // Full list is the gate/recheck/repair owner. Cap only the RAG excerpt.
+    verifierBlockingFindings = findings.blocking;
     for (const finding of findings.blocking.slice(0, 5)) {
       appendErrorLogEvent({
         phase: "post-gen",
@@ -466,7 +467,7 @@ export async function runVerifierPhase(params: {
               const rerunFindings = { ...rerunRaw, blocking: rerunStale.kept };
               rerunDurationMs = Date.now() - rerunStartedAt;
               rerunBlockingCount = rerunFindings.blocking.length;
-              verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
+              verifierBlockingFindings = rerunFindings.blocking;
               devLogAppend("in-progress", {
                 type: "verifier_rerun_after_fix",
                 chatId,

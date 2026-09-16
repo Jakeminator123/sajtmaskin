@@ -49,6 +49,7 @@ import { resolveVerifierRerunTimeoutMs } from "./types";
 import { checkUndefinedJsxSymbols } from "@/lib/gen/verify/verifier-pass";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { parseCodeProject } from "@/lib/gen/parser";
+import { classifyVerifierFindingSeverity } from "@/lib/gen/preview/should-start-preview";
 
 function fencedFile(path: string, code: string): string {
   return `\`\`\`tsx file="${path}"\n${code}\n\`\`\``;
@@ -1201,5 +1202,54 @@ describe("runVerifierPhase merged package.json", () => {
     const result = await runVerifierPhase(baseParams(THIN_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([]);
     expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+});
+
+describe("runVerifierPhase keeps the full blocker list for gating (C2)", () => {
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  it("does not false-green when finding 6 is the only remaining build-breaker", async () => {
+    const advisory = (n: number) => ({
+      id: "navigation-placeholder-actions",
+      detail: `app/page.tsx advisory CTA #${n}`,
+    });
+    const residualBuildBreaker = {
+      id: "import-name-collision",
+      detail:
+        "app/page.tsx: import of Uint8Array conflicts with the global typed array",
+    };
+    const sixFindings = [
+      advisory(1),
+      advisory(2),
+      advisory(3),
+      advisory(4),
+      advisory(5),
+      residualBuildBreaker,
+    ];
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: sixFindings,
+      quality: [],
+      llmAvailability: "completed",
+    });
+    runLlmRepairGate.mockRejectedValueOnce(new Error("C2 fixture: skip fixer"));
+
+    const result = await runVerifierPhase({
+      ...baseParams(fencedFile("app/page.tsx", "export default function Page(){return <main />}")),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+    });
+
+    expect(result.verifierBlockingFindings).toHaveLength(6);
+    expect(result.verifierBlockingFindings[5]).toEqual(residualBuildBreaker);
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity2"),
+    ).toBe("blocking");
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings.slice(0, 5), "fidelity2"),
+    ).toBe("advisory");
   });
 });
