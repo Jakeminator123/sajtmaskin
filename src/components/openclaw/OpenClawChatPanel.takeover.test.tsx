@@ -223,10 +223,17 @@ describe("OpenClawChatPanel takeover degradation", () => {
       },
     ];
 
-    render(<OpenClawChatPanel onClose={vi.fn()} />);
+    const { rerender } = render(<OpenClawChatPanel onClose={vi.fn()} />);
 
+    expect(avatarMock.speak).toHaveBeenCalledTimes(1);
     expect(avatarMock.speak).toHaveBeenCalledWith(
       "Välkommen Cabanellas. Skriv i chatten under min skärmbild.",
     );
+
+    avatarMock.connectionState = "speaking";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    avatarMock.connectionState = "connected";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).toHaveBeenCalledTimes(1);
   });
 });

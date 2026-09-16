@@ -174,6 +174,89 @@ describe("OpenClawChat launcher", () => {
     expect(useOpenClawStore.getState().messages).toEqual([]);
   });
 
+  it("håller FAB text-first efter att kampanjhandoffen stängt avataren", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "wizard", companyName: "Zax Frisör" },
+    };
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+
+    act(() => {
+      window.__SITEMASKIN_CONTEXT = {
+        page: "kostnadsfri",
+        kostnadsfriBrief: {
+          stage: "handoff",
+          companyName: "Zax Frisör",
+          contactFirstName: "Jan",
+        },
+      };
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    });
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().avatarMode).toBe(true);
+      expect(useOpenClawStore.getState().panelPresentation).toBe("takeover");
+    });
+
+    act(() => {
+      useOpenClawStore.getState().close();
+    });
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fråga Sajtagenten — öppna chattrutan" }),
+    );
+
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: true,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+  });
+
+  it("tar inte med kampanjavataren till en annan yta", async () => {
+    navigation.pathname = "/kostnadsfri/zax-2-0-ab";
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      kostnadsfriBrief: { stage: "wizard", companyName: "Zax Frisör" },
+    };
+
+    render(<OpenClawChat />);
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().isOpen).toBe(false);
+    });
+
+    act(() => {
+      window.__SITEMASKIN_CONTEXT = {
+        page: "kostnadsfri",
+        kostnadsfriBrief: { stage: "handoff", companyName: "Zax Frisör" },
+      };
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    });
+
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().avatarMode).toBe(true);
+    });
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+      useOpenClawStore.getState().open();
+    });
+
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: true,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+  });
+
   it("hydrerar inte kampanjmanus på /konto från senast aktiva slug", async () => {
     navigation.pathname = "/konto";
     window.__SITEMASKIN_CONTEXT = { page: "account" };

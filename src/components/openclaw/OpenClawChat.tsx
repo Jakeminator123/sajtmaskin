@@ -214,7 +214,7 @@ function getSurfaceContent(
 
 export function OpenClawChat() {
   const pathname = usePathname();
-  const { isOpen, open, close, setScope, panelPresentation } = useOpenClawStore();
+  const { isOpen, open, close, setScope, setAvatarMode, panelPresentation } = useOpenClawStore();
   const isTakeover = isOpen && panelPresentation === "takeover";
   const [showTeaser, setShowTeaser] = useState(true);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
@@ -270,6 +270,7 @@ export function OpenClawChat() {
 
   const handleOpen = () => {
     setShowTeaser(false);
+    setAvatarMode(false);
     open();
   };
 

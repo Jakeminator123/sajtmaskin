@@ -174,10 +174,12 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   toggle: () =>
     set((s) => ({
       isOpen: !s.isOpen,
-      ...(s.isOpen ? { panelPresentation: "bubble" as const } : {}),
+      ...(s.isOpen
+        ? { panelPresentation: "bubble" as const, avatarMode: false }
+        : {}),
     })),
   open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false, panelPresentation: "bubble" }),
+  close: () => set({ isOpen: false, panelPresentation: "bubble", avatarMode: false }),
   setScope: (scopeKey) =>
     set((state) =>
       state.scopeKey === scopeKey
@@ -198,6 +200,9 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             // user re-presses the button where they actually want it.
             powersOn: false,
             grantedPowers: [],
+            // Campaign handoff may turn the avatar on. That opt-in must not
+            // follow the user to another page or a later FAB open.
+            avatarMode: false,
             panelPresentation: "bubble",
             ...(state.campaignScript &&
             !shouldRetainCampaignScriptInScope(state.campaignScript, scopeKey)
