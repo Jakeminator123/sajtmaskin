@@ -57,6 +57,23 @@ describe("resolveAuditHandoffForOwner", () => {
     expect(resolved?.domain).toBe("granit.se");
   });
 
+  it("returns null when an owned row is not an audit handoff", async () => {
+    getPromptHandoffByIdForOwner.mockResolvedValue({
+      id: "handoff_1",
+      prompt: "Bygg en sajt",
+      source: "kostnadsfri",
+      payload: payload(),
+      consumed_at: new Date().toISOString(),
+    });
+    await expect(
+      resolveAuditHandoffForOwner({
+        promptHandoffId: "handoff_1",
+        userId: "user_1",
+        sessionId: null,
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("returns null for another owner's row", async () => {
     getPromptHandoffByIdForOwner.mockResolvedValue(null);
     await expect(

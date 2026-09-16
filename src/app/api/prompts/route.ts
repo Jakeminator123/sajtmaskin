@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
         projectId: projectId || null,
         userId: user?.id || null,
         sessionId: sessionId || null,
-        payload: payload ?? null,
+        payload: source === "audit" ? payload ?? null : null,
       });
 
       if (source === "kostnadsfri" && kostnadsfriSlug) {

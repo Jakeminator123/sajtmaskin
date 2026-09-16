@@ -202,4 +202,21 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(rejected.status).toBe(400);
     expect(createPromptHandoff).toHaveBeenCalledTimes(1);
   });
+
+  it("drops payload unless source is audit", async () => {
+    const stored = await POST(
+      promptRequest({
+        prompt: "Bygg en sajt",
+        source: "wizard",
+        payload: { domain: "granit.se", url: "https://granit.se" },
+      }),
+    );
+    expect(stored.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "wizard",
+        payload: null,
+      }),
+    );
+  });
 });

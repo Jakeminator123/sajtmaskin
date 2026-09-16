@@ -17,5 +17,6 @@ export async function resolveAuditHandoffForOwner(params: {
     sessionId: params.sessionId,
   });
   if (!row) return null;
+  if (row.source !== "audit") return null;
   return parseAuditHandoffPayload(row.payload);
 }
