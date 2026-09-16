@@ -243,6 +243,11 @@ describe("OpenClawChatPanel takeover degradation", () => {
     expect(avatarMock.speak).not.toHaveBeenCalled();
 
     avatarMock.avatarReady = true;
+    avatarMock.connectionState = "connecting";
+    rerender(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(avatarMock.speak).not.toHaveBeenCalled();
+
+    avatarMock.connectionState = "connected";
     rerender(<OpenClawChatPanel onClose={vi.fn()} />);
     expect(avatarMock.speak).toHaveBeenCalledTimes(1);
     expect(avatarMock.speak).toHaveBeenCalledWith(
