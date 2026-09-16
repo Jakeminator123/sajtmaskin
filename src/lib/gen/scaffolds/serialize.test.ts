@@ -508,4 +508,18 @@ describe("structural serialize copy", () => {
     expect(out).toContain("do not resurrect routes omitted by the Route Plan");
     expect(out).toContain("do not collapse it into a generic marketing landing");
   });
+
+  it("does not tell inspirational landing-page or base-nextjs to keep architecture", () => {
+    for (const id of ["landing-page", "base-nextjs"] as const) {
+      const scaffold = getAllScaffolds().find((entry) => entry.id === id);
+      expect(scaffold, id).toBeTruthy();
+      const out = serializeScaffoldForPrompt(scaffold!, "inspirational", {
+        maxChars: 12_000,
+        contextPolicy: "normal",
+      });
+      expect(out).toContain("Invent a unique page flow");
+      expect(out).toContain("create the visual design, layout, and page structure from scratch");
+      expect(out).not.toContain("keep its architecture");
+    }
+  });
 });

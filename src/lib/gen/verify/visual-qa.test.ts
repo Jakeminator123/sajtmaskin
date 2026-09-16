@@ -99,6 +99,15 @@ describe("analyzeVisualQuality", () => {
     expect(brackets.detail).toMatch(/1 bracket placeholder/);
   });
 
+  it("flags leftover [Namn] / [Författare] tokens the old allowlist missed", () => {
+    const result = analyzeVisualQuality(
+      chrome(file("app/page.tsx", `export default function Page() { return <h1>[Namn]</h1><p>[Författare]</p>; }`)),
+    );
+    const brackets = check(result, "no-bracket-placeholders");
+    expect(brackets.passed).toBe(false);
+    expect(brackets.detail).toMatch(/2 bracket placeholder/);
+  });
+
   it("scores an inline-rich home page without delegation", () => {
     const result = analyzeVisualQuality(
       chrome(file("app/page.tsx", TURTLE_LANDING.replace("TurtleLanding", "Page"))),

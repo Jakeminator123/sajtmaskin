@@ -66,7 +66,7 @@ const CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS = 6_000;
 
 const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "**CRITICAL — Replace ALL placeholders before shipping.**",
-  "Bracket placeholders like `[Butiksnamn]`, `[Företagsnamn]`, `[Produktnamn]`, `[Pris]`, `[Kundens namn]`, `[Roll]`, `[Företag]` MUST be replaced with real content derived from the user's prompt.",
+  "Bracket placeholders like `[Butiksnamn]`, `[Namn]`, `[Författare]`, `[Publikation]`, `[Rubrik …]`, `[Företagsnamn]`, `[Produktnamn]`, `[Pris]`, `[Kundens namn]`, `[Roll]`, `[Företag]` and other `[Title-case …]` tokens MUST be replaced with real content derived from the user's prompt.",
   "Template tokens like `{{PRODUCT_NAME}}` MUST be replaced with the actual product/brand name from the brief.",
   "Scaffold sample data (demo person names, `example.com` emails, generic author names like \"Alex\", placeholder stats) should be rewritten to match the user's domain.",
   "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
@@ -400,6 +400,18 @@ const CRITICAL_PATH_PATTERNS = [
   /^src\/components\//,
 ];
 
+function buildScaffoldRoleSplit(
+  traitLines: string[],
+  mode: ScaffoldSerializeMode,
+): string {
+  if (traitLines.length === 0) return "";
+  const keepArchitecture =
+    mode === "structural"
+      ? "\n- If the user explicitly chose this scaffold, keep its architecture (sidebar and workspace, storefront and cart, auth routes) and required or Route-Plan-selected pages. Do not resurrect routes omitted by the Route Plan. Adapt copy, palette, and domain — do not collapse it into a generic marketing landing just because the brief is a simple company."
+      : "";
+  return `\n\nScaffold role split (important):\n${traitLines.join("\n")}\n- Use structure_profile as the project/file architecture baseline.\n- Use content_profile as direction only; adapt pages and sections to the user request.${keepArchitecture}\n- Never treat one scaffold as the full identity of the final site.`;
+}
+
 export function serializeScaffoldForPrompt(
   scaffold: ScaffoldManifest,
   mode: ScaffoldSerializeMode = "structural",
@@ -415,10 +427,8 @@ export function serializeScaffoldForPrompt(
     scaffold.siteKind ? `- site_kind: ${scaffold.siteKind}` : null,
     scaffold.complexity ? `- complexity: ${scaffold.complexity}` : null,
     scaffold.features?.length ? `- features: ${scaffold.features.join(", ")}` : null,
-  ].filter(Boolean);
-  const roleSplit = traitLines.length
-    ? `\n\nScaffold role split (important):\n${traitLines.join("\n")}\n- Use structure_profile as the project/file architecture baseline.\n- Use content_profile as direction only; adapt pages and sections to the user request.\n- If the user explicitly chose this scaffold, keep its architecture (sidebar and workspace, storefront and cart, auth routes) and required or Route-Plan-selected pages. Do not resurrect routes omitted by the Route Plan. Adapt copy, palette, and domain — do not collapse it into a generic marketing landing just because the brief is a simple company.\n- Never treat one scaffold as the full identity of the final site.`
-    : "";
+  ].filter((line): line is string => Boolean(line));
+  const roleSplit = buildScaffoldRoleSplit(traitLines, mode);
 
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");

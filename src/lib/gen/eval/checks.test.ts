@@ -125,6 +125,21 @@ describe("checkNoBracketPlaceholders", () => {
     expect(result.passed).toBe(false);
     expect(result.message).toContain("2 bracket placeholder");
   });
+
+  it("fails on the new #1425 tokens that the old allowlist missed", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        content:
+          "export default function Page() { return <main><h1>[Namn]</h1><p>[Författare]</p><p>[Publikation]</p><h2>[Rubrik för publikationen]</h2></main>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = checkNoBracketPlaceholders(files);
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain("4 bracket placeholder");
+  });
 });
 
 describe("checkTier2Readiness", () => {
