@@ -981,6 +981,36 @@ describe("POST product-postcheck", () => {
     });
   });
 
+  it("SM-077: icke-blockerande preview_boot_page attesteras inte och claim blir superseded", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [{ code: "preview_boot_page", message: "boot placeholder" }],
+      warningCount: 1,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "[REDACTED]/chat_1",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    expect(body.skipped).toBe(true);
+    expect(body.skippedReason).toBe("preview_not_ready");
+    expect(body.attestation).toBeNull();
+    expect(body.productBlocked).toBe(false);
+    expect(completeProductPostcheckRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "superseded" }),
+    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
   it("L7 (e): full tupel ⇒ ready och postcheck körs", async () => {
     setF2ProductPostcheck(true);
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");

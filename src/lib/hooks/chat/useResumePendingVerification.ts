@@ -105,7 +105,10 @@ import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
  *    slot and self-schedule via {@link RESUME_VERIFY_RUNTIME_RETRY_MS}
  *    instead of charging the budget — a quiet chat's `/versions` payload
  *    stays deep-equal across SWR polls, so the effect would otherwise never
- *    re-run after the age gate has opened. Runtime-only waits are capped
+ *    re-run after the age gate has opened. A `starting` hold is also used
+ *    on the generated lane (SM-077) and never consumes the wait cap, so a
+ *    late `starting → running` transition still re-runs product-postcheck.
+ *    Other runtime-only waits are capped
  *    separately ({@link RESUME_VERIFY_MAX_RUNTIME_WAITS}); past that cap
  *    the lane consumes the verification budget and stops (no DOM postcheck
  *    of a boot page). A hard gate fail settles the row terminally
@@ -721,30 +724,32 @@ export function useResumePendingVerification(params: {
           }
         }
 
-        // Step 2b (import lane only) — cold-boot gate (Bugbot medium on
-        // #1027): the import route persists the previewUrl while the VM can
-        // still be installing, so a postcheck now could misread the boot page
-        // as a product failure (sticky productBlocked → F3 block). Probe the
-        // live runtime and only proceed on a STABLE verdict:
-        //  - "running" / "build_error" → proceed (real answer either way),
-        //  - "stopped" / "missing" / "version_mismatch" → bind via
-        //    /preview-session, refund the attempt, self-schedule an 8 s retry,
-        //  - "starting" → same refund + retry, no rebind (VM is already booting),
-        //  - transport failure (null)  → proceed fail-open — the postcheck's
-        //    own unreadable-probe advisory covers a dead probe without
-        //    blocking, matching the normal lane's best-effort philosophy.
-        // Runtime holds do NOT charge {@link RESUME_VERIFY_MAX_ATTEMPTS}.
+        // Step 2b — cold-boot gate. Import lane (Bugbot medium on #1027)
+        // already waited for a stable runtime before DOM postcheck. SM-077
+        // extends the `starting` hold to the generated lane so a late Fly
+        // boot is re-checked when preview-status becomes `running`, instead
+        // of settling a timing boot-splash as PASS.
+        //  - "running" / "build_error" → proceed,
+        //  - "stopped" / "missing" / "version_mismatch" → import lane rebinds,
+        //  - "starting" → refund + retry, never consume the wait cap,
+        //  - transport failure (null) → proceed fail-open.
+        const runtime = await fetchPreviewRuntimeStatus({ chatId, versionId });
+        const runtimeStatus = runtime.status;
+        if (runtimeStatus === "starting") {
+          attemptsRef.current.set(versionId, attemptsUsed);
+          runtimeWaitsRef.current.set(
+            versionId,
+            (runtimeWaitsRef.current.get(versionId) ?? 0) + 1,
+          );
+          scheduleRetry();
+          return;
+        }
         if (lane === "imported") {
-          const runtime = await fetchPreviewRuntimeStatus({ chatId, versionId });
-          const runtimeStatus = runtime.status;
           const isRuntimeHold =
-            runtimeStatus === "starting" ||
             runtimeStatus === "version_mismatch" ||
             runtimeStatus === "stopped" ||
             runtimeStatus === "missing";
           if (isRuntimeHold) {
-            // Refund the slot reserved above — a cold start is not a
-            // verification attempt.
             attemptsRef.current.set(versionId, attemptsUsed);
             const shouldRebind =
               runtimeStatus === "stopped" ||
