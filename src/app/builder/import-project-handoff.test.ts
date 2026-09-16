@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planImportedProjectHandoff, shouldSkipFreshEntryChatReset } from "./import-project-handoff";
+import {
+  planImportedProjectHandoff,
+  shouldApplyUrlChatId,
+  shouldClearPendingChatHandoff,
+  shouldSkipFreshEntryChatReset,
+} from "./import-project-handoff";
 import type { ImportInitSuccess } from "@/lib/import/import-init-contract";
 
 const success = (overrides: Partial<ImportInitSuccess> = {}): ImportInitSuccess => ({
@@ -49,6 +54,74 @@ describe("planImportedProjectHandoff", () => {
         isCreatingChat: false,
         pendingImportedChatId: "chat_new",
         currentChatId: "chat_old",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldApplyUrlChatId", () => {
+  it("blocks a stale URL chat while state already holds the pending handoff target", () => {
+    expect(
+      shouldApplyUrlChatId({
+        chatIdParam: "chat_old",
+        currentChatId: "chat_new",
+        pendingHandoffChatId: "chat_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not apply when URL already matches the pending target", () => {
+    expect(
+      shouldApplyUrlChatId({
+        chatIdParam: "chat_new",
+        currentChatId: "chat_new",
+        pendingHandoffChatId: "chat_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("applies normal URL navigation when no handoff is pending", () => {
+    expect(
+      shouldApplyUrlChatId({
+        chatIdParam: "chat_new",
+        currentChatId: "chat_old",
+      }),
+    ).toBe(true);
+    expect(
+      shouldApplyUrlChatId({
+        chatIdParam: "chat_other",
+        currentChatId: "chat_old",
+        pendingHandoffChatId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not apply an empty URL chatId", () => {
+    expect(
+      shouldApplyUrlChatId({
+        chatIdParam: null,
+        currentChatId: "chat_new",
+        pendingHandoffChatId: "chat_new",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldClearPendingChatHandoff", () => {
+  it("releases the latch when the URL has landed on the pending target", () => {
+    expect(
+      shouldClearPendingChatHandoff({
+        chatIdParam: "chat_new",
+        pendingHandoffChatId: "chat_new",
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps the latch while the URL still shows the previous chat", () => {
+    expect(
+      shouldClearPendingChatHandoff({
+        chatIdParam: "chat_old",
+        pendingHandoffChatId: "chat_new",
       }),
     ).toBe(false);
   });

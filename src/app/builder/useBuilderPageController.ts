@@ -787,6 +787,7 @@ export function useBuilderPageController() {
     selectedVersionId,
     versionIdSet: derived.versionIdSet,
     pendingCreatedVersionRef,
+    pendingChatHandoffRef: pendingImportHandoffRef,
     router,
     setChatId,
     setExternalProjectId,

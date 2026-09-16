@@ -43,3 +43,29 @@ export function shouldSkipFreshEntryChatReset(params: {
       params.pendingImportedChatId === params.currentChatId,
   );
 }
+
+/**
+ * URL→state chat sync. An explicit in-flight handoff (import, later create)
+ * must not be overwritten by a stale `chatId` still sitting in the URL.
+ */
+export function shouldApplyUrlChatId(params: {
+  chatIdParam: string | null;
+  currentChatId: string | null;
+  pendingHandoffChatId?: string | null;
+}): boolean {
+  if (!params.chatIdParam) return false;
+  if (params.chatIdParam === params.currentChatId) return false;
+  const pending = params.pendingHandoffChatId?.trim() || null;
+  if (pending && params.currentChatId === pending && params.chatIdParam !== pending) {
+    return false;
+  }
+  return true;
+}
+
+export function shouldClearPendingChatHandoff(params: {
+  chatIdParam: string | null;
+  pendingHandoffChatId?: string | null;
+}): boolean {
+  const pending = params.pendingHandoffChatId?.trim() || null;
+  return Boolean(pending && params.chatIdParam && params.chatIdParam === pending);
+}
