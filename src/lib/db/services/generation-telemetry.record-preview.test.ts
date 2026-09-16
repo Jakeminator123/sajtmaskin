@@ -103,7 +103,10 @@ describe("recordPreviewRuntimeOutcomeForVersion (M#pv1, atomic SQL-side monotoni
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
 
     expect(updateCalls.count).toBe(1);
-    expect(updateSet.value).toEqual({ previewSuccess: true });
+    expect(updateSet.value).toEqual({
+      previewSuccess: true,
+      previewBlockingReason: null,
+    });
     const { sql, params } = renderWhere();
     // Monotonic guard lives in the statement itself…
     expect(sql).toContain("is distinct from true");
@@ -187,7 +190,27 @@ describe("recordPreviewRuntimeOutcomeForVersion (M#pv1, atomic SQL-side monotoni
 
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
     expect(updateCalls.count).toBe(2);
-    expect(updateSet.value).toEqual({ previewSuccess: true });
+    expect(updateSet.value).toEqual({
+      previewSuccess: true,
+      previewBlockingReason: null,
+    });
+  });
+
+  it("true-stamp clears a previous preview_blocking_reason after false→true recovery", async () => {
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", false, {
+      previewBlockingReason: "Publishable key not valid",
+    });
+    expect(updateSet.value).toEqual({
+      previewSuccess: false,
+      previewBlockingReason: "Publishable key not valid",
+    });
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
+
+    expect(updateSet.value).toEqual({
+      previewSuccess: true,
+      previewBlockingReason: null,
+    });
   });
 
   it("no-ops for an empty versionId (best-effort)", async () => {

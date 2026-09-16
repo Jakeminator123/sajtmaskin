@@ -326,7 +326,9 @@ export type PreviewRuntimeOutcomeOptions = {
   /**
    * Host `waitForReady` text when stamping `preview_success=false`. Lands in
    * `generation_telemetry.preview_blocking_reason` so `/logg` can read the
-   * DB boot field without waiting for a client status poll.
+   * DB boot field without waiting for a client status poll. A later
+   * `preview_success=true` always clears the column — a recovered boot must
+   * not keep the earlier blocker text.
    */
   previewBlockingReason?: string | null;
 };
@@ -400,7 +402,11 @@ export async function recordPreviewRuntimeOutcomeForVersion(
       .update(generationTelemetry)
       .set({
         previewSuccess,
-        ...(blockingReason ? { previewBlockingReason: blockingReason } : {}),
+        ...(previewSuccess
+          ? { previewBlockingReason: null }
+          : blockingReason
+            ? { previewBlockingReason: blockingReason }
+            : {}),
       })
       .where(
         and(sql`${generationTelemetry.id} = ${targetRowIdForVersion}`, monotonicGuard),
