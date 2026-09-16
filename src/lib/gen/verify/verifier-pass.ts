@@ -302,13 +302,37 @@ export function checkNavigationPlaceholderActions(
   return findings;
 }
 
+const CONTACT_INTEGRATION_RE =
+  /fetch\(\s*["'`]\/api\/contact(?:["'`]|\/|\?)|action\s*=\s*["'`]\/api\/contact|data-integration-endpoint\s*=\s*["'`]\/api\/contact/;
+const CONTACT_FORM_FINDING_RE = /form|submit|kontakt|contact|\/api\/contact/i;
+
+function fileHasContactIntegration(content: string): boolean {
+  return CONTACT_INTEGRATION_RE.test(content);
+}
+
+function isIntegratedContactFormNavigationFinding(
+  detail: string,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): boolean {
+  if (!CONTACT_FORM_FINDING_RE.test(detail)) return false;
+  const mentionedFiles = extractDetailFilePaths(detail);
+  if (mentionedFiles.length === 0) {
+    return /\/api\/contact/.test(detail) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
+  }
+  const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
+  return mentionedFiles.some((path) => fileHasContactIntegration(fileMap.get(path) ?? ""));
+}
+
 export function suppressValidInPageAnchorNavigationFindings(
   findings: VerifierFindings,
   files: Array<Pick<CodeFile, "path" | "content">>,
 ): VerifierFindings {
-  const shouldKeep = (finding: { id: string; detail: string }) =>
-    finding.id !== "navigation-placeholder-actions" ||
-    !isValidInPageHashNavigationFinding(finding.detail, files);
+  const shouldKeep = (finding: { id: string; detail: string }) => {
+    if (finding.id !== "navigation-placeholder-actions") return true;
+    if (isValidInPageHashNavigationFinding(finding.detail, files)) return false;
+    if (isIntegratedContactFormNavigationFinding(finding.detail, files)) return false;
+    return true;
+  };
 
   return {
     blocking: findings.blocking.filter(shouldKeep),
