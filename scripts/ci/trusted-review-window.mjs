@@ -820,28 +820,39 @@ async function loadOwnedWorkflowSelection({
 }) {
   const file = spec.file || workflowFileFromPath(spec.path);
   const payload = await client.request(
-    `/actions/workflows/${encodeURIComponent(file)}/runs?event=${encodeURIComponent(
-      spec.event,
-    )}&head_sha=${encodeURIComponent(expectedHeadSha)}&exclude_pull_requests=false&per_page=100`,
+    `/actions/workflows/${encodeURIComponent(file)}/runs?head_sha=${encodeURIComponent(
+      expectedHeadSha,
+    )}&exclude_pull_requests=false&per_page=100`,
   );
-  const runs = (payload.workflow_runs ?? []).filter(
+  // Same owner-file + SHA + repo is enough to mark a suite as owned. A later
+  // pull_request-run is still the selected trust root; push/workflow_dispatch
+  // on the same SHA (preview tip reused as promote head) is stale, not spoof.
+  const ownedHeadRuns = (payload.workflow_runs ?? []).filter(
     (run) =>
       normalizedWorkflowPath(run.path) === spec.path &&
-      run.event === spec.event &&
       run.head_sha === expectedHeadSha &&
       run.repository?.full_name === repository &&
+      Number.isSafeInteger(Number(run.check_suite_id)) &&
+      Number.isSafeInteger(Number(run.run_attempt)) &&
+      Number(run.run_attempt) > 0,
+  );
+  const runs = ownedHeadRuns.filter(
+    (run) =>
+      run.event === spec.event &&
       runAssociatedWithCurrentPr(run, {
         expectedHeadSha,
         prNumber,
         repository,
         expectedHeadRepository,
         expectedHeadRef,
-      }) &&
-      Number.isSafeInteger(Number(run.check_suite_id)) &&
-      Number.isSafeInteger(Number(run.run_attempt)) &&
-      Number(run.run_attempt) > 0,
+      }),
   );
   const { selected, ambiguous, attemptOverflow } = selectOwnedWorkflowRun(runs);
+  const extraSameRepoRuns = ownedHeadRuns.filter(
+    (run) =>
+      run.event !== spec.event &&
+      (!run.head_repository?.full_name || run.head_repository.full_name === repository),
+  );
   const jobs = selected
     ? (
         await Promise.all(
@@ -864,7 +875,9 @@ async function loadOwnedWorkflowSelection({
     attemptOverflow,
     jobs,
     ...indexSelectedJobs(jobs),
-    suiteIds: new Set(runs.map((run) => Number(run.check_suite_id))),
+    suiteIds: new Set(
+      [...runs, ...extraSameRepoRuns].map((run) => Number(run.check_suite_id)),
+    ),
   };
 }
 
