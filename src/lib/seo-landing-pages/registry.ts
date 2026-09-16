@@ -129,10 +129,14 @@ export function getSeoLandingEntry(slug: SeoLandingSlug) {
   return entry;
 }
 
+export function indexableSeoLandingRelPathsFrom(
+  pages: readonly SeoLandingPageEntry[],
+): string[] {
+  return pages.filter((page) => page.status === "ready").map((page) => `/${page.slug}`);
+}
+
 export function getIndexableSeoLandingRelPaths(): string[] {
-  return SEO_LANDING_PAGES.filter((page) => page.status === "ready").map(
-    (page) => `/${page.slug}`,
-  );
+  return indexableSeoLandingRelPathsFrom(SEO_LANDING_PAGES);
 }
 
 export function getPlaceholderSeoLandingRelPaths(): string[] {

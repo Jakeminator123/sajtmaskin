@@ -8,10 +8,37 @@ import {
   getIndexableSeoLandingRelPaths,
   getPlaceholderSeoLandingRelPaths,
   getSeoLandingEntry,
+  indexableSeoLandingRelPathsFrom,
   isSeoLandingSlug,
 } from "./registry";
 
 const APP_DIR = join(process.cwd(), "src/app");
+
+/** Existing product first segments that landing slugs must never reuse. */
+const RESERVED_PRODUCT_FIRST_SEGMENTS = [
+  "admin",
+  "api",
+  "audits",
+  "avatar",
+  "blogg",
+  "builder",
+  "buy-credits",
+  "category",
+  "faq",
+  "konto",
+  "kostnadsfri",
+  "kostnadsfri-information",
+  "log",
+  "logg",
+  "new",
+  "om",
+  "privacy",
+  "projects",
+  "r",
+  "teknik",
+  "templates",
+  "terms",
+] as const;
 
 function existingAppFirstSegments(): string[] {
   return readdirSync(APP_DIR, { withFileTypes: true })
@@ -36,12 +63,33 @@ describe("SEO landing registry", () => {
     }
   });
 
-  it("does not collide with other first-segment product routes", () => {
-    const registered = new Set<string>(SEO_LANDING_PAGES.map((page) => page.slug));
-    const reserved = existingAppFirstSegments().filter((name) => !registered.has(name));
-    for (const page of SEO_LANDING_PAGES) {
-      expect(reserved).not.toContain(page.slug);
+  it("does not collide with reserved product first segments", () => {
+    const existing = existingAppFirstSegments();
+    for (const reserved of RESERVED_PRODUCT_FIRST_SEGMENTS) {
+      expect(existing).toContain(reserved);
+      expect(SEO_LANDING_SLUGS).not.toContain(reserved);
     }
+  });
+
+  it("includes only ready entries in the sitemap path helper", () => {
+    expect(
+      indexableSeoLandingRelPathsFrom([
+        {
+          slug: "skapa-hemsida-med-ai",
+          title: "Skapa hemsida med AI",
+          description: "Riktig landningssida.",
+          status: "ready",
+          ctaHref: SEO_LANDING_CTA_HREF,
+        },
+        {
+          slug: "wix-alternativ",
+          title: "Wix-alternativ",
+          description: "Placeholder.",
+          status: "placeholder",
+          ctaHref: SEO_LANDING_CTA_HREF,
+        },
+      ]),
+    ).toEqual(["/skapa-hemsida-med-ai"]);
   });
 
   it("keeps placeholders out of the indexable sitemap set", () => {
