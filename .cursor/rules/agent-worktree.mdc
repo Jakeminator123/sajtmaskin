@@ -12,7 +12,7 @@ Placering: **bredvid** repo-roten, aldrig under `.cursor/`.
 
 ```powershell
 git fetch origin
-git worktree add ..\sajtmaskin-<kort> -b <branch> origin/master
+git worktree add ..\sajtmaskin-<kort> -b <branch> origin/preview
 npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
 
@@ -31,7 +31,8 @@ Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree re
 
 Det sparade Codex-projektet pekar på repo-roten, men huvudcheckouten förblir
 en läs-, test- och kontrollankare. Codex skriver i ett app-isolerat eller
-namngivet worktree från färsk `origin/master`. Se
+namngivet worktree från färsk `origin/preview` (eller `origin/master` när
+påståendet gäller produktion). Se
 [`.codex/README.md`](../../.codex/README.md). En långlivad worktree som
 verkligen behövs skyddas med Git-config `sajtmaskin.protectedWorktree`, inte
 med ett särskilt Codex-branchnamn.

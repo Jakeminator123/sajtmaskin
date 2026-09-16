@@ -30,6 +30,10 @@
  *     landat. "Landat" bevisas av Git-ancestry eller en mergad GitHub-PR med
  *     exakt samma branch och head-SHA (squash-merge bevarar inte ancestry).
  *     Saknas GitHub-svar bevaras allt som behöver PR-bevis.
+ *   - Spök-worktrees prunas FÖRE branch-delete. Git porcelain skriver
+ *     `prunable <orsak>`, inte bara `prunable`. En branch som bara är låst av
+ *     en spökpost blir därför fri i samma körning. En branch som är utcheckad
+ *     i en levande worktree behålls. Misslyckad `branch -D` loggas, sväljs inte.
  *
  * Användning:
  *   npm run tidy         # rapport (dry-run)
@@ -112,7 +116,7 @@ export function isProtectedBranch(name) {
  * Ska en LOKAL branch raderas? Kräver att remoten är borta och att innehållet
  * finns i basen — annars är den pågående arbete.
  *
- * @param {{ name: string, upstreamGone: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isCurrent: boolean }} b
+ * @param {{ name: string, upstreamGone: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isCurrent: boolean, lockedByLiveWorktree?: boolean }} b
  * @returns {{ action: "delete" | "keep", reason: string }}
  */
 export function classifyLocalBranch({
@@ -121,8 +125,10 @@ export function classifyLocalBranch({
   mergedIntoBase,
   mergedByExactPr = false,
   isCurrent,
+  lockedByLiveWorktree = false,
 }) {
   if (isCurrent) return { action: "keep", reason: "utcheckad" };
+  if (lockedByLiveWorktree) return { action: "keep", reason: "utcheckad i levande worktree" };
   if (isProtectedBranch(name)) return { action: "keep", reason: "skyddat namn" };
   if (!mergedIntoBase && !mergedByExactPr) {
     return { action: "keep", reason: "ingen exakt merge bevisad — pågående arbete" };
@@ -289,6 +295,26 @@ function gitLines(args, root, opts) {
 }
 
 /**
+ * `branch -D` ska inte sväljas tyst: en worktree-lås eller annat git-fel
+ * ska synas i rapporten så nästa körning inte ser ut som att städen gick.
+ *
+ * @returns {string | null} feltext, eller null vid lyckad radering
+ */
+function deleteLocalBranch(name, root) {
+  try {
+    execFileSync("git", ["branch", "-D", name], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return null;
+  } catch (err) {
+    const stderr = typeof err?.stderr === "string" ? err.stderr.trim() : "";
+    return stderr || err?.message || `git branch -D ${name} misslyckades`;
+  }
+}
+
+/**
  * Är `ref` ancestor av preview eller master? Enbart ancestry — en
  * squash-mergad branch svarar `false` här och bevisas i stället av
  * `isExactMergedPr`.
@@ -301,21 +327,52 @@ export function isMergedIntoLandedBase(ref, root) {
 }
 
 /**
+ * Git porcelain skriver antingen `prunable` eller `prunable <orsak>`.
+ * Exakt `=== "prunable"` missar den vanliga raden
+ * `prunable gitdir file points to non-existent location`.
+ *
+ * @param {string} line
+ */
+export function isPrunablePorcelainLine(line) {
+  const trimmed = String(line ?? "").trim();
+  return trimmed === "prunable" || trimmed.startsWith("prunable ");
+}
+
+/**
+ * Är branchen utcheckad i en worktree vars katalog fortfarande finns?
+ * Spökposter (`prunable`) räknas inte — prune tar bort låset.
+ *
+ * @param {string} name
+ * @param {{ branch: string | null, prunable?: boolean }[]} worktrees
+ */
+export function isBranchLockedByLiveWorktree(name, worktrees) {
+  if (!name) return false;
+  return worktrees.some((wt) => !wt.prunable && wt.branch === name);
+}
+
+/**
  * Parsa `git worktree list --porcelain`. Första posten är alltid huvudträdet.
  *
  * @param {string[]} lines
- * @returns {{ path: string, branch: string | null }[]}
+ * @returns {{ path: string, branch: string | null, prunable: boolean }[]}
  */
 export function parsePorcelainWorktrees(lines) {
   const out = [];
   for (const line of lines) {
-    const wt = /^worktree (.+)$/.exec(line.trim());
+    const trimmed = line.trim();
+    const wt = /^worktree (.+)$/.exec(trimmed);
     if (wt?.[1]) {
-      out.push({ path: wt[1], branch: null });
+      out.push({ path: wt[1], branch: null, prunable: false });
       continue;
     }
-    const br = /^branch refs\/heads\/(.+)$/.exec(line.trim());
-    if (br?.[1] && out.length > 0) out[out.length - 1].branch = br[1];
+    const br = /^branch refs\/heads\/(.+)$/.exec(trimmed);
+    if (br?.[1] && out.length > 0) {
+      out[out.length - 1].branch = br[1];
+      continue;
+    }
+    if (isPrunablePorcelainLine(trimmed) && out.length > 0) {
+      out[out.length - 1].prunable = true;
+    }
   }
   return out;
 }
@@ -415,56 +472,41 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
     git(["fetch", "origin", "--prune", "--quiet"], root, { allowFail: true });
   }
 
-  // --- 1. Lokala döda brancher ---
   const current = git(["rev-parse", "--abbrev-ref", "HEAD"], root);
   const lifecycle = loadPrLifecycle(root);
-  const rows = gitLines(
-    ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"],
-    root,
-  );
-  const localDelete = [];
-  for (const row of rows) {
-    const [name, track = ""] = row.split("\t");
-    const mergedIntoBase = isMergedIntoLandedBase(name, root);
-    const branchHead = git(["rev-parse", name], root, { allowFail: true });
-    const verdict = classifyLocalBranch({
-      name,
-      upstreamGone: track.includes("gone"),
-      mergedIntoBase,
-      mergedByExactPr: isExactMergedPr(lifecycle, name, branchHead),
-      isCurrent: name === current,
-    });
-    if (verdict.action === "delete") localDelete.push({ name, reason: verdict.reason });
-  }
-  if (localDelete.length === 0) {
-    log("[tidy] lokala brancher: inget att rensa.");
-  } else {
-    for (const b of localDelete) {
-      log(`[tidy] ${apply ? "raderar" : "skulle radera"} lokal branch ${b.name} (${b.reason})`);
-      if (apply) git(["branch", "-D", b.name], root, { allowFail: true });
-    }
-    planned.push(`${localDelete.length} lokal(a) branch(er)`);
-  }
+  // Ett enda gh-anrop återanvänds av branch-, worktree- och remote-klassningen.
+  const openPrBranches = lifecycle?.openHeads ?? null;
 
-  // --- 2. Avregistrerade worktrees ---
-  const wtLines = gitLines(["worktree", "list", "--porcelain"], root);
-  const prunable = wtLines.filter((l) => l.trim() === "prunable").length;
+  // --- 1. Parse → prune spöken → lista om ---
+  // Porcelain-raden är `prunable` eller `prunable <orsak>`. Prune måste ske
+  // innan branch-delete: Git vägrar `branch -D` så länge en (även död)
+  // worktree-post fortfarande har branchen utcheckad.
+  let wtLines = gitLines(["worktree", "list", "--porcelain"], root);
+  let worktrees = parsePorcelainWorktrees(wtLines);
+  const prunable = worktrees.filter((wt) => wt.prunable).length;
   if (prunable > 0) {
     log(`[tidy] ${apply ? "prunar" : "skulle pruna"} ${prunable} avregistrerad worktree-post`);
-    if (apply) git(["worktree", "prune"], root, { allowFail: true });
+    if (apply) {
+      git(["worktree", "prune"], root, { allowFail: true });
+      wtLines = gitLines(["worktree", "list", "--porcelain"], root);
+      worktrees = parsePorcelainWorktrees(wtLines);
+    }
     planned.push(`${prunable} worktree-post(er)`);
   } else {
     log("[tidy] worktrees: inget att pruna.");
   }
 
-  // --- 2b. Levande worktrees: vilka är orörbara? ---
+  // --- 1b. Levande worktrees: vilka är orörbara? ---
   // Rapport, aldrig radering. Katalogen tas bort med `npm run worktree:remove`,
   // som kopplar loss junctions först. Poängen här är att säga VILKA som är fria.
-  const worktrees = parsePorcelainWorktrees(wtLines);
-  // Ett enda gh-anrop återanvänds av branch-, worktree- och remote-klassningen.
-  const openPrBranches = lifecycle?.openHeads ?? null;
   if (worktrees.length > 1) {
     for (const wt of worktrees.slice(1)) {
+      if (wt.prunable) {
+        log(
+          `[tidy] worktree spökpost: ${wt.path} [${wt.branch ?? "detached"}] — katalog borta, prune hanterar den`,
+        );
+        continue;
+      }
       const dirty = isWorktreeDirty(git(["status", "--porcelain"], wt.path, { allowFail: true }));
       const merged = isMergedIntoLandedBase(wt.branch, root);
       const branchHead = wt.branch
@@ -486,6 +528,39 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
       log("[tidy]   (gh svarade inte — alla behandlas som upptagna, med flit)");
     }
     log("[tidy]   Ta bort en FRI med: npm run worktree:remove -- <sökväg>");
+  }
+
+  // --- 2. Lokala döda brancher (efter prune så spöklås släpper) ---
+  const rows = gitLines(
+    ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"],
+    root,
+  );
+  const localDelete = [];
+  for (const row of rows) {
+    const [name, track = ""] = row.split("\t");
+    const mergedIntoBase = isMergedIntoLandedBase(name, root);
+    const branchHead = git(["rev-parse", name], root, { allowFail: true });
+    const verdict = classifyLocalBranch({
+      name,
+      upstreamGone: track.includes("gone"),
+      mergedIntoBase,
+      mergedByExactPr: isExactMergedPr(lifecycle, name, branchHead),
+      isCurrent: name === current,
+      lockedByLiveWorktree: isBranchLockedByLiveWorktree(name, worktrees),
+    });
+    if (verdict.action === "delete") localDelete.push({ name, reason: verdict.reason });
+  }
+  if (localDelete.length === 0) {
+    log("[tidy] lokala brancher: inget att rensa.");
+  } else {
+    for (const b of localDelete) {
+      log(`[tidy] ${apply ? "raderar" : "skulle radera"} lokal branch ${b.name} (${b.reason})`);
+      if (apply) {
+        const error = deleteLocalBranch(b.name, root);
+        if (error) log(`[tidy] kunde inte radera ${b.name}: ${error}`);
+      }
+    }
+    planned.push(`${localDelete.length} lokal(a) branch(er)`);
   }
 
   // --- 3. Förlegad Next-cache ---
