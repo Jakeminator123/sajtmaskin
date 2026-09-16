@@ -1081,18 +1081,18 @@ describe("check workflow provenance", () => {
       repository: REPOSITORY,
       policy: policy as never,
     });
-    const byId = new Map(
-      enriched.map((check) => [Number((check as { id: number }).id), check as { provenance?: Record<string, unknown> }]),
-    );
+    const provenanceOf = (id: number) =>
+      enriched.find((check: { id?: unknown; provenance?: Record<string, unknown> }) => check.id === id)
+        ?.provenance;
     for (const id of [101, 102, 103, 104, 201, 202, 203, 204, 401, 402]) {
-      expect(byId.get(id)?.provenance).toMatchObject({
+      expect(provenanceOf(id)).toMatchObject({
         kind: "stale-workflow-job",
         valid: false,
         collision: false,
       });
     }
     for (const id of [301, 302, 303, 304, 403]) {
-      expect(byId.get(id)?.provenance).toMatchObject({
+      expect(provenanceOf(id)).toMatchObject({
         valid: true,
         collision: false,
       });
