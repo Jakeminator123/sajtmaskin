@@ -96,6 +96,10 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   parseUndefinedJsxSymbolFinding: () => null,
   parseImportRepairRefsFromFinding: () => [] as Array<{ file: string; symbol: string }>,
   checkUndefinedJsxSymbols: () => [],
+  // Confirmation-rerun availability receipt. Legacy mocks omit the field and
+  // stay completed (same helper as production).
+  didVerifierLlmComplete: (result: { llmAvailability?: string }) =>
+    result.llmAvailability !== "unavailable" && result.llmAvailability !== "skipped",
   // Tier-3 policy filter — inert here (identity) so these tests keep asserting
   // the unfiltered verifier→repair flow. Its own behaviour is covered in
   // `verifier-pass.test.ts`.
