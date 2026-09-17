@@ -20,7 +20,11 @@ describe("marketing sitemap static paths", () => {
   });
 
   it("includes only ready SEO landing pages, never unfinished placeholders", () => {
-    expect(getIndexableSeoLandingRelPaths()).toEqual(["/skapa-hemsida", "/skapa-hemsida-med-ai"]);
+    expect(getIndexableSeoLandingRelPaths()).toEqual([
+      "/skapa-hemsida",
+      "/skapa-hemsida-med-ai",
+      "/ai-hemsidebyggare",
+    ]);
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
     }
@@ -28,6 +32,7 @@ describe("marketing sitemap static paths", () => {
     const urls = sitemap().map((entry) => entry.url);
     expect(urls).toContain(`${URLS.baseUrl}/skapa-hemsida`);
     expect(urls).toContain(`${URLS.baseUrl}/skapa-hemsida-med-ai`);
+    expect(urls).toContain(`${URLS.baseUrl}/ai-hemsidebyggare`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
       expect(urls).not.toContain(`${URLS.baseUrl}/${page.slug}`);
