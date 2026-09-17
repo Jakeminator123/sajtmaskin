@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  ANTHROPIC_ASSIST_MODELS,
+  ASSIST_MODELS,
+} from "@/lib/builder/prompt-assist";
+import { validateBriefModelForHttp } from "@/lib/builder/site-brief-generation";
+import {
   buildApiErrorMessage,
   buildStreamErrorMessage,
   isBriefRouteAuthRefusal,
+  isMissingProviderApiKeyBody,
   isSajtmaskinAuthRequired,
   readAuthRequiredMessage,
 } from "./helpers-errors";
@@ -11,13 +17,64 @@ function jsonResponse(status: number): Response {
   return new Response(null, { status });
 }
 
+function withoutProviderKeys<T>(run: () => T): T {
+  const openai = process.env.OPENAI_API_KEY;
+  const anthropic = process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    return run();
+  } finally {
+    if (openai === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = openai;
+    if (anthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = anthropic;
+  }
+}
+
 describe("isBriefRouteAuthRefusal", () => {
-  it("treats requiresAuth and the legacy brief unauthorized body as login", () => {
+  it("opens login for app-auth 401 (requiresAuth / auth_required)", () => {
     expect(isBriefRouteAuthRefusal(401, { requiresAuth: true })).toBe(true);
+    expect(isBriefRouteAuthRefusal(401, { code: "auth_required" })).toBe(true);
+    expect(
+      isBriefRouteAuthRefusal(401, {
+        requiresAuth: true,
+        error: "Skapa ett konto eller logga in för att generera.",
+      }),
+    ).toBe(true);
+  });
+
+  it("opens login for the brief route's stale-session 401 contract, including an empty body", () => {
     expect(isBriefRouteAuthRefusal(401, { error: "unauthorized" })).toBe(true);
     expect(isBriefRouteAuthRefusal(401, null)).toBe(true);
-    expect(isBriefRouteAuthRefusal(401, { code: "unauthorized" })).toBe(false);
+    expect(isBriefRouteAuthRefusal(401, {})).toBe(true);
     expect(isBriefRouteAuthRefusal(500, { error: "unauthorized" })).toBe(false);
+  });
+
+  it("does not open login for validateBriefModelForHttp missing API-key 401s", () => {
+    const openaiModel = ASSIST_MODELS[0];
+    const anthropicModel = ANTHROPIC_ASSIST_MODELS[0];
+    expect(openaiModel).toBeTruthy();
+    expect(anthropicModel).toBeTruthy();
+
+    const { openai, anthropic } = withoutProviderKeys(() => ({
+      openai: validateBriefModelForHttp(openaiModel),
+      anthropic: validateBriefModelForHttp(anthropicModel),
+    }));
+
+    expect(openai?.status).toBe(401);
+    expect(anthropic?.status).toBe(401);
+    expect(isMissingProviderApiKeyBody(openai?.body)).toBe(true);
+    expect(isMissingProviderApiKeyBody(anthropic?.body)).toBe(true);
+    expect(isBriefRouteAuthRefusal(openai!.status, openai!.body)).toBe(false);
+    expect(isBriefRouteAuthRefusal(anthropic!.status, anthropic!.body)).toBe(false);
+  });
+
+  it("does not open login for an explicit provider unauthorized code", () => {
+    expect(isBriefRouteAuthRefusal(401, { code: "unauthorized" })).toBe(false);
+    expect(
+      isBriefRouteAuthRefusal(401, { code: "unauthorized", error: "invalid api key" }),
+    ).toBe(false);
   });
 });
 
