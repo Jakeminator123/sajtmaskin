@@ -56,8 +56,10 @@ export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startUiTransition] = useTransition();
-  const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
+  const { fetchUser, isAuthenticated, isLoading: isAuthLoading, isInitialized } = useAuth();
+  const [authModalReason, setAuthModalReason] = useState<
+    "builder" | "save" | "generation" | "refine" | null
+  >(null);
   const [tipsEnabled, setTipsEnabled] = useState(false);
 
   const state = useBuilderState(searchParams);
@@ -549,6 +551,9 @@ export function useBuilderPageController() {
       onLinkedProjectId: (nextId) => state.setExternalProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
+      isAuthReady: isInitialized,
+      isAuthenticated,
+      onAuthRequired: (reason) => setAuthModalReason(reason),
     });
 
   const sendMessage = rawSendMessage;
@@ -602,6 +607,9 @@ export function useBuilderPageController() {
     cancelActiveGeneration,
     resetBeforeCreateChat,
     applyAppProjectId: projectActions.applyAppProjectId,
+    isAuthReady: isInitialized,
+    isAuthenticated,
+    onAuthRequired: (reason) => setAuthModalReason(reason),
   });
 
   // ── Preview / version callbacks ──────────────────────────────────────

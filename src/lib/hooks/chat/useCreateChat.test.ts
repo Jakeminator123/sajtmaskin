@@ -175,3 +175,73 @@ describe("useCreateChat broken-stream handling", () => {
     expect(String(toast.error.mock.calls[0]?.[0])).not.toBe(CREATE_CHAT_CONNECTION_BROKEN_MESSAGE);
   });
 });
+
+describe("useCreateChat auth gate", () => {
+  it("opens login and returns false before fetch when the client knows the user is logged out", async () => {
+    const onAuthRequired = vi.fn();
+    const resetBeforeCreateChat = vi.fn();
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: false,
+      onAuthRequired,
+      resetBeforeCreateChat,
+    });
+
+    expect(await create(result)).toBe(false);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(resetBeforeCreateChat).not.toHaveBeenCalled();
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("opens login and returns false on a server requiresAuth 401 without the API-key toast", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(
+      jsonResponse(401, {
+        requiresAuth: true,
+        error: "Skapa ett konto eller logga in för att generera.",
+      }),
+    );
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await create(result)).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("opens login on a server auth_required 401 without the API-key toast", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "auth_required" }));
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await create(result)).toBe(false);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("still surfaces a provider 401 as an API-key error", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "unauthorized" }));
+    const { result } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await create(result)).toBe(true);
+    expect(onAuthRequired).not.toHaveBeenCalled();
+    expect(String(toast.error.mock.calls[0]?.[0])).toBe("API-nyckel saknas eller är ogiltig.");
+  });
+});

@@ -63,7 +63,7 @@ type Args = {
   setDeployNameDialogOpen: Dispatch<SetStateAction<boolean>>;
   setExternalProjectId: Dispatch<SetStateAction<string | null>>;
   setIsIntentionalReset: Dispatch<SetStateAction<boolean>>;
-  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | null>>;
+  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | "generation" | "refine" | null>>;
 };
 
 export function useBuilderProjectActions({
