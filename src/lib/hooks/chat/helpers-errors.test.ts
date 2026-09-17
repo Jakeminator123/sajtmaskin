@@ -15,6 +15,7 @@ describe("isBriefRouteAuthRefusal", () => {
   it("treats requiresAuth and the legacy brief unauthorized body as login", () => {
     expect(isBriefRouteAuthRefusal(401, { requiresAuth: true })).toBe(true);
     expect(isBriefRouteAuthRefusal(401, { error: "unauthorized" })).toBe(true);
+    expect(isBriefRouteAuthRefusal(401, null)).toBe(true);
     expect(isBriefRouteAuthRefusal(401, { code: "unauthorized" })).toBe(false);
     expect(isBriefRouteAuthRefusal(500, { error: "unauthorized" })).toBe(false);
   });

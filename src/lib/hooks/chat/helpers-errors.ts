@@ -66,7 +66,11 @@ export function isBriefRouteAuthRefusal(
 ): boolean {
   if (isSajtmaskinAuthRequired(errorData)) return true;
   if (status !== 401) return false;
-  return typeof errorData?.error === "string" && errorData.error === "unauthorized";
+  // Provider-key failures use `code: "unauthorized"` without requiresAuth and
+  // must stay on the API-key path. Any other brief 401 — including an empty
+  // body from a stale session — is login, not create-chat.
+  if (errorData?.code === "unauthorized") return false;
+  return true;
 }
 
 export function buildApiErrorMessage(params: {

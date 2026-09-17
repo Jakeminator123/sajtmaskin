@@ -276,4 +276,35 @@ describe("useInitBrief — auth refusal", () => {
 
     expect(toast.error).not.toHaveBeenCalled();
   });
+
+  it("treats an empty brief 401 body as login without the generic toast", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => {
+          throw new Error("no body");
+        },
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
+  });
 });
