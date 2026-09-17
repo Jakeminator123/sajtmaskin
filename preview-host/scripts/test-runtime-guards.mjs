@@ -323,7 +323,53 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
-// 6. dependencyFingerprint mixes in the install-policy token so a policy change
+// 6. C3: verify-job identity is bound to verified file contents, not just
+//    chat/version/checks/dependency fingerprint. Two snapshots that share a
+//    version and package.json but differ in page.tsx must not share a job key.
+//    dependencyFingerprint remains the install-cache key.
+{
+  const { buildVerifyJobKey, dependencyFingerprint, filesContentFingerprint } =
+    runtime.__testing;
+  const packageJson = JSON.stringify({
+    name: "site",
+    dependencies: { next: "15.0.0", react: "19.0.0" },
+  });
+  const shared = {
+    chatId: "chat-c3",
+    versionId: "ver-c3",
+    checks: ["typecheck", "lint"],
+  };
+  const filesA = {
+    "package.json": packageJson,
+    "app/page.tsx": "export default function Page(){return <main>A</main>}",
+  };
+  const filesB = {
+    "package.json": packageJson,
+    "app/page.tsx": "export default function Page(){return <main>B</main>}",
+  };
+  const keyA = buildVerifyJobKey({ ...shared, filesJson: filesA });
+  const keyB = buildVerifyJobKey({ ...shared, filesJson: filesB });
+  check("C3 verify-job key differs when page.tsx differs", keyA !== keyB);
+  check(
+    "C3 same snapshot keeps a stable verify-job key",
+    keyA === buildVerifyJobKey({ ...shared, filesJson: { ...filesA } }),
+  );
+  check(
+    "C3 dependency fingerprint stays shared across page.tsx edits",
+    dependencyFingerprint(filesA) === dependencyFingerprint(filesB),
+  );
+  check(
+    "C3 content fingerprint changes when page.tsx changes",
+    filesContentFingerprint(filesA) !== filesContentFingerprint(filesB),
+  );
+  check(
+    "C3 check order remains part of the job identity",
+    buildVerifyJobKey({ ...shared, filesJson: filesA }) !==
+      buildVerifyJobKey({ ...shared, checks: ["lint", "typecheck"], filesJson: filesA }),
+  );
+}
+
+// 6b. dependencyFingerprint mixes in the install-policy token so a policy change
 //    invalidates prior cached fingerprints (Codex P2 on PR #454). Same deps but
 //    a different policy MUST produce a different fingerprint; identical deps +
 //    policy MUST be stable.

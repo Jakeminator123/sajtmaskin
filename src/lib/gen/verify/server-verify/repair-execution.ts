@@ -222,6 +222,7 @@ export async function tryServerRepairLoop(params: {
   async function tryPromoteAfterGate(
     projectContent: string,
     method: "deterministic" | "llm",
+    options?: { verifyDeadlineEpochMs?: number },
   ): Promise<boolean> {
     // Codex P2 (renew before the post-repair gate): the per-pass onBeforePass
     // renewal only covers the LLM passes. shouldPromoteAfterRepair below runs a
@@ -351,6 +352,7 @@ export async function tryServerRepairLoop(params: {
         buildOriginated,
         previewPolicy,
       }),
+      verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -541,8 +543,8 @@ export async function tryServerRepairLoop(params: {
     onBeforePass: async () => {
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },
-    onAttemptPromotion: async (projectContent, method) => ({
-      promoted: await tryPromoteAfterGate(projectContent, method),
+    onAttemptPromotion: async (projectContent, method, options) => ({
+      promoted: await tryPromoteAfterGate(projectContent, method, options),
     }),
   });
 

@@ -1119,18 +1119,60 @@ export async function runRepairLoop<TPayload = unknown>(
       earlyStopReason = "blocker_unresolved";
       break;
     }
-    // Gate-class second pass (Task 6): a syntax-clean but gate-red result does
-    // NOT stop after the first pass — one more LLM pass runs with the
-    // accumulated prior-attempt notes + the v4→v5 hint before deferring to the
-    // final gate. Bounded by `maxLlmPasses` (global budget unchanged). Pure
-    // syntax repairs (gateClassFailure=false) still stop the moment syntax is
-    // clean.
-    if (syntaxResult.valid && !(gateClassFailure && pass + 1 < params.maxLlmPasses)) {
-      break;
+    // Gate-class extra pass only after the original quality-gate signal is
+    // re-checked. A syntax-clean first fix used to buy another paid LLM pass
+    // that claimed the origin signal still failed — without new evidence —
+    // and could overwrite a correct first patch.
+    if (syntaxResult.valid) {
+      const canBuyAnotherPass = gateClassFailure && pass + 1 < params.maxLlmPasses;
+      if (!canBuyAnotherPass) break;
+      if (await params.shouldAbortSuperseded?.()) {
+        earlyStopReason = "superseded";
+        break;
+      }
+      const midGate = resolveFinalGateVerifyBudget({
+        deadlineEpochMs: params.repairDeadlineEpochMs,
+        nowMs: Date.now(),
+        floorMs: FINAL_GATE_MIN_FLOOR_MS,
+        releaseMarginMs: FINAL_GATE_RELEASE_MARGIN_MS,
+      });
+      if (midGate.skip) break;
+      const midPromote = await params.onAttemptPromotion(content, "llm", {
+        verifyDeadlineEpochMs: midGate.verifyDeadlineEpochMs,
+      });
+      if (midPromote.promoted) {
+        logRepairLoopOutcomeBestEffort({
+          chatId: params.chatId,
+          failedOutputs: params.failedOutputs,
+          method: "llm",
+          result: "fixed",
+          llmPasses,
+          model: params.fixerModel,
+        });
+        return {
+          promoted: true,
+          method: "llm",
+          payload: midPromote.payload,
+          llmPasses,
+          earlyStopReason: null,
+          remainingErrors: 0,
+          improvedSyntax: 0 < initialSyntaxErrorCount,
+          noContext: false,
+          errorManifest: groupedAfterFix.errorManifest,
+          introducedBlockers,
+          unresolvedBlockers,
+        };
+      }
+      priorAttemptNotes.push(
+        `[prior-attempt] pass ${pass + 1} edited ${
+          fixerResult.fixedFiles.length > 0
+            ? fixerResult.fixedFiles.slice(0, 6).join(", ")
+            : "no files"
+        } but the quality gate still failed after re-verify. Do not repeat that patch — try a different fix.`,
+      );
+      if (priorAttemptNotes.length > 2) priorAttemptNotes.shift();
+      continue;
     }
-    // Fas 3 (bättre mål): tell the next pass what the previous one changed and
-    // that the originating failure has not passed yet, so the model tries a
-    // DIFFERENT approach instead of re-emitting the same patch.
     priorAttemptNotes.push(
       `[prior-attempt] pass ${pass + 1} edited ${
         fixerResult.fixedFiles.length > 0

@@ -323,6 +323,35 @@ function isNonJsxImportSurface(filePath: string | undefined): boolean {
   return /\.[cm]?[tj]s$/.test(normalized);
 }
 
+/**
+ * App Router files whose Next.js contract requires a default export.
+ * Named components under `components/` must not receive a fabricated
+ * `export default`. Unknown paths stay conservative (no invented export).
+ */
+const DEFAULT_EXPORT_REQUIRED_BASENAMES = new Set([
+  "page",
+  "layout",
+  "template",
+  "default",
+  "loading",
+  "error",
+  "not-found",
+  "global-error",
+  "forbidden",
+  "unauthorized",
+]);
+
+export function isDefaultExportRequiredPath(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const normalized = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+  const withoutSrc = normalized.replace(/^src\//, "");
+  if (!withoutSrc.startsWith("app/")) return false;
+  const base = withoutSrc.split("/").pop() ?? "";
+  if (!/\.(tsx|jsx)$/i.test(base)) return false;
+  const name = base.replace(/\.(tsx|jsx)$/i, "").toLowerCase();
+  return DEFAULT_EXPORT_REQUIRED_BASENAMES.has(name);
+}
+
 function unresolvedComponentWarning(name: string): string {
   return `Left <${name}> unimported — no unique own-project export found (the undefined-jsx-symbol lane owns it)`;
 }
@@ -652,13 +681,14 @@ export function runJsxChecker(
   fixes.push(...importResult.fixes);
   warnings.push(...importResult.warnings);
 
-  // SAJ-63: skip default-export check for hook files. A `use-*.ts(x)` file
-  // (or any file under `/hooks/`) is by convention a named-export hook, not
-  // a component, and the heuristic that walks for "last function returning
-  // JSX" is meaningless there. Same for non-JSX surfaces (API routes, plain
-  // .ts/.js): they export named symbols, not a component default — appending
-  // `export default GET` to a route handler would be wrong.
-  if (!isHookFilePath(filePath) && !isNonJsxImportSurface(filePath)) {
+  // Default-export repair is limited to App Router owners that actually
+  // require one (`page.tsx`, `layout.tsx`, …). Named components, hooks,
+  // API routes and unknown paths must not get a fabricated `export default`.
+  if (
+    isDefaultExportRequiredPath(filePath) &&
+    !isHookFilePath(filePath) &&
+    !isNonJsxImportSurface(filePath)
+  ) {
     const exportResult = fixMissingDefaultExport(currentCode);
     currentCode = exportResult.code;
     fixes.push(...exportResult.fixes);
