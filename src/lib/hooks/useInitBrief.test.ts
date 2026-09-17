@@ -248,6 +248,35 @@ describe("useInitBrief — auth refusal", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("throws BuilderAuthRequiredError on brief auth_required 401 without the generic toast", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: "auth_required" }),
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("treats the legacy brief { error: unauthorized } 401 as login", async () => {
     const { result } = renderHook(() =>
       useInitBrief({
@@ -275,6 +304,43 @@ describe("useInitBrief — auth refusal", () => {
     }
 
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("treats a missing OpenAI API-key 401 as a provider error, not login", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          error: "Missing OpenAI API key",
+          setup: "Set OPENAI_API_KEY. Deep brief calls OpenAI directly via createDirectModel().",
+        }),
+      }),
+    );
+
+    let returned: unknown;
+    try {
+      returned = await result.current.generateDynamicInstructions("hej", {
+        forceDeepBrief: true,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(returned).toBeNull();
+    expect(toast.error).toHaveBeenCalled();
+    expect(String(vi.mocked(toast.error).mock.calls[0]?.[0])).toMatch(
+      /Missing OpenAI API key/i,
+    );
   });
 
   it("treats an empty brief 401 body as login without the generic toast", async () => {

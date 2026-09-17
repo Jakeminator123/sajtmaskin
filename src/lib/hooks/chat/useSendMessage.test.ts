@@ -757,6 +757,25 @@ describe("useSendMessage outcome contract", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("opens login and reports auth_required on a server auth_required 401", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "auth_required" }));
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "rejected",
+      reason: "auth_required",
+      turnRecorded: false,
+    });
+    expect(onAuthRequired).toHaveBeenCalledWith("refine");
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("still surfaces a provider 401 as an API-key failure", async () => {
     const onAuthRequired = vi.fn();
     fetchMock.mockResolvedValue(jsonResponse(401, { code: "unauthorized" }));

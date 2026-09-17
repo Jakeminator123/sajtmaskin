@@ -216,6 +216,21 @@ describe("useCreateChat auth gate", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("opens login on a server auth_required 401 without the API-key toast", async () => {
+    const onAuthRequired = vi.fn();
+    fetchMock.mockResolvedValue(jsonResponse(401, { code: "auth_required" }));
+    const { result, messagesBox } = createHarness({
+      isAuthReady: true,
+      isAuthenticated: true,
+      onAuthRequired,
+    });
+
+    expect(await create(result)).toBe(false);
+    expect(onAuthRequired).toHaveBeenCalledWith("generation");
+    expect(messagesBox.current).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("still surfaces a provider 401 as an API-key error", async () => {
     const onAuthRequired = vi.fn();
     fetchMock.mockResolvedValue(jsonResponse(401, { code: "unauthorized" }));

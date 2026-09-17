@@ -59,18 +59,62 @@ export function isBuilderAuthRequiredError(error: unknown): error is BuilderAuth
   return error instanceof BuilderAuthRequiredError;
 }
 
-/** `/api/ai/brief` 401 is Sajtmaskin login, including the legacy `{ error: "unauthorized" }` body. */
+const BRIEF_ROUTE_SESSION_ERROR = "unauthorized";
+
+function isErrorRecord(
+  errorData: Record<string, unknown> | null | undefined,
+): errorData is Record<string, unknown> {
+  return Boolean(errorData) && typeof errorData === "object";
+}
+
+function readBriefErrorString(
+  errorData: Record<string, unknown> | null | undefined,
+): string {
+  return typeof errorData?.error === "string" ? errorData.error.trim() : "";
+}
+
+/** Explicit provider unauthorized — not Sajtmaskin login. */
+export function isProviderUnauthorizedCode(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  return errorData?.code === "unauthorized";
+}
+
+/**
+ * Bodies from `validateBriefModelForHttp` when OPENAI_API_KEY / ANTHROPIC_API_KEY
+ * is missing: `{ error: "Missing … API key", setup: "…_API_KEY…" }` and no
+ * `code: "unauthorized"`.
+ */
+export function isMissingProviderApiKeyBody(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!isErrorRecord(errorData)) return false;
+  const error = readBriefErrorString(errorData);
+  if (/^Missing (?:OpenAI|Anthropic) API key$/u.test(error)) return true;
+  const setup = typeof errorData.setup === "string" ? errorData.setup : "";
+  return /(?:OPENAI|ANTHROPIC)_API_KEY/u.test(setup);
+}
+
+/**
+ * `/api/ai/brief` login vs provider-key 401. Fail-safe: only known
+ * Sajtmaskin-auth contracts open login. Unknown 401 bodies stay on the
+ * API-key path so a missing provider key cannot block create behind login.
+ *
+ * Login: `requiresAuth` / `auth_required`; the route's session body
+ * `{ error: "unauthorized" }`; empty/unreadable 401 (stale session).
+ * Not login: `validateBriefModelForHttp` missing-key bodies;
+ * explicit `{ code: "unauthorized" }`.
+ */
 export function isBriefRouteAuthRefusal(
   status: number,
   errorData: Record<string, unknown> | null | undefined,
 ): boolean {
   if (isSajtmaskinAuthRequired(errorData)) return true;
   if (status !== 401) return false;
-  // Provider-key failures use `code: "unauthorized"` without requiresAuth and
-  // must stay on the API-key path. Any other brief 401 — including an empty
-  // body from a stale session — is login, not create-chat.
-  if (errorData?.code === "unauthorized") return false;
-  return true;
+  if (isProviderUnauthorizedCode(errorData)) return false;
+  if (isMissingProviderApiKeyBody(errorData)) return false;
+  if (!isErrorRecord(errorData) || Object.keys(errorData).length === 0) return true;
+  return readBriefErrorString(errorData) === BRIEF_ROUTE_SESSION_ERROR;
 }
 
 export function buildApiErrorMessage(params: {
