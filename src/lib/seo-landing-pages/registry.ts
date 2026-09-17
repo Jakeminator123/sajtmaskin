@@ -87,7 +87,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "AI-hemsidebyggare – vad ska du jämföra innan du väljer?",
     intent: "Produktkategori och valkriterier",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "lovable-alternativ"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
