@@ -28,6 +28,7 @@ namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 | Dossier-förenkling | Produktflödet manuellt accepterat 2026-08-22. D1 landat (#1045); D2 → D3 → D4 är kvarvarande kvalitets-/arkitektursteg och körs strikt sekventiellt. D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
 | Kostnadsfri-kampanjflödet | **Alla tre besluten fattade; inget i `master`.** Sidantal #1370, ingest #1372, wizard-förifyllning + taxonomi-ägare #1374, PII-hårdning #1383 — allt på `preview`. Pre-generering avgjord: ingen spekulativ init. Kvar: `preview`→`master`. | [`2026-09-14-kostnadsfri-kampanjflode/00-master-plan.md`](2026-09-14-kostnadsfri-kampanjflode/00-master-plan.md) |
 | Briefing + Källpaket | B4 första passet landat via K1 #1094. B5 är körbar. B6 steg 1 är körbart; steg 2 väntar N4. B7 väntar N5. N1 stängd 2026-08-20, N2 (Källpaket) stängd 2026-08-21. **Öppet ägarbeslut:** N3, N4, N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
+| Inspiration, kvitto och komposition | Undersök källkvitto (bild vs utdrag), dynamisk Quality Bar/research och addenda-urval. Inte 03 (#1444). Öppna inte disabled addenda. Ingen kod förrän A ger belägg. | [`2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md`](2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md) |
 
 Vågschemat 20 aug (#1070–#1081) är levererat — se
 [`../avklarat/README.md`](../avklarat/README.md). Skicka ingen agent på de
