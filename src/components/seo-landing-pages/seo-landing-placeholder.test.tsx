@@ -27,13 +27,13 @@ vi.mock("@/lib/seo-landing-pages/registry", async (importOriginal) => {
 
 describe("SeoLandingPlaceholder", () => {
   it("renders the shared test heading, slug and product CTA", () => {
-    render(<SeoLandingPlaceholder slug="wordpress-alternativ" />);
+    render(<SeoLandingPlaceholder slug="lovable-alternativ" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Testsida Sajtmaskin" })).toBeTruthy();
     expect(
-      screen.getByText("WordPress-alternativ – när passar ett annat arbetssätt bättre?"),
+      screen.getByText("Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga"),
     ).toBeTruthy();
-    expect(screen.getByText("/wordpress-alternativ")).toBeTruthy();
+    expect(screen.getByText("/lovable-alternativ")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "Skapa hemsida" })[0]?.getAttribute("href")).toBe(
       "/builder?new=1",
     );
@@ -43,11 +43,11 @@ describe("SeoLandingPlaceholder", () => {
   });
 
   it("runs the ready-guard before painting the blue test surface", () => {
-    render(<SeoLandingPlaceholder slug="wordpress-alternativ" />);
+    render(<SeoLandingPlaceholder slug="lovable-alternativ" />);
 
     expect(assertSeoLandingPlaceholderAllowed).toHaveBeenCalledWith(
       expect.objectContaining({
-        slug: "wordpress-alternativ",
+        slug: "lovable-alternativ",
         status: "placeholder",
       }),
     );
