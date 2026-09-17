@@ -8,11 +8,12 @@
 
 **Skapad:** 2026-09-17.
 **Omskriven:** 2026-09-17 mot live `origin/preview` (fetch före skrivning).
-**SHA vid skrivning:** `2d6046f8bb`. Inte evig evidens — fetch/jämför igen
-om `preview` har flyttat sig.
+**Rematch:** 2026-09-17 — merge av `origin/preview` `45f0f9842` (efter #1466,
+#1464, #1461, #1467). Inte evig evidens — fetch/jämför igen om `preview`
+har flyttat sig.
 **Utlöst av:** stale Drafts #1444/#1447 mot äldre preview-generationer.
-**Ersätter:** #1447 som arbetsunderlag. #1444:s *idé* lever i separat
-prompt-PR #1464 (Draft, inte mergad).
+**Ersätter:** #1447 som arbetsunderlag. #1444:s *idé* är **landad** i #1464
+(`bd3cc300f` på preview).
 
 ## Syfte
 
@@ -27,7 +28,7 @@ Ordning: undersök → belägg → ev. smal fix. Inte omvänd ordning.
 
 | Utanför | Varför |
 |---|---|
-| `config/prompt-core/03-visual-design.md` | Isolerad pending PR #1464 (ersätter #1444). Inte mergad. |
+| `config/prompt-core/03-visual-design.md` | **Landad** i #1464 på preview. Rör inte 03 i A–D. |
 | Återaktivera 7 `disabled` addenda | Medveten gallring i K1 #1094 |
 | Nya scaffolds / nytt promptlager / ny agent | Behåll grunden |
 | B4 omstart, N3–N5, Production, billing, Fly, SM-080 | Andra ägare |
@@ -36,10 +37,9 @@ Disabled betyder avstängda **kodutdrag**. Stillbilden kan fortfarande
 väljas. Det är en egenskap att mäta i A, inte ett fel att «rätta» genom
 att öppna posterna.
 
-Skriv inte att 03 redan är fixad. På `preview` vid skrivning finns
-fortfarande layered backgrounds, prefererad asymmetri/split, rounded
-cards, fast hero-typografi och fasta paddingskalor i 03. #1464 tar det
-spåret separat.
+Statisk 03 är landad via #1464. Universella layered/split/rounded-cards-
+och hero-/padding-recept är borta från `03-visual-design.md` på preview.
+Kvarvarande likformighet sitter i dynamiska lager (B) och varianter (C).
 
 ## Belagt nuläge (kodobservation, 2026-09-17)
 
@@ -63,7 +63,7 @@ användbara när hash stämmer.
 | Delvis bra | Extractor filtrerar server/API, kräver frontend-JSX, hash/tak/max 3 | `template-inspiration.ts` | D = urval, inte omskrivning |
 | Fortfarande verkligt | Direktkomponent = längsta kvalificerade frontendfil; ordning page → component → css → layout | `template-inspiration.ts` L370–461 | D |
 | Stale | «Bygg observability från noll» | Kvitto + pruning finns redan | Ta bort |
-| Stale | «03 nyss slutade kräva detta» | 03-fixen är inte mergad | Säg pending #1464 |
+| Landat | Statisk 03 släppte universella recept | #1464 mergad `bd3cc300f` | Inte A–D |
 | Hypotes | OR-kvittot döljer ofta saknade utdrag i live-generationer | Kräver stickprov via A | Inte belagt |
 
 Sju avstängda poster (rör inte): MindSpace `8QhCJAwn16K`, Flowly
@@ -99,7 +99,7 @@ eval startar ingen preview-VM.
 
 ## Relaterade spår
 
-- #1464 — statisk 03, separat Draft mot `preview`. Inte mergad.
-- #1444 — stale Draft; ersätts av #1464.
+- #1464 — statisk 03, **mergad** till `preview` (`bd3cc300f`). Inte A–D.
+- #1444 — stale Draft; ersatt av #1464.
 - [Briefing + Källpaket](../2026-08-18-briefing-och-kallpaket/00-master-plan.md) B4 — första kurationspasset är levererat. Starta inte om det.
 - [Scaffold-komposition (avklarat)](../../avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) — K1 satte disabled-domarna.

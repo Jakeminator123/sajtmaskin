@@ -7,9 +7,9 @@ Typ: **kvarvarande dynamisk designbias**.
 ## Problemet (observation)
 
 Den **dynamiska** Quality Bar föreskriver fortfarande samma
-utseendepaket som den statiska 03 *fortfarande* kräver på `preview`.
-03-fixen är en separat pending Draft (#1464), inte landad. B ska inte
-skrivas som om 03 redan slutat kräva detta.
+utseendepaket som den statiska 03 *tidigare* krävde. #1464 är **landad**
+på preview — 03 är inte längre den universella receptkällan. B är nästa
+lager, inte en dubblett av 03.
 
 ```ts
 // src/lib/gen/guidance-resolvers.ts — QUALITY_BAR_GUIDANCE.detailed
@@ -24,8 +24,8 @@ Samma paket finns i `compact`. Scaffold-research gör det till checklista:
   sticky/floating CTA (`landing-page/manifest.ts`).
 - Portfolio föreslår social proof i upgrade-listan.
 
-Det är en verklig likformighetskälla i dynamiska lager. Om #1464 mergas
-först blir B nästa lager — inte en dubblett av 03.
+Det är en verklig likformighetskälla i dynamiska lager. #1464 är redan
+landad; B tar nästa lager — inte 03.
 
 ## Undersök
 
@@ -47,7 +47,7 @@ Inte 03. Inte Custom Instructions i `defaults.ts` (legacy scaffold-off).
 
 ## Inte detta steg
 
-- Rör inte `config/prompt-core/03-visual-design.md` (ägare: #1464).
+- Rör inte `config/prompt-core/03-visual-design.md` (landad i #1464).
 - Ändra inte variant-`layouts` (det är C).
 - Ändra inte extractorn (det är D).
 - Inför inte ett nytt promptlager eller en ny agent.
