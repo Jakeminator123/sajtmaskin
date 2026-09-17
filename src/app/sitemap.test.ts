@@ -25,6 +25,7 @@ describe("marketing sitemap static paths", () => {
       "/skapa-hemsida-med-ai",
       "/ai-hemsidebyggare",
       "/hemsida-till-foretag",
+      "/hemsideprogram",
     ]);
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
@@ -35,6 +36,7 @@ describe("marketing sitemap static paths", () => {
     expect(urls).toContain(`${URLS.baseUrl}/skapa-hemsida-med-ai`);
     expect(urls).toContain(`${URLS.baseUrl}/ai-hemsidebyggare`);
     expect(urls).toContain(`${URLS.baseUrl}/hemsida-till-foretag`);
+    expect(urls).toContain(`${URLS.baseUrl}/hemsideprogram`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
       expect(urls).not.toContain(`${URLS.baseUrl}/${page.slug}`);
