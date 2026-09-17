@@ -184,7 +184,7 @@ export async function POST(req: Request) {
         return toErrorResponse(
           new ImportInitError({
             message:
-              "Inga stödda textfiler hittades i arkivet. Importen tar just nu bara med kod, config, stil och markdown.",
+              "Inga stödda filer hittades i arkivet. Importen tar med kod, config, stil, markdown samt vanliga bilder och typsnitt.",
             code: "zip_empty",
             step: "extract",
             status: 400,
