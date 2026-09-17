@@ -171,9 +171,11 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Live-sajten" })).toBeTruthy();
-    expect(screen.getByText("Hämtar status")).toBeTruthy();
-    expect(screen.queryByText("Utkast")).toBeNull();
-    expect(screen.getByRole("link", { name: /^Hantera sajt$/ })).toBeTruthy();
+    const card = screen.getByRole("heading", { name: "Live-sajten" }).closest("article");
+    expect(card).toBeTruthy();
+    expect(within(card!).getByText("Hämtar status")).toBeTruthy();
+    expect(within(card!).queryByText("Utkast")).toBeNull();
+    expect(within(card!).getByRole("link", { name: /^Hantera sajt$/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Redigera" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Öppna i byggaren" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
