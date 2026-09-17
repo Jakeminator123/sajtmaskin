@@ -17,6 +17,7 @@ namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
+| GitHub/ZIP-import rester | PR2 bilder/fonts i extractorn (forward-port av #1446 mot dagens preview). Idempotens och privat live-smoke är residualer. Rör inte latch/SSRF/auth. | [`2026-09-17-github-zip-import-rester/00-master-plan.md`](2026-09-17-github-zip-import-rester/00-master-plan.md) |
 | SEO-landningssidor | Organisk kanal via vanliga App Router-sidor. Alla tio poster är `ready` i registret på preview `13843edc` (#1437, #1443, #1448–#1457). Det är inte Production eller indexering. Copy på `/skapa-hemsida-med-ai` säger fortfarande att syskonguiderna inte är färdiga — SEO-ägarens rest. Beställ inte borttagning av Relaterat-länkar till mål som nu är färdiga. Ingen promote. | [`2026-09-16-seo-landningssidor/00-master-plan.md`](2026-09-16-seo-landningssidor/00-master-plan.md) |
 | Branded runtime-aktivering | Kod finns på preview. Kvar: browser-/cookiebevis (A2, C1-smoke), C2 mot ägd testdomän, A3 rollback/no-loop, en A4-pilot. Flaggor av tills respektive bevis är grönt. PSL och #1385 är inte detta spår. | [`2026-09-16-branded-runtime-aktivering/00-master-plan.md`](2026-09-16-branded-runtime-aktivering/00-master-plan.md) |
 | MVP-säkerhet och releaseberedskap | Konto-/wizard-/kostnadsskydd, releaseidentitet och kundinformation. En samlad PR; preview och produktion fortsätter dela databas enligt ägarbeslut. | [`2026-09-09-mvp-sakerhet/00-master-plan.md`](2026-09-09-mvp-sakerhet/00-master-plan.md) |
