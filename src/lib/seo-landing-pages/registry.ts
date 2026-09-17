@@ -153,7 +153,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "WordPress-alternativ – när passar ett annat arbetssätt bättre?",
     intent: "Saklig WordPress-jämförelse",
     relatedSlugs: ["hemsideprogram", "hemsida-utan-kod", "skapa-hemsida-med-ai"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
