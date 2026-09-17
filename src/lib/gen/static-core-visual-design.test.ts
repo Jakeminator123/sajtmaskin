@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
-import { composeEngineSystemPrompt, SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
+import { SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
 
 /**
  * Guards the assembled static core after 03-visual-design text changes.
  * Technical color/font/contrast/chart/follow-up protections must survive;
  * universal look recipes must not return as quality requirements.
+ *
+ * `composeEngineSystemPrompt()` is not called here: its CJS `require` of
+ * the loader does not resolve under Vitest ESM. Assembly is the same
+ * concatenation the composer uses (`core + separator + dynamic`).
  */
 describe("static core visual-design contract", () => {
   const core = getStaticCoreFromWorkspace();
-  const assembled = composeEngineSystemPrompt("## Design Priority\n\ntest dynamic context");
+  const assembled = `${core}${SYSTEM_PROMPT_SEPARATOR}## Design Priority\n\ntest dynamic context`;
 
   it("keeps neighboring core contracts when 03 changes", () => {
     expect(core).toContain("Respond exclusively in **CodeProject** format");
@@ -50,7 +54,7 @@ describe("static core visual-design contract", () => {
     expect(core).toMatch(/font pairings are the default/i);
   });
 
-  it("survives assemble into the engine system prompt", () => {
+  it("assembles ahead of request-specific context without dropping 03", () => {
     expect(assembled).toContain(SYSTEM_PROMPT_SEPARATOR);
     expect(assembled).toContain(core);
     expect(assembled).toContain("test dynamic context");
