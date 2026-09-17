@@ -2,6 +2,7 @@ import type { CodeFile } from "../parser";
 import { validateGeneratedCode } from "../retry/validate-syntax";
 import { runProjectSanityChecks } from "../validation/project-sanity";
 import type { SeoPreflightIssue } from "../validation/seo-preflight";
+import { countBracketPlaceholders } from "../verify/bracket-placeholders";
 import { analyzeVisualQuality } from "../verify/visual-qa";
 
 export interface CheckResult {
@@ -24,9 +25,6 @@ export interface Tier2ReadinessInput {
   }>;
   previewBlockingReason: string | null;
 }
-
-const BRACKET_PLACEHOLDER_RE =
-  /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Roll|Företag|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
 
 export function checkProjectSanity(files: CodeFile[]): CheckResult {
   const result = runProjectSanityChecks(files);
@@ -69,8 +67,7 @@ export function checkProjectSanity(files: CodeFile[]): CheckResult {
 export function checkNoBracketPlaceholders(files: CodeFile[]): CheckResult {
   let totalHits = 0;
   for (const file of files) {
-    const matches = file.content.match(BRACKET_PLACEHOLDER_RE);
-    if (matches) totalHits += matches.length;
+    totalHits += countBracketPlaceholders(file.content);
   }
 
   if (totalHits === 0) {

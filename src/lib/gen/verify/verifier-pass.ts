@@ -302,13 +302,60 @@ export function checkNavigationPlaceholderActions(
   return findings;
 }
 
+const CONTACT_INTEGRATION_RE =
+  /fetch\(\s*["'`]\/api\/contact(?:["'`]|\/|\?)|action\s*=\s*["'`]\/api\/contact|data-integration-endpoint\s*=\s*["'`]\/api\/contact/;
+// Path tokens like `contact-form.tsx` must not count — only the finding prose.
+const CONTACT_SUBMIT_FINDING_RE =
+  /\b(?:submit|type=["']submit["']|form(?:ular(?:et)?)?\s+action|\/api\/contact|skicka(?:\s+meddelande)?)\b/i;
+const CONTACT_FORM_IDENTITY_RE =
+  /\/api\/contact|\bcontact form\b|\bkontaktformulär\w*\b|\bkontaktform(?:en|uläret)?\b/i;
+
+function fileHasContactIntegration(content: string): boolean {
+  return CONTACT_INTEGRATION_RE.test(content);
+}
+
+function countHtmlForms(content: string): number {
+  return content.match(/<form\b/gi)?.length ?? 0;
+}
+
+function stripDetailFilePaths(detail: string): string {
+  DETAIL_FILE_PATH_RE.lastIndex = 0;
+  return detail.replace(DETAIL_FILE_PATH_RE, "$1");
+}
+
+function isIntegratedContactFormNavigationFinding(
+  detail: string,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): boolean {
+  const prose = stripDetailFilePaths(detail);
+  if (!CONTACT_SUBMIT_FINDING_RE.test(prose)) return false;
+  const mentionedFiles = extractDetailFilePaths(detail);
+  if (mentionedFiles.length === 0) {
+    return /\/api\/contact/.test(prose) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
+  }
+  const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
+  return mentionedFiles.some((path) => {
+    const content = fileMap.get(path) ?? "";
+    if (!fileHasContactIntegration(content)) return false;
+    // A working /api/contact form must not silence another form's submit
+    // in the same file. Multi-form files need an explicit contact identity.
+    if (countHtmlForms(content) > 1 && !CONTACT_FORM_IDENTITY_RE.test(prose)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function suppressValidInPageAnchorNavigationFindings(
   findings: VerifierFindings,
   files: Array<Pick<CodeFile, "path" | "content">>,
 ): VerifierFindings {
-  const shouldKeep = (finding: { id: string; detail: string }) =>
-    finding.id !== "navigation-placeholder-actions" ||
-    !isValidInPageHashNavigationFinding(finding.detail, files);
+  const shouldKeep = (finding: { id: string; detail: string }) => {
+    if (finding.id !== "navigation-placeholder-actions") return true;
+    if (isValidInPageHashNavigationFinding(finding.detail, files)) return false;
+    if (isIntegratedContactFormNavigationFinding(finding.detail, files)) return false;
+    return true;
+  };
 
   return {
     blocking: findings.blocking.filter(shouldKeep),

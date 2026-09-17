@@ -32,5 +32,5 @@ export type {
   ScaffoldSelectionMethod,
   ScaffoldSelectionResult,
 } from "./matcher";
-export { serializeScaffoldForPrompt } from "./serialize";
+export { resolveScaffoldSerializeMode, serializeScaffoldForPrompt } from "./serialize";
 export type { ScaffoldSerializeMode } from "./serialize";

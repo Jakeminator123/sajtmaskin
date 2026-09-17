@@ -10,7 +10,7 @@ const featured = [
     title: "Kom igång med innehållsdriven design",
     excerpt: "Så strukturerar du en blogg för läsbarhet och engagemang.",
     date: "2026-03-10",
-    author: "Alex",
+    author: "[Författare]",
     category: "Design",
   },
   {
@@ -18,7 +18,7 @@ const featured = [
     title: "Typografi som får läsare att stanna kvar",
     excerpt: "Teckenstorlekar, radavstånd och marginaler för längre texter.",
     date: "2026-03-08",
-    author: "Alex",
+    author: "[Författare]",
     category: "Design",
   },
 ];
@@ -29,7 +29,7 @@ const recent = [
     title: "Bygg en blogg från grunden",
     excerpt: "En steg-för-steg-guide till en modern blogg.",
     date: "2026-03-05",
-    author: "Alex",
+    author: "[Författare]",
     category: "Guide",
   },
 ];
@@ -41,13 +41,12 @@ export default function HomePage() {
         <section className="space-y-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-3">
-              <Badge className="rounded-full px-3 py-1">Bloggstart</Badge>
+              <Badge className="rounded-full px-3 py-1">[Publikation]</Badge>
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                En blogg med tydlig struktur för artiklar och läsning
+                [Rubrik för publikationen]
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
-                Den här scaffolden ger dig en startsida med utvalda inlägg, en artikellista och en layout för inlägg.
-                Anpassa innehållet och kategorierna efter ditt ämne.
+                [Kort om vilka ämnen som publiceras här.]
               </p>
             </div>
             <Button asChild size="lg" className="rounded-full px-6">

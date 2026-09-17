@@ -311,7 +311,9 @@ describe("POST preview-heartbeat — readiness-failure utan levande process", ()
       expectedVersionId: "v1",
       expectedLifecycleToken: null,
     });
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringContaining("postcondition failed"),
+    });
   });
 
   it("stämplar ingenting när hosten bara säger starting", async () => {

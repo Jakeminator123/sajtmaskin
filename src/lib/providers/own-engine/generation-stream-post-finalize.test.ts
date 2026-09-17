@@ -73,6 +73,14 @@ vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession: startPreviewSessionMock,
 }));
 
+const pollAndApplyPreviewReadinessOutcomeMock = vi.hoisted(() =>
+  vi.fn(async () => null),
+);
+
+vi.mock("@/lib/gen/preview/readiness-stamp", () => ({
+  pollAndApplyPreviewReadinessOutcome: pollAndApplyPreviewReadinessOutcomeMock,
+}));
+
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   getUnsignaledDetectedIntegrations: vi.fn(() => []),
 }));
@@ -1629,6 +1637,69 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
     await runPreview();
 
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", false);
+  });
+
+  it("registers the readiness poll as an after() callback and does not start it eagerly", async () => {
+    afterMock.mockReset();
+    afterMock.mockImplementation(() => {});
+    pollAndApplyPreviewReadinessOutcomeMock.mockClear();
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        filesRevision: "rev_1",
+        lifecycleToken: "life_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+        runtimeReady: false,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await runPreview();
+
+    const scheduled = afterMock.mock.calls
+      .map((call) => call[0] as unknown)
+      .find((arg): arg is () => Promise<unknown> => typeof arg === "function");
+    if (!scheduled) {
+      throw new Error("expected after() to receive a callback");
+    }
+    expect(pollAndApplyPreviewReadinessOutcomeMock).not.toHaveBeenCalled();
+
+    await scheduled();
+
+    expect(pollAndApplyPreviewReadinessOutcomeMock).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      previewSessionId: "ps_1",
+      bootedFilesRevision: "rev_1",
+      expectedLifecycleToken: "life_1",
+    });
+  });
+
+  it("does not start the readiness poll when after() throws", async () => {
+    afterMock.mockReset();
+    afterMock.mockImplementation(() => {
+      throw new Error("`after` was called outside a request scope");
+    });
+    pollAndApplyPreviewReadinessOutcomeMock.mockClear();
+    startPreviewSessionMock.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+        runtimeReady: false,
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
+
+    await expect(runPreview()).resolves.toBeUndefined();
+    expect(pollAndApplyPreviewReadinessOutcomeMock).not.toHaveBeenCalled();
   });
 });
 

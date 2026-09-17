@@ -19,7 +19,7 @@ export const saasLandingManifest: ScaffoldManifest = {
     "The full-width hero product preview sits under a centered headline and should stay visually product-led.",
   ],
   qualityChecklist: [
-    "Replace every {{PRODUCT_NAME}} placeholder with the real product name from the brief (header, footer, metadata, visible strings) — never ship the literal token.",
+    "Replace every [Produktnamn] placeholder with the real product name from the brief (header, footer, metadata, visible strings) — never ship the literal token.",
     "Pricing tiers have realistic names, prices, and feature lists matching the prompt.",
     "FAQ answers are specific to the user's product, not generic scaffold text.",
     "Hero dashboard preview card reflects the actual product's metrics/domain.",
