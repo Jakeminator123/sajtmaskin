@@ -39,6 +39,10 @@ describe("VadKostarEnHemsidaContent", () => {
     ).toBe(true);
 
     expect(document.body.textContent ?? "").not.toMatch(/\d+\s*kr\b/i);
+    expect(document.body.textContent ?? "").not.toMatch(/\b(?:49|99|179)\b/);
+    expect(document.body.textContent ?? "").toContain("Preview är inte publicering");
+    expect(screen.getByRole("link", { name: "prissidan" }).getAttribute("href")).toBe("/#priser");
+    expect(screen.queryByRole("link", { name: /wix|wordpress|lovable/i })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toEqual(
