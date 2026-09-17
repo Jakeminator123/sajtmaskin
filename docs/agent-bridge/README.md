@@ -104,7 +104,8 @@ python scripts/agent_bridge.py post --status READY --message "..." --evidence ".
 
 Status: `QUESTION` | `BLOCKED` | `READY` | `DONE` | `REPORT`.
 
-Default postar till #1468. `--pr` postar i stället på current PR om den finns.
+Default postar till #1468. `--pr` lägger en extra kopia på current PR; #1468
+förblir mailbox-owner och är det enda `read`/`wait` läser.
 `--dry-run` skriver meddelandet till stdout utan att posta.
 
 **Fallback** om slash-command inte syns i en gammal chatt: kör samma
@@ -124,8 +125,8 @@ python scripts/agent_bridge.py read
 python scripts/agent_bridge.py wait --timeout 300 --interval 10
 ```
 
-Båda läser kommentarer på #1468, hittar senaste `[COACH→AGENT:v1]`, matchar
-`agent_id` och helst `request_id`, och skriver
+Båda läser kommentarer på #1468, accepterar bara `[COACH→AGENT:v1]` från
+betrodd GitHub-author, matchar `agent_id` och helst `request_id`, och skriver
 `.agent-bridge/latest-response.md`.
 
 De **exekverar inte** svaret. Agenten måste läsa filen och tänka själv.

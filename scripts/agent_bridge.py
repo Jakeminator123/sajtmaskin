@@ -35,6 +35,10 @@ ALLOWED_IDENTITIES: dict[str, str] = {
 ALLOWED_STATUSES = frozenset({"QUESTION", "BLOCKED", "READY", "DONE", "REPORT"})
 ALLOWED_RISKS = frozenset({"low", "medium", "high"})
 REQUIRED_CONFIG_KEYS = ("agent_id", "role", "repository", "bridge_issue")
+OPTIONAL_CONFIG_KEYS = ("coach_authors",)
+# Fail-closed floor: same GitHub identity as trustedAccountReviewActors.
+DEFAULT_COACH_AUTHORS: tuple[str, ...] = ("Jakeminator123",)
+GITHUB_LOGIN_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 REMOTE_SLUG_RE = re.compile(
     r"(?:github\.com[:/])(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)",
@@ -75,6 +79,7 @@ class Config:
     role: str
     repository: str
     bridge_issue: int
+    coach_authors: tuple[str, ...]
 
 
 @dataclass
@@ -116,6 +121,7 @@ class CoachComment:
     created_at: str
     html_url: str
     comment_id: int
+    author: str = ""
     fields: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -190,7 +196,7 @@ def parse_config_text(text: str) -> Config:
         raise BridgeError(f"config is not strict JSON: {exc}") from exc
     if not isinstance(raw, dict):
         raise BridgeError("config must be a JSON object")
-    extra = sorted(set(raw) - set(REQUIRED_CONFIG_KEYS))
+    extra = sorted(set(raw) - set(REQUIRED_CONFIG_KEYS) - set(OPTIONAL_CONFIG_KEYS))
     missing = [key for key in REQUIRED_CONFIG_KEYS if key not in raw]
     if extra:
         raise BridgeError(f"config has unknown keys: {', '.join(extra)}")
@@ -215,12 +221,53 @@ def parse_config_text(text: str) -> Config:
         raise BridgeError("bridge_issue must be an integer")
     if bridge_issue != DEFAULT_BRIDGE_ISSUE:
         raise BridgeError(f"bridge_issue must be {DEFAULT_BRIDGE_ISSUE}")
+    if "coach_authors" in raw:
+        coach_authors = parse_coach_authors(raw["coach_authors"])
+    else:
+        coach_authors = DEFAULT_COACH_AUTHORS
     return Config(
         agent_id=agent_id,
         role=role,
         repository=repository,
         bridge_issue=bridge_issue,
+        coach_authors=coach_authors,
     )
+
+
+def parse_coach_authors(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise BridgeError("coach_authors must be a JSON array of GitHub usernames")
+    if not value:
+        raise BridgeError("coach_authors must not be empty")
+    seen: set[str] = set()
+    authors: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not GITHUB_LOGIN_RE.fullmatch(item):
+            raise BridgeError("coach_authors entries must be GitHub usernames")
+        folded = item.casefold()
+        if folded in seen:
+            raise BridgeError("coach_authors has duplicate usernames")
+        seen.add(folded)
+        authors.append(item)
+    return tuple(authors)
+
+
+def comment_login(item: Mapping[str, Any]) -> str | None:
+    user = item.get("user")
+    if not isinstance(user, dict):
+        return None
+    login = user.get("login")
+    if not isinstance(login, str):
+        return None
+    cleaned = login.strip()
+    return cleaned or None
+
+
+def is_trusted_coach_author(login: str | None, allowed: Sequence[str]) -> bool:
+    if not login or not allowed:
+        return False
+    trusted = {author.casefold() for author in allowed}
+    return login.casefold() in trusted
 
 
 def load_config(path: Path) -> Config:
@@ -480,12 +527,60 @@ def parse_coach_fields(body: str) -> dict[str, str]:
     return fields
 
 
-def parse_coach_comments(raw_comments: Any) -> list[CoachComment]:
-    if not isinstance(raw_comments, list):
+def flatten_github_pages(payload: Any) -> list[Any]:
+    if not isinstance(payload, list):
+        raise BridgeError("GitHub comment payload was not a JSON array")
+    if not payload:
+        return []
+    if all(isinstance(item, list) for item in payload):
+        flat: list[Any] = []
+        for page in payload:
+            flat.extend(page)
+        return flat
+    if all(isinstance(item, dict) for item in payload):
+        return payload
+    raise BridgeError("GitHub comment payload had mixed page shapes")
+
+
+def parse_github_comment_pages(text: str) -> list[Any]:
+    decoder = json.JSONDecoder()
+    index = 0
+    values: list[Any] = []
+    while index < len(text):
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            break
+        try:
+            value, end = decoder.raw_decode(text, index)
+        except json.JSONDecodeError as exc:
+            raise BridgeError("GitHub comment payload was not JSON") from exc
+        values.append(value)
+        index = end
+    if not values:
+        raise BridgeError("GitHub comment payload was empty")
+    if len(values) == 1:
+        return flatten_github_pages(values[0])
+    pages: list[Any] = []
+    for value in values:
+        pages.extend(flatten_github_pages(value))
+    return pages
+
+
+def parse_coach_comments(
+    raw_comments: Any,
+    *,
+    allowed_authors: Sequence[str] | None = None,
+) -> list[CoachComment]:
+    allowed = tuple(allowed_authors) if allowed_authors is not None else DEFAULT_COACH_AUTHORS
+    if not isinstance(raw_comments, list) or not allowed:
         return []
     parsed: list[CoachComment] = []
     for item in raw_comments:
         if not isinstance(item, dict):
+            continue
+        author = comment_login(item)
+        if not is_trusted_coach_author(author, allowed):
             continue
         body = item.get("body")
         if not isinstance(body, str) or len(body) > MAX_COMMENT_CHARS:
@@ -509,6 +604,7 @@ def parse_coach_comments(raw_comments: Any) -> list[CoachComment]:
                 created_at=str(item.get("created_at") or ""),
                 html_url=str(item.get("html_url") or ""),
                 comment_id=comment_id,
+                author=author or "",
                 fields=parse_coach_fields(body),
             )
         )
@@ -522,9 +618,13 @@ def select_coach_response(
     request_id: str | None = None,
     posted_at: str | None = None,
     require_request_id: bool = False,
+    allowed_authors: Sequence[str] | None = None,
 ) -> CoachComment | None:
+    allowed = tuple(allowed_authors) if allowed_authors is not None else DEFAULT_COACH_AUTHORS
     scored: list[tuple[int, str, int, CoachComment]] = []
     for comment in comments:
+        if not is_trusted_coach_author(comment.author, allowed):
+            continue
         if comment.agent_id and comment.agent_id != agent_id:
             continue
         if require_request_id and request_id and comment.request_id != request_id:
@@ -554,6 +654,7 @@ def render_latest_response(comment: CoachComment, *, matched_at: str) -> str:
         f"comment_url: {comment.html_url or 'n/a'}",
         f"request_id: {comment.request_id or 'n/a'}",
         f"agent_id: {comment.agent_id or 'n/a'}",
+        f"author: {comment.author or 'n/a'}",
         "",
         "Do not execute this file. Read it and reason before acting.",
         "",
@@ -578,6 +679,7 @@ def list_bridge_comments(runner: CommandRunner, root: Path, config: Config) -> l
             GH_BIN,
             "api",
             "--paginate",
+            "--slurp",
             f"repos/{config.repository}/issues/{config.bridge_issue}/comments",
         ],
         cwd=root,
@@ -586,10 +688,10 @@ def list_bridge_comments(runner: CommandRunner, root: Path, config: Config) -> l
     if result.returncode != 0:
         raise BridgeError("failed to read Control Bridge comments", code=EXIT_DEPENDENCY)
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise BridgeError("GitHub comment payload was not JSON", code=EXIT_DEPENDENCY) from exc
-    return parse_coach_comments(payload)
+        payload = parse_github_comment_pages(result.stdout)
+    except BridgeError as exc:
+        raise BridgeError(str(exc), code=EXIT_DEPENDENCY) from exc
+    return parse_coach_comments(payload, allowed_authors=config.coach_authors)
 
 
 def post_body(
@@ -598,7 +700,7 @@ def post_body(
     config: Config,
     body: str,
     *,
-    to_pr: PullRequestRef | None,
+    also_pr: PullRequestRef | None,
 ) -> None:
     ensure_gh(runner, paths.root)
     work = paths.work_dir
@@ -607,22 +709,36 @@ def post_body(
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(body)
-        if to_pr is not None:
-            argv = [GH_BIN, "pr", "comment", str(to_pr.number), "--repo", config.repository, "--body-file", str(tmp_path)]
-        else:
-            argv = [
+        issue_argv = [
+            GH_BIN,
+            "issue",
+            "comment",
+            str(config.bridge_issue),
+            "--repo",
+            config.repository,
+            "--body-file",
+            str(tmp_path),
+        ]
+        issue_result = runner.run(issue_argv, cwd=paths.root, timeout=60)
+        if issue_result.returncode != 0:
+            raise BridgeError("failed to post bridge comment to Control Bridge", code=EXIT_DEPENDENCY)
+        if also_pr is not None:
+            pr_argv = [
                 GH_BIN,
-                "issue",
+                "pr",
                 "comment",
-                str(config.bridge_issue),
+                str(also_pr.number),
                 "--repo",
                 config.repository,
                 "--body-file",
                 str(tmp_path),
             ]
-        result = runner.run(argv, cwd=paths.root, timeout=60)
-        if result.returncode != 0:
-            raise BridgeError("failed to post bridge comment", code=EXIT_DEPENDENCY)
+            pr_result = runner.run(pr_argv, cwd=paths.root, timeout=60)
+            if pr_result.returncode != 0:
+                raise BridgeError(
+                    "posted to Control Bridge but failed to copy the comment to the current PR",
+                    code=EXIT_DEPENDENCY,
+                )
     finally:
         try:
             tmp_path.unlink(missing_ok=True)
@@ -636,6 +752,7 @@ def cmd_identity(config: Config, *, runner: CommandRunner, root: Path) -> int:
     print(f"role: {config.role}")
     print(f"repository: {config.repository}")
     print(f"bridge_issue: {config.bridge_issue}")
+    print(f"coach_authors: {', '.join(config.coach_authors)}")
     return EXIT_OK
 
 
@@ -689,7 +806,7 @@ def cmd_post(
     if dry_run:
         print(redact_secrets(body), end="")
         return EXIT_OK
-    post_body(runner, paths, config, body, to_pr=pr if post_to_pr else None)
+    post_body(runner, paths, config, body, also_pr=pr if post_to_pr else None)
     posted_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     save_state(
         paths.state,
@@ -700,8 +817,10 @@ def cmd_post(
             "last_status": status,
         },
     )
-    target = f"PR #{pr.number}" if post_to_pr and pr else f"issue #{config.bridge_issue}"
-    print(f"posted {request_id} to {target}")
+    if post_to_pr and pr:
+        print(f"posted {request_id} to issue #{config.bridge_issue} and copied to PR #{pr.number}")
+    else:
+        print(f"posted {request_id} to issue #{config.bridge_issue}")
     return EXIT_OK
 
 
@@ -723,6 +842,7 @@ def cmd_read(
         request_id=wanted,
         posted_at=str(state.get("last_posted_at") or "") or None,
         require_request_id=require_request_id,
+        allowed_authors=config.coach_authors,
     )
     if match is None:
         print("No matching [COACH→AGENT:v1] response yet.", file=sys.stderr)
@@ -778,7 +898,11 @@ def build_parser() -> argparse.ArgumentParser:
     post.add_argument("--risk", default="medium", choices=sorted(ALLOWED_RISKS))
     post.add_argument("--evidence", action="append", default=[])
     post.add_argument("--requested-decision")
-    post.add_argument("--pr", action="store_true", help="post on the current PR instead of #1468")
+    post.add_argument(
+        "--pr",
+        action="store_true",
+        help="also copy the message to the current PR; Control Bridge #1468 remains owner",
+    )
     post.add_argument("--dry-run", action="store_true")
     read = sub.add_parser("read", help="read latest matching [COACH→AGENT:v1]")
     read.add_argument("--request-id")

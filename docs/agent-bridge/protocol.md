@@ -21,7 +21,8 @@ Fasta par. Agenten får inte välja eller byta själv.
 | `SCOUT-01` | `scout` |
 
 Lokalt låsta i `.agent-bridge/config.local.json`. Scriptet avvisar mismatch
-och extra JSON-nycklar. Inga GitHub-tokens i config.
+och extra JSON-nycklar. Valfri nyckel: `coach_authors` (icke-tom allowlist).
+Inga GitHub-tokens i config.
 
 Detta är **inte** chattrollerna `/scout`, `/builder`, `/steward` och **inte**
 OpenClaw-bridge (`.cursor/openclaw-bridge/`).
@@ -79,23 +80,33 @@ guards:
 - ...
 ```
 
-`read` / `wait` letar efter `[COACH→AGENT:v1]`, matchar `agent_id`, och
-föredrar `request_id`. En äldre `[COACH→AGENT]`-kommentar utan `agent_id`
-kan läsas som broadcast men vinner aldrig över en v1-träff.
+`read` / `wait` letar efter `[COACH→AGENT:v1]` **endast** från en betrodd
+GitHub-author. Default-allowlist är repoägaren (samma identitet som
+`trustedAccountReviewActors`). Valfri config-nyckel `coach_authors` ersätter
+default och får inte vara tom. Saknad eller fel author ignoreras fail-closed
+även om `agent_id` och `request_id` matchar.
+
+Därefter matchas `agent_id`, och `request_id` föredras. En äldre
+`[COACH→AGENT]`-kommentar utan `agent_id` kan läsas som broadcast men vinner
+aldrig över en v1-träff.
+
+Kommentarer hämtas med `gh api --paginate --slurp` och sidarrayerna plattas
+ut. Concatenerade JSON-sidor parsas också.
 
 ## Matchning
 
-1. Avvisa coach-rad med annat `agent_id`.
-2. Träff med samma `request_id` vinner.
-3. Annars senaste v1 för samma `agent_id`.
-4. `wait` efter en post kräver `request_id` eller kommentar skapad efter posten.
-5. Ingen träff → exit 3. Skriv inte över `.agent-bridge/latest-response.md`.
+1. Avvisa kommentar vars GitHub-`user.login` inte finns i `coach_authors`.
+2. Avvisa coach-rad med annat `agent_id`.
+3. Träff med samma `request_id` vinner.
+4. Annars senaste v1 för samma `agent_id`.
+5. `wait` efter en post kräver `request_id` eller kommentar skapad efter posten.
+6. Ingen träff → exit 3. Skriv inte över `.agent-bridge/latest-response.md`.
 
 ## Postning
 
-- Default: `gh issue comment` på #1468.
-- `--pr`: `gh pr comment` på current PR om den finns. Annars fel.
-- #1468 är fortfarande kontrollrummet. `--pr` är tilläggssyta, inte ny owner.
+- Default och alltid: `gh issue comment` på #1468 (Control Bridge).
+- `--pr`: extra kopia via `gh pr comment` på current PR om den finns. Annars fel.
+- `--pr` ersätter aldrig #1468. `read` / `wait` läser bara Control Bridge.
 - Body går via `--body-file`. Aldrig `shell=True`. Aldrig tokens i argv.
 
 ## Svar
@@ -117,6 +128,7 @@ GitHub. Det pingar inte ChatGPT.
 - Inga secrets i stdout. `gh auth status` dumpas inte.
 - Env vars loggas inte.
 - Token-lika strängar redakteras i utskrift/fil.
+- Coach-svar utan betrodd GitHub-author ignoreras. Tom `coach_authors` avvisas.
 
 ## Agentens avslutningsrad
 
