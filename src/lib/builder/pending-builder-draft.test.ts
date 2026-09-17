@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   builderDraftMatchesContext,
   consumeMatchingPendingBuilderDraft,
@@ -64,10 +64,9 @@ describe("pending builder draft", () => {
   });
 
   it("returns null when sessionStorage refuses the write", () => {
-    const original = sessionStorage.setItem.bind(sessionStorage);
-    sessionStorage.setItem = () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceededError");
-    };
+    });
     try {
       expect(
         savePendingBuilderDraft({
@@ -76,7 +75,7 @@ describe("pending builder draft", () => {
         }),
       ).toBeNull();
     } finally {
-      sessionStorage.setItem = original;
+      vi.restoreAllMocks();
     }
   });
 });
