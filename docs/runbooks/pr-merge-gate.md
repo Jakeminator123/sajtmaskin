@@ -123,17 +123,26 @@ som REST använder (`github-actions[bot]`).
 mergebehörighet: andra Actions-workflows delar samma GitHub App och custom
 checks väljer själva dessa fält. Finalcontrollern räknar därför själv om
 required checks, botar, live sign-off och sjuminutersgolvet från GitHubs
-senaste serverbundna WorkflowRun för exakt `.github/workflows/ci.yml`, eventet
+senaste serverbundna WorkflowRun för varje deklarerad ägar-workflow
+(`.github/workflows/ci.yml` och separat `dossier-acceptance.yml`), eventet
 `pull_request`, aktuell head och aktuell PR. Varje core-check måste länka till
 ett exakt jobb i den körningen och ha serverreturnerade Actions-steg. GitHub kan
 visa en steglös custom check som ett jobb under samma run; den räknas aldrig som
 core-proveniens. Även när ett custom reviewkvitto delar suite med en annan
 workflow hämtas samtliga attempts och check-ID:t binds mot jobbens
 `check_run_url`; utan sådan jobb-bindning är kvittot bara UX och live review-ID
-är fortsatt auktoritet. Äldre försök av samma jobbnamn är stale; jobb som inte
-kördes om i en partial rerun behåller sitt senaste serververifierade försök.
-Dubbla skyddade jobbnamn i något försök eller flera lika nya runs är en
-kollision och stoppar.
+är fortsatt auktoritet. Äldre eller avbrutna körningar på samma head-SHA efter
+draft→ready, och en äldre same-SHA `push`-CI på samma ägarfil, är stale, inte
+checknamnskollision, när en senare PR-associerad owned `pull_request`-run med
+samma skyddade checks är verifierbart grön. `workflow_dispatch`, `schedule` och
+andra event på samma SHA failar closed om de krockar med skyddade namn. Jobb som inte kördes om i en
+partial rerun behåller sitt senaste serververifierade försök.
+Dubbla skyddade jobbnamn i samma attempt, eller en spoofad check från annan
+workflow, är fortfarande en kollision och stoppar.
+En betrodd människa kan publicera om `review-window` utan ny CI via
+kommentaren `review-window:refresh` eller `workflow_dispatch` på
+`merge-ready-freshness.yml`. Draft→ready startar fortfarande CI och ska inte
+användas som grind-retrigger.
 Sjuminutersgolvet börjar vid WorkflowRun-resursens `created_at`, inte vid ett
 CheckRun-fält. Senaste verifierade jobbslut, review-state och publicerat
 review-ID sätter dessutom ett senare freshness-golv när det behövs. Om GitHub

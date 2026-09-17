@@ -22,6 +22,21 @@ import type { CodeFile } from "@/lib/gen/parser";
  */
 export const REPAIRED_FILES_ENVELOPE_VERSION = 1 as const;
 
+/** Manual deploy-repair ("Publicera om med fix") — the only stamped origin today. */
+export const DEPLOY_REPAIR_ORIGIN = "deploy-repair" as const;
+export type RepairOrigin = typeof DEPLOY_REPAIR_ORIGIN;
+
+/**
+ * Optional provenance carried in the same `repaired_files_json` envelope so
+ * deploy-repair can tell "this failed deployment already has its own repair"
+ * from a version-global `repair_available` produced by preview/verify (SM-003).
+ * No new column: unknown extra fields stay backward-compatible with v1.
+ */
+export type RepairProvenance = {
+  origin: RepairOrigin;
+  deploymentId: string;
+};
+
 export interface RepairedFilesEnvelope {
   /** Envelope schema version. */
   v: typeof REPAIRED_FILES_ENVELOPE_VERSION;
@@ -29,6 +44,19 @@ export interface RepairedFilesEnvelope {
   baseFilesHash: string;
   /** The repaired files. */
   files: CodeFile[];
+  /** Present only when this repair was produced for a specific failed deploy. */
+  origin?: RepairOrigin;
+  deploymentId?: string;
+}
+
+export function normalizeRepairProvenance(
+  value: { origin?: unknown; deploymentId?: unknown } | null | undefined,
+): RepairProvenance | undefined {
+  if (!value) return undefined;
+  const deploymentId =
+    typeof value.deploymentId === "string" ? value.deploymentId.trim() : "";
+  if (value.origin !== DEPLOY_REPAIR_ORIGIN || !deploymentId) return undefined;
+  return { origin: DEPLOY_REPAIR_ORIGIN, deploymentId };
 }
 
 /** SHA-256 (hex) of the exact `files_json` string as stored in the DB. */
@@ -45,21 +73,29 @@ export function hashFilesJson(filesJson: string): string {
 export function encodeRepairedFilesEnvelope(params: {
   repairedFilesJson: string;
   baseFilesJson: string;
+  provenance?: RepairProvenance;
 }): string {
   const files = JSON.parse(params.repairedFilesJson) as unknown;
   if (!Array.isArray(files)) {
     throw new Error("encodeRepairedFilesEnvelope: repairedFilesJson is not an array");
   }
+  const provenance = normalizeRepairProvenance(params.provenance);
   const envelope: RepairedFilesEnvelope = {
     v: REPAIRED_FILES_ENVELOPE_VERSION,
     baseFilesHash: hashFilesJson(params.baseFilesJson),
     files: files as CodeFile[],
+    ...(provenance ?? {}),
   };
   return JSON.stringify(envelope);
 }
 
 export type DecodedRepairPayload =
-  | { kind: "envelope"; baseFilesHash: string; filesJson: string }
+  | {
+      kind: "envelope";
+      baseFilesHash: string;
+      filesJson: string;
+      provenance?: RepairProvenance;
+    }
   | { kind: "legacy"; filesJson: string };
 
 /**
@@ -90,11 +126,38 @@ export function decodeRepairedFilesPayload(raw: string | null | undefined): Deco
     Array.isArray((parsed as { files?: unknown }).files)
   ) {
     const env = parsed as RepairedFilesEnvelope;
+    const provenance = normalizeRepairProvenance(env);
     return {
       kind: "envelope",
       baseFilesHash: env.baseFilesHash,
       filesJson: JSON.stringify(env.files),
+      ...(provenance ? { provenance } : {}),
     };
   }
   return null;
+}
+
+/** Read stamped deploy-repair provenance, if the stored payload carries it. */
+export function readRepairProvenance(
+  raw: string | null | undefined,
+): RepairProvenance | null {
+  const decoded = decodeRepairedFilesPayload(raw);
+  if (decoded?.kind !== "envelope" || !decoded.provenance) return null;
+  return decoded.provenance;
+}
+
+/**
+ * True only when the pending repair was produced for this failed deployment.
+ * A version-global `repair_available` from preview/verify does not match.
+ */
+export function isDeployRepairForDeployment(
+  repairedFilesJson: string | null | undefined,
+  deploymentId: string,
+): boolean {
+  const wanted = deploymentId.trim();
+  if (!wanted) return false;
+  const provenance = readRepairProvenance(repairedFilesJson);
+  return (
+    provenance?.origin === DEPLOY_REPAIR_ORIGIN && provenance.deploymentId === wanted
+  );
 }

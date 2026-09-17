@@ -30,16 +30,16 @@ const features = [
 
 const faqs = [
   {
-    question: "Vilka typer av SaaS-prompter passar den här bäst för?",
-    answer: "Använd den för B2B-SaaS, arbetsflödesverktyg, analysprodukter och mjukvara med prisdriven positionering.",
+    question: "Hur snabbt kommer vi igång?",
+    answer: "De flesta team är igång samma dag. Koppla underlaget, bjud in kollegor och börja med det viktigaste flödet.",
   },
   {
-    question: "Stöder den pris- och uppgraderingssektioner?",
-    answer: "Ja. Priser, produktpositionering och CTA-struktur ingår redan.",
+    question: "Kan vi börja gratis?",
+    answer: "Ja. Startplanen räcker för att testa produkten. Uppgradera när teamet behöver fler platser eller automation.",
   },
   {
-    question: "Ska den bli en fullständig dashboard-start?",
-    answer: "Inte än. Det här är marknadsföringslagret. En framtida dashboard-scaffold ska hantera den inloggade appen separat.",
+    question: "Vad händer med vår data?",
+    answer: "Ni äger den. Exportera när ni vill, och behörigheter följer roller i teamet.",
   },
 ];
 

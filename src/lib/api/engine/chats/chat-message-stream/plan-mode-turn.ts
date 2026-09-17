@@ -11,10 +11,6 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import type { CodeFile } from "@/lib/gen/parser";
-import {
-  buildPlanModeAssistantMessage,
-  type PlanModeAssistantMessageKind,
-} from "@/lib/gen/plan/review";
 import type {
   normalizeRequestAttachments,
   summarizeDesignReferences,
@@ -38,18 +34,8 @@ import { buildFollowUpOrchestrationInput } from "../follow-up-orchestration-inpu
 import { buildBoundedChatHistory } from "../follow-up-history";
 import type { createCommitCreditsOnce } from "../credits-handler";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
-import {
-  recordPlanModeTurnEntry,
-  recordPlanModeTurnExit,
-  type PlanModeTurnExitOutcome,
-} from "./plan-mode-trace";
-
-const EXIT_OUTCOME_BY_KIND: Record<PlanModeAssistantMessageKind, PlanModeTurnExitOutcome> = {
-  plan: "plan_persisted",
-  "planner-text": "planner_text_persisted",
-  "planner-error": "planner_error_persisted",
-  "planner-empty": "planner_empty_persisted",
-};
+import { persistPlanModeAssistantAndRecordExit } from "./plan-mode-persist";
+import { recordPlanModeTurnEntry } from "./plan-mode-trace";
 
 /** Plan-mode follow-up turn — runs the planner pipeline and returns the SSE response. */
 export async function runPlanModeTurn(params: {
@@ -250,38 +236,13 @@ export async function runPlanModeTurn(params: {
         persistAssistantSummary: async (planData, hasBlockers, context) => {
           // Varje planner-tur ska lämna EN assistentrad efter sig, plan eller inte
           // (prod chat 785c8d7a): utan den försvinner svaret vid reload.
-          const assistantMessage = buildPlanModeAssistantMessage({
+          await persistPlanModeAssistantAndRecordExit({
+            chatId,
+            traceOwner,
             planData,
             hasBlockers,
-            hasPlanArtifact: context.hasPlanArtifact,
-            plannerText: context.accumulatedContent,
-            upstreamErrorMessage: context.upstreamErrorMessage,
-          });
-          let persisted = false;
-          let persistError: string | null = null;
-          try {
-            await chatRepo.addMessage(
-              chatId,
-              "assistant",
-              assistantMessage.content,
-              undefined,
-              assistantMessage.uiParts,
-            );
-            persisted = true;
-          } catch (error) {
-            persistError = error instanceof Error ? error.message : String(error);
-            console.warn("[plan] Failed to persist planner assistant summary:", error);
-          }
-          await recordPlanModeTurnExit({
-            ...traceOwner,
-            outcome: persisted ? EXIT_OUTCOME_BY_KIND[assistantMessage.kind] : "persist_failed",
-            assistantMessagePersisted: persisted,
-            hasPlanArtifact: context.hasPlanArtifact,
-            hasBlockers,
-            contentChars: context.accumulatedContent.length,
-            upstreamError: context.upstreamErrorMessage,
-            durationMs: Date.now() - promptStartedAt,
-            persistError,
+            context,
+            promptStartedAt,
           });
         },
         buildDonePayload: (planData, hasBlockers) => ({

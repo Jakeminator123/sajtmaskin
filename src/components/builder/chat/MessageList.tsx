@@ -46,12 +46,14 @@ import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
 import {
+  getAuditPromptDomain,
+  isAuditPromptMessage,
   isAutoRepairPromptMessage,
   isF3KickPromptMessage,
   type ChatMessage,
 } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
-import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Globe, Loader2, MessageSquare } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -87,6 +89,16 @@ interface MessageListProps {
 function hasGenerationContent(text: string): boolean {
   if (!text) return false;
   return text.includes('file="') || text.includes("```");
+}
+
+function planIsVerifiedReady(plan: Extract<MessagePart, { type: "plan" }>["plan"]): boolean {
+  // Missing state means legacy persisted data whose server outcome cannot be
+  // reconstructed after reload. Only an explicit canonical `false` may start
+  // codegen; raw blockers remain a fail-closed guard for inconsistent/old data.
+  return (
+    plan.awaitingInput === false &&
+    (!Array.isArray(plan.raw?.blockers) || plan.raw.blockers.length === 0)
+  );
 }
 
 const MessageListComponent = ({
@@ -399,6 +411,13 @@ const MessageListComponent = ({
             (p): p is Extract<MessagePart, { type: "tool" }> => p.type === "tool",
           );
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+          // Approval starts codegen, so it must fail closed on the same canonical
+          // awaiting-input assessment as the inline reply UI. BuildPlanCard
+          // normalizes raw blockers for display and must not be asked to infer
+          // whether the server is still waiting. Historical plans also stay
+          // visible, but never regain an approval callback after a later user turn.
+          const approveBuildPlanForMessage =
+            !pendingReply && !hasUserAfterCurrentMessage ? onApproveBuildPlan : undefined;
           const compactToolParts = showStructuredParts
             ? []
             : toolParts.filter((part) => isActionableToolPart(part.tool) || isGenerationReviewPart(part));
@@ -430,11 +449,9 @@ const MessageListComponent = ({
           const currentTurnIsActive =
             !hasUserAfterCurrentMessage &&
             Boolean(message.isStreaming || activeAgentLogLabel);
-          const planParts = showStructuredParts
-            ? message.parts.filter(
-                (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
-              )
-            : [];
+          const planParts = message.parts.filter(
+            (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
+          );
           const sourcesParts = showStructuredParts
             ? message.parts.filter(
                 (p): p is Extract<MessagePart, { type: "sources" }> => p.type === "sources",
@@ -464,7 +481,8 @@ const MessageListComponent = ({
           // row instead of a user bubble.
           const isAutoRepairPrompt = Boolean(rawMessage && isAutoRepairPromptMessage(rawMessage));
           const isF3KickPrompt = Boolean(rawMessage && isF3KickPromptMessage(rawMessage));
-          const isSyntheticSystemPrompt = isAutoRepairPrompt || isF3KickPrompt;
+          const isAuditPrompt = Boolean(rawMessage && isAuditPromptMessage(rawMessage));
+          const isSyntheticSystemPrompt = isAutoRepairPrompt || isF3KickPrompt || isAuditPrompt;
           const isRepairInProgress = Boolean(messages[messageIndex + 1]?.isStreaming);
 
           return (
@@ -538,7 +556,11 @@ const MessageListComponent = ({
                         )}
                         <BuildPlanCard
                           rawPlan={part.plan.raw}
-                          onApproveBuild={onApproveBuildPlan}
+                          onApproveBuild={
+                            planIsVerifiedReady(part.plan)
+                              ? approveBuildPlanForMessage
+                              : undefined
+                          }
                           approveDisabled={quickReplyDisabled}
                           lifecycleStage={lifecycleStage}
                         />
@@ -565,6 +587,7 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   !showStructuredParts ? (
+                    <>
                     <GenerationSurface
                       content={textContent}
                       reasoning={reasoningPart?.reasoning}
@@ -577,6 +600,20 @@ const MessageListComponent = ({
                       reviews={renderCompactTools(reviewToolParts)}
                       actions={renderCompactTools(actionToolParts)}
                     />
+                    {planParts.map((part, index) => (
+                      <BuildPlanCard
+                        key={`${message.id}-plan-card-${index}`}
+                        rawPlan={part.plan.raw}
+                        onApproveBuild={
+                          planIsVerifiedReady(part.plan)
+                            ? approveBuildPlanForMessage
+                            : undefined
+                        }
+                        approveDisabled={quickReplyDisabled}
+                        lifecycleStage={lifecycleStage}
+                      />
+                    ))}
+                    </>
                   ) : textContent ? (
                     hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
@@ -599,6 +636,11 @@ const MessageListComponent = ({
                   <AutoRepairMessageRow content={textContent} isInProgress={isRepairInProgress} />
                 ) : isF3KickPrompt ? (
                   <F3KickMessageRow content={textContent} />
+                ) : isAuditPrompt ? (
+                  <AuditHandoffMessageRow
+                    content={textContent}
+                    domain={rawMessage ? getAuditPromptDomain(rawMessage) : null}
+                  />
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
                 )}
@@ -777,6 +819,50 @@ function F3KickMessageRow({ content }: { content: string }) {
       content={content}
       idleLabel="Integrationsbygge startat utifrån den finaliserade designversionen."
     />
+  );
+}
+
+function AuditHandoffMessageRow({ content, domain }: { content: string; domain: string | null }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const label = domain ? `Audit: ${domain}` : "Audit";
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+        aria-live="polite"
+      >
+        <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>{label}</span>
+      </div>
+      {isExpanded ? (
+        <div className="space-y-2">
+          <MessageResponse>
+            <Streamdown
+              plugins={{ code: streamdownCode }}
+              components={STREAMDOWN_PLAIN_COMPONENTS}
+            >
+              {content}
+            </Streamdown>
+          </MessageResponse>
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+          >
+            <ChevronUp className="h-3 w-3" />
+            Dölj underlaget
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+        >
+          <ChevronDown className="h-3 w-3" />
+          Visa underlaget
+        </button>
+      )}
+    </div>
   );
 }
 

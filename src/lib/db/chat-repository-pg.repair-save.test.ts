@@ -156,4 +156,19 @@ describe("saveRepairedFiles — base-bound write + stale-base distinction (#260 
     expect(assessedFilesJson).not.toContain("baseFilesHash");
     expect(assessedFilesJson).not.toBe(BASE_A);
   });
+
+  it("stamps deploy-repair provenance into the persisted envelope (SM-003)", async () => {
+    updateRowCount.value = 1;
+    currentFilesJson.value = BASE_A;
+    await saveRepairedFiles("ver-1", REPAIRED, "summary", "run-1", BASE_A, {
+      origin: "deploy-repair",
+      deploymentId: "dep_1",
+    });
+    const set = updateSet.value as Record<string, unknown>;
+    const env = JSON.parse(set.repairedFilesJson as string);
+    expect(env.origin).toBe("deploy-repair");
+    expect(env.deploymentId).toBe("dep_1");
+    expect(env.baseFilesHash).toBe(hashFilesJson(BASE_A));
+    expect(env.files).toEqual(JSON.parse(REPAIRED));
+  });
 });

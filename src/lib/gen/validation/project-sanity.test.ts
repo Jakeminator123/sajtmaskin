@@ -514,6 +514,84 @@ import { Button } from "@/components/ui/button"
       expect(issues).toEqual([]);
     });
 
+    it("does not warn on Clerk createRouteMatcher /api/protected(.*)", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "middleware.ts",
+          language: "ts",
+          content: [
+            'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";',
+            "const isProtectedRoute = createRouteMatcher([",
+            '  "/dashboard(.*)",',
+            '  "/api/protected(.*)",',
+            "]);",
+            "export default clerkMiddleware();",
+          ].join("\n"),
+        },
+        {
+          path: "components/widget.tsx",
+          language: "tsx",
+          content: 'export const Widget = () => fetch("/api/missing");',
+        },
+      ]);
+
+      expect(issues.map((issue) => issue.subject)).toEqual(["dangling-api-route:/api/missing"]);
+      expect(issues.some((issue) => issue.subject === "dangling-api-route:/api/protected(.*)")).toBe(
+        false,
+      );
+    });
+
+    it("does not warn on a multiline matcher that lists /api/private without parentheses", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "middleware.ts",
+          language: "ts",
+          content: [
+            'import { createRouteMatcher } from "@clerk/nextjs/server";',
+            "const isPrivate = createRouteMatcher([",
+            '  "/api/private",',
+            "]);",
+          ].join("\n"),
+        },
+      ]);
+
+      expect(issues).toEqual([]);
+    });
+
+    it("still warns on a real fetch in the same file as createRouteMatcher", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "middleware.ts",
+          language: "ts",
+          content: [
+            'import { createRouteMatcher } from "@clerk/nextjs/server";',
+            "const isPrivate = createRouteMatcher([",
+            '  "/api/private",',
+            "]);",
+            'void fetch("/api/missing");',
+          ].join("\n"),
+        },
+      ]);
+
+      expect(issues.map((issue) => issue.subject)).toEqual(["dangling-api-route:/api/missing"]);
+    });
+
+    it("still warns on fetch(\"/api/missing(1)\") — parentheses are not a free pass", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "components/widget.tsx",
+          language: "tsx",
+          content: 'export const Widget = () => fetch("/api/missing(1)");',
+        },
+      ]);
+
+      expect(issues.map((issue) => issue.subject)).toEqual(["dangling-api-route:/api/missing(1)"]);
+    });
+
     it("never blocks the build on its own", () => {
       const result = runProjectSanityChecks([
         pkg,

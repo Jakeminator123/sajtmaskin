@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { emptyCampaignScript } from "@/lib/kostnadsfri/agent-campaign-script";
 import { OpenClawChatPanel } from "./OpenClawChatPanel";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 
@@ -26,9 +27,11 @@ beforeEach(() => {
   act(() => {
     useOpenClawStore.setState({
       avatarMode: false,
+      panelPresentation: "bubble",
       editEnabled: false,
       powersOn: false,
       grantedPowers: [],
+      campaignScript: null,
     });
   });
 });
@@ -109,5 +112,60 @@ describe("OpenClawChatPanel", () => {
   it("shows the powers control on a builder surface with OC_EDIT on", async () => {
     render(<OpenClawChatPanel onClose={vi.fn()} powersAvailable />);
     expect(await screen.findByRole("button", { name: "Slå på extra befogenheter" })).toBeTruthy();
+  });
+
+  it("visar rådgivningskvot och hoppa-över utan generering/ombyggnad", () => {
+    act(() => {
+      useOpenClawStore.setState({ campaignScript: emptyCampaignScript("zax-2-0-ab") });
+    });
+    const { container } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    expect(screen.getByTestId("kampanj-radgivning-kvar").textContent).toContain("rådgivning");
+    expect(screen.getByRole("button", { name: "Fortsätt" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hoppa över frågorna" })).toBeTruthy();
+    expect(container.textContent?.toLowerCase()).not.toMatch(/generering|ombyggnad/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Hoppa över frågorna" }));
+
+    expect(useOpenClawStore.getState().campaignScript?.followupsSkipped).toBe(true);
+    expect(useOpenClawStore.getState().campaignScript?.followupsCompleted).toBe(true);
+    expect(screen.queryByRole("button", { name: "Hoppa över frågorna" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fortsätt" })).toBeNull();
+  });
+
+  it("tar bort kvot-chrome vid scope-byte till /konto", () => {
+    act(() => {
+      useOpenClawStore.setState({
+        scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri",
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+    });
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(screen.getByTestId("kampanj-radgivning-kvar")).toBeTruthy();
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/konto::account");
+    });
+
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+    expect(screen.queryByTestId("kampanj-radgivning-kvar")).toBeNull();
+  });
+
+  it("tar bort kvot-chrome vid scope-byte till annan slug", () => {
+    act(() => {
+      useOpenClawStore.setState({
+        scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri",
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+      });
+    });
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+    expect(screen.getByTestId("kampanj-radgivning-kvar")).toBeTruthy();
+
+    act(() => {
+      useOpenClawStore.getState().setScope("/kostnadsfri/other-campaign::kostnadsfri");
+    });
+
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+    expect(screen.queryByTestId("kampanj-radgivning-kvar")).toBeNull();
   });
 });

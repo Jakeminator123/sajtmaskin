@@ -34,6 +34,64 @@ const VerifierFindingsSchema = z.object({
 
 export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
 
+/**
+ * Completion receipt for the LLM half of `runVerifierPass`.
+ *
+ * Deterministic scanners always run. The LLM review may be skipped (kill-switch,
+ * no key, empty snippet) or fail (provider/timeout/invalid structured output).
+ * Those outcomes must not be read as “LLM finished and found zero blockers”.
+ */
+export type VerifierLlmAvailability = "completed" | "unavailable" | "skipped";
+
+export type VerifierPassResult = VerifierFindings & {
+  llmAvailability: VerifierLlmAvailability;
+};
+
+/**
+ * True when the LLM review produced a structured verdict we may treat as
+ * authoritative. Legacy mocks that omit `llmAvailability` stay completed so
+ * existing confirmation-rerun tests keep their “empty = clean” meaning.
+ * Explicit `unavailable` / `skipped` is fail-closed.
+ */
+export function didVerifierLlmComplete(
+  result: Pick<Partial<VerifierPassResult>, "llmAvailability">,
+): boolean {
+  return result.llmAvailability !== "unavailable" && result.llmAvailability !== "skipped";
+}
+
+/**
+ * Receipt-only finding when the first-pass LLM review failed and deterministic
+ * scanners produced nothing. Advisory in F2 (`isBuildBreakingFinding` stays
+ * false) so a provider flake does not fail a renderable design preview; F3
+ * still gates on any blocking finding. Not a defect the LLM fixer can repair.
+ */
+export const VERIFIER_LLM_UNAVAILABLE_FINDING_ID = "verifier-llm-unavailable";
+
+export function verifierLlmUnavailableFinding(): { id: string; detail: string } {
+  return {
+    id: VERIFIER_LLM_UNAVAILABLE_FINDING_ID,
+    detail:
+      "LLM verifier did not complete (provider error, timeout, or invalid structured output). Deterministic scanners found no blockers; this is not a clean LLM review.",
+  };
+}
+
+/**
+ * First-pass gate owner. Provider/timeout/invalid structured output with an
+ * empty deterministic list is not “LLM found zero blockers”. Kill-switch /
+ * no-key / empty-snippet `skipped` stays empty so operators can disable the
+ * LLM review without failing every version. Legacy mocks that omit
+ * `llmAvailability` stay completed (empty = clean).
+ */
+export function applyFirstPassLlmAvailability(
+  pass: Pick<Partial<VerifierPassResult>, "llmAvailability">,
+  blocking: Array<{ id: string; detail: string }>,
+): Array<{ id: string; detail: string }> {
+  if (pass.llmAvailability === "unavailable" && blocking.length === 0) {
+    return [verifierLlmUnavailableFinding()];
+  }
+  return blocking;
+}
+
 const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
@@ -302,13 +360,60 @@ export function checkNavigationPlaceholderActions(
   return findings;
 }
 
+const CONTACT_INTEGRATION_RE =
+  /fetch\(\s*["'`]\/api\/contact(?:["'`]|\/|\?)|action\s*=\s*["'`]\/api\/contact|data-integration-endpoint\s*=\s*["'`]\/api\/contact/;
+// Path tokens like `contact-form.tsx` must not count — only the finding prose.
+const CONTACT_SUBMIT_FINDING_RE =
+  /\b(?:submit|type=["']submit["']|form(?:ular(?:et)?)?\s+action|\/api\/contact|skicka(?:\s+meddelande)?)\b/i;
+const CONTACT_FORM_IDENTITY_RE =
+  /\/api\/contact|\bcontact form\b|\bkontaktformulär\w*\b|\bkontaktform(?:en|uläret)?\b/i;
+
+function fileHasContactIntegration(content: string): boolean {
+  return CONTACT_INTEGRATION_RE.test(content);
+}
+
+function countHtmlForms(content: string): number {
+  return content.match(/<form\b/gi)?.length ?? 0;
+}
+
+function stripDetailFilePaths(detail: string): string {
+  DETAIL_FILE_PATH_RE.lastIndex = 0;
+  return detail.replace(DETAIL_FILE_PATH_RE, "$1");
+}
+
+function isIntegratedContactFormNavigationFinding(
+  detail: string,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): boolean {
+  const prose = stripDetailFilePaths(detail);
+  if (!CONTACT_SUBMIT_FINDING_RE.test(prose)) return false;
+  const mentionedFiles = extractDetailFilePaths(detail);
+  if (mentionedFiles.length === 0) {
+    return /\/api\/contact/.test(prose) && files.some((file) => fileHasContactIntegration(file.content ?? ""));
+  }
+  const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
+  return mentionedFiles.some((path) => {
+    const content = fileMap.get(path) ?? "";
+    if (!fileHasContactIntegration(content)) return false;
+    // A working /api/contact form must not silence another form's submit
+    // in the same file. Multi-form files need an explicit contact identity.
+    if (countHtmlForms(content) > 1 && !CONTACT_FORM_IDENTITY_RE.test(prose)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function suppressValidInPageAnchorNavigationFindings(
   findings: VerifierFindings,
   files: Array<Pick<CodeFile, "path" | "content">>,
 ): VerifierFindings {
-  const shouldKeep = (finding: { id: string; detail: string }) =>
-    finding.id !== "navigation-placeholder-actions" ||
-    !isValidInPageHashNavigationFinding(finding.detail, files);
+  const shouldKeep = (finding: { id: string; detail: string }) => {
+    if (finding.id !== "navigation-placeholder-actions") return true;
+    if (isValidInPageHashNavigationFinding(finding.detail, files)) return false;
+    if (isIntegratedContactFormNavigationFinding(finding.detail, files)) return false;
+    return true;
+  };
 
   return {
     blocking: findings.blocking.filter(shouldKeep),
@@ -1302,9 +1407,12 @@ export function checkR3FClientBoundary(
 export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId; abortSignal?: AbortSignal },
-): Promise<VerifierFindings> {
+): Promise<VerifierPassResult> {
   const verifierStartedAt = Date.now();
-  const recordOnExit = (findings: VerifierFindings): VerifierFindings => {
+  const recordOnExit = (
+    findings: VerifierFindings,
+    llmAvailability: VerifierLlmAvailability,
+  ): VerifierPassResult => {
     try {
       recordPhaseDuration("verifier", Date.now() - verifierStartedAt);
       // Per-finding counter so the audit §3.1 question ("how often do
@@ -1314,11 +1422,11 @@ export async function runVerifierPass(
     } catch {
       // Telemetry must never break verification.
     }
-    return findings;
+    return { ...findings, llmAvailability };
   };
 
   if (!isVerifierPassEnabled()) {
-    return recordOnExit(EMPTY_VERIFIER_FINDINGS);
+    return recordOnExit(EMPTY_VERIFIER_FINDINGS, "skipped");
   }
 
   const { files } = parseCodeProject(codeProjectContent);
@@ -1342,7 +1450,7 @@ export async function runVerifierPass(
     process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim(),
   );
   if (!hasKey) {
-    return recordOnExit(deterministic);
+    return recordOnExit(deterministic, "skipped");
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
@@ -1351,7 +1459,7 @@ export async function runVerifierPass(
 
   const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
-    return recordOnExit(deterministic);
+    return recordOnExit(deterministic, "skipped");
   }
 
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
@@ -1423,10 +1531,13 @@ Use those exact ids so downstream tooling can recognise them.`;
       applyVerifierSeverityMapping(result.object),
       files,
     );
-    return recordOnExit({
-      blocking: [...deterministic.blocking, ...promoted.blocking],
-      quality: [...deterministic.quality, ...promoted.quality],
-    });
+    return recordOnExit(
+      {
+        blocking: [...deterministic.blocking, ...promoted.blocking],
+        quality: [...deterministic.quality, ...promoted.quality],
+      },
+      "completed",
+    );
   } catch (err) {
     // Ett misslyckat verifier-anrop har ändå kostat tokens. AI SDK:s
     // NoObjectGeneratedError bär `usage` när modellen svarade men svaret inte
@@ -1452,7 +1563,9 @@ Use those exact ids so downstream tooling can recognise them.`;
     } else {
       console.warn("[verifier-pass] Non-fatal error, skipping:", err);
     }
-    return recordOnExit(deterministic);
+    // Fail-closed receipt: deterministic scanners may still be empty, but that
+    // is not “LLM finished and found zero blockers”.
+    return recordOnExit(deterministic, "unavailable");
   } finally {
     clearTimeout(timeoutId);
     if (externalAbort) {

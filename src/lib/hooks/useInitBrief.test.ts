@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
@@ -26,7 +26,12 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 import { toast } from "sonner";
+import { BuilderAuthRequiredError } from "./chat/helpers-errors";
 import { INIT_BRIEF_STATUS_EVENT, useInitBrief, type InitBriefStatusDetail } from "./useInitBrief";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("useInitBrief — follow-up guard (P22)", () => {
   it("throws when chatId is set and forceDeepBrief is true", async () => {
@@ -207,5 +212,165 @@ describe("useInitBrief — B1: returnerar briefen, ingen addendum-sträng", () =
     }
 
     expect(returned).toBeNull();
+  });
+});
+
+describe("useInitBrief — auth refusal", () => {
+  it("throws BuilderAuthRequiredError on brief 401 without the generic brief toast", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          requiresAuth: true,
+          error: "Skapa ett konto eller logga in för att generera.",
+        }),
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("throws BuilderAuthRequiredError on brief auth_required 401 without the generic toast", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: "auth_required" }),
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("treats the legacy brief { error: unauthorized } 401 as login", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "unauthorized" }),
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("treats a missing OpenAI API-key 401 as a provider error, not login", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          error: "Missing OpenAI API key",
+          setup: "Set OPENAI_API_KEY. Deep brief calls OpenAI directly via createDirectModel().",
+        }),
+      }),
+    );
+
+    let returned: unknown;
+    try {
+      returned = await result.current.generateDynamicInstructions("hej", {
+        forceDeepBrief: true,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(returned).toBeNull();
+    expect(toast.error).toHaveBeenCalled();
+    expect(String(vi.mocked(toast.error).mock.calls[0]?.[0])).toMatch(
+      /Missing OpenAI API key/i,
+    );
+  });
+
+  it("treats an empty brief 401 body as login without the generic toast", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => {
+          throw new Error("no body");
+        },
+      }),
+    );
+
+    try {
+      await expect(
+        result.current.generateDynamicInstructions("hej", { forceDeepBrief: true }),
+      ).rejects.toBeInstanceOf(BuilderAuthRequiredError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

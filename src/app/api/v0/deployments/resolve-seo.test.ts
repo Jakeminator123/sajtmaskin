@@ -64,6 +64,16 @@ describe("resolveDeploySeoOptions", () => {
     });
   });
 
+  it("does not publish the example.com placeholder through the SEO fallback", () => {
+    expect(
+      resolveDeploySeoOptions(
+        { optIn: true, siteUrl: "https://example.com" },
+        { ...persisted, siteUrl: "https://example.com" },
+        null,
+      ),
+    ).toBeNull();
+  });
+
   it("returns null when opted in but no canonical or fallback URL exists", () => {
     expect(
       resolveDeploySeoOptions(

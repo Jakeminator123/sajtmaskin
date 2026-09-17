@@ -4,10 +4,13 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
-import { createPromptHandoff } from "@/lib/db/services/projects";
+import { createPromptHandoff, getProjectByIdForOwner } from "@/lib/db/services/projects";
+import { bindVerifiedKostnadsfriCampaign } from "@/lib/db/services/kostnadsfri-campaign";
 import { cachePromptHandoff } from "@/lib/data/redis";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
+import { auditHandoffPayloadSchema } from "@/lib/builder/audit-handoff";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
+import { readKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
 
 const createPromptSchema = z.object({
   prompt: z
@@ -16,6 +19,7 @@ const createPromptSchema = z.object({
     .max(MAX_PROMPT_HANDOFF_CHARS, `Prompt too long (max ${MAX_PROMPT_HANDOFF_CHARS} chars)`),
   source: z.string().optional(),
   projectId: z.string().optional(),
+  payload: auditHandoffPayloadSchema.optional(),
   /** Kostnadsfri flow only: the invited slug, so "skapad" is recorded server-side. */
   kostnadsfriSlug: z
     .string()
@@ -55,8 +59,10 @@ function recordKostnadsfriCompleted(
 export async function POST(request: NextRequest) {
   const session = ensureSessionIdFromRequest(request);
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };
@@ -71,7 +77,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { prompt, source, projectId, kostnadsfriSlug } = validation.data;
+      const { prompt, source, projectId, kostnadsfriSlug, payload } = validation.data;
       const trimmedPrompt = prompt.trim();
       if (!trimmedPrompt) {
         return NextResponse.json({ success: false, error: "Prompt is required" }, { status: 400 });
@@ -85,12 +91,53 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (source === "kostnadsfri") {
+        if (!user?.id) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { success: false, error: "Logga in för att bygga hemsidan.", requiresAuth: true },
+              { status: 401 },
+            ),
+          );
+        }
+        if (!kostnadsfriSlug || !projectId) {
+          return attachSessionCookie(
+            NextResponse.json({ success: false, error: "Ogiltig inbjudan." }, { status: 403 }),
+          );
+        }
+        const project = await getProjectByIdForOwner(projectId, {
+          userId: user.id,
+          sessionId,
+        });
+        if (!project) {
+          return attachSessionCookie(
+            NextResponse.json({ success: false, error: "Ogiltig inbjudan." }, { status: 403 }),
+          );
+        }
+        const benefit = await bindVerifiedKostnadsfriCampaign({
+          receipt: readKostnadsfriCampaignReceipt(request),
+          invitationSlug: kostnadsfriSlug,
+          projectId: project.id,
+          userId: user?.id ?? null,
+          sessionId,
+        });
+        if (!benefit) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { success: false, error: "Inbjudan kunde inte verifieras." },
+              { status: 403 },
+            ),
+          );
+        }
+      }
+
       const created = await createPromptHandoff({
         prompt: trimmedPrompt,
         source: source || null,
         projectId: projectId || null,
         userId: user?.id || null,
         sessionId: sessionId || null,
+        payload: source === "audit" ? payload ?? null : null,
       });
 
       if (source === "kostnadsfri" && kostnadsfriSlug) {

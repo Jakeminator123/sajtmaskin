@@ -313,7 +313,9 @@ describe("GET preview-status (engine)", () => {
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
     expect(afterCallbacks.value.length).toBe(1);
     await runAfterCallbacks();
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringContaining("radix-ui"),
+    });
   });
 
   it("returns starting (no stamp) while host readiness is still starting", async () => {
@@ -439,7 +441,9 @@ describe("GET preview-status — readiness-failure utan levande process", () => 
     expect(body.readinessError).toContain("ENOSPC");
 
     await runAfterCallbacks();
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false, {
+      previewBlockingReason: expect.stringContaining("ENOSPC"),
+    });
   });
 
   it("frågar hosten med sessionens version så ett annat versions verdikt aldrig tillskrivs denna", async () => {

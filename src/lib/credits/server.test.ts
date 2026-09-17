@@ -7,6 +7,7 @@ const isTestUser = vi.hoisted(() => vi.fn(() => false));
 const resolvePricingSettings = vi.hoisted(() =>
   vi.fn(async () => ({ creditActionPrices: {} as Record<string, unknown> })),
 );
+const getKostnadsfriCampaignPolicy = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/transactions", () => ({
@@ -15,6 +16,9 @@ vi.mock("@/lib/db/services/transactions", () => ({
 }));
 vi.mock("@/lib/db/services/users", () => ({ isTestUser }));
 vi.mock("@/lib/db/services/pricing-settings", () => ({ resolvePricingSettings }));
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  getKostnadsfriCampaignPolicy,
+}));
 
 const { prepareCredits, remainingCreditsAfterCharge } = await import("./server");
 
@@ -33,6 +37,102 @@ beforeEach(() => {
   isTestUser.mockReturnValue(false);
   getTransactionByIdempotency.mockResolvedValue(null);
   resolvePricingSettings.mockResolvedValue({ creditActionPrices: {} });
+  getKostnadsfriCampaignPolicy.mockResolvedValue(null);
+});
+
+describe("prepareCredits kostnadsfri campaign", () => {
+  it("admits an existing account through the project-bound campaign slot", async () => {
+    getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
+    getKostnadsfriCampaignPolicy.mockResolvedValue({
+      entitlementId: "campaign_1",
+      benefit: { entitlementId: "campaign_1", phase: "initial" },
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "prompt.create",
+      {},
+      {
+        sessionId: "sess_1",
+        allowFreeGeneration: true,
+        campaignProjectId: "project_1",
+        campaignPhase: "initial",
+      },
+    );
+
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.campaignBenefit).toEqual({
+      entitlementId: "campaign_1",
+      phase: "initial",
+    });
+    await prepared.commit();
+    expect(createTransaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["initial", "failed initial retry"],
+    ["followup", "follow-up after the initial version"],
+  ] as const)("admits the %s slot selected for a %s", async (phase, _scenario) => {
+    getCurrentUser.mockResolvedValue(
+      account({ diamonds: 0, free_generation_available: false }),
+    );
+    getKostnadsfriCampaignPolicy.mockResolvedValue({
+      entitlementId: "campaign_1",
+      benefit: { entitlementId: "campaign_1", phase },
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "prompt.refine",
+      {},
+      {
+        sessionId: "sess_1",
+        allowFreeGeneration: true,
+        campaignProjectId: "project_1",
+        campaignPhase: "continuation",
+        campaignChatId: "chat_1",
+      },
+    );
+
+    expect(getKostnadsfriCampaignPolicy).toHaveBeenCalledWith({
+      projectId: "project_1",
+      userId: "user_1",
+      sessionId: "sess_1",
+      phase: "continuation",
+      chatId: "chat_1",
+    });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.campaignBenefit).toEqual({ entitlementId: "campaign_1", phase });
+  });
+
+  it("blocks general first-free fallback after the project's campaign slot is exhausted", async () => {
+    const user = account({ diamonds: 0, free_generation_available: true });
+    getCurrentUser.mockResolvedValue(user);
+    getKostnadsfriCampaignPolicy.mockResolvedValue({
+      entitlementId: "campaign_1",
+      benefit: null,
+    });
+
+    const prepared = await prepareCredits(
+      new Request("https://example.test"),
+      "prompt.refine",
+      {},
+      {
+        sessionId: "sess_1",
+        allowFreeGeneration: true,
+        campaignProjectId: "project_1",
+        campaignPhase: "followup",
+        campaignChatId: "chat_1",
+      },
+    );
+
+    expect(prepared.ok).toBe(false);
+    if (!prepared.ok) expect(prepared.response.status).toBe(402);
+    expect(user.free_generation_available).toBe(true);
+    expect(createTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe("prepareCredits account-bound free generation", () => {
@@ -79,7 +179,6 @@ describe("prepareCredits account-bound free generation", () => {
   });
 });
 
-
 describe("prepareCredits durable entitlement helper (B1 ledger)", () => {
   it("passes the durable key to the atomic debit", async () => {
     getCurrentUser.mockResolvedValue(account({ diamonds: 22, free_generation_available: false }));
@@ -93,7 +192,12 @@ describe("prepareCredits durable entitlement helper (B1 ledger)", () => {
     if (!prepared.ok) return;
     await prepared.commit();
     expect(createTransaction).toHaveBeenCalledWith(
-      "user_1", "wizard_enrich", -11, "Wizard-analys", undefined, undefined,
+      "user_1",
+      "wizard_enrich",
+      -11,
+      "Wizard-analys",
+      undefined,
+      undefined,
       { idempotencyKey: "11111111-1111-4111-8111-111111111111" },
     );
   });
@@ -132,7 +236,12 @@ describe("prepareCredits reads the operator-set price", () => {
     if (!prepared.ok) return;
     await prepared.commit();
     expect(createTransaction).toHaveBeenCalledWith(
-      "user_1", "wizard_enrich", -19, "Wizard-analys", undefined, undefined,
+      "user_1",
+      "wizard_enrich",
+      -19,
+      "Wizard-analys",
+      undefined,
+      undefined,
       { idempotencyKey: undefined },
     );
   });
@@ -162,8 +271,6 @@ describe("remainingCreditsAfterCharge", () => {
   });
 
   it("leaves the balance unchanged when the charge was skipped", () => {
-    expect(
-      remainingCreditsAfterCharge({ diamonds: 30, cost: 25, charged: false }),
-    ).toBe(30);
+    expect(remainingCreditsAfterCharge({ diamonds: 30, cost: 25, charged: false })).toBe(30);
   });
 });

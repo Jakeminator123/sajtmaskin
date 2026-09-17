@@ -136,20 +136,6 @@ const AUDIT_AI_SCHEMA = {
         required: ["area", "current_state", "recommendation", "implementation"],
       },
     },
-    // Keep advanced sections optional (the model should still fill them when possible)
-    competitor_benchmarking: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        industry_leaders: { type: "array", items: { type: "string" } },
-        common_features: { type: "array", items: { type: "string" } },
-        differentiation_opportunities: {
-          type: "array",
-          items: { type: "string" },
-        },
-      },
-      required: ["industry_leaders", "common_features", "differentiation_opportunities"],
-    },
     business_profile: {
       type: "object",
       additionalProperties: false,
@@ -259,26 +245,6 @@ const AUDIT_AI_SCHEMA = {
       },
       required: ["style", "color_psychology", "ui_patterns", "accessibility_level"],
     },
-    technical_architecture: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        recommended_stack: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            frontend: { type: "string" },
-            backend: { type: "string" },
-            cms: { type: "string" },
-            hosting: { type: "string" },
-          },
-          required: ["frontend", "backend", "cms", "hosting"],
-        },
-        integrations: { type: "array", items: { type: "string" } },
-        security_measures: { type: "array", items: { type: "string" } },
-      },
-      required: ["recommended_stack", "integrations", "security_measures"],
-    },
     priority_matrix: {
       type: "object",
       additionalProperties: false,
@@ -289,63 +255,6 @@ const AUDIT_AI_SCHEMA = {
         thankless_tasks: { type: "array", items: { type: "string" } },
       },
       required: ["quick_wins", "major_projects", "fill_ins", "thankless_tasks"],
-    },
-    implementation_roadmap: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        phase_1: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        phase_2: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        phase_3: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        launch: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-      },
-      required: ["phase_1", "phase_2", "phase_3", "launch"],
-    },
-    success_metrics: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        kpis: { type: "array", items: { type: "string" } },
-        tracking_setup: { type: "string" },
-        review_schedule: { type: "string" },
-      },
-      required: ["kpis", "tracking_setup", "review_schedule"],
     },
     site_content: {
       type: "object",
@@ -477,7 +386,6 @@ const AUDIT_AI_SCHEMA = {
     "security_analysis",
     "competitor_insights",
     "technical_recommendations",
-    "competitor_benchmarking",
     "target_audience_analysis",
     "business_profile",
     "market_context",
@@ -485,10 +393,7 @@ const AUDIT_AI_SCHEMA = {
     "competitive_landscape",
     "content_strategy",
     "design_direction",
-    "technical_architecture",
     "priority_matrix",
-    "implementation_roadmap",
-    "success_metrics",
     "site_content",
     "color_theme",
     "template_data",

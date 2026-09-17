@@ -21,8 +21,11 @@ import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { FEATURES, SECRETS } from "@/lib/config";
+import { withWizardRouteBudget } from "@/lib/wizard/route-budget";
+import { isWizardAbortError, raceWizardDeadline } from "@/lib/wizard/route-deadline";
 
 export const runtime = "nodejs";
+/** Keep as a numeric literal — Next bakes `maxDuration` at build time. Do not raise without p95/p99. */
 export const maxDuration = 30;
 
 // ── Request schema ──────────────────────────────────────────────────
@@ -280,69 +283,103 @@ function contextHash(payload: unknown): string {
 
 // ── Main handler ────────────────────────────────────────────────────
 
+function emptyEnrichError(message: string, status: number) {
+  return NextResponse.json(
+    {
+      error: message,
+      questions: [],
+      suggestions: [],
+      meta: {
+        confidence: 0.4,
+        needsClarification: false,
+        unknowns: [],
+        priority: "medium",
+      },
+    },
+    { status },
+  );
+}
+
 export async function POST(req: Request) {
-  return withRateLimit(req, "ai:chat", async () => {
-    try {
-      const botError = requireNotBot(req);
-      if (botError) return botError;
-
-      const body = await req.json().catch(() => null);
-      const parsed = enrichRequestSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: parsed.error.issues },
-          { status: 400 },
-        );
-      }
-
-      const { mode, step, data, scrapeUrl, wizardRunId } = parsed.data;
-
-      debugLog("WIZARD", "Enrich request", { mode, step, industry: data.industry, scrapeUrl });
-
-      const authorized = await authorizeWizardRun(req, wizardRunId);
-      if (!authorized.ok) return authorized.response;
-
-      if (!FEATURES.useResponsesApi) {
-        if (!SECRETS.openaiApiKey) {
-          return NextResponse.json(
-            { error: "OPENAI_API_KEY saknas" },
-            { status: 503 },
-          );
-        }
-      }
-
-      // ── Optional scraping ───────────────────────────────────────
-      let scrapedData: {
-        title?: string;
-        description?: string;
-        headings?: string[];
-        wordCount?: number;
-        hasImages?: boolean;
-        textSummary?: string;
-      } | null = null;
-
-      if (scrapeUrl) {
+  return withRateLimit(req, "ai:chat", () =>
+    withWizardRouteBudget(
+      req,
+      { route: "enrich", maxDurationSeconds: maxDuration },
+      async ({ deadline, stages, setOutcome }) => {
         try {
-          debugLog("WIZARD", "Scraping website", { url: scrapeUrl });
-          const scraped = await scrapeWebsite(scrapeUrl);
-          scrapedData = {
-            title: scraped.title || undefined,
-            description: scraped.description || undefined,
-            headings: scraped.headings?.slice(0, 10),
-            wordCount: scraped.wordCount,
-            hasImages: (scraped.images ?? 0) > 0,
-            textSummary: scraped.text?.slice(0, 500),
-          };
-          debugLog("WIZARD", "Scrape successful", {
-            title: scrapedData.title,
-            wordCount: scrapedData.wordCount,
-          });
-        } catch (err) {
-          debugLog("WIZARD", "Scrape failed (non-fatal)", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
+          stages.mark("validate");
+          const botError = requireNotBot(req);
+          if (botError) {
+            setOutcome("client_error");
+            return botError;
+          }
+
+          const body = await req.json().catch(() => null);
+          const parsed = enrichRequestSchema.safeParse(body);
+          if (!parsed.success) {
+            setOutcome("client_error");
+            return NextResponse.json(
+              { error: "Validation failed", details: parsed.error.issues },
+              { status: 400 },
+            );
+          }
+
+          const { mode, step, data, scrapeUrl, wizardRunId } = parsed.data;
+
+          debugLog("WIZARD", "Enrich request", { mode, step, industry: data.industry, scrapeUrl });
+
+          stages.mark("authorize");
+          const authorized = await authorizeWizardRun(req, wizardRunId);
+          if (!authorized.ok) {
+            setOutcome("auth_denied");
+            return authorized.response;
+          }
+
+          if (!FEATURES.useResponsesApi) {
+            if (!SECRETS.openaiApiKey) {
+              setOutcome("unavailable");
+              return NextResponse.json(
+                { error: "OPENAI_API_KEY saknas" },
+                { status: 503 },
+              );
+            }
+          }
+
+          let scrapedData: {
+            title?: string;
+            description?: string;
+            headings?: string[];
+            wordCount?: number;
+            hasImages?: boolean;
+            textSummary?: string;
+          } | null = null;
+
+          if (scrapeUrl) {
+            try {
+              stages.mark("scrape");
+              debugLog("WIZARD", "Scraping website", { url: scrapeUrl });
+              const scraped = await raceWizardDeadline(deadline.signal, () =>
+                scrapeWebsite(scrapeUrl),
+              );
+              scrapedData = {
+                title: scraped.title || undefined,
+                description: scraped.description || undefined,
+                headings: scraped.headings?.slice(0, 10),
+                wordCount: scraped.wordCount,
+                hasImages: (scraped.images ?? 0) > 0,
+                textSummary: scraped.text?.slice(0, 500),
+              };
+              debugLog("WIZARD", "Scrape successful", {
+                title: scrapedData.title,
+                wordCount: scrapedData.wordCount,
+              });
+            } catch (err) {
+              if (isWizardAbortError(err, deadline.signal)) throw err;
+              debugLog("WIZARD", "Scrape failed (non-fatal)", {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
 
       // ── Build compact prompt ────────────────────────────────────
       const industryLabel = INDUSTRY_CONTEXT[data.industry] || data.industry || "företag";
@@ -420,99 +457,102 @@ ${suggestionRule}
 - Allt på svenska
 - Bara JSON, inget annat`;
 
-      let normalized: EnrichResponse;
+          let normalized: EnrichResponse;
+          stages.mark("llm");
 
-      if (FEATURES.useResponsesApi) {
-        // ── Responses API path (structured output) ──────────────
-        const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
-        const RESPONSES_MODEL = "gpt-5-mini";
+          if (FEATURES.useResponsesApi) {
+            const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+            const RESPONSES_MODEL = "gpt-5-mini";
 
-        const response = await openai.responses.create({
-          model: RESPONSES_MODEL,
-          instructions: prompt,
-          input: "Generera svaret baserat på instruktionerna.",
-          text: {
-            format: {
-              type: "json_schema",
-              name: "wizard_enrich",
-              schema: ENRICH_JSON_SCHEMA,
-              strict: true,
-            },
-          },
-          store: false,
-        });
+            const response = await raceWizardDeadline(deadline.signal, () =>
+              openai.responses.create(
+                {
+                  model: RESPONSES_MODEL,
+                  instructions: prompt,
+                  input: "Generera svaret baserat på instruktionerna.",
+                  text: {
+                    format: {
+                      type: "json_schema",
+                      name: "wizard_enrich",
+                      schema: ENRICH_JSON_SCHEMA,
+                      strict: true,
+                    },
+                  },
+                  store: false,
+                },
+                { signal: deadline.signal },
+              ),
+            );
 
-        const rawParsed = JSON.parse(response.output_text);
-        normalized = normalizeResponse(rawParsed);
-        debugLog("WIZARD", "Responses API enrich completed", { model: RESPONSES_MODEL });
-      } else {
-        // ── Legacy fallback path (AI SDK + direct provider key) ─
-        const result = await generateText({
-          model: createDirectModel(ENRICH_MODEL),
-          prompt,
-          maxRetries: 1,
-          maxOutputTokens: mode === "final_check" ? 520 : 420,
-        });
+            const rawParsed = JSON.parse(response.output_text);
+            normalized = normalizeResponse(rawParsed);
+            debugLog("WIZARD", "Responses API enrich completed", { model: RESPONSES_MODEL });
+          } else {
+            const result = await raceWizardDeadline(deadline.signal, () =>
+              generateText({
+                model: createDirectModel(ENRICH_MODEL),
+                prompt,
+                maxRetries: 1,
+                maxOutputTokens: mode === "final_check" ? 520 : 420,
+                abortSignal: deadline.signal,
+              }),
+            );
 
-        let parsedResponse: unknown = {};
+            let parsedResponse: unknown = {};
 
-        try {
-          const text = result.text?.trim() || "";
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsedResponse = JSON.parse(jsonMatch[0]);
+            try {
+              const text = result.text?.trim() || "";
+              const jsonMatch = text.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                parsedResponse = JSON.parse(jsonMatch[0]);
+              }
+            } catch {
+              debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
+            }
+
+            normalized = normalizeResponse(parsedResponse);
           }
-        } catch {
-          debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
+          const responsePayload = {
+            questions: normalized.questions || [],
+            suggestions: normalized.suggestions || [],
+            insightSummary: normalized.insightSummary || null,
+            meta: normalized.meta || {
+              confidence: normalized.questions?.length ? 0.55 : 0.8,
+              needsClarification: mode === "final_check" ? normalized.questions.length > 0 : false,
+              unknowns: [],
+              priority: normalized.questions.some((q) => q.priority === "high") ? "high" : "medium",
+            },
+            scrapedData,
+            contextHash: contextHash({
+              mode,
+              step,
+              industry: data.industry,
+              purposes: data.purposes,
+              previousFollowUps: Object.keys(data.previousFollowUps).length,
+              scrapeUrl: scrapeUrl || null,
+            }),
+          };
+
+          stages.mark("respond");
+          debugLog("WIZARD", "Enrich response generated", {
+            mode,
+            questionCount: responsePayload.questions.length,
+            suggestionCount: responsePayload.suggestions.length,
+            needsClarification: responsePayload.meta?.needsClarification || false,
+          });
+
+          setOutcome("ok");
+          return NextResponse.json(responsePayload);
+        } catch (err) {
+          if (isWizardAbortError(err, deadline.signal)) {
+            setOutcome("deadline");
+            return emptyEnrichError("Deadline exceeded", 500);
+          }
+          setOutcome("error");
+          errorLog("WIZARD", "Enrich error", err);
+          return emptyEnrichError(err instanceof Error ? err.message : "Unknown error", 500);
         }
-
-        normalized = normalizeResponse(parsedResponse);
-      }
-      const responsePayload = {
-        questions: normalized.questions || [],
-        suggestions: normalized.suggestions || [],
-        insightSummary: normalized.insightSummary || null,
-        meta: normalized.meta || {
-          confidence: normalized.questions?.length ? 0.55 : 0.8,
-          needsClarification: mode === "final_check" ? normalized.questions.length > 0 : false,
-          unknowns: [],
-          priority: normalized.questions.some((q) => q.priority === "high") ? "high" : "medium",
-        },
-        scrapedData,
-        contextHash: contextHash({
-          mode,
-          step,
-          industry: data.industry,
-          purposes: data.purposes,
-          previousFollowUps: Object.keys(data.previousFollowUps).length,
-          scrapeUrl: scrapeUrl || null,
-        }),
-      };
-
-      debugLog("WIZARD", "Enrich response generated", {
-        mode,
-        questionCount: responsePayload.questions.length,
-        suggestionCount: responsePayload.suggestions.length,
-        needsClarification: responsePayload.meta?.needsClarification || false,
-      });
-
-      return NextResponse.json(responsePayload);
-    } catch (err) {
-      errorLog("WIZARD", "Enrich error", err);
-      return NextResponse.json(
-        {
-          error: err instanceof Error ? err.message : "Unknown error",
-          questions: [],
-          suggestions: [],
-          meta: {
-            confidence: 0.4,
-            needsClarification: false,
-            unknowns: [],
-            priority: "medium",
-          },
-        },
-        { status: 500 },
-      );
-    }
-  });
+      },
+    ),
+  );
 }

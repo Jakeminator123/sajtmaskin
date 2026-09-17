@@ -20,6 +20,14 @@ on:
         labeled,
         unlabeled,
       ]
+  # Gate-only republish: startar inte ci.yml. Använd när review-window låst
+  # sig på stale/cancelled same-SHA-runs efter draft→ready.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR-nummer att publicera review-window för, utan ny CI
+        required: true
+        type: string
   # pull_request_review och pull_request_review_comment får aldrig läggas här:
   # GitHub kör deras workflow-YAML från PR:ens obetrodda merge-ref. Sen review-
   # evidens läses live igen av den betrodda merge-kommandovägen nedan.
@@ -52,6 +60,17 @@ jobs:
         github.event.action == 'reopened' ||
         github.event.action == 'synchronize' ||
         github.event.action == 'ready_for_review'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.action == 'created' &&
+        github.event.issue.pull_request != null &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+        github.event.comment.body == 'review-window:refresh'
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.event.inputs.pr_number != ''
       )
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -62,7 +81,7 @@ jobs:
       checks: write
       issues: read
     concurrency:
-      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}
+      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
@@ -74,9 +93,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
+          GATE_REFRESH: ${{ github.event_name == 'issue_comment' && github.event.comment.body == 'review-window:refresh' && '1' || '0' }}
         run: node scripts/ci/trusted-review-window.mjs gate
 
   invalidate:

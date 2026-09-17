@@ -1,13 +1,17 @@
 import type { MetadataRoute } from "next";
 import { URLS } from "@/lib/config";
+import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry";
 
 const BASE_URL = URLS.baseUrl;
 
 /**
  * Relativa marknads-/juridik-vägar i sitemap (för regression).
- * **Checklista när du lägger till en ny publik sida:** skapa `src/app/.../page.tsx`, lägg vägen här,
- * uppdatera relevant footer (`landing-footer.tsx` / `components/layout/footer.tsx`) om sidan ska länkas,
- * och kör `npx vitest run src/app/sitemap.test.ts`.
+ * **Checklista när du lägger till en ny publik sida:**
+ * - Vanlig produktsida: skapa `src/app/.../page.tsx`, lägg vägen här,
+ *   uppdatera relevant footer om sidan ska länkas, kör sitemap-testet.
+ * - SEO-landningssida: registrera i `src/lib/seo-landing-pages/registry.ts`
+ *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
+ *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
  */
 export const STATIC_SITEMAP_REL_PATHS = [
   "",
@@ -74,5 +78,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...categoryPages];
+  const landingPages: MetadataRoute.Sitemap = getIndexableSeoLandingRelPaths().map((path) => ({
+    url: `${BASE_URL}${path}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
+
+  return [...staticPages, ...categoryPages, ...landingPages];
 }

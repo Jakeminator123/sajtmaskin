@@ -19,7 +19,7 @@ Do not use it for:
 1. Mount `<ContactForm />` on the contact route (typically `app/contact/page.tsx` or `app/(marketing)/contact/page.tsx`).
 2. Wrap it in a section with sensible padding and a heading; the component itself does not own the surrounding layout.
 3. Pass an optional `subjectPrefix` prop if you want server-side categorisation (e.g. `subjectPrefix="Hotel inquiry"` so the inbox sees `Hotel inquiry: <user subject>`).
-4. The form POSTs to `/api/contact`, which validates the body, calls Resend, and returns `{ ok: true }` on success or `{ ok: false, error }` on failure.
+4. The form POSTs to `/api/contact` (`action="/api/contact"` + `fetch("/api/contact")` in `onSubmit`). Keep the HTML `action` (and `data-integration-endpoint="/api/contact"`) even though submit is handled in JS — product postcheck treats a form without action/fetch/demo-marking as `fake_form`. Do not put `data-demo-only` on this integration form; demo degradation is the route's `{ demo: true }` response, not a fake surface.
 
 There are two degradation paths (see "Mock/demo mode" below): no real key → a demo success; a real key with missing addresses → the calm `IntegrationConfigNotice`. All three files (`contact-form.tsx`, `integration-config-notice.tsx`, the route) are **verbatim** so both contracts are emitted deterministically; adapt visuals by wrapping `ContactForm` (props: `subjectPrefix`, `className`) in your own component.
 

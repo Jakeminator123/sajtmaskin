@@ -5,145 +5,90 @@
  * POST /api/domains/verify
  * Body: { domain: string, chatId: string }
  *
- * Triggers verification of a domain on the customer's OWN generated project
- * (resolved from the chat, cross-tenant-safe) and returns the current status.
- * If the domain is not yet verified, returns DNS configuration instructions.
+ * Re-checks ownership, DNS and HTTPS as three separate facts. A transient
+ * provider error is unknown status — it does not revoke a previously live
+ * custom domain.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getVercelToken } from "@/lib/vercel";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rate-limit";
 import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
+import { normalizeObservedDomain } from "@/lib/domains/domain-observation";
 import {
-  clearProjectCustomDomainVerification,
-  setProjectVerifiedCustomDomain,
-} from "@/lib/db/services/projects";
-import { checkVercelProjectDomain } from "@/lib/vercel/vercel-deploy";
-import { setLatestDeploymentLiveUrlForChat } from "@/lib/deployment";
+  verifyCustomerDomain,
+  type ResolvedHosting,
+} from "@/lib/domains/customer-domain-flow";
 
 export const maxDuration = 15;
-
-const VERCEL_API_BASE = "https://api.vercel.com";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:verify", async () => {
     const user = await getCurrentUser(req);
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
     try {
       const body = await req.json();
-      const domain = (body.domain ?? "").trim().toLowerCase();
+      const rawDomain = (body.domain ?? "").trim().toLowerCase();
       const chatId = (body.chatId ?? "").trim();
-      const teamId = process.env.VERCEL_TEAM_ID;
 
-      if (!domain) {
+      if (!rawDomain) {
         return NextResponse.json({ error: "domain is required" }, { status: 400 });
       }
-
       if (!chatId) {
         return NextResponse.json({ error: "chatId is required" }, { status: 400 });
+      }
+
+      const normalized = normalizeObservedDomain(rawDomain);
+      if (!normalized.ok) {
+        return NextResponse.json({ error: normalized.error }, { status: 400 });
       }
 
       const resolution = await resolveVercelProjectForChat(req, chatId);
       if (!resolution.ok) {
         return NextResponse.json({ error: resolution.error }, { status: resolution.status });
       }
-      const projectId = resolution.vercelProjectId;
-
-      let token: string;
-      try {
-        token = getVercelToken();
-      } catch {
-        return NextResponse.json(
-          { error: "Vercel is not configured (missing VERCEL_TOKEN)" },
-          { status: 503 },
-        );
+      if (!resolution.appProjectId) {
+        return NextResponse.json({ error: "Chatten saknar ett projekt." }, { status: 409 });
       }
 
-      const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-      const verifyRes = await fetch(
-        `${VERCEL_API_BASE}/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}/verify${query}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      const hosting: ResolvedHosting = {
+        vercelProjectId: resolution.vercelProjectId,
+        appProjectId: resolution.appProjectId,
+        chatId: resolution.chatId,
+      };
 
-      const data = await verifyRes.json();
-
-      if (!verifyRes.ok) {
+      const result = await verifyCustomerDomain({ hosting, domain: normalized.domain });
+      if (!result.ok) {
         return NextResponse.json(
           {
-            error: data?.error?.message || `Verification failed (HTTP ${verifyRes.status})`,
-            code: data?.error?.code,
+            error: result.error,
+            ...(result.code ? { code: result.code } : {}),
+            snapshot: result.snapshot ?? null,
           },
-          { status: verifyRes.status },
+          { status: result.status },
         );
       }
 
-      let verified = data.verified === true;
-      const verification = data.verification ?? [];
-      if (verified) {
-        const configured = await checkVercelProjectDomain(projectId, domain);
-        if (configured === null) {
-          return NextResponse.json(
-            {
-              error: "Domänens DNS/TLS-status kunde inte kontrolleras. Försök igen.",
-            },
-            { status: 503 },
-          );
-        }
-        verified = configured;
-      }
-      if (verified && resolution.appProjectId) {
-        // Only a provider-verified domain becomes the project's canonical
-        // public URL. A manually posted/unverified domain must never poison
-        // SEO or replace the branded fallback.
-        let saved;
-        try {
-          saved = await setProjectVerifiedCustomDomain(
-            resolution.appProjectId,
-            domain,
-          );
-        } catch (error) {
-          if (
-            error &&
-            typeof error === "object" &&
-            "code" in error &&
-            error.code === "23505"
-          ) {
-            return NextResponse.json(
-              { error: "Domänen är redan kopplad till ett annat projekt." },
-              { status: 409 },
-            );
-          }
-          throw error;
-        }
-        if (!saved) {
-          throw new Error("Den verifierade domänen kunde inte sparas på projektet.");
-        }
-        await setLatestDeploymentLiveUrlForChat(chatId, domain);
-      } else if (resolution.appProjectId) {
-        await clearProjectCustomDomainVerification(
-          resolution.appProjectId,
-          domain,
-        );
-      }
+      const primary = result.snapshot.primary;
+      const verified =
+        primary?.connection === "connected" &&
+        primary.ownership === "verified" &&
+        primary.dns === "valid" &&
+        primary.https === "valid";
 
       return NextResponse.json({
         success: true,
-        domain: data.name || domain,
+        domain: normalized.domain,
         verified,
-        verification,
+        ownership: primary?.ownership ?? "unknown",
+        dns: primary?.dns ?? "unknown",
+        https: primary?.https ?? "unknown",
+        status: primary?.status ?? "unknown",
+        statusLabel: primary?.statusLabel ?? "Okänd status",
+        snapshot: result.snapshot,
       });
     } catch (error) {
       console.error("[domains/verify] Error:", error);

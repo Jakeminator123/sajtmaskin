@@ -16,6 +16,11 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import type { PromptAssistConfig, InitBriefOptions } from "./prompt-assist-types";
 import {
+  BuilderAuthRequiredError,
+  isBriefRouteAuthRefusal,
+  readAuthRequiredMessage,
+} from "./chat/helpers-errors";
+import {
   extractErrorMessage,
   isAbortError,
   promptAssistDebugFields,
@@ -123,7 +128,10 @@ export function useInitBrief(params: PromptAssistConfig) {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => null);
+          const err = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+          if (isBriefRouteAuthRefusal(res.status, err)) {
+            throw new BuilderAuthRequiredError(readAuthRequiredMessage(err));
+          }
           const msg =
             extractErrorMessage(err) ||
             `Dynamic instructions failed (HTTP ${res.status})`;
@@ -140,6 +148,7 @@ export function useInitBrief(params: PromptAssistConfig) {
         });
         return brief;
       } catch (err) {
+        if (err instanceof BuilderAuthRequiredError) throw err;
         const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
         const isAbort = isAbortError(err);
         const normalizedMessage = rawMessage.toLowerCase();

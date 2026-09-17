@@ -6,9 +6,9 @@ export function OrganizationJsonLd() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Pretty Good AB",
-    alternateName: "Sajtstudio",
-    url: "https://sajtstudio.se",
+    name: "Pretty Good B.V.",
+    alternateName: "Sajtmaskin",
+    url: "https://sajtmaskin.se",
     sameAs: ["https://sajtmaskin.se"],
   };
 
@@ -37,8 +37,8 @@ export function SoftwareApplicationJsonLd() {
     },
     creator: {
       "@type": "Organization",
-      name: "Pretty Good AB",
-      url: "https://sajtstudio.se",
+      name: "Pretty Good B.V.",
+      url: "https://sajtmaskin.se",
     },
   };
 

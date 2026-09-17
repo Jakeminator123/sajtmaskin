@@ -7,6 +7,15 @@ import {
 import { NextRequest, NextResponse } from "next/server";
 import { SECRETS, URLS } from "@/lib/config";
 import { getServerEnv } from "@/lib/env";
+import {
+  OAUTH_COOKIE_HOST_NAMES,
+  OAUTH_COOKIE_LEGACY_NAMES,
+  expireCookieSetOptions,
+  expireLeftoverCookieOptions,
+  getAuthTokenFromRequest,
+  hostCookieSetOptions,
+  pickHostOrLegacyCookieFromHeader,
+} from "@/lib/auth/host-cookies";
 
 export type OAuthProvider = "google" | "github";
 
@@ -31,10 +40,6 @@ const OAUTH_STATE_VERSION = 1;
 const OAUTH_STATE_PURPOSE = "sajtmaskin-oauth-state-v1";
 const OAUTH_SESSION_PURPOSE = "sajtmaskin-oauth-session-v1";
 
-const OAUTH_COOKIE_NAMES: Record<OAuthProvider, string> = {
-  google: "sajtmaskin_oauth_google",
-  github: "sajtmaskin_oauth_github",
-};
 
 export interface OAuthStatePayload {
   v: typeof OAUTH_STATE_VERSION;
@@ -88,11 +93,7 @@ function stateSignature(body: string): string {
 }
 
 function currentSessionToken(request: NextRequest): string | null {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.startsWith("Bearer ")) {
-    return authorization.slice("Bearer ".length);
-  }
-  return request.cookies.get("sajtmaskin_auth")?.value ?? null;
+  return getAuthTokenFromRequest(request);
 }
 
 function currentSessionBinding(request: NextRequest): string | null {
@@ -247,8 +248,19 @@ function decodeCookie(
   }
 }
 
-export function oauthCookieName(provider: OAuthProvider): string {
-  return OAUTH_COOKIE_NAMES[provider];
+/**
+ * Canonical write name. Default is the HTTPS/`__Host-` name so callers and
+ * tests that talk to production-like origins pick the prefix automatically.
+ * Pass `{ secure: false }` for the local HTTP leftover name.
+ */
+export function oauthCookieName(
+  provider: OAuthProvider,
+  options?: { secure?: boolean },
+): string {
+  const secure = options?.secure !== false;
+  return secure
+    ? OAUTH_COOKIE_HOST_NAMES[provider]
+    : OAUTH_COOKIE_LEGACY_NAMES[provider];
 }
 
 export function createOAuthFlow(
@@ -343,14 +355,15 @@ export function parseOAuthState(
   }
 }
 
+function cookieSecure(request: NextRequest): boolean {
+  return request.nextUrl.protocol === "https:";
+}
+
 function cookieOptions(request: NextRequest) {
-  return {
-    httpOnly: true as const,
-    secure: request.nextUrl.protocol === "https:",
-    sameSite: "lax" as const,
-    path: "/",
+  return hostCookieSetOptions({
+    secure: cookieSecure(request),
     maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
-  };
+  });
 }
 
 export function setOAuthFlowCookie(
@@ -359,11 +372,15 @@ export function setOAuthFlowCookie(
   flow: OAuthFlow,
   request: NextRequest,
 ): void {
+  const secure = cookieSecure(request);
   response.cookies.set(
-    oauthCookieName(provider),
+    oauthCookieName(provider, { secure }),
     flow.cookieValue,
     cookieOptions(request),
   );
+  if (secure) {
+    expireOAuthLeftover(response, provider, request);
+  }
 }
 
 export function clearOAuthFlowCookie(
@@ -371,11 +388,37 @@ export function clearOAuthFlowCookie(
   provider: OAuthProvider,
   request: NextRequest,
 ): void {
-  response.cookies.set(oauthCookieName(provider), "", {
-    ...cookieOptions(request),
-    maxAge: 0,
-    expires: new Date(0),
-  });
+  const secure = cookieSecure(request);
+  response.cookies.set(
+    oauthCookieName(provider, { secure: true }),
+    "",
+    expireCookieSetOptions(true),
+  );
+  if (!secure) {
+    response.cookies.set(
+      oauthCookieName(provider, { secure: false }),
+      "",
+      expireCookieSetOptions(false),
+    );
+    return;
+  }
+  expireOAuthLeftover(response, provider, request);
+}
+
+/**
+ * A host-only clear leaves a leftover written with `Domain=.sajtmaskin.se` in
+ * place, so the HTTPS clear targets the parent domain instead.
+ */
+function expireOAuthLeftover(
+  response: NextResponse,
+  provider: OAuthProvider,
+  request: NextRequest,
+): void {
+  response.cookies.set(
+    oauthCookieName(provider, { secure: false }),
+    "",
+    expireLeftoverCookieOptions(request.nextUrl.hostname),
+  );
 }
 
 export function verifyOAuthFlow(
@@ -388,7 +431,12 @@ export function verifyOAuthFlow(
   if (!parsed.ok) return parsed;
 
   const cookie = decodeCookie(
-    request.cookies.get(oauthCookieName(provider))?.value,
+    pickHostOrLegacyCookieFromHeader(
+      request.headers.get("cookie"),
+      oauthCookieName(provider, { secure: true }),
+      oauthCookieName(provider, { secure: false }),
+      { secure: cookieSecure(request) },
+    )?.value,
   );
   if (!cookie) return { ok: false, reason: "state_cookie_missing" };
   if (!safeEqual(cookie.nonce, parsed.payload.nonce)) {

@@ -153,6 +153,9 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "users",
     "transactions",
     "wizard_runs",
+    # SM-013: template-init reservation. operation_id is the credit
+    # idempotency key — wiping the row would let a retry debit twice.
+    "template_init_operations",
     "generation_billing_settings",
     "generation_billings",
     # Operatörsstyrd prisbild. Singleton-raden ÄR konfigurationen — töms den
@@ -160,9 +163,17 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "pricing_settings",
     "domain_orders",
     "kostnadsfri_pages",
+    "kostnadsfri_campaign_entitlements",
     "user_integrations",
     "media_library",
     "prompt_logs",
+    # D1: abonnemang per publicerad sajt och Stripe-läge. Betalningsdata —
+    # abonnemangsraden är beviset för att en sajt får vara publicerad, och
+    # kreditgrant-raden är periodförmånens idempotensnyckel. Töms de går båda
+    # förlorade, så de hör hemma här och inte bland de tömbara.
+    "billing_customers",
+    "site_subscriptions",
+    "subscription_credit_grants",
 )
 
 CACHE_TABLES: Tuple[str, ...] = (
@@ -181,6 +192,10 @@ CACHE_TABLES: Tuple[str, ...] = (
     # so EMPTY would false-fail prod-sync after the first postcheck, same
     # class as engine_version_jobs.
     "product_postcheck_runs",
+    # D1 pause/resume action claims. Same class: rows are retained with
+    # status done/failed rather than deleted, so EMPTY would false-fail the
+    # prod-sync gate after the first reconcile run D2 ships.
+    "billing_jobs",
 )
 
 EXPECTED_TABLES: Tuple[str, ...] = EMPTY_TABLES + PRESERVED_TABLES + CACHE_TABLES

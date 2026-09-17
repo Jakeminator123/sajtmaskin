@@ -8,6 +8,7 @@ import {
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
   classifyPreviewPageProbe,
+  collectPreviewHostBootPageProbe,
   type PreviewHostBootPageProbe,
 } from "@/lib/capture/preview-boot-page";
 import {
@@ -257,6 +258,13 @@ type DomSnapshot = {
     ariaDisabled: boolean;
     demoOnly: boolean;
     text: string | null;
+    /**
+     * Integration endpoint declared on the form (`data-integration-endpoint`
+     * or an `/api/…` action). A fetch-backed contact form has no HTML action
+     * unless the dossier keeps this contract — without it postcheck flags
+     * `fake_form` even though `fetch("/api/contact")` is real.
+     */
+    integrationEndpoint?: string | null;
   }>;
 };
 
@@ -306,11 +314,7 @@ const PREVIEW_PROBE_UNREADABLE_MESSAGE =
 
 async function readPageProbe(page: Page): Promise<PreviewHostBootPageProbe | null> {
   return page
-    .evaluate(() => ({
-      title: document.title || "",
-      h1: document.querySelector("h1")?.textContent?.trim() || null,
-      bodyText: (document.body?.innerText || "").slice(0, 800),
-    }))
+    .evaluate(collectPreviewHostBootPageProbe)
     .catch(() => null);
 }
 
@@ -714,6 +718,27 @@ async function serverCtaBaselineFromResponse(
   return extractServerCtaBaseline(html);
 }
 
+function isInternalApiEndpoint(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  try {
+    const path = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? new URL(trimmed).pathname
+      : trimmed.split(/[?#]/)[0] ?? trimmed;
+    return path === "/api" || path.startsWith("/api/");
+  } catch {
+    return trimmed === "/api" || trimmed.startsWith("/api/");
+  }
+}
+
+/** Real integration (dossier contact form) vs empty demo surface. */
+export function formHasIntegrationAction(form: {
+  action?: string | null;
+  integrationEndpoint?: string | null;
+}): boolean {
+  return isInternalApiEndpoint(form.action) || isInternalApiEndpoint(form.integrationEndpoint);
+}
+
 function warning(
   code: ProductPostcheckWarningCode,
   message: string,
@@ -809,6 +834,7 @@ export function evaluateProductDomSnapshot(
   for (const form of snapshot.forms) {
     if (form.disabled || form.ariaDisabled || form.demoOnly) continue;
     if (form.action?.trim()) continue;
+    if (isInternalApiEndpoint(form.integrationEndpoint)) continue;
     if (form.hasSubmitControl) {
       warnings.push(
         warning("fake_form", "Formulär ser aktivt ut men saknar action/integration.", {
@@ -1218,6 +1244,14 @@ function skippedResult(
 
 const SCREENSHOT_TIMEOUT_MS = 15_000;
 
+export type CapturePostcheckJpegOptions = {
+  /** Total tries, including the first. Desktop uses 2 (one retry). */
+  attempts?: number;
+  viewport?: "desktop" | "mobile";
+  versionId?: string;
+  chatId?: string;
+};
+
 /**
  * Best-effort viewport JPEG. A throw here must never become a postcheck finding.
  *
@@ -1231,18 +1265,33 @@ const SCREENSHOT_TIMEOUT_MS = 15_000;
  * with exactly this style). Nothing is ever focused in these captures, so a
  * visible caret cannot occur anyway.
  */
-export async function capturePostcheckJpeg(page: Page): Promise<Buffer | null> {
-  try {
-    return await page.screenshot({
-      type: "jpeg",
-      quality: 70,
-      fullPage: false,
-      timeout: SCREENSHOT_TIMEOUT_MS,
-      caret: "initial",
-    });
-  } catch {
-    return null;
+export async function capturePostcheckJpeg(
+  page: Page,
+  opts: CapturePostcheckJpegOptions = {},
+): Promise<Buffer | null> {
+  const attempts = Math.max(1, opts.attempts ?? 1);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await page.screenshot({
+        type: "jpeg",
+        quality: 70,
+        fullPage: false,
+        timeout: SCREENSHOT_TIMEOUT_MS,
+        caret: "initial",
+      });
+    } catch (error) {
+      lastError = error;
+    }
   }
+  console.warn("[product-postcheck] JPEG capture failed", {
+    viewport: opts.viewport ?? "unknown",
+    attempts,
+    versionId: opts.versionId ?? null,
+    chatId: opts.chatId ?? null,
+    error: lastError instanceof Error ? lastError.message : lastError,
+  });
+  return null;
 }
 
 function buildDomSummary(
@@ -1688,6 +1737,7 @@ export async function runProductPostcheck(params: {
             ariaDisabled: form.getAttribute("aria-disabled") === "true",
             demoOnly: isDemoOnly(form),
             text: text(form),
+            integrationEndpoint: form.getAttribute("data-integration-endpoint"),
           })),
       };
     },
@@ -1712,7 +1762,18 @@ export async function runProductPostcheck(params: {
     if (captureEnabled) {
       // Start page, before the crawl walks desktop off the homepage.
       const captureStartedAt = Date.now();
-      desktopJpeg = await capturePostcheckJpeg(page);
+      desktopJpeg = await capturePostcheckJpeg(page, {
+        attempts: 2,
+        viewport: "desktop",
+        versionId: params.versionId,
+        chatId: params.chatId,
+      });
+      if (!desktopJpeg) {
+        console.warn("[product-postcheck] desktop screenshot missing after retry", {
+          versionId: params.versionId,
+          chatId: params.chatId,
+        });
+      }
       desktopCaptureMs = Date.now() - captureStartedAt;
       const liveProbe = await readPageProbe(page);
       domSummary = buildDomSummary(snapshot, liveProbe ?? firstProbe);
@@ -1796,7 +1857,12 @@ export async function runProductPostcheck(params: {
       .evaluate(captureHydrationCtaLabelsInBrowser)
       .catch(() => []);
     if (captureEnabled) {
-      mobileJpeg = await capturePostcheckJpeg(mobilePage);
+      mobileJpeg = await capturePostcheckJpeg(mobilePage, {
+        attempts: 1,
+        viewport: "mobile",
+        versionId: params.versionId,
+        chatId: params.chatId,
+      });
     }
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
@@ -1876,6 +1942,13 @@ export async function runProductPostcheck(params: {
           mobile: mobileJpeg,
         }).catch(() => null)
       : null;
+    if (screenshots && !screenshots.desktopUrl) {
+      console.warn("[product-postcheck] desktopUrl missing from persisted screenshots", {
+        versionId: params.versionId,
+        chatId: params.chatId,
+        hasMobileUrl: Boolean(screenshots.mobileUrl),
+      });
+    }
     return settle({
       ok: true,
       skipped: false,

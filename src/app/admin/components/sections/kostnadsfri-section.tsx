@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Users, Wand2 } from "lucide-react";
+import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,10 @@ import {
   TechnicalDetails,
   formatCount,
 } from "../ui-bits";
+import {
+  classifyKostnadsfriSlug,
+  type KostnadsfriSlugKind,
+} from "@/lib/kostnadsfri/analytics-paths";
 import type { KostnadsfriAdminPayload, KostnadsfriInvitePayload } from "../types";
 
 const PERIODS = [
@@ -57,10 +61,43 @@ const EVENT_TONE: Record<
   skapad: "ok",
 };
 
+const KIND_LABEL: Record<KostnadsfriSlugKind, string> = {
+  utskick: "Utskick",
+  ej_utskick: "Ej utskick",
+  skrap: "Okänd path",
+};
+
+const KIND_TONE: Record<KostnadsfriSlugKind, "ok" | "off" | "warn"> = {
+  utskick: "ok",
+  ej_utskick: "off",
+  skrap: "warn",
+};
+
+type KostnadsfriRow = {
+  slug: string;
+  kind: KostnadsfriSlugKind;
+  companyName: string | null;
+  saved: boolean;
+  status: string | null;
+  contactEmail: string | null;
+  sentAt: string | null;
+  source: string | null;
+  stats: KostnadsfriAdminPayload["stats"][number] | null;
+};
+
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("sv-SE");
+}
+
+/** Date only — the send register is read per day, not per second. */
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -147,26 +184,21 @@ export function KostnadsfriSection() {
   };
 
   // ── Merge DB rows and visit stats into one table keyed by slug ─────────
+  const registeredSlugs = useMemo(() => new Set((data?.pages ?? []).map((page) => page.slug)), [data]);
+
   const rows = useMemo(() => {
     if (!data) return [];
-    const bySlug = new Map<
-      string,
-      {
-        slug: string;
-        companyName: string | null;
-        saved: boolean;
-        status: string | null;
-        contactEmail: string | null;
-        stats: KostnadsfriAdminPayload["stats"][number] | null;
-      }
-    >();
+    const bySlug = new Map<string, KostnadsfriRow>();
     for (const page of data.pages) {
       bySlug.set(page.slug, {
         slug: page.slug,
+        kind: classifyKostnadsfriSlug(page.slug, true),
         companyName: page.companyName,
         saved: true,
         status: page.status,
         contactEmail: page.contactEmail,
+        sentAt: page.sentAt,
+        source: page.source,
         stats: null,
       });
     }
@@ -177,30 +209,67 @@ export function KostnadsfriSection() {
       } else {
         bySlug.set(stat.slug, {
           slug: stat.slug,
+          kind: classifyKostnadsfriSlug(stat.slug, registeredSlugs.has(stat.slug)),
           companyName: null,
           saved: false,
           status: null,
           contactEmail: null,
+          sentAt: null,
+          source: null,
           stats: stat,
         });
       }
     }
+    // Sent rows first (newest send on top) — this is a send register. Rows
+    // without a send keep the old "last visit" ordering below them.
     return [...bySlug.values()].sort((a, b) => {
+      if (a.sentAt && b.sentAt && a.sentAt !== b.sentAt) return a.sentAt < b.sentAt ? 1 : -1;
+      if (Boolean(a.sentAt) !== Boolean(b.sentAt)) return a.sentAt ? -1 : 1;
       const aLast = a.stats?.lastSeen ?? "";
       const bLast = b.stats?.lastSeen ?? "";
       return aLast < bLast ? 1 : aLast > bLast ? -1 : a.slug.localeCompare(b.slug);
     });
-  }, [data]);
+  }, [data, registeredSlugs]);
+
+  const [rowFilter, setRowFilter] = useState("");
+  const [showOtherPaths, setShowOtherPaths] = useState(false);
+  const filteredRows = useMemo(() => {
+    const needle = rowFilter.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (!showOtherPaths && row.kind !== "utskick") return false;
+      if (!needle) return true;
+      return [row.companyName, row.slug, row.contactEmail].some((field) =>
+        field?.toLowerCase().includes(needle),
+      );
+    });
+  }, [rows, rowFilter, showOtherPaths]);
+
+  const recentRows = useMemo(() => {
+    if (!data) return [];
+    return data.recent.map((row) => ({
+      ...row,
+      kind: classifyKostnadsfriSlug(row.slug, registeredSlugs.has(row.slug)),
+    }));
+  }, [data, registeredSlugs]);
+
+  const visibleRecent = useMemo(
+    () => (showOtherPaths ? recentRows : recentRows.filter((row) => row.kind === "utskick")),
+    [recentRows, showOtherPaths],
+  );
 
   const totals = useMemo(() => {
-    const stats = data?.stats ?? [];
+    const inviteStats = (data?.stats ?? []).filter(
+      (stat) => classifyKostnadsfriSlug(stat.slug, registeredSlugs.has(stat.slug)) === "utskick",
+    );
     return {
-      slugs: stats.length,
-      visits: stats.reduce((sum, s) => sum + s.visits, 0),
-      verified: stats.reduce((sum, s) => sum + s.verified, 0),
-      started: stats.reduce((sum, s) => sum + s.started, 0),
+      slugs: inviteStats.length,
+      visits: inviteStats.reduce((sum, s) => sum + s.visits, 0),
+      verified: inviteStats.reduce((sum, s) => sum + s.verified, 0),
+      started: inviteStats.reduce((sum, s) => sum + s.started, 0),
+      // Sends are lifetime facts on the DB row, not period statistics.
+      sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
     };
-  }, [data]);
+  }, [data, registeredSlugs]);
 
   const periodLabel = PERIODS.find((p) => p.value === days)?.label.toLowerCase() ?? "";
 
@@ -375,14 +444,15 @@ export function KostnadsfriSection() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <StatCard label="Utskick" value={totals.sent} hint="totalt" icon={Send} />
               <StatCard
                 label="Länkar med besök"
                 value={totals.slugs}
-                hint={periodLabel}
+                hint={`utskick, ${periodLabel}`}
                 icon={Link2}
               />
-              <StatCard label="Besök" value={totals.visits} hint={periodLabel} icon={Eye} />
+              <StatCard label="Besök" value={totals.visits} hint={`utskick, ${periodLabel}`} icon={Eye} />
               <StatCard
                 label="Rätt lösenord"
                 value={totals.verified}
@@ -399,19 +469,51 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Per företag"
-              description={`Sparade sidor och alla länkar som fått besök, ${periodLabel}. Rader utan "Sparad" är deterministiska länkar som aldrig lades i databasen.`}
+              description={`Bara utskick som standard — skräpsluggar och osparade pathar räknas inte i talen ovan. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden.`}
               icon={Users}
             >
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="max-w-sm flex-1">
+                  <Label htmlFor="kostnadsfri-filter" className="sr-only">
+                    Sök i registret
+                  </Label>
+                  <Input
+                    id="kostnadsfri-filter"
+                    value={rowFilter}
+                    onChange={(event) => setRowFilter(event.target.value)}
+                    placeholder="Sök företag, slug eller e-post"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="kostnadsfri-other-paths"
+                    checked={showOtherPaths}
+                    onCheckedChange={setShowOtherPaths}
+                  />
+                  <Label htmlFor="kostnadsfri-other-paths" className="text-sm">
+                    Visa övriga pathar
+                  </Label>
+                </div>
+              </div>
               <DataState
-                isEmpty={rows.length === 0}
-                emptyTitle="Inga länkar ännu"
-                emptyDescription="Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                isEmpty={filteredRows.length === 0}
+                emptyTitle={rowFilter.trim() ? "Inga träffar" : "Inga länkar ännu"}
+                emptyDescription={
+                  rowFilter.trim()
+                    ? "Ingen rad matchar sökningen. Rensa fältet för att se hela registret."
+                    : showOtherPaths
+                      ? "Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                      : "Inget utskick i registret för perioden. Slå på «Visa övriga pathar» för skräp och osparade sluggar."
+                }
                 emptyIcon={Link2}
               >
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
+                      <TableHead>Path</TableHead>
+                      <TableHead>Skickat</TableHead>
                       <TableHead className="text-right">Besök</TableHead>
                       <TableHead className="text-right">Unika</TableHead>
                       <TableHead className="text-right">Rätt lösenord</TableHead>
@@ -426,15 +528,24 @@ export function KostnadsfriSection() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((row) => (
+                    {filteredRows.map((row) => (
                       <TableRow key={row.slug}>
                         <TableCell>
-                          <p className="font-medium">{row.companyName ?? "—"}</p>
+                          <p className="font-medium">
+                            {row.kind === "skrap" ? "—" : (row.companyName ?? "—")}
+                          </p>
                           <p className="text-muted-foreground font-mono text-xs">
                             /kostnadsfri/{row.slug}
                           </p>
-                          {row.contactEmail && (
-                            <p className="text-muted-foreground text-xs">{row.contactEmail}</p>
+                          <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          <p>{formatDate(row.sentAt)}</p>
+                          {row.source && (
+                            <p className="text-muted-foreground text-[11px]">{row.source}</p>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
@@ -470,13 +581,17 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Senaste händelser"
-              description="Vem som gjorde vad, nyast först. E-post visas när besökaren var inloggad, annars IP-adress."
+              description="Vem som gjorde vad, nyast först. E-post visas när besökaren var inloggad, annars IP-adress. Skräpsluggar märks som okänd path."
               icon={Eye}
             >
               <DataState
-                isEmpty={data.recent.length === 0}
+                isEmpty={visibleRecent.length === 0}
                 emptyTitle="Inga händelser"
-                emptyDescription="Ingen har besökt en kostnadsfri-länk under perioden."
+                emptyDescription={
+                  showOtherPaths
+                    ? "Ingen har besökt en kostnadsfri-länk under perioden."
+                    : "Inga utskickshändelser under perioden."
+                }
                 emptyIcon={Eye}
               >
                 <Table>
@@ -484,17 +599,21 @@ export function KostnadsfriSection() {
                     <TableRow>
                       <TableHead>När</TableHead>
                       <TableHead>Slug</TableHead>
+                      <TableHead>Path</TableHead>
                       <TableHead>Händelse</TableHead>
                       <TableHead>Besökare</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.recent.map((row, index) => (
+                    {visibleRecent.map((row, index) => (
                       <TableRow key={`${row.at}-${row.slug}-${index}`}>
                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                           {formatTime(row.at)}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{row.slug}</TableCell>
+                        <TableCell>
+                          <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
+                        </TableCell>
                         <TableCell>
                           <StatusBadge tone={EVENT_TONE[row.event]}>
                             {EVENT_LABEL[row.event]}

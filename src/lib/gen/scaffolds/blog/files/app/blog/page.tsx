@@ -8,7 +8,7 @@ const posts = [
     title: "Kom igång med innehållsdriven design",
     excerpt: "Så strukturerar du en blogg för läsbarhet och engagemang.",
     date: "2026-03-10",
-    author: "Alex",
+    author: "[Författare]",
     category: "Design",
   },
   {
@@ -16,7 +16,7 @@ const posts = [
     title: "Typografi som får läsare att stanna kvar",
     excerpt: "Teckenstorlekar, radavstånd och marginaler för längre texter.",
     date: "2026-03-08",
-    author: "Alex",
+    author: "[Författare]",
     category: "Design",
   },
   {
@@ -24,7 +24,7 @@ const posts = [
     title: "Bygg en blogg från grunden",
     excerpt: "En steg-för-steg-guide till en modern blogg.",
     date: "2026-03-05",
-    author: "Alex",
+    author: "[Författare]",
     category: "Guide",
   },
 ];

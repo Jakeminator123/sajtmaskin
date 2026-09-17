@@ -102,6 +102,7 @@ export function buildPlanSummaryMessage(
 
 export function buildPlanUiPart(
   planData: Record<string, unknown> | null,
+  awaitingInput: boolean,
 ): Record<string, unknown> | null {
   const plan = normalizePlanArtifact(planData);
   if (!plan) return null;
@@ -121,6 +122,7 @@ export function buildPlanUiPart(
       }),
       blockers: plan.blockers,
       assumptions: plan.assumptions,
+      awaitingInput,
       raw: planData ?? plan,
     },
   };
@@ -183,7 +185,7 @@ export function buildPlanModeAssistantMessage(params: {
   const { planData, hasBlockers, hasPlanArtifact, plannerText, upstreamErrorMessage } = params;
 
   if (hasPlanArtifact) {
-    const planPart = buildPlanUiPart(planData);
+    const planPart = buildPlanUiPart(planData, hasBlockers);
     return {
       content: buildPlanSummaryMessage(planData, hasBlockers),
       uiParts: planPart ? [planPart] : undefined,

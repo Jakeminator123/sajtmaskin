@@ -56,6 +56,19 @@ describe("splitContextIntoBudgetBlocks — brief and variant guardrails survive 
   });
 });
 
+describe("splitContextIntoBudgetBlocks — App Router module contract", () => {
+  it("keeps the A1 import/route-default contract required under token pressure", () => {
+    const [block] = splitContextIntoBudgetBlocks(
+      "## App Router module contract\n\n- Import every JSX tag you render.",
+    );
+    expect(block).toMatchObject({
+      key: "app_router_module_contract",
+      priority: 84,
+      required: true,
+    });
+  });
+});
+
 describe("splitContextIntoBudgetBlocks — F3 build plan", () => {
   it("keeps the file-derived integration plan required under token pressure", () => {
     const [block] = splitContextIntoBudgetBlocks(

@@ -26,6 +26,7 @@ vi.mock("@/lib/db/services/generation-billing", () => ({
 const createChatSchemaSafeParse = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
+const bindKostnadsfriCampaignInitialChat = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
@@ -103,6 +104,10 @@ vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
 
 vi.mock("@/lib/credits/server", () => ({
   prepareCredits,
+}));
+
+vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
+  bindKostnadsfriCampaignInitialChat,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -198,6 +203,9 @@ vi.mock("@/lib/config", () => ({
   SECRETS: {
     testUserEmail: "",
     superadminEmail: "",
+  },
+  URLS: {
+    googleCallbackUrl: "http://localhost:3000/api/auth/google/callback",
   },
   PATHS: {
     uploads: "/tmp/uploads",
@@ -518,6 +526,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     attachVersionToPendingUsageAsync.mockResolvedValue(undefined);
     establishGenerationBilling.mockResolvedValue(undefined);
     settleGenerationBilling.mockResolvedValue(undefined);
+    bindKostnadsfriCampaignInitialChat.mockResolvedValue(true);
     prepareCredits.mockResolvedValue({
       ok: true,
       user: { id: "user_1" },
@@ -912,6 +921,181 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     await planResponseParams.commitCredits();
     expect(commitCredits).toHaveBeenCalledOnce();
     expect(commitCredits).toHaveBeenCalledWith({ rejectIfNegative: true });
+
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_entry",
+        chatId: expect.any(String),
+      }),
+    );
+    const persist = (
+      createOwnEnginePlanModeResponse.mock.calls[0]?.[0] as {
+        persistAssistantSummary: (
+          planData: Record<string, unknown>,
+          hasBlockers: boolean,
+          context: {
+            hasPlanArtifact: boolean;
+            accumulatedContent: string;
+            upstreamErrorMessage: string | null;
+          },
+        ) => Promise<void>;
+      }
+    ).persistAssistantSummary;
+    await persist(
+      { goal: "Bygg", pages: [{ path: "/", name: "Start", intent: "sälja" }] },
+      false,
+      {
+        hasPlanArtifact: true,
+        accumulatedContent: "",
+        upstreamErrorMessage: null,
+      },
+    );
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_exit",
+        meta: expect.objectContaining({
+          outcome: "plan_persisted",
+          hasPlanArtifact: true,
+        }),
+      }),
+    );
+  });
+
+  it("writes plan_mode_turn_exit when the init planner throws", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createPlanModePipelineStream.mockImplementationOnce(() => {
+      throw new Error("planner boom");
+    });
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        projectId: null,
+        system: "",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          planMode: true,
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera en ny marknadssajt." }),
+      }),
+    );
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "plan_mode_turn_entry" }),
+    );
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_exit",
+        meta: expect.objectContaining({
+          upstreamError: "planner boom",
+        }),
+      }),
+    );
+  });
+
+  it("traces init plan-mode with the resolved project id when only projectId is sent", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createOwnEnginePlanModeResponse.mockReturnValueOnce(
+      new Response("event: done\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        projectId: "proj_fallback_1",
+        system: "",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          planMode: true,
+        },
+      },
+    }));
+    resolveAppProjectIdForRequest.mockResolvedValue("proj_resolved_1");
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Planera en ny marknadssajt.",
+          projectId: "proj_fallback_1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_entry",
+        appProjectId: "proj_resolved_1",
+      }),
+    );
+
+    const persist = (
+      createOwnEnginePlanModeResponse.mock.calls[0]?.[0] as {
+        persistAssistantSummary: (
+          planData: Record<string, unknown>,
+          hasBlockers: boolean,
+          context: {
+            hasPlanArtifact: boolean;
+            accumulatedContent: string;
+            upstreamErrorMessage: string | null;
+          },
+        ) => Promise<void>;
+      }
+    ).persistAssistantSummary;
+    await persist(
+      { goal: "Bygg", pages: [{ path: "/", name: "Start", intent: "sälja" }] },
+      false,
+      {
+        hasPlanArtifact: true,
+        accumulatedContent: "",
+        upstreamErrorMessage: null,
+      },
+    );
+    expect(createPromptLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "plan_mode_turn_exit",
+        appProjectId: "proj_resolved_1",
+      }),
+    );
   });
 
   it("pins the scaffold on the chat when the create/init round actually generates", async () => {
@@ -1029,6 +1213,14 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      user: { id: "user_1" },
+      isTest: false,
+      campaignBenefit: { entitlementId: "campaign_1", phase: "initial" },
+      campaignProject: true,
+      commit: commitCredits,
+    });
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
         {
@@ -1095,5 +1287,11 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(String((doneEvent?.data as Record<string, unknown>)?.awaitingInputPrompt)).toContain(
       "Integrationer signalerades",
     );
+    expect(bindKostnadsfriCampaignInitialChat).toHaveBeenCalledWith({
+      entitlementId: "campaign_1",
+      projectId: "app_proj_1",
+      userId: "user_1",
+      chatId: "engine_chat_1",
+    });
   });
 });

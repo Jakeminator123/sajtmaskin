@@ -16,6 +16,7 @@ import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
 import { triggerBuildErrorRepair } from "@/lib/gen/verify/server-verify";
 import { isQualityGateConfigured } from "@/lib/gen/verify/preview-quality-gate";
 import { getVercelDeploymentBuildLogText } from "@/lib/vercel/vercel-deploy";
+import { DEPLOY_REPAIR_ORIGIN } from "@/lib/db/repair-files-payload";
 
 export type DeployRepairStatus =
   /** En repair sparades och väntar på accept + manuell ompublicering. */
@@ -40,6 +41,8 @@ export interface RunDeployBuildRepairResult {
 export interface RunDeployBuildRepairParams {
   chatId: string;
   versionId: string;
+  /** Intern `deployments.id` — stämplas i repair-kuvertet (SM-003). */
+  deploymentId: string;
   /** Vercels deployment-id — används för best-effort byggloggshämtning. */
   vercelDeploymentId?: string | null;
   /** Feltext som redan finns (från deploy-error-loggen), fallback för kontext. */
@@ -55,7 +58,7 @@ export interface RunDeployBuildRepairParams {
 export async function runDeployBuildRepair(
   params: RunDeployBuildRepairParams,
 ): Promise<RunDeployBuildRepairResult> {
-  const { chatId, versionId, vercelDeploymentId, fallbackMessage } = params;
+  const { chatId, versionId, deploymentId, vercelDeploymentId, fallbackMessage } = params;
 
   // Repair kräver DB + konfigurerad kvalitetskontroll (preview-host verify).
   // Skilj detta miljöfall från "redan igång" (inflight) så UI:t inte felaktigt
@@ -99,6 +102,10 @@ export async function runDeployBuildRepair(
     // ALDRIG; det producerar bara en `repair_available`-version.
     force: true,
     repairDeadlineEpochMs,
+    repairProvenance: {
+      origin: DEPLOY_REPAIR_ORIGIN,
+      deploymentId,
+    },
     onRepairAvailable: (payload) => {
       repairPayloadRef.current = payload;
     },

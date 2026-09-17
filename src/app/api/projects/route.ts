@@ -75,8 +75,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = ensureSessionIdFromRequest(request);
   const attachSessionCookie = (response: Response) => {
-    if (session.setCookie) {
-      response.headers.set("Set-Cookie", session.setCookie);
+    const setCookies =
+      session.setCookies ?? (session.setCookie ? [session.setCookie] : []);
+    for (const setCookie of setCookies) {
+      response.headers.append("Set-Cookie", setCookie);
     }
     return response;
   };
@@ -93,6 +95,18 @@ export async function POST(request: NextRequest) {
     // Get user and session from request (cookies, not body)
     const user = await getCurrentUser(request);
     const sessionId = session.sessionId;
+    if (category === "kostnadsfri" && !user?.id) {
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: "Logga in för att bygga hemsidan.",
+            requiresAuth: true,
+          },
+          { status: 401 },
+        ),
+      );
+    }
     const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
 
     const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);

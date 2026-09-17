@@ -13,6 +13,7 @@ import {
   appendGenerationBillingClaimKey,
   establishGenerationBilling,
   getGenerationBillingMarkerPolicy,
+  isGenerationBillingMarkerFreeForRepair,
 } from "@/lib/db/services/generation-billing";
 import { dbConfigured } from "@/lib/db/client";
 import { prepareCredits } from "@/lib/credits/server";
@@ -260,13 +261,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // eligibility preflight. Dynamic usage settlement remains the only debit.
     try {
       const billingMarker = await getGenerationBillingMarkerPolicy(internalVersionId);
+      const markerIsFree = billingMarker
+        ? isGenerationBillingMarkerFreeForRepair(billingMarker)
+        : false;
       const repairableState = ["failed", "repair_available"].includes(
         scopedVersion.version.verification_state,
       );
-      if (
-        (!billingMarker || billingMarker.freeGenerationApplied) &&
-        !repairableState
-      ) {
+      if ((!billingMarker || markerIsFree) && !repairableState) {
         return NextResponse.json(
           {
             error: "Versionen är inte redo för en separat reparation ännu.",
@@ -277,7 +278,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         );
       }
       const claimKey = getLlmUsageContext().claimKey;
-      if (!billingMarker || !billingMarker.freeGenerationApplied) {
+      if (!billingMarker || !markerIsFree) {
         const creditCheck = await prepareCredits(
           req,
           "prompt.refine",

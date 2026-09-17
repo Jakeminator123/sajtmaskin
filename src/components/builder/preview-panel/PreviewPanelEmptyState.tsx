@@ -14,6 +14,7 @@ import {
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import {
+  isPreviewBuildErrorBlocking,
   previewBuildErrorTitle,
   type PreviewBuildErrorState,
   type PreviewLifecycleState,
@@ -22,6 +23,7 @@ import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PreviewBackdropStage } from "./PreviewBackdropStage";
 import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,12 @@ interface PreviewPanelEmptyStateProps {
    */
   versionlessAborted?: boolean;
   onRestartGeneration?: (() => void) | null;
+  /**
+   * Failed `POST /api/template` while `?templateId=` is still in the URL.
+   * Spinner must not represent this — show the error and «Försök igen».
+   */
+  templateInitError?: string | null;
+  onRetryTemplateInit?: (() => void) | null;
 }
 
 export function PreviewPanelEmptyState({
@@ -84,6 +92,8 @@ export function PreviewPanelEmptyState({
   isGenerating = false,
   versionlessAborted = false,
   onRestartGeneration,
+  templateInitError = null,
+  onRetryTemplateInit = null,
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
@@ -95,6 +105,7 @@ export function PreviewPanelEmptyState({
   // disables this branch there.
   const searchParams = useSearchParams();
   const pendingTemplateInit = Boolean(searchParams?.get("templateId")) && !chatId;
+  const templateInitFailed = pendingTemplateInit && Boolean(templateInitError);
   const isInitialEmpty = !chatId && !versionId && !externalLoading && !pendingTemplateInit;
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
@@ -136,6 +147,8 @@ export function PreviewPanelEmptyState({
               : null;
   const title = previewBuildError
     ? previewBuildErrorTitle(previewBuildError)
+    : templateInitFailed
+      ? "Kunde inte läsa in templaten"
     : versionlessAborted
       ? "Genereringen avbröts"
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -158,6 +171,8 @@ export function PreviewPanelEmptyState({
   // the chrome banner's collapsed detail, not in the empty-state headline.
   const subtitle = previewBuildError
     ? previewBuildError.message
+    : templateInitFailed
+      ? templateInitError || "Templaten kunde inte startas. Försök igen."
     : versionlessAborted
       ? "Strömmen avbröts innan en version sparades. Den här chatten kan inte repareras — starta om genereringen i en ny chat."
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -181,6 +196,9 @@ export function PreviewPanelEmptyState({
   // parent maps to a fresh chat). The "repair preview" button is
   // suppressed so the user cannot send a followup_general into a chat
   // that has nothing to repair.
+  const showRetryTemplateInit = Boolean(
+    templateInitFailed && onRetryTemplateInit && !externalLoading && !previewPending,
+  );
   const showRestartAction = Boolean(
     versionlessAborted && onRestartGeneration && !externalLoading && !previewPending,
   );
@@ -199,6 +217,8 @@ export function PreviewPanelEmptyState({
     ? previewBuildError.severity === "info"
       ? MessageCircleQuestion
       : AlertCircle
+    : templateInitFailed
+      ? AlertCircle
     : versionlessAborted
       ? RotateCcw
       : previewPending || pendingTemplateInit
@@ -215,9 +235,14 @@ export function PreviewPanelEmptyState({
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
+  // Moving Background 2 rör sig när ytan väntar, och fryser till stillbild vid
+  // ett verkligt fel — då ska diagnostiken, inte scenen, ta uppmärksamheten.
+  // Ett `info`-fel är en notis och stoppar inte scenen.
+  const backdropMotion = !isPreviewBuildErrorBlocking(previewBuildError);
+
   if (showWelcome) {
     return (
-      <div className="flex h-full flex-col items-center justify-center overflow-y-auto bg-black/20 px-6 py-8">
+      <PreviewBackdropStage motion statusKey="welcome" variant="welcome">
         <div className="w-full max-w-md text-center">
           <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl">
             <Sparkles className="h-6 w-6" aria-hidden="true" />
@@ -243,14 +268,17 @@ export function PreviewPanelEmptyState({
             Skriv i chatten till vänster för att starta
           </p>
         </div>
-      </div>
+      </PreviewBackdropStage>
     );
   }
 
   return (
-    <div className="text-muted-foreground flex h-full flex-col items-center justify-center bg-black/20 px-6 text-center">
+    <PreviewBackdropStage motion={backdropMotion} statusKey={title}>
       <EmptyIcon
-        className={cn("mb-4 h-12 w-12", (previewPending || pendingTemplateInit) && "animate-spin")}
+        className={cn(
+          "mb-4 h-12 w-12",
+          (previewPending || (pendingTemplateInit && !templateInitFailed)) && "animate-spin",
+        )}
       />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
@@ -278,6 +306,12 @@ export function PreviewPanelEmptyState({
           )}
         </div>
       ) : null}
+      {showRetryTemplateInit ? (
+        <Button className="mt-4" onClick={onRetryTemplateInit!} disabled={externalLoading}>
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Försök igen
+        </Button>
+      ) : null}
       {showRestartAction ? (
         <Button className="mt-4" onClick={onRestartGeneration!} disabled={externalLoading}>
           <RotateCcw className="mr-2 h-4 w-4" />
@@ -293,6 +327,6 @@ export function PreviewPanelEmptyState({
           Försök reparera preview
         </Button>
       ) : null}
-    </div>
+    </PreviewBackdropStage>
   );
 }

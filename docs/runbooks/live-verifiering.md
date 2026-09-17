@@ -33,7 +33,7 @@ uppföljning 2 är antingen quick edit eller annan liten innehållsändring.
 | Rad | Kräver |
 | --- | --- |
 | `SM-071` | Prompt med tydlig app/dashboard-intent så `app-shell` väljs på nuvarande master efter variantändringarna 21–23 aug. Fånga första build-/previewfel och jämför med en webbscaffold i samma miljö. |
-| `SM-033` | Landingläget **Analyserad**. Korrelera competitor/enrich mot route, stage, duration och request-id; dagens kod saknar full terminal telemetri. |
+| `SM-033` | Landingläget **Analyserad**. Korrelera `wizard.route.terminal` (route, dominantStage, durationMs, requestId, outcome) mot 504/deadline; taket 25/30s ändras inte förrän p95/p99 finns. |
 | `SM-013` | Landingläget **Template** och ett kontrollerat misslyckat `POST /api/template`. Bekräfta om spinnern saknar felläge/retry. |
 | `SM-035` | Nästa Fly-installfel. Kräv manager/mode/duration, OOM-, disk-, machine- och regiondata innan rotorsak påstås. |
 | `SM-037` | Patch-lane på, HMR av, skilda SSR-/clientsentinels i v1/v2 samt full-update-kontroll. Bind served och selected version till sessionen. |

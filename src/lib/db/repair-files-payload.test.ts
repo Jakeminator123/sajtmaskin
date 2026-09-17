@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  DEPLOY_REPAIR_ORIGIN,
   REPAIRED_FILES_ENVELOPE_VERSION,
   decodeRepairedFilesPayload,
   encodeRepairedFilesEnvelope,
   hashFilesJson,
+  isDeployRepairForDeployment,
+  readRepairProvenance,
 } from "./repair-files-payload";
 
 const BASE_A = '[{"path":"app/page.tsx","content":"A"}]';
@@ -46,6 +49,19 @@ describe("encodeRepairedFilesEnvelope", () => {
     expect(env.files).toEqual(JSON.parse(REPAIRED));
   });
 
+  it("stamps optional deploy-repair provenance without changing the v1 shape", () => {
+    const raw = encodeRepairedFilesEnvelope({
+      repairedFilesJson: REPAIRED,
+      baseFilesJson: BASE_A,
+      provenance: { origin: DEPLOY_REPAIR_ORIGIN, deploymentId: "dep_1" },
+    });
+    const env = JSON.parse(raw);
+    expect(env.v).toBe(REPAIRED_FILES_ENVELOPE_VERSION);
+    expect(env.origin).toBe(DEPLOY_REPAIR_ORIGIN);
+    expect(env.deploymentId).toBe("dep_1");
+    expect(env.files).toEqual(JSON.parse(REPAIRED));
+  });
+
   it("throws when the repaired payload is not a JSON array", () => {
     expect(() =>
       encodeRepairedFilesEnvelope({ repairedFilesJson: '{"not":"an array"}', baseFilesJson: BASE_A }),
@@ -81,5 +97,28 @@ describe("decodeRepairedFilesPayload", () => {
     expect(decodeRepairedFilesPayload("not json")).toBeNull();
     expect(decodeRepairedFilesPayload('{"v":1}')).toBeNull(); // missing baseFilesHash + files
     expect(decodeRepairedFilesPayload('{"v":99,"baseFilesHash":"x","files":[]}')).toBeNull();
+  });
+});
+
+describe("isDeployRepairForDeployment", () => {
+  it("matches only a stamped deploy-repair for the same deploymentId", () => {
+    const stamped = encodeRepairedFilesEnvelope({
+      repairedFilesJson: REPAIRED,
+      baseFilesJson: BASE_A,
+      provenance: { origin: DEPLOY_REPAIR_ORIGIN, deploymentId: "dep_1" },
+    });
+    const preview = encodeRepairedFilesEnvelope({
+      repairedFilesJson: REPAIRED,
+      baseFilesJson: BASE_A,
+    });
+    expect(isDeployRepairForDeployment(stamped, "dep_1")).toBe(true);
+    expect(isDeployRepairForDeployment(stamped, "dep_OTHER")).toBe(false);
+    expect(isDeployRepairForDeployment(preview, "dep_1")).toBe(false);
+    expect(isDeployRepairForDeployment(REPAIRED, "dep_1")).toBe(false);
+    expect(readRepairProvenance(preview)).toBeNull();
+    expect(readRepairProvenance(stamped)).toEqual({
+      origin: DEPLOY_REPAIR_ORIGIN,
+      deploymentId: "dep_1",
+    });
   });
 });

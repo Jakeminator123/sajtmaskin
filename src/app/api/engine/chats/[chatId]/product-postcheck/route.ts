@@ -14,7 +14,7 @@ import {
   runProductPostcheck,
   type ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
-import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
+import { resolveUserRequestForVersion, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
   finishLiveReviewSession,
@@ -47,7 +47,10 @@ import {
   normalizeProductPostcheckMutationRevision,
 } from "@/lib/db/services/product-postcheck-runs";
 import { readProductPostcheckVerdictForVersion } from "@/lib/integrations/tier3-readiness-gate";
-import { productPostcheckResultFromVerdict } from "@/lib/gen/verify/product-postcheck-verdict";
+import {
+  isNonBlockingPreviewBootResult,
+  productPostcheckResultFromVerdict,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -620,6 +623,12 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     try {
+      const userRequest = resolveUserRequestForVersion({
+        messages: scopedVersion.chat?.messages ?? [],
+        versionMessageId: scopedVersion.version.message_id,
+        versionCreatedAt: scopedVersion.version.created_at,
+        versionId: scopedVersion.version.id,
+      });
       result.liveReview = await finishLiveReviewSession(liveReviewSession, {
         skipped: result.skipped,
         findings: result.warnings.map((warning) => ({
@@ -630,7 +639,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         domSummary: result.domSummary,
         versionNumber: scopedVersion.version.version_number,
         filesJson: scopedVersion.version.files_json,
-        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
+        userRequest: userRequest.text,
+        userRequestSource: userRequest.source,
         briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
         isTargetCurrent,
       });
@@ -658,6 +668,22 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           previewUrl: resolvedPreviewUrl,
           durationMs: result.durationMs,
           routesChecked: result.routesChecked,
+        }),
+      );
+    }
+
+    // SM-077: a timing boot-splash is not a product verdict. Attesting it as
+    // `passed` locked the claim and skipped the later starting→ready crawl.
+    if (isNonBlockingPreviewBootResult(result)) {
+      if (result.screenshots) {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+      }
+      await finishHeldClaim("superseded");
+      return NextResponse.json(
+        pendingPreviewNotReadyResult({
+          previewUrl: resolvedPreviewUrl,
+          durationMs: result.durationMs,
+          verificationRunId,
         }),
       );
     }

@@ -177,7 +177,7 @@ describe("armed autonomy — continuation handshake", () => {
     const [prompt, options] = onSend.mock.calls[0];
     expect(prompt).toContain("[Automatisk fortsättning]");
     expect(prompt).toContain("sista steget");
-    expect(options).toEqual({ allowArming: false });
+    expect(options).toEqual({ allowArming: false, countTowardCampaignQuota: false });
     // The watch survives the wake-up, stamped so it cannot fire twice — a
     // dropped one would strand the mandate if `send` silently did nothing.
     expect(useOpenClawStore.getState().armedContinuation?.resumedAt).toEqual(expect.any(Number));

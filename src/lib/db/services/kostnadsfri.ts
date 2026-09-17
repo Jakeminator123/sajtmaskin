@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, like } from "drizzle-orm";
+import { and, desc, eq, gt, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { kostnadsfriPages, pageViews, users } from "@/lib/db/schema";
 import {
@@ -6,6 +6,7 @@ import {
   parseKostnadsfriAnalyticsPath,
   type KostnadsfriAnalyticsEvent,
 } from "@/lib/kostnadsfri/analytics-paths";
+import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profile";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
 
@@ -19,6 +20,9 @@ export async function createKostnadsfriPage(data: {
   contactName?: string;
   extraData?: Record<string, unknown>;
   expiresAt?: Date;
+  /** Set when the row is created by a caller that already mailed the invite. */
+  sentAt?: Date;
+  source?: string;
 }): Promise<KostnadsfriPage> {
   assertDbConfigured();
   const now = new Date();
@@ -37,9 +41,168 @@ export async function createKostnadsfriPage(data: {
       created_at: now,
       updated_at: now,
       expires_at: data.expiresAt || null,
+      sent_at: data.sentAt || null,
+      source: data.source || null,
     })
     .returning();
   return rows[0];
+}
+
+/**
+ * Register that the invite mail for `slug` went out — the write half of the
+ * send register behind `/admin/kostnadsfri`.
+ *
+ * `contactEmail` is only written when it is a non-empty string: a caller that
+ * re-registers a send without repeating the address must not blank the one
+ * already stored. Returns null when the slug has no row (the caller decides
+ * whether to create one).
+ *
+ * `extraDataPatch` slås ihop med `jsonb ||` i databasen i stället för att läsas
+ * och skrivas tillbaka. Den ytliga sammanslagningen är avsiktlig här: patchen
+ * ska byta ut hela `profile`-nyckeln men lämna `openclaw` orörd, och en
+ * read-modify-write hade kunnat tappa en samtidig skrivning.
+ */
+export async function markKostnadsfriPageSent(
+  slug: string,
+  data: {
+    sentAt: Date;
+    source: string;
+    contactEmail?: string | null;
+    extraDataPatch?: Record<string, unknown> | null;
+  },
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
+  const updates: {
+    sent_at: Date;
+    source: string;
+    updated_at: Date;
+    contact_email?: string;
+    extra_data?: ReturnType<typeof sql>;
+  } = {
+    sent_at: data.sentAt,
+    source: data.source,
+    updated_at: new Date(),
+  };
+  const contactEmail = data.contactEmail?.trim();
+  if (contactEmail) updates.contact_email = contactEmail;
+  if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
+    updates.extra_data = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
+      data.extraDataPatch,
+    )}::jsonb`;
+  }
+
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set(updates)
+    .where(eq(kostnadsfriPages.slug, slug))
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
+ * SQL-skydd mot att skriva över en giltig push. Speglar
+ * `isKostnadsfriProfileSlotEmpty`: skrivbart när den *normaliserade*
+ * profilen saknas. Ogiltig legacy (nonempty men inte allowlistad JSON-sträng)
+ * får fallback. En giltig pushad profil vinner alltid.
+ */
+function storedProfileLacksNormalizedValueSql(extraData: ReturnType<typeof sql>) {
+  const profile = sql`${extraData} -> 'profile'`;
+  const nonemptyText = (key: "city" | "registeredOffice" | "postalCode" | "streetAddress" | "businessDescription") =>
+    sql`(jsonb_typeof(${profile} -> ${key}) = 'string' AND length(btrim(${profile} ->> ${key})) > 0)`;
+  return sql`(
+    jsonb_typeof(${profile}) IS DISTINCT FROM 'object'
+    OR NOT (
+      ${nonemptyText("city")}
+      OR ${nonemptyText("registeredOffice")}
+      OR ${nonemptyText("postalCode")}
+      OR ${nonemptyText("streetAddress")}
+      OR ${nonemptyText("businessDescription")}
+      OR (
+        jsonb_typeof(${profile} -> 'orgNumber') = 'string'
+        AND btrim(${profile} ->> 'orgNumber') ~ '^\\d{6}-?\\d{4}$'
+        AND substring(regexp_replace(btrim(${profile} ->> 'orgNumber'), '-', '', 'g') from 3 for 1) ~ '[2-9]'
+      )
+      OR (
+        jsonb_typeof(${profile} -> 'registeredAt') = 'string'
+        AND btrim(${profile} ->> 'registeredAt') ~ '^\\d{4}-\\d{2}-\\d{2}'
+      )
+    )
+  )`;
+}
+
+/**
+ * Skriver in en profil som profilfallbacken hämtade från utskicksverktyget, så
+ * att nästa besök på länken slipper anropet. Samma `jsonb ||`-sammanslagning
+ * som `markKostnadsfriPageSent`: `profile` byts ut, `openclaw` lämnas orörd.
+ *
+ * Skriver när den normaliserade profilen saknas — saknad nyckel, JSON-null,
+ * primitiv, array, `{}` eller ogiltig legacy. `-> 'profile' IS NULL` räcker
+ * inte: i Postgres är `'{"profile": null}'::jsonb -> 'profile' IS NULL` false.
+ * Returnerar true när en rad uppdaterades.
+ */
+export async function backfillKostnadsfriPageProfile(
+  slug: string,
+  profile: Record<string, unknown>,
+): Promise<boolean> {
+  assertDbConfigured();
+  if (Object.keys(profile).length === 0) return false;
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`${extraData} || ${JSON.stringify({ profile })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(and(eq(kostnadsfriPages.slug, slug), storedProfileLacksNormalizedValueSql(extraData)))
+    .returning({ id: kostnadsfriPages.id });
+  return rows.length > 0;
+}
+
+/**
+ * Negativ cache för miss / träff utan publicerbar profil. Rör inte `profile`,
+ * så en push som landar samtidigt vinner fortfarande. `unavailable` anropas
+ * aldrig här. Sentinel bär `checkedAt` så TTL kan expira.
+ */
+export async function markKostnadsfriProfileLookupSettled(
+  slug: string,
+  outcome: "miss" | "empty",
+): Promise<boolean> {
+  assertDbConfigured();
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`${extraData} || ${JSON.stringify({
+        profileFallback: buildKostnadsfriProfileFallback(outcome),
+      })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(eq(kostnadsfriPages.slug, slug))
+    .returning({ id: kostnadsfriPages.id });
+  return rows.length > 0;
+}
+
+export async function markKostnadsfriPageUnsubscribed(
+  slug: string,
+  at: Date = new Date(),
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
+  const existing = await getKostnadsfriPageBySlug(slug);
+  if (!existing) return null;
+  const extra = (existing.extra_data as Record<string, unknown> | null) ?? {};
+  if (typeof extra.unsubscribedAt === "string" && extra.unsubscribedAt.trim()) {
+    return existing;
+  }
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`${extraData} || ${JSON.stringify({ unsubscribedAt: at.toISOString() })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(eq(kostnadsfriPages.slug, slug))
+    .returning();
+  return rows[0] ?? null;
 }
 
 export async function getKostnadsfriPageBySlug(slug: string): Promise<KostnadsfriPage | null> {
@@ -52,10 +215,20 @@ export async function getKostnadsfriPageBySlug(slug: string): Promise<Kostnadsfr
   return rows[0] ?? null;
 }
 
-/** Every pre-created page, newest first. Password hashes are NOT stripped here. */
-export async function listKostnadsfriPages(): Promise<KostnadsfriPage[]> {
+/**
+ * Every pre-created page as a send register: rows with a send first, newest
+ * send on top, then unsent rows newest-created first. Same order as
+ * `/admin/kostnadsfri`, so a capped read never drops a recently re-sent old
+ * row. Password hashes are NOT stripped here. `limit` caps the read for
+ * callers that serve the list over HTTP.
+ */
+export async function listKostnadsfriPages(limit?: number): Promise<KostnadsfriPage[]> {
   assertDbConfigured();
-  return db.select().from(kostnadsfriPages).orderBy(desc(kostnadsfriPages.created_at));
+  const query = db
+    .select()
+    .from(kostnadsfriPages)
+    .orderBy(sql`${kostnadsfriPages.sent_at} DESC NULLS LAST`, desc(kostnadsfriPages.created_at));
+  return limit && limit > 0 ? query.limit(limit) : query;
 }
 
 // ============================================================================

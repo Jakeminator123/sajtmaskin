@@ -7,6 +7,8 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
+  unique,
+  foreignKey,
   index,
   integer,
   serial,
@@ -197,6 +199,7 @@ export const promptHandoffs = pgTable(
     project_id: text("project_id"),
     user_id: text("user_id"),
     session_id: text("session_id"),
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
     consumed_at: timestamptz("consumed_at"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },
@@ -441,6 +444,35 @@ export const wizardRuns = pgTable(
   }),
 );
 
+/**
+ * Durable template-init reservation. The insert on `claim_key` is the lock;
+ * `operation_id` is the credit idempotency key and stays stable across retry.
+ * Status is pending / completed / failed — a retry reclaims the same row.
+ */
+export const templateInitOperations = pgTable(
+  "template_init_operations",
+  {
+    claim_key: text("claim_key").primaryKey(),
+    operation_id: text("operation_id").notNull(),
+    status: text("status").notNull(),
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    project_id: text("project_id"),
+    template_id: text("template_id").notNull(),
+    chat_id: text("chat_id"),
+    version_id: text("version_id"),
+    claim_generation: integer("claim_generation").notNull().default(1),
+    error: text("error"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    expires_at: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_template_init_operations_project").on(table.project_id),
+    expiresIdx: index("idx_template_init_operations_expires_at").on(table.expires_at),
+  }),
+);
+
 export const guestUsage = pgTable(
   "guest_usage",
   {
@@ -593,7 +625,40 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
   updated_at: timestamptz("updated_at").defaultNow().notNull(),
   expires_at: timestamptz("expires_at"),
   consumed_at: timestamptz("consumed_at"),
+  /** När utskicksmejlet gick ut. Null = länken är skapad men inte skickad. */
+  sent_at: timestamptz("sent_at"),
+  /** Vem registrerade utskicket (t.ex. `python-utskick`, `admin`). */
+  source: text("source"),
 });
+
+/**
+ * Server-owned pilot entitlement. IDs are deliberately retained without FKs:
+ * deleting a temporary project or account must not make an invitation
+ * redeemable a second time.
+ */
+export const kostnadsfriCampaignEntitlements = pgTable(
+  "kostnadsfri_campaign_entitlements",
+  {
+    id: text("id").primaryKey(),
+    invitation_slug: text("invitation_slug").notNull(),
+    kostnadsfri_page_id: integer("kostnadsfri_page_id"),
+    project_id: text("project_id").notNull(),
+    user_id: text("user_id"),
+    session_id: text("session_id").notNull(),
+    initial_chat_id: text("initial_chat_id"),
+    initial_version_id: text("initial_version_id"),
+    initial_claimed_at: timestamptz("initial_claimed_at"),
+    followup_version_id: text("followup_version_id"),
+    followup_claimed_at: timestamptz("followup_claimed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    invitationUnique: unique("kostnadsfri_campaign_invitation_unique").on(table.invitation_slug),
+    projectUnique: unique("kostnadsfri_campaign_project_unique").on(table.project_id),
+    userIdx: index("idx_kostnadsfri_campaign_user_id").on(table.user_id),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // ENGINE TABLES — own code-generation engine (migrated from SQLite)
@@ -1170,6 +1235,9 @@ export const generationBillings = pgTable(
      */
     free_generation_eligible: boolean("free_generation_eligible").default(true).notNull(),
     free_generation_applied: boolean("free_generation_applied").default(false).notNull(),
+    campaign_entitlement_id: text("campaign_entitlement_id"),
+    campaign_phase: text("campaign_phase").$type<"initial" | "followup" | null>(),
+    campaign_free_applied: boolean("campaign_free_applied").default(false).notNull(),
     claim_keys: jsonb("claim_keys")
       .$type<string[]>()
       .default(sql`'[]'::jsonb`)
@@ -1197,6 +1265,9 @@ export const generationBillings = pgTable(
   },
   (table) => ({
     versionUnique: uniqueIndex("generation_billings_version_unique").on(table.version_id),
+    campaignSlotUnique: uniqueIndex("generation_billings_campaign_slot_unique")
+      .on(table.campaign_entitlement_id, table.campaign_phase)
+      .where(sql`${table.campaign_entitlement_id} is not null`),
     chatIdx: index("idx_generation_billings_chat").on(table.chat_id),
     userCreatedIdx: index("idx_generation_billings_user_created").on(
       table.user_id,
@@ -1260,5 +1331,313 @@ export const domainOrders = pgTable(
     orderIdx: index("idx_domain_orders_order").on(table.order_id),
     userIdx: index("idx_domain_orders_user").on(table.user_id, table.created_at),
     statusIdx: index("idx_domain_orders_status").on(table.status),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// D1 — ABONNEMANG PER PUBLICERAD SAJT OCH PER STRIPE-LÄGE
+//
+// Schema only. No checkout, webhook, portal link, reconciler or Stripe call
+// reads or writes these tables yet; D2 owns the flow. Every column and
+// constraint is declared in `add-site-subscriptions.sql`, which is the
+// canonical owner — these declarations are the typed projection of it.
+//
+// `billing_mode` ('test' | 'live') carries the environment split. Vercel
+// Preview and Production share the same prod Postgres, so a Stripe test
+// customer and a real customer live side by side in these tables; every
+// external identity is unique WITHIN a mode, never across.
+// ---------------------------------------------------------------------------
+
+/** 'test' | 'live'. Owned by trusted server config + verified Stripe events. */
+export type BillingMode = "test" | "live";
+
+/**
+ * Stripe customer identity per account AND mode. A single
+ * `users.stripe_customer_id` cannot express this: the same account has one
+ * customer in test and another in live, and mixing them would let a test
+ * subscription hold a production site published.
+ */
+export const billingCustomers = pgTable(
+  "billing_customers",
+  {
+    id: text("id").primaryKey(),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
+    billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
+    stripe_customer_id: text("stripe_customer_id").notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userFk: foreignKey({
+      name: "billing_customers_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
+    userModeUnique: unique("billing_customers_user_mode_unique").on(
+      table.user_id,
+      table.billing_mode,
+    ),
+    stripeCustomerUnique: unique("billing_customers_stripe_customer_unique").on(
+      table.billing_mode,
+      table.stripe_customer_id,
+    ),
+    /**
+     * Redundant on its own (`id` is the primary key) but required by Postgres:
+     * a composite foreign key must target a declared uniqueness with exactly
+     * that column list. This is what lets a subscription inherit both owner
+     * and mode from its customer row.
+     */
+    idUserModeUnique: unique("billing_customers_id_user_mode_unique").on(
+      table.id,
+      table.user_id,
+      table.billing_mode,
+    ),
+    userIdx: index("idx_billing_customers_user").on(table.user_id),
+  }),
+);
+
+/**
+ * One subscription per published site (`app_projects.id`) and mode — not per
+ * account, per deployment or per domain alias. Re-publishing and extra
+ * aliases are the same project and must never create a second subscription.
+ * `users.tier` is NOT the authority for whether a site may stay published.
+ *
+ * Three deliberately separate state axes, because they can disagree:
+ *   - `lifecycle_state` — our own claim. `checkout_pending` and `active` hold
+ *     the slot; `ended` releases it. A cancelled-but-paid subscription stays
+ *     `active` with `cancel_at_period_end` until the period actually ends.
+ *   - `stripe_status` — Stripe's raw status. `past_due` does NOT mean the site
+ *     is paused; during grace it is still live.
+ *   - `hosting_state_desired` / `hosting_state_actual` — requested versus
+ *     provider-confirmed hosting. A requested pause is not a completed pause:
+ *     `actual` stays `pausing` until the provider call and HTTP confirm it.
+ *
+ * At most one open claim per (project, mode) is enforced by the generated
+ * `open_claim_key` column, which is NULL for ended rows so history is kept in
+ * full. The constraint is the only authority — concurrent checkout attempts
+ * are resolved by 23505, not by a disabled button.
+ */
+export const siteSubscriptions = pgTable(
+  "site_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
+    /** `ON DELETE RESTRICT` in SQL: billing rows outlive project cleanup. */
+    project_id: text("project_id")
+      .notNull()
+      .references(() => appProjects.id, { onDelete: "restrict" }),
+    billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
+    /**
+     * NULL until the Stripe customer exists, so checkout can create the claim
+     * row first. When set, `site_subscriptions_customer_fk` requires it to
+     * belong to the same account AND the same mode.
+     */
+    billing_customer_id: text("billing_customer_id"),
+    stripe_subscription_id: text("stripe_subscription_id"),
+    stripe_checkout_session_id: text("stripe_checkout_session_id"),
+    /** Price version the customer approved, frozen at checkout. */
+    price_ref: text("price_ref"),
+    currency: text("currency"),
+    /** Amount in ÖRE — Stripe charges integer minor units. */
+    amount_ore: integer("amount_ore"),
+    /** Stripe's own status, stored raw. Never conflated with hosting state. */
+    stripe_status: text("stripe_status"),
+    lifecycle_state: text("lifecycle_state").notNull().default("checkout_pending"),
+    ended_reason: text("ended_reason"),
+    ended_at: timestamptz("ended_at"),
+    hosting_state_desired: text("hosting_state_desired").notNull().default("active"),
+    hosting_state_actual: text("hosting_state_actual").notNull().default("active"),
+    pause_requested_at: timestamptz("pause_requested_at"),
+    paused_at: timestamptz("paused_at"),
+    resumed_at: timestamptz("resumed_at"),
+    current_period_start: timestamptz("current_period_start"),
+    current_period_end: timestamptz("current_period_end"),
+    cancel_at_period_end: boolean("cancel_at_period_end").default(false).notNull(),
+    cancel_at: timestamptz("cancel_at"),
+    canceled_at: timestamptz("canceled_at"),
+    /** D3: 7 days live after a failed renewal. */
+    grace_until: timestamptz("grace_until"),
+    /** D3: at least 90 days retention counted from the ACTUAL pause. */
+    retain_until: timestamptz("retain_until"),
+    /** Last working published artefact the owner can restore — never a draft. */
+    last_published_ref: text("last_published_ref"),
+    last_published_at: timestamptz("last_published_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    /**
+     * Database-generated claim key: `billing_mode:project_id` while the row is
+     * open, NULL once it has ended. Postgres allows several NULLs in a UNIQUE,
+     * so ended rows are preserved while only one open claim can exist.
+     */
+    open_claim_key: text("open_claim_key").generatedAlwaysAs(
+      sql`CASE WHEN lifecycle_state <> 'ended' THEN billing_mode || ':' || project_id END`,
+    ),
+  },
+  (table) => ({
+    userFk: foreignKey({
+      name: "site_subscriptions_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
+    /**
+     * MATCH SIMPLE (Postgres default): a NULL `billing_customer_id` skips the
+     * whole tuple check, so a `checkout_pending` row without a customer passes.
+     * Once set, owner and mode must match the customer row.
+     */
+    customerFk: foreignKey({
+      name: "site_subscriptions_customer_fk",
+      columns: [table.billing_customer_id, table.user_id, table.billing_mode],
+      foreignColumns: [
+        billingCustomers.id,
+        billingCustomers.user_id,
+        billingCustomers.billing_mode,
+      ],
+    }).onDelete("restrict"),
+    openClaimUnique: unique("site_subscriptions_open_claim_unique").on(table.open_claim_key),
+    stripeSubscriptionUnique: unique("site_subscriptions_stripe_subscription_unique").on(
+      table.billing_mode,
+      table.stripe_subscription_id,
+    ),
+    checkoutSessionUnique: unique("site_subscriptions_checkout_session_unique").on(
+      table.billing_mode,
+      table.stripe_checkout_session_id,
+    ),
+    /** Inheritable tuples: grants and jobs reference (id, mode) / (id, owner). */
+    idModeUnique: unique("site_subscriptions_id_mode_unique").on(table.id, table.billing_mode),
+    idUserUnique: unique("site_subscriptions_id_user_unique").on(table.id, table.user_id),
+    userIdx: index("idx_site_subscriptions_user").on(table.user_id, table.created_at),
+    projectIdx: index("idx_site_subscriptions_project").on(table.project_id),
+    modeLifecycleIdx: index("idx_site_subscriptions_mode_lifecycle").on(
+      table.billing_mode,
+      table.lifecycle_state,
+    ),
+    periodEndIdx: index("idx_site_subscriptions_period_end").on(table.current_period_end),
+    graceUntilIdx: index("idx_site_subscriptions_grace_until").on(table.grace_until),
+  }),
+);
+
+/**
+ * One credit grant per valid paid subscription period.
+ *
+ * Key design decided here, written by D2: the period benefit is identified by
+ * (billing_mode, subscription_id, period_id). Webhook idempotency and period
+ * idempotency are two different things — a redelivered `invoice.paid` and a
+ * manual repair run must both land on this one row.
+ *
+ * `ledger_idempotency_key` is the exact string a LIVE grant will later write
+ * as `transactions.idempotency_key`. It is database-generated so no future
+ * code path can build it slightly differently and double-grant.
+ *
+ * Test-mode grants may never touch shared `users.diamonds`: a CHECK in SQL
+ * forbids a non-live row from referencing a `transactions` row at all.
+ */
+export const subscriptionCreditGrants = pgTable(
+  "subscription_credit_grants",
+  {
+    id: text("id").primaryKey(),
+    subscription_id: text("subscription_id").notNull(),
+    /** `ON DELETE RESTRICT` in SQL: a user wipe must not take the ledger. */
+    user_id: text("user_id").notNull(),
+    billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
+    /** Stable identity of the paid period, e.g. the Stripe invoice id. */
+    period_id: text("period_id").notNull(),
+    period_start: timestamptz("period_start"),
+    period_end: timestamptz("period_end"),
+    credits: integer("credits").default(0).notNull(),
+    status: text("status").notNull().default("pending"),
+    /** Live only. The shared-ledger row that actually moved the balance. */
+    transaction_id: text("transaction_id").references(() => transactions.id, {
+      onDelete: "set null",
+    }),
+    granted_at: timestamptz("granted_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    ledger_idempotency_key: text("ledger_idempotency_key").generatedAlwaysAs(
+      sql`'site_sub_period:' || billing_mode || ':' || subscription_id || ':' || period_id`,
+    ),
+  },
+  (table) => ({
+    /**
+     * Mode and owner are INHERITED from the subscription instead of repeated
+     * freely: without these tuples a live grant could point at a test
+     * subscription, or be booked on another account than the subscription's.
+     */
+    subscriptionModeFk: foreignKey({
+      name: "subscription_credit_grants_subscription_mode_fk",
+      columns: [table.subscription_id, table.billing_mode],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.billing_mode],
+    }).onDelete("cascade"),
+    subscriptionOwnerFk: foreignKey({
+      name: "subscription_credit_grants_subscription_owner_fk",
+      columns: [table.subscription_id, table.user_id],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.user_id],
+    }).onDelete("cascade"),
+    userFk: foreignKey({
+      name: "subscription_credit_grants_user_fk",
+      columns: [table.user_id],
+      foreignColumns: [users.id],
+    }).onDelete("restrict"),
+    /** PostgreSQL permits many NULLs, but a linked ledger row proves only one period grant. */
+    transactionUnique: unique("subscription_credit_grants_transaction_unique").on(
+      table.transaction_id,
+    ),
+    periodUnique: unique("subscription_credit_grants_period_unique").on(
+      table.billing_mode,
+      table.subscription_id,
+      table.period_id,
+    ),
+    subscriptionIdx: index("idx_subscription_credit_grants_subscription").on(
+      table.subscription_id,
+      table.created_at,
+    ),
+    userIdx: index("idx_subscription_credit_grants_user").on(table.user_id, table.created_at),
+  }),
+);
+
+/**
+ * Durable pause/resume action claim. SCHEMA ONLY — no worker, no schedule and
+ * no provider call is added by D1.
+ *
+ * A pause is a provider call plus a database write. If the write fails after
+ * the call the job must not vanish: the row stays `running` with the
+ * `provider_ref` the call returned, so the next run can reconcile instead of
+ * pausing twice. `open_job_key` is NULL once the job is finished, giving at
+ * most one open job per (subscription, kind).
+ */
+export const billingJobs = pgTable(
+  "billing_jobs",
+  {
+    id: text("id").primaryKey(),
+    subscription_id: text("subscription_id").notNull(),
+    billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
+    /** 'pause' | 'resume'. */
+    kind: text("kind").notNull(),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").default(0).notNull(),
+    run_after: timestamptz("run_after").defaultNow().notNull(),
+    lease_owner: text("lease_owner"),
+    lease_expires_at: timestamptz("lease_expires_at"),
+    /** What the provider answered, so a post-call DB failure can reconcile. */
+    provider_ref: text("provider_ref"),
+    last_error: text("last_error"),
+    completed_at: timestamptz("completed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    open_job_key: text("open_job_key").generatedAlwaysAs(
+      sql`CASE WHEN status IN ('pending', 'running') THEN kind || ':' || subscription_id END`,
+    ),
+  },
+  (table) => ({
+    /** The job inherits the subscription's mode; a live pause is never a test job. */
+    subscriptionModeFk: foreignKey({
+      name: "billing_jobs_subscription_mode_fk",
+      columns: [table.subscription_id, table.billing_mode],
+      foreignColumns: [siteSubscriptions.id, siteSubscriptions.billing_mode],
+    }).onDelete("cascade"),
+    openJobUnique: unique("billing_jobs_open_unique").on(table.open_job_key),
+    runnableIdx: index("idx_billing_jobs_runnable").on(table.status, table.run_after),
+    subscriptionIdx: index("idx_billing_jobs_subscription").on(table.subscription_id),
   }),
 );

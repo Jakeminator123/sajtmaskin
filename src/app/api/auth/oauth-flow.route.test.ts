@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { resetServerEnvCacheForTests } from "@/lib/env";
+import { AUTH_COOKIE_HOST_NAME } from "@/lib/auth/host-cookies";
 import { oauthCookieName } from "@/lib/auth/oauth-state";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
@@ -84,16 +85,26 @@ function cookieFrom(
   provider: "google" | "github",
 ): string {
   const name = oauthCookieName(provider);
-  const header = response.headers.get("set-cookie") ?? "";
-  const match = header.match(new RegExp(`${name}=([^;]+)`));
-  if (!match?.[1]) throw new Error(`Missing ${name} cookie`);
-  return match[1];
+  const headers =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie") ?? ""];
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const header of headers) {
+    const match = header.match(new RegExp(`(?:^|[\\s,])${escaped}=([^;]+)`));
+    if (match?.[1]) return match[1];
+  }
+  throw new Error(`Missing ${name} cookie`);
 }
 
 function clearedCookie(response: Response, provider: "google" | "github"): boolean {
-  const header = response.headers.get("set-cookie") ?? "";
-  return (
-    header.includes(oauthCookieName(provider)) && /Max-Age=0/i.test(header)
+  const name = oauthCookieName(provider);
+  const headers =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie") ?? ""];
+  return headers.some(
+    (header) => header.includes(name) && /Max-Age=0/i.test(header),
   );
 }
 
@@ -111,7 +122,7 @@ async function startProvider(
   const path =
     provider === "google" ? "/api/auth/google" : "/api/auth/github";
   const cookies: Record<string, string> =
-    provider === "github" ? { sajtmaskin_auth: session } : {};
+    provider === "github" ? { [AUTH_COOKIE_HOST_NAME]: session } : {};
   const response = await (provider === "google" ? startGoogle : startGitHub)(
     req(`${origin}${path}`, cookies),
   );
@@ -168,7 +179,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(tampered)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: started.cookie!,
         },
       ),
@@ -202,7 +213,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(google.state!)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: google.cookie!,
           [oauthCookieName("google")]: google.cookie!,
         },
@@ -228,7 +239,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(started.state!)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: started.cookie!,
         },
       ),
@@ -265,7 +276,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(started.state!)}`,
         {
-          sajtmaskin_auth: "session-b",
+          [AUTH_COOKIE_HOST_NAME]: "session-b",
           [oauthCookieName("github")]: started.cookie!,
         },
       ),
@@ -279,7 +290,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=abc&state=${encodeURIComponent(started.state!)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: started.cookie!,
         },
       ),
@@ -312,7 +323,7 @@ describe("OAuth route handlers", () => {
     );
     const github = await startGitHub(
       req("https://evil.example/api/auth/github", {
-        sajtmaskin_auth: "session-a",
+        [AUTH_COOKIE_HOST_NAME]: "session-a",
       }),
     );
 
@@ -377,7 +388,7 @@ describe("OAuth route handlers", () => {
     const canonicalCookies: Record<string, string> =
       origin === "https://sajtmaskin.vercel.app"
         ? {
-            sajtmaskin_auth: "session-a",
+            [AUTH_COOKIE_HOST_NAME]: "session-a",
             [oauthCookieName("github")]: started.cookie!,
           }
         : {};
@@ -405,7 +416,7 @@ describe("OAuth route handlers", () => {
 
     const finished = await githubCallback(
       req(canonical.headers.get("location")!, {
-        sajtmaskin_auth: "session-a",
+        [AUTH_COOKIE_HOST_NAME]: "session-a",
         [oauthCookieName("github")]: started.cookie!,
       }),
     );
@@ -425,7 +436,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=old&state=${encodeURIComponent(first.state!)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: second.cookie!,
         },
       ),
@@ -443,7 +454,7 @@ describe("OAuth route handlers", () => {
       req(
         `https://sajtmaskin.se/api/auth/github/callback?code=new&state=${encodeURIComponent(second.state!)}`,
         {
-          sajtmaskin_auth: "session-a",
+          [AUTH_COOKIE_HOST_NAME]: "session-a",
           [oauthCookieName("github")]: second.cookie!,
         },
       ),

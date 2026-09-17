@@ -26,6 +26,7 @@ import {
   type ReviewBundle,
   type ReviewFinding,
   type LiveReviewSkipReason,
+  type UserRequestPinSource,
 } from "./live-review-types";
 
 export const LIVE_REVIEW_WORKLOAD_ID = "live_review";
@@ -49,6 +50,7 @@ export type {
   ReviewBundle,
   LiveReviewSkipReason,
   LiveReviewResult,
+  UserRequestPinSource,
 } from "./live-review-types";
 
 const BLOCKING_RUNTIME_CODES = new Set(["runtime_crash", "preview_boot_page"]);
@@ -125,13 +127,37 @@ export function isAttachableScreenshotUrl(url: string | null | undefined): boole
   }
 }
 
+export type ScreenshotViewportCoverage = {
+  hasDesktop: boolean;
+  hasMobile: boolean;
+  complete: boolean;
+};
+
+/** Per-viewport attachability. `complete` is both current viewports, not "any". */
+export function screenshotViewportCoverage(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+): ScreenshotViewportCoverage {
+  const hasDesktop = isAttachableScreenshotUrl(screenshots?.desktopUrl);
+  const hasMobile = isAttachableScreenshotUrl(screenshots?.mobileUrl);
+  return { hasDesktop, hasMobile, complete: hasDesktop && hasMobile };
+}
+
+export function describeScreenshotCoverage(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+): "desktop+mobile" | "desktop_only" | "mobile_only" | "none" {
+  const { hasDesktop, hasMobile } = screenshotViewportCoverage(screenshots);
+  if (hasDesktop && hasMobile) return "desktop+mobile";
+  if (hasDesktop) return "desktop_only";
+  if (hasMobile) return "mobile_only";
+  return "none";
+}
+
+/** True when at least one current viewport can be attached. Not "both exist". */
 export function hasCurrentScreenshots(
   screenshots: LiveReviewScreenshotSet | null | undefined,
 ): boolean {
-  return (
-    isAttachableScreenshotUrl(screenshots?.desktopUrl) ||
-    isAttachableScreenshotUrl(screenshots?.mobileUrl)
-  );
+  const coverage = screenshotViewportCoverage(screenshots);
+  return coverage.hasDesktop || coverage.hasMobile;
 }
 
 export function shouldRunLiveReview(params: {
@@ -233,29 +259,117 @@ export function summarizeBrief(snapshot: Record<string, unknown> | null | undefi
   return parts.join(" — ").slice(0, MAX_BRIEF_CHARS);
 }
 
-export function pickUserRequest(
-  messages: ReadonlyArray<{
-    role: string;
-    content: string;
-    ui_parts?: unknown;
-    uiParts?: unknown;
-  }>,
-): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message || message.role !== "user") continue;
-    const uiParts = (Array.isArray(message.uiParts)
-      ? message.uiParts
-      : Array.isArray(message.ui_parts)
-        ? message.ui_parts
-        : []) as Array<Record<string, unknown>>;
-    const shaped = { role: "user" as const, content: message.content, uiParts };
-    if (isAutoRepairPromptMessage(shaped) || isF3KickPromptMessage(shaped)) continue;
-    const text = message.content.trim();
+export type LiveReviewUserMessage = {
+  id?: string;
+  role: string;
+  content: string;
+  created_at?: string | Date | null;
+  createdAt?: string | Date | null;
+  ui_parts?: unknown;
+  uiParts?: unknown;
+};
+
+export type ResolvedUserRequest = {
+  text: string;
+  source: UserRequestPinSource;
+  reason?: string;
+};
+
+function parseTimestampMs(value: string | Date | null | undefined): number | null {
+  if (value == null) return null;
+  const ms = value instanceof Date ? value.getTime() : Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function extractRealUserRequest(message: LiveReviewUserMessage | undefined): string | null {
+  if (!message || message.role !== "user") return null;
+  const uiParts = (Array.isArray(message.uiParts)
+    ? message.uiParts
+    : Array.isArray(message.ui_parts)
+      ? message.ui_parts
+      : []) as Array<Record<string, unknown>>;
+  const shaped = { role: "user" as const, content: message.content, uiParts };
+  if (isAutoRepairPromptMessage(shaped) || isF3KickPromptMessage(shaped)) return null;
+  const text = message.content.trim();
+  if (!text) return null;
+  return text.slice(0, MAX_USER_REQUEST_CHARS);
+}
+
+function findUserRequestPinnedToMessage(
+  messages: readonly LiveReviewUserMessage[],
+  messageId: string,
+): string | null {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index < 0) return null;
+  const atPin = extractRealUserRequest(messages[index]);
+  if (atPin) return atPin;
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const text = extractRealUserRequest(messages[cursor]);
+    if (text) return text;
+  }
+  return null;
+}
+
+function findUserRequestAtOrBefore(
+  messages: readonly LiveReviewUserMessage[],
+  versionCreatedAt: string | Date | null | undefined,
+): string | null {
+  const versionMs = parseTimestampMs(versionCreatedAt);
+  if (versionMs == null) return null;
+  let pinned: string | null = null;
+  for (const message of messages) {
+    const text = extractRealUserRequest(message);
     if (!text) continue;
-    return text.slice(0, MAX_USER_REQUEST_CHARS);
+    const messageMs = parseTimestampMs(message.created_at ?? message.createdAt);
+    if (messageMs == null || messageMs > versionMs) continue;
+    pinned = text;
+  }
+  return pinned;
+}
+
+/** Latest real user prompt in the list. Unpinned — do not use for a versioned review. */
+export function pickUserRequest(messages: readonly LiveReviewUserMessage[]): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const text = extractRealUserRequest(messages[index]);
+    if (text) return text;
   }
   return "";
+}
+
+/**
+ * Pin `userRequest` to the user turn that produced `versionId`.
+ * Prefer `version.message_id` (assistant row, or the user row itself), then
+ * the last real user prompt at or before `version.created_at`. Latest-user is
+ * only a last resort and is logged so the guess is never silent.
+ */
+export function resolveUserRequestForVersion(params: {
+  messages: readonly LiveReviewUserMessage[];
+  versionMessageId?: string | null;
+  versionCreatedAt?: string | Date | null;
+  versionId?: string | null;
+}): ResolvedUserRequest {
+  const messageId = params.versionMessageId?.trim() || "";
+  if (messageId) {
+    const pinned = findUserRequestPinnedToMessage(params.messages, messageId);
+    if (pinned) return { text: pinned, source: "version_message_id" };
+  }
+
+  const byTime = findUserRequestAtOrBefore(params.messages, params.versionCreatedAt);
+  if (byTime) return { text: byTime, source: "version_created_at" };
+
+  const fallback = pickUserRequest(params.messages);
+  if (!fallback) return { text: "", source: "empty", reason: "no_user_prompt" };
+
+  const reason = messageId
+    ? "version_message_id_unresolved"
+    : params.versionCreatedAt
+      ? "version_created_at_unresolved"
+      : "missing_version_pin";
+  console.warn("[live-review] userRequest fallback to latest user prompt", {
+    versionId: params.versionId ?? null,
+    reason,
+  });
+  return { text: fallback, source: "latest_user_fallback", reason };
 }
 
 function parseStoredCodeFiles(
@@ -326,6 +440,7 @@ export function assembleReviewBundle(params: {
   versionId: string;
   parentVersionId: string | null;
   userRequest: string;
+  userRequestSource?: UserRequestPinSource;
   briefSummary: string;
   changedFiles: string[];
   screenshots: LiveReviewScreenshotSet;
@@ -337,6 +452,7 @@ export function assembleReviewBundle(params: {
     versionId: params.versionId,
     parentVersionId: params.parentVersionId,
     userRequest: params.userRequest,
+    userRequestSource: params.userRequestSource,
     briefSummary: params.briefSummary,
     changedFiles: params.changedFiles,
     screenshots: params.screenshots,
@@ -428,10 +544,12 @@ export async function loadPreviousChatVersion(
 }
 
 function bundleAsPrompt(bundle: ReviewBundle): string {
+  const coverage = describeScreenshotCoverage(bundle.screenshots);
   return [
     `versionId: ${bundle.versionId}`,
     `parentVersionId: ${bundle.parentVersionId ?? "(init)"}`,
     `userRequest:\n${bundle.userRequest || "(saknas)"}`,
+    `userRequestSource: ${bundle.userRequestSource ?? "unspecified"}`,
     `briefSummary:\n${bundle.briefSummary || "(saknas)"}`,
     `changedFiles: ${bundle.changedFiles.join(", ") || "(inga)"}`,
     `consoleErrors: ${bundle.consoleErrors.join(" | ") || "(inga)"}`,
@@ -442,28 +560,66 @@ function bundleAsPrompt(bundle: ReviewBundle): string {
       "(inga)"
     }`,
     `domSummary: ${bundle.domSummary ? JSON.stringify(bundle.domSummary) : "(saknas)"}`,
-    "Screenshots are attached as images when present (desktop, mobile, then previous version if any).",
+    `screenshotCoverage: ${coverage}${
+      coverage === "desktop+mobile" ? "" : " — incomplete; do not treat this as both viewports"
+    }`,
+    "Each attached image is labeled in the following parts. A missing current viewport is stated in text — never infer it from another shot.",
   ].join("\n\n");
 }
 
-type ImagePart = { type: "image"; image: URL };
+type ReviewContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; image: URL };
 
-function screenshotParts(screenshots: LiveReviewScreenshotSet): ImagePart[] {
-  const urls = [
-    screenshots.desktopUrl,
-    screenshots.mobileUrl,
-    screenshots.previousDesktopUrl,
-    screenshots.previousMobileUrl,
-  ];
-  const parts: ImagePart[] = [];
-  for (const url of urls) {
-    if (!isAttachableScreenshotUrl(url)) continue;
-    try {
-      parts.push({ type: "image", image: new URL(url as string) });
-    } catch {
-      // Skip a malformed URL rather than fail the review.
-    }
+function pushLabeledImage(
+  parts: ReviewContentPart[],
+  label: string,
+  url: string | null | undefined,
+): boolean {
+  if (!isAttachableScreenshotUrl(url)) return false;
+  try {
+    parts.push({ type: "text", text: label });
+    parts.push({ type: "image", image: new URL(url as string) });
+    return true;
+  } catch {
+    return false;
   }
+}
+
+/** Labeled image parts so a lone mobile shot is never presented as desktop. */
+export function reviewScreenshotContentParts(
+  screenshots: LiveReviewScreenshotSet,
+): ReviewContentPart[] {
+  const parts: ReviewContentPart[] = [];
+  const coverage = screenshotViewportCoverage(screenshots);
+  if (
+    !pushLabeledImage(parts, "Current desktop screenshot:", screenshots.desktopUrl) &&
+    !coverage.hasDesktop
+  ) {
+    parts.push({
+      type: "text",
+      text: "Current desktop screenshot: MISSING. Do not treat any other attached image as the desktop viewport.",
+    });
+  }
+  if (
+    !pushLabeledImage(parts, "Current mobile screenshot:", screenshots.mobileUrl) &&
+    !coverage.hasMobile
+  ) {
+    parts.push({
+      type: "text",
+      text: "Current mobile screenshot: MISSING. Do not treat any other attached image as the mobile viewport.",
+    });
+  }
+  pushLabeledImage(
+    parts,
+    "Previous version desktop screenshot:",
+    screenshots.previousDesktopUrl,
+  );
+  pushLabeledImage(
+    parts,
+    "Previous version mobile screenshot:",
+    screenshots.previousMobileUrl,
+  );
   return parts;
 }
 
@@ -490,10 +646,10 @@ async function reviewWithModel(
   modelId: string,
   timeoutMs: number,
 ): Promise<LiveReviewResult> {
-  const images = screenshotParts(bundle.screenshots);
-  if (images.length === 0) {
+  if (!hasCurrentScreenshots(bundle.screenshots)) {
     return { status: "skipped", reason: "no_screenshots" };
   }
+  const images = reviewScreenshotContentParts(bundle.screenshots);
 
   let model;
   try {
@@ -657,6 +813,7 @@ export async function maybeAttachLiveReview(params: {
   filesJson: string | null | undefined;
   parentFilesJson?: string | null;
   userRequest: string;
+  userRequestSource?: UserRequestPinSource;
   briefSummary: string;
   enabled?: boolean;
   filesRevision?: string | null;
@@ -672,8 +829,15 @@ export async function maybeAttachLiveReview(params: {
   if (!gate.run) {
     return { status: "skipped", reason: gate.reason ?? "flag_off" };
   }
-  if (!hasCurrentScreenshots(params.screenshots)) {
+  const coverage = screenshotViewportCoverage(params.screenshots);
+  if (!coverage.hasDesktop && !coverage.hasMobile) {
     return { status: "skipped", reason: "no_screenshots" };
+  }
+  if (!coverage.hasDesktop) {
+    console.warn("[live-review] desktop screenshot missing; continuing as incomplete viewport set", {
+      versionId: params.versionId,
+      coverage: describeScreenshotCoverage(params.screenshots),
+    });
   }
 
   let previousVersionId = params.previousVersionId ?? null;
@@ -710,6 +874,7 @@ export async function maybeAttachLiveReview(params: {
     versionId: params.versionId,
     parentVersionId: previousVersionId,
     userRequest: params.userRequest,
+    userRequestSource: params.userRequestSource,
     briefSummary: params.briefSummary,
     changedFiles: listChangedFiles(params.filesJson, parentFilesJson),
     screenshots: {

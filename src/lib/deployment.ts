@@ -3,7 +3,14 @@ import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
+import {
+  normalizeDomainHostname,
+  persistableDeploymentUrl,
+  selectCurrentProductionIdentityUrl,
+  type CurrentProductionHostProof,
+} from "@/lib/live-site-url";
+
+export { selectCurrentProductionIdentityUrl } from "@/lib/live-site-url";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -115,6 +122,59 @@ export async function updateDeploymentStatus(
  * including sites published before the cache column existed. Prefers a `ready`
  * deployment; otherwise takes the most recent one that carries a project id.
  */
+export type LatestReadyDeploymentIdentity = {
+  url: string | null;
+  providerUrl: string | null;
+  vercelProjectId: string | null;
+};
+
+export type LastWorkingProductionIdentityOptions = CurrentProductionHostProof & {
+  vercelProjectId?: string | null;
+};
+
+function isProductionReadyIdentity(
+  row: LatestReadyDeploymentIdentity,
+  options?: LastWorkingProductionIdentityOptions,
+): boolean {
+  const expectedProjectId = options?.vercelProjectId?.trim() || null;
+  const rowProjectId = row.vercelProjectId?.trim() || null;
+  if (expectedProjectId && rowProjectId && rowProjectId !== expectedProjectId) {
+    return false;
+  }
+  return selectCurrentProductionIdentityUrl(row, options) !== null;
+}
+
+/**
+ * Newest READY row that currently proves a production identity.
+ */
+export function pickProductionReadyIdentity(
+  rows: LatestReadyDeploymentIdentity[],
+  options?: LastWorkingProductionIdentityOptions,
+): LatestReadyDeploymentIdentity | null {
+  return rows.find((row) => isProductionReadyIdentity(row, options)) ?? null;
+}
+
+/**
+ * Latest READY production identity for this chat. Other-project rows are
+ * skipped. A host counts only with current proof.
+ */
+export async function getLatestReadyDeploymentIdentityForChat(
+  chatId: string,
+  options?: LastWorkingProductionIdentityOptions,
+): Promise<LatestReadyDeploymentIdentity | null> {
+  const rows = await db
+    .select({
+      url: deployments.url,
+      providerUrl: deployments.providerUrl,
+      vercelProjectId: deployments.vercelProjectId,
+    })
+    .from(deployments)
+    .where(and(eq(deployments.chatId, chatId), eq(deployments.status, "ready")))
+    .orderBy(desc(deployments.createdAt))
+    .limit(25);
+  return pickProductionReadyIdentity(rows, options);
+}
+
 export async function getLatestVercelProjectIdForChat(chatId: string): Promise<string | null> {
   const rows = await db
     .select({
@@ -342,11 +402,13 @@ export async function setLatestDeploymentLiveUrlForChat(
 /** Resolve the public URL for status/webhook paths that do not have an app request context. */
 export async function resolveDeploymentLiveUrlForChat(params: {
   chatId: string;
+  versionId: string;
   providerUrl?: string | null;
   fallbackUrl?: string | null;
 }): Promise<string | null> {
   const [project] = await db
     .select({
+      projectId: appProjects.id,
       brandedDomain: appProjects.branded_domain,
       brandedDomainVerifiedAt: appProjects.branded_domain_verified_at,
       customDomain: appProjects.custom_domain,
@@ -356,17 +418,12 @@ export async function resolveDeploymentLiveUrlForChat(params: {
     .innerJoin(appProjects, eq(engineChats.projectId, appProjects.id))
     .where(eq(engineChats.id, params.chatId))
     .limit(1);
-  const resolved = resolveLiveUrl({
-    providerUrl: params.providerUrl,
-    brandedDomain: project?.brandedDomain ?? null,
-    brandedDomainVerifiedAt: project?.brandedDomainVerifiedAt ?? null,
-    customDomain: project?.customDomain ?? null,
-    customDomainVerifiedAt: project?.customDomainVerifiedAt ?? null,
+  return persistableDeploymentUrl({
+    existingUrl: params.fallbackUrl,
+    candidateUrl: params.providerUrl,
+    verifiedCustomerHosts: [
+      project?.customDomainVerifiedAt ? (project.customDomain ?? null) : null,
+      project?.brandedDomainVerifiedAt ? (project.brandedDomain ?? null) : null,
+    ],
   });
-  if (resolved) return resolved;
-  // A persisted liveUrl may contain a formerly verified branded/custom host.
-  // Only a legacy Vercel hostname is safe as fallback when the feature gate or
-  // verification state has been revoked.
-  const fallbackHost = normalizeDomainHostname(params.fallbackUrl);
-  return fallbackHost?.endsWith(".vercel.app") ? `https://${fallbackHost}` : null;
 }

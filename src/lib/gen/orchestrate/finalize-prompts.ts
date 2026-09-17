@@ -127,8 +127,11 @@ export async function finalizeOrchestrationPrompts(
     resolvedMode === "init" && input.variantHintId && scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.variantHintId)
       : null;
+  // Pre-match `variantHintId` is a brief-time preference, not a user lock.
+  // Only Byggval Stil and follow-up-lock skip the matcher. A valid hint is
+  // kept as fallback when the matcher returns nothing.
   const matched =
-    styleChoiceVariant || persistedVariant || hintedVariant
+    styleChoiceVariant || persistedVariant
       ? null
       : await resolveScaffoldVariantWithReceipt(
           scaffoldIdForVariant,
@@ -142,7 +145,7 @@ export async function finalizeOrchestrationPrompts(
           input.toneKeywordsHint,
         );
   let resolvedVariant =
-    styleChoiceVariant ?? persistedVariant ?? hintedVariant ?? matched?.variant ?? null;
+    styleChoiceVariant ?? persistedVariant ?? matched?.variant ?? hintedVariant ?? null;
   const hintId = input.variantHintId ?? null;
   const variantSelection = matched?.selection ?? {
     source: styleChoiceVariant

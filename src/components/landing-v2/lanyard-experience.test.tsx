@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LanyardExperience } from "./lanyard-experience";
+
+let physicsStubThrows = false;
 
 vi.mock("next/dynamic", () => ({
   default: () =>
-    function LanyardPhysicsStub() {
-      return <div data-testid="lanyard-physics" />;
+    function LanyardPhysicsStub({ onReady }: { onReady?: () => void }) {
+      if (physicsStubThrows) throw new Error("WebGL unavailable");
+      return <button type="button" data-testid="lanyard-physics" onClick={onReady} />;
     },
 }));
 
@@ -129,13 +132,58 @@ describe("LanyardExperience", () => {
     expect(screen.queryByTestId("lanyard-static")).toBeNull();
   });
 
-  it("never leaves the hero empty for a returning visitor", () => {
+  it("parks the returning-visitor card above the stage until physics is ready, then drops it in", () => {
     localStorage.setItem(CONSENT_KEY, "accepted");
     originalMatchMedia = stubMatchMedia(false);
     render(<LanyardExperience />);
     expect(screen.queryByRole("dialog", { name: "Cookie-inställningar" })).toBeNull();
-    expect(
-      screen.queryByTestId("lanyard-physics") ?? screen.queryByTestId("lanyard-static"),
-    ).toBeTruthy();
+    expect(screen.queryByTestId("lanyard-static")).toBeNull();
+
+    const stage = screen.getByTestId("lanyard-stage-3d");
+    expect(stage.className).toContain("-translate-y-[120%]");
+    expect(stage.className).toContain("pointer-events-none");
+
+    fireEvent.click(screen.getByTestId("lanyard-physics"));
+    expect(stage.className).toContain("translate-y-0");
+    expect(stage.className).toContain("transition-transform");
+    expect(stage.className).not.toContain("pointer-events-none");
+  });
+
+  it("drops the card in anyway if physics never reports ready", () => {
+    vi.useFakeTimers();
+    localStorage.setItem(CONSENT_KEY, "accepted");
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    const stage = screen.getByTestId("lanyard-stage-3d");
+    expect(stage.className).toContain("-translate-y-[120%]");
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(stage.className).toContain("translate-y-0");
+  });
+
+  it("releases the static fallback immediately when the 3D card fails before ready", () => {
+    physicsStubThrows = true;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      localStorage.setItem(CONSENT_KEY, "accepted");
+      originalMatchMedia = stubMatchMedia(false);
+      render(<LanyardExperience />);
+      const stage = screen.getByTestId("lanyard-stage-3d");
+      expect(screen.getByTestId("lanyard-static")).toBeTruthy();
+      expect(stage.className).toContain("translate-y-0");
+      expect(stage.className).not.toContain("-translate-y-[120%]");
+    } finally {
+      physicsStubThrows = false;
+      consoleError.mockRestore();
+    }
+  });
+
+  it("keeps the first-visit handoff on the opacity path, not the drop-in", () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+    const stage = screen.getByTestId("lanyard-stage-3d");
+    expect(stage.className).not.toContain("-translate-y-[120%]");
+    expect(stage.className).toContain("opacity-0");
   });
 });

@@ -13,6 +13,7 @@ import {
 } from "@/components/builder/readiness/F3RequirementsSurface";
 import { TipCard } from "@/components/builder/shell/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { currentBuilderReturnTo } from "@/lib/builder/pending-builder-draft";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
 import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
@@ -367,6 +368,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <ChatInterface
               chatId={vm.chatId}
               initialPrompt={vm.initialPrompt}
+              auditHandoff={vm.auditHandoff}
               onCreateChat={vm.requestCreateChat}
               onSendMessage={sendMessage}
               isFigmaInputOpen={isFigmaInputOpen}
@@ -453,6 +455,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}
+              templateInitError={vm.templateInitError}
+              onRetryTemplateInit={vm.retryTemplateInit}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               onComposerAiFallback={handleComposerAiFallback}
@@ -501,17 +505,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         <InitFromRepoModal
           isOpen={vm.isImportModalOpen}
           onClose={() => vm.setIsImportModalOpen(false)}
-          onSuccess={(newChatId, _v0ProjectInternalId) => {
-            vm.setChatId(newChatId);
-            if (vm.appProjectId) {
-              vm.applyAppProjectId(vm.appProjectId, { chatId: newChatId });
-            } else {
-              const params = new URLSearchParams(vm.searchParams.toString());
-              params.set("chatId", newChatId);
-              vm.router.replace(`/builder?${params.toString()}`);
-            }
-            vm.setMessages([]);
-            vm.setCurrentPreviewUrl(null);
+          onSuccess={(result) => {
+            vm.handleImportedRepoSuccess(result);
           }}
         />
       ) : null}
@@ -526,6 +521,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           vm.setAuthModalReason(null);
         }}
         reason={vm.authModalReason ?? "builder"}
+        returnTo={currentBuilderReturnTo()}
       />
     </BuilderLayout>
   );

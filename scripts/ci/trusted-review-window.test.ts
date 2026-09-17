@@ -65,6 +65,36 @@ describe("trusted gate event filter", () => {
       expected: { run: false, reason: "comment" },
     },
     {
+      name: "kör betrodd gate-only refresh-kommentar",
+      input: { eventName: "issue_comment", eventAction: "created", gateRefresh: true },
+      expected: { run: true, reason: "gate_refresh" },
+    },
+    {
+      name: "hoppar över gate-refresh på draft",
+      input: {
+        eventName: "issue_comment",
+        eventAction: "created",
+        gateRefresh: true,
+        draft: true,
+      },
+      expected: { run: false, reason: "draft" },
+    },
+    {
+      name: "hoppar över editerad refresh-kommentar",
+      input: { eventName: "issue_comment", eventAction: "edited", gateRefresh: true },
+      expected: { run: false, reason: "comment" },
+    },
+    {
+      name: "kör workflow_dispatch utan att kräva pull_request-event",
+      input: { eventName: "workflow_dispatch" },
+      expected: { run: true, reason: "workflow_dispatch" },
+    },
+    {
+      name: "hoppar över workflow_dispatch på draft",
+      input: { eventName: "workflow_dispatch", draft: true },
+      expected: { run: false, reason: "draft" },
+    },
+    {
       name: "hoppar över draft utom ready_for_review",
       input: { eventName: "pull_request_target", eventAction: "synchronize", draft: true },
       expected: { run: false, reason: "draft" },
@@ -127,8 +157,16 @@ describe("base invalidation marker", () => {
   });
 });
 
+// Check-id måste vara unikt per fixture. Ett slumpat id kolliderade ibland
+// mellan två required checks i samma test, och då band `checkRunIdFromUrl` två
+// canonical jobb till samma check → provenance `ambiguous-workflow-job` med
+// `collision: true`. Gaten kastade i stället för att returnera det förväntade
+// utfallet, så suiten föll slumpmässigt (röd `preview` 2026-09-15). En monoton
+// räknare är deterministisk och kan inte krocka.
+let nextRunId = 1;
+
 function run(name: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const id = Math.floor(Math.random() * 1_000_000);
+  const id = nextRunId++;
   const workflowRun = {
     id: 500,
     check_suite_id: 700,
@@ -912,6 +950,478 @@ describe("check workflow provenance", () => {
     expect(state.requiredCollisions).toEqual([]);
   });
 
+  it("klassar live #1418 same-SHA CI-runs som stale och väljer senaste PR-ägda run", async () => {
+    // Live snapshot 2026-09-16: #1418 head a7ae0b0e… är också preview-tipp, så
+    // samma SHA har ci.yml på push plus tre pull_request-runs.
+    const liveHead = "a7ae0b0e60914c81e575e31694932150de3a8cc9";
+    const livePr = 1418;
+    const makeCheck = (
+      name: string,
+      id: number,
+      suiteId: number,
+      startedAt: string,
+      completedAt: string,
+      conclusion: string,
+    ) =>
+      run(name, {
+        id,
+        check_suite: { id: suiteId },
+        status: "completed",
+        conclusion,
+        started_at: startedAt,
+        completed_at: completedAt,
+        provenance: undefined,
+      });
+    const makeJob = (
+      name: string,
+      jobId: number,
+      checkId: number,
+      startedAt: string,
+      completedAt: string,
+      conclusion: string,
+    ) => ({
+      id: jobId,
+      name,
+      status: "completed",
+      conclusion,
+      started_at: startedAt,
+      completed_at: completedAt,
+      steps: [{ name: "Complete job" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${checkId}`,
+    });
+    const prAssociation = [{ number: livePr, head: { sha: liveHead } }];
+    const pushCi = {
+      ...canonicalWorkflowRun(),
+      id: 35102262613,
+      check_suite_id: 95059190323,
+      event: "push",
+      head_sha: liveHead,
+      head_branch: "preview",
+      pull_requests: [],
+      created_at: "2026-09-16T13:29:39Z",
+      status: "completed",
+      conclusion: "success",
+    };
+    const oldCi = {
+      ...canonicalWorkflowRun(),
+      id: 35102323454,
+      check_suite_id: 95059354684,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:30:12Z",
+      status: "completed",
+      conclusion: "success",
+    };
+    const cancelledCi = {
+      ...canonicalWorkflowRun(),
+      id: 35104111053,
+      check_suite_id: 95064472557,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:46:44Z",
+      status: "completed",
+      conclusion: "cancelled",
+    };
+    const newCi = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 95064477804,
+      head_sha: liveHead,
+      pull_requests: prAssociation,
+      created_at: "2026-09-16T13:46:45Z",
+      status: "completed",
+      conclusion: "success",
+    };
+    const dossierOwner = {
+      path: ".github/workflows/dossier-acceptance.yml",
+      event: "pull_request",
+      head_sha: liveHead,
+      repository: { full_name: REPOSITORY },
+      pull_requests: prAssociation,
+      run_attempt: 1,
+    };
+    const oldDossier = {
+      ...dossierOwner,
+      id: 35102323443,
+      check_suite_id: 95059354650,
+      created_at: "2026-09-16T13:30:12Z",
+      status: "completed",
+      conclusion: "success",
+    };
+    const cancelledDossier = {
+      ...dossierOwner,
+      id: 35104111068,
+      check_suite_id: 95064472638,
+      created_at: "2026-09-16T13:46:44Z",
+      status: "completed",
+      conclusion: "cancelled",
+    };
+    const newDossier = {
+      ...dossierOwner,
+      id: 35104112455,
+      check_suite_id: 95064477189,
+      created_at: "2026-09-16T13:46:45Z",
+      status: "completed",
+      conclusion: "success",
+    };
+    const rawChecks = [
+      makeCheck("quality", 104824971213, 95064477804, "2026-09-16T13:58:06Z", "2026-09-16T13:58:09Z", "success"),
+      makeCheck("build", 104820896568, 95064477804, "2026-09-16T13:47:13Z", "2026-09-16T13:49:25Z", "success"),
+      makeCheck("schema-drift", 104820896591, 95064477804, "2026-09-16T13:47:13Z", "2026-09-16T13:47:54Z", "success"),
+      makeCheck("backoffice-tests", 104820896580, 95064477804, "2026-09-16T13:47:14Z", "2026-09-16T13:48:50Z", "success"),
+      makeCheck("quality", 104820746495, 95064472557, "2026-09-16T13:46:47Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("build", 104820743395, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("schema-drift", 104820743427, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("backoffice-tests", 104820742908, 95064472557, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("quality", 104819009866, 95059354684, "2026-09-16T13:42:12Z", "2026-09-16T13:42:15Z", "success"),
+      makeCheck("build", 104814741385, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:32:56Z", "success"),
+      makeCheck("schema-drift", 104814741286, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:31:18Z", "success"),
+      makeCheck("backoffice-tests", 104814741340, 95059354684, "2026-09-16T13:30:42Z", "2026-09-16T13:32:15Z", "success"),
+      makeCheck("quality", 104818792119, 95059190323, "2026-09-16T13:41:37Z", "2026-09-16T13:41:40Z", "success"),
+      makeCheck("build", 104814511884, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:32:12Z", "success"),
+      makeCheck("schema-drift", 104814511990, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:30:46Z", "success"),
+      makeCheck("backoffice-tests", 104814511860, 95059190323, "2026-09-16T13:30:05Z", "2026-09-16T13:31:36Z", "success"),
+      makeCheck("dossier-acceptance", 104820892110, 95064477189, "2026-09-16T13:47:13Z", "2026-09-16T13:47:16Z", "success"),
+      makeCheck("dossier-acceptance", 104820742926, 95064472638, "2026-09-16T13:46:46Z", "2026-09-16T13:46:46Z", "cancelled"),
+      makeCheck("dossier-acceptance", 104814696012, 95059354650, "2026-09-16T13:30:34Z", "2026-09-16T13:30:37Z", "success"),
+    ];
+    const selectedCiJobs = [
+      makeJob("quality", 104824971213, 104824971213, "2026-09-16T13:58:06Z", "2026-09-16T13:58:09Z", "success"),
+      makeJob("build", 104820896568, 104820896568, "2026-09-16T13:47:13Z", "2026-09-16T13:49:25Z", "success"),
+      makeJob("schema-drift", 104820896591, 104820896591, "2026-09-16T13:47:13Z", "2026-09-16T13:47:54Z", "success"),
+      makeJob("backoffice-tests", 104820896580, 104820896580, "2026-09-16T13:47:14Z", "2026-09-16T13:48:50Z", "success"),
+    ];
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [pushCi, oldCi, cancelledCi, newCi] };
+        }
+        if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+          return { workflow_runs: [oldDossier, cancelledDossier, newDossier] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (runId === 35104112661) return selectedCiJobs;
+        if (runId === 35104112455) {
+          return [
+            makeJob(
+              "dossier-acceptance",
+              104820892110,
+              104820892110,
+              "2026-09-16T13:47:13Z",
+              "2026-09-16T13:47:16Z",
+              "success",
+            ),
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: liveHead,
+      prNumber: livePr,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    const provenanceOf = (id: number) =>
+      enriched.find((check: { id?: unknown; provenance?: Record<string, unknown> }) => check.id === id)
+        ?.provenance;
+    const staleIds = [
+      104818792119, 104814511884, 104814511990, 104814511860, 104819009866, 104814741385,
+      104814741286, 104814741340, 104820746495, 104820743395, 104820743427, 104820742908,
+      104814696012, 104820742926,
+    ];
+    const selectedIds = [104824971213, 104820896568, 104820896591, 104820896580, 104820892110];
+    for (const id of staleIds) {
+      expect(provenanceOf(id)).toMatchObject({
+        kind: "stale-workflow-job",
+        valid: false,
+        collision: false,
+      });
+    }
+    for (const id of selectedIds) {
+      expect(provenanceOf(id)).toMatchObject({
+        valid: true,
+        collision: false,
+      });
+    }
+    expect((provenanceOf(104824971213) as { workflowRun?: { id?: number } })?.workflowRun?.id).toBe(
+      35104112661,
+    );
+    const state = evaluateHeadChecks(enriched, policy as never, TRUSTED_REVIEW);
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
+    expect(state.identityCollisions).toEqual([]);
+  });
+
+  it("klassar äldre same-repo push som stale när senare PR-ägd run är grön", async () => {
+    const prCheck = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const pushCheck = timedRun("quality", 100, 110, { id: 202, conclusion: "success" });
+    const rawChecks = [
+      { ...prCheck, check_suite: { id: 803 }, provenance: undefined },
+      { ...pushCheck, check_suite: { id: 801 }, provenance: undefined },
+    ];
+    const prRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const pushRun = {
+      ...canonicalWorkflowRun(),
+      id: 35102262613,
+      check_suite_id: 801,
+      event: "push",
+      pull_requests: [],
+      created_at: at(100),
+      status: "completed",
+      conclusion: "success",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [pushRun, prRun] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        if (path.startsWith("/actions/runs/35104112661/attempts/1/jobs")) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 202)?.provenance).toMatchObject({
+      kind: "stale-workflow-job",
+      valid: false,
+      collision: false,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 301)?.provenance).toMatchObject({
+      valid: true,
+      collision: false,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
+  });
+
+  it.each([
+    { event: "workflow_dispatch", name: "senare röd workflow_dispatch + äldre grön PR" },
+    { event: "schedule", name: "senare röd schedule + äldre grön PR" },
+  ])("$name blockerar protected checknamn", async ({ event }) => {
+    const prCheck = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const otherCheck = timedRun("quality", 300, 310, { id: 404, conclusion: "failure" });
+    const rawChecks = [
+      { ...prCheck, check_suite: { id: 803 }, provenance: undefined },
+      { ...otherCheck, check_suite: { id: 904 }, provenance: undefined },
+    ];
+    const prRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const otherRun = {
+      ...canonicalWorkflowRun(),
+      id: 35109999999,
+      check_suite_id: 904,
+      event,
+      pull_requests: [],
+      created_at: at(300),
+      status: "completed",
+      conclusion: "failure",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [prRun, otherRun] };
+        }
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        if (suiteId === 904) return { workflow_runs: [otherRun] };
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (runId === 35104112661) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        if (runId === 35109999999) {
+          return [
+            {
+              id: 8404,
+              name: "quality",
+              status: "completed",
+              conclusion: "failure",
+              started_at: at(300),
+              completed_at: at(310),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/404`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(enriched.find((check: { id?: unknown }) => check.id === 404)?.provenance).toMatchObject({
+      valid: false,
+      collision: true,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(false);
+    expect(state.requiredCollisions).toContain("quality");
+  });
+
+  it("håller spoofad checknamnskollision fail-closed även med senare grön owned run", async () => {
+    const canonical = timedRun("quality", 201, 211, { id: 301, conclusion: "success" });
+    const fake = timedRun("quality", 200, 210, { id: 202, conclusion: "success" });
+    const rawChecks = [
+      { ...canonical, check_suite: { id: 803 }, provenance: undefined },
+      { ...fake, check_suite: { id: 702 }, provenance: undefined },
+    ];
+    const ownedRun = {
+      ...canonicalWorkflowRun(),
+      id: 35104112661,
+      check_suite_id: 803,
+      created_at: at(201),
+      status: "completed",
+      conclusion: "success",
+    };
+    const fakeRun = {
+      id: 9002,
+      check_suite_id: 702,
+      path: ".github/workflows/fake.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      pull_requests: [{ number: 1, head: { sha: HEAD } }],
+      created_at: at(200),
+      run_attempt: 1,
+      status: "completed",
+      conclusion: "success",
+    };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [ownedRun] };
+        }
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        if (suiteId === 702) return { workflow_runs: [fakeRun] };
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        const runId = Number(/\/actions\/runs\/(\d+)\/attempts\/1\/jobs/.exec(path)?.[1]);
+        if (runId === 35104112661) {
+          return [
+            {
+              id: 8301,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(201),
+              completed_at: at(211),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/301`,
+            },
+          ];
+        }
+        if (runId === 9002) {
+          return [
+            {
+              id: 8202,
+              name: "quality",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(200),
+              completed_at: at(210),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/202`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: rawChecks,
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(
+      enriched.find((check: { id?: unknown }) => check.id === 202)?.provenance,
+    ).toMatchObject({
+      valid: false,
+      collision: true,
+    });
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), ...enriched],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(false);
+    expect(state.requiredCollisions).toContain("quality");
+  });
+
   it("keeps earlier green jobs when a partial rerun only replaces failed jobs", async () => {
     const rawChecks = [
       run("quality", { id: 101, check_suite: { id: 701 }, provenance: undefined }),
@@ -1406,6 +1916,9 @@ describe("check workflow provenance", () => {
           if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
             return { workflow_runs: [] };
           }
+          if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+            return { workflow_runs: [workflowRun] };
+          }
           if (path.startsWith("/actions/runs?check_suite_id=761")) {
             return { workflow_runs: [workflowRun] };
           }
@@ -1467,6 +1980,12 @@ describe("check workflow provenance", () => {
     const client = {
       async request(path: string) {
         if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [canonicalRun] };
+        }
+        if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+          return { workflow_runs: [] };
+        }
+        if (path.startsWith("/actions/runs?check_suite_id=701")) {
           return { workflow_runs: [canonicalRun] };
         }
         throw new Error(`unexpected request ${path}`);
@@ -1683,6 +2202,20 @@ describe("trusted review-window check decisions", () => {
     );
     expect(state.botsDone).toBe(false);
     expect(state.securityFailed).toBe(1);
+  });
+
+  it("låter inte en stale required-check med collision-flagga förgifta namnet", () => {
+    const stale = run("quality", {
+      provenance: { kind: "stale-workflow-job", valid: false, collision: true },
+    });
+    const live = greenRequiredRuns().find((item) => item.name === "quality");
+    const state = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "quality"), stale, live],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(state.requiredDone).toBe(true);
+    expect(state.requiredCollisions).toEqual([]);
   });
 
   it("blockerar ett vanligt Actions-jobb som återanvänder reviewkvittots namn", () => {
@@ -2082,6 +2615,10 @@ function integrationHarness({
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
       }
+      if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+        const owned = ownedWorkflowRunForSuite(checks, 761);
+        return { workflow_runs: owned ? [owned] : [] };
+      }
       if (path.startsWith("/actions/runs?check_suite_id=")) {
         const suiteId = Number(
           new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
@@ -2203,6 +2740,10 @@ function mergeHarness({
       }
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
+      }
+      if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
+        const owned = ownedWorkflowRunForSuite(checks, 761);
+        return { workflow_runs: owned ? [owned] : [] };
       }
       if (path.startsWith("/actions/runs?check_suite_id=")) {
         const suiteId = Number(

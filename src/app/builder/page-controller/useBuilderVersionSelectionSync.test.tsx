@@ -235,3 +235,83 @@ describe("useBuilderVersionSelectionSync — fresh-version guard", () => {
     expect(setSelectedVersionId).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe("useBuilderVersionSelectionSync — URL chatId handoff", () => {
+  it("does not apply a stale URL chatId while a pending handoff owns chat_new", () => {
+    const setChatId = vi.fn();
+    const pendingChatHandoffRef = { current: { chatId: "chat_new" } };
+    renderHook(() =>
+      useBuilderVersionSelectionSync(
+        makeParams({
+          chatId: "chat_new",
+          chatIdParam: "chat_old",
+          pendingChatHandoffRef,
+          setChatId,
+        }),
+      ),
+    );
+    expect(setChatId).not.toHaveBeenCalled();
+    expect(pendingChatHandoffRef.current).toEqual({ chatId: "chat_new" });
+  });
+
+  it("releases the handoff latch once the URL lands on chat_new", () => {
+    const setChatId = vi.fn();
+    const pendingChatHandoffRef = { current: { chatId: "chat_new" } };
+    const initialProps = makeParams({
+      chatId: "chat_new",
+      chatIdParam: "chat_old",
+      pendingChatHandoffRef,
+      setChatId,
+    });
+    const { rerender } = renderHook(
+      (params: HookParams) => useBuilderVersionSelectionSync(params),
+      { initialProps },
+    );
+    expect(setChatId).not.toHaveBeenCalled();
+    expect(pendingChatHandoffRef.current).toEqual({ chatId: "chat_new" });
+
+    rerender({
+      ...initialProps,
+      chatIdParam: "chat_new",
+    });
+    expect(setChatId).not.toHaveBeenCalled();
+    expect(pendingChatHandoffRef.current).toBeNull();
+  });
+
+  it("still syncs URL → state when no handoff is pending", () => {
+    const setChatId = vi.fn();
+    renderHook(() =>
+      useBuilderVersionSelectionSync(
+        makeParams({
+          chatId: "chat_old",
+          chatIdParam: "chat_new",
+          setChatId,
+        }),
+      ),
+    );
+    expect(setChatId).toHaveBeenCalledWith("chat_new");
+  });
+
+  it("syncs URL → state after the latch has been released", () => {
+    const setChatId = vi.fn();
+    const pendingChatHandoffRef = { current: { chatId: "chat_new" } };
+    const initialProps = makeParams({
+      chatId: "chat_new",
+      chatIdParam: "chat_new",
+      pendingChatHandoffRef,
+      setChatId,
+    });
+    const { rerender } = renderHook(
+      (params: HookParams) => useBuilderVersionSelectionSync(params),
+      { initialProps },
+    );
+    expect(setChatId).not.toHaveBeenCalled();
+    expect(pendingChatHandoffRef.current).toBeNull();
+
+    rerender({
+      ...initialProps,
+      chatIdParam: "chat_other",
+    });
+    expect(setChatId).toHaveBeenCalledWith("chat_other");
+  });
+});

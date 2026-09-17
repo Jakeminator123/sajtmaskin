@@ -74,12 +74,30 @@ Kopiera checklistan och bocka av:
 ```text
 - [ ] 0. Env: prod-snapshot finns, Vercel-ids + Fly-åtkomst upplösta
 - [ ] 1. Hitta senaste sajten (chatId, versionId, projectId, previewUrl, created_at)
+- [ ] 1b. Bootfält FÖRST: telemetry.preview_success + preview_blocking_reason, sedan error-log `source=preview_readiness_probe`
 - [ ] 2. Alla prod-DB-loggar för chatId (inkl. `drain`) + 2c XOR-regel för console
 - [ ] 2d. Redis-cache (valfritt) — briefs / handoffs / previews
 - [ ] 3. Vercel: felkluster/5xx + sajtens deploy-loggar + DB-pool — **inte** omgreppa 2c:s console-mönster
 - [ ] 4. Fly: preview-host-loggar för sajtens previewSessionId
 - [ ] 5. Syntes: en rapport om hur körningen gick
 ```
+
+### Bootfält först (innan Fly/Vercel)
+
+När `preview_success` är `null`/`false` eller previewen ser död ut: läs **databasen
+först**, inte host-loggen.
+
+1. `generation_telemetry.preview_success` och `preview_blocking_reason`
+   (`--kinds=telemetry` / `npm run db:latest:prod`).
+2. `engine_version_error_logs` med `category=preview` och
+   `meta.source=preview_readiness_probe` (`--kinds=errors`). Det är hostens
+   `waitForReady`-text.
+3. Först därefter Fly `/status` eller `fly logs`.
+
+Auth-eval `7723af5b` såg `preview_success=null` och `preview_blocking_reason=null`
+för att kvittot bara skrevs från klientens preview-status-poll. Tomt bootfält
+betyder "inget kvitto", inte "ingen kolumn". Ny headless-poll i
+`pollAndApplyPreviewReadinessOutcome` fyller samma fält utan ny drain.
 
 ### 1. Hitta senaste genererade sajten
 

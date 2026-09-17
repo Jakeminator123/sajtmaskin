@@ -86,7 +86,10 @@ export function evaluateHeadChecks(
   const requiredNames = policy.requiredChecks.filter((name) => name !== CHECK_NAME);
   const requiredNameSet = new Set(requiredNames);
   const requiredCollisions = runs.filter(
-    (run) => requiredNameSet.has(run.name) && run.provenance?.collision === true,
+    (run) =>
+      requiredNameSet.has(run.name) &&
+      run.provenance?.collision === true &&
+      run.provenance?.kind !== "stale-workflow-job",
   );
   const trustedRequiredRuns = newestByIdentity(
     runs.filter((run) => requiredNameSet.has(run.name) && run.provenance?.valid === true),
@@ -106,7 +109,10 @@ export function evaluateHeadChecks(
     qualifyingCandidates.filter((run) => run.app?.slug !== "github-actions"),
   );
   const reviewJobCollisions = qualifyingCandidates.filter(
-    (run) => run.app?.slug === "github-actions" && run.provenance?.collision === true,
+    (run) =>
+      run.app?.slug === "github-actions" &&
+      run.provenance?.collision === true &&
+      run.provenance?.kind !== "stale-workflow-job",
   );
   const identityCollisions = [...requiredCollisions, ...reviewJobCollisions];
   const security = newestByIdentity(runs).filter((run) =>
@@ -489,8 +495,23 @@ export function targetsTrunk(pr, policy = POLICY) {
 
 const GATE_PR_ACTIONS = new Set(["opened", "reopened", "synchronize", "ready_for_review"]);
 
-export function shouldRunTrustedGate({ eventName = "", eventAction = "", draft = false } = {}) {
-  if (eventName === "issue_comment") return { run: false, reason: "comment" };
+export function shouldRunTrustedGate({
+  eventName = "",
+  eventAction = "",
+  draft = false,
+  gateRefresh = false,
+} = {}) {
+  if (eventName === "workflow_dispatch") {
+    if (draft) return { run: false, reason: "draft" };
+    return { run: true, reason: "workflow_dispatch" };
+  }
+  if (eventName === "issue_comment") {
+    if (gateRefresh && eventAction === "created") {
+      if (draft) return { run: false, reason: "draft" };
+      return { run: true, reason: "gate_refresh" };
+    }
+    return { run: false, reason: "comment" };
+  }
   if (draft && eventAction !== "ready_for_review") return { run: false, reason: "draft" };
   if (!eventName) return { run: true, reason: "unspecified" };
   if (eventName === "pull_request_target" || eventName === "pull_request") {
@@ -693,6 +714,291 @@ function checkRunIdFromUrl(url) {
   return match ? Number(match[1]) : null;
 }
 
+function ownedWorkflowKey(spec) {
+  return `${normalizedWorkflowPath(spec?.path)}::${spec?.event ?? ""}`;
+}
+
+function workflowFileFromPath(path) {
+  return String(path ?? "")
+    .split("/")
+    .at(-1);
+}
+
+function runAssociatedWithCurrentPr(
+  run,
+  { expectedHeadSha, prNumber, repository, expectedHeadRepository, expectedHeadRef },
+) {
+  const pullRequests = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+  const directAssociation = pullRequests.some(
+    (pr) => Number(pr.number) === Number(prNumber) && pr.head?.sha === expectedHeadSha,
+  );
+  // GitHub kan returnera tom pull_requests för fork-PR-körningar. Då
+  // krävs i stället exakt live-bindning till både fork-repo och branch.
+  const emptyAssociationFallback =
+    pullRequests.length === 0 &&
+    typeof expectedHeadRepository === "string" &&
+    expectedHeadRepository.length > 0 &&
+    typeof expectedHeadRef === "string" &&
+    expectedHeadRef.length > 0 &&
+    run.head_repository?.full_name === expectedHeadRepository &&
+    run.head_branch === expectedHeadRef;
+  // Samma-repo draft→ready/cancel-in-progress lämnar ofta pull_requests tom
+  // på den avbrutna körningen. Den är fortfarande en legitim same-head-run
+  // av den deklarerade ägar-workflowen, inte en spoofad namnkollision.
+  const sameRepoEmptyAssociation =
+    pullRequests.length === 0 &&
+    run.repository?.full_name === repository &&
+    run.head_sha === expectedHeadSha &&
+    (!run.head_repository?.full_name || run.head_repository.full_name === repository);
+  return directAssociation || emptyAssociationFallback || sameRepoEmptyAssociation;
+}
+
+function ownedWorkflowRunRank(run) {
+  const status = String(run.status ?? "");
+  const conclusion = String(run.conclusion ?? "");
+  if (status === "completed" && conclusion === "success") return 4;
+  if (status === "completed" && conclusion !== "cancelled" && conclusion !== "skipped") return 3;
+  if (status !== "completed") return 2;
+  return 1;
+}
+
+function compareOwnedWorkflowRuns(left, right) {
+  const time = (epoch(right.created_at) ?? 0) - (epoch(left.created_at) ?? 0);
+  if (time) return time;
+  const rank = ownedWorkflowRunRank(right) - ownedWorkflowRunRank(left);
+  if (rank) return rank;
+  return Number(right.id) - Number(left.id);
+}
+
+function selectOwnedWorkflowRun(runs) {
+  if (!Array.isArray(runs) || runs.length === 0) {
+    return { selected: null, ambiguous: false, attemptOverflow: false };
+  }
+  const selected = [...runs].sort(compareOwnedWorkflowRuns)[0];
+  const attemptOverflow = Number(selected?.run_attempt ?? 0) > MAX_PROVENANCE_ATTEMPTS;
+  if (!selected || attemptOverflow) {
+    return { selected: null, ambiguous: true, attemptOverflow };
+  }
+  return { selected, ambiguous: false, attemptOverflow: false };
+}
+
+function indexSelectedJobs(jobs) {
+  const jobsByName = new Map();
+  for (const job of jobs) {
+    const values = jobsByName.get(job.name) ?? [];
+    values.push(job);
+    jobsByName.set(job.name, values);
+  }
+  const selectedJobsByName = new Map();
+  const ambiguousJobNames = new Set();
+  for (const [name, namedJobs] of jobsByName) {
+    const countsByAttempt = new Map();
+    for (const job of namedJobs) {
+      const attempt = Number(job.provenanceAttempt);
+      countsByAttempt.set(attempt, (countsByAttempt.get(attempt) ?? 0) + 1);
+    }
+    if ([...countsByAttempt.values()].some((count) => count > 1)) {
+      ambiguousJobNames.add(name);
+    }
+    const latestAttempt = Math.max(...namedJobs.map((job) => Number(job.provenanceAttempt)));
+    selectedJobsByName.set(
+      name,
+      namedJobs.filter((job) => Number(job.provenanceAttempt) === latestAttempt),
+    );
+  }
+  return { selectedJobsByName, ambiguousJobNames };
+}
+
+async function loadOwnedWorkflowSelection({
+  client,
+  spec,
+  expectedHeadSha,
+  prNumber,
+  repository,
+  expectedHeadRepository,
+  expectedHeadRef,
+}) {
+  const file = spec.file || workflowFileFromPath(spec.path);
+  const payload = await client.request(
+    `/actions/workflows/${encodeURIComponent(file)}/runs?head_sha=${encodeURIComponent(
+      expectedHeadSha,
+    )}&exclude_pull_requests=false&per_page=100`,
+  );
+  // Senaste PR-associerade owned run är trust-rot. Bara en äldre same-repo
+  // `push` på samma ägarfil och SHA (preview-tipp som promote-head) läggs i
+  // suiteIds och blir stale. workflow_dispatch, schedule och andra event
+  // failar closed. Fork-head_repository hålls utanför.
+  const ownedHeadRuns = (payload.workflow_runs ?? []).filter(
+    (run) =>
+      normalizedWorkflowPath(run.path) === spec.path &&
+      run.head_sha === expectedHeadSha &&
+      run.repository?.full_name === repository &&
+      Number.isSafeInteger(Number(run.check_suite_id)) &&
+      Number.isSafeInteger(Number(run.run_attempt)) &&
+      Number(run.run_attempt) > 0,
+  );
+  const runs = ownedHeadRuns.filter(
+    (run) =>
+      run.event === spec.event &&
+      runAssociatedWithCurrentPr(run, {
+        expectedHeadSha,
+        prNumber,
+        repository,
+        expectedHeadRepository,
+        expectedHeadRef,
+      }),
+  );
+  const { selected, ambiguous, attemptOverflow } = selectOwnedWorkflowRun(runs);
+  const extraOlderSameRepoPushRuns = selected
+    ? ownedHeadRuns.filter((run) => {
+        if (run.event !== "push") return false;
+        if (run.head_repository?.full_name && run.head_repository.full_name !== repository) {
+          return false;
+        }
+        const pushCreated = epoch(run.created_at);
+        const selectedCreated = epoch(selected.created_at);
+        return pushCreated !== null && selectedCreated !== null && pushCreated < selectedCreated;
+      })
+    : [];
+  const jobs = selected
+    ? (
+        await Promise.all(
+          Array.from({ length: Number(selected.run_attempt) }, async (_, index) => {
+            const attempt = index + 1;
+            const attemptJobs = await client.paginate(
+              `/actions/runs/${selected.id}/attempts/${attempt}/jobs`,
+              "jobs",
+            );
+            return attemptJobs.map((job) => ({ ...job, provenanceAttempt: attempt }));
+          }),
+        )
+      ).flat()
+    : [];
+  return {
+    spec,
+    runs,
+    selected,
+    ambiguous,
+    attemptOverflow,
+    jobs,
+    ...indexSelectedJobs(jobs),
+    suiteIds: new Set(
+      [...runs, ...extraOlderSameRepoPushRuns].map((run) => Number(run.check_suite_id)),
+    ),
+  };
+}
+
+function classifyCheckAgainstSelectedRun({
+  check,
+  selection,
+  requiredNames,
+  policy,
+  canonicalOwner,
+}) {
+  const selectedRun = selection.selected;
+  if (requiredNames.has(check.name)) {
+    const owner = requiredCheckOwnerSpec(check.name, policy);
+    if (
+      normalizedWorkflowPath(selectedRun.path) !== owner.path ||
+      selectedRun.event !== owner.event
+    ) {
+      return {
+        kind: "workflow-job",
+        valid: false,
+        collision: true,
+        reason: "check kommer från annan workflow än dess deklarerade ägare",
+        workflowRun: selectedRun,
+      };
+    }
+  }
+  const matchingJobs = selection.jobs.filter(
+    (job) => checkRunIdFromUrl(job.check_run_url) === Number(check.id),
+  );
+  if (matchingJobs.length !== 1) {
+    return {
+      kind: matchingJobs.length === 0 ? "unbound-workflow-check" : "ambiguous-workflow-job",
+      valid: false,
+      collision: requiredNames.has(check.name) || matchingJobs.length > 1,
+      reason:
+        matchingJobs.length === 0
+          ? "check kunde inte bindas till något serververifierat canonical CI-jobb"
+          : `check ${check.id} gav ${matchingJobs.length} canonical CI-jobs`,
+      workflowRun: selectedRun,
+    };
+  }
+  const job = matchingJobs[0];
+  const selectedJobs = selection.selectedJobsByName.get(job.name) ?? [];
+  const selectedAttempt = Number(selectedJobs[0]?.provenanceAttempt ?? 0);
+  if (selection.ambiguousJobNames.has(job.name)) {
+    return {
+      kind: "ambiguous-workflow-job",
+      valid: false,
+      collision: true,
+      reason: "ett canonical CI-attempt har flera jobs med samma skyddade namn",
+      workflowRun: selectedRun,
+      job,
+    };
+  }
+  if (Number(job.provenanceAttempt) < selectedAttempt) {
+    return {
+      kind: "stale-workflow-job",
+      valid: false,
+      collision: false,
+      reason: "jobbet ersattes av ett senare canonical CI-attempt",
+      workflowRun: selectedRun,
+      job,
+    };
+  }
+  if (selectedJobs.length !== 1 || selectedJobs[0]?.id !== job.id) {
+    return {
+      kind: "ambiguous-workflow-job",
+      valid: false,
+      collision: true,
+      reason: "valt CI-attempt har flera jobs med samma skyddade namn",
+      workflowRun: selectedRun,
+      job,
+    };
+  }
+  const executionBacked = Array.isArray(job.steps) && job.steps.length > 0;
+  if (!requiredNames.has(check.name)) {
+    return {
+      kind: executionBacked ? "workflow-job" : "custom-check",
+      valid: false,
+      collision: executionBacked,
+      reason: executionBacked
+        ? "ett Actions-jobb återanvänder ett reserverat reviewkvittonamn"
+        : "custom review-check är endast UX; live state + review-ID krävs",
+      workflowRun: selectedRun,
+      job,
+    };
+  }
+  const jobMatches =
+    executionBacked &&
+    job.name === check.name &&
+    job.status === check.status &&
+    (job.conclusion ?? null) === (check.conclusion ?? null) &&
+    job.started_at === check.started_at &&
+    (job.completed_at ?? null) === (check.completed_at ?? null);
+  const owner = requiredCheckOwnerSpec(check.name, policy);
+  const isCanonicalOwner =
+    normalizedWorkflowPath(owner.path) === normalizedWorkflowPath(canonicalOwner?.path) &&
+    owner.event === canonicalOwner?.event;
+  return {
+    kind: "workflow-job",
+    valid: jobMatches,
+    collision: !jobMatches,
+    reason: jobMatches
+      ? isCanonicalOwner
+        ? "latest canonical CI workflow/job"
+        : "latest owned required-check workflow/job"
+      : isCanonicalOwner
+        ? "check/job är inte senaste identiska canonical CI-försöket"
+        : "check/job är inte senaste identiska owned workflow-försöket",
+    workflowRun: selectedRun,
+    job,
+  };
+}
+
 /**
  * Bind varje relevant github-actions-check till den serverägda WorkflowRun och
  * Job som faktiskt skapade den. Checknamn/app-id ensamt är aldrig proveniens.
@@ -727,205 +1033,65 @@ export async function enrichCheckRunProvenance({
     }
   }
 
-  const workflowFile = policy.review.requiredCheckWorkflow.path.split("/").at(-1);
-  const canonicalPayload = await client.request(
-    `/actions/workflows/${encodeURIComponent(workflowFile)}/runs?event=${encodeURIComponent(
-      policy.review.requiredCheckWorkflow.event,
-    )}&head_sha=${encodeURIComponent(expectedHeadSha)}&exclude_pull_requests=false&per_page=100`,
-  );
-  const canonicalRuns = (canonicalPayload.workflow_runs ?? [])
-    .filter((run) => {
-      const pullRequests = Array.isArray(run.pull_requests) ? run.pull_requests : [];
-      const directAssociation = pullRequests.some(
-        (pr) => Number(pr.number) === Number(prNumber) && pr.head?.sha === expectedHeadSha,
-      );
-      // GitHub kan returnera tom pull_requests för fork-PR-körningar. Då
-      // krävs i stället exakt live-bindning till både fork-repo och branch.
-      const emptyAssociationFallback =
-        pullRequests.length === 0 &&
-        typeof expectedHeadRepository === "string" &&
-        typeof expectedHeadRef === "string" &&
-        run.head_repository?.full_name === expectedHeadRepository &&
-        run.head_branch === expectedHeadRef;
-      return (
-        normalizedWorkflowPath(run.path) === policy.review.requiredCheckWorkflow.path &&
-        run.event === policy.review.requiredCheckWorkflow.event &&
-        run.head_sha === expectedHeadSha &&
-        run.repository?.full_name === repository &&
-        (directAssociation || emptyAssociationFallback) &&
-        Number.isSafeInteger(Number(run.check_suite_id)) &&
-        Number.isSafeInteger(Number(run.run_attempt)) &&
-        Number(run.run_attempt) > 0
-      );
-    })
-    .sort((left, right) => {
-      const time = (epoch(right.created_at) ?? 0) - (epoch(left.created_at) ?? 0);
-      return time || Number(right.id) - Number(left.id);
-    });
-  const newestCanonicalCreatedAt = canonicalRuns[0]?.created_at ?? null;
-  const newestCanonicalRuns = canonicalRuns.filter(
-    (run) => run.created_at === newestCanonicalCreatedAt,
-  );
-  const selectedCanonicalRun = newestCanonicalRuns.length === 1 ? newestCanonicalRuns[0] : null;
-  const canonicalRunAttemptOverflow =
-    Number(selectedCanonicalRun?.run_attempt ?? 0) > MAX_PROVENANCE_ATTEMPTS;
-  const canonicalRun = canonicalRunAttemptOverflow ? null : selectedCanonicalRun;
-  const canonicalRunAmbiguous = canonicalRuns.length > 0 && canonicalRun === null;
-  const canonicalSuiteIds = new Set(canonicalRuns.map((run) => Number(run.check_suite_id)));
-  const canonicalJobs = canonicalRun
-    ? (
-        await Promise.all(
-          Array.from({ length: Number(canonicalRun.run_attempt) }, async (_, index) => {
-            const attempt = index + 1;
-            const jobs = await client.paginate(
-              `/actions/runs/${canonicalRun.id}/attempts/${attempt}/jobs`,
-              "jobs",
-            );
-            return jobs.map((job) => ({ ...job, provenanceAttempt: attempt }));
-          }),
-        )
-      ).flat()
-    : [];
-  const jobsByName = new Map();
-  for (const job of canonicalJobs) {
-    const values = jobsByName.get(job.name) ?? [];
-    values.push(job);
-    jobsByName.set(job.name, values);
+  const canonicalOwner = policy.review.requiredCheckWorkflow;
+  const ownerSpecs = new Map();
+  ownerSpecs.set(ownedWorkflowKey(canonicalOwner), {
+    path: canonicalOwner.path,
+    event: canonicalOwner.event,
+    file: workflowFileFromPath(canonicalOwner.path),
+  });
+  for (const check of relevant) {
+    if (!requiredNames.has(check.name)) continue;
+    const owner = requiredCheckOwnerSpec(check.name, policy);
+    ownerSpecs.set(ownedWorkflowKey(owner), owner);
   }
-  const selectedJobsByName = new Map();
-  const ambiguousJobNames = new Set();
-  for (const [name, jobs] of jobsByName) {
-    const countsByAttempt = new Map();
-    for (const job of jobs) {
-      const attempt = Number(job.provenanceAttempt);
-      countsByAttempt.set(attempt, (countsByAttempt.get(attempt) ?? 0) + 1);
-    }
-    if ([...countsByAttempt.values()].some((count) => count > 1)) {
-      ambiguousJobNames.add(name);
-    }
-    const latestAttempt = Math.max(...jobs.map((job) => Number(job.provenanceAttempt)));
-    selectedJobsByName.set(
-      name,
-      jobs.filter((job) => Number(job.provenanceAttempt) === latestAttempt),
-    );
-  }
+  const ownerSelections = new Map();
+  await Promise.all(
+    [...ownerSpecs.values()].map(async (spec) => {
+      const selection = await loadOwnedWorkflowSelection({
+        client,
+        spec,
+        expectedHeadSha,
+        prNumber,
+        repository,
+        expectedHeadRepository,
+        expectedHeadRef,
+      });
+      ownerSelections.set(ownedWorkflowKey(spec), selection);
+    }),
+  );
 
   const nonCanonicalSuites = new Map();
   for (const check of relevant) {
     const suiteId = Number(check.check_suite?.id);
     if (!Number.isSafeInteger(suiteId) || suiteId <= 0) continue;
-    if (canonicalRun && suiteId === Number(canonicalRun.check_suite_id)) {
-      if (requiredNames.has(check.name)) {
-        const owner = requiredCheckOwnerSpec(check.name, policy);
-        if (
-          normalizedWorkflowPath(canonicalRun.path) !== owner.path ||
-          canonicalRun.event !== owner.event
-        ) {
-          provenanceByCheckId.set(check.id, {
-            kind: "workflow-job",
-            valid: false,
-            collision: true,
-            reason: "check kommer från annan workflow än dess deklarerade ägare",
-            workflowRun: canonicalRun,
-          });
-          continue;
-        }
-      }
-      const matchingJobs = canonicalJobs.filter(
-        (job) => checkRunIdFromUrl(job.check_run_url) === Number(check.id),
+    const owner = requiredNames.has(check.name)
+      ? requiredCheckOwnerSpec(check.name, policy)
+      : canonicalOwner;
+    const selection = ownerSelections.get(ownedWorkflowKey(owner));
+    if (selection?.selected && suiteId === Number(selection.selected.check_suite_id)) {
+      provenanceByCheckId.set(
+        check.id,
+        classifyCheckAgainstSelectedRun({
+          check,
+          selection,
+          requiredNames,
+          policy,
+          canonicalOwner,
+        }),
       );
-      if (matchingJobs.length !== 1) {
-        provenanceByCheckId.set(check.id, {
-          kind: matchingJobs.length === 0 ? "unbound-workflow-check" : "ambiguous-workflow-job",
-          valid: false,
-          collision: requiredNames.has(check.name) || matchingJobs.length > 1,
-          reason:
-            matchingJobs.length === 0
-              ? "check kunde inte bindas till något serververifierat canonical CI-jobb"
-              : `check ${check.id} gav ${matchingJobs.length} canonical CI-jobs`,
-          workflowRun: canonicalRun,
-        });
-        continue;
-      }
-      const job = matchingJobs[0];
-      const selectedJobs = selectedJobsByName.get(job.name) ?? [];
-      const selectedAttempt = Number(selectedJobs[0]?.provenanceAttempt ?? 0);
-      if (ambiguousJobNames.has(job.name)) {
-        provenanceByCheckId.set(check.id, {
-          kind: "ambiguous-workflow-job",
-          valid: false,
-          collision: true,
-          reason: "ett canonical CI-attempt har flera jobs med samma skyddade namn",
-          workflowRun: canonicalRun,
-          job,
-        });
-        continue;
-      }
-      if (Number(job.provenanceAttempt) < selectedAttempt) {
-        provenanceByCheckId.set(check.id, {
-          kind: "stale-workflow-job",
-          valid: false,
-          collision: false,
-          reason: "jobbet ersattes av ett senare canonical CI-attempt",
-          workflowRun: canonicalRun,
-          job,
-        });
-        continue;
-      }
-      if (selectedJobs.length !== 1 || selectedJobs[0]?.id !== job.id) {
-        provenanceByCheckId.set(check.id, {
-          kind: "ambiguous-workflow-job",
-          valid: false,
-          collision: true,
-          reason: "valt CI-attempt har flera jobs med samma skyddade namn",
-          workflowRun: canonicalRun,
-          job,
-        });
-        continue;
-      }
-      const executionBacked = Array.isArray(job.steps) && job.steps.length > 0;
-      if (!requiredNames.has(check.name)) {
-        provenanceByCheckId.set(check.id, {
-          kind: executionBacked ? "workflow-job" : "custom-check",
-          valid: false,
-          collision: executionBacked,
-          reason: executionBacked
-            ? "ett Actions-jobb återanvänder ett reserverat reviewkvittonamn"
-            : "custom review-check är endast UX; live state + review-ID krävs",
-          workflowRun: canonicalRun,
-          job,
-        });
-        continue;
-      }
-      const jobMatches =
-        executionBacked &&
-        job.name === check.name &&
-        job.status === check.status &&
-        (job.conclusion ?? null) === (check.conclusion ?? null) &&
-        job.started_at === check.started_at &&
-        (job.completed_at ?? null) === (check.completed_at ?? null);
-      provenanceByCheckId.set(check.id, {
-        kind: "workflow-job",
-        valid: jobMatches,
-        collision: !jobMatches,
-        reason: jobMatches
-          ? "latest canonical CI workflow/job"
-          : "check/job är inte senaste identiska canonical CI-försöket",
-        workflowRun: canonicalRun,
-        job,
-      });
       continue;
     }
-    if (canonicalSuiteIds.has(suiteId)) {
+    if (selection?.suiteIds.has(suiteId)) {
       provenanceByCheckId.set(check.id, {
-        kind: canonicalRunAmbiguous ? "ambiguous-workflow-run" : "stale-workflow-job",
+        kind: selection.ambiguous ? "ambiguous-workflow-run" : "stale-workflow-job",
         valid: false,
-        collision: canonicalRunAmbiguous,
-        reason: canonicalRunAmbiguous
-          ? canonicalRunAttemptOverflow
-            ? `canonical CI-run har fler än ${MAX_PROVENANCE_ATTEMPTS} attempts; skapa en ny head`
-            : "flera canonical CI-runs delar senaste server-created_at"
-          : "äldre canonical CI-run ersatt av en nyare run på samma head",
+        collision: selection.ambiguous,
+        reason: selection.ambiguous
+          ? selection.attemptOverflow
+            ? `owned workflow-run har fler än ${MAX_PROVENANCE_ATTEMPTS} attempts; skapa en ny head`
+            : "flera owned workflow-runs kunde inte skiljas på samma head"
+          : "äldre eller avbruten owned workflow-run ersatt av en senare run på samma head",
       });
       continue;
     }
@@ -1488,6 +1654,7 @@ export async function runTrustedGate({
   policy = POLICY,
   eventName = "",
   eventAction = "",
+  gateRefresh = false,
   invalidateExistingSignoff: _invalidateExistingSignoff = false,
 }) {
   const initialPr = await client.request(`/pulls/${prNumber}`);
@@ -1498,6 +1665,7 @@ export async function runTrustedGate({
     eventName,
     eventAction,
     draft: Boolean(initialPr.draft),
+    gateRefresh,
   });
   if (!gateDecision.run) {
     return { conclusion: "ignored", reason: gateDecision.reason };
@@ -1926,6 +2094,7 @@ async function main() {
     prNumber,
     eventName: process.env.EVENT_NAME ?? "",
     eventAction: process.env.EVENT_ACTION ?? "",
+    gateRefresh: process.env.GATE_REFRESH === "1",
     invalidateExistingSignoff: reviewMutationRequiresNewSignoff(
       process.env.EVENT_NAME ?? "",
       process.env.EVENT_ACTION ?? "",
