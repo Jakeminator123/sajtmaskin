@@ -405,9 +405,14 @@ export function SkapaHemsidaContent() {
               </h2>
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 Det finns inget enda rätt belopp för att skapa en hemsida. Byrå tar mer i start.
-                Ett CMS eller en AI-builder flyttar mer arbete — och mer ansvar — till er. En
-                separat guide om kostnadsdelar kommer senare; räkna inte med en färdig
-                priskalkyl där ännu.
+                Ett CMS eller en AI-builder flyttar mer arbete — och mer ansvar — till er.{" "}
+                <Link
+                  href="/vad-kostar-en-hemsida"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  Vad kostar en hemsida
+                </Link>{" "}
+                listar kostnadsdelarna — drivare, inte en fast priskalkyl.
               </p>
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering
@@ -463,9 +468,8 @@ export function SkapaHemsidaContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Den här sidan är teknikneutral. AI-processen ligger på en egen sida. Guider om
-                  hemsideprogram och vad en hemsida kostar fylls på när de är klara — de syns inte
-                  som länkar förrän dess.
+                  Den här sidan är teknikneutral. AI-processen, hemsideprogram och vad en hemsida
+                  kostar ligger på egna sidor.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (
