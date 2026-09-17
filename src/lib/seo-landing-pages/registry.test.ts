@@ -147,7 +147,9 @@ describe("SEO landing registry", () => {
   it("fails closed when a ready route still mounts SeoLandingPlaceholder", () => {
     for (const page of SEO_LANDING_PAGES) {
       const source = readFileSync(join(APP_DIR, page.slug, "page.tsx"), "utf8");
-      const usesPlaceholder = source.includes("SeoLandingPlaceholder");
+      const usesPlaceholder =
+        /<SeoLandingPlaceholder\b/.test(source) ||
+        /^\s*import[\s\S]*\bSeoLandingPlaceholder\b/m.test(source);
       if (usesPlaceholder) {
         expect(page.status).toBe("placeholder");
       }
