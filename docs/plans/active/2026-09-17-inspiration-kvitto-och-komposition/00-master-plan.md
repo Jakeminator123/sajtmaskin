@@ -86,7 +86,7 @@ Sju avstängda poster (rör inte): MindSpace `8QhCJAwn16K`, Flowly
    från att utdragen aldrig nådde prompten.
 2. B sedan — dynamiska recept, inte 03.
 3. C — efter att B inte längre tvingar samma paket.
-4. D — kurering/extractor-signal, inte «kör om alla 69».
+4. D — kurering/extractor-signal, inte «kör om alla 68».
 
 **Stoppa en fix** vid nya byggfel, tappade funktioner, eller att
 follow-up «ändra telefonnumret» ritar om header/hero. En prompt- eller

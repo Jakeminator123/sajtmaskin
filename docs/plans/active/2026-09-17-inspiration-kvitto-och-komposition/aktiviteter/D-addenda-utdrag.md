@@ -47,7 +47,7 @@ Stillbilden kan ändå väljas när utdrag saknas — mät det i A.
 3. Om `looksLikeFrontendComponent` redan filtrerar hooks — och vad som
    ändå släpps igenom.
 4. Nästa kurering: vilka **aktiva** poster som vinner på om-extraktion
-   efter en ev. extractorändring. Inte «kör om alla 69».
+   efter en ev. extractorändring. Inte «kör om alla 68».
 
 ## Möjlig fix (bara efter belägg)
 
