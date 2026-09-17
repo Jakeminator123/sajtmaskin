@@ -338,4 +338,5 @@ module.exports = {
   validatePatchPayload,
   validateSessionRefPayload,
   validateVerifyPayload,
+  isSafeRelativePath,
 };
