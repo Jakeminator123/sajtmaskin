@@ -102,7 +102,11 @@ export function savePendingBuilderDraft(input: {
     attachmentUrls: (input.attachmentUrls ?? []).filter((url) => /^https?:\/\//i.test(url)),
     savedAt: input.now ?? Date.now(),
   };
-  storage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    return null;
+  }
   return draft;
 }
 

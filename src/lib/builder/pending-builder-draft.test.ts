@@ -62,4 +62,21 @@ describe("pending builder draft", () => {
     });
     expect(consumeMatchingPendingBuilderDraft(currentBuilderReturnTo())).toBeNull();
   });
+
+  it("returns null when sessionStorage refuses the write", () => {
+    const original = sessionStorage.setItem.bind(sessionStorage);
+    sessionStorage.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    try {
+      expect(
+        savePendingBuilderDraft({
+          text: "Bygg en pizzeria i Malmö",
+          returnTo: "/builder?project=proj_1",
+        }),
+      ).toBeNull();
+    } finally {
+      sessionStorage.setItem = original;
+    }
+  });
 });
