@@ -504,17 +504,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         <InitFromRepoModal
           isOpen={vm.isImportModalOpen}
           onClose={() => vm.setIsImportModalOpen(false)}
-          onSuccess={(newChatId, _v0ProjectInternalId) => {
-            vm.setChatId(newChatId);
-            if (vm.appProjectId) {
-              vm.applyAppProjectId(vm.appProjectId, { chatId: newChatId });
-            } else {
-              const params = new URLSearchParams(vm.searchParams.toString());
-              params.set("chatId", newChatId);
-              vm.router.replace(`/builder?${params.toString()}`);
-            }
-            vm.setMessages([]);
-            vm.setCurrentPreviewUrl(null);
+          onSuccess={(result) => {
+            vm.handleImportedRepoSuccess(result);
           }}
         />
       ) : null}
