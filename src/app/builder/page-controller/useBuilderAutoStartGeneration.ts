@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
+import { isBuilderAuthResume } from "@/lib/auth/builder-auth-draft";
 import type { BuildMethod } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import {
@@ -51,6 +52,11 @@ export function useBuilderAutoStartGeneration({
   promptActions,
 }: Params) {
   const autoGenerateTriggeredRef = useRef(false);
+  // Returning after a rejected request restores a draft, not permission to
+  // spend credits again. Keep this pinned even when the URL is later cleaned.
+  const authResumeAtMountRef = useRef(
+    typeof window !== "undefined" && isBuilderAuthResume(window.location.href),
+  );
   // CSRF: only the first-hydration query may authorize auto-start.
   // `useBuilderEntryHydration` strips `promptId` via router.replace in the
   // same fetch that sets `resolvedPrompt`; a live-URL check would cancel
@@ -59,6 +65,7 @@ export function useBuilderAutoStartGeneration({
   const hydrationPromptParamRef = useRef(promptParam);
 
   useEffect(() => {
+    if (authResumeAtMountRef.current) return;
     if (
       !canAutoStartKostnadsfriGeneration({
         isAuthenticated,

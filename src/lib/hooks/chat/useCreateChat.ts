@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { isGenerationAuthRequired } from "@/lib/auth/generation-auth";
+import { requestBuilderAuthentication } from "@/lib/auth/builder-auth-events";
 import {
   buildInitBuildChoicesInstructions,
   buildInitBuildChoicesMeta,
@@ -588,6 +590,20 @@ export function useCreateChat(
             errorData = (await response.json()) as Record<string, unknown>;
           } catch {
             // ignore
+          }
+          if (isGenerationAuthRequired(response.status, errorData)) {
+            requestBuilderAuthentication({
+              message: initialMessage,
+              projectId: appProjectId,
+              promptHandoffId,
+            });
+            // Admission was refused before a turn was recorded. Keep the draft
+            // and brief; remove only this attempt's optimistic placeholders.
+            lastSentSystemPromptRef.current = null;
+            setMessages((prev) => prev.filter(
+              (message) => message.id !== userMessageId && message.id !== assistantMessageId,
+            ));
+            return false;
           }
           const recoveredChatId =
             typeof errorData?.chatId === "string" ? errorData.chatId.trim() : "";

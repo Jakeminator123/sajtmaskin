@@ -368,6 +368,7 @@ export type ChatMessagingParams = {
  * about its own surface too (a card that says "Skickat" for a rejected send is a
  * lie), and so the composer knows the draft is still worth keeping.
  *
+ * - `auth_required` — app session is missing/expired; login UI opens and the draft stays.
  * - `empty_message` — nothing to send.
  * - `create_chat_failed` — no chat existed and creating one failed.
  * - `stale_base_version` — server head moved past the base this request was
@@ -382,6 +383,7 @@ export type ChatMessagingParams = {
  *   a normal integration build, which the user starts from the preview panel.
  */
 export type SendMessageRejectionReason =
+  | "auth_required"
   | "empty_message"
   | "create_chat_failed"
   | "stale_base_version"

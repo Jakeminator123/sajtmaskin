@@ -1,5 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { isGenerationAuthRequired } from "@/lib/auth/generation-auth";
+import { requestBuilderAuthentication } from "@/lib/auth/builder-auth-events";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
@@ -441,6 +443,21 @@ export function useSendMessage(
             errorData = (await response.json()) as Record<string, unknown>;
           } catch {
             // ignore
+          }
+          if (isGenerationAuthRequired(response.status, errorData)) {
+            const isSynthetic = options.promptSourceMeta?.sourceKind === "autofix" ||
+              options.promptSourceMeta?.sourceKind === "f3-kick";
+            requestBuilderAuthentication({
+              message: isSynthetic ? undefined : messageText,
+              chatId,
+              projectId: appProjectId,
+            });
+            // The rejected request did not consume its system instructions.
+            lastSentSystemPromptRef.current = null;
+            setMessages((prev) => prev.filter(
+              (message) => message.id !== userMessageId && message.id !== assistantMessageId,
+            ));
+            return { status: "rejected", reason: "auth_required", turnRecorded: false };
           }
           if (handleGenerationLockUnavailable(response.status, errorData)) {
             return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };

@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
+import { BuilderAuthGate } from "./BuilderAuthGate";
 import { BuilderShellContent } from "./BuilderShellContent";
 import { useBuilderPageController } from "./useBuilderPageController";
 
@@ -22,7 +23,9 @@ export default function BuilderPage() {
         </div>
       }
     >
-      <BuilderContent />
+      <BuilderAuthGate>
+        <BuilderContent />
+      </BuilderAuthGate>
     </Suspense>
   );
 }

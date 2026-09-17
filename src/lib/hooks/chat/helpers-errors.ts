@@ -1,3 +1,5 @@
+import { GENERATION_AUTH_REQUIRED_MESSAGE, isGenerationAuthRequired } from "@/lib/auth/generation-auth";
+
 function toNumber(value: unknown): number | null {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -36,6 +38,10 @@ export function buildApiErrorMessage(params: {
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = getRetryAfterSeconds(response, errorData);
 
+  if (isGenerationAuthRequired(status, errorData)) {
+    return GENERATION_AUTH_REQUIRED_MESSAGE;
+  }
+
   if (status === 429 || code === "rate_limit") {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
     return `Rate limit: för många förfrågningar.${suffix}`;
@@ -51,8 +57,11 @@ export function buildApiErrorMessage(params: {
   if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
   }
-  if (status === 401 || code === "unauthorized") {
+  if (code === "unauthorized") {
     return "API-nyckel saknas eller är ogiltig.";
+  }
+  if (status === 401) {
+    return "Begäran saknar giltig behörighet. Försök igen.";
   }
   if (status === 403 || code === "forbidden") {
     return "Åtkomst nekad av AI-tjänsten (403). Kontrollera behörigheter.";
@@ -147,6 +156,9 @@ export function isClientInitiatedAbort(
 }
 
 export function buildStreamErrorMessage(errorData: Record<string, unknown> | null): string {
+  if (isGenerationAuthRequired(401, errorData)) {
+    return GENERATION_AUTH_REQUIRED_MESSAGE;
+  }
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = toNumber(errorData?.retryAfter ?? errorData?.retry_after);
   const rawMessage =
