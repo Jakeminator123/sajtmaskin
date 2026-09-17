@@ -17,6 +17,7 @@ namngivet initiativ följer i stället styrdokumentet på motsvarande rad nedan.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
+| GitHub/ZIP-import rester | Efter #1433: PR2 bilder/fonts i extractorn. Idempotens och privat live-smoke är residualer. Rör inte latch/SSRF/auth. | [`2026-09-17-github-zip-import-rester/00-master-plan.md`](2026-09-17-github-zip-import-rester/00-master-plan.md) |
 | SEO-landningssidor | Organisk kanal via vanliga App Router-sidor. Foundation #1437: register + noindex-placeholders + fail-closed mot `ready`. Första riktiga sida efter merge: `/skapa-hemsida-med-ai`. Ingen promote. | [`2026-09-16-seo-landningssidor/00-master-plan.md`](2026-09-16-seo-landningssidor/00-master-plan.md) |
 | Scaffold-bindning och hygien | Explicit butik-/app-val blir `structural`; hint från pre-match låser inte; filhygien. Inte reparationspipen (annan agent). | [`2026-09-16-scaffold-bindning/00-master-plan.md`](2026-09-16-scaffold-bindning/00-master-plan.md) |
 | Branded runtime-aktivering | Kod finns på preview. Kvar: browser-/cookiebevis (A2, C1-smoke), C2 mot ägd testdomän, A3 rollback/no-loop, en A4-pilot. Flaggor av tills respektive bevis är grönt. PSL och #1385 är inte detta spår. | [`2026-09-16-branded-runtime-aktivering/00-master-plan.md`](2026-09-16-branded-runtime-aktivering/00-master-plan.md) |
