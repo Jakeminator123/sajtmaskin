@@ -163,10 +163,14 @@ flowchart TD
 
 Ordning inuti repair: deterministisk import-repair på tsc-koder först; om
 gaten då passerar promotas versionen utan LLM (`method: "deterministic"`).
-Annars `runRepairLoop` → `runLlmRepairGate`. Post-repair måste samma signal
-passa igen (`resolveSameSignalGateChecks`) innan ytterligare betald
-LLM-repair startar. En andra LLM-pass får inte anta att gaten fortfarande är
-röd; den kräver en misslyckad omverifiering av samma signal. Lyckad repair
+Annars `runRepairLoop` → `runLlmRepairGate`. Efter ett repair-försök måste
+samma signal verifieras igen (`resolveSameSignalGateChecks` väljer vilka
+checks som körs om). Godkänt resultat avslutar behovet av ytterligare
+repair. Fortsatt underkänt resultat bedöms med övriga stopp- och
+budgetvillkor (`serverRepairPasses`, tidsbudget, superseded, no-op). En
+ny repair-pass kräver alltså omverifiering, inte att signalen redan
+passar. En andra LLM-pass får inte anta att gaten fortfarande är röd
+utan den omkörningen. Lyckad repair
 skriver `repaired_files_json` och `verification_state = "repair_available"` —
 inte tyst overwrite av `files_json`. Accept: `POST .../accept-repair`.
 `verifyDeadlineEpochMs` trådas till repair-loopens slutgate
