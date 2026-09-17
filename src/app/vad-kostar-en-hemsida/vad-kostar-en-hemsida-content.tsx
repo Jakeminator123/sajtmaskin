@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const COST_PARTS = [
   },
   {
     title: "Hosting",
-    body: "Var sidan ligger efter publicering. Preview är inte hosting. Utan egen domän får en publicerad Sajtmaskin-sajt en Vercel-adress.",
+    body: "Var sidan ligger efter publicering. Preview är inte publicering. Utan egen domän får en publicerad Sajtmaskin-sajt en Vercel-adress.",
   },
   {
     title: "Innehåll",
