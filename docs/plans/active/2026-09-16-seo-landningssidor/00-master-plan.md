@@ -2,9 +2,8 @@
 
 > **Status: tio sidor `ready` på preview; Production/indexering kvar.**
 > Registret på preview `13843edc` har alla tio poster `ready` (#1437
-> foundation, #1443 + #1448–#1457). Det är inte `master` `2566eec511` och
-> inte Search Console. Copy på `/skapa-hemsida-med-ai` säger fortfarande
-> att syskonguiderna inte är färdiga — SEO-ägarens rest. Beställ inte
+> foundation, #1443 + #1448–#1457). Stale Relaterat-copy rättad i #1467.
+> Det är inte `master` `2566eec511` och inte Search Console. Beställ inte
 > borttagning av Relaterat-länkar till mål som nu är färdiga. Hygien
 > ändrar inte sidkoden.
 > Planpaket från coach 2026-09-16. Runtime-ägare är
@@ -29,7 +28,7 @@ Kodkontrakt: vanliga App Router-routes. Sitemap och index följer
 | Register + metadata + sitemap-grind | Finns |
 | Alla tio slugs i matrisen | `status: "ready"` på preview `13843edc` (#1443, #1448–#1457) |
 | Unikt innehåll / internlänkar | Sidinnehåll landat. Relaterat-länkarna pekar på färdiga mål; ta inte bort dem. |
-| Copy-svans | `/skapa-hemsida-med-ai` påstår fortfarande att syskonguiderna inte är färdiga. SEO-ägarens rest, inte hygien. |
+| Copy-svans | #1467 rättade stale Relaterat-/syskon-copy på ready-sidorna. |
 | Indexering | Preview-sitemap följer `ready`. Production och Search Console väntar promote. |
 
 `ready` i preview-registret är inte Production. Synka mot live
@@ -73,8 +72,8 @@ Se [`02-page-matrix.md`](02-page-matrix.md). Brief per sida ligger i
 | F Indexering | Production + Search Console | Inte förrän promote; `ready` på preview räcker inte |
 
 De tio sidornas innehåll är landat på preview. Beställ inte om B–E.
-Kvar för SEO-ägaren: copy-svansen på `/skapa-hemsida-med-ai`. Kvar för
-release: Production/indexering. Historisk handover för första sidan:
+Copy-svansen är stängd (#1467). Kvar för release: Production/indexering.
+Historisk handover för första sidan:
 [`aktiviteter/05-forsta-riktiga-sidan.md`](aktiviteter/05-forsta-riktiga-sidan.md).
 
 ## Definition of Done per sida
