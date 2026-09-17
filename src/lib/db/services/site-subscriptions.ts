@@ -445,7 +445,9 @@ export function isRunnableBillingJob(input: {
 
 /**
  * Atomiskt anspråk: bara en körning får raden via RETURNING.
- * Tom RETURNING = någon annan äger jobbet; anropa inte providern.
+ * `run_after <= now` måste sitta i WHERE — listan är inte en grind.
+ * En stale workerlista kan annars claima ett failed jobb före backoff.
+ * Tom RETURNING = någon annan äger jobbet eller det inte är due; anropa inte providern.
  */
 export async function claimRunnableBillingJob(
   id: string,
@@ -466,6 +468,7 @@ export async function claimRunnableBillingJob(
     .where(
       and(
         eq(billingJobs.id, id),
+        lte(billingJobs.run_after, now),
         or(
           eq(billingJobs.status, "pending"),
           eq(billingJobs.status, "failed"),
