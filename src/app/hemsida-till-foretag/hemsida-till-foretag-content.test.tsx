@@ -38,6 +38,8 @@ describe("HemsidaTillForetagContent", () => {
       ),
     ).toBe(true);
 
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("skapa-hemsida");
     for (const slug of readyRelated) {

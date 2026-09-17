@@ -493,7 +493,7 @@ export function AiHemsidebyggareContent() {
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   Processen i Sajtmaskin ligger på en egen sida. Jämförelser mot hemsideprogram och
-                  enskilda alternativ fylls på när de är klara — de syns inte som länkar förrän dess.
+                  enskilda alternativ ligger på egna sidor.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

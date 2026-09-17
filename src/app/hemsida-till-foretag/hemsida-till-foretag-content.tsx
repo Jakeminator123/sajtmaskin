@@ -421,7 +421,7 @@ export function HemsidaTillForetagContent() {
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   Den här sidan handlar om affärsnyttan. Den teknikneutrala vägen från idé till
-                  hemsida ligger på en egen sida. Kostnad och utan-kod fylls på när de är klara.
+                  hemsida, kostnad och utan-kod ligger på egna sidor.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (
