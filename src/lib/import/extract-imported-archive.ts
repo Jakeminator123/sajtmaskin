@@ -7,11 +7,27 @@ import { MAX_LOCAL_ZIP_BASE64_CHARS, MAX_LOCAL_ZIP_UPLOAD_BYTES } from "./import
 
 export const MAX_IMPORTED_FILES = 600;
 export const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
-/** Decoded-byte cap for one imported image/font. */
-export const MAX_IMPORTED_BINARY_FILE_BYTES = 2 * 1024 * 1024;
-/** Decoded-byte cap for all imported images/fonts in one archive. */
-export const MAX_IMPORTED_BINARY_BYTES = 16 * 1024 * 1024;
+/**
+ * Mirror `preview-host/src/validate.js`. The host weighs `CodeFile.content`
+ * UTF-8 — including the `base64:` envelope — not decoded asset bytes.
+ */
+export const PREVIEW_HOST_MAX_FILES = 500;
+export const PREVIEW_HOST_MAX_FILE_BYTES = 2 * 1024 * 1024;
+export const PREVIEW_HOST_MAX_TOTAL_BYTES = 12 * 1024 * 1024;
 const BINARY_BASE64_PREFIX = "base64:";
+
+export function maxDecodedBytesForPreviewTransport(maxTransportBytes: number): number {
+  return Math.max(0, Math.floor(((maxTransportBytes - BINARY_BASE64_PREFIX.length) * 3) / 4));
+}
+
+/** Decoded-byte cap for one imported image/font that still fits host per-file transport. */
+export const MAX_IMPORTED_BINARY_FILE_BYTES = maxDecodedBytesForPreviewTransport(
+  PREVIEW_HOST_MAX_FILE_BYTES,
+);
+/** Decoded-byte backstop for all imported images/fonts. Host total still wins. */
+export const MAX_IMPORTED_BINARY_BYTES = maxDecodedBytesForPreviewTransport(
+  PREVIEW_HOST_MAX_TOTAL_BYTES,
+);
 
 const IMPORT_BINARY_EXTENSIONS = new Set([
   ".png",
@@ -115,6 +131,9 @@ export type ExtractImportedFilesOptions = {
   maxBinaryFileBytes?: number;
   maxBinaryTotalBytes?: number;
   maxFiles?: number;
+  maxPreviewFileBytes?: number;
+  maxPreviewTotalBytes?: number;
+  maxPreviewFiles?: number;
 };
 
 function isBase64AlphabetCode(code: number): boolean {
@@ -228,6 +247,9 @@ export async function extractImportedFilesFromZip(
   const maxBinaryFileBytes = options.maxBinaryFileBytes ?? MAX_IMPORTED_BINARY_FILE_BYTES;
   const maxBinaryTotalBytes = options.maxBinaryTotalBytes ?? MAX_IMPORTED_BINARY_BYTES;
   const maxFiles = options.maxFiles ?? MAX_IMPORTED_FILES;
+  const maxPreviewFileBytes = options.maxPreviewFileBytes ?? PREVIEW_HOST_MAX_FILE_BYTES;
+  const maxPreviewTotalBytes = options.maxPreviewTotalBytes ?? PREVIEW_HOST_MAX_TOTAL_BYTES;
+  const maxPreviewFiles = options.maxPreviewFiles ?? PREVIEW_HOST_MAX_FILES;
   const maxDeclaredBinaryBytes = maxDeclaredImportBinaryBytes(maxBinaryFileBytes);
   const zip = await JSZip.loadAsync(buffer);
   const rawEntries = Object.values(zip.files)
@@ -238,6 +260,7 @@ export async function extractImportedFilesFromZip(
   const files: CodeFile[] = [];
   let totalTextBytes = 0;
   let totalBinaryBytes = 0;
+  let totalPreviewTransportBytes = 0;
 
   for (let index = 0; index < rawEntries.length; index += 1) {
     const originalName = rawEntries[index];
@@ -259,6 +282,8 @@ export async function extractImportedFilesFromZip(
 
     if (asText) {
       if (looksBinary(contentBuffer)) continue;
+      const textContent = contentBuffer.toString("utf8");
+      const textTransport = Buffer.byteLength(textContent, "utf8");
       totalTextBytes += contentBuffer.byteLength;
       if (totalTextBytes > MAX_IMPORTED_TEXT_BYTES) {
         throw new ImportInitError({
@@ -278,20 +303,26 @@ export async function extractImportedFilesFromZip(
       }
       files.push({
         path: safePath,
-        content: contentBuffer.toString("utf8"),
+        content: textContent,
         language: inferFileLanguage(safePath),
       });
+      totalPreviewTransportBytes += textTransport;
       continue;
     }
 
     const binaryBytes = normalizeImportedBinaryBytes(contentBuffer);
+    const content = encodeImportedBinaryContent(binaryBytes);
+    const transport = Buffer.byteLength(content, "utf8");
     if (binaryBytes.byteLength > maxBinaryFileBytes) continue;
+    if (transport > maxPreviewFileBytes) continue;
     if (totalBinaryBytes + binaryBytes.byteLength > maxBinaryTotalBytes) continue;
-    if (files.length >= maxFiles) continue;
+    if (totalPreviewTransportBytes + transport > maxPreviewTotalBytes) continue;
+    if (files.length >= maxFiles || files.length >= maxPreviewFiles) continue;
     totalBinaryBytes += binaryBytes.byteLength;
+    totalPreviewTransportBytes += transport;
     files.push({
       path: safePath,
-      content: encodeImportedBinaryContent(binaryBytes),
+      content,
       language: "binary",
     });
   }

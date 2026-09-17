@@ -19,7 +19,7 @@ utan ny konkret reproduktion.
 |---|---|
 | #1433 importkedja + P1-latch | Mergad till `preview` (`1ef89ca82`) |
 | #1439 Builder-auth-grind | Mergad; rörs inte här |
-| PR2 bilder + lokala fonts | **I #1446:** extractorn skriver `base64:` + `language: "binary"`. Extra assets hoppas över vid filtak/budget i stället för att fälla hela importen. |
+| PR2 bilder + lokala fonts | **I #1446:** extractorn skriver `base64:` + `language: "binary"`. Extra/för stora assets hoppas över mot preview-hostens transporttak (2/12 MiB) i stället för att fälla `start`. |
 | Server-side import-idempotens | Inte implementerad. Kräver atomisk claim/receipt; se `02`. Ingen ny DB-migration skapas här. |
 | Privat-repo live-smoke | Inte kört. Inga `TEST_USER_*` i den här miljön. |
 

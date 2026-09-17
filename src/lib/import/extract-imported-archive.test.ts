@@ -6,9 +6,12 @@ import {
   decodeLocalZipContent,
   encodeImportedBinaryContent,
   extractImportedFilesFromZip,
+  MAX_IMPORTED_BINARY_FILE_BYTES,
   maxDeclaredImportBinaryBytes,
+  maxDecodedBytesForPreviewTransport,
   normalizeImportedBinaryBytes,
   normalizeImportedPath,
+  PREVIEW_HOST_MAX_FILE_BYTES,
 } from "./extract-imported-archive";
 import { MAX_LOCAL_ZIP_UPLOAD_BYTES } from "./import-init-contract";
 
@@ -194,6 +197,41 @@ describe("extractImportedFilesFromZip", () => {
     expect(files.find((file) => file.path === "public/logo.png")?.content).toBe(
       encodeImportedBinaryContent(PNG_1X1),
     );
+  });
+
+  it("keeps the default decoded cap inside preview-host per-file transport", () => {
+    expect(MAX_IMPORTED_BINARY_FILE_BYTES).toBe(
+      maxDecodedBytesForPreviewTransport(PREVIEW_HOST_MAX_FILE_BYTES),
+    );
+    const encoded = encodeImportedBinaryContent(Buffer.alloc(MAX_IMPORTED_BINARY_FILE_BYTES, 1));
+    expect(Buffer.byteLength(encoded, "utf8")).toBeLessThanOrEqual(PREVIEW_HOST_MAX_FILE_BYTES);
+    const over = encodeImportedBinaryContent(Buffer.alloc(MAX_IMPORTED_BINARY_FILE_BYTES + 1, 1));
+    expect(Buffer.byteLength(over, "utf8")).toBeGreaterThan(PREVIEW_HOST_MAX_FILE_BYTES);
+  });
+
+  it("skips a binary whose envelope would exceed preview-host per-file transport", async () => {
+    const zip = new JSZip();
+    zip.file("app/page.tsx", "export default function Page() { return null }");
+    zip.file("public/ok.png", PNG_1X1);
+    zip.file("public/wide.png", Buffer.alloc(80, 4));
+    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+      maxPreviewFileBytes: Buffer.byteLength(encodeImportedBinaryContent(PNG_1X1), "utf8"),
+    });
+    expect(files.map((file) => file.path).sort()).toEqual(["app/page.tsx", "public/ok.png"]);
+  });
+
+  it("skips extra binaries before they push the preview-host total payload over the cap", async () => {
+    const zip = new JSZip();
+    zip.file("app/page.tsx", "export default function Page() { return null }");
+    zip.file("public/a.png", Buffer.alloc(20, 2));
+    zip.file("public/b.png", Buffer.alloc(20, 3));
+    const pageTransport = Buffer.byteLength("export default function Page() { return null }", "utf8");
+    const oneBinary = Buffer.byteLength(encodeImportedBinaryContent(Buffer.alloc(20, 2)), "utf8");
+    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+      maxPreviewTotalBytes: pageTransport + oneBinary + 1,
+    });
+    expect(files.filter((file) => file.language === "binary")).toHaveLength(1);
+    expect(files.some((file) => file.path === "app/page.tsx")).toBe(true);
   });
 
   it("unwraps a persisted base64 envelope once so re-import does not double-wrap", async () => {

@@ -44,6 +44,9 @@ Samma extractor för GitHub-ZIP och direkt ZIP. Preview-host runtime ändras int
 7. Pre-decompress-skip tillåter en persistad `base64:`-envelope (`4/3` + prefix)
    så re-import inte tappar en fil som ryms efter unwrap. JSZip-deklarerad
    storlek är best-effort — saknad/lögnaktig size lastas och kapas efter decode.
+8. Binary-tak speglar preview-host `validate.js` (2 MiB/fil och 12 MiB totalt på
+   UTF-8-transport, inkl. `base64:`). En asset som skulle 400:a `start` hoppas
+   över i stället för att fälla preview.
 
 ## Acceptans
 
