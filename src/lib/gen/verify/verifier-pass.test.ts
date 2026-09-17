@@ -6,6 +6,10 @@ import {
   checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
   checkUseReducedMotionStub,
+  applyFirstPassLlmAvailability,
+  didVerifierLlmComplete,
+  VERIFIER_LLM_UNAVAILABLE_FINDING_ID,
+  verifierLlmUnavailableFinding,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   parseImportRepairRefsFromFinding,
@@ -1439,5 +1443,47 @@ describe("resolveVerifierProviderOptions", () => {
         reasoningEffort: "low",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("didVerifierLlmComplete", () => {
+  it("treats an explicit completed receipt as authoritative", () => {
+    expect(didVerifierLlmComplete({ llmAvailability: "completed" })).toBe(true);
+  });
+
+  it("keeps legacy mocks without a receipt as completed (back-compat)", () => {
+    expect(didVerifierLlmComplete({})).toBe(true);
+  });
+
+  it("is fail-closed on provider failure or an intentional skip", () => {
+    expect(didVerifierLlmComplete({ llmAvailability: "unavailable" })).toBe(false);
+    expect(didVerifierLlmComplete({ llmAvailability: "skipped" })).toBe(false);
+  });
+});
+
+describe("applyFirstPassLlmAvailability", () => {
+  it("stamps a receipt when the first-pass LLM review failed and scanners were empty", () => {
+    expect(applyFirstPassLlmAvailability({ llmAvailability: "unavailable" }, [])).toEqual([
+      verifierLlmUnavailableFinding(),
+    ]);
+    expect(applyFirstPassLlmAvailability({ llmAvailability: "unavailable" }, [])[0]?.id).toBe(
+      VERIFIER_LLM_UNAVAILABLE_FINDING_ID,
+    );
+  });
+
+  it("keeps kill-switch / no-key skipped as empty so operators can disable the LLM review", () => {
+    expect(applyFirstPassLlmAvailability({ llmAvailability: "skipped" }, [])).toEqual([]);
+  });
+
+  it("does not invent a receipt when the LLM completed or the mock omits availability", () => {
+    expect(applyFirstPassLlmAvailability({ llmAvailability: "completed" }, [])).toEqual([]);
+    expect(applyFirstPassLlmAvailability({}, [])).toEqual([]);
+  });
+
+  it("does not replace real first-pass blockers", () => {
+    const existing = [{ id: "navigation-placeholder-actions", detail: "cta" }];
+    expect(applyFirstPassLlmAvailability({ llmAvailability: "unavailable" }, existing)).toBe(
+      existing,
+    );
   });
 });

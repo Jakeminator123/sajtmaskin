@@ -49,6 +49,7 @@ import { resolveVerifierRerunTimeoutMs } from "./types";
 import { checkUndefinedJsxSymbols } from "@/lib/gen/verify/verifier-pass";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { parseCodeProject } from "@/lib/gen/parser";
+import { classifyVerifierFindingSeverity } from "@/lib/gen/preview/should-start-preview";
 
 function fencedFile(path: string, code: string): string {
   return `\`\`\`tsx file="${path}"\n${code}\n\`\`\``;
@@ -672,6 +673,67 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
     });
   });
 
+  it("C1: provider-failed confirmation rerun does not mark an LLM-only blocker as fixed", async () => {
+    const llmOnlyBlocker = {
+      id: "navigation-placeholder-actions",
+      detail: "app/page.tsx Button label='Boka demo' has empty href",
+    };
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [llmOnlyBlocker],
+        quality: [],
+        llmAvailability: "completed",
+      })
+      // Rerun: provider/timeout — only deterministic findings (none) come back.
+      .mockResolvedValueOnce({
+        blocking: [],
+        quality: [],
+        llmAvailability: "unavailable",
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE),
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "navigation-placeholder-actions" }),
+    ]);
+    expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "fixed",
+      }),
+    );
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fix-failed", fixerImproved: false }),
+    });
+    expect(progressEvents).not.toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fixed" }),
+    });
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier_rerun_after_fix.unavailable" }),
+    );
+  });
+
   it("rerun rejects (throws) → no verifier-fixer RAG row, original blockers kept, fix-failed SSE", async () => {
     runVerifierPass
       .mockResolvedValueOnce({
@@ -1140,5 +1202,142 @@ describe("runVerifierPhase merged package.json", () => {
     const result = await runVerifierPhase(baseParams(THIN_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([]);
     expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+});
+
+describe("runVerifierPhase first-pass LLM availability (C1 residual)", () => {
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  const CLEAN_PAGE = fencedFile(
+    "app/page.tsx",
+    `export default function Page() {
+  return <main><h1>Hej</h1></main>;
+}`,
+  );
+
+  it("does not treat first-pass provider failure + empty scanners as a clean LLM review", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "unavailable",
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(CLEAN_PAGE),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "verifier-llm-unavailable" }),
+    ]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier-pass.unavailable" }),
+    );
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-pass",
+        fault: "verifier-llm-unavailable",
+        result: "still-failing",
+      }),
+    );
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "done", blockingCount: 1 }),
+    });
+    // F2: receipt is advisory (preview may start). F3: any finding gates.
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity2"),
+    ).toBe("advisory");
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity3"),
+    ).toBe("blocking");
+  });
+
+  it("keeps first-pass kill-switch skipped + empty scanners as clean", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "skipped",
+    });
+
+    const result = await runVerifierPhase(baseParams(CLEAN_PAGE));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier-pass.unavailable" }),
+    );
+  });
+
+  it("does not invent a receipt when the first-pass LLM completed with zero blockers", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "completed",
+    });
+
+    const result = await runVerifierPhase(baseParams(CLEAN_PAGE));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+});
+
+describe("runVerifierPhase keeps the full blocker list for gating (C2)", () => {
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  it("does not false-green when finding 6 is the only remaining build-breaker", async () => {
+    const advisory = (n: number) => ({
+      id: "navigation-placeholder-actions",
+      detail: `app/page.tsx advisory CTA #${n}`,
+    });
+    const residualBuildBreaker = {
+      id: "import-name-collision",
+      detail:
+        "app/page.tsx: import of Uint8Array conflicts with the global typed array",
+    };
+    const sixFindings = [
+      advisory(1),
+      advisory(2),
+      advisory(3),
+      advisory(4),
+      advisory(5),
+      residualBuildBreaker,
+    ];
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: sixFindings,
+      quality: [],
+      llmAvailability: "completed",
+    });
+    runLlmRepairGate.mockRejectedValueOnce(new Error("C2 fixture: skip fixer"));
+
+    const result = await runVerifierPhase({
+      ...baseParams(fencedFile("app/page.tsx", "export default function Page(){return <main />}")),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+    });
+
+    expect(result.verifierBlockingFindings).toHaveLength(6);
+    expect(result.verifierBlockingFindings[5]).toEqual(residualBuildBreaker);
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity2"),
+    ).toBe("blocking");
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings.slice(0, 5), "fidelity2"),
+    ).toBe("advisory");
   });
 });
