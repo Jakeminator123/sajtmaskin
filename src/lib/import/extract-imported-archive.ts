@@ -7,6 +7,23 @@ import { MAX_LOCAL_ZIP_BASE64_CHARS, MAX_LOCAL_ZIP_UPLOAD_BYTES } from "./import
 
 export const MAX_IMPORTED_FILES = 600;
 export const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
+/** Decoded-byte cap for one imported image/font. */
+export const MAX_IMPORTED_BINARY_FILE_BYTES = 2 * 1024 * 1024;
+/** Decoded-byte cap for all imported images/fonts in one archive. */
+export const MAX_IMPORTED_BINARY_BYTES = 16 * 1024 * 1024;
+const BINARY_BASE64_PREFIX = "base64:";
+
+const IMPORT_BINARY_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".ttf",
+]);
 
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
@@ -86,6 +103,66 @@ export function shouldTreatAsText(filePath: string): boolean {
   return false;
 }
 
+export function shouldTreatAsImportBinary(filePath: string): boolean {
+  const lowerPath = filePath.toLowerCase();
+  for (const extension of IMPORT_BINARY_EXTENSIONS) {
+    if (lowerPath.endsWith(extension)) return true;
+  }
+  return false;
+}
+
+export type ExtractImportedFilesOptions = {
+  maxBinaryFileBytes?: number;
+  maxBinaryTotalBytes?: number;
+};
+
+function isBase64AlphabetCode(code: number): boolean {
+  return (
+    (code >= 0x41 && code <= 0x5a) ||
+    (code >= 0x61 && code <= 0x7a) ||
+    (code >= 0x30 && code <= 0x39) ||
+    code === 0x2b ||
+    code === 0x2f
+  );
+}
+
+function decodeCanonicalBase64(value: string): Buffer | null {
+  if (!value || value.length % 4 !== 0) return null;
+  let dataEnd = value.length;
+  while (dataEnd > 0 && value.charCodeAt(dataEnd - 1) === 0x3d) dataEnd -= 1;
+  if (value.length - dataEnd > 2) return null;
+  for (let index = 0; index < dataEnd; index += 1) {
+    if (!isBase64AlphabetCode(value.charCodeAt(index))) return null;
+  }
+  const decoded = Buffer.from(value, "base64");
+  return decoded.toString("base64") === value ? decoded : null;
+}
+
+/** Unwrap at most one persisted `base64:` envelope so re-imported ZIPs stay single-wrapped. */
+export function normalizeImportedBinaryBytes(buffer: Buffer): Buffer {
+  const serialized = buffer.toString("utf8");
+  if (!serialized.startsWith(BINARY_BASE64_PREFIX)) return buffer;
+  const decoded = decodeCanonicalBase64(serialized.slice(BINARY_BASE64_PREFIX.length));
+  return decoded ?? buffer;
+}
+
+export function encodeImportedBinaryContent(bytes: Buffer): string {
+  return `${BINARY_BASE64_PREFIX}${bytes.toString("base64")}`;
+}
+
+export function decodeImportedBinaryContent(content: string): Buffer | null {
+  if (!content.startsWith(BINARY_BASE64_PREFIX)) return null;
+  return decodeCanonicalBase64(content.slice(BINARY_BASE64_PREFIX.length));
+}
+
+function declaredUncompressedSize(entry: unknown): number | null {
+  if (!entry || typeof entry !== "object") return null;
+  const data = (entry as { _data?: unknown })._data;
+  if (!data || typeof data !== "object") return null;
+  const size = (data as { uncompressedSize?: unknown }).uncompressedSize;
+  return typeof size === "number" && Number.isFinite(size) && size >= 0 ? size : null;
+}
+
 function looksBinary(buffer: Buffer): boolean {
   if (buffer.length === 0) return false;
   let suspicious = 0;
@@ -138,7 +215,12 @@ export function decodeLocalZipContent(base64: string): Buffer {
   return buffer;
 }
 
-export async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> {
+export async function extractImportedFilesFromZip(
+  buffer: Buffer,
+  options: ExtractImportedFilesOptions = {},
+): Promise<CodeFile[]> {
+  const maxBinaryFileBytes = options.maxBinaryFileBytes ?? MAX_IMPORTED_BINARY_FILE_BYTES;
+  const maxBinaryTotalBytes = options.maxBinaryTotalBytes ?? MAX_IMPORTED_BINARY_BYTES;
   const zip = await JSZip.loadAsync(buffer);
   const rawEntries = Object.values(zip.files)
     .filter((entry) => !entry.dir)
@@ -146,20 +228,57 @@ export async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeF
   const normalizedEntries = stripCommonArchiveRoot(rawEntries);
 
   const files: CodeFile[] = [];
-  let totalBytes = 0;
+  let totalTextBytes = 0;
+  let totalBinaryBytes = 0;
 
   for (let index = 0; index < rawEntries.length; index += 1) {
     const originalName = rawEntries[index];
     const strippedName = normalizedEntries[index];
     const safePath = normalizeImportedPath(strippedName);
     if (!safePath) continue;
-    if (!shouldTreatAsText(safePath)) continue;
+
+    const asText = shouldTreatAsText(safePath);
+    const asBinary = !asText && shouldTreatAsImportBinary(safePath);
+    if (!asText && !asBinary) continue;
 
     const entry = zip.files[originalName];
-    const contentBuffer = Buffer.from(await entry.async("uint8array"));
-    if (looksBinary(contentBuffer)) continue;
+    if (asBinary) {
+      const declared = declaredUncompressedSize(entry);
+      if (declared != null && declared > maxBinaryFileBytes) continue;
+    }
 
-    totalBytes += contentBuffer.byteLength;
+    const contentBuffer = Buffer.from(await entry.async("uint8array"));
+
+    if (asText) {
+      if (looksBinary(contentBuffer)) continue;
+      totalTextBytes += contentBuffer.byteLength;
+      if (totalTextBytes > MAX_IMPORTED_TEXT_BYTES) {
+        throw new ImportInitError({
+          message: "Importerat projekt innehåller för mycket text.",
+          code: "zip_too_large",
+          step: "extract",
+          status: 413,
+        });
+      }
+      if (files.length >= MAX_IMPORTED_FILES) {
+        throw new ImportInitError({
+          message: `För många filer i importen (${files.length} >= ${MAX_IMPORTED_FILES}).`,
+          code: "zip_invalid",
+          step: "extract",
+          status: 400,
+        });
+      }
+      files.push({
+        path: safePath,
+        content: contentBuffer.toString("utf8"),
+        language: inferFileLanguage(safePath),
+      });
+      continue;
+    }
+
+    const binaryBytes = normalizeImportedBinaryBytes(contentBuffer);
+    if (binaryBytes.byteLength > maxBinaryFileBytes) continue;
+    if (totalBinaryBytes + binaryBytes.byteLength > maxBinaryTotalBytes) continue;
     if (files.length >= MAX_IMPORTED_FILES) {
       throw new ImportInitError({
         message: `För många filer i importen (${files.length} >= ${MAX_IMPORTED_FILES}).`,
@@ -168,19 +287,11 @@ export async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeF
         status: 400,
       });
     }
-    if (totalBytes > MAX_IMPORTED_TEXT_BYTES) {
-      throw new ImportInitError({
-        message: "Importerat projekt innehåller för mycket text.",
-        code: "zip_too_large",
-        step: "extract",
-        status: 413,
-      });
-    }
-
+    totalBinaryBytes += binaryBytes.byteLength;
     files.push({
       path: safePath,
-      content: contentBuffer.toString("utf8"),
-      language: inferFileLanguage(safePath),
+      content: encodeImportedBinaryContent(binaryBytes),
+      language: "binary",
     });
   }
 
