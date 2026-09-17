@@ -76,7 +76,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Skapa hemsida med AI – från beskrivning till första version",
     intent: "Hur man skapar en hemsida med AI",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida", "hemsida-utan-kod"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {

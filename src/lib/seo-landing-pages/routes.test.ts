@@ -9,7 +9,7 @@ import * as skapaHemsida from "@/app/skapa-hemsida/page";
 import * as vadKostarEnHemsida from "@/app/vad-kostar-en-hemsida/page";
 import * as wixAlternativ from "@/app/wix-alternativ/page";
 import * as wordpressAlternativ from "@/app/wordpress-alternativ/page";
-import { SEO_LANDING_SLUGS } from "./registry";
+import { getSeoLandingEntry, SEO_LANDING_SLUGS } from "./registry";
 
 const PAGE_MODULES = {
   "skapa-hemsida": skapaHemsida,
@@ -27,7 +27,10 @@ const PAGE_MODULES = {
 describe("SEO landing App Router pages", () => {
   it.each(SEO_LANDING_SLUGS)("exports server metadata and a default page for /%s", (slug) => {
     const mod = PAGE_MODULES[slug];
-    expect(mod.metadata.robots).toEqual({ index: false, follow: false });
+    const ready = getSeoLandingEntry(slug).status === "ready";
+    expect(mod.metadata.robots).toEqual(
+      ready ? { index: true, follow: true } : { index: false, follow: false },
+    );
     expect(typeof mod.default).toBe("function");
   });
 });

@@ -100,12 +100,19 @@ describe("SEO landing registry", () => {
     ).toEqual(["/skapa-hemsida-med-ai"]);
   });
 
-  it("keeps placeholders out of the indexable sitemap set", () => {
-    expect(SEO_LANDING_PAGES.every((page) => page.status === "placeholder")).toBe(true);
-    expect(getIndexableSeoLandingRelPaths()).toEqual([]);
+  it("keeps unfinished pages out of the indexable sitemap set", () => {
+    expect(getIndexableSeoLandingRelPaths()).toEqual(["/skapa-hemsida-med-ai"]);
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
-      SEO_LANDING_PAGES.map((page) => `/${page.slug}`),
+      SEO_LANDING_PAGES.filter((page) => page.slug !== "skapa-hemsida-med-ai").map(
+        (page) => `/${page.slug}`,
+      ),
     );
+    expect(getSeoLandingEntry("skapa-hemsida-med-ai").status).toBe("ready");
+    expect(
+      SEO_LANDING_PAGES.filter((page) => page.slug !== "skapa-hemsida-med-ai").every(
+        (page) => page.status === "placeholder",
+      ),
+    ).toBe(true);
   });
 
   it("sends every landing CTA into the existing builder flow", () => {
@@ -134,11 +141,11 @@ describe("SEO landing registry", () => {
 
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("skapa-hemsida-med-ai")),
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("skapa-hemsida")),
     ).not.toThrow();
     expect(() =>
       assertSeoLandingPlaceholderAllowed({
-        ...getSeoLandingEntry("skapa-hemsida-med-ai"),
+        ...getSeoLandingEntry("skapa-hemsida"),
         status: "ready",
       }),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
@@ -147,7 +154,9 @@ describe("SEO landing registry", () => {
   it("fails closed when a ready route still mounts SeoLandingPlaceholder", () => {
     for (const page of SEO_LANDING_PAGES) {
       const source = readFileSync(join(APP_DIR, page.slug, "page.tsx"), "utf8");
-      const usesPlaceholder = source.includes("SeoLandingPlaceholder");
+      const usesPlaceholder =
+        /<SeoLandingPlaceholder\b/.test(source) ||
+        /^\s*import[\s\S]*\bSeoLandingPlaceholder\b/m.test(source);
       if (usesPlaceholder) {
         expect(page.status).toBe("placeholder");
       }
