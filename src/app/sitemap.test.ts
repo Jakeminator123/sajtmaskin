@@ -19,14 +19,16 @@ describe("marketing sitemap static paths", () => {
     expect(set.size).toBe(STATIC_SITEMAP_REL_PATHS.length);
   });
 
-  it("omits unfinished SEO landing placeholders", () => {
-    expect(getIndexableSeoLandingRelPaths()).toEqual([]);
+  it("includes only ready SEO landing pages, never unfinished placeholders", () => {
+    expect(getIndexableSeoLandingRelPaths()).toEqual(["/skapa-hemsida-med-ai"]);
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
     }
 
     const urls = sitemap().map((entry) => entry.url);
+    expect(urls).toContain(`${URLS.baseUrl}/skapa-hemsida-med-ai`);
     for (const page of SEO_LANDING_PAGES) {
+      if (page.status === "ready") continue;
       expect(urls).not.toContain(`${URLS.baseUrl}/${page.slug}`);
     }
   });

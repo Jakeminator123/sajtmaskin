@@ -100,7 +100,7 @@ const COMPARISON_ROWS = [
   },
   {
     aspect: "Passar sämre när",
-    ai: "Du behöver en stor, integrationstung sajt från dag ett"
+    ai: "Du behöver en stor, integrationstung sajt från dag ett",
     agency: "Du bara vill testa en enkel närvaro snabbt",
     cms: "Du inte vill lägga tid på verktyget",
   },
@@ -296,7 +296,7 @@ export function SkapaHemsidaMedAiContent() {
                 {PROCESS_STEPS.map((step, index) => (
                   <li
                     key={step.title}
-                    className="rounded-2xl border border-border/20 bg-card/35 p-4 md:p-5"
+                    className="rounded-2xl border border-border/40 bg-card/70 p-4 md:p-5"
                   >
                     <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
                       {String(index + 1).padStart(2, "0")}
@@ -324,7 +324,7 @@ export function SkapaHemsidaMedAiContent() {
                   En bra beskrivning nämner verksamhet, plats, vad sidan ska göra och vad den inte
                   ska låtsas ha. Så här kan en första prompt se ut:
                 </p>
-                <blockquote className="mt-6 rounded-2xl border border-border/20 bg-card/40 p-5 text-sm leading-relaxed text-foreground/90">
+                <blockquote className="mt-6 rounded-2xl border border-border/40 bg-card/70 p-5 text-sm leading-relaxed text-foreground/90">
                   Jag driver Nordljus Frisör i Majorna, Göteborg. Vi är tre frisörer och tar både
                   drop-in och bokning. Jag vill ha en lugn, varm startsida med priser, team och en
                   tydlig väg att boka tid. Inga kundfoton än, och hitta inte på recensioner.
@@ -335,7 +335,7 @@ export function SkapaHemsidaMedAiContent() {
                   platshållare.
                 </p>
               </div>
-              <div className="rounded-2xl border border-border/20 bg-card/35 p-5 md:p-6">
+              <div className="rounded-2xl border border-border/40 bg-card/70 p-5 md:p-6">
                 <h3 className="font-(--font-heading) text-lg text-foreground">
                   Vad ett bra utkast brukar innehålla
                 </h3>
@@ -370,7 +370,7 @@ export function SkapaHemsidaMedAiContent() {
                 Vad AI gör — och vad du fortfarande behöver göra
               </h2>
               <div className="mt-10 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[28px] border border-border/20 bg-card/35 p-6 md:p-8">
+                <div className="rounded-[28px] border border-border/40 bg-card/70 p-6 md:p-8">
                   <h3 className="font-(--font-heading) text-xl text-foreground">AI:n hjälper med</h3>
                   <div className="mt-6 space-y-5">
                     {AI_DOES.map((item) => (
@@ -383,7 +383,7 @@ export function SkapaHemsidaMedAiContent() {
                     ))}
                   </div>
                 </div>
-                <div className="rounded-[28px] border border-border/20 bg-card/35 p-6 md:p-8">
+                <div className="rounded-[28px] border border-border/40 bg-card/70 p-6 md:p-8">
                   <h3 className="font-(--font-heading) text-xl text-foreground">
                     Du behöver fortfarande
                   </h3>
@@ -466,7 +466,7 @@ export function SkapaHemsidaMedAiContent() {
                 {FAQS.map((faq) => (
                   <div
                     key={faq.q}
-                    className="rounded-2xl border border-border/20 bg-card/35 px-5 py-5"
+                    className="rounded-2xl border border-border/40 bg-card/70 px-5 py-5"
                   >
                     <dt className="font-medium text-foreground">{faq.q}</dt>
                     <dd className="mt-2 text-sm leading-relaxed text-muted-foreground">{faq.a}</dd>
