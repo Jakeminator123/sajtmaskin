@@ -142,7 +142,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Wix-alternativ – jämför arbetssätt innan du byter",
     intent: "Saklig Wix-jämförelse",
     relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
