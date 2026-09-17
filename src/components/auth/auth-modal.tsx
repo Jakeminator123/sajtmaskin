@@ -186,8 +186,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
     touchPendingBuilderDraftReturnTo(redirectTarget);
     // The path is a route handler that 302s to accounts.google.com, not a Next
     // page: the client router cannot follow a cross-origin redirect, so this has
-    // to be a document navigation.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    // to be a document navigation. Destination is built at runtime, so the
+    // relative-assign lint rule does not apply to this call.
     window.location.href = googleOAuthStartHref(redirectTarget);
   };
 
