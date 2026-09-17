@@ -39,6 +39,8 @@ describe("AiHemsidebyggareContent", () => {
     ).toBe(true);
 
     expect(screen.queryByText(/bästa AI-hemsidebyggaren/i)).toBeNull();
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+    expect(screen.queryByText(/syns inte som länkar förrän dess/i)).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("skapa-hemsida-med-ai");

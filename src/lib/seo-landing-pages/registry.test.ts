@@ -164,6 +164,30 @@ describe("SEO landing registry", () => {
     }
   });
 
+  it("does not describe ready sibling pages as unfinished placeholders", () => {
+    const staleSiblingCopy = [
+      /Sidorna är reserverade/i,
+      /fylls på efter den här referenssidan/i,
+      /räkna inte med färdiga\s+guider/i,
+      /fylls på när de är klara/i,
+      /syns inte som länkar förrän dess/i,
+      /separat guide om kostnadsdelar kommer senare/i,
+    ];
+
+    for (const page of SEO_LANDING_PAGES) {
+      if (page.status !== "ready") continue;
+      const source = readFileSync(join(APP_DIR, page.slug, `${page.slug}-content.tsx`), "utf8");
+      for (const pattern of staleSiblingCopy) {
+        expect(source, `${page.slug} still has stale sibling copy ${pattern}`).not.toMatch(
+          pattern,
+        );
+      }
+      for (const related of page.relatedSlugs) {
+        expect(getSeoLandingEntry(related).status).toBe("ready");
+      }
+    }
+  });
+
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
       assertSeoLandingPlaceholderAllowed({

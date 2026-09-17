@@ -38,10 +38,17 @@ describe("SkapaHemsidaContent", () => {
       ),
     ).toBe(true);
 
+    expect(
+      screen.getByRole("link", { name: /^Vad kostar en hemsida$/ }).getAttribute("href"),
+    ).toBe("/vad-kostar-en-hemsida");
+    expect(screen.queryByText(/kostnadsdelar kommer senare/i)).toBeNull();
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("skapa-hemsida-med-ai");
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);
+      expect(related.status).toBe("ready");
       expect(screen.getByRole("link", { name: related.title }).getAttribute("href")).toBe(
         `/${slug}`,
       );

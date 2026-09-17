@@ -38,6 +38,8 @@ describe("HemsideprogramContent", () => {
       ),
     ).toBe(true);
 
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("ai-hemsidebyggare");
     for (const slug of readyRelated) {
