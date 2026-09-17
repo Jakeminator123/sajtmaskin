@@ -90,9 +90,12 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Internt `@sajtmaskin`-register | Sajtmaskins kuraterade, självbärande shadcn-kompatibla registry-källa. |
 | Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. |
 | Beskriv-flöde | Fritext blir registry-sökfrågor, verkliga Registry Discovery-träffar, LLM-rankning och valbara kandidater; modellen får inte hitta på registry-poster. |
-| Scout (agentroll) | Opt-in: läser och föreslår. Gäller bara när Jakob nämner rollen. |
-| Builder (agentroll) | Opt-in: skriver och lämnar PR. Inte default. |
-| Steward (agentroll) | Opt-in: landar redo PR:er och städar (`tidy`). |
+| Scout (agentroll) | Opt-in via `/scout`: läser och föreslår. Inte Agent Bridge-identiteten SCOUT-01. |
+| Builder (agentroll) | Opt-in via `/builder`: skriver och lämnar PR. Inte Agent Bridge-identiteten BUILD-01. |
+| Steward (agentroll) | Opt-in via `/steward`: landar redo PR:er och städar (`tidy`). Inte MERGE-01. |
+| Agent Bridge | Repo-bundet mailbox-protokoll (`/bridge`) mellan Cursor-agenter och ChatGPT-coachen via GitHub issue #1468. Inte OpenClaw-bridge. |
+| Control Bridge | Mailbox-issuen #1468 för Agent Bridge. |
+| MERGE-01 / BUILD-01 / SCOUT-01 | Fasta Agent Bridge-identiteter (`merge` / `builder` / `scout`). Låsta i lokal config; agenten får inte byta själv. |
 
 ## Auktoritetsordning
 
