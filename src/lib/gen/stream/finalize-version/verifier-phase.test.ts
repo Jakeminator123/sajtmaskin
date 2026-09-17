@@ -1205,6 +1205,94 @@ describe("runVerifierPhase merged package.json", () => {
   });
 });
 
+describe("runVerifierPhase first-pass LLM availability (C1 residual)", () => {
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  const CLEAN_PAGE = fencedFile(
+    "app/page.tsx",
+    `export default function Page() {
+  return <main><h1>Hej</h1></main>;
+}`,
+  );
+
+  it("does not treat first-pass provider failure + empty scanners as a clean LLM review", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "unavailable",
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(CLEAN_PAGE),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "verifier-llm-unavailable" }),
+    ]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier-pass.unavailable" }),
+    );
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-pass",
+        fault: "verifier-llm-unavailable",
+        result: "still-failing",
+      }),
+    );
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "done", blockingCount: 1 }),
+    });
+    // F2: receipt is advisory (preview may start). F3: any finding gates.
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity2"),
+    ).toBe("advisory");
+    expect(
+      classifyVerifierFindingSeverity(result.verifierBlockingFindings, "fidelity3"),
+    ).toBe("blocking");
+  });
+
+  it("keeps first-pass kill-switch skipped + empty scanners as clean", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "skipped",
+    });
+
+    const result = await runVerifierPhase(baseParams(CLEAN_PAGE));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "verifier-pass.unavailable" }),
+    );
+  });
+
+  it("does not invent a receipt when the first-pass LLM completed with zero blockers", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [],
+      quality: [],
+      llmAvailability: "completed",
+    });
+
+    const result = await runVerifierPhase(baseParams(CLEAN_PAGE));
+
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+});
+
 describe("runVerifierPhase keeps the full blocker list for gating (C2)", () => {
   beforeEach(() => {
     runVerifierPass.mockReset();

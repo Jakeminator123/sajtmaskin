@@ -26,6 +26,12 @@
  *   A confirmation rerun that does not complete the LLM review (provider
  *   error, timeout, invalid structured output, skipped) is unverified — same
  *   as a thrown rerun. Deterministic-only empty findings are not “clean”.
+ *
+ *   First pass: `unavailable` + empty deterministic list is also not clean —
+ *   stamp `verifier-llm-unavailable` on the gate list (F3 blocks; F2 keeps it
+ *   advisory so a provider flake does not fail a renderable preview). Do not
+ *   send that receipt to the LLM fixer. Kill-switch / no-key `skipped` stays
+ *   empty so operators can disable the LLM review without failing versions.
  */
 
 import type { BuildSpec } from "@/lib/gen/build-spec";
@@ -33,6 +39,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
+  applyFirstPassLlmAvailability,
   didVerifierLlmComplete,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
@@ -336,8 +343,20 @@ export async function runVerifierPhase(params: {
     }
 
     // Full list is the gate/recheck/repair owner. Cap only the RAG excerpt.
-    verifierBlockingFindings = findings.blocking;
-    for (const finding of findings.blocking.slice(0, 5)) {
+    // First-pass C1: provider/timeout with an empty deterministic list is not
+    // “LLM found zero blockers”. Stamp the receipt on the gate list only —
+    // `findings.blocking` stays empty so the fixer is not asked to repair an
+    // outage. `skipped` (kill-switch / no key) stays empty.
+    if (rawFindings.llmAvailability === "unavailable" && findings.blocking.length === 0) {
+      devLogAppend("in-progress", {
+        type: "verifier-pass.unavailable",
+        chatId,
+        llmAvailability: rawFindings.llmAvailability,
+        scaffoldId: resolvedScaffold?.id ?? null,
+      });
+    }
+    verifierBlockingFindings = applyFirstPassLlmAvailability(rawFindings, findings.blocking);
+    for (const finding of verifierBlockingFindings.slice(0, 5)) {
       appendErrorLogEvent({
         phase: "post-gen",
         subphase: "verifier-pass",
@@ -363,12 +382,12 @@ export async function runVerifierPhase(params: {
     onProgress?.("verifier", {
       phase: "done",
       durationMs: Date.now() - verifierStartedAt,
-      blockingCount: findings.blocking.length,
+      blockingCount: verifierBlockingFindings.length,
       qualityCount: findings.quality.length,
     });
     stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "done", {
       trigger: reason,
-      blockingCount: findings.blocking.length,
+      blockingCount: verifierBlockingFindings.length,
       qualityCount: findings.quality.length,
     });
 

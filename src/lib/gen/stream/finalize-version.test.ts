@@ -100,6 +100,19 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // stay completed (same helper as production).
   didVerifierLlmComplete: (result: { llmAvailability?: string }) =>
     result.llmAvailability !== "unavailable" && result.llmAvailability !== "skipped",
+  applyFirstPassLlmAvailability: (
+    pass: { llmAvailability?: string },
+    blocking: Array<{ id: string; detail: string }>,
+  ) =>
+    pass.llmAvailability === "unavailable" && blocking.length === 0
+      ? [
+          {
+            id: "verifier-llm-unavailable",
+            detail:
+              "LLM verifier did not complete (provider error, timeout, or invalid structured output).",
+          },
+        ]
+      : blocking,
   // Tier-3 policy filter — inert here (identity) so these tests keep asserting
   // the unfiltered verifier→repair flow. Its own behaviour is covered in
   // `verifier-pass.test.ts`.

@@ -59,6 +59,39 @@ export function didVerifierLlmComplete(
   return result.llmAvailability !== "unavailable" && result.llmAvailability !== "skipped";
 }
 
+/**
+ * Receipt-only finding when the first-pass LLM review failed and deterministic
+ * scanners produced nothing. Advisory in F2 (`isBuildBreakingFinding` stays
+ * false) so a provider flake does not fail a renderable design preview; F3
+ * still gates on any blocking finding. Not a defect the LLM fixer can repair.
+ */
+export const VERIFIER_LLM_UNAVAILABLE_FINDING_ID = "verifier-llm-unavailable";
+
+export function verifierLlmUnavailableFinding(): { id: string; detail: string } {
+  return {
+    id: VERIFIER_LLM_UNAVAILABLE_FINDING_ID,
+    detail:
+      "LLM verifier did not complete (provider error, timeout, or invalid structured output). Deterministic scanners found no blockers; this is not a clean LLM review.",
+  };
+}
+
+/**
+ * First-pass gate owner. Provider/timeout/invalid structured output with an
+ * empty deterministic list is not “LLM found zero blockers”. Kill-switch /
+ * no-key / empty-snippet `skipped` stays empty so operators can disable the
+ * LLM review without failing every version. Legacy mocks that omit
+ * `llmAvailability` stay completed (empty = clean).
+ */
+export function applyFirstPassLlmAvailability(
+  pass: Pick<Partial<VerifierPassResult>, "llmAvailability">,
+  blocking: Array<{ id: string; detail: string }>,
+): Array<{ id: string; detail: string }> {
+  if (pass.llmAvailability === "unavailable" && blocking.length === 0) {
+    return [verifierLlmUnavailableFinding()];
+  }
+  return blocking;
+}
+
 const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
