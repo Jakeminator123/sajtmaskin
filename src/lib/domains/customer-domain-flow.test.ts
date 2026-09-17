@@ -210,6 +210,29 @@ describe("checkCustomerHttps", () => {
     await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
   });
 
+  it("proves HTTPS from status/headers and does not cap the HTML body at 2 KiB", async () => {
+    fetchWithPinnedDns.mockResolvedValue({ status: 200, headers: {}, body: Buffer.alloc(0) });
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("valid");
+    expect(fetchWithPinnedDns).toHaveBeenCalledWith(
+      "https://exempel.se/",
+      expect.objectContaining({
+        method: "GET",
+        timeoutMs: 8_000,
+        headersOnly: true,
+      }),
+    );
+    expect(fetchWithPinnedDns.mock.calls[0]?.[1]).not.toEqual(
+      expect.objectContaining({ maxBodyBytes: 2_048 }),
+    );
+  });
+
+  it("classifies a leftover body-cap abort as unknown, not invalid", async () => {
+    fetchWithPinnedDns.mockRejectedValue(
+      new Error("Pinned fetch aborted: response exceeded 2048 bytes"),
+    );
+    await expect(checkCustomerHttps("exempel.se")).resolves.toBe("unknown");
+  });
+
   it.each([301, 308])(
     "follows a %s to the intended primary host and requires a terminal 2xx",
     async (status) => {
