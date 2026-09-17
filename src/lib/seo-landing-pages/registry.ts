@@ -120,7 +120,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Skapa hemsida utan kod – vad kan du göra själv?",
     intent: "No-code: göra det själv utan programmering",
     relatedSlugs: ["skapa-hemsida", "skapa-hemsida-med-ai", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
