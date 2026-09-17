@@ -10,6 +10,7 @@ import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryState } from "../builder-entry";
 import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
+import { shouldSkipFreshEntryChatReset } from "../import-project-handoff";
 
 /** Max non-404 failures before stopping prompt handoff retries (avoids toast/network spam). */
 const MAX_PROMPT_HANDOFF_RETRIES = 5;
@@ -25,6 +26,7 @@ type Params = {
   isAuthenticated: boolean;
   isAuthLoading: boolean;
   isCreatingChat: boolean;
+  pendingImportHandoffRef?: MutableRefObject<{ chatId: string; projectId: string } | null>;
   fetchUser: () => Promise<unknown>;
   cancelActiveGeneration: () => void;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
@@ -64,6 +66,7 @@ export function useBuilderEntryHydration({
   isAuthenticated,
   isAuthLoading,
   isCreatingChat,
+  pendingImportHandoffRef,
   fetchUser,
   cancelActiveGeneration,
   pendingBriefRef,
@@ -249,8 +252,19 @@ export function useBuilderEntryHydration({
   // arrive via prompt handoff (`promptId`) or a fresh project URL.
   // Skip this reset if a create-chat request is in flight (chatId will arrive via SSE).
   useEffect(() => {
-    if (chatIdParam) return;
-    if (isCreatingChat) return;
+    if (
+      shouldSkipFreshEntryChatReset({
+        chatIdParam,
+        isCreatingChat,
+        pendingImportedChatId: pendingImportHandoffRef?.current?.chatId ?? null,
+        currentChatId: chatId,
+      })
+    ) {
+      if (chatIdParam && pendingImportHandoffRef?.current?.chatId === chatIdParam) {
+        pendingImportHandoffRef.current = null;
+      }
+      return;
+    }
 
     const routeRepresentsFreshBuilderEntry =
       entry.entryKind === "prompt-handoff" ||
@@ -294,6 +308,7 @@ export function useBuilderEntryHydration({
     entry.entryKind,
     chatId,
     isCreatingChat,
+    pendingImportHandoffRef,
     promptId,
     promptParam,
     pendingBriefRef,
