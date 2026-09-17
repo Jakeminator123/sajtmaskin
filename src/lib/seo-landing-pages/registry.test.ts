@@ -105,12 +105,18 @@ describe("SEO landing registry", () => {
       SEO_LANDING_PAGES.filter((page) => page.status === "ready").map((page) => page.slug),
     );
     expect(readySlugs).toEqual(
-      new Set(["skapa-hemsida", "skapa-hemsida-med-ai", "ai-hemsidebyggare"]),
+      new Set([
+        "skapa-hemsida",
+        "skapa-hemsida-med-ai",
+        "ai-hemsidebyggare",
+        "hemsida-till-foretag",
+      ]),
     );
     expect(getIndexableSeoLandingRelPaths()).toEqual([
       "/skapa-hemsida",
       "/skapa-hemsida-med-ai",
       "/ai-hemsidebyggare",
+      "/hemsida-till-foretag",
     ]);
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
       SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),

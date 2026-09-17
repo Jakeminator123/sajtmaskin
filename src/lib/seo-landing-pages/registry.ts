@@ -98,7 +98,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Hemsida till företag – bygg för förtroende och förfrågningar",
     intent: "B2B: affärsnytta, inte verktygskategori",
     relatedSlugs: ["skapa-hemsida", "vad-kostar-en-hemsida", "hemsida-utan-kod"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
