@@ -113,6 +113,7 @@ describe("SEO landing registry", () => {
         "hemsideprogram",
         "hemsida-utan-kod",
         "vad-kostar-en-hemsida",
+        "wix-alternativ",
       ]),
     );
     expect(getIndexableSeoLandingRelPaths()).toEqual([
@@ -123,6 +124,7 @@ describe("SEO landing registry", () => {
       "/hemsideprogram",
       "/hemsida-utan-kod",
       "/vad-kostar-en-hemsida",
+      "/wix-alternativ",
     ]);
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
       SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
@@ -160,11 +162,11 @@ describe("SEO landing registry", () => {
 
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("wix-alternativ")),
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("wordpress-alternativ")),
     ).not.toThrow();
     expect(() =>
       assertSeoLandingPlaceholderAllowed({
-        ...getSeoLandingEntry("wix-alternativ"),
+        ...getSeoLandingEntry("wordpress-alternativ"),
         status: "ready",
       }),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
