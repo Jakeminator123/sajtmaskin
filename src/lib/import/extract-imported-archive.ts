@@ -114,6 +114,7 @@ export function shouldTreatAsImportBinary(filePath: string): boolean {
 export type ExtractImportedFilesOptions = {
   maxBinaryFileBytes?: number;
   maxBinaryTotalBytes?: number;
+  maxFiles?: number;
 };
 
 function isBase64AlphabetCode(code: number): boolean {
@@ -161,6 +162,11 @@ function declaredUncompressedSize(entry: unknown): number | null {
   if (!data || typeof data !== "object") return null;
   const size = (data as { uncompressedSize?: unknown }).uncompressedSize;
   return typeof size === "number" && Number.isFinite(size) && size >= 0 ? size : null;
+}
+
+/** Skip before decompress only when the ZIP entry cannot be a legal decoded file or one persisted envelope. */
+export function maxDeclaredImportBinaryBytes(maxDecodedBytes: number): number {
+  return BINARY_BASE64_PREFIX.length + 4 * Math.ceil(maxDecodedBytes / 3);
 }
 
 function looksBinary(buffer: Buffer): boolean {
@@ -221,6 +227,8 @@ export async function extractImportedFilesFromZip(
 ): Promise<CodeFile[]> {
   const maxBinaryFileBytes = options.maxBinaryFileBytes ?? MAX_IMPORTED_BINARY_FILE_BYTES;
   const maxBinaryTotalBytes = options.maxBinaryTotalBytes ?? MAX_IMPORTED_BINARY_BYTES;
+  const maxFiles = options.maxFiles ?? MAX_IMPORTED_FILES;
+  const maxDeclaredBinaryBytes = maxDeclaredImportBinaryBytes(maxBinaryFileBytes);
   const zip = await JSZip.loadAsync(buffer);
   const rawEntries = Object.values(zip.files)
     .filter((entry) => !entry.dir)
@@ -244,7 +252,7 @@ export async function extractImportedFilesFromZip(
     const entry = zip.files[originalName];
     if (asBinary) {
       const declared = declaredUncompressedSize(entry);
-      if (declared != null && declared > maxBinaryFileBytes) continue;
+      if (declared != null && declared > maxDeclaredBinaryBytes) continue;
     }
 
     const contentBuffer = Buffer.from(await entry.async("uint8array"));
@@ -260,9 +268,9 @@ export async function extractImportedFilesFromZip(
           status: 413,
         });
       }
-      if (files.length >= MAX_IMPORTED_FILES) {
+      if (files.length >= maxFiles) {
         throw new ImportInitError({
-          message: `För många filer i importen (${files.length} >= ${MAX_IMPORTED_FILES}).`,
+          message: `För många filer i importen (${files.length} >= ${maxFiles}).`,
           code: "zip_invalid",
           step: "extract",
           status: 400,
@@ -279,14 +287,7 @@ export async function extractImportedFilesFromZip(
     const binaryBytes = normalizeImportedBinaryBytes(contentBuffer);
     if (binaryBytes.byteLength > maxBinaryFileBytes) continue;
     if (totalBinaryBytes + binaryBytes.byteLength > maxBinaryTotalBytes) continue;
-    if (files.length >= MAX_IMPORTED_FILES) {
-      throw new ImportInitError({
-        message: `För många filer i importen (${files.length} >= ${MAX_IMPORTED_FILES}).`,
-        code: "zip_invalid",
-        step: "extract",
-        status: 400,
-      });
-    }
+    if (files.length >= maxFiles) continue;
     totalBinaryBytes += binaryBytes.byteLength;
     files.push({
       path: safePath,

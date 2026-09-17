@@ -6,6 +6,7 @@ import {
   decodeLocalZipContent,
   encodeImportedBinaryContent,
   extractImportedFilesFromZip,
+  maxDeclaredImportBinaryBytes,
   normalizeImportedBinaryBytes,
   normalizeImportedPath,
 } from "./extract-imported-archive";
@@ -17,13 +18,12 @@ const PNG_1X1 = Buffer.from(
 );
 const WOFF2_STUB = Buffer.concat([Buffer.from("wOF2", "ascii"), Buffer.alloc(24, 7)]);
 
+/** First decode step in preview-host `materializeBinaryContent`. Our encoder emits one envelope. */
 function materializePreviewHostBinary(content: string): Buffer {
   const prefix = "base64:";
-  const decoded = Buffer.from(content.slice(prefix.length), "base64");
-  const legacy = decoded.toString("utf8");
-  if (!legacy.startsWith(prefix)) return decoded;
-  const nested = Buffer.from(legacy.slice(prefix.length), "base64");
-  return nested.length > 0 ? nested : decoded;
+  expect(content.startsWith(prefix)).toBe(true);
+  expect(content.indexOf(prefix, prefix.length)).toBe(-1);
+  return Buffer.from(content.slice(prefix.length), "base64");
 }
 
 describe("normalizeImportedPath", () => {
@@ -70,6 +70,7 @@ describe("extractImportedFilesFromZip", () => {
     zip.file("site/package.json", '{ "name": "site" }');
     zip.file("site/public/logo.png", PNG_1X1);
     zip.file("site/public/fonts/site.woff2", WOFF2_STUB);
+    zip.file("site/public/mark.svg", '<svg xmlns="http://www.w3.org/2000/svg" />');
     zip.file("site/public/video.mp4", Buffer.from("ftyp"));
     zip.file("site/tools/hack.exe", Buffer.from("MZ"));
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
@@ -92,6 +93,10 @@ describe("extractImportedFilesFromZip", () => {
     expect(isNonTextContentFile(byPath["public/logo.png"])).toBe(true);
     expect(byPath["public/video.mp4"]).toBeUndefined();
     expect(byPath["tools/hack.exe"]).toBeUndefined();
+    expect(byPath["public/mark.svg"]).toMatchObject({
+      language: "svg",
+      content: '<svg xmlns="http://www.w3.org/2000/svg" />',
+    });
     expect(byPath["app/page.tsx"].content).toContain("/logo.png");
     expect(byPath["app/globals.css"].content).toContain("/fonts/site.woff2");
 
@@ -151,6 +156,44 @@ describe("extractImportedFilesFromZip", () => {
     });
     expect(files.filter((file) => file.language === "binary")).toHaveLength(1);
     expect(files.some((file) => file.path === "app/page.tsx")).toBe(true);
+  });
+
+  it("keeps SVG as text, not a binary envelope", async () => {
+    const zip = new JSZip();
+    zip.file("app/page.tsx", "export default function Page() { return null }");
+    zip.file("public/mark.svg", '<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>');
+    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }));
+    const svg = files.find((file) => file.path === "public/mark.svg");
+    expect(svg?.language).not.toBe("binary");
+    expect(svg?.content.startsWith("base64:")).toBe(false);
+    expect(svg?.content).toContain("<svg");
+  });
+
+  it("skips extra binaries at the file cap instead of failing the import", async () => {
+    const zip = new JSZip();
+    zip.file("app/page.tsx", "export default function Page() { return null }");
+    zip.file("public/a.png", PNG_1X1);
+    zip.file("public/b.png", PNG_1X1);
+    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+      maxFiles: 1,
+    });
+    expect(files.map((file) => file.path)).toEqual(["app/page.tsx"]);
+  });
+
+  it("loads a persisted envelope whose declared zip size is larger than the decoded cap", async () => {
+    const wrapped = Buffer.from(encodeImportedBinaryContent(PNG_1X1), "utf8");
+    expect(wrapped.byteLength).toBeGreaterThan(PNG_1X1.byteLength);
+    expect(wrapped.byteLength).toBeLessThanOrEqual(maxDeclaredImportBinaryBytes(PNG_1X1.byteLength));
+    const zip = new JSZip();
+    zip.file("app/page.tsx", "export default function Page() { return null }");
+    zip.file("public/logo.png", wrapped);
+    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+      maxBinaryFileBytes: PNG_1X1.byteLength,
+      maxBinaryTotalBytes: 1024,
+    });
+    expect(files.find((file) => file.path === "public/logo.png")?.content).toBe(
+      encodeImportedBinaryContent(PNG_1X1),
+    );
   });
 
   it("unwraps a persisted base64 envelope once so re-import does not double-wrap", async () => {

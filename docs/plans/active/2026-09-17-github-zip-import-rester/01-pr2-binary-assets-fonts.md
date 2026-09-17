@@ -40,6 +40,10 @@ Samma extractor för GitHub-ZIP och direkt ZIP. Preview-host runtime ändras int
 3. Separat per-filgräns och total binary-budget, mätt på decoded bytes.
 4. Textbudget och binarybudget blandas inte.
 5. För stora assets hoppas över deterministiskt (ingen OOM, importen av text fortsätter).
+6. Extra binaries vid filtaket hoppas över; texttaket kastar fortfarande.
+7. Pre-decompress-skip tillåter en persistad `base64:`-envelope (`4/3` + prefix)
+   så re-import inte tappar en fil som ryms efter unwrap. JSZip-deklarerad
+   storlek är best-effort — saknad/lögnaktig size lastas och kapas efter decode.
 
 ## Acceptans
 

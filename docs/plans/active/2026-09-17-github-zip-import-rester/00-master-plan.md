@@ -1,6 +1,6 @@
 # GitHub/ZIP-import — kvarvarande arbete efter #1433
 
-> **Status: genomförande pågår mot `preview`.** Ingen produktionspromote.
+> **Status: PR2 i #1446 mot `preview`.** Ingen produktionspromote.
 > Handoff från coach 2026-09-17 efter att #1433 och #1439 mergats.
 > Runtime-ägare för extract är
 > [`src/lib/import/extract-imported-archive.ts`](../../../../src/lib/import/extract-imported-archive.ts).
@@ -19,7 +19,7 @@ utan ny konkret reproduktion.
 |---|---|
 | #1433 importkedja + P1-latch | Mergad till `preview` (`1ef89ca82`) |
 | #1439 Builder-auth-grind | Mergad; rörs inte här |
-| PR2 bilder + lokala fonts | **Denna PR:** extractorn skriver `base64:` + `language: "binary"` |
+| PR2 bilder + lokala fonts | **I #1446:** extractorn skriver `base64:` + `language: "binary"`. Extra assets hoppas över vid filtak/budget i stället för att fälla hela importen. |
 | Server-side import-idempotens | Inte implementerad. Kräver atomisk claim/receipt; se `02`. Ingen ny DB-migration skapas här. |
 | Privat-repo live-smoke | Inte kört. Inga `TEST_USER_*` i den här miljön. |
 
@@ -39,4 +39,5 @@ Ursprunglig agentprompt: [`05-agent-prompt.md`](05-agent-prompt.md).
 
 Koddelen levererar **PR2**. Idempotens och privat live-smoke är medvetet
 kvar som residualer. Preview-host runtime ändras inte: materialisering av
-`base64:` fanns redan.
+`base64:` fanns redan. #1445 (workspace-jail) är inmergad från `preview`
+men orörd i den här diffen.
