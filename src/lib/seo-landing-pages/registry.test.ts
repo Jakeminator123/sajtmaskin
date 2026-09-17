@@ -101,15 +101,40 @@ describe("SEO landing registry", () => {
   });
 
   it("keeps unfinished pages out of the indexable sitemap set", () => {
-    expect(getIndexableSeoLandingRelPaths()).toEqual(["/skapa-hemsida-med-ai"]);
-    expect(getPlaceholderSeoLandingRelPaths()).toEqual(
-      SEO_LANDING_PAGES.filter((page) => page.slug !== "skapa-hemsida-med-ai").map(
-        (page) => `/${page.slug}`,
-      ),
+    const readySlugs = new Set(
+      SEO_LANDING_PAGES.filter((page) => page.status === "ready").map((page) => page.slug),
     );
-    expect(getSeoLandingEntry("skapa-hemsida-med-ai").status).toBe("ready");
+    expect(readySlugs).toEqual(
+      new Set([
+        "skapa-hemsida",
+        "skapa-hemsida-med-ai",
+        "ai-hemsidebyggare",
+        "hemsida-till-foretag",
+        "hemsideprogram",
+        "hemsida-utan-kod",
+        "vad-kostar-en-hemsida",
+        "wix-alternativ",
+        "wordpress-alternativ",
+        "lovable-alternativ",
+      ]),
+    );
+    expect(getIndexableSeoLandingRelPaths()).toEqual([
+      "/skapa-hemsida",
+      "/skapa-hemsida-med-ai",
+      "/ai-hemsidebyggare",
+      "/hemsida-till-foretag",
+      "/hemsideprogram",
+      "/hemsida-utan-kod",
+      "/vad-kostar-en-hemsida",
+      "/wix-alternativ",
+      "/wordpress-alternativ",
+      "/lovable-alternativ",
+    ]);
+    expect(getPlaceholderSeoLandingRelPaths()).toEqual(
+      SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
+    );
     expect(
-      SEO_LANDING_PAGES.filter((page) => page.slug !== "skapa-hemsida-med-ai").every(
+      SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).every(
         (page) => page.status === "placeholder",
       ),
     ).toBe(true);
@@ -141,13 +166,13 @@ describe("SEO landing registry", () => {
 
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("skapa-hemsida")),
+      assertSeoLandingPlaceholderAllowed({
+        ...getSeoLandingEntry("lovable-alternativ"),
+        status: "placeholder",
+      }),
     ).not.toThrow();
     expect(() =>
-      assertSeoLandingPlaceholderAllowed({
-        ...getSeoLandingEntry("skapa-hemsida"),
-        status: "ready",
-      }),
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("lovable-alternativ")),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
   });
 

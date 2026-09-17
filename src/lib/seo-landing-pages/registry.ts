@@ -65,7 +65,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Skapa hemsida – från idé till färdig företagssida",
     intent: "Bred transactional: vägen från idé till hemsida",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "vad-kostar-en-hemsida"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -87,7 +87,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "AI-hemsidebyggare – vad ska du jämföra innan du väljer?",
     intent: "Produktkategori och valkriterier",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "lovable-alternativ"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -98,7 +98,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Hemsida till företag – bygg för förtroende och förfrågningar",
     intent: "B2B: affärsnytta, inte verktygskategori",
     relatedSlugs: ["skapa-hemsida", "vad-kostar-en-hemsida", "hemsida-utan-kod"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -109,7 +109,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Hemsideprogram – välj rätt sätt att bygga din webbplats",
     intent: "Jämför verktygstyper, inte ett enskilt varumärke",
     relatedSlugs: ["ai-hemsidebyggare", "hemsida-utan-kod", "wordpress-alternativ", "wix-alternativ"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -120,7 +120,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Skapa hemsida utan kod – vad kan du göra själv?",
     intent: "No-code: göra det själv utan programmering",
     relatedSlugs: ["skapa-hemsida", "skapa-hemsida-med-ai", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -131,7 +131,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Vad kostar en hemsida? Kostnaderna som faktiskt påverkar priset",
     intent: "Kostnadsdrivare, inte ett påhittat fast pris",
     relatedSlugs: ["skapa-hemsida", "hemsida-till-foretag", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -142,7 +142,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Wix-alternativ – jämför arbetssätt innan du byter",
     intent: "Saklig Wix-jämförelse",
     relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -153,7 +153,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "WordPress-alternativ – när passar ett annat arbetssätt bättre?",
     intent: "Saklig WordPress-jämförelse",
     relatedSlugs: ["hemsideprogram", "hemsida-utan-kod", "skapa-hemsida-med-ai"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
@@ -164,7 +164,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga",
     intent: "Saklig Lovable-jämförelse utifrån byggmål",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
 ];
