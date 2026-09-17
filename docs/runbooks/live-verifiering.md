@@ -33,7 +33,7 @@ uppföljning 2 är antingen quick edit eller annan liten innehållsändring.
 | Rad | Kräver |
 | --- | --- |
 | `SM-071` | Prompt med tydlig app/dashboard-intent så `app-shell` väljs på nuvarande master efter variantändringarna 21–23 aug. Fånga första build-/previewfel och jämför med en webbscaffold i samma miljö. |
-| `SM-033` | Landingläget **Analyserad**. Korrelera `wizard.route.terminal` (route, dominantStage, durationMs, requestId, outcome) mot 504/deadline; taket 25/30s ändras inte förrän p95/p99 finns. |
+| `SM-033` | Landingläget **Analyserad**. Korrelera `wizard.route.terminal` (route, dominantStage, durationMs, requestId, outcome) mot 504/deadline. Telemetrin finns på preview via #1434, inte på `master` `2566eec511`. Taket 25/30s ändras inte förrän p95/p99 finns. |
 | `SM-013` | Landingläget **Template** och ett kontrollerat misslyckat `POST /api/template`. Bekräfta om spinnern saknar felläge/retry. |
 | `SM-035` | Nästa Fly-installfel. Kräv manager/mode/duration, OOM-, disk-, machine- och regiondata innan rotorsak påstås. |
 | `SM-037` | Patch-lane på, HMR av, skilda SSR-/clientsentinels i v1/v2 samt full-update-kontroll. Bind served och selected version till sessionen. |
@@ -63,3 +63,25 @@ uppföljning 2 är antingen quick edit eller annan liten innehållsändring.
   att avfärda raden; skriv inte ”fixad” efter en enda grön körning.
 - Avfärdad eller kodfixad rad: flytta till `Arkiv` med merge-/commitbevis.
 - Hämta drain, capture- eller pooldata bara när browserutfallet kräver det.
+
+## 5. Avgränsade kvitton 2026-09-17
+
+Inte en dagsstatus. Bara namngivna proven från arbetsomgången, med den
+avgränsning rapporten faktiskt bär. Coachens granskning upprepade inte
+browserproven. En git-ref ensam bevisar inte vilken deployment browsern körde.
+
+| Prov | Miljö / revision | Utfall | Avgränsning |
+| --- | --- | --- | --- |
+| Import A — handoff | Preview, befintlig chat → `mdn/beginner-html-site-styled` | **PASS** för nytt projekt/chatt/version, URL behåller nya chatten, gammalt transkript återkommer inte, spara/lämna/återöppna samma identitet | Inte PASS för installation eller renderad importerad sajt. `npm install` föll med exit 254. ZIP-/binär-/fontstöd täcktes inte. Nästa punkt: kompatibel Next-fixture + läs loggen före rotorsak. Inte automatisk återöppning av #1433. |
+| Nordlunden A6 — `auth-pages` | Testad previewmiljö | **PARTIAL** — `boot_grace_period` → `running`, `preview_success=true`, `preview_blocking_reason=null`, live-review pass | Testat fall fungerar; ingen aktuell repro i just det fallet. Historisk rotorsak obestämd. Null blockerorsak är inte failed→recovered. Stänger inte alla scaffolds och inte `SM-071`. |
+| Google OAuth — utkast över login | — | **NOT RUN** | Inloggning som bara autentiserar räcker inte. Krävs: långt utkast → login krävs → Google tur/retur → samma builder/project/chat → text kvar → explicit skicka exakt en gång. File-bilaga utlovas inte över redirect. Manuell blockering ska inte stoppa oberoende docs-städ. |
+| Fly-host live efter #1445 | — | **NOT VERIFIED** | Vercel deployar inte hosten. Mergad jail är inte live utan `release.sourceSha` + image-kvitto mot avsedd hostcommit. `ok:true` räcker inte. |
+| Delad databas | CI på `5eb6145c` och `2d437147` | **Kört** `prod-migrations-apply` + schema-paritet (idempotent) | Master orörd betyder inte att CI inte rörde den delade databasen. Success bevisar inte att en ny migration applicerades. |
+
+CI-namn är inte körbevis. På docs-mergen #1442 var `preview-host-guards` grön
+därför att runtime-teststeget hoppades över. #1445 behöver sina riktiga
+hostprov (traversal/write/rm, normalfall, binärmaterialisering) på den SHA
+som faktiskt innehåller jailen. Post-merge-CI för `a90d9da43` ska läsas på
+exakt den revisionen, inte återanvända det gröna kvittot från `5eb6145c`.
+Preview flyttade därefter till `25438d0fe` via #1443; det är ett separat
+SEO-spår, inte nytt host- eller importbevis.
