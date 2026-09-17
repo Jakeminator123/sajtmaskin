@@ -145,27 +145,22 @@ describe("ProjectsPage", () => {
   });
 
   it("does not paint a live project as a draft while the overview is in flight", async () => {
-    let releaseSite: ((value: ProjectSite) => void) | null = null;
+    const deferred = Promise.withResolvers<ProjectSite>();
     getProjects.mockResolvedValue([project()]);
-    getProjectSite.mockImplementation(
-      () =>
-        new Promise<ProjectSite>((resolve) => {
-          releaseSite = resolve;
-        }),
-    );
+    getProjectSite.mockImplementation(() => deferred.promise);
 
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Live-sajten" })).toBeTruthy();
     expect(screen.getByText("Hämtar status")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Hantera sajt", exact: true })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Hantera sajt$/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Redigera" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
 
-    releaseSite?.(site());
+    deferred.resolve(site());
     await waitFor(() => {
       expect(screen.getAllByText("Publicerad").length).toBeGreaterThan(0);
-      expect(screen.getByRole("link", { name: "Hantera sajt", exact: true }).getAttribute("href")).toBe(
+      expect(screen.getByRole("link", { name: /^Hantera sajt$/ }).getAttribute("href")).toBe(
         "/projects/proj_live",
       );
     });
