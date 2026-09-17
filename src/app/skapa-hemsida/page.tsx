@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { SeoLandingPlaceholder } from "@/components/seo-landing-pages/seo-landing-placeholder";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
+import { SkapaHemsidaContent } from "./skapa-hemsida-content";
 
+/**
+ * Technique-neutral SEO landing route on the main domain.
+ *
+ * Keep server metadata via `createSeoLandingMetadata`. Flip the registry
+ * `status` to `ready` only after this file renders real page content.
+ */
 export const metadata: Metadata = createSeoLandingMetadata("skapa-hemsida");
 
 export default function SkapaHemsidaPage() {
-  return <SeoLandingPlaceholder slug="skapa-hemsida" />;
+  return <SkapaHemsidaContent />;
 }

@@ -65,7 +65,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Skapa hemsida – från idé till färdig företagssida",
     intent: "Bred transactional: vägen från idé till hemsida",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "vad-kostar-en-hemsida"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
