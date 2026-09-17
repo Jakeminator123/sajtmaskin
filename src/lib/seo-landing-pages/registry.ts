@@ -109,7 +109,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Hemsideprogram – välj rätt sätt att bygga din webbplats",
     intent: "Jämför verktygstyper, inte ett enskilt varumärke",
     relatedSlugs: ["ai-hemsidebyggare", "hemsida-utan-kod", "wordpress-alternativ", "wix-alternativ"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {
