@@ -99,7 +99,11 @@ function renderHtml(data) {
       ? ""
       : `<section><h2>Öppna huvudrisker (backlog)</h2><p class="muted">Öppna P0/BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md.</p>${renderTable(
           ["Prio", "Typ", "Fynd"],
-          data.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "öppen", r.fynd]),
+          data.topOpenRisks.map((r) => [
+            r.prio,
+            r.blocker ? "BLOCKER" : r.kind === "verify" ? "driftprov" : "öppen",
+            r.fynd,
+          ]),
           data.topOpenRisks.map((r) =>
             r.prio === "P0" || r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info",
           ),
@@ -190,7 +194,7 @@ function renderHtml(data) {
 <body>
   <main>
     <header>
-      <h1>LLM-flöde — status mot master</h1>
+      <h1>LLM-flöde — status mot Aktiv kö</h1>
       <p class="muted">${esc(data.meta.repo)} · commit ${esc(data.meta.commit)}${metaDate} · genererad ${esc(
         new Date().toISOString().slice(0, 19).replace("T", " "),
       )} UTC</p>

@@ -6,6 +6,7 @@ import {
   markVersionSupersededByRepair,
   renewVersionLease,
 } from "@/lib/db/chat-repository-pg";
+import type { RepairProvenance } from "@/lib/db/repair-files-payload";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import {
@@ -138,6 +139,12 @@ export async function tryServerRepairLoop(params: {
     orchestrationSnapshot: unknown;
     projectId: string | null;
   } | null;
+  /**
+   * SM-003: optional deploy-repair stamp persisted with the envelope so the
+   * HTTP route can bind idempotence to this failed deployment, not the
+   * version-global `repair_available` flag.
+   */
+  repairProvenance?: RepairProvenance;
 }): Promise<ServerRepairLoopOutcome> {
   const {
     chatId,
@@ -155,6 +162,7 @@ export async function tryServerRepairLoop(params: {
     forceBuildGate = false,
     repairDeadlineEpochMs,
     f3Readiness = null,
+    repairProvenance,
   } = params;
   // Fas 3: without a finalize handover, use a fresh per-run ledger + a
   // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
@@ -214,6 +222,7 @@ export async function tryServerRepairLoop(params: {
   async function tryPromoteAfterGate(
     projectContent: string,
     method: "deterministic" | "llm",
+    options?: { verifyDeadlineEpochMs?: number },
   ): Promise<boolean> {
     // Codex P2 (renew before the post-repair gate): the per-pass onBeforePass
     // renewal only covers the LLM passes. shouldPromoteAfterRepair below runs a
@@ -343,6 +352,7 @@ export async function tryServerRepairLoop(params: {
         buildOriginated,
         previewPolicy,
       }),
+      verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -388,6 +398,7 @@ export async function tryServerRepairLoop(params: {
         msg,
         runId,
         baseFilesJson,
+        repairProvenance,
       ).catch((err) => {
         console.warn("[server-verify] Failed to save repaired version files:", err);
         return { status: "failed" as const };
@@ -532,8 +543,8 @@ export async function tryServerRepairLoop(params: {
     onBeforePass: async () => {
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },
-    onAttemptPromotion: async (projectContent, method) => ({
-      promoted: await tryPromoteAfterGate(projectContent, method),
+    onAttemptPromotion: async (projectContent, method, options) => ({
+      promoted: await tryPromoteAfterGate(projectContent, method, options),
     }),
   });
 

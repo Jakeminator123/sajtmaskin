@@ -102,6 +102,11 @@ Versionshistoriken markerar raden med badgen **"Importerad"**
 (`version-history-view.tsx`), och välkomstmeddelandet i chatten säger att
 templaten importerades som basversion med sin egen stack.
 
+Ett lyckat import-handoff (nytt projekt/chatt/version, URL och persistens)
+är inte bevis för lyckad `npm install` eller renderad importerad sajt.
+GitHub-provet täcker inte ZIP-binärer eller typsnitt. Full POST-idempotens
+påstås inte här.
+
 ## 5. Hur katalogen genereras (kanonisk väg)
 
 ```bash

@@ -79,7 +79,16 @@ export async function POST(req: Request) {
       // security audit (2026-04-24).
       const userId = await getRequestUserId(req);
       if (!userId || userId.startsWith("guest:")) {
-        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Skapa ett konto eller logga in för att generera. Ditt konto får en kostnadsfri första generering.",
+            code: "auth_required",
+            requiresAuth: true,
+          },
+          { status: 401 },
+        );
       }
       // Klient-triggad Deep Brief är en egen request: utan eget scope skulle
       // brief-anropets tokenrad sakna ägare.

@@ -10,6 +10,7 @@
  */
 
 import { getServerEnv } from "@/lib/env";
+import { countBracketPlaceholders } from "./bracket-placeholders";
 
 export function isVisualQAEnabled(): boolean {
   const v = getServerEnv().SAJTMASKIN_VISUAL_QA?.trim().toLowerCase();
@@ -234,12 +235,10 @@ function checkWebGLReadiness(
 function checkBracketPlaceholders(
   files: Array<{ path: string; content: string }>,
 ): VisualQACheckResult {
-  const bracketPattern = /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Roll|Företag|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
   let totalHits = 0;
 
   for (const file of files) {
-    const matches = file.content.match(bracketPattern);
-    if (matches) totalHits += matches.length;
+    totalHits += countBracketPlaceholders(file.content);
   }
 
   if (totalHits === 0) {

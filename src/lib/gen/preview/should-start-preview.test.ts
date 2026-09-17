@@ -324,6 +324,16 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(true);
   });
 
+  it("does NOT classify a first-pass LLM-unavailable receipt as build-breaking", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "verifier-llm-unavailable",
+        detail:
+          "LLM verifier did not complete (provider error, timeout, or invalid structured output). Deterministic scanners found no blockers; this is not a clean LLM review.",
+      }),
+    ).toBe(false);
+  });
+
   it("does NOT classify suspicious-nonstandard findings", () => {
     expect(
       isBuildBreakingFinding({

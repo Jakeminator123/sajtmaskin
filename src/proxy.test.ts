@@ -217,6 +217,7 @@ describe("proxy exact-Origin guard", () => {
     "/api/webhooks/openai",
     "/api/webhooks/v0",
     "/api/webhooks/vercel",
+    "/api/kostnadsfri/unsubscribe",
   ])("leaves signed machine receiver %s to its route-owned authentication", async (path) => {
     const res = await proxy(
       new NextRequest(`https://sajtmaskin.se${path}`, {

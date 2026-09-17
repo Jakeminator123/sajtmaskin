@@ -79,6 +79,8 @@ module.exports = {
     classifyLintResult: verifyJobs.classifyLintResult,
     inspectProjectLintSetup: verifyJobs.inspectProjectLintSetup,
     projectOwnsLintSetup: verifyJobs.projectOwnsLintSetup,
+    buildVerifyJobKey: verifyJobs.buildVerifyJobKey,
+    filesContentFingerprint: verifyJobs.filesContentFingerprint,
     resolveInstallCommand: packageInstall.resolveInstallCommand,
     LOCKFILE_STALE_MARKER_PATH: packageInstall.LOCKFILE_STALE_MARKER_PATH,
     readStaleLockfileMarker: packageInstall.readStaleLockfileMarker,

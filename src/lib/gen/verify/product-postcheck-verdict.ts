@@ -121,11 +121,25 @@ export function isAttestedAllowedSkipReason(
   return normalized === "feature_disabled" || isInfrastructureSkipReason(normalized);
 }
 
+/**
+ * Host still starting (or not httpReady) while Chromium sees the boot
+ * placeholder. Classification as a warning is correct — it must not become a
+ * durable `passed` claim (SM-077).
+ */
+export function isNonBlockingPreviewBootResult(
+  result: Pick<ProductPostcheckResult, "productBlocked" | "warnings"> | null,
+): boolean {
+  if (!result || result.productBlocked === true) return false;
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  return warnings.some((warning) => warning.code === "preview_boot_page");
+}
+
 export function verdictFromProductPostcheckResult(
   result: ProductPostcheckResult | null,
 ): ProductPostcheckVerdict {
   if (!result) return "pending";
   if (result.skippedReason === "preview_superseded") return "superseded";
+  if (isNonBlockingPreviewBootResult(result)) return "pending";
   if (result.skipped) {
     // Server-config `feature_disabled` is itself the attestation — no preview
     // tuple exists when the gate is off. Other release skips need the tuple.

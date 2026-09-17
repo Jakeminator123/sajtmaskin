@@ -44,6 +44,8 @@ import {
   type PendingCreatedVersion,
 } from "./page-controller/useBuilderVersionSelectionSync";
 import { usePreviewHandoff } from "./page-controller/usePreviewHandoff";
+import { planImportedProjectHandoff } from "./import-project-handoff";
+import type { ImportInitSuccess } from "@/lib/import/import-init-contract";
 
 /**
  * Builder page facade. Owns the shared wiring between the builder's hooks and
@@ -54,8 +56,10 @@ export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startUiTransition] = useTransition();
-  const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
+  const { fetchUser, isAuthenticated, isLoading: isAuthLoading, isInitialized } = useAuth();
+  const [authModalReason, setAuthModalReason] = useState<
+    "builder" | "save" | "generation" | "refine" | null
+  >(null);
   const [tipsEnabled, setTipsEnabled] = useState(false);
 
   const state = useBuilderState(searchParams);
@@ -125,6 +129,7 @@ export function useBuilderPageController() {
   // settle, quick edit). Owned here because `useBuilderDeployActions` runs
   // before `useBuilderVersionSelectionSync` in the hook order; both need it.
   const pendingCreatedVersionRef = useRef<PendingCreatedVersion | null>(null);
+  const pendingImportHandoffRef = useRef<{ chatId: string; projectId: string } | null>(null);
   const shouldHoldChatHooksForFreshEntry = Boolean(
     chatId && !chatIdParam && !templateId && hasEntryParams && entryIntentActive,
   );
@@ -445,6 +450,44 @@ export function useBuilderPageController() {
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
   /* eslint-enable react-hooks/refs */
 
+  const handleImportedRepoSuccess = useCallback(
+    (result: ImportInitSuccess) => {
+      const plan = planImportedProjectHandoff(result);
+      pendingImportHandoffRef.current = {
+        chatId: plan.nextChatId,
+        projectId: plan.nextProjectId,
+      };
+      markPendingCreatedVersion(pendingCreatedVersionRef, plan.nextVersionId);
+      setSelectedVersionId(plan.nextVersionId);
+      setChatId(plan.nextChatId);
+      projectActions.applyAppProjectId(plan.nextProjectId, { chatId: plan.nextChatId });
+      setMessages([]);
+      clearPreviewSessionState(plan.nextVersionId);
+      setClearedPreviewVersionId(plan.nextVersionId);
+      if (plan.nextPreviewUrl) {
+        applyPreviewHandoff({
+          url: plan.nextPreviewUrl,
+          versionId: plan.nextVersionId,
+          force: true,
+        });
+      } else {
+        setCurrentPreviewUrl(null);
+      }
+      void mutateVersions();
+    },
+    [
+      applyPreviewHandoff,
+      clearPreviewSessionState,
+      mutateVersions,
+      projectActions,
+      setChatId,
+      setClearedPreviewVersionId,
+      setCurrentPreviewUrl,
+      setMessages,
+      setSelectedVersionId,
+    ],
+  );
+
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentPreviewUrl(null);
     currentPreviewUrlRef.current = null;
@@ -508,6 +551,9 @@ export function useBuilderPageController() {
       onLinkedProjectId: (nextId) => state.setExternalProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
+      isAuthReady: isInitialized,
+      isAuthenticated,
+      onAuthRequired: (reason) => setAuthModalReason(reason),
     });
 
   const sendMessage = rawSendMessage;
@@ -561,6 +607,9 @@ export function useBuilderPageController() {
     cancelActiveGeneration,
     resetBeforeCreateChat,
     applyAppProjectId: projectActions.applyAppProjectId,
+    isAuthReady: isInitialized,
+    isAuthenticated,
+    onAuthRequired: (reason) => setAuthModalReason(reason),
   });
 
   // ── Preview / version callbacks ──────────────────────────────────────
@@ -627,6 +676,7 @@ export function useBuilderPageController() {
     isAuthenticated,
     isAuthLoading,
     isCreatingChat,
+    pendingImportHandoffRef,
     fetchUser,
     cancelActiveGeneration,
     pendingBriefRef,
@@ -745,6 +795,7 @@ export function useBuilderPageController() {
     selectedVersionId,
     versionIdSet: derived.versionIdSet,
     pendingCreatedVersionRef,
+    pendingChatHandoffRef: pendingImportHandoffRef,
     router,
     setChatId,
     setExternalProjectId,
@@ -950,6 +1001,7 @@ export function useBuilderPageController() {
 
     // Project actions
     applyAppProjectId: projectActions.applyAppProjectId,
+    handleImportedRepoSuccess,
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
       if (state.chatId && state.messages.length > 0) {

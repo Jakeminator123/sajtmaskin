@@ -19,6 +19,7 @@ import {
   resolveDeepBriefModelInfoFields,
   resolveDeepBriefVisibilityFields,
   buildApiErrorMessage,
+  isSajtmaskinAuthRequired,
   buildCreateChatKey,
   clearCreateChatLock,
   CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
@@ -34,6 +35,11 @@ import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import {
+  clearPendingBuilderDraft,
+  savePendingBuilderDraft,
+  serializeAttachmentUrls,
+} from "@/lib/builder/pending-builder-draft";
 
 export function useCreateChat(
   params: ChatMessagingParams,
@@ -86,6 +92,9 @@ export function useCreateChat(
     onLinkedProjectId,
     setMessages,
     resetBeforeCreateChat,
+    isAuthReady,
+    isAuthenticated,
+    onAuthRequired,
   } = params;
 
   const {
@@ -107,6 +116,14 @@ export function useCreateChat(
       if (isCreatingChat || createChatInFlightRef.current) return false;
       if (!initialMessage?.trim()) {
         toast.error("Please enter a message to start a new chat");
+        return false;
+      }
+      if (isAuthReady && isAuthenticated === false) {
+        savePendingBuilderDraft({
+          text: initialMessage,
+          attachmentUrls: serializeAttachmentUrls(options.attachments),
+        });
+        onAuthRequired?.("generation");
         return false;
       }
 
@@ -615,6 +632,15 @@ export function useCreateChat(
             );
             return Boolean(recoveredChatId);
           }
+          if (isSajtmaskinAuthRequired(errorData)) {
+            savePendingBuilderDraft({
+              text: initialMessage,
+              attachmentUrls: serializeAttachmentUrls(options.attachments),
+            });
+            onAuthRequired?.("generation");
+            setMessages([]);
+            return false;
+          }
           throw new Error(
             buildApiErrorMessage({ response, errorData, fallbackMessage: "Failed to create chat" }),
           );
@@ -682,6 +708,7 @@ export function useCreateChat(
         if (createdVersionId) {
           resetInitBuildChoices();
         }
+        clearPendingBuilderDraft();
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Create chat stream aborted by client");
@@ -777,6 +804,9 @@ export function useCreateChat(
       autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
+      isAuthReady,
+      isAuthenticated,
+      onAuthRequired,
     ],
   );
 

@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import {
+  currentBuilderReturnTo,
+  googleOAuthStartHref,
+  touchPendingBuilderDraftReturnTo,
+} from "@/lib/builder/pending-builder-draft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
@@ -177,17 +182,13 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
   };
 
   const handleGoogleLogin = () => {
-    // Redirect to Google OAuth
-    const redirectTarget =
-      returnTo ||
-      (typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-        : "/");
+    const redirectTarget = returnTo || currentBuilderReturnTo();
+    touchPendingBuilderDraftReturnTo(redirectTarget);
     // The path is a route handler that 302s to accounts.google.com, not a Next
     // page: the client router cannot follow a cross-origin redirect, so this has
-    // to be a document navigation.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = `/api/auth/google?redirect=${encodeURIComponent(redirectTarget)}`;
+    // to be a document navigation. Destination is built at runtime, so the
+    // relative-assign lint rule does not apply to this call.
+    window.location.href = googleOAuthStartHref(redirectTarget);
   };
 
   return (

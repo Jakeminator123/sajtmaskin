@@ -320,9 +320,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
         // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
         // round-trip just for hint generation.
-        // The picked preMatchVariant.id is later passed as orchestrationInput.variantHintId
-        // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
-        // brief-LLM hints and codegen aligned.
+        // The picked preMatchVariant.id is passed as orchestrationInput.variantHintId
+        // so Deep Brief can reuse the fast keyword hint. finalizeOrchestrationPrompts
+        // may re-pick against the finished brief unless Byggval Stil or a follow-up
+        // lock is present.
         // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
         // hints align with resolveOrchestrationBase. Template imports never send
         // scaffoldMode off via this path (they use importedRepoMode instead).

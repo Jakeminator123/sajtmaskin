@@ -528,6 +528,26 @@ export function renderLucideIconsReminderBlock(): string[] {
   ];
 }
 
+/**
+ * Nordlunden A1: Next requires a default export only on App Router
+ * `page.tsx` / `layout.tsx`. Named components (`SiteHeader`, `ContactForm`,
+ * `SiteFooter`) may stay named — do not tell the model every JSX file needs
+ * `export default`. The import lines are the recurring autofix waste.
+ */
+export function renderAppRouterModuleContractBlock(): string[] {
+  return [
+    "## App Router module contract",
+    "",
+    "Import and route-module rules for this generation. Do not invent extra default exports.",
+    "",
+    "- Every JSX tag you render must be imported or locally defined in the same file. Forgotten `<Button>`, `<Link>`, `<Badge>`, and `<Label>` imports are the most common mechanical repair. `Link` comes from `\"next/link\"`; shadcn primitives come from `@/components/ui/<name>`.",
+    "- When `app/layout.tsx` uses `React` or `ReactNode`, import them (`import type { ReactNode } from \"react\"` or `import React, { type ReactNode } from \"react\"`). Do not rely on a global React namespace.",
+    "- `app/**/page.tsx` and `app/**/layout.tsx` MUST have exactly one `export default`. Next.js App Router will not mount the route without it.",
+    "- Regular components (`SiteHeader`, `ContactForm`, `SiteFooter`, and other UI modules) MAY use named exports (`export function SiteHeader`). Do NOT add a dummy `export default` on those files.",
+    "",
+  ];
+}
+
 export function renderHydrationDeterminismBlock(): string[] {
   return [
     "## Render determinism (hydration)",

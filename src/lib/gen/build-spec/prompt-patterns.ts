@@ -141,6 +141,12 @@ export function includesAny(patterns: RegExp[], value: string): boolean {
   return patterns.some((pattern) => pattern.test(value));
 }
 
+/** AUTO-FIX / targeted repair — freeze new UI recipes, keep mechanical repair. */
+export function isTargetedRepairPrompt(prompt: string | null | undefined): boolean {
+  const text = typeof prompt === "string" ? prompt : "";
+  return text.length > 0 && includesAny(TARGETED_REPAIR_PATTERNS, text);
+}
+
 /**
  * True when the prompt mentions a section/block/area cue but does NOT
  * separately mention an explicit page word (`page` / `route` / `sida`).

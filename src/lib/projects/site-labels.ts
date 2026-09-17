@@ -64,3 +64,21 @@ export function addressKindHelp(kind: SiteAddressKind): string | null {
       return "Publicera sajten för att få en adress.";
   }
 }
+
+/**
+ * Compact address line for project cards. Prefer the host when a URL exists;
+ * otherwise reuse the same kind label as the site view.
+ */
+export function cardAddressText(address: {
+  liveUrl: string | null;
+  kind: SiteAddressKind;
+}): string {
+  if (address.liveUrl) {
+    try {
+      return new URL(address.liveUrl).host;
+    } catch {
+      return address.liveUrl;
+    }
+  }
+  return addressKindLabel(address.kind);
+}

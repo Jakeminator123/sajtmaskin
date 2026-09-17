@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
-import { runJsxChecker, type JsxCheckerProjectExports } from "./jsx-checker";
+import {
+  isDefaultExportRequiredPath,
+  runJsxChecker,
+  type JsxCheckerProjectExports,
+} from "./jsx-checker";
 import {
   buildProjectDefaultExportIndex,
   buildProjectExportIndex,
@@ -219,11 +223,9 @@ export function useReducedMotion() {
   return v;
 }
 `.trim();
-    const { warnings: noPath } = runJsxChecker(code);
-    // Without filePath, the legacy behaviour kicks in (warning emitted).
-    expect(
-      noPath.some((w) => w.includes("No default export found")),
-    ).toBe(true);
+    const { warnings: noPath, code: noPathCode } = runJsxChecker(code);
+    expect(noPath.some((w) => w.includes("No default export found"))).toBe(false);
+    expect(noPathCode).not.toMatch(/export default useReducedMotion/);
 
     const { warnings: hookWarnings } = runJsxChecker(
       code,
@@ -714,5 +716,75 @@ describe("runAutoFix — jsx-checker component imports", () => {
     expect(
       result.warnings.some((w) => w.includes("Left <GhostWidget> unimported")),
     ).toBe(true);
+  });
+});
+
+describe("jsx-checker default-export owners (C5)", () => {
+  it("does not fabricate a default export for components/contact-form.tsx", () => {
+    const code = `
+"use client";
+
+export function ContactForm() {
+  return <form><input name="email" /></form>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "components/contact-form.tsx");
+    expect(out).toBe(code);
+    expect(out).not.toMatch(/export default ContactForm/);
+    expect(fixes.some((fix) => fix.description?.includes("default export"))).toBe(false);
+  });
+
+  it("does not fabricate a default export for components/site-header.tsx", () => {
+    const code = `
+export function SiteHeader() {
+  return <header><nav>Hem</nav></header>;
+}
+`.trim();
+    const { code: out } = runJsxChecker(code, "components/site-header.tsx");
+    expect(out).not.toMatch(/export default SiteHeader/);
+    expect(out).toContain("export function SiteHeader");
+  });
+
+  it("adds a default export for app/page.tsx when the Next contract requires one", () => {
+    const code = `
+export function Page() {
+  return <main><h1>Hem</h1></main>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
+    expect(out).toContain("export default Page");
+    expect(fixes.some((fix) => fix.description === "Added default export for Page")).toBe(
+      true,
+    );
+  });
+
+  it("adds a default export for app/layout.tsx when the Next contract requires one", () => {
+    const code = `
+export function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html><body>{children}</body></html>;
+}
+`.trim();
+    const { code: out, warnings } = runJsxChecker(code, "app/layout.tsx");
+    expect(out).toContain("export default RootLayout");
+    expect(warnings.some((w) => w.includes("No default export found"))).toBe(false);
+  });
+
+  it("keeps the missing-default diagnostic when an App Router page has no component to export", () => {
+    const code = `
+export const metadata = { title: "Hem" };
+`.trim();
+    const { code: out, warnings } = runJsxChecker(code, "src/app/about/page.tsx");
+    expect(out).not.toMatch(/export default /);
+    expect(warnings.some((w) => w.includes("No default export found"))).toBe(true);
+  });
+
+  it("recognizes only App Router special-file owners", () => {
+    expect(isDefaultExportRequiredPath("app/page.tsx")).toBe(true);
+    expect(isDefaultExportRequiredPath("src/app/layout.tsx")).toBe(true);
+    expect(isDefaultExportRequiredPath("app/blog/[slug]/page.tsx")).toBe(true);
+    expect(isDefaultExportRequiredPath("components/contact-form.tsx")).toBe(false);
+    expect(isDefaultExportRequiredPath("components/site-header.tsx")).toBe(false);
+    expect(isDefaultExportRequiredPath("app/api/contact/route.ts")).toBe(false);
+    expect(isDefaultExportRequiredPath(undefined)).toBe(false);
   });
 });

@@ -2,6 +2,10 @@
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
+import {
+  shouldApplyUrlChatId,
+  shouldClearPendingChatHandoff,
+} from "../import-project-handoff";
 
 /**
  * Grace window for a version this client just created (generation `done`,
@@ -59,6 +63,11 @@ type Params = {
    * {@link markPendingCreatedVersion}; cleared here once the id is canonical.
    */
   pendingCreatedVersionRef: PendingCreatedVersionRef;
+  /**
+   * Explicit chat handoff (import today). While this points at `chat_new`,
+   * a stale URL `chatId` must not write state back to the previous chat.
+   */
+  pendingChatHandoffRef?: MutableRefObject<{ chatId: string } | null>;
   router: { replace: (url: string) => void };
   setChatId: Dispatch<SetStateAction<string | null>>;
   setExternalProjectId: Dispatch<SetStateAction<string | null>>;
@@ -82,6 +91,7 @@ export function useBuilderVersionSelectionSync({
   selectedVersionId,
   versionIdSet,
   pendingCreatedVersionRef,
+  pendingChatHandoffRef,
   router,
   setChatId,
   setExternalProjectId,
@@ -167,14 +177,40 @@ export function useBuilderVersionSelectionSync({
 
   // ChatId URL sync
   useEffect(() => {
+    const pendingHandoffChatId = pendingChatHandoffRef?.current?.chatId ?? null;
+    if (
+      pendingChatHandoffRef &&
+      shouldClearPendingChatHandoff({
+        chatIdParam,
+        pendingHandoffChatId,
+      })
+    ) {
+      pendingChatHandoffRef.current = null;
+    }
     if (isIntentionalReset) {
       if (!chatIdParam) setIsIntentionalReset(false);
       return;
     }
-    if (chatIdParam && chatIdParam !== chatId) {
+    if (
+      shouldApplyUrlChatId({
+        chatIdParam,
+        currentChatId: chatId,
+        pendingHandoffChatId: pendingChatHandoffRef?.current?.chatId ?? null,
+      })
+    ) {
       setChatId(chatIdParam);
     }
-  }, [chatIdParam, chatId, router, isIntentionalReset, hasEntryParams, entryIntentActive, setIsIntentionalReset, setChatId]);
+  }, [
+    chatIdParam,
+    chatId,
+    router,
+    isIntentionalReset,
+    hasEntryParams,
+    entryIntentActive,
+    pendingChatHandoffRef,
+    setIsIntentionalReset,
+    setChatId,
+  ]);
 
   useEffect(() => {
     if (!chatId) return;

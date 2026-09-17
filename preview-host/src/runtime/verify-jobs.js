@@ -4,6 +4,7 @@
 // serialiserad jobbkö och lint-klassificering. Ren extraktion ur runtime.js —
 // ingen beteendeändring.
 
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -335,15 +336,32 @@ async function runVerifyJob(params) {
   return withNoSpaceCleanupRetry(runJob);
 }
 
+function filesContentFingerprint(filesJson) {
+  const hash = createHash("sha256");
+  const entries = Object.entries(filesJson || {})
+    .filter(([, content]) => typeof content === "string")
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  for (const [name, content] of entries) {
+    hash.update(name);
+    hash.update("\n");
+    hash.update(content);
+    hash.update("\n");
+  }
+  return hash.digest("hex");
+}
+
 function buildVerifyJobKey(params) {
   // Order is part of the gate contract (F3: typecheck → lint → build), so two
   // jobs with the same set in different orders must never dedupe together.
+  // Identity is bound to verified file contents — same chat/version/deps/checks
+  // with a different page.tsx must not reuse an in-flight result.
+  // `dependencyFingerprint` stays the install-cache key, not this job key.
   const checks = Array.isArray(params.checks) ? params.checks.join(",") : "";
   return [
     params.chatId,
     params.versionId,
     checks,
-    dependencyFingerprint(params.filesJson),
+    filesContentFingerprint(params.filesJson),
   ].join(":");
 }
 
@@ -396,5 +414,7 @@ module.exports = {
   classifyLintResult,
   runVerifyJob,
   runQueuedVerifyJob,
+  buildVerifyJobKey,
+  filesContentFingerprint,
   setVerifyRunnersForTesting,
 };

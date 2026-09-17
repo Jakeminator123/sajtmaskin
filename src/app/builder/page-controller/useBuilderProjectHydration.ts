@@ -33,7 +33,7 @@ type Params = {
   searchParams: ReadonlyURLSearchParams;
   setAppProjectId: Dispatch<SetStateAction<string | null>>;
   setAppProjectName: Dispatch<SetStateAction<string | null>>;
-  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | null>>;
+  setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | "generation" | "refine" | null>>;
   setClearedPreviewVersionId: Dispatch<SetStateAction<string | null>>;
   setEntryIntentActive: Dispatch<SetStateAction<boolean>>;
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;

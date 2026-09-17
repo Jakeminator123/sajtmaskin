@@ -182,6 +182,29 @@ export async function markKostnadsfriProfileLookupSettled(
   return rows.length > 0;
 }
 
+export async function markKostnadsfriPageUnsubscribed(
+  slug: string,
+  at: Date = new Date(),
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
+  const existing = await getKostnadsfriPageBySlug(slug);
+  if (!existing) return null;
+  const extra = (existing.extra_data as Record<string, unknown> | null) ?? {};
+  if (typeof extra.unsubscribedAt === "string" && extra.unsubscribedAt.trim()) {
+    return existing;
+  }
+  const extraData = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb)`;
+  const rows = await db
+    .update(kostnadsfriPages)
+    .set({
+      extra_data: sql`${extraData} || ${JSON.stringify({ unsubscribedAt: at.toISOString() })}::jsonb`,
+      updated_at: new Date(),
+    })
+    .where(eq(kostnadsfriPages.slug, slug))
+    .returning();
+  return rows[0] ?? null;
+}
+
 export async function getKostnadsfriPageBySlug(slug: string): Promise<KostnadsfriPage | null> {
   assertDbConfigured();
   const rows = await db

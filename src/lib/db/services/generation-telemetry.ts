@@ -323,6 +323,14 @@ export type PreviewRuntimeOutcomeOptions = {
    * caller has the session in hand yet; it is a degradation, not the contract.
    */
   bootedFilesRevision?: string | null;
+  /**
+   * Host `waitForReady` text when stamping `preview_success=false`. Lands in
+   * `generation_telemetry.preview_blocking_reason` so `/logg` can read the
+   * DB boot field without waiting for a client status poll. A later
+   * `preview_success=true` always clears the column — a recovered boot must
+   * not keep the earlier blocker text.
+   */
+  previewBlockingReason?: string | null;
 };
 
 export async function recordPreviewRuntimeOutcomeForVersion(
@@ -386,9 +394,20 @@ export async function recordPreviewRuntimeOutcomeForVersion(
     const monotonicGuard = previewSuccess
       ? sql`${generationTelemetry.previewSuccess} IS DISTINCT FROM true`
       : isNull(generationTelemetry.previewSuccess);
+    const blockingReason =
+      !previewSuccess && typeof opts?.previewBlockingReason === "string"
+        ? opts.previewBlockingReason.trim()
+        : "";
     const result = await db
       .update(generationTelemetry)
-      .set({ previewSuccess })
+      .set({
+        previewSuccess,
+        ...(previewSuccess
+          ? { previewBlockingReason: null }
+          : blockingReason
+            ? { previewBlockingReason: blockingReason }
+            : {}),
+      })
       .where(
         and(sql`${generationTelemetry.id} = ${targetRowIdForVersion}`, monotonicGuard),
       );

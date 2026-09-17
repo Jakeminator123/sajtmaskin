@@ -26,6 +26,97 @@ function looksLikeUnsupportedModelError(message: string | null | undefined): boo
   );
 }
 
+/** Sajtmaskin login-refusal, not an AI-provider API-key failure. */
+export const SAJT_MASKIN_AUTH_REQUIRED_FALLBACK =
+  "Skapa ett konto eller logga in för att generera.";
+
+export function isSajtmaskinAuthRequired(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!errorData || typeof errorData !== "object") return false;
+  if (errorData.requiresAuth === true) return true;
+  return errorData.code === "auth_required";
+}
+
+export function readAuthRequiredMessage(
+  errorData: Record<string, unknown> | null | undefined,
+): string {
+  const error = typeof errorData?.error === "string" ? errorData.error.trim() : "";
+  if (error) return error;
+  const message = typeof errorData?.message === "string" ? errorData.message.trim() : "";
+  return message || SAJT_MASKIN_AUTH_REQUIRED_FALLBACK;
+}
+
+export class BuilderAuthRequiredError extends Error {
+  readonly code = "auth_required" as const;
+  constructor(message = SAJT_MASKIN_AUTH_REQUIRED_FALLBACK) {
+    super(message);
+    this.name = "BuilderAuthRequiredError";
+  }
+}
+
+export function isBuilderAuthRequiredError(error: unknown): error is BuilderAuthRequiredError {
+  return error instanceof BuilderAuthRequiredError;
+}
+
+const BRIEF_ROUTE_SESSION_ERROR = "unauthorized";
+
+function isErrorRecord(
+  errorData: Record<string, unknown> | null | undefined,
+): errorData is Record<string, unknown> {
+  return Boolean(errorData) && typeof errorData === "object";
+}
+
+function readBriefErrorString(
+  errorData: Record<string, unknown> | null | undefined,
+): string {
+  return typeof errorData?.error === "string" ? errorData.error.trim() : "";
+}
+
+/** Explicit provider unauthorized — not Sajtmaskin login. */
+export function isProviderUnauthorizedCode(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  return errorData?.code === "unauthorized";
+}
+
+/**
+ * Bodies from `validateBriefModelForHttp` when OPENAI_API_KEY / ANTHROPIC_API_KEY
+ * is missing: `{ error: "Missing … API key", setup: "…_API_KEY…" }` and no
+ * `code: "unauthorized"`.
+ */
+export function isMissingProviderApiKeyBody(
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!isErrorRecord(errorData)) return false;
+  const error = readBriefErrorString(errorData);
+  if (/^Missing (?:OpenAI|Anthropic) API key$/u.test(error)) return true;
+  const setup = typeof errorData.setup === "string" ? errorData.setup : "";
+  return /(?:OPENAI|ANTHROPIC)_API_KEY/u.test(setup);
+}
+
+/**
+ * `/api/ai/brief` login vs provider-key 401. Fail-safe: only known
+ * Sajtmaskin-auth contracts open login. Unknown 401 bodies stay on the
+ * API-key path so a missing provider key cannot block create behind login.
+ *
+ * Login: `requiresAuth` / `auth_required`; the route's session body
+ * `{ error: "unauthorized" }`; empty/unreadable 401 (stale session).
+ * Not login: `validateBriefModelForHttp` missing-key bodies;
+ * explicit `{ code: "unauthorized" }`.
+ */
+export function isBriefRouteAuthRefusal(
+  status: number,
+  errorData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (isSajtmaskinAuthRequired(errorData)) return true;
+  if (status !== 401) return false;
+  if (isProviderUnauthorizedCode(errorData)) return false;
+  if (isMissingProviderApiKeyBody(errorData)) return false;
+  if (!isErrorRecord(errorData) || Object.keys(errorData).length === 0) return true;
+  return readBriefErrorString(errorData) === BRIEF_ROUTE_SESSION_ERROR;
+}
+
 export function buildApiErrorMessage(params: {
   response: Response;
   errorData: Record<string, unknown> | null;
@@ -50,6 +141,9 @@ export function buildApiErrorMessage(params: {
   }
   if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (isSajtmaskinAuthRequired(errorData)) {
+    return readAuthRequiredMessage(errorData);
   }
   if (status === 401 || code === "unauthorized") {
     return "API-nyckel saknas eller är ogiltig.";
@@ -160,6 +254,9 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
   }
   if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (isSajtmaskinAuthRequired(errorData)) {
+    return readAuthRequiredMessage(errorData);
   }
   if (code === "unauthorized") {
     return "API-nyckel saknas eller är ogiltig.";

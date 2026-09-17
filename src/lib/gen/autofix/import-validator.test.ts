@@ -589,3 +589,46 @@ describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
     expect(result.code).not.toContain('import { LucideProps, Flame } from "lucide-react"');
   });
 });
+
+describe("import-validator undeclared Icon identifier (SM-077)", () => {
+  it("adds Circle as Icon for a follow-up JSX <Icon /> without import", () => {
+    const code = [
+      '"use client";',
+      "",
+      "export default function Card() {",
+      "  return <Icon className=\"h-4 w-4\" />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+    expect(result.code).toContain('import { Circle as Icon } from "lucide-react"');
+    expect(
+      result.fixes.some((fix) => /undeclared Icon identifier/.test(fix.description)),
+    ).toBe(true);
+  });
+
+  it("adds Circle as Icon for icon={Icon} value usage", () => {
+    const code = [
+      "const items = [{ label: \"Trail\", icon: Icon }];",
+      "export default function List() {",
+      "  return items.map((item) => item.label);",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+    expect(result.code).toContain('import { Circle as Icon } from "lucide-react"');
+  });
+
+  it("does not rebind a locally declared Icon", () => {
+    const code = [
+      "function Icon() { return <span /> }",
+      "export default function Card() {",
+      "  return <Icon />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+    expect(result.code).not.toContain("Circle as Icon");
+    expect(result.code).not.toContain("const Icon = Circle");
+  });
+});
