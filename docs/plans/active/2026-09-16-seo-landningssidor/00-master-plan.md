@@ -1,6 +1,9 @@
 # SEO-landningssidor på sajtmaskin.se
 
-> **Status: genomförande pågår mot `preview`.** Ingen produktionspromote.
+> **Status: genomförande pågår mot `preview`.** #1437 foundation och #1443
+> första `ready`-sida (`/skapa-hemsida-med-ai`) är landade. Ingen
+> produktionspromote. Relaterat-länkar till placeholder-syskon är SEO-ägarens
+> rest, inte hygien.
 > Planpaket från coach 2026-09-16. Runtime-ägare är
 > [`src/lib/seo-landing-pages/registry.ts`](../../../../src/lib/seo-landing-pages/registry.ts),
 > inte den här mappen.
@@ -21,10 +24,10 @@ Kodkontrakt: vanliga App Router-routes. Sitemap och index följer
 |---|---|
 | Foundation | #1437: register + noindex-placeholders + fail-closed mot `ready` |
 | Register + metadata + sitemap-grind | Finns |
-| Referensroute `/skapa-hemsida-med-ai` | Finns som noindex-placeholder |
+| Referensroute `/skapa-hemsida-med-ai` | #1443 landad på preview `25438d0fe`, `status: "ready"` |
 | Övriga slugs i matrisen | Routes finns, fortfarande placeholders |
-| Unikt innehåll / demo / internlänkar | Inte skrivet |
-| Indexering | Ingen sida är `ready` |
+| Unikt innehåll / demo / internlänkar | Referenssidan har innehåll. Relaterat länkar fortfarande till placeholder-syskon — SEO-ägarens rest. |
+| Indexering | Bara `ready`-sidor i sitemap; övriga noindex |
 
 Synka alltid mot live `origin/preview` före nästa kodsteg. #1437 mergas
 av en annan agent; fyll inte den PR:n med riktigt sidinnehåll.

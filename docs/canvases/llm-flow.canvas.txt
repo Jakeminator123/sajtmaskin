@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "25438d0fe",
+    "commit": "68bd80192",
     "commitDate": "2026-09-17",
     "sinceDays": 14
   },
@@ -80,9 +80,9 @@ const DATA: CanvasData = {
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 3,
+      "churn": 4,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "3 commits / 14d"
+      "note": "Aktiv: 4 commits / 14d"
     },
     {
       "name": "Codegen core",
