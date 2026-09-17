@@ -55,15 +55,13 @@ describe("ProjectCardActions", () => {
     expect(screen.queryByRole("link", { name: "Redigera" })).toBeNull();
   });
 
-  it("keeps the portal reachable when the overview is missing", () => {
+  it("does not link to the portal when the overview is missing", () => {
     render(<ProjectCardActions projectId="proj_old" site={null} />);
 
     expect(screen.getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
-    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
-      "/projects/proj_old",
-    );
+    expect(screen.queryByRole("link", { name: "Hantera sajt" })).toBeNull();
   });
 
   it("does not pretend a loading overview is a draft", () => {

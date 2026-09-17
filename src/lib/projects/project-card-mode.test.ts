@@ -32,6 +32,8 @@ describe("projectCardMode", () => {
   it("treats a missing overview as a legacy draft, not as a live site", () => {
     expect(projectCardMode(undefined)).toBe("loading");
     expect(projectCardMode(null)).toBe("legacy");
+    // A thrown getProjectSite() must stay undefined — not be mapped onto null.
+    expect(isDraftSegment(undefined)).toBe(false);
   });
 
   it("separates live, in-flight and broken publishes", () => {

@@ -19,7 +19,6 @@ export function ProjectCardActions({
   const manageHref = projectCardManageHref(projectId);
   const editHref = projectCardBuilderHref(projectId);
   const manageIsPrimary = mode === "live" || mode === "progress" || mode === "problem";
-  const buildLabel = mode === "legacy" ? "Öppna i byggaren" : "Fortsätt bygga";
 
   if (mode === "loading") {
     return (
@@ -34,6 +33,21 @@ export function ProjectCardActions({
           <Link href={editHref}>
             <PencilLine className="h-4 w-4" />
             Redigera
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // `/projects/[id]` treats a missing overview as "Projektet hittades inte".
+  // A confirmed `null` must not keep a manage CTA that 404:s.
+  if (mode === "legacy") {
+    return (
+      <div className="mt-4 grid grid-cols-1 gap-2">
+        <Button asChild className="bg-brand-teal hover:bg-brand-teal/90 w-full gap-2">
+          <Link href={editHref}>
+            <PencilLine className="h-4 w-4" />
+            Öppna i byggaren
           </Link>
         </Button>
       </div>
@@ -62,7 +76,7 @@ export function ProjectCardActions({
           <Button asChild className="bg-brand-teal hover:bg-brand-teal/90 w-full gap-2">
             <Link href={editHref}>
               <PencilLine className="h-4 w-4" />
-              {buildLabel}
+              Fortsätt bygga
             </Link>
           </Button>
           <Button asChild variant="outline" className="w-full gap-2">

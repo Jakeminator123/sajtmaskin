@@ -6,9 +6,10 @@ import type { ProjectSite } from "./project-client";
  * in the footer.
  *
  * `legacy` is the honest answer when `getProjectSite()` returned `null`
- * (older rows, a transient 404, or a failed overview fetch). The card must
- * still render, but it must not invent a live address or a portal that the
- * overview could not confirm.
+ * (older rows without a site record, or a confirmed 404). The card must
+ * still render, but it must not invent a live address or a manage CTA —
+ * `/projects/[id]` treats a null overview as "Projektet hittades inte".
+ * Transient fetch failures should stay `undefined` (loading), not `null`.
  */
 export type ProjectCardMode = "loading" | "legacy" | "draft" | "live" | "progress" | "problem";
 

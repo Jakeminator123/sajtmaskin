@@ -102,9 +102,10 @@ describe("ProjectCard", () => {
     expect(screen.getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
-    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
-      "/projects/proj_old",
+    expect(screen.getByRole("link", { name: "Öppna Gammalt projekt i byggaren" }).getAttribute("href")).toBe(
+      "/builder?project=proj_old",
     );
+    expect(screen.queryByRole("link", { name: "Hantera sajt" })).toBeNull();
   });
 
   it("keeps manage and edit visible while the overview is still loading", () => {

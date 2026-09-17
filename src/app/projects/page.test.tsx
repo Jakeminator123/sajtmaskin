@@ -125,9 +125,7 @@ describe("ProjectsPage", () => {
     expect(within(oldCard!).getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
-    expect(within(oldCard!).getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
-      "/projects/proj_old",
-    );
+    expect(within(oldCard!).queryByRole("link", { name: "Hantera sajt" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Publicerade/ }));
     await waitFor(() => {
@@ -164,6 +162,21 @@ describe("ProjectsPage", () => {
         "/projects/proj_live",
       );
     });
+  });
+
+  it("does not paint a failed overview fetch as a confirmed draft", async () => {
+    getProjects.mockResolvedValue([project()]);
+    getProjectSite.mockRejectedValue(new Error("site overview failed"));
+
+    render(<ProjectsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Live-sajten" })).toBeTruthy();
+    expect(screen.getByText("Hämtar status")).toBeTruthy();
+    expect(screen.queryByText("Utkast")).toBeNull();
+    expect(screen.getByRole("link", { name: /^Hantera sajt$/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Redigera" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Öppna i byggaren" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
   });
 
   it("still offers delete for a project in the grid", async () => {

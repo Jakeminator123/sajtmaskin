@@ -103,11 +103,18 @@ function ProjectsPageInner() {
         try {
           return [project.id, await getProjectSite(project.id)] as const;
         } catch {
-          return [project.id, null] as const;
+          // Leave the card in the loading/neutral state. Mapping a transient
+          // 500 onto `null` would both hide a working portal retry and paint
+          // the row as a confirmed "Utkast". A real missing site is `null`.
+          return null;
         }
       }),
     );
-    setSitesById(Object.fromEntries(siteEntries));
+    setSitesById(
+      Object.fromEntries(
+        siteEntries.filter((entry): entry is readonly [string, ProjectSite | null] => entry !== null),
+      ),
+    );
   }
 
   function openDeleteDialog(id: string, name: string) {
