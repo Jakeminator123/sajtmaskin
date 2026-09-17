@@ -55,13 +55,27 @@ describe("ProjectCardActions", () => {
     expect(screen.queryByRole("link", { name: "Redigera" })).toBeNull();
   });
 
-  it("does not invent a portal action when the overview is missing", () => {
+  it("keeps the portal reachable when the overview is missing", () => {
     render(<ProjectCardActions projectId="proj_old" site={null} />);
 
     expect(screen.getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
-    expect(screen.queryByRole("link", { name: "Hantera sajt" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_old",
+    );
+  });
+
+  it("does not pretend a loading overview is a draft", () => {
+    render(<ProjectCardActions projectId="proj_1" site={undefined} />);
+
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_1",
+    );
+    expect(screen.getByRole("link", { name: "Redigera" }).getAttribute("href")).toBe(
+      "/builder?project=proj_1",
+    );
+    expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
   });
 
   it("still offers manage while a publish is in progress or broken", () => {

@@ -63,7 +63,8 @@ export function ProjectCard({
   const mode = projectCardMode(site);
   const primaryHref = projectCardPrimaryHref(project.id, mode);
   const state = site ? publishStateLabel(site.state) : null;
-  const statusLabel = state?.label ?? (mode === "legacy" ? "Utkast" : null);
+  const statusLabel =
+    state?.label ?? (mode === "legacy" ? "Utkast" : mode === "loading" ? "Hämtar status" : null);
   const statusTone = state?.tone ?? "idle";
   const hasImageThumbnail =
     typeof project.thumbnail_path === "string" &&
@@ -84,7 +85,9 @@ export function ProjectCard({
         aria-label={
           mode === "live" || mode === "progress" || mode === "problem"
             ? `Hantera sajten ${project.name}`
-            : `Öppna ${project.name} i byggaren`
+            : mode === "loading"
+              ? `Öppna projektet ${project.name}`
+              : `Öppna ${project.name} i byggaren`
         }
       >
         {hasImageThumbnail ? (

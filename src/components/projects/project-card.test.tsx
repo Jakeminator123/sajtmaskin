@@ -102,6 +102,59 @@ describe("ProjectCard", () => {
     expect(screen.getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
-    expect(screen.queryByRole("link", { name: "Hantera sajt" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_old",
+    );
+  });
+
+  it("keeps manage and edit visible while the overview is still loading", () => {
+    render(
+      <ProjectCard project={project({ name: "Laddar" })} site={undefined} onDelete={vi.fn()} />,
+    );
+
+    expect(screen.getByText("Hämtar status")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_1",
+    );
+    expect(screen.getByRole("link", { name: "Redigera" }).getAttribute("href")).toBe(
+      "/builder?project=proj_1",
+    );
+    expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
+  });
+
+  it("surfaces an in-flight or failed publish instead of a generic draft", () => {
+    const { rerender } = render(
+      <ProjectCard
+        project={project({ id: "proj_build", name: "Bygget" })}
+        site={site({
+          projectId: "proj_build",
+          state: "building",
+          address: { liveUrl: null, kind: "none" },
+        })}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Bygger").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_build",
+    );
+
+    rerender(
+      <ProjectCard
+        project={project({ id: "proj_err", name: "Felet" })}
+        site={site({
+          projectId: "proj_err",
+          state: "error",
+          address: { liveUrl: null, kind: "none" },
+        })}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Publiceringen misslyckades").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_err",
+    );
   });
 });

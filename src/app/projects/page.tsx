@@ -256,7 +256,7 @@ function ProjectsPageInner() {
                 <p className="mt-2 text-sm text-gray-500">
                   {segment === "published"
                     ? "Publicera från byggaren när ett utkast är redo — sedan hanterar du sajten härifrån."
-                    : "Alla dina projekt är publicerade. Öppna ett kort för att hantera sajten."}
+                    : "Byt till Alla eller Publicerade om sajten redan är live eller håller på att publiceras."}
                 </p>
               </div>
             ) : (

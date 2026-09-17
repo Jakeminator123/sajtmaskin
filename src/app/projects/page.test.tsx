@@ -125,6 +125,9 @@ describe("ProjectsPage", () => {
     expect(within(oldCard!).getByRole("link", { name: "Öppna i byggaren" }).getAttribute("href")).toBe(
       "/builder?project=proj_old",
     );
+    expect(within(oldCard!).getByRole("link", { name: "Hantera sajt" }).getAttribute("href")).toBe(
+      "/projects/proj_old",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Publicerade/ }));
     await waitFor(() => {
@@ -138,6 +141,33 @@ describe("ProjectsPage", () => {
       expect(screen.queryByRole("heading", { name: "Live-sajten" })).toBeNull();
       expect(screen.getByRole("heading", { name: "Utkastet" })).toBeTruthy();
       expect(screen.getByRole("heading", { name: "Gammalt" })).toBeTruthy();
+    });
+  });
+
+  it("does not paint a live project as a draft while the overview is in flight", async () => {
+    let releaseSite: ((value: ProjectSite) => void) | null = null;
+    getProjects.mockResolvedValue([project()]);
+    getProjectSite.mockImplementation(
+      () =>
+        new Promise<ProjectSite>((resolve) => {
+          releaseSite = resolve;
+        }),
+    );
+
+    render(<ProjectsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Live-sajten" })).toBeTruthy();
+    expect(screen.getByText("Hämtar status")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Hantera sajt", exact: true })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Redigera" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Fortsätt bygga" })).toBeNull();
+
+    releaseSite?.(site());
+    await waitFor(() => {
+      expect(screen.getAllByText("Publicerad").length).toBeGreaterThan(0);
+      expect(screen.getByRole("link", { name: "Hantera sajt", exact: true }).getAttribute("href")).toBe(
+        "/projects/proj_live",
+      );
     });
   });
 

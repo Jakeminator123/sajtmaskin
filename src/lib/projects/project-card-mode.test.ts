@@ -75,10 +75,18 @@ describe("project list segments", () => {
     expect(isPublishedSegment(legacy)).toBe(false);
     expect(isDraftSegment(undefined)).toBe(false);
 
-    expect(countProjectListSegments([live, republishing, draft, legacy, undefined])).toEqual({
-      all: 5,
+    const firstPublishError = site({
+      state: "error",
+      address: { liveUrl: null, kind: "none" },
+    });
+    expect(isDraftSegment(firstPublishError)).toBe(true);
+
+    expect(
+      countProjectListSegments([live, republishing, draft, legacy, undefined, firstPublishError]),
+    ).toEqual({
+      all: 6,
       published: 2,
-      drafts: 2,
+      drafts: 3,
     });
   });
 
@@ -95,6 +103,15 @@ describe("project list segments", () => {
         }),
         "drafts",
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      matchesProjectListSegment(
+        site({
+          state: "building",
+          address: { liveUrl: null, kind: "none" },
+        }),
+        "drafts",
+      ),
+    ).toBe(true);
   });
 });

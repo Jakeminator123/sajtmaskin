@@ -57,13 +57,14 @@ export function isPublishedSegment(site: ProjectSite | null | undefined): boolea
 }
 
 /**
- * A card belongs in "Utkast" when there is no published site to manage yet.
- * In-flight / problem publishes without a URL stay visible under "Alla".
+ * A card belongs in "Utkast" when there is no reachable published site yet.
+ * That includes never-published rows, missing overviews, and a first publish
+ * that is still building or failed without a live URL — otherwise those cards
+ * vanish from both filters and the empty-state copy starts lying.
  */
 export function isDraftSegment(site: ProjectSite | null | undefined): boolean {
   if (site === undefined) return false;
-  if (site === null) return true;
-  return site.state === "never_published" && !site.address.liveUrl;
+  return !isPublishedSegment(site);
 }
 
 export function matchesProjectListSegment(
