@@ -112,6 +112,7 @@ describe("SEO landing registry", () => {
         "hemsida-till-foretag",
         "hemsideprogram",
         "hemsida-utan-kod",
+        "vad-kostar-en-hemsida",
       ]),
     );
     expect(getIndexableSeoLandingRelPaths()).toEqual([
@@ -121,6 +122,7 @@ describe("SEO landing registry", () => {
       "/hemsida-till-foretag",
       "/hemsideprogram",
       "/hemsida-utan-kod",
+      "/vad-kostar-en-hemsida",
     ]);
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
       SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
@@ -158,11 +160,11 @@ describe("SEO landing registry", () => {
 
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("vad-kostar-en-hemsida")),
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("wix-alternativ")),
     ).not.toThrow();
     expect(() =>
       assertSeoLandingPlaceholderAllowed({
-        ...getSeoLandingEntry("vad-kostar-en-hemsida"),
+        ...getSeoLandingEntry("wix-alternativ"),
         status: "ready",
       }),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);

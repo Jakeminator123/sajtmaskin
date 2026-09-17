@@ -131,7 +131,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Vad kostar en hemsida? Kostnaderna som faktiskt påverkar priset",
     intent: "Kostnadsdrivare, inte ett påhittat fast pris",
     relatedSlugs: ["skapa-hemsida", "hemsida-till-foretag", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
   {

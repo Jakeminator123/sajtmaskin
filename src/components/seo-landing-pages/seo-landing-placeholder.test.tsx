@@ -27,13 +27,13 @@ vi.mock("@/lib/seo-landing-pages/registry", async (importOriginal) => {
 
 describe("SeoLandingPlaceholder", () => {
   it("renders the shared test heading, slug and product CTA", () => {
-    render(<SeoLandingPlaceholder slug="vad-kostar-en-hemsida" />);
+    render(<SeoLandingPlaceholder slug="wix-alternativ" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Testsida Sajtmaskin" })).toBeTruthy();
     expect(
-      screen.getByText("Vad kostar en hemsida? Kostnaderna som faktiskt påverkar priset"),
+      screen.getByText("Wix-alternativ – jämför arbetssätt innan du byter"),
     ).toBeTruthy();
-    expect(screen.getByText("/vad-kostar-en-hemsida")).toBeTruthy();
+    expect(screen.getByText("/wix-alternativ")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "Skapa hemsida" })[0]?.getAttribute("href")).toBe(
       "/builder?new=1",
     );
@@ -43,11 +43,11 @@ describe("SeoLandingPlaceholder", () => {
   });
 
   it("runs the ready-guard before painting the blue test surface", () => {
-    render(<SeoLandingPlaceholder slug="vad-kostar-en-hemsida" />);
+    render(<SeoLandingPlaceholder slug="wix-alternativ" />);
 
     expect(assertSeoLandingPlaceholderAllowed).toHaveBeenCalledWith(
       expect.objectContaining({
-        slug: "vad-kostar-en-hemsida",
+        slug: "wix-alternativ",
         status: "placeholder",
       }),
     );
