@@ -164,7 +164,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     plannedH1: "Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga",
     intent: "Saklig Lovable-jämförelse utifrån byggmål",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"],
-    status: "placeholder",
+    status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
 ];

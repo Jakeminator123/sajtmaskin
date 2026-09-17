@@ -25,8 +25,21 @@ vi.mock("@/lib/seo-landing-pages/registry", async (importOriginal) => {
   };
 });
 
+const PLACEHOLDER_LOVABLE = {
+  slug: "lovable-alternativ" as const,
+  title: "Lovable-alternativ – Lovable eller Sajtmaskin?",
+  description:
+    "Lovable-alternativ: välj verktyg efter om du bygger företagssida, app eller prototyp.",
+  plannedH1: "Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga",
+  intent: "Saklig Lovable-jämförelse utifrån byggmål",
+  relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"] as const,
+  status: "placeholder" as const,
+  ctaHref: SEO_LANDING_CTA_HREF,
+};
+
 describe("SeoLandingPlaceholder", () => {
   it("renders the shared test heading, slug and product CTA", () => {
+    vi.mocked(getSeoLandingEntry).mockReturnValue(PLACEHOLDER_LOVABLE);
     render(<SeoLandingPlaceholder slug="lovable-alternativ" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Testsida Sajtmaskin" })).toBeTruthy();
@@ -43,6 +56,7 @@ describe("SeoLandingPlaceholder", () => {
   });
 
   it("runs the ready-guard before painting the blue test surface", () => {
+    vi.mocked(getSeoLandingEntry).mockReturnValue(PLACEHOLDER_LOVABLE);
     render(<SeoLandingPlaceholder slug="lovable-alternativ" />);
 
     expect(assertSeoLandingPlaceholderAllowed).toHaveBeenCalledWith(
