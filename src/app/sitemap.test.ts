@@ -30,6 +30,7 @@ describe("marketing sitemap static paths", () => {
       "/vad-kostar-en-hemsida",
       "/wix-alternativ",
       "/wordpress-alternativ",
+      "/lovable-alternativ",
     ]);
     for (const page of SEO_LANDING_PAGES) {
       expect(STATIC_SITEMAP_REL_PATHS).not.toContain(`/${page.slug}`);
@@ -45,6 +46,7 @@ describe("marketing sitemap static paths", () => {
     expect(urls).toContain(`${URLS.baseUrl}/vad-kostar-en-hemsida`);
     expect(urls).toContain(`${URLS.baseUrl}/wix-alternativ`);
     expect(urls).toContain(`${URLS.baseUrl}/wordpress-alternativ`);
+    expect(urls).toContain(`${URLS.baseUrl}/lovable-alternativ`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
       expect(urls).not.toContain(`${URLS.baseUrl}/${page.slug}`);

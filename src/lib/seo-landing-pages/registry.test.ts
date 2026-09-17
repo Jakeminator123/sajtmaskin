@@ -115,6 +115,7 @@ describe("SEO landing registry", () => {
         "vad-kostar-en-hemsida",
         "wix-alternativ",
         "wordpress-alternativ",
+        "lovable-alternativ",
       ]),
     );
     expect(getIndexableSeoLandingRelPaths()).toEqual([
@@ -127,6 +128,7 @@ describe("SEO landing registry", () => {
       "/vad-kostar-en-hemsida",
       "/wix-alternativ",
       "/wordpress-alternativ",
+      "/lovable-alternativ",
     ]);
     expect(getPlaceholderSeoLandingRelPaths()).toEqual(
       SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
@@ -164,13 +166,13 @@ describe("SEO landing registry", () => {
 
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("lovable-alternativ")),
-    ).not.toThrow();
-    expect(() =>
       assertSeoLandingPlaceholderAllowed({
         ...getSeoLandingEntry("lovable-alternativ"),
-        status: "ready",
+        status: "placeholder",
       }),
+    ).not.toThrow();
+    expect(() =>
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("lovable-alternativ")),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
   });
 
