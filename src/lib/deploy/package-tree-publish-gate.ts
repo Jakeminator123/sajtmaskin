@@ -55,7 +55,7 @@ export function resolveInstallPeerFallbackGate(
   return FALLBACK_BLOCK;
 }
 
-/** File tree first, then revision-bound fallback receipt, then latest-gate advisory. */
+/** File tree first, then fingerprint-bound fallback receipt, then latest-gate advisory. */
 export function resolvePackageTreePublishGate(params: {
   files: ReadonlyArray<{ path: string; content: string }>;
   latestGateAdvisoryChecks?: readonly string[];
@@ -64,7 +64,12 @@ export function resolvePackageTreePublishGate(params: {
 }): PackageTreePublishGateResult {
   const fileGate = resolvePackageTreeFileGate(params.files);
   if (!fileGate.allowed) return fileGate;
-  if (installPeerFallbackReceiptBlocksPublish(params.errorLogs ?? [], params.filesRevision)) {
+  if (
+    installPeerFallbackReceiptBlocksPublish(params.errorLogs ?? [], {
+      filesRevision: params.filesRevision,
+      files: params.files,
+    })
+  ) {
     return FALLBACK_BLOCK;
   }
   return resolveInstallPeerFallbackGate(params.latestGateAdvisoryChecks ?? []);

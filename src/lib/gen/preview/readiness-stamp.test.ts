@@ -420,6 +420,16 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
   });
 
   it("does not write a clearing receipt when the same revision later skipped npm install", async () => {
+    const files = [
+      { path: "package.json", content: '{"dependencies":{"next":"14.2.25"}}', language: "json" },
+      { path: "app/page.tsx", content: "export default function Page() { return null; }", language: "tsx" },
+    ];
+    getVersionFilesSnapshot.mockResolvedValue(snapshotOf(files, "rev-a"));
+    const { dependencyFingerprintFromFiles } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    const fingerprint = dependencyFingerprintFromFiles(files);
+
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",
       versionId: "v1",
@@ -446,6 +456,7 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
             kind: "fallback",
             usedFallback: true,
             filesRevision: "rev-a",
+            dependencyFingerprint: fingerprint,
           }),
         }),
       ]),
@@ -551,22 +562,25 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       Array<{ category: string; meta: Record<string, unknown> }>,
     ];
     const receipt = payloads.find((row) => row.category === "preview:install-peer-fallback");
+    const persistedFiles = JSON.parse(nextJson) as Array<{ path: string; content: string }>;
+    const { dependencyFingerprintFromFiles, installPeerFallbackReceiptBlocksPublish } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    const postPersistFingerprint = dependencyFingerprintFromFiles(persistedFiles);
     expect(receipt?.meta).toEqual(
       expect.objectContaining({
         kind: "fallback",
         usedFallback: true,
         filesRevision: postPersistRevision,
+        dependencyFingerprint: postPersistFingerprint,
         bootFilesRevision: "rev-a",
       }),
     );
 
-    const { installPeerFallbackReceiptBlocksPublish } = await import(
-      "@/lib/gen/validation/install-peer-fallback-receipt"
-    );
     expect(
       installPeerFallbackReceiptBlocksPublish(
         [{ category: "preview:install-peer-fallback", meta: receipt?.meta }],
-        postPersistRevision,
+        { filesRevision: postPersistRevision, files: persistedFiles },
       ),
     ).toBe(true);
     expect(
@@ -691,7 +705,9 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
       content: "NEW",
     });
 
-    expect(wrote).toEqual({ wrote: false, filesRevision: "rev-b" });
+    expect(wrote.wrote).toBe(false);
+    expect(wrote.filesRevision).toBe("rev-b");
+    expect(wrote.files?.map((file) => file.path)).toEqual(["package.json", "pnpm-lock.yaml"]);
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  INSTALL_DEPENDENCY_POLICY_TOKEN,
   INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+  dependencyFingerprintFromFiles,
   installPeerFallbackReceiptBlocksPublish,
   previewInstallKindFromHostStatus,
   readInstallPeerFallbackReceiptKind,
@@ -10,6 +13,7 @@ function receipt(
   usedFallback: boolean,
   filesRevision: string | null,
   kind?: "fallback" | "strict_pass" | "skipped",
+  dependencyFingerprint?: string | null,
 ) {
   return {
     category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
@@ -17,9 +21,29 @@ function receipt(
       usedFallback,
       filesRevision,
       ...(kind ? { kind } : {}),
+      ...(dependencyFingerprint !== undefined ? { dependencyFingerprint } : {}),
     },
   };
 }
+
+const PACKAGE_A = JSON.stringify({
+  dependencies: { next: "14.2.25", react: "^19.1.0", "react-dom": "^19.1.0" },
+});
+const PACKAGE_B = JSON.stringify({
+  dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+});
+const filesTreeA = [
+  { path: "package.json", content: PACKAGE_A },
+  { path: "app/page.tsx", content: "export default function Page() { return <h1>A</h1>; }" },
+];
+const filesTreeACopyEdit = [
+  { path: "package.json", content: PACKAGE_A },
+  { path: "app/page.tsx", content: "export default function Page() { return <h1>B</h1>; }" },
+];
+const filesTreeB = [
+  { path: "package.json", content: PACKAGE_B },
+  { path: "app/page.tsx", content: "export default function Page() { return <h1>B</h1>; }" },
+];
 
 describe("installPeerFallbackReceiptBlocksPublish", () => {
   it("blocks while the latest receipt for this revision is a fallback", () => {
@@ -83,6 +107,72 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
 
   it("fail-closes when current revision is missing but a fallback receipt exists", () => {
     expect(installPeerFallbackReceiptBlocksPublish([receipt(true, "rev-a")])).toBe(true);
+  });
+
+  it("keeps a fallback block across a page.tsx-only files_revision change", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(dependencyFingerprintFromFiles(filesTreeACopyEdit)).toBe(fingerprint);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          {
+            category: "preflight:quality-gate",
+            meta: { passed: true, advisory: false, advisoryChecks: [] },
+          },
+          receipt(false, "rev-b", "skipped", fingerprint),
+          receipt(true, "rev-a", "fallback", fingerprint),
+        ],
+        { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(true);
+  });
+
+  it("requires new install proof after package.json changes the fingerprint", () => {
+    const fingerprintA = dependencyFingerprintFromFiles(filesTreeA);
+    expect(dependencyFingerprintFromFiles(filesTreeB)).not.toBe(fingerprintA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [receipt(true, "rev-a", "fallback", fingerprintA)],
+        { filesRevision: "rev-b", files: filesTreeB },
+      ),
+    ).toBe(false);
+  });
+
+  it("inherits unfingerprinted legacy fallback onto the current fingerprint until a fingerprinted strict_pass", () => {
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [receipt(true, "rev-a", "fallback")],
+        { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(true);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          receipt(false, "rev-b", "strict_pass", dependencyFingerprintFromFiles(filesTreeACopyEdit)),
+          receipt(true, "rev-a", "fallback"),
+        ],
+        { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("dependencyFingerprintFromFiles", () => {
+  it("matches preview-host: policy token + package.json/lockfile keys only", () => {
+    const files = [
+      { path: "package.json", content: PACKAGE_A },
+      { path: "package-lock.json", content: "{lock:1}" },
+      { path: "app/page.tsx", content: "ignored" },
+    ];
+    const expected = createHash("sha256");
+    expected.update("policy:");
+    expected.update(INSTALL_DEPENDENCY_POLICY_TOKEN);
+    expected.update("\n");
+    expected.update("package.json\n");
+    expected.update(`${PACKAGE_A}\n`);
+    expected.update("package-lock.json\n");
+    expected.update("{lock:1}\n");
+    expect(dependencyFingerprintFromFiles(files)).toBe(expected.digest("hex"));
   });
 });
 

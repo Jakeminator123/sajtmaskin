@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INCIDENT_V0_PACKAGE_JSON } from "@/lib/gen/validation/package-tree-compat";
+import { dependencyFingerprintFromFiles } from "@/lib/gen/validation/install-peer-fallback-receipt";
 import {
   DEPLOY_INSTALL_PEER_FALLBACK,
   DEPLOY_PACKAGE_TREE_ERESOLVE,
@@ -90,6 +91,55 @@ describe("resolvePackageTreePublishGate", () => {
         {
           category: "preview:install-peer-fallback",
           meta: { kind: "fallback", usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
+  it("keeps blocking after page.tsx-only revision B + skipped install + clean quality-gate", () => {
+    const packageJson = JSON.stringify({
+      dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+    });
+    const filesRevA = [
+      { path: "package.json", content: packageJson },
+      { path: "app/page.tsx", content: "export default function Page() { return <p>A</p>; }" },
+    ];
+    const filesRevB = [
+      { path: "package.json", content: packageJson },
+      { path: "app/page.tsx", content: "export default function Page() { return <p>B</p>; }" },
+    ];
+    const fingerprint = dependencyFingerprintFromFiles(filesRevA);
+    expect(dependencyFingerprintFromFiles(filesRevB)).toBe(fingerprint);
+
+    const gate = resolvePackageTreePublishGate({
+      files: filesRevB,
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-b",
+      errorLogs: [
+        {
+          category: "preflight:quality-gate",
+          meta: { passed: true, advisory: false, advisoryChecks: [] },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: {
+            kind: "skipped",
+            usedFallback: false,
+            filesRevision: "rev-b",
+            dependencyFingerprint: fingerprint,
+          },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: {
+            kind: "fallback",
+            usedFallback: true,
+            filesRevision: "rev-a",
+            dependencyFingerprint: fingerprint,
+          },
         },
       ],
     });
