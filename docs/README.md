@@ -38,6 +38,7 @@ policies kan äga olika beslut.
 | Hur aktiveras varumärkta användar-URL:er?         | [`runbooks/branded-user-urls.md`](runbooks/branded-user-urls.md)                                                                |
 | Var hamnar appens console-loggar?                 | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)                                                                  |
 | Vilka manuella underhållsknappar?                 | [`runbooks/hygiene.md`](runbooks/hygiene.md)                                                                                    |
+| Var bor de publika showcase-exemplen?             | Runtime-owner: [`../src/lib/exempel/showcase-sites.ts`](../src/lib/exempel/showcase-sites.ts). Publik yta: `/exempel`. Live-läge: [`runbooks/showcase-exempel.md`](runbooks/showcase-exempel.md). |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
 | Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
