@@ -38,6 +38,11 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
+                <a href="/analys" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Analys
+                </a>
+              </li>
+              <li>
                 <a href="/teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Teknik
                 </a>

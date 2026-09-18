@@ -424,6 +424,10 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
  */
 function getPricingForModel(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
+  if (m.includes("gpt-5.6-sol")) return { input: 4, output: 20 };
+  if (m.includes("gpt-5.6-terra")) return { input: 2, output: 12 };
+  if (m.includes("gpt-5.6-luna")) return { input: 0.2, output: 1.2 };
+  if (m.includes("gpt-5.5")) return { input: 5, output: 30 };
   if (m.includes("gpt-5.2")) return { input: 1.25, output: 10 };
   if (m.includes("opus")) return { input: 15, output: 75 };
   if (m.includes("sonnet")) return { input: 3, output: 15 };

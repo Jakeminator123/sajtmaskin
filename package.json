@@ -198,7 +198,7 @@
     "@radix-ui/react-tooltip": "^1.2.16",
     "@radix-ui/react-use-controllable-state": "^1.2.3",
     "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.6.0",
+    "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "3.0.4",
     "@react-three/rapier": "^2.2.0",
     "@shadcn/react": "0.2.1",

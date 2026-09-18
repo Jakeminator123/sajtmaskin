@@ -233,6 +233,18 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(briefing.anthropic.briefingModel).toBe("anthropic/claude-opus-4.8");
   });
 
+  it("splits product audit (Sol) from public /analys (Luna)", () => {
+    const m = getAiModelsManifest();
+    const product = m.workloads.find((w) => w.id === "audit_structured");
+    const pub = m.workloads.find((w) => w.id === "audit_structured_public");
+
+    expect(product?.defaultModel).toBe("openai/gpt-5.6-sol");
+    expect(product?.codeEntry).toContain("src/app/api/audit/route.ts");
+    expect(product?.codeEntry).not.toContain("src/app/api/analys/route.ts");
+    expect(pub?.defaultModel).toBe("openai/gpt-5.6-luna");
+    expect(pub?.codeEntry).toEqual(["src/app/api/analys/route.ts"]);
+  });
+
   it("documents prompt_rewrite as its own pre-send step, not Deep Brief", () => {
     const m = getAiModelsManifest();
     const rewrite = m.workloads.find((w) => w.id === "prompt_rewrite");

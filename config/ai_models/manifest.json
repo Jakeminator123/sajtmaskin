@@ -851,9 +851,21 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/audit/route.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-      "defaultModel": "openai/gpt-5.2",
-      "fallbackModels": ["anthropic/claude-opus-4.8"],
-      "notes": "Responses path uses defaultModel. Fallback path uses fallbackModels in order when Responses API is not active."
+      "defaultModel": "openai/gpt-5.6-sol",
+      "fallbackModels": ["openai/gpt-5.5"],
+      "notes": "Inloggad produkt-audit. Responses path uses defaultModel (gpt-5.6-sol: structured outputs + optional web_search)."
+    },
+    {
+      "id": "audit_structured_public",
+      "title": "Public /analys lead magnet (structured JSON)",
+      "description": "Same scrape + JSON schema as product audit, cheaper model, no web_search.",
+      "invocation": "openai_responses_create_or_ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": ["src/app/api/analys/route.ts"],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "openai/gpt-5.6-luna",
+      "fallbackModels": ["openai/gpt-5-mini"],
+      "notes": "Gratis /analys. gpt-5.6-luna (~$0.20/$1.20) i stället för Sol. Ingen web_search."
     },
     {
       "id": "analyze_presentation",
