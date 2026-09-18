@@ -849,11 +849,11 @@
       "description": "Primary path: OpenAI Responses API with optional web_search tool; fallback uses generateText + createDirectModel.",
       "invocation": "openai_responses_create_or_ai_sdk_generateText",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/audit/route.ts"],
+      "codeEntry": ["src/app/api/audit/route.ts", "src/app/api/analys/route.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-      "defaultModel": "openai/gpt-5.2",
-      "fallbackModels": ["anthropic/claude-opus-4.8"],
-      "notes": "Responses path uses defaultModel. Fallback path uses fallbackModels in order when Responses API is not active."
+      "defaultModel": "openai/gpt-5.6-sol",
+      "fallbackModels": ["openai/gpt-5.5"],
+      "notes": "Responses path uses defaultModel (gpt-5.6-sol: structured outputs + web_search). Fallback path uses fallbackModels in order when Responses API is not active. Shared by product /api/audit and public /api/analys."
     },
     {
       "id": "analyze_presentation",

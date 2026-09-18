@@ -27,7 +27,8 @@ Lokala JSON-filer är cache och får **inte** vara git-tracked (`npm run embeddi
 
 Används bland annat i:
 
-- [`src/app/api/audit/route.ts`](../../src/app/api/audit/route.ts) (primärt Responses med valfritt web search-verktyg)
+- [`src/app/api/audit/route.ts`](../../src/app/api/audit/route.ts) (inloggad audit; Responses + valfritt web search)
+- [`src/app/api/analys/route.ts`](../../src/app/api/analys/route.ts) (publik `/analys`; samma `runWebsiteAudit`-motor)
 - [`src/app/api/wizard/enrich/route.ts`](../../src/app/api/wizard/enrich/route.ts), [`competitors/route.ts`](../../src/app/api/wizard/competitors/route.ts)
 - [`src/app/api/text/analyze/route.ts`](../../src/app/api/text/analyze/route.ts)
 

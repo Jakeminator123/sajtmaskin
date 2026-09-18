@@ -209,7 +209,7 @@ export const PROJECT_ANALYZE_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-5-mini";
 
 export const AUDIT_STRUCTURED_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("audit_structured") ?? "openai/gpt-5.2";
+  getWorkloadDefaultModelFromManifest("audit_structured") ?? "openai/gpt-5.6-sol";
 
 export const AUDIT_STRUCTURED_FALLBACK_MODELS =
   getWorkloadFallbackModelsFromManifest("audit_structured");

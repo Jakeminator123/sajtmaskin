@@ -307,6 +307,45 @@ KRITISKT: Svara ENDAST med välformaterad JSON enligt schemat. Ingen markdown, i
   ];
 }
 
+const PUBLIC_ANALYS_SYSTEM_ADDENDUM = `
+
+TILLÄGG FÖR PUBLIK PREMIUM-ANALYS (sajtmaskin.se/analys):
+Du är digital strateg för svenska småföretag — inte pentester och inte webbyrå-säljare.
+
+Prioritera i denna ordning:
+1. Målgrupp och budskap — vem sidan talar till, och om det syns
+2. Lokal synlighet och SEO — titel, meta, rubriker, Google-intent
+3. Innehåll och förtroende — bevis, kontakt, om-oss, social proof
+4. Konvertering — CTA, bokning, offert, nästa steg
+5. UX och mobil
+6. Säkerhet — BARA evidens från scrape (HTTPS, cookies, synliga headers). Hitta inte på CVE:er eller sårbarheter. Låt inte security-score styra helhetsintrycket.
+
+Skriv konkret med stöd i sidans faktiska texter. Inga generiska "förbättra SEO"-punkter utan exempel från sidan.
+Fyll fortfarande alla JSON-fält (schemat kräver det) men lägg substansen i målgrupp, content_strategy, customer_segments och improvements med category Content/Marketing/UX.`;
+
+/**
+ * Prompt for the public /analys lead magnet. Same JSON schema as product audit,
+ * but the model is steered toward audience/SEO/conversion instead of security.
+ */
+export function buildPublicAnalysPrompt(
+  websiteContent: WebsiteContent,
+  url: string,
+): PromptMessage[] {
+  const base = buildAuditPrompt(websiteContent, url, "advanced");
+  const system = base[0];
+  if (!system) return base;
+  return [
+    {
+      ...system,
+      content: system.content.map((part) => ({
+        ...part,
+        text: `${part.text}${PUBLIC_ANALYS_SYSTEM_ADDENDUM}`,
+      })),
+    },
+    ...base.slice(1),
+  ];
+}
+
 /**
  * Attempt to repair common JSON syntax errors
  * @param jsonString - Potentially malformed JSON string
