@@ -79,6 +79,30 @@ export default function BloggPage() {
                   </Link>
                 </li>
                 <li>
+                  <Link
+                    href="/skapa-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/skapa-hemsida-med-ai"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida med AI
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/vad-kostar-en-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Vad kostar en hemsida?
+                  </Link>
+                </li>
+                <li>
                   <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">
                     Integritetspolicy
                   </Link>

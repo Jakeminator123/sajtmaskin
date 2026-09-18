@@ -58,7 +58,8 @@ bara i fas 3.
 - Ingen FAQPage-JSON-LD som trick
 - Internlänk in (B3) + 1–3 ut (`/skapa-hemsida`, `/teknik`)
 
-QA: [`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
+QA: SEO-checklistan raderades med SEO-planen; residualer i
+[`../../avklarat/README.md`](../../avklarat/README.md).
 
 ## CTA (detalj i A4)
 

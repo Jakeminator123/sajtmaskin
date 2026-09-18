@@ -52,25 +52,36 @@ describe("landing nav + footer links after /teknik move", () => {
     expect(screen.queryByRole("link", { name: "Wix-alternativ" })).toBeNull();
   });
 
-  it("footer Guider column links four hubs and not the full cluster", () => {
+  it("footer exposes a discrete Guider section into the SEO cluster", () => {
     render(<LandingFooter />);
     expect(screen.getByRole("heading", { name: "Guider" })).toBeTruthy();
-    for (const link of SEO_LANDING_FOOTER_GUIDE_LINKS) {
-      expect(screen.getByRole("link", { name: link.label }).getAttribute("href")).toBe(
-        `/${link.slug}`,
-      );
-    }
-    const footer = document.querySelector("footer");
-    expect(footer).toBeTruthy();
-    for (const slug of [
-      "ai-hemsidebyggare",
-      "hemsida-utan-kod",
-      "hemsida-till-foretag",
-      "wix-alternativ",
-      "wordpress-alternativ",
-      "lovable-alternativ",
-    ]) {
-      expect(footer?.querySelector(`a[href="/${slug}"]`)).toBeNull();
-    }
+    expect(screen.getByRole("link", { name: "Så skapar du en hemsida" }).getAttribute("href")).toBe(
+      "/skapa-hemsida",
+    );
+    expect(screen.getByRole("link", { name: "Så fungerar AI-vägen" }).getAttribute("href")).toBe(
+      "/skapa-hemsida-med-ai",
+    );
+    expect(screen.getByRole("link", { name: "Hemsida för företag" }).getAttribute("href")).toBe(
+      "/hemsida-till-foretag",
+    );
+    expect(screen.getByRole("link", { name: "Bygg utan kod" }).getAttribute("href")).toBe(
+      "/hemsida-utan-kod",
+    );
+    expect(screen.getByRole("link", { name: "Vad en hemsida kostar" }).getAttribute("href")).toBe(
+      "/vad-kostar-en-hemsida",
+    );
+    expect(screen.getByRole("link", { name: "Jämför hemsideprogram" }).getAttribute("href")).toBe(
+      "/hemsideprogram",
+    );
+    expect(screen.queryByRole("link", { name: /wix-alternativ/i })).toBeNull();
+  });
+
+  it("keeps the four-hub constant for callers that still read the compact set", () => {
+    expect(SEO_LANDING_FOOTER_GUIDE_LINKS.map((link) => link.slug)).toEqual([
+      "skapa-hemsida",
+      "skapa-hemsida-med-ai",
+      "vad-kostar-en-hemsida",
+      "hemsideprogram",
+    ]);
   });
 });

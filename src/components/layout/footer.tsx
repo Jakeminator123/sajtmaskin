@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
 
 const productLinks = [
   { label: "Skapa", href: "/" },
@@ -22,7 +23,7 @@ const legalLinks = [
 export function Footer() {
   return (
     <footer className="border-border/50 bg-background border-t">
-      <div className="mx-auto max-w-7xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-6 pt-12 pb-28">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
@@ -104,6 +105,22 @@ export function Footer() {
               ))}
             </ul>
           </div>
+        </div>
+
+        <div className="border-border/50 mt-10 border-t pt-8">
+          <h3 className="text-foreground text-sm font-medium">Guider</h3>
+          <ul className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingHubLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Bottom */}
