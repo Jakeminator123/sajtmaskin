@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodeFile } from "../parser";
 import blobManifest from "../../templates/template-blob-manifest.json";
 import {
-  extractVariantTemplateStructuralReferences,
+  classifyVariantTemplateCandidate,
   getVariantTemplateReviewReference,
   resolveVariantTemplateInspiration,
   selectVariantTemplateReference,
   VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES,
   VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS,
 } from "./template-inspiration";
+import { extractVariantTemplateStructuralReferences } from "./template-structural-extractor";
 
 const archiveLoaderMock = vi.hoisted(() => ({
   loadLocalV0TemplateReferenceFiles: vi.fn(async () => {
@@ -21,48 +22,104 @@ vi.mock("@/lib/templates/local-v0-template-source", () => ({
   loadLocalV0TemplateReferenceFiles: archiveLoaderMock.loadLocalV0TemplateReferenceFiles,
 }));
 
+/**
+ * Deterministic `hit` addenda for ranking tests, so the outcome depends on the
+ * ranking rules and not on whatever the committed excerpts happen to contain.
+ */
+const hitWithExcerpt = (excerpt: string) => () => ({
+  state: "hit" as const,
+  structuralReferences: [
+    { path: "app/page.tsx", language: "tsx", reason: "primary-page" as const, excerpt },
+  ],
+});
+
 describe("selectVariantTemplateReference", () => {
+  // Fixtures: `Vt3PtqfiHkh`, `XOMN4texeRO`, `iBPsMqPGRTZ`, `ALfQrxyrJ8b`,
+  // `zoQPxUaTqvE`, `fUqrRFEXLnm` are `hit`; `8QhCJAwn16K` (MindSpace) and
+  // `8Y9E0cStKrW` (Flowly) are curator-`disabled` since K1.
   it("selects at most one allowlisted complete-project reference", () => {
     const selected = selectVariantTemplateReference({
-      sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"],
+      sourceTemplateIds: ["Vt3PtqfiHkh", "XOMN4texeRO"],
     });
 
-    expect(selected?.templateId).toBe("8QhCJAwn16K");
+    expect(selected?.templateId).toBe("Vt3PtqfiHkh");
     expect(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES).toContain(selected?.category);
   });
 
   it("ranks the candidate pool with Deep Brief signals instead of always taking the first id", () => {
     const selected = selectVariantTemplateReference(
-      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+      { sourceTemplateIds: ["iBPsMqPGRTZ", "XOMN4texeRO"] },
       {
+        loadAddendum: hitWithExcerpt("export default function Page() { return <main />; }"),
         selectionContext: {
-          prompt: "Create a focused SaaS landing page",
+          prompt: "Create a calm interior page",
           brief: {
-            projectTitle: "Flowly",
-            visualDirection: { styleKeywords: ["calm", "product-led"] },
+            projectTitle: "Stillpoint Studio",
+            visualDirection: { styleKeywords: ["calm", "japandi"] },
           },
         },
       },
     );
 
-    expect(selected?.templateId).toBe("8Y9E0cStKrW");
+    expect(selected?.templateId).toBe("XOMN4texeRO");
     expect(selected?.selectionReason).toMatch(/^brief-ranked:candidates=2;matches=/);
   });
 
   it("does not treat Deep Brief avoid values as positive match signals", () => {
-    // "flowly" matchar Flowly-templatens titel. Som `avoid`-värde får det
-    // ALDRIG bli en positiv token — då vinner källordningen (första id:t).
+    // "stillpoint" matchar Stillpoint-templatens titel. Som `avoid`-värde får
+    // det ALDRIG bli en positiv token — då vinner källordningen (första id:t).
     const selected = selectVariantTemplateReference(
-      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+      { sourceTemplateIds: ["iBPsMqPGRTZ", "XOMN4texeRO"] },
       {
+        loadAddendum: hitWithExcerpt("export default function Page() { return <main />; }"),
         selectionContext: {
-          prompt: "Create a landing page",
-          brief: { avoid: ["flowly"] },
+          prompt: "Create a website",
+          brief: { avoid: ["stillpoint"] },
         },
       },
     );
 
+    expect(selected?.templateId).toBe("iBPsMqPGRTZ");
+  });
+
+  /**
+   * Nordlunden run 3 (saas-landing/friendly-saas) logged `addendum:disabled`:
+   * the two usable candidates were filtered out on `previewFits` before
+   * ranking, so the curator-disabled Flowly kit won and its still image was
+   * sent as style reference on every init. Disabled is a curation verdict on
+   * the whole template, not just on its excerpts.
+   */
+  it("never selects a curator-disabled template when a usable candidate exists", () => {
+    const selected = selectVariantTemplateReference({
+      sourceTemplateIds: ["8Y9E0cStKrW", "8QhCJAwn16K", "zoQPxUaTqvE", "fUqrRFEXLnm"],
+    });
+
+    expect(selected?.templateId).toBe("zoQPxUaTqvE");
+    expect(selected?.selectionReason).toBe("brief-ranked:candidates=2;matches=0;addendum=hit");
+  });
+
+  it("returns null when every eligible candidate is curator-disabled", () => {
+    expect(
+      selectVariantTemplateReference({ sourceTemplateIds: ["8Y9E0cStKrW", "8QhCJAwn16K"] }),
+    ).toBeNull();
+  });
+
+  it("ignores previewFits when ranking inspiration candidates", () => {
+    // `ALfQrxyrJ8b` has `previewFits: false` in the manifest. That flag is
+    // about importing the archive verbatim; inspiration never loads it.
+    const selected = selectVariantTemplateReference({
+      sourceTemplateIds: ["ALfQrxyrJ8b", "Vt3PtqfiHkh"],
+    });
+    expect(selected?.templateId).toBe("ALfQrxyrJ8b");
+  });
+
+  it("still selects candidates whose addendum is a data problem (missing/stale)", () => {
+    const selected = selectVariantTemplateReference(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      { loadAddendum: () => ({ state: "missing", structuralReferences: null }) },
+    );
     expect(selected?.templateId).toBe("8QhCJAwn16K");
+    expect(selected?.selectionReason).toBe("brief-ranked:candidates=1;matches=0;addendum=missing");
   });
 
   it("resolves review metadata from the exact runtime-selected Blob id", () => {
@@ -120,12 +177,19 @@ describe("selectVariantTemplateReference", () => {
       }),
     ).toBeNull();
   });
+});
 
-  it("prefers a preview-compatible source while preserving source order otherwise", () => {
-    const selected = selectVariantTemplateReference({
-      sourceTemplateIds: ["ALfQrxyrJ8b", "8QhCJAwn16K"],
-    });
-    expect(selected?.templateId).toBe("8QhCJAwn16K");
+describe("classifyVariantTemplateCandidate", () => {
+  it("separates unknown ids, never-selectable categories and eligible templates", () => {
+    expect(classifyVariantTemplateCandidate("not-a-blob-id")).toBe("unknown-template");
+    // design-systems / components / plain `ai`: real manifest rows the runtime
+    // can never pick — exactly the dead config the integrity gate must reject.
+    expect(classifyVariantTemplateCandidate("pCMjvDLPVe3")).toBe("never-selectable");
+    expect(classifyVariantTemplateCandidate("0NFF1rjZrz5")).toBe("never-selectable");
+    expect(classifyVariantTemplateCandidate("Vt3PtqfiHkh")).toBe("eligible");
+    // Disabled is a curation state on the addendum, not a category verdict.
+    expect(classifyVariantTemplateCandidate("8QhCJAwn16K")).toBe("eligible");
+    expect(classifyVariantTemplateCandidate("h4nibkqysVJ")).toBe("eligible");
   });
 });
 
@@ -292,22 +356,20 @@ describe("extractVariantTemplateStructuralReferences", () => {
     expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
   });
 
-  it("keeps a disabled committed addendum selectable without excerpts", async () => {
-    // K1-kontrakt: `disabled` tar bort kodutdragen (och rankas därmed ner av
-    // Brief-rankningen som premierar utdrag), men kandidaten förblir valbar —
-    // stillbilden får fortfarande gå som style-referens.
+  it("gives a variant no template inspiration when its only candidate is curator-disabled", async () => {
+    // K1 stängde MindSpace för att default-init inte ska lära sig ett
+    // SaaS-kit. Att skicka just den mallens stillbild som style-referens
+    // skulle motsäga beslutet — hellre ingen inspiration än en dömd mall.
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K"] },
       { includeStructure: true },
     );
 
     expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
-    expect(inspiration?.templateId).toBe("8QhCJAwn16K");
-    expect(inspiration?.structuralReferences).toEqual([]);
-    expect(inspiration?.stillImageUrl).toBeTruthy();
+    expect(inspiration).toBeNull();
   });
 
-  it("honors an explicitly disabled addendum without falling back to ZIP", async () => {
+  it("honors an explicitly disabled addendum silently — no ZIP, no warning, no still", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const inspiration = await resolveVariantTemplateInspiration(
@@ -319,7 +381,7 @@ describe("extractVariantTemplateStructuralReferences", () => {
       );
 
       expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
-      expect(inspiration?.structuralReferences).toEqual([]);
+      expect(inspiration).toBeNull();
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
