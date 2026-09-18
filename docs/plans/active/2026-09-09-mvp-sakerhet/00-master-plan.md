@@ -1,8 +1,14 @@
 # MVP-säkerhet och releaseberedskap
 
+Status: **kod för A–E landad; öppet lanseringsblocker är `SM-080`.**
+Wizard-RLS (`SM-078`), Google-koppling (`SM-079`) och kontolås (`SM-081`)
+är byggda. Beställ inte om dem. Preview och produktion delar databas enligt
+ägarbeslut.
+
 Ägaruppdrag 2026-09-09: ompröva den externa genomlysningen mot aktuell
 `preview`, genomför rimliga avgränsade förbättringar med underagenter,
-verifiera och gör housekeeping före **en samlad PR mot preview**.
+verifiera och gör housekeeping före **en samlad PR mot preview**. Den PR:n
+är historik; det här dokumentet styr bara kvarvarande releasearbete.
 
 ## Ramar
 
@@ -24,12 +30,12 @@ verifiera och gör housekeeping före **en samlad PR mot preview**.
 
 | Spår | Omfattning | Klart när | Status |
 |---|---|---|---|
-| A – kontokoppling | Google får inte aktivera en overifierad registrants lösenord | Reproducerad sekvens blockeras; avsedd verifierad kontokoppling fungerar | Kod/test/review klart; releaseåtgärder återstår |
-| B – wizardbehörighet | Ny RLS/ACL-migration och skydd mot migration-only-glapp | Publika roller nekas; backend kan hantera körningar; verifierat i isolerad Postgres | Kod/test/review klart; releaseåtgärder återstår |
-| C – genereringskostnad | Begränsa parallellt odebiterbart arbete före AI-anrop | Vanlig användare kan inte konsumera samma fria/saldobaserade rätt parallellt; avbrott släpper skyddet först när arbetet avslutats | Kod/test/review klart; releaseåtgärder återstår |
-| D – preview-host | Exakt releaseidentitet och bedömning av verklig projektisolering | Health kan bindas till bygg-SHA; kvarstående isoleringsrisk redovisas utan falsk säkerhetsgaranti | Kod/test/review klart; releaseåtgärder återstår |
-| E – kundinformation | Verifierbara fel i publicerade texter och versionsdatum | Inga uppfunna bolagsuppgifter; korrekt drift-/leverantörsbeskrivning och tydliga kvarstående uppgifter | Kod/test/review klart; releaseåtgärder återstår |
-| F – drift och release | Vercel/Supabase read-only, installera Fly CLI, riktad regression och PR | Verktygsåtkomst verifierad; ändringar granskade; housekeeping och en PR | Pågår |
+| A – kontokoppling | Google får inte aktivera en overifierad registrants lösenord | Reproducerad sekvens blockeras; avsedd verifierad kontokoppling fungerar | **Klart.** `SM-079` kodfix i master. Inte omimplementation. |
+| B – wizardbehörighet | Ny RLS/ACL-migration och skydd mot migration-only-glapp | Publika roller nekas; backend kan hantera körningar; verifierat i isolerad Postgres | **Klart.** `SM-078` RLS på i live ACL 2026-09-17. Inte samma migration igen. |
+| C – genereringskostnad | Begränsa parallellt odebiterbart arbete före AI-anrop | Vanlig användare kan inte konsumera samma fria/saldobaserade rätt parallellt; avbrott släpper skyddet först när arbetet avslutats | **Klart.** `SM-081` kontolås i master. Kvar är reservation/tak, inte låset. |
+| D – preview-host | Exakt releaseidentitet och bedömning av verklig projektisolering | Health kan bindas till bygg-SHA; kvarstående isoleringsrisk redovisas utan falsk säkerhetsgaranti | Releaseidentitet landad. **`SM-080` är kvar** — path-jail är inte sandboxisolering. |
+| E – kundinformation | Verifierbara fel i publicerade texter och versionsdatum | Inga uppfunna bolagsuppgifter; korrekt drift-/leverantörsbeskrivning och tydliga kvarstående uppgifter | Kod landad. Kvar är ägarens bolags-/integritetsuppgifter, inte ny copy-PR. |
+| F – drift och release | Vercel/Supabase read-only, installera Fly CLI, riktad regression och PR | Verktygsåtkomst verifierad; ändringar granskade; housekeeping och en PR | Implementations-PR historik. Kvar: `SM-080` och restlistan i `01-resultat.md`. |
 
 ## Verifiering och leverans
 
@@ -40,8 +46,41 @@ verifiera och gör housekeeping före **en samlad PR mot preview**.
 4. Housekeeping: inga scratchfiler, hemligheter, dubbla planer eller
    orelaterade ändringar; uppdatera aktiva planroutern och buggsanning vid behov.
 5. PR beskriver vad koden fixar, vad som kräver migration/host-release och
-   vad som fortfarande blockerar öppen lansering. Active-planen behålls tills
-   arbetet är mergat och återstående releaseåtgärder är överlämnade.
+   vad som fortfarande blockerar öppen lansering. Active-planen stannar för
+   `SM-080` och överlämnade releaseåtgärder, inte för en ny A–F-implementation.
+
+## `SM-080` — ratificerad riktning, otunade driftvärden
+
+Scoutläsning 2026-09-18 mot preview-hostens kod. Path-jail #1445
+(`resolveInsideWorkspace` / `isSafeRelativePath` i `workspace-files.js`) skyddar
+bara **hostens egna** skrivningar in i ett workspace. Gästprocesserna går en
+annan väg: `spawnNpm` och `runShellCommand` i `preview-host/src/runtime/shared.js`
+startar install, verify och `next dev` med samma OS-identitet, samma
+`/data`-volym och delad paketcache, utan namespace, cgroup eller seccomp.
+`Dockerfile` sätter ingen `USER`, och `PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS`
+låter livscykelskript köra på hosten redan vid install. En tredje jail-rematch
+ska därför inte beställas.
+
+**Ratificerat 2026-09-18** i
+[`docs/decisions/README.md`](../../../decisions/README.md): kontrollplanet (API,
+store, preview-proxy) får ligga kvar på dagens delade host, men varje kundprojekt
+får en egen isolerad Fly Machine där install, verify och dev/runtime körs.
+Syskonprojekt delar inte OS-identitet eller filsystem, globala hemligheter når
+inte projektmaskinen, och obevisad isolering ska fail-closa i stället för att
+falla tillbaka på den delade hosten. Isoleringsprincipen behöver inte beslutas
+igen. Container-sandbox på samma maskin är avfärdad: Fly Machines ger sällan
+user-namespaces eller container-socket, så den vägen blir jail nummer tre.
+
+**Inte ratificerat — bevisas i en liten pilot:** Machine-size, volymtopologi,
+idle-timeout, pooling/återanvändning och kostnadsoptimering. Lås inte dem som
+permanenta driftvärden innan piloten. Topologin måste ändå delas upp först: en
+Fly-volym kan inte sitta på flera Machines, så `/data`, paketcachen och proxyn
+behöver skiljas från gästerna.
+
+Acceptansproven ägs av
+[`preview-host/README.md`](../../../../preview-host/README.md) § Öppen
+lanseringsblocker och körs i en disposabel miljö med syntetiska data — gröna
+tester på den delade hosten kan inte godkänna arkitekturen.
 
 ## Avgränsningar som inte får döljas
 
