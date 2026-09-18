@@ -44,6 +44,7 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | F3 build plan | Strukturerad `Tier3BuildSpec` för integrations-codegen. |
 | Mock mode (dossier) | Deklarativt `mock`-fält ("demoläge": `canned`/`seed`/`success`/`visual`/`none`) på hard-dossiers som beskriver hur den visuella ytan fungerar i designläge/preview utan livekonfiguration. |
 | Template (v0-mall) | Färdigt helprojekt i galleriet (`/templates`, builderns Mallar-tab). |
+| Showcase-exempel | Publika rekonstruktioner på `/exempel`. Inte kundcase, inte Preview-ytan och inte bevis för nuvarande codegen. Live-URL:er ägs av `src/lib/exempel/showcase-sites.ts`. Glass bara `glass-showcase-umber`. |
 | Importerat repo-läge | Runtimeläge för kompletta Template-/ZIP-/GitHub-importer; saknar Scaffold och är inte `Scaffold: Av`. |
 | Variant-template-addendum | Intern teknisk term för den SHA-bundna cachen av en v0-template som redan kan vara kandidat via `sourceTemplateIds`. |
 | Källpaket | Samlingen av valbara ingredienser före kodgeneratorn: variantreferens, UI Recipes, dossiers och media. |
@@ -170,6 +171,8 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | sandbox | `preview_host` när VM:en avses; inte preview-grenen och inte Preview-ytan |
 | template-library | `Scaffold`, `Dossier` eller `Template (v0-mall)` beroende på kontext |
 | mall / template (ospecificerat) | `Template (v0-mall)` för galleriet · `Scaffold` för runtime-startpunkt · `Dossier` för capability-modul · `Template-referens` för dossier-kurationsinput |
+| kundcase (om `/exempel` eller showcase-sajterna) | `Showcase-exempel` — rekonstruktioner, inte verifierade kunder |
+| showcase (ospecificerat) | Precisera: `Showcase-exempel` för `/exempel`, `Template (v0-mall)` för galleriet |
 | shadcn | `shadcn primitive` eller `UI Recipe` |
 | 3D/game | `visual-3d`, `physics-3d` eller `interactive-game` |
 | preview (ospecificerat) | Fråga eller slå upp: `preview-gren`, `Preview-yta`, `preview_host`/`previewUrl`, eller `Vercel deploy-preview` |
