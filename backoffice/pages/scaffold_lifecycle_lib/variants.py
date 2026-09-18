@@ -19,6 +19,7 @@ from .constants import (
     _SIG_MIN_MOTIFS,
     _SIG_MIN_ANTI,
     BLOB_MANIFEST_REL,
+    SCAFFOLD_OFF_BASELINE_ID,
 )
 from .formatting import (
     _unique_preserving_order,
@@ -292,7 +293,8 @@ def _variant_integrity_errors(
 
     - curated ``signaturePatterns`` (>=3 layouts / >=2 motifs / >=2 antiPatterns);
     - exactly one ``default: true`` per scaffold;
-    - at least one ``sourceTemplateIds`` entry.
+    - at least one ``sourceTemplateIds`` entry, except the explicit Scaffold: Av
+      baseline (``SCAFFOLD_OFF_BASELINE_ID``), which must stay empty.
 
     ``require_signature_patterns`` defaults to True (fail-closed for real
     curations). Pass False for the Scaffold Wizard new-scaffold starter: the
@@ -329,16 +331,43 @@ def _variant_integrity_errors(
             "default innan du sparar."
         )
 
+    source_error = _source_template_ids_integrity_error(payload)
+    if source_error:
+        errors.append(source_error)
+    return errors
+
+
+def _has_source_template_ids(payload: dict[str, Any]) -> bool:
     source_ids = payload.get("sourceTemplateIds")
-    if not (
-        isinstance(source_ids, list)
-        and any(isinstance(value, str) and value.strip() for value in source_ids)
-    ):
-        errors.append(
+    return isinstance(source_ids, list) and any(
+        isinstance(value, str) and value.strip() for value in source_ids
+    )
+
+
+def _source_template_ids_integrity_error(payload: dict[str, Any]) -> str | None:
+    """Mirror ``variant-integrity.test.ts`` sourceTemplateIds rules.
+
+    Regular variants need at least one runtime-selectable id. The explicit
+    Scaffold: Av baseline (``SCAFFOLD_OFF_BASELINE_ID``) must stay empty —
+    runtime never resolves template inspiration for those variants.
+    """
+    scaffold_id = str(payload.get("scaffoldId") or "").strip()
+    has_source = _has_source_template_ids(payload)
+    if scaffold_id == SCAFFOLD_OFF_BASELINE_ID:
+        if has_source:
+            return (
+                "Scaffold: Av "
+                f"(`{SCAFFOLD_OFF_BASELINE_ID}`) får inte ha `sourceTemplateIds`. "
+                "CI-grinden kräver tom lista — runtime resolvar aldrig "
+                "mallinspiration."
+            )
+        return None
+    if not has_source:
+        return (
             "Varianten saknar `sourceTemplateIds`. CI-grinden kräver minst ett "
             "runtime-valbart v0-mall-id från Blob-manifestet."
         )
-    return errors
+    return None
 
 
 def _projected_default_variant_ids(
