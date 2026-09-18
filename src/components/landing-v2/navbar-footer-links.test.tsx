@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
@@ -16,12 +18,22 @@ import { LandingFooter } from "./landing-footer";
 afterEach(() => cleanup());
 
 describe("landing nav + footer links after /teknik move", () => {
-  it("navbar links Teknik to /teknik and Analys to /analys", () => {
+  it("navbar links Teknik, Analys and Exempel without touching the footer contract", () => {
     render(<Navbar />);
     const teknik = screen.getAllByRole("link", { name: "Teknik" });
     expect(teknik[0]?.getAttribute("href")).toBe("/teknik");
     const analys = screen.getAllByRole("link", { name: "Analys" });
     expect(analys[0]?.getAttribute("href")).toBe("/analys");
+    const exempel = screen.getAllByRole("link", { name: "Exempel" });
+    expect(exempel[0]?.getAttribute("href")).toBe("/exempel");
+  });
+
+  it("keeps /exempel out of LandingFooter source", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/components/landing-v2/landing-footer.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain("/exempel");
   });
 
   it("footer links Funktioner to /teknik#funktioner, Teknik to /teknik and Analys to /analys", () => {

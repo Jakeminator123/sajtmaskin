@@ -22,7 +22,16 @@ const PRIVATE_SITEMAP_REL_PATHS = [
 describe("marketing sitemap", () => {
   it("includes core marketing, blog, and legal routes once", () => {
     expect(STATIC_SITEMAP_REL_PATHS).toEqual(
-      expect.arrayContaining(["/blogg", "/om", "/faq", "/templates", "/teknik", "/terms", "/privacy"]),
+      expect.arrayContaining([
+        "/blogg",
+        "/om",
+        "/exempel",
+        "/faq",
+        "/templates",
+        "/teknik",
+        "/terms",
+        "/privacy",
+      ]),
     );
     expect(STATIC_SITEMAP_REL_PATHS[0]).toBe("");
     expect(new Set(STATIC_SITEMAP_REL_PATHS).size).toBe(STATIC_SITEMAP_REL_PATHS.length);
@@ -55,6 +64,7 @@ describe("marketing sitemap", () => {
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/vad-kostar-en-hemsida`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/wix-alternativ`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/wordpress-alternativ`);
+    expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/exempel`);
     expect(urls).toContain(`${PUBLIC_CANONICAL_ORIGIN}/lovable-alternativ`);
     for (const page of SEO_LANDING_PAGES) {
       if (page.status === "ready") continue;
