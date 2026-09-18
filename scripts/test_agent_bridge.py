@@ -197,6 +197,68 @@ class RequestIdTests(unittest.TestCase):
             bridge.make_request_id("NOPE-01", 1)
 
 
+class ReplyCorrelationTests(unittest.TestCase):
+    def test_accepts_own_thread_id(self) -> None:
+        self.assertEqual(
+            bridge.validate_reply_to("BRYGG-01-20260918T002000Z-1", "BRYGG-01"),
+            "BRYGG-01-20260918T002000Z-1",
+        )
+
+    def test_rejects_malformed_id(self) -> None:
+        with self.assertRaisesRegex(bridge.BridgeError, "full request_id"):
+            bridge.validate_reply_to("bridge-round-1", "BRYGG-01")
+
+    def test_rejects_another_agents_thread(self) -> None:
+        with self.assertRaisesRegex(bridge.BridgeError, "another agent"):
+            bridge.validate_reply_to("MERGE-01-20260918T002000Z-1", "BRYGG-01")
+
+    def test_in_reply_to_is_rendered_beside_a_fresh_request_id(self) -> None:
+        config = bridge.parse_config_text(json.dumps(_config_payload(agent_id="BRYGG-01", role="brygg")))
+        formatted = bridge.format_agent_message(
+            config=config,
+            git=bridge.GitSnapshot(branch="topic", head="a" * 40, preview_sha="b" * 40, dirty=False),
+            status="REPORT",
+            message="done",
+            request_id="BRYGG-01-20260918T003655Z-1",
+            in_reply_to="BRYGG-01-20260918T002000Z-1",
+        )
+        self.assertIn("request_id: BRYGG-01-20260918T003655Z-1", formatted)
+        self.assertIn("in_reply_to: BRYGG-01-20260918T002000Z-1", formatted)
+
+    def test_reusing_the_coach_id_would_rematch_the_coach_task(self) -> None:
+        # Why --reply-to is not an override of our own request_id:
+        # select_coach_response re-admits an older comment when the request_id
+        # matches, so reusing the coach id makes wait return the task again.
+        coach_id = "BRYGG-01-20260918T002000Z-1"
+        comments = bridge.parse_coach_comments(
+            [
+                _gh_comment(
+                    1,
+                    _v1_body(request_id=coach_id, agent_id="BRYGG-01", message="original task"),
+                    created_at="2026-09-18T00:25:33Z",
+                )
+            ]
+        )
+        rematched = bridge.select_coach_response(
+            comments,
+            agent_id="BRYGG-01",
+            request_id=coach_id,
+            posted_at="2026-09-18T00:36:57Z",
+        )
+        assert rematched is not None
+        self.assertIn("original task", rematched.body)
+
+        # With a fresh id the stale task is correctly ignored.
+        self.assertIsNone(
+            bridge.select_coach_response(
+                comments,
+                agent_id="BRYGG-01",
+                request_id="BRYGG-01-20260918T003655Z-1",
+                posted_at="2026-09-18T00:36:57Z",
+            )
+        )
+
+
 class CoachParseTests(unittest.TestCase):
     def test_parses_v1_and_prefers_request_id(self) -> None:
         comments = bridge.parse_coach_comments(
@@ -386,7 +448,7 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             return _ok()
 
         def no_pr(argv, cwd, timeout):
-            return _err("no pull requests found for branch")
+            return _ok("[]")
 
         def capture_comment(argv, cwd, timeout):
             posted.append(argv)
@@ -396,7 +458,7 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             {
                 **self._git_ok(),
                 ("gh", "auth", "status"): auth_ok,
-                ("gh", "pr", "view", "--repo", "acme/demo", "--json", "number,url"): no_pr,
+                ("gh", "pr", "list"): no_pr,
                 ("gh", "issue", "comment"): capture_comment,
             }
         )
@@ -420,8 +482,8 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             {
                 **self._git_ok(),
                 ("gh", "auth", "status"): _ok(),
-                ("gh", "pr", "view", "--repo", "acme/demo", "--json", "number,url"): _ok(
-                    '{"number":99,"url":"https://github.com/acme/demo/pull/99"}'
+                ("gh", "pr", "list"): _ok(
+                    '[{"number":99,"url":"https://github.com/acme/demo/pull/99","headRefName":"topic"}]'
                 ),
                 ("gh", "issue", "comment"): capture,
                 ("gh", "pr", "comment"): capture,
@@ -441,7 +503,7 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             {
                 **self._git_ok(),
                 ("gh", "auth", "status"): _ok(),
-                ("gh", "pr", "view", "--repo", "acme/demo", "--json", "number,url"): _err("none"),
+                ("gh", "pr", "list"): _ok("[]"),
             }
         )
         code = bridge.main(
@@ -450,6 +512,61 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             paths=self.paths,
         )
         self.assertEqual(code, bridge.EXIT_DEPENDENCY)
+
+    def test_pr_lookup_filters_on_exact_head_branch(self) -> None:
+        # Regression: `gh pr view --repo <slug>` exits non-zero without a PR
+        # argument, so every post reported `pr: n/a` even with an open PR.
+        calls: list[tuple[str, ...]] = []
+
+        def capture_list(argv, cwd, timeout):
+            calls.append(argv)
+            return _ok('[{"number":1469,"url":"https://github.com/acme/demo/pull/1469","headRefName":"topic"}]')
+
+        runner = FakeRunner(
+            {
+                **self._git_ok(),
+                ("gh", "auth", "status"): _ok(),
+                ("gh", "pr", "list"): capture_list,
+                ("gh", "issue", "comment"): _ok("{}"),
+            }
+        )
+        pr = bridge.find_current_pr(runner, self.root, "acme/demo", "topic")
+        assert pr is not None
+        self.assertEqual(pr.number, 1469)
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("view", calls[0])
+        self.assertEqual(calls[0][:3], ("gh", "pr", "list"))
+        self.assertIn("--head", calls[0])
+        self.assertIn("topic", calls[0])
+        self.assertIn("--state", calls[0])
+        self.assertIn("open", calls[0])
+
+    def test_pr_lookup_never_falls_back_to_unrelated_pr(self) -> None:
+        runner = FakeRunner(
+            {
+                ("gh", "pr", "list"): _ok(
+                    '[{"number":1234,"url":"https://github.com/acme/demo/pull/1234","headRefName":"someone-else"}]'
+                )
+            }
+        )
+        self.assertIsNone(bridge.find_current_pr(runner, self.root, "acme/demo", "topic"))
+
+    def test_pr_lookup_refuses_ambiguous_heads(self) -> None:
+        runner = FakeRunner(
+            {
+                ("gh", "pr", "list"): _ok(
+                    '[{"number":1,"url":"https://github.com/acme/demo/pull/1","headRefName":"topic"},'
+                    '{"number":2,"url":"https://github.com/acme/demo/pull/2","headRefName":"topic"}]'
+                )
+            }
+        )
+        self.assertIsNone(bridge.find_current_pr(runner, self.root, "acme/demo", "topic"))
+
+    def test_pr_lookup_skips_detached_head(self) -> None:
+        runner = FakeRunner({})
+        self.assertIsNone(bridge.find_current_pr(runner, self.root, "acme/demo", "HEAD"))
+        self.assertIsNone(bridge.find_current_pr(runner, self.root, "acme/demo", None))
+        self.assertEqual(runner.calls, [])
 
     def test_read_writes_file_and_does_not_exec(self) -> None:
         body = (

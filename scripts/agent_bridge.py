@@ -405,9 +405,33 @@ def ensure_gh(runner: CommandRunner, root: Path) -> None:
         raise BridgeError("gh is not authenticated", code=EXIT_DEPENDENCY)
 
 
-def find_current_pr(runner: CommandRunner, root: Path, repository: str) -> PullRequestRef | None:
+def find_current_pr(
+    runner: CommandRunner, root: Path, repository: str, branch: str | None
+) -> PullRequestRef | None:
+    """Resolve the open PR whose head is exactly `branch`.
+
+    `gh pr view --repo <slug>` cannot infer the branch: it exits non-zero with
+    "argument required when using the --repo flag". The old call therefore
+    reported `pr: n/a` on every post and made `--pr` unusable. Querying the
+    exact head keeps `--repo` explicit and cannot pick up an unrelated PR, so
+    an ambiguous result is treated as "no PR" rather than guessed.
+    """
+    if not branch or branch == "HEAD":
+        return None
     result = runner.run(
-        [GH_BIN, "pr", "view", "--repo", repository, "--json", "number,url"],
+        [
+            GH_BIN,
+            "pr",
+            "list",
+            "--repo",
+            repository,
+            "--head",
+            branch,
+            "--state",
+            "open",
+            "--json",
+            "number,url,headRefName",
+        ],
         cwd=root,
     )
     if result.returncode != 0:
@@ -416,15 +440,36 @@ def find_current_pr(runner: CommandRunner, root: Path, repository: str) -> PullR
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
         return None
-    if not isinstance(payload, dict):
+    if not isinstance(payload, list):
         return None
-    number = payload.get("number")
-    url = payload.get("url")
+    matches = [
+        row for row in payload if isinstance(row, dict) and row.get("headRefName") == branch
+    ]
+    if len(matches) != 1:
+        return None
+    number = matches[0].get("number")
+    url = matches[0].get("url")
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
         return None
     if not isinstance(url, str) or not url.startswith("https://github.com/"):
         return None
     return PullRequestRef(number=number, url=url)
+
+
+def validate_reply_to(value: str, agent_id: str) -> str:
+    """Validate the coach `request_id` this post answers.
+
+    Deliberately not an override of the post's own `request_id`:
+    `select_coach_response` re-admits a comment created before our post when
+    its `request_id` matches, so reusing the coach id would make `wait` match
+    the coach's own task comment again and report it as a fresh reply.
+    """
+    candidate = value.strip()
+    if not REQUEST_ID_RE.fullmatch(candidate):
+        raise BridgeError("reply-to must be a full request_id like BRYGG-01-20260918T002000Z-1")
+    if not candidate.startswith(f"{agent_id}-"):
+        raise BridgeError(f"reply-to must belong to {agent_id}; refusing another agent's thread")
+    return candidate
 
 
 def sanitize_user_text(value: str, *, field_name: str) -> str:
@@ -448,6 +493,7 @@ def format_agent_message(
     evidence: Sequence[str] | None = None,
     requested_decision: str | None = None,
     pr: PullRequestRef | None = None,
+    in_reply_to: str | None = None,
 ) -> str:
     if status not in ALLOWED_STATUSES:
         raise BridgeError("status must be QUESTION, BLOCKED, READY, DONE, or REPORT")
@@ -469,6 +515,7 @@ def format_agent_message(
             AGENT_MARKER,
             "",
             f"request_id: {request_id}",
+            *([f"in_reply_to: {in_reply_to}"] if in_reply_to else []),
             f"agent_id: {config.agent_id}",
             f"role: {config.role}",
             f"task: {task_value}",
@@ -774,22 +821,24 @@ def cmd_post(
     requested_decision: str | None,
     post_to_pr: bool,
     dry_run: bool,
+    reply_to: str | None = None,
     now: datetime | None = None,
 ) -> int:
     assert_repository_matches_origin(config, detect_origin_slug(runner, paths.root))
+    in_reply_to = validate_reply_to(reply_to, config.agent_id) if reply_to else None
     git = git_snapshot(runner, paths.root)
     pr = None
     if not dry_run or post_to_pr:
         try:
             if not dry_run:
                 ensure_gh(runner, paths.root)
-            pr = find_current_pr(runner, paths.root, config.repository)
+            pr = find_current_pr(runner, paths.root, config.repository, git.branch)
         except BridgeError:
             if post_to_pr or not dry_run:
                 raise
     else:
         try:
-            pr = find_current_pr(runner, paths.root, config.repository)
+            pr = find_current_pr(runner, paths.root, config.repository, git.branch)
         except BridgeError:
             pr = None
     if post_to_pr and pr is None:
@@ -807,6 +856,7 @@ def cmd_post(
         evidence=evidence,
         requested_decision=requested_decision,
         pr=pr,
+        in_reply_to=in_reply_to,
     )
     if dry_run:
         print(redact_secrets(body), end="")
@@ -904,6 +954,10 @@ def build_parser() -> argparse.ArgumentParser:
     post.add_argument("--evidence", action="append", default=[])
     post.add_argument("--requested-decision")
     post.add_argument(
+        "--reply-to",
+        help="coach request_id this post answers; adds in_reply_to without reusing it as our own id",
+    )
+    post.add_argument(
         "--pr",
         action="store_true",
         help="also copy the message to the current PR; Control Bridge #1468 remains owner",
@@ -939,6 +993,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
                 requested_decision=args.requested_decision,
                 post_to_pr=args.pr,
                 dry_run=args.dry_run,
+                reply_to=args.reply_to,
             )
         if args.command == "read":
             return cmd_read(

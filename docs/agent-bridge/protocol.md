@@ -37,6 +37,7 @@ OpenClaw-bridge (`.cursor/openclaw-bridge/`).
 [AGENT→COACH:v1]
 
 request_id: <AGENT-ID>-<UTC>-<seq>
+in_reply_to: <coach request_id>   # bara när --reply-to används
 agent_id: BRYGG-01
 role: brygg
 task: #1461
@@ -64,6 +65,30 @@ SHA, ev. PR och `git_status`. `git status` används bara som porcelain
 clean/dirty — inget filinnehåll.
 
 `task` sätts av `--task` eller ärvs från current PR. Annars `n/a`.
+
+## Korrelation mot en coach-beställning
+
+`post --reply-to <coach request_id>` lägger till raden `in_reply_to`. Coach kan
+då matcha svaret maskinellt mot sin egen post.
+
+Värdet valideras mot `REQUEST_ID_RE` och måste börja med den egna `agent_id`,
+så en agent inte kan korrelera in sig i en annan agents tråd.
+
+`--reply-to` **ersätter inte** postens eget `request_id`. Matchningsregel 5
+nedan släpper in en äldre kommentar när `request_id` stämmer, vilket är
+avsiktligt för klockskev när Coach svarar på vår post. Återanvände agenten
+coachens id som sitt eget skulle `wait` därför matcha Coachs ursprungliga
+uppgift igen och rapportera den som ett nytt svar.
+
+## PR-detektering
+
+Current PR slås upp med `gh pr list --head <branch> --state open` och kräver
+**exakt en** träff vars `headRefName` är branchen. Noll, flera eller detached
+HEAD ger `pr: n/a`; ingen fallback får välja en orelaterad PR.
+
+`gh pr view --repo <slug>` går inte att använda: utan PR-argument avslutar den
+non-zero med "argument required when using the --repo flag", vilket tidigare
+gav `pr: n/a` på varje post och gjorde `--pr` oanvändbar.
 
 ## Coach → agent
 
