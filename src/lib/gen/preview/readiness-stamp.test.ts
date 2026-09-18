@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
@@ -13,14 +14,16 @@ const getVersionFilesSnapshot = vi.hoisted(() =>
       files: StoredFile[];
       filesJson: string;
       lifecycleStage: "design" | "integrations";
+      filesRevision: string | null;
     } | null>
   >(async () => null),
 );
 /** Mirror the production snapshot contract: filesJson IS the parsed files. */
-const snapshotOf = (files: StoredFile[]) => ({
+const snapshotOf = (files: StoredFile[], filesRevision: string | null = null) => ({
   files,
   filesJson: JSON.stringify(files),
   lifecycleStage: "design" as const,
+  filesRevision,
 });
 const updateVersionFiles = vi.hoisted(() =>
   vi.fn<
@@ -511,6 +514,112 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       }),
     ]);
   });
+
+  it("binds fallback receipt to post-persist files_revision after lockfile reconcile", async () => {
+    getVersionFilesSnapshot.mockResolvedValueOnce(
+      snapshotOf(
+        [
+          { path: "package.json", content: "{}", language: "json" },
+          { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+          { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+        ],
+        "rev-a",
+      ),
+    );
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: { path: "pnpm-lock.yaml", content: "NEW" },
+        httpReady: true,
+        usedLegacyPeerDeps: true,
+        peerConflictDetected: true,
+        installKind: "fallback",
+      },
+    });
+
+    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+    const [, nextJson] = updateVersionFiles.mock.calls[0] as [string, string];
+    const postPersistRevision = createHash("md5").update(nextJson, "utf8").digest("hex");
+    expect(postPersistRevision).not.toBe("rev-a");
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    const receipt = payloads.find((row) => row.category === "preview:install-peer-fallback");
+    expect(receipt?.meta).toEqual(
+      expect.objectContaining({
+        kind: "fallback",
+        usedFallback: true,
+        filesRevision: postPersistRevision,
+        bootFilesRevision: "rev-a",
+      }),
+    );
+
+    const { installPeerFallbackReceiptBlocksPublish } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [{ category: "preview:install-peer-fallback", meta: receipt?.meta }],
+        postPersistRevision,
+      ),
+    ).toBe(true);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [{ category: "preview:install-peer-fallback", meta: { kind: "fallback", usedFallback: true, filesRevision: "rev-a" } }],
+        postPersistRevision,
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps the boot revision on lockfile CAS miss", async () => {
+    getVersionFilesSnapshot.mockResolvedValue(
+      snapshotOf(
+        [
+          { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+          { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+        ],
+        "rev-a",
+      ),
+    );
+    updateVersionFiles.mockResolvedValueOnce(false);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: { path: "pnpm-lock.yaml", content: "NEW" },
+        httpReady: true,
+        usedLegacyPeerDeps: true,
+        peerConflictDetected: true,
+        installKind: "fallback",
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    expect(payloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "preview:install-peer-fallback",
+          meta: expect.objectContaining({
+            kind: "fallback",
+            filesRevision: "rev-a",
+            bootFilesRevision: "rev-a",
+          }),
+        }),
+      ]),
+    );
+  });
 });
 
 describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-trip)", () => {
@@ -533,7 +642,8 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
       content: "NEW",
     });
 
-    expect(wrote).toBe(true);
+    expect(wrote.wrote).toBe(true);
+    expect(wrote.filesRevision).toMatch(/^[a-f0-9]{32}$/);
     expect(updateVersionFiles).toHaveBeenCalledTimes(1);
     const [, filesJson] = updateVersionFiles.mock.calls[0] as [string, string];
     const parsed = JSON.parse(filesJson) as Array<{ path: string; content: string }>;
@@ -567,10 +677,13 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
 
   it("skips (no churn) when the stale marker is already gone", async () => {
     getVersionFilesSnapshot.mockResolvedValueOnce(
-      snapshotOf([
-        { path: "package.json", content: "{}", language: "json" },
-        { path: "pnpm-lock.yaml", content: "OK", language: "yaml" },
-      ]),
+      snapshotOf(
+        [
+          { path: "package.json", content: "{}", language: "json" },
+          { path: "pnpm-lock.yaml", content: "OK", language: "yaml" },
+        ],
+        "rev-b",
+      ),
     );
 
     const wrote = await persistRegeneratedLockfileForVersion("v1", {
@@ -578,7 +691,7 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
       content: "NEW",
     });
 
-    expect(wrote).toBe(false);
+    expect(wrote).toEqual({ wrote: false, filesRevision: "rev-b" });
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 
@@ -628,14 +741,14 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
       path: "pnpm-lock.yaml",
       content: "NEW",
     });
-    expect(first).toBe(false);
+    expect(first).toEqual({ wrote: false, filesRevision: null });
 
     // Guard-fri: nästa poll ska försöka igen mot den nya basen.
     const second = await persistRegeneratedLockfileForVersion("v1", {
       path: "pnpm-lock.yaml",
       content: "NEW",
     });
-    expect(second).toBe(true);
+    expect(second.wrote).toBe(true);
     expect(updateVersionFiles).toHaveBeenCalledTimes(2);
   });
 });

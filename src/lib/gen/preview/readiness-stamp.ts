@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { PreviewHostStatusResult } from "./preview-host-client";
 import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "./readiness-failure";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
@@ -6,6 +7,11 @@ import {
   INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
   previewInstallKindFromHostStatus,
 } from "@/lib/gen/validation/install-peer-fallback-receipt";
+
+/** Same stored md5 as `engine_versions.files_revision` (`md5(files_json)`). */
+function filesRevisionForPersistedJson(filesJson: string): string {
+  return createHash("md5").update(filesJson, "utf8").digest("hex");
+}
 
 /**
  * Readiness-gated `preview_success` stamping (req A4/A5/A6).
@@ -162,11 +168,18 @@ export async function applyPreviewReadinessOutcome(params: {
         { lockTimeoutMs: 2_000 },
       );
     }
+    let receiptRevision = params.bootedFilesRevision?.trim() || null;
     if (decision.regeneratedLockfile) {
-      await persistRegeneratedLockfileForVersion(
+      const persist = await persistRegeneratedLockfileForVersion(
         params.versionId,
         decision.regeneratedLockfile,
       );
+      // Bind the receipt to the revision Postgres now has. A CAS miss leaves
+      // filesRevision null so we keep the boot revision — never a snapshot
+      // this boot did not write.
+      if (persist.filesRevision) {
+        receiptRevision = persist.filesRevision;
+      }
     }
     // Preview started only after --legacy-peer-deps: write a revision-bound
     // receipt the publish gate reads even after a later clean quality-gate.
@@ -175,9 +188,8 @@ export async function applyPreviewReadinessOutcome(params: {
     if (decision.previewSuccess === true) {
       const installKind = previewInstallKindFromHostStatus(params.resumed);
       const usedFallback = installKind === "fallback";
-      const revision = params.bootedFilesRevision?.trim() || null;
       const shouldWriteReceipt = installKind === "fallback" || installKind === "strict_pass";
-      const receiptKey = `${params.versionId}:${revision ?? ""}:${installKind ?? "unknown"}`;
+      const receiptKey = `${params.versionId}:${receiptRevision ?? ""}:${installKind ?? "unknown"}`;
       if (shouldWriteReceipt && !legacyPeerDepsVersionIds.has(receiptKey)) {
         legacyPeerDepsVersionIds.add(receiptKey);
         const { createEngineVersionErrorLogs } = await import(
@@ -196,7 +208,8 @@ export async function applyPreviewReadinessOutcome(params: {
               meta: {
                 kind: installKind,
                 usedFallback,
-                filesRevision: revision,
+                filesRevision: receiptRevision,
+                bootFilesRevision: params.bootedFilesRevision?.trim() || null,
                 source: "preview_install_peer_fallback",
               },
             },
@@ -229,7 +242,22 @@ export async function applyPreviewReadinessOutcome(params: {
   return decision;
 }
 
-const persistedLockfileVersionIds = new Set<string>();
+const persistedLockfileRevisions = new Map<string, string | null>();
+
+export type RegeneratedLockfilePersistResult = {
+  /** True only when THIS call CAS-wrote `files_json`. */
+  wrote: boolean;
+  /**
+   * Current (or just-written) `files_revision`. Null on CAS miss / read
+   * failure so the receipt stays on the boot revision.
+   */
+  filesRevision: string | null;
+};
+
+const EMPTY_LOCKFILE_PERSIST: RegeneratedLockfilePersistResult = {
+  wrote: false,
+  filesRevision: null,
+};
 
 /**
  * Versions for which a readiness-failure diagnostics row has already been
@@ -258,8 +286,14 @@ const legacyPeerDepsVersionIds = new Set<string>();
 export async function persistRegeneratedLockfileForVersion(
   versionId: string,
   regeneratedLockfile: NonNullable<PreviewHostStatusResult["regeneratedLockfile"]>,
-): Promise<boolean> {
-  if (!versionId || persistedLockfileVersionIds.has(versionId)) return false;
+): Promise<RegeneratedLockfilePersistResult> {
+  if (!versionId) return EMPTY_LOCKFILE_PERSIST;
+  if (persistedLockfileRevisions.has(versionId)) {
+    return {
+      wrote: false,
+      filesRevision: persistedLockfileRevisions.get(versionId) ?? null,
+    };
+  }
   try {
     // Snapshot, not just the parsed files: the raw `files_json` string is the
     // compare-and-swap token for the write below. This is a read-modify-write
@@ -267,15 +301,16 @@ export async function persistRegeneratedLockfileForVersion(
     // between the read and the write is overwritten wholesale.
     const { getVersionFilesSnapshot } = await import("@/lib/gen/version-manager");
     const snapshot = await getVersionFilesSnapshot(versionId);
-    if (!snapshot) return false;
+    if (!snapshot) return EMPTY_LOCKFILE_PERSIST;
     const files = snapshot.files;
     const markerPath = LOCKFILE_STALE_MARKER_PATH;
     const lockfilePath = regeneratedLockfile.path.replace(/\\/g, "/");
     const hasMarker = files.some((f) => f.path.replace(/\\/g, "/") === markerPath);
     if (!hasMarker) {
       // Already reconciled (or never stale) — don't churn files_json.
-      persistedLockfileVersionIds.add(versionId);
-      return false;
+      const filesRevision = snapshot.filesRevision?.trim() || null;
+      persistedLockfileRevisions.set(versionId, filesRevision);
+      return { wrote: false, filesRevision };
     }
     const next = files
       .filter((f) => f.path.replace(/\\/g, "/") !== markerPath)
@@ -294,19 +329,23 @@ export async function persistRegeneratedLockfileForVersion(
         language: "yaml",
       });
     }
+    const nextJson = JSON.stringify(next);
     const { updateVersionFiles } = await import("@/lib/db/chat-repository-pg");
-    const wrote = await updateVersionFiles(versionId, JSON.stringify(next), {
+    const wrote = await updateVersionFiles(versionId, nextJson, {
       preservePreviewUrl: true,
       expectedFilesJson: snapshot.filesJson,
     });
     // Deliberately NOT marking the guard on a CAS miss: the row moved under us,
     // so the reconcile has not happened and a later poll should retry against
-    // the new base. Marking it here would drop the lockfile silently.
-    if (wrote) persistedLockfileVersionIds.add(versionId);
-    return wrote;
+    // the new base. Marking it here would drop the lockfile silently. Do not
+    // return a new revision we did not write.
+    if (!wrote) return EMPTY_LOCKFILE_PERSIST;
+    const filesRevision = filesRevisionForPersistedJson(nextJson);
+    persistedLockfileRevisions.set(versionId, filesRevision);
+    return { wrote: true, filesRevision };
   } catch (err) {
     console.warn("[preview-readiness] Failed to persist regenerated lockfile:", err);
-    return false;
+    return EMPTY_LOCKFILE_PERSIST;
   }
 }
 
@@ -353,7 +392,7 @@ export async function pollAndApplyPreviewReadinessOutcome(params: {
 
 /** Test-only reset of the per-instance persist + failure-log guards. */
 export function __resetPersistedLockfileGuardForTesting(): void {
-  persistedLockfileVersionIds.clear();
+  persistedLockfileRevisions.clear();
   failedPreviewVersionIds.clear();
   legacyPeerDepsVersionIds.clear();
 }
