@@ -34,6 +34,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   // även från andra sidor än startsidan (t.ex. /teknik).
   const navLinks = [
     { href: "/teknik", label: "Teknik" },
+    { href: "/analys", label: "Analys" },
     { href: "/#hur-det-fungerar", label: "Hur det fungerar" },
     { href: "/#priser", label: "Priser" },
     { href: "/faq", label: "FAQ" },
