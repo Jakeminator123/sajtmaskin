@@ -8,25 +8,29 @@ import { getStaticCoreFromWorkspace } from "./static-core-loader";
  * imported" while 04 required `import type { FormEvent } from "react"`.
  *
  * DOM *element* types (`HTMLFormElement`) are TypeScript globals; React
- * *event* types (`FormEvent`, `MouseEvent`, `ChangeEvent`) must be imported as
- * types from "react". Every core line that names a React event type has to say
- * the same thing.
+ * *handler event* types (`FormEvent`, `ChangeEvent`, React's `MouseEvent` /
+ * `KeyboardEvent`) must be imported as types from "react" and must not be
+ * confused with the same-named DOM globals. Every core line that names a React
+ * event type has to say the same thing.
  */
 describe("static core import-type contract (DOM element types vs React event types)", () => {
   const core = getStaticCoreFromWorkspace();
   const lines = core.split("\n");
-  const reactEventTypeLine = /\b(FormEvent|ChangeEvent|KeyboardEvent)\b/;
+  const reactEventTypeLine = /\b(FormEvent|ChangeEvent|MouseEvent|KeyboardEvent)\b/;
 
   it("requires React event types to be type-imported from react", () => {
     expect(core).toContain('import type { FormEvent } from "react"');
+    expect(core).toContain('import type { FormEvent, MouseEvent } from "react"');
     expect(core).toContain("React types are `import type`");
   });
 
-  it("never groups React event types with globals that must not be imported", () => {
+  it("never claims a React event type is a global that must not be imported", () => {
     const contradictory = lines.filter(
       (line) =>
         reactEventTypeLine.test(line) &&
-        /\b(not imported|never import|DOM globals|TypeScript globals)\b/.test(line),
+        /\b(not imported|never import them|are TypeScript globals|are \*\*not\*\* globals)\b/.test(
+          line,
+        ),
     );
     expect(contradictory).toEqual([]);
   });
@@ -37,6 +41,15 @@ describe("static core import-type contract (DOM element types vs React event typ
     for (const line of mentions) {
       expect(line, line).toMatch(/import type|from "react"/);
     }
+  });
+
+  it("does not deny that same-named DOM globals exist", () => {
+    // `MouseEvent`/`KeyboardEvent` ARE DOM globals; the rule is to import
+    // React's versions explicitly, not to pretend the globals are absent.
+    const eventLine = lines.find((line) => line.includes("React handler event types"));
+    expect(eventLine).toBeDefined();
+    expect(eventLine).toContain("same-named DOM globals");
+    expect(eventLine).not.toMatch(/are \*\*not\*\* globals/);
   });
 
   it("keeps the DOM element-type rule: globals, never imported, never JSX tags", () => {
