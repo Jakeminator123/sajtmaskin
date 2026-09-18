@@ -130,7 +130,7 @@ export function trackGoogleAdsConversion(event: GoogleAdsConversionEvent): boole
   const sendTo = getGoogleAdsSendTo(event);
   if (!sendTo) return false;
   if (hasFiredConversion(event)) return false;
-  markFiredConversion(event);
+  if (pendingConversions.some((item) => item.event === event)) return false;
   pendingConversions.push({ event, sendTo });
   flushPendingConversions();
   return true;
@@ -159,13 +159,15 @@ function flushPendingConversions(): void {
     return;
   }
   while (pendingConversions.length > 0) {
-    const next = pendingConversions.shift();
+    const next = pendingConversions[0];
     if (!next) break;
     gtag("event", "conversion", {
       send_to: next.sendTo,
       value: 1.0,
       currency: "SEK",
     });
+    pendingConversions.shift();
+    markFiredConversion(next.event);
   }
   if (flushTimer != null) {
     window.clearInterval(flushTimer);

@@ -6,6 +6,8 @@ const ORIGINAL_ENV = {
   enabled: process.env.NEXT_PUBLIC_GOOGLE_ADS_ENABLED,
 };
 
+const CONVERSION_DEDUPE_KEY = "sajtmaskin:google-ads:conversions";
+
 async function loadGoogleAds() {
   vi.resetModules();
   return import("./google-ads");
@@ -21,6 +23,13 @@ function restoreEnv() {
   else process.env.NEXT_PUBLIC_GOOGLE_ADS_ID = ORIGINAL_ENV.id;
   if (ORIGINAL_ENV.enabled === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_ADS_ENABLED;
   else process.env.NEXT_PUBLIC_GOOGLE_ADS_ENABLED = ORIGINAL_ENV.enabled;
+}
+
+function stubLocalhost() {
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { hostname: "localhost" },
+  });
 }
 
 describe("google ads config", () => {
@@ -67,10 +76,7 @@ describe("google ads config", () => {
     const { ensureGoogleAdsTag, resetGoogleAdsTagForTests } = await loadGoogleAds();
     const { persistCookieConsent } = await import("@/lib/consent/cookie-consent");
 
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { hostname: "localhost" },
-    });
+    stubLocalhost();
 
     expect(ensureGoogleAdsTag({ nonce: "test-nonce" })).toBe(true);
     const script = document.querySelector(
@@ -97,10 +103,7 @@ describe("google ads config", () => {
       GOOGLE_ADS_BUILDER_START_SEND_TO,
     } = await loadGoogleAds();
 
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { hostname: "localhost" },
-    });
+    stubLocalhost();
     ensureGoogleAdsTag();
 
     expect(trackGoogleAdsConversion("account_created")).toBe(true);
@@ -128,5 +131,45 @@ describe("google ads config", () => {
         currency: "SEK",
       },
     ]);
+  });
+
+  it("does not persist dedupe until gtag has queued the conversion", async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_ENABLED = "1";
+    const { trackGoogleAdsConversion, ensureGoogleAdsTag } = await loadGoogleAds();
+
+    stubLocalhost();
+
+    expect(trackGoogleAdsConversion("account_created")).toBe(true);
+    expect(localStorage.getItem(CONVERSION_DEDUPE_KEY)).toBeNull();
+    expect(trackGoogleAdsConversion("account_created")).toBe(false);
+
+    ensureGoogleAdsTag();
+
+    expect(JSON.parse(localStorage.getItem(CONVERSION_DEDUPE_KEY) ?? "[]")).toEqual([
+      "account_created",
+    ]);
+    const conversions = asCallList().filter((entry) => entry[0] === "event" && entry[1] === "conversion");
+    expect(conversions).toHaveLength(1);
+  });
+
+  it("lets a later page retry if track ran before gtag and never queued", async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_ENABLED = "1";
+    const first = await loadGoogleAds();
+    stubLocalhost();
+
+    expect(first.trackGoogleAdsConversion("account_created")).toBe(true);
+    expect(localStorage.getItem(CONVERSION_DEDUPE_KEY)).toBeNull();
+
+    first.resetGoogleAdsTagForTests();
+
+    const second = await loadGoogleAds();
+    stubLocalhost();
+    second.ensureGoogleAdsTag();
+    expect(second.trackGoogleAdsConversion("account_created")).toBe(true);
+    expect(JSON.parse(localStorage.getItem(CONVERSION_DEDUPE_KEY) ?? "[]")).toEqual([
+      "account_created",
+    ]);
+    const conversions = asCallList().filter((entry) => entry[0] === "event" && entry[1] === "conversion");
+    expect(conversions).toHaveLength(1);
   });
 });
