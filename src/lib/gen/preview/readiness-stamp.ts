@@ -1,6 +1,7 @@
 import type { PreviewHostStatusResult } from "./preview-host-client";
 import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "./readiness-failure";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
+import { INSTALL_PEER_FALLBACK_CHECK } from "@/lib/gen/validation/package-tree-compat";
 
 /**
  * Readiness-gated `preview_success` stamping (req A4/A5/A6).
@@ -34,7 +35,13 @@ export type PreviewReadinessDecision = {
 export function decidePreviewReadinessOutcome(
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
+    | "readinessState"
+    | "readinessError"
+    | "installDiagnostics"
+    | "regeneratedLockfile"
+    | "httpReady"
+    | "usedLegacyPeerDeps"
+    | "peerConflictDetected"
   >,
 ): PreviewReadinessDecision {
   const regeneratedLockfile = resumed.regeneratedLockfile ?? null;
@@ -80,7 +87,13 @@ export async function applyPreviewReadinessOutcome(params: {
   bootedFilesRevision?: string | null;
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
+    | "readinessState"
+    | "readinessError"
+    | "installDiagnostics"
+    | "regeneratedLockfile"
+    | "httpReady"
+    | "usedLegacyPeerDeps"
+    | "peerConflictDetected"
   >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
@@ -149,6 +162,39 @@ export async function applyPreviewReadinessOutcome(params: {
         decision.regeneratedLockfile,
       );
     }
+    // Preview started only after --legacy-peer-deps: write the same
+    // quality-gate advisory the publish gate already reads. Preview stays
+    // up; canDeploy / deploy 409 treat this as not publish-ready.
+    if (
+      decision.previewSuccess === true &&
+      params.resumed.usedLegacyPeerDeps === true &&
+      params.resumed.peerConflictDetected === true &&
+      !legacyPeerDepsVersionIds.has(params.versionId)
+    ) {
+      legacyPeerDepsVersionIds.add(params.versionId);
+      const { createEngineVersionErrorLogs } = await import(
+        "@/lib/db/services/version-errors"
+      );
+      await createEngineVersionErrorLogs(
+        [
+          {
+            chatId: params.chatId,
+            versionId: params.versionId,
+            level: "warning",
+            category: "preflight:quality-gate",
+            message:
+              "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
+            meta: {
+              passed: true,
+              advisory: true,
+              advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
+              source: "preview_install_peer_fallback",
+            },
+          },
+        ],
+        { lockTimeoutMs: 2_000 },
+      );
+    }
   } catch (err) {
     console.warn("[preview-readiness] Failed to apply readiness outcome:", err);
   }
@@ -165,6 +211,7 @@ const persistedLockfileVersionIds = new Set<string>();
  * has no such guard on its own.
  */
 const failedPreviewVersionIds = new Set<string>();
+const legacyPeerDepsVersionIds = new Set<string>();
 
 /**
  * One-shot lockfile round-trip (req A2): after the host regenerates a lockfile
@@ -280,4 +327,5 @@ export async function pollAndApplyPreviewReadinessOutcome(params: {
 export function __resetPersistedLockfileGuardForTesting(): void {
   persistedLockfileVersionIds.clear();
   failedPreviewVersionIds.clear();
+  legacyPeerDepsVersionIds.clear();
 }

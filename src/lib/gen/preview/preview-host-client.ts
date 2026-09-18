@@ -193,6 +193,12 @@ export type PreviewHostStatusResult = {
    */
   installDiagnostics?: PreviewHostInstallDiagnostics | null;
   regeneratedLockfile: PreviewHostRegeneratedLockfile | null;
+  /**
+   * Live boot only started after `--legacy-peer-deps` (or equivalent).
+   * Preview may be up; publish must not treat that as a green install.
+   */
+  usedLegacyPeerDeps?: boolean;
+  peerConflictDetected?: boolean;
 };
 
 export type PreviewHostInstallDiagnostics = {
@@ -341,6 +347,8 @@ export async function fetchPreviewHostStatus(
       readinessError: nonEmptyString(body.readinessError),
       installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+      usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
+      peerConflictDetected: body.peerConflictDetected === true,
     };
   } catch {
     return null;
@@ -372,6 +380,8 @@ export type PreviewHostReadinessVerdict = Pick<
   | "httpReady"
   | "lifecycleToken"
   | "mutationRevision"
+  | "usedLegacyPeerDeps"
+  | "peerConflictDetected"
 > & {
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
@@ -425,6 +435,8 @@ export async function fetchPreviewHostReadinessVerdict(
       readinessError: nonEmptyString(body.readinessError),
       installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+      usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
+      peerConflictDetected: body.peerConflictDetected === true,
     };
   } catch {
     return null;

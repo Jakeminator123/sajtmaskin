@@ -38,6 +38,7 @@ import {
   loadLocalV0TemplateFiles,
   type LocalV0TemplateSource,
 } from "@/lib/templates/local-v0-template-source";
+import { findPackageTreeConflictsInFiles } from "@/lib/gen/validation/package-tree-compat";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
@@ -230,6 +231,16 @@ async function initializeLocalTemplateProject(params: {
       depCompletion.unknownPackages.length > 0
         ? `(unknown, not pinned: ${depCompletion.unknownPackages.join(", ")})`
         : "",
+    );
+  }
+
+  const packageTreeConflicts = findPackageTreeConflictsInFiles(preparedFiles);
+  if (packageTreeConflicts) {
+    console.warn(
+      "[API /template] Imported template package.json is an npm ERESOLVE tree; publish will be blocked:",
+      packageTreeConflicts.conflicts
+        .map((conflict) => `${conflict.nextRange} + ${conflict.reactRange}`)
+        .join("; "),
     );
   }
 

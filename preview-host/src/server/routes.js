@@ -226,6 +226,9 @@ async function routeRequest(req, res) {
       typeof latest.regeneratedLockfile.content === "string"
         ? { regeneratedLockfile: latest.regeneratedLockfile }
         : {}),
+      ...(latest.usedLegacyPeerDeps === true && latest.peerConflictDetected === true
+        ? { usedLegacyPeerDeps: true, peerConflictDetected: true }
+        : {}),
     });
   }
 

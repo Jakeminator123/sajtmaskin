@@ -1101,6 +1101,8 @@ async function bootRuntimeForSession(session, options = {}) {
     }
     // A new boot must not keep the previous install snapshot on `/status`.
     delete stored.installDiagnostics;
+    delete stored.usedLegacyPeerDeps;
+    delete stored.peerConflictDetected;
     stored.updatedAt = nowIso();
   });
 
@@ -1156,6 +1158,10 @@ async function bootRuntimeForSession(session, options = {}) {
         if (installOutcome && installOutcome.regeneratedLockfile) {
           stored.regeneratedLockfile = installOutcome.regeneratedLockfile;
           stored.lockfileStaleCleared = true;
+        }
+        if (installOutcome && installOutcome.usedFallback && installOutcome.peerConflictDetected) {
+          stored.usedLegacyPeerDeps = true;
+          stored.peerConflictDetected = true;
         }
       });
 

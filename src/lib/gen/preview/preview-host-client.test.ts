@@ -544,6 +544,8 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessError: null,
       installDiagnostics: null,
       regeneratedLockfile: null,
+      usedLegacyPeerDeps: false,
+      peerConflictDetected: false,
     });
   });
 
@@ -655,6 +657,8 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessError: null,
       installDiagnostics: null,
       regeneratedLockfile: null,
+      usedLegacyPeerDeps: false,
+      peerConflictDetected: false,
     });
   });
 

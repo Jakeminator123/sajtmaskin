@@ -358,6 +358,51 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
+
+  it("writes a publish-blocking install-peer-fallback advisory when preview only started after --legacy-peer-deps", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: true,
+        peerConflictDetected: true,
+      },
+    });
+
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true);
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; level: string; meta: Record<string, unknown> }>,
+    ];
+    expect(payloads[0]).toMatchObject({
+      category: "preflight:quality-gate",
+      level: "warning",
+      meta: {
+        passed: true,
+        advisory: true,
+        advisoryChecks: ["install-peer-fallback"],
+        source: "preview_install_peer_fallback",
+      },
+    });
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: true,
+        peerConflictDetected: true,
+      },
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-trip)", () => {
