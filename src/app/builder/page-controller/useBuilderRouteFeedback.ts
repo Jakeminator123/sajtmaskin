@@ -4,6 +4,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useEffect } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -49,13 +50,16 @@ export function useBuilderRouteFeedback({
     const githubError = searchParams.get("github_error");
     const githubErrorReason = searchParams.get("github_error_reason");
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
     const verificationReason = searchParams.get("reason");
 
     const hasGitHubFeedback = Boolean(connected || githubError);
-    const hasAuthFeedback = Boolean(login || authError || verified);
+    const hasAuthFeedback = Boolean(login || signup || authError || verified);
     if (!hasGitHubFeedback && !hasAuthFeedback) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (connected) {
       toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");
@@ -102,6 +106,7 @@ export function useBuilderRouteFeedback({
     nextParams.delete("github_error");
     nextParams.delete("github_error_reason");
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
     nextParams.delete("reason");

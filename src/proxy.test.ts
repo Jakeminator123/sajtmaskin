@@ -343,6 +343,23 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
     expect(connectSrc).not.toContain("https://*.gstatic.com");
   });
 
+  it("allows the Google Ads conversion hosts on script/connect/img/frame", async () => {
+    const csp = await cspFor("https://sajtmaskin.example/");
+    const hosts = [
+      "https://www.googletagmanager.com",
+      "https://www.googleadservices.com",
+      "https://googleads.g.doubleclick.net",
+      "https://www.google.com",
+    ];
+
+    for (const host of hosts) {
+      expect(directive(csp, "script-src")).toContain(host);
+      expect(directive(csp, "connect-src")).toContain(host);
+      expect(directive(csp, "img-src")).toContain(host);
+      expect(directive(csp, "frame-src")).toContain(host);
+    }
+  });
+
   it("puts the Google Maps allowlist in report-only CSP by default", async () => {
     const previous = process.env.CSP_ENFORCE;
     delete process.env.CSP_ENFORCE;

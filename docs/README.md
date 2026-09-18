@@ -42,6 +42,7 @@ policies kan äga olika beslut.
 | Var bor de publika showcase-exemplen?             | Runtime-owner: [`../src/lib/exempel/showcase-sites.ts`](../src/lib/exempel/showcase-sites.ts). Publik yta: `/exempel`. Live-läge: [`runbooks/showcase-exempel.md`](runbooks/showcase-exempel.md). |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
+| Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
 
 Kanonisk, kort terminologi finns i
 [`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för

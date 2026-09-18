@@ -23,6 +23,7 @@ import {
 import type { AuditResult } from "@/types/audit";
 import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { toast } from "sonner";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { createProject } from "@/lib/projects/project-client";
 import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
 
@@ -76,11 +77,14 @@ function RootLandingContent() {
 
   useEffect(() => {
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
     const reason = searchParams.get("reason");
 
-    if (!login && !authError && !verified) return;
+    if (!login && !signup && !authError && !verified) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -112,6 +116,7 @@ function RootLandingContent() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
     nextParams.delete("reason");
