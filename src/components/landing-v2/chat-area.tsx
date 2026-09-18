@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ArrowRight, Rocket } from "lucide-react"
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
 import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
@@ -23,6 +23,42 @@ import { useHashScroll } from "@/components/landing-v2/landing-hooks"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
 
 export type { ChatAreaProps }
+
+const LANDING_FREEFORM_PROMPT_TARGET =
+  '[data-openclaw-text-target="landing.freeform.primary"]'
+
+function revealLandingFreeformPrompt(): boolean {
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    LANDING_FREEFORM_PROMPT_TARGET,
+  )
+  if (!textarea) return false
+
+  const scrollContainer =
+    textarea.closest<HTMLElement>("[data-scroll-container]") ??
+    document.querySelector<HTMLElement>("[data-scroll-container]")
+
+  textarea.focus({ preventScroll: true })
+  textarea.scrollIntoView({
+    block: "center",
+    inline: "nearest",
+    behavior: "smooth",
+  })
+
+  if (scrollContainer) {
+    const containerRect = scrollContainer.getBoundingClientRect()
+    const fieldRect = textarea.getBoundingClientRect()
+    const nextTop =
+      scrollContainer.scrollTop +
+      (fieldRect.top - containerRect.top) -
+      Math.max(24, (containerRect.height - fieldRect.height) / 3)
+    scrollContainer.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: "smooth",
+    })
+  }
+
+  return true
+}
 
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
@@ -50,6 +86,15 @@ export function ChatArea(props: ChatAreaProps = {}) {
     startBuild,
     submitPrimaryInput,
   } = useLandingController(props)
+  const pendingFreeformFocusRef = useRef(false)
+  const [freeformFocusNonce, setFreeformFocusNonce] = useState(0)
+
+  useEffect(() => {
+    if (!pendingFreeformFocusRef.current) return
+    if (isAuditMode) return
+    if (!revealLandingFreeformPrompt()) return
+    pendingFreeformFocusRef.current = false
+  }, [freeformFocusNonce, isAuditMode, selectedCategory, inputValue])
 
   // Legacy-djuplänkar: #funktioner/#teknik-sektionerna flyttade till /teknik.
   // Gamla bokmärken som /#funktioner har inget mål på startsidan längre —
@@ -103,11 +148,10 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
         <LandingExamples
           onPickExample={(siteType) => {
+            pendingFreeformFocusRef.current = true
             pickCategory("fritext")
             setInputValue(`Jag vill ha en ${siteType.toLowerCase()}`)
-            document
-              .querySelector<HTMLTextAreaElement>('[data-openclaw-text-target="landing.freeform.primary"]')
-              ?.focus()
+            setFreeformFocusNonce((nonce) => nonce + 1)
           }}
           onBrowseTemplates={() => router.push("/templates")}
         />
