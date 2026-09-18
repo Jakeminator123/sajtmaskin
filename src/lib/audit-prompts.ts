@@ -2,6 +2,7 @@
  * Prompts for website audit (gateway)
  */
 
+import { AUDIT_ADVANCED_ONLY_FIELDS } from "@/lib/audit/audit-advanced-fields";
 import type { AuditSchemaKind } from "@/lib/audit/audit-tier";
 import type { AuditMode, WebsiteContent } from "@/types/audit";
 
@@ -209,8 +210,10 @@ export type BuildAuditPromptOptions = {
   improvementTarget?: { min: number; max?: number };
 };
 
-const ADVANCED_PROMPT_FIELD_RE =
-  /\n  "(?:competitor_insights|business_profile|market_context|customer_segments|competitive_landscape)": \{[\s\S]*?\n  \},?/g;
+const ADVANCED_PROMPT_FIELD_RE = new RegExp(
+  `\\n  "(?:${AUDIT_ADVANCED_ONLY_FIELDS.join("|")})": \\{[\\s\\S]*?\\n  \\},?`,
+  "g",
+);
 
 function systemPromptForSchema(schemaKind: AuditSchemaKind): string {
   if (schemaKind === "full") return AUDIT_SYSTEM_PROMPT;
