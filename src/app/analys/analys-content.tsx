@@ -48,9 +48,10 @@ export function AnalysContent() {
                 <h1 className="text-balance font-(--font-heading) text-3xl leading-[1.1] tracking-tight text-foreground md:text-5xl">
                   Vad säger er sajt till kunderna — egentligen?
                 </h1>
-                <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
+                <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-pretty text-base leading-relaxed md:text-lg">
                   En genomgång av målgrupp, synlighet, innehåll och konvertering. Inte en
-                  säkerhetsrapport. En körning per uppkoppling och dygn medan vi testar ytan.
+                  säkerhetsrapport. Rapporten är fri att läsa — PDF och bygge kräver konto. En
+                  körning per uppkoppling och dygn medan vi testar ytan.
                 </p>
               </div>
             </section>

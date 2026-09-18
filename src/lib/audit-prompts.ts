@@ -321,7 +321,15 @@ Prioritera i denna ordning:
 6. Säkerhet — BARA evidens från scrape (HTTPS, cookies, synliga headers). Hitta inte på CVE:er eller sårbarheter. Låt inte security-score styra helhetsintrycket.
 
 Skriv konkret med stöd i sidans faktiska texter. Inga generiska "förbättra SEO"-punkter utan exempel från sidan.
-Fyll fortfarande alla JSON-fält (schemat kräver det) men lägg substansen i målgrupp, content_strategy, customer_segments och improvements med category Content/Marketing/UX.`;
+Fyll fortfarande alla JSON-fält (schemat kräver det) men lägg substansen i målgrupp, content_strategy, customer_segments och improvements med category Content/Marketing/UX.
+
+KVALITETSKRAV FÖR DEN PUBLIKA RAPPORTEN:
+- Svenska genomgående, du-form mot företagaren. Inga engelska facktermer utan förklaring.
+- Varje post i improvements MÅSTE ha både "why" (vad det kostar dem i kunder idag) och "how" (första konkreta steget). Nämn sidan eller sektionen det gäller.
+- priority_matrix.quick_wins: 2–4 saker som går att göra samma vecka utan utvecklare. major_projects: sådant som kräver ombyggnad.
+- expected_outcomes: effekt i klarspråk (fler förfrågningar, tydligare bokning). Hitta INTE på procentsatser, trafiksiffror, placeringar eller intäkter.
+- Påstå inget du inte ser i underlaget. Saknas något: skriv att det inte gick att bedöma utifrån sidan.
+- Upprepa inte samma åtgärd i flera fält med olika ord.`;
 
 /**
  * Prompt for the public /analys lead magnet. Same JSON schema as product audit,
