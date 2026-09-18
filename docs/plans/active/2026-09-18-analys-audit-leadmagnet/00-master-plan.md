@@ -1,10 +1,10 @@
 # Publik `/analys` via befintlig audit (2026-09-18)
 
-> **Status: kod på `docs/analys-audit-leadmagnet-plan`.** Publik `/analys`
-> är en egen yta (inte Audit-modalen). Motor: `runWebsiteAudit` +
-> `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` + basic, ingen
-> web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern i
-> [`../README.md`](../README.md) pekar hit.
+> **Status: mergad till preview i #1471.**
+> Publik `/analys` är en egen yta (inte Audit-modalen). Motor:
+> `runWebsiteAudit` + `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` +
+> basic, ingen web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern
+> i [`../README.md`](../README.md) pekar hit.
 
 Runtime-ägare är audit-motorn, inte den här mappen:
 [`src/app/api/audit/modules/handler.ts`](../../../../src/app/api/audit/modules/handler.ts).
@@ -18,17 +18,37 @@ publik lead magnet på `sajtmaskin.se/analys`.
 
 Inbound: vem som helst matar in en URL och får en rapport, med tydlig
 CTA till konto och builder. Outbound (samma motor före outreach) är
-idé, inte det här spåret. Brainstormen om widget/kundanskaffning är
-underlag; filen `docs/growth/kundanskaffning-fordjupning-fem-spar.md`
-finns inte i den här checkouten, så den länkas inte.
+idé, inte det här spåret.
 
-## Kundanskaffning: spår 1 av fem är struket
+## Kundanskaffning: widget-spåret är struket
 
-Av de fem kundanskaffningsspåren är **den publika granskningen som lead
-magnet** avklarad i kod och stryks från listan. Kvar i den listan:
-de fyra övriga spåren, som fortfarande bara finns som brainstorm i
-Jakobs egen checkout (`docs/growth/kundanskaffning-fordjupning-fem-spar.md`
-är inte tracked här) — beställ dem separat.
+Av de fem kundanskaffningsspåren är **punkt 2, den publika
+webbplatsgranskningen**, avklarad i kod (#1471) och stryks från listan.
+De fyra övriga namnges i
+[`resterande-fyra-spar.md`](resterande-fyra-spar.md) så de inte bara
+finns i Jakobs opushade Windows-checkout.
+
+| # | Spår | Status |
+|---|---|---|
+| 1 | Inline bild i kalla mejl/DM | Protokoll klart, experiment ej kört — [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
+| 2 | Publik «gratis webbplatsgranskning»-widget (`/analys`) | Gjort i #1471 |
+| 3 | T-1: varumärkesansökan hos PRV | Beställning: datatillgänglighetsstudie |
+| 4 | Nyemission registrerad hos Bolagsverket | Beställning: litet manuellt premiumexperiment |
+| 5 | DNS/nameserver-byte hos befintligt bolag | PARK tills Radar v1 |
+
+Ordningen följer v3-disciplinen: testa signalvärdet på ett litet antal
+riktiga leads innan något automatiseras. **PRV T-1 och nyemission är
+beställningar; DNS-bytet är PARK tills Radar v1 finns.** Inget av dem är
+arbete som pågår. Annonsspåret («verksamt»-ögonblicket) är paid intent och
+hålls utanför de fem. Utskick och leadhantering ägs av ägarens separata repo
+`Jakeminator123/JakobScrape`, inte av det här repot.
+
+Numreringen i tabellen ovan är den **ursprungliga** fem-listan. Restlistan
+numrerar om de kvarvarande fyra, så hänvisa till spåren med namn, inte
+nummer.
+
+Ett skrivet protokoll är inte ett utfall: spår 1 är avklarat först när K1:s
+A/B faktiskt körts och resultatet står i aktivitetsfilen.
 
 Levererat i det här spåret:
 
@@ -43,13 +63,34 @@ Levererat i det här spåret:
 Kvar som separata ägarbeslut, inte som en del av spåret: indexering och
 sitemap (B2), partnerflytt av `?mode=audit` (B4) och org.nr-prefill.
 
-## Hypotes
+## Aktivt scope idag
+
+Allt om själva `/analys`-ytan (A1–A4) är **levererat i #1471**. Beställ inte
+den ytan igen. Det som fortfarande styr arbete:
+
+| Aktivt | Var |
+|---|---|
+| K1: kör A/B:t och skriv in utfallet | [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
+| PRV T-1 och nyemission som beställningar; DNS PARK | [`resterande-fyra-spar.md`](resterande-fyra-spar.md) |
+| Öppna ägarbeslut B2 (index/sitemap) och B4 (partner `?mode=audit`) | tabellen under Beslutspunkter |
+
+Allt nedanför den här punkten — Hypotes, Läge före #1471, Scope, Icke-mål,
+Paketet som antogs, Beslutspunkter och Faser — är **historik och kontrakt
+från #1471**, inte en att-göra-lista. Icke-målen och stoppreglerna gäller
+fortfarande som spärrar.
+
+## Hypotes (bekräftad i kod, inte i marknaden)
 
 Auditen är redan tillräckligt “wow” (PDF, scores, förbättringar) för att
 fungera som granskning — om vi exponerar den publikt med ärlig copy och
-en kostnadsspärr, utan ny analysmotor.
+en kostnadsspärr, utan ny analysmotor. Ytan finns sedan #1471; att den
+faktiskt drar kunder är fortfarande obevisat.
 
-## Aktuellt läge (bevis 2026-09-18)
+## Läge före #1471 (bevis 2026-09-18, historik)
+
+Det här är utgångsläget spåret skrevs mot, inte dagens sanning. Den
+inloggade audit-vägen ser fortfarande ut så här; raderna som #1471 gjorde
+falska är markerade i tabellen.
 
 ```text
 klient (auth + diamonds)
@@ -80,22 +121,23 @@ klient (auth + diamonds)
 | `inFlightAudits` är en process-lokal `Map` | [`in-flight.ts`](../../../../src/app/api/audit/modules/in-flight.ts) |
 | Max 4 sidor; `validateSsrfTarget` | [`webscraper.ts`](../../../../src/lib/webscraper.ts) `MAX_PAGES = 4` |
 | Ingen URL-resultatcache. `getCanonicalUrlKey` är bara in-flight-nyckel. Redis `cacheAudit` är sparad användarlista, inte scrape-svar. | handler, [`audits/route.ts`](../../../../src/app/api/audits/route.ts) |
-| Copy ljuger: «kostnadsfri AI-analys … helt gratis» | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
-| `/analys` finns inte. Sitemap/robots nämner den inte. | [`sitemap.ts`](../../../../src/app/sitemap.ts), [`robots.ts`](../../../../src/app/robots.ts) |
+| ~~Copy ljuger: «kostnadsfri AI-analys … helt gratis»~~ — rättat i #1471 | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
+| ~~`/analys` finns inte~~ — sidan finns sedan #1471. Sitemap/robots nämner den fortfarande inte (B2 är öppet) | [`sitemap.ts`](../../../../src/app/sitemap.ts), [`robots.ts`](../../../../src/app/robots.ts) |
 | `analyserad` är wizard, inte audit | [`use-entry-params.ts`](../../../../src/lib/entry/use-entry-params.ts), [`route-target.ts`](../../../../src/components/landing-v2/route-target.ts) |
-| Landing-nav/footer har ingen audit-länk. App-nav «Audits» → `/audits` (inloggad). | [`landing-v2/navbar.tsx`](../../../../src/components/landing-v2/navbar.tsx), [`navbar.tsx`](../../../../src/components/layout/navbar.tsx) |
+| ~~Landing-nav/footer har ingen audit-länk~~ — nav och footer länkar `/analys` sedan #1471. App-nav «Audits» → `/audits` (inloggad) står kvar. | [`landing-v2/navbar.tsx`](../../../../src/components/landing-v2/navbar.tsx), [`navbar.tsx`](../../../../src/components/layout/navbar.tsx) |
 
-## Scope
+## Scope för #1471 (levererat — historik)
 
-Minsta yta som gör hypotesen testbar:
+Minsta yta som gjorde hypotesen testbar. Alla fem punkter är byggda och
+mergade; de är inte kvarvarande arbete.
 
-- Ny route `/analys` som bäddar in befintlig widget med flaggor.
-- Ärlig copy. Metadata, ev. sitemap/robots, internlänk.
-- En gästpolicy så API:t kan köras utan att ruinera ekonomin.
-- Tydligare abuse-tak för den publika vägen.
-- CTA: konto och/eller builder efter rapport. Befintlig handoff återanvänds.
+- [x] Ny route `/analys` som bäddar in befintlig widget med flaggor.
+- [x] Ärlig copy. Metadata, internlänk. (Sitemap/robots är kvar som B2.)
+- [x] En gästpolicy så API:t kan köras utan att ruinera ekonomin.
+- [x] Tydligare abuse-tak för den publika vägen.
+- [x] CTA: konto och/eller builder efter rapport. Befintlig handoff återanvänds.
 
-## Icke-mål
+## Icke-mål (gäller fortfarande)
 
 - Ny LLM-, scrape- eller promptpipeline.
 - Ändra `AUDIT_AI_SCHEMA`, `src/types/audit.ts`, `buildAuditPrompt`,
@@ -108,9 +150,10 @@ Minsta yta som gör hypotesen testbar:
 - Koppla auditen till kontots `free_generation_available`.
 - Production-indexering / Search Console / promote.
 
-## Föreslagen default (ja = detta paket)
+## Paketet som antogs (historik)
 
-Jakob kan säga **ja** till paketet, **ja med avvikelse**, eller **nej**.
+Jakob sa ja till paketet nedan; det är byggt i #1471. Raderna står kvar som
+kontrakt för vad ytan lovar, inte som ett val som återstår.
 
 1. Egen sida `/analys` (inte elfte SEO-landning, inte rewrite mot `/`).
 2. Gäst: **1 × basic / IP / kalenderdygn**. Advanced kräver inloggning
@@ -127,39 +170,34 @@ Jakob kan säga **ja** till paketet, **ja med avvikelse**, eller **nej**.
 
 ## Beslutspunkter
 
-| # | Fråga | Alternativ | Default i paketet |
-|---|---|---|---|
-| B1 | Gästpolicy | 1× basic/IP/dygn · signup-wall · preview-scores + signup för PDF | 1× basic/IP/dygn, signup för PDF/spara/handoff |
-| B2 | Indexera `/analys` | `noindex` först · `index` + sitemap när ready | `noindex` tills A2+A4 är sanna |
-| B3 | Nav/footer | Länka `/analys` · vänta | Länka när sidan inte längre ljuger |
-| B4 | Partner `?mode=audit` | Kvar på `/` · peka mot `/analys` | Kvar på `/` i fas 1 |
-| B5 | Advanced för gäst | Nej · samma tak som basic | Nej |
-| B6 | Startsidans audit-sektion | Orörd · samma flaggor | Orörd för inloggade; copy-fix delas |
+| # | Fråga | Alternativ | Default i paketet | Läge |
+|---|---|---|---|---|
+| B1 | Gästpolicy | 1× basic/IP/dygn · signup-wall · preview-scores + signup för PDF | 1× basic/IP/dygn, signup för PDF/spara/handoff | Valt och byggt |
+| B2 | Indexera `/analys` | `noindex` först · `index` + sitemap när ready | `noindex` tills A2+A4 är sanna | **Öppet** |
+| B3 | Nav/footer | Länka `/analys` · vänta | Länka när sidan inte längre ljuger | Valt och byggt |
+| B4 | Partner `?mode=audit` | Kvar på `/` · peka mot `/analys` | Kvar på `/` i fas 1 | **Öppet** |
+| B5 | Advanced för gäst | Nej · samma tak som basic | Nej | Valt: nej |
+| B6 | Startsidans audit-sektion | Orörd · samma flaggor | Orörd för inloggade; copy-fix delas | Valt och byggt |
 
 Öppna beslut stannar här tills de ratificeras i
 [`docs/decisions/README.md`](../../../decisions/README.md). De hör inte
 i backloggen som buggar.
 
-## Faser och gates
+## Faser och gates (historik — A1–A4 är levererade)
 
-```text
-Jakob ja till paket
-  → A4 copy (kan börja direkt; ljuger oberoende av route)
-  → A1 noindex-sida + wrapper-flaggor
-  → A2 + A3 i samma eller tätt följande PR (gäst utan tak = spender)
-  → ev. index + sitemap + nav   (eget ja)
-```
+Fas 0–2 kördes och landade i #1471. Tabellen står kvar som kvitto på vilka
+gates som faktiskt passerades, inte som arbete att plocka upp.
 
-| Fas | Aktivitet | Gate in | Gate ut |
+| Fas | Aktivitet | Gate ut | Läge |
 |---|---|---|---|
-| 0 | Ägarbeslut B1–B6 | Läsbar plan | Ja / ja med avvikelse / nej |
-| 1 | [A4](aktiviteter/A4-cta-handoff.md) copy | Inget (kan parallellt) | Ingen «helt gratis»-lögn |
-| 1 | [A1](aktiviteter/A1-publik-yta.md) | Ja till route-formen | HTTP 200, `noindex`, unik H1, wrapper |
-| 2 | [A2](aktiviteter/A2-gastpolicy-credits.md) + [A3](aktiviteter/A3-abuse-rate-limit.md) | B1 valt | Gästväg med hållbart tak; 401/402 oförändrade för betald väg |
-| 3 | Index / nav / partner | B2–B4 + ärlig copy | Sitemap-rad bara om `index` |
+| 0 | Ägarbeslut B1–B6 | Ja / ja med avvikelse / nej | Ja till paketet |
+| 1 | [A4](aktiviteter/A4-cta-handoff.md) copy | Ingen «helt gratis»-lögn | **Levererad** |
+| 1 | [A1](aktiviteter/A1-publik-yta.md) | HTTP 200, `noindex`, unik H1, wrapper | **Levererad** |
+| 2 | [A2](aktiviteter/A2-gastpolicy-credits.md) + [A3](aktiviteter/A3-abuse-rate-limit.md) | Gästväg med hållbart tak; 401/402 oförändrade för betald väg | **Levererad** |
+| 3 | Index / sitemap / partner | Sitemap-rad bara om `index` | **Öppet** — B2 och B4 |
 
-A1 ensam är inte en lead magnet (API:t är fortfarande 401). Shippa inte
-indexerad «gratis analys» före A2+A3+A4.
+Kvar av fasplanen är alltså bara fas 3, och den är ett ägarbeslut. Dagens
+aktiva arbete ligger i K1 och restlistan, inte här.
 
 ## Styrdokument
 
@@ -171,6 +209,8 @@ indexerad «gratis analys» före A2+A3+A4.
 | [aktiviteter/A2-gastpolicy-credits.md](aktiviteter/A2-gastpolicy-credits.md) | Gäst vs credits |
 | [aktiviteter/A3-abuse-rate-limit.md](aktiviteter/A3-abuse-rate-limit.md) | Tak och in-flight |
 | [aktiviteter/A4-cta-handoff.md](aktiviteter/A4-cta-handoff.md) | Copy, CTA, handoff |
+| [resterande-fyra-spar.md](resterande-fyra-spar.md) | De fyra kvarvarande kundanskaffningsspåren, med ordning och läge |
+| [aktiviteter/K1-inline-bild-ab-test.md](aktiviteter/K1-inline-bild-ab-test.md) | A/B-protokoll för inline bild i outreach |
 
 SEO-QA att återanvända (inte kopiera registret):
 [`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
@@ -223,11 +263,25 @@ rapporten i browsern.
 
 - [x] Jakob ja / ja med avvikelse / nej till defaultpaketet
 - [x] B1 (1× basic/IP/24h, signup för PDF/spara/bygge), B3 (nav/footer länkad)
-- [ ] B2 (index/sitemap), B4 (partner `?mode=audit`), B5, B6 kvarstår
+- [x] B5 (advanced för gäst: nej), B6 (startsidans audit-sektion)
+- [ ] B2 (index/sitemap) och B4 (partner `?mode=audit`) kvarstår
 - [x] A4 copy — entry-modalen lovar inte längre avgiftsfri audit
 - [x] A1 noindex-route
 - [x] A2 + A3
 - [ ] Separat ja innan index/sitemap
-- [ ] När spåret är mergat och ev. indexbeslut är överlämnat: väv in en
-      rad i [`../../avklarat/README.md`](../../avklarat/README.md) och
-      rensa den här mappen
+- [x] Widget-spåret mergat till preview (#1471)
+- [x] De fyra övriga kundanskaffningsspåren namngivna i
+      [`resterande-fyra-spar.md`](resterande-fyra-spar.md)
+- [x] K1 (inline bild) har ett körbart A/B-protokoll; render-till-bild
+      verifierat på befintlig capture
+- [ ] Kör K1:s A/B och skriv in utfallet (vinst, förlust eller
+      `INCONCLUSIVE`) — ägarens steg, i `JakobScrape`
+- [ ] PRV T-1 och nyemission beställs separat, i den ordningen; DNS-bytet
+      stannar PARK tills Radar v1 finns
+- [ ] Mappen stannar **aktiv** tills K1 har ett faktiskt utfall. Städa den
+      inte till [`../../avklarat/`](../../avklarat/) bara för att
+      protokollet är skrivet. När både indexbeslutet är överlämnat och K1
+      har utfall: väv in en rad i
+      [`../../avklarat/README.md`](../../avklarat/README.md) och låt
+      `resterande-fyra-spar.md` och `aktiviteter/K1-*` följa med eller få
+      ny hemvist, så listan inte bara finns i git-historiken
