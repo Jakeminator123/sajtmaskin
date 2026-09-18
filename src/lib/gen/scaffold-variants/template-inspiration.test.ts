@@ -84,18 +84,28 @@ describe("selectVariantTemplateReference", () => {
 
   /**
    * Nordlunden run 3 (saas-landing/friendly-saas) logged `addendum:disabled`:
-   * the two usable candidates were filtered out on `previewFits` before
-   * ranking, so the curator-disabled Flowly kit won and its still image was
-   * sent as style reference on every init. Disabled is a curation verdict on
-   * the whole template, not just on its excerpts.
+   * both preview-compatible candidates were curator-disabled, yet one of them
+   * won because `previewFits:false` candidates were filtered out before
+   * ranking, and Flowly's still image went out as style reference on every
+   * init. Disabled is a curation verdict on the whole template, so the usable
+   * `previewFits:false` candidates must be the fallback instead.
    */
-  it("never selects a curator-disabled template when a usable candidate exists", () => {
+  it("falls back to a usable previewFits:false candidate instead of a disabled one", () => {
     const selected = selectVariantTemplateReference({
       sourceTemplateIds: ["8Y9E0cStKrW", "8QhCJAwn16K", "zoQPxUaTqvE", "fUqrRFEXLnm"],
     });
 
     expect(selected?.templateId).toBe("zoQPxUaTqvE");
-    expect(selected?.selectionReason).toBe("brief-ranked:candidates=2;matches=0;addendum=hit");
+    expect(selected?.selectionReason).toBe(
+      "brief-ranked:candidates=2;matches=0;addendum=hit;cohort=preview-fallback",
+    );
+  });
+
+  it("never selects a disabled template even when it is the only preview-compatible one", () => {
+    const selected = selectVariantTemplateReference({
+      sourceTemplateIds: ["8Y9E0cStKrW", "zoQPxUaTqvE"],
+    });
+    expect(selected?.templateId).toBe("zoQPxUaTqvE");
   });
 
   it("returns null when every eligible candidate is curator-disabled", () => {
@@ -104,13 +114,24 @@ describe("selectVariantTemplateReference", () => {
     ).toBeNull();
   });
 
-  it("ignores previewFits when ranking inspiration candidates", () => {
-    // `ALfQrxyrJ8b` has `previewFits: false` in the manifest. That flag is
-    // about importing the archive verbatim; inspiration never loads it.
+  it("keeps usable preview-compatible candidates as the primary cohort in source order", () => {
+    // `ALfQrxyrJ8b` is a usable `hit` but `previewFits:false`; `Vt3PtqfiHkh`
+    // fits. The fallback must not outrank the primary cohort — otherwise
+    // picks that were never broken (corporate-grid, warm-local, …) would
+    // change as a side effect of the disabled fix.
     const selected = selectVariantTemplateReference({
       sourceTemplateIds: ["ALfQrxyrJ8b", "Vt3PtqfiHkh"],
     });
+    expect(selected?.templateId).toBe("Vt3PtqfiHkh");
+    expect(selected?.selectionReason).toBe(
+      "brief-ranked:candidates=1;matches=0;addendum=hit;cohort=preview-fit",
+    );
+  });
+
+  it("uses the previewFits:false fallback when it is the only usable candidate", () => {
+    const selected = selectVariantTemplateReference({ sourceTemplateIds: ["ALfQrxyrJ8b"] });
     expect(selected?.templateId).toBe("ALfQrxyrJ8b");
+    expect(selected?.selectionReason).toContain("cohort=preview-fallback");
   });
 
   it("still selects candidates whose addendum is a data problem (missing/stale)", () => {
@@ -119,7 +140,9 @@ describe("selectVariantTemplateReference", () => {
       { loadAddendum: () => ({ state: "missing", structuralReferences: null }) },
     );
     expect(selected?.templateId).toBe("8QhCJAwn16K");
-    expect(selected?.selectionReason).toBe("brief-ranked:candidates=1;matches=0;addendum=missing");
+    expect(selected?.selectionReason).toBe(
+      "brief-ranked:candidates=1;matches=0;addendum=missing;cohort=preview-fit",
+    );
   });
 
   it("resolves review metadata from the exact runtime-selected Blob id", () => {

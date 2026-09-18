@@ -47,13 +47,6 @@ type VariantTemplateReviewedFullProjectCategory =
 export type VariantTemplateReferenceCategory =
   VariantTemplateFullProjectCategory | VariantTemplateReviewedFullProjectCategory;
 
-/**
- * `previewFits` is deliberately not read here. It describes whether the
- * project archive fits the preview host, which only matters for verbatim
- * import (`POST /api/template`). Inspiration sends a still image plus
- * SHA-bound excerpts and never loads the archive, so filtering candidates on
- * it only let curator-disabled templates outrank usable ones.
- */
 type ManifestTemplate = {
   id: string;
   title: string;
@@ -61,6 +54,12 @@ type ManifestTemplate = {
   archiveUrl: string;
   archiveSha256: string | null;
   stillImageUrl: string;
+  /**
+   * Whether the project archive fits the preview host. Inspiration never
+   * loads the archive, so this is only a cohort preference (see
+   * `selectVariantTemplateReference`), never a hard filter.
+   */
+  previewFits: boolean | null;
 };
 
 export type VariantTemplateInspiration = {
@@ -138,6 +137,7 @@ function readManifestTemplates(): ManifestTemplate[] {
         archiveUrl,
         archiveSha256: typeof row.archiveSha256 === "string" ? row.archiveSha256.trim() : null,
         stillImageUrl,
+        previewFits: typeof row.previewFits === "boolean" ? row.previewFits : null,
       },
     ];
   });
@@ -178,16 +178,21 @@ export function classifyVariantTemplateCandidate(
 }
 
 /**
- * Pick at most one complete-project Blob template for a variant. Configured
- * source order breaks ties after Deep Brief ranking.
+ * Pick at most one complete-project Blob template for a variant.
  *
  * A `disabled` addendum is a curator verdict that the whole template is
  * unsuitable as inspiration — not merely that its excerpts are switched off.
- * Such a candidate is therefore never selected, not even for its still image:
- * a usable candidate always wins over it, and when only disabled candidates
- * remain the variant gets no template inspiration at all. `missing`, `stale`
- * and `invalid` stay selectable (still image, no excerpts) because they are
- * data problems, not curation decisions.
+ * Such a candidate is never selected, not even for its still image. `missing`,
+ * `stale` and `invalid` stay usable (still image, no excerpts) because they
+ * are data problems, not curation decisions.
+ *
+ * Among usable candidates the preview-compatible ones form the primary
+ * cohort and are ranked as before (Deep Brief signals, then source order).
+ * A usable `previewFits: false` candidate is only a fallback when that cohort
+ * is empty — inspiration never loads the archive, so such a template is
+ * perfectly good as image/code inspiration, but letting it outrank the
+ * primary cohort would silently change picks that were never broken. When
+ * every candidate is disabled the variant gets no template inspiration.
  */
 export function selectVariantTemplateReference(
   variant: Pick<ScaffoldVariant, "sourceTemplateIds"> | null | undefined,
@@ -202,7 +207,7 @@ export function selectVariantTemplateReference(
   });
   const queryTokens = selectionTokens(options.selectionContext);
   const loadAddendum = options.loadAddendum ?? resolveVariantTemplateAddendum;
-  const ranked = eligible.flatMap((template, index) => {
+  const usable = eligible.flatMap((template, index) => {
     const addendum = loadAddendum(template.id);
     if (addendum.state === "disabled") return [];
     const titleTokens = tokenizeSelectionText(template.title);
@@ -224,6 +229,9 @@ export function selectVariantTemplateReference(
     }
     return [{ template, addendumState: addendum.state, index, matches, score }];
   });
+  const previewCompatible = usable.filter((candidate) => candidate.template.previewFits !== false);
+  const cohort = previewCompatible.length > 0 ? "preview-fit" : "preview-fallback";
+  const ranked = previewCompatible.length > 0 ? previewCompatible : usable;
   ranked.sort((a, b) => b.score - a.score || b.matches - a.matches || a.index - b.index);
   const winner = ranked[0];
   if (!winner || !isFullProjectTemplate(winner.template)) return null;
@@ -235,7 +243,7 @@ export function selectVariantTemplateReference(
     category: selected.category,
     archiveUrl: selected.archiveUrl,
     stillImageUrl: selected.stillImageUrl,
-    selectionReason: `brief-ranked:candidates=${ranked.length};matches=${winner.matches};addendum=${winner.addendumState}`,
+    selectionReason: `brief-ranked:candidates=${ranked.length};matches=${winner.matches};addendum=${winner.addendumState};cohort=${cohort}`,
   };
 }
 

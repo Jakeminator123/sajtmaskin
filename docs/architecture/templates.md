@@ -211,14 +211,16 @@ varianten får i stället välja högst en av sina `sourceTemplateIds`, och bara
 manifestkategorin tydligt avser ett helt projekt. Stillbilden skickas till
 modellens visionkanal men markeras som icke-inbäddningsbar.
 
-Kandidatpoolen rangordnas deterministiskt med prompten och Deep Briefens
-domän-, innehålls- och stilsignaler. Användbara SHA-addenda premieras och
-variantens källordning är stabil tie-breaker. `previewFits` vägs inte in:
-flaggan gäller verbatim-import av arkivet, som inspirationsvägen aldrig läser.
-Kandidater med `disabled` addendum utesluts helt (se nedan). Ingen extra LLM
-används för urvalet. Det här är helprojektsinspiration; fristående
-shadcn/community-blocks väljs separat av UI Recipe-resolvern utifrån den
-aktuella beställningen.
+Kandidater med `disabled` addendum utesluts helt (se nedan). Bland de
+användbara är de preview-kompatibla primär kohort och rangordnas
+deterministiskt med prompten och Deep Briefens domän-, innehålls- och
+stilsignaler; användbara SHA-addenda premieras och variantens källordning är
+stabil tie-breaker. En användbar `previewFits:false`-kandidat är fallback bara
+när kohorten är tom — flaggan gäller verbatim-import av arkivet, som
+inspirationsvägen aldrig läser, så mallen duger som bild-/kodinspiration men
+ska inte tränga ut ett fungerande val. Ingen extra LLM används för urvalet.
+Det här är helprojektsinspiration; fristående shadcn/community-blocks väljs
+separat av UI Recipe-resolvern utifrån den aktuella beställningen.
 
 Kodunderlaget kommer i första hand från den SHA-bundna och versionsstyrda posten
 i `config/variant-template-addenda.json`. Postens `structuralReferences` är
