@@ -74,20 +74,20 @@ export function LandingHero({
       <div className="flex w-full flex-col items-center px-6">
       <div className="cursor-default">
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
+          className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl text-foreground mb-3 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.15] md:mb-4 md:leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
         >
           {homepageHeroCopy.h1}
         </h1>
         <p
-          className="mx-auto mb-3 max-w-2xl text-center text-base leading-relaxed text-muted-foreground text-pretty md:text-lg"
+          className="mx-auto mb-2 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground text-pretty md:mb-3 md:text-lg"
           style={{ animationDelay: "0.35s" }}
         >
           {homepageHeroCopy.valueProposition}
         </p>
-        <p className="mb-3 text-center text-sm text-muted-foreground">{homepageHeroCopy.audience}</p>
+        <p className="mb-2 text-center text-xs text-muted-foreground md:mb-3 md:text-sm">{homepageHeroCopy.audience}</p>
         <p
-          className="mb-8 text-center text-sm text-muted-foreground/80"
+          className="mb-5 text-center text-sm text-muted-foreground/80 md:mb-8"
           aria-hidden="true"
         >
           {homepageHeroCopy.rotatingPrefix}{" "}
