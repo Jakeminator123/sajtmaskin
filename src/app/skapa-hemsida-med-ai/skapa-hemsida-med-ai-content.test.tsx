@@ -40,5 +40,7 @@ describe("SkapaHemsidaMedAiContent", () => {
     expect(screen.queryByText(/reserverade/i)).toBeNull();
     expect(screen.queryByText(/fylls på/i)).toBeNull();
     expect(screen.queryByText(/färdiga guider/i)).toBeNull();
+    expect(screen.queryByText(/49/)).toBeNull();
+    expect(screen.queryByText(/179/)).toBeNull();
   });
 });

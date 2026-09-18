@@ -129,7 +129,7 @@ const FAQS = [
   },
   {
     q: "Vad kostar det?",
-    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter köper du credits i engångspaket — 49, 99 eller 179 kronor — utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan.",
+    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter köper du credits i engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan — inga belopp i den här texten.",
   },
 ] as const;
 

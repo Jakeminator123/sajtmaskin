@@ -48,9 +48,17 @@ describe("landing nav + footer links after /teknik move", () => {
         `/${link.slug}`,
       );
     }
-    expect(screen.queryByRole("link", { name: "Wix-alternativ" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "WordPress-alternativ" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Lovable-alternativ" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Hemsida till företag" })).toBeNull();
+    const footer = document.querySelector("footer");
+    expect(footer).toBeTruthy();
+    for (const slug of [
+      "ai-hemsidebyggare",
+      "hemsida-utan-kod",
+      "hemsida-till-foretag",
+      "wix-alternativ",
+      "wordpress-alternativ",
+      "lovable-alternativ",
+    ]) {
+      expect(footer?.querySelector(`a[href="/${slug}"]`)).toBeNull();
+    }
   });
 });
