@@ -183,10 +183,11 @@ function BuyCreditsContent() {
     }
 
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
     const reason = searchParams.get("reason");
-    if (!login && !authError && !verified) return;
+    if (!login && !signup && !authError && !verified) return;
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -216,6 +217,7 @@ function BuyCreditsContent() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
     nextParams.delete("reason");

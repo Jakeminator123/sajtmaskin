@@ -40,6 +40,7 @@ policies kan äga olika beslut.
 | Vilka manuella underhållsknappar?                 | [`runbooks/hygiene.md`](runbooks/hygiene.md)                                                                                    |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
+| Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
 
 Kanonisk, kort terminologi finns i
 [`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för

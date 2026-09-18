@@ -65,8 +65,9 @@ function ProjectsPageInner() {
 
   useEffect(() => {
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
-    if (!login && !authError) return;
+    if (!login && !signup && !authError) return;
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -79,6 +80,7 @@ function ProjectsPageInner() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);

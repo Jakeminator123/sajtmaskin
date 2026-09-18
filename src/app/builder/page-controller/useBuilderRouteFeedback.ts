@@ -49,12 +49,13 @@ export function useBuilderRouteFeedback({
     const githubError = searchParams.get("github_error");
     const githubErrorReason = searchParams.get("github_error_reason");
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
     const verificationReason = searchParams.get("reason");
 
     const hasGitHubFeedback = Boolean(connected || githubError);
-    const hasAuthFeedback = Boolean(login || authError || verified);
+    const hasAuthFeedback = Boolean(login || signup || authError || verified);
     if (!hasGitHubFeedback && !hasAuthFeedback) return;
 
     if (connected) {
@@ -102,6 +103,7 @@ export function useBuilderRouteFeedback({
     nextParams.delete("github_error");
     nextParams.delete("github_error_reason");
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
     nextParams.delete("reason");

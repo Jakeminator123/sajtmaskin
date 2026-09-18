@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
+import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion";
 
 const CONSENT_KEY = "cookie-consent";
 const CONSENT_DATE_KEY = "cookie-consent-date";
@@ -55,6 +56,7 @@ function CookieBannerInner() {
     } catch {
       /* localStorage kan vara blockerat — dölj bannern ändå. */
     }
+    dispatchCookieConsentChange(value);
     setIsVisible(false);
   }, []);
 

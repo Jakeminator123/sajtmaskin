@@ -641,7 +641,7 @@ export async function handleGoogleCallback(
   code: string,
   redirectUri?: string,
   codeVerifier?: string,
-): Promise<{ user: User; token: string } | { error: string }> {
+): Promise<{ user: User; token: string; created: boolean } | { error: string }> {
   // Exchange code for tokens
   const tokens = await exchangeGoogleCode(code, redirectUri, codeVerifier);
   if (!tokens) {
@@ -658,6 +658,8 @@ export async function handleGoogleCallback(
     return { error: "E-postadressen är inte verifierad hos Google. Verifiera den i ditt Google-konto och försök igen." };
   }
 
+  const existing = await getUserByEmail(googleUser.email);
+
   // Create or update user
   const user = await createGoogleUser(
     googleUser.id,
@@ -665,6 +667,7 @@ export async function handleGoogleCallback(
     googleUser.name,
     googleUser.picture,
   );
+  const created = !existing;
 
   // Google-authenticated emails are inherently verified; mark as such.
   // Also bootstrap admin privileges if applicable.
@@ -682,7 +685,7 @@ export async function handleGoogleCallback(
   const hydratedUser = (await getUserById(user.id)) ?? user;
   const token = createToken(hydratedUser.id, hydratedUser.email!);
 
-  return { user: hydratedUser, token };
+  return { user: hydratedUser, token, created };
 }
 
 // ============ Type exports ============

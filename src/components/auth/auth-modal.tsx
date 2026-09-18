@@ -7,6 +7,7 @@ import {
   googleOAuthStartHref,
   touchPendingBuilderDraftReturnTo,
 } from "@/lib/builder/pending-builder-draft";
+import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
@@ -120,6 +121,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
       }
 
       if (mode === "register" && data.requiresEmailVerification) {
+        noteGoogleAdsConversion("account_created");
         if (data.emailVerificationSent === false) {
           setError(
             data.message ||
@@ -135,6 +137,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         setMode("login");
         setPassword("");
         return;
+      }
+
+      if (mode === "register") {
+        noteGoogleAdsConversion("account_created");
       }
 
       // Update auth store
