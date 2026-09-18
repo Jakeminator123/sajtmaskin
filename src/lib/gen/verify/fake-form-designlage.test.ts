@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { renderF2ContractBlock } from "@/lib/gen/system-prompt/sections/session-contracts";
-import { evaluateProductDomSnapshot, type ProductDomEvaluation } from "./product-postcheck";
+import {
+  evaluateProductDomSnapshot,
+  formHasIntegrationAction,
+  type ProductDomEvaluation,
+} from "./product-postcheck";
 
 function codes(evaluation: ProductDomEvaluation): string[] {
   return evaluation.warnings.map((warning) => warning.code).sort();
@@ -56,5 +60,36 @@ describe("SM-060 fake_form in designläge", () => {
 
     expect(codes(evaluation)).toEqual(["fake_form"]);
     expect(evaluation.productBlocked).toBe(false);
+  });
+
+  it("flaggar inte ett /api/contact-formulär som bara har integration-endpoint", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [],
+        forms: [
+          {
+            id: "contact",
+            action: null,
+            method: "post",
+            hasSubmitControl: true,
+            disabled: false,
+            ariaDisabled: false,
+            demoOnly: false,
+            text: "Skicka meddelande",
+            integrationEndpoint: "/api/contact",
+          },
+        ],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).not.toContain("fake_form");
+    expect(evaluation.productBlocked).toBe(false);
+    expect(formHasIntegrationAction({ action: null, integrationEndpoint: "/api/contact" })).toBe(
+      true,
+    );
+    expect(formHasIntegrationAction({ action: "/kontakt", integrationEndpoint: null })).toBe(false);
   });
 });

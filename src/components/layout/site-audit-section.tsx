@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Search, Coins, Loader2, AlertCircle, BarChart2, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
+import { AUDIT_TIER_COPY } from "@/lib/audit/audit-tier";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import type { AuditMode, AuditResult } from "@/types/audit";
 import {
@@ -295,10 +296,10 @@ export function SiteAuditSection({
       {/* Feature cards - same style as landing */}
       <div className="mt-8 grid grid-cols-2 gap-3">
         {[
-          { icon: BarChart2, text: "SEO & Prestanda" },
-          { icon: Coins, text: "Budgetuppskattning" },
-          { icon: Lock, text: "Säkerhetsanalys" },
-          { icon: Sparkles, text: "Affärs- & marknadsinsikter" },
+          { icon: BarChart2, text: "SEO, UX och copy" },
+          { icon: Coins, text: "Prioriterade förbättringar" },
+          { icon: Lock, text: "Teknik och säkerhet" },
+          { icon: Sparkles, text: "Avancerad: marknad och research" },
         ].map(({ icon: Icon, text }) => (
           <div
             key={text}
@@ -317,8 +318,8 @@ export function SiteAuditSection({
           <DialogHeader>
             <DialogTitle className="text-foreground font-(--font-heading)">Välj analysnivå</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Vanlig ger en snabb kvalitetskontroll. Avancerad gör djupare marknads- och
-              affärsanalys med fler dimensioner.
+              Vanlig är en snabb genomgång. Avancerad går igenom fler sidor, fler förbättringar
+              och positionering.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 px-6 pb-6 md:grid-cols-2">
@@ -328,15 +329,20 @@ export function SiteAuditSection({
               className="rounded-xl border border-border/30 bg-card/50 p-4 text-left transition-all hover:border-primary/30 hover:bg-card/80 hover:shadow-lg"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">Vanlig analys</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {AUDIT_TIER_COPY.basic.title}
+                </span>
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
                   {auditCosts.basic}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Fokuserar på SEO, UX, prestanda och tydliga förbättringsförslag.
-              </p>
+              <p className="text-xs text-muted-foreground">{AUDIT_TIER_COPY.basic.summary}</p>
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {AUDIT_TIER_COPY.basic.facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
+                ))}
+              </ul>
             </button>
             <button
               type="button"
@@ -344,15 +350,20 @@ export function SiteAuditSection({
               className="rounded-xl border border-border/30 bg-card/50 p-4 text-left transition-all hover:border-primary/30 hover:bg-card/80 hover:shadow-lg"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">Avancerad analys</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {AUDIT_TIER_COPY.advanced.title}
+                </span>
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
                   {auditCosts.advanced}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Inkluderar bransch, företagsstorlek, kundsegment, geo, konkurrens och affärslogik.
-              </p>
+              <p className="text-xs text-muted-foreground">{AUDIT_TIER_COPY.advanced.summary}</p>
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {AUDIT_TIER_COPY.advanced.facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
+                ))}
+              </ul>
             </button>
           </div>
         </DialogContent>

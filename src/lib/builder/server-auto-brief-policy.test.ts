@@ -48,7 +48,7 @@ describe("shouldRunServerAutoBrief", () => {
     ).toBe(false);
   });
 
-  it("skips audit prompts", () => {
+  it("runs auto-brief for audit prompts when the client did not send a brief", () => {
     expect(
       shouldRunServerAutoBrief({
         hasClientBrief: false,
@@ -56,10 +56,10 @@ describe("shouldRunServerAutoBrief", () => {
         promptSourcePreservePayload: false,
         promptType: "audit",
         orchestrationReason: "within_budget",
-        prompt: "Bygg en hemsida",
+        prompt: "Bygg en förbättrad sajt för example.se",
         buildIntent: "website",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("skips follow-up prompts", () => {

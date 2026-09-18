@@ -1,4 +1,5 @@
 import { failVersionVerification } from "@/lib/db/chat-repository-pg";
+import type { RepairProvenance } from "@/lib/db/repair-files-payload";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
@@ -119,12 +120,22 @@ export async function triggerBuildErrorRepair(params: {
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
+  /** SM-003: stamp the saved envelope when this run is a manual deploy-repair. */
+  repairProvenance?: RepairProvenance;
 }): Promise<BuildErrorRepairOutcome> {
   const { force = false, repairDeadlineEpochMs } = params;
   if (!force && !isAutoRepairBuildErrorEnabled()) {
     return { started: false, repairAvailable: false, skippedReason: "auto_repair_disabled" };
   }
-  const { chatId, versionId, buildError, onRepairAvailable, repairLedger, repairScopeId } = params;
+  const {
+    chatId,
+    versionId,
+    buildError,
+    onRepairAvailable,
+    repairLedger,
+    repairScopeId,
+    repairProvenance,
+  } = params;
   if (!isServerVerifyEligible(versionId)) {
     return { started: false, repairAvailable: false, skippedReason: "not_eligible" };
   }
@@ -290,6 +301,7 @@ export async function triggerBuildErrorRepair(params: {
         }),
       repairLedger,
       repairScopeId,
+      repairProvenance,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;

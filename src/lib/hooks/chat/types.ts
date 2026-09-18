@@ -309,6 +309,12 @@ export type ChatMessagingParams = {
   themeColors?: ThemeColors | null;
   paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
+  /** Server-owned audit handoff; forwarded as `meta.promptHandoffId`. */
+  promptHandoffId?: string | null;
+  /** True only when GET /api/prompts returned payloadKind=audit. */
+  isAuditHandoff?: boolean;
+  /** Composer/chat chip label for an audit entry. */
+  auditHandoffDomain?: string | null;
   mutateVersions: () => void;
   setCurrentPreviewUrl: (url: string | null) => void;
   /** Cleared on `preview-ready`; set on SSE build-error for inline preview UI. */
@@ -353,6 +359,17 @@ export type ChatMessagingParams = {
   onLinkedProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;
+  /**
+   * Auth store has finished its first resolution. When false/omitted the
+   * network gate still runs — a session may exist even if React state is stale.
+   */
+  isAuthReady?: boolean;
+  isAuthenticated?: boolean;
+  /**
+   * Open Builder's existing login modal. `generation` for a new chat,
+   * `refine` for a follow-up. Those reasons do not navigate away on dismiss.
+   */
+  onAuthRequired?: (reason: "generation" | "refine") => void;
 };
 
 /**
@@ -363,6 +380,8 @@ export type ChatMessagingParams = {
  * lie), and so the composer knows the draft is still worth keeping.
  *
  * - `empty_message` — nothing to send.
+ * - `auth_required` — Sajtmaskin login is missing or the session expired.
+ *   The composer keeps the draft; Builder's login modal should already be open.
  * - `create_chat_failed` — no chat existed and creating one failed.
  * - `stale_base_version` — server head moved past the base this request was
  *   built on, and the single auto-rebase retry did not resolve it (409).
@@ -377,6 +396,7 @@ export type ChatMessagingParams = {
  */
 export type SendMessageRejectionReason =
   | "empty_message"
+  | "auth_required"
   | "create_chat_failed"
   | "stale_base_version"
   | "generation_in_progress"

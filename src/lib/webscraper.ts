@@ -3,11 +3,18 @@
  * Extracts multi-page content so the audit is not limited to a weak landing page.
  */
 
-import type { WebsiteContent } from "@/types/audit";
+import type { ScrapedSiteImage, WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 // Crawl settings
-const MAX_PAGES = 4; // root + up to three strong internal pages
+const MAX_PAGES = 4; // absolute ceiling: root + up to three strong internal pages
+
+export function resolveScrapePageLimit(maxPages?: number): number {
+  if (typeof maxPages === "number" && Number.isFinite(maxPages)) {
+    return Math.max(1, Math.min(MAX_PAGES, Math.floor(maxPages)));
+  }
+  return MAX_PAGES;
+}
 const PRIMARY_MIN_WORDS = 160; // prefer pages with real copy, not just hero
 const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
 const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
@@ -55,9 +62,12 @@ const EMAIL_REGEX = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 // longer numeric runs (e.g. phone numbers).
 const ORG_NUMBER_REGEX = /(?<!\d)\d{6}-\d{4}(?!\d)/g;
 
+const IMAGE_EXTENSION_RE = /\.(jpe?g|png|gif|webp)(?:\?|#|$)/i;
+
 type ParsedPage = WebsiteContent & {
   linksForFollow: CandidateLink[];
   contact: ContactSignals;
+  imageCandidates: ScrapedSiteImage[];
 };
 
 function pageRichnessScore(page: ParsedPage): number {
@@ -106,6 +116,86 @@ function absoluteUrl(href: string, base: URL): string | null {
   } catch {
     return null;
   }
+}
+
+function looksLikeLogo(value: string): boolean {
+  return /logo|logotyp|brand|wordmark/i.test(value);
+}
+
+type CheerioRoot = ReturnType<Awaited<ReturnType<typeof getCheerio>>["load"]>;
+
+function extractSiteImages($: CheerioRoot, baseUrl: URL): ScrapedSiteImage[] {
+  const seen = new Set<string>();
+  const collected: ScrapedSiteImage[] = [];
+
+  const push = (raw: string | undefined, alt: string | undefined, kind: ScrapedSiteImage["kind"]) => {
+    const abs = raw ? absoluteUrl(raw, baseUrl) : null;
+    if (!abs || !IMAGE_EXTENSION_RE.test(abs) || seen.has(abs)) return;
+    seen.add(abs);
+    collected.push({
+      url: abs,
+      ...(alt?.trim() ? { alt: alt.trim() } : {}),
+      kind,
+    });
+  };
+
+  push(
+    $('meta[property="og:image"]').attr("content") || $('meta[name="og:image"]').attr("content"),
+    $('meta[property="og:image:alt"]').attr("content"),
+    "og",
+  );
+
+  const logoEl = $("img").toArray().find((el) => {
+    const node = $(el);
+    return looksLikeLogo(
+      [node.attr("alt"), node.attr("src"), node.attr("class"), node.attr("id")].filter(Boolean).join(" "),
+    );
+  });
+  if (logoEl) {
+    const node = $(logoEl);
+    push(node.attr("src"), node.attr("alt"), "logo");
+  } else {
+    push($('link[rel="icon"][type^="image/"]').attr("href"), "logo", "logo");
+  }
+
+  $("img").each((_, el) => {
+    const node = $(el);
+    const src = node.attr("src");
+    const alt = node.attr("alt");
+    if (!src) return;
+    if (looksLikeLogo([alt, src, node.attr("class"), node.attr("id")].filter(Boolean).join(" "))) {
+      return;
+    }
+    push(src, alt, "content");
+  });
+
+  return collected;
+}
+
+export async function collectSiteImagesFromHtml(
+  html: string,
+  url: string,
+): Promise<ScrapedSiteImage[]> {
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+  return extractSiteImages($, new URL(url));
+}
+
+function mergeSiteImages(pages: ParsedPage[]): ScrapedSiteImage[] {
+  const seen = new Set<string>();
+  const og: ScrapedSiteImage[] = [];
+  const logos: ScrapedSiteImage[] = [];
+  const content: ScrapedSiteImage[] = [];
+  for (const page of pages) {
+    for (const image of page.imageCandidates ?? []) {
+      if (seen.has(image.url)) continue;
+      seen.add(image.url);
+      if (image.kind === "og") og.push(image);
+      else if (image.kind === "logo") logos.push(image);
+      else content.push(image);
+    }
+  }
+  return [...og.slice(0, 1), ...logos.slice(0, 1), ...content.slice(0, 3)];
 }
 
 function scoreLink(url: string, anchor?: string): number {
@@ -672,6 +762,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
   let internalLinks = 0;
   let externalLinks = 0;
   const images = $("img").length;
+  const imageCandidates = extractSiteImages($, new URL(url));
 
   const linksForFollow: CandidateLink[] = [];
 
@@ -752,6 +843,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     textPreview,
     linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
     contact,
+    imageCandidates,
   };
 }
 
@@ -830,7 +922,11 @@ export async function quickScrapeWebsite(url: string): Promise<{
  * Scrape website content for audit analysis.
  * Tries to pick a meaningful entry page and pulls a few internal pages for context.
  */
-export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
+export async function scrapeWebsite(
+  url: string,
+  options?: { maxPages?: number },
+): Promise<WebsiteContent> {
+  const pageLimit = resolveScrapePageLimit(options?.maxPages);
   const normalizedUrl = normalizeInputUrl(url);
   if (!normalizedUrl) {
     throw new Error("URL måste anges");
@@ -903,7 +999,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   }
 
   // Crawl top-scoring internal links until we reach the cap or run out of good candidates
-  while (candidateQueue.length > 0 && pages.length < MAX_PAGES) {
+  while (candidateQueue.length > 0 && pages.length < pageLimit) {
     const candidate = candidateQueue.shift();
     if (!candidate || visited.has(candidate.url)) continue;
 
@@ -937,7 +1033,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 
   const pagesForAggregation: ParsedPage[] = [];
   const addForAggregation = (p: ParsedPage) => {
-    if (pagesForAggregation.length >= MAX_PAGES) return;
+    if (pagesForAggregation.length >= pageLimit) return;
     if (pagesForAggregation.some((x) => x.url === p.url)) return;
     pagesForAggregation.push(p);
   };
@@ -947,7 +1043,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 
   const aggregationSource = aggregationCandidates.length > 0 ? aggregationCandidates : pages;
   for (const page of aggregationSource) {
-    if (pagesForAggregation.length >= MAX_PAGES) break;
+    if (pagesForAggregation.length >= pageLimit) break;
     addForAggregation(page);
   }
 
@@ -988,6 +1084,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     wordCount: aggregatedWordCount,
     textPreview,
     sampledUrls: pagesForAggregation.map((p) => p.url),
+    imageCandidates: mergeSiteImages(pagesForAggregation),
   };
 }
 

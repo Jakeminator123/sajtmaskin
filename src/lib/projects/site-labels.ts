@@ -17,6 +17,14 @@ export type SiteStateLabel = {
   tone: SiteStateTone;
 };
 
+/** Shared badge colors for the project card and the per-site portal. */
+export const SITE_STATE_TONE_CLASS: Record<SiteStateTone, string> = {
+  live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  progress: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  problem: "bg-red-500/10 text-red-400 border-red-500/30",
+  idle: "bg-gray-800 text-gray-400 border-gray-700",
+};
+
 export function publishStateLabel(state: SitePublishState): SiteStateLabel {
   switch (state) {
     case "ready":
@@ -63,4 +71,22 @@ export function addressKindHelp(kind: SiteAddressKind): string | null {
     case "none":
       return "Publicera sajten för att få en adress.";
   }
+}
+
+/**
+ * Compact address line for project cards. Prefer the host when a URL exists;
+ * otherwise reuse the same kind label as the site view.
+ */
+export function cardAddressText(address: {
+  liveUrl: string | null;
+  kind: SiteAddressKind;
+}): string {
+  if (address.liveUrl) {
+    try {
+      return new URL(address.liveUrl).host;
+    } catch {
+      return address.liveUrl;
+    }
+  }
+  return addressKindLabel(address.kind);
 }

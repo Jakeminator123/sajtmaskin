@@ -5,7 +5,8 @@ import type { KostnadsfriCompanyProfile } from "./company-profile";
  * Mini-wizardens förifyllda fält från kampanjrad + allowlistad profil.
  *
  * Profilen matar bara wizarden. `buildPromptFromWizardData` läser aldrig
- * `profile` — prompten byggs av det användaren ser och kan rätta.
+ * `profile` — prompten byggs av wizardens utdata plus uttryckligen
+ * kundbekräftade follow-up-svar.
  *
  * `streetAddress` förifylls medvetet inte som besöksadress (ofta c/o).
  */

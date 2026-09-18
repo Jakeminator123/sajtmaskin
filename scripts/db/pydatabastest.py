@@ -153,6 +153,9 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "users",
     "transactions",
     "wizard_runs",
+    # SM-013: template-init reservation. operation_id is the credit
+    # idempotency key — wiping the row would let a retry debit twice.
+    "template_init_operations",
     "generation_billing_settings",
     "generation_billings",
     # Operatörsstyrd prisbild. Singleton-raden ÄR konfigurationen — töms den

@@ -175,7 +175,7 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     inspirationMocks.resolveVariantTemplateInspiration.mockResolvedValue(inspirationMocks.fixture);
   });
 
-  it("keeps a versionless init hint authoritative while identifying it as a hint", async () => {
+  it("re-evaluates a pre-match init hint against the brief instead of locking it", async () => {
     const input = {
       prompt: "professional b2b consulting corporate enterprise",
       buildIntent: "website" as const,
@@ -188,16 +188,13 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     const base = await resolveOrchestrationBase(input);
     const finalized = await finalizeOrchestrationPrompts(base, input);
 
-    expect(finalized.variantId).toBe("nature-flow");
-    expect(finalized.variantSelection).toEqual({
-      source: "hint-fallback",
-      score: null,
-      runnerUpScore: null,
-      margin: null,
-      hintId: "nature-flow",
-      finalId: "nature-flow",
-      changedFromHint: false,
-    });
+    expect(finalized.variantSelection.source).not.toBe("hint-fallback");
+    expect(["keyword", "embedding"]).toContain(finalized.variantSelection.source);
+    expect(finalized.variantSelection.hintId).toBe("nature-flow");
+    expect(finalized.variantSelection.finalId).toBeTruthy();
+    expect(finalized.variantSelection.changedFromHint).toBe(
+      finalized.variantSelection.finalId !== "nature-flow",
+    );
   });
 
   it("lets explicit Byggval Stil beat the init hint", async () => {

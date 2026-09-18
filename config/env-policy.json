@@ -202,6 +202,7 @@
     "SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
+    "SAJTMASKIN_CUSTOMER_DOMAIN_WRITES",
     "SAJTMASKIN_DEFAULT_THINKING",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_DOMAIN_PURCHASE",
@@ -608,6 +609,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Default off request signal for A3's shared canonical build/redirect contract. Even when unset, deploy injects NEXT_PUBLIC_SITE_URL from verified project identity. When set, a temporary 307 from the attested same-project production provider alias is emitted only after an in-process HTTPS proof passes; otherwise fail closed and keep the last working publish. Does not open A4 alias/migration activation. Source: src/lib/deploy/canonical-site-address.ts."
+    },
+    {
+      "key": "SAJTMASKIN_CUSTOMER_DOMAIN_WRITES",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Default off. C2 provider writes (link/verify/activate/unlink) stay closed with 503 until the flow has been proven end-to-end on a throwaway domain we control; read-only inspection and DNS instructions stay available. The gate lives in the flow module because three endpoints reach these writes: POST /api/projects/[id]/domain, POST /api/domains/link and POST /api/domains/verify. Hiding UI is not a substitute. Unrelated to SAJTMASKIN_DOMAIN_PURCHASE, which governs paid registrar orders. Source: src/lib/domains/customer-domain-flow.ts."
     },
     {
       "key": "SAJTMASKIN_LIVE_SITE_DOMAIN",

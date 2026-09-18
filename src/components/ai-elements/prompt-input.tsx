@@ -46,6 +46,7 @@ interface PromptInputContextValue {
   onSubmit: (message: PromptInputMessage) => void;
   isLoading?: boolean;
   disabled?: boolean;
+  allowEmptySubmit?: boolean;
 }
 
 const PromptInputContext = createContext<PromptInputContextValue | null>(null);
@@ -71,6 +72,7 @@ export interface PromptInputProps extends Omit<
   onSubmit: (message: PromptInputMessage) => void;
   isLoading?: boolean;
   disabled?: boolean;
+  allowEmptySubmit?: boolean;
   children: ReactNode;
 }
 
@@ -80,12 +82,15 @@ export function PromptInput({
   onSubmit,
   isLoading,
   disabled,
+  allowEmptySubmit,
   children,
   className,
   ...props
 }: PromptInputProps) {
   return (
-    <PromptInputContext.Provider value={{ value, onChange, onSubmit, isLoading, disabled }}>
+    <PromptInputContext.Provider
+      value={{ value, onChange, onSubmit, isLoading, disabled, allowEmptySubmit }}
+    >
       <div
         className={cn(
           "relative flex flex-col rounded-2xl border border-zinc-700 bg-zinc-900",
@@ -160,7 +165,7 @@ export function PromptInputTextarea({
   autoComplete: autoCompleteProp,
   ...props
 }: PromptInputTextareaProps) {
-  const { value, onChange, onSubmit, isLoading, disabled } = usePromptInput();
+  const { value, onChange, onSubmit, isLoading, disabled, allowEmptySubmit } = usePromptInput();
   const autoId = useId();
   const resolvedId = id ?? `prompt-input-${autoId}`;
   const resolvedName = name ?? `prompt-${autoId}`;
@@ -206,7 +211,7 @@ export function PromptInputTextarea({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !isLoading && !disabled) {
       e.preventDefault();
-      if (value.trim()) {
+      if (value.trim() || allowEmptySubmit) {
         onSubmit({ text: value });
       }
     }
@@ -252,7 +257,7 @@ export function PromptInputSubmit({
   disabled: disabledProp,
   ...props
 }: PromptInputSubmitProps) {
-  const { value, onSubmit, isLoading, disabled } = usePromptInput();
+  const { value, onSubmit, isLoading, disabled, allowEmptySubmit } = usePromptInput();
   const ariaLabel = ariaLabelProp ?? (children ? undefined : "Send message");
   // `disabledProp` måste vägas in, inte skrivas över. Förut spreds den via
   // `{...props}` och skrevs sedan över av kontextvärdet nedan, så en callers
@@ -260,7 +265,8 @@ export function PromptInputSubmit({
   // klickbar medan submit-handlern ändå returnerade direkt. En klickare som
   // inte kan se handlern — OpenClaws armerade auto-send — tolkade då klicket
   // som ett skickat meddelande.
-  const isDisabled = Boolean(disabledProp) || !value.trim() || isLoading || disabled;
+  const isDisabled =
+    Boolean(disabledProp) || (!value.trim() && !allowEmptySubmit) || isLoading || disabled;
 
   const handleClick = () => {
     if (isDisabled) return;

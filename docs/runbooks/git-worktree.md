@@ -13,10 +13,13 @@ Flera agenter som ska skriva samtidigt, eller när Jakob ber om en isolerad yta.
 Bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
-git fetch origin master
-git worktree add ..\sajtmaskin-<kort> -b <branch> origin/master
+git fetch origin
+git worktree add ..\sajtmaskin-<kort> -b <branch> origin/preview
 npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
+
+Vanligt utvecklingsarbete utgår från `origin/preview`. Använd `origin/master`
+bara när påståendet gäller produktion.
 
 `worktree:setup` kopierar bara uttryckligt listade, icke-känsliga filer från
 `.worktreeinclude` (tom som default) och seedar `.cursor/mcp.json` från den
@@ -49,7 +52,8 @@ Wrappern kopplar loss ev. länkar först. `--force` kräver
 ## Codex
 
 Codex-projektet pekar på repo-roten, men huvudcheckouten är läs- och testankare.
-Codex skriver i ett eget worktree från färsk `origin/master` — se
+Codex skriver i ett eget worktree från färsk `origin/preview` (eller
+`origin/master` när påståendet gäller produktion) — se
 [`.codex/README.md`](../../.codex/README.md). En långlivad worktree som verkligen
 behövs skyddas med git-configen `sajtmaskin.protectedWorktree`, inte med ett
 särskilt Codex-branchnamn.

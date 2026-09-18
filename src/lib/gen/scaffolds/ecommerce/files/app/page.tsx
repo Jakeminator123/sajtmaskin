@@ -70,8 +70,10 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <div className="mb-8 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight">Utvalda produkter</h2>
-          <Button variant="ghost" className="text-sm">
-            Visa alla <ArrowRight className="ml-1 h-3 w-3" />
+          <Button asChild variant="ghost" className="text-sm">
+            <Link href="/products">
+              Visa alla <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
           </Button>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

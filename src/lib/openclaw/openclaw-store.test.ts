@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import {
+  clearCampaignScriptStorageForTests,
+  emptyCampaignScript,
+  KOSTNADSFRI_ADVICE_ROUND_LIMIT,
+} from "@/lib/kostnadsfri/agent-campaign-script";
 import { readOpenClawPowers, useOpenClawStore } from "./openclaw-store";
 
 describe("OpenClaw store assistant targeting", () => {
@@ -10,7 +15,9 @@ describe("OpenClaw store assistant targeting", () => {
       scopeKey: "global",
       avatarMode: false,
       panelPresentation: "bubble",
+      campaignScript: null,
     });
+    clearCampaignScriptStorageForTests();
   });
 
   it("opens text-first without starting the D-ID avatar", () => {
@@ -32,6 +39,33 @@ describe("OpenClaw store assistant targeting", () => {
     useOpenClawStore.setState({ isOpen: true, panelPresentation: "takeover" });
     useOpenClawStore.getState().setScope("/builder::other");
     expect(useOpenClawStore.getState().panelPresentation).toBe("bubble");
+  });
+
+  it("drops campaign avatar mode on close, toggle-close, and scope change", () => {
+    useOpenClawStore.setState({ isOpen: true, avatarMode: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().close();
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+
+    useOpenClawStore.setState({ isOpen: true, avatarMode: true, panelPresentation: "takeover" });
+    useOpenClawStore.getState().toggle();
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: false,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
+
+    useOpenClawStore.setState({
+      isOpen: true,
+      avatarMode: true,
+      panelPresentation: "takeover",
+      scopeKey: "/kostnadsfri/zax::kostnadsfri",
+    });
+    useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: false,
+      avatarMode: false,
+      panelPresentation: "bubble",
+    });
   });
 
   it("updates the targeted assistant message instead of the last one", () => {
@@ -299,5 +333,99 @@ describe("OpenClaw store — withdrawing an extra power", () => {
     expect(state.powersOn).toBe(false);
     expect(state.grantedPowers).toEqual([]);
     expect(state.armedMandate).toBeNull();
+  });
+});
+
+describe("OpenClaw store — kampanjrådgivning", () => {
+  beforeEach(() => {
+    clearCampaignScriptStorageForTests();
+    useOpenClawStore.setState({ campaignScript: null, messages: [], scopeKey: "global" });
+  });
+
+  it("räknar ned kvoten, stannar på noll och överlever setScope", () => {
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(
+      KOSTNADSFRI_ADVICE_ROUND_LIMIT,
+    );
+
+    for (let i = 0; i < KOSTNADSFRI_ADVICE_ROUND_LIMIT; i += 1) {
+      expect(useOpenClawStore.getState().consumeCampaignAdviceRound()).toBe("ok");
+    }
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+    expect(useOpenClawStore.getState().consumeCampaignAdviceRound()).toBe("exhausted");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+
+    useOpenClawStore.getState().setScope("/builder::builder::chat_1");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+
+    useOpenClawStore.setState({ campaignScript: null });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.remaining).toBe(0);
+  });
+
+  it("nollställer campaignScript vid byte till /konto men behåller persistensen", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+
+    useOpenClawStore.getState().setScope("/konto::account");
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("nollställer campaignScript vid byte till annan slug", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+
+    useOpenClawStore.getState().setScope("/kostnadsfri/other-campaign::kostnadsfri");
+    expect(useOpenClawStore.getState().campaignScript).toBeNull();
+  });
+
+  it("behåller campaignScript vid refresh på samma kampanjsida", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().bindCampaignProjectId("proj-a");
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+
+    useOpenClawStore.setState({ campaignScript: null });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.slug).toBe("zax-2-0-ab");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.questionIds).toEqual([
+      "usp",
+    ]);
+
+    useOpenClawStore.getState().setScope("/kostnadsfri/zax-2-0-ab::kostnadsfri");
+    expect(useOpenClawStore.getState().campaignScript?.projectId).toBe("proj-a");
+  });
+
+  it("registrerar ingen follow-up-reply utanför kampanjscopet", () => {
+    useOpenClawStore.setState({ scopeKey: "/kostnadsfri/zax-2-0-ab::kostnadsfri" });
+    useOpenClawStore.getState().hydrateCampaignScript("zax-2-0-ab");
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+
+    expect(useOpenClawStore.getState().recordCampaignFollowupReply("Unik USP från kampanjen")).toBe(
+      "complete",
+    );
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.answers.usp).toBe(
+      "Unik USP från kampanjen",
+    );
+
+    clearCampaignScriptStorageForTests();
+    useOpenClawStore.setState({
+      scopeKey: "/konto::account",
+      campaignScript: emptyCampaignScript("zax-2-0-ab"),
+    });
+    useOpenClawStore.getState().beginCampaignFollowups(["usp"]);
+    expect(useOpenClawStore.getState().recordCampaignFollowupReply("Ska inte sparas")).toBe(
+      "inactive",
+    );
+    expect(useOpenClawStore.getState().campaignScript?.followupSession?.answers.usp).toBeUndefined();
   });
 });

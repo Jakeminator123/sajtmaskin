@@ -9,10 +9,10 @@ export function MarketingFooter() {
       <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/75 p-8 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
         <div className="space-y-4">
           <p className="text-lg font-semibold tracking-tight">
-            {"{{PRODUCT_NAME}}"}
+            [Produktnamn]
           </p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Produktledd SaaS-start för tydligare positionering, priser och lanseringsbudskap.
+            [En mening om vad produkten gör för teamet.]
           </p>
         </div>
         {Object.entries(links).map(([title, items]) => (

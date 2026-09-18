@@ -1,4 +1,7 @@
+import { AUDIT_ADVANCED_ONLY_FIELDS } from "@/lib/audit/audit-advanced-fields";
 import {
+  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
+  AUDIT_PUBLIC_STRUCTURED_FALLBACK_MODELS,
   AUDIT_STRUCTURED_DEFAULT_MODEL,
   AUDIT_STRUCTURED_FALLBACK_MODELS,
 } from "@/lib/gen/defaults";
@@ -7,6 +10,13 @@ import {
 const AUDIT_MODEL_CANDIDATES = [
   AUDIT_STRUCTURED_DEFAULT_MODEL,
   ...AUDIT_STRUCTURED_FALLBACK_MODELS.filter((model) => model !== AUDIT_STRUCTURED_DEFAULT_MODEL),
+];
+
+const PUBLIC_AUDIT_MODEL_CANDIDATES = [
+  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
+  ...AUDIT_PUBLIC_STRUCTURED_FALLBACK_MODELS.filter(
+    (model) => model !== AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
+  ),
 ];
 
 function toResponsesModelId(model: string): string {
@@ -136,20 +146,6 @@ const AUDIT_AI_SCHEMA = {
         required: ["area", "current_state", "recommendation", "implementation"],
       },
     },
-    // Keep advanced sections optional (the model should still fill them when possible)
-    competitor_benchmarking: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        industry_leaders: { type: "array", items: { type: "string" } },
-        common_features: { type: "array", items: { type: "string" } },
-        differentiation_opportunities: {
-          type: "array",
-          items: { type: "string" },
-        },
-      },
-      required: ["industry_leaders", "common_features", "differentiation_opportunities"],
-    },
     business_profile: {
       type: "object",
       additionalProperties: false,
@@ -259,26 +255,6 @@ const AUDIT_AI_SCHEMA = {
       },
       required: ["style", "color_psychology", "ui_patterns", "accessibility_level"],
     },
-    technical_architecture: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        recommended_stack: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            frontend: { type: "string" },
-            backend: { type: "string" },
-            cms: { type: "string" },
-            hosting: { type: "string" },
-          },
-          required: ["frontend", "backend", "cms", "hosting"],
-        },
-        integrations: { type: "array", items: { type: "string" } },
-        security_measures: { type: "array", items: { type: "string" } },
-      },
-      required: ["recommended_stack", "integrations", "security_measures"],
-    },
     priority_matrix: {
       type: "object",
       additionalProperties: false,
@@ -289,63 +265,6 @@ const AUDIT_AI_SCHEMA = {
         thankless_tasks: { type: "array", items: { type: "string" } },
       },
       required: ["quick_wins", "major_projects", "fill_ins", "thankless_tasks"],
-    },
-    implementation_roadmap: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        phase_1: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        phase_2: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        phase_3: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-        launch: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            duration: { type: "string" },
-            deliverables: { type: "array", items: { type: "string" } },
-            activities: { type: "array", items: { type: "string" } },
-          },
-          required: ["duration", "deliverables", "activities"],
-        },
-      },
-      required: ["phase_1", "phase_2", "phase_3", "launch"],
-    },
-    success_metrics: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        kpis: { type: "array", items: { type: "string" } },
-        tracking_setup: { type: "string" },
-        review_schedule: { type: "string" },
-      },
-      required: ["kpis", "tracking_setup", "review_schedule"],
     },
     site_content: {
       type: "object",
@@ -477,7 +396,6 @@ const AUDIT_AI_SCHEMA = {
     "security_analysis",
     "competitor_insights",
     "technical_recommendations",
-    "competitor_benchmarking",
     "target_audience_analysis",
     "business_profile",
     "market_context",
@@ -485,14 +403,26 @@ const AUDIT_AI_SCHEMA = {
     "competitive_landscape",
     "content_strategy",
     "design_direction",
-    "technical_architecture",
     "priority_matrix",
-    "implementation_roadmap",
-    "success_metrics",
     "site_content",
     "color_theme",
     "template_data",
   ],
+} as const;
+
+const AUDIT_ADVANCED_ONLY_SCHEMA_KEYS = new Set<string>(AUDIT_ADVANCED_ONLY_FIELDS);
+
+const AUDIT_AI_SCHEMA_BASIC_PROPERTIES = Object.fromEntries(
+  Object.entries(AUDIT_AI_SCHEMA.properties).filter(
+    ([key]) => !AUDIT_ADVANCED_ONLY_SCHEMA_KEYS.has(key),
+  ),
+);
+
+const AUDIT_AI_SCHEMA_BASIC = {
+  type: "object",
+  additionalProperties: false,
+  properties: AUDIT_AI_SCHEMA_BASIC_PROPERTIES,
+  required: AUDIT_AI_SCHEMA.required.filter((key) => !AUDIT_ADVANCED_ONLY_SCHEMA_KEYS.has(key)),
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -555,7 +485,10 @@ function validateStrictSchema(schema: JsonSchemaObject, path: string = "root"): 
 }
 
 // Run schema validation at module load (fails fast in dev)
-const schemaErrors = validateStrictSchema(AUDIT_AI_SCHEMA);
+const schemaErrors = [
+  ...validateStrictSchema(AUDIT_AI_SCHEMA),
+  ...validateStrictSchema(AUDIT_AI_SCHEMA_BASIC, "basic"),
+];
 if (schemaErrors.length > 0) {
   const errorMsg = `[AUDIT SCHEMA ERROR] Invalid JSON schema configuration:\n${schemaErrors.join(
     "\n",
@@ -567,4 +500,10 @@ if (schemaErrors.length > 0) {
   }
 }
 
-export { AUDIT_MODEL_CANDIDATES, toResponsesModelId, AUDIT_AI_SCHEMA };
+export {
+  AUDIT_MODEL_CANDIDATES,
+  PUBLIC_AUDIT_MODEL_CANDIDATES,
+  toResponsesModelId,
+  AUDIT_AI_SCHEMA,
+  AUDIT_AI_SCHEMA_BASIC,
+};

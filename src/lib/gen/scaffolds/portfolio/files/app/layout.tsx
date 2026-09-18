@@ -6,8 +6,8 @@ import { SiteFooter } from "@/components/site-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Portfoliostart",
-  description: "En ren portfoliostart med utvalt arbete, text och kontaktsektioner.",
+  title: "[Namn]",
+  description: "Utvalt arbete, texter och kontakt.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

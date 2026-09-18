@@ -28,7 +28,7 @@ interface AuditModalProps {
   auditedUrl?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onBuildFromAudit?: (prompt: string) => void;
+  onBuildFromAudit?: (result: AuditResult, url: string) => void;
   /**
    * True when the audit is opened from an already-persisted source (e.g. the
    * /audits list). Starts the modal in the "Sparad" state so re-opening a saved
@@ -105,14 +105,12 @@ export function AuditModal({
     }
   }, [isOpen, result, alreadySaved]);
 
-  // Auto-offer build overlay when audit opens
+  // The build CTA is offered in the header and footer, not as an overlay that
+  // auto-covers the report the user just spent credits on. Closing the modal
+  // still resets the overlay so a re-open never starts with it stacked.
   useEffect(() => {
-    if (isOpen && result && onBuildFromAudit) {
-      setShowBuildOverlay(true);
-    } else {
-      setShowBuildOverlay(false);
-    }
-  }, [isOpen, result, onBuildFromAudit]);
+    if (!isOpen) setShowBuildOverlay(false);
+  }, [isOpen]);
 
   // Save audit to user's storage
   const handleSaveAudit = useCallback(async () => {
@@ -149,174 +147,12 @@ export function AuditModal({
     }
   }, [auditedUrl, result, isSaving, isSaved]);
 
-  // Build a super prompt from the audit to kick off generation
-  const buildSuperPrompt = useCallback(() => {
-    if (!result) return "";
-
-    const lines: string[] = [];
-    lines.push("=== BYGG NY SAJT BASERAD PÅ AUDIT ===");
-
-    if (auditedUrl) {
-      lines.push(`Referenssida: ${auditedUrl}`);
-      lines.push(
-        "Behåll varumärkeskänslan (färger, logoplacering, tonalitet) men åtgärda alla brister och förbättra UX, prestanda och tillgänglighet.",
-      );
-    }
-
-    if (result.company) lines.push(`Företag: ${result.company}`);
-    if (result.domain) lines.push(`Domän: ${result.domain}`);
-
-    if (result.audit_scores) {
-      lines.push("");
-      lines.push("Audit-poäng att lyfta:");
-      const scores = result.audit_scores;
-      if (scores.overall) lines.push(`- Övergripande: ${scores.overall}/100`);
-      if (scores.seo) lines.push(`- SEO: ${scores.seo}/100`);
-      if (scores.performance) lines.push(`- Prestanda: ${scores.performance}/100`);
-      if (scores.ux) lines.push(`- UX: ${scores.ux}/100`);
-      if (scores.accessibility) lines.push(`- Tillgänglighet: ${scores.accessibility}/100`);
-      if (scores.security) lines.push(`- Säkerhet: ${scores.security}/100`);
-      if (scores.mobile) lines.push(`- Mobil: ${scores.mobile}/100`);
-      if (scores.content) lines.push(`- Innehåll: ${scores.content}/100`);
-      if (scores.technical_seo) lines.push(`- Teknisk SEO: ${scores.technical_seo}/100`);
-    }
-
-    if (result.issues && result.issues.length > 0) {
-      lines.push("");
-      lines.push("Problem att lösa omedelbart:");
-      result.issues.slice(0, 6).forEach((issue) => {
-        lines.push(`- ${issue}`);
-      });
-    }
-
-    if (result.improvements && result.improvements.length > 0) {
-      lines.push("");
-      lines.push("Förbättringar att implementera:");
-      result.improvements.slice(0, 6).forEach((imp) => {
-        const contextParts = [];
-        if (imp.impact) contextParts.push(`impact: ${imp.impact}`);
-        if (imp.effort) contextParts.push(`effort: ${imp.effort}`);
-        if (imp.why) contextParts.push(imp.why);
-        lines.push(`- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""}`);
-      });
-    }
-
-    if (result.strengths && result.strengths.length > 0) {
-      lines.push("");
-      lines.push("Styrkor att behålla:");
-      result.strengths.slice(0, 5).forEach((strength) => {
-        lines.push(`- ${strength}`);
-      });
-    }
-
-    if (result.design_direction) {
-      lines.push("");
-      lines.push("Design & identitet:");
-      if (result.design_direction.style) lines.push(`- Stil: ${result.design_direction.style}`);
-      if (result.design_direction.color_psychology)
-        lines.push(`- Färgpsykologi: ${result.design_direction.color_psychology}`);
-      if (result.design_direction.ui_patterns)
-        lines.push(`- UI-mönster: ${result.design_direction.ui_patterns.join(", ")}`);
-      if (result.design_direction.accessibility_level)
-        lines.push(`- Tillgänglighet: ${result.design_direction.accessibility_level}`);
-    }
-
-    if (result.target_audience_analysis) {
-      lines.push("");
-      lines.push("Målgrupp & beteende:");
-      if (result.target_audience_analysis.demographics)
-        lines.push(`- Demografi: ${result.target_audience_analysis.demographics}`);
-      if (result.target_audience_analysis.pain_points)
-        lines.push(`- Smärtpunkter: ${result.target_audience_analysis.pain_points}`);
-      if (result.target_audience_analysis.expectations)
-        lines.push(`- Förväntningar: ${result.target_audience_analysis.expectations}`);
-    }
-
-    if (result.content_strategy?.key_pages && result.content_strategy.key_pages.length > 0) {
-      lines.push("");
-      lines.push("Nyckelsidor som ska ingå:");
-      result.content_strategy.key_pages.slice(0, 8).forEach((page) => {
-        lines.push(`- ${page}`);
-      });
-    }
-
-    if (result.expected_outcomes && result.expected_outcomes.length > 0) {
-      lines.push("");
-      lines.push("Mål/effekter att nå:");
-      result.expected_outcomes.slice(0, 5).forEach((outcome) => {
-        lines.push(`- ${outcome}`);
-      });
-    }
-
-    if (result.priority_matrix?.quick_wins && result.priority_matrix.quick_wins.length > 0) {
-      lines.push("");
-      lines.push("Snabba vinster som ska komma tidigt på sidan:");
-      result.priority_matrix.quick_wins.slice(0, 4).forEach((win) => {
-        lines.push(`- ${win}`);
-      });
-    }
-
-    if (result.security_analysis) {
-      lines.push("");
-      lines.push("Säkerhet (baka in i copy och implementation):");
-      lines.push(`- HTTPS: ${result.security_analysis.https_status}`);
-      lines.push(`- Headers: ${result.security_analysis.headers_analysis}`);
-      lines.push(`- Cookies/GDPR: ${result.security_analysis.cookie_policy}`);
-      if (
-        result.security_analysis.vulnerabilities &&
-        result.security_analysis.vulnerabilities.length > 0
-      ) {
-        lines.push(`- Potentiella risker: ${result.security_analysis.vulnerabilities.join(", ")}`);
-      }
-    }
-
-    if (result.technical_recommendations && result.technical_recommendations.length > 0) {
-      lines.push("");
-      lines.push("Tekniska rekommendationer att omsätta:");
-      result.technical_recommendations.slice(0, 4).forEach((rec) => {
-        lines.push(`- ${rec.area}: ${rec.recommendation} (nuläge: ${rec.current_state})`);
-      });
-    }
-
-    lines.push("");
-    lines.push("Struktur att bygga (anpassa efter innehåll):");
-    lines.push("- Navigering med logoplatshållare, sektion-ankare, CTA-knapp.");
-    lines.push(
-      "- Hero med tydlig huvudtitel, underrad, primär CTA, sekundär CTA samt visuell bakgrund (bild/gradient) och kort trust-rad.",
-    );
-    lines.push(
-      "- Sektioner för erbjudanden/tjänster, USP-lista, case/portfolio eller testimonials, ett CTA-block mitt på sidan.",
-    );
-    lines.push(
-      "- Sektion för innehåll/nyheter eller resurser om relevant, samt FAQ och tydligt kontaktblock med formulär + kontaktuppgifter.",
-    );
-    lines.push("- Footer med länkar, sociala ikoner och kontaktinformation.");
-
-    lines.push("");
-    lines.push("Design & kvalitet:");
-    lines.push("- Använd färger/typo inspirerat av referenssidan.");
-    lines.push("- Responsivt (mobil först), WCAG AA, hög läsbarhet.");
-    lines.push("- Optimera bilder (komprimerade) och undvik tunga effekter.");
-
-    lines.push("");
-    lines.push(
-      "Språk & ton: Svenska, konkret, säljdrivande men trovärdigt. Anpassa copy till målgruppen.",
-    );
-    lines.push(
-      "Leverera en klar, konverterande layout som kan genereras i buildern utan ytterligare frågor.",
-    );
-
-    return lines.join("\n");
-  }, [result, auditedUrl]);
-
   const launchBuildFromAudit = useCallback(() => {
     if (!result || !onBuildFromAudit) return;
-    const prompt = buildSuperPrompt();
-    if (!prompt.trim()) return;
-    onBuildFromAudit(prompt);
+    onBuildFromAudit(result, auditedUrl ?? result.domain ?? "");
     setShowBuildOverlay(false);
     onClose();
-  }, [buildSuperPrompt, onBuildFromAudit, onClose, result]);
+  }, [onBuildFromAudit, onClose, result, auditedUrl]);
 
   // Esc-to-close + a focus trap so keyboard focus stays inside the dialog while
   // it is open (Tab/Shift+Tab cycle through the visible focusable elements).
@@ -495,6 +331,17 @@ export function AuditModal({
       }`
     : null;
 
+  const hasAudience = Boolean(
+    result.customer_segments?.primary_segment ||
+      result.target_audience_analysis?.demographics ||
+      result.target_audience_analysis?.pain_points,
+  );
+  const hasContentStrategy = Boolean(
+    result.content_strategy?.seo_foundation ||
+      result.content_strategy?.key_pages?.length ||
+      result.content_strategy?.conversion_paths?.length,
+  );
+  const quickWins = result.priority_matrix?.quick_wins ?? [];
   const hasScores = result.audit_scores && Object.keys(result.audit_scores).length > 0;
   const hasImprovements = result.improvements && result.improvements.length > 0;
   const hasSecurity = result.security_analysis;
@@ -688,6 +535,80 @@ export function AuditModal({
                   <div className="space-y-6">
                     {hasScores && result.audit_scores && (
                       <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
+                    )}
+
+                    {/* Målgrupp/synlighet/snabba vinster hör till kärnschemat
+                        för Vanlig. Affärs-/marknadsfält genereras bara i
+                        Avancerad och visas bakom hasAdvancedBusiness. */}
+                    {(hasAudience || hasContentStrategy || quickWins.length > 0) && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {hasAudience && (
+                          <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>🎯</span> Målgrupp
+                            </h3>
+                            <div className="space-y-2 text-sm text-foreground/90">
+                              {result.customer_segments?.primary_segment && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.customer_segments.primary_segment)}
+                                </p>
+                              )}
+                              {result.target_audience_analysis?.demographics && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(
+                                    result.target_audience_analysis.demographics,
+                                  )}
+                                </p>
+                              )}
+                              {result.target_audience_analysis?.pain_points && (
+                                <p className="text-muted-foreground wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.target_audience_analysis.pain_points)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {hasContentStrategy && (
+                          <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>🔍</span> Synlighet och innehåll
+                            </h3>
+                            <div className="space-y-2 text-sm text-foreground/90">
+                              {result.content_strategy?.seo_foundation && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.content_strategy.seo_foundation)}
+                                </p>
+                              )}
+                              {result.content_strategy?.key_pages &&
+                                result.content_strategy.key_pages.length > 0 && (
+                                  <p className="text-muted-foreground">
+                                    Nyckelsidor:{" "}
+                                    {result.content_strategy.key_pages.slice(0, 5).join(", ")}
+                                  </p>
+                                )}
+                              {result.content_strategy?.conversion_paths &&
+                                result.content_strategy.conversion_paths.length > 0 && (
+                                  <p className="text-muted-foreground">
+                                    Konvertering:{" "}
+                                    {result.content_strategy.conversion_paths
+                                      .slice(0, 3)
+                                      .join(" · ")}
+                                  </p>
+                                )}
+                            </div>
+                          </div>
+                        )}
+
+                        {quickWins.length > 0 && (
+                          <div className="rounded-xl border border-brand-teal/30 bg-brand-teal/5 p-4 md:col-span-2">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>⚡</span> Snabba vinster
+                            </h3>
+                            {renderTextList(quickWins)}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Strengths & Issues Grid */}
@@ -1031,13 +952,24 @@ export function AuditModal({
             </Tabs>
 
             {/* Footer */}
-            <div className="flex shrink-0 items-center justify-between border-t border-border bg-secondary/40 p-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-secondary/40 p-4">
               <div className="text-xs text-muted-foreground">
                 {result.timestamp && (
                   <span>Analyserad: {new Date(result.timestamp).toLocaleString("sv-SE")}</span>
                 )}
               </div>
               {/* Cost hidden from user - only logged server-side */}
+
+              {/* Build-CTA:n som tidigare la sig som overlay över rapporten. */}
+              {onBuildFromAudit && (
+                <button
+                  onClick={() => setShowBuildOverlay(true)}
+                  className="flex items-center gap-2 rounded-xl border border-brand-teal/40 bg-brand-teal/10 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-brand-teal/20"
+                >
+                  <Hammer className="h-3.5 w-3.5" />
+                  Bygg förbättrad sida från analysen
+                </button>
+              )}
 
               {/* Save error message */}
               {saveError && (

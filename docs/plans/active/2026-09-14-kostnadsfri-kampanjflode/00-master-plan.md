@@ -1,23 +1,24 @@
 # Kostnadsfri-kampanjflödet — sidantal, bolagsdata och pre-generering (2026-09-14)
 
-> **Status: alla tre besluten fattade; inget i `master`.** Sidantalet avgjordes
-> 2026-09-14 (3 sidor) och är levererat till `preview` via
-> [#1370](https://github.com/Jakeminator123/sajtmaskin/pull/1370)
-> (`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`). Bolagsdatans PII-gräns och
-> pre-genereringen avgjordes 2026-09-15 — se
-> [`docs/decisions/README.md`](../../../decisions/README.md) för alla tre.
-> Ingest #1372, wizard-förifyllning + taxonomi-ägare #1374 och PII-hårdning
-> #1383 ligger på `preview`. `master` är auktoritet tills promote skett.
-> Avsnitt 2 och 3 nedan är **underlaget** som ledde till besluten — läs
-> beslutsraderna för gällande läge.
+> **Status: besluten och ursprunglig kod finns på `master` `2566eec511`.**
+> Sidantal, ingest/PII-allowlist, wizard-förifyllning, taxonomi-ägare,
+> begränsad profilfallback och konto före bygge är identiska mellan
+> `origin/master` och `origin/preview` i ägarfilerna
+> (`kostnadsfri/index.ts`, `wizard-prefill.ts`, `company-profile.ts`,
+> `profile-lookup.ts`, `pending-init-build.ts`, `kostnadsfri-page.tsx`).
+> Preview-svans som *inte* är i master: admin-räkning av riktiga utskick och
+> one-click avreg (`unsubscribe.ts` / `analytics-paths.ts`, #1424).
+> Avsnitt 2 och 3 nedan är **historiskt underlag**. Läs
+> [`docs/decisions/README.md`](../../../decisions/README.md) för gällande
+> produktbeslut. Föreslagna `foo`/`foo-ab`-alias är inte ratificerade.
 
 Utlöst av ägarens genomgång 2026-09-14 av `/kostnadsfri/[slug]`: varför en
 kampanjsajt blev femsidig, och om första versionen kan börja byggas redan när
 företaget loggar in med koden. Videon och omdesignen av landningssidan är ett
 separat spår (draft-PR från cloud-agent) och hör inte hit.
 
-Evidensen nedan är läst i arbetsträdet mot `preview`-basen 2026-09-14. Den är
-**inte** omverifierad mot `master`.
+Evidensen i avsnitt 1–3 är underlaget från 2026-09-14. Leveransstatus mot
+`master` står i statusraden ovan; omverifiera inte hela historiken som ny order.
 
 ## 1. Sidantalet har tre ägare och ett tal
 
@@ -44,8 +45,7 @@ utan att någon behövde ompröva det.
 `MAX_PAGE_COUNT_CHOICE` — och kostnadsfri-modulen slutar bestämma det själv.
 Beslutsrad: [`docs/decisions/README.md`](../../../decisions/README.md).
 
-**Väg B valdes och är levererad på `preview` i #1370 som
-`53daaa6ebc6766f4cd919f1e792af4162d53aaf0`.** Talet reser strukturerat, inte i
+**Väg B valdes och finns på `master` `2566eec511`.** Talet reser strukturerat, inte i
 prosa:
 
 | Fil | Ändring |
@@ -200,7 +200,8 @@ ett fritt `extra_data`-objekt.
 
 - Beslutsrad 2026-08-14 «Ruttplan / sidtak» i
   [`docs/decisions/README.md`](../../../decisions/README.md) äger talet 4 och
-  reglagets 3. Ett kampanjundantag ska in där, inte i kostnadsfri-modulen.
+  reglagets 3. Kampanjsajter följer 3-sidorsbeslutet; inget sidtaksundantag
+  ska införas i kostnadsfri-modulen.
 - Öppen ägarfråga i backloggen om nav-synk och `detectExplicitPageCount` rör
   samma taköverskridande mekanik.
 - Beslutsrad 2026-09-11 «Prissättning / affärsmodell»: kampanjsajter som blir

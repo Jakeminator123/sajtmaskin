@@ -1,7 +1,7 @@
 import { StatsCard } from "@/components/stats-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+import { AlertTriangle, Inbox, Users, TrendingUp } from "lucide-react";
 
 const stats = [
   {
@@ -9,7 +9,7 @@ const stats = [
     value: "184",
     change: "+9.2%",
     trend: "up" as const,
-    icon: ShoppingCart,
+    icon: Inbox,
   },
   {
     title: "SLA inom mål",
@@ -29,8 +29,8 @@ const stats = [
     title: "Eskalerade ärenden",
     value: "12",
     change: "-2.1%",
-    trend: "up" as const,
-    icon: DollarSign,
+    trend: "down" as const,
+    icon: AlertTriangle,
   },
 ];
 
@@ -52,7 +52,7 @@ function statusColor(status: string) {
   }
 }
 
-export default function DashboardPage() {
+export default function WorkspacePage() {
   return (
     <div className="space-y-8 p-8">
       <div>

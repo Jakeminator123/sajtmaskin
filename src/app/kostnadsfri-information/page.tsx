@@ -68,7 +68,7 @@ export default function KostnadsfriInformationPage() {
             <aside className="text-muted-foreground text-sm leading-relaxed">
               <p className="text-foreground font-medium">Pretty Good B.V.</p>
               <p>Nederländerna</p>
-              <p className="mt-4">Information uppdaterad 14 september 2026.</p>
+              <p className="mt-4">Information uppdaterad 16 september 2026.</p>
               <a
                 href="mailto:support@sajtmaskin.se"
                 className="text-primary mt-5 inline-flex items-center gap-2 hover:underline"
@@ -100,13 +100,18 @@ export default function KostnadsfriInformationPage() {
                 <ol className="list-decimal space-y-3 pl-5">
                   <li>Öppna er personliga länk och ange koden från mejlet.</li>
                   <li>Kontrollera verksamhetsuppgifterna och beskriv hemsidan ni vill skapa.</li>
-                  <li>Logga in eller skapa ett konto och generera ert första utkast.</li>
+                  <li>Svara på Sajtagentens frågor eller hoppa över.</li>
+                  <li>
+                    Logga in eller skapa ett konto. Först därefter byggs hemsidan. Svaren sparas
+                    även om ni fortsätter med Google eller e-postverifiering.
+                  </li>
                   <li>Gör en uppföljande ändringsomgång och ladda ner koden om ni vill.</li>
                 </ol>
                 <p>
                   Erbjudandet omfattar en första generering (init) och en uppföljande generering
-                  (follow-up) av samma hemsida per inbjudet företag. Det gäller även om ni redan har
-                  ett konto. Att öppna länken igen ger inga nya gratisgenereringar.
+                  (follow-up) av samma hemsida per inbjudet företag, på ett vanligt Sajtmaskin-konto.
+                  Det gäller även om ni redan har ett konto. Att öppna länken igen ger inga nya
+                  gratisgenereringar.
                 </p>
               </Section>
 

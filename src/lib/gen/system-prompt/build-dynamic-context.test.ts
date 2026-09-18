@@ -264,6 +264,7 @@ describe("buildDynamicContext", () => {
 
     expect(result.context).not.toContain("## Scaffold Research Priorities");
     expect(result.context).not.toContain("### Lucide icons commonly needed");
+    expect(result.context).toContain("## App Router module contract");
     expect(result.context).toContain("- **Routes in scope:** `/`, `/dashboard`");
     expect(result.context).not.toContain("**Planning source:**");
   });

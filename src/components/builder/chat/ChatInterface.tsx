@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   FileText,
+  Globe,
   ImageIcon,
   Layers,
   Loader2,
@@ -31,6 +32,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import type { AuditComposerToken } from "@/lib/builder/audit-handoff";
 import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -51,6 +53,10 @@ import {
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
+import {
+  consumeMatchingPendingBuilderDraft,
+  currentBuilderReturnTo,
+} from "@/lib/builder/pending-builder-draft";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
 import {
   FILL_CHAT_INPUT_EVENT,
@@ -130,6 +136,7 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
 interface ChatInterfaceProps {
   chatId: string | null;
   initialPrompt?: string | null;
+  auditHandoff?: AuditComposerToken | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (
     message: string,
@@ -218,6 +225,7 @@ function isFigmaUrl(url: string): boolean {
 export function ChatInterface({
   chatId,
   initialPrompt,
+  auditHandoff = null,
   onCreateChat,
   onSendMessage,
   isFigmaInputOpen: controlledFigmaInputOpen,
@@ -297,14 +305,37 @@ export function ChatInterface({
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
+  const restoredOauthDraftRef = useRef(false);
   useEffect(() => {
     if (chatId) return;
+    if (auditHandoff) return;
     if (!initialPrompt) return;
     if (prefilledPromptRef.current === initialPrompt) return;
     if (input.trim()) return;
     setInput(initialPrompt);
     prefilledPromptRef.current = initialPrompt;
-  }, [chatId, initialPrompt, input]);
+  }, [chatId, initialPrompt, input, auditHandoff]);
+
+  useEffect(() => {
+    if (restoredOauthDraftRef.current) return;
+    restoredOauthDraftRef.current = true;
+    const draft = consumeMatchingPendingBuilderDraft(currentBuilderReturnTo());
+    if (!draft) return;
+    setInput(draft.text);
+    if (draft.attachmentUrls.length > 0) {
+      setFiles(
+        draft.attachmentUrls.map((url, index) => ({
+          id: `oauth-restored-${index}`,
+          url,
+          filename: url.split("/").pop()?.split("?")[0] || "bilaga",
+          mimeType: "application/octet-stream",
+          size: 0,
+          status: "success" as const,
+          isPublicUrl: true,
+        })),
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const prevChatId = lastChatIdRef.current;
@@ -696,8 +727,16 @@ export function ChatInterface({
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;
     const trimmed = text.trim();
-    if (!trimmed && !hasSuccessFiles) return;
-    const baseMessage = trimmed || "Use the attached files as visual references for the design.";
+    const hasAuditToken = Boolean(auditHandoff && !chatId);
+    if (!trimmed && !hasSuccessFiles && !hasAuditToken) return;
+    const baseMessage =
+      trimmed ||
+      (hasAuditToken
+        ? initialPrompt ||
+          (auditHandoff?.domain
+            ? `Bygg en förbättrad sajt för ${auditHandoff.domain}`
+            : "Bygg en förbättrad sajt utifrån audit")
+        : "Use the attached files as visual references for the design.");
     await sendMessagePayload(baseMessage, {
       planMode: continuePlanMode || undefined,
     });
@@ -774,6 +813,7 @@ export function ChatInterface({
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         disabled={inputDisabled}
+        allowEmptySubmit={Boolean(auditHandoff && !chatId)}
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
@@ -908,6 +948,17 @@ export function ChatInterface({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+        {!chatId && auditHandoff && (
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+            <div
+              className="border-border bg-muted text-foreground inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+              title={auditHandoff.domain ? `Audit: ${auditHandoff.domain}` : "Audit"}
+            >
+              <Globe className="size-3.5" aria-hidden="true" />
+              <span>{auditHandoff.domain || "Audit"}</span>
+            </div>
           </div>
         )}
         {inspectPoints.length > 0 && (

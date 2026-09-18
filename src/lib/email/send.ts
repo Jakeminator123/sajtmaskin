@@ -36,6 +36,7 @@ export interface SendEmailResult {
 interface VerificationEmailOptions {
   name?: string | null;
   baseUrl?: string;
+  returnTo?: string | null;
 }
 
 /**
@@ -53,14 +54,19 @@ export async function sendVerificationEmail(
   const baseUrl = (options.baseUrl || URLS.baseUrl).replace(/\/+$/, "");
   const displayName = options.name || to;
 
-  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const verifyUrl = new URL(`${baseUrl}/api/auth/verify-email`);
+  verifyUrl.searchParams.set("token", token);
+  if (options.returnTo) {
+    verifyUrl.searchParams.set("returnTo", options.returnTo);
+  }
+  const verifyHref = verifyUrl.toString();
 
   // When Resend is not configured, log the link for local testing.
   // Return success=false so API responses can truthfully tell users
   // that no email was actually delivered.
   if (!resend) {
     console.info(
-      `[Email] Resend not configured – verification link for ${to}:\n  ${verifyUrl}`,
+      `[Email] Resend not configured – verification link for ${to}:\n  ${verifyHref}`,
     );
     return {
       success: false,
@@ -74,7 +80,7 @@ export async function sendVerificationEmail(
       from: SECRETS.emailFrom,
       to,
       subject: "Bekräfta din e-postadress – Sajtmaskin",
-      html: buildVerificationHtml(displayName, verifyUrl),
+      html: buildVerificationHtml(displayName, verifyHref),
     });
 
     if (error) {

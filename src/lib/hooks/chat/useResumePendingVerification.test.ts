@@ -989,6 +989,67 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/validate-images")).toHaveLength(0);
   });
 
+  it("generated lane holds on starting and postchecks after preview-status becomes running (SM-077)", async () => {
+    vi.useFakeTimers();
+    const versions = [pendingRow()];
+    let previewStatusCalls = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/preview-status")) {
+        previewStatusCalls += 1;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            status: previewStatusCalls === 1 ? "starting" : "running",
+          }),
+        };
+      }
+      if (u.includes("/product-postcheck")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            attestation: currentAttestation,
+          }),
+        };
+      }
+      if (u.includes("/error-log") || u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ passed: true }) };
+    });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions,
+        isStreaming: false,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/preview-status")).toHaveLength(1);
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/preview-status")).toHaveLength(2);
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+
+    unmount();
+    vi.useRealTimers();
+  });
+
   it("import lane holds on a still-booting runtime (no postcheck against a boot page)", async () => {
     mockRoutes({ previewStatus: { body: { ok: true, status: "starting" } } });
     const { unmount } = renderHook(() =>

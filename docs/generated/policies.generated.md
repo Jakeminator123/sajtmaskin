@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:a016399825317605 -->
+<!-- source-fingerprint: config/env-policy.json sha256:13815e8d3e199eca -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -109,6 +109,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_CANONICAL_ADDRESS_CONTRACT`              | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_CONTENT_REVISION_GATE`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD`          | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `SAJTMASKIN_CUSTOMER_DOMAIN_WRITES`                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT`              | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEV_LOG`                                 | `local_only`           | —                                      | No            | Yes          |

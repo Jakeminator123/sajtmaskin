@@ -156,10 +156,9 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     expect(runLlmFixer).toHaveBeenCalledTimes(1);
   });
 
-  // Task 6: a gate-class failure gets a SECOND LLM pass (still capped at
-  // maxLlmPasses) instead of stopping after one — the retry runs with the
-  // accumulated prior-attempt notes + v4→v5 hint.
-  it("attempts a second LLM pass for a gate-class failure, capped at maxLlmPasses", async () => {
+  // Gate-class extra pass is allowed only after the original quality-gate
+  // signal is re-checked and still fails. Bounded by maxLlmPasses.
+  it("attempts a second LLM pass for a gate-class failure only after re-verify still fails", async () => {
     runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
     const result = await runRepairLoop({
       initialContent: validPage,
@@ -171,9 +170,64 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
       onAttemptPromotion: async () => ({ promoted: false }),
     });
     expect(result.promoted).toBe(false);
-    // Two LLM passes were attempted (the fixer changes content on pass 0, then
-    // repeats on pass 1 → no_improvement break), still bounded by the budget.
+    // Two LLM passes were attempted (the fixer changes content on pass 0, the
+    // re-verified gate still fails, then pass 1 retries), still bounded.
     expect(runLlmFixer).toHaveBeenCalledTimes(2);
+  });
+
+  it("C6: does not overwrite a first gate-class fix that already passes the quality gate", async () => {
+    const overwritten = file(
+      "app/page.tsx",
+      `export default function Page() {\n  return <main><h1>WRONG</h1></main>;\n}`,
+    );
+    runLlmFixer
+      .mockResolvedValueOnce(fixerSucceedsWithChange)
+      .mockResolvedValueOnce({
+        ...fixerSucceedsWithChange,
+        fixedContent: overwritten,
+      });
+    const llmPromotionContents: string[] = [];
+
+    const result = await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async (content, method) => {
+        if (method === "llm") llmPromotionContents.push(content);
+        return { promoted: method === "llm" && content === validPageEdited };
+      },
+    });
+
+    expect(result.promoted).toBe(true);
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(llmPromotionContents).toEqual([validPageEdited]);
+    expect(llmPromotionContents).not.toContain(overwritten);
+  });
+
+  it("C6: second-pass notes require a failed re-verify, not an assumed still-red gate", async () => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+
+    await runRepairLoop({
+      initialContent: validPage,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 2,
+      llmTimeoutMs: 1_000,
+      enableTargetedRepair: false,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(2);
+    const secondPassErrors = (runLlmFixer.mock.calls[1]?.[1] ?? []) as string[];
+    expect(secondPassErrors.join("\n")).toContain(
+      "quality gate still failed after re-verify",
+    );
+    expect(secondPassErrors.join("\n")).not.toContain(
+      "original failure is still unresolved (0 syntax error(s) remain)",
+    );
   });
 
   // Targeted repair (the DEFAULT) used to compare the merged FULL project
@@ -367,8 +421,8 @@ describe("runRepairLoop — base-aware early abort (Fas 3 superseded)", () => {
     runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
     const promotionAttempts: RepairMethod[] = [];
     let checks = 0;
-    // Pass-start check (1st call) → not superseded; pre-final-gate check
-    // (2nd call) → superseded (a newer version landed while the LLM ran).
+    // Pass-start check (1st call) → not superseded; post-pass re-verify
+    // check (2nd call) → superseded (a newer version landed while the LLM ran).
     const shouldAbortSuperseded = async () => ++checks > 1;
 
     const result = await runRepairLoop({

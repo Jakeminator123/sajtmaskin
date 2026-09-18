@@ -22,7 +22,7 @@ describe("promptOrchestration", () => {
       isFirstPrompt: true,
     });
     const auditResult = orchestratePromptMessage({
-      message: "Analysera den här sajten och ge förbättringar.",
+      message: "Bygg en förbättrad sajt för granit.se",
       buildMethod: "audit",
       buildIntent: "website",
       isFirstPrompt: true,

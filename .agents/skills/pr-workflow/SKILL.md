@@ -98,4 +98,5 @@ trunk och inte builder-ytan.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Rör aldrig `BRA` eller
-`rescue/*`.
+`rescue/*`. Lämna huvudcheckouten på `preview` efteråt — inte på `master` —
+så nästa chatt ärver leveransbasen.

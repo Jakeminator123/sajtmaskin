@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2 } from "lucide-react";
+import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,11 @@ import {
   TechnicalDetails,
   formatCount,
 } from "../ui-bits";
+import {
+  classifyKostnadsfriSlug,
+  type KostnadsfriSlugKind,
+} from "@/lib/kostnadsfri/analytics-paths";
+import { cn } from "@/lib/utils";
 import type { KostnadsfriAdminPayload, KostnadsfriInvitePayload } from "../types";
 
 const PERIODS = [
@@ -57,6 +62,30 @@ const EVENT_TONE: Record<
   skapad: "ok",
 };
 
+const KIND_LABEL: Record<KostnadsfriSlugKind, string> = {
+  utskick: "Utskick",
+  ej_utskick: "Ej utskick",
+  skrap: "Okänd path",
+};
+
+const KIND_TONE: Record<KostnadsfriSlugKind, "ok" | "off" | "warn"> = {
+  utskick: "ok",
+  ej_utskick: "off",
+  skrap: "warn",
+};
+
+type KostnadsfriRow = {
+  slug: string;
+  kind: KostnadsfriSlugKind;
+  companyName: string | null;
+  saved: boolean;
+  status: string | null;
+  contactEmail: string | null;
+  sentAt: string | null;
+  source: string | null;
+  stats: KostnadsfriAdminPayload["stats"][number] | null;
+};
+
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -70,6 +99,67 @@ function formatDate(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime())
     ? "—"
     : date.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+}
+
+
+type CountFilter = "any" | "gt0" | "eq0";
+
+function isSameLocalDay(iso: string | null | undefined, day: Date = new Date()): boolean {
+  if (!iso) return false;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return false;
+  return (
+    date.getFullYear() === day.getFullYear() &&
+    date.getMonth() === day.getMonth() &&
+    date.getDate() === day.getDate()
+  );
+}
+
+/** Prefer Senast (lastSeen) when present; otherwise fall back to Skickat. */
+function matchesTodayActivity(row: KostnadsfriRow): boolean {
+  if (row.stats?.lastSeen) return isSameLocalDay(row.stats.lastSeen);
+  return isSameLocalDay(row.sentAt);
+}
+
+function matchesCountFilter(value: number, filter: CountFilter): boolean {
+  if (filter === "gt0") return value > 0;
+  if (filter === "eq0") return value === 0;
+  return true;
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      title={title}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "h-7 rounded-full px-2.5 text-xs font-medium",
+        active
+          ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200"
+          : "text-muted-foreground",
+      )}
+    >
+      {children}
+    </Button>
+  );
+}
+
+function cycleCountFilter(current: CountFilter, next: "gt0" | "eq0"): CountFilter {
+  return current === next ? "any" : next;
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -156,24 +246,15 @@ export function KostnadsfriSection() {
   };
 
   // ── Merge DB rows and visit stats into one table keyed by slug ─────────
+  const registeredSlugs = useMemo(() => new Set((data?.pages ?? []).map((page) => page.slug)), [data]);
+
   const rows = useMemo(() => {
     if (!data) return [];
-    const bySlug = new Map<
-      string,
-      {
-        slug: string;
-        companyName: string | null;
-        saved: boolean;
-        status: string | null;
-        contactEmail: string | null;
-        sentAt: string | null;
-        source: string | null;
-        stats: KostnadsfriAdminPayload["stats"][number] | null;
-      }
-    >();
+    const bySlug = new Map<string, KostnadsfriRow>();
     for (const page of data.pages) {
       bySlug.set(page.slug, {
         slug: page.slug,
+        kind: classifyKostnadsfriSlug(page.slug, true),
         companyName: page.companyName,
         saved: true,
         status: page.status,
@@ -190,6 +271,7 @@ export function KostnadsfriSection() {
       } else {
         bySlug.set(stat.slug, {
           slug: stat.slug,
+          kind: classifyKostnadsfriSlug(stat.slug, registeredSlugs.has(stat.slug)),
           companyName: null,
           saved: false,
           status: null,
@@ -209,30 +291,67 @@ export function KostnadsfriSection() {
       const bLast = b.stats?.lastSeen ?? "";
       return aLast < bLast ? 1 : aLast > bLast ? -1 : a.slug.localeCompare(b.slug);
     });
-  }, [data]);
+  }, [data, registeredSlugs]);
 
   const [rowFilter, setRowFilter] = useState("");
+  const [showOtherPaths, setShowOtherPaths] = useState(false);
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [unikaGt0, setUnikaGt0] = useState(false);
+  const [verifiedFilter, setVerifiedFilter] = useState<CountFilter>("any");
+  const [startedFilter, setStartedFilter] = useState<CountFilter>("any");
+
+  const hasActiveTableFilters =
+    todayOnly || unikaGt0 || verifiedFilter !== "any" || startedFilter !== "any";
+
+  const clearTableFilters = () => {
+    setTodayOnly(false);
+    setUnikaGt0(false);
+    setVerifiedFilter("any");
+    setStartedFilter("any");
+    setRowFilter("");
+  };
+
   const filteredRows = useMemo(() => {
     const needle = rowFilter.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((row) =>
-      [row.companyName, row.slug, row.contactEmail].some((field) =>
+    return rows.filter((row) => {
+      if (!showOtherPaths && row.kind !== "utskick") return false;
+      if (todayOnly && !matchesTodayActivity(row)) return false;
+      if (unikaGt0 && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
+      if (!matchesCountFilter(row.stats?.verified ?? 0, verifiedFilter)) return false;
+      if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
+      if (!needle) return true;
+      return [row.companyName, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
-      ),
-    );
-  }, [rows, rowFilter]);
+      );
+    });
+  }, [rows, rowFilter, showOtherPaths, todayOnly, unikaGt0, verifiedFilter, startedFilter]);
+
+  const recentRows = useMemo(() => {
+    if (!data) return [];
+    return data.recent.map((row) => ({
+      ...row,
+      kind: classifyKostnadsfriSlug(row.slug, registeredSlugs.has(row.slug)),
+    }));
+  }, [data, registeredSlugs]);
+
+  const visibleRecent = useMemo(
+    () => (showOtherPaths ? recentRows : recentRows.filter((row) => row.kind === "utskick")),
+    [recentRows, showOtherPaths],
+  );
 
   const totals = useMemo(() => {
-    const stats = data?.stats ?? [];
+    const inviteStats = (data?.stats ?? []).filter(
+      (stat) => classifyKostnadsfriSlug(stat.slug, registeredSlugs.has(stat.slug)) === "utskick",
+    );
     return {
-      slugs: stats.length,
-      visits: stats.reduce((sum, s) => sum + s.visits, 0),
-      verified: stats.reduce((sum, s) => sum + s.verified, 0),
-      started: stats.reduce((sum, s) => sum + s.started, 0),
+      slugs: inviteStats.length,
+      visits: inviteStats.reduce((sum, s) => sum + s.visits, 0),
+      verified: inviteStats.reduce((sum, s) => sum + s.verified, 0),
+      started: inviteStats.reduce((sum, s) => sum + s.started, 0),
       // Sends are lifetime facts on the DB row, not period statistics.
       sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
     };
-  }, [data]);
+  }, [data, registeredSlugs]);
 
   const periodLabel = PERIODS.find((p) => p.value === days)?.label.toLowerCase() ?? "";
 
@@ -412,10 +531,10 @@ export function KostnadsfriSection() {
               <StatCard
                 label="Länkar med besök"
                 value={totals.slugs}
-                hint={periodLabel}
+                hint={`utskick, ${periodLabel}`}
                 icon={Link2}
               />
-              <StatCard label="Besök" value={totals.visits} hint={periodLabel} icon={Eye} />
+              <StatCard label="Besök" value={totals.visits} hint={`utskick, ${periodLabel}`} icon={Eye} />
               <StatCard
                 label="Rätt lösenord"
                 value={totals.verified}
@@ -432,28 +551,96 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Per företag"
-              description={`Sparade sidor och alla länkar som fått besök, ${periodLabel}. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden. Rader utan "Sparad" är deterministiska länkar som aldrig lades i databasen.`}
+              description={`Bara utskick som standard — skräpsluggar och osparade pathar räknas inte i talen ovan. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden.`}
               icon={Users}
             >
-              <div className="mb-4 max-w-sm">
-                <Label htmlFor="kostnadsfri-filter" className="sr-only">
-                  Sök i registret
-                </Label>
-                <Input
-                  id="kostnadsfri-filter"
-                  value={rowFilter}
-                  onChange={(event) => setRowFilter(event.target.value)}
-                  placeholder="Sök företag, slug eller e-post"
-                  autoComplete="off"
-                />
+              <div className="mb-4 space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="max-w-sm flex-1">
+                    <Label htmlFor="kostnadsfri-filter" className="sr-only">
+                      Sök i registret
+                    </Label>
+                    <Input
+                      id="kostnadsfri-filter"
+                      value={rowFilter}
+                      onChange={(event) => setRowFilter(event.target.value)}
+                      placeholder="Sök företag, slug eller e-post"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="kostnadsfri-other-paths"
+                        checked={showOtherPaths}
+                        onCheckedChange={setShowOtherPaths}
+                      />
+                      <Label htmlFor="kostnadsfri-other-paths" className="text-sm">
+                        Visa övriga pathar
+                      </Label>
+                    </div>
+                    {(hasActiveTableFilters || rowFilter.trim()) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                        onClick={clearTableFilters}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Rensa filter
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <FilterChip
+                    active={todayOnly}
+                    onClick={() => setTodayOnly((value) => !value)}
+                    title="Senast idag om raden har aktivitet, annars skickat idag"
+                  >
+                    Idag
+                  </FilterChip>
+                  <FilterChip active={unikaGt0} onClick={() => setUnikaGt0((value) => !value)}>
+                    Unika {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    active={verifiedFilter === "gt0"}
+                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "gt0"))}
+                  >
+                    Rätt lösenord {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    active={verifiedFilter === "eq0"}
+                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "eq0"))}
+                  >
+                    Rätt lösenord = 0
+                  </FilterChip>
+                  <FilterChip
+                    active={startedFilter === "gt0"}
+                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "gt0"))}
+                  >
+                    Formulär klara {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    active={startedFilter === "eq0"}
+                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "eq0"))}
+                  >
+                    Formulär klara = 0
+                  </FilterChip>
+                </div>
               </div>
               <DataState
                 isEmpty={filteredRows.length === 0}
-                emptyTitle={rowFilter.trim() ? "Inga träffar" : "Inga länkar ännu"}
+                emptyTitle={
+                  rowFilter.trim() || hasActiveTableFilters ? "Inga träffar" : "Inga länkar ännu"
+                }
                 emptyDescription={
-                  rowFilter.trim()
-                    ? "Ingen rad matchar sökningen. Rensa fältet för att se hela registret."
-                    : "Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                  rowFilter.trim() || hasActiveTableFilters
+                    ? "Ingen rad matchar sökningen eller filtren. Rensa för att se hela registret."
+                    : showOtherPaths
+                      ? "Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
+                      : "Inget utskick i registret för perioden. Slå på «Visa övriga pathar» för skräp och osparade sluggar."
                 }
                 emptyIcon={Link2}
               >
@@ -461,6 +648,7 @@ export function KostnadsfriSection() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
+                      <TableHead>Path</TableHead>
                       <TableHead>Skickat</TableHead>
                       <TableHead className="text-right">Besök</TableHead>
                       <TableHead className="text-right">Unika</TableHead>
@@ -479,11 +667,16 @@ export function KostnadsfriSection() {
                     {filteredRows.map((row) => (
                       <TableRow key={row.slug}>
                         <TableCell>
-                          <p className="font-medium">{row.companyName ?? "—"}</p>
+                          <p className="font-medium">
+                            {row.kind === "skrap" ? "—" : (row.companyName ?? "—")}
+                          </p>
                           <p className="text-muted-foreground font-mono text-xs">
                             /kostnadsfri/{row.slug}
                           </p>
                           <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           <p>{formatDate(row.sentAt)}</p>
@@ -524,13 +717,17 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Senaste händelser"
-              description="Vem som gjorde vad, nyast först. E-post visas när besökaren var inloggad, annars IP-adress."
+              description="Vem som gjorde vad, nyast först. E-post visas när besökaren var inloggad, annars IP-adress. Skräpsluggar märks som okänd path."
               icon={Eye}
             >
               <DataState
-                isEmpty={data.recent.length === 0}
+                isEmpty={visibleRecent.length === 0}
                 emptyTitle="Inga händelser"
-                emptyDescription="Ingen har besökt en kostnadsfri-länk under perioden."
+                emptyDescription={
+                  showOtherPaths
+                    ? "Ingen har besökt en kostnadsfri-länk under perioden."
+                    : "Inga utskickshändelser under perioden."
+                }
                 emptyIcon={Eye}
               >
                 <Table>
@@ -538,17 +735,21 @@ export function KostnadsfriSection() {
                     <TableRow>
                       <TableHead>När</TableHead>
                       <TableHead>Slug</TableHead>
+                      <TableHead>Path</TableHead>
                       <TableHead>Händelse</TableHead>
                       <TableHead>Besökare</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.recent.map((row, index) => (
+                    {visibleRecent.map((row, index) => (
                       <TableRow key={`${row.at}-${row.slug}-${index}`}>
                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                           {formatTime(row.at)}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{row.slug}</TableCell>
+                        <TableCell>
+                          <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
+                        </TableCell>
                         <TableCell>
                           <StatusBadge tone={EVENT_TONE[row.event]}>
                             {EVENT_LABEL[row.event]}

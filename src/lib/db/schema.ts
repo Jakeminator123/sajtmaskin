@@ -199,6 +199,7 @@ export const promptHandoffs = pgTable(
     project_id: text("project_id"),
     user_id: text("user_id"),
     session_id: text("session_id"),
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
     consumed_at: timestamptz("consumed_at"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },
@@ -440,6 +441,35 @@ export const wizardRuns = pgTable(
     userActiveIdx: uniqueIndex("wizard_runs_user_active_idx")
       .on(table.user_id)
       .where(sql`${table.status} = 'active'`),
+  }),
+);
+
+/**
+ * Durable template-init reservation. The insert on `claim_key` is the lock;
+ * `operation_id` is the credit idempotency key and stays stable across retry.
+ * Status is pending / completed / failed — a retry reclaims the same row.
+ */
+export const templateInitOperations = pgTable(
+  "template_init_operations",
+  {
+    claim_key: text("claim_key").primaryKey(),
+    operation_id: text("operation_id").notNull(),
+    status: text("status").notNull(),
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    project_id: text("project_id"),
+    template_id: text("template_id").notNull(),
+    chat_id: text("chat_id"),
+    version_id: text("version_id"),
+    claim_generation: integer("claim_generation").notNull().default(1),
+    error: text("error"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    expires_at: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_template_init_operations_project").on(table.project_id),
+    expiresIdx: index("idx_template_init_operations_expires_at").on(table.expires_at),
   }),
 );
 

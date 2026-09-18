@@ -94,6 +94,8 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
       : null);
 
   const lines = [
+    // `resolveOrchestrationBase` freezes shadcn UI recipes when it sees
+    // this AUTO-FIX / targeted-repair header. Keep the wording stable.
     "AUTO-FIX REQUEST — TARGETED REPAIR",
     "",
     `Issues detected: ${reasons}.`,

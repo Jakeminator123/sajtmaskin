@@ -17,8 +17,10 @@
  *    påstå något annat än vad kunden senast bekräftade.
  *
  * Underlaget är kontext för samtalet, inte sajtinnehåll. Prompten till buildern
- * byggs fortfarande enbart av `buildPromptFromWizardData` (ägarbeslut
- * 2026-09-15), och renderingen skriver ut den gränsen för modellen.
+ * byggs av `buildPromptFromWizardData` från wizardens utdata plus uttryckligen
+ * kundbekräftade follow-up-svar — aldrig av registret, chattranskript eller
+ * det här underlaget (ägarbeslut 2026-09-15). Renderingen skriver ut den
+ * gränsen för modellen.
  */
 import {
   resolveWizardIndustryHint,

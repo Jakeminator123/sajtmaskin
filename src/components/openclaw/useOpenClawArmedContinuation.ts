@@ -91,7 +91,9 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
         remaining: state.armedMandate?.remaining ?? 1,
         versionStatus: decision.versionStatus,
       });
-      void Promise.resolve(sendRef.current(prompt, { allowArming: false }))
+      void Promise.resolve(
+        sendRef.current(prompt, { allowArming: false, countTowardCampaignQuota: false }),
+      )
         .catch(() => {
           // The wake-up threw, so no next step can arrive. End the run now
           // rather than letting the follow-through timeout do it silently.

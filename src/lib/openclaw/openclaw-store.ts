@@ -6,6 +6,25 @@ import type {
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 import {
+  beginCampaignFollowupSession,
+  bindCampaignScriptProjectId,
+  consumeAdviceRound,
+  continueCampaignFollowups as applyContinueCampaignFollowups,
+  markBuildStartedAnnounced,
+  markFollowupsSkipped,
+  markHandoffOpened,
+  notifyIfFollowupsReady,
+  reannounceFollowupsReady,
+  readCampaignScript,
+  recordCampaignFollowupReply as applyCampaignFollowupReply,
+  shouldRecordCampaignFollowupInScope,
+  shouldRetainCampaignScriptInScope,
+  skipCurrentCampaignFollowup as applySkipCurrentCampaignFollowup,
+  writeCampaignScript,
+  type KostnadsfriCampaignScriptState,
+} from "@/lib/kostnadsfri/agent-campaign-script";
+import type { KostnadsfriFollowupId } from "@/lib/kostnadsfri/agent-followups";
+import {
   activeOpenClawPowerIds,
   resolveOpenClawPowers,
   toggleOpenClawPower,
@@ -59,6 +78,13 @@ interface OpenClawState {
    * `prepared-prompt.ts`). Cleared on scope change and after the draft that
    * carried it is sent. */
   preparedFill: OpenClawPreparedFill | null;
+  /**
+   * Kampanjmanus per slug (rådgivningskvot + hoppa-över). Persistensen är
+   * slugbunden i sessionStorage så refresh på samma kampanj kan hydrera om.
+   * In-memory nollställs vid byte till annan slug eller /konto; builder
+   * behåller kvoten så handoff-redirecten inte tappar den.
+   */
+  campaignScript: KostnadsfriCampaignScriptState | null;
 
   toggle: () => void;
   open: () => void;
@@ -91,6 +117,16 @@ interface OpenClawState {
     outcome: ArmedContinuationSendOutcome,
   ) => void;
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
+  hydrateCampaignScript: (slug: string) => void;
+  markCampaignHandoffOpened: (slug: string) => void;
+  beginCampaignFollowups: (questionIds: KostnadsfriFollowupId[]) => void;
+  recordCampaignFollowupReply: (text: string) => "inactive" | "pending" | "complete";
+  skipCurrentCampaignFollowup: () => "inactive" | "pending" | "complete";
+  skipCampaignFollowups: () => void;
+  continueCampaignFollowups: () => void;
+  bindCampaignProjectId: (projectId: string) => void;
+  consumeCampaignAdviceRound: () => "ok" | "exhausted" | "inactive";
+  markCampaignBuildStartedAnnounced: () => void;
 }
 
 /**
@@ -133,14 +169,17 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   armedMandate: null,
   armedContinuation: null,
   preparedFill: null,
+  campaignScript: null,
 
   toggle: () =>
     set((s) => ({
       isOpen: !s.isOpen,
-      ...(s.isOpen ? { panelPresentation: "bubble" as const } : {}),
+      ...(s.isOpen
+        ? { panelPresentation: "bubble" as const, avatarMode: false }
+        : {}),
     })),
   open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false, panelPresentation: "bubble" }),
+  close: () => set({ isOpen: false, panelPresentation: "bubble", avatarMode: false }),
   setScope: (scopeKey) =>
     set((state) =>
       state.scopeKey === scopeKey
@@ -161,7 +200,14 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             // user re-presses the button where they actually want it.
             powersOn: false,
             grantedPowers: [],
+            // Campaign handoff may turn the avatar on. That opt-in must not
+            // follow the user to another page or a later FAB open.
+            avatarMode: false,
             panelPresentation: "bubble",
+            ...(state.campaignScript &&
+            !shouldRetainCampaignScriptInScope(state.campaignScript, scopeKey)
+              ? { campaignScript: null }
+              : {}),
           },
     ),
 
@@ -228,6 +274,115 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
         : {},
     ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
+  hydrateCampaignScript: (slug) =>
+    set(() => {
+      const campaignScript = readCampaignScript(slug);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  markCampaignHandoffOpened: (slug) =>
+    set((s) => {
+      const base = s.campaignScript?.slug === slug ? s.campaignScript : readCampaignScript(slug);
+      const campaignScript = markHandoffOpened(base);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  beginCampaignFollowups: (questionIds) =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      const campaignScript = beginCampaignFollowupSession(s.campaignScript, questionIds);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  recordCampaignFollowupReply: (text) => {
+    let result: "inactive" | "pending" | "complete" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      if (!shouldRecordCampaignFollowupInScope(s.campaignScript, s.scopeKey)) {
+        result = "inactive";
+        return s;
+      }
+      const next = applyCampaignFollowupReply(s.campaignScript, text);
+      result = next.result;
+      if (next.state === s.campaignScript) return s;
+      writeCampaignScript(next.state);
+      notifyIfFollowupsReady(s.campaignScript, next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
+  skipCurrentCampaignFollowup: () => {
+    let result: "inactive" | "pending" | "complete" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      const next = applySkipCurrentCampaignFollowup(s.campaignScript);
+      result = next.result;
+      if (next.state === s.campaignScript) return s;
+      writeCampaignScript(next.state);
+      notifyIfFollowupsReady(s.campaignScript, next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
+  skipCampaignFollowups: () =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      if (s.campaignScript.followupsCompleted) {
+        reannounceFollowupsReady(s.campaignScript);
+        return s;
+      }
+      const campaignScript = markFollowupsSkipped(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      notifyIfFollowupsReady(s.campaignScript, campaignScript);
+      return { campaignScript };
+    }),
+  continueCampaignFollowups: () =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      if (s.campaignScript.followupsCompleted) {
+        reannounceFollowupsReady(s.campaignScript);
+        return s;
+      }
+      const campaignScript = applyContinueCampaignFollowups(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      notifyIfFollowupsReady(s.campaignScript, campaignScript);
+      return { campaignScript };
+    }),
+  bindCampaignProjectId: (projectId) =>
+    set((s) => {
+      if (!s.campaignScript) return s;
+      const campaignScript = bindCampaignScriptProjectId(s.campaignScript, projectId);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
+  consumeCampaignAdviceRound: () => {
+    let result: "ok" | "exhausted" | "inactive" = "inactive";
+    set((s) => {
+      if (!s.campaignScript) {
+        result = "inactive";
+        return s;
+      }
+      const next = consumeAdviceRound(s.campaignScript);
+      result = next.result;
+      if (next.result === "exhausted") return s;
+      writeCampaignScript(next.state);
+      return { campaignScript: next.state };
+    });
+    return result;
+  },
+  markCampaignBuildStartedAnnounced: () =>
+    set((s) => {
+      if (!s.campaignScript || s.campaignScript.buildStartedAnnounced) return s;
+      const campaignScript = markBuildStartedAnnounced(s.campaignScript);
+      writeCampaignScript(campaignScript);
+      return { campaignScript };
+    }),
 }));
 
 /**
