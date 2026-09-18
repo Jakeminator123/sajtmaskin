@@ -129,33 +129,49 @@ export async function processHostingJob(
     provider: providerResult,
   });
 
-  const written = await updateSiteSubscription(
-    fresh.id,
-    fresh.billing_mode,
-    {
-      hosting_state_actual: applied.actual,
-      paused_at: applied.pausedAt ?? fresh.paused_at,
-      resumed_at: applied.resumedAt ?? fresh.resumed_at,
-      retain_until: applied.retainUntil ?? fresh.retain_until,
-      pause_requested_at:
-        kind === "pause" && applied.actual === "pausing" ? now : fresh.pause_requested_at,
-    },
-    { expectedDesired: fresh.hosting_state_desired },
-  );
+  const written = await updateSiteSubscription(fresh.id, fresh.billing_mode, {
+    hosting_state_actual: applied.actual,
+    paused_at: applied.pausedAt ?? fresh.paused_at,
+    resumed_at: applied.resumedAt ?? fresh.resumed_at,
+    retain_until: applied.retainUntil ?? fresh.retain_until,
+    pause_requested_at:
+      kind === "pause" && applied.actual === "pausing" ? now : fresh.pause_requested_at,
+  });
+
+  if (applied.enqueueResume) {
+    await enqueueHostingJob({
+      subscriptionId: fresh.id,
+      billingMode: fresh.billing_mode,
+      kind: "resume",
+    });
+  }
+  if (applied.enqueuePause) {
+    await enqueueHostingJob({
+      subscriptionId: fresh.id,
+      billingMode: fresh.billing_mode,
+      kind: "pause",
+    });
+  }
 
   if (!written) {
     await updateBillingJob(job.id, {
-      status: "done",
-      last_error: "stale_desired_skipped",
-      completed_at: now,
+      status: "failed",
+      last_error: "actual_write_failed",
+      run_after: new Date(now.getTime() + 15 * 60_000),
     });
-    return { reportSuccess: false, actual: fresh.hosting_state_actual };
+    return { reportSuccess: false, actual: applied.actual };
   }
+
+  const mismatchError = applied.enqueueResume
+    ? "desired_mismatch_queued_resume"
+    : applied.enqueuePause
+      ? "desired_mismatch_queued_pause"
+      : null;
 
   await updateBillingJob(job.id, {
     status: applied.jobStatus,
     provider_ref: providerResult.providerRef ?? job.provider_ref,
-    last_error: providerResult.error ?? null,
+    last_error: providerResult.error ?? mismatchError,
     completed_at: applied.jobStatus === "done" ? now : null,
     run_after:
       applied.jobStatus === "pending" || applied.jobStatus === "failed"

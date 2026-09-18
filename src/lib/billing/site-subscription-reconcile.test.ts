@@ -228,7 +228,115 @@ describe("processHostingJob", () => {
       "sub_1",
       "live",
       expect.objectContaining({ hosting_state_actual: "pausing" }),
-      { expectedDesired: "paused" },
+    );
+  });
+
+  it("bokför paused och köar resume när desired blir active under pågående pause", async () => {
+    let releasePause;
+    let markPauseStarted;
+    const pauseStarted = new Promise((resolve) => {
+      markPauseStarted = resolve;
+    });
+    pause.mockImplementation(() => {
+      markPauseStarted();
+      return new Promise((resolve) => {
+        releasePause = resolve;
+      });
+    });
+
+    let desired = "paused";
+    getSiteSubscriptionById.mockImplementation(async () => ({
+      ...row(desired, "live"),
+    }));
+    claimRunnableBillingJob.mockResolvedValue(liveJob);
+    updateSiteSubscription.mockImplementation(async (_id, _mode, patch) => ({
+      ...row(desired, "live"),
+      ...patch,
+    }));
+
+    const now = new Date("2026-09-15T12:00:00.000Z");
+    const running = processHostingJob(liveJob, now);
+    await pauseStarted;
+    desired = "active";
+    releasePause({
+      ok: true,
+      written: true,
+      confirmed: true,
+      code: "paused",
+    });
+    const result = await running;
+
+    const actualWrites = updateSiteSubscription.mock.calls.map((call) => call[2]?.hosting_state_actual);
+    expect(actualWrites).toContain("paused");
+    expect(actualWrites).not.toContain("active");
+    expect(insertBillingJob).toHaveBeenCalledWith({
+      subscriptionId: "sub_1",
+      billingMode: "live",
+      kind: "resume",
+    });
+    expect(result.actual).toBe("paused");
+    expect(result.reportSuccess).toBe(false);
+    expect(updateBillingJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        status: "done",
+        last_error: "desired_mismatch_queued_resume",
+      }),
+    );
+  });
+
+  it("bokför active och köar pause när desired blir paused under pågående restore", async () => {
+    const resumeJob = { ...liveJob, kind: "resume", open_job_key: "resume:sub_1" };
+    let releaseRestore;
+    let markRestoreStarted;
+    const restoreStarted = new Promise((resolve) => {
+      markRestoreStarted = resolve;
+    });
+    restore.mockImplementation(() => {
+      markRestoreStarted();
+      return new Promise((resolve) => {
+        releaseRestore = resolve;
+      });
+    });
+
+    let desired = "active";
+    getSiteSubscriptionById.mockImplementation(async () => ({
+      ...row(desired, "live"),
+    }));
+    claimRunnableBillingJob.mockResolvedValue(resumeJob);
+    updateSiteSubscription.mockImplementation(async (_id, _mode, patch) => ({
+      ...row(desired, "live"),
+      ...patch,
+    }));
+
+    const now = new Date("2026-09-15T12:00:00.000Z");
+    const running = processHostingJob(resumeJob, now);
+    await restoreStarted;
+    desired = "paused";
+    releaseRestore({
+      ok: true,
+      written: true,
+      confirmed: true,
+      code: "restored",
+    });
+    const result = await running;
+
+    const actualWrites = updateSiteSubscription.mock.calls.map((call) => call[2]?.hosting_state_actual);
+    expect(actualWrites).toContain("active");
+    expect(actualWrites).not.toContain("paused");
+    expect(insertBillingJob).toHaveBeenCalledWith({
+      subscriptionId: "sub_1",
+      billingMode: "live",
+      kind: "pause",
+    });
+    expect(result.actual).toBe("active");
+    expect(result.reportSuccess).toBe(false);
+    expect(updateBillingJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        status: "done",
+        last_error: "desired_mismatch_queued_pause",
+      }),
     );
   });
 });

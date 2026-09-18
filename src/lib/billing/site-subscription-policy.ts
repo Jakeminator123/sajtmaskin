@@ -724,11 +724,19 @@ export type HostingJobApplyResult = {
   resumedAt: Date | null;
   retainUntil: Date | null;
   reportSuccess: boolean;
+  enqueuePause: boolean;
+  enqueueResume: boolean;
 };
+
+function desiredWantsOnline(desired: HostingDesiredState): boolean {
+  return desired !== "paused";
+}
 
 /**
  * Providerfel får aldrig bokföras som lyckad paus.
- * Ett senare betalt/återaktiverat desired=active vinner över ett gammalt pausjobb.
+ * Bekräftat providerresultat kastas inte bara för att desired ändrats under I/O:
+ * actual följer beviset, mismatch köar kompensation, och reportSuccess är
+ * fail-closed tills actual kan konvergera mot current desired.
  */
 export function applyHostingProviderResult(input: {
   kind: "pause" | "resume";
@@ -743,27 +751,9 @@ export function applyHostingProviderResult(input: {
     code?: string;
   };
 }): HostingJobApplyResult {
-  if (input.kind === "pause" && input.desired === "active") {
-    return {
-      actual: "active",
-      jobStatus: "done",
-      pausedAt: null,
-      resumedAt: null,
-      retainUntil: null,
-      reportSuccess: true,
-    };
-  }
-
-  if (input.kind === "resume" && input.desired === "paused") {
-    return {
-      actual: "paused",
-      jobStatus: "done",
-      pausedAt: null,
-      resumedAt: null,
-      retainUntil: null,
-      reportSuccess: true,
-    };
-  }
+  const confirmed = input.provider.ok && input.provider.confirmed;
+  const mismatchPause = input.kind === "pause" && desiredWantsOnline(input.desired);
+  const mismatchResume = input.kind === "resume" && input.desired === "paused";
 
   if (input.kind === "resume" && !input.lastPublishedRef) {
     return {
@@ -773,38 +763,45 @@ export function applyHostingProviderResult(input: {
       resumedAt: null,
       retainUntil: null,
       reportSuccess: false,
+      enqueuePause: false,
+      enqueueResume: false,
     };
   }
 
-  if (!input.provider.ok || !input.provider.confirmed) {
+  if (confirmed) {
+    if (input.kind === "pause") {
+      return {
+        actual: "paused",
+        jobStatus: "done",
+        pausedAt: input.now,
+        resumedAt: null,
+        retainUntil: computeRetainUntil(input.now, input.retentionDays),
+        reportSuccess: !mismatchPause,
+        enqueuePause: false,
+        enqueueResume: mismatchPause,
+      };
+    }
     return {
-      actual: input.kind === "pause" ? "pausing" : "resuming",
-      jobStatus: input.provider.code === "writes_disabled" ? "pending" : "failed",
-      pausedAt: null,
-      resumedAt: null,
-      retainUntil: null,
-      reportSuccess: false,
-    };
-  }
-
-  if (input.kind === "pause") {
-    return {
-      actual: "paused",
+      actual: "active",
       jobStatus: "done",
-      pausedAt: input.now,
-      resumedAt: null,
-      retainUntil: computeRetainUntil(input.now, input.retentionDays),
-      reportSuccess: true,
+      pausedAt: null,
+      resumedAt: input.now,
+      retainUntil: null,
+      reportSuccess: !mismatchResume,
+      enqueuePause: mismatchResume,
+      enqueueResume: false,
     };
   }
 
   return {
-    actual: "active",
-    jobStatus: "done",
+    actual: input.kind === "pause" ? "pausing" : "resuming",
+    jobStatus: input.provider.code === "writes_disabled" ? "pending" : "failed",
     pausedAt: null,
-    resumedAt: input.now,
+    resumedAt: null,
     retainUntil: null,
-    reportSuccess: true,
+    reportSuccess: false,
+    enqueuePause: mismatchResume,
+    enqueueResume: mismatchPause,
   };
 }
 

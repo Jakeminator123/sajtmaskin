@@ -955,8 +955,8 @@ describe("providerfel och återställning", () => {
     expect(failed.jobStatus).toBe("failed");
   });
 
-  it("skriver inte över senare betalt tillstånd med ett gammalt pausjobb", () => {
-    const skipped = applyHostingProviderResult({
+  it("bokför bevisad paus och köar resume när desired blivit active under I/O", () => {
+    const applied = applyHostingProviderResult({
       kind: "pause",
       desired: "active",
       now,
@@ -964,8 +964,27 @@ describe("providerfel och återställning", () => {
       lastPublishedRef: "dpl:abc",
       provider: { ok: true, written: true, confirmed: true },
     });
-    expect(skipped.actual).toBe("active");
-    expect(skipped.jobStatus).toBe("done");
+    expect(applied.actual).toBe("paused");
+    expect(applied.jobStatus).toBe("done");
+    expect(applied.enqueueResume).toBe(true);
+    expect(applied.enqueuePause).toBe(false);
+    expect(applied.reportSuccess).toBe(false);
+  });
+
+  it("bokför bevisad restore och köar pause när desired blivit paused under I/O", () => {
+    const applied = applyHostingProviderResult({
+      kind: "resume",
+      desired: "paused",
+      now,
+      retentionDays: 90,
+      lastPublishedRef: "dpl:abc",
+      provider: { ok: true, written: true, confirmed: true },
+    });
+    expect(applied.actual).toBe("active");
+    expect(applied.jobStatus).toBe("done");
+    expect(applied.enqueuePause).toBe(true);
+    expect(applied.enqueueResume).toBe(false);
+    expect(applied.reportSuccess).toBe(false);
   });
 
   it("återställer bara senast publicerad version, aldrig utkast", () => {
