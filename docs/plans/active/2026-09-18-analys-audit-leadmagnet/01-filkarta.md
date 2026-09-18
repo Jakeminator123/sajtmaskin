@@ -9,11 +9,12 @@
 |---|---|---|
 | POST-yta | [`src/app/api/audit/route.ts`](../../../../src/app/api/audit/route.ts) | `POST`, `maxDuration` |
 | Handler | [`src/app/api/audit/modules/handler.ts`](../../../../src/app/api/audit/modules/handler.ts) | `POST` |
-| Schema / modeller | [`src/app/api/audit/modules/schema.ts`](../../../../src/app/api/audit/modules/schema.ts) | `AUDIT_AI_SCHEMA` |
+| Schema / modeller | [`src/app/api/audit/modules/schema.ts`](../../../../src/app/api/audit/modules/schema.ts) | `AUDIT_AI_SCHEMA` (publik + Avancerad), `AUDIT_AI_SCHEMA_BASIC` (betald Vanlig) |
+| Nivåsemantik | [`src/lib/audit/audit-tier.ts`](../../../../src/lib/audit/audit-tier.ts) | `resolveAuditRun` — publik tvingas till Luna/4 sidor/fullt schema |
 | Validering / fallback | [`src/app/api/audit/modules/analysis.ts`](../../../../src/app/api/audit/modules/analysis.ts) | `validateAuditResult` |
-| Prompt | [`src/lib/audit-prompts.ts`](../../../../src/lib/audit-prompts.ts) | `buildAuditPrompt` |
+| Prompt | [`src/lib/audit-prompts.ts`](../../../../src/lib/audit-prompts.ts) | `buildPublicAnalysPrompt`, `buildAuditPrompt` |
 | Typer | [`src/types/audit.ts`](../../../../src/types/audit.ts) | `AuditResult`, `AuditMode` |
-| Scrape + URL | [`src/lib/webscraper.ts`](../../../../src/lib/webscraper.ts) | `scrapeWebsite`, `validateAndNormalizeUrl`, `getCanonicalUrlKey` |
+| Scrape + URL | [`src/lib/webscraper.ts`](../../../../src/lib/webscraper.ts) | `scrapeWebsite(url, { maxPages })`, `validateAndNormalizeUrl`, `getCanonicalUrlKey` |
 | SSRF | [`src/lib/ssrf-guard.ts`](../../../../src/lib/ssrf-guard.ts) | `validateSsrfTarget` |
 | Källkods-SEO (annan sak) | [`src/lib/seo/audit.ts`](../../../../src/lib/seo/audit.ts) | — |
 
