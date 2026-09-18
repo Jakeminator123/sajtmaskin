@@ -368,8 +368,18 @@ export function SkapaHemsidaContent() {
             <div className="mx-auto grid max-w-6xl items-start gap-4 lg:grid-cols-2">
               <div className="rounded-[28px] border border-border/40 bg-card/70 p-6 md:p-8">
                 <h2 className="font-(--font-heading) text-xl text-foreground md:text-2xl">
-                  Vad en företagssida brukar behöva
+                  Minsta v1 innan ni väljer verktyg
                 </h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Det här är startytan, oavsett byrå, CMS eller AI.{" "}
+                  <Link
+                    href="/hemsida-till-foretag"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    Hemsida till företag
+                  </Link>{" "}
+                  går djupare på förtroende och förfrågningar.
+                </p>
                 <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted-foreground">
                   {SITE_NEEDS.map((item) => (
                     <li key={item} className="flex gap-3">
@@ -468,8 +478,8 @@ export function SkapaHemsidaContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Den här sidan är teknikneutral. AI-processen, hemsideprogram och vad en hemsida
-                  kostar ligger på egna sidor.
+                  Den här sidan är teknikneutral. AI-processen, företagssidan, hemsideprogram och
+                  vad en hemsida kostar ligger på egna sidor.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

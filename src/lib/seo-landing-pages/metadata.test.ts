@@ -20,6 +20,19 @@ describe("SEO landing metadata", () => {
       expect(metadata.alternates).toEqual({
         canonical: `${URLS.baseUrl}/${page.slug}`,
       });
+      expect(metadata.openGraph).toEqual({
+        title: metadata.title,
+        description: metadata.description,
+        url: `${URLS.baseUrl}/${page.slug}`,
+        type: "website",
+        locale: "sv_SE",
+        siteName: "Sajtmaskin",
+      });
+      expect(metadata.twitter).toEqual({
+        card: "summary_large_image",
+        title: metadata.title,
+        description: metadata.description,
+      });
     }
   });
 
@@ -41,5 +54,9 @@ describe("SEO landing metadata", () => {
     expect(metadata.alternates).toEqual({
       canonical: `${URLS.baseUrl}/skapa-hemsida-med-ai`,
     });
+    expect(metadata.openGraph?.url).toBe(`${URLS.baseUrl}/skapa-hemsida-med-ai`);
+    expect(metadata.twitter).toEqual(
+      expect.objectContaining({ card: "summary_large_image" }),
+    );
   });
 });

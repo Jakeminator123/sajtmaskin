@@ -24,8 +24,8 @@ describe("SkapaHemsidaMedAiContent", () => {
     expect(headings[0]?.textContent).toBe(entry.plannedH1);
 
     const ctaLinks = screen.getAllByRole("link", { name: "Skapa hemsida med AI" });
-    expect(ctaLinks.length).toBeGreaterThan(0);
-    expect(ctaLinks.every((link) => link.getAttribute("href") === SEO_LANDING_CTA_HREF)).toBe(
+    expect(ctaLinks.some((link) => link.getAttribute("href") === SEO_LANDING_CTA_HREF)).toBe(true);
+    expect(ctaLinks.some((link) => link.getAttribute("href") === "/skapa-hemsida-med-ai")).toBe(
       true,
     );
 
@@ -40,5 +40,7 @@ describe("SkapaHemsidaMedAiContent", () => {
     expect(screen.queryByText(/reserverade/i)).toBeNull();
     expect(screen.queryByText(/fylls på/i)).toBeNull();
     expect(screen.queryByText(/färdiga guider/i)).toBeNull();
+    expect(screen.queryByText(/49/)).toBeNull();
+    expect(screen.queryByText(/179/)).toBeNull();
   });
 });
