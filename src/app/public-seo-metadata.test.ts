@@ -6,12 +6,19 @@ import { metadata as projectsMetadata } from "./projects/layout";
 import { metadata as auditsMetadata } from "./audits/layout";
 import { metadata as buyCreditsMetadata } from "./buy-credits/layout";
 import { metadata as kontoMetadata } from "./konto/layout";
+import { metadata as homeMetadata } from "./page";
 import { metadata as omMetadata } from "./om/page";
 import { generateMetadata as generateCategoryMetadata } from "./category/[type]/layout";
 
 const NOINDEX = { index: false, follow: false };
 
 describe("public and private SEO metadata", () => {
+  it("gives the homepage a self canonical on sajtmaskin.se", () => {
+    expect(homeMetadata.alternates).toEqual({
+      canonical: PUBLIC_CANONICAL_ORIGIN,
+    });
+  });
+
   it("gives public information pages a self canonical on sajtmaskin.se", () => {
     expect(omMetadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/om`,
