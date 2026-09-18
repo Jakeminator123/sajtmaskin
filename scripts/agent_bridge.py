@@ -51,6 +51,18 @@ REMOTE_SLUG_RE = re.compile(
 )
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 REQUEST_ID_RE = re.compile(r"^[A-Z]+-[0-9]{2}-[0-9]{8}T[0-9]{6}Z-[0-9]+$")
+COACH_SCALAR_KEYS = frozenset(
+    {
+        "request_id",
+        "in_reply_to",
+        "agent_id",
+        "role",
+        "task",
+        "decision",
+        "priority",
+    }
+)
+COACH_MULTILINE_KEYS = frozenset({"message", "evidence", "requested_decision", "guards"})
 TOKEN_RE = re.compile(
     r"(?:ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{20,}"
     r"|sk-[A-Za-z0-9]{20,}"
@@ -541,11 +553,25 @@ def format_agent_message(
     )
 
 
+def first_nonempty_line(body: str) -> str:
+    for raw_line in body.replace("\r\n", "\n").split("\n"):
+        stripped = raw_line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def correlatable_request_id(request_id: str | None, state: Mapping[str, Any]) -> str | None:
+    wanted = (request_id or str(state.get("last_request_id") or "") or "").strip()
+    if wanted and REQUEST_ID_RE.fullmatch(wanted):
+        return wanted
+    return None
+
+
 def parse_coach_fields(body: str) -> dict[str, str]:
     fields: dict[str, str] = {}
     current: str | None = None
     chunks: list[str] = []
-    multiline = {"message", "evidence", "requested_decision", "guards"}
 
     def flush() -> None:
         nonlocal current, chunks
@@ -560,19 +586,26 @@ def parse_coach_fields(body: str) -> dict[str, str]:
         if line in {COACH_MARKER_V1, COACH_MARKER_LEGACY, AGENT_MARKER}:
             continue
         match = re.fullmatch(r"([a-z_]+):\s*(.*)", line)
-        if match and (match.group(1) in multiline or current is None or match.group(1) not in multiline):
+        if match:
             key = match.group(1)
             value = match.group(2)
-            if key in multiline:
+            if current in COACH_MULTILINE_KEYS:
+                if key in COACH_MULTILINE_KEYS:
+                    flush()
+                    current = key
+                    chunks = [value] if value else []
+                    continue
+                chunks.append(line)
+                continue
+            if key in COACH_MULTILINE_KEYS:
                 flush()
                 current = key
                 chunks = [value] if value else []
                 continue
-            if current in multiline and not value:
+            if key in COACH_SCALAR_KEYS:
+                flush()
+                fields[key] = value.strip()
                 continue
-            flush()
-            fields[key] = value.strip()
-            continue
         if current is not None:
             chunks.append(line)
     flush()
@@ -637,10 +670,11 @@ def parse_coach_comments(
         body = item.get("body")
         if not isinstance(body, str) or len(body) > MAX_COMMENT_CHARS:
             continue
-        if COACH_MARKER_V1 in body:
+        first = first_nonempty_line(body)
+        if first == COACH_MARKER_V1:
             marker = COACH_MARKER_V1
             version = 1
-        elif COACH_MARKER_LEGACY in body:
+        elif first == COACH_MARKER_LEGACY:
             marker = COACH_MARKER_LEGACY
             version = 0
         else:
@@ -679,7 +713,7 @@ def select_coach_response(
             continue
         if comment.agent_id and comment.agent_id != agent_id:
             continue
-        if require_request_id and request_id and comment.request_id != request_id:
+        if require_request_id and (not request_id or comment.request_id != request_id):
             continue
         if posted_at and comment.created_at and comment.created_at < posted_at:
             if not (request_id and comment.request_id == request_id):
@@ -889,7 +923,10 @@ def cmd_read(
 ) -> int:
     assert_repository_matches_origin(config, detect_origin_slug(runner, paths.root))
     state = load_state(paths.state)
-    wanted = request_id or (str(state.get("last_request_id") or "") or None)
+    wanted = correlatable_request_id(request_id, state)
+    if require_request_id and wanted is None:
+        print("read/wait requires a correlatable request_id", file=sys.stderr)
+        return EXIT_USAGE
     comments = list_bridge_comments(runner, paths.root, config)
     match = select_coach_response(
         comments,
@@ -922,6 +959,10 @@ def cmd_wait(
         raise BridgeError(f"timeout must be 1..{MAX_WAIT_TIMEOUT}")
     if interval < 1 or interval > MAX_WAIT_INTERVAL:
         raise BridgeError(f"interval must be 1..{MAX_WAIT_INTERVAL}")
+    wanted = correlatable_request_id(request_id, load_state(paths.state))
+    if wanted is None:
+        raise BridgeError("wait requires a correlatable request_id")
+    request_id = wanted
     deadline = now_fn() + timeout
     last_code = EXIT_NO_RESPONSE
     while True:

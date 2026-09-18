@@ -115,10 +115,14 @@ Kräver uppgiften merge, `master`/produktion, force-push, DB-/provider-write
 eller secrets-ändring svarar agenten `BLOCKED` och namnger mandatet.
 
 `read` / `wait` letar efter `[COACH→AGENT:v1]` **endast** från en betrodd
-GitHub-author. Default-allowlist är repoägaren (samma identitet som
-`trustedAccountReviewActors`). Valfri config-nyckel `coach_authors` ersätter
-default och får inte vara tom. Saknad eller fel author ignoreras fail-closed
-även om `agent_id` och `request_id` matchar.
+GitHub-author, och bara när den första icke-tomma raden är exakt
+coach-markören. En `[AGENT→COACH:v1]`-post som citerar coach-markören senare
+i body är inte ett coach-svar. Default-allowlist är repoägaren (samma
+identitet som `trustedAccountReviewActors`). Valfri config-nyckel
+`coach_authors` ersätter default och får inte vara tom. Saknad eller fel
+author ignoreras fail-closed även om `agent_id` och `request_id` matchar.
+Rader inuti `message` som ser ut som `request_id:` eller `agent_id:` skriver
+inte över top-level-fälten.
 
 Därefter matchas `agent_id`, och `request_id` föredras. En äldre
 `[COACH→AGENT]`-kommentar utan `agent_id` kan läsas som broadcast men vinner
@@ -133,7 +137,8 @@ ut. Concatenerade JSON-sidor parsas också.
 2. Avvisa coach-rad med annat `agent_id`.
 3. Träff med samma `request_id` vinner.
 4. Annars senaste v1 för samma `agent_id`.
-5. `wait` efter en post kräver `request_id` eller kommentar skapad efter posten.
+5. `wait` kräver ett korrelerbart `request_id` (flagga eller `state.json`).
+   Saknas det: fel, ingen generell match.
 6. Ingen träff → exit 3. Skriv inte över `.agent-bridge/latest-response.md`.
 
 ## Postning

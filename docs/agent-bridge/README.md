@@ -189,5 +189,7 @@ När Coach behövs: `Kör /bryggagent.`
 ## Tester
 
 ```powershell
-python -m unittest discover -s scripts -p "test_agent_bridge.py"
+npm run test:agent-bridge
 ```
+
+Samma svit körs i required `quality-contracts` (aggregatet `quality`).

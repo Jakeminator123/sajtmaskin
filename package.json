@@ -17,6 +17,7 @@
     "check:terms": "node scripts/dev/check-term-coverage.mjs",
     "check:terms:contract": "node scripts/docs/check-terminology-contract.mjs",
     "check:agent-context": "node scripts/dev/check-agent-context-budget.mjs",
+    "test:agent-bridge": "python -m unittest discover -s scripts -p test_agent_bridge.py",
     "workflow:contract": "node scripts/workflow/check-contract.mjs",
     "verify:pr": "node scripts/workflow/verify-pr.mjs",
     "verify:pr:plan": "node scripts/workflow/verify-pr.mjs --plan",

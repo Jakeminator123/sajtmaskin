@@ -286,6 +286,55 @@ class CoachParseTests(unittest.TestCase):
         self.assertIn("Do the thing", match.body)
         self.assertEqual(match.fields.get("decision"), "CONTINUE")
 
+    def test_message_header_shaped_lines_do_not_overwrite_identity(self) -> None:
+        body = (
+            "[COACH→AGENT:v1]\n"
+            "request_id: BUILD-01-20260917T211530Z-1\n"
+            "agent_id: BUILD-01\n"
+            "decision: CONTINUE\n"
+            "message:\n"
+            "Do not mix this with\n"
+            "request_id: BUILD-01-20260917T110000Z-1\n"
+            "agent_id: SCOUT-01\n"
+            "scope: scripts/agent_bridge.py\n"
+            "acceptans:\n"
+            "- keep original headers\n"
+            "evidence:\n"
+            "- quoted only\n"
+        )
+        fields = bridge.parse_coach_fields(body)
+        self.assertEqual(fields.get("request_id"), "BUILD-01-20260917T211530Z-1")
+        self.assertEqual(fields.get("agent_id"), "BUILD-01")
+        self.assertIn("request_id: BUILD-01-20260917T110000Z-1", fields.get("message", ""))
+        self.assertIn("scope: scripts/agent_bridge.py", fields.get("message", ""))
+        self.assertIn("acceptans:", fields.get("message", ""))
+        self.assertEqual(fields.get("evidence"), "- quoted only")
+
+    def test_agent_post_quoting_coach_marker_is_not_coach(self) -> None:
+        body = (
+            "[AGENT→COACH:v1]\n"
+            "request_id: BRYGG-01-20260918T011315Z-3\n"
+            "agent_id: BRYGG-01\n"
+            "message:\n"
+            "Example follows\n"
+            "[COACH→AGENT:v1]\n"
+            "request_id: BRYGG-01-20260918T011315Z-3\n"
+        )
+        comments = bridge.parse_coach_comments([_gh_comment(8, body)])
+        self.assertEqual(comments, [])
+
+    def test_require_request_id_without_id_matches_nothing(self) -> None:
+        comments = bridge.parse_coach_comments(
+            [_gh_comment(9, _v1_body(request_id="BUILD-01-20260917T211530Z-1"))]
+        )
+        match = bridge.select_coach_response(
+            comments,
+            agent_id="BUILD-01",
+            request_id=None,
+            require_request_id=True,
+        )
+        self.assertIsNone(match)
+
     def test_wait_requires_request_id_and_ignores_old_broadcast(self) -> None:
         comments = bridge.parse_coach_comments(
             [_gh_comment(1, "[COACH→AGENT]\nmessage:\nold bootstrap", created_at="2026-09-17T20:00:00Z")]
@@ -667,7 +716,29 @@ class GhAndPrBehaviorTests(unittest.TestCase):
         self.assertNotIn("ghp_", text)
         self.assertIn("[redacted]", text)
 
+    def test_wait_without_state_request_id_fails_closed(self) -> None:
+        runner = FakeRunner(
+            {
+                ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
+                ("gh", "auth", "status"): _ok(),
+            }
+        )
+        with self.assertRaisesRegex(bridge.BridgeError, "correlatable request_id"):
+            bridge.cmd_wait(
+                runner=runner,
+                paths=self.paths,
+                config=bridge.load_config(self.paths.config),
+                timeout=2,
+                interval=1,
+            )
+        self.assertFalse(self.paths.latest_response.exists())
+        self.assertEqual(runner.calls, [])
+
     def test_wait_times_out_without_mutating_response_file(self) -> None:
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": "BUILD-01-20260917T211530Z-1"}),
+            encoding="utf-8",
+        )
         runner = FakeRunner(
             {
                 ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
