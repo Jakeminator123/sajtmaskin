@@ -5,6 +5,7 @@ import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
 import {
+  getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
@@ -150,9 +151,7 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
-export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
-  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
-}
+export const readyRelatedSeoLandingSlugs = getReadyRelatedSeoLandingSlugs;
 
 export function WordpressAlternativContent() {
   const entry = getSeoLandingEntry(SLUG);
@@ -188,7 +187,7 @@ export function WordpressAlternativContent() {
               size="sm"
               className="bg-primary text-primary-foreground hover:bg-primary-hover"
             >
-              <Link href={entry.ctaHref}>Testa Sajtmaskin</Link>
+              <Link href={entry.ctaHref}>Prova med er beskrivning</Link>
             </Button>
           </div>
         </header>
@@ -209,7 +208,7 @@ export function WordpressAlternativContent() {
                   Den här sidan är skriven av Sajtmaskin.
                 </p>
                 <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-                  <CtaButton>Testa Sajtmaskin</CtaButton>
+                  <CtaButton>Prova med er beskrivning</CtaButton>
                   <Button
                     asChild
                     size="lg"
@@ -406,7 +405,7 @@ export function WordpressAlternativContent() {
                 underhållsyta mot er WordPress-plan.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <CtaButton>Testa Sajtmaskin</CtaButton>
+                <CtaButton>Prova med er beskrivning</CtaButton>
                 <Button
                   asChild
                   size="lg"

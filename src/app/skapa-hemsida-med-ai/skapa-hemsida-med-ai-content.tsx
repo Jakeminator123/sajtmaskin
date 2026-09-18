@@ -5,6 +5,7 @@ import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
 import {
+  getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
@@ -129,7 +130,7 @@ const FAQS = [
   },
   {
     q: "Vad kostar det?",
-    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter köper du credits i engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan — inga belopp i den här texten.",
+    a: "Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan coin-debitering. Därefter köper du credits i engångspaket, utan prenumeration. Publicering debiterar credits. Aktuella paket finns på prissidan — inga belopp här, de ändras.",
   },
 ] as const;
 
@@ -208,13 +209,9 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
-export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
-  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
-}
-
 export function SkapaHemsidaMedAiContent() {
   const entry = getSeoLandingEntry(SLUG);
-  const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
+  const readyRelated = getReadyRelatedSeoLandingSlugs(entry.relatedSlugs);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">

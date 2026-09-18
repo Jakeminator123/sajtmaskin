@@ -19,4 +19,19 @@ describe("Footer", () => {
     expect(screen.getByRole("link", { name: "GDPR" }).getAttribute("href")).toBe("/privacy#gdpr");
     expect(screen.getByRole("link", { name: "Cookies" }).getAttribute("href")).toBe("/privacy#cookies");
   });
+
+  it("exposes a discrete Guider section into the SEO cluster", () => {
+    render(<Footer />);
+
+    expect(screen.getByRole("heading", { name: "Guider" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Så skapar du en hemsida" }).getAttribute("href")).toBe(
+      "/skapa-hemsida",
+    );
+    expect(screen.getByRole("link", { name: "Vad en hemsida kostar" }).getAttribute("href")).toBe(
+      "/vad-kostar-en-hemsida",
+    );
+    expect(screen.getByRole("link", { name: "Jämför hemsideprogram" }).getAttribute("href")).toBe(
+      "/hemsideprogram",
+    );
+  });
 });
