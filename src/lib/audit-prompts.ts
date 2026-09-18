@@ -2,6 +2,7 @@
  * Prompts for website audit (gateway)
  */
 
+import type { AuditSchemaKind } from "@/lib/audit/audit-tier";
 import type { AuditMode, WebsiteContent } from "@/types/audit";
 
 type PromptMessage = {
@@ -193,7 +194,7 @@ VIKTIGT FÖR TEMPLATE_DATA:
 ÖVRIGA REGLER:
 - SKRIV ALLTID PÅ SVENSKA - all text, alla förklaringar, alla förslag
 - Var specifik och detaljerad i varje punkt
-- Ge minst 8-10 förbättringsförslag sorterade efter prioritet
+- Ge precis det antal förbättringsförslag som läget kräver, sorterade efter prioritet
 - Inkludera konkreta kodexempel där relevant
 - Budgetuppskattningar ska vara realistiska för svenska marknaden (SEK)
 - Jämför mot branschstandarder med rimliga antaganden
@@ -201,27 +202,76 @@ VIKTIGT FÖR TEMPLATE_DATA:
 - Svara ENDAST med JSON, ingen Markdown eller annan text
 - Alla strängar i JSON ska vara på svenska`;
 
+export type BuildAuditPromptOptions = {
+  auditMode?: AuditMode;
+  schemaKind?: AuditSchemaKind;
+  maxPages?: number;
+};
+
+function modeInstructionsFor(options: {
+  auditMode: AuditMode;
+  schemaKind: AuditSchemaKind;
+}): string {
+  if (options.schemaKind === "core") {
+    return `
+
+LÄGE: VANLIG
+- Snabb, konkret webbplatsgenomgång. Inte ett affärs- eller research-underlag.
+- Fokusera på teknisk grund, SEO på sajten, copy/innehåll, UX/tydlighet och mobil/tillgänglighet.
+- Ge 6–8 användbara förbättringar. Hellre färre bra än utfyllnad.
+- Generera INTE business_profile, market_context, customer_segments, competitive_landscape eller competitor_insights. De fälten tillhör Avancerad och finns inte i det här schemat.`;
+  }
+
+  if (options.auditMode === "advanced") {
+    return `
+
+LÄGE: AVANCERAD
+- Gör en bredare marknads- och affärsanalys.
+- Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.
+- Fyll business_profile, market_context, customer_segments, competitive_landscape och competitor_insights med djup och konkreta antaganden.
+- Ge minst 12 prioriterade förbättringar med mer detaljerade varför/hur.
+- Använd web research när verktyget finns, men påstå inget du inte kan stödja.`;
+  }
+
+  return `
+
+LÄGE: VANLIG
+- Håll affärssektionerna korta men konkreta.
+- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.
+- Ge 6–8 användbara förbättringar.`;
+}
+
 /**
- * Build the audit prompt for structured website analysis
- * @param websiteContent - Scraped website content
- * @param url - Original URL
- * @returns Formatted prompt messages
+ * Build the audit prompt for structured website analysis.
+ * `schemaKind: "core"` is the paid Vanlig path (no Advanced-only fields).
+ * Public `/analys` keeps `schemaKind: "full"` so its projection can still
+ * read audience/industry fields.
  */
 export function buildAuditPrompt(
   websiteContent: WebsiteContent,
   url: string,
-  auditMode: AuditMode = "basic",
+  auditModeOrOptions: AuditMode | BuildAuditPromptOptions = "basic",
 ): PromptMessage[] {
+  const options: Required<BuildAuditPromptOptions> =
+    typeof auditModeOrOptions === "string"
+      ? {
+          auditMode: auditModeOrOptions,
+          schemaKind: auditModeOrOptions === "advanced" ? "full" : "core",
+          maxPages: auditModeOrOptions === "advanced" ? 4 : 2,
+        }
+      : {
+          auditMode: auditModeOrOptions.auditMode === "advanced" ? "advanced" : "basic",
+          schemaKind: auditModeOrOptions.schemaKind ?? "core",
+          maxPages: auditModeOrOptions.maxPages ?? (auditModeOrOptions.auditMode === "advanced" ? 4 : 2),
+        };
+
   // Detect if this is likely a JS-rendered page with minimal scraped content
   const isJsRendered = websiteContent.wordCount < 50;
   const contentNote = isJsRendered
     ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). Gör kvalificerade antaganden där innehåll saknas.`
     : "";
-  const modeLabel = auditMode === "advanced" ? "AVANCERAD" : "VANLIG";
-  const modeInstructions =
-    auditMode === "advanced"
-      ? `\n\nLÄGE: AVANCERAD\n- Gör en bredare marknads- och affärsanalys.\n- Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.\n- Fyll business_profile, market_context, customer_segments och competitive_landscape med djup och konkreta antaganden.\n- Ge fler förbättringsförslag (minst 12) och mer detaljerade varför/hur.\n`
-      : `\n\nLÄGE: VANLIG\n- Håll affärssektionerna korta men konkreta.\n- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.\n`;
+  const modeLabel = options.auditMode === "advanced" ? "AVANCERAD" : "VANLIG";
+  const modeInstructions = modeInstructionsFor(options);
 
   // Build headings section only if we have headings
   const headingsSection =
@@ -237,6 +287,11 @@ export function buildAuditPrompt(
     websiteContent.textPreview && websiteContent.textPreview.length > 10
       ? `\nTEXTINNEHÅLL (första ~800 tecken):\n${websiteContent.textPreview}`
       : "\nTEXTINNEHÅLL: Kunde inte hämtas (troligen JS-renderad sida)";
+
+  const sampledUrls =
+    websiteContent.sampledUrls && websiteContent.sampledUrls.length > 0
+      ? websiteContent.sampledUrls
+      : [websiteContent.url];
 
   return [
     {
@@ -257,12 +312,9 @@ export function buildAuditPrompt(
 
 AUDIT-LÄGE: ${modeLabel} (du MÅSTE sätta "audit_mode" till detta värde)
 
-ANALYSERADE SIDOR (upp till 4):
-${(websiteContent.sampledUrls && websiteContent.sampledUrls.length > 0
-  ? websiteContent.sampledUrls
-  : [websiteContent.url]
-)
-  .slice(0, 4)
+ANALYSERADE SIDOR (upp till ${options.maxPages}):
+${sampledUrls
+  .slice(0, options.maxPages)
   .map((u, i) => `${i + 1}. ${u}`)
   .join("\n")}
 
@@ -297,9 +349,11 @@ GÖR EN KOMPLETT ANALYS AV:
 6. Tillgänglighet - WCAG, skärmläsare
 7. Säkerhet - HTTPS, headers, GDPR
 8. Mobilvänlighet - Responsive design
-
-Gör rimliga antaganden om konkurrenter i samma bransch.
-
+${
+  options.schemaKind === "full"
+    ? "\nGör rimliga antaganden om konkurrenter i samma bransch.\n"
+    : "\nGissa inte branschpositionering eller konkurrenter. Håll dig till det som syns på sajten.\n"
+}
 KRITISKT: Svara ENDAST med välformaterad JSON enligt schemat. Ingen markdown, ingen text före eller efter JSON-objektet. Börja direkt med { och sluta med }.`,
         },
       ],
@@ -339,7 +393,11 @@ export function buildPublicAnalysPrompt(
   websiteContent: WebsiteContent,
   url: string,
 ): PromptMessage[] {
-  const base = buildAuditPrompt(websiteContent, url, "basic");
+  const base = buildAuditPrompt(websiteContent, url, {
+    auditMode: "basic",
+    schemaKind: "full",
+    maxPages: 4,
+  });
   const system = base[0];
   if (!system) return base;
   return [

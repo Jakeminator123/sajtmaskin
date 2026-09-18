@@ -409,6 +409,27 @@ const AUDIT_AI_SCHEMA = {
   ],
 } as const;
 
+const AUDIT_ADVANCED_ONLY_SCHEMA_KEYS = new Set([
+  "business_profile",
+  "market_context",
+  "customer_segments",
+  "competitive_landscape",
+  "competitor_insights",
+]);
+
+const AUDIT_AI_SCHEMA_BASIC_PROPERTIES = Object.fromEntries(
+  Object.entries(AUDIT_AI_SCHEMA.properties).filter(
+    ([key]) => !AUDIT_ADVANCED_ONLY_SCHEMA_KEYS.has(key),
+  ),
+);
+
+const AUDIT_AI_SCHEMA_BASIC = {
+  type: "object",
+  additionalProperties: false,
+  properties: AUDIT_AI_SCHEMA_BASIC_PROPERTIES,
+  required: AUDIT_AI_SCHEMA.required.filter((key) => !AUDIT_ADVANCED_ONLY_SCHEMA_KEYS.has(key)),
+} as const;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SCHEMA SANITY CHECK - runs at module load to catch schema errors early
 // ═══════════════════════════════════════════════════════════════════════════
@@ -469,7 +490,10 @@ function validateStrictSchema(schema: JsonSchemaObject, path: string = "root"): 
 }
 
 // Run schema validation at module load (fails fast in dev)
-const schemaErrors = validateStrictSchema(AUDIT_AI_SCHEMA);
+const schemaErrors = [
+  ...validateStrictSchema(AUDIT_AI_SCHEMA),
+  ...validateStrictSchema(AUDIT_AI_SCHEMA_BASIC, "basic"),
+];
 if (schemaErrors.length > 0) {
   const errorMsg = `[AUDIT SCHEMA ERROR] Invalid JSON schema configuration:\n${schemaErrors.join(
     "\n",
@@ -486,4 +510,5 @@ export {
   PUBLIC_AUDIT_MODEL_CANDIDATES,
   toResponsesModelId,
   AUDIT_AI_SCHEMA,
+  AUDIT_AI_SCHEMA_BASIC,
 };

@@ -526,6 +526,9 @@ export const FEATURES = {
   useResponsesApi:
     Boolean(SECRETS.openaiApiKey) && env.USE_RESPONSES_API !== "false",
 
+  // Not a product-tier gate. Paid Avancerad web search is owned by
+  // `resolveAuditRun` in src/lib/audit/audit-tier.ts. This flag stays as an
+  // env-policy leftover and must not be wired back onto Vanlig or /analys.
   useAuditWebSearch:
     Boolean(SECRETS.openaiApiKey) && env.AUDIT_WEB_SEARCH === "true",
 

@@ -1,3 +1,4 @@
+import { omitAdvancedOnlyFields } from "@/lib/audit/audit-tier";
 import type { AuditMode, AuditResult } from "@/types/audit";
 
 // Cost calculation (for logging/display only)
@@ -23,7 +24,7 @@ function createFallbackResult(
   const isJsRendered = websiteContent.wordCount < 50;
   const companyName = websiteContent.title || domain;
 
-  return {
+  const fallback = {
     audit_mode: auditMode,
     company: companyName,
     audit_scores: {
@@ -330,6 +331,8 @@ function createFallbackResult(
       ? "Sidan är JavaScript-renderad och kunde inte analyseras fullt ut"
       : "AI-analysen returnerade inte giltigt resultat",
   };
+
+  return auditMode === "advanced" ? fallback : omitAdvancedOnlyFields(fallback);
 }
 
 // Validate audit result structure (lenient - accept partial results)

@@ -10,16 +10,12 @@ import {
 } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
 import type { AuditMode, AuditResult } from "@/types/audit";
+import { toResponsesModelId } from "@/app/api/audit/modules/schema";
 import {
-  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
-  AUDIT_STRUCTURED_DEFAULT_MODEL,
-} from "@/lib/gen/defaults";
-import {
-  AUDIT_MODEL_CANDIDATES,
-  PUBLIC_AUDIT_MODEL_CANDIDATES,
-  toResponsesModelId,
-  AUDIT_AI_SCHEMA,
-} from "@/app/api/audit/modules/schema";
+  omitAdvancedOnlyFields,
+  resolveAuditRun,
+  type AuditPromptKind,
+} from "@/lib/audit/audit-tier";
 import {
   USD_TO_SEK,
   createFallbackResult,
@@ -29,7 +25,7 @@ import {
   messageLooksLikeHttp5xx,
 } from "@/app/api/audit/modules/analysis";
 
-export type AuditPromptKind = "product" | "public";
+export type { AuditPromptKind };
 
 export type RunWebsiteAuditSuccess = {
   ok: true;
@@ -83,20 +79,16 @@ export async function runWebsiteAudit(input: {
   requestStartTime: number;
 }): Promise<RunWebsiteAuditSuccess | RunWebsiteAuditFailure> {
   const { normalizedUrl, promptKind, requestId, requestStartTime } = input;
-  const resolvedAuditMode: AuditMode =
-    promptKind === "public" ? "basic" : input.auditMode === "advanced" ? "advanced" : "basic";
-  const modelCandidates =
-    promptKind === "public" ? PUBLIC_AUDIT_MODEL_CANDIDATES : AUDIT_MODEL_CANDIDATES;
-  const primaryModel =
-    promptKind === "public"
-      ? AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL
-      : AUDIT_STRUCTURED_DEFAULT_MODEL;
-  const allowWebSearch = promptKind === "product" && FEATURES.useAuditWebSearch;
+  const run = resolveAuditRun({ promptKind, auditMode: input.auditMode });
+  const resolvedAuditMode = run.mode;
+  const modelCandidates = run.modelCandidates;
+  const primaryModel = run.primaryModel;
+  const allowWebSearch = run.allowWebSearch;
 
   console.info(`[${requestId}] Scraping website...`);
   let websiteContent;
   try {
-    websiteContent = await scrapeWebsite(normalizedUrl);
+    websiteContent = await scrapeWebsite(normalizedUrl, { maxPages: run.maxPages });
     console.info(`[${requestId}] Scraping completed:`, {
       title: websiteContent.title?.substring(0, 50),
       wordCount: websiteContent.wordCount,
@@ -113,7 +105,11 @@ export async function runWebsiteAudit(input: {
   const prompt =
     promptKind === "public"
       ? buildPublicAnalysPrompt(websiteContent, normalizedUrl)
-      : buildAuditPrompt(websiteContent, normalizedUrl, resolvedAuditMode);
+      : buildAuditPrompt(websiteContent, normalizedUrl, {
+          auditMode: resolvedAuditMode,
+          schemaKind: run.schemaKind,
+          maxPages: run.maxPages,
+        });
   const promptMessages = prompt.map((message) => ({
     role: message.role,
     content: message.content.map((part) => part.text).join("\n"),
@@ -141,7 +137,7 @@ export async function runWebsiteAudit(input: {
       .join("\n\n");
 
     console.info(
-      `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${allowWebSearch}, prompt=${promptKind})`,
+      `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
     );
 
     const response = await openai.responses.create({
@@ -152,7 +148,7 @@ export async function runWebsiteAudit(input: {
         format: {
           type: "json_schema",
           name: "website_audit",
-          schema: AUDIT_AI_SCHEMA,
+          schema: run.schema,
           strict: true,
         },
       },
@@ -348,11 +344,17 @@ export async function runWebsiteAudit(input: {
     }
   }
 
+  if (run.schemaKind === "core") {
+    auditResult = omitAdvancedOnlyFields(auditResult as Record<string, unknown>);
+  }
+
   const pricing = getPricingForModel(usedModel);
   const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
   const costSEK = costUSD * USD_TO_SEK;
   console.info(
-    `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, prompt=${promptKind}, tokens=${
+    `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, prompt=${promptKind}, pages=${
+      run.maxPages
+    }, web_search=${allowWebSearch}, web_search_calls=${webSearchCallCount}, tokens=${
       inputTokens + outputTokens
     }, usd=${costUSD.toFixed(4)}, sek=${costSEK.toFixed(2)}, model=${usedModel || "unknown"}`,
   );
@@ -381,7 +383,7 @@ export async function runWebsiteAudit(input: {
       ? "Indikation: sidan verkar JavaScript-renderad (scraper kan missa text)."
       : "Indikation: sidan verkar server-renderad (scraper fångar normalt text bra).",
     `Web search: ${webSearchCallCount > 0 ? "användes" : "användes inte"}.`,
-    "Begränsningar: scraper hämtar max 4 sidor och aggregerar max ~2000 ord.",
+    `Begränsningar: scraper hämtar max ${run.maxPages} sidor och aggregerar max ~2000 ord.`,
   ];
   if (usedFallback) {
     scrapeSummaryNotes.push(
