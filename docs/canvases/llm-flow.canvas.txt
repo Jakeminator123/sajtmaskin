@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "25f883c15",
+    "commit": "d4c4ce4d3",
     "commitDate": "2026-09-18",
     "sinceDays": 14
   },
@@ -256,6 +256,12 @@ const DATA: CanvasData = {
     },
     {
       "prio": "P1",
+      "blocker": true,
+      "kind": "blocker",
+      "fynd": "`SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det g…"
+    },
+    {
+      "prio": "P1",
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-078` Tidigare: `wizard_runs` läs-/skrivbar via publika roller. Live ACL 2026-09-17: RLS på; anon/authenti…"
@@ -283,12 +289,6 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
-    },
-    {
-      "prio": "P1",
-      "blocker": false,
-      "kind": "open",
-      "fynd": "`SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det g…"
     },
     {
       "prio": "P2",

@@ -49,7 +49,7 @@ verifiera och gör housekeeping före **en samlad PR mot preview**. Den PR:n
    vad som fortfarande blockerar öppen lansering. Active-planen stannar för
    `SM-080` och överlämnade releaseåtgärder, inte för en ny A–F-implementation.
 
-## `SM-080` — rekommenderad väg (väntar ratificering)
+## `SM-080` — ratificerad riktning, otunade driftvärden
 
 Scoutläsning 2026-09-18 mot preview-hostens kod. Path-jail #1445
 (`resolveInsideWorkspace` / `isSafeRelativePath` i `workspace-files.js`) skyddar
@@ -61,19 +61,26 @@ startar install, verify och `next dev` med samma OS-identitet, samma
 låter livscykelskript köra på hosten redan vid install. En tredje jail-rematch
 ska därför inte beställas.
 
-**Rekommendation:** behåll kontrollplanet (API, store, preview-proxy) på dagens
-host och kör varje projekt i en egen Fly-mikro-VM, install och verify
-inkluderat. Container-sandbox på samma maskin avvisas: Fly Machines ger sällan
-user-namespaces eller Docker-socket, så den vägen blir i praktiken jail nummer
-tre. Extern sandboxleverantör är möjlig men lägger en ny trust- och dataresa.
+**Ratificerat 2026-09-18** i
+[`docs/decisions/README.md`](../../../decisions/README.md): kontrollplanet (API,
+store, preview-proxy) får ligga kvar på dagens delade host, men varje kundprojekt
+får en egen isolerad Fly Machine där install, verify och dev/runtime körs.
+Syskonprojekt delar inte OS-identitet eller filsystem, globala hemligheter når
+inte projektmaskinen, och obevisad isolering ska fail-closa i stället för att
+falla tillbaka på den delade hosten. Isoleringsprincipen behöver inte beslutas
+igen. Container-sandbox på samma maskin är avfärdad: Fly Machines ger sällan
+user-namespaces eller container-socket, så den vägen blir jail nummer tre.
 
-**Ratificering krävs före bygge.** Valet ändrar host-topologi: en Fly-volym kan
-inte sitta på flera Machines, så `/data`, paketcachen och proxyn måste delas upp
-först. Ägarbeslutet hör i [`docs/decisions/README.md`](../../../decisions/README.md)
-när det fattas, inte här. Acceptansproven ägs av
+**Inte ratificerat — bevisas i en liten pilot:** Machine-size, volymtopologi,
+idle-timeout, pooling/återanvändning och kostnadsoptimering. Lås inte dem som
+permanenta driftvärden innan piloten. Topologin måste ändå delas upp först: en
+Fly-volym kan inte sitta på flera Machines, så `/data`, paketcachen och proxyn
+behöver skiljas från gästerna.
+
+Acceptansproven ägs av
 [`preview-host/README.md`](../../../../preview-host/README.md) § Öppen
-lanseringsblocker och ska köras i en disposabel miljö med syntetiska data —
-gröna tester på den delade hosten kan inte godkänna arkitekturen.
+lanseringsblocker och körs i en disposabel miljö med syntetiska data — gröna
+tester på den delade hosten kan inte godkänna arkitekturen.
 
 ## Avgränsningar som inte får döljas
 
