@@ -287,6 +287,12 @@ UTLÅTANDE_DEEP_BREEF.txt
 .cursor/openclaw-bridge/
 sajtmaskin.zip
 
+# Agent Bridge v1 (local identity + mailbox state; never commit)
+.agent-bridge/config.local.json
+.agent-bridge/latest-response.md
+.agent-bridge/state.json
+.agent-bridge/bridge-body-*.md
+
 
 # --- Template references (input till AI-kuration, dossiers:curate) ---
 # Klonade upstream-repos och GitHub-metadata. Stora filer; läses bara av
