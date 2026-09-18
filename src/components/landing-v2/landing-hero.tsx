@@ -5,7 +5,11 @@ import { ArrowUp, Mic, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
-import { categories, longestSiteType } from "@/components/landing-v2/landing-chat-data"
+import {
+  categories,
+  homepageHeroCopy,
+  longestSiteType,
+} from "@/components/landing-v2/landing-chat-data"
 import { preloadReturningLanyard } from "@/components/landing-v2/lanyard-consent"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
@@ -56,6 +60,8 @@ export function LandingHero({
   handleAuditUrlChange,
   submitPrimaryInput,
 }: LandingHeroProps) {
+  const primaryCta = isAuditMode ? homepageHeroCopy.auditCta : homepageHeroCopy.primaryCta
+
   return (
     <section className="relative flex min-h-[calc(100vh-57px)] flex-col items-center justify-start overflow-x-visible pt-0 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-0 md:pb-12">
       <div
@@ -68,48 +74,42 @@ export function LandingHero({
       <div className="flex w-full flex-col items-center px-6">
       <div className="cursor-default">
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-8 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
+          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
-          aria-label="Din nästa sajt på 30 sekunder"
         >
-          <span aria-hidden="true">
-            Din n&auml;sta{" "}
-            <span className="inline-grid max-w-full justify-items-start align-baseline">
-              {/* Osynlig platshållare (längsta ordet) delar grid-cell med det
-                  synliga ordet och reserverar bredd/höjd, så rubriken inte
-                  hoppar när ordet byts.
-
-                  `justify-items-start` gör att ordet BÖRJAR på samma ställe
-                  varje gång, tätt efter "Din nästa", i stället för att
-                  centreras i den reserverade bredden — ett kort ord låg annars
-                  och flöt en bit ut till höger med ett hål framför sig.
-
-                  Platshållaren visas bara från md, där radbrytningen nedan
-                  lägger "på 30 sekunder" på egen rad: då är den reserverade
-                  extrabredden osynlig radslut. Under md skulle den i stället
-                  bli ett synligt glapp mitt i meningen, så där sätter det
-                  synliga ordet cellens bredd (raden får hoppa i stället — den
-                  är centrerad och bryter ändå om). */}
-              <span className="invisible hidden whitespace-nowrap [grid-area:1/1] md:inline">
-                {longestSiteType}
-              </span>
-              <span
-                className={`[grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
-              >
-                {/* Understrykningen sitter INNE i ordet, inte på grid-cellen:
-                    på cellen spände den den reserverade bredden och stack ut
-                    långt förbi ett kort ord. */}
-                <span className="text-primary relative whitespace-nowrap">
-                  {rotatingType.text}
-                  <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
-                </span>
+          {homepageHeroCopy.h1}
+        </h1>
+        <p
+          className="mx-auto mb-3 max-w-2xl text-center text-base leading-relaxed text-muted-foreground text-pretty md:text-lg"
+          style={{ animationDelay: "0.35s" }}
+        >
+          {homepageHeroCopy.valueProposition}
+        </p>
+        <p className="mb-3 text-center text-sm text-muted-foreground">{homepageHeroCopy.audience}</p>
+        <p
+          className="mb-8 text-center text-sm text-muted-foreground/80"
+          aria-hidden="true"
+        >
+          {homepageHeroCopy.rotatingPrefix}{" "}
+          <span className="inline-grid max-w-full justify-items-start align-baseline">
+            <span className="invisible hidden whitespace-nowrap [grid-area:1/1] md:inline">
+              {longestSiteType}
+            </span>
+            <span
+              className={`[grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
+            >
+              <span className="relative whitespace-nowrap text-primary">
+                {rotatingType.text}
+                <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
               </span>
             </span>
-            <br className="hidden md:block" /> p&aring; 30 sekunder
           </span>
-        </h1>
+        </p>
       </div>
 
+      <p className="mb-3 text-center text-xs font-medium tracking-widest text-muted-foreground uppercase">
+        {homepageHeroCopy.methodLabel}
+      </p>
       <div
         className="flex flex-wrap items-center justify-center gap-2.5 mb-8 animate-fade-up"
         style={{ animationDelay: "0.5s" }}
@@ -138,7 +138,7 @@ export function LandingHero({
               />
               <div className="flex flex-col items-start">
                 <span className="text-sm font-medium leading-tight">{cat.label}</span>
-                <span className="text-[10px] text-muted-foreground leading-tight">{cat.description}</span>
+                <span className="hidden text-[10px] text-muted-foreground leading-tight sm:block">{cat.description}</span>
               </div>
             </button>
           )
@@ -196,7 +196,7 @@ export function LandingHero({
               <textarea
                 data-openclaw-text-target="landing.freeform.primary"
                 data-openclaw-text-label="Frilägesfältet på startsidan"
-                placeholder={activeCategory?.placeholder ?? "Beskriv ditt f\u00f6retag \u2014 t.ex. \u201dJag driver en fris\u00f6rsalong i G\u00f6teborg med 3 anst\u00e4llda\u201d"}
+                placeholder={activeCategory?.placeholder ?? "Beskriv företaget — t.ex. ”Jag driver en frisörsalong i Göteborg”"}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(event) => {
@@ -208,11 +208,11 @@ export function LandingHero({
                 className="w-full bg-transparent border-none outline-none resize-none text-foreground placeholder:text-muted-foreground/60 text-base min-h-[68px] font-normal leading-relaxed"
               />
             )}
-            <div className="flex items-center justify-between pt-2 border-t border-border/15">
+            <div className="flex flex-col gap-3 border-t border-border/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
-                {activeCategory ? `L\u00e4ge: ${activeCategory.label}` : "V\u00e4lj Template ovan eller skriv fritt"}
+                {activeCategory ? `Läge: ${activeCategory.label}` : homepageHeroCopy.inputHint}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 {!isAuditMode && (
                   <>
                     <Button
@@ -228,13 +228,13 @@ export function LandingHero({
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                      aria-label="Byt till Analyserad för videoinspelning i wizarden"
-                      title="Videoinspelning med analys finns i Analyserad-läget — klicka för att välja det"
+                      aria-label="Byt till frågeläge för videoinspelning"
+                      title="Videoinspelning med analys finns när du svarar på frågor"
                       onClick={() => {
                         pickCategory("analyserad")
-                        toast.message("Analyserad", {
+                        toast.message("Svara på frågor", {
                           description:
-                            "Fortsätt i wizarden för videoinspelning med analys (t.ex. hållning och blick).",
+                            "Fortsätt i guiden för videoinspelning med analys (t.ex. hållning och blick).",
                         })
                       }}
                     >
@@ -243,15 +243,16 @@ export function LandingHero({
                   </>
                 )}
                 <Button
-                  size="icon"
-                  className="h-9 w-9 rounded-full bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg shadow-primary/25"
-                  aria-label="Skicka"
+                  data-homepage-cta="primary"
+                  className="h-10 rounded-full bg-primary px-4 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary-hover"
+                  aria-label={primaryCta}
                   disabled={isSubmitting || (isAuditMode && currentAuditUrl.trim().length === 0)}
                   onClick={() => {
                     submitPrimaryInput()
                   }}
                 >
-                  <ArrowUp className="w-4 h-4" />
+                  <span className="text-sm font-medium">{primaryCta}</span>
+                  <ArrowUp className="ml-1.5 h-4 w-4" />
                 </Button>
               </div>
             </div>

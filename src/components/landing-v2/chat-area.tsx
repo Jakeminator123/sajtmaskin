@@ -6,12 +6,15 @@ import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
 import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
+import { LandingExamples } from "@/components/landing-v2/landing-examples"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
+import { LandingPricingExplainer } from "@/components/landing-v2/landing-pricing-explainer"
+import { LandingTrustStrip } from "@/components/landing-v2/landing-trust-strip"
+import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import {
   integrations,
   landingJourneySteps,
-  trustLogos,
 } from "@/components/landing-v2/landing-chat-data"
 import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
 import { IntegrationCard } from "@/components/landing-v2/landing-tech-integration-cards"
@@ -95,26 +98,18 @@ export function ChatArea(props: ChatAreaProps = {}) {
           submitPrimaryInput={submitPrimaryInput}
         />
 
-        {/* ━━━ TRUST MARQUEE ━━━ */}
-        <section className="py-10 border-t border-border/15">
-          <p className="text-xs text-muted-foreground/60 text-center mb-6 tracking-widest uppercase">
-            Samma tekniska grund som v&auml;rldens ledande varum&auml;rken litar p&aring;
-          </p>
-          <div className="relative overflow-hidden" aria-hidden="true">
-            <div className="absolute inset-y-0 left-0 w-32 bg-linear-to-r from-background to-transparent z-10 pointer-events-none" />
-            <div className="absolute inset-y-0 right-0 w-32 bg-linear-to-l from-background to-transparent z-10 pointer-events-none" />
-            <div className="flex animate-marquee whitespace-nowrap">
-              {[...trustLogos, ...trustLogos].map((name, i) => (
-                <span
-                  key={`${name}-${i}`}
-                  className="mx-10 text-base md:text-lg text-muted-foreground/30 font-(--font-heading) tracking-tight select-none"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
+        <LandingTrustStrip />
+
+        <LandingExamples
+          onPickExample={(siteType) => {
+            pickCategory("fritext")
+            setInputValue(`Jag vill ha en ${siteType.toLowerCase()}`)
+            document
+              .querySelector<HTMLTextAreaElement>('[data-openclaw-text-target="landing.freeform.primary"]')
+              ?.focus()
+          }}
+          onBrowseTemplates={() => router.push("/templates")}
+        />
 
         {/* ━━━ HOW IT WORKS ━━━ */}
         <section
@@ -127,10 +122,10 @@ export function ChatArea(props: ChatAreaProps = {}) {
             <div className="text-center mb-14">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Hur det fungerar</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Från bolagsstart till gröna siffror
+                Från beskrivning till publicerad sajt
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
-                Fr&aring;n f&ouml;rsta id&eacute; till publicerad sajt &mdash; steg f&ouml;r steg, i din takt.
+                Beskriv företaget, se ett utkast, ändra det och publicera när det känns rätt.
               </p>
             </div>
 
@@ -138,16 +133,38 @@ export function ChatArea(props: ChatAreaProps = {}) {
           </div>
         </section>
 
+        {/* ━━━ PRICING ━━━ */}
+        <section id="priser" className="overflow-visible border-t border-border/15 px-6 py-20 md:py-28">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="mb-4 text-center text-2xl text-foreground font-(--font-heading) tracking-tight text-balance md:text-4xl">
+              Priser
+            </h2>
+            <p className="mx-auto mb-10 max-w-2xl text-center text-muted-foreground text-pretty">
+              Engångsköp. Du kan börja utan kreditkort. Credits används när du bygger, ändrar eller
+              publicerar — inte som en månadsavgift.
+            </p>
+            <CreditPackageGrid
+              disabled={isSubmitting}
+              onSelect={(id) => {
+                trackHomepageEvent("homepage_pricing", { package: id })
+                router.push("/buy-credits")
+              }}
+              ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
+            />
+            <LandingPricingExplainer />
+          </div>
+        </section>
+
         {/* ━━━ INTEGRATIONS SHOWCASE ━━━ */}
         <section className="px-6 py-18 md:py-24 border-b border-border/15">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-10">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Integrationer</p>
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Funktioner</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Redo för riktiga arbetsflöden
+                När sajten behöver göra mer
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
-                N&auml;r sajten beh&ouml;ver g&ouml;ra mer &auml;n se bra ut &mdash; betalningar, utskick, data och drift.
+                Betalningar, bokningar, utskick och drift — när du behöver det, inte som krav för att börja.
               </p>
             </div>
 
@@ -159,20 +176,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
           </div>
         </section>
 
-        {/* ━━━ PRICING ━━━ */}
-        <section id="priser" className="overflow-visible px-6 py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
-            <h2 className="mb-10 text-center text-2xl text-foreground font-(--font-heading) tracking-tight text-balance md:mb-14 md:text-4xl">
-              Priser
-            </h2>
-            <CreditPackageGrid
-              disabled={isSubmitting}
-              onSelect={() => router.push("/buy-credits")}
-              ctaLabel={(pkg) => creditPackageCopy[pkg.id].cta}
-            />
-          </div>
-        </section>
-
         {/* ━━━ CTA ━━━ */}
         <section className="px-6 py-20 md:py-28 border-t border-border/15">
           <div className="max-w-2xl mx-auto text-center">
@@ -180,19 +183,21 @@ export function ChatArea(props: ChatAreaProps = {}) {
               <Rocket className="w-6 h-6 text-primary" />
             </div>
             <h2 className="text-2xl md:text-4xl text-foreground mb-4 font-(--font-heading) tracking-tight text-balance">
-              Redo att ta ditt f&ouml;retag online?
+              Redo att ta ditt företag online?
             </h2>
             <p className="text-muted-foreground mb-8 leading-relaxed text-pretty max-w-md mx-auto">
-              B&ouml;rja gratis &mdash; ingen kod, inga kreditkort, inga bindningstider. En sajt som ser seri&ouml;s ut fr&aring;n dag ett.
+              Börja med en beskrivning. Ett konto ger en första slutförd generering utan credit-drag.
+              Inget kreditkort krävs för att starta.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
                 size="lg"
+                data-homepage-cta="bottom"
                 className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover font-medium text-base px-8 shadow-lg shadow-primary/25"
                 disabled={isSubmitting}
                 onClick={() => {
                   const ctaCategory = selectedCategory === "audit" ? "fritext" : selectedCategory ?? "fritext"
-                  void startBuild(ctaCategory)
+                  void startBuild(ctaCategory, undefined, { location: "bottom" })
                 }}
               >
                 Skapa din sajt nu
@@ -202,9 +207,12 @@ export function ChatArea(props: ChatAreaProps = {}) {
                 size="lg"
                 variant="ghost"
                 className="text-muted-foreground hover:text-foreground text-base"
-                onClick={() => router.push("/templates")}
+                onClick={() => {
+                  trackHomepageEvent("homepage_examples", { source: "templates_link" })
+                  router.push("/templates")
+                }}
               >
-                Se en demo
+                Se exempel
               </Button>
             </div>
           </div>
