@@ -36,9 +36,9 @@ export function LandingExempelStrip() {
             <li key={site.id}>
               <Link
                 href={EXEMPEL_PATH}
-                className="group border-border/25 bg-card/30 block overflow-hidden rounded-2xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group border-border/25 bg-card/30 block rounded-2xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <span className="relative block aspect-[16/10] overflow-hidden">
+                <span className="relative block aspect-[16/10] overflow-hidden rounded-t-2xl">
                   <Image
                     src={site.screenshotSrc}
                     alt=""

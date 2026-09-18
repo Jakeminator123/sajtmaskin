@@ -69,15 +69,15 @@ export function ExempelContent() {
           <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {SHOWCASE_SITES.map((site) => (
               <li key={site.id}>
-                <article className="border-border/25 bg-card/35 h-full overflow-hidden rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.22)]">
+                <article className="border-border/25 bg-card/35 h-full rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.22)]">
                   <a
                     href={site.href}
                     target="_blank"
                     rel={SHOWCASE_EXTERNAL_REL}
                     aria-label={`Öppna exemplet ${site.name} (öppnas i ny flik)`}
-                    className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="group flex h-full flex-col rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
-                    <span className="relative block aspect-[16/10] overflow-hidden bg-secondary/30">
+                    <span className="relative block aspect-[16/10] overflow-hidden rounded-t-[28px] bg-secondary/30">
                       <Image
                         src={site.screenshotSrc}
                         alt=""

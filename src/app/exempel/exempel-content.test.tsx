@@ -37,6 +37,10 @@ describe("ExempelContent", () => {
     expect(container.querySelector("iframe")).toBeNull();
     expect(container.textContent).not.toMatch(/kundcase/i);
 
+    const images = [...container.querySelectorAll("img")];
+    expect(images).toHaveLength(SHOWCASE_SITES.length);
+    expect(images.every((image) => image.getAttribute("alt") === "")).toBe(true);
+
     const external = [...container.querySelectorAll('a[href^="http"]')];
     expect(external).toHaveLength(SHOWCASE_SITES.length);
     for (const [index, site] of SHOWCASE_SITES.entries()) {
