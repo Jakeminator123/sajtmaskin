@@ -64,7 +64,7 @@ nedan är sant:
 
 SEO-serien är `ready` på preview-grenen; Production/indexering är ett
 separat promote-steg
-([SEO-plan](../plans/active/2026-09-16-seo-landningssidor/00-master-plan.md)).
+([avklarat-registret](../plans/avklarat/README.md)).
 Peka inte betald trafik mot staging.
 
 ---
