@@ -10,14 +10,16 @@ vi.mock("@/components/audit/ImprovementsList", () => ({ default: () => null }));
 vi.mock("@/components/audit/MetricsChart", () => ({ default: () => null }));
 vi.mock("@/components/audit/SecurityReport", () => ({ default: () => null }));
 
-// A VANLIG (basic) audit — the schema still returns audience/content/priority
-// data, which used to be hidden because those panels were advanced-only.
+// A VANLIG (basic) audit — core fields the modal still surfaces.
+// Advanced-only business/market fields are no longer generated for Vanlig.
 const basicResult = {
   audit_type: "website_audit",
   audit_mode: "basic",
   domain: "nordlunden.se",
-  customer_segments: { primary_segment: "Villaägare i Umeå" },
-  target_audience_analysis: { pain_points: "Svårt att få offert" },
+  target_audience_analysis: {
+    demographics: "Villaägare i Umeå",
+    pain_points: "Svårt att få offert",
+  },
   content_strategy: { seo_foundation: "Titeln saknar ort", key_pages: ["Start", "Tjänster"] },
   priority_matrix: { quick_wins: ["Lägg ort i titeln"] },
 } as unknown as AuditResult;
@@ -30,6 +32,7 @@ describe("AuditModal overview", () => {
 
     expect(screen.getByText("🎯").parentElement?.textContent).toContain("Målgrupp");
     expect(screen.getByText("Villaägare i Umeå")).toBeTruthy();
+    expect(screen.queryByText(/Affärsprofil|Marknadskontext|Konkurrens/i)).toBeNull();
     expect(screen.getByText("Titeln saknar ort")).toBeTruthy();
     expect(screen.getByText(/Nyckelsidor: Start, Tjänster/)).toBeTruthy();
     expect(screen.getByText("Lägg ort i titeln")).toBeTruthy();

@@ -4,7 +4,8 @@ import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { resolvePricingSettings } from "@/lib/db/services/pricing-settings";
 import { validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rate-limit";
-import type { AuditMode, AuditRequest, AuditResult } from "@/types/audit";
+import { resolveAuditMode } from "@/lib/audit/audit-tier";
+import type { AuditRequest, AuditResult } from "@/types/audit";
 import { inFlightAudits } from "./in-flight";
 import { mapWebsiteAuditException, runWebsiteAudit } from "@/lib/audit/run-website-audit";
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { url, auditMode } = body;
-      const resolvedAuditMode: AuditMode = auditMode === "advanced" ? "advanced" : "basic";
+      const resolvedAuditMode = resolveAuditMode("product", auditMode);
       const auditAction: CreditAction =
         resolvedAuditMode === "advanced" ? "audit.advanced" : "audit.basic";
       const auditPricing = await resolvePricingSettings();

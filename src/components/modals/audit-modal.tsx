@@ -537,10 +537,9 @@ export function AuditModal({
                       <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
                     )}
 
-                    {/* Målgrupp/synlighet/snabba vinster ligger i schemat även
-                        för en vanlig audit, men syntes tidigare bara i
-                        Budget-fliken och bara i avancerat läge. Det är det
-                        första en ägare vill läsa, så det hör i Översikt. */}
+                    {/* Målgrupp/synlighet/snabba vinster hör till kärnschemat
+                        för Vanlig. Affärs-/marknadsfält genereras bara i
+                        Avancerad och visas bakom hasAdvancedBusiness. */}
                     {(hasAudience || hasContentStrategy || quickWins.length > 0) && (
                       <div className="grid gap-4 md:grid-cols-2">
                         {hasAudience && (
