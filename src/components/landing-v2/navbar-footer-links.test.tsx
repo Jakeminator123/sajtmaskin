@@ -9,6 +9,7 @@ vi.mock("@/lib/auth/auth-store", () => ({
   useAuth: () => ({ isAuthenticated: false, isInitialized: true, logout: () => {} }),
 }));
 
+import { SEO_LANDING_FOOTER_GUIDE_LINKS } from "@/lib/seo-landing-pages/registry";
 import { Navbar } from "./navbar";
 import { LandingFooter } from "./landing-footer";
 
@@ -30,5 +31,34 @@ describe("landing nav + footer links after /teknik move", () => {
     );
     expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
     expect(screen.getByRole("link", { name: "Analys" }).getAttribute("href")).toBe("/analys");
+  });
+
+  it("navbar stays slim and does not list SEO landing slugs", () => {
+    render(<Navbar />);
+    expect(screen.queryByRole("link", { name: "Skapa hemsida" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Hemsideprogram" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Wix-alternativ" })).toBeNull();
+  });
+
+  it("footer Guider column links four hubs and not the full cluster", () => {
+    render(<LandingFooter />);
+    expect(screen.getByRole("heading", { name: "Guider" })).toBeTruthy();
+    for (const link of SEO_LANDING_FOOTER_GUIDE_LINKS) {
+      expect(screen.getByRole("link", { name: link.label }).getAttribute("href")).toBe(
+        `/${link.slug}`,
+      );
+    }
+    const footer = document.querySelector("footer");
+    expect(footer).toBeTruthy();
+    for (const slug of [
+      "ai-hemsidebyggare",
+      "hemsida-utan-kod",
+      "hemsida-till-foretag",
+      "wix-alternativ",
+      "wordpress-alternativ",
+      "lovable-alternativ",
+    ]) {
+      expect(footer?.querySelector(`a[href="/${slug}"]`)).toBeNull();
+    }
   });
 });

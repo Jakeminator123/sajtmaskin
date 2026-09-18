@@ -3,8 +3,10 @@
 > **Status: mergad till preview i #1471.**
 > Publik `/analys` är en egen yta (inte Audit-modalen). Motor:
 > `runWebsiteAudit` + `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` +
-> basic, ingen web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern
-> i [`../README.md`](../README.md) pekar hit.
+> basic, 4 sidor, fullt schema, ingen web_search. Inloggad Vanlig/Avancerad
+> ägs av [`src/lib/audit/audit-tier.ts`](../../../../src/lib/audit/audit-tier.ts)
+> (Luna/2 sidor vs Sol/4 sidor). Routern i [`../README.md`](../README.md)
+> pekar hit.
 
 Runtime-ägare är audit-motorn, inte den här mappen:
 [`src/app/api/audit/modules/handler.ts`](../../../../src/app/api/audit/modules/handler.ts).
@@ -140,8 +142,10 @@ mergade; de är inte kvarvarande arbete.
 ## Icke-mål (gäller fortfarande)
 
 - Ny LLM-, scrape- eller promptpipeline.
-- Ändra `AUDIT_AI_SCHEMA`, `src/types/audit.ts`, `buildAuditPrompt`,
-  `scrapeWebsite`, SSRF-guard eller `validateAuditResult`.
+- Ändra SSRF-guard eller `validateAuditResult` i det här spåret. Den
+  betalda nivåsplitten (schema/prompt/scrape-tak) ägs av
+  [`../../avklarat/2026-09-18-audit-nivaer/00-master-plan.md`](../../avklarat/2026-09-18-audit-nivaer/00-master-plan.md)
+  och får inte blandas in i `/analys` igen.
 - Röra `src/lib/seo/audit.ts` eller SEO-landningsregistret
   (`SEO_LANDING_PAGES` / `ctaHref: /builder?new=1`).
 - Döpa om wizard-läget `analyserad` eller `?mode=analyserad`.

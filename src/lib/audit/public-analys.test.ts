@@ -50,17 +50,12 @@ describe("buildPublicAnalysPrompt", () => {
 });
 
 describe("audit model split", () => {
-  it("keeps Sol on the product path and Luna on the public lead magnet", () => {
+  it("keeps Sol as the product Avancerad default and Luna on the public lead magnet", () => {
     expect(AUDIT_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-sol");
     expect(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-luna");
     expect(AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-sol");
     expect(PUBLIC_AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-luna");
     expect(PUBLIC_AUDIT_MODEL_CANDIDATES).not.toContain("openai/gpt-5.6-sol");
-
-    const engine = readFileSync(resolve("src/lib/audit/run-website-audit.ts"), "utf8");
-    expect(engine).toMatch(/promptKind === "public" \? PUBLIC_AUDIT_MODEL_CANDIDATES/);
-    expect(engine).toMatch(/promptKind === "public"\s*\n\s*\? AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL/);
-    expect(engine).toMatch(/allowWebSearch = promptKind === "product" && FEATURES\.useAuditWebSearch/);
   });
 });
 
