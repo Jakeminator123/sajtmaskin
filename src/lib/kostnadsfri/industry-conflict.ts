@@ -1,0 +1,58 @@
+/**
+ * Konflikt mellan branschfältet (första mening + INDUSTRY_PAGES) och
+ * verksamhetsbeskrivning / USP. Sitter i promptkedjan, inte i brief-modellen.
+ *
+ * Hospitality-sidor (Meny / Boka bord / Boka tid) får inte tyst hybridiseras
+ * med lotteri-/spel-/plattformstext.
+ */
+
+export const KOSTNADSFRI_INDUSTRY_CONFLICT_CODE = "kostnadsfri_industry_conflict";
+
+const HOSPITALITY_INDUSTRY_IDS = new Set(["restaurant", "cafe", "health"]);
+
+const GAMING_OR_LOTTERY_RE =
+  /lotteri|lottery|casino|betting|vadslagning|igaming|spellicens|spelbolag|spelplattform|gaming\s*platform|lottery\s*platform|lotteriplattform|sportsbook|online\s*casino|live\s*casino/i;
+
+export class KostnadsfriIndustryConflictError extends Error {
+  readonly code = KOSTNADSFRI_INDUSTRY_CONFLICT_CODE;
+  readonly industryId: string;
+
+  constructor(industryId: string) {
+    super(
+      "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+    );
+    this.name = "KostnadsfriIndustryConflictError";
+    this.industryId = industryId;
+  }
+}
+
+export function isKostnadsfriIndustryConflictError(
+  error: unknown,
+): error is KostnadsfriIndustryConflictError {
+  return error instanceof KostnadsfriIndustryConflictError;
+}
+
+export function textLooksLikeGamingOrLottery(
+  ...parts: Array<string | null | undefined>
+): boolean {
+  return parts.some((part) => Boolean(part && GAMING_OR_LOTTERY_RE.test(part)));
+}
+
+export function hospitalityIndustryConflictsWithGamingText(
+  industryId: string,
+  description?: string | null,
+  usp?: string | null,
+): boolean {
+  if (!HOSPITALITY_INDUSTRY_IDS.has(industryId)) return false;
+  return textLooksLikeGamingOrLottery(description, usp);
+}
+
+export function assertNoHospitalityGamingConflict(
+  industryId: string,
+  description?: string | null,
+  usp?: string | null,
+): void {
+  if (hospitalityIndustryConflictsWithGamingText(industryId, description, usp)) {
+    throw new KostnadsfriIndustryConflictError(industryId);
+  }
+}

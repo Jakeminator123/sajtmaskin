@@ -402,8 +402,13 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     const promptCall = fetchMock.mock.calls.find((call) => String(call[0]).includes("/api/prompts"));
     expect(promptCall).toBeTruthy();
-    const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as { prompt?: string };
+    const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as {
+      prompt?: string;
+      wizardSnapshot?: { industryId?: string | null; followupOverrodeIndustry?: boolean };
+    };
     expect(body.prompt).toContain("SM-F1-CONFIRM-PHRASE-7f3a");
+    expect(body.wizardSnapshot?.industryId).toBe("health");
+    expect(body.wizardSnapshot?.followupOverrodeIndustry).toBe(false);
   });
 
   it("hämtar sessionen så Google-retur kan starta precis ett bygge", async () => {

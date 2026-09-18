@@ -226,6 +226,48 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(createPromptHandoff).toHaveBeenCalledTimes(1);
   });
 
+  it("stores a sanitized wizard snapshot on the kostnadsfri handoff payload", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    const res = await POST(
+      promptRequest(
+        {
+          prompt: "Bygg en sajt",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+          wizardSnapshot: {
+            industryId: "restaurant",
+            followupOverrodeIndustry: true,
+            resolvedIndustryId: "restaurant",
+            descriptionHash: "a".repeat(64),
+            uspHash: null,
+            descriptionPreview: "Ring ada@acme.se om lotteri",
+            email: "ada@acme.se",
+          },
+        },
+        true,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "kostnadsfri",
+        payload: {
+          wizardSnapshot: {
+            industryId: "restaurant",
+            followupOverrodeIndustry: true,
+            resolvedIndustryId: "restaurant",
+            descriptionHash: "a".repeat(64),
+            uspHash: null,
+            descriptionPreview: "Ring om lotteri",
+            uspPreview: null,
+          },
+        },
+      }),
+    );
+  });
+
   it("drops payload unless source is audit", async () => {
     const stored = await POST(
       promptRequest({
