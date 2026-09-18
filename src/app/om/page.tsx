@@ -58,6 +58,22 @@ export default function OmPage() {
                   </Link>
                 </li>
                 <li>
+                  <Link
+                    href="/skapa-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/hemsida-till-foretag"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Hemsida till företag
+                  </Link>
+                </li>
+                <li>
                   <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">
                     Integritetspolicy
                   </Link>

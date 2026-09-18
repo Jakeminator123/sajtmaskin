@@ -31,4 +31,19 @@ describe("landing nav + footer links after /teknik move", () => {
     expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
     expect(screen.getByRole("link", { name: "Analys" }).getAttribute("href")).toBe("/analys");
   });
+
+  it("footer exposes a discrete Guider section into the SEO cluster", () => {
+    render(<LandingFooter />);
+    expect(screen.getByRole("heading", { name: "Guider" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Så skapar du en hemsida" }).getAttribute("href")).toBe(
+      "/skapa-hemsida",
+    );
+    expect(screen.getByRole("link", { name: "Så fungerar AI-vägen" }).getAttribute("href")).toBe(
+      "/skapa-hemsida-med-ai",
+    );
+    expect(screen.getByRole("link", { name: "Jämför hemsideprogram" }).getAttribute("href")).toBe(
+      "/hemsideprogram",
+    );
+    expect(screen.queryByRole("link", { name: /wix-alternativ/i })).toBeNull();
+  });
 });

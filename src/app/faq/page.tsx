@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry";
 
 const faqs = [
   {
@@ -93,7 +94,8 @@ export default function FAQPage() {
             </h1>
             <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-relaxed md:text-base">
               Här samlar vi de vanligaste frågorna om hur plattformen fungerar, vilken teknik som
-              används och hur snabbt du kan gå från idé till publicerad sajt.
+              används och hur snabbt du kan gå från idé till publicerad sajt. Längre guider om att
+              skapa hemsida, kostnad och arbetssätt ligger på egna sidor.
             </p>
           </div>
 
@@ -135,6 +137,27 @@ export default function FAQPage() {
               </div>
             </aside>
           </div>
+
+          <section className="mt-10 border-t border-border/20 pt-8">
+            <p className="text-primary mb-3 text-xs font-medium tracking-widest uppercase">
+              Guider
+            </p>
+            <h2 className="text-foreground font-(--font-heading) text-xl tracking-tight">
+              Läs vidare efter frågan
+            </h2>
+            <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+              {getSeoLandingHubLinks().map((link) => (
+                <li key={link.slug}>
+                  <Link
+                    href={link.href}
+                    className="text-foreground text-sm underline-offset-4 hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         </section>
       </div>
     </main>

@@ -29,6 +29,21 @@ export const SEO_LANDING_PLACEHOLDER_READY_MESSAGE =
 
 export const SEO_LANDING_CTA_HREF = "/builder?new=1" as const;
 
+/**
+ * Known leftover copy from when sibling landings were still placeholders.
+ * Ready pages must not describe other registry routes as unfinished.
+ */
+export const SEO_LANDING_STALE_COPY_PATTERNS = [
+  /Sidorna är reserverade/i,
+  /fylls på efter den här referenssidan/i,
+  /räkna inte med färdiga\s+guider/i,
+  /fylls på när de är klara/i,
+  /syns inte som länkar förrän dess/i,
+  /separat guide om kostnadsdelar kommer senare/i,
+  /ännu inte (?:är )?färdig/i,
+  /guiden är inte klar/i,
+] as const;
+
 export const SEO_LANDING_SLUGS = [
   "skapa-hemsida",
   "skapa-hemsida-med-ai",
@@ -43,6 +58,29 @@ export const SEO_LANDING_SLUGS = [
 ] as const;
 
 export type SeoLandingSlug = (typeof SEO_LANDING_SLUGS)[number];
+
+/**
+ * Compact crawl-discovery set for established public chrome (footer, FAQ, hubs).
+ * Not all ten slugs — comparison pages stay one click away via /hemsideprogram.
+ */
+export const SEO_LANDING_HUB_SLUGS = [
+  "skapa-hemsida",
+  "skapa-hemsida-med-ai",
+  "hemsida-till-foretag",
+  "hemsida-utan-kod",
+  "vad-kostar-en-hemsida",
+  "hemsideprogram",
+] as const satisfies readonly SeoLandingSlug[];
+
+const SEO_LANDING_HUB_LABELS: Record<(typeof SEO_LANDING_HUB_SLUGS)[number], string> = {
+  "skapa-hemsida": "Så skapar du en hemsida",
+  "skapa-hemsida-med-ai": "Så fungerar AI-vägen",
+  "hemsida-till-foretag": "Hemsida för företag",
+  "hemsida-utan-kod": "Bygg utan kod",
+  "vad-kostar-en-hemsida": "Vad en hemsida kostar",
+  hemsideprogram: "Jämför hemsideprogram",
+};
+
 export type SeoLandingStatus = "placeholder" | "ready";
 
 export type SeoLandingPageEntry = {
@@ -59,9 +97,9 @@ export type SeoLandingPageEntry = {
 export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
   {
     slug: "skapa-hemsida",
-    title: "Skapa hemsida – bygg en modern webbplats",
+    title: "Skapa hemsida – från idé till publicerad sajt",
     description:
-      "Skapa hemsida från idé till publicerad sajt. En teknikneutral väg för svenska företag.",
+      "Skapa hemsida från idé till publicerad sajt. En teknikneutral väg för svenska företag: syfte, innehåll, arbetssätt och en första version ni kan förbättra.",
     plannedH1: "Skapa hemsida – från idé till färdig företagssida",
     intent: "Bred transactional: vägen från idé till hemsida",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "vad-kostar-en-hemsida"],
@@ -72,7 +110,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "skapa-hemsida-med-ai",
     title: "Skapa hemsida med AI – se hur det fungerar",
     description:
-      "Skapa hemsida med AI: från beskrivning till första version. Se processen i Sajtmaskin.",
+      "Skapa hemsida med AI: från en beskrivning till första version i kod. Se processen i Sajtmaskin — utkast, preview, ändringar och publicering.",
     plannedH1: "Skapa hemsida med AI – från beskrivning till första version",
     intent: "Hur man skapar en hemsida med AI",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida", "hemsida-utan-kod"],
@@ -83,7 +121,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "ai-hemsidebyggare",
     title: "AI-hemsidebyggare – funktioner, val och exempel",
     description:
-      "AI-hemsidebyggare: vad du ska jämföra innan du väljer verktyg. Kriterier och exempel.",
+      "AI-hemsidebyggare: vad du ska jämföra innan du väljer verktyg. Kriterier för redigering, ägarskap, publicering och pris — inte en ranking.",
     plannedH1: "AI-hemsidebyggare – vad ska du jämföra innan du väljer?",
     intent: "Produktkategori och valkriterier",
     relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "lovable-alternativ"],
@@ -94,7 +132,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "hemsida-till-foretag",
     title: "Hemsida till företag – vad behöver företagssidan?",
     description:
-      "Hemsida till företag för förtroende och förfrågningar. Vad sidan behöver innehålla.",
+      "Hemsida till företag för förtroende och förfrågningar. Vad sidan behöver innehålla, hur leads fungerar och vanliga misstag att undvika.",
     plannedH1: "Hemsida till företag – bygg för förtroende och förfrågningar",
     intent: "B2B: affärsnytta, inte verktygskategori",
     relatedSlugs: ["skapa-hemsida", "vad-kostar-en-hemsida", "hemsida-utan-kod"],
@@ -105,7 +143,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "hemsideprogram",
     title: "Hemsideprogram – jämför CMS, builders och AI",
     description:
-      "Hemsideprogram: jämför CMS, drag-and-drop, AI-builder och kod. Välj rätt arbetssätt.",
+      "Hemsideprogram: jämför CMS, drag-and-drop, AI-builder och kod. Välj arbetssätt efter tempo, kontroll, underhåll och hur ni tar med er sajt.",
     plannedH1: "Hemsideprogram – välj rätt sätt att bygga din webbplats",
     intent: "Jämför verktygstyper, inte ett enskilt varumärke",
     relatedSlugs: ["ai-hemsidebyggare", "hemsida-utan-kod", "wordpress-alternativ", "wix-alternativ"],
@@ -114,9 +152,9 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
   },
   {
     slug: "hemsida-utan-kod",
-    title: "Skapa hemsida utan kod – steg för steg",
+    title: "Skapa hemsida utan kod – vad du kan göra själv",
     description:
-      "Skapa hemsida utan kod: vad du kan göra själv och när du fortfarande behöver hjälp.",
+      "Skapa hemsida utan kod: vad du kan göra själv utan programmering, hur du ändrar med vanliga meningar, och när kod fortfarande behövs.",
     plannedH1: "Skapa hemsida utan kod – vad kan du göra själv?",
     intent: "No-code: göra det själv utan programmering",
     relatedSlugs: ["skapa-hemsida", "skapa-hemsida-med-ai", "hemsideprogram"],
@@ -127,7 +165,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "vad-kostar-en-hemsida",
     title: "Vad kostar en hemsida? Pris och kostnadsdelar",
     description:
-      "Vad kostar en hemsida? Kostnadsdelar, arbetssätt och vad som faktiskt påverkar priset.",
+      "Vad kostar en hemsida? Kostnadsdelar, arbetssätt och vad som faktiskt påverkar priset — utan påhittade prislappar eller ett fast belopp.",
     plannedH1: "Vad kostar en hemsida? Kostnaderna som faktiskt påverkar priset",
     intent: "Kostnadsdrivare, inte ett påhittat fast pris",
     relatedSlugs: ["skapa-hemsida", "hemsida-till-foretag", "hemsideprogram"],
@@ -138,7 +176,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "wix-alternativ",
     title: "Wix-alternativ – Wix eller Sajtmaskin?",
     description:
-      "Wix-alternativ: jämför arbetssätt, kontroll och publicering innan du byter.",
+      "Wix-alternativ: jämför arbetssätt, kontroll och publicering innan du byter. Canvas och inbyggda appar versus beskrivning till utkast. Skriven av Sajtmaskin.",
     plannedH1: "Wix-alternativ – jämför arbetssätt innan du byter",
     intent: "Saklig Wix-jämförelse",
     relatedSlugs: ["hemsideprogram", "ai-hemsidebyggare", "skapa-hemsida"],
@@ -149,7 +187,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "wordpress-alternativ",
     title: "WordPress-alternativ – jämför med Sajtmaskin",
     description:
-      "WordPress-alternativ: när ett annat arbetssätt passar bättre än WordPress-ekosystemet.",
+      "WordPress-alternativ: när ett annat arbetssätt passar bättre än WordPress-ekosystemet. Plugins och drift versus ett snabbare utkast. Skriven av Sajtmaskin.",
     plannedH1: "WordPress-alternativ – när passar ett annat arbetssätt bättre?",
     intent: "Saklig WordPress-jämförelse",
     relatedSlugs: ["hemsideprogram", "hemsida-utan-kod", "skapa-hemsida-med-ai"],
@@ -160,7 +198,7 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
     slug: "lovable-alternativ",
     title: "Lovable-alternativ – Lovable eller Sajtmaskin?",
     description:
-      "Lovable-alternativ: välj verktyg efter om du bygger företagssida, app eller prototyp.",
+      "Lovable-alternativ: välj verktyg efter om du bygger företagssida, app eller prototyp. Byggmål först, inte featurelistor. Skriven av Sajtmaskin.",
     plannedH1: "Lovable-alternativ – välj verktyg efter vad du faktiskt ska bygga",
     intent: "Saklig Lovable-jämförelse utifrån byggmål",
     relatedSlugs: ["ai-hemsidebyggare", "skapa-hemsida-med-ai", "hemsideprogram"],
@@ -185,6 +223,26 @@ export function getSeoLandingEntry(slug: SeoLandingSlug) {
     throw new Error(`Unknown SEO landing slug: ${slug}`);
   }
   return entry;
+}
+
+export function getReadyRelatedSeoLandingSlugs(
+  slugs: readonly SeoLandingSlug[],
+): SeoLandingSlug[] {
+  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
+}
+
+export function getSeoLandingHubLinks(): ReadonlyArray<{
+  slug: SeoLandingSlug;
+  href: `/${SeoLandingSlug}`;
+  label: string;
+}> {
+  return SEO_LANDING_HUB_SLUGS.filter((slug) => getSeoLandingEntry(slug).status === "ready").map(
+    (slug) => ({
+      slug,
+      href: `/${slug}` as const,
+      label: SEO_LANDING_HUB_LABELS[slug],
+    }),
+  );
 }
 
 /**

@@ -5,6 +5,7 @@ import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
 import {
+  getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
@@ -166,9 +167,7 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
-export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
-  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
-}
+export const readyRelatedSeoLandingSlugs = getReadyRelatedSeoLandingSlugs;
 
 export function SkapaHemsidaContent() {
   const entry = getSeoLandingEntry(SLUG);
@@ -365,10 +364,23 @@ export function SkapaHemsidaContent() {
           </section>
 
           <section className="border-t border-border/15 px-6 py-16 md:py-24">
+            <div className="mx-auto mb-6 max-w-6xl">
+              <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
+                Här är minimumet innan ni väljer verktyg. Vad sidan ska åstadkomma för företaget —
+                förtroende och förfrågningar — ligger på{" "}
+                <Link
+                  href="/hemsida-till-foretag"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  hemsida till företag
+                </Link>
+                .
+              </p>
+            </div>
             <div className="mx-auto grid max-w-6xl items-start gap-4 lg:grid-cols-2">
               <div className="rounded-[28px] border border-border/40 bg-card/70 p-6 md:p-8">
                 <h2 className="font-(--font-heading) text-xl text-foreground md:text-2xl">
-                  Vad en företagssida brukar behöva
+                  Vad en första version brukar behöva
                 </h2>
                 <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted-foreground">
                   {SITE_NEEDS.map((item) => (
