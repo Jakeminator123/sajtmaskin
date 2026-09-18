@@ -358,7 +358,26 @@ describe("OAuth route handlers", () => {
       expect.any(String),
     );
     expect(callback.headers.get("location")).toContain("login=success");
+    expect(callback.headers.get("location")).not.toContain("signup=1");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks a first-time Google signup so the client can fire account_created", async () => {
+    handleGoogleCallback.mockResolvedValue({
+      user: { id: "user-new" },
+      token: "app-token",
+      created: true,
+    });
+    const origin = "https://sajtmaskin.se";
+    const started = await startProvider("google", origin);
+    const callback = await googleCallback(
+      req(
+        `${origin}/api/auth/google/callback?code=ok&state=${encodeURIComponent(started.state!)}`,
+        { [oauthCookieName("google")]: started.cookie! },
+      ),
+    );
+    expect(callback.headers.get("location")).toContain("login=success");
+    expect(callback.headers.get("location")).toContain("signup=1");
   });
 
   it.each([

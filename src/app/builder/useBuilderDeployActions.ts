@@ -13,6 +13,7 @@ import { persistVersionErrorLogs as persistVersionErrorLogsShared } from "@/lib/
 import type { VersionErrorLogPayload } from "@/lib/hooks/chat/types";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 import { debugLog } from "@/lib/utils/debug";
+import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import {
   markPendingCreatedVersion,
   type PendingCreatedVersionRef,
@@ -578,6 +579,7 @@ export function useBuilderDeployActions({
       const normalized = pendingInstructionsRef.current?.trim() || "";
       const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
       if (data.versionId) {
+        noteGoogleAdsConversion("first_generation");
         if (data.onlySelectVersionIfWasLatest) {
           const sel = selectedVersionIdRef.current;
           const latest = latestVersionIdRef.current;

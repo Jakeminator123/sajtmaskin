@@ -7,6 +7,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
 import { MODEL_LABELS } from "@/lib/models/catalog";
@@ -183,10 +184,13 @@ function BuyCreditsContent() {
     }
 
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
     const verified = searchParams.get("verified");
     const reason = searchParams.get("reason");
-    if (!login && !authError && !verified) return;
+    if (!login && !signup && !authError && !verified) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -216,6 +220,7 @@ function BuyCreditsContent() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     nextParams.delete("verified");
     nextParams.delete("reason");
