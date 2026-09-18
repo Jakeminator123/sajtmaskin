@@ -66,4 +66,11 @@ describe("showcase site catalog", () => {
     expect(source).toContain("FORBIDDEN_GLASS_ALIAS");
     expect(SHOWCASE_SITES.some((site) => site.href.includes("glass-showcase-umber"))).toBe(true);
   });
+
+  it("documents live showcase URLs without the wedding alias", () => {
+    const handoff = readFileSync(resolve(process.cwd(), "docs/runbooks/showcase-exempel.md"), "utf8");
+    expect(handoff).toContain("https://glass-showcase-umber.vercel.app");
+    expect(handoff).toContain("https://sajtmaskin.se/exempel");
+    expect(handoff).not.toContain("https://glass-showcase.vercel.app");
+  });
 });

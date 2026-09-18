@@ -7,6 +7,7 @@ import {
   EXEMPEL_DISCLOSURE,
   EXEMPEL_SECONDARY_HREF,
   FORBIDDEN_GLASS_ALIAS,
+  SHOWCASE_EXTERNAL_REL,
   SHOWCASE_SITES,
 } from "@/lib/exempel/showcase-sites";
 import { ExempelContent } from "./exempel-content";
@@ -40,7 +41,7 @@ describe("ExempelContent", () => {
     for (const [index, site] of SHOWCASE_SITES.entries()) {
       expect(screen.getByRole("heading", { level: 3, name: site.name })).toBeTruthy();
       expect(openLinks[index]?.getAttribute("href")).toBe(site.href);
-      expect(openLinks[index]?.getAttribute("rel")).toContain("noopener");
+      expect(openLinks[index]?.getAttribute("rel")).toBe(SHOWCASE_EXTERNAL_REL);
       expect(openLinks[index]?.getAttribute("target")).toBe("_blank");
     }
     expect(container.innerHTML).not.toContain(FORBIDDEN_GLASS_ALIAS);

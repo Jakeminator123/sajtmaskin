@@ -6,6 +6,7 @@ import {
   EXEMPEL_BUILDER_HREF,
   EXEMPEL_DISCLOSURE,
   EXEMPEL_SECONDARY_HREF,
+  SHOWCASE_EXTERNAL_REL,
   SHOWCASE_SITES,
 } from "@/lib/exempel/showcase-sites";
 
@@ -72,16 +73,19 @@ export function ExempelContent() {
                   <a
                     href={site.href}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel={SHOWCASE_EXTERNAL_REL}
                     className="group relative block aspect-[16/10] overflow-hidden bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     <Image
                       src={site.screenshotSrc}
-                      alt={site.screenshotAlt}
+                      alt=""
                       fill
                       sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
                       className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                     />
+                    <span className="sr-only">
+                      {site.name}: {site.screenshotAlt} (öppnas i ny flik)
+                    </span>
                   </a>
                   <div className="flex flex-1 flex-col px-5 py-5">
                     <p className="text-xs font-medium tracking-widest text-primary uppercase">
@@ -96,7 +100,7 @@ export function ExempelContent() {
                     <a
                       href={site.href}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel={SHOWCASE_EXTERNAL_REL}
                       className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
                     >
                       Öppna exemplet
