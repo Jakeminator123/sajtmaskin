@@ -101,5 +101,5 @@ eval startar ingen preview-VM.
 
 - #1464 — statisk 03, **mergad** till `preview` (`bd3cc300f`). Inte A–D.
 - #1444 — stale Draft; ersatt av #1464.
-- [Briefing + Källpaket](../2026-08-18-briefing-och-kallpaket/00-master-plan.md) B4 — första kurationspasset är levererat. Starta inte om det.
+- [Briefing + Källpaket (parkerad)](../../archived/2026-08-18-briefing-och-kallpaket.md) — B4 första kurationspasset är levererat. Starta inte om det.
 - [Scaffold-komposition (avklarat)](../../avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) — K1 satte disabled-domarna.

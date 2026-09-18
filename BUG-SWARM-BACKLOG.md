@@ -142,8 +142,8 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | Prio | Fråga | Senast när |
 | --- | --- | --- |
 | P3 | Ska ”Publik preview” döpas om till vad kontrollen faktiskt gör, och ska ”Hantera domän” flyttas från domän-chevronen till Publicera-menyn? | Fritt. |
-| P3 | Briefing N3–N5: återinför Refine efter verifierarfynd, prova bevarande `clear-refine`, och betala extra variant-embedding? | Före B6 steg 2/B7; se aktiva Briefing-planen. |
-| P3 | Dossier D5: ska Backoffice få fri add/remove efter att D2–D4 landat? | Före D5. |
+| P3 | Briefing N3–N5: återinför Refine efter verifierarfynd, prova bevarande `clear-refine`, och betala extra variant-embedding? | Inte före kvalitetsplanens A-mätning. Se [`docs/plans/archived/2026-08-18-briefing-och-kallpaket.md`](docs/plans/archived/2026-08-18-briefing-och-kallpaket.md). |
+| P3 | Dossier D5: ska Backoffice få fri add/remove efter att D2–D4 landat? | D2–D4 är parkerade. Se [`docs/plans/archived/2026-08-19-dossier-forenkling.md`](docs/plans/archived/2026-08-19-dossier-forenkling.md). |
 | P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Före D4. |
 | P2 | Ska högst en hard dossier väljas per promptrunda? | Nästa dossier-härdning. |
 | P2 | Ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production? | Verifiera aktuell env före nästa flaggändring. |

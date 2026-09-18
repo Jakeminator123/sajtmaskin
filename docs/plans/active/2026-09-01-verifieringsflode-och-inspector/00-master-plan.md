@@ -1,5 +1,14 @@
 # Verifieringsflöde + inspector — utredning och åtgärdsplan (2026-09-01)
 
+> **Status: kod landad; kvar är driftbevis.** Kör ett litet antal riktiga
+> smokes (checklista B) och stäng sedan planen. Vercel 24h 2026-09-18: två
+> historiska Chromium core-dumps i `product-postcheck` (380–406 MB), senast
+> 2026-09-17 på preview-deploy `13843edc` (#1457) — inte aktuell production
+> `0fc9a6a9d`. Det stärker burst/capture-provet, inte en ny implementationskö.
+>
+> `SM-070`/live review är parkerad; den flaggan är av och hör inte i den här
+> smokelistan som lanseringsarbete.
+
 Utredning körd 2026-08-31/09-01 på ägarens uppdrag: varför visar buildern
 "Degraderad"/"Preview klar med luckor" på friska sajter, varför är
 elementmarkeringen i preview-ytan död, och vem äger bildgranskningen
