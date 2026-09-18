@@ -15,55 +15,86 @@ Ursprunglig fem-lista (Jakobs urval):
 4. Nyemission registrerad hos Bolagsverket
 5. DNS/nameserver-byte hos befintligt bolag
 
-Plus ett tillägg som **inte** är ett av de fem: annonsspåret kring
-myndighetsprocessen (typ «verksamt»-ögonblicket). Bjuda på
-myndighetsvarumärket «verksamt» rakt av rekommenderades inte.
+## Ordning och läge
 
-Ingen av de fyra nedan har egen plan under `docs/plans/active/`.
-Beställ dem separat; bygg inte dem ur den här listan utan nytt ja.
+Principen från v1→v3: **testa signalvärdet först, bygg Radar först när en
+signal faktiskt konverterar.** Ta ett litet antal riktiga leads per signal,
+en pitch, `/analys` eller mockup som bevis, och se om människor svarar.
+Först när en trigger tydligt slår vanlig kall outreach är den värd
+automatisering.
 
-## 1. Inline bild i kalla mejl/DM
+| Ordning | Spår | Vad det egentligen är | Läge |
+|---|---|---|---|
+| 1 | Inline bild i kallt mejl/DM | Bättre kuvert på outreach som ändå ska ut — inte nya leads | **Körbar nu**: [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
+| 2 | T-1: varumärkesansökan hos PRV | Försök hitta bolaget före domän och bolagsregistrering | Datastudie först, ingen kod |
+| 3 | Nyemission hos Bolagsverket | Befintligt bolag som just gjort en kapitalåtgärd | Litet premiumexperiment |
+| 4 | DNS/nameserver-byte | Befintligt bolag som gör något med webb eller leverantör nu | Parkerad till Radar v1 |
 
-Sänker friktionen till första intrycket: bädda in mockupen i mejlet eller
-LinkedIn-DM, inte bara en länk. Känns som att något redan är gjort.
+Ingen av dem har egen planmapp. Bygg inget ur den här listan utan nytt ja.
 
-Första test: A/B i redan planerad batch 1/2. Samma preview-pipeline till
-bild; CID i e-post eller bifogad bild i LinkedIn. Mät leverans och
-öppningsgrad.
+## Hur `/analys` gör de andra starkare
 
-Undvik: spamfilter på bildtunga mejl. Bilden är ett förslag, inte påstådd
-färdig leverans.
+`/analys` är levererad och fungerar som verktyg i båda riktningarna:
+inbound på sajten, och som personlig bilaga i outreach.
 
-## 3. T-1: varumärkesansökan hos PRV
+```text
+trigger (PRV, nyemission, annat)
+  → hitta bolagets nuvarande webb
+  → kör /analys
+  → personlig rapport + ev. mockup
+  → outreach
+```
 
-Ett steg före T0 i den äldre kundplanen. Den som varumärkesskyddar
-signalerar en mer premium-orienterad mottagare, men volymen är låg.
+Då blir kontakten inte «en signal hände», utan något konkret om deras
+faktiska webbplats.
 
-Första test: datatillgänglighet mot PRV, inte bygg. Därefter matchning
-mot Bolagsverket och domänkontroll.
+## 2. T-1: varumärkesansökan hos PRV
 
-Undvik: huvudkanal på egen hand. Inte en av de första två triggergrupperna.
+Ett steg före T0 i den äldre kundplanen: någon har skickat in en
+varumärkesansökan, ibland innan det finns bolag eller domän. Den som
+varumärkesskyddar signalerar en mer premium-orienterad mottagare, men
+volymen är låg.
 
-## 4. Nyemission registrerad hos Bolagsverket
+**Nu: datastudie, inte bygge.** Går det att få färska poster med sökbar
+identitet och datum, och kan de matchas rimligt mot Bolagsverket och en
+domänkontroll? Ta ett litet stickprov.
 
-Den enda diskuterade triggern som signalerar **budget just nu**, inte
-bara behov. Premiumspår, inte gratis-först i batch 1.
+Undvik: huvudkanal på egen hand. Inte en av de första två
+triggergrupperna. Bygg inget Radar-flöde innan datan är visad användbar.
 
-Första test: parsa PoIT-kungörelser (org.nr, datum, ev. belopp) och
-kombinera med bolagsålder.
+## 3. Nyemission registrerad hos Bolagsverket
 
-Undvik: massutskickston. Mottagarna är ofta sofistikerade.
+Den enda diskuterade triggern som pekar på **betalningsförmåga** i stället
+för bara behov. Kungörs i Post- och Inrikes Tidningar med org.nr, datum och
+ibland belopp.
 
-## 5. DNS/nameserver-byte hos befintligt bolag
+**Nu: litet premiumexperiment.** Hämta några färska fall och kontrollera
+vilka som samtidigt har svag eller gammal sajt. Pitcha ett betalt
+förbättrings-/tillväxterbjudande, inte «gratis hemsida» som standard.
 
-Befintligt bolag mitt i ett leverantörsbyte — redan i utvärderingsfas,
-annan målgrupp än nystartade utan sajt.
+Undvik: massutskickston — mottagarna har ofta byrå och höga förväntningar.
+Registrerad emission är en **budgetsignal att testa**, inte ett bevis på
+att pengarna finns på banken.
 
-Första test: lager ovanpå domänbevakning efter Radar v1, på redan
-bevakade domäner. Jämför kostnad mot värde innan bredare polling.
+## 4. DNS/nameserver-byte hos befintligt bolag
+
+Bolag mitt i ett leverantörsbyte, alltså redan i utvärderingsfas. Annan
+målgrupp än nystartade utan sajt.
+
+**Nu: parkerad.** Signalen kräver historik och kontinuerlig bevakning för
+att vara värd något, så den väntar på Radar v1 och används då för
+prioritering — inte som egen fristående kanal. Jämför kostnad mot värde
+innan bredare polling.
 
 Undvik: nämn aldrig metoden («vi märkte att ni bytte nameserver»).
-Formulera kring utfallet, inte kring signalen.
+Formulera kring utfallet.
+
+## Annonsspåret hålls separat
+
+«Verksamt»-ögonblicket är inte en lead-datasignal utan ett **paid
+intent**-spår: syns när någon aktivt är i starta-bolag-, domän- eller
+hemsidefasen. Kan testas oberoende av Radar. Bjud inte på
+myndighetsvarumärket «verksamt» rakt av.
 
 ## Inte det här paketet
 

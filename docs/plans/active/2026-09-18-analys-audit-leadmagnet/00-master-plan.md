@@ -26,15 +26,20 @@ Av de fem kundanskaffningsspåren är **punkt 2, den publika
 webbplatsgranskningen**, avklarad i kod (#1471) och stryks från listan.
 De fyra övriga namnges i
 [`resterande-fyra-spar.md`](resterande-fyra-spar.md) så de inte bara
-finns i Jakobs opushade Windows-checkout. Beställ dem separat.
+finns i Jakobs opushade Windows-checkout.
 
 | # | Spår | Status |
 |---|---|---|
-| 1 | Inline bild i kalla mejl/DM | Kvar — se resten |
+| 1 | Inline bild i kalla mejl/DM | Körbar nu — [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
 | 2 | Publik «gratis webbplatsgranskning»-widget (`/analys`) | Gjort i #1471 |
-| 3 | T-1: varumärkesansökan hos PRV | Kvar — se resten |
-| 4 | Nyemission registrerad hos Bolagsverket | Kvar — se resten |
-| 5 | DNS/nameserver-byte hos befintligt bolag | Kvar — se resten |
+| 3 | T-1: varumärkesansökan hos PRV | Senare: datastudie först |
+| 4 | Nyemission registrerad hos Bolagsverket | Senare: litet premiumexperiment |
+| 5 | DNS/nameserver-byte hos befintligt bolag | Senare: parkerad till Radar v1 |
+
+Ordningen följer v3-disciplinen: testa signalvärdet på ett litet antal
+riktiga leads innan något automatiseras. Spår 3–5 är beställningar, inte
+arbete som pågår. Annonsspåret («verksamt»-ögonblicket) är paid intent och
+hålls utanför de fem.
 
 Levererat i det här spåret:
 
@@ -177,7 +182,8 @@ indexerad «gratis analys» före A2+A3+A4.
 | [aktiviteter/A2-gastpolicy-credits.md](aktiviteter/A2-gastpolicy-credits.md) | Gäst vs credits |
 | [aktiviteter/A3-abuse-rate-limit.md](aktiviteter/A3-abuse-rate-limit.md) | Tak och in-flight |
 | [aktiviteter/A4-cta-handoff.md](aktiviteter/A4-cta-handoff.md) | Copy, CTA, handoff |
-| [resterande-fyra-spar.md](resterande-fyra-spar.md) | De fyra kvarvarande kundanskaffningsspåren |
+| [resterande-fyra-spar.md](resterande-fyra-spar.md) | De fyra kvarvarande kundanskaffningsspåren, med ordning och läge |
+| [aktiviteter/K1-inline-bild-ab-test.md](aktiviteter/K1-inline-bild-ab-test.md) | A/B-protokoll för inline bild i outreach |
 
 SEO-QA att återanvända (inte kopiera registret):
 [`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
@@ -238,7 +244,12 @@ rapporten i browsern.
 - [x] Widget-spåret mergat till preview (#1471)
 - [x] De fyra övriga kundanskaffningsspåren namngivna i
       [`resterande-fyra-spar.md`](resterande-fyra-spar.md)
+- [x] K1 (inline bild) har ett körbart A/B-protokoll; render-till-bild
+      verifierat på befintlig capture
+- [ ] Kör K1:s A/B och skriv in utfallet — ägarens steg
+- [ ] Spår 3–5 beställs separat i den ordning restlistan anger
 - [ ] När ev. indexbeslut är överlämnat: väv in en rad i
       [`../../avklarat/README.md`](../../avklarat/README.md) och rensa
-      den här mappen — behåll `resterande-fyra-spar.md` eller flytta den
-      med, så listan inte bara finns i git-historiken
+      den här mappen — `resterande-fyra-spar.md` och `aktiviteter/K1-*`
+      följer med eller får ny hemvist, så listan inte bara finns i
+      git-historiken
