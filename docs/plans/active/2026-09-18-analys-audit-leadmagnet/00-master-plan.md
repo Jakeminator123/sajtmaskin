@@ -261,7 +261,8 @@ rapporten i browsern.
       verifierat på befintlig capture
 - [ ] Kör K1:s A/B och skriv in utfallet (vinst, förlust eller
       `INCONCLUSIVE`) — ägarens steg, i `JakobScrape`
-- [ ] Spår 3–5 beställs separat i den ordning restlistan anger
+- [ ] PRV T-1 och nyemission beställs separat, i den ordningen; DNS-bytet
+      stannar PARK tills Radar v1 finns
 - [ ] Mappen stannar **aktiv** tills K1 har ett faktiskt utfall. Städa den
       inte till [`../../avklarat/`](../../avklarat/) bara för att
       protokollet är skrivet. När både indexbeslutet är överlämnat och K1
