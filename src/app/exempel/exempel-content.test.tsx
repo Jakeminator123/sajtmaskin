@@ -45,7 +45,9 @@ describe("ExempelContent", () => {
       expect(external[index]?.getAttribute("rel")).toBe(SHOWCASE_EXTERNAL_REL);
       expect(external[index]?.getAttribute("target")).toBe("_blank");
       expect(
-        screen.getByRole("link", { name: new RegExp(`Öppna ${site.name}`) }),
+        screen.getByRole("link", {
+          name: `Öppna exemplet ${site.name} (öppnas i ny flik)`,
+        }),
       ).toBeTruthy();
     }
     expect(container.innerHTML).not.toContain(FORBIDDEN_GLASS_ALIAS);

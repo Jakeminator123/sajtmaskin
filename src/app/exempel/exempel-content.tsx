@@ -74,12 +74,13 @@ export function ExempelContent() {
                     href={site.href}
                     target="_blank"
                     rel={SHOWCASE_EXTERNAL_REL}
+                    aria-label={`Öppna exemplet ${site.name} (öppnas i ny flik)`}
                     className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     <span className="relative block aspect-[16/10] overflow-hidden bg-secondary/30">
                       <Image
                         src={site.screenshotSrc}
-                        alt={site.screenshotAlt}
+                        alt=""
                         fill
                         sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
                         className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
@@ -96,9 +97,8 @@ export function ExempelContent() {
                         {site.summary}
                       </span>
                       <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 group-hover:underline">
-                        Öppna {site.name}
+                        Öppna exemplet
                         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-                        <span className="sr-only"> (öppnas i ny flik)</span>
                       </span>
                     </span>
                   </a>
