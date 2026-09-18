@@ -6,7 +6,7 @@ import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry"
 
 export function LandingFooter() {
   return (
-    <footer className="px-6 py-10 border-t border-border/15">
+    <footer className="px-6 pt-10 pb-28 border-t border-border/15">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
           <div className="col-span-2 md:col-span-1">
