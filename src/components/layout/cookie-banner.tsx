@@ -17,9 +17,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
-
-const CONSENT_KEY = "cookie-consent";
-const CONSENT_DATE_KEY = "cookie-consent-date";
+import {
+  persistCookieConsent,
+  readStoredCookieConsent,
+} from "@/lib/consent/cookie-consent";
 
 export function CookieBanner() {
   const pathname = usePathname();
@@ -35,26 +36,13 @@ function CookieBannerInner() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    let consent: string | null = null;
-    try {
-      consent = localStorage.getItem(CONSENT_KEY);
-    } catch {
-      consent = null;
-    }
-    if (consent) return;
+    if (readStoredCookieConsent()) return;
     const timer = setTimeout(() => setIsVisible(true), 800);
     return () => clearTimeout(timer);
   }, []);
 
   const persistConsent = useCallback((value: "accepted" | "declined") => {
-    try {
-      localStorage.setItem(CONSENT_KEY, value);
-      if (value === "accepted") {
-        localStorage.setItem(CONSENT_DATE_KEY, new Date().toISOString());
-      }
-    } catch {
-      /* localStorage kan vara blockerat — dölj bannern ändå. */
-    }
+    persistCookieConsent(value);
     setIsVisible(false);
   }, []);
 

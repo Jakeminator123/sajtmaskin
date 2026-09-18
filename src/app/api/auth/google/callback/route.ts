@@ -126,10 +126,11 @@ export async function GET(req: NextRequest) {
       secure: req.nextUrl.protocol === "https:",
     });
 
+    const query: Record<string, string> = { login: "success" };
+    if (result.created) query.signup = "1";
+
     return finishOAuthResponse(
-      NextResponse.redirect(
-        buildRedirectUrl(redirectPath, origin, { login: "success" }),
-      ),
+      NextResponse.redirect(buildRedirectUrl(redirectPath, origin, query)),
       req,
       true,
     );

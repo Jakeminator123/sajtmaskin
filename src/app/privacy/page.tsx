@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           <h1 className="text-foreground mb-2 text-3xl font-semibold tracking-tight">
             Integritetspolicy
           </h1>
-          <p className="text-muted-foreground mb-10 text-sm">Senast uppdaterad: 2026-09-14</p>
+          <p className="text-muted-foreground mb-10 text-sm">Senast uppdaterad: 2026-09-18</p>
 
           <div className="prose-sm space-y-8">
             <Section title="1. Personuppgiftsansvarig">
@@ -149,6 +149,11 @@ export default function PrivacyPage() {
                   fillagring samt webb- och prestandaanalys
                 </li>
                 <li>
+                  <strong className="text-foreground">Google Ads</strong> – konverteringsmätning
+                  för annonser (gtag). Laddas med Consent Mode; annonscookies sätts först efter
+                  samtycke
+                </li>
+                <li>
                   <strong className="text-foreground">Google OAuth</strong> – inloggning (valfritt)
                 </li>
                 <li>
@@ -188,6 +193,11 @@ export default function PrivacyPage() {
                 <li>
                   <strong className="text-foreground">Trafik- och prestandamätning:</strong> Samlas
                   in genom Sajtmaskins egen analys samt Vercel Analytics och Speed Insights
+                </li>
+                <li>
+                  <strong className="text-foreground">Marknadsföringscookies:</strong> Google Ads
+                  (gtag) mäter konverteringar efter att du accepterat cookies. Utan samtycke skickas
+                  bara cookielösa pings via Consent Mode
                 </li>
               </ul>
               <p>Du kan hantera dina cookieinställningar via vår cookie-banner.</p>

@@ -22,11 +22,8 @@ import { Component, useCallback, useEffect, useRef, useState, type ReactNode } f
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
-import {
-  LANYARD_CONSENT_DATE_KEY,
-  LANYARD_CONSENT_KEY,
-  readStoredCookieConsent,
-} from "@/components/landing-v2/lanyard-consent"
+import { persistCookieConsent } from "@/lib/consent/cookie-consent"
+import { readStoredCookieConsent } from "@/components/landing-v2/lanyard-consent"
 import {
   readLanyardStaticOnly,
   usePrefersReducedMotion,
@@ -267,14 +264,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
   const choose = useCallback(
     (value: "accepted" | "declined") => {
       if (leaving) return
-      try {
-        localStorage.setItem(LANYARD_CONSENT_KEY, value)
-        if (value === "accepted") {
-          localStorage.setItem(LANYARD_CONSENT_DATE_KEY, new Date().toISOString())
-        }
-      } catch {
-        /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
-      }
+      persistCookieConsent(value)
       setLeaving(true)
       window.setTimeout(onDone, flipMs - 60)
     },

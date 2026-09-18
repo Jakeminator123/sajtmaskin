@@ -7,6 +7,7 @@ import {
   googleOAuthStartHref,
   touchPendingBuilderDraftReturnTo,
 } from "@/lib/builder/pending-builder-draft";
+import { trackGoogleAdsConversion } from "@/lib/marketing/google-ads";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
@@ -117,6 +118,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         );
         setShowResendVerification(Boolean(data.requiresEmailVerification && email));
         return;
+      }
+
+      if (mode === "register") {
+        trackGoogleAdsConversion("account_created");
       }
 
       if (mode === "register" && data.requiresEmailVerification) {

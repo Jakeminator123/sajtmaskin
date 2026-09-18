@@ -325,6 +325,20 @@ describe("proxy CSP — first-party third-party egress allowlist", () => {
     expect(directive(csp, "connect-src")).toContain("https://api-js.mixpanel.com");
   });
 
+  it("allows the Google Ads gtag hosts needed by conversion tracking", async () => {
+    const csp = await cspFor("https://sajtmaskin.example/");
+    const scriptSrc = directive(csp, "script-src");
+    const connectSrc = directive(csp, "connect-src");
+    const frameSrc = directive(csp, "frame-src");
+
+    expect(scriptSrc).toContain("https://www.googletagmanager.com");
+    expect(frameSrc).toContain("https://www.googletagmanager.com");
+    expect(connectSrc).toContain("https://www.googleadservices.com");
+    expect(connectSrc).toContain("https://googleads.g.doubleclick.net");
+    expect(connectSrc).toContain("https://www.google.com");
+    expect(scriptSrc).not.toContain("https://*.googleapis.com");
+  });
+
   it("allows only the exact Google Maps origins needed by the Maps JS loader", async () => {
     const csp = await cspFor("https://sajtmaskin.example/");
     const scriptSrc = directive(csp, "script-src");

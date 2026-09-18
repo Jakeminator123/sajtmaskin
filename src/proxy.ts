@@ -86,6 +86,25 @@ const GOOGLE_MAPS_HOSTS = [
   "https://maps.gstatic.com",
 ] as const;
 
+// Google Ads gtag (Consent Mode + conversion pixels). Keep this tighter than
+// a generic *.google.com allowlist — these are the hosts the official gtag
+// loader talks to after `gtag/js` is fetched from Tag Manager.
+const GOOGLE_ADS_HOSTS = {
+  script: ["https://www.googletagmanager.com"],
+  frame: ["https://www.googletagmanager.com"],
+  connect: [
+    "https://www.googletagmanager.com",
+    "https://www.google.com",
+    "https://www.google.se",
+    "https://www.googleadservices.com",
+    "https://googleads.g.doubleclick.net",
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+  ],
+} as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -147,6 +166,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     `'nonce-${nonce}'`,
     ...VERCEL_LIVE_HOSTS.script,
     ...GOOGLE_MAPS_HOSTS,
+    ...GOOGLE_ADS_HOSTS.script,
   ];
   const imgSrc = [
     "'self'",
@@ -158,7 +178,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...VERCEL_LIVE_HOSTS.frame, ...tier2PreviewHosts];
+  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...VERCEL_LIVE_HOSTS.frame, ...GOOGLE_ADS_HOSTS.frame, ...tier2PreviewHosts];
   const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...VERCEL_LIVE_HOSTS.connect, ...tier2PreviewHosts];
   const mediaSrc = [`'self'`, "blob:", ...VERCEL_BLOB_MEDIA_HOSTS];
   const workerSrc = [`'self'`, "blob:"];
@@ -171,6 +191,9 @@ function buildCspPolicy(pathname: string, nonce: string): string {
 
   // Google Maps JS bootstrap, runtime chunks and Places requests.
   connectSrc.push(...GOOGLE_MAPS_HOSTS);
+
+  // Google Ads gtag / conversion beacons (see GOOGLE_ADS_HOSTS).
+  connectSrc.push(...GOOGLE_ADS_HOSTS.connect);
 
   if (allowDidEmbed) {
     scriptSrc.push(...DID_EMBED_HOSTS);

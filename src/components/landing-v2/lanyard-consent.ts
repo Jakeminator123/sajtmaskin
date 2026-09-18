@@ -1,16 +1,14 @@
 import { readLanyardStaticOnly } from "@/components/landing-v2/landing-hooks";
+import {
+  COOKIE_CONSENT_DATE_KEY,
+  COOKIE_CONSENT_KEY,
+  readStoredCookieConsent,
+} from "@/lib/consent/cookie-consent";
 
-export const LANYARD_CONSENT_KEY = "cookie-consent";
-export const LANYARD_CONSENT_DATE_KEY = "cookie-consent-date";
+export const LANYARD_CONSENT_KEY = COOKIE_CONSENT_KEY;
+export const LANYARD_CONSENT_DATE_KEY = COOKIE_CONSENT_DATE_KEY;
 
-export function readStoredCookieConsent(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return localStorage.getItem(LANYARD_CONSENT_KEY);
-  } catch {
-    return null;
-  }
-}
+export { readStoredCookieConsent };
 
 /** 3D-kortet får bara förladdas när samtycke finns och staticOnly är av. */
 export function shouldPreloadLanyardCard(): boolean {

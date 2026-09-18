@@ -358,7 +358,26 @@ describe("OAuth route handlers", () => {
       expect.any(String),
     );
     expect(callback.headers.get("location")).toContain("login=success");
+    expect(callback.headers.get("location")).not.toContain("signup=1");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks a brand-new Google account with signup=1 for Ads conversion", async () => {
+    handleGoogleCallback.mockResolvedValue({
+      user: { id: "user-new" },
+      token: "app-token",
+      created: true,
+    });
+    const started = await startProvider("google", "https://sajtmaskin.se");
+    const callback = await googleCallback(
+      req(
+        `https://sajtmaskin.se/api/auth/google/callback?code=ok&state=${encodeURIComponent(started.state!)}`,
+        { [oauthCookieName("google")]: started.cookie! },
+      ),
+    );
+    const location = callback.headers.get("location") ?? "";
+    expect(location).toContain("login=success");
+    expect(location).toContain("signup=1");
   });
 
   it.each([
