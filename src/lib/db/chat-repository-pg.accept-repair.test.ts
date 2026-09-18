@@ -326,6 +326,7 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
     expect(where).toContain("not exists");
     expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
+    expect(where).toContain("created_at");
     expect(where).toContain("now()");
   });
 

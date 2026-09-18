@@ -1,3 +1,4 @@
+import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
 import { db } from "../client";
 import { engineVersions } from "../schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -216,12 +217,14 @@ export async function failVersionVerification(
 
 /**
  * Watchdog-only fail (Codex P2 + L5): marks a stale version failed ONLY if no
- * active lease owns it AND the row still has the `verification_state` +
- * `files_revision` the caller already read (CAS). Stops a readiness poll from
- * failing a version that a verify/repair run legitimately acquired in the gap
- * between a separate `hasActiveVersionLease` check and the write, and from
- * writing `failed`/`draft` over a row that was promoted or rewritten while the
- * watchdog awaited logs/gate/head. A CAS miss is a silent no-op
+ * FRESH lease owns it AND the row still has the `verification_state` +
+ * `files_revision` the caller already read (CAS). A running row whose
+ * `created_at` is older than the isolate budget (or whose TTL has elapsed)
+ * is a zombie left by isolate-kill — not work in progress. Stops a readiness
+ * poll from failing a version that a verify/repair run legitimately acquired
+ * in the gap between a separate `hasActiveVersionLease` check and the write,
+ * and from writing `failed`/`draft` over a row that was promoted or rewritten
+ * while the watchdog awaited logs/gate/head. A CAS miss is a silent no-op
  * (`{ applied: false, reason: "cas_miss" }`) — never an error log.
  *
  * `null` stays the retryable no-op (lease held, row gone, lock-timeout, and
@@ -286,7 +289,7 @@ export async function failVersionVerificationIfUnleased(
           // Only enforce the no-active-lease guard once the table exists; before
           // migration this degrades to the legacy unconditional watchdog.
           jobsExist
-            ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+            ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now() AND j.created_at > now() - ${VERIFY_REPAIR_ROUTE_BUDGET_SECONDS} * interval '1 second')`
             : undefined,
         ),
       );

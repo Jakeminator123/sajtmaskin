@@ -1,5 +1,12 @@
-import { failVersionVerification } from "@/lib/db/chat-repository-pg";
+import {
+  failVersionVerification,
+  failVersionVerificationIfUnleased,
+  getRunningVersionLease,
+  getVersionById,
+} from "@/lib/db/chat-repository-pg";
 import type { RepairProvenance } from "@/lib/db/repair-files-payload";
+import { REPAIR_ABORTED_SUMMARY } from "@/lib/gen/verify/repair-abort-copy";
+import { isFreshVersionLease } from "@/lib/gen/verify/stale-verification";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
@@ -170,6 +177,30 @@ export async function triggerBuildErrorRepair(params: {
     category: "preview-vm",
   });
   inflight.add(versionId);
+  // C1/C2: a prior isolate-kill can leave `repairing` + a zombie lease.
+  // Fail that hung row BEFORE acquiring a new 950s loop. A fresh lease is
+  // genuinely busy; a dead one is not. Auto-repair (force=false) stops after
+  // the fail so we never silently start another isolate.
+  const hung = await getVersionById(versionId).catch(() => null);
+  if (hung?.verification_state === "repairing") {
+    let runningLease: Awaited<ReturnType<typeof getRunningVersionLease>> = null;
+    try {
+      runningLease = await getRunningVersionLease(versionId);
+    } catch {
+      inflight.delete(versionId);
+      return { started: false, repairAvailable: false, skippedReason: "lease_unavailable" };
+    }
+    if (!runningLease || !isFreshVersionLease(runningLease)) {
+      await failVersionVerificationIfUnleased(versionId, REPAIR_ABORTED_SUMMARY, {
+        verificationState: "repairing",
+        filesRevision: hung.files_revision ?? null,
+      }).catch(() => null);
+      if (!force) {
+        inflight.delete(versionId);
+        return { started: false, repairAvailable: false };
+      }
+    }
+  }
   const lease = await acquireVerifyLease(versionId, "build_error_repair");
   if (!lease.proceed) {
     // Another live lease, or the distributed lock could not be proven — the

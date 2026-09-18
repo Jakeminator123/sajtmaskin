@@ -294,3 +294,57 @@ describe("useBuilderDeployActions — handleGenerationComplete fresh-version gra
     expect(pendingCreatedVersionRef.current).toBeNull();
   });
 });
+
+describe("useBuilderDeployActions — republishWithFix after isolate 504 (C2)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("shows abort copy on HTTP 504, not 'En reparation körs redan'", async () => {
+    const mutateVersions = vi.fn();
+    const mutateChat = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: "Task timed out after 950 seconds" }), {
+          status: 504,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const { result } = renderHook(() =>
+      useBuilderDeployActions(makeArgs({ activeDeploymentId: "dep_1", mutateVersions, mutateChat })),
+    );
+
+    await act(async () => {
+      await result.current.republishWithFix();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("avbröts"),
+    );
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("körs redan"));
+    expect(mutateVersions).toHaveBeenCalled();
+  });
+
+  it("shows abort copy when fetch dies (status 0 / Failed to fetch)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    const { result } = renderHook(() =>
+      useBuilderDeployActions(makeArgs({ activeDeploymentId: "dep_1" })),
+    );
+
+    await act(async () => {
+      await result.current.republishWithFix();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("avbröts"),
+    );
+  });
+});

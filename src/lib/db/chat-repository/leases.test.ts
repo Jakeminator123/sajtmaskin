@@ -128,4 +128,26 @@ describe("acquireVersionLease — exactly one owner (L4)", () => {
     const losers = [a, b].filter((lease) => lease == null);
     expect(losers).toHaveLength(1);
   });
+
+  it("takes over a running lease whose created_at is older than the isolate budget", async () => {
+    let insertSql = "";
+    transaction.mockImplementation((cb: (tx: { execute: (sql: unknown) => Promise<unknown> }) => unknown) => {
+      const tx = {
+        execute: async (sqlObj: unknown) => {
+          const rendered = renderSql(sqlObj);
+          if (rendered.includes("insert into engine_version_jobs")) {
+            insertSql = rendered;
+            return { rows: [{ run_id: "takeover" }] };
+          }
+          return { rows: [{}] };
+        },
+      };
+      return cb(tx);
+    });
+
+    const won = await acquireVersionLease("ver-1", "build_error_repair");
+    expect(won).toEqual({ runId: expect.any(String) });
+    expect(insertSql).toContain("created_at = now()");
+    expect(insertSql).toContain("created_at < now()");
+  });
 });

@@ -60,6 +60,7 @@ import {
   type ServerVerifyFailedOutput,
 } from "../server-verify-log-meta";
 import { resolvePostRepairFinalize } from "../server-repair-policy";
+import { recordRepairPhaseSignal, withRepairPhaseSignal } from "../repair-phase-signal";
 import { isLatestVersionForChat } from "./lease";
 import {
   evaluateServerOwnedF3Readiness,
@@ -338,22 +339,26 @@ export async function tryServerRepairLoop(params: {
     const exportableForGate = await buildExportableProject(repairedFiles, {
       verbatimRepo: repairVerbatimRepo,
     });
-    const decision = await shouldPromoteAfterRepair({
-      chatId,
-      versionId,
-      exportable: exportableForGate,
-      hadQualityGateFailures,
-      // Fas 3 same-signal-kontrakt: the post-repair gate must re-run every
-      // check that originally failed — a repair is only "repaired" when the
-      // SAME signal passes again. Union of the base lane (#260 build-origin
-      // escalation, #291 F3 integrations lane) and the origin failed checks.
-      checks: resolveSameSignalGateChecks({
-        originFailedChecks: failedOutputs.map((output) => output.check),
-        buildOriginated,
-        previewPolicy,
-      }),
-      verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
-    });
+    const decision = await withRepairPhaseSignal(
+      { chatId, versionId, phase: "preview_verify" },
+      () =>
+        shouldPromoteAfterRepair({
+          chatId,
+          versionId,
+          exportable: exportableForGate,
+          hadQualityGateFailures,
+          // Fas 3 same-signal-kontrakt: the post-repair gate must re-run every
+          // check that originally failed — a repair is only "repaired" when the
+          // SAME signal passes again. Union of the base lane (#260 build-origin
+          // escalation, #291 F3 integrations lane) and the origin failed checks.
+          checks: resolveSameSignalGateChecks({
+            originFailedChecks: failedOutputs.map((output) => output.check),
+            buildOriginated,
+            previewPolicy,
+          }),
+          verifyDeadlineEpochMs: options?.verifyDeadlineEpochMs,
+        }),
+    );
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
       results: decision.results,
@@ -543,6 +548,17 @@ export async function tryServerRepairLoop(params: {
     onBeforePass: async () => {
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
     },
+    onPhaseSignal: (event) =>
+      recordRepairPhaseSignal({
+        chatId,
+        versionId,
+        phase: event.phase,
+        event: event.event,
+        durationMs: event.durationMs,
+        startedAt: event.startedAt,
+        finishedAt: event.finishedAt,
+        passIndex: event.passIndex,
+      }),
     onAttemptPromotion: async (projectContent, method, options) => ({
       promoted: await tryPromoteAfterGate(projectContent, method, options),
     }),
