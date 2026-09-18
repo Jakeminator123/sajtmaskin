@@ -2,10 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 
-const ensureGoogleAdsTag = vi.fn();
-const isGoogleAdsEnabled = vi.fn();
-const trackGoogleAdsConversion = vi.fn();
-const usePathname = vi.fn();
+const ensureGoogleAdsTag = vi.hoisted(() => vi.fn());
+const isGoogleAdsEnabled = vi.hoisted(() => vi.fn());
+const trackGoogleAdsConversion = vi.hoisted(() => vi.fn());
+const usePathname = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathname(),

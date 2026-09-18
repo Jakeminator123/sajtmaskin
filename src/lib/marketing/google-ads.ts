@@ -79,7 +79,9 @@ export function ensureGoogleAdsTag(options: { nonce?: string; hostname?: string 
     adsWindow.gtag =
       adsWindow.gtag ??
       function gtag() {
-        // Official gtag stub: the real script later drains `arguments` objects.
+        // Official gtag bootstrap uses `arguments` so the downloaded script
+        // can drain the same queue shape as Google's snippet.
+        // eslint-disable-next-line prefer-rest-params
         adsWindow.dataLayer?.push(arguments);
       };
     adsWindow.gtag("consent", "default", {
