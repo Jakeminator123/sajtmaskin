@@ -35,6 +35,7 @@ from backoffice.pages.scaffold_lifecycle import (
     _dead_source_template_ids,
     _dead_source_template_ids_message,
     _slugify,
+    _source_template_ids_integrity_error,
     _validate_variant_payload,
     _variant_payload,
     _variant_template_reference_errors,
@@ -923,15 +924,9 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
             errors = [*errors, *_variant_template_reference_errors(ctx, payload)]
         else:
             errors = _validate_variant_payload(ctx, payload)
-        source_ids = payload.get("sourceTemplateIds")
-        if not (
-            isinstance(source_ids, list)
-            and any(isinstance(value, str) and value.strip() for value in source_ids)
-        ):
-            errors = [
-                *errors,
-                "Varianten måste ha minst ett runtime-valbart `sourceTemplateIds`-id.",
-            ]
+        source_error = _source_template_ids_integrity_error(payload)
+        if source_error:
+            errors = [*errors, source_error]
         add(
             "Varianten klarar det strikta schemat",
             not errors,

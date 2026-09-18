@@ -35,8 +35,11 @@ class LiveCatalogTests(unittest.TestCase):
                 CatalogScope.GALLERY: 278,
                 CatalogScope.SITE_VISIBLE: 262,
                 # 68 sedan tomma mEefgKyVifq togs bort ur registret och dess
-                # två variantciteringar (#1087).
-                CatalogScope.VARIANT_CITED: 68,
+                # två variantciteringar (#1087); 64 sedan de fyra aldrig
+                # valbara id:na (GzHBHQAiS2F ai, mQB1SyhOpe8/oZxBJ6zcOsz
+                # components, pCMjvDLPVe3 design-systems) rensades som död
+                # konfig (INSP).
+                CatalogScope.VARIANT_CITED: 64,
             },
         )
 
@@ -53,7 +56,7 @@ class LiveCatalogTests(unittest.TestCase):
     def test_live_generated_addenda_match_archive_and_extractor(self) -> None:
         cited = select_catalog(self.snapshot, CatalogScope.VARIANT_CITED)
         self.assertTrue(self.snapshot.addenda_valid, self.snapshot.addenda_error)
-        self.assertEqual(len(cited), 68)
+        self.assertEqual(len(cited), 64)
         # Speglar TS-grinden i variant-integrity.test.ts: varje citerad mall ska ha
         # en aktuell ELLER explicit disabled addendum-post. `disabled` är ett
         # medvetet kuratorsbeslut (B4/K1), inte drift — missing/stale/invalid failar.
@@ -192,7 +195,7 @@ class ExtractorFingerprintTests(unittest.TestCase):
         self.assertEqual(
             paths,
             (
-                "src/lib/gen/scaffold-variants/template-inspiration.ts",
+                "src/lib/gen/scaffold-variants/template-structural-extractor.ts",
                 "src/lib/templates/local-v0-template-source.ts",
             ),
         )

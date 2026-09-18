@@ -1,14 +1,27 @@
 # Verifieringsflöde + inspector — utredning och åtgärdsplan (2026-09-01)
 
+> **Status: kod landad; kvar är driftbevis.** Stäng först när checklista
+> **B och C** är avbockade. B ensamt räcker inte. Vercel 7d 2026-09-18: **28** Chromium core-dumps (389–436 MB)
+> i `product-postcheck` mellan 2026-09-11 och 2026-09-17, alla på
+> preview-deploy `13843edc` (#1457) och en användare — inte aktuell production
+> `0fc9a6a9d`. En 24h-läsning visar bara de två sista och underskattar
+> mönstret. Dumparna detekteras och prunas, så detta är evidens för att köra
+> burst-/captureprovet, inte en ny implementationskö.
+>
+> `SM-070`/live review är parkerad; den flaggan är av och hör inte i den här
+> smokelistan som lanseringsarbete. Kamera-knappen i checklista B är därför
+> inte ett lanseringskrav i denna omgång.
+
 Utredning körd 2026-08-31/09-01 på ägarens uppdrag: varför visar buildern
 "Degraderad"/"Preview klar med luckor" på friska sajter, varför är
 elementmarkeringen i preview-ytan död, och vem äger bildgranskningen
 ("ta en bild och få den granskad")?
 
 Bugg-sanningen bor i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md)
-(`SM-072`, `SM-073`, `SM-070`, `SM-025`) — den här mappen håller utredningens
+(`SM-072`, `SM-073`, `SM-025`; `SM-070` redovisas som parkerad releaseblockerare
+och är inte den här mappens grind) — den här mappen håller utredningens
 helhetsbild, checklistan och beviskedjan. Radera mappen till `avklarat/` när
-checklistan i [`01-checklista.md`](01-checklista.md) är avbockad.
+avsnitt **B** och **C** i [`01-checklista.md`](01-checklista.md) är avbockade.
 
 ## De tre bekräftade felen
 
@@ -42,9 +55,17 @@ kritikern, körd av `src/lib/gen/verify/live-review.ts` inuti Product
 Postcheck. OpenClaw/Sajtagenten är **inte** bildkritikern — den äger
 åtkomstgrinden (`SAJTMASKIN_LIVE_REVIEW` ∧ `OC_EDIT` ∧ grant/auto-grant) och
 får textdomen + bildlänkarna som chatkontext efteråt. Kanoniskt beslut:
-`docs/decisions/README.md` 2026-08-27. Obs: auto-grant är på i prod trots att
-`SM-070`-härdningen (Blob-retry, 7d-purge, attempt-budget) inte är klar —
-öppet ägarbeslut, se checklistan.
+`docs/decisions/README.md` 2026-08-27.
+
+**Nuvarande fakta (2026-09-18):** koddefault är av. Read-only Vercel: nyckeln
+`SAJTMASKIN_LIVE_REVIEW` saknas i projektet, så runtime är av.
+`SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` finns som nyckel på preview+production
+men värdet lästes inte; den kan inte aktivera review utan huvudflaggan.
+En äldre checklista som sa `true` i prod var fel.
+
+**Framtida aktivering:** separat `SM-070`-beslut. Slå inte på flaggorna för
+att stänga verifieringsplanen. `SM-070`-härdningen (Blob-retry, 7d-purge,
+attempt-budget) är inte klar.
 
 ## Åtgärder landade i denna ändring
 
@@ -58,17 +79,21 @@ får textdomen + bildlänkarna som chatkontext efteråt. Kanoniskt beslut:
 ## Kvarvarande arbete (ej i denna ändring)
 
 Kodfixar sedan utredningen: #1232 (sessionsrotation), #1234 (`/tmp` +
-infra-retry + Degraderad→LLM-fix), #1237 (sanningsraden bort — öppen vid
-avslut). Host-sidan av `SM-073` landade med Fly-deploy v59 2026-09-01.
+infra-retry + Degraderad→LLM-fix), #1237 (sanningsraden bort — **mergad**
+2026-09-01). Host-sidan av `SM-073` landade med Fly-deploy v59 2026-09-01.
 
 - **Prod-burst (checklista B):** fritt `/tmp`, Verifierad vs Degraderad,
-  inspector-hover, kamera-knapp. Utan det stannar `SM-072`/`SM-074` öppna
-  i backlogen även om koden är mergad.
+  inspector-hover. Kameraknappen hör till parkerad `SM-070` och är inte
+  stängningskrav. Utan B+C stannar `SM-072`/`SM-074` öppna i backlogen
+  även om koden är mergad.
 - **`SM-074` valfri serverhärdning:** follow-up-lanen ska inte handoff:a
-  en session den vet inte kör (`reason=runtime_not_running`).
-- **`SM-070`-beslut:** auto-grant för live review i prod av/på.
+  en session den vet inte kör (`reason=runtime_not_running`). Separat beslut,
+  inte del av prod-bursten.
+- **`SM-070`-beslut:** parkerat i
+  [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md).
+  Kameraknappen och auto-grant hör dit, inte hit.
 - **UX-svans (checklista F):** kompakt reparationskort, `logPassId` på
-  postcheck, skarpare `cta_no_handler`.
+  postcheck, skarpare `cta_no_handler`. Blockerar inte att planen stängs.
 
 ## Beviskällor
 

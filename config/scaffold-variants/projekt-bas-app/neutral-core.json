@@ -46,11 +46,7 @@
     "Stay minimal until the prompt defines a domain — no invented sidebar, dashboard, or marketing sections.",
     "Prefer a clean single entry screen, then grow routes and components from the user's request."
   ],
-  "sourceTemplateIds": [
-    "sV0OtrkXM6x",
-    "ov3ApgfOdx5",
-    "Pf7lw1nypu5"
-  ],
+  "sourceTemplateIds": [],
   "signaturePatterns": {
     "layouts": [
       "Start from a single primary screen with clear hierarchy; add routes only when the prompt needs them.",

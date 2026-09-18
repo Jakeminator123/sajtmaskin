@@ -86,6 +86,16 @@ const GOOGLE_MAPS_HOSTS = [
   "https://maps.gstatic.com",
 ] as const;
 
+// First-party Google Ads tag on the Sajtmaskin app (not generated sites).
+// gtag.js + conversion pixels / frames. Keep this exact-host list — do not
+// widen to *.google.com.
+const GOOGLE_ADS_HOSTS = [
+  "https://www.googletagmanager.com",
+  "https://www.googleadservices.com",
+  "https://googleads.g.doubleclick.net",
+  "https://www.google.com",
+] as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -147,6 +157,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     `'nonce-${nonce}'`,
     ...VERCEL_LIVE_HOSTS.script,
     ...GOOGLE_MAPS_HOSTS,
+    ...GOOGLE_ADS_HOSTS,
   ];
   const imgSrc = [
     "'self'",
@@ -157,9 +168,27 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.blob.vercel-storage.com",
     "*.vercel.run",
     "*.vercel.app",
+    ...GOOGLE_ADS_HOSTS,
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...VERCEL_LIVE_HOSTS.frame, ...tier2PreviewHosts];
-  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...VERCEL_LIVE_HOSTS.connect, ...tier2PreviewHosts];
+  const frameSrc = [
+    `'self'`,
+    "*.vusercontent.net",
+    "*.vercel.run",
+    "*.vercel.app",
+    ...VERCEL_LIVE_HOSTS.frame,
+    ...tier2PreviewHosts,
+    ...GOOGLE_ADS_HOSTS,
+  ];
+  const connectSrc = [
+    `'self'`,
+    "*.vusercontent.net",
+    "*.vercel.run",
+    "*.vercel.app",
+    "wss:",
+    ...VERCEL_LIVE_HOSTS.connect,
+    ...tier2PreviewHosts,
+    ...GOOGLE_ADS_HOSTS,
+  ];
   const mediaSrc = [`'self'`, "blob:", ...VERCEL_BLOB_MEDIA_HOSTS];
   const workerSrc = [`'self'`, "blob:"];
 

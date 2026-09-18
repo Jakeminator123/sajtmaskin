@@ -31,8 +31,10 @@ Runtime läser **bara** `data/dossiers/{hard,soft}/`. Övriga mappar är andra l
   `dossiers:capability-map:check` är **blockerande CI** eftersom Backoffice
   konsumerar den.
 - `sourceTemplateIds` är ordnade kandidater; runtime väljer **högst en**
-  inspirationsmall via `src/lib/templates/template-blob-manifest.json` (finns
-  lokalt men är gitignorerad). Ingen join mot dossiers och inget nytt beroende
-  mot `catalog.json` — den togs bort 2026-07-09.
+  inspirationsmall via `src/lib/templates/template-blob-manifest.json`
+  (trackad i git). Kandidater med `disabled` addendum väljs aldrig; ett id i
+  en aldrig valbar kategori avvisas av integritetsgrinden. Ingen join mot
+  dossiers och inget nytt beroende mot `catalog.json` — den togs bort
+  2026-07-09.
 - Vid radering: kolla capability, defaultForCapability, envVars, dependencies
   och capability-map.

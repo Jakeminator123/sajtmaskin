@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { Loader2, Plus, Folder } from "lucide-react";
 import {
   getProjects,
@@ -65,8 +66,11 @@ function ProjectsPageInner() {
 
   useEffect(() => {
     const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
     const authError = searchParams.get("error");
-    if (!login && !authError) return;
+    if (!login && !signup && !authError) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");
@@ -79,6 +83,7 @@ function ProjectsPageInner() {
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("login");
+    nextParams.delete("signup");
     nextParams.delete("error");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);

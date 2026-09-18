@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:13815e8d3e199eca -->
+<!-- source-fingerprint: config/env-policy.json sha256:feaa742844838877 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -74,6 +74,10 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_AVATAR_CLIENT_KEY`                      | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_AVATAR_ENABLED`                         | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_BASE_URL`                               | `environment_specific` | `preview`, `production`                | No            | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`       | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`         | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL`      | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_ID`                          | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |

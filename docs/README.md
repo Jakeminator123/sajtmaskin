@@ -30,6 +30,7 @@ policies kan äga olika beslut.
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
 | Hur går lokalt agentarbete säkert till preview och vidare till produktion? | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json) |
+| Hur pratar Cursor-agenter med ChatGPT-coachen?    | [`agent-bridge/README.md`](agent-bridge/README.md)                                                                              |
 | Hur provisionerar jag warm-cachen?                | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)                                                                  |
 | Varför ser merge-grinden ut så?                   | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                                                                        |
 | Hur körs automatisk PR-granskning?                | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md)                                            |
@@ -41,6 +42,7 @@ policies kan äga olika beslut.
 | Var bor de publika showcase-exemplen?             | Runtime-owner: [`../src/lib/exempel/showcase-sites.ts`](../src/lib/exempel/showcase-sites.ts). Publik yta: `/exempel`. Live-läge: [`runbooks/showcase-exempel.md`](runbooks/showcase-exempel.md). |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
+| Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
 
 Kanonisk, kort terminologi finns i
 [`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för

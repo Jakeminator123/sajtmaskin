@@ -24,34 +24,85 @@ import {
 
 export const categories = [
   {
+    id: "fritext",
+    label: "Beskriv själv",
+    icon: MessageSquare,
+    description: "Skriv vad ni gör",
+    placeholder: "Beskriv företaget — t.ex. ”Jag driver en frisörsalong i Göteborg med 3 anställda”",
+  },
+  {
     id: "analyserad",
-    label: "Analyserad",
+    label: "Svara på frågor",
     icon: MessageCircleQuestion,
-    description: "AI ställer frågor",
-    placeholder: "Berätta lite om ditt företag så ställer vår AI följdfrågor...",
+    description: "Vi ställer frågor",
+    placeholder: "Berätta kort om företaget så ställer vi följdfrågor...",
   },
   {
     id: "template",
     label: "Template",
     icon: Palette,
-    description: "Bläddra v0-templates och välj startpunkt",
-    placeholder: "Välj en template nedan eller beskriv din vision...",
+    description: "Välj en startpunkt",
+    placeholder: "Välj en template nedan eller beskriv vad ni behöver...",
   },
   {
     id: "audit",
-    label: "Audit",
+    label: "Analysera sajt",
     icon: FileSearch,
-    description: "Analysera befintlig sida",
+    description: "Utgå från er nuvarande sida",
     placeholder: "Klistra in din webbadress här, t.ex. https://mittforetag.se",
   },
-  {
-    id: "fritext",
-    label: "Fritext",
-    icon: MessageSquare,
-    description: "Beskriv din vision",
-    placeholder: "Skriv fritt — berätta vad du vill skapa...",
-  },
 ]
+
+/** Stabil startsides-H1 och värdeproposition. Roterande branschord är sekundär copy. */
+export const homepageHeroCopy = {
+  h1: "Skapa en professionell hemsida med AI",
+  valueProposition:
+    "Beskriv företaget, se ett första utkast och publicera när det känns rätt. Koppla egen domän när du är redo.",
+  audience: "För svenska småföretag som vill ha en hemsida utan byrå eller kod.",
+  rotatingPrefix: "Till exempel",
+  primaryCta: "Skapa första utkastet",
+  auditCta: "Analysera sidan",
+  methodLabel: "Så här kan du börja",
+  inputHint: "Skriv vad ni gör — eller välj ett annat sätt ovan.",
+} as const
+
+export const homepageTrustPoints = [
+  {
+    title: "Du får en riktig hemsida",
+    body: "Ett utkast du kan titta på, ändra och publicera — inte en statisk skiss.",
+  },
+  {
+    title: "Egen domän går att koppla",
+    body: "Publicera först. Därefter kan du koppla din egen adress.",
+  },
+  {
+    title: "En första generering utan credits",
+    body: "Ett konto får en slutförd generering utan att credits dras.",
+  },
+  {
+    title: "Inget kort för att börja",
+    body: "Skapa konto med e-post eller Google. Kort behövs först när du köper credits.",
+  },
+] as const
+
+export const homepageCreditFaq = [
+  {
+    q: "Vad är en credit?",
+    a: "1 kr = 1 credit. Credits är tillgodohavande du köper som engångspaket och använder när du bygger, ändrar eller publicerar.",
+  },
+  {
+    q: "När används credits?",
+    a: "När du skapar eller förfinar en sajt, kör frågeguiden, analyserar en befintlig sida eller publicerar. Kostnaden beror på vad du gör — den är inte densamma varje gång.",
+  },
+  {
+    q: "Finns det en gratis start?",
+    a: "Ja. Du kan börja utan kreditkort. Ett konto får en första slutförd generering utan att credits dras. Mallimport räknas inte som den gratis genereringen.",
+  },
+  {
+    q: "Vad händer när credits tar slut?",
+    a: "Nya byggen, ändringar och publiceringar stannar tills du köper fler. Credits du redan köpt går inte ut, och det finns ingen prenumeration.",
+  },
+] as const
 
 export type ShapeVariant = "double" | "diamond" | "grid" | "triple" | "fast" | "pulse"
 
@@ -194,58 +245,48 @@ export const landingJourneySteps = [
   {
     number: "01",
     scenePosition: 0,
-    title: "Registrera företaget",
-    description: "Börja med bolaget, målet och vad verksamheten ska åstadkomma. Plattformen tar vid där pappersarbetet slutar.",
-    bullets: ["Bolagsstart och identitet", "Skatteverket, mål och erbjudande"],
+    title: "Beskriv företaget",
+    description: "Skriv vad ni gör, var ni finns och vad sidan ska hjälpa kunden med.",
+    bullets: ["Vanlig svenska räcker", "Ingen kod"],
   },
   {
     number: "02",
     scenePosition: 1,
-    title: "Välj spår och fyll i input",
-    description: "Fritext, Template, analyserad eller audit. Du kan skriva, tala eller visa referenser för att styra riktningen.",
-    bullets: ["Fyra inmatningslägen", "Prompt, röst, video och v0-templates"],
+    title: "Välj hur du vill börja",
+    description: "Skriv fritt, svara på frågor, utgå från en template eller analysera en befintlig sida.",
+    bullets: ["Fyra sätt att starta", "Skriv, tala eller peka på en nuvarande sajt"],
   },
   {
     number: "03",
     scenePosition: 2,
-    title: "AI bygger i iterationer",
-    description: "Ge feedback, klicka vidare och få en sajt som fungerar på riktigt — inte en statisk mockup.",
-    bullets: ["Sex till sju förbättringar mot rätt version", "Design, struktur och innehåll i samma flöde"],
+    title: "Se ett första utkast",
+    description: "Du får en riktig hemsida att titta på — inte en statisk skiss.",
+    bullets: ["Förhandsgranska direkt", "Be om ändringar i vanlig text"],
   },
   {
     number: "04",
     scenePosition: 3,
-    title: "Koppla data och publicera",
-    description: "När flödet sitter går det vidare till preview, integrationer och deploy. Sidan blir en arbetande digital tillgång.",
-    bullets: ["Betalningar, databas, e-post och fler integrationer", "Preview, publicering och fortsatt utveckling"],
+    title: "Publicera när det känns rätt",
+    description: "Lägg ut sidan och koppla egen domän när du är redo.",
+    bullets: ["Publicering när du godkänner", "Egen domän går att koppla"],
   },
   {
     number: "05",
     scenePosition: 4,
-    title: "Optimera mot gröna siffror",
-    description: "Målet är inte bara trafik utan ett bolag som växer. Sidan ska kunna driva leads, bokningar och bättre årsresultat över tid.",
-    bullets: ["Leads, bokningar och konvertering", "Rapporter, uppföljning och gröna siffror"],
+    title: "Använd sajten i verksamheten",
+    description: "Ta emot förfrågningar, bokningar och mer när du behöver det.",
+    bullets: ["Formulär och bokningar", "Bygg vidare när behovet växer"],
   },
 ]
 
 export { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 
-export const trustLogos = [
-  "Netflix",
-  "Spotify",
-  "TikTok",
-  "Twitch",
-  "Notion",
-  "Nike",
-  "Hulu",
-  "GitHub",
-  "OpenAI",
-  "Loom",
-  "Hashicorp",
-  "Washington Post",
-  "Target",
-  "Sonos",
-]
+export const homepageExampleIntro = {
+  eyebrow: "Vad du kan skapa",
+  title: "Exempel på sajter du kan börja med",
+  body: "Det här är startpunkter och branschexempel — inte kundcase. Inga påhittade recensioner.",
+  templatesCta: "Se fler startpunkter",
+} as const
 
 export type IntegrationItem = {
   name: string
@@ -568,9 +609,8 @@ export function getComparisonScore(method: ComparisonMethod, scenario: Compariso
   return Math.round(weightedTotal / totalWeight)
 }
 
-// Roterande ord i heron: "Din nästa ___ på 30 sekunder".
-// Konsekvent sajt-form (…sajt/webbshop/portfolio) så meningen alltid läser rätt —
-// en företagssajt, inte själva verksamheten. Statisk lista = noll runtime-kostnad.
+// Roterande branschord under den stabila H1:n. Sekundär visuell copy —
+// sidans semantiska huvudrubrik byter inte betydelse mellan renderingar.
 export const siteTypes = [
   "Frisörsajt",
   "Restaurangsajt",

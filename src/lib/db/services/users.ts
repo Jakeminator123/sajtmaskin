@@ -64,7 +64,7 @@ export async function createGoogleUser(
   email: string,
   name: string,
   picture?: string,
-): Promise<User> {
+): Promise<{ user: User; created: boolean }> {
   assertDbConfigured();
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -112,7 +112,7 @@ export async function createGoogleUser(
           })
           .where(eq(users.id, existing.id))
           .returning();
-        return rows[0];
+        return { user: rows[0], created: false };
       }
 
       const id = nanoid();
@@ -132,7 +132,7 @@ export async function createGoogleUser(
           updated_at: now,
         })
         .returning();
-      return rows[0];
+      return { user: rows[0], created: true };
     });
 
   // A plain email registration can commit after the locked lookup but before

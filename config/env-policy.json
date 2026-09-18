@@ -13,6 +13,10 @@
     "GOOGLE_REDIRECT_URI",
     "LOOPIA_API_PASSWORD",
     "LOOPIA_API_USER",
+    "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_ID",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
@@ -151,6 +155,10 @@
     "NEXT_PUBLIC_AVATAR_ENABLED",
     "NEXT_PUBLIC_ELASTICSEARCH_NODE_URL",
     "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY",
+    "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
+    "NEXT_PUBLIC_GOOGLE_ADS_ID",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_MEILISEARCH_HOST",
     "NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY",
@@ -645,6 +653,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Stripe publishable key. Split per Vercel target: pk_test in development/preview, pk_live in production. Not a secret; store encrypted with --no-sensitive so operators can inspect the prefix."
+    },
+    {
+      "key": "NEXT_PUBLIC_GOOGLE_ADS_ID",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Optional first-party Google Ads account tag (AW-…). Empty = tag off. Production-targeted; knownEmptyOk until the owner sets it. Read by src/lib/ads/google-ads.ts. Never inject into preview-host or generated sites."
+    },
+    {
+      "key": "NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Optional conversion label for builder_start (the part after AW-id/). Empty = that event is a no-op even if the account tag is set."
+    },
+    {
+      "key": "NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Optional conversion label for account_created. Empty = that event is a no-op."
+    },
+    {
+      "key": "NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Optional conversion label for first_generation. Empty = that event is a no-op."
     },
     {
       "key": "NEXT_PUBLIC_BASE_URL",

@@ -5,8 +5,11 @@ Full text för arkiv och omstrukturering ligger i **git-historik**. Rör inte
 
 ## Högsta förbrukade `SM`-ID
 
-**`SM-089`** (2026-09-17, synkat mot `BUG-SWARM-BACKLOG.md`). Nästa nya rad = `SM-090`. Återanvänd aldrig ett nummer —
+**`SM-092`** (2026-09-18, synkat mot `BUG-SWARM-BACKLOG.md`). Nästa nya rad = `SM-093`. Återanvänd aldrig ett nummer —
 räkna även mot git-historiken för raderade arkivfiler om du är osäker.
+`SM-090`–`SM-092` delades ut 2026-09-18 för tre prodsignaler ur en
+7-dygnsläsning av Vercel runtime: Resend-403 på registrering,
+`missing-separator` i systemprompten och 403 vid arkivnedladdning i import.
 
 Den här raden stod på `SM-056` / nästa `SM-057` ända till 2026-08-20, medan
 `SM-057`–`SM-064` redan var förbrukade i kön och arkivet. Räkna alltid mot
