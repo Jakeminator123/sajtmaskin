@@ -8,6 +8,9 @@ interface ImprovementsListProps {
   improvements: Improvement[];
 }
 
+const IMPACT_LABELS: Record<string, string> = { high: "Hög", medium: "Medel", low: "Låg" };
+const EFFORT_LABELS: Record<string, string> = { low: "Liten", medium: "Medel", high: "Stor" };
+
 export default function ImprovementsList({ improvements }: ImprovementsListProps) {
   const [selectedImprovement, setSelectedImprovement] = useState<Improvement | null>(null);
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
@@ -170,12 +173,12 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
                   <span
                     className={`px-3 py-1.5 text-sm ${getImpactColor(selectedImprovement.impact)}`}
                   >
-                    Påverkan: {selectedImprovement.impact}
+                    Påverkan: {IMPACT_LABELS[selectedImprovement.impact] ?? selectedImprovement.impact}
                   </span>
                   <span
                     className={`px-3 py-1.5 text-sm ${getEffortColor(selectedImprovement.effort)}`}
                   >
-                    Insats: {selectedImprovement.effort}
+                    Insats: {EFFORT_LABELS[selectedImprovement.effort] ?? selectedImprovement.effort}
                   </span>
                   {selectedImprovement.estimated_time && (
                     <span className="bg-brand-blue/20 text-brand-blue px-3 py-1.5 text-sm">
