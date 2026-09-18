@@ -129,7 +129,7 @@ describe("acquireVersionLease — exactly one owner (L4)", () => {
     expect(losers).toHaveLength(1);
   });
 
-  it("takes over a running lease whose created_at is older than the isolate budget", async () => {
+  it("takes over a running lease only when birth and heartbeat are both stale", async () => {
     let insertSql = "";
     transaction.mockImplementation((cb: (tx: { execute: (sql: unknown) => Promise<unknown> }) => unknown) => {
       const tx = {
@@ -149,5 +149,6 @@ describe("acquireVersionLease — exactly one owner (L4)", () => {
     expect(won).toEqual({ runId: expect.any(String) });
     expect(insertSql).toContain("created_at = now()");
     expect(insertSql).toContain("created_at < now()");
+    expect(insertSql).toContain("updated_at < now()");
   });
 });

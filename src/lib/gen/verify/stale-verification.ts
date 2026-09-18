@@ -19,7 +19,10 @@
  * without a database connection. The lease-safe DB write lives in the sibling
  * `settle-stale-verification.ts`.
  */
-import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
+import {
+  STALE_VERIFICATION_TIMEOUT_MS,
+  VERSION_LEASE_HEARTBEAT_STALE_MS,
+} from "@/lib/gen/defaults";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { isKnownRevisionMismatch, shortRevision } from "./content-revision";
 
@@ -45,27 +48,33 @@ function toEpochMs(value: string | Date | null | undefined): number | null {
 }
 
 /**
- * A lease is fresh only while it is still running, unexpired, AND younger
- * than the isolate budget. Isolate-kill leaves `status='running'` with
- * `lease_expires_at` in the future (TTL 15 min) — that zombie is not work
- * in progress. Clock is lease `created_at` (job start / last takeover),
- * not version `created_at` and not "expires > now()".
+ * A lease is fresh while it is running, unexpired, AND either still inside
+ * the isolate birth window (`created_at`) or still heartbeating (`updated_at`
+ * from `renewVersionLease`). Isolate-kill leaves `status='running'` with
+ * `lease_expires_at` in the future — that zombie stops renewing, so
+ * `updated_at` goes stale. A live job that started >950s ago but keeps
+ * renewing must NOT be stolen.
  */
 export function isFreshVersionLease(
   lease: {
     status?: string | null;
     leaseExpiresAt?: string | Date | null;
     createdAt?: string | Date | null;
+    updatedAt?: string | Date | null;
   } | null | undefined,
   nowMs: number = Date.now(),
-  freshWithinMs: number = STALE_VERIFICATION_TIMEOUT_MS,
+  isolateBudgetMs: number = STALE_VERIFICATION_TIMEOUT_MS,
+  heartbeatStaleMs: number = VERSION_LEASE_HEARTBEAT_STALE_MS,
 ): boolean {
   if (!lease || lease.status !== "running") return false;
   const expiresAtMs = toEpochMs(lease.leaseExpiresAt);
   const createdAtMs = toEpochMs(lease.createdAt);
-  if (expiresAtMs == null || createdAtMs == null) return false;
+  const heartbeatMs = toEpochMs(lease.updatedAt) ?? createdAtMs;
+  if (expiresAtMs == null || createdAtMs == null || heartbeatMs == null) return false;
   if (expiresAtMs <= nowMs) return false;
-  return nowMs - createdAtMs <= freshWithinMs;
+  const birthFresh = nowMs - createdAtMs <= isolateBudgetMs;
+  const heartbeatFresh = nowMs - heartbeatMs <= heartbeatStaleMs;
+  return birthFresh || heartbeatFresh;
 }
 
 /**

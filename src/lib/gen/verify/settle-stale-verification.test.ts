@@ -489,4 +489,22 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(res.failed).toBe(false);
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
+
+  it("does not fail a repairing row whose lease is past isolate age but still heartbeats", async () => {
+    leaseTableExists.mockResolvedValue("exists");
+    getRunningVersionLease.mockResolvedValue({
+      runId: "long-lived",
+      status: "running",
+      createdAt: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 60_000),
+      updatedAt: new Date(),
+      leaseExpiresAt: new Date(Date.now() + 10 * 60_000),
+    });
+    const hung = makeVersion({
+      verification_state: "repairing",
+      created_at: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 10_000).toISOString(),
+    });
+    const res = await settleStaleVerificationIfNeeded(hung);
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
 });

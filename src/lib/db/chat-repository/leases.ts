@@ -1,4 +1,7 @@
-import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
+import {
+  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS,
+  VERSION_LEASE_HEARTBEAT_STALE_SECONDS,
+} from "@/lib/gen/defaults";
 import { db } from "../client";
 import { engineVersionJobs } from "../schema";
 import { and, eq, gt, sql } from "drizzle-orm";
@@ -64,7 +67,10 @@ export async function acquireVersionLease(
                     lease_expires_at = EXCLUDED.lease_expires_at,
                     created_at = now(), updated_at = now()
         WHERE engine_version_jobs.lease_expires_at < now()
-           OR engine_version_jobs.created_at < now() - ${VERIFY_REPAIR_ROUTE_BUDGET_SECONDS} * interval '1 second'
+           OR (
+             engine_version_jobs.created_at < now() - ${VERIFY_REPAIR_ROUTE_BUDGET_SECONDS} * interval '1 second'
+             AND engine_version_jobs.updated_at < now() - ${VERSION_LEASE_HEARTBEAT_STALE_SECONDS} * interval '1 second'
+           )
       RETURNING run_id
     `);
       const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];

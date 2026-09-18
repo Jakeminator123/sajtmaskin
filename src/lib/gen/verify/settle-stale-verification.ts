@@ -114,11 +114,9 @@ export async function settleStaleVerificationIfNeeded(
   }
 
   // Repairing is special: isolate-kill leaves `verification_state=repairing`
-  // with a zombie `running` lease (TTL still in the future). Clock from the
-  // lease/job start — not version.created_at — and treat a missing/stale
-  // lease as dead immediately. That path is the out-of-process catch the
-  // route `catch` never reaches on a 504.
-  let activityStartedAt: string | Date | null | undefined;
+  // with a zombie `running` lease (TTL still in the future). A missing or
+  // non-fresh lease (expired TTL, or birth+heartbeat both stale) is dead
+  // immediately. A live job that still renews is not timed out by created_at.
   let repairingWithoutFreshLease = false;
   if (version.verification_state === "repairing") {
     try {
@@ -130,7 +128,7 @@ export async function settleStaleVerificationIfNeeded(
       if (!lease || !isFreshVersionLease(lease)) {
         repairingWithoutFreshLease = true;
       } else {
-        activityStartedAt = lease.createdAt;
+        return { version, failed: false };
       }
     } catch {
       return { version, failed: false };
@@ -139,11 +137,7 @@ export async function settleStaleVerificationIfNeeded(
 
   const staleCandidate =
     repairingWithoutFreshLease ||
-    isTimedOutVerificationState(
-      version.verification_state,
-      version.created_at,
-      activityStartedAt,
-    );
+    isTimedOutVerificationState(version.verification_state, version.created_at);
   if (!staleCandidate) {
     return { version, failed: false };
   }

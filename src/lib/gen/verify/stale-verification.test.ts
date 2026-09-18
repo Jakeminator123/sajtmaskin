@@ -107,6 +107,21 @@ describe("isFreshVersionLease", () => {
     ).toBe(true);
   });
 
+  it("is true for a lease older than the isolate budget that still heartbeats", () => {
+    const now = Date.parse("2026-09-18T15:40:00.000Z");
+    expect(
+      isFreshVersionLease(
+        {
+          status: "running",
+          createdAt: "2026-09-18T15:10:24.000Z",
+          updatedAt: "2026-09-18T15:39:50.000Z",
+          leaseExpiresAt: "2026-09-18T15:54:50.000Z",
+        },
+        now,
+      ),
+    ).toBe(true);
+  });
+
   it("is false when the TTL has elapsed even if created_at is recent", () => {
     const now = Date.parse("2026-09-18T15:12:00.000Z");
     expect(
