@@ -23,7 +23,7 @@ planstorlek.
 | MVP-säkerhet / `SM-080` | **Viktigast.** Wizard-RLS, Google-koppling och kontolås är byggda; gör inte om dem. Kvar som lanseringsspärr: verklig projektisolering (`SM-080`). Preview och produktion delar databas enligt ägarbeslut. | [`2026-09-09-mvp-sakerhet/00-master-plan.md`](2026-09-09-mvp-sakerhet/00-master-plan.md) |
 | Branded runtime-aktivering | Kod på preview. C2 **DONE** 2026-09-17 (`c2-test.lansera.nu`; writes-flagga av efter retest). Kvar: browser-/cookiebevis (A2, C1-smoke), A3 rollback/no-loop, en A4-pilot. Flaggor av tills respektive bevis är grönt. PSL och #1385 är inte detta spår. | [`2026-09-16-branded-runtime-aktivering/00-master-plan.md`](2026-09-16-branded-runtime-aktivering/00-master-plan.md) |
 | Verifieringsflöde + inspector | Kod landad. Kvar: riktiga smokes (burst/capture, inspector-hover) och sedan stäng planen. Vercel 24h visar två historiska Chromium core-dumps i product-postcheck på äldre preview-deploy, inte aktuell production. | [`2026-09-01-verifieringsflode-och-inspector/00-master-plan.md`](2026-09-01-verifieringsflode-och-inspector/00-master-plan.md) |
-| Källkvitto, Quality Bar, addenda | Nästa produktkvalitetsspår. A mät om bild/utdrag/budget nådde modellen → B dynamiska recept → C variantkomposition → D addenda-urval. Statisk 03 är **landad** i #1464. Ingen A–D-kod förrän A ger belägg. Öppna inte disabled addenda. | [`2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md`](2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md) |
+| Källkvitto, Quality Bar, addenda | Nästa produktkvalitetsspår. Ordning: **A0** emittera separata kvittosignaler → **A** mät nya rader → **B** dynamiska recept → **C** variantkomposition → **D** addenda-urval. «Mät först» gäller beteendefixarna B–D, inte A0: befintlig telemetri kan inte besvara bild-kontra-utdrag retroaktivt. Statisk 03 är **landad** i #1464. Öppna inte disabled addenda. | [`2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md`](2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md) |
 | Bug-kö | **Start här** när inget namngivet spår ovan är tilldelat. `SM-007`/`SM-070` är flaggade releaseblockerare, inte vanliga produktbuggar. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
 
 ## Inte längre aktiva
@@ -38,7 +38,11 @@ De här styr inte nya ändringar. Beställ inte om leveransen.
 | Live-review `SM-070` | [`../archived/2026-08-20-live-review.md`](../archived/2026-08-20-live-review.md) | Flaggan av. PARK tills live review ska aktiveras. |
 | Dossier D2–D5 | [`../archived/2026-08-19-dossier-forenkling.md`](../archived/2026-08-19-dossier-forenkling.md) | D1 levererat. D2–D4 är arkitekturskuld, inte produktblockerare. |
 | Briefing + Källpaket | [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) | B1–B4 + B8–B11 avklarat. B5–B7 överlappar kvalitetsplanen ovan; N3–N5 stannar som ägarbeslut. |
-| Agent-bridge #1469 | Inte en aktiv plan | PARK / sannolik SUPERSEDED tills en förenklad modell finns. Ingen PREP-/BUILD-rollmodell just nu. |
+
+**Agent Bridge #1469** är ett separat tooling-spår, inte en produktplan och inte
+parkerat: PR:en är aktiv Draft och rörde sig senast 2026-09-18. Klassificera den
+inte som superseded härifrån. Driftstatus, rollmodell och vad som är bevisat
+avgörs i #1469, inte i planhygienen.
 
 Scaffold-bindning #1425 och reparationskedjans levererade steg (publiceringsgrind,
 `SM-082`–`SM-084`, C1–C6 på preview) ligger i

@@ -1,7 +1,10 @@
 # Inspiration, källkvitto och komposition
 
-> **Status: undersökning mot `preview`.** Ingen kod i A–D förrän A ger belägg.
-> Ingen produktionspromote. Planen styr utredning; koden är ägare.
+> **Status: undersökning mot `preview`.** Ingen **beteendefix** i B–D förrän A
+> ger belägg. Undantaget är **A0**: minimal, bakåtkompatibel instrumentering av
+> källkvittot får landa först, eftersom befintliga telemetrirader inte bär
+> `keptBlockKeys` och splitten bild-kontra-utdrag därför inte går att mäta
+> retroaktivt. Ingen produktionspromote. Planen styr utredning; koden är ägare.
 >
 > **Observation vs hypotes:** tabellen «Belagt nuläge» är kodobservation.
 > Hur ofta det syns i live-generationer är hypotes tills A mäts.
@@ -22,7 +25,9 @@ så bild, kodutdrag och budget-pruning kan skiljas. Minska återkommande
 **dynamiska** designrecept och onödigt hårda variant-layoutrecept — utan
 att kasta systemet, öppna avstängda mallar eller bygga nya scaffolds.
 
-Ordning: undersök → belägg → ev. smal fix. Inte omvänd ordning.
+Ordning: A0 instrumentera → A mät → belägg → ev. smal beteendefix i B–D.
+Instrumenteringen är inte den fix som kräver belägg; den är förutsättningen för
+att belägget alls kan finnas.
 
 ## Inte detta spår
 
@@ -75,20 +80,25 @@ Sju avstängda poster (rör inte): MindSpace `8QhCJAwn16K`, Flowly
 
 | Id | Vad | Owner | Status |
 |---|---|---|---|
-| [A](aktiviteter/A-kallkvitto.md) | Förfina källkvittot: bild / utdrag / budget-dropp | `source-receipt.ts`, `GenerationSource` | Inte startad |
+| [A0](aktiviteter/A-kallkvitto.md) | Emittera separata kvittosignaler (bild / block / utdrag) på befintlig rad. Bakåtkompatibel; `reachedPrompt` behålls som OR. | `source-receipt.ts`, `GenerationSource` | Inte startad — **körbar utan belägg** |
+| [A](aktiviteter/A-kallkvitto.md) | Mät de nya raderna: hur ofta nådde bara stillbilden prompten | `generation_telemetry.meta.sources`, Selection Rationale | Väntar A0 |
 | [B](aktiviteter/B-quality-bar-och-research.md) | Quality Bar + scaffold-research blir behovsstyrda | `guidance-resolvers.ts`, scaffold-`manifest.ts` | Väntar A |
 | [C](aktiviteter/C-variant-komposition.md) | Kompositionsval inom variantens identitet | `config/scaffold-variants/**` | Väntar A+B |
 | [D](aktiviteter/D-addenda-utdrag.md) | Prioritera hero/nav/sektion före längsta generiska komponent | `template-inspiration.ts` | Väntar A |
 
 ## Ordning och stopp
 
-1. A först — annars gissar vi om likformighet kommer från recept eller
-   från att utdragen aldrig nådde prompten. Obs: A:s egen mätning kräver
-   att de tysta flaggorna emitteras först; befintliga telemetrirader bär
-   inte `keptBlockKeys`. Se [`aktiviteter/A-kallkvitto.md`](aktiviteter/A-kallkvitto.md).
-2. B sedan — dynamiska recept, inte 03.
-3. C — efter att B inte längre tvingar samma paket.
-4. D — kurering/extractor-signal, inte «kör om alla 68».
+1. **A0 instrumentering först.** Minimal, bakåtkompatibel emission av de
+   separata signalerna. Kräver inget belägg — den ÄR förutsättningen för
+   belägg, eftersom `keptBlockKeys` aldrig persisteras i `meta.sources`.
+   Se [`aktiviteter/A-kallkvitto.md`](aktiviteter/A-kallkvitto.md).
+2. **A mätning** på nya rader. Utan den gissar vi om likformighet kommer
+   från recept eller från att utdragen aldrig nådde prompten.
+3. B — dynamiska recept, inte 03. Först efter att A gett belägg.
+4. C — efter att B inte längre tvingar samma paket.
+5. D — kurering/extractor-signal, inte «kör om alla 68».
+
+`reachedPrompt` förblir bakåtkompatibel OR genom hela kedjan.
 
 **Stoppa en fix** vid nya byggfel, tappade funktioner, eller att
 follow-up «ändra telefonnumret» ritar om header/hero. En prompt- eller
@@ -103,5 +113,8 @@ eval startar ingen preview-VM.
 
 - #1464 — statisk 03, **mergad** till `preview` (`bd3cc300f`). Inte A–D.
 - #1444 — stale Draft; ersatt av #1464.
+- #1465 — denna plans ursprungliga PR. Dess head ligger som ancestor i
+  plan-hygien-PR:en #1470, men #1465 supersederas **först om #1470 mergas**.
+  Tills dess är #1465 fallback och ska inte stängas.
 - [Briefing + Källpaket (parkerad)](../../archived/2026-08-18-briefing-och-kallpaket.md) — B4 första kurationspasset är levererat. Starta inte om det.
 - [Scaffold-komposition (avklarat)](../../avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) — K1 satte disabled-domarna.

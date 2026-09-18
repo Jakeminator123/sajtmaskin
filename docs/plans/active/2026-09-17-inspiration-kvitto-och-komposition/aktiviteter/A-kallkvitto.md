@@ -54,11 +54,13 @@ Inspirationsblocket har prio 84 och är **inte** `required`
 4. Om `GenerationSource` kan bära extra flaggor utan att bli ett nytt
    system — IDs/origin/reason/status, aldrig prompttext eller utdrag.
 
-## Fixen kommer före mätningen
+## A0 — instrumenteringen kommer före mätningen
 
-Ordningen i planen är «mät först» generellt, men för A gäller det
-omvända: emittera de tysta flaggorna, mät sedan på **nya** rader. Punkt 3
-ovan visar varför — annars finns inget att mäta.
+«Mät först» gäller beteendefixarna i B–D. A0 är undantaget: emittera de
+tysta flaggorna, mät sedan på **nya** rader. Punkt 3 ovan visar varför —
+annars finns inget att mäta. A0 kräver alltså inget belägg för att få
+landa, men den får bara vara bakåtkompatibel emission: inga nya tabeller,
+ingen ändrad promptväg, inget nytt kvittosystem.
 
 Separata signaler på befintlig `variant-reference`-rad:
 
