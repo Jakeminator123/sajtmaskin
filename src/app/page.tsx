@@ -24,6 +24,7 @@ import type { AuditResult } from "@/types/audit";
 import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { toast } from "sonner";
 import { createProject } from "@/lib/projects/project-client";
+import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
 
 declare global {
   interface Window {
@@ -146,11 +147,14 @@ function RootLandingContent() {
   ]);
 
   const handleLoginClick = useCallback(() => {
+    trackHomepageEvent("homepage_auth", { mode: "login" });
     setAuthMode("login");
     setShowAuthModal(true);
   }, []);
 
   const handleRegisterClick = useCallback(() => {
+    trackHomepageEvent("homepage_auth", { mode: "register" });
+    trackHomepageEvent("homepage_cta", { location: "nav", action: "start" });
     setAuthMode("register");
     setShowAuthModal(true);
   }, []);
