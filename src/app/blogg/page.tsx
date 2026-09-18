@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Blogg",
   description:
     "Artiklar om Sajtmaskin, webb bästa praxis och produktnyheter — första inlägg publiceras när redaktionen är igång.",
+  alternates: publicPageAlternates("/blogg"),
 };
 
 export default function BloggPage() {

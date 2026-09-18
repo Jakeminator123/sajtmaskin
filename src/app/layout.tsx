@@ -12,7 +12,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
-import { OPENCLAW, URLS } from "@/lib/config";
+import { OPENCLAW } from "@/lib/config";
+import { PUBLIC_CANONICAL_ORIGIN, publicIndexRobots } from "@/lib/public-canonical-url";
 
 const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
 
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   },
   description:
     "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good B.V.",
-  metadataBase: new URL(URLS.baseUrl),
+  metadataBase: new URL(PUBLIC_CANONICAL_ORIGIN),
   icons: {
     icon: "/icon.svg",
   },
@@ -57,10 +58,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: publicIndexRobots(),
+  // Do not set alternates.canonical here. Root metadata is inherited;
+  // a canonical of "/" would make every child claim the homepage.
 };
 
 export default async function RootLayout({
