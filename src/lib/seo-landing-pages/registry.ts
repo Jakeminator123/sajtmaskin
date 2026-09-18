@@ -83,6 +83,20 @@ const SEO_LANDING_HUB_LABELS: Record<(typeof SEO_LANDING_HUB_SLUGS)[number], str
 
 export type SeoLandingStatus = "placeholder" | "ready";
 
+/**
+ * Discrete homepage/footer hubs. These four pages already distribute
+ * further via `relatedSlugs` — do not dump the full cluster in the footer.
+ */
+export const SEO_LANDING_FOOTER_GUIDE_LINKS = [
+  { slug: "skapa-hemsida", label: "Skapa hemsida" },
+  { slug: "skapa-hemsida-med-ai", label: "Skapa hemsida med AI" },
+  { slug: "vad-kostar-en-hemsida", label: "Vad kostar en hemsida?" },
+  { slug: "hemsideprogram", label: "Hemsideprogram" },
+] as const satisfies readonly {
+  slug: SeoLandingSlug;
+  label: string;
+}[];
+
 export type SeoLandingPageEntry = {
   slug: SeoLandingSlug;
   title: string;
@@ -102,7 +116,12 @@ export const SEO_LANDING_PAGES: readonly SeoLandingPageEntry[] = [
       "Skapa hemsida från idé till publicerad sajt. En teknikneutral väg för svenska företag: syfte, innehåll, arbetssätt och en första version ni kan förbättra.",
     plannedH1: "Skapa hemsida – från idé till färdig företagssida",
     intent: "Bred transactional: vägen från idé till hemsida",
-    relatedSlugs: ["skapa-hemsida-med-ai", "hemsideprogram", "vad-kostar-en-hemsida"],
+    relatedSlugs: [
+      "skapa-hemsida-med-ai",
+      "hemsida-till-foretag",
+      "hemsideprogram",
+      "vad-kostar-en-hemsida",
+    ],
     status: "ready",
     ctaHref: SEO_LANDING_CTA_HREF,
   },
@@ -273,4 +292,10 @@ export function getPlaceholderSeoLandingRelPaths(): string[] {
   return SEO_LANDING_PAGES.filter((page) => page.status === "placeholder").map(
     (page) => `/${page.slug}`,
   );
+}
+
+export function readyRelatedSeoLandingSlugs(
+  slugs: readonly SeoLandingSlug[],
+): SeoLandingSlug[] {
+  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
 }

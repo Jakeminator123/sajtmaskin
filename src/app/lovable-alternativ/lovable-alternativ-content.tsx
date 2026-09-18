@@ -73,7 +73,7 @@ const FAQS = [
   },
   {
     q: "Kan ni flytta automatiskt mellan verktygen?",
-    a: "Nej. Inget one-click-byte. I Sajtmaskin kan inloggad ägare exportera ZIP eller GitHub — inte databas, nycklar eller domän. Lovable synkar kod till Git enligt deras docs; verifiera exporten hos dem.",
+    a: "Nej. Inget one-click-byte. I Sajtmaskin kan inloggad ägare exportera ZIP eller GitHub — inte databas, nycklar eller domän. Lovable synkar kod till GitHub eller GitLab enligt deras docs; verifiera exporten hos dem.",
   },
   {
     q: "Vem har skrivit sidan?",
