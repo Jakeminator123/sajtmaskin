@@ -180,9 +180,8 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
 
   const parsed = parsePackageJsonRecord(files[pkgIndex].content);
   if (!parsed) return { files, applied: [], conflicts: [] };
-  let pkg = parsed;
 
-  let nextPkg = pkg;
+  let nextPkg = parsed;
   const applied: string[] = [];
 
   // Repair 1 (A#29): packageManager pnpm<11 strip — runs regardless of lockfile

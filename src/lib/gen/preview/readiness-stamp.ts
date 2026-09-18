@@ -2,6 +2,7 @@ import type { PreviewHostStatusResult } from "./preview-host-client";
 import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "./readiness-failure";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
 import { INSTALL_PEER_FALLBACK_CHECK } from "@/lib/gen/validation/package-tree-compat";
+import { INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY } from "@/lib/gen/validation/install-peer-fallback-receipt";
 
 /**
  * Readiness-gated `preview_success` stamping (req A4/A5/A6).
@@ -162,38 +163,59 @@ export async function applyPreviewReadinessOutcome(params: {
         decision.regeneratedLockfile,
       );
     }
-    // Preview started only after --legacy-peer-deps: write the same
-    // quality-gate advisory the publish gate already reads. Preview stays
-    // up; canDeploy / deploy 409 treat this as not publish-ready.
-    if (
-      decision.previewSuccess === true &&
-      params.resumed.usedLegacyPeerDeps === true &&
-      params.resumed.peerConflictDetected === true &&
-      !legacyPeerDepsVersionIds.has(params.versionId)
-    ) {
-      legacyPeerDepsVersionIds.add(params.versionId);
-      const { createEngineVersionErrorLogs } = await import(
-        "@/lib/db/services/version-errors"
-      );
-      await createEngineVersionErrorLogs(
-        [
-          {
-            chatId: params.chatId,
-            versionId: params.versionId,
-            level: "warning",
-            category: "preflight:quality-gate",
-            message:
-              "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
-            meta: {
-              passed: true,
-              advisory: true,
-              advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
-              source: "preview_install_peer_fallback",
+    // Preview started only after --legacy-peer-deps: write a revision-bound
+    // receipt the publish gate reads even after a later clean quality-gate.
+    // A later ready boot of the same revision without fallback writes usedFallback=false.
+    if (decision.previewSuccess === true) {
+      const usedFallback =
+        params.resumed.usedLegacyPeerDeps === true &&
+        params.resumed.peerConflictDetected === true;
+      const revision = params.bootedFilesRevision?.trim() || null;
+      const receiptKey = `${params.versionId}:${revision ?? ""}:${usedFallback ? "1" : "0"}`;
+      const shouldWriteReceipt = usedFallback || revision != null;
+      if (shouldWriteReceipt && !legacyPeerDepsVersionIds.has(receiptKey)) {
+        legacyPeerDepsVersionIds.add(receiptKey);
+        const { createEngineVersionErrorLogs } = await import(
+          "@/lib/db/services/version-errors"
+        );
+        await createEngineVersionErrorLogs(
+          [
+            {
+              chatId: params.chatId,
+              versionId: params.versionId,
+              level: usedFallback ? "warning" : "info",
+              category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+              message: usedFallback
+                ? "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install."
+                : "Preview install did not use --legacy-peer-deps for this files revision.",
+              meta: {
+                usedFallback,
+                filesRevision: revision,
+                source: "preview_install_peer_fallback",
+              },
             },
-          },
-        ],
-        { lockTimeoutMs: 2_000 },
-      );
+            ...(usedFallback
+              ? [
+                  {
+                    chatId: params.chatId,
+                    versionId: params.versionId,
+                    level: "warning" as const,
+                    category: "preflight:quality-gate",
+                    message:
+                      "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
+                    meta: {
+                      passed: true,
+                      advisory: true,
+                      advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
+                      source: "preview_install_peer_fallback",
+                    },
+                  },
+                ]
+              : []),
+          ],
+          { lockTimeoutMs: 2_000 },
+        );
+      }
     }
   } catch (err) {
     console.warn("[preview-readiness] Failed to apply readiness outcome:", err);

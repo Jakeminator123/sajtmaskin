@@ -375,6 +375,8 @@ export async function POST(req: Request) {
       const packageTreeGate = resolvePackageTreePublishGate({
         files: fixedFiles.map((file) => ({ path: file.name, content: file.content })),
         latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(versionErrorLogs),
+        errorLogs: versionErrorLogs,
+        filesRevision: engineVersion.files_revision ?? null,
       });
       if (!packageTreeGate.allowed) {
         if (!warnings.includes(packageTreeGate.message)) {

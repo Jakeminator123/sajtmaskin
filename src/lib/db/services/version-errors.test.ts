@@ -204,6 +204,10 @@ describe("pruneStaleVersionErrorLogs", () => {
     expect(PRUNE_EXEMPT_CATEGORIES).toContain(PREVIEW_CLIENT_ERROR_CATEGORY);
   });
 
+  it("undantagslistan täcker preview:install-peer-fallback", () => {
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain("preview:install-peer-fallback");
+  });
+
   it("undantar alla product_postcheck.*-rader från repair-prunet", async () => {
     deletedRows.mockReturnValue([]);
     await pruneStaleVersionErrorLogs("v-42", 2);

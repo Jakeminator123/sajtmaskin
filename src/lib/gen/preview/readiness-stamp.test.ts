@@ -378,16 +378,28 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
       Array<{ category: string; level: string; meta: Record<string, unknown> }>,
     ];
-    expect(payloads[0]).toMatchObject({
-      category: "preflight:quality-gate",
-      level: "warning",
-      meta: {
-        passed: true,
-        advisory: true,
-        advisoryChecks: ["install-peer-fallback"],
-        source: "preview_install_peer_fallback",
-      },
-    });
+    expect(payloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "preview:install-peer-fallback",
+          level: "warning",
+          meta: expect.objectContaining({
+            usedFallback: true,
+            source: "preview_install_peer_fallback",
+          }),
+        }),
+        expect.objectContaining({
+          category: "preflight:quality-gate",
+          level: "warning",
+          meta: {
+            passed: true,
+            advisory: true,
+            advisoryChecks: ["install-peer-fallback"],
+            source: "preview_install_peer_fallback",
+          },
+        }),
+      ]),
+    );
 
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",

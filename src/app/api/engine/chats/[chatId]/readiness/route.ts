@@ -460,6 +460,8 @@ async function buildEngineReadiness(
     resolvePackageTreePublishGate({
       files: versionRows,
       latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(errorLogs),
+      errorLogs,
+      filesRevision: version.files_revision ?? null,
     }),
   );
   if (packageTreeItem) {

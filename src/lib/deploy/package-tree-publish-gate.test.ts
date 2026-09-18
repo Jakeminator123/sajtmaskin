@@ -42,6 +42,34 @@ describe("resolvePackageTreePublishGate", () => {
     expect(gate.code).toBe(DEPLOY_PACKAGE_TREE_ERESOLVE);
   });
 
+  it("keeps blocking after a later clean quality-gate when the revision receipt is fallback", () => {
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+          }),
+        },
+      ],
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-a",
+      errorLogs: [
+        {
+          category: "preflight:quality-gate",
+          meta: { passed: true, advisory: false, advisoryChecks: [] },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: { usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
   it("allows a coherent Next 15 + React 19 tree", () => {
     const gate = resolvePackageTreePublishGate({
       files: [
