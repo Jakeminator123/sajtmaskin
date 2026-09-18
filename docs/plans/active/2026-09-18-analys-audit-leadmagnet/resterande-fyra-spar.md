@@ -25,12 +25,17 @@ automatisering.
 
 | Ordning | Spår | Vad det egentligen är | Läge |
 |---|---|---|---|
-| 1 | Inline bild i kallt mejl/DM | Bättre kuvert på outreach som ändå ska ut — inte nya leads | **Körbar nu**: [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
-| 2 | T-1: varumärkesansökan hos PRV | Försök hitta bolaget före domän och bolagsregistrering | Datastudie först, ingen kod |
-| 3 | Nyemission hos Bolagsverket | Befintligt bolag som just gjort en kapitalåtgärd | Litet premiumexperiment |
-| 4 | DNS/nameserver-byte | Befintligt bolag som gör något med webb eller leverantör nu | Parkerad till Radar v1 |
+| 1 | Inline bild i kallt mejl/DM | Bättre kuvert på outreach som ändå ska ut — inte nya leads | **Protokoll klart, experiment ej kört**: [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
+| 2 | T-1: varumärkesansökan hos PRV | Försök hitta bolaget före domän och bolagsregistrering | **Beställning:** datatillgänglighetsstudie |
+| 3 | Nyemission hos Bolagsverket | Befintligt bolag som just gjort en kapitalåtgärd | **Beställning:** litet manuellt premiumexperiment |
+| 4 | DNS/nameserver-byte | Befintligt bolag som gör något med webb eller leverantör nu | **PARK** tills Radar v1 finns |
 
-Ingen av dem har egen planmapp. Bygg inget ur den här listan utan nytt ja.
+Spår 2–4 är beställningar, inte pågående implementation. Ingen av dem har
+egen planmapp och ingen av dem ska byggas utan nytt ja.
+
+Utskick och leadhantering ägs av ägarens separata repo
+`Jakeminator123/JakobScrape` («POIT-leads och dashboard»). Sajtmaskin-repot
+ska inte få en parallell utskicks- eller leadpipeline.
 
 ## Hur `/analys` gör de andra starkare
 
@@ -55,9 +60,9 @@ varumärkesansökan, ibland innan det finns bolag eller domän. Den som
 varumärkesskyddar signalerar en mer premium-orienterad mottagare, men
 volymen är låg.
 
-**Nu: datastudie, inte bygge.** Går det att få färska poster med sökbar
-identitet och datum, och kan de matchas rimligt mot Bolagsverket och en
-domänkontroll? Ta ett litet stickprov.
+**Beställning: datatillgänglighetsstudie, inte bygge.** Går det att få
+färska poster med sökbar identitet och datum, och kan de matchas rimligt mot
+Bolagsverket och en domänkontroll? Ta ett litet stickprov.
 
 Undvik: huvudkanal på egen hand. Inte en av de första två
 triggergrupperna. Bygg inget Radar-flöde innan datan är visad användbar.
@@ -68,9 +73,10 @@ Den enda diskuterade triggern som pekar på **betalningsförmåga** i stället
 för bara behov. Kungörs i Post- och Inrikes Tidningar med org.nr, datum och
 ibland belopp.
 
-**Nu: litet premiumexperiment.** Hämta några färska fall och kontrollera
-vilka som samtidigt har svag eller gammal sajt. Pitcha ett betalt
-förbättrings-/tillväxterbjudande, inte «gratis hemsida» som standard.
+**Beställning: litet manuellt premiumexperiment.** Hämta några färska fall
+och kontrollera vilka som samtidigt har svag eller gammal sajt. Pitcha ett
+betalt förbättrings-/tillväxterbjudande, inte «gratis hemsida» som standard.
+PoIT-leads hanteras redan i `JakobScrape` — bygg inte om datasteget här.
 
 Undvik: massutskickston — mottagarna har ofta byrå och höga förväntningar.
 Registrerad emission är en **budgetsignal att testa**, inte ett bevis på
@@ -81,9 +87,9 @@ att pengarna finns på banken.
 Bolag mitt i ett leverantörsbyte, alltså redan i utvärderingsfas. Annan
 målgrupp än nystartade utan sajt.
 
-**Nu: parkerad.** Signalen kräver historik och kontinuerlig bevakning för
-att vara värd något, så den väntar på Radar v1 och används då för
-prioritering — inte som egen fristående kanal. Jämför kostnad mot värde
+**PARK tills Radar v1 finns.** Signalen kräver historik och kontinuerlig
+bevakning för att vara värd något, så den väntar på Radar v1 och används då
+för prioritering — inte som egen fristående kanal. Jämför kostnad mot värde
 innan bredare polling.
 
 Undvik: nämn aldrig metoden («vi märkte att ni bytte nameserver»).

@@ -30,16 +30,20 @@ finns i Jakobs opushade Windows-checkout.
 
 | # | Spår | Status |
 |---|---|---|
-| 1 | Inline bild i kalla mejl/DM | Körbar nu — [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
+| 1 | Inline bild i kalla mejl/DM | Protokoll klart, experiment ej kört — [`aktiviteter/K1-inline-bild-ab-test.md`](aktiviteter/K1-inline-bild-ab-test.md) |
 | 2 | Publik «gratis webbplatsgranskning»-widget (`/analys`) | Gjort i #1471 |
-| 3 | T-1: varumärkesansökan hos PRV | Senare: datastudie först |
-| 4 | Nyemission registrerad hos Bolagsverket | Senare: litet premiumexperiment |
-| 5 | DNS/nameserver-byte hos befintligt bolag | Senare: parkerad till Radar v1 |
+| 3 | T-1: varumärkesansökan hos PRV | Beställning: datatillgänglighetsstudie |
+| 4 | Nyemission registrerad hos Bolagsverket | Beställning: litet manuellt premiumexperiment |
+| 5 | DNS/nameserver-byte hos befintligt bolag | PARK tills Radar v1 |
 
 Ordningen följer v3-disciplinen: testa signalvärdet på ett litet antal
 riktiga leads innan något automatiseras. Spår 3–5 är beställningar, inte
 arbete som pågår. Annonsspåret («verksamt»-ögonblicket) är paid intent och
-hålls utanför de fem.
+hålls utanför de fem. Utskick och leadhantering ägs av ägarens separata repo
+`Jakeminator123/JakobScrape`, inte av det här repot.
+
+Ett skrivet protokoll är inte ett utfall: spår 1 är avklarat först när K1:s
+A/B faktiskt körts och resultatet står i aktivitetsfilen.
 
 Levererat i det här spåret:
 
@@ -246,10 +250,13 @@ rapporten i browsern.
       [`resterande-fyra-spar.md`](resterande-fyra-spar.md)
 - [x] K1 (inline bild) har ett körbart A/B-protokoll; render-till-bild
       verifierat på befintlig capture
-- [ ] Kör K1:s A/B och skriv in utfallet — ägarens steg
+- [ ] Kör K1:s A/B och skriv in utfallet (vinst, förlust eller
+      `INCONCLUSIVE`) — ägarens steg, i `JakobScrape`
 - [ ] Spår 3–5 beställs separat i den ordning restlistan anger
-- [ ] När ev. indexbeslut är överlämnat: väv in en rad i
-      [`../../avklarat/README.md`](../../avklarat/README.md) och rensa
-      den här mappen — `resterande-fyra-spar.md` och `aktiviteter/K1-*`
-      följer med eller får ny hemvist, så listan inte bara finns i
-      git-historiken
+- [ ] Mappen stannar **aktiv** tills K1 har ett faktiskt utfall. Städa den
+      inte till [`../../avklarat/`](../../avklarat/) bara för att
+      protokollet är skrivet. När både indexbeslutet är överlämnat och K1
+      har utfall: väv in en rad i
+      [`../../avklarat/README.md`](../../avklarat/README.md) och låt
+      `resterande-fyra-spar.md` och `aktiviteter/K1-*` följa med eller få
+      ny hemvist, så listan inte bara finns i git-historiken
