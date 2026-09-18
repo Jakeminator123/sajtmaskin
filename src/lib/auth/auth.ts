@@ -658,16 +658,12 @@ export async function handleGoogleCallback(
     return { error: "E-postadressen är inte verifierad hos Google. Verifiera den i ditt Google-konto och försök igen." };
   }
 
-  const existing = await getUserByEmail(googleUser.email);
-
-  // Create or update user
-  const user = await createGoogleUser(
+  const { user, created } = await createGoogleUser(
     googleUser.id,
     googleUser.email,
     googleUser.name,
     googleUser.picture,
   );
-  const created = !existing;
 
   // Google-authenticated emails are inherently verified; mark as such.
   // Also bootstrap admin privileges if applicable.

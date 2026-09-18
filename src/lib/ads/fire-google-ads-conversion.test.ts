@@ -9,6 +9,7 @@ import {
   isGoogleAdsClaimed,
   isGoogleAdsPending,
   noteAccountCreatedFromLocation,
+  noteAccountCreatedIfSignup,
   noteBuilderStartFromLocation,
   noteGoogleAdsConversion,
   subscribeCookieConsent,
@@ -134,6 +135,33 @@ describe("fireGoogleAdsConversion", () => {
     expect(gtag).toHaveBeenCalledWith("event", "conversion", {
       send_to: "AW-123456789/account_lbl",
     });
+  });
+
+  it("remembers Google signup without consent and fires once after accept", () => {
+    enableAds();
+    const gtag = vi.fn();
+    window.gtag = gtag;
+    window.history.replaceState({}, "", "/?login=success&signup=1");
+
+    noteAccountCreatedIfSignup("1");
+    expect(isGoogleAdsPending("account_created")).toBe(true);
+    expect(gtag).not.toHaveBeenCalled();
+
+    window.history.replaceState({}, "", "/");
+    noteAccountCreatedFromLocation(window.location.search);
+    expect(isGoogleAdsPending("account_created")).toBe(true);
+    expect(gtag).not.toHaveBeenCalled();
+
+    acceptConsent();
+    flushPendingGoogleAdsConversions();
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(gtag).toHaveBeenCalledWith("event", "conversion", {
+      send_to: "AW-123456789/account_lbl",
+    });
+
+    flushPendingGoogleAdsConversions();
+    noteAccountCreatedIfSignup("1");
+    expect(gtag).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -38,22 +38,9 @@ Profilen ska vara **organisation / Pretty Good B.V.**, inte privatperson
 och inte Pretty Good AB. Kampanjlandet Sverige och SEK är serving/budget,
 inte bolagets hemvist.
 
-| Fält | Värde |
-|---|---|
-| Organisationsnamn | Pretty Good BV |
-| Juridiskt namn | Pretty Good B.V. |
-| Adress | Wibautstraat 131D |
-| Adressrad 2 | (tom) |
-| Postnummer / ort | 1091 GL, Amsterdam |
-| Land | Nederländerna |
-| KvK | 86895521 |
-| VAT | NL864147772B01 (NL VAT, inte ES VAT) |
-| Kvitto-e-post | jakob@dg97.se |
-
-Lokala bolagsfakta (gitignorerade): `övrigt/pretty-good-bv/`.
-Kortnummer och CVV fylls av ägaren, inte av agenten. Företagskort är
-Company_Paid; personligt Revolut är Personally_Paid. Centigo vill att
-framtida spend går från bolagskonto.
+Bolagsadress, organisationsnummer, VAT och kvitto-e-post ligger utanför
+git (`övrigt/pretty-good-bv/`). Kortuppgifter fylls av ägaren i vanlig
+Chrome, inte av agenten. Spend ska gå från bolagskonto.
 
 ---
 
@@ -297,9 +284,9 @@ ser ut som företag — inte hobby eller jobb.
 
 ## Läge i kontot 2026-09-18
 
-Konto **998-777-0405 Sajtmaskin**, `ocid=8547011653`. Faktureringsland
-Nederländerna, valuta SEK, betalprofil Pretty Good B.V. (org, VAT
-`NL864147772B01`, Mastercard ••••1809).
+Faktureringsland Nederländerna, valuta SEK, betalprofil Pretty Good B.V.
+(organisation). Konto-id, betalningsmedel och kvittoidentifierare ligger
+hos ägaren, inte i git.
 
 | Sak | Status |
 |---|---|

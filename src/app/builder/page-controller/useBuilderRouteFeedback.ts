@@ -4,6 +4,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useEffect } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -57,6 +58,8 @@ export function useBuilderRouteFeedback({
     const hasGitHubFeedback = Boolean(connected || githubError);
     const hasAuthFeedback = Boolean(login || signup || authError || verified);
     if (!hasGitHubFeedback && !hasAuthFeedback) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (connected) {
       toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");

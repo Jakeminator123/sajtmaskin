@@ -143,13 +143,14 @@ describe("createGoogleUser account linking", () => {
     const beforeLink = await loginUser("owner@example.test", preregisteredPassword);
     expect(beforeLink).toMatchObject({ error: expect.stringContaining("bekräfta din e-post") });
 
-    const linked = await createGoogleUser(
+    const { user: linked, created } = await createGoogleUser(
       "google-owner-1",
       " Owner@Example.Test ",
       "Actual owner",
       "https://example.test/avatar.png",
     );
 
+    expect(created).toBe(false);
     expect(linked).toMatchObject({
       email: "owner@example.test",
       google_id: "google-owner-1",
@@ -170,8 +171,13 @@ describe("createGoogleUser account linking", () => {
     persistence.rows = [storedEmailUser(legitimatePassword, true)];
     const originalHash = persistence.rows[0].password_hash;
 
-    const linked = await createGoogleUser("google-owner-2", "owner@example.test", "Verified owner");
+    const { user: linked, created } = await createGoogleUser(
+      "google-owner-2",
+      "owner@example.test",
+      "Verified owner",
+    );
 
+    expect(created).toBe(false);
     expect(linked.password_hash).toBe(originalHash);
     const passwordLogin = await loginUser("owner@example.test", legitimatePassword);
     expect(passwordLogin).toMatchObject({
@@ -181,13 +187,14 @@ describe("createGoogleUser account linking", () => {
   });
 
   it("creates a verified passwordless account for a new Google identity", async () => {
-    const created = await createGoogleUser(
+    const { user: createdUser, created } = await createGoogleUser(
       "google-owner-new",
       " New.Owner@Example.Test ",
       "New owner",
     );
 
-    expect(created).toMatchObject({
+    expect(created).toBe(true);
+    expect(createdUser).toMatchObject({
       email: "new.owner@example.test",
       google_id: "google-owner-new",
       provider: "google",
@@ -233,10 +240,31 @@ describe("createGoogleUser account linking", () => {
     );
     persistence.rows = [storedEmailUser("raced-password", false)];
 
-    const linked = await createGoogleUser("google-owner-4", "owner@example.test", "Raced owner");
+    const { user: linked, created } = await createGoogleUser(
+      "google-owner-4",
+      "owner@example.test",
+      "Raced owner",
+    );
 
     expect(transaction).toHaveBeenCalledTimes(2);
+    expect(created).toBe(false);
     expect(linked.password_hash).toBeNull();
+  });
+
+  it("reports created false when the same google_id already exists", async () => {
+    const existing = storedEmailUser("owner-password", true);
+    existing.google_id = "google-existing";
+    persistence.rows = [existing];
+
+    const { user, created } = await createGoogleUser(
+      "google-existing",
+      "owner@example.test",
+      "Returning owner",
+    );
+
+    expect(created).toBe(false);
+    expect(user.id).toBe("user_email");
+    expect(user.google_id).toBe("google-existing");
   });
 
   it("does not retry a wrapped non-unique database failure", async () => {

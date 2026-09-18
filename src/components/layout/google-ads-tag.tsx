@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import {
   flushPendingGoogleAdsConversions,
@@ -29,14 +29,23 @@ function injectGoogleAdsTag(adsId: string, nonce?: string): void {
   document.head.appendChild(script);
 }
 
+function getServerCookieConsentSnapshot(): boolean {
+  return false;
+}
+
+function subscribeConsent(onStoreChange: () => void): () => void {
+  return subscribeCookieConsent(() => {
+    onStoreChange();
+  });
+}
+
 export function GoogleAdsTag({ nonce }: { nonce?: string }) {
   const pathname = usePathname();
-  const [consentAccepted, setConsentAccepted] = useState(false);
-
-  useEffect(() => {
-    setConsentAccepted(hasAcceptedCookieConsent());
-    return subscribeCookieConsent(setConsentAccepted);
-  }, []);
+  const consentAccepted = useSyncExternalStore(
+    subscribeConsent,
+    hasAcceptedCookieConsent,
+    getServerCookieConsentSnapshot,
+  );
 
   useEffect(() => {
     const config = getGoogleAdsConfig();

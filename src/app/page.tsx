@@ -23,6 +23,7 @@ import {
 import type { AuditResult } from "@/types/audit";
 import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { toast } from "sonner";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { createProject } from "@/lib/projects/project-client";
 
 declare global {
@@ -81,6 +82,8 @@ function RootLandingContent() {
     const reason = searchParams.get("reason");
 
     if (!login && !signup && !authError && !verified) return;
+
+    noteAccountCreatedIfSignup(signup);
 
     if (login === "success") {
       toast.success("Inloggningen lyckades.");

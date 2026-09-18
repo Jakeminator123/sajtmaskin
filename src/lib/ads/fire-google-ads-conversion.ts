@@ -153,11 +153,16 @@ export function flushPendingGoogleAdsConversions(): void {
   }
 }
 
-export function noteAccountCreatedFromLocation(search: string = window.location.search): void {
-  const params = new URLSearchParams(search.startsWith("?") || search.length === 0 ? search : `?${search}`);
-  if (params.get("signup") === "1") {
+/** Consent gates gtag, not whether a Google signup is remembered. */
+export function noteAccountCreatedIfSignup(signup: string | null): void {
+  if (signup === "1") {
     noteGoogleAdsConversion("account_created");
   }
+}
+
+export function noteAccountCreatedFromLocation(search: string = window.location.search): void {
+  const params = new URLSearchParams(search.startsWith("?") || search.length === 0 ? search : `?${search}`);
+  noteAccountCreatedIfSignup(params.get("signup"));
 }
 
 export function noteBuilderStartFromLocation(
