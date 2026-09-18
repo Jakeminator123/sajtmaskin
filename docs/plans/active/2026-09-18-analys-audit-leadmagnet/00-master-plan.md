@@ -216,8 +216,9 @@ aktiva arbete ligger i K1 och restlistan, inte här.
 | [resterande-fyra-spar.md](resterande-fyra-spar.md) | De fyra kvarvarande kundanskaffningsspåren, med ordning och läge |
 | [aktiviteter/K1-inline-bild-ab-test.md](aktiviteter/K1-inline-bild-ab-test.md) | A/B-protokoll för inline bild i outreach |
 
-SEO-QA att återanvända (inte kopiera registret):
-[`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
+SEO-QA att återanvända (inte kopiera registret): checklistan låg i den
+raderade SEO-planen; residualer och Search Console-svans finns i
+[`../../avklarat/README.md`](../../avklarat/README.md).
 
 ## Verifiering (kört på branchen)
 

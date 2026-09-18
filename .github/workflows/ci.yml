@@ -247,6 +247,16 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run workflow:contract
 
+      - name: Setup Python
+        if: ${{ !cancelled() }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Run Agent Bridge unit tests
+        if: ${{ !cancelled() }}
+        run: npm run test:agent-bridge
+
       # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
       # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
       - name: Validate workflow and CI scope decisions

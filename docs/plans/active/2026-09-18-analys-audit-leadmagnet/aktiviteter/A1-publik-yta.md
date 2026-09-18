@@ -72,7 +72,7 @@ Före A2: t.ex. «Webbplatsanalys – scores och PDF».
 - `npm run typecheck` och `docs:links` gröna. Sitemap-testet oförändrat
   (ingen ny statisk rad).
 - QA-punkterna on-page/technical i
-  [`../../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md)
+  [`../../../avklarat/README.md`](../../../avklarat/README.md)
   som inte kräver `index`/sitemap.
 
 ## Stopp
