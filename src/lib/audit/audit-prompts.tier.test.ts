@@ -36,8 +36,20 @@ describe("buildAuditPrompt tier split", () => {
     expect(text).toMatch(/Generera INTE business_profile/);
     expect(text).toMatch(/6–8 användbara förbättringar/);
     expect(text).toMatch(/ANALYSERADE SIDOR \(upp till 2\)/);
+    expect(text).not.toMatch(/"business_profile":/);
+    expect(text).not.toMatch(/"market_context":/);
+    expect(text).not.toMatch(/"customer_segments":/);
+    expect(text).not.toMatch(/"competitive_landscape":/);
+    expect(text).not.toMatch(/"competitor_insights":/);
     expect(text).not.toMatch(/Fyll business_profile/);
     expect(text).not.toMatch(/minst 12/);
+  });
+
+  it("defaults an advanced-only options object to the full schema", () => {
+    const text = promptText(sample, "https://nordlunden.se", { auditMode: "advanced" });
+    expect(text).toMatch(/"business_profile":/);
+    expect(text).toMatch(/minst 12/);
+    expect(text).not.toMatch(/Generera INTE business_profile/);
   });
 
   it("asks Avancerad for market fields and at least 12 improvements", () => {

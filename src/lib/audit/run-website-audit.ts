@@ -109,6 +109,7 @@ export async function runWebsiteAudit(input: {
           auditMode: resolvedAuditMode,
           schemaKind: run.schemaKind,
           maxPages: run.maxPages,
+          improvementTarget: run.improvementTarget,
         });
   const promptMessages = prompt.map((message) => ({
     role: message.role,
@@ -178,7 +179,9 @@ export async function runWebsiteAudit(input: {
       console.info(`[${requestId}] Structured output parsed successfully`);
     } catch (parseErr) {
       console.error(`[${requestId}] Structured output parse failed (unexpected):`, parseErr);
-      auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
+      auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
+        schemaKind: run.schemaKind,
+      });
       usedFallback = true;
     }
   } else {
@@ -270,7 +273,9 @@ export async function runWebsiteAudit(input: {
           `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
           outputText.substring(0, 2000),
         );
-        auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
+        auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
+        schemaKind: run.schemaKind,
+      });
         usedFallback = true;
       } else {
         const extractParseResult = parseJsonWithRepair(jsonString);
@@ -282,7 +287,9 @@ export async function runWebsiteAudit(input: {
             `[${requestId}] Failed to parse extracted JSON:`,
             extractParseResult.error,
           );
-          auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
+          auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
+        schemaKind: run.schemaKind,
+      });
           usedFallback = true;
         }
       }
@@ -301,7 +308,9 @@ export async function runWebsiteAudit(input: {
         ", ",
       )}`,
     );
-    const fallback = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode) as {
+    const fallback = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
+        schemaKind: run.schemaKind,
+      }) as {
       audit_scores: Record<string, number>;
       [key: string]: unknown;
     };
@@ -340,7 +349,9 @@ export async function runWebsiteAudit(input: {
         `[${requestId}] Returning partial result despite validation failure (${Object.keys(ar).length} keys)`,
       );
     } else {
-      auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
+      auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode, {
+        schemaKind: run.schemaKind,
+      });
     }
   }
 

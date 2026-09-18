@@ -1,3 +1,4 @@
+import { AUDIT_ADVANCED_ONLY_FIELDS } from "@/lib/audit/audit-advanced-fields";
 import {
   AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
   AUDIT_PUBLIC_STRUCTURED_FALLBACK_MODELS,
@@ -409,13 +410,7 @@ const AUDIT_AI_SCHEMA = {
   ],
 } as const;
 
-const AUDIT_ADVANCED_ONLY_SCHEMA_KEYS = new Set([
-  "business_profile",
-  "market_context",
-  "customer_segments",
-  "competitive_landscape",
-  "competitor_insights",
-]);
+const AUDIT_ADVANCED_ONLY_SCHEMA_KEYS = new Set<string>(AUDIT_ADVANCED_ONLY_FIELDS);
 
 const AUDIT_AI_SCHEMA_BASIC_PROPERTIES = Object.fromEntries(
   Object.entries(AUDIT_AI_SCHEMA.properties).filter(

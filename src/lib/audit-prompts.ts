@@ -206,19 +206,38 @@ export type BuildAuditPromptOptions = {
   auditMode?: AuditMode;
   schemaKind?: AuditSchemaKind;
   maxPages?: number;
+  improvementTarget?: { min: number; max?: number };
 };
+
+const ADVANCED_PROMPT_FIELD_RE =
+  /\n  "(?:competitor_insights|business_profile|market_context|customer_segments|competitive_landscape)": \{[\s\S]*?\n  \},?/g;
+
+function systemPromptForSchema(schemaKind: AuditSchemaKind): string {
+  if (schemaKind === "full") return AUDIT_SYSTEM_PROMPT;
+  return AUDIT_SYSTEM_PROMPT.replace(ADVANCED_PROMPT_FIELD_RE, "").replace(
+    "Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning",
+    "Fyll ALLTID i fälten som ingår i Vanlig-schemat. Generera inte business_profile, market_context, customer_segments, competitive_landscape eller competitor_insights",
+  );
+}
+
+function improvementGuidance(target: { min: number; max?: number }): string {
+  if (target.max) return `${target.min}–${target.max}`;
+  return `minst ${target.min}`;
+}
 
 function modeInstructionsFor(options: {
   auditMode: AuditMode;
   schemaKind: AuditSchemaKind;
+  improvementTarget: { min: number; max?: number };
 }): string {
+  const count = improvementGuidance(options.improvementTarget);
   if (options.schemaKind === "core") {
     return `
 
 LÄGE: VANLIG
 - Snabb, konkret webbplatsgenomgång. Inte ett affärs- eller research-underlag.
 - Fokusera på teknisk grund, SEO på sajten, copy/innehåll, UX/tydlighet och mobil/tillgänglighet.
-- Ge 6–8 användbara förbättringar. Hellre färre bra än utfyllnad.
+- Ge ${count} användbara förbättringar. Hellre färre bra än utfyllnad.
 - Generera INTE business_profile, market_context, customer_segments, competitive_landscape eller competitor_insights. De fälten tillhör Avancerad och finns inte i det här schemat.`;
   }
 
@@ -229,7 +248,7 @@ LÄGE: AVANCERAD
 - Gör en bredare marknads- och affärsanalys.
 - Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.
 - Fyll business_profile, market_context, customer_segments, competitive_landscape och competitor_insights med djup och konkreta antaganden.
-- Ge minst 12 prioriterade förbättringar med mer detaljerade varför/hur.
+- Ge ${count} prioriterade förbättringar med mer detaljerade varför/hur.
 - Använd web research när verktyget finns, men påstå inget du inte kan stödja.`;
   }
 
@@ -237,8 +256,7 @@ LÄGE: AVANCERAD
 
 LÄGE: VANLIG
 - Håll affärssektionerna korta men konkreta.
-- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.
-- Ge 6–8 användbara förbättringar.`;
+- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.`;
 }
 
 /**
@@ -258,11 +276,22 @@ export function buildAuditPrompt(
           auditMode: auditModeOrOptions,
           schemaKind: auditModeOrOptions === "advanced" ? "full" : "core",
           maxPages: auditModeOrOptions === "advanced" ? 4 : 2,
+          improvementTarget:
+            auditModeOrOptions === "advanced" ? { min: 12 } : { min: 6, max: 8 },
         }
       : {
           auditMode: auditModeOrOptions.auditMode === "advanced" ? "advanced" : "basic",
-          schemaKind: auditModeOrOptions.schemaKind ?? "core",
-          maxPages: auditModeOrOptions.maxPages ?? (auditModeOrOptions.auditMode === "advanced" ? 4 : 2),
+          schemaKind:
+            auditModeOrOptions.schemaKind ??
+            (auditModeOrOptions.auditMode === "advanced" ? "full" : "core"),
+          maxPages:
+            auditModeOrOptions.maxPages ??
+            (auditModeOrOptions.auditMode === "advanced" ? 4 : 2),
+          improvementTarget:
+            auditModeOrOptions.improvementTarget ??
+            (auditModeOrOptions.auditMode === "advanced"
+              ? { min: 12 }
+              : { min: 6, max: 8 }),
         };
 
   // Detect if this is likely a JS-rendered page with minimal scraped content
@@ -299,7 +328,7 @@ export function buildAuditPrompt(
       content: [
         {
           type: "text",
-          text: AUDIT_SYSTEM_PROMPT,
+          text: systemPromptForSchema(options.schemaKind),
         },
       ],
     },

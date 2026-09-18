@@ -1,4 +1,4 @@
-import { omitAdvancedOnlyFields } from "@/lib/audit/audit-tier";
+import { omitAdvancedOnlyFields, type AuditSchemaKind } from "@/lib/audit/audit-tier";
 import type { AuditMode, AuditResult } from "@/types/audit";
 
 // Cost calculation (for logging/display only)
@@ -19,6 +19,7 @@ function createFallbackResult(
   },
   url: string,
   auditMode: AuditMode,
+  options?: { schemaKind?: AuditSchemaKind },
 ): Record<string, unknown> {
   const domain = new URL(url).hostname;
   const isJsRendered = websiteContent.wordCount < 50;
@@ -332,7 +333,8 @@ function createFallbackResult(
       : "AI-analysen returnerade inte giltigt resultat",
   };
 
-  return auditMode === "advanced" ? fallback : omitAdvancedOnlyFields(fallback);
+  const schemaKind = options?.schemaKind ?? (auditMode === "advanced" ? "full" : "core");
+  return schemaKind === "core" ? omitAdvancedOnlyFields(fallback) : fallback;
 }
 
 // Validate audit result structure (lenient - accept partial results)

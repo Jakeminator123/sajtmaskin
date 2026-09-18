@@ -79,6 +79,28 @@ describe("Advanced-only field stripping", () => {
     }
   });
 
+  it("keeps Advanced-only fields in a public/full basic fallback", () => {
+    const fallback = createFallbackResult(
+      {
+        title: "Exempel",
+        description: "En sida",
+        wordCount: 200,
+        hasSSL: true,
+        headings: ["Hem"],
+        meta: { viewport: "width=device-width" },
+        links: { internal: 2, external: 1 },
+        images: 1,
+        responseTime: 100,
+      },
+      "https://example.se",
+      "basic",
+      { schemaKind: "full" },
+    );
+    expect(hasAdvancedOnlyFields(fallback)).toBe(true);
+    expect(fallback.customer_segments).toBeTruthy();
+    expect(fallback.business_profile).toBeTruthy();
+  });
+
   it("does not put Advanced-only fields in a Vanlig fallback", () => {
     const fallback = createFallbackResult(
       {

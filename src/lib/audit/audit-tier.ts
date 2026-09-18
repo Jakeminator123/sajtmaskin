@@ -17,19 +17,15 @@ import {
   AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
   AUDIT_STRUCTURED_DEFAULT_MODEL,
 } from "@/lib/gen/defaults";
+import {
+  AUDIT_ADVANCED_ONLY_FIELDS,
+  type AuditAdvancedOnlyField,
+} from "@/lib/audit/audit-advanced-fields";
 import type { AuditMode } from "@/types/audit";
 
 export type AuditPromptKind = "product" | "public";
 
-export const AUDIT_ADVANCED_ONLY_FIELDS = [
-  "business_profile",
-  "market_context",
-  "customer_segments",
-  "competitive_landscape",
-  "competitor_insights",
-] as const;
-
-export type AuditAdvancedOnlyField = (typeof AUDIT_ADVANCED_ONLY_FIELDS)[number];
+export { AUDIT_ADVANCED_ONLY_FIELDS, type AuditAdvancedOnlyField };
 
 export type AuditSchemaKind = "core" | "full";
 
