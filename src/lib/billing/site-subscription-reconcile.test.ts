@@ -188,6 +188,30 @@ describe("processHostingJob", () => {
     expect(pause).toHaveBeenCalledTimes(1);
   });
 
+  it("bokför providerfel som failed med run_after om 15 minuter", async () => {
+    getSiteSubscriptionById.mockResolvedValue(row("paused", "live"));
+    claimRunnableBillingJob.mockResolvedValue(liveJob);
+    pause.mockResolvedValue({
+      ok: false,
+      written: false,
+      confirmed: false,
+      code: "provider_error",
+      error: "provider_error",
+    });
+    const failedAt = new Date("2026-09-15T12:00:00.000Z");
+
+    await processHostingJob(liveJob, failedAt);
+
+    expect(updateBillingJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        status: "failed",
+        last_error: "provider_error",
+        run_after: new Date(failedAt.getTime() + 15 * 60_000),
+      }),
+    );
+  });
+
   it("villkorar skrivningen på färsk desired efter provideranrop", async () => {
     getSiteSubscriptionById.mockResolvedValue(row("paused", "live"));
     claimRunnableBillingJob.mockResolvedValue(liveJob);
