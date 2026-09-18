@@ -35,6 +35,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const navLinks = [
     { href: "/teknik", label: "Teknik" },
     { href: "/analys", label: "Analys" },
+    { href: "/exempel", label: "Exempel" },
     { href: "/#hur-det-fungerar", label: "Hur det fungerar" },
     { href: "/#priser", label: "Priser" },
     { href: "/faq", label: "FAQ" },

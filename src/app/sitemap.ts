@@ -9,6 +9,7 @@ const BASE_URL = URLS.baseUrl;
  * **Checklista när du lägger till en ny publik sida:**
  * - Vanlig produktsida: skapa `src/app/.../page.tsx`, lägg vägen här,
  *   uppdatera relevant footer om sidan ska länkas, kör sitemap-testet.
+ *   `/exempel` länkas från nav och startsida; `LandingFooter` lämnas orörd.
  * - SEO-landningssida: registrera i `src/lib/seo-landing-pages/registry.ts`
  *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
  *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
@@ -20,6 +21,7 @@ export const STATIC_SITEMAP_REL_PATHS = [
   "/buy-credits",
   "/faq",
   "/om",
+  "/exempel",
   "/blogg",
   "/terms",
   "/privacy",
@@ -47,6 +49,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/buy-credits": 0.7,
     "/faq": 0.5,
     "/om": 0.45,
+    "/exempel": 0.7,
     "/blogg": 0.45,
     "/terms": 0.3,
     "/privacy": 0.3,
@@ -59,6 +62,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/buy-credits": "monthly",
     "/faq": "monthly",
     "/om": "monthly",
+    "/exempel": "monthly",
     "/blogg": "weekly",
     "/terms": "yearly",
     "/privacy": "yearly",

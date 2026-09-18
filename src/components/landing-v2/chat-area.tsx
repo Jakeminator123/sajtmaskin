@@ -6,6 +6,7 @@ import { CreditPackageGrid } from "@/components/billing/CreditPackageGrid"
 import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
+import { LandingExempelStrip } from "@/components/landing-v2/landing-exempel-strip"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
 import {
@@ -158,6 +159,8 @@ export function ChatArea(props: ChatAreaProps = {}) {
             </div>
           </div>
         </section>
+
+        <LandingExempelStrip />
 
         {/* ━━━ PRICING ━━━ */}
         <section id="priser" className="overflow-visible px-6 py-20 md:py-28">
