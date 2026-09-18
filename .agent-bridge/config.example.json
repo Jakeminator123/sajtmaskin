@@ -1,6 +1,6 @@
 {
-  "agent_id": "BUILD-01",
-  "role": "builder",
+  "agent_id": "BRYGG-01",
+  "role": "brygg",
   "repository": "owner/repo",
   "bridge_issue": 1468
 }

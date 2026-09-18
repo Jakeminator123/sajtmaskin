@@ -107,6 +107,25 @@ class ConfigValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(bridge.BridgeError, "mismatch"):
             bridge.parse_config_text(json.dumps(_config_payload(agent_id="BUILD-01", role="merge")))
 
+    def test_rejects_brygg_role_on_parked_identity(self) -> None:
+        with self.assertRaisesRegex(bridge.BridgeError, "mismatch"):
+            bridge.parse_config_text(json.dumps(_config_payload(agent_id="SCOUT-01", role="brygg")))
+
+    def test_active_identity_is_the_shipped_example(self) -> None:
+        # The example config is what Jakob copies on a fresh machine, so it must
+        # point at the one identity v1 actually activates.
+        example = json.loads(
+            (HERE.parent / ".agent-bridge" / "config.example.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(bridge.ACTIVE_IDENTITY, "BRYGG-01")
+        self.assertEqual(example["agent_id"], bridge.ACTIVE_IDENTITY)
+        self.assertEqual(example["role"], bridge.ALLOWED_IDENTITIES[bridge.ACTIVE_IDENTITY])
+        self.assertEqual(example["bridge_issue"], bridge.DEFAULT_BRIDGE_ISSUE)
+
+    def test_active_identity_request_id_is_well_formed(self) -> None:
+        request_id = bridge.make_request_id(bridge.ACTIVE_IDENTITY, 1, datetime(2026, 9, 18, tzinfo=timezone.utc))
+        self.assertTrue(bridge.REQUEST_ID_RE.fullmatch(request_id), request_id)
+
     def test_rejects_unknown_agent(self) -> None:
         with self.assertRaisesRegex(bridge.BridgeError, "agent_id"):
             bridge.parse_config_text(json.dumps(_config_payload(agent_id="STEWARD-01", role="merge")))

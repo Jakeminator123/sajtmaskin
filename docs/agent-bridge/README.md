@@ -6,11 +6,17 @@ Kontrollrum: GitHub issue **#1468**.
 Körbar owner: [`scripts/agent_bridge.py`](../../scripts/agent_bridge.py).
 Format: [`protocol.md`](protocol.md).
 
-| Identitet | Role | Rollfil |
-|---|---|---|
-| `MERGE-01` | `merge` | [`roles/merge.md`](roles/merge.md) |
-| `BUILD-01` | `builder` | [`roles/builder.md`](roles/builder.md) |
-| `SCOUT-01` | `scout` | [`roles/scout.md`](roles/scout.md) |
+| Identitet | Role | Rollfil | Läge |
+|---|---|---|---|
+| `BRYGG-01` | `brygg` | [`roles/brygg.md`](roles/brygg.md) | **aktiverad i v1** |
+| `MERGE-01` | `merge` | [`roles/merge.md`](roles/merge.md) | parkerad |
+| `BUILD-01` | `builder` | [`roles/builder.md`](roles/builder.md) | parkerad |
+| `SCOUT-01` | `scout` | [`roles/scout.md`](roles/scout.md) | parkerad |
+
+v1 aktiverar **en** roll. Fyra identiteter är fler rörliga delar än vi kan
+felsöka innan loopen gått runt en gång, så de tre specialiserade rollerna är
+definierade men parkerade tills en bryggagent kört en full runda
+post → coach → read. Byt inte identitet för att kringgå en gräns.
 
 Inte OpenClaw-bridge. Inte `/scout`, `/builder` eller `/steward`.
 
@@ -30,13 +36,32 @@ Copy-Item .agent-bridge/config.example.json .agent-bridge/config.local.json
 
 5. Sätt `repository` till slugen från `gh repo view --json nameWithOwner --jq .nameWithOwner`
    (måste matcha `git remote get-url origin`). Lämna inte example-värdet `owner/repo`.
-6. Sätt **exakt en** identitet per worktree/chatt (avsnitt B–D).
-7. Starta en **ny** Cursor-chatt så `/bridge` syns i project commands
-   (fil: [`.cursor/commands/bridge.md`](../../.cursor/commands/bridge.md)).
+6. Sätt **exakt en** identitet per worktree/chatt. I v1 är det `BRYGG-01`
+   (avsnitt B). Avsnitt C–E beskriver de parkerade rollerna.
+7. Starta en **ny** Cursor-chatt så `/bryggagent` och `/bridge` syns i project
+   commands (filer: [`.cursor/commands/bryggagent.md`](../../.cursor/commands/bryggagent.md),
+   [`.cursor/commands/bridge.md`](../../.cursor/commands/bridge.md)).
 
 `python` nedan är samma kommando på Windows om `python` finns; annars `py -3`.
 
-## B. Hur Jakob sätter MERGE-01
+## B. Hur Jakob sätter BRYGG-01 (v1:s enda aktiva roll)
+
+I bryggagentens worktree, redigera `.agent-bridge/config.local.json`:
+
+```json
+{
+  "agent_id": "BRYGG-01",
+  "role": "brygg",
+  "repository": "owner/repo",
+  "bridge_issue": 1468
+}
+```
+
+Byt `owner/repo` mot origin-slugen från steg A. Verifiera: `python scripts/agent_bridge.py identity`
+
+Läs [`roles/brygg.md`](roles/brygg.md). Kör sedan `/bryggagent` i chatten.
+
+## C. Hur Jakob sätter MERGE-01 (parkerad)
 
 I **MERGE-01:s** worktree, redigera `.agent-bridge/config.local.json`:
 
@@ -53,7 +78,7 @@ Byt `owner/repo` mot origin-slugen från steg A. Verifiera: `python scripts/agen
 
 Läs [`roles/merge.md`](roles/merge.md). En BUILD-agent får inte stå som `merge`.
 
-## C. Hur Jakob sätter BUILD-01
+## D. Hur Jakob sätter BUILD-01 (parkerad)
 
 I **BUILD-01:s** worktree:
 
@@ -70,7 +95,7 @@ Byt `owner/repo` mot origin-slugen från steg A. `python scripts/agent_bridge.py
 
 Läs [`roles/builder.md`](roles/builder.md).
 
-## D. Hur Jakob sätter SCOUT-01
+## E. Hur Jakob sätter SCOUT-01 (parkerad)
 
 I **SCOUT-01:s** worktree:
 
@@ -89,10 +114,15 @@ Läs [`roles/scout.md`](roles/scout.md).
 
 En identitet per worktree. Agenten får inte byta filen.
 
-## E. Hur `/bridge` körs
+## F. Hur `/bryggagent` och `/bridge` körs
 
-**Primärt:** skriv `/bridge` i Cursor-chatten. Det är ett riktigt project
-command från [`.cursor/commands/bridge.md`](../../.cursor/commands/bridge.md)
+**Primärt i v1:** skriv `/bryggagent` i Cursor-chatten. Det låser rollen och
+kör loopen read → arbete → post → wait
+([`.cursor/commands/bryggagent.md`](../../.cursor/commands/bryggagent.md)).
+
+`/bridge` är låg-nivåtransporten och finns kvar för en enskild post eller
+läsning. Båda är riktiga project commands från
+[`.cursor/commands/bridge.md`](../../.cursor/commands/bridge.md)
 (samma mekanism som `/logg` och `/kedja`).
 
 Text efter kommandot är status/message/evidence/beslut. Agenten ska då:
@@ -111,14 +141,14 @@ förblir mailbox-owner och är det enda `read`/`wait` läser.
 **Fallback** om slash-command inte syns i en gammal chatt: kör samma
 `python scripts/agent_bridge.py ...` manuellt. Öppna ny chatt efter pull.
 
-## F. När ChatGPT ännu inte svarat
+## G. När ChatGPT ännu inte svarat
 
 `read` / `wait` avslutar med kod 3 och skriver **inte** över
 `.agent-bridge/latest-response.md`.
 
 Det betyder inte att coachen är notifierad. v1 pingar inte ChatGPT.
 
-## G. Hur `read` / `wait` fungerar
+## H. Hur `read` / `wait` fungerar
 
 ```powershell
 python scripts/agent_bridge.py read
@@ -134,7 +164,7 @@ De **exekverar inte** svaret. Agenten måste läsa filen och tänka själv.
 `wait` pollar GitHub max 5 minuter. Det väntar bara på en kommentar som
 redan skrivits.
 
-## H. ChatGPT pingas inte autonomt
+## I. ChatGPT pingas inte autonomt
 
 v1 är manuell:
 
@@ -154,7 +184,7 @@ Head: <sha>
 Status: <READY|BLOCKED|DONE|QUESTION>
 ```
 
-När Coach behövs: `Kör /bridge.`
+När Coach behövs: `Kör /bryggagent.`
 
 ## Tester
 

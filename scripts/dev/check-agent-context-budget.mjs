@@ -19,6 +19,7 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/commands/post-review.md": 1_800,
   ".cursor/commands/avslutning.md": 1_500,
   ".cursor/commands/bridge.md": 800,
+  ".cursor/commands/bryggagent.md": 1_400,
 });
 
 export const REQUIRED_ALWAYS_RULES = Object.freeze([

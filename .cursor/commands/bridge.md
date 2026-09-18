@@ -12,3 +12,5 @@ Protokoll: [`docs/agent-bridge/protocol.md`](../../docs/agent-bridge/protocol.md
 
 Status: `QUESTION` | `BLOCKED` | `READY` | `DONE` | `REPORT`.
 Detta byter inte `/scout`/`/builder`/`/steward`.
+
+För hela loopen read → arbete → post → wait: [`/bryggagent`](bryggagent.md).

@@ -14,11 +14,15 @@ v1 utökar formatet som redan finns i #1468. Nya poster ska använda
 
 Fasta par. Agenten får inte välja eller byta själv.
 
-| `agent_id` | `role` |
-|---|---|
-| `MERGE-01` | `merge` |
-| `BUILD-01` | `builder` |
-| `SCOUT-01` | `scout` |
+| `agent_id` | `role` | Läge |
+|---|---|---|
+| `BRYGG-01` | `brygg` | aktiverad i v1 |
+| `MERGE-01` | `merge` | parkerad |
+| `BUILD-01` | `builder` | parkerad |
+| `SCOUT-01` | `scout` | parkerad |
+
+v1 aktiverar bara `BRYGG-01`. De parkerade paren finns kvar i
+`ALLOWED_IDENTITIES` så en senare uppdelning inte kräver protokolländring.
 
 Lokalt låsta i `.agent-bridge/config.local.json`. Scriptet avvisar mismatch
 och extra JSON-nycklar. Valfri nyckel: `coach_authors` (icke-tom allowlist).
@@ -33,8 +37,8 @@ OpenClaw-bridge (`.cursor/openclaw-bridge/`).
 [AGENT→COACH:v1]
 
 request_id: <AGENT-ID>-<UTC>-<seq>
-agent_id: BUILD-01
-role: builder
+agent_id: BRYGG-01
+role: brygg
 task: #1461
 branch: ...
 head: <40-char SHA>
@@ -66,9 +70,9 @@ clean/dirty — inget filinnehåll.
 ```text
 [COACH→AGENT:v1]
 
-request_id: BUILD-01-20260917T211530Z-1
-agent_id: BUILD-01
-role: builder
+request_id: BRYGG-01-20260917T211530Z-1
+agent_id: BRYGG-01
+role: brygg
 task: #1461
 decision: CONTINUE|FIX|STOP|HANDOFF|READY|MERGE_NEXT
 priority: NOW|NEXT|PARK
@@ -79,6 +83,11 @@ message:
 guards:
 - ...
 ```
+
+Coach-posten är en **beställning**, inte ett mandat. Fälten `scope` och
+`acceptans` i `message` avgör vad agenten får röra och när uppgiften är klar.
+Kräver uppgiften merge, `master`/produktion, force-push, DB-/provider-write
+eller secrets-ändring svarar agenten `BLOCKED` och namnger mandatet.
 
 `read` / `wait` letar efter `[COACH→AGENT:v1]` **endast** från en betrodd
 GitHub-author. Default-allowlist är repoägaren (samma identitet som
@@ -142,4 +151,4 @@ Head: <sha>
 Status: <READY|BLOCKED|DONE|QUESTION>
 ```
 
-När Coach behövs: `Kör /bridge.`
+När Coach behövs: `Kör /bryggagent.`

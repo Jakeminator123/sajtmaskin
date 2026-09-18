@@ -27,11 +27,16 @@ COACH_MARKER_V1 = "[COACH→AGENT:v1]"
 COACH_MARKER_LEGACY = "[COACH→AGENT]"
 PLACEHOLDER_REPOSITORY = "owner/repo"
 DEFAULT_BRIDGE_ISSUE = 1468
+# BRYGG-01 is the only identity v1 activates. The three specialised roles stay
+# defined so a later split needs no protocol change, but they are parked until
+# one bryggagent has completed a full post -> coach -> read round.
 ALLOWED_IDENTITIES: dict[str, str] = {
+    "BRYGG-01": "brygg",
     "MERGE-01": "merge",
     "BUILD-01": "builder",
     "SCOUT-01": "scout",
 }
+ACTIVE_IDENTITY = "BRYGG-01"
 ALLOWED_STATUSES = frozenset({"QUESTION", "BLOCKED", "READY", "DONE", "REPORT"})
 ALLOWED_RISKS = frozenset({"low", "medium", "high"})
 REQUIRED_CONFIG_KEYS = ("agent_id", "role", "repository", "bridge_issue")
@@ -207,7 +212,7 @@ def parse_config_text(text: str) -> Config:
     repository = raw["repository"]
     bridge_issue = raw["bridge_issue"]
     if not isinstance(agent_id, str) or agent_id not in ALLOWED_IDENTITIES:
-        raise BridgeError("agent_id must be MERGE-01, BUILD-01, or SCOUT-01")
+        raise BridgeError(f"agent_id must be one of: {', '.join(ALLOWED_IDENTITIES)}")
     if not isinstance(role, str):
         raise BridgeError("role must be a string")
     expected_role = ALLOWED_IDENTITIES[agent_id]

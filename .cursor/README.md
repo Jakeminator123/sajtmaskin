@@ -53,7 +53,8 @@ kräver verktyget som skillen anger. Stora kommandon är tunna routrar dit; skap
 inte en andra editorlokal skillkopia.
 
 `pr-workflow` laddas för allt skriv-, PR- och mergearbete. Övriga stora skills
-(`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`, `/bridge`) läses
+(`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`,
+`/bridge`, `/bryggagent`) läses
 bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 
 ## Stora sanningskällor
