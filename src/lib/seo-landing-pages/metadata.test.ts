@@ -25,6 +25,19 @@ describe("SEO landing metadata", () => {
       expect(metadata.alternates).toEqual({
         canonical: `${PUBLIC_CANONICAL_ORIGIN}/${page.slug}`,
       });
+      expect(metadata.openGraph).toEqual({
+        title: metadata.title,
+        description: metadata.description,
+        url: `${PUBLIC_CANONICAL_ORIGIN}/${page.slug}`,
+        type: "website",
+        locale: "sv_SE",
+        siteName: "Sajtmaskin",
+      });
+      expect(metadata.twitter).toEqual({
+        card: "summary_large_image",
+        title: metadata.title,
+        description: metadata.description,
+      });
     }
   });
 
@@ -47,6 +60,7 @@ describe("SEO landing metadata", () => {
     expect(metadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/skapa-hemsida-med-ai`,
     });
+    expect(metadata.openGraph?.url).toBe(`${PUBLIC_CANONICAL_ORIGIN}/skapa-hemsida-med-ai`);
   });
 
   it("keeps ready landing pages noindex on preview so they cannot become a second index", () => {
@@ -56,5 +70,9 @@ describe("SEO landing metadata", () => {
     expect(metadata.alternates).toEqual({
       canonical: `${PUBLIC_CANONICAL_ORIGIN}/skapa-hemsida`,
     });
+    expect(metadata.openGraph?.url).toBe(`${PUBLIC_CANONICAL_ORIGIN}/skapa-hemsida`);
+    expect(metadata.twitter).toEqual(
+      expect.objectContaining({ card: "summary_large_image" }),
+    );
   });
 });

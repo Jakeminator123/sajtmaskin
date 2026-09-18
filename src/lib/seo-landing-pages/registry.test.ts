@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SEO_LANDING_CTA_HREF,
+  SEO_LANDING_FOOTER_GUIDE_LINKS,
   SEO_LANDING_PAGES,
   SEO_LANDING_PLACEHOLDER_READY_MESSAGE,
   SEO_LANDING_SLUGS,
@@ -12,6 +13,7 @@ import {
   getSeoLandingEntry,
   indexableSeoLandingRelPathsFrom,
   isSeoLandingSlug,
+  readyRelatedSeoLandingSlugs,
 } from "./registry";
 
 const APP_DIR = join(process.cwd(), "src/app");
@@ -161,6 +163,64 @@ describe("SEO landing registry", () => {
         expect(isSeoLandingSlug(related)).toBe(true);
         expect(related).not.toBe(page.slug);
       }
+    }
+  });
+
+  it("keeps unique title, description and H1 on every ready page", () => {
+    const ready = SEO_LANDING_PAGES.filter((page) => page.status === "ready");
+    expect(new Set(ready.map((page) => page.title)).size).toBe(ready.length);
+    expect(new Set(ready.map((page) => page.description)).size).toBe(ready.length);
+    expect(new Set(ready.map((page) => page.plannedH1)).size).toBe(ready.length);
+    expect(new Set(ready.map((page) => page.intent)).size).toBe(ready.length);
+  });
+
+  it("keeps the related graph connected without placeholder or orphan ready pages", () => {
+    const inbound = new Map<string, Set<string>>();
+    for (const page of SEO_LANDING_PAGES) {
+      inbound.set(page.slug, new Set());
+    }
+    for (const page of SEO_LANDING_PAGES) {
+      const readyRelated = readyRelatedSeoLandingSlugs(page.relatedSlugs);
+      expect(readyRelated).toEqual([...page.relatedSlugs]);
+      for (const related of readyRelated) {
+        inbound.get(related)?.add(page.slug);
+      }
+    }
+    for (const page of SEO_LANDING_PAGES) {
+      if (page.status !== "ready") continue;
+      expect(inbound.get(page.slug)?.size, `${page.slug} has no inbound related link`).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+
+  it("lets broad hubs reach narrower intents and competitor pages", () => {
+    expect(getSeoLandingEntry("skapa-hemsida").relatedSlugs).toEqual(
+      expect.arrayContaining([
+        "skapa-hemsida-med-ai",
+        "hemsida-till-foretag",
+        "hemsideprogram",
+        "vad-kostar-en-hemsida",
+      ]),
+    );
+    expect(getSeoLandingEntry("hemsideprogram").relatedSlugs).toEqual(
+      expect.arrayContaining(["wix-alternativ", "wordpress-alternativ"]),
+    );
+    expect(getSeoLandingEntry("ai-hemsidebyggare").relatedSlugs).toEqual(
+      expect.arrayContaining(["lovable-alternativ"]),
+    );
+  });
+
+  it("exposes four footer hubs instead of the full cluster", () => {
+    expect(SEO_LANDING_FOOTER_GUIDE_LINKS.map((link) => link.slug)).toEqual([
+      "skapa-hemsida",
+      "skapa-hemsida-med-ai",
+      "vad-kostar-en-hemsida",
+      "hemsideprogram",
+    ]);
+    expect(SEO_LANDING_FOOTER_GUIDE_LINKS).toHaveLength(4);
+    for (const link of SEO_LANDING_FOOTER_GUIDE_LINKS) {
+      expect(getSeoLandingEntry(link.slug).status).toBe("ready");
     }
   });
 
