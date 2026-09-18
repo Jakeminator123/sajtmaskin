@@ -52,5 +52,11 @@ describe("marketing sitemap static paths", () => {
       expect(urls).not.toContain(`${URLS.baseUrl}/${page.slug}`);
     }
   });
+
+  it("omits lastModified when no owned modification date exists", () => {
+    for (const entry of sitemap()) {
+      expect(entry.lastModified).toBeUndefined();
+    }
+  });
 });
 

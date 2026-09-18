@@ -38,8 +38,6 @@ const CATEGORIES = [
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-
   const staticPriorities: Record<string, number> = {
     "": 1.0,
     "/templates": 0.9,
@@ -64,23 +62,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/privacy": "yearly",
   };
 
+  // Omit lastModified: this sitemap has no owned modification dates.
+  // `new Date()` at render would mark every static URL as freshly changed
+  // on each crawl.
   const staticPages: MetadataRoute.Sitemap = STATIC_SITEMAP_REL_PATHS.map((path) => ({
     url: path === "" ? BASE_URL : `${BASE_URL}${path}`,
-    lastModified: now,
     changeFrequency: staticFrequencies[path] ?? "monthly",
     priority: staticPriorities[path] ?? 0.5,
   }));
 
   const categoryPages: MetadataRoute.Sitemap = CATEGORIES.map((category) => ({
     url: `${BASE_URL}/category/${category}`,
-    lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.7,
   }));
 
   const landingPages: MetadataRoute.Sitemap = getIndexableSeoLandingRelPaths().map((path) => ({
     url: `${BASE_URL}${path}`,
-    lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));

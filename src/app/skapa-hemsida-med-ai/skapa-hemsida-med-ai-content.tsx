@@ -208,8 +208,13 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
+export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
+  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
+}
+
 export function SkapaHemsidaMedAiContent() {
   const entry = getSeoLandingEntry(SLUG);
+  const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
@@ -497,7 +502,7 @@ export function SkapaHemsidaMedAiContent() {
                 teknikneutrala vägen och utan-kod-guiden ligger på egna sidor.
               </p>
               <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
-                {entry.relatedSlugs.map((slug) => (
+                {readyRelated.map((slug) => (
                   <li key={slug}>
                     <RelatedLink slug={slug} />
                   </li>

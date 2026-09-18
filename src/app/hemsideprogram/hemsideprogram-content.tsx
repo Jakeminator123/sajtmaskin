@@ -69,26 +69,22 @@ const MATRIX = [
   },
 ] as const;
 
-const COST_TYPES = [
+const COST_BY_WORKFLOW = [
   {
-    title: "Skapande",
-    body: "Tid eller arvode för första versionen. I en AI-builder är starten ett utkast — inte en färdig varumärkesmanual.",
+    title: "CMS",
+    body: "Starten är tema och innehåll. Den dolda notan är hosting, plugins och att någon äger uppdateringar efter launch.",
   },
   {
-    title: "Domän och hosting",
-    body: "Adress och var sidan ligger. Preview är inte publicering. Utan egen domän får en publicerad Sajtmaskin-sajt en Vercel-adress; koppling av en domän ni redan äger kan vara stängd i vissa miljöer.",
+    title: "Drag-and-drop",
+    body: "Låg start om ni redan kan editorn. Prenumeration och begränsad exit styr mer än första kvällen.",
   },
   {
-    title: "Innehåll",
-    body: "Texter, bilder, bevis. Det är nästan alltid den dolda kostnaden, oavsett verktyg.",
+    title: "AI-builder",
+    body: "Tempo till utkast är högt. Ni betalar tid i granskning — och i Sajtmaskin credits som engångsköp, plus publicering.",
   },
   {
-    title: "Integrationer",
-    body: "Formulär, bokning, betalning, inloggning. I Sajtmaskin är sådana ytor demo tills ni uttryckligen bygger dem.",
-  },
-  {
-    title: "Underhåll",
-    body: "Ändringar, uppdateringar, säkerhet. CMS och kod kräver mer löpande ansvar; builders flyttar mer till plattformen.",
+    title: "Kod",
+    body: "Högst kontroll, högst start. Underhåll ligger hos er eller byrån, inte i en månadsplan.",
   },
 ] as const;
 
@@ -382,21 +378,28 @@ export function HemsideprogramContent() {
           <section className="border-t border-border/15 px-6 py-16 md:py-24">
             <div className="mx-auto max-w-6xl">
               <p className="mb-3 text-xs font-medium tracking-widest text-primary uppercase">
-                Kostnadstyper
+                Kostnad per arbetssätt
               </p>
               <h2 className="max-w-2xl text-balance font-(--font-heading) text-2xl tracking-tight text-foreground md:text-4xl">
-                Jämför poster, inte påhittade priser
+                Hur notan skiljer sig mellan CMS, editor, AI och kod
               </h2>
               <p className="mt-4 max-w-2xl text-pretty leading-relaxed text-muted-foreground">
-                Skapande, domän, hosting, innehåll, integrationer och underhåll. Räkna inte med
-                fasta kronor här — aktuella Sajtmaskin-paket finns på{" "}
+                Här jämförs arbetssätt, inte sex generella poster. Kostnadsdelarna — skapande,
+                domän, hosting, innehåll, integrationer och underhåll — ligger på{" "}
+                <Link
+                  href="/vad-kostar-en-hemsida"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  vad en hemsida kostar
+                </Link>
+                . Aktuella Sajtmaskin-paket finns på{" "}
                 <Link href="/#priser" className="text-foreground underline-offset-4 hover:underline">
                   prissidan
                 </Link>
                 .
               </p>
-              <div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {COST_TYPES.map((item) => (
+              <div className="mt-10 grid gap-3 md:grid-cols-2">
+                {COST_BY_WORKFLOW.map((item) => (
                   <article
                     key={item.title}
                     className="rounded-[28px] border border-border/40 bg-card/70 p-6"
