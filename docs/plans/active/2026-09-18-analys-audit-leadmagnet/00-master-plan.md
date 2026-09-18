@@ -22,6 +22,27 @@ idé, inte det här spåret. Brainstormen om widget/kundanskaffning är
 underlag; filen `docs/growth/kundanskaffning-fordjupning-fem-spar.md`
 finns inte i den här checkouten, så den länkas inte.
 
+## Kundanskaffning: spår 1 av fem är struket
+
+Av de fem kundanskaffningsspåren är **den publika granskningen som lead
+magnet** avklarad i kod och stryks från listan. Kvar i den listan:
+de fyra övriga spåren, som fortfarande bara finns som brainstorm i
+Jakobs egen checkout (`docs/growth/kundanskaffning-fordjupning-fem-spar.md`
+är inte tracked här) — beställ dem separat.
+
+Levererat i det här spåret:
+
+| Del | Var |
+|---|---|
+| Publik yta `/analys`, `noindex`, egen H1 | [`src/app/analys/`](../../../../src/app/analys/) |
+| Gästväg utan konto/credits, 1 körning/IP/24h | [`src/app/api/analys/route.ts`](../../../../src/app/api/analys/route.ts), `analys:public` i [`rate-limit.ts`](../../../../src/lib/rate-limit.ts) |
+| Delad motor, billig modell på gratisvägen | [`run-website-audit.ts`](../../../../src/lib/audit/run-website-audit.ts), `audit_structured_public` i [`manifest.json`](../../../../config/ai_models/manifest.json) |
+| Publik projektion (inget internt payload till gäst) | [`public-report.ts`](../../../../src/lib/audit/public-report.ts) |
+| Ärlig copy i audit-entry | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
+
+Kvar som separata ägarbeslut, inte som en del av spåret: indexering och
+sitemap (B2), partnerflytt av `?mode=audit` (B4) och org.nr-prefill.
+
 ## Hypotes
 
 Auditen är redan tillräckligt “wow” (PDF, scores, förbättringar) för att
@@ -154,21 +175,37 @@ indexerad «gratis analys» före A2+A3+A4.
 SEO-QA att återanvända (inte kopiera registret):
 [`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
 
-## Verifiering när kod väl skrivs
-
-Ingen kod i den här omgången. När en PR kommer:
+## Verifiering (kört på branchen)
 
 ```text
 npm run verify:pr -- --plan
 npm run typecheck
 npm run docs:links
+npx vitest run src/lib/audit src/app/api/analys src/app/api/audit src/components/modals
 ```
 
-Riktat minst: `src/app/api/audit/route.test.ts`,
-`src/components/layout/site-audit-section.test.tsx`,
-`src/app/sitemap.test.ts`, credits-tester för 401/402,
-plus nya gäst-/rate-limit-tester som A2/A3 kräver. Browser eller curl:
-`/analys` 200, metadata, gästväg enligt B1, 429, ärlig copy.
+Riktat: `public-report.test.ts` (publik projektion, cap, prioritering),
+`route.test.ts` för `/api/analys` (validering före kvot, privat host,
+inget internt payload, `no-store`), `public-analys.test.ts` (prompt- och
+klientkontrakt), `audit-modal.overview.test.tsx` (målgrupp i vanligt läge,
+ingen auto-overlay), `entry-modal.copy.test.tsx` (ärlig copy) plus
+befintliga `src/app/api/audit/route.test.ts` och
+`audit-modal.save-state.test.tsx`.
+
+Live: `POST /api/analys` mot en riktig sajt ger 200 med `gpt-5.6-luna`,
+`web_search=false` och ~0,13 SEK per körning; `/analys` renderar
+rapporten i browsern.
+
+## Säkerhetsbeslut på den publika ytan
+
+| Beslut | Varför |
+|---|---|
+| Validering och SSRF-förkontroll **före** rate limit | En felstavning eller en probe ska inte bränna gästens enda dygnskörning |
+| Publik projektion (`toPublicAnalysReport`) | Gäst får aldrig `site_content`, `template_data`, `color_theme`, budget, konkurrensdata eller kostnad — annars är `/analys` ett gratis scraping-/promptAPI |
+| Cap på strängar och listor | En fientlig målsajt ska inte kunna blåsa upp svaret |
+| `Cache-Control: no-store` + `X-Robots-Tag: noindex` | Gästrapporten är per anropare och ska inte mellanlagras eller indexeras |
+| Modell-id bara utanför produktion | Intern modellval är inte publik information |
+| PDF/spara/bygge bakom konto | B1-defaulten; också det som gör magneten till en magnet |
 
 ## Stoppregler
 
@@ -184,12 +221,13 @@ plus nya gäst-/rate-limit-tester som A2/A3 kräver. Browser eller curl:
 
 ## Checklista
 
-- [ ] Jakob ja / ja med avvikelse / nej till defaultpaketet
-- [ ] B1–B6 ifyllda
-- [ ] A4 copy
-- [ ] A1 noindex-route
-- [ ] A2 + A3
-- [ ] Separat ja innan index/sitemap/nav
+- [x] Jakob ja / ja med avvikelse / nej till defaultpaketet
+- [x] B1 (1× basic/IP/24h, signup för PDF/spara/bygge), B3 (nav/footer länkad)
+- [ ] B2 (index/sitemap), B4 (partner `?mode=audit`), B5, B6 kvarstår
+- [x] A4 copy — entry-modalen lovar inte längre avgiftsfri audit
+- [x] A1 noindex-route
+- [x] A2 + A3
+- [ ] Separat ja innan index/sitemap
 - [ ] När spåret är mergat och ev. indexbeslut är överlämnat: väv in en
       rad i [`../../avklarat/README.md`](../../avklarat/README.md) och
       rensa den här mappen
