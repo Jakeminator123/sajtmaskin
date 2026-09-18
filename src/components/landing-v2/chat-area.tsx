@@ -7,6 +7,7 @@ import { creditPackageCopy } from "@/lib/billing/credit-package-copy"
 import { Button } from "@/components/ui/button"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
 import { LandingExamples } from "@/components/landing-v2/landing-examples"
+import { LandingExempelStrip } from "@/components/landing-v2/landing-exempel-strip"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
 import { LandingPricingExplainer } from "@/components/landing-v2/landing-pricing-explainer"
@@ -110,6 +111,8 @@ export function ChatArea(props: ChatAreaProps = {}) {
           }}
           onBrowseTemplates={() => router.push("/templates")}
         />
+
+        <LandingExempelStrip />
 
         {/* ━━━ HOW IT WORKS ━━━ */}
         <section
