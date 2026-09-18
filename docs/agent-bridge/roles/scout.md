@@ -2,7 +2,9 @@
 
 Role: `scout`
 
-Identitet låses i `.agent-bridge/config.local.json`. Byt den inte.
+Definierad framtida identitet. v1-parsern nekar `SCOUT-01` i config tills
+en explicit aktiveringsmekanism införs. Byt inte `agent_id` för att
+kringgå det.
 
 Detta är **inte** chattkommandot `/scout`.
 

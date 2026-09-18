@@ -23,10 +23,14 @@ Fasta par. Agenten får inte välja eller byta själv.
 
 v1 aktiverar bara `BRYGG-01`. De parkerade paren finns kvar i
 `ALLOWED_IDENTITIES` så en senare uppdelning inte kräver protokolländring.
+`parse_config_text()` fail-closar: `agent_id` måste vara `ACTIVE_IDENTITY`,
+därefter måste `role` matcha det paret. En giltig config för `MERGE-01`,
+`BUILD-01` eller `SCOUT-01` avvisas tills en explicit framtida
+aktiveringsmekanism införs.
 
-Lokalt låsta i `.agent-bridge/config.local.json`. Scriptet avvisar mismatch
-och extra JSON-nycklar. Valfri nyckel: `coach_authors` (icke-tom allowlist).
-Inga GitHub-tokens i config.
+Lokalt låsta i `.agent-bridge/config.local.json`. Scriptet avvisar parkerad
+identitet, fel role, okänd identitet, mismatch och extra JSON-nycklar. Valfri
+nyckel: `coach_authors` (icke-tom allowlist). Inga GitHub-tokens i config.
 
 Detta är **inte** chattrollerna `/scout`, `/builder`, `/steward` och **inte**
 OpenClaw-bridge (`.cursor/openclaw-bridge/`).

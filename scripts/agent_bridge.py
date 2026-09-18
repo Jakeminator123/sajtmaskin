@@ -225,6 +225,10 @@ def parse_config_text(text: str) -> Config:
     bridge_issue = raw["bridge_issue"]
     if not isinstance(agent_id, str) or agent_id not in ALLOWED_IDENTITIES:
         raise BridgeError(f"agent_id must be one of: {', '.join(ALLOWED_IDENTITIES)}")
+    if agent_id != ACTIVE_IDENTITY:
+        raise BridgeError(
+            f"identity {agent_id} is parked in v1; only {ACTIVE_IDENTITY} can be configured"
+        )
     if not isinstance(role, str):
         raise BridgeError("role must be a string")
     expected_role = ALLOWED_IDENTITIES[agent_id]

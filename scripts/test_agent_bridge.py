@@ -22,8 +22,8 @@ import agent_bridge as bridge  # noqa: E402
 
 def _config_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
-        "agent_id": "BUILD-01",
-        "role": "builder",
+        "agent_id": "BRYGG-01",
+        "role": "brygg",
         "repository": "acme/demo",
         "bridge_issue": 1468,
     }
@@ -97,18 +97,29 @@ def _err(stderr: str = "error", argv: tuple[str, ...] = ("gh",), code: int = 1) 
 
 
 class ConfigValidationTests(unittest.TestCase):
-    def test_accepts_locked_pairs(self) -> None:
-        for agent_id, role in bridge.ALLOWED_IDENTITIES.items():
-            config = bridge.parse_config_text(json.dumps(_config_payload(agent_id=agent_id, role=role)))
-            self.assertEqual(config.agent_id, agent_id)
-            self.assertEqual(config.role, role)
+    def test_accepts_active_identity(self) -> None:
+        config = bridge.parse_config_text(json.dumps(_config_payload(agent_id="BRYGG-01", role="brygg")))
+        self.assertEqual(config.agent_id, bridge.ACTIVE_IDENTITY)
+        self.assertEqual(config.role, bridge.ALLOWED_IDENTITIES[bridge.ACTIVE_IDENTITY])
+
+    def test_rejects_parked_identities(self) -> None:
+        parked = {
+            agent_id: role
+            for agent_id, role in bridge.ALLOWED_IDENTITIES.items()
+            if agent_id != bridge.ACTIVE_IDENTITY
+        }
+        self.assertGreaterEqual(len(parked), 3)
+        for agent_id, role in parked.items():
+            with self.subTest(agent_id=agent_id):
+                with self.assertRaisesRegex(bridge.BridgeError, "parked"):
+                    bridge.parse_config_text(json.dumps(_config_payload(agent_id=agent_id, role=role)))
 
     def test_rejects_agent_role_mismatch(self) -> None:
         with self.assertRaisesRegex(bridge.BridgeError, "mismatch"):
-            bridge.parse_config_text(json.dumps(_config_payload(agent_id="BUILD-01", role="merge")))
+            bridge.parse_config_text(json.dumps(_config_payload(agent_id="BRYGG-01", role="merge")))
 
     def test_rejects_brygg_role_on_parked_identity(self) -> None:
-        with self.assertRaisesRegex(bridge.BridgeError, "mismatch"):
+        with self.assertRaisesRegex(bridge.BridgeError, "parked"):
             bridge.parse_config_text(json.dumps(_config_payload(agent_id="SCOUT-01", role="brygg")))
 
     def test_active_identity_is_the_shipped_example(self) -> None:
@@ -433,7 +444,7 @@ class GitPorcelainTests(unittest.TestCase):
             git=snap,
             status="REPORT",
             message="hello",
-            request_id="BUILD-01-20260917T211530Z-1",
+            request_id="BRYGG-01-20260917T211530Z-1",
         )
         self.assertIn("git_status: dirty", formatted)
         self.assertNotIn("secrets.env", formatted)
@@ -620,8 +631,8 @@ class GhAndPrBehaviorTests(unittest.TestCase):
     def test_read_writes_file_and_does_not_exec(self) -> None:
         body = (
             "[COACH→AGENT:v1]\n"
-            "request_id: BUILD-01-20260917T211530Z-1\n"
-            "agent_id: BUILD-01\n"
+            "request_id: BRYGG-01-20260917T211530Z-1\n"
+            "agent_id: BRYGG-01\n"
             "message:\n"
             "continue; rm -rf /\n"
         )
@@ -670,7 +681,7 @@ class GhAndPrBehaviorTests(unittest.TestCase):
 
     def test_read_flattens_slurped_pages(self) -> None:
         page1 = [_gh_comment(1, "[COACH→AGENT]\nmessage:\nnoise")]
-        page2 = [_gh_comment(2, _v1_body(request_id="BUILD-01-20260917T211530Z-1", message="later page"))]
+        page2 = [_gh_comment(2, _v1_body(request_id="BRYGG-01-20260917T211530Z-1", agent_id="BRYGG-01", message="later page"))]
         runner = FakeRunner(
             {
                 ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
@@ -784,7 +795,7 @@ class IdentityCliTests(unittest.TestCase):
             root = Path(tmp)
             work = root / ".agent-bridge"
             work.mkdir()
-            _write_config(work / "config.local.json", agent_id="SCOUT-01", role="scout")
+            _write_config(work / "config.local.json", agent_id="BRYGG-01", role="brygg")
             paths = bridge.BridgePaths(
                 root=root,
                 config=work / "config.local.json",
@@ -797,6 +808,25 @@ class IdentityCliTests(unittest.TestCase):
             )
             code = bridge.main(["identity"], runner=runner, paths=paths)
             self.assertEqual(code, 0)
+
+    def test_identity_rejects_parked_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / ".agent-bridge"
+            work.mkdir()
+            _write_config(work / "config.local.json", agent_id="SCOUT-01", role="scout")
+            paths = bridge.BridgePaths(
+                root=root,
+                config=work / "config.local.json",
+                state=work / "state.json",
+                latest_response=work / "latest-response.md",
+                work_dir=work,
+            )
+            runner = FakeRunner(
+                {("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n")}
+            )
+            code = bridge.main(["identity"], runner=runner, paths=paths)
+            self.assertEqual(code, bridge.EXIT_USAGE)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,9 @@
 
 Role: `builder`
 
-Identitet låses i `.agent-bridge/config.local.json`. Byt den inte.
+Definierad framtida identitet. v1-parsern nekar `BUILD-01` i config tills
+en explicit aktiveringsmekanism införs. Byt inte `agent_id` för att
+kringgå det.
 
 Detta är **inte** chattkommandot `/builder`.
 

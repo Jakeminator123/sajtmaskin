@@ -36,8 +36,8 @@ Copy-Item .agent-bridge/config.example.json .agent-bridge/config.local.json
 
 5. Sätt `repository` till slugen från `gh repo view --json nameWithOwner --jq .nameWithOwner`
    (måste matcha `git remote get-url origin`). Lämna inte example-värdet `owner/repo`.
-6. Sätt **exakt en** identitet per worktree/chatt. I v1 är det `BRYGG-01`
-   (avsnitt B). Avsnitt C–E beskriver de parkerade rollerna.
+6. Sätt **exakt** `BRYGG-01` / `brygg` i config (avsnitt B). Avsnitt C–E
+   dokumenterar parkerade framtida identiteter; parsern nekar dem i v1.
 7. Starta en **ny** Cursor-chatt så `/bryggagent` och `/bridge` syns i project
    commands (filer: [`.cursor/commands/bryggagent.md`](../../.cursor/commands/bryggagent.md),
    [`.cursor/commands/bridge.md`](../../.cursor/commands/bridge.md)).
@@ -61,58 +61,17 @@ Byt `owner/repo` mot origin-slugen från steg A. Verifiera: `python scripts/agen
 
 Läs [`roles/brygg.md`](roles/brygg.md). Kör sedan `/bryggagent` i chatten.
 
-## C. Hur Jakob sätter MERGE-01 (parkerad)
+## C–E. Parkerade identiteter (inte aktiverbara i v1)
 
-I **MERGE-01:s** worktree, redigera `.agent-bridge/config.local.json`:
+`MERGE-01` / `merge`, `BUILD-01` / `builder` och `SCOUT-01` / `scout` är
+definierade i `ALLOWED_IDENTITIES` och har rollfiler
+([`roles/merge.md`](roles/merge.md), [`roles/builder.md`](roles/builder.md),
+[`roles/scout.md`](roles/scout.md)). De är **inte** en giltig lokal config i
+v1. `parse_config_text()` och `identity` nekar dem, även om rollparet stämmer.
 
-```json
-{
-  "agent_id": "MERGE-01",
-  "role": "merge",
-  "repository": "owner/repo",
-  "bridge_issue": 1468
-}
-```
-
-Byt `owner/repo` mot origin-slugen från steg A. Verifiera: `python scripts/agent_bridge.py identity`
-
-Läs [`roles/merge.md`](roles/merge.md). En BUILD-agent får inte stå som `merge`.
-
-## D. Hur Jakob sätter BUILD-01 (parkerad)
-
-I **BUILD-01:s** worktree:
-
-```json
-{
-  "agent_id": "BUILD-01",
-  "role": "builder",
-  "repository": "owner/repo",
-  "bridge_issue": 1468
-}
-```
-
-Byt `owner/repo` mot origin-slugen från steg A. `python scripts/agent_bridge.py identity`
-
-Läs [`roles/builder.md`](roles/builder.md).
-
-## E. Hur Jakob sätter SCOUT-01 (parkerad)
-
-I **SCOUT-01:s** worktree:
-
-```json
-{
-  "agent_id": "SCOUT-01",
-  "role": "scout",
-  "repository": "owner/repo",
-  "bridge_issue": 1468
-}
-```
-
-Byt `owner/repo` mot origin-slugen från steg A. `python scripts/agent_bridge.py identity`
-
-Läs [`roles/scout.md`](roles/scout.md).
-
-En identitet per worktree. Agenten får inte byta filen.
+Sätt dem inte i `.agent-bridge/config.local.json`. En framtida
+aktiveringsmekanism krävs innan de får startas. Byt inte identitet för att
+kringgå en gräns. En identitet per worktree. Agenten får inte byta filen.
 
 ## F. Hur `/bryggagent` och `/bridge` körs
 

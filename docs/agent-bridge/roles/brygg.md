@@ -5,7 +5,8 @@ Role: `brygg`
 Identitet låses i `.agent-bridge/config.local.json`. Byt den inte.
 
 Den enda identitet v1 aktiverar. `MERGE-01`, `BUILD-01` och `SCOUT-01` är
-definierade men parkerade tills en bryggagent kört en full runda.
+definierade men parkerade; konfigurationsparsern nekar dem tills en explicit
+framtida aktiveringsmekanism införs.
 
 ## Loopen
 
