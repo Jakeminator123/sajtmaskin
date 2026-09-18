@@ -63,18 +63,18 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "68bd80192",
-    "commitDate": "2026-09-17",
+    "commit": "25f883c15",
+    "commitDate": "2026-09-18",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 6,
-    "openP2": 2,
+    "openP1": 7,
+    "openP2": 4,
     "openP3": 1,
     "blocked": 1,
-    "shaky": 2,
+    "shaky": 4,
     "evalExactHitPct": null
   },
   "processes": [
@@ -97,37 +97,37 @@ const DATA: CanvasData = {
     },
     {
       "name": "Codegen core",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 1,
+        "P3": 0,
+        "other": 0
+      },
+      "churn": 2,
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
+      "name": "prompt-core",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 1,
         "P3": 0,
         "other": 0
       },
       "churn": 1,
-      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "1 commits / 14d"
-    },
-    {
-      "name": "prompt-core",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 0,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "Inga oppna signaler"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
     {
       "name": "ai_models",
@@ -185,10 +185,10 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 6,
+      "openBugs": 7,
       "openByPrio": {
         "P0": 0,
-        "P1": 4,
+        "P1": 5,
         "P2": 1,
         "P3": 1,
         "other": 0
@@ -229,10 +229,22 @@ const DATA: CanvasData = {
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
+      "name": "Codegen core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+    },
+    {
+      "name": "prompt-core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     }
   ],
   "topOpenRisks": [
@@ -273,6 +285,12 @@ const DATA: CanvasData = {
       "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
     },
     {
+      "prio": "P1",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det g…"
+    },
+    {
       "prio": "P2",
       "blocker": false,
       "kind": "open",
@@ -283,6 +301,18 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget kan visa ”Läser in templat…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-090` Prod-asserten `missing-separator` slog: systemprompten saknade `SYSTEM_PROMPT_SEPARATOR`, alltså kri…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-091` Init av importerat arkiv föll med 403 «Archive download forbidden» i prod. Samma klass som den priva…"
     }
   ],
   "topOpenRisksOmitted": 0,

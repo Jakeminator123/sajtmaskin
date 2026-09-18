@@ -83,7 +83,9 @@ Sju avstängda poster (rör inte): MindSpace `8QhCJAwn16K`, Flowly
 ## Ordning och stopp
 
 1. A först — annars gissar vi om likformighet kommer från recept eller
-   från att utdragen aldrig nådde prompten.
+   från att utdragen aldrig nådde prompten. Obs: A:s egen mätning kräver
+   att de tysta flaggorna emitteras först; befintliga telemetrirader bär
+   inte `keptBlockKeys`. Se [`aktiviteter/A-kallkvitto.md`](aktiviteter/A-kallkvitto.md).
 2. B sedan — dynamiska recept, inte 03.
 3. C — efter att B inte längre tvingar samma paket.
 4. D — kurering/extractor-signal, inte «kör om alla 68».

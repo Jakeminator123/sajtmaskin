@@ -49,6 +49,32 @@ verifiera och gör housekeeping före **en samlad PR mot preview**. Den PR:n
    vad som fortfarande blockerar öppen lansering. Active-planen stannar för
    `SM-080` och överlämnade releaseåtgärder, inte för en ny A–F-implementation.
 
+## `SM-080` — rekommenderad väg (väntar ratificering)
+
+Scoutläsning 2026-09-18 mot preview-hostens kod. Path-jail #1445
+(`resolveInsideWorkspace` / `isSafeRelativePath` i `workspace-files.js`) skyddar
+bara **hostens egna** skrivningar in i ett workspace. Gästprocesserna går en
+annan väg: `spawnNpm` och `runShellCommand` i `preview-host/src/runtime/shared.js`
+startar install, verify och `next dev` med samma OS-identitet, samma
+`/data`-volym och delad paketcache, utan namespace, cgroup eller seccomp.
+`Dockerfile` sätter ingen `USER`, och `PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS`
+låter livscykelskript köra på hosten redan vid install. En tredje jail-rematch
+ska därför inte beställas.
+
+**Rekommendation:** behåll kontrollplanet (API, store, preview-proxy) på dagens
+host och kör varje projekt i en egen Fly-mikro-VM, install och verify
+inkluderat. Container-sandbox på samma maskin avvisas: Fly Machines ger sällan
+user-namespaces eller Docker-socket, så den vägen blir i praktiken jail nummer
+tre. Extern sandboxleverantör är möjlig men lägger en ny trust- och dataresa.
+
+**Ratificering krävs före bygge.** Valet ändrar host-topologi: en Fly-volym kan
+inte sitta på flera Machines, så `/data`, paketcachen och proxyn måste delas upp
+först. Ägarbeslutet hör i [`docs/decisions/README.md`](../../../decisions/README.md)
+när det fattas, inte här. Acceptansproven ägs av
+[`preview-host/README.md`](../../../../preview-host/README.md) § Öppen
+lanseringsblocker och ska köras i en disposabel miljö med syntetiska data —
+gröna tester på den delade hosten kan inte godkänna arkitekturen.
+
 ## Avgränsningar som inte får döljas
 
 En katalog per projekt och filtrerade miljövariabler är inte säker isolering.

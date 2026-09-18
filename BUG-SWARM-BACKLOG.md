@@ -20,7 +20,7 @@ Regler:
   produktbeslut — inte en andra kopia av samma fix.
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-090`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-093`.
 - En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
   planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
@@ -54,6 +54,9 @@ granskningsfilens tip (`a0b1c73c4` → `41687de6ea` via #1434).
 | [ ] | Kodfix i master | P3 | `SM-089` Init-turens plan-läge skrev inga `plan_mode_turn_entry`/`plan_mode_turn_exit`-rader; bara uppföljningsturen lämnade spår. | Prod 2026-09-15 chat `f550445e`. Nuvarande kod på `2566eec511`: `create-chat-stream-post.ts` anropar `startTracedCreateChatPlanModeResponse`. | Beställ inte en ny trace-implementation. Kvar: aktuellt prov. Arkivera efter dokumenterat stickprov, inte efter den gamla PR-formuleringen. |
 | [ ] | Kodfix i master | P1 | `SM-088` Plan-läge dog tyst efter besvarade frågor: `BuildPlanCard` syntes bara i felsökningsvy. | Prod 2026-09-14/15 chat `f550445e`. `src/components/builder/chat/MessageList.tsx` på `2566eec511` bygger `planParts` utan debugfilter och renderar `BuildPlanCard` också när `showStructuredParts` är av. | Beskriv kodfixen som levererad. Ev. avgränsat vanligt UI-smoke. Blanda inte ihop med beslutet om alla versioner är failed. |
 | [ ] | Kodfix i preview | P2 | `SM-077` Sen preview-boot gav ingen omverifiering: boot-splash klassades som timing, men när VM:n kom upp kördes ingen ny kontroll. | Live-observation 2026-09-08 chat `fc197819`. Original [#1411](https://github.com/Jakeminator123/sajtmaskin/pull/1411) stängd som superseded. Preview-merge [#1432](https://github.com/Jakeminator123/sajtmaskin/pull/1432) `a0b1c73c4` (2026-09-16). Finns inte på `master` `2566eec511`. | Väntar promotion och relevant runtimeprov. Skapa inte en tredje version av samma fix. |
+| [ ] | Behöver aktuell repro | P1 | `SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det gäller nu kan en nyregistrerad inte verifiera sin e-post. Leverantörskonfiguration, inte en kodväg som ska byggas om. | Vercel runtime, senast 2026-09-16, rutt `/api/auth/register`. Loggägare `src/lib/email/send.ts` och `src/app/api/auth/register/route.ts`. Först sedd 2026-07-03, alltså inte en ny regression. | Kontrollera avsändardomänens status hos Resend och kör ett registreringsprov. Bygg ingen ny mejlväg. Arkivera som historik om domänen redan är verifierad. |
+| [ ] | Behöver aktuell repro | P2 | `SM-090` Prod-asserten `missing-separator` slog: systemprompten saknade `SYSTEM_PROMPT_SEPARATOR`, alltså kringgicks `composeEngineSystemPrompt()` eller emitterades statisk core utan separator. Vilken kodväg som gjorde det är inte identifierad. | Vercel runtime 5 träffar, senast 2026-09-15, rutter `/api/engine/chats/stream` och `/api/engine/chats/[chatId]/stream`. Guard: `src/lib/gen/system-prompt-assert.ts` (`assertSystemPromptShape`), anropad från `src/lib/gen/engine.ts`. | Reproducera vilken väg som emitterar prompt utan separator. Sänk inte asserten till varning för att tysta loggen. |
+| [ ] | Behöver aktuell repro | P2 | `SM-091` Init av importerat arkiv föll med 403 «Archive download forbidden» i prod. Samma klass som den privat-repo-smoke som står som residual efter #1461 — inte ett nytt importsystem. | Vercel runtime 4 träffar 2026-09-15, rutt `/api/engine/chats/init`. 403-mappningen ligger i `src/lib/import/github-import-transport.ts` (`zip_forbidden`) med kontrakt i `src/lib/import/import-init-contract.ts`. | Avgör om det var privat repo utan token, utgången token eller borttaget arkiv. Rör inte latch/SSRF/auth. Kör privat-repo-smoken när `TEST_USER_*` finns. |
 
 MVP före öppen lansering: `SM-080` (isolering) är fortfarande spärr.
 `SM-078` kvar är appväg, inte ny ACL-migration. `SM-079` kvar är historiska
@@ -64,6 +67,12 @@ Beställ inte ny implementation för kod som redan ligger i master
 (`SM-003`/`SM-077`/`SM-033`). `SM-001`/`SM-013` kräver aktuell repro.
 `SM-030` saknar current-round-repro; #1414 är inte en öppen fixkandidat.
 `SM-072`/`SM-073`/`SM-074` är residual/driftprov, inte första implementation.
+
+`SM-090`–`SM-092` kommer från en read-only 7-dygnsläsning av Vercel runtime
+2026-09-18 och hade ingen ägande plan. Samma läsning visade 28 Chromium
+core-dumps (389–436 MB) 2026-09-11→17, alla på preview-deploy `13843edc` och
+en användare — det är `SM-072`-mönstret på preview, inte en produktionsincident.
+En 24-timmarsläsning visar bara de två sista och underskattar frekvensen.
 
 ## Releaseblockerare bakom avstängd flagga
 

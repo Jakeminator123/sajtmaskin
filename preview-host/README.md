@@ -146,7 +146,7 @@ genereringar pågår.
 ### Öppen lanseringsblocker: projektisolering
 
 Nuvarande host är **inte en sandbox mellan projekt**. `spawnNpm` och
-`runCommand` startar install-, verify- och dev-processer på samma host med
+`runShellCommand` startar install-, verify- och dev-processer på samma host med
 separata `cwd`-mappar men samma OS-identitet, filsystem och loopbacknät.
 En lokal kontroll med två syntetiska projekt och en sentinel-fil bekräftade
 att A kunde läsa B:s fil. Env-filtrering, processgrupper, filvalidering och

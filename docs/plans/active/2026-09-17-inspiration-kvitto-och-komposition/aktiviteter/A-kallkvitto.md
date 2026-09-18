@@ -45,25 +45,40 @@ Inspirationsblocket har prio 84 och är **inte** `required`
 1. Vilka fält som redan finns tyst (listan ovan).
 2. Var kvittot läses: dump-meta, `generation_telemetry.meta.sources`,
    Selection Rationale.
-3. Stickprov på aktuell `preview`: hur ofta är `reachedPrompt` sant utan
-   att `variant_template_inspiration` finns i `keptBlockKeys`.
-   *(hypotes tills mätt)*
+3. ~~Stickprov på aktuell `preview`~~ — **går inte på befintliga rader.**
+   `meta.sources` bär bara kvittots sex fält (`persist-telemetry.ts`);
+   `keptBlockKeys` persisteras aldrig, Selection Rationale visar ja/nej,
+   och prompt-dumpen hoppas över på prod. Frågan «hur ofta är
+   `reachedPrompt` sant utan att inspirationsblocket överlevde budgeten»
+   kan därför inte besvaras retroaktivt. Kodobservation, inte hypotes.
 4. Om `GenerationSource` kan bära extra flaggor utan att bli ett nytt
    system — IDs/origin/reason/status, aldrig prompttext eller utdrag.
 
-## Möjlig fix (bara efter belägg)
+## Fixen kommer före mätningen
 
-Separata signaler på befintlig `variant-reference`-rad, till exempel:
+Ordningen i planen är «mät först» generellt, men för A gäller det
+omvända: emittera de tysta flaggorna, mät sedan på **nya** rader. Punkt 3
+ovan visar varför — annars finns inget att mäta.
+
+Separata signaler på befintlig `variant-reference`-rad:
 
 | Signal | Betydelse |
 |---|---|
 | stillImageSent | stillbilden fanns i visionpayloaden |
-| addendumTextSent | textblocket överlevde budget **och** posten hade utdrag |
-| addendumPruned | inspiration vald, textblocket prunat |
-| noUsableAddendum | disabled/missing/stale/invalid, ev. bara bild |
+| inspirationBlockKept | blocket överlevde promptbudgeten |
+| addendumTextSent | blocket överlevde **och** posten hade utdrag |
 
-`reachedPrompt` kan behållas som bakåtkompatibel OR, eller smalnas av
-när UI:t visar de nya fälten. Inget nytt kvittosystem.
+`stillImageSent` ensamt kan inte skilja bild-only från båda — därav
+`inspirationBlockKept`. `addendumPruned` och `noUsableAddendum` härleds ur
+de tre plus befintlig `reason` (`addendum:${state}`) och behöver inga egna
+fält.
+
+`reachedPrompt` **behålls** som bakåtkompatibel OR. Smalna inte av den:
+bild-only skulle då bli `false`, och `sourcesReachedPrompt` plus
+historiska tidsserier bryts. Kanalerna är medvetet oberoende — fyra
+användarbilder kan tränga ut stillbilden medan textblocket ändå räknas.
+
+Inget nytt kvittosystem, inga nya tabeller, inga utdrag i telemetrin.
 
 ## Inte detta steg
 
