@@ -68,6 +68,11 @@ _REBUILD_EMBEDDINGS_HINT = (
 
 BLOB_MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 
+# Mirrors `SCAFFOLD_OFF_BASELINE_ID` in `src/lib/gen/scaffolds/types.ts`.
+# Scaffold: Av never resolves template inspiration, so its variants must keep
+# an empty `sourceTemplateIds` list. Do not reuse this exception for others.
+SCAFFOLD_OFF_BASELINE_ID = "projekt-bas-app"
+
 
 
 

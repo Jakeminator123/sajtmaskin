@@ -211,12 +211,16 @@ varianten får i stället välja högst en av sina `sourceTemplateIds`, och bara
 manifestkategorin tydligt avser ett helt projekt. Stillbilden skickas till
 modellens visionkanal men markeras som icke-inbäddningsbar.
 
-Kandidatpoolen rangordnas deterministiskt med prompten och Deep Briefens
-domän-, innehålls- och stilsignaler. Preview-kompatibla kandidater hålls före
-de som uttryckligen inte ryms, användbara SHA-addenda premieras och
-variantens källordning är stabil tie-breaker. Ingen extra LLM används för
-urvalet. Det här är helprojektsinspiration; fristående shadcn/community-blocks
-väljs separat av UI Recipe-resolvern utifrån den aktuella beställningen.
+Kandidater med `disabled` addendum utesluts helt (se nedan). Bland de
+användbara är de preview-kompatibla primär kohort och rangordnas
+deterministiskt med prompten och Deep Briefens domän-, innehålls- och
+stilsignaler; användbara SHA-addenda premieras och variantens källordning är
+stabil tie-breaker. En användbar `previewFits:false`-kandidat är fallback bara
+när kohorten är tom — flaggan gäller verbatim-import av arkivet, som
+inspirationsvägen aldrig läser, så mallen duger som bild-/kodinspiration men
+ska inte tränga ut ett fungerande val. Ingen extra LLM används för urvalet.
+Det här är helprojektsinspiration; fristående shadcn/community-blocks väljs
+separat av UI Recipe-resolvern utifrån den aktuella beställningen.
 
 Kodunderlaget kommer i första hand från den SHA-bundna och versionsstyrda posten
 i `config/variant-template-addenda.json`. Postens `structuralReferences` är
@@ -232,10 +236,12 @@ vad modellen får. Högst tre utdrag och totalt 9 000 tecken accepteras.
   granskat posten.
 - `reviewed` — manuellt bedömda utdrag, ev. redigerade, bevarade av generatorn
   så länge ZIP-SHA:n är oförändrad.
-- `disabled` — skicka inga kodutdrag och hämta inte arkivet. Schemat kräver tom
-  `structuralReferences`. Stillbilden kan ändå gå. Används när posten är
-  generisk eller fel sorts inspiration; Brief-rankningen rankar ner utdragslösa
-  kandidater men de förblir valbara.
+- `disabled` — kuratorns dom över hela mallen som inspiration (generisk,
+  fel sorts inspiration eller läckande varumärke). Schemat kräver tom
+  `structuralReferences`. Kandidaten väljs aldrig: en användbar kandidat
+  vinner alltid, och är variantens alla kandidater disabled skickas varken
+  utdrag eller stillbild — hellre ingen mallinspiration än en mall som
+  uttryckligen dömts bort. Återaktivera inte en post för att fylla ett hål.
 
 Runtime behandlar `generated` och `reviewed` likadant som `hit` — skillnaden
 är kvalitet, inte wiring.

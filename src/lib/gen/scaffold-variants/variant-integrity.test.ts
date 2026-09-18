@@ -14,6 +14,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { getScaffoldIds } from "@/lib/gen/scaffolds/registry";
+import { SCAFFOLD_OFF_BASELINE_ID } from "@/lib/gen/scaffolds/types";
 import { computeExtractorSha256 } from "./extractor-fingerprint";
 import { parseVariantTemplateAddendaRegistry } from "./variant-template-addendum";
 import { validateVariantTemplateReferences } from "./variant-template-reference-integrity";
@@ -61,6 +62,15 @@ function loadVariantFiles(): Array<{ relPath: string; variant: RawVariant }> {
 
 const variantFiles = loadVariantFiles();
 
+/**
+ * Scaffold: Av never resolves template inspiration
+ * (`shouldResolveVariantTemplateInspiration`), so provenance on its variants
+ * is dead config. Every other variant must cite selectable templates.
+ */
+const inspirationVariantFiles = variantFiles.filter(
+  ({ variant }) => variant.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID,
+);
+
 function collectDefaultVariantIds(
   scaffoldIds: readonly string[],
   files: Array<{ variant: RawVariant }>,
@@ -100,36 +110,72 @@ describe("scaffold-variant integrity", () => {
     );
   });
 
-  it("every variant resolves at least one runtime-selectable template reference", () => {
-    const unresolved = variantFiles
-      .filter(
-        ({ variant }) =>
-          validateVariantTemplateReferences(variant.sourceTemplateIds ?? []).issues.some(
-            (issue) => issue.code === "no-runtime-selectable-template",
-          ),
-      )
-      .map(({ relPath }) => relPath);
+  /**
+   * A category the runtime can never select (`components`, `design-systems`,
+   * plain `ai`, …) is dead config: it costs an addendum entry and reads like a
+   * curated candidate while contributing nothing. The 2026-07-22 one-shot
+   * remap left four such ids behind; this guard stops any writer — Backoffice,
+   * a script or a hand edit — from reintroducing them.
+   */
+  it("no sourceTemplateIds entry points to a category the runtime can never select", () => {
+    const dead = variantFiles.flatMap(({ relPath, variant }) =>
+      validateVariantTemplateReferences(variant.sourceTemplateIds ?? []).issues
+        .filter((issue) => issue.code === "never-selectable-template")
+        .map((issue) => `${relPath}: ${issue.templateId}`),
+    );
+    expect(dead, "never-selectable sourceTemplateIds — remove them, they are dead config").toEqual(
+      [],
+    );
+  });
 
-    expect(
-      unresolved,
-      "variants without runtime-selectable template inspiration",
-    ).toEqual([]);
+  it("every inspiration variant resolves a selectable template or is deliberately curated off", () => {
+    const unresolved: string[] = [];
+    const curatedOff: string[] = [];
+    for (const { relPath, variant } of inspirationVariantFiles) {
+      const result = validateVariantTemplateReferences(variant.sourceTemplateIds ?? []);
+      if (result.issues.some((issue) => issue.code === "no-runtime-selectable-template")) {
+        unresolved.push(relPath);
+      } else if (result.selectedTemplateId === null) {
+        curatedOff.push(relPath);
+      }
+    }
+
+    expect(unresolved, "variants without runtime-selectable template inspiration").toEqual([]);
+    // Every eligible candidate disabled ⇒ runtime sends no template
+    // inspiration. That is a curator decision (K1), so it is listed explicitly:
+    // adding a variant here must be a conscious choice, not an accident.
+    expect(curatedOff.sort(), "variants whose inspiration is curated off").toEqual([
+      "base-nextjs/starter-neutral.json",
+    ]);
   });
 
   it("uses the same runtime-selectability and addendum decision for save-time checks", () => {
-    expect(validateVariantTemplateReferences(["8Y9E0cStKrW"])).toMatchObject({
-      selectedTemplateId: "8Y9E0cStKrW",
+    // Curator-disabled candidates are not selectable, but a variant that cites
+    // only disabled templates is curated off — not broken.
+    expect(validateVariantTemplateReferences(["8Y9E0cStKrW"])).toEqual({
+      selectedTemplateId: null,
+      disabledCandidateIds: ["8Y9E0cStKrW"],
       issues: [],
     });
 
-    const invalid = validateVariantTemplateReferences(["0NFF1rjZrz5"]);
-    expect(invalid.selectedTemplateId).toBeNull();
-    expect(invalid.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ code: "no-runtime-selectable-template" }),
-        expect.objectContaining({ code: "missing-addendum", templateId: "0NFF1rjZrz5" }),
-      ]),
-    );
+    // A usable candidate always wins over a disabled one, in any order.
+    expect(validateVariantTemplateReferences(["8Y9E0cStKrW", "zoQPxUaTqvE"])).toMatchObject({
+      selectedTemplateId: "zoQPxUaTqvE",
+      disabledCandidateIds: ["8Y9E0cStKrW"],
+      issues: [],
+    });
+
+    const neverSelectable = validateVariantTemplateReferences(["0NFF1rjZrz5"]);
+    expect(neverSelectable.selectedTemplateId).toBeNull();
+    expect(neverSelectable.issues).toEqual([
+      expect.objectContaining({ code: "never-selectable-template", templateId: "0NFF1rjZrz5" }),
+      expect.objectContaining({ code: "no-runtime-selectable-template" }),
+    ]);
+
+    expect(validateVariantTemplateReferences(["not-a-blob-id"]).issues).toEqual([
+      expect.objectContaining({ code: "unknown-template", templateId: "not-a-blob-id" }),
+      expect.objectContaining({ code: "no-runtime-selectable-template" }),
+    ]);
   });
 
   it("every referenced template has a current or explicitly disabled addendum", () => {
@@ -143,6 +189,19 @@ describe("scaffold-variant integrity", () => {
       missingOrStale.sort(),
       "variant template addenda must cover every cited Blob id; run npm run templates:addenda -- --write",
     ).toEqual([]);
+  });
+
+  it("carries no addendum entry that no variant cites", () => {
+    // `templates:addenda --write` preserves existing entries, so a removed
+    // sourceTemplateId leaves its excerpts behind unless pruned by hand.
+    const addenda = parseVariantTemplateAddendaRegistry(
+      JSON.parse(fs.readFileSync(TEMPLATE_ADDENDA_PATH, "utf-8")) as unknown,
+    );
+    const cited = new Set(variantFiles.flatMap(({ variant }) => variant.sourceTemplateIds ?? []));
+    const orphaned = addenda.templates
+      .map((entry) => entry.templateId)
+      .filter((templateId) => !cited.has(templateId));
+    expect(orphaned, "addenda entries without any citing variant").toEqual([]);
   });
 
   /**
@@ -230,15 +289,28 @@ describe("scaffold-variant integrity", () => {
     expect(wrong).toEqual([["empty-scaffold", []]]);
   });
 
-  it("every variant declares at least one sourceTemplateId", () => {
+  it("every inspiration variant declares at least one sourceTemplateId", () => {
     // The dead-id check above iterates the array, so an EMPTY array passed
     // silently — a variant with no provenance at all was never flagged.
-    const withoutSource = variantFiles
+    const withoutSource = inspirationVariantFiles
       .filter(({ variant }) => (variant.sourceTemplateIds ?? []).length === 0)
       .map(({ relPath }) => relPath);
     expect(
       withoutSource,
       "variants must cite the v0-mall(ar) they were derived from",
     ).toEqual([]);
+  });
+
+  it("Scaffold: Av variants carry no template provenance", () => {
+    // `finalize-prompts.ts` never resolves inspiration for the off-baseline
+    // scaffold, so any id here is dead config that only looks curated.
+    const withSource = variantFiles
+      .filter(
+        ({ variant }) =>
+          variant.scaffoldId === SCAFFOLD_OFF_BASELINE_ID &&
+          (variant.sourceTemplateIds ?? []).length > 0,
+      )
+      .map(({ relPath }) => relPath);
+    expect(withSource, "Scaffold: Av never resolves template inspiration").toEqual([]);
   });
 });
