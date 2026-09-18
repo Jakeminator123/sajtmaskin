@@ -153,7 +153,7 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | P3 | Ska ”Publik preview” döpas om till vad kontrollen faktiskt gör, och ska ”Hantera domän” flyttas från domän-chevronen till Publicera-menyn? | Fritt. |
 | P3 | Briefing N3–N5: återinför Refine efter verifierarfynd, prova bevarande `clear-refine`, och betala extra variant-embedding? | Inte före kvalitetsplanens A-mätning. Se [`docs/plans/archived/2026-08-18-briefing-och-kallpaket.md`](docs/plans/archived/2026-08-18-briefing-och-kallpaket.md). |
 | P3 | Dossier D5: ska Backoffice få fri add/remove efter att D2–D4 landat? | D2–D4 är parkerade. Se [`docs/plans/archived/2026-08-19-dossier-forenkling.md`](docs/plans/archived/2026-08-19-dossier-forenkling.md). |
-| P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Före D4. |
+| P3 | Är per-rubrikstaket 480 rätt när `selected-sections` breddas? | Inte aktuellt: D2–D4 är parkerade, så breddningen är inte planerad. Taket självt är ratificerat skydd i [`docs/decisions/README.md`](docs/decisions/README.md). |
 | P2 | Ska högst en hard dossier väljas per promptrunda? | Nästa dossier-härdning. |
 | P2 | Ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production? | Verifiera aktuell env före nästa flaggändring. |
 | P3 | OpenClaw Builder: starta som projektledande byggagent, eller skrota? Underlag (proposal 2026-08-24, ingen produktionskod) är parkerat i [`docs/plans/archived/2026-08-24-openclaw-builder/`](docs/plans/archived/2026-08-24-openclaw-builder/README.md). | Fritt — när ägaren tar fram det för Cursor-agenter. |

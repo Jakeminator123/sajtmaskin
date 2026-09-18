@@ -1,7 +1,10 @@
 # Checklista — få hela kedjan att fungera
 
-Bocka av uppifrån och ned. Ägare = Jakob om inget annat sägs. När allt är
-avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
+Bocka av uppifrån och ned. Ägare = Jakob om inget annat sägs.
+
+**Stängningsvillkor (2026-09-18):** det är **B** och **C** som avgör. När de är
+avbockade flyttas mappen till `docs/plans/avklarat/` som en rad i dess README.
+D är parkerade beslut och F är UX-svans — inget av dem blockerar flytten.
 
 ## A. Redan klart (2026-09-01, verifierat)
 
@@ -31,9 +34,12 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
       komma inom ~1 s (bridge). Om den amber-bannern "Inspektorn kan inte
       läsa den här previewn" visas är det `SM-073`-hostläget — previewn
       behöver laddas om/startas om; buggen är då fortfarande värd host-fixen.
-- [ ] Testa kamera-knappen i Sajtagent-widgeten (live review manuellt) — den
-      fastnade i evig spinner 2026-08-31; verifiera om `/tmp`-fixen även
-      löste den eller om det är en egen defekt (skapa i så fall ny SM-rad).
+- ~~Testa kamera-knappen i Sajtagent-widgeten (live review manuellt)~~ —
+      **utanför scope 2026-09-18.** `SM-070` är parkerad och
+      `SAJTMASKIN_LIVE_REVIEW` är av, så kameraspåret är inte ett
+      lanseringskrav och blockerar inte att planen stängs. Återupptas när
+      live review faktiskt ska aktiveras; se
+      [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md).
 
 ## C. Kvarvarande kodarbete (agent-körbart)
 
@@ -63,10 +69,13 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
 
 ## D. Ägarbeslut (bara Jakob)
 
-- [ ] `SM-070`/live review: auto-grant är PÅ i prod men härdningen (retrybar
-      Blob-upload, 7d-purge + chat-delete, beständig attempt-budget) är inte
-      klar. Besluta: stäng `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` tills härdad,
-      eller ratificera nuläget i `docs/decisions/README.md`.
+Inget i D blockerar att den här planen stängs. Bocka av B och C.
+
+- [ ] `SM-070`/live review — **parkerat spår, inte denna plans grind.**
+      Härdningen (retrybar Blob-upload, 7d-purge + chat-delete, beständig
+      attempt-budget) är inte klar. Beslutet hör i
+      [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md)
+      och `docs/decisions/README.md`. Slå inte på flaggan för att stänga B.
 - [ ] Fly-maskinklass (befintlig backlogfråga): burst-sessioner pressar även
       preview-hostens CPU; `shared-cpu-8x` är +3 USD/mån för dubbel kvot.
 

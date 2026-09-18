@@ -4,7 +4,8 @@
  * These are ordinary App Router routes on the main domain. They are not
  * separate deploys, iframes, subdomains, or mini-apps.
  *
- * Plan owner: `docs/plans/active/2026-09-16-seo-landningssidor/`.
+ * Delivered 2026-09-17; the plan folder is retired. History and the remaining
+ * Search Console work live in `docs/plans/avklarat/README.md`.
  * This file is the runtime owner for slugs, status and sitemap selection.
  *
  * How to add or finish a page:

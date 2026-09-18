@@ -18,9 +18,10 @@ elementmarkeringen i preview-ytan död, och vem äger bildgranskningen
 ("ta en bild och få den granskad")?
 
 Bugg-sanningen bor i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md)
-(`SM-072`, `SM-073`, `SM-070`, `SM-025`) — den här mappen håller utredningens
+(`SM-072`, `SM-073`, `SM-025`; `SM-070` redovisas som parkerad releaseblockerare
+och är inte den här mappens grind) — den här mappen håller utredningens
 helhetsbild, checklistan och beviskedjan. Radera mappen till `avklarat/` när
-checklistan i [`01-checklista.md`](01-checklista.md) är avbockad.
+avsnitt **B** och **C** i [`01-checklista.md`](01-checklista.md) är avbockade.
 
 ## De tre bekräftade felen
 
@@ -77,10 +78,13 @@ avslut). Host-sidan av `SM-073` landade med Fly-deploy v59 2026-09-01.
   inspector-hover, kamera-knapp. Utan det stannar `SM-072`/`SM-074` öppna
   i backlogen även om koden är mergad.
 - **`SM-074` valfri serverhärdning:** follow-up-lanen ska inte handoff:a
-  en session den vet inte kör (`reason=runtime_not_running`).
-- **`SM-070`-beslut:** auto-grant för live review i prod av/på.
+  en session den vet inte kör (`reason=runtime_not_running`). Separat beslut,
+  inte del av prod-bursten.
+- **`SM-070`-beslut:** parkerat i
+  [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md).
+  Kameraknappen och auto-grant hör dit, inte hit.
 - **UX-svans (checklista F):** kompakt reparationskort, `logPassId` på
-  postcheck, skarpare `cta_no_handler`.
+  postcheck, skarpare `cta_no_handler`. Blockerar inte att planen stängs.
 
 ## Beviskällor
 

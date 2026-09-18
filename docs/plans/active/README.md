@@ -37,7 +37,7 @@ De här styr inte nya ändringar. Beställ inte om leveransen.
 | GitHub/ZIP-import PR2 | [`../avklarat/README.md`](../avklarat/README.md) | Server-idempotens och privat-repo-smoke. Inte latch/SSRF/auth. |
 | Live-review `SM-070` | [`../archived/2026-08-20-live-review.md`](../archived/2026-08-20-live-review.md) | Flaggan av. PARK tills live review ska aktiveras. |
 | Dossier D2–D5 | [`../archived/2026-08-19-dossier-forenkling.md`](../archived/2026-08-19-dossier-forenkling.md) | D1 levererat. D2–D4 är arkitekturskuld, inte produktblockerare. |
-| Briefing + Källpaket | [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) | B1–B4 + B8–B11 avklarat. B5–B7 överlappar kvalitetsplanen ovan; N3–N5 stannar som ägarbeslut. |
+| Briefing + Källpaket | [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) | B1–B4 + B8–B11 avklarat. B7 (variantens auktoritetsordning) angränsar till kvalitetsplanens C; B5 (shadcnblocks-mätning) och B6 (Ändringsbrief) är parkerade och ligger **inte** i någon aktiv plan. N3–N5 stannar som ägarbeslut. |
 
 **Agent Bridge #1469** är ett separat tooling-spår, inte en produktplan och inte
 parkerat: PR:en är aktiv Draft och rörde sig senast 2026-09-18. Klassificera den
