@@ -9,6 +9,9 @@ source: docs/plans/active/2026-08-18-briefing-och-kallpaket/ (raderad 2026-09-18
 > Status: Archived
 > Not current architecture.
 > Do not use as runtime guidance.
+> Replaced by: [avklarat/README.md](../avklarat/README.md)
+> Kvalitetsplanen ersätter inte B5/B6; den angränsar bara B7.
+>
 > Parkerad 2026-09-18: produktleveransen B1–B4 + B8–B11 ligger i
 > [`avklarat/README.md`](../avklarat/README.md). Kvarvarande arbete:
 > **B7** (variantens auktoritetsordning) angränsar kvalitetsplanens C men är
