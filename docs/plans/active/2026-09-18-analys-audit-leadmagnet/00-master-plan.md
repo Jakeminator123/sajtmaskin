@@ -37,10 +37,15 @@ finns i Jakobs opushade Windows-checkout.
 | 5 | DNS/nameserver-byte hos befintligt bolag | PARK tills Radar v1 |
 
 Ordningen följer v3-disciplinen: testa signalvärdet på ett litet antal
-riktiga leads innan något automatiseras. Spår 3–5 är beställningar, inte
+riktiga leads innan något automatiseras. **PRV T-1 och nyemission är
+beställningar; DNS-bytet är PARK tills Radar v1 finns.** Inget av dem är
 arbete som pågår. Annonsspåret («verksamt»-ögonblicket) är paid intent och
 hålls utanför de fem. Utskick och leadhantering ägs av ägarens separata repo
 `Jakeminator123/JakobScrape`, inte av det här repot.
+
+Numreringen i tabellen ovan är den **ursprungliga** fem-listan. Restlistan
+numrerar om de kvarvarande fyra, så hänvisa till spåren med namn, inte
+nummer.
 
 Ett skrivet protokoll är inte ett utfall: spår 1 är avklarat först när K1:s
 A/B faktiskt körts och resultatet står i aktivitetsfilen.
@@ -64,7 +69,11 @@ Auditen är redan tillräckligt “wow” (PDF, scores, förbättringar) för at
 fungera som granskning — om vi exponerar den publikt med ärlig copy och
 en kostnadsspärr, utan ny analysmotor.
 
-## Aktuellt läge (bevis 2026-09-18)
+## Läge före #1471 (bevis 2026-09-18, historik)
+
+Det här är utgångsläget spåret skrevs mot, inte dagens sanning. Den
+inloggade audit-vägen ser fortfarande ut så här; raderna som #1471 gjorde
+falska är markerade i tabellen.
 
 ```text
 klient (auth + diamonds)
@@ -95,10 +104,10 @@ klient (auth + diamonds)
 | `inFlightAudits` är en process-lokal `Map` | [`in-flight.ts`](../../../../src/app/api/audit/modules/in-flight.ts) |
 | Max 4 sidor; `validateSsrfTarget` | [`webscraper.ts`](../../../../src/lib/webscraper.ts) `MAX_PAGES = 4` |
 | Ingen URL-resultatcache. `getCanonicalUrlKey` är bara in-flight-nyckel. Redis `cacheAudit` är sparad användarlista, inte scrape-svar. | handler, [`audits/route.ts`](../../../../src/app/api/audits/route.ts) |
-| Copy ljuger: «kostnadsfri AI-analys … helt gratis» | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
-| `/analys` finns inte. Sitemap/robots nämner den inte. | [`sitemap.ts`](../../../../src/app/sitemap.ts), [`robots.ts`](../../../../src/app/robots.ts) |
+| ~~Copy ljuger: «kostnadsfri AI-analys … helt gratis»~~ — rättat i #1471 | [`entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) |
+| ~~`/analys` finns inte~~ — sidan finns sedan #1471. Sitemap/robots nämner den fortfarande inte (B2 är öppet) | [`sitemap.ts`](../../../../src/app/sitemap.ts), [`robots.ts`](../../../../src/app/robots.ts) |
 | `analyserad` är wizard, inte audit | [`use-entry-params.ts`](../../../../src/lib/entry/use-entry-params.ts), [`route-target.ts`](../../../../src/components/landing-v2/route-target.ts) |
-| Landing-nav/footer har ingen audit-länk. App-nav «Audits» → `/audits` (inloggad). | [`landing-v2/navbar.tsx`](../../../../src/components/landing-v2/navbar.tsx), [`navbar.tsx`](../../../../src/components/layout/navbar.tsx) |
+| ~~Landing-nav/footer har ingen audit-länk~~ — nav och footer länkar `/analys` sedan #1471. App-nav «Audits» → `/audits` (inloggad) står kvar. | [`landing-v2/navbar.tsx`](../../../../src/components/landing-v2/navbar.tsx), [`navbar.tsx`](../../../../src/components/layout/navbar.tsx) |
 
 ## Scope
 

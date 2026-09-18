@@ -30,8 +30,11 @@ automatisering.
 | 3 | Nyemission hos Bolagsverket | Befintligt bolag som just gjort en kapitalåtgärd | **Beställning:** litet manuellt premiumexperiment |
 | 4 | DNS/nameserver-byte | Befintligt bolag som gör något med webb eller leverantör nu | **PARK** tills Radar v1 finns |
 
-Spår 2–4 är beställningar, inte pågående implementation. Ingen av dem har
-egen planmapp och ingen av dem ska byggas utan nytt ja.
+**PRV T-1 och nyemission är beställningar; DNS-bytet är PARK tills Radar v1
+finns.** Inget av dem är pågående implementation, ingen har egen planmapp
+och ingen ska byggas utan nytt ja. Numreringen ovan gäller den här filen —
+masterplanen använder den ursprungliga fem-listan, så hänvisa till spåren
+med namn.
 
 Utskick och leadhantering ägs av ägarens separata repo
 `Jakeminator123/JakobScrape` («POIT-leads och dashboard»). Sajtmaskin-repot
