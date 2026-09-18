@@ -155,6 +155,15 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
       ),
     ).toBe(false);
   });
+
+  it("does not let an unfingerprinted strict_pass clear a legacy fallback", () => {
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [receipt(false, "rev-b", "strict_pass"), receipt(true, "rev-a", "fallback")],
+        { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("dependencyFingerprintFromFiles", () => {

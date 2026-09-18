@@ -1104,6 +1104,7 @@ async function bootRuntimeForSession(session, options = {}) {
     delete stored.usedLegacyPeerDeps;
     delete stored.peerConflictDetected;
     delete stored.installKind;
+    delete stored.dependencyFingerprint;
     stored.updatedAt = nowIso();
   });
 
@@ -1173,6 +1174,13 @@ async function bootRuntimeForSession(session, options = {}) {
           stored.installKind = installOutcome.installKind;
         } else if (installOutcome && installOutcome.skipped === true) {
           stored.installKind = "skipped";
+        }
+        if (
+          installOutcome &&
+          typeof installOutcome.dependencyFingerprint === "string" &&
+          /^[a-f0-9]{64}$/i.test(installOutcome.dependencyFingerprint)
+        ) {
+          stored.dependencyFingerprint = installOutcome.dependencyFingerprint.toLowerCase();
         }
       });
 

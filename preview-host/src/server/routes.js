@@ -234,6 +234,10 @@ async function routeRequest(req, res) {
       latest.installKind === "skipped"
         ? { installKind: latest.installKind }
         : {}),
+      ...(typeof latest.dependencyFingerprint === "string" &&
+      /^[a-f0-9]{64}$/i.test(latest.dependencyFingerprint)
+        ? { dependencyFingerprint: latest.dependencyFingerprint.toLowerCase() }
+        : {}),
     });
   }
 

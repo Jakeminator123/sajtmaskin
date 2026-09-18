@@ -6,6 +6,7 @@ import { INSTALL_PEER_FALLBACK_CHECK } from "@/lib/gen/validation/package-tree-c
 import {
   INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
   dependencyFingerprintFromFiles,
+  normalizeDependencyFingerprint,
   previewInstallKindFromHostStatus,
 } from "@/lib/gen/validation/install-peer-fallback-receipt";
 
@@ -54,6 +55,7 @@ export function decidePreviewReadinessOutcome(
     | "usedLegacyPeerDeps"
     | "peerConflictDetected"
     | "installKind"
+    | "dependencyFingerprint"
   >,
 ): PreviewReadinessDecision {
   const regeneratedLockfile = resumed.regeneratedLockfile ?? null;
@@ -107,6 +109,7 @@ export async function applyPreviewReadinessOutcome(params: {
     | "usedLegacyPeerDeps"
     | "peerConflictDetected"
     | "installKind"
+    | "dependencyFingerprint"
   >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
@@ -176,14 +179,12 @@ export async function applyPreviewReadinessOutcome(params: {
         params.versionId,
         decision.regeneratedLockfile,
       );
-      // Bind files_revision to the revision Postgres now has. A CAS miss
-      // leaves filesRevision null so we keep the boot revision — never a
-      // snapshot this boot did not write.
-      if (persist.filesRevision) {
-        receiptRevision = persist.filesRevision;
-      }
-      if (persist.files) {
-        receiptFiles = persist.files;
+      // Only a CAS write this boot performed may move the receipt onto the
+      // post-persist revision/files. A miss or already-reconciled read must
+      // not fingerprint a competing snapshot.
+      if (persist.wrote) {
+        if (persist.filesRevision) receiptRevision = persist.filesRevision;
+        if (persist.files) receiptFiles = persist.files;
       }
     }
     // Preview started only after --legacy-peer-deps: write a fingerprint-bound
@@ -194,14 +195,23 @@ export async function applyPreviewReadinessOutcome(params: {
       const installKind = previewInstallKindFromHostStatus(params.resumed);
       const usedFallback = installKind === "fallback";
       const shouldWriteReceipt = installKind === "fallback" || installKind === "strict_pass";
-      if (shouldWriteReceipt && !receiptFiles) {
+      const hostFingerprint = normalizeDependencyFingerprint(
+        params.resumed.dependencyFingerprint,
+      );
+      if (shouldWriteReceipt && !receiptFiles && !hostFingerprint) {
         const { getVersionFilesSnapshot } = await import("@/lib/gen/version-manager");
         const snapshot = await getVersionFilesSnapshot(params.versionId);
-        receiptFiles = snapshot?.files ?? null;
+        if (
+          snapshot &&
+          receiptRevision &&
+          snapshot.filesRevision?.trim() === receiptRevision
+        ) {
+          receiptFiles = snapshot.files;
+        }
       }
       const dependencyFingerprint = receiptFiles
         ? dependencyFingerprintFromFiles(receiptFiles)
-        : null;
+        : hostFingerprint;
       const receiptKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}:${installKind ?? "unknown"}`;
       if (shouldWriteReceipt && !legacyPeerDepsVersionIds.has(receiptKey)) {
         legacyPeerDepsVersionIds.add(receiptKey);

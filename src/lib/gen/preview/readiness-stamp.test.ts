@@ -158,6 +158,9 @@ describe("decidePreviewReadinessOutcome", () => {
 describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after start)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getVersionFilesSnapshot.mockReset();
+    updateVersionFiles.mockReset();
+    updateVersionFiles.mockResolvedValue(true);
     __resetPersistedLockfileGuardForTesting();
   });
 
@@ -591,6 +594,151 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     ).toBe(false);
   });
 
+  it("binds strict_pass to the host fingerprint, not a newer DB snapshot", async () => {
+    const filesA = [{ path: "package.json", content: '{"deps":"A"}', language: "json" }];
+    const filesB = [{ path: "package.json", content: '{"deps":"B"}', language: "json" }];
+    const { dependencyFingerprintFromFiles, installPeerFallbackReceiptBlocksPublish } =
+      await import("@/lib/gen/validation/install-peer-fallback-receipt");
+    const fingerprintA = dependencyFingerprintFromFiles(filesA);
+    const fingerprintB = dependencyFingerprintFromFiles(filesB);
+    getVersionFilesSnapshot.mockResolvedValue(snapshotOf(filesB, "rev-b"));
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+        installKind: "strict_pass",
+        dependencyFingerprint: fingerprintA,
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    const receipt = payloads.find((row) => row.category === "preview:install-peer-fallback");
+    expect(receipt?.meta).toEqual(
+      expect.objectContaining({
+        kind: "strict_pass",
+        filesRevision: "rev-a",
+        dependencyFingerprint: fingerprintA,
+      }),
+    );
+    expect(receipt?.meta.dependencyFingerprint).not.toBe(fingerprintB);
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [{ category: "preview:install-peer-fallback", meta: receipt?.meta }],
+        { filesRevision: "rev-b", files: filesB },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not fingerprint a competing snapshot after lockfile CAS miss", async () => {
+    const filesA = [
+      { path: "package.json", content: '{"deps":"A"}', language: "json" },
+      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+    ];
+    const filesB = [
+      { path: "package.json", content: '{"deps":"B"}', language: "json" },
+      { path: "pnpm-lock.yaml", content: "OTHER", language: "yaml" },
+    ];
+    const { dependencyFingerprintFromFiles } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    const fingerprintA = dependencyFingerprintFromFiles(filesA);
+    const fingerprintB = dependencyFingerprintFromFiles(filesB);
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce(
+        snapshotOf(
+          [
+            ...filesA,
+            { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+          ],
+          "rev-a",
+        ),
+      )
+      .mockResolvedValueOnce(snapshotOf(filesB, "rev-b"));
+    updateVersionFiles.mockResolvedValueOnce(false);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: { path: "pnpm-lock.yaml", content: "NEW" },
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+        installKind: "strict_pass",
+        dependencyFingerprint: fingerprintA,
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    const receipt = payloads.find((row) => row.category === "preview:install-peer-fallback");
+    expect(receipt?.meta).toEqual(
+      expect.objectContaining({
+        kind: "strict_pass",
+        filesRevision: "rev-a",
+        dependencyFingerprint: fingerprintA,
+      }),
+    );
+    expect(receipt?.meta.dependencyFingerprint).not.toBe(fingerprintB);
+  });
+
+  it("does not recompute fingerprint from a mismatched snapshot when the host sent none", async () => {
+    getVersionFilesSnapshot.mockImplementation(async () => {
+      const calls = getVersionFilesSnapshot.mock.calls.length;
+      return calls <= 1
+        ? snapshotOf(
+            [
+              { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+              { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+            ],
+            "rev-a",
+          )
+        : snapshotOf(
+            [{ path: "package.json", content: '{"deps":"B"}', language: "json" }],
+            "rev-b",
+          );
+    });
+    updateVersionFiles.mockResolvedValue(false);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-mismatch",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: { path: "pnpm-lock.yaml", content: "NEW" },
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+        installKind: "strict_pass",
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    const receipt = payloads.find((row) => row.category === "preview:install-peer-fallback");
+    expect(receipt?.meta.kind).toBe("strict_pass");
+    expect(receipt?.meta.filesRevision).toBe("rev-a");
+    expect(receipt?.meta.dependencyFingerprint ?? null).toBeNull();
+  });
+
   it("keeps the boot revision on lockfile CAS miss", async () => {
     getVersionFilesSnapshot.mockResolvedValue(
       snapshotOf(
@@ -639,6 +787,9 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
 describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-trip)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getVersionFilesSnapshot.mockReset();
+    updateVersionFiles.mockReset();
+    updateVersionFiles.mockResolvedValue(true);
     __resetPersistedLockfileGuardForTesting();
   });
 

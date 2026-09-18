@@ -981,6 +981,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       usedFallback: false,
       peerConflictDetected: false,
       installKind: "skipped",
+      dependencyFingerprint: fingerprint,
     };
   }
   if (install.lockfileStale && fingerprint && priorDeps?.fingerprint === fingerprint) {
@@ -1057,6 +1058,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
           usedFallback: Boolean(installResult.usedFallback),
           peerConflictDetected: Boolean(installResult.peerConflictDetected),
           installKind: installResult.usedFallback ? "fallback" : "strict_pass",
+          dependencyFingerprint: fingerprint,
         };
       }
     }
@@ -1066,6 +1068,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       usedFallback: Boolean(installResult.usedFallback),
       peerConflictDetected: Boolean(installResult.peerConflictDetected),
       installKind: installResult.usedFallback ? "fallback" : "strict_pass",
+      dependencyFingerprint: fingerprint,
     };
   }
 

@@ -148,6 +148,33 @@ describe("resolvePackageTreePublishGate", () => {
     expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
   });
 
+  it("does not let an unfingerprinted strict_pass wash away a legacy fallback", () => {
+    const packageJson = JSON.stringify({
+      dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+    });
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        { path: "package.json", content: packageJson },
+        { path: "app/page.tsx", content: "export default function Page() { return <p>B</p>; }" },
+      ],
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-b",
+      errorLogs: [
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "strict_pass", usedFallback: false, filesRevision: "rev-b" },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "fallback", usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
   it("allows a coherent Next 15 + React 19 tree", () => {
     const gate = resolvePackageTreePublishGate({
       files: [

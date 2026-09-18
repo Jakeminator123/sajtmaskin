@@ -59,6 +59,13 @@ function normalizeRevision(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Host and app both use sha256 hex. Anything else is not install-proof. */
+export function normalizeDependencyFingerprint(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return /^[a-f0-9]{64}$/.test(trimmed) ? trimmed : null;
+}
+
 function normalizeFileKey(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.\//, "");
 }
@@ -99,7 +106,8 @@ function resolveScope(
   const fromFiles = scope.files ? dependencyFingerprintFromFiles(scope.files) : null;
   return {
     filesRevision: normalizeRevision(scope.filesRevision),
-    dependencyFingerprint: normalizeRevision(scope.dependencyFingerprint) ?? fromFiles,
+    dependencyFingerprint:
+      normalizeDependencyFingerprint(scope.dependencyFingerprint) ?? fromFiles,
   };
 }
 
@@ -147,7 +155,7 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
   const meta = asRecord(log.meta);
   return {
     filesRevision: normalizeRevision(meta?.filesRevision),
-    dependencyFingerprint: normalizeRevision(meta?.dependencyFingerprint),
+    dependencyFingerprint: normalizeDependencyFingerprint(meta?.dependencyFingerprint),
     kind,
   };
 }
@@ -166,9 +174,10 @@ function latestDecisive(
  * blocks until a later receipt for the same fingerprint records `strict_pass`.
  * Skipped / unknown receipts never decide the gate.
  *
- * Unfingerprinted legacy receipts fail-closed onto the current fingerprint
- * until a fingerprinted strict_pass exists. Missing current fingerprint and
- * missing filesRevision: any latest fallback on the version blocks.
+ * Unfingerprinted legacy fallback fail-closes onto the current fingerprint
+ * until a **fingerprinted** strict_pass exists. An unfingerprinted
+ * `strict_pass` never clears. Missing current fingerprint and missing
+ * filesRevision: any latest fallback on the version blocks.
  */
 export function installPeerFallbackReceiptBlocksPublish(
   logs: readonly InstallPeerFallbackReceiptLog[],
@@ -184,8 +193,9 @@ export function installPeerFallbackReceiptBlocksPublish(
     );
     const fingerprintedKind = latestDecisive(fingerprinted);
     if (fingerprintedKind) return fingerprintedKind === "fallback";
-    const legacy = receipts.filter((entry) => entry.dependencyFingerprint == null);
-    return latestDecisive(legacy) === "fallback";
+    return receipts.some(
+      (entry) => entry.dependencyFingerprint == null && entry.kind === "fallback",
+    );
   }
   const scoped =
     filesRevision == null
