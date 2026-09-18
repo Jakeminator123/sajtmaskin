@@ -15,17 +15,20 @@ import { LandingFooter } from "./landing-footer";
 afterEach(() => cleanup());
 
 describe("landing nav + footer links after /teknik move", () => {
-  it("navbar links Teknik to /teknik", () => {
+  it("navbar links Teknik to /teknik and Analys to /analys", () => {
     render(<Navbar />);
-    const teknik = screen.getByRole("link", { name: "Teknik" });
-    expect(teknik.getAttribute("href")).toBe("/teknik");
+    const teknik = screen.getAllByRole("link", { name: "Teknik" });
+    expect(teknik[0]?.getAttribute("href")).toBe("/teknik");
+    const analys = screen.getAllByRole("link", { name: "Analys" });
+    expect(analys[0]?.getAttribute("href")).toBe("/analys");
   });
 
-  it("footer links Funktioner to /teknik#funktioner and Teknik to /teknik", () => {
+  it("footer links Funktioner to /teknik#funktioner, Teknik to /teknik and Analys to /analys", () => {
     render(<LandingFooter />);
     expect(screen.getByRole("link", { name: "Funktioner" }).getAttribute("href")).toBe(
       "/teknik#funktioner",
     );
     expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
+    expect(screen.getByRole("link", { name: "Analys" }).getAttribute("href")).toBe("/analys");
   });
 });

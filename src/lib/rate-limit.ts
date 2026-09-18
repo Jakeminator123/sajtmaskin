@@ -32,6 +32,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "auth:resend-verification": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
   "contact:submit": { maxRequests: 10, windowMs: 10 * 60 * 1000 },
   "audit:create": { maxRequests: 4, windowMs: 10 * 60 * 1000 },
+  // Public /analys lead magnet: 1 full scrape+LLM run per IP per 24h.
+  "analys:public": { maxRequests: 1, windowMs: 24 * 60 * 60 * 1000 },
   "analyze:website": { maxRequests: 10, windowMs: 60 * 1000 },
   "analyze:presentation": { maxRequests: 8, windowMs: 60 * 1000 },
   "wizard:quick-scrape": { maxRequests: 20, windowMs: 60 * 1000 },
