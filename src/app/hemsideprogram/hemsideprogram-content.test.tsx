@@ -39,6 +39,11 @@ describe("HemsideprogramContent", () => {
     ).toBe(true);
 
     expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+    expect(screen.getByRole("heading", { name: /Hur notan skiljer sig/i })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "vad en hemsida kostar" }).getAttribute("href"),
+    ).toBe("/vad-kostar-en-hemsida");
+    expect(screen.queryByRole("heading", { name: "Skapande" })).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("ai-hemsidebyggare");

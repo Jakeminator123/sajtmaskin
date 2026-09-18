@@ -1,6 +1,12 @@
 /**
  * Build the generation source receipt from already-selected ingredients
  * plus post-budget pruning. Selection is not changed here.
+ *
+ * `reachedPrompt` alone cannot answer whether a run got the still image, the
+ * code excerpts, both or neither, so `variant-reference` also carries
+ * `stillImageSent`, `inspirationBlockKept` and `addendumTextSent`. A kept
+ * block is not the same as delivered excerpts: a disabled or excerpt-less
+ * entry still renders the block.
  */
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { DossierSelectionResult } from "../dossiers";
@@ -78,15 +84,19 @@ export function buildSourceReceipt(input: SourceReceiptInput): GenerationSource[
   const sources: GenerationSource[] = [];
   const inspiration = input.variantTemplateInspiration;
   if (inspiration) {
+    const inspirationBlockKept = reachedPrompt(input.pruning, VARIANT_BLOCK_KEYS);
+    const stillImageSent = input.variantTemplateImageSent === true;
+    const hasExcerpt = (inspiration.structuralReferences?.length ?? 0) > 0;
     sources.push({
       kind: "variant-reference",
       id: inspiration.templateId,
       origin: "blob-template",
       reason: variantReason(input.variantTemplateAddendumState),
       authority: "inspiration",
-      reachedPrompt:
-        reachedPrompt(input.pruning, VARIANT_BLOCK_KEYS) ||
-        input.variantTemplateImageSent === true,
+      reachedPrompt: inspirationBlockKept || stillImageSent,
+      stillImageSent,
+      inspirationBlockKept,
+      addendumTextSent: inspirationBlockKept && hasExcerpt,
     });
   }
 

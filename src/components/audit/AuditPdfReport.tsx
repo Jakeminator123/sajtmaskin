@@ -189,7 +189,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
     const safeCompanyOrDomain = escapeHtml(
       result.company || result.domain || "Analyserad webbplats",
     );
-    const auditModeLabel = result.audit_mode === "advanced" ? "Avancerad" : "Standard";
+    const auditModeLabel = result.audit_mode === "advanced" ? "Avancerad" : "Vanlig";
     const faviconUrl = result.domain
       ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(result.domain)}&sz=64`
       : "";

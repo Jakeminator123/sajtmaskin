@@ -1,3 +1,4 @@
+import { omitAdvancedOnlyFields, type AuditSchemaKind } from "@/lib/audit/audit-tier";
 import type { AuditMode, AuditResult } from "@/types/audit";
 
 // Cost calculation (for logging/display only)
@@ -18,12 +19,13 @@ function createFallbackResult(
   },
   url: string,
   auditMode: AuditMode,
+  options?: { schemaKind?: AuditSchemaKind },
 ): Record<string, unknown> {
   const domain = new URL(url).hostname;
   const isJsRendered = websiteContent.wordCount < 50;
   const companyName = websiteContent.title || domain;
 
-  return {
+  const fallback = {
     audit_mode: auditMode,
     company: companyName,
     audit_scores: {
@@ -330,6 +332,9 @@ function createFallbackResult(
       ? "Sidan är JavaScript-renderad och kunde inte analyseras fullt ut"
       : "AI-analysen returnerade inte giltigt resultat",
   };
+
+  const schemaKind = options?.schemaKind ?? (auditMode === "advanced" ? "full" : "core");
+  return schemaKind === "core" ? omitAdvancedOnlyFields(fallback) : fallback;
 }
 
 // Validate audit result structure (lenient - accept partial results)
@@ -424,6 +429,10 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
  */
 function getPricingForModel(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
+  if (m.includes("gpt-5.6-sol")) return { input: 4, output: 20 };
+  if (m.includes("gpt-5.6-terra")) return { input: 2, output: 12 };
+  if (m.includes("gpt-5.6-luna")) return { input: 0.2, output: 1.2 };
+  if (m.includes("gpt-5.5")) return { input: 5, output: 30 };
   if (m.includes("gpt-5.2")) return { input: 1.25, output: 10 };
   if (m.includes("opus")) return { input: 15, output: 75 };
   if (m.includes("sonnet")) return { input: 3, output: 15 };

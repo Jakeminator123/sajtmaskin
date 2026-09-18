@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Next 16 blocks /_next/* from any host that is not the listen hostname.
+  // Cloud/local browsers often open 127.0.0.1 while the server advertises the
+  // container IP, which 403:s the client bundles and kills /analys hydration.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   // playwright/@sparticuz/chromium: native browser launchers for the project
   // thumbnail capture — must stay external so the bundler doesn't inline them
   // (NFT traces the chromium binary into the function instead).

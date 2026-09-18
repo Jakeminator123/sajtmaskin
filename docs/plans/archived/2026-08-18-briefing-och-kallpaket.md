@@ -1,7 +1,7 @@
 ---
 status: archived
 owner: unassigned
-topic: Briefing + Källpaket. B1–B4 och B8–B11 är levererade. B5–B7 är observability/experiment och överlappar kvalitetsplanen.
+topic: Briefing + Källpaket. B1–B4 och B8–B11 är levererade. B7 angränsar kvalitetsplanens C; B5 och B6 är inte täckta av A0–D.
 created: 2026-08-18
 source: docs/plans/active/2026-08-18-briefing-och-kallpaket/ (raderad 2026-09-18; git är arkiv).
 ---
@@ -9,14 +9,12 @@ source: docs/plans/active/2026-08-18-briefing-och-kallpaket/ (raderad 2026-09-18
 > Status: Archived
 > Not current architecture.
 > Do not use as runtime guidance.
-> Replaced by: [Källkvitto / Quality Bar / addenda](../active/2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)
-
 > Parkerad 2026-09-18: produktleveransen B1–B4 + B8–B11 ligger i
-> [`avklarat/README.md`](../avklarat/README.md). Kvarvarande B5 (shadcnblocks-mätning),
-> B6 (Ändringsbrief) och B7 (variantens auktoritetsordning) ska inte köras som
-> den gamla stora planen. Mätning av vad som nådde prompten och recept-/variant-
-> frihet ägs av kvalitetsplanen. N3–N5 stannar som ägarbeslut i
-> [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md).
+> [`avklarat/README.md`](../avklarat/README.md). Kvarvarande arbete:
+> **B7** (variantens auktoritetsordning) angränsar kvalitetsplanens C men är
+> inte levererad där. **B5** (shadcnblocks-mätning) och **B6** (Ändringsbrief)
+> täcks **inte** av A0–D och är inte «ägda» av kvalitetsplanen. N3–N5 stannar
+> som ägarbeslut i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md).
 
 # Briefing och Källpaket — parkerad
 

@@ -61,7 +61,7 @@ D är parkerade beslut och F är UX-svans — inget av dem blockerar flytten.
       "Preview klar med luckor" m.fl.) ska aldrig synas — duplicerar
       versionsbadge + chatt. Borttagen i
       [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237)
-      (öppen vid sessionens avslut; CI körde om efter lintfix).
+      — mergad 2026-09-01.
 - [ ] `SM-074` prod-verifiering efter #1232: follow-up mot hibernerad VM
       (>10 min idle) ska läka utan `preview_ready_timeout`. Serverhärdning
       av follow-up-handoff (`reason=runtime_not_running`) är valfri
@@ -84,8 +84,8 @@ Inget i D blockerar att den här planen stängs. Bocka av B och C.
 | Nyckel | Läge i prod | Kommentar |
 |---|---|---|
 | `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` | `1` | Behåll — bridge är rätt motor; kartläget är död i serverless. |
-| `SAJTMASKIN_LIVE_REVIEW` | `true` | Fungerar (gpt-4o-verdicts i prod-logg). |
-| `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` | `true` | Se ägarbeslutet i D. |
+| `SAJTMASKIN_LIVE_REVIEW` | **av** | Koddefault av. Read-only Vercel 2026-09-18: nyckeln saknas i projektet → runtime av. Historisk rad som sa `true` i prod var fel. |
+| `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` | nyckel finns, värde oläst | Finns på preview+production. Värdet dekrypterades inte. Kan inte slå på review utan `SAJTMASKIN_LIVE_REVIEW`. |
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK` | på (default) | Behåll. |
 
 Inga nya env-nycklar krävs för de landade fixarna.
@@ -93,12 +93,12 @@ Inga nya env-nycklar krävs för de landade fixarna.
 ## F. Session stängd 2026-09-01 — kvar till nästa pass
 
 Kodspåret i den här chatten är levererat (klient + efterkontroll). Planen
-stannar i `active/` tills B (prod-burst) är avbockad. Nästa agent tar en
+stannar i `active/` tills **B och C** är avbockade. Nästa agent tar en
 rad här, inte en ny utredning.
 
 | Vad | Varför | Inte i denna session |
 |---|---|---|
-| Merga [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237) när CI är grön | Sanningsraden borta; kräver separat mergeuppdrag | Inget merge här |
+| [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237) | Sanningsraden bort. **Mergad 2026-09-01.** Ingen ny mergeorder. | Klar |
 | Kompakt "Reparation"-kort i chatten | Auto-fix-turen från #1234 ser ut som en hel generering | Presentation, inte grind |
 | `logPassId` på product-postcheck-loggar | "Observationer utan körpass" döljer vad rundan åtgärdade | Telemetri |
 | Skärp `cta_no_handler` | Tidsluckor/hamburgare flaggar trots React-state | Heuristik; falska positiva |
