@@ -19,9 +19,12 @@ Ursprunglig fem-lista (Jakobs urval):
 
 Principen från v1→v3: **testa signalvärdet först, bygg Radar först när en
 signal faktiskt konverterar.** Ta ett litet antal riktiga leads per signal,
-en pitch, `/analys` eller mockup som bevis, och se om människor svarar.
-Först när en trigger tydligt slår vanlig kall outreach är den värd
-automatisering.
+en pitch, något konkret att visa, och se om människor svarar. Först när en
+trigger tydligt slår vanlig kall outreach är den värd automatisering.
+
+Vad «något konkret» får vara styrs av avsnittet om `/analys` nedan — en
+mockup från förslagssidan, en länk mottagaren själv kör, eller ett manuellt
+stickprov. Inte en rapport per lead i volym.
 
 | Ordning | Spår | Vad det egentligen är | Läge |
 |---|---|---|---|

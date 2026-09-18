@@ -75,7 +75,7 @@ den ytan igen. Det som fortfarande styr arbete:
 | Öppna ägarbeslut B2 (index/sitemap) och B4 (partner `?mode=audit`) | tabellen under Beslutspunkter |
 
 Allt nedanför den här punkten — Hypotes, Läge före #1471, Scope, Icke-mål,
-Föreslagen default, Beslutspunkter och Faser — är **historik och kontrakt
+Paketet som antogs, Beslutspunkter och Faser — är **historik och kontrakt
 från #1471**, inte en att-göra-lista. Icke-målen och stoppreglerna gäller
 fortfarande som spärrar.
 
@@ -263,7 +263,8 @@ rapporten i browsern.
 
 - [x] Jakob ja / ja med avvikelse / nej till defaultpaketet
 - [x] B1 (1× basic/IP/24h, signup för PDF/spara/bygge), B3 (nav/footer länkad)
-- [ ] B2 (index/sitemap), B4 (partner `?mode=audit`), B5, B6 kvarstår
+- [x] B5 (advanced för gäst: nej), B6 (startsidans audit-sektion)
+- [ ] B2 (index/sitemap) och B4 (partner `?mode=audit`) kvarstår
 - [x] A4 copy — entry-modalen lovar inte längre avgiftsfri audit
 - [x] A1 noindex-route
 - [x] A2 + A3
