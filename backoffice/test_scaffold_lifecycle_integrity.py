@@ -6,7 +6,8 @@ state that later fails ``npm run scaffolds:validate``
 (``src/lib/gen/scaffold-variants/variant-integrity.test.ts``):
 
   * create/edit require curated ``signaturePatterns`` (>=3/2/2), exactly one
-    ``default: true`` per scaffold and non-empty template provenance;
+    ``default: true`` per scaffold and non-empty template provenance
+    except explicit Scaffold: Av (``SCAFFOLD_OFF_BASELINE_ID``) variants;
   * the neutral starter variant is auto-populated with valid signaturePatterns;
   * Wizard new-scaffold starters may omit signaturePatterns at create time
     (post-create ``scaffolds:variant-patterns`` fills them);
@@ -39,6 +40,9 @@ from backoffice.pages.scaffold_lifecycle_lib.formatting import _exception_messag
 from backoffice.pages.scaffold_lifecycle_lib.variants import (
     _handoff_default_variant,
     _would_leave_no_default_variant,
+)
+from backoffice.pages.scaffold_lifecycle_lib.constants import (
+    SCAFFOLD_OFF_BASELINE_ID,
 )
 from backoffice.shared import build_backoffice_context
 
@@ -561,10 +565,43 @@ class IntegrityErrorTests(unittest.TestCase):
             signature_motifs_text="m one here now\nm two here now",
             signature_anti_patterns_text="a one here now\na two here now",
         )
+        self.assertNotEqual(payload["scaffoldId"], SCAFFOLD_OFF_BASELINE_ID)
         errors = sl._variant_integrity_errors(
             self.ctx, payload, sibling_defaults=[]
         )
         self.assertTrue(any("sourceTemplateIds" in error for error in errors))
+        self.assertTrue(any("saknar" in error for error in errors))
+
+    def test_scaffold_off_baseline_may_have_empty_source_template_ids(self) -> None:
+        payload = _variant_payload(
+            scaffold_id=SCAFFOLD_OFF_BASELINE_ID,
+            default_variant=True,
+            source_template_ids_text="",
+            signature_layouts_text="l one here now\nl two here now\nl three now",
+            signature_motifs_text="m one here now\nm two here now",
+            signature_anti_patterns_text="a one here now\na two here now",
+        )
+        self.assertEqual(payload["scaffoldId"], SCAFFOLD_OFF_BASELINE_ID)
+        self.assertEqual(
+            sl._variant_integrity_errors(self.ctx, payload, sibling_defaults=[]),
+            [],
+        )
+
+    def test_scaffold_off_baseline_rejects_filled_source_template_ids(self) -> None:
+        payload = _variant_payload(
+            scaffold_id=SCAFFOLD_OFF_BASELINE_ID,
+            default_variant=True,
+            source_template_ids_text="8Y9E0cStKrW",
+            signature_layouts_text="l one here now\nl two here now\nl three now",
+            signature_motifs_text="m one here now\nm two here now",
+            signature_anti_patterns_text="a one here now\na two here now",
+        )
+        errors = sl._variant_integrity_errors(
+            self.ctx, payload, sibling_defaults=[]
+        )
+        self.assertTrue(any("sourceTemplateIds" in error for error in errors))
+        self.assertTrue(any("Scaffold: Av" in error for error in errors))
+        self.assertFalse(any("saknar" in error for error in errors))
 
     def test_no_error_when_valid_and_no_sibling_default(self) -> None:
         payload = _variant_payload(

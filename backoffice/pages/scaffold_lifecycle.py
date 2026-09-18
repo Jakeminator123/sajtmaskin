@@ -73,6 +73,7 @@ from .scaffold_lifecycle_lib.variants import (
     _signature_patterns_ok,
     _sibling_default_variant_ids,
     _variant_integrity_errors,
+    _source_template_ids_integrity_error,
     _handoff_default_variant,
     _variant_embeddings_index_path,
     _prune_variant_embeddings,
