@@ -13,6 +13,7 @@ import {
   buildKostnadsfriWizardSnapshot,
   buildPromptFromWizardData,
   isKostnadsfriIndustryConflictError,
+  kostnadsfriIndustryConflictFromResponse,
 } from "@/lib/kostnadsfri";
 import { buildKostnadsfriAgentBrief } from "@/lib/kostnadsfri/agent-brief";
 import {
@@ -255,6 +256,12 @@ export function KostnadsfriPage({
       }
 
       if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const conflict = kostnadsfriIndustryConflictFromResponse(
+          body,
+          activeWizard.industry || "unknown",
+        );
+        if (conflict) throw conflict;
         throw new Error("Failed to create prompt");
       }
 

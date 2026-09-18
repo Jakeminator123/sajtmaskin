@@ -32,6 +32,16 @@ export function isKostnadsfriIndustryConflictError(
   return error instanceof KostnadsfriIndustryConflictError;
 }
 
+export function kostnadsfriIndustryConflictFromResponse(
+  body: unknown,
+  industryId = "unknown",
+): KostnadsfriIndustryConflictError | null {
+  if (!body || typeof body !== "object") return null;
+  const code = (body as { code?: unknown }).code;
+  if (code !== KOSTNADSFRI_INDUSTRY_CONFLICT_CODE) return null;
+  return new KostnadsfriIndustryConflictError(industryId);
+}
+
 export function textLooksLikeGamingOrLottery(
   ...parts: Array<string | null | undefined>
 ): boolean {

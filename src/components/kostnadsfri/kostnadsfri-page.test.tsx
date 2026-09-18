@@ -465,6 +465,39 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     });
     expect(projects.createProject).not.toHaveBeenCalled();
   });
+
+  it("visar konfliktmeddelandet i wizarden när servern returnerar 409", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          success: false,
+          code: "kostnadsfri_industry_conflict",
+          error:
+            "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+        }),
+      })),
+    );
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Branschen stämmer inte med verksamhetsbeskrivningen/),
+      ).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Klara wizarden" })).toBeTruthy();
+    expect(screen.queryByText("Något gick fel. Försök igen.")).toBeNull();
+    expect(router.push).not.toHaveBeenCalled();
+  });
 });
 
 describe("KostnadsfriPage — wizard-underlag i kontexten", () => {

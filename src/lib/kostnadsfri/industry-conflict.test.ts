@@ -3,6 +3,7 @@ import {
   assertNoHospitalityGamingConflict,
   compiledPromptHasHospitalityGamingConflict,
   hospitalityIndustryConflictsWithGamingText,
+  kostnadsfriIndustryConflictFromResponse,
   KostnadsfriIndustryConflictError,
 } from "./industry-conflict";
 
@@ -47,6 +48,16 @@ describe("hospitality vs gaming/lottery conflict", () => {
     expect(() =>
       assertNoHospitalityGamingConflict("restaurant", "Lotteriplattform med spellicens"),
     ).toThrow(KostnadsfriIndustryConflictError);
+  });
+
+  it("rebuilds the typed error from a 409 response body", () => {
+    const err = kostnadsfriIndustryConflictFromResponse(
+      { code: "kostnadsfri_industry_conflict" },
+      "restaurant",
+    );
+    expect(err).toBeInstanceOf(KostnadsfriIndustryConflictError);
+    expect(err?.industryId).toBe("restaurant");
+    expect(kostnadsfriIndustryConflictFromResponse({ error: "Failed to create prompt" })).toBeNull();
   });
 
   it("flags a compiled restaurant+lottery prompt the client could POST", () => {

@@ -33,6 +33,7 @@ import {
 export {
   KostnadsfriIndustryConflictError,
   isKostnadsfriIndustryConflictError,
+  kostnadsfriIndustryConflictFromResponse,
 } from "./industry-conflict";
 export { buildKostnadsfriWizardSnapshot } from "./wizard-snapshot";
 export type { KostnadsfriWizardSnapshot } from "./wizard-snapshot";
