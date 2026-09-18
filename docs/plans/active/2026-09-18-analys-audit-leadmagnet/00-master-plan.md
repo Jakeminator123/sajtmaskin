@@ -1,9 +1,10 @@
 # Publik `/analys` via befintlig audit (2026-09-18)
 
-> **Status: första implementation pågår.** Publik `/analys` är en egen
-> yta (inte Audit-modalen). Motor: `runWebsiteAudit` + `POST /api/analys`.
-> Jakob har sagt ja till att börja spåret. Routern i
-> [`../README.md`](../README.md) pekar redan hit.
+> **Status: kod på `docs/analys-audit-leadmagnet-plan`.** Publik `/analys`
+> är en egen yta (inte Audit-modalen). Motor: `runWebsiteAudit` +
+> `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` + basic, ingen
+> web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern i
+> [`../README.md`](../README.md) pekar hit.
 
 Runtime-ägare är audit-motorn, inte den här mappen:
 [`src/app/api/audit/modules/handler.ts`](../../../../src/app/api/audit/modules/handler.ts).

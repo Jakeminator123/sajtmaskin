@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { AUDIT_MODEL_CANDIDATES, PUBLIC_AUDIT_MODEL_CANDIDATES } from "@/app/api/audit/modules/schema";
 import { buildPublicAnalysPrompt } from "@/lib/audit-prompts";
+import {
+  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
+  AUDIT_STRUCTURED_DEFAULT_MODEL,
+} from "@/lib/gen/defaults";
 import type { WebsiteContent } from "@/types/audit";
 
 const sample: WebsiteContent = {
@@ -28,7 +33,22 @@ describe("buildPublicAnalysPrompt", () => {
     expect(text).toMatch(/inte pentester/);
     expect(text).toMatch(/Målgrupp/);
     expect(text).toMatch(/Hitta inte på CVE/);
-    expect(text).toMatch(/AUDIT-LÄGE: AVANCERAD/);
+    expect(text).toMatch(/AUDIT-LÄGE: VANLIG/);
+  });
+});
+
+describe("audit model split", () => {
+  it("keeps Sol on the product path and Luna on the public lead magnet", () => {
+    expect(AUDIT_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-sol");
+    expect(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL).toBe("openai/gpt-5.6-luna");
+    expect(AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-sol");
+    expect(PUBLIC_AUDIT_MODEL_CANDIDATES[0]).toBe("openai/gpt-5.6-luna");
+    expect(PUBLIC_AUDIT_MODEL_CANDIDATES).not.toContain("openai/gpt-5.6-sol");
+
+    const engine = readFileSync(resolve("src/lib/audit/run-website-audit.ts"), "utf8");
+    expect(engine).toMatch(/promptKind === "public" \? PUBLIC_AUDIT_MODEL_CANDIDATES/);
+    expect(engine).toMatch(/promptKind === "public"\s*\n\s*\? AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL/);
+    expect(engine).toMatch(/allowWebSearch = promptKind === "product" && FEATURES\.useAuditWebSearch/);
   });
 });
 

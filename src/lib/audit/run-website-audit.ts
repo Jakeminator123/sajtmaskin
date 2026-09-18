@@ -10,9 +10,13 @@ import {
 } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
 import type { AuditMode, AuditResult } from "@/types/audit";
-import { AUDIT_STRUCTURED_DEFAULT_MODEL } from "@/lib/gen/defaults";
+import {
+  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL,
+  AUDIT_STRUCTURED_DEFAULT_MODEL,
+} from "@/lib/gen/defaults";
 import {
   AUDIT_MODEL_CANDIDATES,
+  PUBLIC_AUDIT_MODEL_CANDIDATES,
   toResponsesModelId,
   AUDIT_AI_SCHEMA,
 } from "@/app/api/audit/modules/schema";
@@ -80,7 +84,14 @@ export async function runWebsiteAudit(input: {
 }): Promise<RunWebsiteAuditSuccess | RunWebsiteAuditFailure> {
   const { normalizedUrl, promptKind, requestId, requestStartTime } = input;
   const resolvedAuditMode: AuditMode =
-    promptKind === "public" ? "advanced" : input.auditMode === "advanced" ? "advanced" : "basic";
+    promptKind === "public" ? "basic" : input.auditMode === "advanced" ? "advanced" : "basic";
+  const modelCandidates =
+    promptKind === "public" ? PUBLIC_AUDIT_MODEL_CANDIDATES : AUDIT_MODEL_CANDIDATES;
+  const primaryModel =
+    promptKind === "public"
+      ? AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL
+      : AUDIT_STRUCTURED_DEFAULT_MODEL;
+  const allowWebSearch = promptKind === "product" && FEATURES.useAuditWebSearch;
 
   console.info(`[${requestId}] Scraping website...`);
   let websiteContent;
@@ -113,15 +124,15 @@ export async function runWebsiteAudit(input: {
   let webSearchCallCount = 0;
   let inputTokens = 0;
   let outputTokens = 0;
-  let usedModel: string = AUDIT_MODEL_CANDIDATES[0];
+  let usedModel: string = modelCandidates[0] ?? primaryModel;
 
   if (FEATURES.useResponsesApi) {
-    const RESPONSES_MODEL = toResponsesModelId(AUDIT_STRUCTURED_DEFAULT_MODEL);
-    usedModel = AUDIT_STRUCTURED_DEFAULT_MODEL;
+    const RESPONSES_MODEL = toResponsesModelId(primaryModel);
+    usedModel = primaryModel;
 
     const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
 
-    const tools: OpenAI.Responses.Tool[] = FEATURES.useAuditWebSearch
+    const tools: OpenAI.Responses.Tool[] = allowWebSearch
       ? [{ type: "web_search_preview" as const, search_context_size: "low" as const }]
       : [];
 
@@ -130,7 +141,7 @@ export async function runWebsiteAudit(input: {
       .join("\n\n");
 
     console.info(
-      `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${FEATURES.useAuditWebSearch})`,
+      `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${allowWebSearch}, prompt=${promptKind})`,
     );
 
     const response = await openai.responses.create({
@@ -177,7 +188,7 @@ export async function runWebsiteAudit(input: {
   } else {
     let aiResult: Awaited<ReturnType<typeof generateText>> | null = null;
     let lastFallbackError: unknown = null;
-    for (const candidateModel of AUDIT_MODEL_CANDIDATES) {
+    for (const candidateModel of modelCandidates) {
       usedModel = candidateModel;
       console.info(`[${requestId}] Calling fallback model (${usedModel})`);
       try {

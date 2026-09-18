@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       try {
         const engine = await runWebsiteAudit({
           normalizedUrl,
-          auditMode: "advanced",
+          auditMode: "basic",
           promptKind: "public",
           requestId,
           requestStartTime,
@@ -88,11 +88,13 @@ export async function POST(request: NextRequest) {
             success: true,
             result: engine.result,
             surface: "public-analys",
+            usedModel: engine.usedModel,
           },
           {
             headers: {
               "X-Request-ID": requestId,
               "X-Response-Time": `${totalDuration}ms`,
+              "X-Audit-Model": engine.usedModel,
               ...(engine.usedFallback ? { "X-Audit-Fallback": "true" } : {}),
             },
           },

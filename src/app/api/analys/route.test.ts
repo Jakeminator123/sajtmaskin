@@ -61,7 +61,7 @@ describe("POST /api/analys", () => {
       ok: true,
       result: { company: "Example", domain: "example.com", cost: { tokens: 1, sek: 0, usd: 0 } },
       usedFallback: false,
-      usedModel: "openai/gpt-5.6-sol",
+      usedModel: "openai/gpt-5.6-luna",
     });
   });
 
@@ -87,13 +87,15 @@ describe("POST /api/analys", () => {
     const payload = await response.json();
     expect(payload.success).toBe(true);
     expect(payload.surface).toBe("public-analys");
+    expect(payload.usedModel).toBe("openai/gpt-5.6-luna");
     expect(payload.result.company).toBe("Example");
+    expect(response.headers.get("X-Audit-Model")).toBe("openai/gpt-5.6-luna");
     expect(prepareCredits).not.toHaveBeenCalled();
     expect(runWebsiteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         normalizedUrl: "https://example.com/",
         promptKind: "public",
-        auditMode: "advanced",
+        auditMode: "basic",
       }),
     );
   });

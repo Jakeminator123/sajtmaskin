@@ -331,7 +331,7 @@ export function buildPublicAnalysPrompt(
   websiteContent: WebsiteContent,
   url: string,
 ): PromptMessage[] {
-  const base = buildAuditPrompt(websiteContent, url, "advanced");
+  const base = buildAuditPrompt(websiteContent, url, "basic");
   const system = base[0];
   if (!system) return base;
   return [

@@ -63,7 +63,8 @@ Requests över 272k input debiteras 2× input / 1,5× output.
 | `backoffice_scaffold_wizard_guide`                                              | `gpt-5.6-luna`                         | låg        |
 | `backoffice_dossier_curation`                                                   | `gpt-5.6-sol`                          | hög        |
 | `phaseRouting.anthropic`                                                        | `claude-opus-4.8`                      | hög        |
-| `audit_structured` (product audit + publik `/analys`)                           | `openai/gpt-5.6-sol`                   | hög (kampanj) |
+| `audit_structured` (inloggad produkt-audit)                                     | `openai/gpt-5.6-sol`                   | hög (kampanj) |
+| `audit_structured_public` (gratis `/analys`)                                    | `openai/gpt-5.6-luna`                  | låg |
 | `domain_suggestions`                                                            | `openai/gpt-5.2`                       | medel      |
 | utility (`project_analyze`, `wizard_*`, `inspector_ai_match`, `analyze_*`)      | `gpt-5-mini` / `gpt-5-nano`            | låg        |
 | embeddings                                                                      | `text-embedding-3-small`               | mycket låg |
