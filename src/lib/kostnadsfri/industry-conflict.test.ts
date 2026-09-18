@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertNoHospitalityGamingConflict,
+  compiledPromptHasHospitalityGamingConflict,
   hospitalityIndustryConflictsWithGamingText,
   KostnadsfriIndustryConflictError,
 } from "./industry-conflict";
@@ -46,5 +47,13 @@ describe("hospitality vs gaming/lottery conflict", () => {
     expect(() =>
       assertNoHospitalityGamingConflict("restaurant", "Lotteriplattform med spellicens"),
     ).toThrow(KostnadsfriIndustryConflictError);
+  });
+
+  it("flags a compiled restaurant+lottery prompt the client could POST", () => {
+    const incidentPrompt =
+      'Build a professional website for "ImpactWin Group AB", a Restaurang/Bar company based in Stockholm.\n' +
+      "About the company: Utvecklar digitala plattformar för lotteriförsäljning.";
+    expect(compiledPromptHasHospitalityGamingConflict(incidentPrompt)).toBe(true);
+    expect(compiledPromptHasHospitalityGamingConflict("Bygg en sajt")).toBe(false);
   });
 });

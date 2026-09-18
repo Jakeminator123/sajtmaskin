@@ -12,6 +12,7 @@ import { auditHandoffPayloadSchema } from "@/lib/builder/audit-handoff";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import { readKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
 import { sanitizeKostnadsfriWizardSnapshot } from "@/lib/kostnadsfri/wizard-snapshot";
+import { compiledPromptHasHospitalityGamingConflict } from "@/lib/kostnadsfri/industry-conflict";
 
 const createPromptSchema = z.object({
   prompt: z
@@ -130,6 +131,19 @@ export async function POST(request: NextRequest) {
             NextResponse.json(
               { success: false, error: "Inbjudan kunde inte verifieras." },
               { status: 403 },
+            ),
+          );
+        }
+        if (compiledPromptHasHospitalityGamingConflict(trimmedPrompt)) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                success: false,
+                error:
+                  "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+                code: "kostnadsfri_industry_conflict",
+              },
+              { status: 409 },
             ),
           );
         }

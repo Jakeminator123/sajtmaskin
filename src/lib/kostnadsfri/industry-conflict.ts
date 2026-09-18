@@ -56,3 +56,12 @@ export function assertNoHospitalityGamingConflict(
     throw new KostnadsfriIndustryConflictError(industryId);
   }
 }
+
+const HOSPITALITY_COMPILED_PROMPT_RE =
+  /Restaurang\/Bar|Café\/Konditori|Hälsa\/Wellness|\bBoka bord\b/;
+
+/** Server-side grind: den sammanställda prompten, inte bara klientens throw. */
+export function compiledPromptHasHospitalityGamingConflict(prompt: string): boolean {
+  if (!HOSPITALITY_COMPILED_PROMPT_RE.test(prompt)) return false;
+  return GAMING_OR_LOTTERY_RE.test(prompt);
+}

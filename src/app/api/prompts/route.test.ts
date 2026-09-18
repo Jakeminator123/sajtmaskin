@@ -268,6 +268,29 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     );
   });
 
+  it("rejects a compiled restaurant+lottery prompt before handoff", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    const res = await POST(
+      promptRequest(
+        {
+          prompt:
+            'Build a professional website for "ImpactWin Group AB", a Restaurang/Bar company based in Stockholm.\n' +
+            "About the company: Utvecklar digitala plattformar för lotteriförsäljning.",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+        },
+        true,
+      ),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "kostnadsfri_industry_conflict",
+    });
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
+
   it("drops payload unless source is audit", async () => {
     const stored = await POST(
       promptRequest({
