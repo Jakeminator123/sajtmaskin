@@ -16,6 +16,8 @@ Kodnamn: RenderGate = `designPreview`, ReleaseGate = `integrationsBuild`.
 | Lane-checklistor | `config/ai_models/manifest.json#qualityGateTiers` via `getQualityGateTiersFromManifest()` |
 | F2 typecheck-only Advisory | `isTypecheckOnlyAdvisory()` i `quality-gate-checks.ts` |
 | Verify-lane körning | `src/lib/gen/verify/preview-quality-gate.ts`, `preview-host/src/runtime.js` |
+| Verifier LLM-tillgänglighet | `llmAvailability` i verifier-passet: `completed` / avsiktligt `skipped` / `unavailable`. `unavailable` är inte ren review. |
+| Verify-jobbidentitet | Innehållsbunden job-nyckel i preview-hosten; dependency-fingerprint är install-cache |
 | Post-finalize verify-beslut | `resolvePostFinalizeServerVerifyDecision` i `src/lib/gen/stream/post-finalize-policies.ts` |
 | Server-verify | `src/lib/gen/verify/server-verify.ts` |
 | Verify-lease / promote | `src/lib/db/chat-repository-pg.ts` |

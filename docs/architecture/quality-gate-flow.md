@@ -163,10 +163,19 @@ flowchart TD
 
 Ordning inuti repair: deterministisk import-repair på tsc-koder först; om
 gaten då passerar promotas versionen utan LLM (`method: "deterministic"`).
-Annars `runRepairLoop` → `runLlmRepairGate`. Post-repair måste samma signal
-passa igen (`resolveSameSignalGateChecks`). Lyckad repair skriver
-`repaired_files_json` och `verification_state = "repair_available"` — inte
-tyst overwrite av `files_json`. Accept: `POST .../accept-repair`.
+Annars `runRepairLoop` → `runLlmRepairGate`. Efter ett repair-försök måste
+samma signal verifieras igen (`resolveSameSignalGateChecks` väljer vilka
+checks som körs om). Godkänt resultat avslutar behovet av ytterligare
+repair. Fortsatt underkänt resultat bedöms med övriga stopp- och
+budgetvillkor (`serverRepairPasses`, tidsbudget, superseded, no-op). En
+ny repair-pass kräver alltså omverifiering, inte att signalen redan
+passar. En andra LLM-pass får inte anta att gaten fortfarande är röd
+utan den omkörningen. Lyckad repair
+skriver `repaired_files_json` och `verification_state = "repair_available"` —
+inte tyst overwrite av `files_json`. Accept: `POST .../accept-repair`.
+`verifyDeadlineEpochMs` trådas till repair-loopens slutgate
+(`shouldPromoteAfterRepair`). Det är deadline-trådning, inte ett påstående
+att den mjuka C4-residualen är borta.
 
 Alla LLM-repair går genom `runLlmRepairGate`
 (`src/lib/gen/autofix/llm-repair-gate.ts`). Outcome-strängar ägs av
@@ -205,11 +214,24 @@ flagga av). När grundpolicyn säger `run` styrs skip av Normalize-risk:
 `risky_fixes`; 3D-signal och LLM-fix i validate tvingar körning. `FIXER_REGISTRY`
 är riskkällan.
 
+LLM-passets `llmAvailability` är trevärd: `completed`, avsiktligt `skipped`
+(kill-switch/policy) och `unavailable` (provider/timeout). `skipped` plus
+tomma scanners är en genomförd hoppning. `unavailable` plus tomma scanners
+är inte en ren review — koden lägger `verifier-llm-unavailable`. Den
+kvittoraden är advisory i F2 (preview får starta) och blockerande i F3.
+Hela fyndlistan styr gate, severity och recheck; UI-trunkering är
+presentation. Ett enda kvarvarande build-breaking-fynd längst ner i listan
+får inte försvinna bakom de första advisories.
+
 ## Install i verify-lane
 
 Normal install först; `--legacy-peer-deps` bara vid detekterad peer-konflikt.
 `node_modules` kan delas med live-workspace vid matchande dependency
 fingerprint (`install-cache-share` / `install-peer-fallback` i `results[]`).
+Dependency-fingeravtrycket är install-cache, inte verify-jobbets identitet.
+Verify-jobbet binds till verifierat filinnehåll (`filesContentFingerprint`
+ingår i job-nyckeln): samma `package.json` men ändrad `app/page.tsx` ger ett
+nytt jobb. Checkordning ingår i identiteten.
 
 ## Historisk baslinje
 

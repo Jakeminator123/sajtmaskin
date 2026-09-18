@@ -43,7 +43,6 @@ import { normalizeDomainHostname } from "@/lib/live-site-url";
 import { getVercelToken } from "@/lib/vercel";
 
 const HTTPS_TIMEOUT_MS = 8_000;
-const HTTPS_MAX_BODY_BYTES = 2_048;
 const HTTPS_MAX_REDIRECTS = 3;
 
 export type { CustomerDomainSnapshot, HostCheck };
@@ -129,6 +128,10 @@ function pinnedFetchFailureStatus(error: unknown): DomainHttpsStatus {
  * Prove HTTPS by following a short same-host / primary-host chain. Each hop is
  * a fresh `fetchWithPinnedDns` so SSRF pinning is re-applied — never rewrite
  * the URL to an IP and never reuse a socket across hops.
+ *
+ * The probe is headers-only: a typical customer HTML document is larger than
+ * a small body cap, and aborting on that cap was classified as `unknown`
+ * ("Kontrollerar HTTPS") even when the origin had already answered 200.
  */
 export async function checkCustomerHttps(
   hostname: string,
@@ -148,7 +151,7 @@ export async function checkCustomerHttps(
       result = await fetchWithPinnedDns(currentUrl, {
         method: "GET",
         timeoutMs: HTTPS_TIMEOUT_MS,
-        maxBodyBytes: HTTPS_MAX_BODY_BYTES,
+        headersOnly: true,
       });
     } catch (error) {
       return pinnedFetchFailureStatus(error);

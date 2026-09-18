@@ -100,12 +100,44 @@ describe("SEO landing registry", () => {
     ).toEqual(["/skapa-hemsida-med-ai"]);
   });
 
-  it("keeps placeholders out of the indexable sitemap set", () => {
-    expect(SEO_LANDING_PAGES.every((page) => page.status === "placeholder")).toBe(true);
-    expect(getIndexableSeoLandingRelPaths()).toEqual([]);
-    expect(getPlaceholderSeoLandingRelPaths()).toEqual(
-      SEO_LANDING_PAGES.map((page) => `/${page.slug}`),
+  it("keeps unfinished pages out of the indexable sitemap set", () => {
+    const readySlugs = new Set(
+      SEO_LANDING_PAGES.filter((page) => page.status === "ready").map((page) => page.slug),
     );
+    expect(readySlugs).toEqual(
+      new Set([
+        "skapa-hemsida",
+        "skapa-hemsida-med-ai",
+        "ai-hemsidebyggare",
+        "hemsida-till-foretag",
+        "hemsideprogram",
+        "hemsida-utan-kod",
+        "vad-kostar-en-hemsida",
+        "wix-alternativ",
+        "wordpress-alternativ",
+        "lovable-alternativ",
+      ]),
+    );
+    expect(getIndexableSeoLandingRelPaths()).toEqual([
+      "/skapa-hemsida",
+      "/skapa-hemsida-med-ai",
+      "/ai-hemsidebyggare",
+      "/hemsida-till-foretag",
+      "/hemsideprogram",
+      "/hemsida-utan-kod",
+      "/vad-kostar-en-hemsida",
+      "/wix-alternativ",
+      "/wordpress-alternativ",
+      "/lovable-alternativ",
+    ]);
+    expect(getPlaceholderSeoLandingRelPaths()).toEqual(
+      SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).map((page) => `/${page.slug}`),
+    );
+    expect(
+      SEO_LANDING_PAGES.filter((page) => !readySlugs.has(page.slug)).every(
+        (page) => page.status === "placeholder",
+      ),
+    ).toBe(true);
   });
 
   it("sends every landing CTA into the existing builder flow", () => {
@@ -132,22 +164,48 @@ describe("SEO landing registry", () => {
     }
   });
 
+  it("does not describe ready sibling pages as unfinished placeholders", () => {
+    const staleSiblingCopy = [
+      /Sidorna är reserverade/i,
+      /fylls på efter den här referenssidan/i,
+      /räkna inte med färdiga\s+guider/i,
+      /fylls på när de är klara/i,
+      /syns inte som länkar förrän dess/i,
+      /separat guide om kostnadsdelar kommer senare/i,
+    ];
+
+    for (const page of SEO_LANDING_PAGES) {
+      if (page.status !== "ready") continue;
+      const source = readFileSync(join(APP_DIR, page.slug, `${page.slug}-content.tsx`), "utf8");
+      for (const pattern of staleSiblingCopy) {
+        expect(source, `${page.slug} still has stale sibling copy ${pattern}`).not.toMatch(
+          pattern,
+        );
+      }
+      for (const related of page.relatedSlugs) {
+        expect(getSeoLandingEntry(related).status).toBe("ready");
+      }
+    }
+  });
+
   it("allows the shared placeholder only for placeholder entries", () => {
     expect(() =>
-      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("skapa-hemsida-med-ai")),
+      assertSeoLandingPlaceholderAllowed({
+        ...getSeoLandingEntry("lovable-alternativ"),
+        status: "placeholder",
+      }),
     ).not.toThrow();
     expect(() =>
-      assertSeoLandingPlaceholderAllowed({
-        ...getSeoLandingEntry("skapa-hemsida-med-ai"),
-        status: "ready",
-      }),
+      assertSeoLandingPlaceholderAllowed(getSeoLandingEntry("lovable-alternativ")),
     ).toThrow(SEO_LANDING_PLACEHOLDER_READY_MESSAGE);
   });
 
   it("fails closed when a ready route still mounts SeoLandingPlaceholder", () => {
     for (const page of SEO_LANDING_PAGES) {
       const source = readFileSync(join(APP_DIR, page.slug, "page.tsx"), "utf8");
-      const usesPlaceholder = source.includes("SeoLandingPlaceholder");
+      const usesPlaceholder =
+        /<SeoLandingPlaceholder\b/.test(source) ||
+        /^\s*import[\s\S]*\bSeoLandingPlaceholder\b/m.test(source);
       if (usesPlaceholder) {
         expect(page.status).toBe("placeholder");
       }

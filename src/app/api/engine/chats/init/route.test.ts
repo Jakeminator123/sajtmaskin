@@ -243,6 +243,59 @@ describe("POST /api/engine/chats/init", () => {
     );
   });
 
+  it("persists imported png/woff2 as canonical binary envelopes for preview", async () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const woff2 = Buffer.concat([Buffer.from("wOF2", "ascii"), Buffer.alloc(16, 3)]);
+    const zip = new JSZip();
+    zip.file(
+      "repo-root/app/page.tsx",
+      'export default function Page() { return <img src="/logo.png" alt="" /> }',
+    );
+    zip.file(
+      "repo-root/app/globals.css",
+      '@font-face { font-family: Site; src: url("/fonts/site.woff2"); }',
+    );
+    zip.file("repo-root/public/logo.png", png);
+    zip.file("repo-root/public/fonts/site.woff2", woff2);
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", content: buffer.toString("base64") },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const persistedFiles = JSON.parse(String(createDraftVersion.mock.calls[0]?.[2])) as Array<{
+      path: string;
+      language: string;
+      content: string;
+    }>;
+    const logo = persistedFiles.find((file) => file.path === "public/logo.png");
+    const font = persistedFiles.find((file) => file.path === "public/fonts/site.woff2");
+    expect(logo).toMatchObject({
+      language: "binary",
+      content: `base64:${png.toString("base64")}`,
+    });
+    expect(font).toMatchObject({
+      language: "binary",
+      content: `base64:${woff2.toString("base64")}`,
+    });
+    expect(startPreviewSession.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "public/logo.png", language: "binary" }),
+        expect.objectContaining({ path: "public/fonts/site.woff2", language: "binary" }),
+      ]),
+    );
+  });
+
   it("records an explicit failed outcome when imported preview startup fails", async () => {
     const zip = new JSZip();
     zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");

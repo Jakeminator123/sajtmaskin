@@ -1,23 +1,15 @@
 import type { Metadata } from "next";
-import { SeoLandingPlaceholder } from "@/components/seo-landing-pages/seo-landing-placeholder";
 import { createSeoLandingMetadata } from "@/lib/seo-landing-pages/metadata";
+import { SkapaHemsidaMedAiContent } from "./skapa-hemsida-med-ai-content";
 
 /**
- * Reference SEO landing route.
+ * Reference SEO landing route on the main domain.
  *
- * Future finished pages follow the same shape:
- * - server `page.tsx` with unique `metadata`
- * - ordinary App Router URL on the main domain
- * - product CTA via the registry (`/builder?new=1`)
- * - replace `SeoLandingPlaceholder` with extracted design/content
- * - flip `status` to `"ready"` in the registry only after that swap.
- *   The placeholder is fail-closed: a ready entry still mounting it
- *   throws at render and fails tests.
- *
- * Do not embed a second app, iframe, or subdomain here.
+ * Keep server metadata via `createSeoLandingMetadata`. Flip the registry
+ * `status` to `ready` only after this file renders real page content.
  */
 export const metadata: Metadata = createSeoLandingMetadata("skapa-hemsida-med-ai");
 
 export default function SkapaHemsidaMedAiPage() {
-  return <SeoLandingPlaceholder slug="skapa-hemsida-med-ai" />;
+  return <SkapaHemsidaMedAiContent />;
 }

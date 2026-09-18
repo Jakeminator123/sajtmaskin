@@ -1,6 +1,12 @@
 # SEO-landningssidor på sajtmaskin.se
 
-> **Status: genomförande pågår mot `preview`.** Ingen produktionspromote.
+> **Status: tio sidor `ready` på preview; Production/indexering kvar.**
+> Registret på preview `13843edc` har alla tio poster `ready` (#1437
+> foundation, #1443 + #1448–#1457). Det är inte `master` `2566eec511` och
+> inte Search Console. Copy på `/skapa-hemsida-med-ai` säger fortfarande
+> att syskonguiderna inte är färdiga — SEO-ägarens rest. Beställ inte
+> borttagning av Relaterat-länkar till mål som nu är färdiga. Hygien
+> ändrar inte sidkoden.
 > Planpaket från coach 2026-09-16. Runtime-ägare är
 > [`src/lib/seo-landing-pages/registry.ts`](../../../../src/lib/seo-landing-pages/registry.ts),
 > inte den här mappen.
@@ -19,15 +25,15 @@ Kodkontrakt: vanliga App Router-routes. Sitemap och index följer
 
 | Del | Läget |
 |---|---|
-| Foundation | #1437: register + noindex-placeholders + fail-closed mot `ready` |
+| Foundation | #1437: register + fail-closed mot `ready` |
 | Register + metadata + sitemap-grind | Finns |
-| Referensroute `/skapa-hemsida-med-ai` | Finns som noindex-placeholder |
-| Övriga slugs i matrisen | Routes finns, fortfarande placeholders |
-| Unikt innehåll / demo / internlänkar | Inte skrivet |
-| Indexering | Ingen sida är `ready` |
+| Alla tio slugs i matrisen | `status: "ready"` på preview `13843edc` (#1443, #1448–#1457) |
+| Unikt innehåll / internlänkar | Sidinnehåll landat. Relaterat-länkarna pekar på färdiga mål; ta inte bort dem. |
+| Copy-svans | `/skapa-hemsida-med-ai` påstår fortfarande att syskonguiderna inte är färdiga. SEO-ägarens rest, inte hygien. |
+| Indexering | Preview-sitemap följer `ready`. Production och Search Console väntar promote. |
 
-Synka alltid mot live `origin/preview` före nästa kodsteg. #1437 mergas
-av en annan agent; fyll inte den PR:n med riktigt sidinnehåll.
+`ready` i preview-registret är inte Production. Synka mot live
+`origin/preview` före nästa kodsteg. Bygg inte om de tio sidorna.
 
 ## Avvikelse från coachpaketet
 
@@ -60,16 +66,16 @@ Se [`02-page-matrix.md`](02-page-matrix.md). Brief per sida ligger i
 | Fas | Vad | Status |
 |---|---|---|
 | A Baseline | Läs befintliga publika routes, sitemap, CTA | Klar i #1437 |
-| B Referens | `/skapa-hemsida-med-ai` som integrationsmönster | Route + kontrakt klart; innehåll saknas |
-| C Återanvändning | Extrahera CTA/demo/tabell bara vid faktisk duplication | Inte aktuellt än |
-| D Batch 1 | Innehåll för skapa/AI/företag/program/utan-kod | Väntar färdig design/content |
-| E Batch 2 | Kostnad + konkurrentjämförelser, faktagranskade | Väntar färdig design/content |
-| F Indexering | `ready` + sitemap + Search Console | Inte förrän DoD per sida |
+| B Referens | `/skapa-hemsida-med-ai` som integrationsmönster | Klar på preview (#1443) |
+| C Återanvändning | Extrahera CTA/demo/tabell bara vid faktisk duplication | Inte ett aktivt arbetspaket |
+| D Batch 1 | Innehåll för skapa/AI/företag/program/utan-kod | Klar på preview (#1448–#1453) |
+| E Batch 2 | Kostnad + konkurrentjämförelser, faktagranskade | Klar på preview (#1454–#1457) |
+| F Indexering | Production + Search Console | Inte förrän promote; `ready` på preview räcker inte |
 
-Nästa PR efter att #1437 är mergad till `preview`: bara
-`/skapa-hemsida-med-ai` som första riktiga sida. Handover:
+De tio sidornas innehåll är landat på preview. Beställ inte om B–E.
+Kvar för SEO-ägaren: copy-svansen på `/skapa-hemsida-med-ai`. Kvar för
+release: Production/indexering. Historisk handover för första sidan:
 [`aktiviteter/05-forsta-riktiga-sidan.md`](aktiviteter/05-forsta-riktiga-sidan.md).
-Batcha inte övriga sidor förrän den modellen är granskad.
 
 ## Definition of Done per sida
 
