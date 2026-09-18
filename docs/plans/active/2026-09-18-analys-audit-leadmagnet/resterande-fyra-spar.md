@@ -40,21 +40,32 @@ Utskick och leadhantering ägs av ägarens separata repo
 `Jakeminator123/JakobScrape` («POIT-leads och dashboard»). Sajtmaskin-repot
 ska inte få en parallell utskicks- eller leadpipeline.
 
-## Hur `/analys` gör de andra starkare
+## Vad `/analys` är — och inte är — i de här spåren
 
-`/analys` är levererad och fungerar som verktyg i båda riktningarna:
-inbound på sajten, och som personlig bilaga i outreach.
+`/analys` är **främst en inbound lead magnet** riktad till mottagaren:
+någon matar in sin egen URL och läser sin egen rapport.
 
-```text
-trigger (PRV, nyemission, annat)
-  → hitta bolagets nuvarande webb
-  → kör /analys
-  → personlig rapport + ev. mockup
-  → outreach
-```
+Den publika vägen är takad till **1 körning per IP och dygn**
+([`rate-limit.ts`](../../../../src/lib/rate-limit.ts), `analys:public`).
+Den är alltså **ingen batchmotor**. Ett pilotprov på ~20 leads per arm kan
+inte matas genom den publika endpointen.
 
-Då blir kontakten inte «en signal hände», utan något konkret om deras
-faktiska webbplats.
+Så här får den användas i spåren:
+
+| Användning | Går |
+|---|---|
+| Länk i utskicket — mottagaren kör själv | Ja, det är hela poängen |
+| Manuellt stickprov på ett fåtal bolag före outreach | Ja |
+| Rapport per lead i volym | Nej på den publika vägen; det är den inloggade audit-vägen, som drar credits — och den är inte beställd |
+| Batchkörning eller kringgången rate limit | **Nej.** Bygg inte, och höj inte taket för att få volym |
+
+K1:s inline-bild kommer från den **genererade förslagssidan**, inte från
+`/analys`. De två är olika artefakter: förslaget visar vad de kan få,
+rapporten säger något om det de redan har.
+
+Poängen med signalspåren är alltså inte «en signal hände», utan att
+kontakten kan säga något konkret — antingen genom ett manuellt stickprov
+eller genom att mottagaren själv kör analysen.
 
 ## 2. T-1: varumärkesansökan hos PRV
 
