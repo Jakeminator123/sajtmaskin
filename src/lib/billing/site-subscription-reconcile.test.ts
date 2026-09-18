@@ -75,6 +75,23 @@ function row(desired: "active" | "paused", billingMode: "test" | "live" = "test"
 
 const liveJob = { ...job, billing_mode: "live" as const };
 
+function deferred() {
+  let resolve!: (value?: unknown) => void;
+  const promise = new Promise<void>((res) => {
+    resolve = () => res();
+  });
+  return { promise, resolve };
+}
+
+function deferredValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+
 beforeEach(() => {
   vi.clearAllMocks();
   updateBillingJob.mockResolvedValue({});
@@ -232,19 +249,19 @@ describe("processHostingJob", () => {
   });
 
   it("bokför paused och köar resume när desired blir active under pågående pause", async () => {
-    let releasePause;
-    let markPauseStarted;
-    const pauseStarted = new Promise((resolve) => {
-      markPauseStarted = resolve;
-    });
+    const pauseStarted = deferred();
+    const pauseResult = deferredValue<{
+      ok: boolean;
+      written: boolean;
+      confirmed: boolean;
+      code: string;
+    }>();
     pause.mockImplementation(() => {
-      markPauseStarted();
-      return new Promise((resolve) => {
-        releasePause = resolve;
-      });
+      pauseStarted.resolve();
+      return pauseResult.promise;
     });
 
-    let desired = "paused";
+    let desired: "paused" | "active" = "paused";
     getSiteSubscriptionById.mockImplementation(async () => ({
       ...row(desired, "live"),
     }));
@@ -256,9 +273,9 @@ describe("processHostingJob", () => {
 
     const now = new Date("2026-09-15T12:00:00.000Z");
     const running = processHostingJob(liveJob, now);
-    await pauseStarted;
+    await pauseStarted.promise;
     desired = "active";
-    releasePause({
+    pauseResult.resolve({
       ok: true,
       written: true,
       confirmed: true,
@@ -287,19 +304,19 @@ describe("processHostingJob", () => {
 
   it("bokför active och köar pause när desired blir paused under pågående restore", async () => {
     const resumeJob = { ...liveJob, kind: "resume", open_job_key: "resume:sub_1" };
-    let releaseRestore;
-    let markRestoreStarted;
-    const restoreStarted = new Promise((resolve) => {
-      markRestoreStarted = resolve;
-    });
+    const restoreStarted = deferred();
+    const restoreResult = deferredValue<{
+      ok: boolean;
+      written: boolean;
+      confirmed: boolean;
+      code: string;
+    }>();
     restore.mockImplementation(() => {
-      markRestoreStarted();
-      return new Promise((resolve) => {
-        releaseRestore = resolve;
-      });
+      restoreStarted.resolve();
+      return restoreResult.promise;
     });
 
-    let desired = "active";
+    let desired: "paused" | "active" = "active";
     getSiteSubscriptionById.mockImplementation(async () => ({
       ...row(desired, "live"),
     }));
@@ -311,9 +328,9 @@ describe("processHostingJob", () => {
 
     const now = new Date("2026-09-15T12:00:00.000Z");
     const running = processHostingJob(resumeJob, now);
-    await restoreStarted;
+    await restoreStarted.promise;
     desired = "paused";
-    releaseRestore({
+    restoreResult.resolve({
       ok: true,
       written: true,
       confirmed: true,
