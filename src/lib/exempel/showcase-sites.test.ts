@@ -5,10 +5,11 @@ import {
   EXEMPEL_CANONICAL_URL,
   EXEMPEL_DISCLOSURE,
   EXEMPEL_PATH,
-  FORBIDDEN_GLASS_ALIAS,
   HOME_SHOWCASE_SITES,
   SHOWCASE_SITES,
 } from "./showcase-sites";
+
+const FORBIDDEN_GLASS_ALIAS = "https://glass-showcase.vercel.app";
 
 describe("showcase site catalog", () => {
   it("lists exactly the five live reconstructions in the public order", () => {
@@ -25,6 +26,9 @@ describe("showcase site catalog", () => {
     const serialized = JSON.stringify(SHOWCASE_SITES);
     expect(serialized).not.toContain("glass-showcase.vercel.app");
     expect(FORBIDDEN_GLASS_ALIAS).toBe("https://glass-showcase.vercel.app");
+    expect(readFileSync(resolve(process.cwd(), "src/lib/exempel/showcase-sites.ts"), "utf8")).not.toContain(
+      FORBIDDEN_GLASS_ALIAS,
+    );
     for (const site of SHOWCASE_SITES) {
       expect(site.href).not.toBe(FORBIDDEN_GLASS_ALIAS);
     }
@@ -63,7 +67,7 @@ describe("showcase site catalog", () => {
   it("keeps the catalog as the product owner of the live URLs", () => {
     const source = readFileSync(resolve(process.cwd(), "src/lib/exempel/showcase-sites.ts"), "utf8");
     expect(source).toContain("https://glass-showcase-umber.vercel.app");
-    expect(source).toContain("FORBIDDEN_GLASS_ALIAS");
+    expect(source).not.toContain(FORBIDDEN_GLASS_ALIAS);
     expect(SHOWCASE_SITES.some((site) => site.href.includes("glass-showcase-umber"))).toBe(true);
   });
 

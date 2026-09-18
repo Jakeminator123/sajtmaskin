@@ -5,8 +5,8 @@
  * customer cases and must not be described as live businesses or as exact
  * current Sajtmaskin output.
  *
- * Glass must only link to the umber alias. `glass-showcase.vercel.app` belongs
- * to an unrelated wedding site and must never be referenced.
+ * Glass must only link to the umber alias. The bare glass-showcase host
+ * without `-umber` is an unrelated wedding site and must never be referenced.
  */
 
 export const EXEMPEL_PATH = "/exempel" as const;
@@ -14,7 +14,6 @@ export const EXEMPEL_CANONICAL_URL = "https://sajtmaskin.se/exempel" as const;
 export const EXEMPEL_BUILDER_HREF = "/builder?new=1" as const;
 export const EXEMPEL_SECONDARY_HREF = "/skapa-hemsida-med-ai" as const;
 
-export const FORBIDDEN_GLASS_ALIAS = "https://glass-showcase.vercel.app" as const;
 export const SHOWCASE_EXTERNAL_REL = "noopener noreferrer nofollow" as const;
 
 export type ShowcaseSiteId = "byraflode" | "springa" | "palma" | "paddlelines" | "glass";

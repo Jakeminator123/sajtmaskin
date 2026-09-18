@@ -69,45 +69,39 @@ export function ExempelContent() {
           <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {SHOWCASE_SITES.map((site) => (
               <li key={site.id}>
-                <article className="border-border/25 bg-card/35 flex h-full flex-col overflow-hidden rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.22)]">
+                <article className="border-border/25 bg-card/35 h-full overflow-hidden rounded-[28px] border shadow-[0_24px_60px_rgba(6,10,20,0.22)]">
                   <a
                     href={site.href}
                     target="_blank"
                     rel={SHOWCASE_EXTERNAL_REL}
-                    className="group relative block aspect-[16/10] overflow-hidden bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
-                    <Image
-                      src={site.screenshotSrc}
-                      alt=""
-                      fill
-                      sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
-                      className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                    />
-                    <span className="sr-only">
-                      {site.name}: {site.screenshotAlt} (öppnas i ny flik)
+                    <span className="relative block aspect-[16/10] overflow-hidden bg-secondary/30">
+                      <Image
+                        src={site.screenshotSrc}
+                        alt={site.screenshotAlt}
+                        fill
+                        sizes="(min-width: 1280px) 360px, (min-width: 768px) 45vw, 100vw"
+                        className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                    </span>
+                    <span className="flex flex-1 flex-col px-5 py-5">
+                      <span className="text-xs font-medium tracking-widest text-primary uppercase">
+                        {site.industry}
+                      </span>
+                      <h3 className="mt-2 font-(--font-heading) text-2xl tracking-tight text-foreground">
+                        {site.name}
+                      </h3>
+                      <span className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
+                        {site.summary}
+                      </span>
+                      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 group-hover:underline">
+                        Öppna {site.name}
+                        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                        <span className="sr-only"> (öppnas i ny flik)</span>
+                      </span>
                     </span>
                   </a>
-                  <div className="flex flex-1 flex-col px-5 py-5">
-                    <p className="text-xs font-medium tracking-widest text-primary uppercase">
-                      {site.industry}
-                    </p>
-                    <h3 className="mt-2 font-(--font-heading) text-2xl tracking-tight text-foreground">
-                      {site.name}
-                    </h3>
-                    <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
-                      {site.summary}
-                    </p>
-                    <a
-                      href={site.href}
-                      target="_blank"
-                      rel={SHOWCASE_EXTERNAL_REL}
-                      className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Öppna exemplet
-                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-                      <span className="sr-only"> (öppnas i ny flik)</span>
-                    </a>
-                  </div>
                 </article>
               </li>
             ))}

@@ -6,10 +6,11 @@ import {
   EXEMPEL_BUILDER_HREF,
   EXEMPEL_DISCLOSURE,
   EXEMPEL_SECONDARY_HREF,
-  FORBIDDEN_GLASS_ALIAS,
   SHOWCASE_EXTERNAL_REL,
   SHOWCASE_SITES,
 } from "@/lib/exempel/showcase-sites";
+
+const FORBIDDEN_GLASS_ALIAS = "https://glass-showcase.vercel.app";
 import { ExempelContent } from "./exempel-content";
 
 vi.mock("next/link", () => ({
@@ -36,13 +37,16 @@ describe("ExempelContent", () => {
     expect(container.querySelector("iframe")).toBeNull();
     expect(container.textContent).not.toMatch(/kundcase/i);
 
-    const openLinks = screen.getAllByRole("link", { name: /Öppna exemplet/ });
-    expect(openLinks).toHaveLength(SHOWCASE_SITES.length);
+    const external = [...container.querySelectorAll('a[href^="http"]')];
+    expect(external).toHaveLength(SHOWCASE_SITES.length);
     for (const [index, site] of SHOWCASE_SITES.entries()) {
       expect(screen.getByRole("heading", { level: 3, name: site.name })).toBeTruthy();
-      expect(openLinks[index]?.getAttribute("href")).toBe(site.href);
-      expect(openLinks[index]?.getAttribute("rel")).toBe(SHOWCASE_EXTERNAL_REL);
-      expect(openLinks[index]?.getAttribute("target")).toBe("_blank");
+      expect(external[index]?.getAttribute("href")).toBe(site.href);
+      expect(external[index]?.getAttribute("rel")).toBe(SHOWCASE_EXTERNAL_REL);
+      expect(external[index]?.getAttribute("target")).toBe("_blank");
+      expect(
+        screen.getByRole("link", { name: new RegExp(`Öppna ${site.name}`) }),
+      ).toBeTruthy();
     }
     expect(container.innerHTML).not.toContain(FORBIDDEN_GLASS_ALIAS);
   });
@@ -57,7 +61,8 @@ describe("ExempelContent", () => {
     );
 
     const secondary = screen.getAllByRole("link", { name: /AI/i });
-    expect(secondary.some((link) => link.getAttribute("href") === EXEMPEL_SECONDARY_HREF)).toBe(
+    expect(secondary).toHaveLength(2);
+    expect(secondary.every((link) => link.getAttribute("href") === EXEMPEL_SECONDARY_HREF)).toBe(
       true,
     );
   });
