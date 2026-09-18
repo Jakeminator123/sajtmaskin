@@ -1,10 +1,10 @@
 # Publik `/analys` via befintlig audit (2026-09-18)
 
-> **Status: kod på `docs/analys-audit-leadmagnet-plan`.** Publik `/analys`
-> är en egen yta (inte Audit-modalen). Motor: `runWebsiteAudit` +
-> `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` + basic, ingen
-> web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern i
-> [`../README.md`](../README.md) pekar hit.
+> **Status: mergad till preview i #1471.**
+> Publik `/analys` är en egen yta (inte Audit-modalen). Motor:
+> `runWebsiteAudit` + `POST /api/analys`. Gratisvägen = `gpt-5.6-luna` +
+> basic, ingen web_search. Inloggad produkt-audit = `gpt-5.6-sol`. Routern
+> i [`../README.md`](../README.md) pekar hit.
 
 Runtime-ägare är audit-motorn, inte den här mappen:
 [`src/app/api/audit/modules/handler.ts`](../../../../src/app/api/audit/modules/handler.ts).
@@ -18,17 +18,23 @@ publik lead magnet på `sajtmaskin.se/analys`.
 
 Inbound: vem som helst matar in en URL och får en rapport, med tydlig
 CTA till konto och builder. Outbound (samma motor före outreach) är
-idé, inte det här spåret. Brainstormen om widget/kundanskaffning är
-underlag; filen `docs/growth/kundanskaffning-fordjupning-fem-spar.md`
-finns inte i den här checkouten, så den länkas inte.
+idé, inte det här spåret.
 
-## Kundanskaffning: spår 1 av fem är struket
+## Kundanskaffning: widget-spåret är struket
 
-Av de fem kundanskaffningsspåren är **den publika granskningen som lead
-magnet** avklarad i kod och stryks från listan. Kvar i den listan:
-de fyra övriga spåren, som fortfarande bara finns som brainstorm i
-Jakobs egen checkout (`docs/growth/kundanskaffning-fordjupning-fem-spar.md`
-är inte tracked här) — beställ dem separat.
+Av de fem kundanskaffningsspåren är **punkt 2, den publika
+webbplatsgranskningen**, avklarad i kod (#1471) och stryks från listan.
+De fyra övriga namnges i
+[`resterande-fyra-spar.md`](resterande-fyra-spar.md) så de inte bara
+finns i Jakobs opushade Windows-checkout. Beställ dem separat.
+
+| # | Spår | Status |
+|---|---|---|
+| 1 | Inline bild i kalla mejl/DM | Kvar — se resten |
+| 2 | Publik «gratis webbplatsgranskning»-widget (`/analys`) | Gjort i #1471 |
+| 3 | T-1: varumärkesansökan hos PRV | Kvar — se resten |
+| 4 | Nyemission registrerad hos Bolagsverket | Kvar — se resten |
+| 5 | DNS/nameserver-byte hos befintligt bolag | Kvar — se resten |
 
 Levererat i det här spåret:
 
@@ -171,6 +177,7 @@ indexerad «gratis analys» före A2+A3+A4.
 | [aktiviteter/A2-gastpolicy-credits.md](aktiviteter/A2-gastpolicy-credits.md) | Gäst vs credits |
 | [aktiviteter/A3-abuse-rate-limit.md](aktiviteter/A3-abuse-rate-limit.md) | Tak och in-flight |
 | [aktiviteter/A4-cta-handoff.md](aktiviteter/A4-cta-handoff.md) | Copy, CTA, handoff |
+| [resterande-fyra-spar.md](resterande-fyra-spar.md) | De fyra kvarvarande kundanskaffningsspåren |
 
 SEO-QA att återanvända (inte kopiera registret):
 [`../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md`](../2026-09-16-seo-landningssidor/03-seo-qa-checklist.md).
@@ -228,6 +235,10 @@ rapporten i browsern.
 - [x] A1 noindex-route
 - [x] A2 + A3
 - [ ] Separat ja innan index/sitemap
-- [ ] När spåret är mergat och ev. indexbeslut är överlämnat: väv in en
-      rad i [`../../avklarat/README.md`](../../avklarat/README.md) och
-      rensa den här mappen
+- [x] Widget-spåret mergat till preview (#1471)
+- [x] De fyra övriga kundanskaffningsspåren namngivna i
+      [`resterande-fyra-spar.md`](resterande-fyra-spar.md)
+- [ ] När ev. indexbeslut är överlämnat: väv in en rad i
+      [`../../avklarat/README.md`](../../avklarat/README.md) och rensa
+      den här mappen — behåll `resterande-fyra-spar.md` eller flytta den
+      med, så listan inte bara finns i git-historiken
