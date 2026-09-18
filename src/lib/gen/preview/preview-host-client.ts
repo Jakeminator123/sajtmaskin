@@ -1,5 +1,9 @@
 import { getPreviewHostBaseUrl } from "./tier2-config";
 import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
+import {
+  isPreviewInstallKind,
+  type PreviewInstallKind,
+} from "@/lib/gen/validation/install-peer-fallback-receipt";
 
 export function previewHostAuthHeaders(): Record<string, string> {
   const key = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
@@ -199,6 +203,11 @@ export type PreviewHostStatusResult = {
    */
   usedLegacyPeerDeps?: boolean;
   peerConflictDetected?: boolean;
+  /**
+   * How the host reached a live `node_modules` for this boot.
+   * `skipped` is a fingerprint reuse, not a strict install.
+   */
+  installKind?: PreviewInstallKind | null;
 };
 
 export type PreviewHostInstallDiagnostics = {
@@ -349,6 +358,7 @@ export async function fetchPreviewHostStatus(
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
       usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
       peerConflictDetected: body.peerConflictDetected === true,
+      installKind: isPreviewInstallKind(body.installKind) ? body.installKind : null,
     };
   } catch {
     return null;
@@ -382,6 +392,7 @@ export type PreviewHostReadinessVerdict = Pick<
   | "mutationRevision"
   | "usedLegacyPeerDeps"
   | "peerConflictDetected"
+  | "installKind"
 > & {
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
@@ -437,6 +448,7 @@ export async function fetchPreviewHostReadinessVerdict(
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
       usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
       peerConflictDetected: body.peerConflictDetected === true,
+      installKind: isPreviewInstallKind(body.installKind) ? body.installKind : null,
     };
   } catch {
     return null;

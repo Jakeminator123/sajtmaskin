@@ -546,6 +546,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       regeneratedLockfile: null,
       usedLegacyPeerDeps: false,
       peerConflictDetected: false,
+      installKind: null,
     });
   });
 
@@ -659,7 +660,24 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       regeneratedLockfile: null,
       usedLegacyPeerDeps: false,
       peerConflictDetected: false,
+      installKind: null,
     });
+  });
+
+  it("surfaces installKind=skipped from the host body", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      installKind: "skipped",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.installKind).toBe("skipped");
+    expect(result?.usedLegacyPeerDeps).toBe(false);
   });
 
   it("surfaces readinessState=ready + httpReady from the host body", async () => {

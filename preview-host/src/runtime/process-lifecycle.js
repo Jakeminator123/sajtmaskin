@@ -1103,6 +1103,7 @@ async function bootRuntimeForSession(session, options = {}) {
     delete stored.installDiagnostics;
     delete stored.usedLegacyPeerDeps;
     delete stored.peerConflictDetected;
+    delete stored.installKind;
     stored.updatedAt = nowIso();
   });
 
@@ -1162,6 +1163,16 @@ async function bootRuntimeForSession(session, options = {}) {
         if (installOutcome && installOutcome.usedFallback && installOutcome.peerConflictDetected) {
           stored.usedLegacyPeerDeps = true;
           stored.peerConflictDetected = true;
+          stored.installKind = "fallback";
+        } else if (
+          installOutcome &&
+          (installOutcome.installKind === "strict_pass" ||
+            installOutcome.installKind === "skipped" ||
+            installOutcome.installKind === "fallback")
+        ) {
+          stored.installKind = installOutcome.installKind;
+        } else if (installOutcome && installOutcome.skipped === true) {
+          stored.installKind = "skipped";
         }
       });
 

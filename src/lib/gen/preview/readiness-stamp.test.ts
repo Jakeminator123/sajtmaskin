@@ -415,6 +415,102 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     });
     expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
   });
+
+  it("does not write a clearing receipt when the same revision later skipped npm install", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: true,
+        peerConflictDetected: true,
+        installKind: "fallback",
+      },
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+    const [fallbackPayloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; meta: Record<string, unknown> }>,
+    ];
+    expect(fallbackPayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "preview:install-peer-fallback",
+          meta: expect.objectContaining({
+            kind: "fallback",
+            usedFallback: true,
+            filesRevision: "rev-a",
+          }),
+        }),
+      ]),
+    );
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+        installKind: "skipped",
+      },
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+      },
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes a strict_pass receipt only after a real strict install", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "rev-a",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+        usedLegacyPeerDeps: false,
+        peerConflictDetected: false,
+        installKind: "strict_pass",
+      },
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ category: string; level: string; meta: Record<string, unknown> }>,
+    ];
+    expect(payloads).toEqual([
+      expect.objectContaining({
+        category: "preview:install-peer-fallback",
+        level: "info",
+        meta: expect.objectContaining({
+          kind: "strict_pass",
+          usedFallback: false,
+          filesRevision: "rev-a",
+        }),
+      }),
+    ]);
+  });
 });
 
 describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-trip)", () => {

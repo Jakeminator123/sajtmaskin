@@ -749,6 +749,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
       output: install.successLabel,
       usedFallback: false,
       peerConflictDetected: false,
+      installKind: "strict_pass",
     };
   }
 
@@ -780,6 +781,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
         ].join("\n"),
         usedFallback: false,
         peerConflictDetected: false,
+        installKind: "strict_pass",
       };
     }
     // Purgen kan ha löst diskproblemet och omkörningen fallit på något helt
@@ -820,6 +822,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
         ].join("\n"),
         usedFallback: true,
         peerConflictDetected,
+        installKind: "fallback",
       };
     }
 
@@ -972,7 +975,13 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       previewSessionId,
       `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
     );
-    return { installed: false, skipped: true, usedFallback: false, peerConflictDetected: false };
+    return {
+      installed: false,
+      skipped: true,
+      usedFallback: false,
+      peerConflictDetected: false,
+      installKind: "skipped",
+    };
   }
   if (install.lockfileStale && fingerprint && priorDeps?.fingerprint === fingerprint) {
     await appendRuntimeLog(
@@ -1047,6 +1056,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
           staleCleared: true,
           usedFallback: Boolean(installResult.usedFallback),
           peerConflictDetected: Boolean(installResult.peerConflictDetected),
+          installKind: installResult.usedFallback ? "fallback" : "strict_pass",
         };
       }
     }
@@ -1055,6 +1065,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       packageManager: install.packageManager,
       usedFallback: Boolean(installResult.usedFallback),
       peerConflictDetected: Boolean(installResult.peerConflictDetected),
+      installKind: installResult.usedFallback ? "fallback" : "strict_pass",
     };
   }
 

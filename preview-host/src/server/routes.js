@@ -229,6 +229,11 @@ async function routeRequest(req, res) {
       ...(latest.usedLegacyPeerDeps === true && latest.peerConflictDetected === true
         ? { usedLegacyPeerDeps: true, peerConflictDetected: true }
         : {}),
+      ...(latest.installKind === "fallback" ||
+      latest.installKind === "strict_pass" ||
+      latest.installKind === "skipped"
+        ? { installKind: latest.installKind }
+        : {}),
     });
   }
 
