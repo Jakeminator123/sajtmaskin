@@ -1,14 +1,20 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { Navbar } from "@/components/landing-v2/navbar";
 import { SiteBackground } from "@/components/layout/site-background";
+import { useAuth } from "@/lib/auth/auth-store";
 
 export function ExempelShell({ children }: { children: ReactNode }) {
+  const { fetchUser } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+
+  useEffect(() => {
+    fetchUser().catch(() => {});
+  }, [fetchUser]);
 
   const handleLoginClick = useCallback(() => {
     setAuthMode("login");
