@@ -89,13 +89,14 @@ export function OpenClawMessage({
   // visible text toward the full content instead of jumping per chunk.
   const displayedContent = useSmoothText(parsed.visibleContent, streaming && !isUser);
   const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
-  // Terminal empty: finished stream, nothing visible, and either an incomplete
-  // action tag or no action at all. Rejected blocks keep their error card.
+  // Terminal empty: finished stream, nothing visible, and no complete action.
+  // A complete first block plus a truncated second must not show empty-state
+  // next to the action card. Rejected blocks keep their error card.
   const isTerminalEmpty =
     !isUser &&
     !streaming &&
     !parsed.visibleContent &&
-    (parsed.hasIncompleteAction || !action) &&
+    !action &&
     !rejectedActionReason;
   // Utan `!rejectedActionReason` skulle ett action-block som avvisats och som
   // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.

@@ -65,12 +65,9 @@ export interface OpenClawChatStreamEndLog {
   aborted: boolean;
   contentForms: readonly GatewayContentForm[];
   errorKind: GatewayErrorKind | null;
-  /** Raw accumulated text — only a masked prefix is logged. */
-  prefix: string;
 }
 
 const MAX_DETAIL_CHARS = 400;
-const STREAM_PREFIX_CHARS = 40;
 
 /** Terminal empty-state when a finished stream has nothing visible to show. */
 export const OPENCLAW_EMPTY_REPLY_COPY = "Sajtagenten skickade inget synligt svar.";
@@ -217,20 +214,9 @@ export function extractGatewayAssistantText(payload: unknown): {
 }
 
 /**
- * Collapse whitespace, drop long token-like runs, then keep a short prefix.
- * Safe for client logs — never a full prompt, secret or raw stream body.
- */
-export function maskOpenClawLogPrefix(text: string): string {
-  return text
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/[A-Za-z0-9+/=_-]{24,}/g, "…")
-    .slice(0, STREAM_PREFIX_CHARS);
-}
-
-/**
  * One `[openclaw/chat]` line after the stream settles. The fields are the
  * machine-readable split between empty, truncated, hung and aborted.
+ * Lengths, categories and flags only — never a content prefix.
  */
 export function formatOpenClawChatStreamEndLog(input: OpenClawChatStreamEndLog): string {
   const forms = input.contentForms.length > 0 ? input.contentForms.join(",") : "none";
@@ -244,8 +230,7 @@ export function formatOpenClawChatStreamEndLog(input: OpenClawChatStreamEndLog):
     ` sawDone=${input.sawDone}` +
     ` aborted=${input.aborted}` +
     ` contentForms=${forms}` +
-    ` errorKind=${input.errorKind ?? "none"}` +
-    ` prefix=${maskOpenClawLogPrefix(input.prefix)}`
+    ` errorKind=${input.errorKind ?? "none"}`
   );
 }
 

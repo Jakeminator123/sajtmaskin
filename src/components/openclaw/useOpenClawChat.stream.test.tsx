@@ -152,6 +152,54 @@ describe("useOpenClawChat — terminal empty stream", () => {
     expect(screen.queryByText(OPENCLAW_EMPTY_REPLY_COPY)).toBeNull();
   });
 
+  it("does not handshake-wake from a complete hunt block followed by an error envelope", async () => {
+    const fetchFn = vi.fn(
+      async () =>
+        new Response(
+          sseBody(
+            JSON.stringify({
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    content: [
+                      "<openclaw-action>",
+                      '{"type":"start_bug_hunt","mode":"followups","count":3,"reason":"Tre steg"}',
+                      "</openclaw-action>",
+                    ].join("\n"),
+                  },
+                },
+              ],
+            }),
+            JSON.stringify({
+              error: {
+                message: "You've reached your Codex subscription usage limit.",
+                type: "rate_limit_error",
+              },
+            }),
+          ),
+          {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+    expect(
+      useOpenClawStore.getState().messages.some((message) =>
+        message.content.includes("[Automatisk väckning]"),
+      ),
+    ).toBe(false);
+  });
+
   it("does not handshake-wake from a truncated action stream under an active mandate", async () => {
     const fetchFn = vi.fn(
       async () =>

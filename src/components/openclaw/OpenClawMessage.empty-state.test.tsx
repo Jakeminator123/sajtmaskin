@@ -64,6 +64,28 @@ describe("OpenClawMessage — terminal empty state", () => {
     expect(waitingDots(container)).toHaveLength(0);
   });
 
+  it("does not show empty-state beside a complete first action when a second block is truncated", () => {
+    const { container } = render(
+      <OpenClawMessage
+        streaming={false}
+        msg={assistant(
+          [
+            "<openclaw-action>",
+            '{"type":"start_bug_hunt","mode":"followups","count":3,"reason":"Tre steg"}',
+            "</openclaw-action>",
+            "<openclaw-action>",
+            '{"type":"fill_text_field","target":"builder.chat.primary","value":"Hej',
+          ].join("\n"),
+        )}
+      />,
+    );
+
+    expect(screen.queryByText(OPENCLAW_EMPTY_REPLY_COPY)).toBeNull();
+    expect(screen.getByText(/Armerad/)).toBeTruthy();
+    expect(waitingDots(container)).toHaveLength(0);
+    expect(screen.queryByText("Fältförslag")).toBeNull();
+  });
+
   it("renders a finished empty message as the Swedish empty-state, not waiting dots", () => {
     const { container } = render(
       <OpenClawMessage streaming={false} msg={assistant("")} />,

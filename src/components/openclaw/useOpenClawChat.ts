@@ -169,6 +169,7 @@ export function useOpenClawChat() {
       );
 
       let accumulated = "";
+      let streamSucceeded = false;
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
@@ -252,6 +253,8 @@ export function useOpenClawChat() {
           // keys on a hunt-only reply; an empty or truncated stream must
           // not look like one and start a wake loop.
           updateAssistantMessage(placeholderId, OPENCLAW_EMPTY_REPLY_COPY);
+        } else {
+          streamSucceeded = true;
         }
 
         const parsedEnd = parseOpenClawMessage(accumulated);
@@ -265,13 +268,12 @@ export function useOpenClawChat() {
           aborted: false,
           contentForms: streamSummary.contentForms,
           errorKind: gatewayError?.kind ?? streamSummary.errorKind,
-          prefix: accumulated,
         });
 
-        // Charge only after a stream that actually produced assistant text.
-        // HTTP errors, network/Abort, empty streams and a pure gateway-error
-        // chunk (200 + error envelope, no delta) must not burn a round.
-        if (shouldChargeQuota && accumulated.length > 0) {
+        // Charge only after a stream that produced visible assistant text.
+        // HTTP errors, abort, empty streams, error envelopes and a truncated
+        // action-only body must not burn a campaign round.
+        if (shouldChargeQuota && parsedEnd.visibleContent.length > 0) {
           consumeCampaignAdviceRound();
         }
       } catch (e) {
@@ -292,7 +294,6 @@ export function useOpenClawChat() {
           aborted,
           contentForms: [],
           errorKind: null,
-          prefix: accumulated,
         });
       } finally {
         setStreaming(false);
@@ -315,6 +316,7 @@ export function useOpenClawChat() {
           editEnabled: readOpenClawPowers().armedAutonomy,
           alreadyWoken: mandate ? hasArmedHandshakeWoken(mandate.createdAt) : false,
           openClawStreaming: liveAfter.isStreaming,
+          streamSucceeded,
         });
         if (decision.kind === "wake" && mandate) {
           markArmedHandshakeWoken(mandate.createdAt);

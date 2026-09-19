@@ -5,7 +5,6 @@ import {
   describeGatewayError,
   extractGatewayAssistantText,
   formatOpenClawChatStreamEndLog,
-  maskOpenClawLogPrefix,
   parseGatewayStream,
   type GatewayStreamEvent,
 } from "./gateway-response";
@@ -273,7 +272,6 @@ describe("formatOpenClawChatStreamEndLog", () => {
       aborted: false,
       contentForms: [],
       errorKind: null,
-      prefix: "",
     });
 
     expect(line).toContain("[openclaw/chat] stream-end");
@@ -287,20 +285,24 @@ describe("formatOpenClawChatStreamEndLog", () => {
     expect(line).toContain("errorKind=none");
   });
 
-  it("never logs a raw token-like run in the prefix", () => {
-    const secret = `sk-${"a".repeat(40)}`;
-    expect(maskOpenClawLogPrefix(`Bearer ${secret} hej`)).not.toContain(secret);
-    expect(formatOpenClawChatStreamEndLog({
+  it("logs lengths and flags, never a content prefix", () => {
+    const line = formatOpenClawChatStreamEndLog({
       accumulatedChars: 80,
-      visibleChars: 80,
-      hasIncompleteAction: false,
+      visibleChars: 12,
+      hasIncompleteAction: true,
       leftoverChars: 0,
       ended: true,
       sawDone: true,
       aborted: false,
       contentForms: ["delta_string"],
       errorKind: null,
-      prefix: `Authorization: Bearer ${secret}`,
-    })).not.toContain(secret);
+    });
+
+    expect(line).toContain("accumulatedChars=80");
+    expect(line).toContain("visibleChars=12");
+    expect(line).toContain("hasIncompleteAction=true");
+    expect(line).toContain("contentForms=delta_string");
+    expect(line).not.toContain("prefix=");
+    expect(line).not.toMatch(/user@|lösen|secret|Bearer /i);
   });
 });
