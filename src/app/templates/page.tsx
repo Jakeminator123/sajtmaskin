@@ -3,12 +3,14 @@ import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { TemplatesBrowser } from "@/components/templates/templates-browser";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 import { Wand2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Templates",
   description:
     "Bläddra bland professionella templates. Färdiga webbplatser för alla branscher och behov.",
+  alternates: publicPageAlternates("/templates"),
 };
 
 export default function TemplatesPage() {

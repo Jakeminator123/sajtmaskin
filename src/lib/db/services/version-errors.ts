@@ -40,6 +40,7 @@ export type AttestedProductPostcheckInsertResult =
 export const PRUNE_EXEMPT_CATEGORIES = [
   "f3-readiness:missing-env",
   "preview:client-error",
+  "server-repair:phase",
   "preview:install-peer-fallback",
 ] as const;
 

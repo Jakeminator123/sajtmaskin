@@ -202,6 +202,7 @@ describe("pruneStaleVersionErrorLogs", () => {
    */
   it("undantagslistan täcker preview:client-error", () => {
     expect(PRUNE_EXEMPT_CATEGORIES).toContain(PREVIEW_CLIENT_ERROR_CATEGORY);
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain("server-repair:phase");
   });
 
   it("undantagslistan täcker preview:install-peer-fallback", () => {

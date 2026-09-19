@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { URLS } from "@/lib/config";
+import { publicCanonicalPath, publicIndexRobots } from "@/lib/public-canonical-url";
 import {
   getSeoLandingEntry,
   type SeoLandingPageEntry,
@@ -12,16 +12,14 @@ export function seoLandingMetadataFromEntry(entry: SeoLandingPageEntry): Metadat
   const description = isReady
     ? entry.description
     : "Intern testsida för Sajtmaskin. Inte avsedd för sökindexering.";
-  const canonical = `${URLS.baseUrl}/${entry.slug}`;
+  const canonical = publicCanonicalPath(`/${entry.slug}`);
   return {
     title,
     description,
     alternates: {
       canonical,
     },
-    robots: isReady
-      ? { index: true, follow: true }
-      : { index: false, follow: false },
+    robots: isReady ? publicIndexRobots() : { index: false, follow: false },
     openGraph: {
       title,
       description,

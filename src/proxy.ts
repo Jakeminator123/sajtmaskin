@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import {
+  canonicalPublicUrlForDuplicateHost,
+  isDuplicatePublicAliasHost,
+} from "@/lib/public-canonical-url";
+import {
   evaluateMutationOrigin,
   getTrustedPortalOrigins,
   isExternalMachineEndpoint,
@@ -237,11 +241,15 @@ function addSecurityHeaders(
   pathname: string,
   nonce: string,
   enforceCsp: boolean,
+  hostname?: string,
 ): void {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+  if (hostname && isDuplicatePublicAliasHost(hostname)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
 
   const policy = buildCspPolicy(pathname, nonce);
   if (enforceCsp) {
@@ -280,12 +288,24 @@ let _jwtMissingWarned = false;
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.nextUrl.hostname;
   const origin = request.headers.get("origin");
   const trustedOrigins = getTrustedPortalOrigins();
   const nonce = crypto.randomUUID();
   const enforceCsp = process.env.CSP_ENFORCE?.trim().toLowerCase() === "true";
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-csp-nonce", nonce);
+
+  // ---- Collapse the historical production Vercel alias ----
+  // Only `sajtmaskin.vercel.app` (not git/preview hosts, not localhost).
+  // API, `/r` registry and `/.well-known` stay on the alias so machine
+  // clients keep working; they get X-Robots-Tag instead.
+  const duplicateHostRedirect = canonicalPublicUrlForDuplicateHost(request.nextUrl);
+  if (duplicateHostRedirect) {
+    const redirect = NextResponse.redirect(duplicateHostRedirect, 308);
+    addSecurityHeaders(redirect, pathname, nonce, enforceCsp, hostname);
+    return redirect;
+  }
 
   // ---- CORS preflight for API routes ----
   if (isApiRoute(pathname) && request.method === "OPTIONS") {
@@ -294,12 +314,12 @@ export async function proxy(request: NextRequest) {
         { error: "origin_not_allowed" },
         { status: 403, headers: { "Cache-Control": "no-store" } },
       );
-      addSecurityHeaders(denied, pathname, nonce, enforceCsp);
+      addSecurityHeaders(denied, pathname, nonce, enforceCsp, hostname);
       return denied;
     }
     const preflight = new NextResponse(null, { status: 204 });
     addCorsHeaders(preflight, origin, trustedOrigins);
-    addSecurityHeaders(preflight, pathname, nonce, enforceCsp);
+    addSecurityHeaders(preflight, pathname, nonce, enforceCsp, hostname);
     return preflight;
   }
 
@@ -311,7 +331,7 @@ export async function proxy(request: NextRequest) {
         { error: "origin_not_allowed" },
         { status: 403, headers: { "Cache-Control": "no-store" } },
       );
-      addSecurityHeaders(denied, pathname, nonce, enforceCsp);
+      addSecurityHeaders(denied, pathname, nonce, enforceCsp, hostname);
       return denied;
     }
   }
@@ -331,12 +351,12 @@ export async function proxy(request: NextRequest) {
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {
         const redirect = NextResponse.redirect(new URL("/", request.url));
-        addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
+        addSecurityHeaders(redirect, pathname, nonce, enforceCsp, hostname);
         return redirect;
       }
     } else if (!payload) {
       const redirect = NextResponse.redirect(new URL("/", request.url));
-      addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
+      addSecurityHeaders(redirect, pathname, nonce, enforceCsp, hostname);
       return redirect;
     }
   }
@@ -354,7 +374,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // ---- Security headers on all responses ----
-  addSecurityHeaders(response, pathname, nonce, enforceCsp);
+  addSecurityHeaders(response, pathname, nonce, enforceCsp, hostname);
 
   return response;
 }

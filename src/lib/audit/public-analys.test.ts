@@ -63,7 +63,7 @@ describe("/analys page metadata", () => {
   it("is a distinct noindex landning, not a rewrite to /audits", () => {
     const source = readFileSync(resolve("src/app/analys/page.tsx"), "utf8");
     expect(source).toMatch(/index:\s*false/);
-    expect(source).toMatch(/canonical: "https:\/\/sajtmaskin.se\/analys"/);
+    expect(source).toMatch(/publicPageAlternates\("\/analys"\)/);
     expect(source).not.toMatch(/SiteAuditSection/);
     expect(source).not.toMatch(/AuditModal/);
   });
