@@ -3,6 +3,10 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { isSonnerBoilerplate } from "@/lib/gen/autofix/rules/layout-provider-fixer";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
+import {
+  detectPackageTreeConflicts,
+  formatPackageTreeConflictDetail,
+} from "@/lib/gen/validation/package-tree-compat";
 
 export interface SanityIssue {
   file: string;
@@ -923,7 +927,7 @@ function checkKnownBadPeers(
     }
   }
 
-  // next 16+ requires react 19+
+  // next 16+ requires react 19+ (kept as the historical message for existing tests)
   if (deps.next && reactMajor !== null) {
     const nextMajor = extractMajor(deps.next);
     if (nextMajor !== null && nextMajor >= 16 && reactMajor < 19) {
@@ -936,5 +940,22 @@ function checkKnownBadPeers(
         ),
       );
     }
+  }
+
+  // Next 14 + React 19 (and the reverse Next 16 + React 18, already above)
+  // is the npm ERESOLVE class Vercel dies on. Preview-host --legacy-peer-deps
+  // is a display bypass, not compatibility. Detect here so import/post-checks
+  // surface it; publish is blocked by the readiness/deploy file gate.
+  for (const conflict of detectPackageTreeConflicts({ dependencies: deps })) {
+    if (conflict.nextMajor >= 16 && conflict.reactMajor < 19) continue;
+    issues.push(
+      createSanityIssue(
+        "package.json",
+        "error",
+        formatPackageTreeConflictDetail(conflict),
+        "dependency_install_failure",
+        `package-tree:${conflict.code}`,
+      ),
+    );
   }
 }

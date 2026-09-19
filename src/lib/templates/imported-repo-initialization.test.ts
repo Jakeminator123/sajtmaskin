@@ -103,6 +103,40 @@ describe("persistImportedRepoInitialization", () => {
         }),
       }),
     );
+    expect(
+      (createGenerationTelemetryRecord.mock.calls[0]?.[0] as { meta: Record<string, unknown> })
+        .meta.packageTreeEresolve,
+    ).toBeUndefined();
+  });
+
+  it("records the incident Next/React ERESOLVE tree on import telemetry", async () => {
+    const { INCIDENT_V0_PACKAGE_JSON } = await import(
+      "@/lib/gen/validation/package-tree-compat"
+    );
+    await persistImportedRepoInitialization({
+      ...initializationInput(),
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON),
+          language: "json",
+        },
+      ],
+    });
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          packageTreeEresolve: true,
+          packageTreeConflicts: [
+            expect.objectContaining({
+              code: "next_react_peer_eresolve",
+              next: "14.2.25",
+              react: "^19",
+            }),
+          ],
+        }),
+      }),
+    );
   });
 
   it("keeps telemetry independent when the snapshot write fails", async () => {

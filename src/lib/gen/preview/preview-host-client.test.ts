@@ -544,6 +544,10 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessError: null,
       installDiagnostics: null,
       regeneratedLockfile: null,
+      usedLegacyPeerDeps: false,
+      peerConflictDetected: false,
+      installKind: null,
+      dependencyFingerprint: null,
     });
   });
 
@@ -655,7 +659,45 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessError: null,
       installDiagnostics: null,
       regeneratedLockfile: null,
+      usedLegacyPeerDeps: false,
+      peerConflictDetected: false,
+      installKind: null,
+      dependencyFingerprint: null,
     });
+  });
+
+  it("surfaces installKind=skipped from the host body", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      installKind: "skipped",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.installKind).toBe("skipped");
+    expect(result?.usedLegacyPeerDeps).toBe(false);
+  });
+
+  it("surfaces the host install dependencyFingerprint", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fingerprint = "a".repeat(64);
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      installKind: "strict_pass",
+      dependencyFingerprint: fingerprint,
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.installKind).toBe("strict_pass");
+    expect(result?.dependencyFingerprint).toBe(fingerprint);
   });
 
   it("surfaces readinessState=ready + httpReady from the host body", async () => {

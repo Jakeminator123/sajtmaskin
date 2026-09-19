@@ -201,6 +201,14 @@ export async function POST(req: Request) {
         );
         importedFiles = importNormalize.files;
       }
+      if (importNormalize.conflicts.length > 0) {
+        console.warn(
+          "[API /engine/chats/init] Imported package.json is an npm ERESOLVE tree; publish will be blocked:",
+          importNormalize.conflicts
+            .map((conflict) => `${conflict.nextRange} + ${conflict.reactRange}`)
+            .join("; "),
+        );
+      }
 
       const creditCheck = await prepareCredits(
         req,

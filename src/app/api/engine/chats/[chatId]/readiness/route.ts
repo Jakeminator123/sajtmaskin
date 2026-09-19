@@ -29,11 +29,13 @@ import {
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
 import {
+  buildPackageTreePublishBlocker,
   buildReleaseGateBlocker,
   buildTypecheckAdvisoryBlocker,
   withReadinessCategory,
 } from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
+import { resolvePackageTreePublishGate } from "@/lib/deploy/package-tree-publish-gate";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
@@ -452,6 +454,18 @@ async function buildEngineReadiness(
       severity: "blocker",
       action: "deploy",
     });
+  }
+
+  const packageTreeItem = buildPackageTreePublishBlocker(
+    resolvePackageTreePublishGate({
+      files: versionRows,
+      latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(errorLogs),
+      errorLogs,
+      filesRevision: version.files_revision ?? null,
+    }),
+  );
+  if (packageTreeItem) {
+    blockers.push(packageTreeItem);
   }
 
   // F2 (`design`) is a pure visual fidelity stage. Env vars are

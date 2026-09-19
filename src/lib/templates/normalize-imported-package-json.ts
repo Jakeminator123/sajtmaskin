@@ -1,4 +1,9 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import {
+  detectPackageTreeConflicts,
+  parsePackageJsonRecord,
+  type PackageTreeConflict,
+} from "@/lib/gen/validation/package-tree-compat";
 
 /**
  * Normalize (deterministic import-repair) for verbatim repo imports —
@@ -69,6 +74,11 @@ export type ImportNormalizeResult = {
   files: CodeFile[];
   /** Human-readable descriptions of applied repairs (empty = untouched). */
   applied: string[];
+  /**
+   * Detected npm-ERESOLVE trees. Verbatim files are left untouched; callers
+   * surface this at import and the publish gate blocks on the same signature.
+   */
+  conflicts: PackageTreeConflict[];
 };
 
 function parseExactPin(range: unknown): [number, number, number] | null {
@@ -166,20 +176,12 @@ function applyMotionDomOverride(
  */
 export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeResult {
   const pkgIndex = files.findIndex((file) => file.path === "package.json");
-  if (pkgIndex === -1) return { files, applied: [] };
+  if (pkgIndex === -1) return { files, applied: [], conflicts: [] };
 
-  let pkg: Record<string, unknown>;
-  try {
-    const parsed: unknown = JSON.parse(files[pkgIndex].content);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { files, applied: [] };
-    }
-    pkg = parsed as Record<string, unknown>;
-  } catch {
-    return { files, applied: [] };
-  }
+  const parsed = parsePackageJsonRecord(files[pkgIndex].content);
+  if (!parsed) return { files, applied: [], conflicts: [] };
 
-  let nextPkg = pkg;
+  let nextPkg = parsed;
   const applied: string[] = [];
 
   // Repair 1 (A#29): packageManager pnpm<11 strip — runs regardless of lockfile
@@ -202,12 +204,13 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
     }
   }
 
-  if (applied.length === 0) return { files, applied: [] };
+  const conflicts = detectPackageTreeConflicts(nextPkg);
+  if (applied.length === 0) return { files, applied: [], conflicts };
 
   const nextFiles = [...files];
   nextFiles[pkgIndex] = {
     ...files[pkgIndex],
     content: `${JSON.stringify(nextPkg, null, 2)}\n`,
   };
-  return { files: nextFiles, applied };
+  return { files: nextFiles, applied, conflicts };
 }

@@ -1101,6 +1101,10 @@ async function bootRuntimeForSession(session, options = {}) {
     }
     // A new boot must not keep the previous install snapshot on `/status`.
     delete stored.installDiagnostics;
+    delete stored.usedLegacyPeerDeps;
+    delete stored.peerConflictDetected;
+    delete stored.installKind;
+    delete stored.dependencyFingerprint;
     stored.updatedAt = nowIso();
   });
 
@@ -1156,6 +1160,27 @@ async function bootRuntimeForSession(session, options = {}) {
         if (installOutcome && installOutcome.regeneratedLockfile) {
           stored.regeneratedLockfile = installOutcome.regeneratedLockfile;
           stored.lockfileStaleCleared = true;
+        }
+        if (installOutcome && installOutcome.usedFallback && installOutcome.peerConflictDetected) {
+          stored.usedLegacyPeerDeps = true;
+          stored.peerConflictDetected = true;
+          stored.installKind = "fallback";
+        } else if (
+          installOutcome &&
+          (installOutcome.installKind === "strict_pass" ||
+            installOutcome.installKind === "skipped" ||
+            installOutcome.installKind === "fallback")
+        ) {
+          stored.installKind = installOutcome.installKind;
+        } else if (installOutcome && installOutcome.skipped === true) {
+          stored.installKind = "skipped";
+        }
+        if (
+          installOutcome &&
+          typeof installOutcome.dependencyFingerprint === "string" &&
+          /^[a-f0-9]{64}$/i.test(installOutcome.dependencyFingerprint)
+        ) {
+          stored.dependencyFingerprint = installOutcome.dependencyFingerprint.toLowerCase();
         }
       });
 
