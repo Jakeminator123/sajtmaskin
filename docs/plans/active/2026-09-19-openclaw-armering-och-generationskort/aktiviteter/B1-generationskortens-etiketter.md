@@ -79,6 +79,11 @@ formen: första turen med flera filer, andra reparationsturen med en fil.
 5. Init-kortet slutar be om uppmärksamhet enbart på grund av en avslutad
    köad fix.
 
+## PR
+
+[#1497](https://github.com/Jakeminator123/sajtmaskin/pull/1497) — `fix/generationskort-repair-etikett`.
+Etikettfelet är rättat med regressionstester. Review + smoke före merge.
+
 ## Acceptans
 
 De fem punkterna ovan i UI, plus att inget av korten längre kan förväxlas för

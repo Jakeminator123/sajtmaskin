@@ -44,12 +44,14 @@ aldrig vilken glipa som slog i den rapporterade körningen.
 1. Diagnostik efter strömslut som gör fallen maskinellt skiljbara:
    `accumulated.length`, `hasIncompleteAction`, om bufferten hade rester,
    om strömmen faktiskt avslutades, och vilken content-form som sågs.
-   **Aldrig** token, secrets eller full promptdata. Maskad prefix räcker.
+   **Aldrig** token, secrets, mejl, korta lösenord eller annan svarstext.
+   Behåll längder, kategorier och flaggor. Logga ingen innehållsprefix.
 2. Flusha kvarvarande buffert och decoder vid strömslut.
 3. Acceptera samma content-former som `extractAssistantText` redan gör.
 4. UI:t ska vara terminalt efter avslutad ström: text, ett tydligt fel, eller en
-   svensk tomlägesrad. Villkoret behöver täcka
-   `!streaming && !visibleContent && (hasIncompleteAction || !action)`.
+   svensk tomlägesrad. Tomläget gäller bara när det **saknas** komplett action
+   (`!action && !rejectedActionReason`). Ett komplett första block plus ett
+   avhugget andra får inte visa både action-kort och «inget synligt svar».
    Spegla fallbacken i renderaren, inte bara i hooken.
 5. Byt ut `(Inget svar fran agenten)` mot korrekt svensk copy.
 
@@ -67,6 +69,20 @@ aldrig vilken glipa som slog i den rapporterade körningen.
 3. SSE-rad utan avslutande radbrytning tappas inte.
 4. `delta.content` som array och `message.content` i SSE accepteras.
 5. Error-envelope ger fortsatt svensk feltext, inte tomläge.
+
+## PR
+
+[#1498](https://github.com/Jakeminator123/sajtmaskin/pull/1498) — `fix/openclaw-terminal-stream`.
+Stackad på #1495. Merga inte före A1. Efter #1495: rikta mot `preview` och
+trigga vanlig CI (inte bara basbyte).
+
+## Återstående kontroller
+
+1. Diagnostik utan innehållsprefix.
+2. Test för komplett första action + avhugget andra: action-kort, inte tomläge.
+3. Kvotavdrag: avhugget svar utan synlig text ska inte bränna en kampanjrunda
+   (beteendet fanns redan på `preview` via `accumulated.length`).
+4. Vanlig CI mot `preview` efter #1495.
 
 ## Acceptans
 

@@ -1,9 +1,10 @@
 # Armerad autonomi och generationskortens ärlighet
 
-> **Status: utredning klar, kod inte påbörjad.** Fyra spår ur en reproducerad
-> preview-körning 2026-09-19 (chat `a0b134d9`, preview `45f0f9842`). Varje spår
-> har egen rotorsak och egen PR. Spår D kräver ingen kod.
-> Ingen produktionspromote ingår.
+> **Status: kod på GitHub, korrigeringsrunda före merge.** Fyra spår ur en
+> reproducerad preview-körning 2026-09-19 (chat `a0b134d9`). Varje spår har
+> egen PR mot `preview`. Spår D kräver ingen kod. Ingen produktionspromote
+> ingår. `preview` stod fortfarande på `311a86668` när den här statusen
+> skrevs.
 
 ## Ursprung
 
@@ -26,16 +27,18 @@ laddades upp till Blob men aldrig syntes i chatten.
 
 | Spår | Fel | Aktivitet | PR |
 |---|---|---|---|
-| A1 | Armeringen skapar mandat men leder aldrig till första builder-sändningen | [`aktiviteter/A1-armering-till-forsta-send.md`](aktiviteter/A1-armering-till-forsta-send.md) | Egen |
-| A2 | Tom eller avhuggen ström lämnar evig tänkprick; orsaken till det tomma svaret är obevisad | [`aktiviteter/A2-terminal-stream.md`](aktiviteter/A2-terminal-stream.md) | Egen |
-| B1 | Init och auto-reparation får samma rubrik; init-kortets `autoFixQueued` släpps aldrig | [`aktiviteter/B1-generationskortens-etiketter.md`](aktiviteter/B1-generationskortens-etiketter.md) | Egen |
-| C1 | Live-review-bilderna når browsern men renderas aldrig | [`aktiviteter/C1-live-review-miniatyrer.md`](aktiviteter/C1-live-review-miniatyrer.md) | Egen |
-| D1 | Chromium-core-dump, minnes- och disktryck | [`aktiviteter/D1-chromium-minnestryck.md`](aktiviteter/D1-chromium-minnestryck.md) | Ingen |
+| A1 | Armeringen skapar mandat men leder aldrig till första builder-sändningen | [`aktiviteter/A1-armering-till-forsta-send.md`](aktiviteter/A1-armering-till-forsta-send.md) | [#1495](https://github.com/Jakeminator123/sajtmaskin/pull/1495) |
+| A2 | Tom eller avhuggen ström lämnar evig tänkprick; orsaken till det tomma svaret är obevisad | [`aktiviteter/A2-terminal-stream.md`](aktiviteter/A2-terminal-stream.md) | [#1498](https://github.com/Jakeminator123/sajtmaskin/pull/1498) |
+| B1 | Init och auto-reparation får samma rubrik; init-kortets `autoFixQueued` släpps aldrig | [`aktiviteter/B1-generationskortens-etiketter.md`](aktiviteter/B1-generationskortens-etiketter.md) | [#1497](https://github.com/Jakeminator123/sajtmaskin/pull/1497) |
+| C1 | Live-review-bilderna når browsern men renderas aldrig | [`aktiviteter/C1-live-review-miniatyrer.md`](aktiviteter/C1-live-review-miniatyrer.md) | [#1496](https://github.com/Jakeminator123/sajtmaskin/pull/1496) |
+| D1 | Chromium-core-dump, minnes- och disktryck | [`aktiviteter/D1-chromium-minnestryck.md`](aktiviteter/D1-chromium-minnestryck.md) | Ingen — parkerad `SM-072`-residual |
 
-Ordning: **A1 → A2 → B1 → C1.** A2 kan köras parallellt med A1 av en annan agent
-— de rör olika filer (`gateway-response.ts` + renderarens tomläge kontra
-prompt/parser/väckning). Slå inte ihop dem: A1 är ett protokollfel, A2 är ett
-transport- och tomlägesfel.
+Ordning: **A1 → A2**, sedan B1 och C1 var för sig. A2 är stackad på A1
+(`useOpenClawChat.ts` och `OpenClawMessage.tsx` är gemensamma). Merga inte
+#1498 före #1495. Efter #1495: rikta #1498 mot `preview` och kör vanlig CI —
+basbyte ensamt räcker inte, `ci.yml` saknar `edited`. Slå inte ihop A1 och A2:
+A1 är ett protokollfel, A2 är ett transport- och tomlägesfel. D1 förblir
+parkerad.
 
 ## Vad som är bevisat
 
@@ -110,6 +113,21 @@ Inte «ett armeringskort syns». Följande ska gälla med `OC_EDIT` på, sköld 
 6. Högst tre auto-sändningar. Mandatet stannar efter steg 3.
 7. Stopp, chattbyte, blockerad generation, avvisad sändning och användarfråga
    avslutar mandatet fail-closed.
+
+## Återstående före merge
+
+Korrigeringsrunda mot live heads (inte merge). Cursor-automation och Codex
+har inte granskat — kvot slut, GitHub klassar dem som neutrala.
+
+| PR | Kvar |
+|---|---|
+| #1495 | Väckning-efter-fel är rättad (lyckat avslut + hunt/error-test). Dubbelväckningsskydd kvar. Review + merge. |
+| #1498 | Prefix borta, tomläge+avhugget testat, kvot på synlig text. Vanlig CI efter #1495-merge och retarget mot `preview`. |
+| #1496 / #1497 | Inga blockerande kodfynd i stickprov. Review + relevant smoke före merge. |
+| #1494 | Planen synkad mot live PR-länkar och A1→A2. |
+
+Föreslagen mergeordning efter grön CI och review: **#1494 → #1495 → #1498**,
+med #1496 och #1497 separat. Inget merge utan separat mandat.
 
 ## Buggkö
 

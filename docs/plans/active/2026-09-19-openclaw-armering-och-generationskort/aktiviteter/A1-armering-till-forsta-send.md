@@ -71,6 +71,18 @@ inget fill → ingen builder-sändning.`
 
 Befintliga tester täcker parserns first-wins, **inte** stallet.
 
+## PR
+
+[#1495](https://github.com/Jakeminator123/sajtmaskin/pull/1495) — `fix/openclaw-armering-forsta-send`.
+Väg (b): engångsväckning efter hunt-only. A2 (#1498) är stackad härpå.
+
+## Återstående kontroll
+
+Väckningen får bara gå efter ett **lyckat** strömavslut. Ett komplett
+`start_bug_hunt` följt av ett gatewayfel får inte utlösa nästa automatiska
+anrop. Regressionstest: hunt-block + error-envelope. Skyddet mot dubbla
+väckningar ska vara kvar.
+
 ## Acceptans
 
 De sju punkterna under «Slutbevis för spår A» i

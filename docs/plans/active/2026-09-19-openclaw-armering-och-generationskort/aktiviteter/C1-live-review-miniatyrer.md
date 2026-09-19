@@ -58,6 +58,11 @@ Bilderna skapas och lagras. Det som saknas är UI-kopplingen.
 3. En raderad blob ger ingen trasig bild.
 4. Omladdning av chatten behåller miniatyrerna, eller degraderar tyst.
 
+## PR
+
+[#1496](https://github.com/Jakeminator123/sajtmaskin/pull/1496) — `feat/live-review-miniatyrer`.
+Inget blockerande kodfynd i stickprov. Review + smoke före merge.
+
 ## Acceptans
 
 Miniatyrerna syns i kontrollresultatet för en färsk körning, och en gammal
