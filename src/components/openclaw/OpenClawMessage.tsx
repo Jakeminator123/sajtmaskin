@@ -41,6 +41,7 @@ import {
   describeMandate,
   isMandateActive,
 } from "@/lib/openclaw/debug/armed-mandate";
+import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
 import { useSmoothText } from "./useSmoothText";
 
 /**
@@ -88,9 +89,19 @@ export function OpenClawMessage({
   // visible text toward the full content instead of jumping per chunk.
   const displayedContent = useSmoothText(parsed.visibleContent, streaming && !isUser);
   const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
+  // Terminal empty: finished stream, nothing visible, and either an incomplete
+  // action tag or no action at all. Rejected blocks keep their error card.
+  const isTerminalEmpty =
+    !isUser &&
+    !streaming &&
+    !parsed.visibleContent &&
+    (parsed.hasIncompleteAction || !action) &&
+    !rejectedActionReason;
   // Utan `!rejectedActionReason` skulle ett action-block som avvisats och som
   // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.
-  const shouldRenderBubble = Boolean(parsed.visibleContent) || (!action && !rejectedActionReason);
+  const shouldRenderBubble = isUser
+    ? Boolean(parsed.visibleContent)
+    : Boolean(parsed.visibleContent) || isTerminalEmpty || (!action && !rejectedActionReason);
 
   // Armed-autonomy gate (Mode A): only auto-send when the power is actually
   // granted (OC_EDIT on + button pressed + armed autonomy ticked) AND the user
@@ -142,12 +153,14 @@ export function OpenClawMessage({
                   />
                 ) : null}
               </>
-            ) : (
+            ) : streaming ? (
               <span className="inline-flex items-center gap-1 opacity-60">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70" />
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:150ms]" />
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:300ms]" />
               </span>
+            ) : (
+              OPENCLAW_EMPTY_REPLY_COPY
             )}
           </div>
         ) : null}

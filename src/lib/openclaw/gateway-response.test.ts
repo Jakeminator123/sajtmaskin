@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  consumeGatewayStream,
   describeGatewayError,
+  extractGatewayAssistantText,
+  formatOpenClawChatStreamEndLog,
+  maskOpenClawLogPrefix,
   parseGatewayStream,
   type GatewayStreamEvent,
 } from "./gateway-response";
@@ -41,6 +45,14 @@ async function collect(
     events.push(event);
   }
   return events;
+}
+
+async function collectWithSummary(reader: ReadableStreamDefaultReader<Uint8Array>) {
+  const events: GatewayStreamEvent[] = [];
+  const summary = await consumeGatewayStream(reader, (event) => {
+    events.push(event);
+  });
+  return { events, summary };
 }
 
 describe("describeGatewayError", () => {
@@ -151,5 +163,144 @@ describe("parseGatewayStream", () => {
     );
 
     expect(events).toEqual([{ type: "delta", text: "delad" }]);
+  });
+
+  it("flushes a last SSE line that has no trailing newline", async () => {
+    const lastLine = `data: ${JSON.stringify({
+      choices: [{ index: 0, delta: { content: "sista" } }],
+    })}`;
+    const { events, summary } = await collectWithSummary(streamOf(lastLine));
+
+    expect(events).toEqual([{ type: "delta", text: "sista" }]);
+    expect(summary.ended).toBe(true);
+    expect(summary.leftoverChars).toBeGreaterThan(0);
+    expect(summary.contentForms).toContain("delta_string");
+  });
+
+  it("accepts delta.content as an array of text parts", async () => {
+    const { events, summary } = await collectWithSummary(
+      streamOf(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              index: 0,
+              delta: {
+                content: [
+                  { type: "text", text: "Hej" },
+                  " där",
+                ],
+              },
+            },
+          ],
+        })}\n\n`,
+        "data: [DONE]\n\n",
+      ),
+    );
+
+    expect(events).toEqual([{ type: "delta", text: "Hej där" }]);
+    expect(summary.contentForms).toContain("delta_array");
+    expect(summary.sawDoneMarker).toBe(true);
+    expect(summary.ended).toBe(true);
+  });
+
+  it("accepts message.content in an SSE chunk", async () => {
+    const { events, summary } = await collectWithSummary(
+      streamOf(
+        `data: ${JSON.stringify({
+          choices: [{ index: 0, message: { role: "assistant", content: "klart" } }],
+        })}\n\n`,
+        "data: [DONE]\n\n",
+      ),
+    );
+
+    expect(events).toEqual([{ type: "delta", text: "klart" }]);
+    expect(summary.contentForms).toContain("message_string");
+  });
+
+  it("records reasoning-only chunks without yielding them as assistant text", async () => {
+    const { events, summary } = await collectWithSummary(
+      streamOf(
+        `data: ${JSON.stringify({
+          choices: [{ index: 0, delta: { reasoning_content: "tänker tyst" } }],
+        })}\n\n`,
+        "data: [DONE]\n\n",
+      ),
+    );
+
+    expect(events).toEqual([]);
+    expect(summary.contentForms).toEqual(["reasoning"]);
+    expect(summary.ended).toBe(true);
+  });
+
+  it("still reports an error envelope as an error event, not an empty stream", async () => {
+    const { events, summary } = await collectWithSummary(
+      streamOf(`data: ${JSON.stringify(REAL_RATE_LIMIT_CHUNK)}\n\n`),
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "error" });
+    expect(summary.errorKind).toBe("rate_limit");
+    expect(summary.contentForms).toEqual([]);
+  });
+});
+
+describe("extractGatewayAssistantText", () => {
+  it("reads message.content arrays the same way as did/chat", () => {
+    const extracted = extractGatewayAssistantText({
+      choices: [
+        {
+          message: {
+            content: [{ type: "text", text: "Tips" }, " om heron"],
+          },
+        },
+      ],
+    });
+
+    expect(extracted.text).toBe("Tips om heron");
+    expect(extracted.forms).toEqual(["message_array"]);
+  });
+});
+
+describe("formatOpenClawChatStreamEndLog", () => {
+  it("names the fields that split empty, leftover, hung and aborted", () => {
+    const line = formatOpenClawChatStreamEndLog({
+      accumulatedChars: 0,
+      visibleChars: 0,
+      hasIncompleteAction: false,
+      leftoverChars: 12,
+      ended: true,
+      sawDone: false,
+      aborted: false,
+      contentForms: [],
+      errorKind: null,
+      prefix: "",
+    });
+
+    expect(line).toContain("[openclaw/chat] stream-end");
+    expect(line).toContain("accumulatedChars=0");
+    expect(line).toContain("hasIncompleteAction=false");
+    expect(line).toContain("leftoverChars=12");
+    expect(line).toContain("ended=true");
+    expect(line).toContain("sawDone=false");
+    expect(line).toContain("aborted=false");
+    expect(line).toContain("contentForms=none");
+    expect(line).toContain("errorKind=none");
+  });
+
+  it("never logs a raw token-like run in the prefix", () => {
+    const secret = `sk-${"a".repeat(40)}`;
+    expect(maskOpenClawLogPrefix(`Bearer ${secret} hej`)).not.toContain(secret);
+    expect(formatOpenClawChatStreamEndLog({
+      accumulatedChars: 80,
+      visibleChars: 80,
+      hasIncompleteAction: false,
+      leftoverChars: 0,
+      ended: true,
+      sawDone: true,
+      aborted: false,
+      contentForms: ["delta_string"],
+      errorKind: null,
+      prefix: `Authorization: Bearer ${secret}`,
+    })).not.toContain(secret);
   });
 });

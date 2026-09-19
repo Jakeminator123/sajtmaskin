@@ -14,7 +14,9 @@ import {
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
-  parseGatewayStream,
+  consumeGatewayStream,
+  logOpenClawChatStreamEnd,
+  OPENCLAW_EMPTY_REPLY_COPY,
   type GatewayErrorDescription,
 } from "@/lib/openclaw/gateway-response";
 import {
@@ -220,16 +222,17 @@ export function useOpenClawChat() {
         }
 
         const reader = res.body.getReader();
-        let gatewayError: GatewayErrorDescription | null = null;
+        const streamError: { current: GatewayErrorDescription | null } = { current: null };
 
-        for await (const event of parseGatewayStream(reader)) {
+        const streamSummary = await consumeGatewayStream(reader, (event) => {
           if (event.type === "error") {
-            gatewayError = event.description;
-            break;
+            streamError.current = event.description;
+            return;
           }
           accumulated += event.text;
           updateAssistantMessage(placeholderId, accumulated);
-        }
+        });
+        const gatewayError = streamError.current;
 
         // The gateway answers 200 with a valid stream even when every model in
         // the fallback chain failed, so the reason lives in an error chunk
@@ -245,8 +248,25 @@ export function useOpenClawChat() {
               : gatewayError.message,
           );
         } else if (!accumulated) {
-          updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
+          // Keep the fallback out of `accumulated`. A1's handshake wake
+          // keys on a hunt-only reply; an empty or truncated stream must
+          // not look like one and start a wake loop.
+          updateAssistantMessage(placeholderId, OPENCLAW_EMPTY_REPLY_COPY);
         }
+
+        const parsedEnd = parseOpenClawMessage(accumulated);
+        logOpenClawChatStreamEnd({
+          accumulatedChars: accumulated.length,
+          visibleChars: parsedEnd.visibleContent.length,
+          hasIncompleteAction: parsedEnd.hasIncompleteAction,
+          leftoverChars: streamSummary.leftoverChars,
+          ended: streamSummary.ended,
+          sawDone: streamSummary.sawDoneMarker,
+          aborted: false,
+          contentForms: streamSummary.contentForms,
+          errorKind: gatewayError?.kind ?? streamSummary.errorKind,
+          prefix: accumulated,
+        });
 
         // Charge only after a stream that actually produced assistant text.
         // HTTP errors, network/Abort, empty streams and a pure gateway-error
@@ -255,11 +275,25 @@ export function useOpenClawChat() {
           consumeCampaignAdviceRound();
         }
       } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") {
+        const aborted = e instanceof DOMException && e.name === "AbortError";
+        if (aborted) {
           // Keep whatever was already streamed
         } else {
           updateAssistantMessage(placeholderId, "Nagot gick fel. Kontrollera att Sajtagenten ar igaang.");
         }
+        const parsedEnd = parseOpenClawMessage(accumulated);
+        logOpenClawChatStreamEnd({
+          accumulatedChars: accumulated.length,
+          visibleChars: parsedEnd.visibleContent.length,
+          hasIncompleteAction: parsedEnd.hasIncompleteAction,
+          leftoverChars: 0,
+          ended: false,
+          sawDone: false,
+          aborted,
+          contentForms: [],
+          errorKind: null,
+          prefix: accumulated,
+        });
       } finally {
         setStreaming(false);
         if (activeAssistantIdRef.current === placeholderId) {
