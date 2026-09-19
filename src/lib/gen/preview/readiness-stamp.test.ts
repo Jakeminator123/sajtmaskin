@@ -5,7 +5,9 @@ const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
   vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
 );
 const createEngineVersionErrorLogs = vi.hoisted(() =>
-  vi.fn<(payloads: unknown[], opts?: unknown) => Promise<unknown[]>>(async () => []),
+  vi.fn<(payloads: unknown[], opts?: unknown) => Promise<unknown[]>>(async (payloads) =>
+    Array.isArray(payloads) ? payloads : [],
+  ),
 );
 type StoredFile = { path: string; content: string; language?: string };
 const getVersionFilesSnapshot = vi.hoisted(() =>
@@ -779,6 +781,88 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
             bootFilesRevision: "rev-a",
           }),
         }),
+      ]),
+    );
+  });
+
+  it("retries a fallback receipt after createEngineVersionErrorLogs returns []", async () => {
+    const fallback = {
+      readinessState: "ready" as const,
+      readinessError: null,
+      regeneratedLockfile: null,
+      httpReady: true,
+      usedLegacyPeerDeps: true,
+      peerConflictDetected: true,
+      installKind: "fallback" as const,
+    };
+    createEngineVersionErrorLogs.mockResolvedValueOnce([]);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-retry-empty",
+      bootedFilesRevision: "rev-a",
+      resumed: fallback,
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-retry-empty",
+      bootedFilesRevision: "rev-a",
+      resumed: fallback,
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(2);
+    const [secondPayloads] = createEngineVersionErrorLogs.mock.calls[1] as [
+      Array<{ category: string }>,
+    ];
+    expect(secondPayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "preview:install-peer-fallback" }),
+      ]),
+    );
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-retry-empty",
+      bootedFilesRevision: "rev-a",
+      resumed: fallback,
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a fallback receipt after createEngineVersionErrorLogs throws", async () => {
+    const fallback = {
+      readinessState: "ready" as const,
+      readinessError: null,
+      regeneratedLockfile: null,
+      httpReady: true,
+      usedLegacyPeerDeps: true,
+      peerConflictDetected: true,
+      installKind: "fallback" as const,
+    };
+    createEngineVersionErrorLogs.mockRejectedValueOnce(new Error("lock timeout 55P03"));
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-retry-throw",
+      bootedFilesRevision: "rev-a",
+      resumed: fallback,
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v-retry-throw",
+      bootedFilesRevision: "rev-a",
+      resumed: fallback,
+    });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(2);
+    const [secondPayloads] = createEngineVersionErrorLogs.mock.calls[1] as [
+      Array<{ category: string }>,
+    ];
+    expect(secondPayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "preview:install-peer-fallback" }),
       ]),
     );
   });

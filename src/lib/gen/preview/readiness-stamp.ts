@@ -213,51 +213,65 @@ export async function applyPreviewReadinessOutcome(params: {
         ? dependencyFingerprintFromFiles(receiptFiles)
         : hostFingerprint;
       const receiptKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}:${installKind ?? "unknown"}`;
-      if (shouldWriteReceipt && !legacyPeerDepsVersionIds.has(receiptKey)) {
-        legacyPeerDepsVersionIds.add(receiptKey);
-        const { createEngineVersionErrorLogs } = await import(
-          "@/lib/db/services/version-errors"
-        );
-        await createEngineVersionErrorLogs(
-          [
-            {
-              chatId: params.chatId,
-              versionId: params.versionId,
-              level: usedFallback ? "warning" : "info",
-              category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
-              message: usedFallback
-                ? "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install."
-                : "Preview install completed with a strict npm install for this dependency tree.",
-              meta: {
-                kind: installKind,
-                usedFallback,
-                filesRevision: receiptRevision,
-                dependencyFingerprint,
-                bootFilesRevision: params.bootedFilesRevision?.trim() || null,
-                source: "preview_install_peer_fallback",
+      if (
+        shouldWriteReceipt &&
+        !legacyPeerDepsVersionIds.has(receiptKey) &&
+        !legacyPeerDepsInFlight.has(receiptKey)
+      ) {
+        // Temporary reservation only. Permanent dedup is set after the
+        // publish-blocking receipt is proven stored — `createEngineVersionErrorLogs`
+        // is best-effort and may return [] on 55P03 without throwing.
+        legacyPeerDepsInFlight.add(receiptKey);
+        try {
+          const { createEngineVersionErrorLogs } = await import(
+            "@/lib/db/services/version-errors"
+          );
+          const stored = await createEngineVersionErrorLogs(
+            [
+              {
+                chatId: params.chatId,
+                versionId: params.versionId,
+                level: usedFallback ? "warning" : "info",
+                category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+                message: usedFallback
+                  ? "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install."
+                  : "Preview install completed with a strict npm install for this dependency tree.",
+                meta: {
+                  kind: installKind,
+                  usedFallback,
+                  filesRevision: receiptRevision,
+                  dependencyFingerprint,
+                  bootFilesRevision: params.bootedFilesRevision?.trim() || null,
+                  source: "preview_install_peer_fallback",
+                },
               },
-            },
-            ...(usedFallback
-              ? [
-                  {
-                    chatId: params.chatId,
-                    versionId: params.versionId,
-                    level: "warning" as const,
-                    category: "preflight:quality-gate",
-                    message:
-                      "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
-                    meta: {
-                      passed: true,
-                      advisory: true,
-                      advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
-                      source: "preview_install_peer_fallback",
+              ...(usedFallback
+                ? [
+                    {
+                      chatId: params.chatId,
+                      versionId: params.versionId,
+                      level: "warning" as const,
+                      category: "preflight:quality-gate",
+                      message:
+                        "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
+                      meta: {
+                        passed: true,
+                        advisory: true,
+                        advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
+                        source: "preview_install_peer_fallback",
+                      },
                     },
-                  },
-                ]
-              : []),
-          ],
-          { lockTimeoutMs: 2_000 },
-        );
+                  ]
+                : []),
+            ],
+            { lockTimeoutMs: 2_000 },
+          );
+          if (hasStoredInstallPeerFallbackReceipt(stored)) {
+            legacyPeerDepsVersionIds.add(receiptKey);
+          }
+        } finally {
+          legacyPeerDepsInFlight.delete(receiptKey);
+        }
       }
     }
   } catch (err) {
@@ -294,6 +308,17 @@ const EMPTY_LOCKFILE_PERSIST: RegeneratedLockfilePersistResult = {
  */
 const failedPreviewVersionIds = new Set<string>();
 const legacyPeerDepsVersionIds = new Set<string>();
+const legacyPeerDepsInFlight = new Set<string>();
+
+function hasStoredInstallPeerFallbackReceipt(rows: unknown): boolean {
+  if (!Array.isArray(rows)) return false;
+  return rows.some((row) => {
+    if (!row || typeof row !== "object") return false;
+    return (
+      (row as { category?: unknown }).category === INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY
+    );
+  });
+}
 
 /**
  * One-shot lockfile round-trip (req A2): after the host regenerates a lockfile
@@ -421,4 +446,5 @@ export function __resetPersistedLockfileGuardForTesting(): void {
   persistedLockfileRevisions.clear();
   failedPreviewVersionIds.clear();
   legacyPeerDepsVersionIds.clear();
+  legacyPeerDepsInFlight.clear();
 }
