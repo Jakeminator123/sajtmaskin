@@ -1,0 +1,440 @@
+"use client";
+
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { Navbar } from "@/components/landing-v2/navbar";
+import { ChatArea } from "@/components/landing-v2/chat-area";
+import { AuditModal } from "@/components/modals/audit-modal";
+import { EntryModal } from "@/components/modals/entry-modal";
+import { OnboardingModal, useOnboarding } from "@/components/modals/onboarding-modal";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
+import { WelcomeOverlay } from "@/components/modals/welcome-overlay";
+import { useEntryParams } from "@/lib/entry/use-entry-params";
+import { useAuth } from "@/lib/auth/auth-store";
+import { TemplateGallery } from "@/components/templates/template-gallery";
+import { SiteAuditSection } from "@/components/layout/site-audit-section";
+import {
+  isTemplateEntryMode,
+  resolveBuildIntentForMethod,
+  DEFAULT_BUILD_INTENT,
+  type BuildIntent,
+} from "@/lib/builder/build-intent";
+import type { AuditResult } from "@/types/audit";
+import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { toast } from "sonner";
+import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
+import { createProject } from "@/lib/projects/project-client";
+import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics";
+
+declare global {
+  interface Window {
+    __SITEMASKIN_CONTEXT?: Record<string, unknown>;
+  }
+}
+
+function RootLandingContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const { fetchUser } = useAuth();
+
+  const [buildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>("fritext");
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const [showWizard, setShowWizard] = useState(false);
+
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditUrl, setAuditUrl] = useState("");
+  const [auditSubmitSignal, setAuditSubmitSignal] = useState(0);
+
+  const entry = useEntryParams();
+  const { showOnboarding, openOnboarding, handleComplete, handleSkip } = useOnboarding();
+
+  useEffect(() => {
+    fetchUser().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!entry.directAction || entry.showWelcome) return;
+    if (entry.directAction === "audit") {
+      setSelectedCategory("audit");
+      setExpandedSection("audit");
+    } else if (entry.directAction === "wizard") {
+      setShowWizard(true);
+    } else if (entry.directAction === "freeform") {
+      setSelectedCategory("fritext");
+    }
+  }, [entry.directAction, entry.showWelcome]);
+
+  useEffect(() => {
+    const login = searchParams.get("login");
+    const signup = searchParams.get("signup");
+    const authError = searchParams.get("error");
+    const verified = searchParams.get("verified");
+    const reason = searchParams.get("reason");
+
+    if (!login && !signup && !authError && !verified) return;
+
+    noteAccountCreatedIfSignup(signup);
+
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+
+    if (authError) {
+      toast.error(authError);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    if (verified === "success") {
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+      setAuthMode("login");
+      setShowAuthModal(true);
+    } else if (verified === "error") {
+      const verificationErrorMessage =
+        reason === "missing_token"
+          ? "Verifieringslänken saknar token."
+          : reason === "invalid_or_expired"
+            ? "Verifieringslänken är ogiltig eller har gått ut."
+            : reason === "server_error"
+              ? "Något gick fel vid e-postverifiering."
+              : "Kunde inte verifiera e-postadressen.";
+      toast.error(verificationErrorMessage);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("login");
+    nextParams.delete("signup");
+    nextParams.delete("error");
+    nextParams.delete("verified");
+    nextParams.delete("reason");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    const activeEntryMode = showWizard ? "wizard" : selectedCategory ?? null;
+    window.__SITEMASKIN_CONTEXT = {
+      page: "landing",
+      activeEntryMode,
+      expandedSection,
+      buildIntent,
+      wizardOpen: showWizard,
+      auditUrl: auditUrl.trim() || null,
+      auditedUrl,
+      auditModalOpen: showAuditModal,
+    };
+    window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    return () => {
+      delete window.__SITEMASKIN_CONTEXT;
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    };
+  }, [
+    selectedCategory,
+    expandedSection,
+    buildIntent,
+    showWizard,
+    auditUrl,
+    auditedUrl,
+    showAuditModal,
+  ]);
+
+  const handleLoginClick = useCallback(() => {
+    trackHomepageEvent("homepage_auth", { mode: "login" });
+    setAuthMode("login");
+    setShowAuthModal(true);
+  }, []);
+
+  const handleRegisterClick = useCallback(() => {
+    trackHomepageEvent("homepage_auth", { mode: "register" });
+    trackHomepageEvent("homepage_cta", { location: "nav", action: "start" });
+    setAuthMode("register");
+    setShowAuthModal(true);
+  }, []);
+
+  const handleCategoryChange = useCallback(
+    (id: string | null) => {
+      if (id === "analyserad") {
+        setShowWizard(true);
+        setSelectedCategory(null);
+        setExpandedSection(null);
+        return;
+      }
+
+      setSelectedCategory(id);
+
+      if (isTemplateEntryMode(id)) {
+        setExpandedSection("category");
+      } else if (id === "audit") {
+        setExpandedSection("audit");
+      } else {
+        setExpandedSection(null);
+      }
+    },
+    [],
+  );
+
+  const handleAuditComplete = useCallback((result: AuditResult, url: string) => {
+    setAuditResult(result);
+    setAuditedUrl(url);
+    setShowAuditModal(true);
+  }, []);
+
+  const handleAuditSubmitFromHero = useCallback(() => {
+    setAuditSubmitSignal((prev) => prev + 1);
+  }, []);
+
+  const handleBuildFromAudit = useCallback(
+    async (result: AuditResult, url: string) => {
+      setShowAuditModal(false);
+      try {
+        const payload = extractAuditHandoffPayload(result, url);
+        const prompt = buildAuditDisplayPrompt(payload);
+        const project = await createProject(
+          `Audit - ${new Date().toLocaleDateString("sv-SE")}`,
+          "audit",
+          prompt.substring(0, 100),
+        );
+        const response = await fetch("/api/prompts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, source: "audit", projectId: project.id, payload }),
+        });
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          promptId?: string;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.promptId) {
+          throw new Error(data?.error || "Kunde inte spara audit-prompten");
+        }
+        const intent = resolveBuildIntentForMethod("audit", buildIntent);
+        const params = new URLSearchParams();
+        params.set("project", project.id);
+        params.set("source", "audit");
+        params.set("promptId", data.promptId);
+        params.set("buildMethod", "audit");
+        params.set("buildIntent", intent);
+        router.push(`/builder?${params.toString()}`);
+      } catch (error) {
+        console.error("[RootLanding] Audit handoff failed:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Kunde inte spara audit-prompten",
+        );
+      }
+    },
+    [buildIntent, router],
+  );
+
+  const handleWizardComplete = useCallback(
+    async (wizardData: WizardData, expandedPrompt: string) => {
+      setShowWizard(false);
+      try {
+        const project = await createProject(
+          `Analyserad - ${new Date().toLocaleDateString("sv-SE")}`,
+          "wizard",
+          expandedPrompt.substring(0, 100),
+        );
+
+        if (wizardData.companyName) {
+          fetch("/api/company-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project_id: project.id,
+              company_name: wizardData.companyName,
+              industry: wizardData.industry,
+              location: wizardData.location,
+              existing_website: wizardData.existingWebsite,
+              website_analysis: wizardData.websiteAnalysis,
+              site_likes: wizardData.siteLikes,
+              site_dislikes: wizardData.siteDislikes,
+              site_feedback: wizardData.siteOtherFeedback,
+              target_audience: wizardData.targetAudience,
+              purposes: wizardData.purposes,
+              special_wishes: wizardData.specialWishes,
+              color_palette_name: wizardData.palette?.name,
+              color_primary: wizardData.customColors?.primary || wizardData.palette?.primary,
+              color_secondary: wizardData.customColors?.secondary || wizardData.palette?.secondary,
+              color_accent: wizardData.customColors?.accent || wizardData.palette?.accent,
+              industry_trends: wizardData.industryTrends,
+              inspiration_sites: wizardData.inspirationSites,
+              voice_transcript: wizardData.voiceTranscript,
+            }),
+          }).catch((err) => console.error("[RootLanding] Failed to save company profile:", err));
+        }
+
+        const response = await fetch("/api/prompts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: expandedPrompt,
+            source: "wizard",
+            projectId: project.id,
+          }),
+        });
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          promptId?: string;
+          error?: string;
+        } | null;
+        if (!response.ok || !data?.promptId) {
+          throw new Error(data?.error || "Kunde inte spara prompten");
+        }
+        const intent = resolveBuildIntentForMethod("wizard", buildIntent);
+        const params = new URLSearchParams();
+        params.set("project", project.id);
+        params.set("promptId", data.promptId);
+        params.set("buildMethod", "wizard");
+        params.set("buildIntent", intent);
+        router.push(`/builder?${params.toString()}`);
+      } catch (error) {
+        console.error("[RootLanding] Wizard handoff failed:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Kunde inte spara prompten",
+        );
+      }
+    },
+    [buildIntent, router],
+  );
+
+  const handleEntryContinue = useCallback(() => {
+    const result = entry.continueEntry();
+    if (!result) return;
+    if (result.action === "wizard") {
+      setShowWizard(true);
+    } else if (result.action === "audit") {
+      setSelectedCategory("audit");
+      setExpandedSection("audit");
+    } else if (result.action === "freeform") {
+      setSelectedCategory("fritext");
+    }
+  }, [entry]);
+
+  const renderExpandedContent = () => {
+    if (expandedSection === "category") {
+      return (
+        <div className="w-full max-w-4xl animate-fade-up">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+            <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Templates
+            </span>
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+          <TemplateGallery />
+        </div>
+      );
+    }
+
+    if (expandedSection === "audit") {
+      return (
+        <div className="w-full max-w-2xl animate-fade-up">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+            <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Analysera webbplats
+            </span>
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+          <SiteAuditSection
+            onAuditComplete={handleAuditComplete}
+            onRequireAuth={handleLoginClick}
+            url={auditUrl}
+            onUrlChange={setAuditUrl}
+            hideUrlInput
+            externalSubmitSignal={auditSubmitSignal}
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <>
+      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-clip bg-background supports-[height:100dvh]:h-dvh">
+        <Navbar
+          onLoginClick={handleLoginClick}
+          onRegisterClick={handleRegisterClick}
+        />
+        <ChatArea
+          selectedCategory={selectedCategory}
+          onSelectedCategoryChange={handleCategoryChange}
+          expandedContent={renderExpandedContent()}
+          auditUrl={auditUrl}
+          onAuditUrlChange={setAuditUrl}
+          onAuditSubmit={handleAuditSubmitFromHero}
+          onPlayIntro={openOnboarding}
+        />
+      </div>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultMode={authMode}
+      />
+
+      <PromptWizardModalV2
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        onComplete={handleWizardComplete}
+        initialPrompt=""
+        initialCompanyName={entry.company ?? ""}
+        categoryType="website"
+        buildIntent={buildIntent}
+      />
+
+      <AuditModal
+        result={auditResult}
+        auditedUrl={auditedUrl}
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        onBuildFromAudit={handleBuildFromAudit}
+      />
+
+      {entry.mode && (
+        <EntryModal
+          mode={entry.mode}
+          partner={entry.partner}
+          onContinue={handleEntryContinue}
+          onClose={entry.dismissEntry}
+        />
+      )}
+
+      {entry.showWelcome && entry.company && (
+        <WelcomeOverlay
+          company={entry.company}
+          onContinue={() => entry.dismissWelcome()}
+        />
+      )}
+
+      {showOnboarding && (
+        <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
+      )}
+    </>
+  );
+}
+
+export default function HomePageClient() {
+  return (
+    <Suspense fallback={null}>
+      <RootLandingContent />
+    </Suspense>
+  );
+}

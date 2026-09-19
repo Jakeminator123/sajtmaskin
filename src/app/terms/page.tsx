@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Användarvillkor",
   description:
     "Användarvillkor för Sajtmaskin – AI-driven webbplatsgenerering av Pretty Good B.V.",
+  alternates: publicPageAlternates("/terms"),
 };
 
 export default function TermsPage() {
