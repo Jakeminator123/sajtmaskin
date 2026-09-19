@@ -7,6 +7,12 @@ import {
   useState,
   type RefCallback,
 } from "react";
+import {
+  registerDidStreamRelease,
+  releaseDidStream,
+  toDidStreamIdentity,
+  type DidStreamIdentity,
+} from "./did-stream-release";
 
 export type DidConnectionState =
   | "idle"
@@ -14,6 +20,14 @@ export type DidConnectionState =
   | "connected"
   | "speaking"
   | "error";
+
+/**
+ * Tak för hur länge "Startar avataren..." får stå kvar. D-ID svarar `403 Max
+ * user sessions reached` när kontots samtidiga strömmar är slut, och SDK:n
+ * rapporterar inte alltid det som ett kastat fel — utan deadline blir ett fullt
+ * konto en evig spinner i stället för ett felläge med retry-knapp.
+ */
+export const DID_CONNECT_TIMEOUT_MS = 20_000;
 
 function sanitizePublicEnv(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -67,6 +81,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   const agentRef = useRef<DidAgentManager | null>(null);
   const sdkModuleRef = useRef<DidClientSdk | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Strömmens serveridentitet, så en stängd flik kan lämna tillbaka platsen i
+  // D-ID:s samtidighetskvot i stället för att ockupera den till timeout.
+  const didStreamRef = useRef<DidStreamIdentity | null>(null);
+  const connectDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Varje connect/reconnect/disconnect får en ny generation. Asynkrona SDK-
   // steg som blir klara efter att användaren valt "Endast text" får då aldrig
   // återaktivera eller lämna en D-ID-session levande i bakgrunden.
@@ -80,6 +98,12 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   const updateConnectionState = useCallback((state: DidConnectionState) => {
     connectionStateRef.current = state;
     setConnectionState(state);
+  }, []);
+
+  const clearConnectDeadline = useCallback(() => {
+    if (connectDeadlineRef.current === null) return;
+    clearTimeout(connectDeadlineRef.current);
+    connectDeadlineRef.current = null;
   }, []);
 
   const syncVideoPlayback = useCallback(() => {
@@ -117,8 +141,14 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     const agent = await did.createAgentManager(AGENT_ID, {
       auth: { type: "key", clientKey: CLIENT_KEY },
       callbacks: {
+        onStreamCreated(value: unknown) {
+          if (agentRef.current !== createdAgent) return;
+          didStreamRef.current = toDidStreamIdentity(value);
+        },
         onSrcObjectReady(value: MediaStream) {
           if (agentRef.current !== createdAgent) return;
+          // Videon är framme — deadlinen har gjort sitt.
+          clearConnectDeadline();
           streamRef.current = value;
           setAvatarReady(true);
           syncVideoPlayback();
@@ -126,9 +156,13 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
         onConnectionStateChange(state: string) {
           if (agentRef.current !== createdAgent) return;
           if (state === "connected") updateConnectionState("connected");
-          else if (state === "failed") updateConnectionState("error");
-          else if (state === "disconnected" || state === "closed")
+          else if (state === "failed") {
+            clearConnectDeadline();
+            updateConnectionState("error");
+          } else if (state === "disconnected" || state === "closed") {
+            clearConnectDeadline();
             updateConnectionState("idle");
+          }
         },
         onVideoStateChange(state: string) {
           if (agentRef.current !== createdAgent) return;
@@ -150,7 +184,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     }
     agentRef.current = agent;
     return agent;
-  }, [loadSdk, syncVideoPlayback, updateConnectionState]);
+  }, [clearConnectDeadline, loadSdk, syncVideoPlayback, updateConnectionState]);
 
   const connect = useCallback(async () => {
     if (!AGENT_ID || !CLIENT_KEY) return;
@@ -162,11 +196,28 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       return;
 
     const generation = ++connectionGenerationRef.current;
+    // Deadlinen löper från första försöket till att videon faktiskt är framme,
+    // inte bara till att connect() resolvar: ett fullt D-ID-konto kan ge en
+    // ansluten agent som aldrig levererar någon MediaStream.
+    clearConnectDeadline();
+    connectDeadlineRef.current = setTimeout(() => {
+      connectDeadlineRef.current = null;
+      if (generation !== connectionGenerationRef.current) return;
+      if (connectionStateRef.current === "speaking") return;
+      const stalled = agentRef.current;
+      agentRef.current = null;
+      streamRef.current = null;
+      void safelyDisconnectAgent(stalled);
+      setAvatarReady(false);
+      updateConnectionState("error");
+    }, DID_CONNECT_TIMEOUT_MS);
+
     try {
       updateConnectionState("connecting");
       const agent = await initAgent(generation);
       if (generation !== connectionGenerationRef.current) return;
       if (!agent) {
+        clearConnectDeadline();
         updateConnectionState("error");
         return;
       }
@@ -179,10 +230,11 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       updateConnectionState("connected");
     } catch {
       if (generation === connectionGenerationRef.current) {
+        clearConnectDeadline();
         updateConnectionState("error");
       }
     }
-  }, [initAgent, updateConnectionState]);
+  }, [clearConnectDeadline, initAgent, updateConnectionState]);
 
   const speak = useCallback(async (text: string) => {
     const normalized = text.trim();
@@ -198,25 +250,32 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
 
   const disconnect = useCallback(() => {
     ++connectionGenerationRef.current;
+    clearConnectDeadline();
     const agent = agentRef.current;
     agentRef.current = null;
     streamRef.current = null;
+    didStreamRef.current = null;
     void safelyDisconnectAgent(agent);
     updateConnectionState("idle");
     setAvatarReady(false);
-  }, [updateConnectionState]);
+  }, [clearConnectDeadline, updateConnectionState]);
 
   const reconnect = useCallback(async () => {
     const generation = ++connectionGenerationRef.current;
+    clearConnectDeadline();
     const previousAgent = agentRef.current;
     agentRef.current = null;
     streamRef.current = null;
+    didStreamRef.current = null;
     setAvatarReady(false);
     updateConnectionState("idle");
+    // Vänta in att den gamla strömmen är släppt innan en ny begärs. Med bara
+    // två samtidiga platser skulle ett parallellt försök annars tävla mot sin
+    // egen föregångare om den sista platsen.
     await safelyDisconnectAgent(previousAgent);
     if (generation !== connectionGenerationRef.current) return;
     await connect();
-  }, [connect, updateConnectionState]);
+  }, [clearConnectDeadline, connect, updateConnectionState]);
 
   useEffect(() => {
     if (enabled) {
@@ -231,20 +290,42 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     syncVideoPlayback();
   }, [avatarReady, syncVideoPlayback]);
 
+  // Stängd flik och omladdning kör ingen React-cleanup. Utan det här släppet
+  // ockuperar den övergivna strömmen en av kontots två platser tills D-ID:s
+  // egen timeout löper ut, och nästa besökare får 403.
+  useEffect(
+    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY),
+    [],
+  );
+
   useEffect(() => {
     const generation = connectionGenerationRef;
     const activeAgent = agentRef;
     const activeStream = streamRef;
+    const activeDidStream = didStreamRef;
+    const deadline = connectDeadlineRef;
     return () => {
       ++generation.current;
+      if (deadline.current !== null) {
+        clearTimeout(deadline.current);
+        deadline.current = null;
+      }
       // React StrictMode kör setup → cleanup → setup i utveckling. Nollställ
       // den synkrona vakten utan en state-uppdatering på den avmonterade
       // instansen, så nästa legitima setup inte fastnar bakom "connecting".
       connectionStateRef.current = "idle";
       const agent = activeAgent.current;
+      const stream = activeDidStream.current;
       activeAgent.current = null;
       activeStream.current = null;
-      void safelyDisconnectAgent(agent);
+      activeDidStream.current = null;
+      if (agent) {
+        void safelyDisconnectAgent(agent);
+      } else if (stream) {
+        // Unmount mitt i uppkopplingen: agenten hann aldrig landa i refen, men
+        // strömmen kan redan finnas hos D-ID. Släpp den direkt.
+        releaseDidStream(stream, CLIENT_KEY);
+      }
     };
   }, []);
 

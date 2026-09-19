@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
+import { DID_CONNECT_TIMEOUT_MS } from "@/lib/openclaw/use-did-avatar";
+import {
+  registerDidStreamRelease,
+  toDidStreamIdentity,
+  type DidStreamIdentity,
+} from "@/lib/openclaw/did-stream-release";
 
 type BridgeMessage = {
   id: string;
@@ -174,6 +180,10 @@ export function DidOpenClawBridge({
   const streamRef = useRef<MediaStream | null>(null);
   const pendingSpeechRef = useRef<string | null>(null);
   const messagesRef = useRef<BridgeMessage[]>([]);
+  // Se `did-stream-release.ts`: D-ID:s samtidighetstak är två strömmar per
+  // konto, så en övergiven session här stjäl en plats från produktionsytan.
+  const didStreamRef = useRef<DidStreamIdentity | null>(null);
+  const connectDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     testMode ? "mock-ready" : "idle",
@@ -196,20 +206,40 @@ export function DidOpenClawBridge({
   const [speechSupported, setSpeechSupported] = useState(false);
 
   messagesRef.current = messages;
+  // Deadline-timern läser readiness utanför render, så den behöver en ref.
+  const avatarReadyRef = useRef(avatarReady);
+  avatarReadyRef.current = avatarReady;
 
   useEffect(() => {
     sessionIdRef.current = getSessionId();
     setSpeechSupported(getSpeechRecognitionCtor() !== null);
   }, []);
 
+  useEffect(
+    () => registerDidStreamRelease(() => didStreamRef.current, CLIENT_KEY),
+    [],
+  );
+
   useEffect(() => {
+    const deadline = connectDeadlineRef;
     return () => {
       recognitionRef.current?.abort?.();
+      if (deadline.current !== null) {
+        clearTimeout(deadline.current);
+        deadline.current = null;
+      }
       if (agentRef.current?.disconnect) {
         void agentRef.current.disconnect().catch(() => {});
       }
       streamRef.current = null;
+      didStreamRef.current = null;
     };
+  }, []);
+
+  const clearConnectDeadline = useCallback(() => {
+    if (connectDeadlineRef.current === null) return;
+    clearTimeout(connectDeadlineRef.current);
+    connectDeadlineRef.current = null;
   }, []);
 
   const syncVideoPlayback = useCallback(() => {
@@ -236,7 +266,11 @@ export function DidOpenClawBridge({
     const agent = await did.createAgentManager(AGENT_ID, {
       auth: { type: "key", clientKey: CLIENT_KEY },
       callbacks: {
+        onStreamCreated(value: unknown) {
+          didStreamRef.current = toDidStreamIdentity(value);
+        },
         onSrcObjectReady(value: MediaStream) {
+          clearConnectDeadline();
           streamRef.current = value;
           setAvatarReady(true);
           syncVideoPlayback();
@@ -245,9 +279,11 @@ export function DidOpenClawBridge({
           if (state === "connected") {
             setConnectionState("connected");
           } else if (state === "failed") {
+            clearConnectDeadline();
             setConnectionState("error");
             setLastError("D-ID-klienten kunde inte ansluta.");
           } else if (state === "disconnected" || state === "closed") {
+            clearConnectDeadline();
             setConnectionState("idle");
           }
         },
@@ -267,7 +303,7 @@ export function DidOpenClawBridge({
     });
     agentRef.current = agent;
     return agent;
-  }, [loadDidSdk, syncVideoPlayback, testMode]);
+  }, [clearConnectDeadline, loadDidSdk, syncVideoPlayback, testMode]);
 
   const ensureConnected = useCallback(async () => {
     if (testMode) {
@@ -278,11 +314,20 @@ export function DidOpenClawBridge({
     if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return;
     if (connectionState === "connected" || connectionState === "speaking") return;
 
+    // Ett fullt D-ID-konto kan ge en ansluten agent som aldrig levererar någon
+    // MediaStream. Utan deadline fastnar ytan i "Förbered D-ID-klienten...".
+    clearConnectDeadline();
+    connectDeadlineRef.current = setTimeout(() => {
+      connectDeadlineRef.current = null;
+      if (!avatarReadyRef.current) setConnectionState("offline");
+    }, DID_CONNECT_TIMEOUT_MS);
+
     try {
       setConnectionState("connecting");
       setLastError(null);
       const agent = await initAgent();
       if (!agent) {
+        clearConnectDeadline();
         setConnectionState("error");
         setLastError("D-ID-klienten kunde inte initieras.");
         return;
@@ -290,6 +335,7 @@ export function DidOpenClawBridge({
       await agent.connect();
       setConnectionState("connected");
     } catch (error) {
+      clearConnectDeadline();
       const outcome = handleAvatarConnectError(error, AGENT_ID);
       if (outcome.kind === "offline") {
         // Soft state: keep retry-knappen tillgänglig och undvik högljudd toast/debug-rad.
@@ -299,7 +345,7 @@ export function DidOpenClawBridge({
         setLastError(outcome.message);
       }
     }
-  }, [connectionState, initAgent, testMode]);
+  }, [clearConnectDeadline, connectionState, initAgent, testMode]);
 
   const speakText = useCallback(
     async (text: string) => {
