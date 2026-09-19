@@ -290,17 +290,25 @@ export async function handleSiteSubscriptionStripeEvent(input: {
     return retry("event_in_flight");
   }
 
+  // Leasens token följer med till avslutet. Har leasen tagits över av en annan
+  // körning skriver `finishStripeBillingEvent` 0 rader i stället för att röra
+  // efterträdarens utfall.
+  const { leaseOwner } = claim;
   try {
     const result = await dispatchSiteSubscriptionEvent(input);
     if (shouldKeepStripeEventOpen(result)) {
-      await failStripeBillingEvent(input.event.id, String(result.body.error ?? "retry"));
+      await failStripeBillingEvent(
+        input.event.id,
+        leaseOwner,
+        String(result.body.error ?? "retry"),
+      );
       return result.status >= 500 ? result : retry(String(result.body.error ?? "retry"));
     }
-    await completeStripeBillingEvent(input.event.id);
+    await completeStripeBillingEvent(input.event.id, leaseOwner);
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await failStripeBillingEvent(input.event.id, message);
+    await failStripeBillingEvent(input.event.id, leaseOwner, message);
     console.error("[Stripe/webhook] site_subscription failed:", error);
     return retry("site_subscription_failed");
   }

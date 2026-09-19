@@ -53,6 +53,9 @@ const { fulfillPaidSubscriptionRow, handleSiteSubscriptionStripeEvent } = await 
   "./site-subscription-webhook"
 );
 
+/** Leasens fencing-token följer med från claim till complete/fail. */
+const LEASE_OWNER = "lease-owner-1";
+
 const row = {
   id: "sub_row",
   user_id: "user_1",
@@ -88,7 +91,7 @@ function siteInvoice(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  claimStripeBillingEvent.mockResolvedValue({ action: "process" });
+  claimStripeBillingEvent.mockResolvedValue({ action: "process", leaseOwner: LEASE_OWNER });
   completeStripeBillingEvent.mockResolvedValue(undefined);
   failStripeBillingEvent.mockResolvedValue(undefined);
   getSiteSubscriptionByStripeId.mockResolvedValue(row);
@@ -188,7 +191,11 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(result.body.error).toBe("tenant_mismatch");
     expect(grantSiteSubscriptionPeriodCredits).not.toHaveBeenCalled();
     expect(completeStripeBillingEvent).not.toHaveBeenCalled();
-    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "tenant_mismatch");
+    expect(failStripeBillingEvent).toHaveBeenCalledWith(
+      "evt_1",
+      LEASE_OWNER,
+      "tenant_mismatch",
+    );
   });
 
   it("retrysar metadata_mode_mismatch i stället för att kvittera eventet", async () => {
@@ -212,7 +219,11 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(result.body.error).toBe("metadata_mode_mismatch");
     expect(updateSiteSubscription).not.toHaveBeenCalled();
     expect(completeStripeBillingEvent).not.toHaveBeenCalled();
-    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "metadata_mode_mismatch");
+    expect(failStripeBillingEvent).toHaveBeenCalledWith(
+      "evt_1",
+      LEASE_OWNER,
+      "metadata_mode_mismatch",
+    );
   });
 
   it("kvitterar permanent ogiltig checkout-metadata så Stripe inte retrysar för evigt", async () => {
@@ -229,7 +240,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
 
     expect(result.status).toBe(400);
     expect(result.body.error).toBe("invalid_site_subscription_metadata");
-    expect(completeStripeBillingEvent).toHaveBeenCalledWith("evt_1");
+    expect(completeStripeBillingEvent).toHaveBeenCalledWith("evt_1", LEASE_OWNER);
     expect(failStripeBillingEvent).not.toHaveBeenCalled();
   });
 
@@ -539,7 +550,11 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     );
     expect(enqueueHostingJob).not.toHaveBeenCalled();
     expect(completeStripeBillingEvent).not.toHaveBeenCalled();
-    expect(failStripeBillingEvent).toHaveBeenCalledWith("evt_1", "stale_lifecycle");
+    expect(failStripeBillingEvent).toHaveBeenCalledWith(
+      "evt_1",
+      LEASE_OWNER,
+      "stale_lifecycle",
+    );
   });
 
   it("skriver inte över ended+checkout_expired när Stripe sedan skickar deleted", async () => {
@@ -1327,6 +1342,7 @@ describe("handleSiteSubscriptionStripeEvent", () => {
     expect(completeStripeBillingEvent).not.toHaveBeenCalled();
     expect(failStripeBillingEvent).toHaveBeenCalledWith(
       "evt_1",
+      LEASE_OWNER,
       "checkout_session_retrieve_failed",
     );
   });

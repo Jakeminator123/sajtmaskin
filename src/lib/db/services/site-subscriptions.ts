@@ -350,6 +350,13 @@ export async function updatePeriodGrant(
   return rows[0] ?? null;
 }
 
+/**
+ * Öppet = det finns redan ett jobb som kommer att köras. `failed` räknas med:
+ * `isBillingJobClaimable` gör ett failed jobb retrybart, men `open_job_key` är
+ * NULL för det. Utan den här raden kunde en reconcile efter en misslyckad
+ * actual-write lägga ett NYTT pause/resume-jobb parallellt med det failed jobb
+ * som redan väntar på sin backoff — alltså två provider-anrop för samma sak.
+ */
 export async function getOpenBillingJob(
   subscriptionId: string,
   kind: "pause" | "resume",
@@ -359,7 +366,12 @@ export async function getOpenBillingJob(
     .select()
     .from(billingJobs)
     .where(and(eq(billingJobs.subscription_id, subscriptionId), eq(billingJobs.kind, kind)));
-  return rows.find((row) => row.status === "pending" || row.status === "running") ?? null;
+  return (
+    rows.find(
+      (row) =>
+        row.status === "pending" || row.status === "running" || row.status === "failed",
+    ) ?? null
+  );
 }
 
 export async function insertBillingJob(input: {
@@ -518,6 +530,7 @@ export async function insertStripeBillingEvent(input: {
   eventId: string;
   billingMode: BillingMode;
   eventType: string;
+  leaseOwner: string;
   leaseExpiresAt: Date;
 }): Promise<StripeBillingEventRow> {
   assertDbConfigured();
@@ -530,6 +543,7 @@ export async function insertStripeBillingEvent(input: {
       billing_mode: input.billingMode,
       event_type: input.eventType,
       status: "processing",
+      lease_owner: input.leaseOwner,
       lease_expires_at: input.leaseExpiresAt,
       created_at: now,
       updated_at: now,
@@ -538,8 +552,59 @@ export async function insertStripeBillingEvent(input: {
   return rows[0];
 }
 
-export async function updateStripeBillingEvent(
+/**
+ * Atomiskt övertagande av ett redan inlagt event: bara en körning får raden via
+ * RETURNING. Villkoret MÅSTE sitta i WHERE — en separat SELECT plus en
+ * ovillkorad UPDATE lät två samtidiga Stripe-retries båda ta samma
+ * failed/expired rad och processa samma event.
+ *
+ * `completed` ingår aldrig, så ett kvitterat event kan inte plockas om.
+ * Tom RETURNING = någon annan äger eventet; processa det inte.
+ */
+export async function claimStripeBillingEventRow(input: {
+  eventId: string;
+  now: Date;
+  leaseOwner: string;
+  leaseExpiresAt: Date;
+}): Promise<StripeBillingEventRow | null> {
+  assertDbConfigured();
+  const rows = await db
+    .update(stripeBillingEvents)
+    .set({
+      status: "processing",
+      lease_owner: input.leaseOwner,
+      lease_expires_at: input.leaseExpiresAt,
+      last_error: null,
+      updated_at: input.now,
+    })
+    .where(
+      and(
+        eq(stripeBillingEvents.event_id, input.eventId),
+        or(
+          eq(stripeBillingEvents.status, "failed"),
+          and(
+            eq(stripeBillingEvents.status, "processing"),
+            or(
+              isNull(stripeBillingEvents.lease_expires_at),
+              lte(stripeBillingEvents.lease_expires_at, input.now),
+            ),
+          ),
+        ),
+      ),
+    )
+    .returning();
+  return rows[0] ?? null;
+}
+
+/**
+ * Fencad avslutning: bara den körning som fortfarande äger leasen får skriva.
+ * En stale worker som förlorat leasen får 0 rader och kan alltså inte skriva
+ * `completed` över efterträdarens körning — eller `failed` efter att den
+ * lyckats.
+ */
+export async function finishStripeBillingEvent(
   eventId: string,
+  leaseOwner: string,
   patch: Partial<
     Pick<
       StripeBillingEventRow,
@@ -551,7 +616,12 @@ export async function updateStripeBillingEvent(
   const rows = await db
     .update(stripeBillingEvents)
     .set({ ...patch, updated_at: new Date() })
-    .where(eq(stripeBillingEvents.event_id, eventId))
+    .where(
+      and(
+        eq(stripeBillingEvents.event_id, eventId),
+        eq(stripeBillingEvents.lease_owner, leaseOwner),
+      ),
+    )
     .returning();
   return rows[0] ?? null;
 }

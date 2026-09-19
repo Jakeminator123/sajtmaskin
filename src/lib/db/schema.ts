@@ -1656,6 +1656,12 @@ export const stripeBillingEvents = pgTable(
     billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
     event_type: text("event_type").notNull(),
     status: text("status").notNull().default("processing"),
+    /**
+     * Fencing-token för den körning som äger leasen. `complete`/`fail` får bara
+     * mutera raden när token fortfarande matchar, så en worker vars lease gått
+     * ut inte kan skriva över efterträdarens utfall.
+     */
+    lease_owner: text("lease_owner"),
     lease_expires_at: timestamptz("lease_expires_at"),
     last_error: text("last_error"),
     completed_at: timestamptz("completed_at"),

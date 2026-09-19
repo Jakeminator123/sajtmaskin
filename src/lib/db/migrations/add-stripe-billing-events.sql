@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS stripe_billing_events (
   billing_mode TEXT NOT NULL,
   event_type TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'processing',
+  -- Fencing-token för leasens ägare: complete/fail villkoras på den, så en
+  -- worker vars lease gått ut inte kan skriva över efterträdarens utfall.
+  lease_owner TEXT,
   lease_expires_at TIMESTAMPTZ,
   last_error TEXT,
   completed_at TIMESTAMPTZ,
@@ -23,6 +26,9 @@ CREATE TABLE IF NOT EXISTS stripe_billing_events (
   CONSTRAINT stripe_billing_events_event_id_unique
     UNIQUE (event_id)
 );
+
+-- Idempotent för en miljö som redan hunnit skapa tabellen utan fencing-kolumnen.
+ALTER TABLE stripe_billing_events ADD COLUMN IF NOT EXISTS lease_owner TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_stripe_billing_events_status
   ON stripe_billing_events (status, created_at);
