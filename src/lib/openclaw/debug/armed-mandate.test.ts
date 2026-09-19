@@ -24,6 +24,17 @@ describe("parseArmingDirective", () => {
     expect(directive?.count).toBe(5);
   });
 
+  it("arms three steps from the exact preview-repro phrase", () => {
+    const directive = parseArmingDirective(
+      "gör 3 follow-ups och buggranska. Första steget: skicka själv en builder-prompt som gör hero-rubriken tydligare. Om det räcker med en liten textändring, föreslå också en snabbändring.",
+    );
+    expect(directive).not.toBeNull();
+    expect(directive?.mode).toBe("followups");
+    expect(directive?.count).toBe(3);
+    const mandate = createArmedMandate(directive!);
+    expect(mandate.remaining).toBe(3);
+  });
+
   it("detects follow-ups without a count → default", () => {
     const directive = parseArmingDirective("kör follow-ups och buggranska");
     expect(directive?.mode).toBe("followups");

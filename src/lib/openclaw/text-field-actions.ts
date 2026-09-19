@@ -177,11 +177,12 @@ export function applyOpenClawTextFieldAction(
 
 /**
  * Klipp ut varje komplett action-block ur texten och behåll nyttolasten från
- * det FÖRSTA. Systemprompten ber om exakt ett block, men en modell som bryter
- * mot det (typiskt i armerat läge, där den både ska bekräfta ett mandat och
- * skicka en follow-up) fick förut sitt andra block renderat som rå JSON i
- * chattbubblan — bara det första klipptes bort. Extra block tolkas aldrig:
- * ett meddelande utlöser som mest en action.
+ * det FÖRSTA. Ett meddelande utlöser som mest en action — ingen
+ * multi-action-pipeline. Om både `start_bug_hunt` och `fill_text_field` finns
+ * vinner det första kompletta blocket (ofta bekräftelsen). En hunt-bekräftelse
+ * utan fill väcks sedan en gång av klienten (`decideArmedHandshakeWake`), så
+ * first-wins är avsiktligt: bekräftelsen är kosmetisk och får inte sluka en
+ * separat fill-körning i samma tur.
  */
 export function parseOpenClawMessage(
   content: string,
