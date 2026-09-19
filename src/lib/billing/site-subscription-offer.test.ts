@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   SITE_SUBSCRIPTION_ACTIVATION_NOT_READY,
-  SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED,
   SITE_SUBSCRIPTION_KIND,
   SITE_SUBSCRIPTION_PRICE_REF,
   buildSiteSubscriptionCheckoutMetadata,
@@ -30,45 +29,59 @@ describe("resolveServerBillingMode", () => {
 });
 
 describe("isSiteSubscriptionCheckoutActivated", () => {
-  it("förblir stängd oavsett request-flaggor", () => {
-    expect(SITE_SUBSCRIPTION_CHECKOUT_ACTIVATED).toBe(false);
-    expect(isSiteSubscriptionCheckoutActivated()).toBe(false);
+  it("förblir stängd som default oavsett request-flaggor", () => {
+    const env = {};
+    expect(isSiteSubscriptionCheckoutActivated(undefined, "test", env)).toBe(false);
     expect(
-      isSiteSubscriptionCheckoutActivated({
-        activate: true,
-        activation: true,
-        enabled: true,
-        billing_mode: "live",
-        amount: 1,
-      }),
+      isSiteSubscriptionCheckoutActivated(
+        {
+          activate: true,
+          activation: true,
+          enabled: true,
+          billing_mode: "live",
+          amount: 1,
+        },
+        "test",
+        env,
+      ),
     ).toBe(false);
+  });
+
+  it("öppnar bara testläge när env är på", () => {
+    const env = { SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT: "1" };
+    expect(isSiteSubscriptionCheckoutActivated({}, "test", env)).toBe(true);
+    expect(isSiteSubscriptionCheckoutActivated({}, "live", env)).toBe(false);
   });
 });
 
 describe("buildSiteSubscriptionOffer", () => {
   it("äger läge och märker kommersiella villkor som proposal/not_ratified", () => {
-    const offer = buildSiteSubscriptionOffer("test");
+    const offer = buildSiteSubscriptionOffer("test", {});
 
-    expect(offer).toEqual({
-      kind: SITE_SUBSCRIPTION_KIND,
-      billing_mode: "test",
-      price_ref: SITE_SUBSCRIPTION_PRICE_REF,
-      commercial_terms: {
-        status: "not_ratified",
-        ratification: "proposal",
-      },
-      activation: {
-        ready: false,
-        code: SITE_SUBSCRIPTION_ACTIVATION_NOT_READY,
-      },
+    expect(offer.kind).toBe(SITE_SUBSCRIPTION_KIND);
+    expect(offer.billing_mode).toBe("test");
+    expect(offer.price_ref).toBe(SITE_SUBSCRIPTION_PRICE_REF);
+    expect(offer.commercial_terms.status).toBe("not_ratified");
+    expect(offer.commercial_terms.ratification).toBe("proposal");
+    expect(offer.activation).toEqual({
+      ready: false,
+      code: SITE_SUBSCRIPTION_ACTIVATION_NOT_READY,
     });
     expect(offer.price_ref.startsWith("proposal:")).toBe(true);
-    expect(JSON.stringify(offer)).not.toMatch(/\b(7|90)\b/);
+    expect(offer.commercial_terms.grace_days).toBe(7);
+    expect(offer.commercial_terms.retention_days).toBe(90);
+  });
+
+  it("sätter ready i test när env är på, men inte i live", () => {
+    const env = { SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT: "true" };
+    expect(buildSiteSubscriptionOffer("test", env).activation.ready).toBe(true);
+    expect(buildSiteSubscriptionOffer("live", env).activation.ready).toBe(false);
+    expect(buildSiteSubscriptionOffer("live", env).activation.live_closed).toBe(true);
   });
 });
 
 describe("buildSiteSubscriptionCheckoutMetadata", () => {
-  it("bygger framtida session-metadata utan att vara en Stripe-payload", () => {
+  it("bygger session-metadata utan klientbelopp", () => {
     expect(
       buildSiteSubscriptionCheckoutMetadata({
         projectId: "proj_1",

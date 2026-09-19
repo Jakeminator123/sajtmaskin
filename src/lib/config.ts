@@ -509,6 +509,17 @@ export const FEATURES = {
     Boolean(SECRETS.stripeSecretKey) &&
     isAffirmativeEnvValue(env.SAJTMASKIN_DOMAIN_PURCHASE),
 
+  /** Sajt-abonnemangs-checkout. Env på + Stripe TEST-nyckel. Live förblir stängt. */
+  useSiteSubscriptionCheckout:
+    Boolean(SECRETS.stripeSecretKey) &&
+    SECRETS.stripeSecretKey.startsWith("sk_test_") &&
+    isAffirmativeEnvValue(env.SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT),
+
+  /** Riktiga Vercel-writes för sajt-paus/restore. Default av. */
+  useSiteSubscriptionHostingWrites: isAffirmativeEnvValue(
+    env.SAJTMASKIN_SITE_SUBSCRIPTION_HOSTING_WRITES,
+  ),
+
   // NOTE: `usePexels` removed 2026-04-20 (audit §3.7). Had 0 callsites in
   // runtime code — Unsplash is the active stock-image source. To re-enable
   // Pexels: add an integration that reads `SECRETS.pexelsApiKey` directly,

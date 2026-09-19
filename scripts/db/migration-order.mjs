@@ -135,6 +135,9 @@ export const MIGRATION_ORDER = [
   // till idempotent för databaser som fick den första versionen. Måste ligga
   // direkt efter basfilen: den refererar constraints som basen skapar.
   "upgrade-site-subscriptions-composite-keys.sql",
+  // D2: event-ID-idempotens för sajt-abonnemang. Additiv CREATE TABLE.
+  // Appliceras inte av feature-PR:n — ägaren kör mot delad preview/prod-DB.
+  "add-stripe-billing-events.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

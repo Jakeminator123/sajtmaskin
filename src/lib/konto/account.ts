@@ -2,7 +2,8 @@
  * Presentation helpers for the customer account page.
  *
  * Login method is derived from `users.provider` (email | google). The page
- * must not invent a subscription, plan, or invoice — those do not exist yet.
+ * must not invent a global subscription or plan. Per-sajt-abonnemang kommer
+ * från servern som `siteSubscriptions`.
  */
 
 export function loginMethodLabel(provider: string | null | undefined): string {

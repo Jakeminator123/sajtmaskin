@@ -167,10 +167,21 @@ describe("D1-schemat är samma sanning i alla ägare", () => {
       expect(schemaTs).toContain(`pgTable(\n  "${table}"`);
     }
     expect(schemaTs).toContain('export type BillingMode = "test" | "live";');
-    expect(
-      schemaTs.match(/billing_mode: text\("billing_mode"\)\.\$type<BillingMode>\(\)\.notNull\(\)/gu)
-        ?.length,
-    ).toBe(D1_TABLES.length);
+    const billingModeColumns =
+      schemaTs.match(/billing_mode: text\("billing_mode"\)\.\$type<BillingMode>\(\)\.notNull\(\)/gu) ??
+      [];
+    // D1-tabellerna + D2:s event-inbox. Räkna dem isär så en ny tabell
+    // inte kan gömma sig bakom samma totalsumma.
+    expect(billingModeColumns.length).toBe(D1_TABLES.length + 1);
+    expect(schemaTs).toContain('pgTable(\n  "stripe_billing_events"');
+    expect(drizzleTableBody("stripe_billing_events", schemaTs)).toContain(
+      'billing_mode: text("billing_mode").$type<BillingMode>().notNull()',
+    );
+    for (const table of D1_TABLES) {
+      expect(drizzleTableBody(table, schemaTs)).toContain(
+        'billing_mode: text("billing_mode").$type<BillingMode>().notNull()',
+      );
+    }
   });
 
   it("är synligt för operatören i databashälsan", () => {
@@ -195,16 +206,30 @@ describe("D1-schemat är samma sanning i alla ägare", () => {
   });
 });
 
-describe("D1 aktiverar inget kundflöde", () => {
+describe("D1-schemat förblir additivt; D2-ägare får läsa och skriva", () => {
   /**
-   * Enda tillåtna nämnaren av tabellerna under `src/` utöver schema-ägaren.
-   *
    * Bevarandespärren MÅSTE kunna räkna raderna: adminrensningarna raderar flera
    * tabeller i tur och ordning, så utan en fråga före den första DELETE:n kommer
    * databasens RESTRICT först när halva miljön är borta. Den får läsa — aldrig
    * skriva. Nästa test håller den gränsen.
    */
   const RETENTION_GUARD = join("src", "lib", "db", "billing-retention-guard.ts");
+
+  /** Checkout, webhook, reconcile, konto, policy och deras följdytor. */
+  const D2_OWNER_MARKERS = [
+    join("src", "lib", "billing", "site-subscription-"),
+    join("src", "lib", "billing", "stripe-webhook-dispatch"),
+    join("src", "lib", "db", "services", "site-subscriptions"),
+    join("src", "lib", "konto"),
+    join("src", "app", "konto"),
+    join("src", "app", "api", "konto"),
+    join("src", "app", "api", "stripe", "site-subscription"),
+    join("src", "app", "api", "stripe", "webhook"),
+  ];
+
+  function isD2Owner(path: string): boolean {
+    return D2_OWNER_MARKERS.some((marker) => path.includes(marker));
+  }
 
   /** Alla källfiler under src/ utom schema-ägaren och migrationerna. */
   function appSources(): string[] {
@@ -228,11 +253,11 @@ describe("D1 aktiverar inget kundflöde", () => {
     );
   }
 
-  it("har ingen läsare eller skrivare av abonnemangstabellerna ännu", () => {
-    // D1 är schema. Checkout, webhook, portallänk och avstämning ägs av D2, och
-    // den här grinden gör det synligt om något smyger in i samma etapp. En
-    // kommande `src/app/api/stripe/...` som rör tabellerna failar här.
+  it("låter bara kända D2-ägare nämna abonnemangstabellerna", () => {
+    // D1 är fortfarande additivt schema. D2-ägare får läsa och skriva.
+    // En ny fil utanför allowlist som rör tabellerna failar här.
     const offenders = appSources().filter((path) => {
+      if (isD2Owner(path)) return false;
       const source = readFileSync(path, "utf8");
       return D1_TABLES.some(
         (table) => source.includes(table) || source.includes(toCamel(table)),
@@ -243,7 +268,7 @@ describe("D1 aktiverar inget kundflöde", () => {
 
   it("låter bevarandespärren räkna rader men aldrig skriva dem", () => {
     const guard = readFileSync(join(REPO_ROOT, RETENTION_GUARD), "utf8");
-    // Bara SELECT. En INSERT/UPDATE/DELETE här vore D2-flödet smuget in i D1.
+    // Bara SELECT. En INSERT/UPDATE/DELETE här vore skrivflödet smuget in i spärren.
     expect(guard).not.toMatch(/\b(INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/iu);
     expect(guard).not.toMatch(/db\.(insert|update|delete)\(/u);
     expect(guard).toContain("SELECT count(*) FROM site_subscriptions");
@@ -252,6 +277,15 @@ describe("D1 aktiverar inget kundflöde", () => {
 
 function toCamel(snake: string): string {
   return snake.replace(/_([a-z])/gu, (_match, letter: string) => letter.toUpperCase());
+}
+
+/** Drizzle-deklarationen för en namngiven tabell, fram till nästa `pgTable`. */
+function drizzleTableBody(table: string, source: string): string {
+  const marker = `pgTable(\n  "${table}"`;
+  const start = source.indexOf(marker);
+  if (start === -1) throw new Error(`hittade ingen pgTable för ${table}`);
+  const next = source.indexOf("pgTable(", start + marker.length);
+  return next === -1 ? source.slice(start) : source.slice(start, next);
 }
 
 /**

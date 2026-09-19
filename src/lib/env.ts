@@ -185,6 +185,12 @@ export const serverSchema = z.object({
   SAJTMASKIN_CONTENT_REVISION_GATE: z.string().optional(),
   /** In-app domain purchase: when `"true"`, a domain order may place a REAL registrar order and charge the customer's card. Default off — a Vercel token that exists for deploys must not by itself imply consent to spend money at the registrar. Read via `FEATURES.useDomainPurchase`. */
   SAJTMASKIN_DOMAIN_PURCHASE: z.string().optional(),
+  /** D2: sajt-abonnemangs-checkout. Default av. Live förblir stängt även när flaggan är på. */
+  SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT: z.string().optional(),
+  /** D3: riktiga Vercel-writes för paus/restore. Default av. */
+  SAJTMASKIN_SITE_SUBSCRIPTION_HOSTING_WRITES: z.string().optional(),
+  /** Publiceringsgrind för sajter utan abonnemangrad. Default av = grandfathered. */
+  SAJTMASKIN_SITE_SUBSCRIPTION_ENFORCE_PUBLISH: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
