@@ -131,6 +131,15 @@ export const VERIFY_REPAIR_ROUTE_BUDGET_SECONDS = rt.verifyRepairRouteMaxDuratio
 export const STALE_VERIFICATION_TIMEOUT_MS = VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000;
 
 /**
+ * How long a lease may go without `updated_at` (renew) before it is a zombie.
+ * `created_at` is job start, not a heartbeat — renew only bumps expires/updated.
+ * Must cover one LLM pass (`LLM_FIXER_TIMEOUT_MS` default 180s) so a live
+ * deadline-unbounded run that keeps renewing is not stolen at isolate age.
+ */
+export const VERSION_LEASE_HEARTBEAT_STALE_SECONDS = 180;
+export const VERSION_LEASE_HEARTBEAT_STALE_MS = VERSION_LEASE_HEARTBEAT_STALE_SECONDS * 1000;
+
+/**
  * Wall-clock reserve (ms) kept below the static repair-route budget so the loop
  * can wind down — fail the version + release the distributed lease — after it
  * stops starting new work. Mirrors the 30s verify/lease-release headroom that

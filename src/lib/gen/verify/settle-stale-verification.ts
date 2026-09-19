@@ -7,10 +7,12 @@
  */
 import {
   failVersionVerificationIfUnleased,
+  getRunningVersionLease,
   leaseTableExists,
   type Version,
 } from "@/lib/db/chat-repository-pg";
-import { isTimedOutVerificationState } from "./stale-verification";
+import { REPAIR_ABORTED_SUMMARY } from "./repair-abort-copy";
+import { isFreshVersionLease, isTimedOutVerificationState } from "./stale-verification";
 
 const GENERIC_TIMEOUT_SUMMARY =
   "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.";
@@ -34,7 +36,10 @@ export const RECONCILED_PROMOTE_SUMMARY =
  * `repairing` additionally requires the lease table to *exist* before we treat
  * it as stale: `missing` would make the fail degrade to unconditional and could
  * kill a still-running unlocked repair (Codex P2). `unavailable` is also a
- * no-op — a probe error is not proof that no lease exists.
+ * no-op — a probe error is not proof that no lease exists. A `running` lease
+ * older than the isolate budget (or with no lease at all) is a dead isolate,
+ * not busy work — the watchdog fails it with abort copy even when
+ * `lease_expires_at` is still in the future.
  *
  * @returns the (possibly updated) version row and whether it was failed.
  */
@@ -108,17 +113,31 @@ export async function settleStaleVerificationIfNeeded(
     return { version, failed: false };
   }
 
-  let staleCandidate = isTimedOutVerificationState(
-    version.verification_state,
-    version.created_at,
-  );
-  if (staleCandidate && version.verification_state === "repairing") {
+  // Repairing is special: isolate-kill leaves `verification_state=repairing`
+  // with a zombie `running` lease (TTL still in the future). A missing or
+  // non-fresh lease (expired TTL, or birth+heartbeat both stale) is dead
+  // immediately. A live job that still renews is not timed out by created_at.
+  let repairingWithoutFreshLease = false;
+  if (version.verification_state === "repairing") {
     try {
-      staleCandidate = (await leaseTableExists()) === "exists";
+      const presence = await leaseTableExists();
+      if (presence !== "exists") {
+        return { version, failed: false };
+      }
+      const lease = await getRunningVersionLease(version.id);
+      if (!lease || !isFreshVersionLease(lease)) {
+        repairingWithoutFreshLease = true;
+      } else {
+        return { version, failed: false };
+      }
     } catch {
-      staleCandidate = false;
+      return { version, failed: false };
     }
   }
+
+  const staleCandidate =
+    repairingWithoutFreshLease ||
+    isTimedOutVerificationState(version.verification_state, version.created_at);
   if (!staleCandidate) {
     return { version, failed: false };
   }
@@ -205,7 +224,9 @@ export async function settleStaleVerificationIfNeeded(
   }
   const timedOutVersion = await failVersionVerificationIfUnleased(
     version.id,
-    concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY,
+    version.verification_state === "repairing"
+      ? REPAIR_ABORTED_SUMMARY
+      : (concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY),
     {
       // L5 CAS: bind the fail to the snapshot this watchdog already read so a
       // concurrent promote or files rewrite during the await window above
