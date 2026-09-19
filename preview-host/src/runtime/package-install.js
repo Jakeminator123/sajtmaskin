@@ -749,6 +749,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
       output: install.successLabel,
       usedFallback: false,
       peerConflictDetected: false,
+      installKind: "strict_pass",
     };
   }
 
@@ -780,6 +781,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
         ].join("\n"),
         usedFallback: false,
         peerConflictDetected: false,
+        installKind: "strict_pass",
       };
     }
     // Purgen kan ha löst diskproblemet och omkörningen fallit på något helt
@@ -820,6 +822,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
         ].join("\n"),
         usedFallback: true,
         peerConflictDetected,
+        installKind: "fallback",
       };
     }
 
@@ -972,7 +975,14 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       previewSessionId,
       `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
     );
-    return { installed: false, skipped: true };
+    return {
+      installed: false,
+      skipped: true,
+      usedFallback: false,
+      peerConflictDetected: false,
+      installKind: "skipped",
+      dependencyFingerprint: fingerprint,
+    };
   }
   if (install.lockfileStale && fingerprint && priorDeps?.fingerprint === fingerprint) {
     await appendRuntimeLog(
@@ -1040,10 +1050,26 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
           previewSessionId,
           `Regenerated ${regeneratedLockfile.path} after non-frozen install; returning it for persistence and clearing the stale marker.`,
         );
-        return { installed: true, packageManager: install.packageManager, regeneratedLockfile, staleCleared: true };
+        return {
+          installed: true,
+          packageManager: install.packageManager,
+          regeneratedLockfile,
+          staleCleared: true,
+          usedFallback: Boolean(installResult.usedFallback),
+          peerConflictDetected: Boolean(installResult.peerConflictDetected),
+          installKind: installResult.usedFallback ? "fallback" : "strict_pass",
+          dependencyFingerprint: fingerprint,
+        };
       }
     }
-    return { installed: true, packageManager: install.packageManager };
+    return {
+      installed: true,
+      packageManager: install.packageManager,
+      usedFallback: Boolean(installResult.usedFallback),
+      peerConflictDetected: Boolean(installResult.peerConflictDetected),
+      installKind: installResult.usedFallback ? "fallback" : "strict_pass",
+      dependencyFingerprint: fingerprint,
+    };
   }
 
   // Föredra runnerns klassning: den gjordes per försök, medan `output` här är

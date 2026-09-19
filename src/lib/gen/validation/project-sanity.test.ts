@@ -4,6 +4,7 @@ import {
   runProjectSanityChecks,
 } from "./project-sanity";
 import type { CodeFile } from "@/lib/gen/parser";
+import { INCIDENT_V0_PACKAGE_JSON } from "./package-tree-compat";
 
 describe("runProjectSanityChecks", () => {
   afterEach(() => {
@@ -693,5 +694,21 @@ export function ThemeToggle() {
         issue.message.includes("useTheme() but root layout does not wrap"),
       ),
     ).toBe(true);
+  });
+
+  it("flags the incident Next 14 + React 19 ERESOLVE tree", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON),
+      },
+    ]);
+    const issue = result.issues.find((entry) => entry.subject === "package-tree:next_react_peer_eresolve");
+    expect(issue?.severity).toBe("error");
+    expect(issue?.category).toBe("dependency_install_failure");
+    expect(issue?.message).toMatch(/14\.2\.25/);
+    expect(issue?.message).toMatch(/\^19/);
+    expect(result.valid).toBe(false);
   });
 });

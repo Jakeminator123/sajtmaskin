@@ -226,6 +226,18 @@ async function routeRequest(req, res) {
       typeof latest.regeneratedLockfile.content === "string"
         ? { regeneratedLockfile: latest.regeneratedLockfile }
         : {}),
+      ...(latest.usedLegacyPeerDeps === true && latest.peerConflictDetected === true
+        ? { usedLegacyPeerDeps: true, peerConflictDetected: true }
+        : {}),
+      ...(latest.installKind === "fallback" ||
+      latest.installKind === "strict_pass" ||
+      latest.installKind === "skipped"
+        ? { installKind: latest.installKind }
+        : {}),
+      ...(typeof latest.dependencyFingerprint === "string" &&
+      /^[a-f0-9]{64}$/i.test(latest.dependencyFingerprint)
+        ? { dependencyFingerprint: latest.dependencyFingerprint.toLowerCase() }
+        : {}),
     });
   }
 

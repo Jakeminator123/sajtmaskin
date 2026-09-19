@@ -560,7 +560,9 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
-        if (isAuditHandoff && promptHandoffId) promptMeta.promptHandoffId = promptHandoffId;
+        if (promptHandoffId && (isAuditHandoff || buildMethod === "kostnadsfri")) {
+          promptMeta.promptHandoffId = promptHandoffId;
+        }
         requestIncludedBrief = Boolean(promptMeta.brief);
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;

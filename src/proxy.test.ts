@@ -22,6 +22,60 @@ function directive(csp: string, name: string): string {
   );
 }
 
+describe("proxy duplicate public host redirect", () => {
+  it("permanently redirects sajtmaskin.vercel.app pages to sajtmaskin.se with path and query", async () => {
+    const res = await proxy(new NextRequest("https://sajtmaskin.vercel.app/foo?a=1&b=2"));
+
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("https://sajtmaskin.se/foo?a=1&b=2");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
+
+  it("does not redirect the canonical host (loop guard)", async () => {
+    const res = await proxy(new NextRequest("https://sajtmaskin.se/foo?a=1"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("leaves git/preview Vercel hosts and local development alone", async () => {
+    const preview = await proxy(
+      new NextRequest(
+        "https://sajtmaskin-git-preview-jakeminator123s-projects.vercel.app/foo?a=1",
+      ),
+    );
+    const unique = await proxy(
+      new NextRequest("https://sajtmaskin-abc12def34-jakeminator123s-projects.vercel.app/om"),
+    );
+    const staging = await proxy(new NextRequest("https://preview.sajtmaskin.se/foo?a=1"));
+    const local = await proxy(new NextRequest("http://127.0.0.1:3999/foo?a=1"));
+
+    for (const res of [preview, unique, staging, local]) {
+      expect(res.status).toBe(200);
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+      expect(res.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("redirects alias app routes before the auth gate so they are not a second host", async () => {
+    const res = await proxy(new NextRequest("https://sajtmaskin.vercel.app/projects?tab=all"));
+
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("https://sajtmaskin.se/projects?tab=all");
+  });
+
+  it("does not redirect API or registry traffic on the alias host", async () => {
+    const api = await proxy(new NextRequest("https://sajtmaskin.vercel.app/api/projects"));
+    const registry = await proxy(new NextRequest("https://sajtmaskin.vercel.app/r/button.json"));
+
+    expect(api.status).toBe(200);
+    expect(registry.status).toBe(200);
+    expect(api.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+    expect(registry.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
+});
+
 describe("proxy auth gate — customer portal routes", () => {
   it.each(["/projects", "/projects/abc123", "/projects/abc123/", "/buy-credits", "/konto"])(
     "redirects an anonymous visitor away from %s",

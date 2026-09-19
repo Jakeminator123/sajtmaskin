@@ -402,8 +402,13 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     const promptCall = fetchMock.mock.calls.find((call) => String(call[0]).includes("/api/prompts"));
     expect(promptCall).toBeTruthy();
-    const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as { prompt?: string };
+    const body = JSON.parse(String(promptCall?.[1]?.body ?? "{}")) as {
+      prompt?: string;
+      wizardSnapshot?: { industryId?: string | null; followupOverrodeIndustry?: boolean };
+    };
     expect(body.prompt).toContain("SM-F1-CONFIRM-PHRASE-7f3a");
+    expect(body.wizardSnapshot?.industryId).toBe("health");
+    expect(body.wizardSnapshot?.followupOverrodeIndustry).toBe(false);
   });
 
   it("hämtar sessionen så Google-retur kan starta precis ett bygge", async () => {
@@ -459,6 +464,39 @@ describe("KostnadsfriPage — F1 wait then one build", () => {
       expect(screen.getByText("Logga in för att bygga hemsidan")).toBeTruthy();
     });
     expect(projects.createProject).not.toHaveBeenCalled();
+  });
+
+  it("visar konfliktmeddelandet i wizarden när servern returnerar 409", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          success: false,
+          code: "kostnadsfri_industry_conflict",
+          error:
+            "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+        }),
+      })),
+    );
+
+    render(<KostnadsfriPage slug="zax-2-0-ab" companyName="Zax 2.0 AB" />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna wizard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Klara wizarden" }));
+
+    await act(async () => {
+      useOpenClawStore.getState().continueCampaignFollowups();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Branschen stämmer inte med verksamhetsbeskrivningen/),
+      ).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Klara wizarden" })).toBeTruthy();
+    expect(screen.queryByText("Något gick fel. Försök igen.")).toBeNull();
+    expect(router.push).not.toHaveBeenCalled();
   });
 });
 

@@ -309,7 +309,7 @@ export type ChatMessagingParams = {
   themeColors?: ThemeColors | null;
   paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
-  /** Server-owned audit handoff; forwarded as `meta.promptHandoffId`. */
+  /** Server-owned handoff; forwarded as `meta.promptHandoffId` for audit and kostnadsfri. */
   promptHandoffId?: string | null;
   /** True only when GET /api/prompts returned payloadKind=audit. */
   isAuditHandoff?: boolean;
