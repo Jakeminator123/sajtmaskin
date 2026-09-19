@@ -53,7 +53,11 @@ CAPABILITY_MAP_PATH = INDEX_ROOT / "capability-map.json"
 STRICT_SCHEMA_PATH = REPO_ROOT / "docs" / "schemas" / "strict" / "dossier.schema.json"
 
 
-TEMPLATE_REFS_ROOT = REPO_ROOT / "data" / "template-references" / "repos"
+# Klonade referensrepon ligger UTANFÖR checkouten. De är ~2 GB med egna
+# tsconfig.json per klon, vilket får TypeScript att starta ett inferred project
+# per mapp och svälla tsserver. Syskonmapp bredvid `_template_refs/shadcn-io-mirror/`.
+# Samma rot hårdkodas i scripts/dossiers/curate-from-reference.ts — ändra båda.
+TEMPLATE_REFS_ROOT = REPO_ROOT.parent / "_template_refs" / "dossier-references" / "repos"
 
 
 CAPABILITY_TIERS_PATH = (

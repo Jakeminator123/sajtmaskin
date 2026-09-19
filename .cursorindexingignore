@@ -60,8 +60,12 @@ data/dossiers/_repo-cache/**
 data/dossiers/*/_removed/**
 
 # --- Template references / lokala arkiv ---
+# Kanoniskt hem är syskonmappen `_template_refs/dossier-references/` utanför
+# checkouten, som Cursor aldrig ser. Raderna är kvar som skydd om någon klonar
+# tillbaka in i repot.
 data/template-references/repos/**
 data/template-references/_metadata/**
+_template_refs/**
 templates_v0/
 
 # --- Cursor session / automation / migration ---

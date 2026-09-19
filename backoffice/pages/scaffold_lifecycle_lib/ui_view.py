@@ -161,6 +161,6 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
         "- `npm run scaffolds:variant-embeddings -- --require-blob` — ny/ändrad variant\n"
         "- `npm run scaffolds:variant-patterns` — AI-curate `signaturePatterns`\n"
         "- `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new>` — "
-        "AI-curate ett nytt dossier-utkast från `data/template-references/repos/`. "
+        "AI-curate ett nytt dossier-utkast från `_template_refs/dossier-references/repos/`. "
         "Inga dossier-embeddings längre — urvalet är capability-driven (v2)."
     )
