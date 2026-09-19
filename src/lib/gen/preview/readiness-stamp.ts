@@ -1,6 +1,19 @@
+import { createHash } from "node:crypto";
 import type { PreviewHostStatusResult } from "./preview-host-client";
 import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "./readiness-failure";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
+import { INSTALL_PEER_FALLBACK_CHECK } from "@/lib/gen/validation/package-tree-compat";
+import {
+  INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+  dependencyFingerprintFromFiles,
+  normalizeDependencyFingerprint,
+  previewInstallKindFromHostStatus,
+} from "@/lib/gen/validation/install-peer-fallback-receipt";
+
+/** Same stored md5 as `engine_versions.files_revision` (`md5(files_json)`). */
+function filesRevisionForPersistedJson(filesJson: string): string {
+  return createHash("md5").update(filesJson, "utf8").digest("hex");
+}
 
 /**
  * Readiness-gated `preview_success` stamping (req A4/A5/A6).
@@ -34,7 +47,15 @@ export type PreviewReadinessDecision = {
 export function decidePreviewReadinessOutcome(
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
+    | "readinessState"
+    | "readinessError"
+    | "installDiagnostics"
+    | "regeneratedLockfile"
+    | "httpReady"
+    | "usedLegacyPeerDeps"
+    | "peerConflictDetected"
+    | "installKind"
+    | "dependencyFingerprint"
   >,
 ): PreviewReadinessDecision {
   const regeneratedLockfile = resumed.regeneratedLockfile ?? null;
@@ -80,7 +101,15 @@ export async function applyPreviewReadinessOutcome(params: {
   bootedFilesRevision?: string | null;
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
+    | "readinessState"
+    | "readinessError"
+    | "installDiagnostics"
+    | "regeneratedLockfile"
+    | "httpReady"
+    | "usedLegacyPeerDeps"
+    | "peerConflictDetected"
+    | "installKind"
+    | "dependencyFingerprint"
   >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
@@ -143,11 +172,107 @@ export async function applyPreviewReadinessOutcome(params: {
         { lockTimeoutMs: 2_000 },
       );
     }
+    let receiptRevision = params.bootedFilesRevision?.trim() || null;
+    let receiptFiles: Array<{ path: string; content: string }> | null = null;
     if (decision.regeneratedLockfile) {
-      await persistRegeneratedLockfileForVersion(
+      const persist = await persistRegeneratedLockfileForVersion(
         params.versionId,
         decision.regeneratedLockfile,
       );
+      // Only a CAS write this boot performed may move the receipt onto the
+      // post-persist revision/files. A miss or already-reconciled read must
+      // not fingerprint a competing snapshot.
+      if (persist.wrote) {
+        if (persist.filesRevision) receiptRevision = persist.filesRevision;
+        if (persist.files) receiptFiles = persist.files;
+      }
+    }
+    // Preview started only after --legacy-peer-deps: write a fingerprint-bound
+    // receipt the publish gate reads even after a later clean quality-gate.
+    // Only a real `strict_pass` may clear it. A fingerprint skip is unknown
+    // and must not write usedFallback:false.
+    if (decision.previewSuccess === true) {
+      const installKind = previewInstallKindFromHostStatus(params.resumed);
+      const usedFallback = installKind === "fallback";
+      const shouldWriteReceipt = installKind === "fallback" || installKind === "strict_pass";
+      const hostFingerprint = normalizeDependencyFingerprint(
+        params.resumed.dependencyFingerprint,
+      );
+      if (shouldWriteReceipt && !receiptFiles && !hostFingerprint) {
+        const { getVersionFilesSnapshot } = await import("@/lib/gen/version-manager");
+        const snapshot = await getVersionFilesSnapshot(params.versionId);
+        if (
+          snapshot &&
+          receiptRevision &&
+          snapshot.filesRevision?.trim() === receiptRevision
+        ) {
+          receiptFiles = snapshot.files;
+        }
+      }
+      const dependencyFingerprint = receiptFiles
+        ? dependencyFingerprintFromFiles(receiptFiles)
+        : hostFingerprint;
+      const receiptKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}:${installKind ?? "unknown"}`;
+      if (
+        shouldWriteReceipt &&
+        !legacyPeerDepsVersionIds.has(receiptKey) &&
+        !legacyPeerDepsInFlight.has(receiptKey)
+      ) {
+        // Temporary reservation only. Permanent dedup is set after the
+        // publish-blocking receipt is proven stored — `createEngineVersionErrorLogs`
+        // is best-effort and may return [] on 55P03 without throwing.
+        legacyPeerDepsInFlight.add(receiptKey);
+        try {
+          const { createEngineVersionErrorLogs } = await import(
+            "@/lib/db/services/version-errors"
+          );
+          const stored = await createEngineVersionErrorLogs(
+            [
+              {
+                chatId: params.chatId,
+                versionId: params.versionId,
+                level: usedFallback ? "warning" : "info",
+                category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+                message: usedFallback
+                  ? "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install."
+                  : "Preview install completed with a strict npm install for this dependency tree.",
+                meta: {
+                  kind: installKind,
+                  usedFallback,
+                  filesRevision: receiptRevision,
+                  dependencyFingerprint,
+                  bootFilesRevision: params.bootedFilesRevision?.trim() || null,
+                  source: "preview_install_peer_fallback",
+                },
+              },
+              ...(usedFallback
+                ? [
+                    {
+                      chatId: params.chatId,
+                      versionId: params.versionId,
+                      level: "warning" as const,
+                      category: "preflight:quality-gate",
+                      message:
+                        "Preview started after npm --legacy-peer-deps. That bypass is not a publish-ready install.",
+                      meta: {
+                        passed: true,
+                        advisory: true,
+                        advisoryChecks: [INSTALL_PEER_FALLBACK_CHECK],
+                        source: "preview_install_peer_fallback",
+                      },
+                    },
+                  ]
+                : []),
+            ],
+            { lockTimeoutMs: 2_000 },
+          );
+          if (hasStoredInstallPeerFallbackReceipt(stored)) {
+            legacyPeerDepsVersionIds.add(receiptKey);
+          }
+        } finally {
+          legacyPeerDepsInFlight.delete(receiptKey);
+        }
+      }
     }
   } catch (err) {
     console.warn("[preview-readiness] Failed to apply readiness outcome:", err);
@@ -155,7 +280,24 @@ export async function applyPreviewReadinessOutcome(params: {
   return decision;
 }
 
-const persistedLockfileVersionIds = new Set<string>();
+const persistedLockfileRevisions = new Map<string, string | null>();
+
+export type RegeneratedLockfilePersistResult = {
+  /** True only when THIS call CAS-wrote `files_json`. */
+  wrote: boolean;
+  /**
+   * Current (or just-written) `files_revision`. Null on CAS miss / read
+   * failure so the receipt stays on the boot revision.
+   */
+  filesRevision: string | null;
+  /** File array used for the dependency fingerprint, when known. */
+  files?: Array<{ path: string; content: string }>;
+};
+
+const EMPTY_LOCKFILE_PERSIST: RegeneratedLockfilePersistResult = {
+  wrote: false,
+  filesRevision: null,
+};
 
 /**
  * Versions for which a readiness-failure diagnostics row has already been
@@ -165,6 +307,18 @@ const persistedLockfileVersionIds = new Set<string>();
  * has no such guard on its own.
  */
 const failedPreviewVersionIds = new Set<string>();
+const legacyPeerDepsVersionIds = new Set<string>();
+const legacyPeerDepsInFlight = new Set<string>();
+
+function hasStoredInstallPeerFallbackReceipt(rows: unknown): boolean {
+  if (!Array.isArray(rows)) return false;
+  return rows.some((row) => {
+    if (!row || typeof row !== "object") return false;
+    return (
+      (row as { category?: unknown }).category === INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY
+    );
+  });
+}
 
 /**
  * One-shot lockfile round-trip (req A2): after the host regenerates a lockfile
@@ -183,8 +337,14 @@ const failedPreviewVersionIds = new Set<string>();
 export async function persistRegeneratedLockfileForVersion(
   versionId: string,
   regeneratedLockfile: NonNullable<PreviewHostStatusResult["regeneratedLockfile"]>,
-): Promise<boolean> {
-  if (!versionId || persistedLockfileVersionIds.has(versionId)) return false;
+): Promise<RegeneratedLockfilePersistResult> {
+  if (!versionId) return EMPTY_LOCKFILE_PERSIST;
+  if (persistedLockfileRevisions.has(versionId)) {
+    return {
+      wrote: false,
+      filesRevision: persistedLockfileRevisions.get(versionId) ?? null,
+    };
+  }
   try {
     // Snapshot, not just the parsed files: the raw `files_json` string is the
     // compare-and-swap token for the write below. This is a read-modify-write
@@ -192,15 +352,16 @@ export async function persistRegeneratedLockfileForVersion(
     // between the read and the write is overwritten wholesale.
     const { getVersionFilesSnapshot } = await import("@/lib/gen/version-manager");
     const snapshot = await getVersionFilesSnapshot(versionId);
-    if (!snapshot) return false;
+    if (!snapshot) return EMPTY_LOCKFILE_PERSIST;
     const files = snapshot.files;
     const markerPath = LOCKFILE_STALE_MARKER_PATH;
     const lockfilePath = regeneratedLockfile.path.replace(/\\/g, "/");
     const hasMarker = files.some((f) => f.path.replace(/\\/g, "/") === markerPath);
     if (!hasMarker) {
       // Already reconciled (or never stale) — don't churn files_json.
-      persistedLockfileVersionIds.add(versionId);
-      return false;
+      const filesRevision = snapshot.filesRevision?.trim() || null;
+      persistedLockfileRevisions.set(versionId, filesRevision);
+      return { wrote: false, filesRevision, files };
     }
     const next = files
       .filter((f) => f.path.replace(/\\/g, "/") !== markerPath)
@@ -219,19 +380,23 @@ export async function persistRegeneratedLockfileForVersion(
         language: "yaml",
       });
     }
+    const nextJson = JSON.stringify(next);
     const { updateVersionFiles } = await import("@/lib/db/chat-repository-pg");
-    const wrote = await updateVersionFiles(versionId, JSON.stringify(next), {
+    const wrote = await updateVersionFiles(versionId, nextJson, {
       preservePreviewUrl: true,
       expectedFilesJson: snapshot.filesJson,
     });
     // Deliberately NOT marking the guard on a CAS miss: the row moved under us,
     // so the reconcile has not happened and a later poll should retry against
-    // the new base. Marking it here would drop the lockfile silently.
-    if (wrote) persistedLockfileVersionIds.add(versionId);
-    return wrote;
+    // the new base. Marking it here would drop the lockfile silently. Do not
+    // return a new revision we did not write.
+    if (!wrote) return EMPTY_LOCKFILE_PERSIST;
+    const filesRevision = filesRevisionForPersistedJson(nextJson);
+    persistedLockfileRevisions.set(versionId, filesRevision);
+    return { wrote: true, filesRevision, files: next };
   } catch (err) {
     console.warn("[preview-readiness] Failed to persist regenerated lockfile:", err);
-    return false;
+    return EMPTY_LOCKFILE_PERSIST;
   }
 }
 
@@ -278,6 +443,8 @@ export async function pollAndApplyPreviewReadinessOutcome(params: {
 
 /** Test-only reset of the per-instance persist + failure-log guards. */
 export function __resetPersistedLockfileGuardForTesting(): void {
-  persistedLockfileVersionIds.clear();
+  persistedLockfileRevisions.clear();
   failedPreviewVersionIds.clear();
+  legacyPeerDepsVersionIds.clear();
+  legacyPeerDepsInFlight.clear();
 }

@@ -41,6 +41,7 @@ export const PRUNE_EXEMPT_CATEGORIES = [
   "f3-readiness:missing-env",
   "preview:client-error",
   "server-repair:phase",
+  "preview:install-peer-fallback",
 ] as const;
 
 export const PRUNE_EXEMPT_CATEGORY_PREFIXES = ["product_postcheck."] as const;

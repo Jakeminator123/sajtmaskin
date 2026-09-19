@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/services/generation-telemetry";
 import { sanitizeOrchestrationSnapshotForStorage } from "@/lib/gen/orchestration-snapshot";
 import type { CodeFile } from "@/lib/gen/parser";
+import { findPackageTreeConflictsInFiles } from "@/lib/gen/validation/package-tree-compat";
 import type { ImportedRepoBaselineSnapshot, ImportedRepoOrigin } from "./imported-repo-contract";
 
 export interface PersistImportedRepoInitializationInput {
@@ -33,6 +34,21 @@ export interface RecordImportedRepoPreviewOutcomeInput {
 
 function nonEmpty(value: string | null | undefined): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function importedPackageTreeTelemetry(
+  files: readonly CodeFile[],
+): Record<string, unknown> {
+  const found = findPackageTreeConflictsInFiles(files);
+  if (!found) return {};
+  return {
+    packageTreeEresolve: true,
+    packageTreeConflicts: found.conflicts.map((conflict) => ({
+      code: conflict.code,
+      next: conflict.nextRange,
+      react: conflict.reactRange,
+    })),
+  };
 }
 
 function baselineTelemetryMeta(baseline: ImportedRepoBaselineSnapshot): Record<string, unknown> {
@@ -106,6 +122,7 @@ export async function persistImportedRepoInitialization(
       meta: {
         projectOrigin: input.origin.kind,
         ...baselineTelemetryMeta(input.baseline),
+        ...importedPackageTreeTelemetry(input.files),
       },
     });
     result.telemetryPersisted = true;

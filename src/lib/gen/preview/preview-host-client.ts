@@ -1,5 +1,10 @@
 import { getPreviewHostBaseUrl } from "./tier2-config";
 import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
+import {
+  isPreviewInstallKind,
+  normalizeDependencyFingerprint,
+  type PreviewInstallKind,
+} from "@/lib/gen/validation/install-peer-fallback-receipt";
 
 export function previewHostAuthHeaders(): Record<string, string> {
   const key = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
@@ -193,6 +198,23 @@ export type PreviewHostStatusResult = {
    */
   installDiagnostics?: PreviewHostInstallDiagnostics | null;
   regeneratedLockfile: PreviewHostRegeneratedLockfile | null;
+  /**
+   * Live boot only started after `--legacy-peer-deps` (or equivalent).
+   * Preview may be up; publish must not treat that as a green install.
+   */
+  usedLegacyPeerDeps?: boolean;
+  peerConflictDetected?: boolean;
+  /**
+   * How the host reached a live `node_modules` for this boot.
+   * `skipped` is a fingerprint reuse, not a strict install.
+   */
+  installKind?: PreviewInstallKind | null;
+  /**
+   * Dependency fingerprint the host computed for the files this boot
+   * installed (or skipped). Persist this; do not recompute from a later
+   * DB snapshot.
+   */
+  dependencyFingerprint?: string | null;
 };
 
 export type PreviewHostInstallDiagnostics = {
@@ -341,6 +363,10 @@ export async function fetchPreviewHostStatus(
       readinessError: nonEmptyString(body.readinessError),
       installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+      usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
+      peerConflictDetected: body.peerConflictDetected === true,
+      installKind: isPreviewInstallKind(body.installKind) ? body.installKind : null,
+      dependencyFingerprint: normalizeDependencyFingerprint(body.dependencyFingerprint),
     };
   } catch {
     return null;
@@ -372,6 +398,10 @@ export type PreviewHostReadinessVerdict = Pick<
   | "httpReady"
   | "lifecycleToken"
   | "mutationRevision"
+  | "usedLegacyPeerDeps"
+  | "peerConflictDetected"
+  | "installKind"
+  | "dependencyFingerprint"
 > & {
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
@@ -425,6 +455,10 @@ export async function fetchPreviewHostReadinessVerdict(
       readinessError: nonEmptyString(body.readinessError),
       installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+      usedLegacyPeerDeps: body.usedLegacyPeerDeps === true,
+      peerConflictDetected: body.peerConflictDetected === true,
+      installKind: isPreviewInstallKind(body.installKind) ? body.installKind : null,
+      dependencyFingerprint: normalizeDependencyFingerprint(body.dependencyFingerprint),
     };
   } catch {
     return null;
