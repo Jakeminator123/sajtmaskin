@@ -50,6 +50,7 @@
     "drizzle.config.ts",
     "old",
     "_template_refs",
+    "data/template-references",
     "e2e",
     "vercel_templates_levels",
     "övrigt/testyta",

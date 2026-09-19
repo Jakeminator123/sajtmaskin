@@ -39,6 +39,9 @@ export default defineConfig([
     // triggers BABEL deopt warnings) and legacy `/* eslint-env */` comments
     // that crash ESLint flat-config v10.
     "_template_refs/**/*",
+    // Legacy-hemmet före flytten. Klonerna är ~2 GB och ligger kvar i många
+    // lokala checkouter, så ignoren måste täcka båda platserna.
+    "data/template-references/**/*",
     // Dossier pipeline: raw scraped repos + AI-extracted vendored components
     // are not our code — they are inputs/outputs of the curation pipeline.
     "data/dossiers/_repo-cache/**/*",

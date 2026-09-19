@@ -32,6 +32,7 @@
     "**/node_modules": true,
     "templates_v0/**": true,
     "_template_refs/**": true,
+    "data/template-references/**": true,
     "data/dossiers/_repo-cache/**": true
   },
 
@@ -45,6 +46,7 @@
     "**/dist": true,
     "templates_v0/**": true,
     "_template_refs/**": true,
+    "data/template-references/**": true,
     "data/dossiers/_repo-cache/**": true
   },
 
@@ -60,6 +62,7 @@
     "**/.pytest_cache/**": true,
     "templates_v0/**": true,
     "_template_refs/**": true,
+    "data/template-references/**": true,
     "data/dossiers/_repo-cache/**": true,
     "eval-output/**": true
   },
