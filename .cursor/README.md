@@ -54,7 +54,7 @@ inte en andra editorlokal skillkopia.
 
 `pr-workflow` laddas för allt skriv-, PR- och mergearbete. Övriga stora skills
 (`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`,
-`/bridge`, `/bryggagent`) läses
+`/bridge`, `/brygga`, `/bryggagent`) läses
 bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 
 ## Stora sanningskällor
