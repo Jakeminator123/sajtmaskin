@@ -475,6 +475,14 @@ const MessageListComponent = ({
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
           const hasVisibleTooling = toolParts.length > 0;
           const rawMessage = externalMessages[messageIndex];
+          const previousRawMessage =
+            messageIndex > 0 ? externalMessages[messageIndex - 1] : undefined;
+          // The assistant row has no repair flag of its own. The previous raw
+          // user row already carries `prompt-source` / `AUTO-FIX REQUEST` via
+          // isAutoRepairPromptMessage — reuse that instead of a second classifier.
+          const isRepairTurn = Boolean(
+            previousRawMessage && isAutoRepairPromptMessage(previousRawMessage),
+          );
           // Auto-repair prompts are a real "user" turn in the DB (see
           // isAutoRepairPromptMessage) but must never look like something the
           // user typed (Spår 03 Steg 4) — render them as a collapsed system
@@ -599,6 +607,7 @@ const MessageListComponent = ({
                       toolParts={toolParts}
                       reviews={renderCompactTools(reviewToolParts)}
                       actions={renderCompactTools(actionToolParts)}
+                      turnKind={isRepairTurn ? "repair" : "generation"}
                     />
                     {planParts.map((part, index) => (
                       <BuildPlanCard
