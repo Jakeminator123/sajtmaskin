@@ -33,7 +33,7 @@ Readonly / recon / review.
 
 ## Bridge
 
-När du har en viktig slutsats eller behöver beslut: `/bridge`.
+När du har en viktig slutsats eller behöver beslut: `/brygga`.
 
 Avsluta alltid:
 

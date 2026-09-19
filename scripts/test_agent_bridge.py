@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 import tempfile
@@ -827,6 +828,34 @@ class IdentityCliTests(unittest.TestCase):
             )
             code = bridge.main(["identity"], runner=runner, paths=paths)
             self.assertEqual(code, bridge.EXIT_USAGE)
+
+    def test_ping_prints_inbox_wake_without_posting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / ".agent-bridge"
+            work.mkdir()
+            _write_config(work / "config.local.json", agent_id="BRYGG-01", role="brygg")
+            (work / "state.json").write_text(
+                json.dumps({"last_request_id": "BRYGG-01-20260919T000000Z-1"}),
+                encoding="utf-8",
+            )
+            paths = bridge.BridgePaths(
+                root=root,
+                config=work / "config.local.json",
+                state=work / "state.json",
+                latest_response=work / "latest-response.md",
+                work_dir=work,
+            )
+            runner = FakeRunner(
+                {("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n")}
+            )
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+                code = bridge.main(["ping"], runner=runner, paths=paths)
+            self.assertEqual(code, 0)
+            text = out.getvalue()
+            self.assertIn("PING coach: read inbox #1468", text)
+            self.assertIn("kolla bridge BRYGG-01-20260919T000000Z-1", text)
+            self.assertFalse(any(call[:1] == ("gh",) for call in runner.calls))
 
 
 if __name__ == "__main__":

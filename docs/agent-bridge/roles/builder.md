@@ -30,7 +30,7 @@ Detta är **inte** chattkommandot `/builder`.
 
 ## Bridge
 
-När uppgiften är klar, blockerad eller behöver beslut: `/bridge`.
+När uppgiften är klar, blockerad eller behöver beslut: `/brygga`.
 
 Avsluta alltid:
 

@@ -28,7 +28,7 @@ kringgå det.
 
 ## Bridge
 
-När mergeordning är oklar eller blockerad: `/bridge`.
+När mergeordning är oklar eller blockerad: `/brygga`.
 
 Avsluta alltid:
 

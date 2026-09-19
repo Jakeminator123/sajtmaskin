@@ -30,7 +30,7 @@ policies kan äga olika beslut.
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
 | Hur går lokalt agentarbete säkert till preview och vidare till produktion? | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json) |
-| Hur pratar Cursor-agenter med ChatGPT-coachen?    | [`agent-bridge/README.md`](agent-bridge/README.md)                                                                              |
+| Hur pratar Cursor-agenter med ChatGPT-coachen?    | [`agent-bridge/README.md`](agent-bridge/README.md) + [`agent-bridge/coach-logic.md`](agent-bridge/coach-logic.md) |
 | Hur provisionerar jag warm-cachen?                | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)                                                                  |
 | Varför ser merge-grinden ut så?                   | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                                                                        |
 | Hur körs automatisk PR-granskning?                | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md)                                            |
