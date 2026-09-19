@@ -242,16 +242,19 @@ def _section_create_from_scratch() -> None:
 def _section_curate() -> None:
     st.subheader("AI-kuration från template-references")
     st.caption(
-        "Pekar på en klonad mapp under `data/template-references/repos/` och låter "
-        "GPT producera ett **utkast** till dossier-manifest + `instructions.md`. "
+        "Pekar på en klonad mapp under `_template_refs/dossier-references/repos/` "
+        "(syskonmapp till checkouten, utanför git) och låter GPT producera ett "
+        "**utkast** till dossier-manifest + `instructions.md`. "
         "Granska och spara via Redigera-tabben innan dossiern går live."
     )
     refs = _list_template_refs()
     if not refs:
+        # Ingen relative_to(REPO_ROOT) här: roten ligger utanför checkouten och
+        # anropet kastade ValueError i exakt den gren som ska förklara felet.
         st.info(
             "Inga template-references hittade. Klona ett repo manuellt till "
-            f"`{_facade().TEMPLATE_REFS_ROOT.relative_to(_facade().REPO_ROOT)}/<id>/` eller kör "
-            "`git clone <url> data/template-references/repos/<id>` från terminalen."
+            f"`{_facade().TEMPLATE_REFS_ROOT.as_posix()}/<id>/` — mappen ligger "
+            "utanför repot som syskon till checkouten."
         )
         return
 

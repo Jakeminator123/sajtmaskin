@@ -161,7 +161,7 @@ npm run dossiers:curate -- \
   --id=<dossier-id>
 ```
 
-Skriptet samplar README + package.json + .env.example + ~6 source-filer från `data/template-references/repos/<reference-id>/` och kallar GPT med structured output. Drafts kräver alltid manuell review.
+Skriptet samplar README + package.json + .env.example + ~6 source-filer från `_template_refs/dossier-references/repos/<reference-id>/` (syskonmapp till checkouten, utanför git) och kallar GPT med structured output. Drafts kräver alltid manuell review.
 
 ## Capability-map (genererad view)
 

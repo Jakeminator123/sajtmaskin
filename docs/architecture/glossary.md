@@ -48,7 +48,7 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Importerat repo-läge | Runtimeläge för kompletta Template-/ZIP-/GitHub-importer; saknar Scaffold och är inte `Scaffold: Av`. |
 | Variant-template-addendum | Intern teknisk term för den SHA-bundna cachen av en v0-template som redan kan vara kandidat via `sourceTemplateIds`. |
 | Källpaket | Samlingen av valbara ingredienser före kodgeneratorn: variantreferens, UI Recipes, dossiers och media. |
-| Template-referens | Klonat upstream-repo under `data/template-references/` — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
+| Template-referens | Klonat upstream-repo under `_template_refs/dossier-references/` (syskonmapp till checkouten, utanför git) — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
 | BuildSpec | Runtime-policy för generationens scope, kvalitet, preview, verifiering och budget. |
 | Dynamic Context | Request-specifik promptdel. |
 | Core Rules | Statiska produktregler i `config/prompt-core/`. |

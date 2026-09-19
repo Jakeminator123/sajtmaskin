@@ -7,9 +7,9 @@
  *     --class=hard \
  *     --id=fal-image-generator
  *
- * Reads:
- *   - data/template-references/repos/<reference>/  (cloned repo)
- *   - data/template-references/_metadata/<...>.json   (optional GitHub stars / pushed-at)
+ * Reads (sibling folder OUTSIDE the checkout — see TEMPLATE_REFS_ROOT below):
+ *   - ../_template_refs/dossier-references/repos/<reference>/  (cloned repo)
+ *   - ../_template_refs/dossier-references/_metadata/<...>.json  (optional GitHub stars / pushed-at)
  *
  * Writes (draft, must be hand-reviewed):
  *   - data/dossiers/<class>/<id>/manifest.json
@@ -48,8 +48,16 @@ import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
 import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
 
 const REPO_ROOT = resolve(process.cwd());
-const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
-const METADATA_ROOT = join(REPO_ROOT, "data", "template-references", "_metadata");
+/**
+ * Referensklonerna ligger UTANFÖR checkouten. De är ~2 GB och bär en egen
+ * tsconfig.json per klon, vilket får TypeScript att starta ett inferred project
+ * per mapp och svälla tsserver. Syskonmapp bredvid
+ * `_template_refs/shadcn-io-mirror/`, samma konvention som mirror-auditen.
+ * Samma rot hårdkodas i backoffice/pages/dossiers_lib/constants.py — ändra båda.
+ */
+const TEMPLATE_REFS_ROOT = resolve(REPO_ROOT, "..", "_template_refs", "dossier-references");
+const REFERENCES_ROOT = join(TEMPLATE_REFS_ROOT, "repos");
+const METADATA_ROOT = join(TEMPLATE_REFS_ROOT, "_metadata");
 const DOSSIERS_ROOT = join(REPO_ROOT, "data", "dossiers");
 
 /** Manifest entry that owns this script's model choice (Fas D). */
@@ -560,7 +568,7 @@ async function main() {
   const args = parseArgs(process.argv);
 
   // Path-traversal guard on --reference. The script is local-only but CI/cron
-  // could pass user input; reject anything that escapes template-references/repos/.
+  // could pass user input; reject anything that escapes dossier-references/repos/.
   // Enstaka katalognamn (`/` och `\` avvisas nedan) — konservativ
   // substring-avvisning kan inte tappa legitima referenser.
   if (
@@ -575,7 +583,7 @@ async function main() {
   const refDir = resolve(REFERENCES_ROOT, args.reference);
   const sep = process.platform === "win32" ? "\\" : "/";
   if (!refDir.startsWith(REFERENCES_ROOT + sep)) {
-    throw new Error(`--reference resolves outside template-references: ${refDir}`);
+    throw new Error(`--reference resolves outside dossier-references: ${refDir}`);
   }
   if (!existsSync(refDir)) {
     throw new Error(`Reference repo not found: ${refDir}`);
