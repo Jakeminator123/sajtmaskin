@@ -41,7 +41,7 @@ import { VersionFeedback } from "@/components/builder/chat/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import { GenerationSurface } from "./GenerationSurface";
-import { isGenerationReviewPart } from "./generation-surface-state";
+import { isGenerationReviewPart, type GenerationTurnKind } from "./generation-surface-state";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
@@ -89,6 +89,28 @@ interface MessageListProps {
 function hasGenerationContent(text: string): boolean {
   if (!text) return false;
   return text.includes('file="') || text.includes("```");
+}
+
+/**
+ * First assistant row that actually emitted code. A leading motfråga or plan
+ * without file/fence blocks must not consume `initial`.
+ */
+function resolveGenerationTurnKind(
+  messages: Array<Pick<ChatMessage, "role" | "content" | "uiParts">>,
+  messageIndex: number,
+): GenerationTurnKind {
+  const previous = messageIndex > 0 ? messages[messageIndex - 1] : undefined;
+  if (previous && isAutoRepairPromptMessage(previous)) return "repair";
+  const current = messages[messageIndex];
+  if (!current || current.role !== "assistant") return "followup";
+  if (!hasGenerationContent(current.content)) return "followup";
+  for (let index = 0; index < messageIndex; index += 1) {
+    const candidate = messages[index];
+    if (candidate.role === "assistant" && hasGenerationContent(candidate.content)) {
+      return "followup";
+    }
+  }
+  return "initial";
 }
 
 function planIsVerifiedReady(plan: Extract<MessagePart, { type: "plan" }>["plan"]): boolean {
@@ -475,14 +497,10 @@ const MessageListComponent = ({
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
           const hasVisibleTooling = toolParts.length > 0;
           const rawMessage = externalMessages[messageIndex];
-          const previousRawMessage =
-            messageIndex > 0 ? externalMessages[messageIndex - 1] : undefined;
           // The assistant row has no repair flag of its own. The previous raw
           // user row already carries `prompt-source` / `AUTO-FIX REQUEST` via
           // isAutoRepairPromptMessage — reuse that instead of a second classifier.
-          const isRepairTurn = Boolean(
-            previousRawMessage && isAutoRepairPromptMessage(previousRawMessage),
-          );
+          const turnKind = resolveGenerationTurnKind(externalMessages, messageIndex);
           // Auto-repair prompts are a real "user" turn in the DB (see
           // isAutoRepairPromptMessage) but must never look like something the
           // user typed (Spår 03 Steg 4) — render them as a collapsed system
@@ -607,7 +625,7 @@ const MessageListComponent = ({
                       toolParts={toolParts}
                       reviews={renderCompactTools(reviewToolParts)}
                       actions={renderCompactTools(actionToolParts)}
-                      turnKind={isRepairTurn ? "repair" : "generation"}
+                      turnKind={turnKind}
                     />
                     {planParts.map((part, index) => (
                       <BuildPlanCard

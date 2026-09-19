@@ -119,7 +119,7 @@ describe("GenerationSurface", () => {
         reviews={<div>Typvarningen i detalj</div>}
       />,
     );
-    expect(screen.getByText("Ursprunglig generering")).toBeTruthy();
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
     expect(screen.getByText("1 fil i svaret. Se kontrollresultatet i detaljerna.")).toBeTruthy();
     expect(screen.getByTestId("generation-surface").getAttribute("data-attention")).toBe("true");
     expect(screen.queryByText("Typvarningen i detalj")).toBeNull();
@@ -165,7 +165,7 @@ describe("GenerationSurface", () => {
     });
     rerender(<GenerationSurface {...done} toolParts={[postCheck, verdict]} />);
     expect(screen.getByTestId("generation-surface").getAttribute("data-verifying")).toBe("false");
-    expect(screen.getByText("Ursprunglig generering")).toBeTruthy();
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
     expect(screen.getByText("1 fil i svaret.")).toBeTruthy();
     expect(screen.queryByText("Verifieringen pågår")).toBeNull();
   });
@@ -215,6 +215,23 @@ describe("GenerationSurface", () => {
     expect(screen.getByText(/CODE_BODY/)).toBeTruthy();
   });
 
+  it("uses a follow-up title for later code turns, not the original-generation label", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        content={code}
+        isStreaming={false}
+        isActive={false}
+        turnKind="followup"
+      />,
+    );
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
+    expect(screen.queryByText("Ursprunglig generering")).toBeNull();
+    expect(screen.getByTestId("generation-surface").getAttribute("data-turn-kind")).toBe(
+      "followup",
+    );
+  });
+
   it("stops activity while a user answer is required", () => {
     render(<GenerationSurface {...base} awaitingReply />);
     expect(screen.getByText("Ditt svar behövs")).toBeTruthy();
@@ -248,6 +265,7 @@ describe("GenerationSurface", () => {
         content={fiveFiles}
         isStreaming={false}
         isActive={false}
+        turnKind="initial"
         toolParts={[queued]}
       />,
     );

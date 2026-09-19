@@ -37,7 +37,7 @@ interface GenerationSurfaceProps {
   toolParts: ToolPart[];
   reviews?: ReactNode;
   actions?: ReactNode;
-  /** Set by MessageList when the previous raw user row is an auto-repair prompt. */
+  /** Set by MessageList: first code turn, later user edit, or auto-repair. */
   turnKind?: GenerationTurnKind;
 }
 
@@ -53,7 +53,7 @@ export const GenerationSurface = memo(function GenerationSurface({
   toolParts,
   reviews,
   actions,
-  turnKind = "generation",
+  turnKind = "followup",
 }: GenerationSurfaceProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
@@ -367,7 +367,12 @@ function resolveHeadline({
 }): { title: string; subtitle: string | null } {
   const isRepair = turnKind === "repair";
   const namedTurn = isRepair || Boolean(fileSummary) || hasCode;
-  const doneTitle = isRepair ? "Automatisk reparation" : "Ursprunglig generering";
+  const doneTitle =
+    turnKind === "repair"
+      ? "Automatisk reparation"
+      : turnKind === "initial"
+        ? "Ursprunglig generering"
+        : "Uppdatering av sajten";
   const reviewHint = "Se kontrollresultatet i detaljerna";
   const queuedHint = "En automatisk reparation startade";
 

@@ -2,7 +2,7 @@ import { extractToolSummaries, resolveToolLabels } from "./tooling/output-parser
 import type { ToolPart } from "./tooling/types";
 
 /** Presentation label for one assistant surface — not a backend event type. */
-export type GenerationTurnKind = "generation" | "repair";
+export type GenerationTurnKind = "initial" | "followup" | "repair";
 
 /** Reviews belong in the shared detail drawer; user decisions stay visible. */
 export function isGenerationReviewPart(part: ToolPart): boolean {
