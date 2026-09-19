@@ -12,8 +12,8 @@ rundan i chatten är vald.
 
 1. Första `/brygga` i chatten: fråga vad rundan är (om texten inte redan
    säger det). Oläst post i #1468 → `read` först.
-2. Därefter fråga inte. Ping-pong: utför → `post` → `ping` + `wait` 5–10 min
-   → utför igen.
+2. Därefter fråga inte. Ping-pong: `identity` → `read` → utför → `post`
+   (eget `request_id`, `--reply-to` coach) → `ping` + `wait` 600 → igen.
 3. Avbryt bara vid Jakobs stopp, coach `decision: STOP`, eller misstänkt fel.
 4. Skriv ut resultatet **efter** åtgärd, nästa aktivitet eller stopporder.
 

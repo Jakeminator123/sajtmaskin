@@ -103,26 +103,28 @@ förblir mailbox-owner. `--dry-run` skriver till stdout utan att posta.
 ## G. När ChatGPT ännu inte svarat
 
 `read` / `wait` avslutar med kod 3 och skriver **inte** över
-`.agent-bridge/latest-response.md`. Kör `ping` efter `post` — `wait` pingar
-inte coach.
+`.agent-bridge/latest-response.md`. Kör `ping` efter `post` — `wait`
+levererar ingen trigger.
 
 ## H. Hur `read` / `wait` / `ping` fungerar
 
 `read` och `wait` läser #1468, accepterar bara `[COACH→AGENT:v1]` från
 betrodd GitHub-author, och skriver `.agent-bridge/latest-response.md`.
-De exekverar inte svaret.
+De exekverar inte svaret. `wait` pollar GitHub max 10 minuter
+(`--timeout 600`).
 
-`wait` pollar GitHub max 10 minuter (`--timeout 600`). `ping` väcker coach
-att läsa inboxen; det postar inte.
-
-## I. Ping mot coach
+## I. Triggern mot coach
 
 ```text
-Cursor postar → ping väcker coach → coach läser #1468 → svarar → wait/read
+Cursor postar → ping skriver triggerraden → Jakob levererar den
+→ coach läser #1468 → svarar → wait/read
 ```
 
-`ping` skriver wake-raden (`kolla bridge <request_id>`). Det anropar inte
-ChatGPT-API:t. `wait` är bara GitHub-poll.
+`ping` postar inte, anropar inget ChatGPT-API och muterar ingen state. Den
+skriver `COACH_TRIGGER kolla brygga <request_id>` (eller `#1468` när inget
+request är öppet) och inget mer. **Utskriven rad är inte samma sak som
+levererad trigger** — bara ett matchande coach-svar är bevis. Detaljer och
+testreferens: [`coach-logic.md`](coach-logic.md).
 
 ## Avslutningsregel
 

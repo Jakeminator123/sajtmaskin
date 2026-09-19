@@ -700,6 +700,96 @@ class GhAndPrBehaviorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("later page", self.paths.latest_response.read_text(encoding="utf-8"))
 
+    def test_read_does_not_treat_agent_own_post_as_coach(self) -> None:
+        body = (
+            "[AGENT→COACH:v1]\n"
+            "request_id: BRYGG-01-20260919T010000Z-2\n"
+            "in_reply_to: BRYGG-01-20260919T000000Z-1\n"
+            "agent_id: BRYGG-01\n"
+            "message:\n"
+            "own report must not become a new coach instruction\n"
+        )
+        payload = json.dumps([[_gh_comment(21, body, created_at="2026-09-19T01:00:00Z")]])
+        runner = FakeRunner(
+            {
+                ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
+                ("gh", "auth", "status"): _ok(),
+                (
+                    "gh",
+                    "api",
+                    "--paginate",
+                    "--slurp",
+                    "repos/acme/demo/issues/1468/comments",
+                ): _ok(payload),
+            }
+        )
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": "BRYGG-01-20260919T010000Z-2"}),
+            encoding="utf-8",
+        )
+        code = bridge.cmd_read(
+            runner=runner,
+            paths=self.paths,
+            config=bridge.load_config(self.paths.config),
+        )
+        self.assertEqual(code, bridge.EXIT_NO_RESPONSE)
+        self.assertFalse(self.paths.latest_response.exists())
+
+    def test_wait_ignores_stale_coach_reply_for_old_request_id(self) -> None:
+        stale = _v1_body(
+            request_id="BRYGG-01-20260919T000000Z-1",
+            agent_id="BRYGG-01",
+            message="stale reply for the previous request",
+        )
+        payload = json.dumps(
+            [[_gh_comment(22, stale, created_at="2026-09-19T00:05:00Z")]]
+        )
+        self.paths.state.write_text(
+            json.dumps(
+                {
+                    "last_request_id": "BRYGG-01-20260919T010000Z-2",
+                    "last_posted_at": "2026-09-19T01:00:00Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+        runner = FakeRunner(
+            {
+                ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
+                ("gh", "auth", "status"): _ok(),
+                (
+                    "gh",
+                    "api",
+                    "--paginate",
+                    "--slurp",
+                    "repos/acme/demo/issues/1468/comments",
+                ): _ok(payload),
+            }
+        )
+
+        class Clock:
+            def __init__(self) -> None:
+                self.t = 0.0
+
+            def now(self) -> float:
+                return self.t
+
+            def sleep(self, seconds: float) -> None:
+                self.t += seconds
+
+        clock = Clock()
+        code = bridge.cmd_wait(
+            runner=runner,
+            paths=self.paths,
+            config=bridge.load_config(self.paths.config),
+            timeout=2,
+            interval=1,
+            sleep_fn=clock.sleep,
+            now_fn=clock.now,
+        )
+        self.assertEqual(code, bridge.EXIT_NO_RESPONSE)
+        self.assertFalse(self.paths.latest_response.exists())
+
     def test_read_without_match_is_exit_3(self) -> None:
         runner = FakeRunner(
             {
@@ -829,22 +919,24 @@ class IdentityCliTests(unittest.TestCase):
             code = bridge.main(["identity"], runner=runner, paths=paths)
             self.assertEqual(code, bridge.EXIT_USAGE)
 
-    def test_ping_prints_inbox_wake_without_posting(self) -> None:
+    def _ping_paths(self, root: Path, state: dict[str, object] | None) -> bridge.BridgePaths:
+        work = root / ".agent-bridge"
+        work.mkdir()
+        _write_config(work / "config.local.json", agent_id="BRYGG-01", role="brygg")
+        if state is not None:
+            (work / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        return bridge.BridgePaths(
+            root=root,
+            config=work / "config.local.json",
+            state=work / "state.json",
+            latest_response=work / "latest-response.md",
+            work_dir=work,
+        )
+
+    def test_ping_emits_machine_readable_trigger(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            work = root / ".agent-bridge"
-            work.mkdir()
-            _write_config(work / "config.local.json", agent_id="BRYGG-01", role="brygg")
-            (work / "state.json").write_text(
-                json.dumps({"last_request_id": "BRYGG-01-20260919T000000Z-1"}),
-                encoding="utf-8",
-            )
-            paths = bridge.BridgePaths(
-                root=root,
-                config=work / "config.local.json",
-                state=work / "state.json",
-                latest_response=work / "latest-response.md",
-                work_dir=work,
+            paths = self._ping_paths(
+                Path(tmp), {"last_request_id": "BRYGG-01-20260919T000000Z-1"}
             )
             runner = FakeRunner(
                 {("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n")}
@@ -852,10 +944,47 @@ class IdentityCliTests(unittest.TestCase):
             with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
                 code = bridge.main(["ping"], runner=runner, paths=paths)
             self.assertEqual(code, 0)
-            text = out.getvalue()
-            self.assertIn("PING coach: read inbox #1468", text)
-            self.assertIn("kolla bridge BRYGG-01-20260919T000000Z-1", text)
+            self.assertIn(
+                "COACH_TRIGGER kolla brygga BRYGG-01-20260919T000000Z-1",
+                out.getvalue(),
+            )
+
+    def test_ping_falls_back_to_the_issue_when_no_request_is_open(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._ping_paths(Path(tmp), None)
+            runner = FakeRunner(
+                {("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n")}
+            )
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+                code = bridge.main(["ping"], runner=runner, paths=paths)
+            self.assertEqual(code, 0)
+            self.assertIn("COACH_TRIGGER kolla brygga #1468", out.getvalue())
+
+    def test_ping_neither_posts_nor_mutates_the_mailbox_state(self) -> None:
+        """`ping` is a trigger emission, not a transport: it must stay inert.
+
+        Guards the honest contract — no `gh` call at all (so no comment, no
+        mailbox mutation) and a byte-identical `state.json` afterwards, so a
+        ping can never be mistaken for a delivered notification.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            state = {
+                "last_request_id": "BRYGG-01-20260919T000000Z-1",
+                "last_posted_at": "2026-09-19T00:00:00Z",
+                "sequence": 1,
+                "last_status": "READY",
+            }
+            paths = self._ping_paths(Path(tmp), state)
+            before = paths.state.read_bytes()
+            runner = FakeRunner(
+                {("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n")}
+            )
+            with mock.patch("sys.stdout", new_callable=io.StringIO):
+                code = bridge.main(["ping"], runner=runner, paths=paths)
+            self.assertEqual(code, 0)
             self.assertFalse(any(call[:1] == ("gh",) for call in runner.calls))
+            self.assertEqual(paths.state.read_bytes(), before)
+            self.assertFalse(paths.latest_response.exists())
 
 
 if __name__ == "__main__":

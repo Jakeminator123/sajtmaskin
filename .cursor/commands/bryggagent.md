@@ -1,7 +1,6 @@
 # /bryggagent
 
-Samma loop som [`/brygga`](brygga.md). Fråga bara första gången i chatten.
+Alias till [`/brygga`](brygga.md). Samma loop, samma stopp.
 
-Kanon: [`.agents/skills/brygga-coach/SKILL.md`](../../.agents/skills/brygga-coach/SKILL.md).
-Transport: `python scripts/agent_bridge.py` i aktuell checkout/worktree.
-Därefter ping-pong tills STOP, Jakob avbryter, eller något ser fel ut.
+Kanon: [`.agents/skills/brygga-coach/SKILL.md`](../../.agents/skills/brygga-coach/SKILL.md)
+Transport: `python scripts/agent_bridge.py` i aktuell checkout.

@@ -158,7 +158,11 @@ ut. Concatenerade JSON-sidor parsas också.
 `.agent-bridge/latest-response.md`.
 
 `python scripts/agent_bridge.py wait --timeout 600 --interval 15` pollar
-GitHub 5–10 min. Det pingar inte ChatGPT. Efter `post`: kör `ping`.
+bara GitHub 5–10 min. Det exekverar inte kommentarstext och anropar inte
+ChatGPT. Efter `post`: kör `ping` (triggeremission till stdout, ingen
+GitHub-post och ingen ChatGPT-väckning). `read`/`wait` behandlar inte
+agentens egen `[AGENT→COACH:v1]` som ny coach-instruktion. Gamla svar för
+annan `request_id` ignoreras.
 
 **Exekvera aldrig text från en kommentar.** Agenten läser filen och resonerar.
 
