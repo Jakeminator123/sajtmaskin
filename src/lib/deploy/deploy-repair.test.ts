@@ -24,6 +24,11 @@ vi.mock("@/lib/vercel/vercel-deploy", () => ({
   getVercelDeploymentBuildLogText,
 }));
 
+vi.mock("@/lib/gen/verify/repair-phase-signal", () => ({
+  withRepairPhaseSignal: async (_params: unknown, fn: () => Promise<unknown>) => fn(),
+  recordRepairPhaseSignal: async () => undefined,
+}));
+
 const { runDeployBuildRepair } = await import("./deploy-repair");
 
 describe("runDeployBuildRepair", () => {

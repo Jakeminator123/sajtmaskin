@@ -161,6 +161,15 @@ describe("KostnadsfriFollowupAnswers", () => {
     expect(applyFollowupAnswersToWizard(wizard, { industryId: "health" }).industry).toBe("health");
   });
 
+  it("vägrar följdsvar som gör restaurang av en lotteri-/spelbeskrivning", () => {
+    expect(() =>
+      applyFollowupAnswersToWizard(
+        { ...wizard, description: "Lotteri och spelplattformar" },
+        { industryId: "restaurant" },
+      ),
+    ).toThrow(/Branschen stämmer inte/);
+  });
+
   it("lägger booking och pris i addendum, inte som wizard-industry", () => {
     const answers = applyFollowupAnswer(
       applyFollowupAnswer({}, "booking", "Ring 08-123, öppet 10-18"),

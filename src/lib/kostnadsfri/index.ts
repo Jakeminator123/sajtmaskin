@@ -8,10 +8,12 @@
 
 import crypto from "crypto";
 import {
+  resolveWizardIndustryHint,
   wizardIndustryLabel,
   wizardPurposeLabel,
   wizardVibeLabel,
 } from "@/lib/builder/wizard-taxonomy";
+import { assertNoHospitalityGamingConflict } from "./industry-conflict";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import {
   extractKostnadsfriCompanyProfile,
@@ -27,6 +29,14 @@ import {
   buildFollowupAddendum,
   type KostnadsfriFollowupAnswers,
 } from "./agent-followups";
+
+export {
+  KostnadsfriIndustryConflictError,
+  isKostnadsfriIndustryConflictError,
+  kostnadsfriIndustryConflictFromResponse,
+} from "./industry-conflict";
+export { buildKostnadsfriWizardSnapshot } from "./wizard-snapshot";
+export type { KostnadsfriWizardSnapshot } from "./wizard-snapshot";
 
 // ============================================================================
 // TYPES
@@ -252,9 +262,11 @@ export function buildPromptFromWizardData(
 ): string {
   const confirmed = followupAnswers ?? {};
   const wizard = applyFollowupAnswersToWizard(data, confirmed);
-  const industryLabel = wizardIndustryLabel(wizard.industry, wizard.industry || "general");
+  const industryId = resolveWizardIndustryHint(wizard.industry);
+  assertNoHospitalityGamingConflict(industryId, wizard.description, wizard.usp);
+  const industryLabel = wizardIndustryLabel(industryId, industryId || "general");
   const vibeLabel = wizardVibeLabel(wizard.designVibe, wizard.designVibe || "Modern & Clean");
-  const { pages, extraSections } = resolvePageStructure(wizard.industry, wizard.purposes);
+  const { pages, extraSections } = resolvePageStructure(industryId, wizard.purposes);
 
   const sections: string[] = [];
 

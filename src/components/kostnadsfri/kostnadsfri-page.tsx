@@ -9,7 +9,12 @@ import { FollowupStep } from "./followup-step";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
-import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import {
+  buildKostnadsfriWizardSnapshot,
+  buildPromptFromWizardData,
+  isKostnadsfriIndustryConflictError,
+  kostnadsfriIndustryConflictFromResponse,
+} from "@/lib/kostnadsfri";
 import { buildKostnadsfriAgentBrief } from "@/lib/kostnadsfri/agent-brief";
 import {
   persistBoundCampaignProjectId,
@@ -185,6 +190,7 @@ export function KostnadsfriPage({
         useOpenClawStore.getState().campaignScript?.followupSession?.answers ??
         {};
       const prompt = buildPromptFromWizardData(activeWizard, answers);
+      const wizardSnapshot = buildKostnadsfriWizardSnapshot(activeWizard, answers);
 
       const bindProject = (projectId: string) => {
         createdProjectIdRef.current = projectId;
@@ -227,6 +233,7 @@ export function KostnadsfriPage({
             source: "kostnadsfri",
             projectId: id,
             kostnadsfriSlug: slug,
+            wizardSnapshot,
           }),
         });
 
@@ -249,6 +256,12 @@ export function KostnadsfriPage({
       }
 
       if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const conflict = kostnadsfriIndustryConflictFromResponse(
+          body,
+          activeWizard.industry || "unknown",
+        );
+        if (conflict) throw conflict;
         throw new Error("Failed to create prompt");
       }
 
@@ -270,6 +283,22 @@ export function KostnadsfriPage({
       router.push(`/builder?${params.toString()}`);
     } catch (err) {
       console.error("[Kostnadsfri] Failed to generate prompt:", err);
+      if (isKostnadsfriIndustryConflictError(err)) {
+        persistPendingInitBuild({
+          slug,
+          wizardData: activeWizard,
+          followupAnswers:
+            pending?.followupAnswers ??
+            useOpenClawStore.getState().campaignScript?.followupSession?.answers ??
+            {},
+          ready: false,
+        });
+        setError(err.message);
+        initStartedRef.current = false;
+        setWizardData(activeWizard);
+        setPhase("wizard");
+        return;
+      }
       const message = err instanceof Error ? err.message : "";
       setError(
         message === "Logga in för att bygga hemsidan." ||
