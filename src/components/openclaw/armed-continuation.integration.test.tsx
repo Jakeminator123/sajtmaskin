@@ -198,6 +198,71 @@ describe("armed autonomy — continuation handshake", () => {
     expect(triggerMock).toHaveBeenCalledTimes(2);
   }, 20_000);
 
+  it("runs steps 2 and 3 from a three-step mandate and then stops", async () => {
+    act(() => {
+      useOpenClawStore.setState({
+        editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
+        armedMandate: {
+          mode: "followups",
+          remaining: 3,
+          reason: "gör 3 follow-ups och buggranska",
+          createdAt: ARMED_AT,
+        },
+      });
+    });
+
+    const onSend = vi.fn();
+    const first = submitFillMessage("msg-three-1", 100);
+    const { rerender } = render(<Harness messages={[first]} onSend={onSend} />);
+
+    await waitFor(() => expect(triggerMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+    });
+
+    act(() => useOpenClawStore.getState().bindArmedContinuationSend(1));
+    act(() => setBuilderContext({ isStreaming: true, activeVersionStatus: "generating" }));
+    await waitFor(
+      () => expect(useOpenClawStore.getState().armedContinuation?.observedStrong).toBe(true),
+      { timeout: 4000 },
+    );
+    act(() => setBuilderContext({ activeVersionId: "ver-2", activeVersionStatus: "ready" }));
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(1, "started"));
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1), { timeout: 4000 });
+
+    const second = submitFillMessage("msg-three-2", 200);
+    rerender(<Harness messages={[first, second]} onSend={onSend} />);
+    await waitFor(() => expect(triggerMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(1);
+    });
+
+    act(() => useOpenClawStore.getState().bindArmedContinuationSend(2));
+    act(() => setBuilderContext({ isStreaming: true, activeVersionStatus: "generating" }));
+    await waitFor(
+      () => expect(useOpenClawStore.getState().armedContinuation?.observedStrong).toBe(true),
+      { timeout: 4000 },
+    );
+    act(() => setBuilderContext({ activeVersionId: "ver-3", activeVersionStatus: "ready" }));
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(2, "started"));
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(2), { timeout: 4000 });
+
+    const third = submitFillMessage("msg-three-3", 300);
+    rerender(<Harness messages={[first, second, third]} onSend={onSend} />);
+    await waitFor(() => expect(triggerMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(useOpenClawStore.getState().armedMandate).toBeNull());
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+    act(() => setBuilderContext({ activeVersionId: "ver-4", activeVersionStatus: "ready" }));
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    expect(onSend).toHaveBeenCalledTimes(2);
+    expect(triggerMock).toHaveBeenCalledTimes(3);
+  }, 30_000);
+
   it("never resumes a review_next mandate", async () => {
     const onSend = vi.fn();
     act(() => {

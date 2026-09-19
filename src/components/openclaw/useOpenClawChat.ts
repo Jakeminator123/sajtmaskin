@@ -22,6 +22,13 @@ import {
   parseArmingDirective,
   parseStopDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
+import {
+  buildArmedHandshakePrompt,
+  decideArmedHandshakeWake,
+  hasArmedHandshakeWoken,
+  markArmedHandshakeWoken,
+} from "@/lib/openclaw/debug/armed-continuation";
+import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 
@@ -59,6 +66,9 @@ export function useOpenClawChat() {
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
+  const sendRef = useRef<((text: string, options?: OpenClawSendOptions) => Promise<void>) | null>(
+    null,
+  );
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -156,6 +166,7 @@ export function useOpenClawChat() {
         nextConversation.map((m) => ({ role: m.role, content: m.content })),
       );
 
+      let accumulated = "";
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
@@ -209,7 +220,6 @@ export function useOpenClawChat() {
         }
 
         const reader = res.body.getReader();
-        let accumulated = "";
         let gatewayError: GatewayErrorDescription | null = null;
 
         for await (const event of parseGatewayStream(reader)) {
@@ -257,9 +267,33 @@ export function useOpenClawChat() {
         }
         abortRef.current = null;
       }
+
+      // Path (b): a confirmation-only `start_bug_hunt` never sends or watches.
+      // Wake once with `allowArming: false` so the first fill can be authored.
+      // The wake must not create, renew or extend the mandate.
+      if (accumulated) {
+        const liveAfter = useOpenClawStore.getState();
+        const mandate = liveAfter.armedMandate;
+        const parsed = parseOpenClawMessage(accumulated);
+        const decision = decideArmedHandshakeWake({
+          actionType: parsed.action?.type ?? null,
+          mandate,
+          editEnabled: readOpenClawPowers().armedAutonomy,
+          alreadyWoken: mandate ? hasArmedHandshakeWoken(mandate.createdAt) : false,
+          openClawStreaming: liveAfter.isStreaming,
+        });
+        if (decision.kind === "wake" && mandate) {
+          markArmedHandshakeWoken(mandate.createdAt);
+          await sendRef.current?.(buildArmedHandshakePrompt({ remaining: mandate.remaining }), {
+            allowArming: false,
+            countTowardCampaignQuota: false,
+          });
+        }
+      }
     },
     [addMessage, updateAssistantMessage, setStreaming, setArmedMandate, consumeCampaignAdviceRound],
   );
+  sendRef.current = send;
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
