@@ -1,9 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   buildArmedContinuationPrompt,
+  buildArmedHandshakePrompt,
   createArmedContinuationWatch,
   decideArmedContinuation,
+  decideArmedHandshakeWake,
+  hasArmedHandshakeWoken,
+  markArmedHandshakeWoken,
   observeBuilderTurn,
+  resetArmedHandshakeWakesForTests,
   CONTINUATION_MAX_WAIT_MS,
   CONTINUATION_NO_VERSION_MS,
   CONTINUATION_QUIET_MS,
@@ -459,5 +464,99 @@ describe("mandate accounting across a two-step run", () => {
     }
 
     expect(resumes).toEqual([0]);
+  });
+});
+
+describe("decideArmedHandshakeWake", () => {
+  afterEach(() => {
+    resetArmedHandshakeWakesForTests();
+  });
+
+  function decideWake(
+    overrides: Partial<Parameters<typeof decideArmedHandshakeWake>[0]> = {},
+  ) {
+    return decideArmedHandshakeWake({
+      actionType: "start_bug_hunt",
+      mandate: mandate("followups", 3),
+      editEnabled: true,
+      alreadyWoken: false,
+      openClawStreaming: false,
+      ...overrides,
+    });
+  }
+
+  it("wakes after a hunt-only confirmation so the first builder step can be authored", () => {
+    expect(decideWake()).toEqual({ kind: "wake" });
+  });
+
+  it("treats both-blocks as hunt when first-wins selected start_bug_hunt", () => {
+    // parseOpenClawMessage keeps the first complete payload. Handshake then
+    // sees hunt, not fill — that is the documented path-(b) choice.
+    expect(decideWake({ actionType: "start_bug_hunt" }).kind).toBe("wake");
+    expect(decideWake({ actionType: "fill_text_field" }).kind).toBe("idle");
+  });
+
+  it("does not wake when the assistant already authored a fill", () => {
+    expect(decideWake({ actionType: "fill_text_field" })).toEqual({ kind: "idle" });
+  });
+
+  it("does not wake twice for the same mandate", () => {
+    const createdAt = NOW - 1000;
+    expect(hasArmedHandshakeWoken(createdAt)).toBe(false);
+    markArmedHandshakeWoken(createdAt);
+    expect(hasArmedHandshakeWoken(createdAt)).toBe(true);
+    expect(decideWake({ alreadyWoken: true })).toEqual({ kind: "idle" });
+  });
+
+  it("does not wake without an active followups mandate", () => {
+    expect(decideWake({ mandate: null }).kind).toBe("idle");
+    expect(decideWake({ mandate: mandate("review_next", 1) }).kind).toBe("idle");
+    expect(decideWake({ mandate: mandate("followups", 0) }).kind).toBe("idle");
+  });
+
+  it("does not wake when the power is off or OpenClaw is still streaming", () => {
+    expect(decideWake({ editEnabled: false }).kind).toBe("idle");
+    expect(decideWake({ openClawStreaming: true }).kind).toBe("idle");
+  });
+});
+
+describe("buildArmedHandshakePrompt", () => {
+  it("cannot re-arm, stop or extend the mandate it is waking", () => {
+    for (const remaining of [1, 3]) {
+      const prompt = buildArmedHandshakePrompt({ remaining });
+      expect(parseArmingDirective(prompt)).toBeNull();
+      expect(parseStopDirective(prompt)).toBe(false);
+    }
+  });
+
+  it("names the remaining budget so the wake-up turn is honest", () => {
+    expect(buildArmedHandshakePrompt({ remaining: 3 })).toContain("3 steg kvar");
+    expect(buildArmedHandshakePrompt({ remaining: 1 })).toContain("sista steget");
+  });
+});
+
+describe("mandate accounting across a three-step run", () => {
+  it("continues steps 2 and 3 and stops after step 3", () => {
+    let live: ArmedMandate | null = createArmedMandate(
+      { mode: "followups", count: 3, reason: "gör 3 follow-ups" },
+      NOW,
+    );
+    const resumes: number[] = [];
+
+    for (let step = 0; step < 6 && live; step += 1) {
+      live = live.remaining > 1 ? { ...live, remaining: live.remaining - 1 } : null;
+      const decision = decideArmedContinuation({
+        watch: watching(),
+        mandate: live,
+        editEnabled: true,
+        openClawStreaming: false,
+        snapshot: snapshot(),
+        now: NOW,
+      });
+      if (decision.kind === "resume") resumes.push(live?.remaining ?? -1);
+    }
+
+    expect(resumes).toEqual([2, 1]);
+    expect(live).toBeNull();
   });
 });

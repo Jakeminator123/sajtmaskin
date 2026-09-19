@@ -3,8 +3,48 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useOpenClawChat } from "./useOpenClawChat";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { resetArmedHandshakeWakesForTests } from "@/lib/openclaw/debug/armed-continuation";
 
 const ARMING_TEXT = "kör 5 follow-ups och buggranska sajten";
+const PREVIEW_REPRO_PHRASE =
+  "gör 3 follow-ups och buggranska. Första steget: skicka själv en builder-prompt som gör hero-rubriken tydligare. Om det räcker med en liten textändring, föreslå också en snabbändring.";
+const HUNT_ONLY_REPLY = [
+  "Bekräftar mandatet.",
+  "<openclaw-action>",
+  '{"type":"start_bug_hunt","mode":"followups","count":3,"reason":"Tre steg"}',
+  "</openclaw-action>",
+].join("\n");
+const FILL_REPLY = [
+  "Första steget.",
+  "<openclaw-action>",
+  '{"type":"fill_text_field","target":"builder.chat.primary","value":"Gör hero-rubriken tydligare","submit":true}',
+  "</openclaw-action>",
+].join("\n");
+
+function sseBody(...payloads: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const payload of payloads) {
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+      }
+      controller.close();
+    },
+  });
+}
+
+function deltaPayload(content: string): string {
+  return JSON.stringify({
+    choices: [{ index: 0, delta: { content } }],
+  });
+}
+
+function sseResponse(text: string): Response {
+  return new Response(sseBody(deltaPayload(text), "[DONE]"), {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
 
 beforeEach(() => {
   // The gateway answer is irrelevant here — the arming decision happens before
@@ -37,6 +77,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetArmedHandshakeWakesForTests();
   act(() => {
     useOpenClawStore.setState({
       editEnabled: false,
@@ -193,5 +234,84 @@ describe("useOpenClawChat — arming consent", () => {
     // Disarming must also drop a pending continuation, or the loop would wake
     // OpenClaw again after the user said stop.
     expect(state.armedContinuation).toBeNull();
+  });
+
+  it("arms three steps from the exact preview-repro phrase", async () => {
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(useOpenClawStore.getState().armedMandate?.mode).toBe("followups");
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
+  it("wakes once after a hunt-only reply so the first builder step can be authored", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(sseResponse(FILL_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    const createdBefore = Date.now();
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const mandate = useOpenClawStore.getState().armedMandate;
+    expect(mandate?.mode).toBe("followups");
+    expect(mandate?.remaining).toBe(3);
+    expect(mandate?.createdAt).toBeGreaterThanOrEqual(createdBefore);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    const secondBody = JSON.parse(String(fetchFn.mock.calls[1]?.[1]?.body)) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const wakeMessage = secondBody.messages.filter((message) => message.role === "user").at(-1);
+    expect(wakeMessage?.content).toContain("[Automatisk väckning]");
+    expect(wakeMessage?.content).toContain("3 steg kvar");
+    expect(useOpenClawStore.getState().messages.some((message) => message.content.includes("Gör hero-rubriken"))).toBe(
+      true,
+    );
+  });
+
+  it("does not wake again when a later hunt-only reply arrives", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(sseResponse(FILL_REPLY))
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await result.current.send("ok, fortsätt med nästa observation");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
+  it("does not handshake-wake when the first reply is already a fill", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(sseResponse(FILL_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
   });
 });
