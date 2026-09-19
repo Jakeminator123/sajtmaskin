@@ -481,6 +481,7 @@ describe("decideArmedHandshakeWake", () => {
       editEnabled: true,
       alreadyWoken: false,
       openClawStreaming: false,
+      streamSucceeded: true,
       ...overrides,
     });
   }
@@ -517,6 +518,10 @@ describe("decideArmedHandshakeWake", () => {
   it("does not wake when the power is off or OpenClaw is still streaming", () => {
     expect(decideWake({ editEnabled: false }).kind).toBe("idle");
     expect(decideWake({ openClawStreaming: true }).kind).toBe("idle");
+  });
+
+  it("does not wake after a complete hunt block when the stream ended in an error envelope", () => {
+    expect(decideWake({ streamSucceeded: false })).toEqual({ kind: "idle" });
   });
 });
 

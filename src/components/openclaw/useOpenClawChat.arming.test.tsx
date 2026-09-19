@@ -301,6 +301,41 @@ describe("useOpenClawChat — arming consent", () => {
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
   });
 
+  it("does not wake after a complete hunt block followed by a gateway error envelope", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(
+      new Response(
+        sseBody(
+          deltaPayload(HUNT_ONLY_REPLY),
+          JSON.stringify({
+            error: {
+              message: "You've reached your Codex subscription usage limit.",
+              type: "rate_limit_error",
+            },
+          }),
+        ),
+        {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+    expect(
+      useOpenClawStore.getState().messages.some((message) =>
+        message.content.includes("[Automatisk väckning]"),
+      ),
+    ).toBe(false);
+  });
+
   it("does not handshake-wake when the first reply is already a fill", async () => {
     const fetchFn = vi.fn().mockResolvedValueOnce(sseResponse(FILL_REPLY));
     vi.stubGlobal("fetch", fetchFn);

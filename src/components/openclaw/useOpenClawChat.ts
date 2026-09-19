@@ -167,6 +167,7 @@ export function useOpenClawChat() {
       );
 
       let accumulated = "";
+      let streamSucceeded = false;
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
@@ -246,6 +247,8 @@ export function useOpenClawChat() {
           );
         } else if (!accumulated) {
           updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
+        } else {
+          streamSucceeded = true;
         }
 
         // Charge only after a stream that actually produced assistant text.
@@ -281,6 +284,7 @@ export function useOpenClawChat() {
           editEnabled: readOpenClawPowers().armedAutonomy,
           alreadyWoken: mandate ? hasArmedHandshakeWoken(mandate.createdAt) : false,
           openClawStreaming: liveAfter.isStreaming,
+          streamSucceeded,
         });
         if (decision.kind === "wake" && mandate) {
           markArmedHandshakeWoken(mandate.createdAt);

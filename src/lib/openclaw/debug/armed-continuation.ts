@@ -519,7 +519,14 @@ export function decideArmedHandshakeWake(input: {
   editEnabled: boolean;
   alreadyWoken: boolean;
   openClawStreaming: boolean;
+  /**
+   * The hunt stream must have finished without a gateway error envelope.
+   * A complete `start_bug_hunt` followed by an error chunk is not a
+   * successful confirmation and must not spend the one-shot wake.
+   */
+  streamSucceeded: boolean;
 }): ArmedHandshakeDecision {
+  if (!input.streamSucceeded) return { kind: "idle" };
   if (input.alreadyWoken) return { kind: "idle" };
   if (!input.editEnabled) return { kind: "idle" };
   if (!isMandateActive(input.mandate) || input.mandate?.mode !== "followups") {
