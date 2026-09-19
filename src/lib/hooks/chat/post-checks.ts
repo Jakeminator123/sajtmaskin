@@ -908,7 +908,14 @@ export async function runPostGenerationChecks(params: {
         toolName: "Live-granskning",
         toolCallId: `live-review:${versionId}`,
         state: "output-available",
-        output: productPostcheck.liveReview,
+        // Screenshots live on productPostcheck, but the dedicated part is
+        // what LiveReviewRow reads. Carry the two public JPEG URLs here so
+        // they survive the same local persist/reload path as the verdict.
+        // Server message rows never get these client-appended tool parts.
+        output: {
+          ...productPostcheck.liveReview,
+          screenshots: productPostcheck.screenshots ?? null,
+        },
       });
     }
 
