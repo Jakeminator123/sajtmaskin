@@ -447,14 +447,20 @@ export function DidOpenClawBridge({
       }
 
       await ensureConnected();
-      if (!agentRef.current?.speak) return;
+      const agent = agentRef.current;
+      if (!agent?.speak) return;
 
+      // Samma fence som `useDidAvatar.speak`: en reject efter timeout/disconnect
+      // får inte skriva `connected` över `offline` och därmed no-opa nästa
+      // "Anslut avatar" (state säger connected, men MediaStream saknas).
+      const generation = connectionGenerationRef.current;
       try {
         setConnectionState("speaking");
-        await agentRef.current.speak({ type: "text", input: normalized });
+        await agent.speak({ type: "text", input: normalized });
       } catch {
+        if (generation !== connectionGenerationRef.current) return;
         pendingSpeechRef.current = normalized;
-        setConnectionState("connected");
+        if (agentRef.current === agent) setConnectionState("connected");
       }
     },
     [ensureConnected, testMode],
