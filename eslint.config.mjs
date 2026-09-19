@@ -33,11 +33,12 @@ export default defineConfig([
     // Eval artifacts deliberately preserve broken generated code for debugging.
     "data/eval-runs/**/*",
     // Vendored upstream repos used as reference material for the dossier /
-    // template pipeline (e.g. the full `next.js` checkout under `repos/`).
-    // Linting these pulls in their bundled `.js` (which triggers BABEL
-    // deopt warnings) and legacy `/* eslint-env */` comments that crash
-    // ESLint flat-config v10.
-    "data/template-references/**/*",
+    // template pipeline. Their canonical home is the `_template_refs/` sibling
+    // folder outside the checkout; this ignore is the net for a clone that ends
+    // up inside the repo anyway. Linting them pulls in bundled `.js` (which
+    // triggers BABEL deopt warnings) and legacy `/* eslint-env */` comments
+    // that crash ESLint flat-config v10.
+    "_template_refs/**/*",
     // Dossier pipeline: raw scraped repos + AI-extracted vendored components
     // are not our code — they are inputs/outputs of the curation pipeline.
     "data/dossiers/_repo-cache/**/*",

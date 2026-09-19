@@ -200,7 +200,7 @@ Efter en bunden rapport visar UI:t det runner-ägda `templates:addenda --write
 | **Template (v0-mall)** | Färdig sajt-ZIP; importeras **verbatim** när användaren väljer den, eller används som begränsad variant-inspiration | Vercel Blob (`template-blob-manifest.json`) | `/templates`, Mallar-tab, `POST /api/template`, own-engine init |
 | **Scaffold**           | Runtime-startpunkt för fritext-generering                                                                           | `src/lib/gen/scaffolds/`                    | own-engine init                                                 |
 | **Dossier**            | Capability-modul som injiceras i own-engine-prompten                                                                | `data/dossiers/{hard,soft}/`                | dossier-pipelinen (`select.ts`)                                 |
-| **Template-referens**  | Klonat upstream-repo, input till dossier-kuration                                                                   | `data/template-references/`                 | `dossiers:curate`                                               |
+| **Template-referens**  | Klonat upstream-repo, input till dossier-kuration                                                                   | `_template_refs/dossier-references/` (utanför repot) | `dossiers:curate`                                       |
 
 Dossiers har inga kategorier, inga thumbnails och syns aldrig i template-galleriet. Template-referenser hör till dossier-systemet trots namnet. `/api/v0/` = API-versionering, inte den externa v0-providern.
 

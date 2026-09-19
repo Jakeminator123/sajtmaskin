@@ -2,7 +2,6 @@
 description: "Dossier-regler: runtime dossiers är inte template-references eller variant-katalog."
 globs:
   - data/dossiers/**
-  - data/template-references/**
   - scripts/dossiers/**
   - backoffice/pages/dossiers.py
   - src/lib/gen/dossiers/**
@@ -20,7 +19,7 @@ Runtime läser **bara** `data/dossiers/{hard,soft}/`. Övriga mappar är andra l
 | Capability map | `data/dossiers/_index/capability-map.json` | Genererad vy — bär även `dossiers`, `labelsSv`, `policy`, `f2Policy`. Läses inte i runtime |
 | Scripts | `scripts/dossiers/` | Validera/kurera/regenerera |
 | Backoffice | `backoffice/pages/dossiers.py` | Adminvy: Lista, AI-kuration, Systemkarta |
-| Template refs | `data/template-references/repos/<id>/` | Rå input, gitignorerad |
+| Template refs | `_template_refs/dossier-references/repos/<id>/` | Rå input. Syskonmapp **utanför** checkouten — klona aldrig tillbaka under `data/` |
 | Variants | `config/scaffold-variants/<scaffold>/<variant>.json` | Eget subsystem; `sourceTemplateIds` slås upp mot Blob-manifestet |
 
 - Flytta inte runtime dossiers till template-reference-mappar.
