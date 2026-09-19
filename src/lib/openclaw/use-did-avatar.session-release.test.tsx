@@ -19,6 +19,23 @@ function lastCallbacks(): Callbacks {
   return (call?.[1] as { callbacks: Callbacks }).callbacks;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
+function fakeAgent(overrides: Record<string, unknown> = {}) {
+  return {
+    connect: vi.fn().mockResolvedValue(undefined),
+    disconnect: vi.fn().mockResolvedValue(undefined),
+    speak: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 async function loadHook() {
   vi.resetModules();
   return import("./use-did-avatar");
@@ -162,5 +179,93 @@ describe("D-ID connect deadline", () => {
     expect(result.current.connectionState).toBe("connected");
     expect(result.current.avatarReady).toBe(true);
     expect(agent.disconnect).not.toHaveBeenCalled();
+  });
+
+  // `OpenClawChatPanel` talar så snart tillståndet är `connected` — den kräver
+  // inte `avatarReady`. Ett textsvar som hinner före deadlinen fick tidigare
+  // timern att returnera på `speaking`, och eftersom timern redan var förbrukad
+  // blev spinnern evig igen. Deadlinen ska styras av strömmen, inte av tal.
+  it("fails the deadline even when a reply starts speaking before the stream arrives", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    expect(result.current.avatarReady).toBe(false);
+
+    await act(async () => {
+      await result.current.speak("Hej, jag svarar redan innan videon finns.");
+    });
+    expect(result.current.connectionState).toBe("speaking");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+
+    expect(result.current.connectionState).toBe("error");
+    expect(result.current.avatarReady).toBe(false);
+    expect(agent.disconnect).toHaveBeenCalled();
+  });
+
+  it("does not let a late connect() resolve write connected over the deadline", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connecting"));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(result.current.connectionState).toBe("error");
+
+    await act(async () => {
+      connecting.resolve();
+      await connecting.promise;
+    });
+
+    expect(result.current.connectionState).toBe("error");
+    expect(result.current.avatarReady).toBe(false);
+  });
+
+  it("waits for the deadline's disconnect before a retry requests a new stream", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const releasing = deferred<void>();
+    const stalled = fakeAgent({ disconnect: vi.fn().mockReturnValue(releasing.promise) });
+    const fresh = fakeAgent();
+    sdkMock.createAgentManager
+      .mockResolvedValueOnce(stalled)
+      .mockResolvedValueOnce(fresh);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    await waitFor(() => expect(stalled.disconnect).toHaveBeenCalledTimes(1));
+
+    let retry!: Promise<void>;
+    act(() => {
+      retry = result.current.reconnect();
+    });
+    // Den gamla platsen är ännu inte tillbaka — ingen ny session får begäras.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releasing.resolve();
+      await retry;
+    });
+
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2);
+    expect(fresh.connect).toHaveBeenCalledTimes(1);
   });
 });

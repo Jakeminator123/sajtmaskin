@@ -90,6 +90,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   // återaktivera eller lämna en D-ID-session levande i bakgrunden.
   const connectionGenerationRef = useRef(0);
   const connectionStateRef = useRef<DidConnectionState>("idle");
+  // Alla släpp läggs i en kedja. Kontot har två platser, så ett nytt försök
+  // som startar parallellt med föregående disconnect tävlar mot sin egen
+  // föregångare om den sista platsen.
+  const pendingDisconnectRef = useRef<Promise<void>>(Promise.resolve());
 
   const [connectionState, setConnectionState] =
     useState<DidConnectionState>("idle");
@@ -105,6 +109,23 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     clearTimeout(connectDeadlineRef.current);
     connectDeadlineRef.current = null;
   }, []);
+
+  /**
+   * Köa ett släpp och returnera löftet som är klart när platsen är tillbaka.
+   * `null` betyder "inget nytt att släppa" och returnerar kedjan som redan
+   * pågår, så en retry kan vänta in en disconnect den inte startade själv.
+   */
+  const queueDisconnect = useCallback(
+    (agent: DidAgentManager | null): Promise<void> => {
+      if (!agent?.disconnect) return pendingDisconnectRef.current;
+      const queued = pendingDisconnectRef.current.then(() =>
+        safelyDisconnectAgent(agent),
+      );
+      pendingDisconnectRef.current = queued;
+      return queued;
+    },
+    [],
+  );
 
   const syncVideoPlayback = useCallback(() => {
     const video = videoNodeRef.current;
@@ -179,12 +200,18 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     createdAgent = agent;
 
     if (generation !== connectionGenerationRef.current) {
-      await safelyDisconnectAgent(agent);
+      await queueDisconnect(agent);
       return null;
     }
     agentRef.current = agent;
     return agent;
-  }, [clearConnectDeadline, loadSdk, syncVideoPlayback, updateConnectionState]);
+  }, [
+    clearConnectDeadline,
+    loadSdk,
+    queueDisconnect,
+    syncVideoPlayback,
+    updateConnectionState,
+  ]);
 
   const connect = useCallback(async () => {
     if (!AGENT_ID || !CLIENT_KEY) return;
@@ -196,6 +223,13 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       return;
 
     const generation = ++connectionGenerationRef.current;
+    // Sätt vakten före väntan nedan, annars kan två parallella anrop båda
+    // passera tillståndskontrollen ovan innan någon av dem hunnit markera
+    // "connecting".
+    updateConnectionState("connecting");
+    // Vänta in ett pågående släpp innan en ny plats begärs.
+    await pendingDisconnectRef.current;
+    if (generation !== connectionGenerationRef.current) return;
     // Deadlinen löper från första försöket till att videon faktiskt är framme,
     // inte bara till att connect() resolvar: ett fullt D-ID-konto kan ge en
     // ansluten agent som aldrig levererar någon MediaStream.
@@ -203,17 +237,26 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     connectDeadlineRef.current = setTimeout(() => {
       connectDeadlineRef.current = null;
       if (generation !== connectionGenerationRef.current) return;
-      if (connectionStateRef.current === "speaking") return;
+      // Bara en levererad MediaStream räknas som en framme avatar. `speaking`
+      // duger inte: OpenClaw-panelen talar redan på `connected`, så ett
+      // textsvar före deadlinen kunde annars äta upp timern och lämna
+      // "Startar avataren..." kvar för alltid.
+      if (streamRef.current) return;
+      // Fence:a den pågående connect():en så ett sent resolve inte kan skriva
+      // `connected` över det här felläget.
+      ++connectionGenerationRef.current;
       const stalled = agentRef.current;
+      const stalledStream = didStreamRef.current;
       agentRef.current = null;
       streamRef.current = null;
-      void safelyDisconnectAgent(stalled);
+      didStreamRef.current = null;
+      if (stalled) void queueDisconnect(stalled);
+      else if (stalledStream) releaseDidStream(stalledStream, CLIENT_KEY);
       setAvatarReady(false);
       updateConnectionState("error");
     }, DID_CONNECT_TIMEOUT_MS);
 
     try {
-      updateConnectionState("connecting");
       const agent = await initAgent(generation);
       if (generation !== connectionGenerationRef.current) return;
       if (!agent) {
@@ -224,7 +267,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
       await agent.connect();
       if (generation !== connectionGenerationRef.current) {
         if (agentRef.current === agent) agentRef.current = null;
-        await safelyDisconnectAgent(agent);
+        await queueDisconnect(agent);
         return;
       }
       updateConnectionState("connected");
@@ -234,17 +277,22 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
         updateConnectionState("error");
       }
     }
-  }, [clearConnectDeadline, initAgent, updateConnectionState]);
+  }, [clearConnectDeadline, initAgent, queueDisconnect, updateConnectionState]);
 
   const speak = useCallback(async (text: string) => {
     const normalized = text.trim();
-    if (!normalized || !agentRef.current?.speak) return;
+    const agent = agentRef.current;
+    if (!normalized || !agent?.speak) return;
 
+    const generation = connectionGenerationRef.current;
     try {
       updateConnectionState("speaking");
-      await agentRef.current.speak({ type: "text", input: normalized });
+      await agent.speak({ type: "text", input: normalized });
     } catch {
-      if (agentRef.current) updateConnectionState("connected");
+      // Ett misslyckat tal från en session som redan är fence:ad bort får inte
+      // skriva `connected` över deadlinens felläge.
+      if (generation !== connectionGenerationRef.current) return;
+      if (agentRef.current === agent) updateConnectionState("connected");
     }
   }, [updateConnectionState]);
 
@@ -255,10 +303,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     agentRef.current = null;
     streamRef.current = null;
     didStreamRef.current = null;
-    void safelyDisconnectAgent(agent);
+    void queueDisconnect(agent);
     updateConnectionState("idle");
     setAvatarReady(false);
-  }, [clearConnectDeadline, updateConnectionState]);
+  }, [clearConnectDeadline, queueDisconnect, updateConnectionState]);
 
   const reconnect = useCallback(async () => {
     const generation = ++connectionGenerationRef.current;
@@ -271,11 +319,12 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     updateConnectionState("idle");
     // Vänta in att den gamla strömmen är släppt innan en ny begärs. Med bara
     // två samtidiga platser skulle ett parallellt försök annars tävla mot sin
-    // egen föregångare om den sista platsen.
-    await safelyDisconnectAgent(previousAgent);
+    // egen föregångare om den sista platsen. `previousAgent` kan redan vara
+    // null efter en deadline — då väntar kedjan in deadlinens egen disconnect.
+    await queueDisconnect(previousAgent);
     if (generation !== connectionGenerationRef.current) return;
     await connect();
-  }, [clearConnectDeadline, connect, updateConnectionState]);
+  }, [clearConnectDeadline, connect, queueDisconnect, updateConnectionState]);
 
   useEffect(() => {
     if (enabled) {
