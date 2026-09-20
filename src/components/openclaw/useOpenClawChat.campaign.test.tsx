@@ -155,6 +155,34 @@ describe("useOpenClawChat — kampanjrådgivning", () => {
     expect(remaining()).toBe(KOSTNADSFRI_ADVICE_ROUND_LIMIT);
   });
 
+  it("bränner inte kvoten för avhugget action-svar utan synlig text", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            sseBody(
+              deltaPayload(
+                `<openclaw-action>\n{"type":"fill_text_field","target":"builder.chat.primary","value":"Hej`,
+              ),
+              "[DONE]",
+            ),
+            {
+              status: 200,
+              headers: { "content-type": "text/event-stream" },
+            },
+          ),
+      ),
+    );
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send("runda 1");
+    });
+
+    expect(remaining()).toBe(KOSTNADSFRI_ADVICE_ROUND_LIMIT);
+  });
+
   it("bränner inte kvoten vid gateway-fel utan assistant-text", async () => {
     vi.stubGlobal(
       "fetch",
