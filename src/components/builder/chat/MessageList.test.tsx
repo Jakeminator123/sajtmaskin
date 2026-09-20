@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { PROMPT_SOURCE_UI_PART_TYPE, type ChatMessage } from "@/lib/builder/types";
@@ -958,6 +958,253 @@ describe("MessageList", () => {
       screen.getByRole("button", { name: /Visa den tekniska instruktionen/ }),
     );
     expect(screen.getByText(/Issues detected: typecheck failed/)).toBeTruthy();
+  });
+
+  it("labels the original generation and the AUTO-FIX repair as two distinct cards", () => {
+    const initFiles = [
+      '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+      '```tsx file="app/layout.tsx"\nexport default function Layout() { return null; }\n```',
+      '```css file="app/a.css"\nbody {}\n```',
+      '```css file="app/b.css"\nbody {}\n```',
+      '```css file="app/c.css"\nbody {}\n```',
+    ].join("\n");
+    const messages: ChatMessage[] = [
+      { id: "user_init", role: "user", content: "Bygg en sajt för bageriet." },
+      {
+        id: "assistant_init",
+        role: "assistant",
+        content: `Här är utkastet.\n${initFiles}`,
+        uiParts: [
+          {
+            type: "tool:post-check",
+            state: "output-available",
+            output: {
+              summary: {
+                files: 5,
+                added: 5,
+                modified: 0,
+                removed: 0,
+                warnings: 0,
+                provisional: true,
+                qualityGatePending: false,
+                autoFixQueued: true,
+              },
+            },
+          },
+        ],
+      },
+      {
+        id: "user_autofix",
+        role: "user",
+        content: "AUTO-FIX REQUEST — TARGETED REPAIR\n\nIssues detected: typecheck failed (exit 1).",
+        uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }],
+      },
+      {
+        id: "assistant_autofix",
+        role: "assistant",
+        content: '```css file="app/globals.css"\n:root { color: black; }\n```',
+        uiParts: [
+          {
+            type: "tool-prompt-strategy",
+            state: "output-available",
+            output: {
+              steps: [
+                "Källa: Auto-repair (server-driven)",
+                "Orsak: Auto-repair efter typecheck/quality-gate",
+              ],
+            },
+          },
+          {
+            type: "tool:quality-gate",
+            toolName: "Quality gate",
+            state: "output-available",
+            output: {
+              passed: true,
+              designAdvisory: true,
+              checks: [
+                { check: "typecheck", passed: false, advisory: true, exitCode: 1, output: "TS2322" },
+              ],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_repair_labels" messages={messages} />);
+
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces).toHaveLength(2);
+
+    expect(surfaces[0].getAttribute("data-turn-kind")).toBe("initial");
+    expect(surfaces[0].getAttribute("data-attention")).toBe("false");
+    expect(surfaces[0].getAttribute("data-repair-queued")).toBe("true");
+    expect(within(surfaces[0]).getByText("Ursprunglig generering")).toBeTruthy();
+    expect(
+      within(surfaces[0]).getByText("5 filer i svaret. En automatisk reparation startade."),
+    ).toBeTruthy();
+    expect(within(surfaces[0]).getByText("5 filer i svaret")).toBeTruthy();
+
+    expect(surfaces[1].getAttribute("data-turn-kind")).toBe("repair");
+    expect(surfaces[1].getAttribute("data-attention")).toBe("true");
+    expect(within(surfaces[1]).getByText("Automatisk reparation")).toBeTruthy();
+    expect(
+      within(surfaces[1]).getByText(
+        "1 fil ändrad: app/globals.css. Orsak: Auto-repair efter typecheck/quality-gate. Se kontrollresultatet i detaljerna.",
+      ),
+    ).toBeTruthy();
+    expect(within(surfaces[1]).getByText("1 fil ändrad")).toBeTruthy();
+    expect(screen.queryByText("Kontroller att se över")).toBeNull();
+  });
+
+  it("still classifies a legacy AUTO-FIX REQUEST row as the repair turn", () => {
+    render(
+      <MessageList
+        chatId="chat_legacy_autofix"
+        messages={[
+          { id: "user_init", role: "user", content: "Bygg sidan." },
+          {
+            id: "assistant_init",
+            role: "assistant",
+            content: '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+          },
+          {
+            id: "user_legacy_fix",
+            role: "user",
+            content: "AUTO-FIX REQUEST — TARGETED REPAIR\n\nIssues detected: syntax.",
+          },
+          {
+            id: "assistant_legacy_fix",
+            role: "assistant",
+            content: '```css file="app/globals.css"\n:root {}\n```',
+          },
+        ]}
+      />,
+    );
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces[0].getAttribute("data-turn-kind")).toBe("initial");
+    expect(surfaces[1].getAttribute("data-turn-kind")).toBe("repair");
+    expect(within(surfaces[1]).getByText("Automatisk reparation")).toBeTruthy();
+    expect(within(surfaces[1]).getByText("1 fil ändrad: app/globals.css.")).toBeTruthy();
+  });
+
+  it("labels the first code turn as the original generation", () => {
+    render(
+      <MessageList
+        chatId="chat_first_code"
+        messages={[
+          { id: "user_1", role: "user", content: "Bygg en sajt för bageriet." },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+          },
+        ]}
+      />,
+    );
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-turn-kind")).toBe("initial");
+    expect(within(surface).getByText("Ursprunglig generering")).toBeTruthy();
+  });
+
+  it("does not call a later user-led code turn the original generation", () => {
+    render(
+      <MessageList
+        chatId="chat_followup_code"
+        messages={[
+          { id: "user_1", role: "user", content: "Bygg en sajt för bageriet." },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+          },
+          { id: "user_2", role: "user", content: "Gör hero-rubriken större." },
+          {
+            id: "assistant_2",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return <h1>Större</h1>; }\n```',
+          },
+        ]}
+      />,
+    );
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces[0].getAttribute("data-turn-kind")).toBe("initial");
+    expect(within(surfaces[0]).getByText("Ursprunglig generering")).toBeTruthy();
+    expect(surfaces[1].getAttribute("data-turn-kind")).toBe("followup");
+    expect(within(surfaces[1]).getByText("Uppdatering av sajten")).toBeTruthy();
+    expect(within(surfaces[1]).queryByText("Ursprunglig generering")).toBeNull();
+  });
+
+  it("still labels a repair after a follow-up as automatic repair", () => {
+    render(
+      <MessageList
+        chatId="chat_followup_then_repair"
+        messages={[
+          { id: "user_1", role: "user", content: "Bygg en sajt." },
+          {
+            id: "assistant_1",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+          },
+          { id: "user_2", role: "user", content: "Gör hero-rubriken större." },
+          {
+            id: "assistant_2",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return <h1>Större</h1>; }\n```',
+          },
+          {
+            id: "user_fix",
+            role: "user",
+            content: "AUTO-FIX REQUEST — TARGETED REPAIR\n\nIssues detected: typecheck failed.",
+            uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }],
+          },
+          {
+            id: "assistant_fix",
+            role: "assistant",
+            content: '```css file="app/globals.css"\n:root { color: black; }\n```',
+          },
+        ]}
+      />,
+    );
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces).toHaveLength(3);
+    expect(surfaces[1].getAttribute("data-turn-kind")).toBe("followup");
+    expect(surfaces[2].getAttribute("data-turn-kind")).toBe("repair");
+    expect(within(surfaces[2]).getByText("Automatisk reparation")).toBeTruthy();
+    expect(within(surfaces[2]).getByText("1 fil ändrad: app/globals.css.")).toBeTruthy();
+  });
+
+  it("does not let an opening text-only assistant steal the original-generation label", () => {
+    render(
+      <MessageList
+        chatId="chat_text_then_code"
+        messages={[
+          { id: "user_1", role: "user", content: "Bygg en sajt för bageriet." },
+          {
+            id: "assistant_ask",
+            role: "assistant",
+            content: "Vilken färg ska headern ha?",
+          },
+          { id: "user_2", role: "user", content: "Mörkblå." },
+          {
+            id: "assistant_code",
+            role: "assistant",
+            content:
+              '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+          },
+        ]}
+      />,
+    );
+    const surfaces = screen.getAllByTestId("generation-surface");
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces[0].getAttribute("data-turn-kind")).toBe("followup");
+    expect(within(surfaces[0]).queryByText("Ursprunglig generering")).toBeNull();
+    expect(surfaces[1].getAttribute("data-turn-kind")).toBe("initial");
+    expect(within(surfaces[1]).getByText("Ursprunglig generering")).toBeTruthy();
   });
 
   it("renders a marked F3-kick prompt as a collapsed system row, never as a user bubble (M1)", async () => {
