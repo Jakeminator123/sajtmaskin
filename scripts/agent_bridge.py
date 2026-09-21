@@ -22,6 +22,11 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 PROTOCOL_VERSION = "v1"
+# `ping` only prints this line. Nothing here reaches ChatGPT on its own: the
+# trigger is carried by an external channel (today: Jakob pastes it). The
+# prefix exists so a future webhook can parse stdout instead of guessing.
+COACH_TRIGGER_PREFIX = "COACH_TRIGGER"
+COACH_TRIGGER_COMMAND = "kolla brygga"
 AGENT_MARKER = "[AGENT→COACH:v1]"
 COACH_MARKER_V1 = "[COACH→AGENT:v1]"
 COACH_MARKER_LEGACY = "[COACH→AGENT]"
@@ -72,7 +77,7 @@ TOKEN_RE = re.compile(
 MAX_CONFIG_BYTES = 8192
 MAX_MESSAGE_CHARS = 8000
 MAX_COMMENT_CHARS = 256_000
-MAX_WAIT_TIMEOUT = 300
+MAX_WAIT_TIMEOUT = 600
 MAX_WAIT_INTERVAL = 60
 GIT_BIN = "git"
 GH_BIN = "gh"
@@ -846,6 +851,42 @@ def cmd_identity(config: Config, *, runner: CommandRunner, root: Path) -> int:
     return EXIT_OK
 
 
+def coach_trigger_line(reference: str) -> str:
+    """The one line an external trigger channel has to deliver verbatim."""
+    return f"{COACH_TRIGGER_PREFIX} {COACH_TRIGGER_COMMAND} {reference}"
+
+
+def cmd_ping(
+    config: Config,
+    *,
+    runner: CommandRunner,
+    paths: BridgePaths,
+) -> int:
+    """Emit the coach trigger for the external trigger channel.
+
+    This command reaches nothing. It performs no GitHub write, calls no
+    ChatGPT API and mutates no bridge state — it reads `state.json` for the
+    last `request_id` and prints the standardised trigger line. Delivery to
+    coach is manual today (Jakob pastes the line into ChatGPT). Emitting the
+    line is therefore NOT proof that coach was notified; only a matching
+    `[COACH→AGENT:v1]` found by `read`/`wait` proves that.
+
+    The line is kept machine-readable on purpose so a later webhook or
+    automation can consume the same stdout contract without a protocol change.
+    """
+    assert_repository_matches_origin(config, detect_origin_slug(runner, paths.root))
+    state = load_state(paths.state)
+    request_id = str(state.get("last_request_id") or "").strip() or None
+    reference = request_id or f"#{config.bridge_issue}"
+    print(f"repository: {config.repository}")
+    print(f"agent_id: {config.agent_id}")
+    print(f"bridge_issue: {config.bridge_issue}")
+    print(f"request_id: {request_id or '(none)'}")
+    print(coach_trigger_line(reference))
+    print("delivery: manual — paste the line above into the coach chat", file=sys.stderr)
+    return EXIT_OK
+
+
 def cmd_post(
     *,
     runner: CommandRunner,
@@ -991,6 +1032,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agent_bridge.py", description="Sajtmaskin Agent Bridge v1")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("identity", help="print and validate the locked local identity")
+    sub.add_parser(
+        "ping",
+        help="emit the coach trigger line; delivery is external and not guaranteed",
+    )
     post = sub.add_parser("post", help="post [AGENT→COACH:v1] to issue #1468")
     post.add_argument("--status", required=True, choices=sorted(ALLOWED_STATUSES))
     post.add_argument("--message", required=True)
@@ -1025,6 +1070,8 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         config = load_config(active_paths.config)
         if args.command == "identity":
             return cmd_identity(config, runner=active_runner, root=active_paths.root)
+        if args.command == "ping":
+            return cmd_ping(config, runner=active_runner, paths=active_paths)
         if args.command == "post":
             return cmd_post(
                 runner=active_runner,

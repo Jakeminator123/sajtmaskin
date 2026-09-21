@@ -94,9 +94,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Scout (agentroll) | Opt-in via `/scout`: läser och föreslår. Inte Agent Bridge-identiteten SCOUT-01. |
 | Builder (agentroll) | Opt-in via `/builder`: skriver och lämnar PR. Inte Agent Bridge-identiteten BUILD-01. |
 | Steward (agentroll) | Opt-in via `/steward`: landar redo PR:er och städar (`tidy`). Inte MERGE-01. |
-| Agent Bridge | Repo-bundet mailbox-protokoll (`/bridge`) mellan Cursor-agenter och ChatGPT-coachen via GitHub issue #1468. Inte OpenClaw-bridge. |
+| Agent Bridge | Repo-bundet mailbox-protokoll (`/brygga`, `/bridge`) mellan Cursor-agenter och GPT-browseragenten `coach` via GitHub issue #1468. Inte OpenClaw-bridge. |
 | Control Bridge | Mailbox-issuen #1468 för Agent Bridge. |
-| BRYGG-01 (bryggagent) | Agent Bridge-identiteten (`brygg`) som v1 aktiverar. Driven av #1468: läser uppgift, utför, rapporterar, väntar. Kommando `/bryggagent`. |
+| BRYGG-01 (bryggagent) | Agent Bridge-identiteten (`brygg`). Kommando `/brygga` (alias `/bryggagent`): fråga bara första gången i chatten, därefter ping-pong via #1468 tills STOP. |
 | MERGE-01 / BUILD-01 / SCOUT-01 | Fasta Agent Bridge-identiteter (`merge` / `builder` / `scout`), definierade men **parkerade** i v1. Låsta i lokal config; agenten får inte byta själv. |
 
 ## Auktoritetsordning
