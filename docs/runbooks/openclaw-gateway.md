@@ -53,39 +53,47 @@ Utrullningsordning:
 vidarebefordrar inte det fältet från Chat Completions-routen; per-agent
 `thinkingDefault` ovan är den fungerande signalägaren.
 
-## Ny browser: engångsgodkänn enheten
+## Dashboard-inloggning
 
-Device pairing är ett andra skydd för den publikt nåbara adminytan. Den är
-separat från appens server-till-server-chat, som använder Bearer-token.
+Control UI är publikt nåbar. Inloggning är **token + engångsgodkännande av
+webbläsaren**. Lösenordsfältet i rutan används inte — lämna det tomt.
+Sajtagenten-chatten i appen påverkas inte; den går server-till-server med
+samma token.
 
-1. Öppna dashboarden, klistra in gateway-tokenen och tryck **Connect**.
-2. Med den röda pairing-rutan fortfarande öppen, kör i Render Shell:
+| Fält | Värde |
+| --- | --- |
+| Dashboard | `https://openclaw-sajtagenten.onrender.com` |
+| WebSocket | `wss://openclaw-sajtagenten.onrender.com` |
+| Token | Render → `openclaw-sajtagenten` → Environment → `OPENCLAW_GATEWAY_TOKEN` — **värdet**, inte namnet |
+
+1. Klistra in tokenen. Tryck **Connect**.
+2. Kommer rutan *Device pairing required*: lämna den öppen. Kopiera
+   `requestId` (inte `deviceId`).
+3. Render → samma tjänst → **Shell**:
 
    ```sh
    openclaw devices list --json
-   ```
-
-3. Kontrollera att posten gäller `openclaw-control-ui`, rätt browser/plattform
-   och förväntade operator-scopes. Godkänn exakt det aktuella id:t:
-
-   ```sh
    openclaw devices approve <requestId>
    ```
 
-4. Tryck **Connect** igen. Samma browserprofil ska därefter ligga under
-   `paired` på den persistenta disken.
+   `list` ska visa `pending` med `clientId: openclaw-control-ui` och samma
+   `requestId` som rutan. Godkänn bara det id:t.
+4. Tillbaka till webben. Tryck **Connect** igen.
 
-Pending request-id:n löper ut och kan ersättas när browsern försöker igen. Om
-`devices list` är tom eller approval säger `No pending device request matches`:
-tryck **Connect** en gång till och lista omedelbart igen. Återanvänd inte id:t
-från en gammal skärmbild eller loggrad.
+Nästa gång i **samma** webbläsarprofil: bara token + Connect. Ny dator,
+annan profil eller rensade sajtdata = nytt `requestId` och ny `approve`.
+
+`list` tom eller `No pending device request matches`: Connect i webben först,
+lista direkt, approve det **nya** id:t. Återanvänd aldrig ett id från en
+gammal skärmbild. Tio misslyckade Connect i rad ger fem minuters lockout —
+vänta då, klicka inte mer.
 
 ## Så läses de vanliga WebSocket-loggarna
 
 | Logg                                            | Betydelse                                                                        | Åtgärd                                                                                                     |
 | ----------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `reason=token_missing`                          | Ett browserförsök skickade ingen token.                                          | Klistra in aktuell gateway-token och anslut igen.                                                          |
-| `phase=auth_validated` följt av 1008/pairing    | Tokenen accepterades; browsern väntar på device approval.                        | Följ pairing-flödet ovan.                                                                                  |
+| `phase=auth_validated` följt av 1008/pairing    | Tokenen accepterades; browsern väntar på device approval.                        | Följ [Dashboard-inloggning](#dashboard-inloggning).                                                        |
 | `Proxy headers detected from untrusted address` | Render terminerar TLS framför containern, så anslutningen räknas inte som lokal. | Förväntad varning med token-auth; inte orsaken till pairing. Lägg inte till `0.0.0.0/0` som trusted proxy. |
 | Origin-fel                                      | Browserns exakta origin saknas.                                                  | Rätta `SAJTAGENT_ALLOWED_ORIGINS`; entrypointen stoppar nu felaktigt formaterade origins.                  |
 
