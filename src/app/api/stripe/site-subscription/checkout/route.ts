@@ -1,14 +1,15 @@
 /**
  * POST /api/stripe/site-subscription/checkout
  *
- * Gated sajt-abonnemangs-checkout. Validerar inloggning och projektägare,
- * bygger ett serverägt erbjudande och svarar fail-closed. Claim-kontraktet
- * och framtida session-metadata ägs av `site-subscription-offer.ts`.
- * Skapar aldrig Stripe Checkout Session och skriver aldrig till databasen.
+ * Skapar en Stripe Checkout Session i mode subscription för ett ägt projekt.
+ * Pris/läge/villkor hämtas på servern. Env-grinden är AV som default och
+ * live förblir stängt även när env är på.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { startSiteSubscriptionCheckout } from "@/lib/billing/site-subscription-checkout";
 import {
   SITE_SUBSCRIPTION_ACTIVATION_NOT_READY,
   SITE_SUBSCRIPTION_CHECKOUT_NOT_ACTIVATED,
@@ -84,7 +85,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Bara userId: ingen session-claim och därmed ingen implicit DB-write.
     const project = await getProjectByIdForOwner(projectId, { userId: user.id });
     if (!project) {
       return NextResponse.json(
@@ -96,8 +96,54 @@ export async function POST(req: NextRequest) {
     const billingMode = resolveServerBillingMode(SECRETS.stripeSecretKey);
     const offer = billingMode ? buildSiteSubscriptionOffer(billingMode) : null;
 
-    // Request-flaggor kan inte slå på activation. Ingen Stripe- eller DB-väg.
-    void isSiteSubscriptionCheckoutActivated(body);
-    return notActivatedResponse(offer);
+    if (!billingMode || !isSiteSubscriptionCheckoutActivated(body, billingMode)) {
+      return notActivatedResponse(offer);
+    }
+
+    if (!SECRETS.stripeSecretKey) {
+      return NextResponse.json(
+        { success: false, error: "Betalningssystemet är inte konfigurerat" },
+        { status: 500 },
+      );
+    }
+
+    const stripe = new Stripe(SECRETS.stripeSecretKey);
+    try {
+      const result = await startSiteSubscriptionCheckout({
+        stripe,
+        userId: user.id,
+        email: user.email,
+        projectId,
+        billingMode,
+      });
+      if (!result.ok) {
+        return NextResponse.json(
+          { success: false, error: result.error, code: result.code, offer },
+          { status: result.status },
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        sessionId: result.sessionId,
+        url: result.url,
+        reused: result.reused,
+        offer,
+        ...(result.confirming
+          ? { code: "confirming", message: result.message }
+          : {}),
+      });
+    } catch (error) {
+      console.error("[Stripe/site-subscription/checkout]", error);
+      if (error instanceof Stripe.errors.StripeError) {
+        return NextResponse.json(
+          { success: false, error: "Betalningsfel: " + error.message },
+          { status: 400 },
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: "Kunde inte starta abonnemanget." },
+        { status: 500 },
+      );
+    }
   });
 }

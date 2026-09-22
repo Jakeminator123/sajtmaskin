@@ -3,9 +3,14 @@ import { NextRequest } from "next/server";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const getUserTransactions = vi.hoisted(() => vi.fn());
+const getAllProjectsForOwner = vi.hoisted(() => vi.fn());
+const listSiteSubscriptionsForUser = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/db/services/transactions", () => ({ getUserTransactions }));
+vi.mock("@/lib/db/services/projects", () => ({ getAllProjectsForOwner }));
+vi.mock("@/lib/db/services/site-subscriptions", () => ({ listSiteSubscriptionsForUser }));
+vi.mock("@/lib/config", () => ({ SECRETS: { stripeSecretKey: "sk_test_x" } }));
 
 const { GET } = await import("./route");
 
@@ -36,6 +41,8 @@ describe("GET /api/konto", () => {
       diamonds: 42,
     });
     getUserTransactions.mockResolvedValue([ledgerRow("tx_own")]);
+    getAllProjectsForOwner.mockResolvedValue([]);
+    listSiteSubscriptionsForUser.mockResolvedValue([]);
   });
 
   it("returns 401 without a signed-in user and does not read the ledger", async () => {
@@ -118,6 +125,52 @@ describe("GET /api/konto", () => {
     expect(body.hasMore).toBe(true);
     expect(body.limit).toBe(10);
     expect(body.offset).toBe(50);
+  });
+
+  it("listar varje sajts abonnemang i stället för ett globalt", async () => {
+    getAllProjectsForOwner.mockResolvedValue([
+      { id: "prj_a", name: "Alpha" },
+      { id: "prj_b", name: "Beta" },
+    ]);
+    listSiteSubscriptionsForUser.mockResolvedValue([
+      {
+        id: "sub_a",
+        user_id: "user_1",
+        project_id: "prj_a",
+        billing_mode: "test",
+        lifecycle_state: "active",
+        stripe_status: "active",
+        hosting_state_desired: "active",
+        hosting_state_actual: "active",
+        current_period_end: new Date("2026-10-15T12:00:00.000Z"),
+        cancel_at_period_end: false,
+        grace_until: null,
+        paused_at: null,
+      },
+      {
+        id: "sub_b",
+        user_id: "user_1",
+        project_id: "prj_b",
+        billing_mode: "test",
+        lifecycle_state: "active",
+        stripe_status: "past_due",
+        hosting_state_desired: "grace",
+        hosting_state_actual: "active",
+        current_period_end: new Date("2026-10-01T12:00:00.000Z"),
+        cancel_at_period_end: false,
+        grace_until: new Date("2026-09-22T12:00:00.000Z"),
+        paused_at: null,
+      },
+    ]);
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(body).not.toHaveProperty("subscription");
+    expect(body.siteSubscriptions).toHaveLength(2);
+    expect(body.siteSubscriptions[0].projectName).toBe("Alpha");
+    expect(body.siteSubscriptions[1].projectName).toBe("Beta");
+    expect(body.siteSubscriptions[1].graceActive).toBe(true);
   });
 
   it("caps a client limit at 50", async () => {

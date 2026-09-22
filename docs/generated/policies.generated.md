@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:1e939a724cc17ab1 -->
+<!-- source-fingerprint: config/env-policy.json sha256:feaa742844838877 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -152,6 +152,9 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS` | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_SHADCN_RESOLVER_SEARCH`                  | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_SHIM_PREVIEW_DISABLED`                   | `optional_runtime`     | `preview`, `production`                | No            | No           |
+| `SAJTMASKIN_SITE_SUBSCRIPTION_CHECKOUT`              | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
+| `SAJTMASKIN_SITE_SUBSCRIPTION_ENFORCE_PUBLISH`       | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
+| `SAJTMASKIN_SITE_SUBSCRIPTION_HOSTING_WRITES`        | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `SAJTMASKIN_SOFT_TARGET_APP_CHARS`                   | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS`                 | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS`              | `environment_specific` | `production`                           | No            | No           |

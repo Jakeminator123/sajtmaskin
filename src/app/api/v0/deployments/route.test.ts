@@ -543,6 +543,67 @@ describe("POST /api/v0/deployments", () => {
     expect(res.status).toBe(409);
     const json = (await res.json()) as { error?: string };
     expect(json.error).toMatch(/does not match chat ownership/i);
+    expect(prepareCredits).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 before credits when the version/chat is not owned (real publish)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
+    prepareCredits.mockImplementation(() => {
+      throw new Error("prepareCredits must not run before the tenant guard resolves");
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "foreign_chat",
+        versionId: "foreign_version",
+        projectId: "my_own_paid_project",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(404);
+    expect(prepareCredits).not.toHaveBeenCalled();
+  });
+
+  it("passes tenant-verified engineProjectId as siteProjectId, never body.projectId", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://demo.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        projectId: "proj_1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBeLessThan(500);
+    expect(prepareCredits).toHaveBeenCalledWith(
+      req,
+      "deploy.production",
+      { target: "production" },
+      { siteProjectId: "proj_1" },
+    );
+    expect(prepareCredits).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ siteProjectId: "another_project" }),
+    );
   });
 
   // A#425 #5 (test gap): a version that failed the quality gate must 409 even if

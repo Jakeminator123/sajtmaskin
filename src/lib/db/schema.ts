@@ -1641,3 +1641,29 @@ export const billingJobs = pgTable(
     subscriptionIdx: index("idx_billing_jobs_subscription").on(table.subscription_id),
   }),
 );
+
+/**
+ * Durable Stripe event-ID inbox for the site-subscription consumer.
+ * Event-ID idempotency and period-benefit idempotency are two different
+ * layers — this table is only (a). Retriable failures stay `failed` /
+ * `processing` so Stripe can retry; they are never marked completed.
+ */
+export const stripeBillingEvents = pgTable(
+  "stripe_billing_events",
+  {
+    id: text("id").primaryKey(),
+    event_id: text("event_id").notNull(),
+    billing_mode: text("billing_mode").$type<BillingMode>().notNull(),
+    event_type: text("event_type").notNull(),
+    status: text("status").notNull().default("processing"),
+    lease_expires_at: timestamptz("lease_expires_at"),
+    last_error: text("last_error"),
+    completed_at: timestamptz("completed_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    eventUnique: unique("stripe_billing_events_event_id_unique").on(table.event_id),
+    statusIdx: index("idx_stripe_billing_events_status").on(table.status, table.created_at),
+  }),
+);
