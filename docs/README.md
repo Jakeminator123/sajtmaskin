@@ -26,6 +26,7 @@ policies kan äga olika beslut.
 | Vilka rader kräver live-koll i prod?              | [`runbooks/live-verifiering.md`](runbooks/live-verifiering.md)                                                                  |
 | Hur felsöker jag integrationer?                   | [`runbooks/generated-site-integrations.md`](runbooks/generated-site-integrations.md)                                            |
 | Hur driver/felsöker jag OpenClaw-gatewayn?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md)                                                                  |
+| Hur loggar jag in på OpenClaw-dashboarden?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md#dashboard-inloggning) — token + device pairing, inte lösenord     |
 | Varför strejkar lokal generation?                 | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)                                                          |
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
