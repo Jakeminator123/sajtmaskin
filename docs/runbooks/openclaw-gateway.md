@@ -67,15 +67,19 @@ samma token.
 | Token | Render → `openclaw-sajtagenten` → Environment → `OPENCLAW_GATEWAY_TOKEN` — **värdet**, inte namnet |
 
 1. Klistra in tokenen. Tryck **Connect**.
-2. Kommer rutan *Device pairing required*: lämna den öppen. Kopiera
-   `requestId` (inte `deviceId`).
-3. Render → samma tjänst → **Shell**:
+2. När anslutningen stannar på `disconnected (1008): pairing required`:
+   lämna fliken öppen. Rutan visar inte `requestId`. Kopiera inte `deviceId`
+   därifrån — `approve` tar `requestId`, och `deviceId` ger
+   `No pending device request matches`.
+3. Render → samma tjänst → **Shell**. Hämta `requestId` med listan och
+   godkänn det id:t:
 
    ```sh
    openclaw devices list --json
    openclaw devices approve <requestId>
    ```
 
+   `requestId` är fältet på den väntande posten i listan, inte `deviceId`.
    Posten ska gälla `openclaw-control-ui`, rätt webbläsare och de
    operator-scopes du väntar dig. Godkänn bara det aktuella `requestId`.
 4. Låt fliken vara öppen. Den ansluter själv när enheten är godkänd.
