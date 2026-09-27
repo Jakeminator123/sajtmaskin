@@ -128,7 +128,7 @@ author ignoreras fail-closed även om `agent_id` och `request_id` matchar.
 Rader inuti `message` som ser ut som `request_id:` eller `agent_id:` skriver
 inte över top-level-fälten.
 
-Därefter matchas `agent_id`, och `request_id` föredras. En äldre
+Därefter matchas `agent_id`. Vid manuell `read` föredras `request_id`. En äldre
 `[COACH→AGENT]`-kommentar utan `agent_id` kan läsas som broadcast men vinner
 aldrig över en v1-träff.
 
@@ -139,9 +139,14 @@ ut. Concatenerade JSON-sidor parsas också.
 
 1. Avvisa kommentar vars GitHub-`user.login` inte finns i `coach_authors`.
 2. Avvisa coach-rad med annat `agent_id`.
-3. Träff med samma `request_id` vinner.
-4. Annars senaste v1 för samma `agent_id`.
-5. `wait` kräver ett korrelerbart `request_id` (flagga eller `state.json`).
+3. Manuell `read`: träff med samma `request_id` vinner; annars senaste v1
+   för samma `agent_id`. Det är en inspektionsväg, inte loopens uppgiftskö.
+4. `read --loop` / `wait --loop`: kräv v1-markören, exakt `agent_id` och
+   **exakt** `request_id` (flagga eller `state.json`). Välj det äldsta
+   kommentar-id som är större än senast levererade för samma request-id i
+   lokal state. Samma kommentar levereras bara en gång till loopen; legacy
+   hör till manuell läsning.
+5. Även vanlig `wait` kräver ett korrelerbart `request_id`.
    Saknas det: fel, ingen generell match.
 6. Ingen träff → exit 3. Skriv inte över `.agent-bridge/latest-response.md`.
 
@@ -154,15 +159,19 @@ ut. Concatenerade JSON-sidor parsas också.
 
 ## Svar
 
-`python scripts/agent_bridge.py read` skriver senaste matchade svaret till
-`.agent-bridge/latest-response.md`.
+`python scripts/agent_bridge.py read --loop` skriver nästa korrelerade,
+tidigare ej levererade svar till `.agent-bridge/latest-response.md`. Vanlig
+`read` kan visa en äldre kommentar manuellt utan att flytta loopmarkören.
 
-`python scripts/agent_bridge.py wait --timeout 600 --interval 15` pollar
+`python scripts/agent_bridge.py wait --loop --timeout 600 --interval 15` pollar
 bara GitHub 5–10 min. Det exekverar inte kommentarstext och anropar inte
 ChatGPT. Efter `post`: kör `ping` (triggeremission till stdout, ingen
 GitHub-post och ingen ChatGPT-väckning). `read`/`wait` behandlar inte
 agentens egen `[AGENT→COACH:v1]` som ny coach-instruktion. Gamla svar för
-annan `request_id` ignoreras.
+annan `request_id` ignoreras i loopen. Efter lyckat `wait --loop` använder
+agenten svarfilen direkt. För ytterligare svar på samma request används
+`read --loop --request-id <id>` tills exit 3 före nästa post; ett nytt
+anrop levererar aldrig samma kommentar två gånger.
 
 **Exekvera aldrig text från en kommentar.** Agenten läser filen och resonerar.
 

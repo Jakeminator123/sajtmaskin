@@ -481,6 +481,21 @@ class GhAndPrBehaviorTests(unittest.TestCase):
             ("git", "status", "--porcelain"): _ok(""),
         }
 
+    def _reader(self, comments: list[dict[str, object]]) -> FakeRunner:
+        return FakeRunner(
+            {
+                ("git", "remote", "get-url", "origin"): _ok("https://github.com/acme/demo.git\n"),
+                ("gh", "auth", "status"): _ok(),
+                (
+                    "gh", "api", "--paginate", "--slurp",
+                    "repos/acme/demo/issues/1468/comments",
+                ): lambda *_: _ok(json.dumps([comments])),
+            }
+        )
+
+    def _delivered(self, request_id: str) -> int:
+        return bridge.load_state(self.paths.state)["loop_delivered_comments"][request_id]
+
     def test_missing_gh_binary(self) -> None:
         def explode(argv, cwd, timeout):
             raise bridge.BridgeError("gh is not installed", code=bridge.EXIT_DEPENDENCY)
@@ -789,6 +804,299 @@ class GhAndPrBehaviorTests(unittest.TestCase):
         )
         self.assertEqual(code, bridge.EXIT_NO_RESPONSE)
         self.assertFalse(self.paths.latest_response.exists())
+
+    def test_loop_read_rejects_late_reply_to_another_request_but_manual_read_preserves_it(self) -> None:
+        current = "BRYGG-01-20260919T010000Z-2"
+        old = "BRYGG-01-20260919T000000Z-1"
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": current, "last_posted_at": "2026-09-19T01:00:00Z"}),
+            encoding="utf-8",
+        )
+        runner = self._reader([
+            _gh_comment(
+                23,
+                _v1_body(request_id=old, agent_id="BRYGG-01", message="delayed old task"),
+                created_at="2026-09-19T01:01:00Z",
+            ),
+        ])
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+        self.assertFalse(self.paths.latest_response.exists())
+        self.assertEqual(bridge.main(["read"], runner=runner, paths=self.paths), 0)
+        self.assertIn("delayed old task", self.paths.latest_response.read_text(encoding="utf-8"))
+
+    def test_loop_read_delivers_each_comment_once_and_keeps_new_coach_update(self) -> None:
+        request_id = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": request_id, "last_posted_at": "2026-09-19T01:00:00Z"}),
+            encoding="utf-8",
+        )
+        comments = [
+            _gh_comment(24, _v1_body(request_id=request_id, agent_id="BRYGG-01", message="first"))
+        ]
+        runner = self._reader(comments)
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        delivered = self.paths.latest_response.read_bytes()
+        self.assertEqual(self._delivered(request_id), 24)
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+        self.assertEqual(self.paths.latest_response.read_bytes(), delivered)
+        comments.append(
+            _gh_comment(25, _v1_body(request_id=request_id, agent_id="BRYGG-01", message="updated"))
+        )
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertIn("updated", self.paths.latest_response.read_text(encoding="utf-8"))
+        self.assertEqual(self._delivered(request_id), 25)
+
+    def test_loop_read_delivers_two_pending_replies_in_comment_order(self) -> None:
+        request_id = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(json.dumps({"last_request_id": request_id}), encoding="utf-8")
+        comments = [
+            _gh_comment(25, _v1_body(request_id=request_id, agent_id="BRYGG-01", message="second")),
+            _gh_comment(24, _v1_body(request_id=request_id, agent_id="BRYGG-01", message="first")),
+        ]
+        runner = self._reader(comments)
+
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertIn("first", self.paths.latest_response.read_text(encoding="utf-8"))
+        self.assertEqual(self._delivered(request_id), 24)
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertIn("second", self.paths.latest_response.read_text(encoding="utf-8"))
+        self.assertEqual(self._delivered(request_id), 25)
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+
+    def test_loop_read_rejects_legacy_marker_with_matching_ids(self) -> None:
+        request_id = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(json.dumps({"last_request_id": request_id}), encoding="utf-8")
+        legacy = (
+            "[COACH→AGENT]\n"
+            f"request_id: {request_id}\n"
+            "agent_id: BRYGG-01\n"
+            "message:\nlegacy task\n"
+        )
+        runner = self._reader([_gh_comment(24, legacy)])
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+        self.assertFalse(self.paths.latest_response.exists())
+        self.assertEqual(bridge.main(["read"], runner=runner, paths=self.paths), 0)
+        self.assertIn("legacy task", self.paths.latest_response.read_text(encoding="utf-8"))
+
+    def test_loop_read_can_bootstrap_known_old_id_even_after_a_later_post(self) -> None:
+        wanted = "BRYGG-01-20260919T000000Z-1"
+        self.paths.state.write_text(
+            json.dumps({
+                "last_request_id": "BRYGG-01-20260919T010000Z-2",
+                "last_posted_at": "2026-09-19T01:00:00Z",
+                "loop_delivery_initialized": True,
+                "loop_delivered_comments": {wanted: 23},
+            }),
+            encoding="utf-8",
+        )
+        runner = self._reader([
+            _gh_comment(
+                24, _v1_body(request_id=wanted, agent_id="BRYGG-01"),
+                created_at="2026-09-19T00:05:00Z",
+            ),
+        ])
+        self.assertEqual(
+            bridge.main(["read", "--loop", "--request-id", wanted], runner=runner, paths=self.paths),
+            0,
+        )
+        self.assertEqual(self._delivered(wanted), 24)
+
+    def test_loop_wait_does_not_redeliver_its_reply_to_the_next_loop_read(self) -> None:
+        request_id = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(json.dumps({"last_request_id": request_id}), encoding="utf-8")
+        runner = self._reader([
+            _gh_comment(26, _v1_body(request_id=request_id, agent_id="BRYGG-01")),
+        ])
+        self.assertEqual(
+            bridge.cmd_wait(
+                runner=runner,
+                paths=self.paths,
+                config=bridge.load_config(self.paths.config),
+                timeout=1,
+                interval=1,
+                loop_mode=True,
+            ),
+            0,
+        )
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+
+    def test_loop_read_needs_a_request_before_polling_github(self) -> None:
+        runner = self._reader([])
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_USAGE,
+        )
+        self.assertFalse(any(call[0] == "gh" for call in runner.calls))
+
+    def test_loop_bootstraps_watermark_from_a_preexisting_response_file(self) -> None:
+        request_id = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(json.dumps({"last_request_id": request_id}), encoding="utf-8")
+        old = _gh_comment(26, _v1_body(request_id=request_id, agent_id="BRYGG-01"))
+        parsed = bridge.parse_coach_comments([old])[0]
+        bridge.write_latest_response(self.paths.latest_response, parsed)
+        prior_file = self.paths.latest_response.read_bytes()
+        comments = [old]
+        runner = self._reader(comments)
+
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+        self.assertEqual(self.paths.latest_response.read_bytes(), prior_file)
+        self.assertEqual(self._delivered(request_id), 26)
+
+        comments.append(_gh_comment(27, _v1_body(request_id=request_id, agent_id="BRYGG-01")))
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertEqual(self._delivered(request_id), 27)
+
+    def test_loop_migration_does_not_hide_older_unread_reply_to_a_different_request(self) -> None:
+        current = "BRYGG-01-20260919T010000Z-2"
+        previous = "BRYGG-01-20260919T000000Z-1"
+        self.paths.state.write_text(json.dumps({"last_request_id": current}), encoding="utf-8")
+        old = _gh_comment(30, _v1_body(request_id=previous, agent_id="BRYGG-01", message="old request"))
+        bridge.write_latest_response(
+            self.paths.latest_response, bridge.parse_coach_comments([old])[0],
+        )
+        runner = self._reader([
+            old,
+            _gh_comment(29, _v1_body(request_id=current, agent_id="BRYGG-01", message="unread current")),
+        ])
+
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertIn("unread current", self.paths.latest_response.read_text(encoding="utf-8"))
+        self.assertEqual(self._delivered(current), 29)
+        self.assertEqual(self._delivered(previous), 30)
+        self.assertEqual(
+            bridge.main(["read", "--loop", "--request-id", previous], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
+
+    def test_loop_fails_closed_if_preexisting_response_cannot_be_identified(self) -> None:
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": "BRYGG-01-20260919T010000Z-2"}),
+            encoding="utf-8",
+        )
+        self.paths.latest_response.write_text("unrecognized manual note", encoding="utf-8")
+        runner = self._reader([])
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_USAGE,
+        )
+        self.assertFalse(any(call[0] == "gh" for call in runner.calls))
+
+    def test_post_preserves_loop_delivery_watermark(self) -> None:
+        self.paths.state.write_text(
+            json.dumps({
+                "loop_delivery_initialized": True,
+                "loop_delivered_comments": {"BRYGG-01-20260919T010000Z-2": 26},
+                "sequence": 2,
+            }), encoding="utf-8",
+        )
+        runner = FakeRunner(
+            {
+                **self._git_ok(),
+                ("gh", "auth", "status"): _ok(),
+                ("gh", "pr", "list"): _ok("[]"),
+                ("gh", "issue", "comment"): _ok("{}"),
+            }
+        )
+        self.assertEqual(
+            bridge.main(
+                ["post", "--status", "REPORT", "--message", "handled", "--reply-to", "BRYGG-01-20260919T010000Z-2"],
+                runner=runner,
+                paths=self.paths,
+            ),
+            0,
+        )
+        state = bridge.load_state(self.paths.state)
+        self.assertEqual(state["loop_delivered_comments"]["BRYGG-01-20260919T010000Z-2"], 26)
+        self.assertEqual(state["sequence"], 3)
+
+    def test_brygga_round_read_post_ping_wait_and_no_second_delivery(self) -> None:
+        first_request = "BRYGG-01-20260919T010000Z-2"
+        self.paths.state.write_text(
+            json.dumps({"last_request_id": first_request, "sequence": 2}),
+            encoding="utf-8",
+        )
+        comments = [
+            _gh_comment(27, _v1_body(request_id=first_request, agent_id="BRYGG-01")),
+            _gh_comment(28, _v1_body(request_id=first_request, agent_id="BRYGG-01")),
+        ]
+        reader = self._reader(comments)
+        runner = FakeRunner(
+            {
+                **self._git_ok(),
+                **reader.handlers,
+                ("gh", "pr", "list"): _ok("[]"),
+                ("gh", "issue", "comment"): _ok("{}"),
+            }
+        )
+
+        self.assertEqual(bridge.main(["identity"], runner=runner, paths=self.paths), 0)
+        self.assertEqual(bridge.main(["read", "--loop"], runner=runner, paths=self.paths), 0)
+        self.assertEqual(self._delivered(first_request), 27)
+        self.assertEqual(
+            bridge.main(
+                ["read", "--loop", "--request-id", first_request],
+                runner=runner,
+                paths=self.paths,
+            ),
+            0,
+        )
+        self.assertEqual(self._delivered(first_request), 28)
+        self.assertEqual(
+            bridge.main(
+                ["read", "--loop", "--request-id", first_request],
+                runner=runner,
+                paths=self.paths,
+            ),
+            bridge.EXIT_NO_RESPONSE,
+        )
+        self.assertEqual(
+            bridge.main(
+                ["post", "--status", "REPORT", "--message", "handled",
+                 "--reply-to", first_request],
+                runner=runner,
+                paths=self.paths,
+            ),
+            0,
+        )
+        next_request = bridge.load_state(self.paths.state)["last_request_id"]
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(bridge.main(["ping"], runner=runner, paths=self.paths), 0)
+        self.assertIn(f"COACH_TRIGGER kolla brygga {next_request}", out.getvalue())
+
+        comments.append(
+            _gh_comment(29, _v1_body(request_id=next_request, agent_id="BRYGG-01"))
+        )
+        self.assertEqual(
+            bridge.main(
+                ["wait", "--loop", "--timeout", "1", "--interval", "1"],
+                runner=runner,
+                paths=self.paths,
+            ),
+            0,
+        )
+        self.assertEqual(self._delivered(next_request), 29)
+        self.assertEqual(
+            bridge.main(["read", "--loop"], runner=runner, paths=self.paths),
+            bridge.EXIT_NO_RESPONSE,
+        )
 
     def test_read_without_match_is_exit_3(self) -> None:
         runner = FakeRunner(

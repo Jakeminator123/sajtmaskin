@@ -11,9 +11,11 @@ rundan i chatten är vald.
 ## Loopen
 
 1. Första `/brygga` i chatten: fråga vad rundan är (om texten inte redan
-   säger det). Oläst post i #1468 → `read` först.
-2. Därefter fråga inte. Ping-pong: `identity` → `read` → utför → `post`
-   (eget `request_id`, `--reply-to` coach) → `ping` + `wait` 600 → igen.
+   säger det). Nytt korrelerat svar i #1468 → `read --loop` först.
+2. Därefter fråga inte. Ping-pong: `identity` → `read --loop` → utför →
+   `post` (eget `request_id`, `--reply-to` coach) → visa `ping`-rad →
+   `wait --loop` 600 → läs/dränera svar på samma request i ordning →
+   utför → `post` igen.
 3. Avbryt bara vid Jakobs stopp, coach `decision: STOP`, eller misstänkt fel.
 4. Skriv ut resultatet **efter** åtgärd, nästa aktivitet eller stopporder.
 

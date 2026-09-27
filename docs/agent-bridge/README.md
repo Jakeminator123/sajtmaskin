@@ -86,14 +86,19 @@ chatten. Loop: [`.cursor/commands/brygga.md`](../../.cursor/commands/brygga.md),
 
 ```powershell
 python scripts/agent_bridge.py identity
-python scripts/agent_bridge.py read
+python scripts/agent_bridge.py read --loop
 python scripts/agent_bridge.py post --status READY --message "..." --evidence "..."
 python scripts/agent_bridge.py ping
-python scripts/agent_bridge.py wait --timeout 600 --interval 15
+python scripts/agent_bridge.py wait --loop --timeout 600 --interval 15
 ```
 
-Oläst inbox → `read` först. Landat jobb → `post`, `ping`, `wait` 5–10 min,
-utför, posta tillbaka. Avbryt bara vid STOP, Jakobs stopp eller fel.
+En korrelerad, ny uppgift → `read --loop` först. Saknas öppet request-id:
+posta `QUESTION` om vald runda eller ange ett känt Coach-id med
+`read --loop --request-id <id>`. Efter jobb: `post`, `ping`, visa triggerraden
+för Jakob och `wait --loop` 5–10 min. Ett lyckat `wait --loop` har redan
+skrivit nästa svar; läs filen och hämta eventuella fler svar på samma
+request-id med `read --loop --request-id <id>` före åtgärd och nästa post.
+Avbryt vid STOP, Jakobs stopp eller fel.
 
 Status: `QUESTION` | `BLOCKED` | `READY` | `DONE` | `REPORT`.
 
@@ -102,15 +107,17 @@ förblir mailbox-owner. `--dry-run` skriver till stdout utan att posta.
 
 ## G. När ChatGPT ännu inte svarat
 
-`read` / `wait` avslutar med kod 3 och skriver **inte** över
+`read --loop` / `wait --loop` avslutar med kod 3 och skriver **inte** över
 `.agent-bridge/latest-response.md`. Kör `ping` efter `post` — `wait`
 levererar ingen trigger.
 
 ## H. Hur `read` / `wait` / `ping` fungerar
 
-`read` och `wait` läser #1468, accepterar bara `[COACH→AGENT:v1]` från
-betrodd GitHub-author, och skriver `.agent-bridge/latest-response.md`.
-De exekverar inte svaret. `wait` pollar GitHub max 10 minuter
+`read --loop` / `wait --loop` läser #1468, accepterar bara
+`[COACH→AGENT:v1]` från betrodd GitHub-author med exakt request-id och
+levererar varje kommentar högst en gång lokalt. Vanlig `read` kan fortfarande
+visa andra eller gamla svar vid manuell felsökning; den är ingen uppgiftskö.
+Kommandona exekverar inte svaret. `wait` pollar GitHub max 10 minuter
 (`--timeout 600`).
 
 ## I. Triggern mot coach
@@ -122,7 +129,7 @@ Cursor postar → ping skriver triggerraden → Jakob levererar den
 
 `ping` postar inte, anropar inget ChatGPT-API och muterar ingen state. Den
 skriver `COACH_TRIGGER kolla brygga <request_id>` (eller `#1468` när inget
-request är öppet) och inget mer. **Utskriven rad är inte samma sak som
+request är öppet) som en egen rad. **Utskriven rad är inte samma sak som
 levererad trigger** — bara ett matchande coach-svar är bevis. Detaljer och
 testreferens: [`coach-logic.md`](coach-logic.md).
 

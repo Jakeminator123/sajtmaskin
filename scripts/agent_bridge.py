@@ -767,6 +767,45 @@ def write_latest_response(path: Path, comment: CoachComment, *, matched_at: str 
     path.write_text(render_latest_response(comment, matched_at=stamp), encoding="utf-8")
 
 
+def previous_response_delivery(path: Path, config: Config) -> tuple[str, int] | None:
+    """Seed the loop cursor for the request shown by older bridge versions."""
+    if not path.is_file():
+        return None
+    prefix = f"https://github.com/{config.repository}/issues/{config.bridge_issue}#issuecomment-"
+    try:
+        header = path.read_text(encoding="utf-8")[:4096].splitlines()[:12]
+    except (OSError, UnicodeError) as exc:
+        raise BridgeError("cannot inspect the existing coach response; review it manually") from exc
+    request_id: str | None = None
+    comment_id: int | None = None
+    for line in header:
+        if line.startswith("request_id: "):
+            value = line.removeprefix("request_id: ").strip()
+            if REQUEST_ID_RE.fullmatch(value):
+                request_id = value
+        if line.startswith("comment_url: "):
+            url = line.removeprefix("comment_url: ").strip()
+            if url.lower().startswith(prefix.lower()) and url[len(prefix):].isdigit():
+                comment_id = int(url[len(prefix):])
+    if request_id and comment_id is not None:
+        return request_id, comment_id
+    raise BridgeError("existing coach response has no verifiable request/comment id; review it manually")
+
+
+def loop_delivery_state(state: Mapping[str, Any]) -> dict[str, int]:
+    raw = state.get("loop_delivered_comments", {})
+    if not isinstance(raw, dict) or any(
+        not isinstance(key, str)
+        or not REQUEST_ID_RE.fullmatch(key)
+        or not isinstance(value, int)
+        or isinstance(value, bool)
+        or value < 0
+        for key, value in raw.items()
+    ):
+        raise BridgeError("invalid loop delivery state; review it manually")
+    return dict(raw)
+
+
 def list_bridge_comments(runner: CommandRunner, root: Path, config: Config) -> list[CoachComment]:
     ensure_gh(runner, root)
     result = runner.run(
@@ -945,6 +984,7 @@ def cmd_post(
     save_state(
         paths.state,
         {
+            **state,
             "last_request_id": request_id,
             "last_posted_at": posted_at,
             "sequence": sequence,
@@ -965,26 +1005,61 @@ def cmd_read(
     config: Config,
     request_id: str | None = None,
     require_request_id: bool = False,
+    loop_mode: bool = False,
 ) -> int:
     assert_repository_matches_origin(config, detect_origin_slug(runner, paths.root))
     state = load_state(paths.state)
     wanted = correlatable_request_id(request_id, state)
-    if require_request_id and wanted is None:
+    if (require_request_id or loop_mode) and wanted is None:
         print("read/wait requires a correlatable request_id", file=sys.stderr)
         return EXIT_USAGE
+    deliveries: dict[str, int] = {}
+    if loop_mode:
+        assert wanted is not None
+        deliveries = loop_delivery_state(state)
+        if not state.get("loop_delivery_initialized"):
+            previous = previous_response_delivery(paths.latest_response, config)
+            if previous is not None:
+                previous_request, previous_comment = previous
+                deliveries[previous_request] = max(
+                    deliveries.get(previous_request, 0), previous_comment,
+                )
+            state["loop_delivered_comments"] = deliveries
+            state["loop_delivery_initialized"] = True
+            save_state(paths.state, state)
+    delivered_id = deliveries.get(wanted, 0) if wanted is not None else 0
     comments = list_bridge_comments(runner, paths.root, config)
-    match = select_coach_response(
-        comments,
-        agent_id=config.agent_id,
-        request_id=wanted,
-        posted_at=str(state.get("last_posted_at") or "") or None,
-        require_request_id=require_request_id,
-        allowed_authors=config.coach_authors,
-    )
+    if loop_mode:
+        # Handle every new v1 reply in comment order. A later correction may
+        # already be present when we poll, so choosing only the newest would
+        # silently drop earlier instructions for the same request.
+        candidates = (
+            comment for comment in comments
+            if comment.version == 1
+            and comment.agent_id == config.agent_id
+            and comment.request_id == wanted
+            and is_trusted_coach_author(comment.author, config.coach_authors)
+            and comment.comment_id > delivered_id
+        )
+        match = min(candidates, key=lambda comment: comment.comment_id, default=None)
+    else:
+        # Plain `read` remains a manual inspection command, including older
+        # and legacy replies; it never moves the loop's delivery marker.
+        match = select_coach_response(
+            comments,
+            agent_id=config.agent_id,
+            request_id=wanted,
+            posted_at=str(state.get("last_posted_at") or "") or None,
+            require_request_id=require_request_id,
+            allowed_authors=config.coach_authors,
+        )
     if match is None:
         print("No matching [COACH→AGENT:v1] response yet.", file=sys.stderr)
         return EXIT_NO_RESPONSE
     write_latest_response(paths.latest_response, match)
+    if loop_mode:
+        deliveries[wanted] = match.comment_id
+        save_state(paths.state, {**state, "loop_delivered_comments": deliveries})
     print(f"wrote {paths.latest_response}")
     return EXIT_OK
 
@@ -997,6 +1072,7 @@ def cmd_wait(
     timeout: int,
     interval: int,
     request_id: str | None = None,
+    loop_mode: bool = False,
     sleep_fn: Callable[[float], None] = time.sleep,
     now_fn: Callable[[], float] = time.monotonic,
 ) -> int:
@@ -1017,6 +1093,7 @@ def cmd_wait(
             config=config,
             request_id=request_id,
             require_request_id=True,
+            loop_mode=loop_mode,
         )
         if last_code == EXIT_OK:
             return EXIT_OK
@@ -1055,10 +1132,15 @@ def build_parser() -> argparse.ArgumentParser:
     post.add_argument("--dry-run", action="store_true")
     read = sub.add_parser("read", help="read latest matching [COACH→AGENT:v1]")
     read.add_argument("--request-id")
+    read.add_argument(
+        "--loop", action="store_true",
+        help="read only a new reply for this request_id; mark it delivered to the loop",
+    )
     wait = sub.add_parser("wait", help="poll GitHub for a matching coach reply")
     wait.add_argument("--timeout", type=int, default=MAX_WAIT_TIMEOUT)
     wait.add_argument("--interval", type=int, default=10)
     wait.add_argument("--request-id")
+    wait.add_argument("--loop", action="store_true", help="wait for a new reply only once")
     return parser
 
 
@@ -1093,6 +1175,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
                 paths=active_paths,
                 config=config,
                 request_id=args.request_id,
+                loop_mode=args.loop,
             )
         if args.command == "wait":
             return cmd_wait(
@@ -1102,6 +1185,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
                 timeout=args.timeout,
                 interval=args.interval,
                 request_id=args.request_id,
+                loop_mode=args.loop,
             )
         raise BridgeError("unknown command")
     except BridgeError as exc:

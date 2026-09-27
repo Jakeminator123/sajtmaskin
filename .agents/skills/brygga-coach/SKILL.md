@@ -18,16 +18,30 @@ Läs [`docs/agent-bridge/coach-logic.md`](../../../docs/agent-bridge/coach-logic
 ## Första `/brygga` i chatten
 
 Fråga vilken runda det är, om texten efter kommandot inte redan säger det.
-Oläst inbox → `read` först.
+Läs en väntande, korrelerad uppgift med `read --loop`. Saknas öppet
+`request_id` i lokal state: posta först en `QUESTION` om den valda rundan,
+eller välj uttryckligen ett känt Coach-`request_id` med
+`read --loop --request-id <id>`. Gissa inte från senaste kommentaren.
 
 ## Därefter
 
 1. `identity` — låst `agent_id`/`role`, repo måste matcha origin.
-2. `read` mot mailbox **#1468**. Finns oläst `[COACH→AGENT:v1]` → utför.
+2. `read --loop` mot mailbox **#1468**. Vid ny, exakt korrelerad
+   `[COACH→AGENT:v1]`: läs svarfilen, sedan `read --loop --request-id <id>`
+   tills exit 3. Läs varje svar **innan** nästa anrop skriver över filen.
+   Bedöm svaren i kommentarordning; STOP eller motstridiga instruktioner
+   måste klaras ut före åtgärd. Utför därefter inom verifierat scope.
 3. `post` `[AGENT→COACH:v1]` med eget `request_id`, `--reply-to` mot coachens
    `request_id`, exakt head-SHA, PR, körda tester och blockers.
-4. `ping` — emit trigger (se nedan).
-5. `wait --timeout 600 --interval 15`. Tillbaka till steg 2. Fråga inte igen.
+4. `ping` — visa manuella triggerraden för Jakob **före** väntan.
+5. `wait --loop --timeout 600 --interval 15`. Vid svar: läs filen direkt,
+   hämta eventuella ytterligare svar på samma `request_id` enligt steg 2,
+   utför och fortsätt från steg 3. Vid timeout: vänta på manuell trigger
+   eller återuppta samma `wait --loop`; posta inte samma rapport igen.
+
+`--loop` kräver exakt `request_id` och levererar varje GitHub-kommentar högst
+en gång i den lokala loopen. Vanlig `read` finns kvar för manuell inspektion
+av andra svar och kan visa äldre kommentarer; använd den inte som uppgiftskö.
 
 ## `ping` är ärlig triggeremission
 
