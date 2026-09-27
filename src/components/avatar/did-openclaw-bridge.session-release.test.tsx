@@ -99,4 +99,112 @@ describe("DidOpenClawBridge speak fence after deadline", () => {
     await waitFor(() => expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2));
     expect(fresh.connect).toHaveBeenCalledTimes(1);
   });
+
+  it("blocks another stream while SDK connect is pending and releases late stream IDs", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const stale = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(stale);
+    const DidOpenClawBridge = await loadBridge();
+    const { DID_CONNECT_TIMEOUT_MS } = await import("@/lib/openclaw/use-did-avatar");
+    render(<DidOpenClawBridge />);
+
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(stale.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_abc", session_id: "sess_xyz", agent_id: "v2_agt_test",
+    }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    const button = screen.getByTestId("avatar-bridge-connect");
+    expect(button.hasAttribute("disabled")).toBe(true);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    fireEvent.click(button);
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_late", session_id: "sess_late", agent_id: "v2_agt_test",
+    }));
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { connecting.reject(new Error("SDK init failed")); });
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_after_reject", session_id: "sess_after_reject", agent_id: "v2_agt_test",
+    }));
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[2]![0]).toBe(
+      "https://api.d-id.com/agents/v2_agt_test/streams/strm_after_reject",
+    );
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the first stream when SDK retries before the deadline", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const DidOpenClawBridge = await loadBridge();
+    const { DID_CONNECT_TIMEOUT_MS } = await import("@/lib/openclaw/use-did-avatar");
+    render(<DidOpenClawBridge />);
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_abc", session_id: "sess_xyz", agent_id: "v2_agt_test",
+    }));
+    act(() => callbacks.onStreamCreated({
+      stream_id: "strm_second", session_id: "sess_second", agent_id: "v2_agt_test",
+    }));
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/streams/strm_abc");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]![0]).toContain("/streams/strm_second");
+    expect(screen.getByTestId("avatar-bridge-connect").hasAttribute("disabled")).toBe(true);
+  });
+
+  it("does not retry SDK connect after an early failed callback", async () => {
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const DidOpenClawBridge = await loadBridge();
+    render(<DidOpenClawBridge />);
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+
+    act(() => callbacks.onConnectionStateChange("failed"));
+    expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Ansluter");
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    expect(agent.connect).toHaveBeenCalledTimes(1);
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the deadline after disconnected while SDK connect is still pending", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const DidOpenClawBridge = await loadBridge();
+    const { DID_CONNECT_TIMEOUT_MS } = await import("@/lib/openclaw/use-did-avatar");
+    render(<DidOpenClawBridge />);
+    fireEvent.click(screen.getByTestId("avatar-bridge-connect"));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = sdkMock.createAgentManager.mock.calls[0]![1].callbacks;
+
+    act(() => callbacks.onConnectionStateChange("disconnected"));
+    expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Ansluter");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(screen.getByTestId("avatar-bridge-status").textContent).toContain("Sajtagenten offline");
+    expect(screen.getByTestId("avatar-bridge-connect").hasAttribute("disabled")).toBe(true);
+    expect(agent.connect).toHaveBeenCalledTimes(1);
+  });
 });
