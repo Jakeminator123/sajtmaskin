@@ -17,6 +17,20 @@ Bakgrund: `docs/runbooks/pr-merge-gate.md`.
 Innan promote till master: varna, namnge PR:n, vänta på ny bekräftelse.
 «kör på» räcker inte.
 
+## Tre vägar
+
+1. Vanlig merge till `preview`: gröna required checks, oberoende review,
+   `merge:ready`, sedan `merge:execute`. Controllern squash-mergar bara dit.
+2. Produktion: en isolerad PR mot `master`, eller `npm run promote` när hela
+   `preview` ska med. Controllern tar inte `master`. Mergen är manuell och
+   kräver en ny bekräftelse. En push till `master` kan köra migrationer och
+   prestandaindex mot produktionsdatabasen även när PR:n inte innehåller SQL.
+3. Ändring av själva merge- eller säkerhetskontrollen
+   (`manualMergePathPrefixes`): agenten ger inte sig själv klartecken.
+   Bootstrap är en snäv manuell ersättning för just den spärren. Den är inte
+   tillstånd att ignorera röda tester, blockerande fynd eller okända
+   databaseffekter.
+
 Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
 och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
 
@@ -80,7 +94,7 @@ sista kontrollen. Allt nedan ska vara sant:
 - inte draft; korrekt base; mergeable;
 - alla `requiredChecks` i `config/agent-workflow.json` gröna;
 - Vercel-deployment är lyckad eller saknas;
-- `review-window` grönt för aktuell head-SHA; saknat kvitto blockerar inte;
+- `review-window` grönt för aktuell head-SHA; ett saknat Cursor-/Codex-/bugbot-kvitto blockerar inte när den checken i övrigt är grön;
 - inga blockerande labels, reviews, trådar eller otriagerade fynd;
 - giltig `merge:ready`-kommentar + label på oförändrad head- och base-SHA;
 - PR-body beskriver diff, verifiering och kvarvarande risk.

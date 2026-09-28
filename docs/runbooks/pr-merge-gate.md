@@ -211,9 +211,11 @@ Därför: jämför varje fynds `original_commit_id` mot head och kontrollera i k
 
 2026-07-25 landade en plan-commit i #607 samtidigt som den mergades, och fick brytas ut till #608 i efterhand. En mergare som ser grönt CI och en färdig-ut-seende PR har inget sätt att veta att en commit är på väg. Därför: öppna aldrig en icke-draft PR med arbete kvar att pusha.
 
-## Varför dashboard-auto-mergaren är av
+## Dashboard-auto-mergaren styrs inte från repot
 
-Beslut 2026-07-09. Cursor-dashboardens "PR-mergare" mergade allmänt och kringgick grinden via admin — **#468 mergades till master med en oåtgärdad P1 och 0 reviews**. Den kräver dessutom Cursor-billing för att ens starta.
+Beslut 2026-07-09 var att Cursor-dashboardens "PR-mergare" skulle vara av. Den mergade allmänt och kringgick grinden via admin — **#468 mergades till master med en oåtgärdad P1 och 0 reviews**.
+
+Repot kan inte läsa dashboard-strömbrytaren, och den här texten är inte ett av-läge. Senast observerat 2026-09-28 på #1513, commit `b92083a9d96fc4430294ec6fe1d36a62a81ff654`: checken `Cursor Automation: PR-mergare` blev `neutral` för att automationen försökte starta och stoppades av `Free trial usage limit`. Det är ett kvotfel. När kvoten finns igen kan samma automation starta igen. Ändra den inte från en repo-PR.
 
 Automationen bor inte i repot och lyder **inte** `.cursor/rules` — bara dashboard-inställningen stoppar den. Slår du på den igen: ge den samma grind och `merge:ready`-krav i dess dashboard-prompt, annars är den tillbaka i "dum"-läget.
 
