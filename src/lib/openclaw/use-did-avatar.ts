@@ -362,7 +362,9 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     agentRef.current = null;
     streamRef.current = null;
     didStreamRef.current = null;
-    if (stream && pendingConnectRef.current?.agent === agent) releaseDidStream(stream, CLIENT_KEY);
+    // pagehide läser didStreamRef, som nollas här. Släpp därför alltid; en
+    // dubbel DELETE efter SDK:ns egen disconnect är ofarlig.
+    if (stream) releaseDidStream(stream, CLIENT_KEY);
     void queueDisconnect(agent);
     updateConnectionState("idle");
     setAvatarReady(false);
@@ -381,8 +383,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     streamRef.current = null;
     didStreamRef.current = null;
     setAvatarReady(false);
-    if (previousStream && pendingConnectRef.current?.agent === previousAgent)
-      releaseDidStream(previousStream, CLIENT_KEY);
+    if (previousStream) releaseDidStream(previousStream, CLIENT_KEY);
     // Vänta in att den gamla strömmen är släppt innan en ny begärs. Med bara
     // två samtidiga platser skulle ett parallellt försök annars tävla mot sin
     // egen föregångare om den sista platsen. `previousAgent` kan redan vara

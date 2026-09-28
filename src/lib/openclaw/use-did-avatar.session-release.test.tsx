@@ -87,8 +87,58 @@ describe("D-ID stream release on unload", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.d-id.com/agents/v2_agt_test/streams/strm_abc");
-    expect(init).toMatchObject({ method: "DELETE", keepalive: true });
+    expect(init).toMatchObject({
+      method: "DELETE",
+      keepalive: true,
+      headers: { Authorization: "Client-Key client-key" },
+    });
     expect(JSON.parse(init.body as string)).toEqual({ session_id: "sess_xyz" });
+  });
+
+  it("releases an established stream on manual disconnect, before the page can close", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+
+    act(() => result.current.disconnect());
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://api.d-id.com/agents/v2_agt_test/streams/strm_abc");
+    expect(init).toMatchObject({
+      method: "DELETE",
+      keepalive: true,
+      headers: { Authorization: "Client-Key client-key" },
+    });
+    await waitFor(() => expect(agent.disconnect).toHaveBeenCalled());
+  });
+
+  it("releases an established stream before reconnect requests a new one", async () => {
+    const agent = fakeAgent();
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    act(() => lastCallbacks().onStreamCreated?.(STREAM_PAYLOAD));
+
+    await act(async () => {
+      await result.current.reconnect();
+    });
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      "https://api.d-id.com/agents/v2_agt_test/streams/strm_abc",
+    );
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ method: "DELETE", keepalive: true });
   });
 
   it("does not call D-ID when no stream was ever created", async () => {
@@ -181,6 +231,58 @@ describe("D-ID connect deadline", () => {
     expect(result.current.connectionState).toBe("connected");
     expect(result.current.avatarReady).toBe(true);
     expect(agent.disconnect).not.toHaveBeenCalled();
+  });
+
+  it("does not let a speak() that rejects after the deadline write connected over error", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const pendingSpeak = deferred<void>();
+    const agent = fakeAgent({ speak: vi.fn().mockReturnValue(pendingSpeak.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    let speaking!: Promise<void>;
+    act(() => {
+      speaking = result.current.speak("Svar som hinner starta före deadlinen.");
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(result.current.connectionState).toBe("error");
+
+    await act(async () => {
+      pendingSpeak.reject(new Error("stream closed"));
+      await speaking;
+    });
+    expect(result.current.connectionState).toBe("error");
+  });
+
+  it("does not let a speak() that rejects after the deadline write connected over error", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const pendingSpeak = deferred<void>();
+    const agent = fakeAgent({ speak: vi.fn().mockReturnValue(pendingSpeak.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    let speaking!: Promise<void>;
+    act(() => {
+      speaking = result.current.speak("Svar som hinner starta före deadlinen.");
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(result.current.connectionState).toBe("error");
+
+    await act(async () => {
+      pendingSpeak.reject(new Error("stream closed"));
+      await speaking;
+    });
+    expect(result.current.connectionState).toBe("error");
   });
 
   // `OpenClawChatPanel` talar så snart tillståndet är `connected` — den kräver
