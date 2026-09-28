@@ -21,10 +21,12 @@ function lastCallbacks(): Callbacks {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
     resolve = promiseResolve;
+    reject = promiseReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function fakeAgent(overrides: Record<string, unknown> = {}) {
@@ -267,5 +269,124 @@ describe("D-ID connect deadline", () => {
 
     expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(2);
     expect(fresh.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("quarantines an in-flight SDK connect and releases even streams created later", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const stale = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(stale);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+    await waitFor(() => expect(stale.connect).toHaveBeenCalledTimes(1));
+    const callbacks = lastCallbacks();
+    act(() => callbacks.onStreamCreated?.(STREAM_PAYLOAD));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(result.current.connectionState).toBe("error");
+    expect(result.current.releaseBlocked).toBe(true);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.reconnect(); });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    act(() => callbacks.onStreamCreated?.({
+      stream_id: "strm_late", session_id: "sess_late", agent_id: "v2_agt_test",
+    }));
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { connecting.resolve(); await connecting.promise; });
+    await waitFor(() => expect(stale.disconnect.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+
+    act(() => callbacks.onStreamCreated?.({
+      stream_id: "strm_after_resolve", session_id: "sess_after_resolve", agent_id: "v2_agt_test",
+    }));
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[2]![0]).toBe(
+      "https://api.d-id.com/agents/v2_agt_test/streams/strm_after_resolve",
+    );
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("quarantines a rejected SDK connect even before the deadline", async () => {
+    const connecting = deferred<void>();
+    const stale = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(stale);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+    await waitFor(() => expect(stale.connect).toHaveBeenCalledTimes(1));
+    const callbacks = lastCallbacks();
+    act(() => callbacks.onStreamCreated?.(STREAM_PAYLOAD));
+    await act(async () => { connecting.reject(new Error("SDK init failed")); });
+    expect(result.current.releaseBlocked).toBe(true);
+    expect(result.current.connectionState).toBe("error");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    act(() => callbacks.onStreamCreated?.({
+      stream_id: "strm_after_reject", session_id: "sess_after_reject", agent_id: "v2_agt_test",
+    }));
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { await result.current.reconnect(); });
+    expect(sdkMock.createAgentManager).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases an earlier stream when SDK retry creates a second stream before the deadline", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+    const callbacks = lastCallbacks();
+
+    act(() => callbacks.onStreamCreated?.(STREAM_PAYLOAD));
+    act(() => callbacks.onStreamCreated?.({
+      stream_id: "strm_second", session_id: "sess_second", agent_id: "v2_agt_test",
+    }));
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/streams/strm_abc");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]![0]).toContain("/streams/strm_second");
+    expect(result.current.releaseBlocked).toBe(true);
+  });
+
+  it("does not start a second SDK connect after an early failed callback", async () => {
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+
+    act(() => lastCallbacks().onConnectionStateChange?.("failed"));
+    expect(result.current.connectionState).toBe("connecting");
+    await act(async () => { await result.current.connect(); });
+    expect(agent.connect).toHaveBeenCalledTimes(1);
+    expect(result.current.releaseBlocked).toBe(false);
+  });
+
+  it("keeps the deadline after disconnected while SDK connect is still pending", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const connecting = deferred<void>();
+    const agent = fakeAgent({ connect: vi.fn().mockReturnValue(connecting.promise) });
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
+    await waitFor(() => expect(agent.connect).toHaveBeenCalledTimes(1));
+
+    act(() => lastCallbacks().onConnectionStateChange?.("disconnected"));
+    expect(result.current.connectionState).toBe("connecting");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
+    });
+    expect(result.current.connectionState).toBe("error");
+    expect(result.current.releaseBlocked).toBe(true);
+    expect(agent.connect).toHaveBeenCalledTimes(1);
   });
 });

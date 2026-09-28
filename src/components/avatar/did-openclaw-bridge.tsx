@@ -195,10 +195,13 @@ export function DidOpenClawBridge({
   // och alla släpp köas så en retry aldrig startar före föregående release.
   const connectionGenerationRef = useRef(0);
   const pendingDisconnectRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingConnectRef = useRef<{ agent: DidAgentManager; promise: Promise<void> } | null>(null);
+  const releaseBlockedRef = useRef(false);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     testMode ? "mock-ready" : "idle",
   );
+  const [releaseBlocked, setReleaseBlocked] = useState(false);
   const [messages, setMessages] = useState<BridgeMessage[]>([
     {
       id: "bridge-welcome",
@@ -245,12 +248,9 @@ export function DidOpenClawBridge({
       agentRef.current = null;
       streamRef.current = null;
       didStreamRef.current = null;
+      if (stream) releaseDidStream(stream, CLIENT_KEY);
       if (agent) {
         void safelyDisconnectAgent(agent);
-      } else if (stream) {
-        // Avmontering mitt i uppkopplingen: agenten hann aldrig landa i refen,
-        // men strömmen kan redan finnas hos D-ID. Släpp den direkt.
-        releaseDidStream(stream, CLIENT_KEY);
       }
     };
   }, []);
@@ -265,9 +265,20 @@ export function DidOpenClawBridge({
   const queueDisconnect = useCallback(
     (agent: DidAgentManager | null): Promise<void> => {
       if (!agent?.disconnect) return pendingDisconnectRef.current;
-      const queued = pendingDisconnectRef.current.then(() =>
-        safelyDisconnectAgent(agent),
-      );
+      const connecting = pendingConnectRef.current?.agent === agent
+        ? pendingConnectRef.current.promise : null;
+      if (connecting) {
+        releaseBlockedRef.current = true;
+        setReleaseBlocked(true);
+        setLastError("Avataranslutningen pausades för att undvika dubbla strömmar. Använd textchatten. Ladda om sidan senare för ett nytt försök.");
+      }
+      const queued = pendingDisconnectRef.current.then(async () => {
+        await safelyDisconnectAgent(agent);
+        if (connecting) {
+          await connecting.catch(() => {});
+          await safelyDisconnectAgent(agent);
+        }
+      });
       pendingDisconnectRef.current = queued;
       return queued;
     },
@@ -286,8 +297,8 @@ export function DidOpenClawBridge({
     agentRef.current = null;
     streamRef.current = null;
     didStreamRef.current = null;
+    if (activeStream) releaseDidStream(activeStream, CLIENT_KEY);
     if (activeAgent) void queueDisconnect(activeAgent);
-    else if (activeStream) releaseDidStream(activeStream, CLIENT_KEY);
     setAvatarReady(false);
   }, [queueDisconnect]);
 
@@ -319,8 +330,19 @@ export function DidOpenClawBridge({
       auth: { type: "key", clientKey: CLIENT_KEY },
       callbacks: {
         onStreamCreated(value: unknown) {
-          if (agentRef.current !== createdAgent) return;
-          didStreamRef.current = toDidStreamIdentity(value);
+          const stream = toDidStreamIdentity(value);
+          if (agentRef.current !== createdAgent) {
+            if (stream) releaseDidStream(stream, CLIENT_KEY);
+            return;
+          }
+          if (!stream) return;
+          const previous = didStreamRef.current;
+          if (previous && (
+            previous.streamId !== stream.streamId ||
+            previous.sessionId !== stream.sessionId ||
+            previous.agentId !== stream.agentId
+          )) releaseDidStream(previous, CLIENT_KEY);
+          didStreamRef.current = stream;
         },
         onSrcObjectReady(value: MediaStream) {
           if (agentRef.current !== createdAgent) return;
@@ -334,10 +356,12 @@ export function DidOpenClawBridge({
           if (state === "connected") {
             setConnectionState("connected");
           } else if (state === "failed") {
-            clearConnectDeadline();
+            // SDK:n kan fortfarande starta en ny ström efter failed.
+            if (connectDeadlineRef.current !== null && !streamRef.current) return;
             setConnectionState("error");
             setLastError("D-ID-klienten kunde inte ansluta.");
           } else if (state === "disconnected" || state === "closed") {
+            if (connectDeadlineRef.current !== null && !streamRef.current) return;
             clearConnectDeadline();
             setConnectionState("idle");
           }
@@ -374,15 +398,17 @@ export function DidOpenClawBridge({
       return;
     }
     if (!AVATAR_ENABLED || !AGENT_ID || !CLIENT_KEY) return;
+    if (releaseBlockedRef.current) return;
+    if (pendingConnectRef.current) return;
     if (connectionState === "connected" || connectionState === "speaking") return;
 
     const generation = ++connectionGenerationRef.current;
-    setConnectionState("connecting");
     setLastError(null);
     // Vänta in ett pågående släpp innan en ny plats begärs — annars tävlar
     // retryn mot sin egen föregångare om den sista av kontots två platser.
     await pendingDisconnectRef.current;
-    if (generation !== connectionGenerationRef.current) return;
+    if (generation !== connectionGenerationRef.current || releaseBlockedRef.current) return;
+    setConnectionState("connecting");
 
     // Ett fullt D-ID-konto kan ge en ansluten agent som aldrig levererar någon
     // MediaStream. Utan deadline fastnar ytan i "Förbered D-ID-klienten...".
@@ -396,6 +422,7 @@ export function DidOpenClawBridge({
       setConnectionState("offline");
     }, DID_CONNECT_TIMEOUT_MS);
 
+    let sdkConnectStarted = false;
     try {
       const agent = await initAgent(generation);
       if (generation !== connectionGenerationRef.current) return;
@@ -405,7 +432,14 @@ export function DidOpenClawBridge({
         setLastError("D-ID-klienten kunde inte initieras.");
         return;
       }
-      await agent.connect();
+      sdkConnectStarted = true;
+      const connecting = agent.connect();
+      pendingConnectRef.current = { agent, promise: connecting };
+      try {
+        await connecting;
+      } finally {
+        if (pendingConnectRef.current?.promise === connecting) pendingConnectRef.current = null;
+      }
       if (generation !== connectionGenerationRef.current) {
         // Deadlinen (eller en ny anslutning) hann före: den här sessionen får
         // inte skriva `connected` och måste lämna tillbaka sin plats.
@@ -417,13 +451,27 @@ export function DidOpenClawBridge({
     } catch (error) {
       if (generation !== connectionGenerationRef.current) return;
       clearConnectDeadline();
+      if (sdkConnectStarted) {
+        ++connectionGenerationRef.current;
+        releaseBlockedRef.current = true;
+        setReleaseBlocked(true);
+        const stream = didStreamRef.current;
+        const agent = agentRef.current;
+        didStreamRef.current = null;
+        agentRef.current = null;
+        streamRef.current = null;
+        if (stream) releaseDidStream(stream, CLIENT_KEY);
+        void queueDisconnect(agent);
+        setAvatarReady(false);
+        setLastError("Avataranslutningen pausades för att undvika dubbla strömmar. Använd textchatten. Ladda om sidan senare för ett nytt försök.");
+      }
       const outcome = handleAvatarConnectError(error, AGENT_ID);
       if (outcome.kind === "offline") {
-        // Soft state: keep retry-knappen tillgänglig och undvik högljudd toast/debug-rad.
+        // Textchatten fortsätter även om avatarens SDK-försök ligger kvar.
         setConnectionState("offline");
       } else {
         setConnectionState("error");
-        setLastError(outcome.message);
+        if (!sdkConnectStarted) setLastError(outcome.message);
       }
     }
   }, [
@@ -712,6 +760,7 @@ export function DidOpenClawBridge({
               <button
                 type="button"
                 onClick={() => void ensureConnected()}
+                disabled={releaseBlocked}
                 className="rounded-xl border border-border/30 bg-card/50 px-3 py-2 text-sm"
                 data-testid="avatar-bridge-connect"
               >
