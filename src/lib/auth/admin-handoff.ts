@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { Redis } from "@upstash/redis";
-import { REDIS_KEY_PREFIX } from "@/lib/config";
 
 export const HANDOFF_ISSUER = "jakobscrape-dash";
 export const HANDOFF_AUDIENCE = "sajtmaskin-admin";
+export const HANDOFF_TTL_SECONDS = 60;
 export const DEFAULT_HANDOFF_NEXT = "/admin/kostnadsfri";
 
 const JTI_PATTERN = /^[0-9a-f]{32}$/;
@@ -69,6 +69,7 @@ export function verifyAdminHandoff(
   if (typeof iat !== "number" || typeof exp !== "number") return null;
   if (!Number.isInteger(iat) || !Number.isInteger(exp)) return null;
   const seconds = Math.floor(now / 1000);
+  if (exp < iat || exp > iat + HANDOFF_TTL_SECONDS) return null;
   if (exp < seconds) return null;
   if (iat > seconds + 30) return null;
   if (typeof record.jti !== "string" || !JTI_PATTERN.test(record.jti)) return null;
@@ -108,7 +109,8 @@ export async function consumeHandoffJti(jti: string, now = Date.now()): Promise<
   const redis = replayRedis();
   if (redis) {
     try {
-      const ok = await redis.set(`${REDIS_KEY_PREFIX}admin-handoff:jti:${jti}`, "1", {
+      // No prod/preview prefix: the same secret is valid in both, so a shared Redis must share this slot.
+      const ok = await redis.set(`admin-handoff:jti:${jti}`, "1", {
         ex: JTI_TTL_SECONDS,
         nx: true,
       });

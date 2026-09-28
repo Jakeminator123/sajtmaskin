@@ -108,6 +108,15 @@ describe("verifyAdminHandoff", () => {
     ).toBe(seconds + 30);
   });
 
+  it("rejects a ticket that outlives the 60 second lifetime", () => {
+    const now = 1_700_000_000_000;
+    const seconds = Math.floor(now / 1000);
+    expect(verifyAdminHandoff(sign({ iat: seconds, exp: seconds + 61 }), SECRET, now)).toBeNull();
+    expect(verifyAdminHandoff(sign({ iat: seconds, exp: seconds + 60 }), SECRET, now)?.exp).toBe(
+      seconds + 60,
+    );
+  });
+
   it("rejects a jti that is not 32 hex characters", () => {
     expect(verifyAdminHandoff(sign({ jti: "abc" }), SECRET)).toBeNull();
     expect(verifyAdminHandoff(sign({ jti: "g".repeat(32) }), SECRET)).toBeNull();
@@ -150,11 +159,10 @@ describe("consumeHandoffJti", () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = "token";
     redisSet.mockResolvedValueOnce("OK");
     expect(await consumeHandoffJti("c".repeat(32))).toBe("fresh");
-    expect(redisSet).toHaveBeenCalledWith(
-      expect.stringMatching(/admin-handoff:jti:c{32}$/),
-      "1",
-      { ex: 120, nx: true },
-    );
+    expect(redisSet).toHaveBeenCalledWith(`admin-handoff:jti:${"c".repeat(32)}`, "1", {
+      ex: 120,
+      nx: true,
+    });
     redisSet.mockResolvedValueOnce(null);
     expect(await consumeHandoffJti("c".repeat(32))).toBe("replay");
   });

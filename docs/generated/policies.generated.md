@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:1e939a724cc17ab1 -->
+<!-- source-fingerprint: config/env-policy.json sha256:7f26d34330ef1778 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -31,6 +31,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | ---------------------------------------------------- | ---------------------- | -------------------------------------- | ------------- | ------------ |
 | `ADMIN_CREDENTIALS`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `ADMIN_EMAILS`                                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `ADMIN_HANDOFF_SECRET`                               | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `AUDIT_WEB_SEARCH`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `AUTH_DEBUG`                                         | `local_only`           | —                                      | Yes           | No           |
 | `BACKOFFICE_PASSWORD`                                | `environment_specific` | `preview`, `production`                | Yes           | No           |
