@@ -1,0 +1,104 @@
+import { createHmac, randomBytes } from "crypto";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  consumeHandoffJti,
+  DEFAULT_HANDOFF_NEXT,
+  resetHandoffJtiStore,
+  safeAdminPath,
+  verifyAdminHandoff,
+} from "./admin-handoff";
+
+const SECRET = "handoff-test-secret";
+
+type Claims = {
+  iss?: string;
+  aud?: string;
+  iat?: number;
+  exp?: number;
+  jti?: string;
+  next?: string;
+};
+
+function sign(claims: Claims = {}, secret = SECRET): string {
+  const iat = claims.iat ?? Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: claims.iss ?? "jakobscrape-dash",
+    aud: claims.aud ?? "sajtmaskin-admin",
+    iat,
+    exp: claims.exp ?? iat + 60,
+    jti: claims.jti ?? randomBytes(16).toString("hex"),
+    next: claims.next ?? "/admin/kostnadsfri",
+  };
+  const body = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", secret).update(body, "utf8").digest("base64url");
+  return `${body}.${signature}`;
+}
+
+afterEach(() => {
+  resetHandoffJtiStore();
+});
+
+describe("verifyAdminHandoff", () => {
+  it("accepts a dashboard ticket", () => {
+    const payload = verifyAdminHandoff(sign(), SECRET);
+    expect(payload?.iss).toBe("jakobscrape-dash");
+    expect(payload?.aud).toBe("sajtmaskin-admin");
+    expect(payload?.jti).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("rejects a bad signature, a missing secret, and an expired ticket", () => {
+    const token = sign();
+    const forged = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
+    expect(verifyAdminHandoff(forged, SECRET)).toBeNull();
+    expect(verifyAdminHandoff(token, "")).toBeNull();
+    expect(verifyAdminHandoff(token, "   ")).toBeNull();
+
+    const iat = Math.floor(Date.now() / 1000) - 120;
+    expect(verifyAdminHandoff(sign({ iat, exp: iat + 60 }), SECRET)).toBeNull();
+  });
+
+  it("rejects the wrong audience and a clock that is more than 30 seconds ahead", () => {
+    expect(verifyAdminHandoff(sign({ aud: "other-app" }), SECRET)).toBeNull();
+    const iat = Math.floor(Date.now() / 1000) + 31;
+    expect(verifyAdminHandoff(sign({ iat, exp: iat + 60 }), SECRET)).toBeNull();
+  });
+
+  it("accepts exp equal to now and iat exactly 30 seconds ahead", () => {
+    const now = 1_700_000_000_000;
+    const seconds = Math.floor(now / 1000);
+    expect(verifyAdminHandoff(sign({ iat: seconds, exp: seconds }), SECRET, now)?.exp).toBe(
+      seconds,
+    );
+    expect(
+      verifyAdminHandoff(sign({ iat: seconds + 30, exp: seconds + 60 }), SECRET, now)?.iat,
+    ).toBe(seconds + 30);
+  });
+
+  it("rejects a jti that is not 32 hex characters", () => {
+    expect(verifyAdminHandoff(sign({ jti: "abc" }), SECRET)).toBeNull();
+    expect(verifyAdminHandoff(sign({ jti: "g".repeat(32) }), SECRET)).toBeNull();
+  });
+});
+
+describe("safeAdminPath", () => {
+  it("keeps an admin path and drops every off-site target", () => {
+    expect(safeAdminPath("/admin")).toBe("/admin");
+    expect(safeAdminPath("/admin/kostnadsfri")).toBe("/admin/kostnadsfri");
+    expect(safeAdminPath("https://evil.example/admin")).toBe(DEFAULT_HANDOFF_NEXT);
+    expect(safeAdminPath("//evil.example")).toBe(DEFAULT_HANDOFF_NEXT);
+    expect(safeAdminPath("/admin/../konto")).toBe(DEFAULT_HANDOFF_NEXT);
+    expect(safeAdminPath("/admin/kostnadsfri?next=https://evil.example")).toBe(
+      DEFAULT_HANDOFF_NEXT,
+    );
+  });
+});
+
+describe("consumeHandoffJti", () => {
+  it("remembers a jti for at least two minutes", () => {
+    const now = 1_700_000_000_000;
+    const jti = "a".repeat(32);
+    expect(consumeHandoffJti(jti, now)).toBe(true);
+    expect(consumeHandoffJti(jti, now + 120_000)).toBe(false);
+    expect(consumeHandoffJti(jti, now + 120_001)).toBe(true);
+  });
+});

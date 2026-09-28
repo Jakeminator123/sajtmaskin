@@ -99,6 +99,8 @@ export const serverSchema = z.object({
   BACKOFFICE_SESSION_VERSION: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
   ADMIN_CREDENTIALS: z.string().optional(),
+  /** Dashboard ticket HMAC. Unset makes POST /api/admin/handoff always deny. */
+  ADMIN_HANDOFF_SECRET: z.string().optional(),
   SUPERADMIN_EMAIL: z.string().optional(),
   SUPERADMIN_PASSWORD: z.string().optional(),
   SUPERADMIN_DIAMONDS: z.string().optional(),

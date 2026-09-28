@@ -17,6 +17,7 @@ import {
   updateUserLastLogin,
 } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
+import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 import {
   AUTH_COOKIE_HOST_NAME,
@@ -492,6 +493,37 @@ export async function loginUser(
   const token = createToken(hydratedUser.id, hydratedUser.email!);
 
   return { user: hydratedUser, token };
+}
+
+/**
+ * Mint the same admin session as a successful env-credential login, without
+ * taking a password. Used by the dashboard handoff after the ticket is valid.
+ */
+export async function createConfiguredAdminLogin(): Promise<
+  { token: string } | { error: "unconfigured" }
+> {
+  const adminMatch = getAdminCredentials().find(
+    (cred) => isAdminEmail(cred.email) && isAdminEmailEdge(cred.email),
+  );
+  if (!adminMatch) return { error: "unconfigured" };
+
+  let user = await getUserByEmail(adminMatch.email);
+  if (!user) {
+    const result = await registerUser(adminMatch.email, adminMatch.password, adminMatch.name);
+    if ("error" in result) return { error: "unconfigured" };
+    user = result.user;
+  }
+  await bootstrapAdminUser(user);
+  await updateUserLastLogin(user.id);
+  const hydratedUser = (await getUserById(user.id)) ?? user;
+  if (
+    !hydratedUser.email ||
+    !isAdminEmail(hydratedUser.email) ||
+    !isAdminEmailEdge(hydratedUser.email)
+  ) {
+    return { error: "unconfigured" };
+  }
+  return { token: createToken(hydratedUser.id, hydratedUser.email) };
 }
 
 // ============ Admin Bootstrap ============

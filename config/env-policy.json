@@ -1,5 +1,6 @@
 {
   "knownEmptyOk": [
+    "ADMIN_HANDOFF_SECRET",
     "AUTH_DEBUG",
     "BACKOFFICE_PASSWORD",
     "CRON_SECRET",
@@ -95,6 +96,7 @@
   "extraKnownKeys": [
     "ADMIN_CREDENTIALS",
     "ADMIN_EMAILS",
+    "ADMIN_HANDOFF_SECRET",
     "ALGOLIA_ADMIN_API_KEY",
     "ANTHROPIC_API_KEY",
     "BACKOFFICE_PASSWORD",
@@ -1133,6 +1135,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Comma-separated admin emails for access gating."
+    },
+    {
+      "key": "ADMIN_HANDOFF_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "HMAC secret for POST /api/admin/handoff. Missing or empty makes the route always deny. Must match ADMIN_HANDOFF_SECRET on the JakobScrape Render dashboard. Never log the ticket."
     },
     {
       "key": "SUPERADMIN_EMAIL",

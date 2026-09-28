@@ -29,6 +29,7 @@ interface RateLimitConfig {
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "auth:register": { maxRequests: 5, windowMs: 15 * 60 * 1000 },
   "auth:login": { maxRequests: 20, windowMs: 15 * 60 * 1000 },
+  "auth:admin-handoff": { maxRequests: 10, windowMs: 60 * 1000 },
   "auth:resend-verification": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
   "contact:submit": { maxRequests: 10, windowMs: 10 * 60 * 1000 },
   "audit:create": { maxRequests: 4, windowMs: 10 * 60 * 1000 },
