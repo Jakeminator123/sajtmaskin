@@ -2541,6 +2541,86 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("lägger screenshots på den dedikerade tool-live-review-delen", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const screenshots = {
+      desktopUrl: "https://abc.public.blob.vercel-storage.com/live-review-desktop-rev.jpg",
+      mobileUrl: "https://abc.public.blob.vercel-storage.com/live-review-mobile-rev.jpg",
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [],
+            warningCount: 0,
+            productBlocked: false,
+            durationMs: 80,
+            checkedUrl: "https://preview.example/ver_1",
+            routesChecked: 1,
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+            screenshots,
+            liveReview: {
+              status: "completed",
+              durationMs: 12,
+              modelId: "live-review-test",
+              decision: {
+                verdict: "pass",
+                confidence: 0.9,
+                rationale: "Sajten följer briefen.",
+                reasoning: "",
+                issues: [],
+              },
+            },
+          });
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    const liveReview = getToolPart("Live-granskning", store);
+    expect(liveReview?.state).toBe("output-available");
+    expect((liveReview?.output as { screenshots?: unknown }).screenshots).toEqual(screenshots);
+    expect((liveReview?.output as { status?: string }).status).toBe("completed");
+  });
+
   // Trasiga bilder sänker ofta Visual QA. En exklusiv `else if` gjorde att den
   // deterministiska URL-fixen hoppades över i exakt det läget. Bildfixen ska
   // köras ändå — men turen får fortfarande bara EN LLM-runda (Visual QA:s).
