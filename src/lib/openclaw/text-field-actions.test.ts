@@ -87,6 +87,9 @@ describe("text-field-actions", () => {
   });
 
   it("strips every complete action block and only honours the first", () => {
+    // Path (b): both blocks still mean one command. First-wins keeps the
+    // confirmation; the discarded fill is recovered by the handshake wake,
+    // not by a multi-action pipeline.
     const parsed = parseOpenClawMessage(
       [
         "Jag bekräftar mandatet.",

@@ -17,7 +17,10 @@ import { parseGenerationContent } from "./generation-content";
 import {
   hasGenerationWarnings,
   hasPendingVerification,
+  hasQueuedAutoFix,
   hasRepairAwaitingAccept,
+  readAutoRepairCause,
+  type GenerationTurnKind,
 } from "./generation-surface-state";
 import { STREAMDOWN_PLAIN_COMPONENTS } from "./message-markdown";
 import type { AgentLogItem, ToolPart } from "./tooling/types";
@@ -34,6 +37,8 @@ interface GenerationSurfaceProps {
   toolParts: ToolPart[];
   reviews?: ReactNode;
   actions?: ReactNode;
+  /** Set by MessageList: first code turn, later user edit, or auto-repair. */
+  turnKind?: GenerationTurnKind;
 }
 
 /** One stable surface from the first event through the final post-check. */
@@ -48,6 +53,7 @@ export const GenerationSurface = memo(function GenerationSurface({
   toolParts,
   reviews,
   actions,
+  turnKind = "followup",
 }: GenerationSurfaceProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
@@ -58,13 +64,19 @@ export const GenerationSurface = memo(function GenerationSurface({
     [parsed.files],
   );
   const warnings = hasGenerationWarnings(toolParts);
+  const queuedAutoFix = hasQueuedAutoFix(toolParts);
   const verifying = hasPendingVerification(toolParts);
   const repairAwaitingAccept = hasRepairAwaitingAccept(toolParts);
+  const repairCause = turnKind === "repair" ? readAutoRepairCause(toolParts) : null;
   const latestFailure = [...items].reverse().find((item) => item.failed);
+  // Attention is this assistant row's own toolParts/items only. A later repair
+  // turn never inherits the init card's queued-fix flag, and a remaining
+  // advisory on the repair card is its own post-check or gate — not a copy.
   const attention = warnings || Boolean(latestFailure);
   const working = isActive && !awaitingReply;
   const currentFailure = Boolean(latestFailure && latestFailure.label === activeLabel);
   const hasCode = parsed.hasCodeBlocks || content.includes("```") || files.length > 0;
+  const fileSummary = formatReplyFileSummary(turnKind, files);
   const hasDetails = Boolean(
     reasoning || items.length || hasCode || reviews || (isStreaming && content),
   );
@@ -74,9 +86,13 @@ export const GenerationSurface = memo(function GenerationSurface({
     currentFailure,
     attention,
     verifying,
+    queuedAutoFix,
+    turnKind,
     activeLabel,
     hasCode,
     hasDraft: Boolean(reasoning || content),
+    fileSummary,
+    repairCause,
   });
 
   return (
@@ -88,6 +104,8 @@ export const GenerationSurface = memo(function GenerationSurface({
       data-active={working}
       data-attention={attention}
       data-verifying={verifying}
+      data-turn-kind={turnKind}
+      data-repair-queued={queuedAutoFix}
     >
       <div className={styles.track} aria-hidden />
       <div className="flex min-h-24 items-start gap-3 px-4 py-4">
@@ -103,6 +121,8 @@ export const GenerationSurface = memo(function GenerationSurface({
             </>
           ) : attention ? (
             <AlertTriangle className="size-5 text-amber-500" />
+          ) : queuedAutoFix ? (
+            <Wrench className="size-5" />
           ) : verifying ? (
             <Loader2 className="size-5 animate-spin text-cyan-400 motion-reduce:animate-none" />
           ) : (
@@ -152,7 +172,7 @@ export const GenerationSurface = memo(function GenerationSurface({
           {files.length > 0 ? (
             <>
               <FileCode2 className="size-3.5" aria-hidden />
-              {files.length} {files.length === 1 ? "fil" : "filer"}
+              {formatFooterFileLabel(turnKind, files.length)}
             </>
           ) : working ? (
             "Pågår"
@@ -278,14 +298,45 @@ export const GenerationSurface = memo(function GenerationSurface({
   );
 });
 
+function formatReplyFileSummary(
+  turnKind: GenerationTurnKind,
+  files: Array<{ path: string }>,
+): string | null {
+  if (files.length === 0) return null;
+  if (turnKind === "repair") {
+    if (files.length === 1) return `1 fil ändrad: ${files[0].path}`;
+    if (files.length <= 3) {
+      return `${files.length} filer ändrade: ${files.map((file) => file.path).join(", ")}`;
+    }
+    return `${files.length} filer ändrade`;
+  }
+  return files.length === 1 ? "1 fil i svaret" : `${files.length} filer i svaret`;
+}
+
+function formatFooterFileLabel(turnKind: GenerationTurnKind, fileCount: number): string {
+  if (turnKind === "repair") {
+    return fileCount === 1 ? "1 fil ändrad" : `${fileCount} filer ändrade`;
+  }
+  return fileCount === 1 ? "1 fil i svaret" : `${fileCount} filer i svaret`;
+}
+
+function joinSentences(...parts: Array<string | null | undefined>): string | null {
+  const sentences = parts
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part));
+  if (sentences.length === 0) return null;
+  return sentences
+    .map((sentence) => (sentence.endsWith(".") ? sentence : `${sentence}.`))
+    .join(" ");
+}
+
 /**
- * Kortets ord, hållna utanför JSX:en eftersom tillstånden är fem: väntar på
- * svar, arbetar, verifiering pågår, kontroller att se över och klart.
+ * Kortets ord, hållna utanför JSX:en. Ordningen är poängen: väntar, arbetar,
+ * riktiga varningar, köad reparation, verifiering, klart.
  *
- * Ordningen är poängen. En pågående kontroll får aldrig låna varningens ord —
- * den är inte ett fel — men den får heller inte presenteras som avslutad. Noll
- * varningar betydde tidigare "Genereringen har avslutats." även medan
- * verify-lanen precis hade startat.
+ * En köad AUTO-FIX är inte "Kontroller att se över" — den har en egen, lugn
+ * statusrad. En pågående kontroll får inte heller låna varningens ord, och
+ * noll varningar får inte läsas som klart medan verify-lanen precis startat.
  */
 function resolveHeadline({
   awaitingReply,
@@ -293,35 +344,71 @@ function resolveHeadline({
   currentFailure,
   attention,
   verifying,
+  queuedAutoFix,
+  turnKind,
   activeLabel,
   hasCode,
   hasDraft,
+  fileSummary,
+  repairCause,
 }: {
   awaitingReply: boolean;
   working: boolean;
   currentFailure: boolean;
   attention: boolean;
   verifying: boolean;
+  queuedAutoFix: boolean;
+  turnKind: GenerationTurnKind;
   activeLabel?: string | null;
   hasCode: boolean;
   hasDraft: boolean;
+  fileSummary: string | null;
+  repairCause: string | null;
 }): { title: string; subtitle: string | null } {
+  const isRepair = turnKind === "repair";
+  const namedTurn = isRepair || Boolean(fileSummary) || hasCode;
+  const doneTitle =
+    turnKind === "repair"
+      ? "Automatisk reparation"
+      : turnKind === "initial"
+        ? "Ursprunglig generering"
+        : "Uppdatering av sajten";
+  const reviewHint = "Se kontrollresultatet i detaljerna";
+  const queuedHint = "En automatisk reparation startade";
+
   if (awaitingReply) {
     return { title: "Ditt svar behövs", subtitle: "Svara i chatten för att fortsätta." };
   }
   if (working) {
     return {
-      title: currentFailure ? "Ett byggsteg misslyckades" : "Arbetar med din sajt",
+      title: currentFailure
+        ? "Ett byggsteg misslyckades"
+        : isRepair
+          ? "Reparerar sajten"
+          : "Arbetar med din sajt",
       subtitle:
         activeLabel ||
         (hasCode
-          ? "Skapar sidor och komponenter…"
+          ? isRepair
+            ? "Skriver om den fil som behöver lagas…"
+            : "Skapar sidor och komponenter…"
           : hasDraft
             ? "Tar fram ett förslag…"
             : "Förbereder underlaget…"),
     };
   }
   if (attention) {
+    if (namedTurn) {
+      return {
+        title: doneTitle,
+        subtitle: joinSentences(
+          fileSummary,
+          queuedAutoFix ? queuedHint : null,
+          isRepair ? repairCause : null,
+          verifying ? "Verifieringen är inte klar än. Se kontrollresultatet i detaljerna" : reviewHint,
+        ),
+      };
+    }
     return {
       title: "Kontroller att se över",
       subtitle: verifying
@@ -329,10 +416,28 @@ function resolveHeadline({
         : "Se kontrollresultatet i detaljerna.",
     };
   }
+  if (queuedAutoFix) {
+    return {
+      title: namedTurn ? doneTitle : "Automatisk reparation startade",
+      subtitle: joinSentences(
+        fileSummary,
+        queuedHint,
+        verifying ? "Verifieringen är inte klar än" : null,
+      ),
+    };
+  }
   if (verifying) {
     return {
       title: "Verifieringen pågår",
       subtitle: "Ändringarna är sparade, men kontrollen är inte klar än.",
+    };
+  }
+  if (namedTurn) {
+    return {
+      title: doneTitle,
+      subtitle:
+        joinSentences(fileSummary, isRepair ? repairCause : null) ??
+        (hasCode ? "Genereringen har avslutats." : null),
     };
   }
   return {

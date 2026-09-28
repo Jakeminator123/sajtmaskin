@@ -8,6 +8,7 @@ import { GenerationSurface } from "./GenerationSurface";
 import {
   hasGenerationWarnings,
   hasPendingVerification,
+  hasQueuedAutoFix,
   hasRepairAwaitingAccept,
   isGenerationReviewPart,
 } from "./generation-surface-state";
@@ -51,7 +52,7 @@ describe("GenerationSurface", () => {
     expect(
       screen.getByRole("button", { name: "Dölj detaljer" }).getAttribute("aria-expanded"),
     ).toBe("true");
-    expect(screen.getByText("1 fil")).toBeTruthy();
+    expect(screen.getByText("1 fil i svaret")).toBeTruthy();
     expect(screen.queryByText(/CODE_BODY/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Dölj detaljer" }));
@@ -118,7 +119,8 @@ describe("GenerationSurface", () => {
         reviews={<div>Typvarningen i detalj</div>}
       />,
     );
-    expect(screen.getByText("Kontroller att se över")).toBeTruthy();
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
+    expect(screen.getByText("1 fil i svaret. Se kontrollresultatet i detaljerna.")).toBeTruthy();
     expect(screen.getByTestId("generation-surface").getAttribute("data-attention")).toBe("true");
     expect(screen.queryByText("Typvarningen i detalj")).toBeNull();
   });
@@ -163,7 +165,8 @@ describe("GenerationSurface", () => {
     });
     rerender(<GenerationSurface {...done} toolParts={[postCheck, verdict]} />);
     expect(screen.getByTestId("generation-surface").getAttribute("data-verifying")).toBe("false");
-    expect(screen.getByText("Genereringen har avslutats.")).toBeTruthy();
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
+    expect(screen.getByText("1 fil i svaret.")).toBeTruthy();
     expect(screen.queryByText("Verifieringen pågår")).toBeNull();
   });
 
@@ -205,17 +208,122 @@ describe("GenerationSurface", () => {
       />,
     );
     expect(screen.getAllByText("Startsidan har fått en ny meny.")).toHaveLength(1);
-    expect(screen.getByText("1 fil")).toBeTruthy();
+    expect(screen.getByText("1 fil i svaret")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Visa detaljer" }));
     expect(screen.queryByText(/CODE_BODY/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Visa råtext" }));
     expect(screen.getByText(/CODE_BODY/)).toBeTruthy();
   });
 
+  it("uses a follow-up title for later code turns, not the original-generation label", () => {
+    render(
+      <GenerationSurface
+        {...base}
+        content={code}
+        isStreaming={false}
+        isActive={false}
+        turnKind="followup"
+      />,
+    );
+    expect(screen.getByText("Uppdatering av sajten")).toBeTruthy();
+    expect(screen.queryByText("Ursprunglig generering")).toBeNull();
+    expect(screen.getByTestId("generation-surface").getAttribute("data-turn-kind")).toBe(
+      "followup",
+    );
+  });
+
   it("stops activity while a user answer is required", () => {
     render(<GenerationSurface {...base} awaitingReply />);
     expect(screen.getByText("Ditt svar behövs")).toBeTruthy();
     expect(screen.getByTestId("generation-surface").getAttribute("data-active")).toBe("false");
+  });
+
+  it("does not ask for attention just because an auto-fix was queued", () => {
+    const queued = toolPart({
+      type: "tool-post-check",
+      state: "output-available",
+      output: {
+        summary: {
+          files: 5,
+          warnings: 0,
+          provisional: true,
+          qualityGatePending: false,
+          autoFixQueued: true,
+        },
+      },
+    });
+    const fiveFiles = [
+      '```tsx file="app/page.tsx"\nexport default function Page() { return null; }\n```',
+      '```tsx file="app/layout.tsx"\nexport default function Layout() { return null; }\n```',
+      '```css file="app/a.css"\nbody {}\n```',
+      '```css file="app/b.css"\nbody {}\n```',
+      '```css file="app/c.css"\nbody {}\n```',
+    ].join("\n");
+    render(
+      <GenerationSurface
+        {...base}
+        content={fiveFiles}
+        isStreaming={false}
+        isActive={false}
+        turnKind="initial"
+        toolParts={[queued]}
+      />,
+    );
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-attention")).toBe("false");
+    expect(surface.getAttribute("data-repair-queued")).toBe("true");
+    expect(screen.getByText("Ursprunglig generering")).toBeTruthy();
+    expect(
+      screen.getByText("5 filer i svaret. En automatisk reparation startade."),
+    ).toBeTruthy();
+    expect(screen.getByText("5 filer i svaret")).toBeTruthy();
+    expect(screen.queryByText("Kontroller att se över")).toBeNull();
+  });
+
+  it("names the repaired file and still flags a leftover control finding", () => {
+    const advisory = toolPart({
+      type: "tool-quality-gate",
+      state: "output-available",
+      output: {
+        passed: true,
+        designAdvisory: true,
+        checks: [
+          { check: "typecheck", passed: false, advisory: true, exitCode: 1, output: "TS2322" },
+        ],
+      },
+    });
+    const cause = toolPart({
+      type: "tool-prompt-strategy",
+      state: "output-available",
+      output: {
+        steps: [
+          "Källa: Auto-repair (server-driven)",
+          "Orsak: Auto-repair efter typecheck/quality-gate",
+        ],
+      },
+    });
+    render(
+      <GenerationSurface
+        {...base}
+        content={'```css file="app/globals.css"\n:root { color: black; }\n```'}
+        isStreaming={false}
+        isActive={false}
+        turnKind="repair"
+        toolParts={[cause, advisory]}
+        reviews={<div>Kvarvarande typvarning</div>}
+      />,
+    );
+    const surface = screen.getByTestId("generation-surface");
+    expect(surface.getAttribute("data-turn-kind")).toBe("repair");
+    expect(surface.getAttribute("data-attention")).toBe("true");
+    expect(screen.getByText("Automatisk reparation")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "1 fil ändrad: app/globals.css. Orsak: Auto-repair efter typecheck/quality-gate. Se kontrollresultatet i detaljerna.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("1 fil ändrad")).toBeTruthy();
+    expect(screen.queryByText("Kvarvarande typvarning")).toBeNull();
   });
 });
 
@@ -301,6 +409,26 @@ describe("generation review presentation", () => {
     ];
     expect(hasPendingVerification(serverOwned)).toBe(true);
     expect(hasGenerationWarnings(serverOwned)).toBe(false);
+  });
+
+  it("treats a queued auto-fix as status, not as a leftover warning", () => {
+    const queuedOnly = [
+      toolPart({
+        type: "tool-post-check",
+        state: "output-available",
+        output: {
+          summary: {
+            files: 5,
+            warnings: 0,
+            provisional: true,
+            qualityGatePending: false,
+            autoFixQueued: true,
+          },
+        },
+      }),
+    ];
+    expect(hasQueuedAutoFix(queuedOnly)).toBe(true);
+    expect(hasGenerationWarnings(queuedOnly)).toBe(false);
   });
 
   it("does not let the server-repair card close the pending window", () => {

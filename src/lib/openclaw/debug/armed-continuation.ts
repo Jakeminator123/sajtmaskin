@@ -502,3 +502,68 @@ export function buildArmedContinuationPrompt(input: {
     stepPart
   );
 }
+
+/**
+ * Handshake after a confirmation-only `start_bug_hunt` reply. The user's
+ * arming sentence already created the mandate; the assistant card does not
+ * send or watch. Without this wake the run dies after the confirmation.
+ *
+ * One wake per mandate (`createdAt`). It never creates, renews or extends
+ * the mandate — `useOpenClawChat` also passes `allowArming: false`.
+ */
+export type ArmedHandshakeDecision = { kind: "idle" } | { kind: "wake" };
+
+export function decideArmedHandshakeWake(input: {
+  actionType: string | null;
+  mandate: ArmedMandate | null;
+  editEnabled: boolean;
+  alreadyWoken: boolean;
+  openClawStreaming: boolean;
+  /**
+   * The hunt stream must have finished without a gateway error envelope.
+   * A complete `start_bug_hunt` followed by an error chunk is not a
+   * successful confirmation and must not spend the one-shot wake.
+   */
+  streamSucceeded: boolean;
+}): ArmedHandshakeDecision {
+  if (!input.streamSucceeded) return { kind: "idle" };
+  if (input.alreadyWoken) return { kind: "idle" };
+  if (!input.editEnabled) return { kind: "idle" };
+  if (!isMandateActive(input.mandate) || input.mandate?.mode !== "followups") {
+    return { kind: "idle" };
+  }
+  if (input.openClawStreaming) return { kind: "idle" };
+  if (input.actionType !== "start_bug_hunt") return { kind: "idle" };
+  return { kind: "wake" };
+}
+
+/**
+ * First-step wake. Must not parse as arming or stop — same contract as
+ * `buildArmedContinuationPrompt`. The wording is locked by a test.
+ */
+export function buildArmedHandshakePrompt(input: { remaining: number }): string {
+  const stepPart =
+    input.remaining > 1
+      ? ` Du har ${input.remaining} steg kvar i mandatet.`
+      : " Detta är sista steget i mandatet.";
+  return (
+    "[Automatisk väckning] Mandatet är redan aktivt. Läs användarens senaste instruktion och aktuell byggkontext." +
+    " Svara med exakt ett action-block som fyller builder-fältet och skickar det." +
+    " Förnya inte mandatet och ändra inte dess längd." +
+    stepPart
+  );
+}
+
+const wokenHandshakeMandates = new Set<number>();
+
+export function hasArmedHandshakeWoken(createdAt: number): boolean {
+  return wokenHandshakeMandates.has(createdAt);
+}
+
+export function markArmedHandshakeWoken(createdAt: number): void {
+  wokenHandshakeMandates.add(createdAt);
+}
+
+export function resetArmedHandshakeWakesForTests(): void {
+  wokenHandshakeMandates.clear();
+}
