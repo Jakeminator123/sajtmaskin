@@ -216,6 +216,7 @@ describe("guard scope", () => {
     "/api/webhooks/v0",
     "/api/webhooks/vercel",
     "/api/kostnadsfri/unsubscribe",
+    "/api/admin/handoff",
   ])("keeps exact machine receiver %s under its route-owned authentication", (pathname) => {
     expect(isExternalMachineEndpoint(pathname)).toBe(true);
     expect(isExternalMachineEndpoint(`${pathname}/extra`)).toBe(false);
