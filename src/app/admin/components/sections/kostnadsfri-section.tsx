@@ -37,15 +37,24 @@ import {
   classifyKostnadsfriSlug,
   type KostnadsfriSlugKind,
 } from "@/lib/kostnadsfri/analytics-paths";
+import { pixelHitsTotal } from "@/lib/kostnadsfri/visit-stats";
 import { cn } from "@/lib/utils";
 import type { KostnadsfriAdminPayload, KostnadsfriInvitePayload } from "../types";
 
 const PERIODS = [
-  { value: "30", label: "Senaste 30 dagarna" },
+  { value: "1", label: "Senaste dygnet" },
+  { value: "7", label: "Senaste veckan" },
+  { value: "30", label: "Senaste månaden" },
   { value: "90", label: "Senaste 90 dagarna" },
   { value: "365", label: "Senaste året" },
   { value: "3650", label: "Allt" },
 ];
+
+const EMPTY_VARIANTS = { rent: 0, animated: 0, unknown: 0 };
+const EMPTY_PIXEL = {
+  rent: { hits: 0, firstHitAt: null, lastHitAt: null },
+  animated: { hits: 0, firstHitAt: null, lastHitAt: null },
+};
 
 const EVENT_LABEL: Record<KostnadsfriAdminPayload["recent"][number]["event"], string> = {
   besok: "Besökte länken",
@@ -83,8 +92,12 @@ type KostnadsfriRow = {
   contactEmail: string | null;
   sentAt: string | null;
   source: string | null;
+  unsubscribedAt: string | null;
   stats: KostnadsfriAdminPayload["stats"][number] | null;
+  pixels: KostnadsfriAdminPayload["pixels"][number] | null;
 };
+
+type OutcomeFilter = "visits" | "unique" | "pixel" | "verified" | "started" | "unsubscribed";
 
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -102,29 +115,13 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 
-type CountFilter = "any" | "gt0" | "eq0";
-
-function isSameLocalDay(iso: string | null | undefined, day: Date = new Date()): boolean {
+function isWithinDays(iso: string | null | undefined, days: number): boolean {
   if (!iso) return false;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return false;
-  return (
-    date.getFullYear() === day.getFullYear() &&
-    date.getMonth() === day.getMonth() &&
-    date.getDate() === day.getDate()
-  );
-}
-
-/** Prefer Senast (lastSeen) when present; otherwise fall back to Skickat. */
-function matchesTodayActivity(row: KostnadsfriRow): boolean {
-  if (row.stats?.lastSeen) return isSameLocalDay(row.stats.lastSeen);
-  return isSameLocalDay(row.sentAt);
-}
-
-function matchesCountFilter(value: number, filter: CountFilter): boolean {
-  if (filter === "gt0") return value > 0;
-  if (filter === "eq0") return value === 0;
-  return true;
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  return date.getTime() > start.getTime();
 }
 
 function FilterChip({
@@ -158,8 +155,30 @@ function FilterChip({
   );
 }
 
-function cycleCountFilter(current: CountFilter, next: "gt0" | "eq0"): CountFilter {
-  return current === next ? "any" : next;
+function VariantSplit({
+  rent,
+  animated,
+  unknown,
+  showUnknown,
+}: {
+  rent: number;
+  animated: number;
+  unknown?: number;
+  showUnknown?: boolean;
+}) {
+  return (
+    <div className="text-right text-xs leading-5 tabular-nums">
+      <p>
+        <span className="text-muted-foreground">rent</span> {formatCount(rent)}
+      </p>
+      <p>
+        <span className="text-muted-foreground">animated</span> {formatCount(animated)}
+      </p>
+      {showUnknown && (unknown ?? 0) > 0 ? (
+        <p className="text-muted-foreground">äldre {formatCount(unknown ?? 0)}</p>
+      ) : null}
+    </div>
+  );
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -247,6 +266,10 @@ export function KostnadsfriSection() {
 
   // ── Merge DB rows and visit stats into one table keyed by slug ─────────
   const registeredSlugs = useMemo(() => new Set((data?.pages ?? []).map((page) => page.slug)), [data]);
+  const pixelsBySlug = useMemo(
+    () => new Map((data?.pixels ?? []).map((pixel) => [pixel.slug, pixel])),
+    [data],
+  );
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -261,7 +284,9 @@ export function KostnadsfriSection() {
         contactEmail: page.contactEmail,
         sentAt: page.sentAt,
         source: page.source,
+        unsubscribedAt: page.unsubscribedAt,
         stats: null,
+        pixels: pixelsBySlug.get(page.slug) ?? null,
       });
     }
     for (const stat of data.stats) {
@@ -278,7 +303,9 @@ export function KostnadsfriSection() {
           contactEmail: null,
           sentAt: null,
           source: null,
+          unsubscribedAt: null,
           stats: stat,
+          pixels: pixelsBySlug.get(stat.slug) ?? null,
         });
       }
     }
@@ -291,23 +318,25 @@ export function KostnadsfriSection() {
       const bLast = b.stats?.lastSeen ?? "";
       return aLast < bLast ? 1 : aLast > bLast ? -1 : a.slug.localeCompare(b.slug);
     });
-  }, [data, registeredSlugs]);
+  }, [data, registeredSlugs, pixelsBySlug]);
 
   const [rowFilter, setRowFilter] = useState("");
   const [showOtherPaths, setShowOtherPaths] = useState(false);
-  const [todayOnly, setTodayOnly] = useState(false);
-  const [unikaGt0, setUnikaGt0] = useState(false);
-  const [verifiedFilter, setVerifiedFilter] = useState<CountFilter>("any");
-  const [startedFilter, setStartedFilter] = useState<CountFilter>("any");
+  const [outcomeFilters, setOutcomeFilters] = useState<Set<OutcomeFilter>>(new Set());
 
-  const hasActiveTableFilters =
-    todayOnly || unikaGt0 || verifiedFilter !== "any" || startedFilter !== "any";
+  const toggleOutcome = (key: OutcomeFilter) => {
+    setOutcomeFilters((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const hasActiveTableFilters = outcomeFilters.size > 0;
 
   const clearTableFilters = () => {
-    setTodayOnly(false);
-    setUnikaGt0(false);
-    setVerifiedFilter("any");
-    setStartedFilter("any");
+    setOutcomeFilters(new Set());
     setRowFilter("");
   };
 
@@ -315,16 +344,18 @@ export function KostnadsfriSection() {
     const needle = rowFilter.trim().toLowerCase();
     return rows.filter((row) => {
       if (!showOtherPaths && row.kind !== "utskick") return false;
-      if (todayOnly && !matchesTodayActivity(row)) return false;
-      if (unikaGt0 && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
-      if (!matchesCountFilter(row.stats?.verified ?? 0, verifiedFilter)) return false;
-      if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
+      if (outcomeFilters.has("visits") && (row.stats?.visits ?? 0) <= 0) return false;
+      if (outcomeFilters.has("unique") && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
+      if (outcomeFilters.has("pixel") && pixelHitsTotal(row.pixels) <= 0) return false;
+      if (outcomeFilters.has("verified") && (row.stats?.verified ?? 0) <= 0) return false;
+      if (outcomeFilters.has("started") && (row.stats?.started ?? 0) <= 0) return false;
+      if (outcomeFilters.has("unsubscribed") && !row.unsubscribedAt) return false;
       if (!needle) return true;
       return [row.companyName, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
       );
     });
-  }, [rows, rowFilter, showOtherPaths, todayOnly, unikaGt0, verifiedFilter, startedFilter]);
+  }, [rows, rowFilter, showOtherPaths, outcomeFilters]);
 
   const recentRows = useMemo(() => {
     if (!data) return [];
@@ -348,10 +379,9 @@ export function KostnadsfriSection() {
       visits: inviteStats.reduce((sum, s) => sum + s.visits, 0),
       verified: inviteStats.reduce((sum, s) => sum + s.verified, 0),
       started: inviteStats.reduce((sum, s) => sum + s.started, 0),
-      // Sends are lifetime facts on the DB row, not period statistics.
-      sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
+      sent: (data?.pages ?? []).filter((page) => isWithinDays(page.sentAt, Number(days))).length,
     };
-  }, [data, registeredSlugs]);
+  }, [data, registeredSlugs, days]);
 
   const periodLabel = PERIODS.find((p) => p.value === days)?.label.toLowerCase() ?? "";
 
@@ -527,7 +557,7 @@ export function KostnadsfriSection() {
         {data && (
           <>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              <StatCard label="Utskick" value={totals.sent} hint="totalt" icon={Send} />
+              <StatCard label="Utskick" value={totals.sent} hint={periodLabel} icon={Send} />
               <StatCard
                 label="Länkar med besök"
                 value={totals.slugs}
@@ -551,7 +581,7 @@ export function KostnadsfriSection() {
 
             <SectionCard
               title="Per företag"
-              description={`Bara utskick som standard — skräpsluggar och osparade pathar räknas inte i talen ovan. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden.`}
+              description="Jämför rent textmejl mot animerat HTML-mejl. En rad utan variant är ett äldre utskick. Pixel är av som standard hos avsändaren — noll pixel-träffar betyder inte att mejlet är oläst. Översiktssiffrorna följer tidsfiltret."
               icon={Users}
             >
               <div className="mb-4 space-y-3">
@@ -595,38 +625,42 @@ export function KostnadsfriSection() {
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <FilterChip
-                    active={todayOnly}
-                    onClick={() => setTodayOnly((value) => !value)}
-                    title="Senast idag om raden har aktivitet, annars skickat idag"
+                    active={outcomeFilters.has("visits")}
+                    onClick={() => toggleOutcome("visits")}
                   >
-                    Idag
-                  </FilterChip>
-                  <FilterChip active={unikaGt0} onClick={() => setUnikaGt0((value) => !value)}>
-                    Unika {">"} 0
+                    Har besök
                   </FilterChip>
                   <FilterChip
-                    active={verifiedFilter === "gt0"}
-                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "gt0"))}
+                    active={outcomeFilters.has("unique")}
+                    onClick={() => toggleOutcome("unique")}
+                    title="Unika besökare på länken (klick)"
                   >
-                    Rätt lösenord {">"} 0
+                    Har unik besökare
                   </FilterChip>
                   <FilterChip
-                    active={verifiedFilter === "eq0"}
-                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "eq0"))}
+                    active={outcomeFilters.has("pixel")}
+                    onClick={() => toggleOutcome("pixel")}
+                    title="Pixel är av som standard. Noll träffar betyder inte oläst."
                   >
-                    Rätt lösenord = 0
+                    Har pixel-träff
                   </FilterChip>
                   <FilterChip
-                    active={startedFilter === "gt0"}
-                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "gt0"))}
+                    active={outcomeFilters.has("verified")}
+                    onClick={() => toggleOutcome("verified")}
                   >
-                    Formulär klara {">"} 0
+                    Verifierad
                   </FilterChip>
                   <FilterChip
-                    active={startedFilter === "eq0"}
-                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "eq0"))}
+                    active={outcomeFilters.has("started")}
+                    onClick={() => toggleOutcome("started")}
                   >
-                    Formulär klara = 0
+                    Formulär klara
+                  </FilterChip>
+                  <FilterChip
+                    active={outcomeFilters.has("unsubscribed")}
+                    onClick={() => toggleOutcome("unsubscribed")}
+                  >
+                    Avregistrerad
                   </FilterChip>
                 </div>
               </div>
@@ -648,10 +682,14 @@ export function KostnadsfriSection() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
-                      <TableHead>Path</TableHead>
                       <TableHead>Skickat</TableHead>
                       <TableHead className="text-right">Besök</TableHead>
-                      <TableHead className="text-right">Unika</TableHead>
+                      <TableHead
+                        className="text-right"
+                        title="Pixel är av som standard hos avsändaren. Gmail och Outlook hämtar bilden innan någon öppnat mejlet, så talen blir för höga. Inte samma sak som öppnade."
+                      >
+                        Pixel-träffar
+                      </TableHead>
                       <TableHead className="text-right">Rätt lösenord</TableHead>
                       <TableHead
                         className="text-right"
@@ -659,12 +697,14 @@ export function KostnadsfriSection() {
                       >
                         Formulär klara
                       </TableHead>
-                      <TableHead>Senast</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
+                      <TableHead>Avregistrerad</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRows.map((row) => (
+                    {filteredRows.map((row) => {
+                      const variants = row.stats?.visitsByVariant ?? EMPTY_VARIANTS;
+                      const pixels = row.pixels ?? EMPTY_PIXEL;
+                      return (
                       <TableRow key={row.slug}>
                         <TableCell>
                           <p className="font-medium">
@@ -674,9 +714,9 @@ export function KostnadsfriSection() {
                             /kostnadsfri/{row.slug}
                           </p>
                           <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
+                          {row.kind !== "utskick" && (
+                            <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           <p>{formatDate(row.sentAt)}</p>
@@ -684,11 +724,21 @@ export function KostnadsfriSection() {
                             <p className="text-muted-foreground text-[11px]">{row.source}</p>
                           )}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.visits ?? 0)}
+                        <TableCell>
+                          <VariantSplit
+                            rent={variants.rent}
+                            animated={variants.animated}
+                            unknown={variants.unknown}
+                            showUnknown
+                          />
+                          {(row.stats?.uniqueVisitors ?? 0) > 0 && (
+                            <p className="text-muted-foreground mt-1 text-right text-[11px]">
+                              {formatCount(row.stats?.uniqueVisitors ?? 0)} unika
+                            </p>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.uniqueVisitors ?? 0)}
+                        <TableCell>
+                          <VariantSplit rent={pixels.rent.hits} animated={pixels.animated.hits} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatCount(row.stats?.verified ?? 0)}
@@ -696,20 +746,12 @@ export function KostnadsfriSection() {
                         <TableCell className="text-right tabular-nums">
                           {formatCount(row.stats?.started ?? 0)}
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
-                          {formatTime(row.stats?.lastSeen)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {row.saved ? (
-                            <StatusBadge tone={row.status === "expired" ? "warn" : "ok"}>
-                              {row.status === "expired" ? "Utgången" : "Sparad"}
-                            </StatusBadge>
-                          ) : (
-                            <StatusBadge tone="off">Bara länk</StatusBadge>
-                          )}
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                          {row.unsubscribedAt ? formatDate(row.unsubscribedAt) : "—"}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </DataState>

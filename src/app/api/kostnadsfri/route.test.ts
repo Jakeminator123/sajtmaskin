@@ -230,6 +230,56 @@ describe("POST /api/kostnadsfri", () => {
     );
   });
 
+  it("accepts optional mailKind rent or animated and ignores when it is absent", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    markKostnadsfriPageSent.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-09-14T08:30:00.000Z"), source: "post-scrape" }),
+    );
+
+    const withoutKind = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        source: "post-scrape",
+      }),
+    );
+    expect(withoutKind.status).toBe(200);
+    expect(markKostnadsfriPageSent).toHaveBeenCalledWith(
+      "acme-ab",
+      expect.not.objectContaining({ mailKind: expect.anything() }),
+    );
+
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    markKostnadsfriPageSent.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-09-14T08:30:00.000Z"), source: "post-scrape" }),
+    );
+    const withKind = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        source: "post-scrape",
+        mailKind: "animated",
+      }),
+    );
+    expect(withKind.status).toBe(200);
+    expect(markKostnadsfriPageSent).toHaveBeenCalledWith(
+      "acme-ab",
+      expect.objectContaining({ mailKind: "animated" }),
+    );
+  });
+
+  it("rejects an invented mailKind instead of inventing a third sort", async () => {
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-09-14T08:30:00Z",
+        mailKind: "standardmail",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(getKostnadsfriPageBySlug).not.toHaveBeenCalled();
+  });
+
   it("rejects a sentAt without timezone", async () => {
     const res = await POST(postRequest({ companyName: "Acme AB", sentAt: "2026-09-14 10:30:00" }));
 

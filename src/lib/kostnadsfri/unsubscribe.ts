@@ -1,22 +1,16 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  KOSTNADSFRI_UNSUB_PURPOSE,
+  createKostnadsfriSignedToken,
+  normalizeKostnadsfriTokenEmail,
+  verifyKostnadsfriSignedToken,
+  type KostnadsfriTokenEnvLookup,
+  type KostnadsfriTokenPayload,
+} from "./signed-token";
 
-const TOKEN_PREFIX = "kostnadsfri-unsub-v1:";
+export type UnsubscribePayload = KostnadsfriTokenPayload;
+export type UnsubscribeEnvLookup = KostnadsfriTokenEnvLookup;
 
-export type UnsubscribePayload = {
-  email: string;
-  slug: string;
-};
-
-/** HMAC-seed-lookup. Inte ProcessEnv — tester skickar bara seed, utan NODE_ENV. */
-export type UnsubscribeEnvLookup = Record<string, string | undefined>;
-
-function unsubscribeSecret(env: UnsubscribeEnvLookup = process.env): string {
-  return (env.KOSTNADSFRI_PASSWORD_SEED || env.KOSTNADSFRI_API_KEY || "").trim();
-}
-
-export function normalizeUnsubscribeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export const normalizeUnsubscribeEmail = normalizeKostnadsfriTokenEmail;
 
 export function unsubscribedAtFromExtra(extra: unknown): string | null {
   if (!extra || typeof extra !== "object" || Array.isArray(extra)) return null;
@@ -26,46 +20,18 @@ export function unsubscribedAtFromExtra(extra: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function sign(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(`${TOKEN_PREFIX}${payload}`).digest("base64url");
-}
-
 export function createUnsubscribeToken(
   input: UnsubscribePayload,
   env: UnsubscribeEnvLookup = process.env,
 ): string | null {
-  const secret = unsubscribeSecret(env);
-  const email = normalizeUnsubscribeEmail(input.email);
-  const slug = input.slug.trim();
-  if (!secret || !email || !slug) return null;
-  const encoded = Buffer.from(JSON.stringify({ email, slug }), "utf8").toString("base64url");
-  return `${encoded}.${sign(encoded, secret)}`;
+  return createKostnadsfriSignedToken(KOSTNADSFRI_UNSUB_PURPOSE, input, env);
 }
 
 export function verifyUnsubscribeToken(
   token: string | null | undefined,
   env: UnsubscribeEnvLookup = process.env,
 ): UnsubscribePayload | null {
-  if (!token) return null;
-  const secret = unsubscribeSecret(env);
-  if (!secret) return null;
-  const [encoded, signature, extra] = token.split(".");
-  if (!encoded || !signature || extra) return null;
-  try {
-    const expected = sign(encoded, secret);
-    const actualBytes = Buffer.from(signature);
-    const expectedBytes = Buffer.from(expected);
-    if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) {
-      return null;
-    }
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Partial<UnsubscribePayload>;
-    const email = typeof payload.email === "string" ? normalizeUnsubscribeEmail(payload.email) : "";
-    const slug = typeof payload.slug === "string" ? payload.slug.trim() : "";
-    if (!email || !slug) return null;
-    return { email, slug };
-  } catch {
-    return null;
-  }
+  return verifyKostnadsfriSignedToken(KOSTNADSFRI_UNSUB_PURPOSE, token, env);
 }
 
 export function unsubscribeUrl(baseUrl: string, token: string): string {

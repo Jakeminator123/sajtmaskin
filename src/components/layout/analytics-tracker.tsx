@@ -2,12 +2,16 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { kostnadsfriTrackedVisitPath } from "@/lib/kostnadsfri/analytics-paths";
 
 /**
  * Analytics Tracker Component
  *
  * Records page views when the user navigates to different pages.
  * Include this component in your root layout to track all page visits.
+ *
+ * Kostnadsfri landing visits keep `?variant=` and `?kod=` on the stored path
+ * so admin can split rent vs animated without a second event table.
  */
 export function AnalyticsTracker() {
   const pathname = usePathname();
@@ -18,6 +22,10 @@ export function AnalyticsTracker() {
       return;
     }
 
+    const path = pathname.startsWith("/kostnadsfri/")
+      ? kostnadsfriTrackedVisitPath(pathname, window.location.search)
+      : pathname;
+
     // Record the page view
     const trackPageView = async () => {
       try {
@@ -25,7 +33,7 @@ export function AnalyticsTracker() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            path: pathname,
+            path,
             referrer: document.referrer || null,
           }),
         });

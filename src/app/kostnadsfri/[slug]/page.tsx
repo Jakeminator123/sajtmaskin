@@ -20,6 +20,7 @@ import { KostnadsfriPage } from "@/components/kostnadsfri/kostnadsfri-page";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ variant?: string; kod?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -43,8 +44,11 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
-export default async function KostnadsfriSlugPage({ params }: PageProps) {
+export default async function KostnadsfriSlugPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  // Read searchParams so `?variant=` (and existing `kod`) stay part of the
+  // page contract. AnalyticsTracker stores them on the page_views visit.
+  await searchParams;
 
   // Try to load from DB (for pre-created pages with extra data)
   let companyName = companyNameFromSlug(slug);

@@ -20,6 +20,7 @@ import {
 } from "@/lib/kostnadsfri/company-profile";
 import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
+import { parseKostnadsfriMailKind } from "@/lib/kostnadsfri/mail-kind";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 
 /**
@@ -69,6 +70,12 @@ const createSchema = z.object({
    * `src/lib/kostnadsfri/company-profile.ts`.
    */
   profile: z.record(z.string(), z.unknown()).optional(),
+  /**
+   * Mail sort from the sender (JakobScrape). Optional and ignored when absent
+   * so existing callers keep working. Admin compares variants via visits and
+   * pixel kind until this is sent.
+   */
+  mailKind: z.enum(["rent", "animated"]).optional(),
 });
 
 /** Default `source` when a send is registered without naming its origin. */
@@ -155,7 +162,9 @@ export async function POST(request: NextRequest) {
       source,
       openclaw,
       profile,
+      mailKind: rawMailKind,
     } = validation.data;
+    const mailKind = parseKostnadsfriMailKind(rawMailKind);
 
     // Personnummer och ledamöters hemadresser finns i källan men hör inte i en
     // sajt, och `extra_data` går både till browsern och in i wizarden. Fältnamn
@@ -211,6 +220,7 @@ export async function POST(request: NextRequest) {
         // sändregistreringen. Utan den här patchen tappades den på upsert-vägen.
         // Nyckeln utelämnas helt utan profil — en tom patch är inget att skriva.
         ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+        ...(mailKind ? { mailKind } : {}),
       });
       if (!updated) {
         // Row disappeared between the lookup and the update.
@@ -268,6 +278,7 @@ export async function POST(request: NextRequest) {
       expiresAt,
       sentAt: sentAt ? new Date(sentAt) : undefined,
       source: sentAt ? source || DEFAULT_SEND_SOURCE : undefined,
+      ...(mailKind ? { mailKind } : {}),
     });
 
     return NextResponse.json({

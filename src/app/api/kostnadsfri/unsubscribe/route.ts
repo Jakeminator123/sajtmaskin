@@ -16,6 +16,17 @@ export async function POST(request: NextRequest) {
   return withRateLimit(request, "kostnadsfri:unsubscribe", () => handleUnsubscribe(request));
 }
 
+/**
+ * List-Unsubscribe one-click is POST. A GET (prefetch, browser click) must
+ * not unsubscribe. Pixel-open tokens are also rejected by the HMAC purpose.
+ */
+export async function GET() {
+  return NextResponse.json(
+    { success: false, error: "Avregistrering kräver POST." },
+    { status: 405 },
+  );
+}
+
 async function handleUnsubscribe(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
   const payload = verifyUnsubscribeToken(token);

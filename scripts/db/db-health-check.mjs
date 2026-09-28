@@ -69,6 +69,7 @@ const EXPECTED_TABLES = [
   "user_audits",
   // Kostnadsfri
   "kostnadsfri_pages",
+  "kostnadsfri_pixel_hits",
   "kostnadsfri_campaign_entitlements",
   // Engine (own-engine codegen)
   "engine_chats",
@@ -290,6 +291,13 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   page_views: [
     { name: "idx_page_views_created_at", columns: ["created_at"] },
     { name: "idx_page_views_path", columns: ["path"] },
+  ],
+  kostnadsfri_pixel_hits: [
+    {
+      name: "kostnadsfri_pixel_hits_email_slug_kind_unique",
+      columns: ["email", "slug", "kind"],
+    },
+    { name: "idx_kostnadsfri_pixel_hits_slug_kind", columns: ["slug", "kind"] },
   ],
   user_audits: [
     { name: "idx_user_audits_user_id", columns: ["user_id"] },

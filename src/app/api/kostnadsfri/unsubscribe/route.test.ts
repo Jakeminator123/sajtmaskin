@@ -11,8 +11,9 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: unknown, _key: string, handler: () => Promise<Response>) => handler(),
 }));
 
+import { createPixelToken } from "@/lib/kostnadsfri/pixel-token";
 import { createUnsubscribeToken } from "@/lib/kostnadsfri/unsubscribe";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const ENV = { KOSTNADSFRI_PASSWORD_SEED: "test-unsub-seed" };
 
@@ -52,6 +53,12 @@ describe("POST /api/kostnadsfri/unsubscribe", () => {
     expect(markKostnadsfriPageUnsubscribed).not.toHaveBeenCalled();
   });
 
+  it("rejects a pixel-open token without touching the register", async () => {
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    expect((await POST(post(token))).status).toBe(400);
+    expect(markKostnadsfriPageUnsubscribed).not.toHaveBeenCalled();
+  });
+
   it("succeeds when the slug was never saved", async () => {
     markKostnadsfriPageUnsubscribed.mockResolvedValueOnce(null);
     const token = createUnsubscribeToken({ email: "ada@acme.se", slug: "ghost-ab" }, ENV);
@@ -60,3 +67,12 @@ describe("POST /api/kostnadsfri/unsubscribe", () => {
     expect(await res.json()).toEqual({ success: true });
   });
 });
+
+describe("GET /api/kostnadsfri/unsubscribe", () => {
+  it("does not unsubscribe", async () => {
+    const res = await GET();
+    expect(res.status).toBe(405);
+    expect(markKostnadsfriPageUnsubscribed).not.toHaveBeenCalled();
+  });
+});
+

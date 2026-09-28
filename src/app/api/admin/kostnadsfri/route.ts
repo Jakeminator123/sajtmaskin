@@ -5,11 +5,13 @@ import { hashPassword, verifyPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
   getKostnadsfriPageBySlug,
+  getKostnadsfriPixelStats,
   getKostnadsfriVisitStats,
   listKostnadsfriPages,
 } from "@/lib/db/services/kostnadsfri";
 import { hasKostnadsfriPasswordSecret, isPageAccessible } from "@/lib/kostnadsfri";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
+import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 
 /**
  * Admin view of the kostnadsfri mail-link flow.
@@ -72,9 +74,10 @@ export async function GET(req: NextRequest) {
   const days = Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 3650 ? rawDays : 90;
 
   try {
-    const [rows, visits] = await Promise.all([
+    const [rows, visits, pixels] = await Promise.all([
       listKostnadsfriPages(),
       getKostnadsfriVisitStats(days),
+      getKostnadsfriPixelStats(days).catch(() => []),
     ]);
 
     const pages = rows.map((page) => {
@@ -92,6 +95,7 @@ export async function GET(req: NextRequest) {
         consumedAt: page.consumed_at,
         sentAt: page.sent_at,
         source: page.source,
+        unsubscribedAt: unsubscribedAtFromExtra(page.extra_data),
       };
     });
 
@@ -101,6 +105,7 @@ export async function GET(req: NextRequest) {
       configured: hasKostnadsfriPasswordSecret(),
       pages,
       stats: visits.perSlug,
+      pixels,
       recent: visits.recent,
       truncated: visits.truncated,
     });

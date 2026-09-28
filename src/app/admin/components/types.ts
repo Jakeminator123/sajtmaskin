@@ -56,19 +56,29 @@ export interface KostnadsfriAdminPayload {
     sentAt: string | null;
     /** Who registered the send, e.g. `python-utskick`. */
     source: string | null;
+    unsubscribedAt: string | null;
   }[];
   stats: {
     slug: string;
     visits: number;
+    visitsByVariant: { rent: number; animated: number; unknown: number };
     uniqueVisitors: number;
+    uniqueByVariant: { rent: number; animated: number; unknown: number };
     verified: number;
     started: number;
     firstSeen: string;
     lastSeen: string;
   }[];
+  pixels: {
+    slug: string;
+    rent: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
+    animated: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
+  }[];
   recent: {
     slug: string;
     event: "besok" | "verifierad" | "skapad";
+    variant: "rent" | "animated" | null;
+    kod: string | null;
     at: string;
     userEmail: string | null;
     userId: string | null;

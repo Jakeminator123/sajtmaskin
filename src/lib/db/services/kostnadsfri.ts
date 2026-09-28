@@ -1,14 +1,29 @@
 import { and, desc, eq, gt, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { kostnadsfriPages, pageViews, users } from "@/lib/db/schema";
-import {
-  KOSTNADSFRI_PATH_PREFIX,
-  parseKostnadsfriAnalyticsPath,
-  type KostnadsfriAnalyticsEvent,
-} from "@/lib/kostnadsfri/analytics-paths";
+import { kostnadsfriPages, kostnadsfriPixelHits, pageViews, users } from "@/lib/db/schema";
+import { KOSTNADSFRI_PATH_PREFIX } from "@/lib/kostnadsfri/analytics-paths";
 import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profile";
+import { isKostnadsfriMailKind, type KostnadsfriMailKind } from "@/lib/kostnadsfri/mail-kind";
+import { shouldCountPixelHit } from "@/lib/kostnadsfri/pixel-token";
+import {
+  aggregateKostnadsfriPixelRows,
+  aggregateKostnadsfriVisitRows,
+  type KostnadsfriPixelSlugStats,
+  type KostnadsfriSlugStats,
+  type KostnadsfriVisitRow,
+} from "@/lib/kostnadsfri/visit-stats";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
+
+export type { KostnadsfriPixelSlugStats, KostnadsfriSlugStats, KostnadsfriVisitRow };
+
+function mergeMailKind(
+  extraData: Record<string, unknown> | undefined,
+  mailKind: KostnadsfriMailKind | undefined,
+): Record<string, unknown> | null {
+  if (!mailKind) return extraData || null;
+  return { ...(extraData || {}), mailKind };
+}
 
 export async function createKostnadsfriPage(data: {
   slug: string;
@@ -23,6 +38,8 @@ export async function createKostnadsfriPage(data: {
   /** Set when the row is created by a caller that already mailed the invite. */
   sentAt?: Date;
   source?: string;
+  /** Last registered mail sort. Optional; ignored when absent. */
+  mailKind?: KostnadsfriMailKind;
 }): Promise<KostnadsfriPage> {
   assertDbConfigured();
   const now = new Date();
@@ -36,7 +53,7 @@ export async function createKostnadsfriPage(data: {
       website: data.website || null,
       contact_email: data.contactEmail || null,
       contact_name: data.contactName || null,
-      extra_data: data.extraData || null,
+      extra_data: mergeMailKind(data.extraData, data.mailKind),
       status: "active",
       created_at: now,
       updated_at: now,
@@ -69,6 +86,7 @@ export async function markKostnadsfriPageSent(
     source: string;
     contactEmail?: string | null;
     extraDataPatch?: Record<string, unknown> | null;
+    mailKind?: KostnadsfriMailKind;
   },
 ): Promise<KostnadsfriPage | null> {
   assertDbConfigured();
@@ -85,9 +103,13 @@ export async function markKostnadsfriPageSent(
   };
   const contactEmail = data.contactEmail?.trim();
   if (contactEmail) updates.contact_email = contactEmail;
-  if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
+  const extraDataPatch = {
+    ...(data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0 ? data.extraDataPatch : {}),
+    ...(data.mailKind ? { mailKind: data.mailKind } : {}),
+  };
+  if (Object.keys(extraDataPatch).length > 0) {
     updates.extra_data = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
-      data.extraDataPatch,
+      extraDataPatch,
     )}::jsonb`;
   }
 
@@ -235,32 +257,6 @@ export async function listKostnadsfriPages(limit?: number): Promise<KostnadsfriP
 // VISIT STATISTICS (derived from page_views, see lib/kostnadsfri/analytics-paths)
 // ============================================================================
 
-export interface KostnadsfriSlugStats {
-  slug: string;
-  /** Landing-page loads. */
-  visits: number;
-  /** Distinct session/IP that loaded the landing page. */
-  uniqueVisitors: number;
-  /** Successful password verifications. */
-  verified: number;
-  /** Completed wizards (builder handoff created). */
-  started: number;
-  firstSeen: string;
-  lastSeen: string;
-}
-
-export interface KostnadsfriVisitRow {
-  slug: string;
-  event: KostnadsfriAnalyticsEvent;
-  at: string;
-  /** Email when the visitor was signed in, otherwise null. */
-  userEmail: string | null;
-  userId: string | null;
-  sessionId: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-}
-
 /**
  * Hard cap so a bot hammering the prefix cannot make the admin page unbounded.
  * Counts are aggregated in application code over the newest rows only, so when
@@ -299,58 +295,80 @@ export async function getKostnadsfriVisitStats(
     .orderBy(desc(pageViews.created_at))
     .limit(VISIT_ROW_LIMIT);
 
-  const bySlug = new Map<string, KostnadsfriSlugStats & { visitorKeys: Set<string> }>();
-  const recent: KostnadsfriVisitRow[] = [];
+  const { perSlug, recent } = aggregateKostnadsfriVisitRows(rows, recentLimit);
+  return { perSlug, recent, truncated: rows.length >= VISIT_ROW_LIMIT };
+}
 
-  for (const row of rows) {
-    const parsed = parseKostnadsfriAnalyticsPath(row.path);
-    if (!parsed) continue;
-    const at = new Date(row.created_at).toISOString();
+export async function getKostnadsfriPixelStats(days: number): Promise<KostnadsfriPixelSlugStats[]> {
+  assertDbConfigured();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
 
-    let entry = bySlug.get(parsed.slug);
-    if (!entry) {
-      entry = {
-        slug: parsed.slug,
-        visits: 0,
-        uniqueVisitors: 0,
-        verified: 0,
-        started: 0,
-        firstSeen: at,
-        lastSeen: at,
-        visitorKeys: new Set(),
-      };
-      bySlug.set(parsed.slug, entry);
-    }
-    // Rows arrive newest first, so the first row is the last visit.
-    if (at < entry.firstSeen) entry.firstSeen = at;
-    if (at > entry.lastSeen) entry.lastSeen = at;
+  const rows = await db
+    .select({
+      slug: kostnadsfriPixelHits.slug,
+      kind: kostnadsfriPixelHits.kind,
+      hit_count: kostnadsfriPixelHits.hit_count,
+      first_hit_at: kostnadsfriPixelHits.first_hit_at,
+      last_hit_at: kostnadsfriPixelHits.last_hit_at,
+    })
+    .from(kostnadsfriPixelHits)
+    .where(gt(kostnadsfriPixelHits.last_hit_at, startDate));
 
-    if (parsed.event === "besok") {
-      entry.visits += 1;
-      entry.visitorKeys.add(row.session_id || row.ip_address || `row:${at}`);
-    } else if (parsed.event === "verifierad") {
-      entry.verified += 1;
-    } else {
-      entry.started += 1;
-    }
+  return aggregateKostnadsfriPixelRows(rows);
+}
 
-    if (recent.length < recentLimit) {
-      recent.push({
-        slug: parsed.slug,
-        event: parsed.event,
-        at,
-        userEmail: row.user_email ?? null,
-        userId: row.user_id ?? null,
-        sessionId: row.session_id ?? null,
-        ipAddress: row.ip_address ?? null,
-        userAgent: row.user_agent ?? null,
-      });
-    }
+export async function recordKostnadsfriPixelHit(input: {
+  email: string;
+  slug: string;
+  kind: KostnadsfriMailKind;
+  at?: Date;
+}): Promise<{ counted: boolean }> {
+  assertDbConfigured();
+  if (!isKostnadsfriMailKind(input.kind)) return { counted: false };
+  const email = input.email.trim().toLowerCase();
+  const slug = input.slug.trim();
+  if (!email || !slug) return { counted: false };
+  const at = input.at ?? new Date();
+
+  const existing = await db
+    .select({
+      id: kostnadsfriPixelHits.id,
+      last_hit_at: kostnadsfriPixelHits.last_hit_at,
+    })
+    .from(kostnadsfriPixelHits)
+    .where(
+      and(
+        eq(kostnadsfriPixelHits.email, email),
+        eq(kostnadsfriPixelHits.slug, slug),
+        eq(kostnadsfriPixelHits.kind, input.kind),
+      ),
+    )
+    .limit(1);
+
+  const row = existing[0];
+  if (row && !shouldCountPixelHit(row.last_hit_at, at)) {
+    return { counted: false };
   }
 
-  const perSlug = [...bySlug.values()]
-    .map(({ visitorKeys, ...stats }) => ({ ...stats, uniqueVisitors: visitorKeys.size }))
-    .sort((a, b) => (a.lastSeen < b.lastSeen ? 1 : -1));
+  if (row) {
+    await db
+      .update(kostnadsfriPixelHits)
+      .set({
+        hit_count: sql`${kostnadsfriPixelHits.hit_count} + 1`,
+        last_hit_at: at,
+      })
+      .where(eq(kostnadsfriPixelHits.id, row.id));
+    return { counted: true };
+  }
 
-  return { perSlug, recent, truncated: rows.length >= VISIT_ROW_LIMIT };
+  await db.insert(kostnadsfriPixelHits).values({
+    email,
+    slug,
+    kind: input.kind,
+    hit_count: 1,
+    first_hit_at: at,
+    last_hit_at: at,
+  });
+  return { counted: true };
 }

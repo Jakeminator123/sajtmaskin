@@ -632,6 +632,32 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 });
 
 /**
+ * Debounced mail-pixel hits. One row per recipient + slug + kind so Gmail
+ * prefetch does not become twenty rows. Admin aggregates first/last/count
+ * per slug and kind. Emails stay server-side — never in the admin JSON.
+ */
+export const kostnadsfriPixelHits = pgTable(
+  "kostnadsfri_pixel_hits",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    slug: text("slug").notNull(),
+    kind: text("kind").notNull(),
+    hit_count: integer("hit_count").notNull().default(1),
+    first_hit_at: timestamptz("first_hit_at").defaultNow().notNull(),
+    last_hit_at: timestamptz("last_hit_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    emailSlugKindUnique: unique("kostnadsfri_pixel_hits_email_slug_kind_unique").on(
+      table.email,
+      table.slug,
+      table.kind,
+    ),
+    slugKindIdx: index("idx_kostnadsfri_pixel_hits_slug_kind").on(table.slug, table.kind),
+  }),
+);
+
+/**
  * Server-owned pilot entitlement. IDs are deliberately retained without FKs:
  * deleting a temporary project or account must not make an invitation
  * redeemable a second time.
