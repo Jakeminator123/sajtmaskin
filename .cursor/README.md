@@ -22,7 +22,7 @@ backloggstacken som rutin.
 - Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
 - Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Sol: Grok 4.6 Extra High Fast ur sessionens lista. Luna = mekanisk read-only,
+Sol: Grok 4.7 Extra High Fast (`grok-4.7-xhigh-fast`) ur sessionens lista. Luna = mekanisk read-only,
 Terra = uttrycklig lågrisk. Godnatt har egna profiler. Styr subagenter, inte
 sajtrouting. Kopiera inte en gammal slug.
 

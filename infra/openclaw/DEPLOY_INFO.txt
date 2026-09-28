@@ -131,7 +131,11 @@ Health semantics
 
 Device pairing and proxy warning
 --------------------------------
-The Control UI requires both the gateway token and one-time device approval:
+Login recipe (Swedish, step by step):
+docs/runbooks/openclaw-gateway.md#dashboard-inloggning
+
+The Control UI requires the gateway token plus one-time device approval.
+Password field is unused. Approve requestId, never deviceId:
 
   openclaw devices list --json
   openclaw devices approve <current-requestId>
