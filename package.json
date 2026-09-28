@@ -201,7 +201,7 @@
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "3.0.4",
     "@react-three/rapier": "^2.2.0",
-    "@shadcn/react": "0.2.1",
+    "@shadcn/react": "0.3.1",
     "@sparticuz/chromium": "^149.0.0",
     "@streamdown/code": "^1.1.1",
     "@tailwindcss/postcss": "^4.3.3",
