@@ -123,15 +123,15 @@ export function findManualMergePaths(paths, prefixes) {
 
 /** `<sha> <rubrik>`-rader från `git log --oneline` → strukturerade commits. */
 export function parseCommitLines(stdout) {
-  return String(stdout ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const match = /^([0-9a-f]{7,40})\s+(.*)$/i.exec(line);
-      return match ? { sha: match[1], subject: match[2] } : null;
-    })
-    .filter(Boolean);
+  const commits = [];
+  for (const raw of String(stdout ?? "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const match = /^([0-9a-f]{7,40})\s+(.*)$/i.exec(line);
+    if (!match?.[1] || match[2] === undefined) continue;
+    commits.push({ sha: match[1], subject: match[2] });
+  }
+  return commits;
 }
 
 /** Merge-commits beskriver inte vad som ändras — bara hur det kom hit. */
