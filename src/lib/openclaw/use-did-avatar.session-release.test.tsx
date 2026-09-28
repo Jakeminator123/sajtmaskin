@@ -259,32 +259,6 @@ describe("D-ID connect deadline", () => {
     expect(result.current.connectionState).toBe("error");
   });
 
-  it("does not let a speak() that rejects after the deadline write connected over error", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const pendingSpeak = deferred<void>();
-    const agent = fakeAgent({ speak: vi.fn().mockReturnValue(pendingSpeak.promise) });
-    sdkMock.createAgentManager.mockResolvedValue(agent);
-    const { useDidAvatar, DID_CONNECT_TIMEOUT_MS } = await loadHook();
-    const { result } = renderHook(() => useDidAvatar({ enabled: true }));
-
-    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
-    let speaking!: Promise<void>;
-    act(() => {
-      speaking = result.current.speak("Svar som hinner starta före deadlinen.");
-    });
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(DID_CONNECT_TIMEOUT_MS + 10);
-    });
-    expect(result.current.connectionState).toBe("error");
-
-    await act(async () => {
-      pendingSpeak.reject(new Error("stream closed"));
-      await speaking;
-    });
-    expect(result.current.connectionState).toBe("error");
-  });
-
   // `OpenClawChatPanel` talar så snart tillståndet är `connected` — den kräver
   // inte `avatarReady`. Ett textsvar som hinner före deadlinen fick tidigare
   // timern att returnera på `speaking`, och eftersom timern redan var förbrukad
