@@ -3160,7 +3160,7 @@ describe("trusted review-window controller", () => {
     });
   });
 
-  it("blockerar exakt head före labelborttagning på master-push och lämnar drafts orörda", async () => {
+  it("blockerar exakt head före labelborttagning på preview-push och lämnar drafts orörda", async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const client = {
       async paginate(path: string) {

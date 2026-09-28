@@ -56,7 +56,7 @@ objektets historiska `.base.sha` används uttryckligen inte. Senaste sign-off-
 kommentaren måste innehålla båda som exakt 40 hextecken, och GitHubs compare/
 merge-base måste bevisa att head innehåller den aktuella base-tipen. Saknas
 beviset eller har head/base flyttats tas labeln bort direkt. Därmed kan en
-gammal sign-off inte labelas in efter en synchronize- eller master-push-körning
+gammal sign-off inte labelas in efter en synchronize- eller preview-push-körning
 som redan hann se PR:n utan label.
 
 Grinden triggar dessutom på bot-`issue_comment`. Sekunder efter att en PR
@@ -86,7 +86,7 @@ någon. Författaren måste vara en mänsklig PR-författare, repoägare, medlem
 collaborator; botkvitton kan aldrig fungera som mänsklig sign-off. `at:`-fältet
 är läsbarhet — ordningen avgörs av GitHubs serverside-tider.
 
-När master flyttas publicerar samma betrodda workflow först ett
+När preview flyttas publicerar samma betrodda workflow först ett
 `action_required`-kvitto på varje öppen PR:s exakta head och tar sedan bort
 labeln. Därmed räcker inte en misslyckad labelskrivning för att lämna en gammal
 grön required check. Ny base kräver ny head, omkörning och sign-off.
@@ -173,9 +173,13 @@ inte `NEEDS_HUMAN` bara för att native strict saknas.
 
 GitHubs native UI kan inte skilja två checkpublicerare som båda är GitHub
 Actions-appen. Manuell webb-/API-merge och separat auto-merge är därför
-icke-kanoniska även när UI:n ser grön ut. Likvärdig UI-säkerhet kräver en separat
-GitHub App eller ett ruleset med required workflow; agentvägen är tills dess
-endast det betrodda `merge:execute`-kommandot.
+icke-kanoniska för PR:er mot `preview`, även när UI:n ser grön ut. Likvärdig
+UI-säkerhet kräver en separat GitHub App eller ett ruleset med required
+workflow. Agentvägen till `preview` är tills dess endast det betrodda
+`merge:execute`-kommandot. Controllern tar inte PR:er mot `master`. En
+promote-PR mergas manuellt först efter den extra produktionsbekräftelsen i
+samma chatt. Den manuella master-mergen är inte en väg för vanliga preview-PR:er
+och ersätter inte `merge:execute`.
 
 Den statiska namnreserveringen och jobb-/stegkontrollen är defense-in-depth, inte
 ett påstående att native UI-residualen är stängd. En obetrodd PR-ref kan försöka
@@ -189,8 +193,8 @@ stannar på master och startar när produktion promotas, eftersom det jobbet bä
 live-secrets och avvisar andra refs. `workflow_dispatch` är recursion-undantaget.
 Misslyckas eftersteget blir
 jobbet rött med `POST_MERGE_VERIFICATION_FAILED`; PR:n är redan mergad och
-återhämtningen är manuell base-invalidering plus båda dispatcherna, inte en ny
-merge.
+återhämtningen är manuell base-invalidering plus `workflow_dispatch` av
+`ci.yml` på preview, inte en ny merge.
 
 ## Varför fyndsvepet aldrig får vara ett tidsfönster
 

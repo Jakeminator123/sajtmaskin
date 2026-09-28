@@ -210,7 +210,7 @@ export function validateMergeExecuteMandate(input) {
     !SHA_PATTERN.test(input.baseSha ?? "") ||
     commandBase.toLowerCase() !== input.baseSha.toLowerCase()
   ) {
-    return { valid: false, reason: "merge:execute base-sha matchar inte aktuell master" };
+    return { valid: false, reason: "merge:execute base-sha matchar inte aktuell preview" };
   }
   if (!UTC_PATTERN.test(at) || Number.isNaN(Date.parse(at))) {
     return { valid: false, reason: "merge:execute kräver ett giltigt at-fält i UTC" };

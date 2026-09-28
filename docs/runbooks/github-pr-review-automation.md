@@ -6,7 +6,7 @@ ingen modell anropas när det inte finns en relevant PR-händelse.
 
 ## Triggers och parallellitet
 
-Workflowen reagerar på `pull_request_target` för `master` vid:
+Workflowen reagerar på `pull_request_target` för `preview` vid:
 
 - `opened`
 - `reopened`
@@ -23,7 +23,7 @@ kan granskas parallellt.
 `pull_request_target` behövs för att kunna kommentera även fork-PR:er med
 Actions inbyggda `GITHUB_TOKEN`. Därför gäller en hård gräns:
 
-- checkouten pekar alltid på den betrodda default-branchen (`master`),
+- checkouten pekar alltid på den betrodda default-branchen (`preview`),
 - PR-head eller merge-ref checkas aldrig ut,
 - inga dependencies, script, workflows eller andra filer från PR-head exekveras,
 - diff och aktuella relevanta filer hämtas via GitHub API och behandlas enbart

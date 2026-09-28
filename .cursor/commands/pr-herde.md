@@ -6,7 +6,7 @@ Körordningen ägs av
 och grinden av [`pr-merge.mdc`](../rules/pr-merge.mdc). Kommandot äger bara kön.
 
 1. Lista öppna PR:er och sortera bort drafts, blockerande labels,
-   adminspärrade Godnatt-PR:er och EmaCodeHero mot `master`.
+   adminspärrade Godnatt-PR:er och alla PR:er från EmaCodeHero.
 2. Saknas giltig `merge:ready` från författaren: rapportera exakt vad som
    fattas och gå vidare. Steward sätter aldrig signalen åt någon annan.
 3. För aktuell head-SHA, läs samtliga ytor: PR-comments, inline comments,
