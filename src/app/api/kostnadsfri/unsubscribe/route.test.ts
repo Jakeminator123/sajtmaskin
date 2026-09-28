@@ -54,7 +54,7 @@ describe("POST /api/kostnadsfri/unsubscribe", () => {
   });
 
   it("rejects a pixel-open token without touching the register", async () => {
-    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     expect((await POST(post(token))).status).toBe(400);
     expect(markKostnadsfriPageUnsubscribed).not.toHaveBeenCalled();
   });

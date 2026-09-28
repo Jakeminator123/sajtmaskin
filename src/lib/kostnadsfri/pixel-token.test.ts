@@ -10,22 +10,37 @@ import {
 const ENV = { KOSTNADSFRI_PASSWORD_SEED: "test-pixel-seed" };
 
 describe("kostnadsfri pixel token", () => {
-  it("round-trips email and slug with compact JSON payload", () => {
-    const token = createPixelToken({ email: "  Ada@Acme.se ", slug: "acme-ab" }, ENV);
+  it("round-trips email, slug and kind inside the signed payload", () => {
+    const token = createPixelToken(
+      { email: "  Ada@Acme.se ", slug: "acme-ab", kind: "animated" },
+      ENV,
+    );
     expect(token).toBeTruthy();
-    expect(verifyPixelToken(token, ENV)).toEqual({ email: "ada@acme.se", slug: "acme-ab" });
+    expect(verifyPixelToken(token, ENV)).toEqual({
+      email: "ada@acme.se",
+      slug: "acme-ab",
+      kind: "animated",
+    });
     const encoded = token!.split(".")[0];
     expect(Buffer.from(encoded, "base64url").toString("utf8")).toBe(
-      '{"email":"ada@acme.se","slug":"acme-ab"}',
+      '{"email":"ada@acme.se","slug":"acme-ab","kind":"animated"}',
     );
     expect(encoded).not.toContain("=");
   });
 
   it("rejects a tampered token and a missing seed", () => {
-    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     expect(verifyPixelToken(`${token}x`, ENV)).toBeNull();
     expect(verifyPixelToken(token, { KOSTNADSFRI_PASSWORD_SEED: "other" })).toBeNull();
-    expect(createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, {})).toBeNull();
+    expect(createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, {})).toBeNull();
+  });
+
+  it("rejects a token whose kind was edited without a new signature", () => {
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV)!;
+    const [encoded, signature] = token.split(".");
+    const json = Buffer.from(encoded, "base64url").toString("utf8").replace("rent", "animated");
+    const swapped = `${Buffer.from(json, "utf8").toString("base64url")}.${signature}`;
+    expect(verifyPixelToken(swapped, ENV)).toBeNull();
   });
 
   it("does not accept an unsubscribe token as a pixel token", () => {
@@ -34,18 +49,18 @@ describe("kostnadsfri pixel token", () => {
   });
 
   it("does not accept a pixel token as an unsubscribe token", () => {
-    const open = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    const open = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     expect(verifyUnsubscribeToken(open, ENV)).toBeNull();
     expect(verifyKostnadsfriSignedToken("kostnadsfri-unsub-v1", open, ENV)).toBeNull();
   });
 
-  it("signs the open purpose string over the encoded payload", () => {
+  it("rejects an open-purpose token that does not sign kind", () => {
     const token = createKostnadsfriSignedToken(
       KOSTNADSFRI_OPEN_PURPOSE,
       { email: "ada@acme.se", slug: "acme-ab" },
       ENV,
     );
-    expect(verifyPixelToken(token, ENV)).toEqual({ email: "ada@acme.se", slug: "acme-ab" });
+    expect(verifyPixelToken(token, ENV)).toBeNull();
   });
 });
 

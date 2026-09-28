@@ -369,10 +369,7 @@ const setupQueries = [
     email TEXT NOT NULL,
     slug TEXT NOT NULL,
     kind TEXT NOT NULL,
-    hit_count INTEGER NOT NULL DEFAULT 1,
-    first_hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT kostnadsfri_pixel_hits_email_slug_kind_unique UNIQUE (email, slug, kind)
+    hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`,
   `CREATE TABLE IF NOT EXISTS kostnadsfri_campaign_entitlements (
     id TEXT PRIMARY KEY,
@@ -774,7 +771,8 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_user_integrations_project_id ON user_integrations(project_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS template_cache_template_user_idx ON template_cache(template_id, user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pages_slug ON kostnadsfri_pages(slug)`,
-  `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_slug_kind ON kostnadsfri_pixel_hits(slug, kind)`,
+  `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_recipient ON kostnadsfri_pixel_hits(email, slug, kind, hit_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_period ON kostnadsfri_pixel_hits(hit_at)`,
   // Registry cache for shadcn/ui block picker
   `CREATE TABLE IF NOT EXISTS registry_cache (
     base_url TEXT NOT NULL,

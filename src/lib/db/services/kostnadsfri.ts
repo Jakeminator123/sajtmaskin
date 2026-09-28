@@ -308,12 +308,10 @@ export async function getKostnadsfriPixelStats(days: number): Promise<Kostnadsfr
     .select({
       slug: kostnadsfriPixelHits.slug,
       kind: kostnadsfriPixelHits.kind,
-      hit_count: kostnadsfriPixelHits.hit_count,
-      first_hit_at: kostnadsfriPixelHits.first_hit_at,
-      last_hit_at: kostnadsfriPixelHits.last_hit_at,
+      hit_at: kostnadsfriPixelHits.hit_at,
     })
     .from(kostnadsfriPixelHits)
-    .where(gt(kostnadsfriPixelHits.last_hit_at, startDate));
+    .where(gt(kostnadsfriPixelHits.hit_at, startDate));
 
   return aggregateKostnadsfriPixelRows(rows);
 }
@@ -333,8 +331,7 @@ export async function recordKostnadsfriPixelHit(input: {
 
   const existing = await db
     .select({
-      id: kostnadsfriPixelHits.id,
-      last_hit_at: kostnadsfriPixelHits.last_hit_at,
+      hit_at: kostnadsfriPixelHits.hit_at,
     })
     .from(kostnadsfriPixelHits)
     .where(
@@ -344,31 +341,19 @@ export async function recordKostnadsfriPixelHit(input: {
         eq(kostnadsfriPixelHits.kind, input.kind),
       ),
     )
+    .orderBy(desc(kostnadsfriPixelHits.hit_at))
     .limit(1);
 
   const row = existing[0];
-  if (row && !shouldCountPixelHit(row.last_hit_at, at)) {
+  if (row && !shouldCountPixelHit(row.hit_at, at)) {
     return { counted: false };
-  }
-
-  if (row) {
-    await db
-      .update(kostnadsfriPixelHits)
-      .set({
-        hit_count: sql`${kostnadsfriPixelHits.hit_count} + 1`,
-        last_hit_at: at,
-      })
-      .where(eq(kostnadsfriPixelHits.id, row.id));
-    return { counted: true };
   }
 
   await db.insert(kostnadsfriPixelHits).values({
     email,
     slug,
     kind: input.kind,
-    hit_count: 1,
-    first_hit_at: at,
-    last_hit_at: at,
+    hit_at: at,
   });
   return { counted: true };
 }

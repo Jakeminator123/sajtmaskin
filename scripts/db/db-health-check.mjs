@@ -294,10 +294,10 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
   kostnadsfri_pixel_hits: [
     {
-      name: "kostnadsfri_pixel_hits_email_slug_kind_unique",
-      columns: ["email", "slug", "kind"],
+      name: "idx_kostnadsfri_pixel_hits_recipient",
+      columns: ["email", "slug", "kind", "hit_at"],
     },
-    { name: "idx_kostnadsfri_pixel_hits_slug_kind", columns: ["slug", "kind"] },
+    { name: "idx_kostnadsfri_pixel_hits_period", columns: ["hit_at"] },
   ],
   user_audits: [
     { name: "idx_user_audits_user_id", columns: ["user_id"] },

@@ -1,18 +1,23 @@
+import { isKostnadsfriMailKind, type KostnadsfriMailKind } from "./mail-kind";
 import {
   KOSTNADSFRI_OPEN_PURPOSE,
   createKostnadsfriSignedToken,
   verifyKostnadsfriSignedToken,
   type KostnadsfriTokenEnvLookup,
-  type KostnadsfriTokenPayload,
 } from "./signed-token";
 
-export type PixelTokenPayload = KostnadsfriTokenPayload;
+export type PixelTokenPayload = {
+  email: string;
+  slug: string;
+  kind: KostnadsfriMailKind;
+};
 export type PixelTokenEnvLookup = KostnadsfriTokenEnvLookup;
 
 export function createPixelToken(
   input: PixelTokenPayload,
   env: PixelTokenEnvLookup = process.env,
 ): string | null {
+  if (!isKostnadsfriMailKind(input.kind)) return null;
   return createKostnadsfriSignedToken(KOSTNADSFRI_OPEN_PURPOSE, input, env);
 }
 
@@ -20,7 +25,9 @@ export function verifyPixelToken(
   token: string | null | undefined,
   env: PixelTokenEnvLookup = process.env,
 ): PixelTokenPayload | null {
-  return verifyKostnadsfriSignedToken(KOSTNADSFRI_OPEN_PURPOSE, token, env);
+  const payload = verifyKostnadsfriSignedToken(KOSTNADSFRI_OPEN_PURPOSE, token, env);
+  if (!payload || !isKostnadsfriMailKind(payload.kind)) return null;
+  return { email: payload.email, slug: payload.slug, kind: payload.kind };
 }
 
 export const PIXEL_DEBOUNCE_MS = 30 * 60 * 1000;

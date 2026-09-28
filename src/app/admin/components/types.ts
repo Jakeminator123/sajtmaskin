@@ -78,7 +78,6 @@ export interface KostnadsfriAdminPayload {
     slug: string;
     event: "besok" | "verifierad" | "skapad";
     variant: "rent" | "animated" | null;
-    kod: string | null;
     at: string;
     userEmail: string | null;
     userId: string | null;

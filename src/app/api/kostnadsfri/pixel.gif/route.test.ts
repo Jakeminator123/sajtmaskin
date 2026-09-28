@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe("GET /api/kostnadsfri/pixel.gif", () => {
   it("counts a valid token with kind=rent", async () => {
-    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     const res = await get(
       `http://localhost/api/kostnadsfri/pixel.gif?token=${encodeURIComponent(token!)}&kind=rent`,
     );
@@ -60,7 +60,7 @@ describe("GET /api/kostnadsfri/pixel.gif", () => {
   });
 
   it("returns a GIF without counting when kind is missing or unknown", async () => {
-    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     await assertGif(
       await get(`http://localhost/api/kostnadsfri/pixel.gif?token=${encodeURIComponent(token!)}`),
     );
@@ -87,15 +87,30 @@ describe("GET /api/kostnadsfri/pixel.gif", () => {
     expect(recordKostnadsfriPixelHit).not.toHaveBeenCalled();
   });
 
-  it("still returns a GIF when the database write fails", async () => {
-    recordKostnadsfriPixelHit.mockRejectedValueOnce(new Error("db down"));
-    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab" }, ENV);
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("does not count when the query kind disagrees with the signed kind", async () => {
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
     await assertGif(
       await get(
         `http://localhost/api/kostnadsfri/pixel.gif?token=${encodeURIComponent(token!)}&kind=animated`,
       ),
     );
+    expect(recordKostnadsfriPixelHit).not.toHaveBeenCalled();
+  });
+
+  it("still returns a GIF when the database write fails", async () => {
+    recordKostnadsfriPixelHit.mockRejectedValueOnce(new Error("db down"));
+    const token = createPixelToken({ email: "ada@acme.se", slug: "acme-ab", kind: "rent" }, ENV);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    await assertGif(
+      await get(
+        `http://localhost/api/kostnadsfri/pixel.gif?token=${encodeURIComponent(token!)}&kind=rent`,
+      ),
+    );
+    expect(recordKostnadsfriPixelHit).toHaveBeenCalledWith({
+      email: "ada@acme.se",
+      slug: "acme-ab",
+      kind: "rent",
+    });
     consoleError.mockRestore();
   });
 });

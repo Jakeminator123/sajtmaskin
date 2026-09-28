@@ -1,20 +1,21 @@
 -- Pixel-träffar för kostnadsfri-mejlen (rent | animated).
--- Additiv CREATE: gammal kod rör inte tabellen. UNIQUE ligger i CREATE TABLE
--- så preview-grinden inte klassar ett fristående unikt index som brytande.
+-- En rad per räknad träff (30 min debounce i appen), så admin kan räkna
+-- träffar inom vald period. Livstidssumma lagras inte på raden.
+-- Additiv CREATE: gammal kod rör inte tabellen.
 -- E-post stannar server-side; admin aggregerar per slug och kind.
 CREATE TABLE IF NOT EXISTS kostnadsfri_pixel_hits (
   id BIGSERIAL PRIMARY KEY,
   email TEXT NOT NULL,
   slug TEXT NOT NULL,
   kind TEXT NOT NULL,
-  hit_count INTEGER NOT NULL DEFAULT 1,
-  first_hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT kostnadsfri_pixel_hits_email_slug_kind_unique UNIQUE (email, slug, kind)
+  hit_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_slug_kind
-  ON kostnadsfri_pixel_hits (slug, kind);
+CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_recipient
+  ON kostnadsfri_pixel_hits (email, slug, kind, hit_at);
+
+CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pixel_hits_period
+  ON kostnadsfri_pixel_hits (hit_at);
 
 ALTER TABLE kostnadsfri_pixel_hits ENABLE ROW LEVEL SECURITY;
 DO $$

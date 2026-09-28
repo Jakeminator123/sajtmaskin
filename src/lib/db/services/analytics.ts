@@ -1,6 +1,7 @@
 import { and, desc, gt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { appProjects, guestUsage, pageViews, users } from "@/lib/db/schema";
+import { stripKostnadsfriKod } from "@/lib/kostnadsfri/analytics-paths";
 import { assertDbConfigured } from "./shared";
 
 const PATH_MAX = 512;
@@ -25,15 +26,16 @@ export async function recordPageView(
   referrer?: string,
 ): Promise<void> {
   assertDbConfigured();
-  const clippedPath = clipAnalyticsField(path, PATH_MAX);
+  const clippedPath = clipAnalyticsField(stripKostnadsfriKod(path), PATH_MAX);
   if (!clippedPath) return;
+  const safeReferrer = referrer ? stripKostnadsfriKod(referrer) : referrer;
   await db.insert(pageViews).values({
     path: clippedPath,
     session_id: clipAnalyticsField(sessionId, SESSION_MAX),
     user_id: userId || null,
     ip_address: clipAnalyticsField(ipAddress, IP_MAX),
     user_agent: clipAnalyticsField(userAgent, USER_AGENT_MAX),
-    referrer: clipAnalyticsField(referrer, REFERRER_MAX),
+    referrer: clipAnalyticsField(safeReferrer, REFERRER_MAX),
     created_at: new Date(),
   });
 }
@@ -117,9 +119,9 @@ export async function getAnalyticsStats(days = 30): Promise<{
     .orderBy(desc(sql`count(*)`))
     .limit(10);
 
-  const topReferrers = topReferrersRaw.filter(
-    (referrer): referrer is { referrer: string; count: number } => referrer.referrer !== null,
-  );
+  const topReferrers = topReferrersRaw
+    .filter((referrer): referrer is { referrer: string; count: number } => referrer.referrer !== null)
+    .map((referrer) => ({ ...referrer, referrer: stripKostnadsfriKod(referrer.referrer) }));
 
   return {
     days,
@@ -137,7 +139,10 @@ export async function getAnalyticsStats(days = 30): Promise<{
       totalGenerations: "all_time",
       totalRefines: "all_time",
     },
-    recentPageViews,
+    recentPageViews: recentPageViews.map((row) => ({
+      ...row,
+      path: stripKostnadsfriKod(row.path),
+    })),
     dailyViews,
     topReferrers,
   };

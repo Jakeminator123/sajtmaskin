@@ -42,6 +42,22 @@ describe("recordPageView session_id", () => {
     );
   });
 
+  it("does not store kod from the analytics path or the referrer", async () => {
+    await recordPageView(
+      "/kostnadsfri/ikea-ab?kod=hemligt&variant=rent",
+      "sess",
+      undefined,
+      "1.2.3.4",
+      "ua",
+      "https://sajtmaskin.se/kostnadsfri/ikea-ab?kod=hemligt&variant=animated",
+    );
+
+    const stored = insertValues.mock.calls[0][0] as { path: string; referrer: string };
+    expect(stored.path).toBe("/kostnadsfri/ikea-ab?variant=rent");
+    expect(stored.referrer).toBe("https://sajtmaskin.se/kostnadsfri/ikea-ab?variant=animated");
+    expect(JSON.stringify(stored)).not.toContain("hemligt");
+  });
+
   it("drops blank session_id instead of storing whitespace", async () => {
     await recordPageView("/builder", "   ");
 

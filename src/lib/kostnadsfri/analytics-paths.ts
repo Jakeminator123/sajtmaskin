@@ -7,8 +7,9 @@
  * table as synthetic paths so the admin console can show, per slug, how far
  * each invited company got — without a second event table.
  *
- * Mail variant (`rent` | `animated`) and an optional `kod` live on the query
- * string of the landing visit. Missing variant means an older mail.
+ * Mail variant (`rent` | `animated`) lives on the query string of the landing
+ * visit. Missing variant means an older mail. `kod` is an invite secret and is
+ * never stored on the analytics path or returned to admin.
  *
  * Client-safe: no Node imports (the flow page bundles this file).
  */
@@ -32,8 +33,6 @@ export type KostnadsfriParsedPath = {
   event: KostnadsfriAnalyticsEvent;
   /** Landing-visit mail sort. Null = older mail without ?variant=. */
   variant: KostnadsfriMailKind | null;
-  /** Optional code already on the invite URL, stored beside variant. */
-  kod: string | null;
 };
 
 const EVENT_SEGMENTS: Record<Exclude<KostnadsfriAnalyticsEvent, "besok">, string> = {
@@ -44,7 +43,6 @@ const EVENT_SEGMENTS: Record<Exclude<KostnadsfriAnalyticsEvent, "besok">, string
 /** Same shape the dash lookup accepts: lowercase company slugs, not arbitrary tokens. */
 const INVITE_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const INVITE_SLUG_MAX = 120;
-const KOD_MAX = 120;
 
 export function isInviteSlug(slug: string): boolean {
   return slug.length > 0 && slug.length <= INVITE_SLUG_MAX && INVITE_SLUG_RE.test(slug);
@@ -60,11 +58,28 @@ export function classifyKostnadsfriSlug(slug: string, registered: boolean): Kost
   return registered ? "utskick" : "ej_utskick";
 }
 
-export function parseKostnadsfriKod(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > KOD_MAX) return null;
-  return trimmed;
+/**
+ * Drop every `kod` query parameter from a path or absolute URL.
+ * Other parameters, including `variant`, stay. Used before analytics storage
+ * so an invite code cannot land in `page_views.path` or `referrer`.
+ */
+export function stripKostnadsfriKod(value: string): string {
+  const hashIndex = value.indexOf("#");
+  const hash = hashIndex >= 0 ? value.slice(hashIndex) : "";
+  const withoutHash = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+  const queryIndex = withoutHash.indexOf("?");
+  if (queryIndex < 0) return value;
+  const params = new URLSearchParams(withoutHash.slice(queryIndex + 1));
+  let removed = false;
+  for (const key of [...params.keys()]) {
+    if (key.toLowerCase() !== "kod") continue;
+    params.delete(key);
+    removed = true;
+  }
+  if (!removed) return value;
+  const qs = params.toString();
+  const base = withoutHash.slice(0, queryIndex);
+  return qs ? `${base}?${qs}${hash}` : `${base}${hash}`;
 }
 
 function splitPathAndQuery(path: string): { pathname: string; search: string } {
@@ -73,39 +88,32 @@ function splitPathAndQuery(path: string): { pathname: string; search: string } {
   return { pathname: path.slice(0, q), search: path.slice(q + 1) };
 }
 
-function readVisitQuery(search: string): { variant: KostnadsfriMailKind | null; kod: string | null } {
-  if (!search) return { variant: null, kod: null };
-  const params = new URLSearchParams(search);
-  return {
-    variant: parseKostnadsfriMailKind(params.get("variant")),
-    kod: parseKostnadsfriKod(params.get("kod")),
-  };
+function readVisitQuery(search: string): { variant: KostnadsfriMailKind | null } {
+  if (!search) return { variant: null };
+  return { variant: parseKostnadsfriMailKind(new URLSearchParams(search).get("variant")) };
 }
 
 /** Path of the landing page itself — what the analytics tracker records. */
 export function kostnadsfriVisitPath(
   slug: string,
-  query?: { variant?: KostnadsfriMailKind | null; kod?: string | null },
+  query?: { variant?: KostnadsfriMailKind | null },
 ): string {
   const base = `${KOSTNADSFRI_PATH_PREFIX}${slug}`;
-  const params = new URLSearchParams();
-  const kod = query?.kod ? parseKostnadsfriKod(query.kod) : null;
   const variant = query?.variant ? parseKostnadsfriMailKind(query.variant) : null;
-  if (kod) params.set("kod", kod);
-  if (variant) params.set("variant", variant);
-  const qs = params.toString();
-  return qs ? `${base}?${qs}` : base;
+  return variant ? `${base}?variant=${variant}` : base;
 }
 
 /**
- * Appends only `kod` and `variant` from a live URL onto a landing pathname so
- * the existing page_views row carries the mail sort beside any code.
+ * Landing pathname plus only the allowlisted mail variant. `kod` is dropped
+ * even when the live URL still carries it for the visitor.
  */
 export function kostnadsfriTrackedVisitPath(pathname: string, search: string): string {
   const parsed = parseKostnadsfriAnalyticsPath(pathname);
-  if (!parsed || parsed.event !== "besok") return pathname;
+  if (!parsed || parsed.event !== "besok") return stripKostnadsfriKod(pathname);
   const query = readVisitQuery(search.startsWith("?") ? search.slice(1) : search);
-  return kostnadsfriVisitPath(parsed.slug, query);
+  return kostnadsfriVisitPath(parsed.slug, {
+    variant: query.variant ?? parsed.variant,
+  });
 }
 
 /** Synthetic path for a funnel step, e.g. `/kostnadsfri/ikea-ab/verifierad`. */
@@ -130,12 +138,12 @@ export function isServerOnlyKostnadsfriPath(path: string): boolean {
 
 /**
  * Reverse of the two builders above. Returns `null` for anything that is not a
- * kostnadsfri path, including deeper or unknown sub-paths. Query `variant` and
- * `kod` are read on landing visits; unknown variant values are treated as missing
- * (older mail).
+ * kostnadsfri path, including deeper or unknown sub-paths. Query `variant` is
+ * read on landing visits; unknown variant values are treated as missing
+ * (older mail). `kod` is ignored so a stored or replayed path cannot surface it.
  */
 export function parseKostnadsfriAnalyticsPath(path: string): KostnadsfriParsedPath | null {
-  const { pathname, search } = splitPathAndQuery(path);
+  const { pathname, search } = splitPathAndQuery(stripKostnadsfriKod(path));
   if (!pathname.startsWith(KOSTNADSFRI_PATH_PREFIX)) return null;
   const rest = pathname.slice(KOSTNADSFRI_PATH_PREFIX.length).replace(/\/+$/, "");
   if (!rest) return null;
@@ -144,13 +152,13 @@ export function parseKostnadsfriAnalyticsPath(path: string): KostnadsfriParsedPa
   if (!slug || deeper.length > 0) return null;
   const query = readVisitQuery(search);
   if (segment === undefined || segment === "") {
-    return { slug, event: "besok", variant: query.variant, kod: query.kod };
+    return { slug, event: "besok", variant: query.variant };
   }
   if (segment === EVENT_SEGMENTS.verifierad) {
-    return { slug, event: "verifierad", variant: query.variant, kod: query.kod };
+    return { slug, event: "verifierad", variant: query.variant };
   }
   if (segment === EVENT_SEGMENTS.skapad) {
-    return { slug, event: "skapad", variant: query.variant, kod: query.kod };
+    return { slug, event: "skapad", variant: query.variant };
   }
   return null;
 }

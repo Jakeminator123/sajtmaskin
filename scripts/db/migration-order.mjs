@@ -159,8 +159,9 @@ export const MIGRATION_ORDER = [
   // Structured audit→builder handoff: payload stays server-side; GET only
   // exposes payloadKind + domain for the composer chip.
   "add-prompt-handoffs-payload.sql",
-  // Kostnadsfri mail-pixel (rent | animated). Rent additiv CREATE; e-post
-  // stannar server-side och aggregeras per slug och kind i admin.
+  // Kostnadsfri mail-pixel (rent | animated). Rent additiv CREATE. En rad per
+  // räknad träff så admin kan summera träffar inom vald period. E-post stannar
+  // server-side.
   "add-kostnadsfri-pixel-hits.sql",
 ];
 

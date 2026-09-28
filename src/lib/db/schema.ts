@@ -632,9 +632,10 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 });
 
 /**
- * Debounced mail-pixel hits. One row per recipient + slug + kind so Gmail
- * prefetch does not become twenty rows. Admin aggregates first/last/count
- * per slug and kind. Emails stay server-side — never in the admin JSON.
+ * Debounced mail-pixel hits. One row per counted hit (30 min per recipient,
+ * slug and kind) so a period query can count `hit_at` inside the window.
+ * A lifetime counter on the row would show old hits as “today”. Emails stay
+ * server-side — never in the admin JSON.
  */
 export const kostnadsfriPixelHits = pgTable(
   "kostnadsfri_pixel_hits",
@@ -643,17 +644,16 @@ export const kostnadsfriPixelHits = pgTable(
     email: text("email").notNull(),
     slug: text("slug").notNull(),
     kind: text("kind").notNull(),
-    hit_count: integer("hit_count").notNull().default(1),
-    first_hit_at: timestamptz("first_hit_at").defaultNow().notNull(),
-    last_hit_at: timestamptz("last_hit_at").defaultNow().notNull(),
+    hit_at: timestamptz("hit_at").defaultNow().notNull(),
   },
   (table) => ({
-    emailSlugKindUnique: unique("kostnadsfri_pixel_hits_email_slug_kind_unique").on(
+    recipientIdx: index("idx_kostnadsfri_pixel_hits_recipient").on(
       table.email,
       table.slug,
       table.kind,
+      table.hit_at,
     ),
-    slugKindIdx: index("idx_kostnadsfri_pixel_hits_slug_kind").on(table.slug, table.kind),
+    periodIdx: index("idx_kostnadsfri_pixel_hits_period").on(table.hit_at),
   }),
 );
 

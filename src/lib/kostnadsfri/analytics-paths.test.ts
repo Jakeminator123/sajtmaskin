@@ -8,6 +8,7 @@ import {
   kostnadsfriTrackedVisitPath,
   kostnadsfriVisitPath,
   parseKostnadsfriAnalyticsPath,
+  stripKostnadsfriKod,
 } from "./analytics-paths";
 
 describe("kostnadsfri analytics paths", () => {
@@ -16,16 +17,14 @@ describe("kostnadsfri analytics paths", () => {
       slug: "jakobs-foretag-ab",
       event: "besok",
       variant: null,
-      kod: null,
     });
     expect(
       parseKostnadsfriAnalyticsPath(kostnadsfriEventPath("jakobs-foretag-ab", "verifierad")),
-    ).toEqual({ slug: "jakobs-foretag-ab", event: "verifierad", variant: null, kod: null });
+    ).toEqual({ slug: "jakobs-foretag-ab", event: "verifierad", variant: null });
     expect(parseKostnadsfriAnalyticsPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toEqual({
       slug: "ikea-ab",
       event: "skapad",
       variant: null,
-      kod: null,
     });
   });
 
@@ -34,31 +33,39 @@ describe("kostnadsfri analytics paths", () => {
       slug: "ikea-ab",
       event: "besok",
       variant: "rent",
-      kod: null,
     });
-    expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab?kod=hemligt&variant=animated")).toEqual(
-      {
-        slug: "ikea-ab",
-        event: "besok",
-        variant: "animated",
-        kod: "hemligt",
-      },
+    const withCode = parseKostnadsfriAnalyticsPath(
+      "/kostnadsfri/ikea-ab?kod=hemligt&variant=animated",
     );
+    expect(withCode).toEqual({
+      slug: "ikea-ab",
+      event: "besok",
+      variant: "animated",
+    });
+    expect(JSON.stringify(withCode)).not.toContain("hemligt");
     expect(parseKostnadsfriAnalyticsPath("/kostnadsfri/ikea-ab?variant=standardmail")).toEqual({
       slug: "ikea-ab",
       event: "besok",
       variant: null,
-      kod: null,
     });
   });
 
-  it("keeps kod and appends variant when the query already has a code", () => {
-    expect(kostnadsfriVisitPath("ikea-ab", { kod: "abc", variant: "rent" })).toBe(
-      "/kostnadsfri/ikea-ab?kod=abc&variant=rent",
+  it("keeps variant for analytics and drops kod from the stored path and referrer", () => {
+    expect(kostnadsfriVisitPath("ikea-ab", { variant: "rent" })).toBe(
+      "/kostnadsfri/ikea-ab?variant=rent",
     );
     expect(kostnadsfriTrackedVisitPath("/kostnadsfri/ikea-ab", "?kod=abc&variant=animated")).toBe(
-      "/kostnadsfri/ikea-ab?kod=abc&variant=animated",
+      "/kostnadsfri/ikea-ab?variant=animated",
     );
+    expect(kostnadsfriTrackedVisitPath("/kostnadsfri/ikea-ab", "?kod=hemligt")).toBe(
+      "/kostnadsfri/ikea-ab",
+    );
+    expect(
+      stripKostnadsfriKod("https://sajtmaskin.se/kostnadsfri/ikea-ab?kod=hemligt&variant=rent"),
+    ).toBe("https://sajtmaskin.se/kostnadsfri/ikea-ab?variant=rent");
+    expect(
+      stripKostnadsfriKod("https://sajtmaskin.se/pris?Kod=hemligt#kampanj"),
+    ).toBe("https://sajtmaskin.se/pris#kampanj");
   });
 
   it("tolerates a trailing slash on the landing page", () => {
@@ -66,7 +73,6 @@ describe("kostnadsfri analytics paths", () => {
       slug: "ikea-ab",
       event: "besok",
       variant: null,
-      kod: null,
     });
   });
 

@@ -32,7 +32,6 @@ export interface KostnadsfriVisitRow {
   slug: string;
   event: KostnadsfriAnalyticsEvent;
   variant: KostnadsfriMailKind | null;
-  kod: string | null;
   at: string;
   userEmail: string | null;
   userId: string | null;
@@ -114,7 +113,6 @@ export function aggregateKostnadsfriVisitRows(
         slug: parsed.slug,
         event: parsed.event,
         variant: parsed.variant,
-        kod: parsed.kod,
         at,
         userEmail: row.user_email ?? null,
         userId: row.user_id ?? null,
@@ -152,12 +150,11 @@ export type KostnadsfriPixelSlugStats = {
   animated: KostnadsfriPixelKindStats;
 };
 
+/** One counted pixel hit. There is no lifetime counter on the row. */
 export type KostnadsfriPixelSourceRow = {
   slug: string;
   kind: string;
-  hit_count: number;
-  first_hit_at: Date | string;
-  last_hit_at: Date | string;
+  hit_at: Date | string;
 };
 
 function emptyPixelKind(): KostnadsfriPixelKindStats {
@@ -170,8 +167,9 @@ function toIso(value: Date | string): string {
 }
 
 /**
- * Collapse per-recipient pixel rows into per-slug rent/animated totals.
- * A row whose last hit is outside the caller’s period should already be filtered.
+ * Collapse individual pixel hits into per-slug rent/animated totals.
+ * Each row counts as one hit. Callers that want a period must pass only hits
+ * inside it — summing a lifetime counter would label old hits as “today”.
  */
 export function aggregateKostnadsfriPixelRows(rows: KostnadsfriPixelSourceRow[]): KostnadsfriPixelSlugStats[] {
   const bySlug = new Map<string, KostnadsfriPixelSlugStats>();
@@ -184,14 +182,27 @@ export function aggregateKostnadsfriPixelRows(rows: KostnadsfriPixelSourceRow[])
       bySlug.set(row.slug, entry);
     }
     const kind = row.kind;
-    const first = toIso(row.first_hit_at);
-    const last = toIso(row.last_hit_at);
-    entry[kind].hits += row.hit_count;
-    if (!entry[kind].firstHitAt || first < entry[kind].firstHitAt) entry[kind].firstHitAt = first;
-    if (!entry[kind].lastHitAt || last > entry[kind].lastHitAt) entry[kind].lastHitAt = last;
+    const at = toIso(row.hit_at);
+    entry[kind].hits += 1;
+    if (!entry[kind].firstHitAt || at < entry[kind].firstHitAt) entry[kind].firstHitAt = at;
+    if (!entry[kind].lastHitAt || at > entry[kind].lastHitAt) entry[kind].lastHitAt = at;
   }
 
   return [...bySlug.values()];
+}
+
+/** Hits strictly after `periodStart`. Older hits on the same row do not exist. */
+export function pixelHitsWithinPeriod(
+  rows: KostnadsfriPixelSourceRow[],
+  periodStart: Date,
+): KostnadsfriPixelSlugStats[] {
+  const start = periodStart.getTime();
+  return aggregateKostnadsfriPixelRows(
+    rows.filter((row) => {
+      const at = new Date(row.hit_at).getTime();
+      return Number.isFinite(at) && at > start;
+    }),
+  );
 }
 
 export function pixelHitsTotal(pixels: KostnadsfriPixelSlugStats | null | undefined): number {
