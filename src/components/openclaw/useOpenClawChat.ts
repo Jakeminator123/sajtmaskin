@@ -14,7 +14,9 @@ import {
 } from "@/lib/kostnadsfri/agent-campaign-script";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
-  parseGatewayStream,
+  consumeGatewayStream,
+  logOpenClawChatStreamEnd,
+  OPENCLAW_EMPTY_REPLY_COPY,
   type GatewayErrorDescription,
 } from "@/lib/openclaw/gateway-response";
 import {
@@ -22,6 +24,13 @@ import {
   parseArmingDirective,
   parseStopDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
+import {
+  buildArmedHandshakePrompt,
+  decideArmedHandshakeWake,
+  hasArmedHandshakeWoken,
+  markArmedHandshakeWoken,
+} from "@/lib/openclaw/debug/armed-continuation";
+import { parseOpenClawMessage } from "@/lib/openclaw/text-field-actions";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 
@@ -59,6 +68,9 @@ export function useOpenClawChat() {
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
+  const sendRef = useRef<((text: string, options?: OpenClawSendOptions) => Promise<void>) | null>(
+    null,
+  );
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -156,6 +168,8 @@ export function useOpenClawChat() {
         nextConversation.map((m) => ({ role: m.role, content: m.content })),
       );
 
+      let accumulated = "";
+      let streamSucceeded = false;
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
@@ -209,17 +223,17 @@ export function useOpenClawChat() {
         }
 
         const reader = res.body.getReader();
-        let accumulated = "";
-        let gatewayError: GatewayErrorDescription | null = null;
+        const streamError: { current: GatewayErrorDescription | null } = { current: null };
 
-        for await (const event of parseGatewayStream(reader)) {
+        const streamSummary = await consumeGatewayStream(reader, (event) => {
           if (event.type === "error") {
-            gatewayError = event.description;
-            break;
+            streamError.current = event.description;
+            return;
           }
           accumulated += event.text;
           updateAssistantMessage(placeholderId, accumulated);
-        }
+        });
+        const gatewayError = streamError.current;
 
         // The gateway answers 200 with a valid stream even when every model in
         // the fallback chain failed, so the reason lives in an error chunk
@@ -235,21 +249,52 @@ export function useOpenClawChat() {
               : gatewayError.message,
           );
         } else if (!accumulated) {
-          updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
+          // Keep the fallback out of `accumulated`. A1's handshake wake
+          // keys on a hunt-only reply; an empty or truncated stream must
+          // not look like one and start a wake loop.
+          updateAssistantMessage(placeholderId, OPENCLAW_EMPTY_REPLY_COPY);
+        } else {
+          streamSucceeded = true;
         }
 
-        // Charge only after a stream that actually produced assistant text.
-        // HTTP errors, network/Abort, empty streams and a pure gateway-error
-        // chunk (200 + error envelope, no delta) must not burn a round.
-        if (shouldChargeQuota && accumulated.length > 0) {
+        const parsedEnd = parseOpenClawMessage(accumulated);
+        logOpenClawChatStreamEnd({
+          accumulatedChars: accumulated.length,
+          visibleChars: parsedEnd.visibleContent.length,
+          hasIncompleteAction: parsedEnd.hasIncompleteAction,
+          leftoverChars: streamSummary.leftoverChars,
+          ended: streamSummary.ended,
+          sawDone: streamSummary.sawDoneMarker,
+          aborted: false,
+          contentForms: streamSummary.contentForms,
+          errorKind: gatewayError?.kind ?? streamSummary.errorKind,
+        });
+
+        // Charge only after a stream that produced visible assistant text.
+        // HTTP errors, abort, empty streams, error envelopes and a truncated
+        // action-only body must not burn a campaign round.
+        if (shouldChargeQuota && parsedEnd.visibleContent.length > 0) {
           consumeCampaignAdviceRound();
         }
       } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") {
+        const aborted = e instanceof DOMException && e.name === "AbortError";
+        if (aborted) {
           // Keep whatever was already streamed
         } else {
           updateAssistantMessage(placeholderId, "Nagot gick fel. Kontrollera att Sajtagenten ar igaang.");
         }
+        const parsedEnd = parseOpenClawMessage(accumulated);
+        logOpenClawChatStreamEnd({
+          accumulatedChars: accumulated.length,
+          visibleChars: parsedEnd.visibleContent.length,
+          hasIncompleteAction: parsedEnd.hasIncompleteAction,
+          leftoverChars: 0,
+          ended: false,
+          sawDone: false,
+          aborted,
+          contentForms: [],
+          errorKind: null,
+        });
       } finally {
         setStreaming(false);
         if (activeAssistantIdRef.current === placeholderId) {
@@ -257,9 +302,34 @@ export function useOpenClawChat() {
         }
         abortRef.current = null;
       }
+
+      // Path (b): a confirmation-only `start_bug_hunt` never sends or watches.
+      // Wake once with `allowArming: false` so the first fill can be authored.
+      // The wake must not create, renew or extend the mandate.
+      if (accumulated) {
+        const liveAfter = useOpenClawStore.getState();
+        const mandate = liveAfter.armedMandate;
+        const parsed = parseOpenClawMessage(accumulated);
+        const decision = decideArmedHandshakeWake({
+          actionType: parsed.action?.type ?? null,
+          mandate,
+          editEnabled: readOpenClawPowers().armedAutonomy,
+          alreadyWoken: mandate ? hasArmedHandshakeWoken(mandate.createdAt) : false,
+          openClawStreaming: liveAfter.isStreaming,
+          streamSucceeded,
+        });
+        if (decision.kind === "wake" && mandate) {
+          markArmedHandshakeWoken(mandate.createdAt);
+          await sendRef.current?.(buildArmedHandshakePrompt({ remaining: mandate.remaining }), {
+            allowArming: false,
+            countTowardCampaignQuota: false,
+          });
+        }
+      }
     },
     [addMessage, updateAssistantMessage, setStreaming, setArmedMandate, consumeCampaignAdviceRound],
   );
+  sendRef.current = send;
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
