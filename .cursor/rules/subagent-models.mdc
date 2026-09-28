@@ -11,7 +11,7 @@ tillåtna lista. Kopiera inte en gammal slug. En ogiltig slug får inte tyst
 
 | Roll | Välj i sessionens lista | Använd för |
 |---|---|---|
-| Sol | Grok 4.6 Extra High Fast | implementation, orkestrering, review, Bugbot, PR |
+| Sol | Grok 4.7 Extra High Fast (`grok-4.7-xhigh-fast`) | implementation, orkestrering, review, Bugbot, PR |
 | Luna | GPT-5.6 Luna | mekanisk sök, indexering, verifierbara read-only-svärmar |
 | Terra | GPT-5.6 Terra | avgränsad lågrisk med deterministiskt facit |
 
