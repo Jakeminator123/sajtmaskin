@@ -901,10 +901,18 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
   }
 
   const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
+  // GitHub schedule evaluates the workflow file from the DEFAULT branch
+  // (preview). Requiring github.ref == master on schedule skipped cron entirely.
+  // Allow schedule on the default-branch tip; require master only for dispatch.
+  // The job must still check out master code before using secrets.
   const trustedParityJob =
-    "${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}";
+    "${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}";
   if (!hasExactExpression(parityJob?.if, trustedParityJob)) {
-    errors.push("scheduled schema parity must exclude non-master manual refs before checkout");
+    errors.push("scheduled schema parity must allow cron on default branch and master-only dispatch");
+  }
+  const parityCheckout = parityJob?.steps?.find((step) => step.uses?.startsWith("actions/checkout@"));
+  if (parityCheckout?.with?.ref !== "master") {
+    errors.push("scheduled schema parity must check out master code before using DB secrets");
   }
   let paritySecretSteps = 0;
   for (const [jobName, job] of Object.entries(parity?.jobs ?? {})) {

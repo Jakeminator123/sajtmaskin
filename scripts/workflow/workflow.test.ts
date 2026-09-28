@@ -839,8 +839,16 @@ describe("agent workflow repository contract", () => {
         blob,
         replaceOnce(
           parity,
-          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}",
           "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          ref: master\n          persist-credentials: false",
+          "          persist-credentials: false",
         ),
       ],
       [

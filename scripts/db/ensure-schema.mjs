@@ -12,8 +12,8 @@
  *      away behind Next.js output and dev boots on the old schema anyway.
  *   2. `SKIP_PREDEV=1` / running `node scripts/dev/next-runner.mjs dev`
  *      directly (the documented fast path) skips migrations entirely.
- *   3. Ledger recording is warn-only, so `db:migrate:check` can report BEHIND
- *      even after the SQL itself applied.
+ *   3. Ledger recording used to be warn-only; apply now fails closed on ledger
+ *      write errors so check and apply stay honest about the pending set.
  *
  * Modes:
  *   (default)      check -> apply pending via `npm run db:migrate` -> re-verify

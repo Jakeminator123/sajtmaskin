@@ -666,14 +666,15 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run knip:files
 
-  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid push till master
-  # eller preview — så en migration ALDRIG kan bli deployad utan att köras
-  # (grundorsaken till att add-branded-site-domains.sql saknades i prod:
-  # migrationer körs INTE automatiskt vid Vercel-deploy). Preview använder
-  # samma prod-Postgres som Production (`config/db-targets.json`), så apply
-  # måste ske när koden landar på preview — inte först vid promote.
-  # Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-ledgern, så varje
-  # re-run är en no-op.
+  # Auto-applicerar PENDING migrationer (via shared migration-plan) mot
+  # PRODUKTIONS-databasen vid push till master ELLER preview. Migrationer körs
+  # INTE vid Vercel-deploy — den är en separat process. Preview och Production
+  # delar samma prod-Postgres (`config/db-targets.json`), så en preview-push kan
+  # ändra prod-schemat medan master/Vercel fortfarande kör gammal kod. En
+  # master-push kan också köra SQL + perf-indexes mot samma DB.
+  #
+  # Köraren kör bara planen (oledgerade filer), inte hela migrationsmappen.
+  # Ledger-skrivfel avbryter. already-exists på oledgerad fil är fail, inte kvitto.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
   # prod-migrations-applied / db-blob-sync-check) — bara trusted events (push
@@ -682,9 +683,8 @@ jobs:
   # creds) så jobbet inte blir falskt rött där.
   #
   # Gate:as bakom quality, schema-drift, build och Backoffice så prod-schemat
-  # ALDRIG muteras för en trasig merge. Additiv migration parallellt med
-  # Vercels deploy är ofarligt; vill man ha helt race-fritt gate:ar man
-  # deployen bakom detta jobb separat.
+  # ALDRIG muteras för en trasig merge. Vercel-deploy är INTE gate:ad bakom detta
+  # jobb — ordningen kod↔schema är inte atomär.
   prod-migrations-apply:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     needs: [quality, schema-drift, build, backoffice-tests]
@@ -735,21 +735,13 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
-      # Staging får inte kunna bryta produktionen. Preview och Production läser
-      # SAMMA prod-Postgres, men `master` kan ligga tiotals commits bakom — en
-      # migration som landar på preview träffar alltså den databas den GAMLA
-      # produktionskoden fortfarande läser. Additiv DDL är ofarlig där; allt som
-      # tar bort, byter typ eller byter namn bryter produktionen innan någon har
-      # promoverat. Den automatiska vägen begränsas därför till additivt, och
-      # resten kräver ett medvetet beslut (promote, eller db:migrate:prod med
-      # ägaren närvarande).
-      #
-      # Bara PENDING migrationer granskas — repot har redan applicerad brytande
-      # DDL i ledgern och den ska inte rödfärga varje push. Read-only (SELECT
-      # mot schema_migrations), därför inget DB_ALLOW_PROD_LIKE_WRITE.
-      #
-      # `master` gate:as inte: promoten ÄR det medvetna beslutet, och där byter
-      # kod och schema plats samtidigt.
+      # Preview delar prod-Postgres med Production. Frånvaro av denylist-träff
+      # är INTE bevis för bakåtkompatibilitet — grinden automatiserar bara
+      # verifierbart säkra fall och kräver granskningsväg
+      # (DB_MIGRATION_ALLOW_REVIEWED_BREAKING / promote) för osäkra.
+      # Bara PENDING (samma plan som köraren) granskas. Read-only SELECT.
+      # `master` gate:as inte här: promote är ett medvetet beslut, men kod och
+      # schema byter INTE automatiskt plats samtidigt (Vercel är separat).
       - name: Additive-only gate for preview (prod DB is shared with production)
         if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}
         run: npm run db:migrate:additive-check
@@ -757,7 +749,7 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
-      - name: Apply pending migrations to production (idempotent)
+      - name: Apply pending migrations to production (ledger-aware plan)
         if: steps.creds.outputs.present == 'true'
         run: npx tsx scripts/db/run-migrations.ts
         env:
@@ -766,12 +758,8 @@ jobs:
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
       # Performance indexes are declared in add-performance-indexes.mjs (not in
-      # the SQL-migration ledger), so before this they only reached prod via the
-      # backoffice "Databashälsa"-button — a new hot-path index could silently
-      # never land in prod. Apply them here too: the script is idempotent
-      # (CREATE INDEX IF NOT EXISTS + dedupe-aware), so every run is a no-op once
-      # the indexes exist. Same prod-write guard (DB_ALLOW_PROD_LIKE_WRITE) as the
-      # migration step above.
+      # the SQL-migration ledger). Preview- and master-push both run this against
+      # the shared prod DB. Idempotent CREATE INDEX IF NOT EXISTS + dedupe.
       - name: Apply performance indexes to production (idempotent)
         if: steps.creds.outputs.present == 'true'
         run: npm run db:perf-indexes -- --reason "auto:ci-${{ github.ref_name }}-push"

@@ -7,13 +7,19 @@ name: DB schema parity (scheduled)
 # Push-vägen täcks redan av `db-schema-parity`-jobbet i ci.yml (som dessutom
 # auto-applicerar migrationer mot dev). Det här workflowet finns för driften
 # DÄREMELLAN: en kolumn skapad direkt i Supabase-dashboarden, eller manuell
-# DDL, syns annars först vid nästa master-push. Rött = verklig skillnad; fixen
+# DDL, syns annars först vid nästa trusted push. Rött = verklig skillnad; fixen
 # är en migration i src/lib/db/migrations/ + MIGRATION_ORDER (aldrig mer
 # dashboard-DDL), alternativt att objektet tas bort.
 #
-# SÄKERHET: secret-jobbet kräver exakt master-ref och schedule/manuell dispatch.
-# En manuell feature-ref nekas i ett separat rött jobb innan någon checkout eller
-# secret-injektion kan ske (samma modell som db-blob-sync-check.yml).
+# GitHub `schedule` kör alltid workflow-filen från repositoryts DEFAULT BRANCH
+# (här: `preview`). Därför får schemalagd körning INTE kräva
+# `github.ref == refs/heads/master` — det hoppade över cron helt. Jobbet checkar
+# i stället ut `master` (produktionens kanoniska träd) innan kontrollen körs.
+#
+# SÄKERHET: `workflow_dispatch` från annan ref än master nekas i ett separat
+# rött jobb innan checkout eller secret-injektion. Schedule får köra, men
+# secrets används bara i jobbet som checkar ut master-kod. Obetrodda feature-
+# refs får aldrig live-secrets.
 
 on:
   schedule:
@@ -35,13 +41,16 @@ jobs:
           exit 1
 
   db-schema-parity-scheduled:
-    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    # schedule: defaultbranch tip (preview) hosts the workflow file — allow it.
+    # workflow_dispatch: master only (reject job above fails other refs first).
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout master (production canonical tree)
         uses: actions/checkout@v7
         with:
+          ref: master
           persist-credentials: false
 
       - name: Setup Node.js

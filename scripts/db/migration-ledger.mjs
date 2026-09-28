@@ -2,17 +2,19 @@
  * schema_migrations ledger — the single record of which hand-written SQL
  * migrations have been applied to a given database.
  *
- * Why: the migrations in `src/lib/db/migrations/*.sql` are idempotent
- * (`IF NOT EXISTS`), so `run-migrations.ts` / `db-init.mjs` re-run them every
- * time and there was no way to answer "is THIS database behind on migrations?".
- * That gap is exactly how prod silently drifts (migrations are NOT applied on
- * Vercel deploy — see .cursor/rules/db-env-parity.mdc). This ledger closes it:
- * every runner records each migration it processes, and
- * `scripts/db/check-migrations-applied.mjs` reads the ledger to gate CI.
+ * Apply and control share `scripts/db/migration-plan.mjs`. The runner executes
+ * only the plan's `toApply` set; already-ledgered filenames are not re-run.
  *
- * All writes here are additive and idempotent. Recording is best-effort at the
- * call sites (wrapped in try/catch, warn-only) so a ledger hiccup can never
- * break a migration run or dev startup.
+ * Checksums (sha256 of file bytes at successful apply):
+ *   - New successful applications store `checksum`.
+ *   - Existing rows created before checksum support have NULL checksum.
+ *     Those are treated as applied without content proof — never backfilled
+ *     with today's file hash, never re-run solely to fill the gap.
+ *   - When a checksum EXISTS and the file content differs, control and apply
+ *     both fail (add a new migration file; do not rewrite history).
+ *
+ * Production apply paths must NOT treat ledger ensure/record failures as
+ * success — see `applyPendingMigrations` in migration-plan.mjs.
  */
 import { MIGRATION_ORDER } from "./migration-order.mjs";
 
@@ -38,14 +40,21 @@ export const LEDGER_TABLE = "schema_migrations";
  * which repairs databases created before this existed. Both are needed: the
  * migration cannot protect a ledger that is dropped and recreated after the
  * migration was already recorded.
+ *
+ * `checksum` is additive and nullable — existing prod rows stay NULL forever
+ * unless an operator deliberately backfills (not done by runners).
  */
 const ENSURE_LEDGER_SQL = `
 DO $$
 BEGIN
   CREATE TABLE IF NOT EXISTS public.${LEDGER_TABLE} (
     filename text PRIMARY KEY,
-    applied_at timestamptz NOT NULL DEFAULT now()
+    applied_at timestamptz NOT NULL DEFAULT now(),
+    checksum text
   );
+
+  ALTER TABLE public.${LEDGER_TABLE}
+    ADD COLUMN IF NOT EXISTS checksum text;
 
   ALTER TABLE public.${LEDGER_TABLE} ENABLE ROW LEVEL SECURITY;
 
@@ -60,28 +69,47 @@ END
 $$;
 `;
 
-/** Create the ledger table if it does not exist yet. Idempotent. */
+/** Create/upgrade the ledger table if needed. Idempotent. Throws on failure. */
 export async function ensureMigrationLedger(pool) {
   await pool.query(ENSURE_LEDGER_SQL);
 }
 
-/** Record one migration filename as applied. Idempotent (ON CONFLICT DO NOTHING). */
-export async function recordAppliedMigration(pool, filename) {
+/**
+ * Record one migration filename as applied with optional sha256 checksum.
+ * Idempotent: ON CONFLICT DO NOTHING — never overwrites an existing row or
+ * backfills a legacy NULL checksum with today's hash.
+ *
+ * @param {{ query: (text: string, params?: unknown[]) => Promise<unknown> }} pool
+ * @param {string} filename
+ * @param {string | null | undefined} [checksum]
+ */
+export async function recordAppliedMigration(pool, filename, checksum = null) {
   await pool.query(
-    `INSERT INTO ${LEDGER_TABLE} (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING`,
-    [filename],
+    `INSERT INTO ${LEDGER_TABLE} (filename, checksum) VALUES ($1, $2)
+     ON CONFLICT (filename) DO NOTHING`,
+    [filename, checksum ?? null],
   );
 }
 
 /**
- * Returns the Set of applied migration filenames, or `null` when the ledger
- * table does not exist yet (Postgres undefined_table 42P01). Callers treat
- * `null` as "nothing recorded / ledger not initialized".
+ * Returns a Map of applied migration filenames → `{ checksum }`, or `null`
+ * when the ledger table does not exist yet (Postgres undefined_table 42P01).
+ * `checksum` is `null` for legacy rows.
+ *
+ * @returns {Promise<Map<string, { checksum: string | null }> | null>}
  */
 export async function readAppliedMigrations(pool) {
   try {
-    const res = await pool.query(`SELECT filename FROM ${LEDGER_TABLE}`);
-    return new Set(res.rows.map((r) => r.filename));
+    const res = await pool.query(`SELECT filename, checksum FROM ${LEDGER_TABLE}`);
+    /** @type {Map<string, { checksum: string | null }>} */
+    const map = new Map();
+    for (const row of res.rows) {
+      const raw = row.checksum;
+      map.set(row.filename, {
+        checksum: typeof raw === "string" && raw.length > 0 ? raw : null,
+      });
+    }
+    return map;
   } catch (err) {
     if (err && typeof err === "object" && "code" in err && err.code === "42P01") {
       return null;
@@ -94,7 +122,9 @@ export async function readAppliedMigrations(pool) {
  * Pure diff: which MIGRATION_ORDER entries are NOT yet applied.
  * `applied === null` (uninitialized ledger) => every migration is pending.
  *
- * @param {Set<string> | null} applied
+ * Accepts Map (runtime), Set of filenames (tests), or null.
+ *
+ * @param {Map<string, unknown> | Set<string> | null} applied
  * @returns {string[]}
  */
 export function diffPendingMigrations(applied) {

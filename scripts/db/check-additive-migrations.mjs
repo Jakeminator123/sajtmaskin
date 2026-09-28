@@ -1,26 +1,27 @@
 #!/usr/bin/env node
 /**
- * Additiv-bara-grind för PENDING migrationer mot en delad produktionsdatabas.
+ * Preview-grind för PENDING migrationer mot den delade produktionsdatabasen.
  *
  * Varför den finns: Vercel Preview och Production läser SAMMA prod-Postgres
  * (`config/db-targets.json`), men `preview` kan ligga tiotals commits före
  * `master`. När CI applicerar migrationer vid push till `preview` träffar DDL:en
- * därför den databas som den GAMLA produktionskoden fortfarande läser. En
- * additiv migration (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`)
- * är ofarlig där — gammal kod rör inte det nya. En brytande migration är det
- * inte: tar man bort, byter typ på eller byter namn på något som produktionen
- * läser, går produktionen sönder innan någon har promoverat.
+ * den databas som den GAMLA produktionskoden fortfarande läser — Vercel-deploy
+ * av master är en separat process.
  *
- * Grinden tillåter alltså den automatiska vägen för det vanliga fallet och
- * kräver ett medvetet beslut för resten: promote till `master`, eller
- * `npm run db:migrate:prod` med ägaren närvarande.
+ * Frånvaro av ett denylist-mönster är INTE bevis för bakåtkompatibilitet.
+ * Grinden automatiserar verifierbart säkra fall (t.ex. `ADD COLUMN IF NOT
+ * EXISTS`, `CREATE TABLE IF NOT EXISTS`, icke-unika `CREATE INDEX IF NOT
+ * EXISTS`) och flaggar osäkra/brytande operationer — policies, triggers,
+ * funktioner, constraints, backfills, drop index — så de kräver en särskild
+ * granskningsväg i stället för att kontrollen stängs av.
  *
- * Bara PENDING migrationer granskas. Repot innehåller redan brytande DDL som
- * för länge sedan är applicerad (t.ex. `align-live-schema-parity.sql`); den
- * ligger i ledgern och ska inte rödfärga varje ny push.
+ * Särskild väg (manuell, aldrig satt i CI):
+ *   DB_MIGRATION_ALLOW_REVIEWED_BREAKING=1
+ * efter ägargranskning, typiskt tillsammans med `npm run db:migrate:prod` eller
+ * promote. Pending-mängden kommer från samma `buildMigrationPlan` som köraren.
  *
- * Strikt read-only: de enda databasanropen är SELECT mot `schema_migrations`
- * och mot `information_schema` för tabeller, kolumner och skrivtriggers.
+ * Strikt read-only: SELECT mot `schema_migrations` + `information_schema`.
+ * Skannar även `add-performance-indexes.mjs` (utanför SQL-ledgern).
  *
  * Användning:
  *   node scripts/db/check-additive-migrations.mjs
@@ -31,17 +32,10 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Statements som kan bryta kod som körs mot det GAMLA schemat, eller som
- * tappar data. Medvetet kort: varje rad ska gå att motivera med "den gamla
- * produktionskoden slutar fungera" eller "rader försvinner".
- *
- * Uttryckligen UTANFÖR listan, eftersom drop-och-återskapa är själva idiomet
- * och en falsk träff skulle göra grinden till något man stänger av:
- * `DROP POLICY`, `DROP TRIGGER`, `DROP FUNCTION`, `DROP INDEX` (icke-unik),
- * `DROP CONSTRAINT` och backfill-`UPDATE`.
- * `ADD CONSTRAINT`, shorthand `ADD UNIQUE` / `PRIMARY KEY` / `FOREIGN KEY`,
- * `ADD COLUMN … UNIQUE` och `CREATE UNIQUE INDEX` ÄR med: de kan få gammal
- * INSERT att faila mot den fortfarande körande mastern.
+ * Statements som kan bryta kod som körs mot det GAMLA schemat, ändra
+ * runtime-beteende (policies/triggers/funktioner) eller tappa/mutera data.
+ * Frånvaro från listan ≠ säkert — osäkra fall ska gå via
+ * {@link REVIEWED_BREAKING_ENV}, inte genom att stänga av grinden.
  *
  * @type {ReadonlyArray<{ id: string; re: RegExp; why: string }>}
  */
@@ -70,6 +64,46 @@ export const BREAKING_STATEMENTS = Object.freeze([
   },
   { id: "truncate", re: /\bTRUNCATE\b/giu, why: "dataförlust" },
   { id: "delete-from", re: /\bDELETE\s+FROM\b/giu, why: "dataförlust" },
+  {
+    id: "update-dml",
+    re: /\bUPDATE\s+(?:ONLY\s+)?(?:"[^"]+"|[\w.]+)\s+SET\b/giu,
+    why: "backfill kan ändra rader som gammal kod fortfarande läser",
+  },
+  {
+    id: "drop-policy",
+    re: /\bDROP\s+POLICY\b/giu,
+    why: "RLS-policyborttagning kan öppna eller stänga access för körande kod",
+  },
+  {
+    id: "drop-trigger",
+    re: /\bDROP\s+TRIGGER\b/giu,
+    why: "triggerborttagning ändrar skrivbeteende för körande kod",
+  },
+  {
+    id: "create-trigger",
+    re: /\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b/giu,
+    why: "ny trigger kan ändra INSERT/UPDATE-beteende för gammal kod",
+  },
+  {
+    id: "drop-function",
+    re: /\bDROP\s+(?:FUNCTION|PROCEDURE|ROUTINE)\b/giu,
+    why: "funktionsborttagning kan bryta triggers/views som gammal kod använder",
+  },
+  {
+    id: "create-or-replace-function",
+    re: /\bCREATE\s+OR\s+REPLACE\s+(?:FUNCTION|PROCEDURE|ROUTINE)\b/giu,
+    why: "ersatt funktionskropp kan ändra runtime-beteende utan schema-diff",
+  },
+  {
+    id: "drop-constraint",
+    re: /\bDROP\s+CONSTRAINT\b/giu,
+    why: "constraint-borttagning kan släppa igenom ogiltig data eller bryta antaganden",
+  },
+  {
+    id: "drop-index",
+    re: /\bDROP\s+INDEX\b/giu,
+    why: "indexborttagning kan bryta UNIQUE-antaganden eller fråga-planer",
+  },
   {
     id: "add-constraint",
     re: /\bADD\s+CONSTRAINT\b/giu,
@@ -101,6 +135,85 @@ export const BREAKING_STATEMENTS = Object.freeze([
     why: "unikhet kan göra gammal INSERT ogiltig",
   },
 ]);
+
+/** Manual override after human review — never set by CI preview apply. */
+export const REVIEWED_BREAKING_ENV = "DB_MIGRATION_ALLOW_REVIEWED_BREAKING";
+
+/**
+ * Static scan of `add-performance-indexes.mjs` (outside the SQL ledger).
+ * Non-unique `CREATE INDEX IF NOT EXISTS` is the safe automated path.
+ * Comments are blanked so documentation mentioning CONCURRENTLY does not trip.
+ *
+ * @param {string} source
+ * @returns {Array<{ id: string; why: string; line: number; snippet: string }>}
+ */
+export function findBreakingPerfIndexStatements(source) {
+  const blank = (text) => text.replace(/[^\n]/gu, " ");
+  let code = "";
+  let i = 0;
+  while (i < source.length) {
+    if (source.startsWith("//", i)) {
+      const end = source.indexOf("\n", i);
+      const stop = end === -1 ? source.length : end;
+      code += blank(source.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    if (source.startsWith("/*", i)) {
+      const end = source.indexOf("*/", i + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      code += blank(source.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    code += source[i];
+    i += 1;
+  }
+
+  /** @type {ReadonlyArray<{ id: string; re: RegExp; why: string }>} */
+  const patterns = [
+    {
+      id: "perf-drop-index",
+      re: /\bDROP\s+INDEX\b/giu,
+      why: "perf-scriptet körs på varje preview/master-push mot prod",
+    },
+    {
+      id: "perf-create-unique-index",
+      re: /\bCREATE\s+UNIQUE\s+INDEX\b/giu,
+      why: "unikt perf-index kan få gammal INSERT att faila",
+    },
+    {
+      id: "perf-concurrently",
+      re: /\bCONCURRENTLY\b/giu,
+      why: "CONCURRENTLY kräver särskild körväg (ingen omslutande transaktion)",
+    },
+  ];
+  /** @type {Array<{ id: string; why: string; line: number; snippet: string }>} */
+  const findings = [];
+  for (const { id, re, why } of patterns) {
+    const pattern = new RegExp(re.source, re.flags);
+    let match;
+    while ((match = pattern.exec(code)) !== null) {
+      const line = code.slice(0, match.index).split("\n").length;
+      findings.push({
+        id,
+        why,
+        line,
+        snippet: source.split("\n")[line - 1]?.trim().slice(0, 160) ?? match[0],
+      });
+      if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
+    }
+  }
+  return findings.sort((a, b) => a.line - b.line || a.id.localeCompare(b.id));
+}
+
+/**
+ * @param {boolean} allowed
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function isReviewedBreakingAllowed(env = process.env) {
+  return env[REVIEWED_BREAKING_ENV]?.trim() === "1";
+}
 
 /**
  * Maskerar kommentarer med blanksteg — samma längd, samma radbrytningar — så
@@ -497,6 +610,8 @@ function safeNewColumnFindingKeys(sources, options) {
   sources.forEach(({ sql }, sourceIndex) => {
     const executable = executableMasks[sourceIndex];
     const allowed = new Set();
+    /** @type {Set<string>} */
+    const safeCheckTables = new Set();
 
     const checkPattern =
       /\bALTER\s+TABLE\s+public\.([a-z_][a-z0-9_]*)\s+ADD\s+CONSTRAINT\s+[a-z_][a-z0-9_]*\s+CHECK\s*\(\s*\(\s*([a-z_][a-z0-9_]*)\s+IS\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IS\s+NULL\s*\)\s+OR\s*\(\s*([a-z_][a-z0-9_]*)\s+IS\s+NOT\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IS\s+NOT\s+NULL\s+AND\s+([a-z_][a-z0-9_]*)\s+IN\s*\(\s*'(?:''|[^'])*'(?:\s*,\s*'(?:''|[^'])*')*\s*\)\s*\)\s*\)\s*;/giu;
@@ -520,6 +635,22 @@ function safeNewColumnFindingKeys(sources, options) {
       }
       if (!declaredBefore(table, [nullKey, nullValue], sourceIndex, checkMatch.index)) continue;
       allowed.add(`add-constraint:${addOffset}`);
+      safeCheckTables.add(table);
+    }
+
+    // Same proven expand path may DROP CONSTRAINT before re-adding the CHECK.
+    // Only exempt when the matching ADD CONSTRAINT was catalog-proven above.
+    for (const table of safeCheckTables) {
+      const dropPattern = new RegExp(
+        String.raw`\bALTER\s+TABLE\s+public\.${table}\s+DROP\s+CONSTRAINT\b`,
+        "giu",
+      );
+      let dropMatch;
+      while ((dropMatch = dropPattern.exec(sql)) !== null) {
+        const dropOffset = dropMatch.index + dropMatch[0].search(/\bDROP\s+CONSTRAINT\b/iu);
+        if (!/^DROP\s+CONSTRAINT\b/iu.test(executable.slice(dropOffset))) continue;
+        allowed.add(`drop-constraint:${dropOffset}`);
+      }
     }
 
     const uniquePattern =
@@ -681,20 +812,19 @@ async function main() {
   const [
     { Pool },
     { config },
-    { readAppliedMigrations, diffPendingMigrations },
+    { readAppliedMigrations },
+    { buildMigrationPlan, loadMigrationFiles, planFilenamesToApply, assertPlanExecutable },
     { normalizeEnvUrl },
     { resolveSslConfig, connectionStringForPg },
   ] = await Promise.all([
     import("pg"),
     import("dotenv"),
     import("./migration-ledger.mjs"),
+    import("./migration-plan.mjs"),
     import("./db-target-guard.mjs"),
     import("./db-ssl.mjs"),
   ]);
 
-  // Samma källa som de andra DB-skripten, så en lokal körning verkligen
-  // granskar dev i stället för att tyst SKIP:a. I CI finns ingen `.env.local`
-  // och anslutningen kommer från injicerad POSTGRES_URL — no-op där.
   config({ path: ".env.local" });
 
   const connectionString = ["POSTGRES_URL", "POSTGRES_URL_NON_POOLING", "DATABASE_URL"].reduce(
@@ -703,15 +833,10 @@ async function main() {
   );
 
   if (!connectionString) {
-    // Fork / no-secret CI: samma meningsfulla SKIP som check-migrations-applied.
-    // Utan creds finns ingen ledger att diffa mot, och grinden får inte bli
-    // falskt röd där. Apply-steget är redan skippat i det läget.
     console.warn(`${label} Ingen databasanslutning konfigurerad — SKIP (exit 0).`);
     return 0;
   }
 
-  // Sanitiserad identitet i varje utskrift: utfallet gäller EN databas, och
-  // ett svar utan värdnamn går att läsa som om det gällde en annan.
   const host = (() => {
     try {
       return new URL(connectionString).host;
@@ -720,10 +845,6 @@ async function main() {
     }
   })();
 
-  // Policy from the original URL; stripped string to pg. Leaving sslmode=
-  // require in the URL makes current pg treat it as verify-full and ignore
-  // DB_SSL_REJECT_UNAUTHORIZED=false — that is what reddened the first
-  // preview-push after #1340.
   const pool = new Pool({
     connectionString: connectionStringForPg(connectionString),
     ssl: resolveSslConfig(connectionString),
@@ -732,23 +853,61 @@ async function main() {
   });
 
   try {
-    const pending = diffPendingMigrations(await readAppliedMigrations(pool));
+    const migrationsDir = join("src", "lib", "db", "migrations");
+    const files = await loadMigrationFiles(migrationsDir);
+    const applied = await readAppliedMigrations(pool);
+    const plan = buildMigrationPlan({ applied, files });
+    assertPlanExecutable(plan);
+    const pending = planFilenamesToApply(plan);
     const classified = classifyPendingMigrations(pending, await readExistingSchema(pool));
     const breaking = classified.filter((entry) => entry.findings.length > 0);
 
+    const perfSource = readFileSync(join("scripts", "db", "add-performance-indexes.mjs"), "utf8");
+    const perfFindings = findBreakingPerfIndexStatements(perfSource);
+
+    const reviewedAllowed = isReviewedBreakingAllowed();
+    const blocked = breaking.length > 0 || perfFindings.length > 0;
+
     if (asJson) {
-      console.log(JSON.stringify({ ok: breaking.length === 0, host, pending, breaking }, null, 2));
-    } else if (pending.length === 0) {
-      console.log(`${label} ${host}: inga pending migrationer — inget att granska.`);
-    } else if (breaking.length === 0) {
       console.log(
-        `${label} ✓ ${host}: ${pending.length} pending migration(er), alla additiva:\n` +
+        JSON.stringify(
+          {
+            ok: !blocked || reviewedAllowed,
+            host,
+            pending,
+            breaking,
+            perfFindings,
+            reviewedBreakingAllowed: reviewedAllowed,
+          },
+          null,
+          2,
+        ),
+      );
+    } else if (pending.length === 0 && perfFindings.length === 0) {
+      console.log(`${label} ${host}: inga pending migrationer — inget att granska.`);
+    } else if (!blocked) {
+      console.log(
+        `${label} ✓ ${host}: ${pending.length} pending migration(er), alla inom den automatiska säkra vägen:\n` +
           pending.map((f) => `   - ${f}`).join("\n"),
       );
+    } else if (reviewedAllowed) {
+      console.warn(
+        `${label} ⚠ ${host}: osäkra/brytande fynd finns, men ${REVIEWED_BREAKING_ENV}=1 är satt ` +
+          `(manuell granskningsväg). CI sätter aldrig denna flagga.`,
+      );
+      for (const { filename, findings } of breaking) {
+        console.warn(`\n   ${filename}`);
+        for (const f of findings) {
+          console.warn(`     rad ${f.line}: ${f.id} — ${f.why}`);
+        }
+      }
+      for (const f of perfFindings) {
+        console.warn(`   add-performance-indexes.mjs:${f.line}: ${f.id} — ${f.why}`);
+      }
     } else {
       console.error(
-        `${label} ✗ ${host}: ${breaking.length} pending migration(er) är INTE additiva och kan ` +
-          `bryta produktionen, som fortfarande kör den gamla koden mot samma databas:`,
+        `${label} ✗ ${host}: pending/perf-ändringar är INTE verifierbart säkra mot den delade ` +
+          `prod-databasen medan master/Vercel fortfarande kan köra gammal kod:`,
       );
       for (const { filename, findings } of breaking) {
         console.error(`\n   ${filename}`);
@@ -757,23 +916,20 @@ async function main() {
           console.error(`       ${f.snippet}`);
         }
       }
+      for (const f of perfFindings) {
+        console.error(`\n   add-performance-indexes.mjs:${f.line}: ${f.id} — ${f.why}`);
+        console.error(`       ${f.snippet}`);
+      }
       console.error(
-        `\nEn constraint mot en tabell som samma omgång SKAPAR, och som saknas i ` +
-          `${host}, klassas som additiv. Står den kvar här finns tabellen redan i ` +
-          `den databasen, och ändringen måste därför ske medvetet.`,
+        `\nFrånvaro av ett denylist-mönster är inte bevis för bakåtkompatibilitet. ` +
+          `Osäkra operationer behöver en särskild granskningsväg — stäng inte av grinden.`,
       );
       console.error(
-        `En CHECK eller ett partiellt unikt index kan också klassas som additivt ` +
-          `när det bara använder nullable TEXT-kolumner som omgången nyss deklarerar ` +
-          `och live-katalogen bevisar att kolumnerna och skrivtriggers saknas. ` +
-          `Saknad metadata eller en delvis applicerad kolumn failar stängt.`,
-      );
-      console.error(
-        `\nDen automatiska preview-vägen applicerar bara additiv DDL. Kör den här ` +
-          `migrationen medvetet i stället:\n` +
-          `   1. promota till master (npm run promote) så kod och schema byter samtidigt, eller\n` +
-          `   2. npm run db:migrate:prod lokalt, med vetskapen att produktionen bryts ` +
-          `tills promoten är ute.\n` +
+        `\nMedveten väg:\n` +
+          `   1. promota till master (npm run promote) när kod och schema ska landa tillsammans, eller\n` +
+          `   2. npm run db:migrate:prod lokalt med ${REVIEWED_BREAKING_ENV}=1 efter ägargranskning ` +
+          `(förstår att preview redan kan ha applicerat annan SQL mot samma DB),\n` +
+          `   3. eller skriv om till verifierbart säkra former (expand nu, contract efter promote).\n` +
           `Se docs/runbooks/db-migrations.md.`,
       );
       return 1;

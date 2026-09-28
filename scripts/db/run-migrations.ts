@@ -1,4 +1,4 @@
-import { readdir, readFile } from "fs/promises";
+import { readdir } from "fs/promises";
 import { join } from "path";
 import { pathToFileURL } from "url";
 import { Pool } from "pg";
@@ -7,12 +7,8 @@ import { assertSafeWriteTarget } from "./db-target-guard.mjs";
 import {
   MIGRATION_ORDER,
   resolveMigrationRunOrder,
-  isAlreadyExistsError,
 } from "./migration-order.mjs";
-import {
-  ensureMigrationLedger,
-  recordAppliedMigration,
-} from "./migration-ledger.mjs";
+import { applyPendingMigrations } from "./migration-plan.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
 import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../../src/lib/db/env";
 
@@ -20,21 +16,14 @@ config({ path: ".env.local" });
 
 export const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 
-// `MIGRATION_ORDER` and `resolveMigrationRunOrder` now live in the shared,
-// runtime-agnostic `./migration-order.mjs` so this script (run via tsx) and
-// `db-init.mjs` (run via plain node) apply migrations in exactly the same
-// order — they can no longer drift into two separate orderings. Re-exported
-// here so existing importers (e.g. `run-migrations.test.ts`) keep their path.
+// `MIGRATION_ORDER` and `resolveMigrationRunOrder` live in the shared,
+// runtime-agnostic `./migration-order.mjs`. Re-exported here so existing
+// importers (e.g. `run-migrations.test.ts`) keep their path.
 export { MIGRATION_ORDER, resolveMigrationRunOrder };
 
 // Delegated to the shared resolver in `src/lib/db/env.ts` so this script
 // honours the same env-var convention as the runtime app and the read-side
-// guards in `db-target-guard.mjs`. That includes `DATABASE_URL` (the
-// "standard" Postgres alias used by some hosts and by Drizzle's own docs)
-// in addition to the `POSTGRES_URL*` and `STORAGE_POSTGRES_URL*` aliases
-// Vercel's Postgres integration emits. Without this, `npm run db:migrate`
-// would silently fail with a "no connection configured" error against
-// envs that only set `DATABASE_URL`.
+// guards in `db-target-guard.mjs`.
 export function resolveConnectionString(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
@@ -48,12 +37,6 @@ export function resolveConnectionString(
   }
   return resolved.connectionString;
 }
-
-// SSL resolution is shared with the other DB scripts (`./db-ssl.mjs`) so that
-// `sslmode=disable` — the documented local-Postgres setup — means the same thing
-// everywhere. It used to be ignored here, so `db:migrate` failed on SSL against
-// a URL `db:init` connected to fine. Behaviour is unchanged for every other
-// sslmode (prod uses `require`).
 
 async function main() {
   assertSafeWriteTarget({ commandName: "db:migrate", env: process.env });
@@ -74,60 +57,26 @@ async function main() {
   });
 
   try {
-    // Best-effort: create the schema_migrations ledger so this run can record
-    // what it applied. Warn-only — a ledger hiccup must never abort a migration.
-    try {
-      await ensureMigrationLedger(pool);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`  ⚠ Could not ensure schema_migrations ledger: ${message}`);
+    // Drift-check the directory up front (same check loadMigrationFiles does)
+    // so a missing/extra file fails before we touch the ledger.
+    resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
+
+    const plan = await applyPendingMigrations({
+      pool,
+      migrationsDir: MIGRATIONS_DIR,
+    });
+
+    if (plan.toApply.length === 0) {
+      console.log("\nMigration ledger already up to date.");
+    } else {
+      console.log(`\nApplied ${plan.toApply.length} migration(s).`);
     }
-
-    const files = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
-
-    if (files.length === 0) {
-      console.log("No migration files found.");
-      return;
-    }
-
-    console.log(`Found ${files.length} migration(s):`);
-
-    for (const file of files) {
-      const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
-      console.log(`  Running: ${file}`);
-      try {
-        await pool.query(sql);
-        console.log(`  ✓ ${file}`);
-      } catch (err) {
-        if (isAlreadyExistsError(err)) {
-          console.log(`  ⊘ ${file} (already applied)`);
-        } else {
-          const message = err instanceof Error ? err.message : String(err);
-          console.error(`  ✗ ${file}: ${message}`);
-          throw err;
-        }
-      }
-      // Record every migration we processed (freshly applied OR already-exists)
-      // so the ledger reflects the true applied set. Warn-only.
-      try {
-        await recordAppliedMigration(pool, file);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(`  ⚠ Could not record ${file} in schema_migrations: ${message}`);
-      }
-    }
-
-    console.log("\nAll migrations applied.");
   } finally {
     await pool.end();
   }
 }
 
 // Only run migrations when invoked directly via `npx tsx scripts/db/run-migrations.ts`.
-// Importing this module from a test (or any other tooling) must not trigger a
-// real DB connection or call `process.exit`. We compare URL strings (rather
-// than filesystem paths) because Windows backslash/forward-slash and casing
-// differences make raw path equality unreliable across `tsx` invocations.
 function isInvokedDirectly(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;

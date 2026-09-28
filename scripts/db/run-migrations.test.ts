@@ -113,27 +113,25 @@ describe("scripts/db/run-migrations resolveMigrationRunOrder", () => {
   });
 });
 
-// Single-source guard (BUG-SWARM B10 follow-up): db-init.mjs and
-// run-migrations.ts must share ONE migration order. db-init.mjs used to keep its
-// own 2-entry `dependencyOrder` + alphabetical `.sort()`, so `db:init` could
-// apply migrations in a different order than `db:migrate`. We can't import
-// db-init.mjs here (its module body opens a pg Pool and may process.exit), so we
-// assert the wiring statically against its source.
-describe("scripts/db/db-init.mjs migration ordering is single-sourced", () => {
+// Single-source guard: db-init.mjs and run-migrations.ts must share ONE apply
+// path via migration-plan.mjs. We can't import db-init.mjs here (its module body
+// opens a pg Pool and may process.exit), so we assert the wiring statically.
+describe("scripts/db/db-init.mjs migration apply is single-sourced", () => {
   const dbInitSrc = readFileSync(
     join(process.cwd(), "scripts", "db", "db-init.mjs"),
     "utf8",
   );
 
-  it("imports the shared migration-order module", () => {
-    expect(dbInitSrc).toMatch(/from\s+["']\.\/migration-order\.mjs["']/);
+  it("imports the shared migration-plan module", () => {
+    expect(dbInitSrc).toMatch(/from\s+["']\.\/migration-plan\.mjs["']/);
   });
 
-  it("applies migrations via the shared resolveMigrationRunOrder", () => {
-    expect(dbInitSrc).toMatch(/resolveMigrationRunOrder\s*\(/);
+  it("applies migrations via applyPendingMigrations", () => {
+    expect(dbInitSrc).toMatch(/applyPendingMigrations\s*\(/);
   });
 
-  it("does not re-introduce a divergent local migration order", () => {
+  it("does not re-introduce a local already-exists success path", () => {
+    expect(dbInitSrc).not.toMatch(/isAlreadyExistsError/);
     expect(dbInitSrc).not.toMatch(/const\s+dependencyOrder\s*=/);
   });
 

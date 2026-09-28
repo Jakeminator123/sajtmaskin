@@ -1,10 +1,8 @@
-import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
 import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
-import { resolveMigrationRunOrder, isAlreadyExistsError } from "./migration-order.mjs";
-import { ensureMigrationLedger, recordAppliedMigration } from "./migration-ledger.mjs";
+import { applyPendingMigrations } from "./migration-plan.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
 import { isIgnorableRlsError } from "./rls-errors.mjs";
 
@@ -953,44 +951,17 @@ const ALL_TABLES = [
 ];
 
 async function applySqlMigrations() {
-  // Shared, drift-checked apply order (scripts/db/migration-order.mjs) — the
-  // SAME source `npm run db:migrate` uses, so db:init and db:migrate can never
-  // apply migrations in different orders. Throws if a `.sql` file on disk is not
-  // registered in MIGRATION_ORDER (forces deliberate slotting), which is exactly
-  // the drift the blocking `db:schema-drift` gate also guards.
-  const ordered = resolveMigrationRunOrder(await readdir(MIGRATIONS_DIR));
-
-  // Best-effort ledger so `db:migrate:check` can tell this DB is up to date.
-  // Warn-only — a ledger hiccup must never abort db:init / dev startup.
-  try {
-    await ensureMigrationLedger(pool);
-  } catch (err) {
-    console.warn(
-      `[db:init] Could not ensure schema_migrations ledger: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  for (const file of ordered) {
-    const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
-    try {
-      await pool.query(sql);
-    } catch (err) {
-      // Idempotent re-run: the object already exists, so this statement is a
-      // no-op. Tolerate ONLY that (matched by stable SQLSTATE, not message text)
-      // and re-throw everything else so a real failure still aborts loudly.
-      if (!isAlreadyExistsError(err)) {
-        throw err;
-      }
-    }
-    // Record every migration processed (applied OR already-exists). Warn-only.
-    try {
-      await recordAppliedMigration(pool, file);
-    } catch (err) {
-      console.warn(
-        `[db:init] Could not record ${file} in schema_migrations: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
+  // Same plan + apply path as `npm run db:migrate` (scripts/db/migration-plan.mjs):
+  // drift-checked order, ledger-aware pending set, advisory lock, transactional
+  // per file, checksum on new applies. Ledger failures abort — they must not
+  // leave db:init thinking the schema is synced when the ledger is wrong.
+  await applyPendingMigrations({
+    pool,
+    migrationsDir: MIGRATIONS_DIR,
+    log: {
+      log: (...args) => console.log("[db:init]", ...args),
+    },
+  });
 }
 
 function buildRlsQueries() {

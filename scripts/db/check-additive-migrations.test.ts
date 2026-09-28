@@ -4,8 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   BREAKING_STATEMENTS,
+  REVIEWED_BREAKING_ENV,
   classifyPendingMigrations,
+  findBreakingPerfIndexStatements,
   findBreakingStatements,
+  isReviewedBreakingAllowed,
   maskSqlComments,
   parseCreatedTables,
 } from "./check-additive-migrations.mjs";
@@ -114,17 +117,42 @@ describe("findBreakingStatements", () => {
     ).toEqual(["alter-column-type"]);
   });
 
-  it("håller sig utanför drop-och-återskapa-idiomen", () => {
-    // Dessa flyttar inte marken under gammal kod, och en falsk träff här skulle
-    // rödfärga nästan varje RLS- eller FK-migration.
-    expect(
-      findBreakingStatements(`
+  it("flaggar policies, triggers, funktioner, constraints, indexdrop och backfills", () => {
+    // Frånvaro från denylist ≠ säkert. Dessa kräver granskningsväg
+    // (DB_MIGRATION_ALLOW_REVIEWED_BREAKING), inte att grinden stängs av.
+    const found = findBreakingStatements(`
         DROP POLICY IF EXISTS wizard_runs_owner ON wizard_runs;
         CREATE POLICY wizard_runs_owner ON wizard_runs USING (true);
         DROP TRIGGER IF EXISTS t_set_updated ON engine_versions;
+        CREATE TRIGGER t_set_updated BEFORE UPDATE ON engine_versions
+          FOR EACH ROW EXECUTE FUNCTION set_updated_at();
         DROP INDEX IF EXISTS engine_versions_stale_idx;
         ALTER TABLE engine_chats DROP CONSTRAINT IF EXISTS engine_chats_project_fk;
         UPDATE pricing_settings SET domain_usd_to_sek_ore = 1100 WHERE id = 'default';
+        CREATE OR REPLACE FUNCTION public.set_updated_at() RETURNS trigger AS $$
+        BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;
+        DROP FUNCTION IF EXISTS public.set_updated_at();
+      `).map((f) => f.id);
+    expect(found).toEqual(
+      expect.arrayContaining([
+        "drop-policy",
+        "drop-trigger",
+        "create-trigger",
+        "drop-index",
+        "drop-constraint",
+        "update-dml",
+        "create-or-replace-function",
+        "drop-function",
+      ]),
+    );
+  });
+
+  it("släpper igenom den automatiska säkra vägen (IF NOT EXISTS / icke-unik index)", () => {
+    expect(
+      findBreakingStatements(`
+        CREATE TABLE IF NOT EXISTS t (id text PRIMARY KEY);
+        ALTER TABLE t ADD COLUMN IF NOT EXISTS c text;
+        CREATE INDEX IF NOT EXISTS t_c_idx ON t (c);
       `),
     ).toEqual([]);
   });
@@ -287,13 +315,13 @@ describe("classifyPendingMigrations", () => {
       classifyCampaign(campaignSql, { existingTables: ["generation_billings"] }).map(
         (finding) => finding.id,
       ),
-    ).toEqual(["add-constraint", "create-unique-index"]);
+    ).toEqual(expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]));
     expect(
       classifyCampaign(campaignSql, {
         existingTables: ["generation_billings"],
         existingColumns: new Map([["generation_billings", ["id"]]]),
       }).map((finding) => finding.id),
-    ).toEqual(["add-constraint", "create-unique-index"]);
+    ).toEqual(expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]));
   });
 
   it("failar stängt när en proof-kolumn eller skrivtrigger redan finns live", () => {
@@ -302,13 +330,13 @@ describe("classifyPendingMigrations", () => {
         ...liveBeforeCampaign,
         existingColumns: new Map([["generation_billings", ["id", "campaign_entitlement_id"]]]),
       }).map((finding) => finding.id),
-    ).toEqual(["add-constraint", "create-unique-index"]);
+    ).toEqual(expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]));
     expect(
       classifyCampaign(campaignSql, {
         ...liveBeforeCampaign,
         tablesWithWriteTriggers: ["generation_billings"],
       }).map((finding) => finding.id),
-    ).toEqual(["add-constraint", "create-unique-index"]);
+    ).toEqual(expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]));
   });
 
   it("ger ingen CHECK-dispens när uttrycket refererar en gammal kolumn", () => {
@@ -318,12 +346,14 @@ describe("classifyPendingMigrations", () => {
         "(version_id IS NULL AND campaign_phase IS NULL)",
       )
       .replace("campaign_entitlement_id IS NOT NULL", "version_id IS NOT NULL");
-    expect(classifyCampaign(unsafe).map((finding) => finding.id)).toEqual(["add-constraint"]);
+    expect(classifyCampaign(unsafe).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "drop-constraint"]),
+    );
 
     const nullableFailure = campaignSql.replace("          AND campaign_phase IS NOT NULL\n", "");
-    expect(classifyCampaign(nullableFailure).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-    ]);
+    expect(classifyCampaign(nullableFailure).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "drop-constraint"]),
+    );
   });
 
   it("ogiltigförklarar beviset om batchen ändrar default eller skriver proof-kolumnen", () => {
@@ -341,10 +371,11 @@ describe("classifyPendingMigrations", () => {
         `ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE;
          ${mutation}`,
       );
-      expect(classifyCampaign(mutated).map((finding) => finding.id)).toEqual([
-        "add-constraint",
-        "create-unique-index",
-      ]);
+      const ids = classifyCampaign(mutated).map((finding) => finding.id);
+      expect(ids).toEqual(expect.arrayContaining(["add-constraint", "create-unique-index"]));
+      if (mutation.includes("UPDATE")) {
+        expect(ids).toContain("update-dml");
+      }
     }
 
     const withQuotedDefault = campaignSql.replace(
@@ -353,20 +384,18 @@ describe("classifyPendingMigrations", () => {
        ALTER TABLE public."generation_billings"
          ALTER COLUMN "campaign_phase" SET DEFAULT 'bad';`,
     );
-    expect(classifyCampaign(withQuotedDefault).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(withQuotedDefault).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index"]),
+    );
 
     const withBackfill = campaignSql.replace(
       "ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE;",
       `ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE;
        UPDATE generation_billings SET campaign_phase = 'initial';`,
     );
-    expect(classifyCampaign(withBackfill).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(withBackfill).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "update-dml"]),
+    );
   });
 
   it("kräver deklarationsordning och exakt statisk nullable TEXT-grammar", () => {
@@ -386,18 +415,17 @@ describe("classifyPendingMigrations", () => {
         ADD COLUMN IF NOT EXISTS campaign_entitlement_id TEXT,
         ADD COLUMN IF NOT EXISTS campaign_phase TEXT;
     `;
-    expect(classifyCampaign(lateDeclaration).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-    ]);
+    expect(classifyCampaign(lateDeclaration).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint"]),
+    );
 
     const nonNullDefault = campaignSql.replace(
       "ADD COLUMN IF NOT EXISTS campaign_entitlement_id TEXT,",
       "ADD COLUMN IF NOT EXISTS campaign_entitlement_id TEXT DEFAULT 'seed',",
     );
-    expect(classifyCampaign(nonNullDefault).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(nonNullDefault).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]),
+    );
   });
 
   it("släpper inte uttryck, INCLUDE eller NULLS NOT DISTINCT genom unikhetsgrammatiken", () => {
@@ -427,20 +455,18 @@ describe("classifyPendingMigrations", () => {
       `ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE;
        DO $body$ BEGIN EXECUTE 'SELECT 1'; END $body$;`,
     );
-    expect(classifyCampaign(dynamic).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(dynamic).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]),
+    );
 
     const duplicate = campaignSql.replace(
       "ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE;",
       `ADD COLUMN IF NOT EXISTS campaign_free_applied BOOLEAN NOT NULL DEFAULT FALSE,
        ADD COLUMN IF NOT EXISTS campaign_phase TEXT;`,
     );
-    expect(classifyCampaign(duplicate).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(duplicate).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]),
+    );
 
     const quotedPriorDuplicate = campaignSql.replace(
       "ALTER TABLE public.generation_billings",
@@ -449,19 +475,17 @@ describe("classifyPendingMigrations", () => {
 
        ALTER TABLE public.generation_billings`,
     );
-    expect(classifyCampaign(quotedPriorDuplicate).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(quotedPriorDuplicate).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]),
+    );
   });
 
   it("kräver public-kvalificerade proof-mål oavsett search_path", () => {
     const shadowable = `SET LOCAL search_path TO shadow, public;
 ${campaignSql.replaceAll("public.generation_billings", "generation_billings")}`;
-    expect(classifyCampaign(shadowable).map((finding) => finding.id)).toEqual([
-      "add-constraint",
-      "create-unique-index",
-    ]);
+    expect(classifyCampaign(shadowable).map((finding) => finding.id)).toEqual(
+      expect.arrayContaining(["add-constraint", "create-unique-index", "drop-constraint"]),
+    );
   });
 
   /**
@@ -505,6 +529,14 @@ describe("BREAKING_STATEMENTS", () => {
       "drop-default",
       "truncate",
       "delete-from",
+      "update-dml",
+      "drop-policy",
+      "drop-trigger",
+      "create-trigger",
+      "drop-function",
+      "create-or-replace-function",
+      "drop-constraint",
+      "drop-index",
       "add-constraint",
       "add-unique",
       "add-primary-key",
@@ -512,6 +544,25 @@ describe("BREAKING_STATEMENTS", () => {
       "add-column-unique",
       "create-unique-index",
     ]);
+  });
+
+  it("exponerar granskningsvägen utan att CI sätter den", () => {
+    expect(REVIEWED_BREAKING_ENV).toBe("DB_MIGRATION_ALLOW_REVIEWED_BREAKING");
+    expect(isReviewedBreakingAllowed({})).toBe(false);
+    expect(isReviewedBreakingAllowed({ [REVIEWED_BREAKING_ENV]: "1" })).toBe(true);
+  });
+
+  it("flaggar unika/droppande perf-index utanför SQL-ledgern", () => {
+    expect(
+      findBreakingPerfIndexStatements(`
+        CREATE INDEX IF NOT EXISTS ok_idx ON t (a);
+        CREATE UNIQUE INDEX IF NOT EXISTS bad_uidx ON t (b);
+        DROP INDEX IF EXISTS stale;
+      `).map((f) => f.id),
+    ).toEqual(expect.arrayContaining(["perf-create-unique-index", "perf-drop-index"]));
+    expect(
+      findBreakingPerfIndexStatements("CREATE INDEX IF NOT EXISTS ok_idx ON t (a);"),
+    ).toEqual([]);
   });
 });
 

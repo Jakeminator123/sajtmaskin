@@ -12,8 +12,8 @@
  *   - runs the SAME run-migrations logic, which now records every applied
  *     migration into the schema_migrations ledger.
  *
- * Safe: run-migrations still calls assertSafeWriteTarget, and every migration
- * statement is idempotent (`IF NOT EXISTS`), so re-running is a no-op.
+ * Safe: run-migrations still calls assertSafeWriteTarget, applies only the
+ * shared pending plan, and records checksums for newly applied files.
  */
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
@@ -59,7 +59,7 @@ const host = (() => {
 console.log("======================================================================");
 console.log("  ⚠  Migrating the PRODUCTION database");
 console.log(`     Target: ${host}`);
-console.log("     Idempotent (IF NOT EXISTS) + records the schema_migrations ledger.");
+console.log("     Pending-only plan + schema_migrations ledger (checksum on new applies).");
 console.log("======================================================================");
 
 const res = spawnSync("npx", ["tsx", "scripts/db/run-migrations.ts"], {

@@ -79,6 +79,13 @@ describe("schema_migrations ledger hardening", () => {
       expect(readFileSync(path, "utf8")).not.toMatch(/FROM service_role/);
     }
   });
+
+  it("adds nullable checksum without backfilling historical rows", () => {
+    const sql = readFileSync(LEDGER_MODULE, "utf8");
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS checksum text/);
+    expect(sql).toMatch(/ON CONFLICT \(filename\) DO NOTHING/);
+    expect(sql).not.toMatch(/ON CONFLICT \(filename\) DO UPDATE/);
+  });
 });
 
 // Guards the connection-resolution gate in check-migrations-applied.mjs. An
