@@ -32,6 +32,7 @@ const avatarMock = vi.hoisted(() => ({
   videoRef: vi.fn(),
   connectionState: "error" as "idle" | "connecting" | "connected" | "speaking" | "error",
   avatarReady: false,
+  releaseBlocked: false,
   speak: vi.fn(),
   reconnect: vi.fn(),
   available: true,
@@ -69,6 +70,7 @@ beforeEach(() => {
   avatarMock.videoRef = vi.fn();
   avatarMock.connectionState = "error";
   avatarMock.avatarReady = false;
+  avatarMock.releaseBlocked = false;
   avatarMock.speak = vi.fn();
   avatarMock.reconnect = vi.fn();
   avatarMock.available = true;
@@ -100,6 +102,31 @@ describe("OpenClawChatPanel takeover degradation", () => {
     expect(stage.className).not.toContain("46dvh");
     expect(screen.queryByTestId("openclaw-avatar-video")).toBeNull();
     expect(screen.getByRole("button", { name: "Tillbaka till bubbla" })).toBeTruthy();
+  });
+
+  it("offers retry and text-only after a failed connect, and text-only turns the avatar off", () => {
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
+    expect(avatarMock.reconnect).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Endast text" }));
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
+    expect(screen.getByPlaceholderText("Fråga Sajtagenten...")).toBeTruthy();
+    expect(screen.getByText("Textsvaret syns utan avatar")).toBeTruthy();
+  });
+
+  it("hides retry while an unreleased D-ID session blocks reconnect, and keeps text chat", () => {
+    avatarMock.releaseBlocked = true;
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    expect(screen.getByText("Avataranslutningen pausades")).toBeTruthy();
+    expect(
+      screen.getByText("Använd textchatten. Ladda om sidan senare för ett nytt försök."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Endast text" })).toBeTruthy();
+    expect(screen.getByPlaceholderText("Fråga Sajtagenten...")).toBeTruthy();
   });
 
   it("keeps connecting status compact until the live portrait is ready", () => {
