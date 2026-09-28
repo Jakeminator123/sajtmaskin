@@ -470,11 +470,11 @@ function main() {
   console.log("");
   console.log("  ⚠ PRODUKTION: den här PR:en går till master / sajtmaskin.se.");
   console.log("");
-  console.log("  Kvar innan merge:");
+  console.log("  Kvar innan manuell merge till master:");
   console.log("   1. Invänta gröna required checks på promote-headen.");
   console.log("   2. Kör en bugkoll på diffen mot produktion och triagera fynden.");
-  console.log("   3. Posta merge:ready-kommentaren, sätt sedan labeln (i den ordningen).");
-  console.log("   4. Merga först efter uttrycklig bekräftelse — se .cursor/rules/pr-merge.mdc.");
+  console.log("   3. Controllern tar inte master. merge:ready och merge:execute används inte för den här PR:en.");
+  console.log("   4. Merga manuellt först efter en ny produktionsbekräftelse i samma chatt — se .cursor/rules/pr-merge.mdc.");
   if (manualMergePaths.length > 0) {
     console.log(
       "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
