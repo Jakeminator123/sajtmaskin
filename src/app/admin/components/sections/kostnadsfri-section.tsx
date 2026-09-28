@@ -94,7 +94,7 @@ type KostnadsfriRow = {
   source: string | null;
   unsubscribedAt: string | null;
   stats: KostnadsfriAdminPayload["stats"][number] | null;
-  pixels: KostnadsfriAdminPayload["pixels"][number] | null;
+  pixels: NonNullable<KostnadsfriAdminPayload["pixels"]>[number] | null;
 };
 
 type OutcomeFilter = "visits" | "unique" | "pixel" | "verified" | "started" | "unsubscribed";
@@ -129,11 +129,13 @@ function FilterChip({
   onClick,
   children,
   title,
+  disabled,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   title?: string;
+  disabled?: boolean;
 }) {
   return (
     <Button
@@ -142,6 +144,7 @@ function FilterChip({
       size="sm"
       title={title}
       aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         "h-7 rounded-full px-2.5 text-xs font-medium",
@@ -266,6 +269,7 @@ export function KostnadsfriSection() {
 
   // ── Merge DB rows and visit stats into one table keyed by slug ─────────
   const registeredSlugs = useMemo(() => new Set((data?.pages ?? []).map((page) => page.slug)), [data]);
+  const pixelsUnavailable = data?.pixels === null;
   const pixelsBySlug = useMemo(
     () => new Map((data?.pixels ?? []).map((pixel) => [pixel.slug, pixel])),
     [data],
@@ -346,7 +350,9 @@ export function KostnadsfriSection() {
       if (!showOtherPaths && row.kind !== "utskick") return false;
       if (outcomeFilters.has("visits") && (row.stats?.visits ?? 0) <= 0) return false;
       if (outcomeFilters.has("unique") && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
-      if (outcomeFilters.has("pixel") && pixelHitsTotal(row.pixels) <= 0) return false;
+      if (outcomeFilters.has("pixel") && !pixelsUnavailable && pixelHitsTotal(row.pixels) <= 0) {
+        return false;
+      }
       if (outcomeFilters.has("verified") && (row.stats?.verified ?? 0) <= 0) return false;
       if (outcomeFilters.has("started") && (row.stats?.started ?? 0) <= 0) return false;
       if (outcomeFilters.has("unsubscribed") && !row.unsubscribedAt) return false;
@@ -355,7 +361,7 @@ export function KostnadsfriSection() {
         field?.toLowerCase().includes(needle),
       );
     });
-  }, [rows, rowFilter, showOtherPaths, outcomeFilters]);
+  }, [rows, rowFilter, showOtherPaths, outcomeFilters, pixelsUnavailable]);
 
   const recentRows = useMemo(() => {
     if (!data) return [];
@@ -638,9 +644,14 @@ export function KostnadsfriSection() {
                     Har unik besökare
                   </FilterChip>
                   <FilterChip
-                    active={outcomeFilters.has("pixel")}
+                    active={outcomeFilters.has("pixel") && !pixelsUnavailable}
                     onClick={() => toggleOutcome("pixel")}
-                    title="Pixel är av som standard. Noll träffar betyder inte oläst."
+                    disabled={pixelsUnavailable}
+                    title={
+                      pixelsUnavailable
+                        ? "Pixelstatistiken kunde inte läsas."
+                        : "Pixel är av som standard. Noll träffar betyder inte oläst."
+                    }
                   >
                     Har pixel-träff
                   </FilterChip>
@@ -738,7 +749,16 @@ export function KostnadsfriSection() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <VariantSplit rent={pixels.rent.hits} animated={pixels.animated.hits} />
+                          {pixelsUnavailable ? (
+                            <p
+                              className="text-muted-foreground text-right text-xs"
+                              title="Pixelstatistiken kunde inte läsas. Det är inte samma sak som noll träffar."
+                            >
+                              Otillgänglig
+                            </p>
+                          ) : (
+                            <VariantSplit rent={pixels.rent.hits} animated={pixels.animated.hits} />
+                          )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatCount(row.stats?.verified ?? 0)}

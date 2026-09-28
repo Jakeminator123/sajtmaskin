@@ -103,4 +103,24 @@ describe("GET /api/admin/kostnadsfri", () => {
     expect(JSON.stringify(body)).not.toContain("öppnade");
     expect(JSON.stringify(body)).not.toContain("pixelHits");
   });
+
+  it("returns pixels: null, not an empty list, when the pixel table cannot be read", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    getKostnadsfriPixelStats.mockRejectedValueOnce(
+      Object.assign(new Error('relation "kostnadsfri_pixel_hits" does not exist'), {
+        name: "DatabaseError",
+      }),
+    );
+
+    const res = await GET(new NextRequest("http://localhost/api/admin/kostnadsfri?days=7"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.pixels).toBeNull();
+    expect(body.stats[0].visitsByVariant).toEqual({ rent: 2, animated: 1, unknown: 1 });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[API/admin/kostnadsfri] Pixel stats unavailable (DatabaseError)",
+    );
+    errorSpy.mockRestore();
+  });
 });

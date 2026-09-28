@@ -69,11 +69,14 @@ export interface KostnadsfriAdminPayload {
     firstSeen: string;
     lastSeen: string;
   }[];
-  pixels: {
-    slug: string;
-    rent: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
-    animated: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
-  }[];
+  /** Null when the pixel table could not be read. Not the same as zero hits. */
+  pixels:
+    | {
+        slug: string;
+        rent: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
+        animated: { hits: number; firstHitAt: string | null; lastHitAt: string | null };
+      }[]
+    | null;
   recent: {
     slug: string;
     event: "besok" | "verifierad" | "skapad";

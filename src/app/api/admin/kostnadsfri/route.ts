@@ -74,10 +74,16 @@ export async function GET(req: NextRequest) {
   const days = Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 3650 ? rawDays : 90;
 
   try {
+    // `null` means the pixel table could not be read, which the view must not
+    // show as zero hits.
     const [rows, visits, pixels] = await Promise.all([
       listKostnadsfriPages(),
       getKostnadsfriVisitStats(days),
-      getKostnadsfriPixelStats(days).catch(() => []),
+      getKostnadsfriPixelStats(days).catch((error: unknown) => {
+        const type = error instanceof Error ? error.name : typeof error;
+        console.error(`[API/admin/kostnadsfri] Pixel stats unavailable (${type})`);
+        return null;
+      }),
     ]);
 
     const pages = rows.map((page) => {
