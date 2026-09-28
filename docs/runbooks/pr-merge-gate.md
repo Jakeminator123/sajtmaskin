@@ -40,10 +40,12 @@ Konsekvenser:
 
 ### Extra bekräftelse till master
 
-Ägarbeslut 2026-09-02: live Protect master lämnas löst. Innan `merge:execute`
-ska agenten varna att mergen går till master/produktion, namnge PR:n och vänta
-på Jakobs bekräftelse i **samma chatt efter varningen**. «kör på»,
+Ägarbeslut 2026-09-02: live Protect master lämnas löst. `merge:execute` går till
+`preview`, inte till produktion. Innan en promote-PR mergas till master ska
+agenten varna att mergen går till master/produktion, namnge PR:n och vänta på
+Jakobs bekräftelse i **samma chatt efter varningen**. «kör på»,
 «merga allteftersom», ett äldre «ok» eller «merga» före varningen räcker inte.
+Den mergen görs manuellt; controllern tar inte PR:er mot `master`.
 
 ## Varför sign-off-kommentaren måste komma före labeln
 
@@ -158,8 +160,8 @@ default-branch-controller/reviewmoduler, scope-exekvering och centrala
 klassificeringsinputs; de kräver en separat, uttryckligen ägargodkänd och
 dokumenterad bootstrap-merge efter samma tester, review och väntetid. Det
 undantaget får aldrig användas för att passera en röd eller ofullständig grind.
-Efter exakt head/base-kontroll används expected-head-squash och post-merge-CI
-körs på nya master.
+Efter exakt head/base-kontroll används expected-head-squash till `preview` och
+post-merge-CI körs på nya preview.
 
 Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
 expected base-SHA. Native Protect master kräver **inte** up-to-date/strict
@@ -182,8 +184,10 @@ policyägda CI-trust roots och inget UI-/API-bypass räknas som agentmerge.
 
 En merge med Actions egen `GITHUB_TOKEN` startar normalt inte push-workflows.
 Efter terminal merge gör controllern därför base-invalideringen själv och
-anropar `workflow_dispatch` för både `ci.yml` och `db-blob-sync-check.yml` på
-master. `workflow_dispatch` är recursion-undantaget. Misslyckas eftersteget blir
+anropar `workflow_dispatch` för `ci.yml` på preview. `db-blob-sync-check.yml`
+stannar på master och startar när produktion promotas, eftersom det jobbet bär
+live-secrets och avvisar andra refs. `workflow_dispatch` är recursion-undantaget.
+Misslyckas eftersteget blir
 jobbet rött med `POST_MERGE_VERIFICATION_FAILED`; PR:n är redan mergad och
 återhämtningen är manuell base-invalidering plus båda dispatcherna, inte en ny
 merge.

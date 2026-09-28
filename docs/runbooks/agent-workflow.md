@@ -4,7 +4,7 @@ Det här är människoguiden. Maskinvärden finns i
 [`config/agent-workflow.json`](../../config/agent-workflow.json) och verifieras
 av `npm run workflow:contract`. Körordning och promote-detalj ägs av
 [`.agents/skills/pr-workflow/SKILL.md`](../../.agents/skills/pr-workflow/SKILL.md)
-(§4b); mergegrinden mot `master` av
+(§4b); mergegrinden mot `preview` av
 [`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc).
 
 Flödet har två steg. Allt arbete går som PR mot `preview` (staging,
@@ -18,20 +18,18 @@ flowchart TD
   A --> B["Canonical owner + följdytor"]
   B --> C["verify:pr --plan + riktade tester"]
   C --> P["PR mot preview"]
-  P --> Q["Required checks gröna"]
-  Q --> M["Merge direkt till preview<br/>ingen review-window"]
-  M --> R["npm run promote"]
+  P --> W{"CI-trust root i diffen?"}
+  W -- "nej" --> Q["Required checks + review-window"]
+  Q --> M["merge:execute squash till preview"]
+  W -- "ja" --> X["Bootstrap: ägaren squash-mergar<br/>själv med expected head"]
+  M --> Y["CI på nya preview"]
+  X --> Y
+  Y --> R["npm run promote när Jakob vill"]
   R --> S["kortlivad promote/datum-gren"]
   S --> T["PR mot master"]
-  T --> W{"CI-trust root i diffen?<br/>promote varnar"}
-  W -- "nej" --> D["review-window + merge:ready"]
-  D --> H["Uttryckligt mergeuppdrag"]
-  H --> H2["Varning: master = produktion"]
+  T --> H2["Varning: master = produktion"]
   H2 --> H3["Extra bekräftelse i samma chatt"]
-  H3 --> I["merge:execute squash-mergar"]
-  W -- "ja" --> X["Bootstrap-spår: controllern vägrar.<br/>Ägaren godkänner uttryckligen och<br/>squash-mergar själv med expected head"]
-  X --> K
-  I --> K["CI på nya master"]
+  H3 --> K["Manuell squash till master"]
   K --> J["tidy visar FRI"]
 ```
 
@@ -43,13 +41,13 @@ flowchart TD
 3. Agenten ändrar, testar och öppnar PR mot `preview` när du ber om det.
 4. Agenten pausar vid dataförlust, security/cross-tenant eller oväntat stort
    scope.
-5. När preview-PR:en är grön: säg att den får mergas till `preview`. Det sker
-   direkt när required checks är gröna — ingen `review-window`.
+5. När preview-PR:en är grön: säg att den får mergas. `merge:execute`
+   squash-mergar till `preview`. Controllern tar inte `master`.
 6. Produktion: säg «promota» / «släpp till produktion». Agenten kör
    `npm run promote` (öppnar PR från `promote/<datum>` mot `master`; mergar
    aldrig). När promote-headen är grön: ge ett uttryckligt mergeuppdrag.
    Agenten varnar att det går till **master (produktion)** och väntar på extra
-   bekräftelse i samma chatt.
+   bekräftelse i samma chatt. Den mergen görs manuellt.
 
 Skyddade ytor betyder alltså **extra bevis, inte förbjudet område**. Om en
 produktändring påverkar ett strict schema, en policy, Sajtmaskins Backoffice
@@ -66,11 +64,11 @@ implementation.
 | --- | --- | --- |
 | *Protect preview* | Required checks, non-fast-forward och deletion på staging. Preview-PR:ar mergas när checks är gröna. | Live GitHub-ruleset (speglar *Protect master*; ingen expected-fil i repo). Beslut: [`docs/decisions/README.md`](../decisions/README.md) 2026-09-05. |
 | *Protect master* | Samma native skydd på trunk. `review-window` är grind, inte ruleset-check. | [`.github/rulesets/protect-master.expected.json`](../../.github/rulesets/protect-master.expected.json) |
-| `review-window` / `merge:execute` | 7 min, sign-off och betrodd squash. Bara PR mot trunk — alltså promote-PR:en, inte preview. | [`trusted-review-window.mjs`](../../scripts/ci/trusted-review-window.mjs) (`targetsTrunk`) + [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc) |
+| `review-window` / `merge:execute` | 7 min, sign-off och betrodd squash till `preview`. PR mot `master` tas inte av controllern. | [`trusted-review-window.mjs`](../../scripts/ci/trusted-review-window.mjs) (`targetsDelivery`) + [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc) |
 | `manualMergePathPrefixes` / bootstrap | CI-trust roots går inte genom vanlig `merge:execute`. | [`config/agent-workflow.json`](../../config/agent-workflow.json) + avsnittet [Särskilt spår för CI-trust roots](#särskilt-spår-för-ci-trust-roots) |
 | `delete_branch_on_merge` + slaskgren | Auto-delete tar `promote/<datum>`, inte `preview`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (GitHub-inställningen `delete_branch_on_merge` har ingen fil-owner) |
 | Synk efter squash-promote | Masters squash-commit saknas i `preview`; `npm run promote` mergar `master → preview` serverside innan den räknar, så släppta ändringar inte listas igen och promote-headen innehåller `master`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (`syncStagingWithProduction`) |
-| Dependabot `target-branch` | Beroendebumpar landar på `preview` och följer samma två steg. Dependabot läser filen från default-grenen `master`, så raden gäller först när `dependabot.yml` promotats dit. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
+| Dependabot `target-branch` | Beroendebumpar landar på `preview`. Dependabot läser filen från default-grenen `preview`. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
 | Lokal `pre-push` | Stoppar push om `verify:pr --plan` är rött. | [`install-git-hooks.mjs`](../../scripts/dev/install-git-hooks.mjs) + [`verify-pr.mjs`](../../scripts/workflow/verify-pr.mjs) |
 | CI tung / light | Required checks på varje head: tung för ready runtime, högrisk och `master`; explicit light-kvitto för safe docs och vanliga drafts. | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) + [`ci-scope.mjs`](../../scripts/workflow/ci-scope.mjs) / [`path-impact.mjs`](../../scripts/workflow/path-impact.mjs) |
 
@@ -123,7 +121,7 @@ körs lokalt. CI publicerar required checks för den pushade committen och välj
 fail-closed tung profil eller ett explicit light-kvitto, så en saknad lokal hook
 kan inte göra en ogiltig PR grön.
 
-På PR mot `master` (promote-PR:en, inte preview) gäller
+På PR mot `preview` gäller
 [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). När `quality`,
 `backoffice-tests`, `schema-drift`, `build`, Vercel och alla reviewfynd är
 klara — medan `review-window` fortfarande väntar — posta först
@@ -149,7 +147,8 @@ Detta är den enda kanoniska agentmergen. `issue_comment` kör kod från default
 branch. Controllern hämtar kommentaren via dess GitHub-id, läser live head,
 base, checks, reviews och båda kommentarstyperna flera gånger med ett kort
 settle-fönster och kräver oförändrad evidensfingerprint. Sedan läser den live
-base/compare igen och gör en squash-merge med GitHubs expected-head-SHA.
+base/compare igen och gör en squash-merge till `preview` med GitHubs expected-head-SHA.
+PR:er mot `master` lämnas utanför controllern.
 Review-event-workflows får inte användas för denna token: deras YAML kommer
 från PR:ens obetrodda merge-ref.
 
@@ -198,11 +197,11 @@ verkligt manuella mergeundantaget, och ska inte blandas med en produktändring.
 En sådan ändring görs i en separat PR: ägaren godkänner uttryckligen
 infrastruktur-bootstrapen, agenten kör samma lokala plan + riktade kontroller,
 CI, oberoende review och sjuminutersfönster, och det exakta head/base-paret läses
-om direkt före en dokumenterad expected-head-squash-merge. Efteråt körs CI på
-nya master och övriga öppna PR:ar omvärderas. `npm run promote` varnar redan
-när PR:en öppnas om diffen rör en trust root; vägran ägs av controllern.
-Själva införandet av denna spärr är en engångs-bootstrap; när den finns på
-master får ingen agent dölja en workflowändring bakom ett vanligt
+om direkt före en dokumenterad expected-head-squash-merge till `preview`.
+Efteråt körs CI på nya preview och övriga öppna PR:ar omvärderas. `npm run
+promote` varnar redan när PR:en öppnas om diffen rör en trust root; vägran ägs
+av controllern. Själva införandet av denna spärr är en engångs-bootstrap; när
+den finns på preview får ingen agent dölja en workflowändring bakom ett vanligt
 mergekommando. Det oberoende golvet i `workflow:contract` hindrar en PR-head
 från att ta bort sin egen trust root ur den redigerbara policyn.
 
@@ -215,8 +214,9 @@ lämnas över till Codex-kontot.
 
 Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
 base-SHA-parameter. Native Protect master kräver inte up-to-date/strict
-(ägarbeslut 2026-09-02). Controllern serialiserar merges och minimerar racet med
-en sista base/compare-läsning plus extra mänsklig master-bekräftelse. En manuell
+(ägarbeslut 2026-09-02). Controllern serialiserar merges till `preview` och
+minimerar racet med en sista base/compare-läsning. Extra mänsklig bekräftelse
+krävs när en promote-PR ska till `master`, och den mergen görs manuellt. En manuell
 webbmerge eller bypass har kvar base-racet. Påstå inte att racet är stängt.
 
 Native GitHub visar fortfarande required checks som namn + GitHub Actions-app,
@@ -232,12 +232,12 @@ varför workflowfiler stoppas av den kanoniska controllern och UI/API-merge inte
 är en godkänd agentväg.
 
 Efter lyckad merge kör controllern base-invalideringen direkt och dispatchar
-`ci.yml` samt `db-blob-sync-check.yml` på master. Det behövs eftersom en merge
-med `GITHUB_TOKEN` normalt inte triggar nya push-workflows. Om någon av dessa
-post-merge-åtgärder fallerar blir jobbet rött med
-`POST_MERGE_VERIFICATION_FAILED`, men PR:n är redan terminalt mergad: kör då
-base-invalidering och båda workflow-dispatcherna manuellt; försök aldrig merga
-samma PR igen.
+`ci.yml` på `preview`. Det behövs eftersom en merge med `GITHUB_TOKEN` normalt
+inte triggar nya push-workflows. `db-blob-sync-check.yml` stannar på `master`:
+den bär live-secrets och startar när produktion promotas. Om post-merge-steget
+fallerar blir jobbet rött med `POST_MERGE_VERIFICATION_FAILED`, men PR:n är
+redan terminalt mergad: kör då base-invalidering och `ci.yml`-dispatchen
+manuellt; försök aldrig merga samma PR igen.
 
 ## Vad agenten ska redovisa
 
@@ -249,6 +249,6 @@ samma PR igen.
 
 Detaljerad körordning finns i
 [`.agents/skills/pr-workflow/SKILL.md`](../../.agents/skills/pr-workflow/SKILL.md);
-mergegrinden mot `master` i
+mergegrinden mot `preview` i
 [`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). Denna guide
 ersätter äldre manuella checklistor och ska inte kopieras till fler filer.

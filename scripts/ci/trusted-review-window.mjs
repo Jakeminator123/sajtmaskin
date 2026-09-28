@@ -18,6 +18,15 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const POLICY = JSON.parse(readFileSync(resolve(ROOT, "config/agent-workflow.json"), "utf8"));
+
+/** Leveransgrenen som `merge:execute` får squash-merga till. `trunk` är produktion. */
+export function deliveryRef(policy = POLICY) {
+  const branch = policy?.deliveryBranch;
+  if (branch !== "preview") {
+    throw new Error("deliveryBranch måste vara preview");
+  }
+  return branch;
+}
 const CHECK_NAME = "review-window";
 const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:";
 const POLL_SECONDS = 20;
@@ -262,7 +271,14 @@ export function latestInvalidatingFindingEpoch({ issueComments, reviews, reviewC
  * beständiga state-kommentaren och det publicerade review-ID:t på exakt head.
  * Ett checknamn från github-actions är avsiktligt aldrig kvittot.
  */
-function validateInternalPrAiEvidence({ issueComments, reviews, headSha, repository, prNumber }) {
+function validateInternalPrAiEvidence({
+  issueComments,
+  reviews,
+  headSha,
+  repository,
+  prNumber,
+  policy = POLICY,
+}) {
   const candidates = issueComments
     .filter(
       (comment) =>
@@ -281,7 +297,7 @@ function validateInternalPrAiEvidence({ issueComments, reviews, headSha, reposit
   if (
     state.repository !== repository ||
     Number(state.prNumber) !== Number(prNumber) ||
-    state.baseBranch !== "master"
+    state.baseBranch !== deliveryRef(policy)
   ) {
     return {
       valid: false,
@@ -489,8 +505,8 @@ export function deadlineDecision({
   return "wait";
 }
 
-export function targetsTrunk(pr, policy = POLICY) {
-  return pr?.base?.ref === policy.trunk;
+export function targetsDelivery(pr, policy = POLICY) {
+  return pr?.base?.ref === deliveryRef(policy);
 }
 
 const GATE_PR_ACTIONS = new Set(["opened", "reopened", "synchronize", "ready_for_review"]);
@@ -1307,7 +1323,7 @@ async function readLiveEvidence(
   if (pr.head.sha.toLowerCase() !== expectedHeadSha.toLowerCase()) {
     return { staleHead: true, pr };
   }
-  if (pr.base.ref !== policy.trunk) {
+  if (pr.base.ref !== deliveryRef(policy)) {
     return { staleHead: false, wrongBase: true, pr };
   }
   const basePath = pr.base.ref
@@ -1529,7 +1545,7 @@ export function validateMergeSnapshot({
       reason: `workflow-infrastruktur kräver explicit bootstrap: ${evidence.manualMergeFiles.join(", ")}`,
     };
   }
-  if (!targetsTrunk(pr, policy)) {
+  if (!targetsDelivery(pr, policy)) {
     return { valid: false, reason: `PR:n riktas mot ${pr.base?.ref ?? "okänd base"}` };
   }
   if (pr.head?.sha?.toLowerCase() !== expectedHeadSha.toLowerCase()) {
@@ -1539,7 +1555,10 @@ export function validateMergeSnapshot({
     evidence.baseSha?.toLowerCase() !== expectedBaseSha.toLowerCase() ||
     evidence.baseIsAncestor !== true
   ) {
-    return { valid: false, reason: "live master matchar inte kommandot eller saknas i PR-head" };
+    return {
+      valid: false,
+      reason: `live ${deliveryRef(policy)} matchar inte kommandot eller saknas i PR-head`,
+    };
   }
   if (!String(commandComment.issue_url ?? "").endsWith(`/issues/${prNumber}`)) {
     return { valid: false, reason: "merge-kommentaren hör inte till den aktuella PR:n" };
@@ -1658,7 +1677,7 @@ export async function runTrustedGate({
   invalidateExistingSignoff: _invalidateExistingSignoff = false,
 }) {
   const initialPr = await client.request(`/pulls/${prNumber}`);
-  if (!targetsTrunk(initialPr, policy)) {
+  if (!targetsDelivery(initialPr, policy)) {
     return { conclusion: "ignored", reason: `base ${initialPr.base?.ref ?? "unknown"}` };
   }
   const gateDecision = shouldRunTrustedGate({
@@ -1704,12 +1723,12 @@ export async function runTrustedGate({
         finished = true;
         return { conclusion: "neutral", reason: "head changed" };
       }
-      if (liveEvidence.wrongBase || !targetsTrunk(livePr, policy)) {
+      if (liveEvidence.wrongBase || !targetsDelivery(livePr, policy)) {
         await completeGateCheck(
           client,
           gate.id,
           "neutral",
-          "PR riktas inte längre mot trunk",
+          "PR riktas inte längre mot leveransgrenen",
           `Live base är nu ${livePr.base?.ref ?? "unknown"}.`,
           now(),
         );
@@ -1753,7 +1772,7 @@ export async function runTrustedGate({
       const windowStart = latestState.latestRequiredCreatedEpoch;
       const headAge = windowStart > 0 ? current - windowStart : 0;
       if (hasBaseInvalidation(rawRuns, headSha)) {
-        latestFreshnessReason = "master har flyttats efter att denna head verifierades";
+        latestFreshnessReason = `${deliveryRef(policy)} har flyttats efter att denna head verifierades`;
         break;
       }
       if (!trustedReview.valid && latestState.completedSuccess === 0) {
@@ -1886,15 +1905,15 @@ export async function runTrustedMerge({
     client.request(`/pulls/${prNumber}`),
     client.request(`/issues/comments/${commentId}`),
   ]);
-  if (!targetsTrunk(initialPr, policy)) {
-    throw new Error(`PR #${prNumber} riktas inte mot ${policy.trunk}`);
+  if (!targetsDelivery(initialPr, policy)) {
+    throw new Error(`PR #${prNumber} riktas inte mot ${deliveryRef(policy)}`);
   }
   if (!String(initialComment.issue_url ?? "").endsWith(`/issues/${prNumber}`)) {
     throw new Error("merge:execute-kommentaren hör inte till den aktuella PR:n");
   }
   const expectedHeadSha = initialPr.head?.sha ?? "";
   if (!/^[0-9a-f]{40}$/i.test(expectedHeadSha)) throw new Error("GitHub gav ogiltig PR-head");
-  const basePath = policy.trunk
+  const basePath = deliveryRef(policy)
     .split("/")
     .map((part) => encodeURIComponent(part))
     .join("/");
@@ -1958,7 +1977,7 @@ export async function runTrustedMerge({
     !["ahead", "identical"].includes(comparison.status) ||
     comparison.merge_base_commit?.sha?.toLowerCase() !== liveBaseSha.toLowerCase()
   ) {
-    throw new Error("PR-head innehåller inte live master precis före merge");
+    throw new Error(`PR-head innehåller inte live ${deliveryRef(policy)} precis före merge`);
   }
 
   const result = await client.request(`/pulls/${prNumber}/merge`, {
@@ -1985,7 +2004,7 @@ export async function runTrustedMerge({
     try {
       // GITHUB_TOKEN-genererade push-event startar normalt inte nya workflows.
       // Gör därför samma base-invalidering explicit efter terminal merge.
-      await invalidateForBasePush({ client, baseSha: mergedBaseSha });
+      await invalidateForBasePush({ client, baseSha: mergedBaseSha, policy });
     } catch (error) {
       postMergeFailures.push(
         `base-invalidering: ${error instanceof Error ? error.message : String(error)}`,
@@ -1996,12 +2015,14 @@ export async function runTrustedMerge({
   }
 
   // workflow_dispatch är ett dokumenterat undantag från GITHUB_TOKEN:s
-  // recursion-skydd. Kör båda post-merge-grindarna explicit på master.
-  for (const workflow of ["ci.yml", "db-blob-sync-check.yml"]) {
+  // recursion-skydd. ci.yml på preview kör samma post-push-grind som en vanlig
+  // staging-push, inklusive additiv preview-migration. Live-secret-jobbet
+  // db-blob-sync stannar på master och startar när produktion promotas.
+  for (const workflow of ["ci.yml"]) {
     try {
       await client.request(`/actions/workflows/${workflow}/dispatches`, {
         method: "POST",
-        body: { ref: policy.trunk },
+        body: { ref: deliveryRef(policy) },
       });
     } catch (error) {
       postMergeFailures.push(
@@ -2026,8 +2047,12 @@ export async function invalidateForBasePush({
   client,
   baseSha,
   now = () => Math.floor(Date.now() / 1000),
+  policy = POLICY,
 }) {
-  const pulls = await client.paginate("/pulls?state=open&base=master");
+  const branch = deliveryRef(policy);
+  const pulls = await client.paginate(
+    `/pulls?state=open&base=${encodeURIComponent(branch)}`,
+  );
   const failures = [];
   for (const pr of pulls) {
     // Drafts kan inte mergeas och flera långlivade ägar-/admin-PR:er ska inte
@@ -2035,7 +2060,7 @@ export async function invalidateForBasePush({
     // de faktiskt lämnar draftläget.
     if (pr.draft === true) continue;
     try {
-      const summary = `Uppdatera PR-head med master ${baseSha}, kör om grinden och signera den nya live-basen.`;
+      const summary = `Uppdatera PR-head med ${branch} ${baseSha}, kör om grinden och signera den nya live-basen.`;
       // Skapa alltid en NY, senare check. Att PATCH:a den pågående gate-checken
       // är race-känsligt: gate-jobbet kan annars skriva success efter PATCH:en.
       // Den separata base-markören kan inte skrivas över av den äldre körningen.
@@ -2049,7 +2074,7 @@ export async function invalidateForBasePush({
           conclusion: "action_required",
           completed_at: iso(now()),
           output: {
-            title: "Master har flyttats",
+            title: `${branch} har flyttats`,
             summary,
           },
         },

@@ -12,8 +12,10 @@ Bakgrund: `docs/runbooks/pr-merge-gate.md`.
 
 ## Extra bekräftelse till master
 
-Innan `merge:execute`: varna att det går till master/produktion, namnge PR:n
-och vänta på bekräftelse i samma chatt efter varningen. «kör på» räcker inte.
+`merge:execute` går till `preview`. Controllern tar inte `master`.
+
+Innan promote till master: varna, namnge PR:n, vänta på ny bekräftelse.
+«kör på» räcker inte.
 
 Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
 och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
@@ -64,7 +66,7 @@ review är klara, P0/P1 = 0 och head innehåller aktuell base-tip — medan
 3. Den betrodda default-branch-controllern validerar båda SHA:na, signerarens
    identitet och ordningen mot GitHubs live-tillstånd. Först då blir den
    head-bundna required checken `review-window` grön. Ny commit, flyttad
-   master/base, borttagen label eller senare botfynd ogiltigförklarar signalen;
+   preview/base, borttagen label eller senare botfynd ogiltigförklarar signalen;
    uppdatera, granska, kommentera och labela om i samma ordning.
 
 Mergaren sätter aldrig författarens label åt den. Avsaknad av label betyder
@@ -95,9 +97,9 @@ och strikt senare än all evidens, läser live head/base/checks/reviews/
 kommentarer i ett settle-fönster och squash-mergar med expected head-SHA.
 
 `--admin` och manuell webbmerge är inte normalvägen och får aldrig passera en
-röd/väntande grind. Serialisera merges och hämta master efter varje. Inte
+röd/väntande grind. Serialisera merges och hämta preview efter varje. Inte
 `NEEDS_HUMAN` bara för saknad native strict. Röd post-merge-dispatch återkörs
-på master; merga aldrig samma PR igen.
+på preview; merga aldrig samma PR igen.
 
 ## Väntan
 

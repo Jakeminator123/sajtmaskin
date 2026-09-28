@@ -20,8 +20,9 @@ och grinden av [`pr-merge.mdc`](../rules/pr-merge.mdc). Kommandot äger bara kö
 5. Jämför changed filenames mellan mergekandidater. Överlapp i backlogg,
    canvas eller planrouter ska tillbaka till respektive författare.
 6. Släpp fram högst en PR i taget till det mänskliga, SHA-exakta
-   `merge:execute`-kommandot. Den betrodda controllern mergar; fetch:a därefter
-   färsk `master` och omvärdera övriga PR:er.
+   `merge:execute`-kommandot. Den betrodda controllern squash-mergar till
+   `preview`; fetch:a därefter färsk `preview` och omvärdera övriga PR:er.
+   PR:er mot `master` lämnas till manuell promote.
 7. Rapportera `mergad`, `väntar` eller `NEEDS_HUMAN` och det exakta villkoret.
 
 Skriv aldrig på en annan agents branch, rebasa inte åt den och använd aldrig

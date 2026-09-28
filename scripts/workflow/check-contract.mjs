@@ -534,6 +534,12 @@ export function evaluateTrustedReviewWindowGate(source) {
       "merge-ready freshness must not use workflow-level concurrency across independent controller jobs",
     );
   }
+  if (
+    !hasExactStringSet(document?.on?.pull_request_target?.branches, ["preview"]) ||
+    !hasExactStringSet(document?.on?.push?.branches, ["preview"])
+  ) {
+    errors.push("merge-ready freshness must listen only to preview, never master");
+  }
   if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
     errors.push(
       "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize, ready_for_review and a trusted gate-only refresh",
@@ -1093,6 +1099,15 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
   const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
+  let prAiReviewDocument = null;
+  try {
+    prAiReviewDocument = yaml.load(prAiReview);
+  } catch {
+    prAiReviewDocument = null;
+  }
+  if (!hasExactStringSet(prAiReviewDocument?.on?.pull_request_target?.branches, ["preview"])) {
+    errors.push("PR AI review must listen only to preview pull requests");
+  }
   const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
   const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
@@ -1187,7 +1202,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     )
   ) {
     errors.push(
-      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment, master push and gate-only workflow_dispatch events",
+      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment, preview push and gate-only workflow_dispatch events",
     );
   }
   if (
@@ -1259,7 +1274,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (
     !freshness.includes("node scripts/ci/trusted-review-window.mjs merge") ||
-    !freshness.includes("group: trusted-master-merge") ||
+    !freshness.includes("group: trusted-preview-merge") ||
+    !freshness.includes('if [ "$BASE_REF" != "preview" ]; then') ||
     !freshness.includes("actions: write") ||
     !freshness.includes("contents: write") ||
     !freshness.includes("COMMENT_ID: ${{ github.event.comment.id }}") ||
@@ -1271,9 +1287,11 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes('body: { sha: expectedHeadSha, merge_method: "squash" }') ||
     !trustedReviewWindow.includes("/compare/${liveBaseSha}...${expectedHeadSha}") ||
     !trustedReviewWindow.includes(
-      "await invalidateForBasePush({ client, baseSha: mergedBaseSha })",
+      "await invalidateForBasePush({ client, baseSha: mergedBaseSha, policy })",
     ) ||
-    !trustedReviewWindow.includes('for (const workflow of ["ci.yml", "db-blob-sync-check.yml"])') ||
+    !trustedReviewWindow.includes('for (const workflow of ["ci.yml"])') ||
+    !trustedReviewWindow.includes("body: { ref: deliveryRef(policy) }") ||
+    trustedReviewWindow.includes("db-blob-sync-check.yml") ||
     !trustedReviewWindow.includes("POST_MERGE_VERIFICATION_FAILED")
   ) {
     errors.push(
