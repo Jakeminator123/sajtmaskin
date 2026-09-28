@@ -1,10 +1,12 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { Redis } from "@upstash/redis";
+import { getServerEnv } from "@/lib/env";
 
 export const HANDOFF_ISSUER = "jakobscrape-dash";
 export const HANDOFF_AUDIENCE = "sajtmaskin-admin";
 export const HANDOFF_TTL_SECONDS = 60;
 export const DEFAULT_HANDOFF_NEXT = "/admin/kostnadsfri";
+export const MIN_HANDOFF_SECRET_LENGTH = 32;
 
 const JTI_PATTERN = /^[0-9a-f]{32}$/;
 const JTI_TTL_MS = 2 * 60 * 1000;
@@ -25,9 +27,10 @@ export type HandoffPayload = {
   next: string;
 };
 
+/** A short or placeholder secret would let anyone sign a ticket, so it counts as missing. */
 export function adminHandoffSecret(): string | null {
-  const secret = process.env.ADMIN_HANDOFF_SECRET;
-  if (!secret || !secret.trim()) return null;
+  const secret = getServerEnv().ADMIN_HANDOFF_SECRET;
+  if (!secret || secret.length < MIN_HANDOFF_SECRET_LENGTH) return null;
   return secret;
 }
 

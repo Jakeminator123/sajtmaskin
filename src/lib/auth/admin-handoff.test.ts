@@ -1,12 +1,14 @@
 import { createHmac, randomBytes } from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  adminHandoffSecret,
   consumeHandoffJti,
   DEFAULT_HANDOFF_NEXT,
   resetHandoffJtiStore,
   safeAdminPath,
   verifyAdminHandoff,
 } from "./admin-handoff";
+import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const redisSet = vi.hoisted(() => vi.fn());
 
@@ -120,6 +122,35 @@ describe("verifyAdminHandoff", () => {
   it("rejects a jti that is not 32 hex characters", () => {
     expect(verifyAdminHandoff(sign({ jti: "abc" }), SECRET)).toBeNull();
     expect(verifyAdminHandoff(sign({ jti: "g".repeat(32) }), SECRET)).toBeNull();
+  });
+});
+
+describe("adminHandoffSecret", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetServerEnvCacheForTests();
+  });
+
+  function secretFor(value: string | undefined): string | null {
+    vi.stubEnv("ADMIN_HANDOFF_SECRET", value);
+    resetServerEnvCacheForTests();
+    return adminHandoffSecret();
+  }
+
+  it("treats empty, quoted empty and short values as missing", () => {
+    expect(secretFor(undefined)).toBeNull();
+    expect(secretFor("")).toBeNull();
+    expect(secretFor("   ")).toBeNull();
+    expect(secretFor('""')).toBeNull();
+    expect(secretFor("''")).toBeNull();
+    expect(secretFor(' "" ')).toBeNull();
+    expect(secretFor("x".repeat(31))).toBeNull();
+  });
+
+  it("returns a long secret without surrounding quotes or whitespace", () => {
+    const secret = "k".repeat(64);
+    expect(secretFor(secret)).toBe(secret);
+    expect(secretFor(`  "${secret}"  `)).toBe(secret);
   });
 });
 

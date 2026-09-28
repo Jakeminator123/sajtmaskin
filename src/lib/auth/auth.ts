@@ -507,9 +507,10 @@ export async function createConfiguredAdminLogin(): Promise<
   );
   if (!adminMatch) return { error: "unconfigured" };
 
-  let user = await getUserByEmail(adminMatch.email);
+  const adminEmail = adminMatch.email.trim().toLowerCase();
+  let user = await getUserByEmail(adminEmail);
   if (!user) {
-    const result = await registerUser(adminMatch.email, adminMatch.password, adminMatch.name);
+    const result = await registerUser(adminEmail, adminMatch.password, adminMatch.name);
     if ("error" in result) return { error: "unconfigured" };
     user = result.user;
   }

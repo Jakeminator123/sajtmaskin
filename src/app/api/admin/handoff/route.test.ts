@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { resetHandoffJtiStore } from "@/lib/auth/admin-handoff";
+import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const setAuthCookie = vi.hoisted(() => vi.fn(async () => {}));
 const createConfiguredAdminLogin = vi.hoisted(() =>
@@ -22,7 +23,7 @@ vi.mock("@/lib/rate-limit", () => ({
 
 import { GET, POST } from "./route";
 
-const SECRET = "route-handoff-secret";
+const SECRET = "route-handoff-secret-0123456789abcdef";
 
 function sign(
   next = "/admin/kostnadsfri",
@@ -80,6 +81,7 @@ function restoreRedisEnv(): void {
 beforeEach(() => {
   hideRedisEnv();
   process.env.ADMIN_HANDOFF_SECRET = SECRET;
+  resetServerEnvCacheForTests();
   createConfiguredAdminLogin.mockResolvedValue({ token: "jwt-admin" });
   withRateLimit.mockImplementation((_req, _key, handler: () => Promise<Response>) => handler());
   resetHandoffJtiStore();
@@ -88,6 +90,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   delete process.env.ADMIN_HANDOFF_SECRET;
+  resetServerEnvCacheForTests();
   restoreRedisEnv();
   resetHandoffJtiStore();
 });
@@ -118,8 +121,32 @@ describe("POST /api/admin/handoff", () => {
     expect(location(expired).pathname).toBe("/");
 
     delete process.env.ADMIN_HANDOFF_SECRET;
+    resetServerEnvCacheForTests();
     const missing = await POST(post(sign()));
     expect(location(missing).pathname).toBe("/");
+    expect(setAuthCookie).not.toHaveBeenCalled();
+  });
+
+  it("denies a ticket signed with a quoted empty secret", async () => {
+    for (const placeholder of ['""', "''"]) {
+      process.env.ADMIN_HANDOFF_SECRET = placeholder;
+      resetServerEnvCacheForTests();
+      const body = Buffer.from(
+        JSON.stringify({
+          iss: "jakobscrape-dash",
+          aud: "sajtmaskin-admin",
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 60,
+          jti: randomBytes(16).toString("hex"),
+          next: "/admin",
+        }),
+        "utf8",
+      ).toString("base64url");
+      const forged = `${body}.${createHmac("sha256", placeholder).update(body, "utf8").digest("base64url")}`;
+      const res = await POST(post(forged));
+      expect(location(res).pathname).toBe("/");
+    }
+    expect(createConfiguredAdminLogin).not.toHaveBeenCalled();
     expect(setAuthCookie).not.toHaveBeenCalled();
   });
 
