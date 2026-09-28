@@ -12,6 +12,7 @@ import {
   index,
   integer,
   serial,
+  bigserial,
 } from "drizzle-orm/pg-core";
 import type { CreditPriceOverrides } from "@/lib/credits/pricing";
 
@@ -640,7 +641,7 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 export const kostnadsfriPixelHits = pgTable(
   "kostnadsfri_pixel_hits",
   {
-    id: serial("id").primaryKey(),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
     email: text("email").notNull(),
     slug: text("slug").notNull(),
     kind: text("kind").notNull(),
