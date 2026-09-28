@@ -53,6 +53,9 @@ function lines(value) {
     .filter(Boolean);
 }
 
+/** Leveransgren för vanligt PR-arbete (preview.sajtmaskin.se), skild från trunk. */
+export const DEFAULT_DELIVERY_BRANCH = "preview";
+
 export function parseArgs(argv) {
   const options = { plan: false, full: false, fetch: true, keepGoing: false, base: null };
   for (let i = 0; i < argv.length; i += 1) {
@@ -65,6 +68,39 @@ export function parseArgs(argv) {
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
+}
+
+/**
+ * Jämförelsebas för lokal verify:pr.
+ * Explicit `--base` vinner. På trunk-branchen används origin/<trunk>.
+ * Annars leveransgrenen (preview), inte master — vanliga preview-PR:ar ska
+ * inte defaulta till produktionsbasen.
+ */
+export function resolveVerificationBase({ explicitBase, branch, policy }) {
+  if (explicitBase) return explicitBase;
+  if (branch === policy.trunk) return `origin/${policy.trunk}`;
+  const delivery = policy.deliveryBranch ?? DEFAULT_DELIVERY_BRANCH;
+  return `origin/${delivery}`;
+}
+
+/**
+ * Vilken remote-gren `git fetch origin <ref>` ska hämta för en given bas.
+ * `origin/preview` → `preview`. Saknad/okänd form → null (ingen fetch).
+ */
+export function resolveFetchRefForBase(base) {
+  const value = String(base ?? "").trim();
+  if (!value) return null;
+  const originMatch = /^origin\/([^/\s]+)$/.exec(value);
+  if (originMatch) return originMatch[1];
+  if (/^[0-9a-f]{7,40}$/i.test(value)) return null;
+  if (!value.includes("/") && !value.includes("\\")) return value;
+  return null;
+}
+
+/** Tydligt fel när lokal bas-ref saknas eller inte gått att verifiera efter fetch. */
+export function formatMissingBaseError(base) {
+  const fetchRef = resolveFetchRefForBase(base);
+  return `basen ${base} saknas lokalt. Hämta den (t.ex. git fetch origin ${fetchRef ?? base}) och försök igen.`;
 }
 
 /**
@@ -179,22 +215,33 @@ async function main() {
   const inputs = loadWorkflowInputs(REPO_ROOT);
   const { policy } = inputs;
 
-  if (options.fetch && !isCiRunner(process.env)) {
-    console.log(`[verify:pr] hämtar origin/${policy.trunk}…`);
-    const fetched = git(["fetch", "origin", policy.trunk, "--quiet"], { allowFailure: true });
-    if (fetched.status !== 0) {
-      throw new Error(
-        `kunde inte hämta färsk ${policy.trunk}: ${(fetched.stderr || "okänt fel").trim()}`,
-      );
-    }
-  }
-
   const branch = git(["branch", "--show-current"]).stdout.trim();
   const head = git(["rev-parse", "HEAD"]).stdout.trim();
   assertBranchSafety({ branch, head, policy });
 
-  const base = options.base ?? `origin/${policy.trunk}`;
-  git(["rev-parse", "--verify", base]);
+  const base = resolveVerificationBase({
+    explicitBase: options.base,
+    branch,
+    policy,
+  });
+
+  if (options.fetch && !isCiRunner(process.env)) {
+    const fetchRef = resolveFetchRefForBase(base);
+    if (fetchRef) {
+      console.log(`[verify:pr] hämtar origin/${fetchRef}…`);
+      const fetched = git(["fetch", "origin", fetchRef, "--quiet"], { allowFailure: true });
+      if (fetched.status !== 0) {
+        throw new Error(
+          `kunde inte hämta färsk ${fetchRef}: ${(fetched.stderr || "okänt fel").trim()}`,
+        );
+      }
+    }
+  }
+
+  const verified = git(["rev-parse", "--verify", base], { allowFailure: true });
+  if (verified.status !== 0) {
+    throw new Error(formatMissingBaseError(base));
+  }
   const ancestor = git(["merge-base", "--is-ancestor", base, "HEAD"], { allowFailure: true });
   if (ancestor.status !== 0) {
     throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);

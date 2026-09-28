@@ -82,11 +82,9 @@ vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
 före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
 
 Controllern squash-mergar, så masters nya commit finns inte i `preview`
-efteråt. Saknar `preview` masters tip mergar `npm run promote` därför först
-`master → preview` serverside (innehållsneutralt efter en squash-promote) innan
-den räknar commits — annars listas redan släppta ändringar igen och nästa
-promote-PR stoppas av kravet att head innehåller aktuell `master`. Kör
-kommandot en gång efter varje promote-merge för att stänga hålet direkt.
+efteråt. `npm run promote` synkar **inte** `master → preview` serverside —
+saknar preview masters tip: öppna en egen PR med merge-commit (inte squash)
+innan nästa promote. Osläppt innehåll avgörs av trädskillnad mot `master`.
 
 ## 5. Merge och städ
 

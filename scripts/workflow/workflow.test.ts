@@ -26,11 +26,15 @@ import {
   pathMatchesPattern,
 } from "./path-impact.mjs";
 import {
+  DEFAULT_DELIVERY_BRANCH,
   assertBranchSafety,
   classifyProcessResult,
   executeVerificationCommands,
+  formatMissingBaseError,
   isCiRunner,
   parseArgs,
+  resolveFetchRefForBase,
+  resolveVerificationBase,
   resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
@@ -487,6 +491,69 @@ describe("local base freshness", () => {
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
     ]);
+  });
+});
+
+describe("verify:pr base resolution", () => {
+  const policy = { trunk: "master", deliveryBranch: undefined as string | undefined };
+
+  it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
+    expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
+    expect(
+      resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy }),
+    ).toBe("origin/preview");
+  });
+
+  it("låter explicit --base vinna, inklusive origin/master för produktionsgranskning", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/master",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/master");
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/preview",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/preview");
+  });
+
+  it("använder trunk när branchen själv är master", () => {
+    expect(resolveVerificationBase({ explicitBase: null, branch: "master", policy })).toBe(
+      "origin/master",
+    );
+  });
+
+  it("respekterar policy.deliveryBranch när den finns", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: null,
+        branch: "fix/x",
+        policy: { trunk: "master", deliveryBranch: "preview" },
+      }),
+    ).toBe("origin/preview");
+  });
+
+  it("hämtar den bas som faktiskt valts — origin/preview ska inte fetcha master", () => {
+    expect(resolveFetchRefForBase("origin/preview")).toBe("preview");
+    expect(resolveFetchRefForBase("origin/master")).toBe("master");
+    expect(resolveFetchRefForBase("preview")).toBe("preview");
+    expect(resolveFetchRefForBase("abcdef1")).toBeNull();
+    expect(resolveFetchRefForBase("")).toBeNull();
+  });
+
+  it("beskriver saknad lokal bas-ref med rätt fetch-mål", () => {
+    expect(formatMissingBaseError("origin/preview")).toContain("git fetch origin preview");
+    expect(formatMissingBaseError("origin/preview")).not.toContain("git fetch origin master");
+    expect(formatMissingBaseError("origin/master")).toContain("git fetch origin master");
+  });
+
+  it("läser --base ur parseArgs", () => {
+    expect(parseArgs(["--base", "origin/preview"]).base).toBe("origin/preview");
+    expect(parseArgs([]).base).toBeNull();
   });
 });
 

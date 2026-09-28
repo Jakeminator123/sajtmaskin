@@ -24,11 +24,10 @@
  * kommandot redan här — 2026-09-08 upptäcktes det först i review-window.
  *
  * Synk: controllern squash-mergar, så masters nya commit finns inte i preview
- * efteråt. Utan åtgärd räknar nästa promote redan släppta commits igen och
- * stoppas av kravet att head innehåller aktuell master (extern review
- * 2026-09-08). Saknar preview masters tip mergar kommandot därför först
- * master → preview serverside (innehållsneutralt efter en squash-promote) och
- * fortsätter sedan.
+ * efteråt. Planering eller skapande av promote-PR synkar **inte** master →
+ * preview via merges-API. Saknar preview masters tip: avbryt och öppna en egen
+ * PR (merge-commit, inte squash). Osläppt innehåll avgörs av trädskillnad mot
+ * master — inte av antagandet att allt före senaste synk-commit redan är släppt.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -141,21 +140,53 @@ export function selectPromoteHighlights(commits) {
 }
 
 /**
- * Efter synk-mergen kan `master..preview` bestå av enbart en merge-commit medan
- * träden är identiska — då finns inget att släppa. Släpp bara när preview både
- * ligger före master och faktiskt har ett annat träd.
+ * Finns det något att släppa? Trädskillnaden är sanningen. Selektiv release +
+ * synk-merge kan lämna `sync..preview` tom medan preview fortfarande skiljer
+ * sig från master (osläppt C). Tom commitlista får då inte dölja underlaget.
  */
-export function hasContentToPromote(commits, treeDiffers) {
-  return commits.length > 0 && treeDiffers;
+export function hasContentToPromote(_commits, treeDiffers) {
+  return Boolean(treeDiffers);
 }
 
 /**
- * Var commitlistan börjar: vid senaste synk-mergen (master → preview) när en
- * sådan finns, annars vid master. Squash-promote gör att previews commits
- * före synken redan är släppta även om de inte är förfäder till master.
+ * Var commitlistan börjar för promote-beskrivningen. Synk-mergen är inte en
+ * säker cutoff: selektiv release kan lämna osläppt historik före den. Börja
+ * alltid vid production så osläppta commits syns i underlaget; när träden är
+ * identiska avbryter hasContentToPromote innan listan används.
  */
-export function commitRangeStart(syncMergeSha, productionRef) {
-  return syncMergeSha || productionRef;
+export function commitRangeStart(_syncMergeSha, productionRef) {
+  return productionRef;
+}
+
+/**
+ * Samla promote-underlag från redan upplösta SHA:n (för tester utan remote).
+ * @param {{
+ *   productionSha: string,
+ *   stagingSha: string,
+ *   productionTree: string,
+ *   stagingTree: string,
+ *   commits: Array<{ sha: string, subject: string }>,
+ * }} input
+ */
+export function evaluatePromotePlan(input) {
+  const treeDiffers = input.productionTree !== input.stagingTree;
+  const sameTip = input.productionSha === input.stagingSha;
+  return {
+    sameTip,
+    treeDiffers,
+    shouldPromote: !sameTip && hasContentToPromote(input.commits, treeDiffers),
+    commits: input.commits,
+  };
+}
+
+/** Recept när staging saknar produktionens tip — ingen serverside merges-API. */
+export function missingProductionSyncMessage({ productionBranch, stagingBranch, baseSha }) {
+  const short = String(baseSha ?? "").slice(0, 8);
+  return [
+    `origin/${stagingBranch} saknar origin/${productionBranch} (${short}).`,
+    `Öppna en egen PR från ${productionBranch} mot ${stagingBranch} och merga den med MERGE-commit (inte squash), kör sedan promote igen.`,
+    "Planering eller skapande av release-PR synkar inte master → preview serverside.",
+  ].join(" ");
 }
 
 export function buildPromoteTitle(commits, date) {
@@ -252,73 +283,6 @@ function stagingContainsProduction() {
   }
 }
 
-/**
- * Senaste merge-commit på previews first-parent-linje vars andra förälder
- * ligger i master — dvs. en synk `master → preview`. Null om ingen finns.
- */
-function findLatestSyncMerge() {
-  const merges = git([
-    "rev-list",
-    "--first-parent",
-    "--merges",
-    `origin/${PRODUCTION_BRANCH}..origin/${STAGING_BRANCH}`,
-  ])
-    .split(/\r?\n/)
-    .filter(Boolean);
-  for (const sha of merges) {
-    try {
-      execFileSync(
-        "git",
-        ["merge-base", "--is-ancestor", `${sha}^2`, `origin/${PRODUCTION_BRANCH}`],
-        { cwd: REPO_ROOT, stdio: "ignore" },
-      );
-      return sha;
-    } catch {
-      // inte en synk-merge — fortsätt
-    }
-  }
-  return null;
-}
-
-/**
- * Merga master → preview serverside via GitHubs merges-API. Efter en
- * squash-promote är träden identiska, så mergen är innehållsneutral; har
- * master fått en hotfix följer den med till staging, vilket är avsikten.
- * Kommandot rör aldrig din lokala checkout. Protect preview kräver PR för
- * pushar — anropet går på din egen behörighet (ägaren har bypass); saknas den
- * skrivs receptet för PR-vägen ut i stället.
- */
-function syncStagingWithProduction(baseSha) {
-  console.log(
-    `[promote] origin/${STAGING_BRANCH} saknar origin/${PRODUCTION_BRANCH} (${baseSha.slice(0, 8)}) — mergar ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside så att nästa promote-head innehåller master.`,
-  );
-  try {
-    gh([
-      "api",
-      "-X",
-      "POST",
-      "repos/{owner}/{repo}/merges",
-      "-f",
-      `base=${STAGING_BRANCH}`,
-      "-f",
-      `head=${PRODUCTION_BRANCH}`,
-      "-f",
-      `commit_message=sync: ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} efter promote (${baseSha.slice(0, 8)})`,
-      "--jq",
-      ".sha // empty",
-    ]);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      [
-        `kunde inte merga ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside: ${message}`,
-        `Alternativ: öppna en PR från ${PRODUCTION_BRANCH} mot ${STAGING_BRANCH} och merga den med MERGE-commit (inte squash), kör sedan promote igen.`,
-      ].join("\n"),
-    );
-  }
-  console.log(`[promote] ${STAGING_BRANCH} innehåller nu ${PRODUCTION_BRANCH}.`);
-}
-
 function today() {
   // Lokalt datum, inte UTC: grennamnet läses av en människa i PR-listan.
   const now = new Date();
@@ -332,7 +296,7 @@ function main() {
 
   git(["fetch", "origin", PRODUCTION_BRANCH, STAGING_BRANCH]);
   const baseSha = git(["rev-parse", `origin/${PRODUCTION_BRANCH}`]);
-  let headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
+  const headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
 
   if (baseSha === headSha) {
     console.log(
@@ -341,36 +305,34 @@ function main() {
     return;
   }
 
-  // Squash-merge lämnar ett hål: masters nya commit finns inte i preview. Utan
-  // synk räknar `master..preview` redan släppta ändringar igen och nästa
-  // promote-PR stoppas av kravet att head innehåller aktuell master.
+  // Squash-merge lämnar masters tip utanför preview. Promote skapar eller
+  // planerar aldrig den synken — det måste vara en uttrycklig merge-commit-PR.
   if (!stagingContainsProduction()) {
-    if (options.dryRun) {
-      // Commitlista, head och trädjämförelse gäller först efter synken; att
-      // fortsätta här skulle visa exakt det fel synken finns för att rätta.
-      console.log(
-        `[promote] --dry-run: origin/${STAGING_BRANCH} saknar origin/${PRODUCTION_BRANCH} (${baseSha.slice(0, 8)}). En riktig körning mergar först ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} serverside och räknar sedan om. Kör utan --dry-run, eller merga ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} (merge-commit, inte squash) och prova igen.`,
-      );
-      return;
-    }
-    syncStagingWithProduction(baseSha);
-    git(["fetch", "origin", STAGING_BRANCH]);
-    headSha = git(["rev-parse", `origin/${STAGING_BRANCH}`]);
+    throw new Error(
+      missingProductionSyncMessage({
+        productionBranch: PRODUCTION_BRANCH,
+        stagingBranch: STAGING_BRANCH,
+        baseSha,
+      }),
+    );
   }
 
-  // Efter en squash-promote finns previews enskilda commits kvar i historiken
-  // men inte på master (som bara har squash-commiten). `master..preview` skulle
-  // därför lista redan släppt arbete. Räkna i stället från senaste synk-mergen:
-  // allt före den är squashat in i master.
-  const syncMerge = findLatestSyncMerge();
-  const rangeStart = commitRangeStart(syncMerge, `origin/${PRODUCTION_BRANCH}`);
+  // Trädskillnad är sanningen för "finns något osläppt". Commitlistan börjar
+  // vid master (inte senaste synk-merge) så selektivt osläppt historik syns.
+  const rangeStart = commitRangeStart(null, `origin/${PRODUCTION_BRANCH}`);
   const commits = parseCommitLines(
     git(["log", "--oneline", "--no-decorate", `${rangeStart}..origin/${STAGING_BRANCH}`]),
   );
-  const treeDiffers =
-    git(["rev-parse", `origin/${PRODUCTION_BRANCH}^{tree}`]) !==
-    git(["rev-parse", `origin/${STAGING_BRANCH}^{tree}`]);
-  if (!hasContentToPromote(commits, treeDiffers)) {
+  const productionTree = git(["rev-parse", `origin/${PRODUCTION_BRANCH}^{tree}`]);
+  const stagingTree = git(["rev-parse", `origin/${STAGING_BRANCH}^{tree}`]);
+  const plan = evaluatePromotePlan({
+    productionSha: baseSha,
+    stagingSha: headSha,
+    productionTree,
+    stagingTree,
+    commits,
+  });
+  if (!plan.shouldPromote) {
     console.log(
       `[promote] inget att promota — origin/${STAGING_BRANCH} har inget innehåll utöver origin/${PRODUCTION_BRANCH}.`,
     );
@@ -482,7 +444,7 @@ function main() {
   }
   console.log("");
   console.log(
-    `  Efter merge: kör \`npm run promote\` igen — den mergar då ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} så staging innehåller squash-commiten (annars räknas släppta ändringar igen nästa gång).`,
+    `  Efter merge: öppna en egen PR ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} med MERGE-commit (inte squash) så staging innehåller squash-commiten innan nästa promote.`,
   );
 }
 

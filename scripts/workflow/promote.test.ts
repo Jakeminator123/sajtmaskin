@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -11,14 +13,56 @@ import {
   buildPromoteBranchName,
   buildPromoteTitle,
   commitRangeStart,
+  evaluatePromotePlan,
   findManualMergePaths,
   hasContentToPromote,
   manualMergePrefixesFromPolicy,
+  missingProductionSyncMessage,
   parseCommitLines,
   parsePromoteArgs,
   parseRemoteBranchNames,
   selectPromoteHighlights,
 } from "./promote.mjs";
+
+function git(cwd: string, args: string[]) {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+function writeCommit(cwd: string, file: string, contents: string, message: string) {
+  writeFileSync(join(cwd, file), contents);
+  git(cwd, ["add", file]);
+  git(cwd, ["commit", "-m", message]);
+  return git(cwd, ["rev-parse", "HEAD"]);
+}
+
+function planFromRefs(cwd: string, productionRef: string, stagingRef: string) {
+  const rangeStart = commitRangeStart(null, productionRef);
+  const commits = parseCommitLines(
+    git(cwd, ["log", "--oneline", "--no-decorate", `${rangeStart}..${stagingRef}`]),
+  );
+  return evaluatePromotePlan({
+    productionSha: git(cwd, ["rev-parse", productionRef]),
+    stagingSha: git(cwd, ["rev-parse", stagingRef]),
+    productionTree: git(cwd, ["rev-parse", `${productionRef}^{tree}`]),
+    stagingTree: git(cwd, ["rev-parse", `${stagingRef}^{tree}`]),
+    commits,
+  });
+}
+
+/** Isolerat repo med master + preview, utan remote. */
+function seedPromoteRepo() {
+  const cwd = mkdtempSync(join(tmpdir(), "promote-plan-"));
+  git(cwd, ["init", "-b", "master"]);
+  git(cwd, ["config", "user.name", "Promote Test"]);
+  git(cwd, ["config", "user.email", "promote-test@example.com"]);
+  writeCommit(cwd, "base.txt", "base\n", "base");
+  git(cwd, ["branch", "preview"]);
+  return cwd;
+}
 
 describe("promote-flödets riktning", () => {
   it("promoterar från staging till produktion, aldrig tvärtom", () => {
@@ -205,20 +249,14 @@ describe("selectPromoteHighlights", () => {
 });
 
 describe("commitRangeStart", () => {
-  // Cursor-review på #1308: efter synken är master ancestor, men previews
-  // squashade commits ligger kvar i `master..preview`. Listan ska börja vid
-  // synk-mergen när den finns.
-  it("börjar vid synk-mergen när en sådan finns, annars vid master", () => {
-    expect(commitRangeStart("abc123", "origin/master")).toBe("abc123");
+  it("börjar alltid vid production — synk-mergen är ingen säker cutoff", () => {
+    expect(commitRangeStart("abc123", "origin/master")).toBe("origin/master");
     expect(commitRangeStart(null, "origin/master")).toBe("origin/master");
-    expect(commitRangeStart("", "origin/master")).toBe("origin/master");
+    expect(commitRangeStart("", "refs/heads/master")).toBe("refs/heads/master");
   });
 });
 
 describe("hasContentToPromote", () => {
-  // Extern review 2026-09-08: squash-promote lämnar masters commit utanför
-  // preview. Efter synk-mergen kan `master..preview` bestå av bara en
-  // merge-commit med identiskt träd — det är inget släpp.
   const onlySync = parseCommitLines("aaaaaaa Merge branch 'master' into preview");
   const real = parseCommitLines("aaaaaaa sync: master → preview\nbbbbbbb fix: riktig ändring");
 
@@ -227,13 +265,146 @@ describe("hasContentToPromote", () => {
     expect(hasContentToPromote(real, false)).toBe(false);
   });
 
-  it("släpper när preview ligger före och trädet skiljer sig", () => {
-    expect(hasContentToPromote(real, true)).toBe(true);
+  it("släpper när trädet skiljer sig även om commitlistan efter synk är tom", () => {
+    expect(hasContentToPromote([], true)).toBe(true);
     expect(hasContentToPromote(onlySync, true)).toBe(true);
+    expect(hasContentToPromote(real, true)).toBe(true);
+  });
+});
+
+describe("missingProductionSyncMessage", () => {
+  it("pekar på egen merge-commit-PR och förbjuder serverside synk", () => {
+    const message = missingProductionSyncMessage({
+      productionBranch: "master",
+      stagingBranch: "preview",
+      baseSha: "abcdef12deadbeef",
+    });
+    expect(message).toContain("saknar origin/master (abcdef12)");
+    expect(message).toMatch(/MERGE-commit/i);
+    expect(message).toMatch(/inte squash/i);
+    expect(message).toMatch(/synkar inte/i);
+  });
+});
+
+describe("evaluatePromotePlan i tillfälliga git-repon", () => {
+  it("hittar osläppt C efter selektiv release av B + synk-merge", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      const bSha = writeCommit(cwd, "b.txt", "B\n", "feat: B");
+      writeCommit(cwd, "c.txt", "C\n", "feat: C");
+
+      // Selektiv release: bara B landar på master (cherry-pick), inte hela tippen.
+      git(cwd, ["checkout", "master"]);
+      git(cwd, ["cherry-pick", bSha]);
+
+      git(cwd, ["checkout", "preview"]);
+      git(cwd, ["merge", "master", "-m", "sync: master → preview"]);
+
+      // Buggen: range från synk-mergen ger 0 commits → gammalt hasContent sa nej.
+      const syncMerge = git(cwd, ["rev-parse", "HEAD"]);
+      const postSyncCommits = parseCommitLines(
+        git(cwd, ["log", "--oneline", "--no-decorate", `${syncMerge}..preview`]),
+      );
+      expect(postSyncCommits).toEqual([]);
+
+      const plan = planFromRefs(cwd, "master", "preview");
+      expect(plan.treeDiffers).toBe(true);
+      expect(plan.shouldPromote).toBe(true);
+      expect(plan.commits.some((c) => c.subject.includes("feat: C"))).toBe(true);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
-  it("släpper inte när preview inte ligger före master alls", () => {
-    expect(hasContentToPromote([], true)).toBe(false);
+  it("säger inget att promota efter squash-release med identiska träd + synk", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      writeCommit(cwd, "feat.txt", "feature\n", "feat: landar på preview");
+
+      // Squash-liknande: master får samma träd i en ny commit utan previews SHA.
+      const tree = git(cwd, ["rev-parse", "preview^{tree}"]);
+      git(cwd, ["checkout", "master"]);
+      const squashSha = git(cwd, ["commit-tree", tree, "-p", "HEAD", "-m", "promote: squash"]);
+      git(cwd, ["reset", "--hard", squashSha]);
+
+      git(cwd, ["checkout", "preview"]);
+      git(cwd, ["merge", "master", "-m", "sync: master → preview"]);
+
+      const plan = planFromRefs(cwd, "master", "preview");
+      expect(plan.treeDiffers).toBe(false);
+      expect(plan.shouldPromote).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("hittar fortfarande osläppt preview-arbete efter hotfix på master + synk", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      writeCommit(cwd, "preview-only.txt", "staging\n", "feat: preview-only");
+
+      git(cwd, ["checkout", "master"]);
+      writeCommit(cwd, "hotfix.txt", "prod fix\n", "fix: hotfix on master");
+
+      git(cwd, ["checkout", "preview"]);
+      git(cwd, ["merge", "master", "-m", "sync: master → preview"]);
+
+      const plan = planFromRefs(cwd, "master", "preview");
+      expect(plan.treeDiffers).toBe(true);
+      expect(plan.shouldPromote).toBe(true);
+      expect(plan.commits.some((c) => c.subject.includes("preview-only"))).toBe(true);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("säger inget att promota när tipparna är samma", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      const plan = planFromRefs(cwd, "master", "preview");
+      expect(plan.sameTip).toBe(true);
+      expect(plan.shouldPromote).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("säger inget att promota när träden är identiska trots divergens", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      writeCommit(cwd, "same.txt", "x\n", "preview touch");
+      git(cwd, ["checkout", "master"]);
+      writeCommit(cwd, "same.txt", "x\n", "master touch");
+
+      const plan = planFromRefs(cwd, "master", "preview");
+      expect(plan.sameTip).toBe(false);
+      expect(plan.treeDiffers).toBe(false);
+      expect(plan.shouldPromote).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("räknar nya preview-commits som tillkommer under releaseförberedelsen", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      writeCommit(cwd, "a.txt", "A\n", "feat: A");
+      const mid = planFromRefs(cwd, "master", "preview");
+      expect(mid.shouldPromote).toBe(true);
+
+      writeCommit(cwd, "extra.txt", "extra\n", "feat: under förberedelse");
+      const later = planFromRefs(cwd, "master", "preview");
+      expect(later.shouldPromote).toBe(true);
+      expect(later.commits.some((c) => c.subject.includes("under förberedelse"))).toBe(true);
+      expect(later.commits.length).toBeGreaterThan(mid.commits.length);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });
 
