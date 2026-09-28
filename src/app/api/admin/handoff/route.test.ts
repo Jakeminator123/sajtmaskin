@@ -57,7 +57,28 @@ function location(response: Response): URL {
   return new URL(response.headers.get("location") ?? "", "https://sajtmaskin.se");
 }
 
+const REDIS_ENV_KEYS = [
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+] as const;
+const savedRedisEnv = Object.fromEntries(REDIS_ENV_KEYS.map((key) => [key, process.env[key]]));
+
+function hideRedisEnv(): void {
+  for (const key of REDIS_ENV_KEYS) delete process.env[key];
+}
+
+function restoreRedisEnv(): void {
+  for (const key of REDIS_ENV_KEYS) {
+    const value = savedRedisEnv[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
 beforeEach(() => {
+  hideRedisEnv();
   process.env.ADMIN_HANDOFF_SECRET = SECRET;
   createConfiguredAdminLogin.mockResolvedValue({ token: "jwt-admin" });
   withRateLimit.mockImplementation((_req, _key, handler: () => Promise<Response>) => handler());
@@ -67,6 +88,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   delete process.env.ADMIN_HANDOFF_SECRET;
+  restoreRedisEnv();
   resetHandoffJtiStore();
 });
 

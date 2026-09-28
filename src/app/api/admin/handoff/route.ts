@@ -9,7 +9,7 @@ import {
 import { createConfiguredAdminLogin, setAuthCookie } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rate-limit";
 
-type DenyReason = "missing-secret" | "bad-token" | "replay" | "no-admin";
+type DenyReason = "missing-secret" | "bad-token" | "replay" | "replay-store" | "no-admin";
 
 function deny(request: NextRequest, reason: DenyReason) {
   console.info(`[admin-handoff] denied ${reason}`);
@@ -46,7 +46,9 @@ export async function POST(request: NextRequest) {
 
     const payload = verifyAdminHandoff(token, secret);
     if (!payload) return deny(request, "bad-token");
-    if (!consumeHandoffJti(payload.jti)) return deny(request, "replay");
+    const jtiStatus = await consumeHandoffJti(payload.jti);
+    if (jtiStatus === "unavailable") return deny(request, "replay-store");
+    if (jtiStatus !== "fresh") return deny(request, "replay");
 
     try {
       const login = await createConfiguredAdminLogin();

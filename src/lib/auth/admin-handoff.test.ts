@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   consumeHandoffJti,
   DEFAULT_HANDOFF_NEXT,
@@ -7,6 +7,14 @@ import {
   safeAdminPath,
   verifyAdminHandoff,
 } from "./admin-handoff";
+
+const redisSet = vi.hoisted(() => vi.fn());
+
+vi.mock("@upstash/redis", () => ({
+  Redis: class {
+    set = redisSet;
+  },
+}));
 
 const SECRET = "handoff-test-secret";
 
@@ -34,8 +42,34 @@ function sign(claims: Claims = {}, secret = SECRET): string {
   return `${body}.${signature}`;
 }
 
+const REDIS_ENV_KEYS = [
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+] as const;
+const savedRedisEnv = Object.fromEntries(REDIS_ENV_KEYS.map((key) => [key, process.env[key]]));
+
+function hideRedisEnv(): void {
+  for (const key of REDIS_ENV_KEYS) delete process.env[key];
+}
+
+function restoreRedisEnv(): void {
+  for (const key of REDIS_ENV_KEYS) {
+    const value = savedRedisEnv[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
 afterEach(() => {
   resetHandoffJtiStore();
+  restoreRedisEnv();
+  redisSet.mockReset();
+});
+
+beforeEach(() => {
+  hideRedisEnv();
 });
 
 describe("verifyAdminHandoff", () => {
@@ -94,11 +128,34 @@ describe("safeAdminPath", () => {
 });
 
 describe("consumeHandoffJti", () => {
-  it("remembers a jti for at least two minutes", () => {
+  it("remembers a jti for at least two minutes", async () => {
     const now = 1_700_000_000_000;
     const jti = "a".repeat(32);
-    expect(consumeHandoffJti(jti, now)).toBe(true);
-    expect(consumeHandoffJti(jti, now + 120_000)).toBe(false);
-    expect(consumeHandoffJti(jti, now + 120_001)).toBe(true);
+    expect(await consumeHandoffJti(jti, now)).toBe("fresh");
+    expect(await consumeHandoffJti(jti, now + 120_000)).toBe("replay");
+    expect(await consumeHandoffJti(jti, now + 120_001)).toBe("fresh");
+  });
+
+  it("does not accept a production ticket when redis is missing", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(await consumeHandoffJti("b".repeat(32))).toBe("unavailable");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("uses redis set-if-absent for two minutes when redis is configured", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "token";
+    redisSet.mockResolvedValueOnce("OK");
+    expect(await consumeHandoffJti("c".repeat(32))).toBe("fresh");
+    expect(redisSet).toHaveBeenCalledWith(
+      expect.stringMatching(/admin-handoff:jti:c{32}$/),
+      "1",
+      { ex: 120, nx: true },
+    );
+    redisSet.mockResolvedValueOnce(null);
+    expect(await consumeHandoffJti("c".repeat(32))).toBe("replay");
   });
 });

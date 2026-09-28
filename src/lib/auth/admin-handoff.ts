@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { Redis } from "@upstash/redis";
+import { REDIS_KEY_PREFIX } from "@/lib/config";
 
 export const HANDOFF_ISSUER = "jakobscrape-dash";
 export const HANDOFF_AUDIENCE = "sajtmaskin-admin";
@@ -6,8 +8,13 @@ export const DEFAULT_HANDOFF_NEXT = "/admin/kostnadsfri";
 
 const JTI_PATTERN = /^[0-9a-f]{32}$/;
 const JTI_TTL_MS = 2 * 60 * 1000;
+const JTI_TTL_SECONDS = JTI_TTL_MS / 1000;
 
 const usedJti = new Map<string, number>();
+let redisClient: Redis | null = null;
+let redisCacheKey = "";
+
+export type HandoffJtiStatus = "fresh" | "replay" | "unavailable";
 
 export type HandoffPayload = {
   iss: typeof HANDOFF_ISSUER;
@@ -76,16 +83,46 @@ export function verifyAdminHandoff(
   };
 }
 
-/** Returns false when this jti was already accepted inside the retention window. */
-export function consumeHandoffJti(jti: string, now = Date.now()): boolean {
+function replayRedis(): Redis | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
+  if (!url || !token) return null;
+  const cacheKey = `${url}\n${token}`;
+  if (redisClient && redisCacheKey === cacheKey) return redisClient;
+  redisClient = new Redis({ url, token });
+  redisCacheKey = cacheKey;
+  return redisClient;
+}
+
+function consumeMemoryJti(jti: string, now: number): HandoffJtiStatus {
   for (const [key, until] of usedJti) {
     if (until < now) usedJti.delete(key);
   }
-  if (usedJti.has(jti)) return false;
+  if (usedJti.has(jti)) return "replay";
   usedJti.set(jti, now + JTI_TTL_MS);
-  return true;
+  return "fresh";
+}
+
+/** Remembers a jti for at least two minutes. Production without Redis cannot prove that. */
+export async function consumeHandoffJti(jti: string, now = Date.now()): Promise<HandoffJtiStatus> {
+  const redis = replayRedis();
+  if (redis) {
+    try {
+      const ok = await redis.set(`${REDIS_KEY_PREFIX}admin-handoff:jti:${jti}`, "1", {
+        ex: JTI_TTL_SECONDS,
+        nx: true,
+      });
+      return ok === "OK" ? "fresh" : "replay";
+    } catch {
+      return "unavailable";
+    }
+  }
+  if (process.env.NODE_ENV === "production") return "unavailable";
+  return consumeMemoryJti(jti, now);
 }
 
 export function resetHandoffJtiStore(): void {
   usedJti.clear();
+  redisClient = null;
+  redisCacheKey = "";
 }

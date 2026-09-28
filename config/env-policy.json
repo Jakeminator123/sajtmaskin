@@ -1140,7 +1140,7 @@
       "key": "ADMIN_HANDOFF_SECRET",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "HMAC secret for POST /api/admin/handoff. Missing or empty makes the route always deny. Must match ADMIN_HANDOFF_SECRET on the JakobScrape Render dashboard. Never log the ticket."
+      "notes": "HMAC secret for POST /api/admin/handoff. Missing or empty makes the route always deny. Must match ADMIN_HANDOFF_SECRET on the JakobScrape Render dashboard. Used ticket ids are stored for two minutes in the existing Upstash REST Redis; production without that Redis denies the ticket. Never log the ticket."
     },
     {
       "key": "SUPERADMIN_EMAIL",
