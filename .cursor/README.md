@@ -13,6 +13,9 @@ startkontext; övriga regler/skills laddas först när beskrivning, glob eller
 explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
 backloggstacken som rutin.
 
+Codex och Cursor följer samma arbetsregler: öppna checkouten, en skrivande
+session per checkout. Worktree skapas när Jakob ber om det.
+
 ## Vad märker jag lokalt?
 
 Ändringarna gäller efter att branchen hämtats.
@@ -22,9 +25,8 @@ backloggstacken som rutin.
 - Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
 - Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Sol: Grok 4.7 Extra High Fast (`grok-4.7-xhigh-fast`) ur sessionens lista. Luna = mekanisk read-only,
-Terra = uttrycklig lågrisk. Godnatt har egna profiler. Styr subagenter, inte
-sajtrouting. Kopiera inte en gammal slug.
+Subagentmodeller: `subagent-models.mdc`. Godnatt har egna profiler;
+produktens sajtmodeller styrs separat.
 
 ## Regler
 
@@ -35,7 +37,8 @@ globstyrda eller agent-requested.
 | Uppgift                       | Regel                                                           |
 | ----------------------------- | --------------------------------------------------------------- |
 | Hitta owner/sökväg            | `repo-router.mdc`                                               |
-| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`, `agent-worktree.mdc` |
+| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc` |
+| Worktree på begäran | `agent-worktree.mdc` |
 | Merge/PR-efterkontroll        | `pr-merge.mdc`                                                  |
 | Pipeline/scaffold/dossier/env | matchande globregel                                             |
 | Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
