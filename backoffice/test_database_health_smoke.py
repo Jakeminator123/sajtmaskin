@@ -93,6 +93,9 @@ class DatabaseHealthSmokeTests(unittest.TestCase):
             "Inget skadligt händer",
             "Som rutin efter större deploys",
             "säker — `CREATE TABLE IF NOT EXISTS`",
+            "kör migrationer säkert",
+            "Sidan är read-only så det är säkert",
+            'Saknade → "köra `npm run db:perf-indexes`"',
         ):
             self.assertNotIn(false_safety, source)
 

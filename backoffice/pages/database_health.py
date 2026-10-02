@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Databashälsa — visa alla tabeller, indexstatus och kör migrationer säkert.
+"""Databashälsa — read-only diagnos och uttryckligt index-DDL-flöde.
 
 Streamlit-sida med tre delar:
   1. **Hälso-koll** (read-only): kör `scripts/db/db-health-check.mjs` via
@@ -119,7 +119,7 @@ def _run_perf_indexes(ctx: BackofficeContext, *, reason: str, dry_run: bool) -> 
     except subprocess.TimeoutExpired:
         return {
             "ok": False,
-            "error": f"Migrationen timade ut efter {_PERF_INDEX_TIMEOUT_S}s.",
+            "error": f"Indexbygget timade ut efter {_PERF_INDEX_TIMEOUT_S}s.",
         }
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"Misslyckades starta node: {exc}"}
@@ -169,12 +169,14 @@ def render(ctx: BackofficeContext) -> None:
             """
 - Listar **alla förväntade tabeller** (definierade i `src/lib/db/schema.ts`).
 - Räknar rader per tabell (estimate via `pg_class.reltuples`, snabb även på stora tabeller).
-- Verifierar att alla **förväntade index** finns. Saknade → "köra `npm run db:perf-indexes`".
+- Verifierar att alla **förväntade index** finns. Saknade → granska `npm run db:perf-indexes:dry`;
+  faktisk apply kräver separat mandat och bedömd lås-/trafikpåverkan.
 - Mäter **anslutnings­latens** + en `SELECT 1`-probe per tabell.
 - Vid behov: spara **snapshots** för historik-grafer (ND-JSON i `data/observability/`).
 
 Om databasen pekar mot din production-snapshot (`.env.vercel.production.pulled`)
-flaggas det med ⚠️. Sidan är read-only så det är säkert, men bra att veta.
+flaggas det med ⚠️. Bara hälsokollen är read-only. Sidans separata APPLY-flöde
+skriver index-DDL och kan blockera writes; verifiera målet före en planerad apply.
             """
         )
 
@@ -404,7 +406,7 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
         if st.button(
             "🔍 Dry-run (se exakt vad som skulle göras)",
             disabled=not valid_reason,
-            help="Säker — skapar inga index, bara visar.",
+            help="Read-only plan — visar men skapar inga index.",
             key="perf_idx_dry",
         ):
             with st.spinner("Kör dry-run…"):
