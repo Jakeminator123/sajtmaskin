@@ -90,6 +90,16 @@ function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart
         isPlainRecord((merged as Record<string, unknown>)[key])
       ) {
         const partType = typeof merged.type === "string" ? merged.type : "";
+        if (partType === "tool:live-review") {
+          // A cached review reports screenshots: null. Keep URLs an earlier
+          // capture already stored on this part instead of erasing them.
+          const previous = (merged as Record<string, unknown>)[key] as Record<string, unknown>;
+          (merged as Record<string, unknown>)[key] = {
+            ...value,
+            screenshots: value.screenshots ?? previous.screenshots ?? null,
+          };
+          return;
+        }
         if (partType.startsWith("tool:") && partType.includes("engine-")) {
           (merged as Record<string, unknown>)[key] = mergeEngineProgressOutput(
             (merged as Record<string, unknown>)[key] as Record<string, unknown>,

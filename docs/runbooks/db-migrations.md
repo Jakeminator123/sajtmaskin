@@ -1,172 +1,84 @@
-# DB-migrationer: automatik, vakter och CI
+# DB-migrationer: uttrycklig apply, läsande automatik
 
-Den operativa regeln bor i [`.cursor/rules/db-env-parity.mdc`](../../.cursor/rules/db-env-parity.mdc). Den här filen beskriver maskineriet runtomkring — vad som applicerar migrationer åt dig, vad som larmar när något ligger efter, och varför varje lager finns.
+Workflow-ägare: [CI](../../.github/workflows/ci.yml),
+[schemalagd paritet](../../.github/workflows/db-schema-parity.yml),
+[hook-installation](../../scripts/dev/install-git-hooks.mjs) och
+[dev-start](../../scripts/dev/predev.mjs). Kort agentregel:
+[db-env-parity](../../.cursor/rules/db-env-parity.mdc).
 
-## Ledgern
+## Gränsen mellan kod och databas
 
-Runners (`db:migrate`, `db:migrate:prod`, `db:init`) bokför varje applicerad migration i tabellen `schema_migrations` (idempotent, best-effort/warn-only). Alla gates nedan läser den.
+Vercel Preview och Production använder **samma prod-Postgres** enligt
+[`config/db-targets.json`](../../config/db-targets.json). Lokal dev och
+Vercel Development har ett annat mål. Den här policyn isolerar inte
+preview-appens vanliga runtime-skrivningar från produktionen.
 
-Ledgern är **deny-by-default** sedan 2026-08-19 (SM-057): RLS på, inga policies, och `anon`/`authenticated` fråntagna sina rättigheter. Innan dess kunde den läsas, skrivas och TRUNCATE:as med den publika anon-nyckeln över PostgREST, vilket räckte för att lura varje gate nedan — och i värsta fall få en runner att köra om migrationer. Runners påverkas inte: tabellägaren `postgres` är samma roll de ansluter med, och en ägare kringgår RLS. Skyddet bor på två ställen som ska hållas i lockstep — `ensureMigrationLedger` (nya databaser) och `harden-schema-migrations-ledger.sql` (befintliga).
+Git-push, checkout, pull, rebase, dev-start och vanlig CI-dispatch är **inte**
+migrationsmandat. De får inte automatiskt applicera migrationer, reparera data
+eller skapa prestandaindex. Vercel-deploy kör inte heller migrationer.
 
-| Kommando                        | Vad                                                 |
-| ------------------------------- | --------------------------------------------------- |
-| `npm run db:migrate:check`      | Lokalt mot dev. Rött = DB:n ligger efter            |
-| `npm run db:migrate:check:prod` | Read-only mot prod-snapshot                         |
-| `npm run db:ensure`             | Fixkommandot: kollar → `db:migrate` → verifierar om |
+## Automatiska kontroller
 
-## Lokal auto-apply och vakt
+| Ingång                       | Vad händer?                                                                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre-push`                   | Fail-closed `verify:pr --plan`; ingen DB-apply.                                                                                              |
+| Git-posthooks                | De tre tidigare managed DB-posthookarna pensioneras av `hooks:install`. Främmande/nyare hooks stoppar installationen; de rörs inte.          |
+| Dev-start                    | `next-runner` kör `ensure-schema --check-only --soft --quiet-ok` i bakgrunden. Drift varnar men stoppar inte servern.                        |
+| Cursor-molnstart             | Samma read-only/soft-kontroll, ingen DB-init.                                                                                                |
+| `pretest:postgres`           | `ensure-schema --check-only --quiet-ok`; drift stoppar testlanen. CI initierar sin separata, efemära testdatabas uttryckligt innan testerna. |
+| CI `prod-migrations-applied` | Läser prod-ledgern efter credential- och målguard. Kör på betrodda `preview`/`master` push/dispatch, aldrig med secrets på PR.               |
+| CI `db-schema-parity`        | Jämför dev och prod **read-only**. Ingen dev-synk eller indexering.                                                                          |
+| Schemalagd paritet           | Daglig läsande kontroll. Schedule från defaultbranchen tillåts men checkar ut `master`; manuell non-master-dispatch nekas före secrets.      |
 
-`db:init` (via `predev`) applicerar hela `MIGRATION_ORDER` vid varje `npm run dev`, så dev-DB:n hålls i synk automatiskt.
+På huvudrepot är saknade DB-secrets ett fel, inte ett grönt kvitto. Forkar
+utan secrets kan rapportera skip. Läskontrollernas röda resultat döljs inte:
+pending migrationer eller avsiktlig dev/prod-skillnad behöver inspekteras och
+en separat DB-plan. Ett grönt PR-jobb utan live-creds är inte live-DB-bevis.
 
-Utöver det kör `next-runner.mjs` `scripts/db/ensure-schema.mjs --check-only --soft --quiet-ok` i bakgrunden vid varje dev-start: tyst när allt är rätt, ramad varning när DB:n ligger efter. Det täcker `SKIP_PREDEV=1`, direktstart och en tyst `db:init:soft`-miss.
+`npm run hooks:install` behövs efter workflowuppdatering. Endast de tre
+exakta gamla markerägda DB-hookkropparna ersätts efter att alla kopierats
+till en avgränsad temporär återställningsmapp. Passiva versionsmärkta stoppfiler
+kör bara `exit 0`: äldre checkouts får inte återskapa de aktiva hookarna.
+`pre-push` behålls.
+Länkade worktrees delar normalt hookkatalogen; äldre checkouts får inte
+nedgradera den nyare hooken.
 
-Vakten kör **aldrig DDL själv** — den delegerar till `run-migrations.ts`, som äger apply-loopen och prod-skrivskyddet.
+## Uttryckliga kommandon
 
-## Git-hooks: verifiering före push och dev-symmetri mot prod
+Verifiera alltid målet först med `npm run db:check-target -- --expect=dev|prod`.
+Guarden visar sanitiserad identitet, inte lösenord eller hela URL:en.
 
-Samma installerare äger fyra managed hooks med olika hårdhet:
+| Kommando                            | Betydelse                                                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run db:init`                   | Initiera en tom lokal/throwaway dev-DB efter målverifiering. Innehåller även repair/data-DDL; är inte en harmlös allmän statuskontroll. |
+| `npm run db:ensure`                 | Kontrollera → applicera pending migrationsfiler → verifiera, för en redan initierad dev-DB.                                             |
+| `npm run db:migrate:check`          | Read-only ledgerstatus. Ingen URL kan ge skip; explicit begärd env utan användbar URL ska falla.                                        |
+| `npm run db:migrate:additive-check` | Read-only riskgrind, inte ett bevis att SQL är ofarlig eller ett apply-mandat.                                                          |
+| `npm run db:perf-indexes:dry`       | Läsande plan för index.                                                                                                                 |
+| `npm run db:perf-indexes`           | Uttrycklig index-apply efter granskad plan/mål/reason. Kan låsa och ändra constraints; ingår inte i dev-start eller CI.                 |
+| `npm run db:migrate:prod`           | Separat ägarauktoriserad live-apply, aldrig en normal följd av kodmerge.                                                                |
 
-| Hook            | Kör                                   | Hårdhet                                                                                                                          |
-| --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `pre-push`      | `npm run verify:pr -- --plan`         | **Fail-closed:** röd plan eller saknat `npm` stoppar pushen. Riktade kontroller körs lokalt; CI publicerar tung profil eller light-kvitto. |
-| `post-merge`    | `ensure-schema.mjs --soft --quiet-ok` | Soft; avbryter aldrig pull/merge                                                                                                 |
-| `post-checkout` | Samma DB-synk vid grenbyte            | Soft                                                                                                                             |
-| `post-rewrite`  | Samma DB-synk efter rebase            | Soft                                                                                                                             |
+## Innan live-apply
 
-`pre-push` gör den lokala plan-kontrollen svår att glömma (färsk base, path-
-impact, protected/Backoffice). Relevanta riktade kontroller är agentens ansvar;
-GitHub Actions publicerar tung profil eller light-kvitto.
-Endast ett uttryckligt ägarbeslut får använda
-`SAJTMASKIN_SKIP_VERIFY_HOOKS=1`; verifiera och dokumentera i så fall varför
-pushen behöver gå förbi den lokala grinden.
+1. Läs faktisk pending-plan mot rätt databas och granska SQL **och** separat
+   indexkod. Ledgerstatus ensam bevisar inte faktiskt schema.
+2. Kräv fail-closed körplan/ledgerhantering: bara pending ska köras, checksum-
+   eller ledgeroklarhet ska stoppa, och `already-exists` är inte ett apply-kvitto.
+   Workflowstädningen ändrar inte runner/ledger-semantiken; de måste granskas
+   separat innan nästa live-apply.
+3. Bevara historisk ledger. Backfyll inte gamla NULL-checksums med dagens
+   filhashar och kör inte om redan ledgerförda migrationer för att få grönt.
+4. Använd verifierad direkt eller **session-mode** Postgres-anslutning för DDL
+   med sessionsbundet advisory lock. Transaction-pooling är inte ett giltigt
+   serialiseringsbevis. Anta inte detta från secretnamnet eller ordet poolad.
+5. Redovisa kompatibilitet med både aktuell master och preview, tidsordning
+   och DB-effekt för ägaren. Additiv DDL kan låsa, ändra beteende eller påverka
+   skrivningar. Brytande DDL kräver separat expand/contract-plan.
+6. Kräv uttryckligt apply-mandat. Efter godkänd körning: verifiera ledger,
+   schema och runtime separat. Kodmerge/promote och Vercel-deploy är inte atomiska.
 
-DB-logiken är oförändrad: prod får migrationer när kod pushas till master, dev
-när master dras hem — alltså precis där driften uppstår.
+## Återställning
 
-**Varför tre DB-posthooks?** En merge-pull, ett grenbyte och en rebase-pull är tre olika vägar hem. `git pull --rebase` kör aldrig `post-merge`, och rebase med merge-backenden (default sedan git 2.26) ger inget pålitligt `post-checkout` heller. `post-checkout` kör bara vid grenbyten (arg 3 = 1), `post-rewrite` bara för `rebase` (inte `amend`).
-
-Installeras obligatoriskt i agentstarten med `npm run hooks:install` och som
-extra mjukt skydd via `predev` (`hooks:install:soft`). En färsk clone som ännu
-inte har kört någon av vägarna har inga managed hooks; därför står bootstrapen
-uttryckligt i `AGENTS.md` och `pr-workflow`.
-DB-posthookarna är tysta, soft och står över i CI eller vid
-`SAJTMASKIN_SKIP_DB_HOOKS=1`. `pre-push` är däremot medvetet blockerande och har
-sin separata escape hatch ovan.
-Test-escape-hatchen hoppar inte över non-fast-forward-kontrollen; `master`
-force-pushas aldrig och en annan befintlig remote-ref kräver reasoned
-break-glass.
-
-Genererade filer bär markören `sajtmaskin-managed-hook` — en befintlig hook utan markören rörs aldrig, den rapporteras. Länkade worktrees delar `.git/hooks` med huvudcheckouten (`--git-common-dir`), så en installation räcker för alla.
-
-## Självläkande testlane
-
-`pretest:postgres` kör `ensure-schema.mjs --quiet-ok` före `npm run test:postgres`, så lanen inte kan bli röd av drift i stället för av en riktig bugg. Den felsökningen kostade en gång ett helt pass: nio tester kraschade på en saknad `variant_id`-kolumn långt innan de nådde koden de testade.
-
-**`--soft` utelämnas med flit här.** I DB-posthookarna får ett misslyckat migrationsförsök aldrig avbryta git-kommandot, men i testlanen ska det stoppa körningen — annars kör testerna vidare mot det gamla schemat och man får tillbaka exakt de vilseledande felen. Saknad DB-URL är fortfarande en tyst skip med exit 0, så forkar och CI utan databas påverkas inte.
-
-## Prod-skyddet sitter i registret, inte i en fil
-
-`assertSafeWriteTarget` vägrar skriva när målets Supabase project ref är prod enligt `config/db-targets.json` — oavsett om `.env.vercel.production.pulled` finns. Snapshot-jämförelsen ligger kvar men bara som fallback för mål registret inte känner.
-
-Tidigare var det tvärtom: saknades snapshoten blev det en varning och skrivningen släpptes igenom, alltså inget skydd alls på just de maskiner som aldrig dragit hem prod-env. Det duger inte när git-hookarna gör migrering till en automatisk väg.
-
-Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` och CI:s `prod-migrations-apply` fungerar oförändrat.
-
-## CI-jobben
-
-| Jobb                      | När                                                                       | Vad                                                                                                                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prod-migrations-apply`   | Push till `master` eller `preview`, eller manuell dispatch (**aldrig** på PR) | Kör `run-migrations.ts` mot prod. Preview delar prod-Postgres, så apply måste ske när koden landar på staging — inte först vid promote. Idempotent. Gate:at bakom `quality` + `schema-drift`. På **preview** föregås applyn av den additiva grinden nedan |
-| `prod-migrations-applied` | `needs: prod-migrations-apply`                                            | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt                                                                                                                        |
-| `db-schema-parity`        | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity`                                                                                      |
-
-### Varför ledgern inte räcker: live-paritet
-
-`db-schema-parity` (`scripts/db/check-schema-parity.mjs`) jämför de två **levande** databaserna objekt för objekt — tabeller, kolumner, index, constraints. Det behövs eftersom ledgern kan vara grön på båda sidor medan schemat ändå skiljer sig: tabeller födda under äldre `CREATE TABLE IF NOT EXISTS`-definitioner, eller DDL körd direkt i dashboarden, syns aldrig i `schema_migrations`. Exakt det läget rådde 2026-08-05 — 32 avvikelser, avstämda i `align-live-schema-parity.sql`.
-
-Cron-körningen finns för att fånga drift som uppstår **mellan** pushar. Rött = skriv en migration (aldrig dashboard-DDL). Lokalt: `npm run db:schema-parity`.
-
-Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till `master` eller `preview`. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
-
-### Secret-kravet
-
-`POSTGRES_URL_PROD` (poolad prod-URL) måste finnas som GitHub Actions-secret (`gh secret set POSTGRES_URL_PROD`).
-
-- På **huvudrepot** (`Jakeminator123/sajtmaskin`) failar `prod-migrations-apply` **hårt rött** om den saknas. False-green-skydd, fix 2026-07-11 — en tyst skip var exakt varför en saknad migration kunde slinka till prod oupptäckt.
-- På **forkar** utan secret SKIP:as apply med en varning i stället för att falla rött.
-
-Prod-secret injiceras bara på trusted events; PR-kod inklusive forkar ser aldrig prod-creds.
-
-## Preview delar prod-databasen — den additiva grinden
-
-`config/db-targets.json`: Vercel **Preview och Production läser samma
-prod-Postgres**. Bara Development är en egen databas. Det ger en risk som inte
-finns på `master`: `preview` ligger normalt tiotals commits före produktionen,
-så en migration som landar på staging träffar den databas den **gamla**
-produktionskoden fortfarande läser.
-
-- **Additiv DDL** (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`,
-  `CREATE INDEX IF NOT EXISTS`) är ofarlig där. Gammal kod rör inte det nya.
-- **Brytande DDL** är det inte. Tas något bort, byter typ eller byter namn går
-  produktionen sönder innan någon har promoverat.
-
-Därför begränsas den automatiska preview-vägen till det additiva:
-`npm run db:migrate:additive-check`
-([`scripts/db/check-additive-migrations.mjs`](../../scripts/db/check-additive-migrations.mjs))
-kör i `prod-migrations-apply` **före** applyn, men bara på push till `preview`.
-Den läser prod-ledgern, granskar enbart **pending** migrationer och failar rött
-på `DROP TABLE`, `DROP COLUMN`, `RENAME`, `ALTER COLUMN … TYPE`,
-`SET NOT NULL`, `DROP DEFAULT`, `TRUNCATE` och `DELETE FROM`.
-
-Utanför listan med flit, eftersom drop-och-återskapa är själva idiomet och ett
-falsklarm skulle göra grinden till något man stänger av: `DROP POLICY`,
-`DROP TRIGGER`, `DROP FUNCTION`, `DROP INDEX`, `DROP CONSTRAINT` och
-backfill-`UPDATE`. Kommentarer och stränglitteraler maskeras, men en
-`DO $$ … $$`-kropp granskas — inklusive dynamisk `EXECUTE '…'`.
-
-`UNIQUE` och `CHECK` räknas normalt som brytande eftersom de kan få gamla
-INSERT:ar att falla. Två katalogbevisade undantag finns:
-
-- Constraints som deklareras inuti en tabell som samma pending-omgång skapar,
-  när tabellen ännu inte finns live.
-- En strikt nullkompatibel `CHECK` eller ett partiellt unikt index som bara
-  använder nullable `TEXT`-kolumner deklarerade tidigare i omgången. Live-
-  katalogen måste bevisa att kolumnerna och INSERT/UPDATE-triggers saknas, så
-  gammal kod fortsätter skriva `NULL` och passerar eller utesluts från indexet.
-  Alla tabellmål i det beviset måste vara explicit `public.`-kvalificerade.
-
-Saknad katalogmetadata, en redan existerande proof-kolumn, dynamisk SQL eller
-en delvis applicerad form failar stängt. Skriv inte om SQL för att undvika
-scannern; välj i stället en additiv datamodell eller den medvetna vägen nedan.
-
-`master` gate:as inte: promoten **är** det medvetna beslutet, och där byter kod
-och schema plats samtidigt.
-
-### Inte i preview ännu (2026-09-15)
-
-`MIGRATION_ORDER` på `origin/preview`
-(`33935b8d048c311e138279cd8868c58cdbca9dfd`) slutar med
-`add-kostnadsfri-sent.sql`. D1:s `add-site-subscriptions.sql` och
-`upgrade-site-subscriptions-composite-keys.sql` är redan i ordningen.
-Öppen draft #1385 lägger till `add-stripe-billing-events.sql`. Den filen
-finns inte på preview, är inte applicerad, och ska inte beskrivas som körd
-mot den delade preview/prod-databasen förrän den landat och ledgern
-bekräftar den. Ingen `--apply` hör hit.
-
-**Blir grinden röd på preview:** migrationen är brytande. Välj medvetet.
-
-1. `npm run promote` — kod och schema byter samtidigt. Normalvägen.
-2. `npm run db:migrate:prod` lokalt, med vetskapen att produktionen är trasig
-   fram till promoten. Bara när du vill det.
-3. Skriv om migrationen additivt (expand nu, contract efter promote).
-
-## Race mot deploy
-
-Vill du ha helt race-fritt (migrera FÖRE deploy): gate:a Vercel-deployen bakom `prod-migrations-apply` separat. En additiv `ADD COLUMN`-migration parallellt med deploy är annars ofarlig.
-
-**Känd, medvetet kvarlämnad lucka:** Vercel-deployen är inte gate:ad bakom
-`prod-migrations-apply` — varken på `master` eller `preview`. De körs parallellt.
-Med den additiva grinden ovan är det ofarligt per definition: additiv DDL kan
-inte bryta någon av sidorna, oavsett vem som hinner först. Luckan är alltså
-tolererad, inte oupptäckt. Vill man stänga den helt är åtgärden den i stycket
-ovan.
+En kodrevert återställer **inte** schema, index, ledger eller användardata.
+Radera inte historiska ledger-rader och kör inte automatisk backfill/repair.
+Vid oklar eller delvis applicerad migration: stoppa och utred faktisk DB-status.

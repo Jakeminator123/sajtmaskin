@@ -6,6 +6,8 @@ import {
   decodeLocalZipContent,
   encodeImportedBinaryContent,
   extractImportedFilesFromZip,
+  findPrimaryImportedFile,
+  hasUsableImportedSource,
   MAX_IMPORTED_BINARY_FILE_BYTES,
   maxDeclaredImportBinaryBytes,
   maxDecodedBytesForPreviewTransport,
@@ -20,6 +22,34 @@ const PNG_1X1 = Buffer.from(
   "base64",
 );
 const WOFF2_STUB = Buffer.concat([Buffer.from("wOF2", "ascii"), Buffer.alloc(24, 7)]);
+
+async function corruptCompressedEntry(
+  files: Record<string, string | Buffer>,
+  targetPath: string,
+): Promise<Buffer> {
+  const zip = new JSZip();
+  for (const [path, content] of Object.entries(files)) zip.file(path, content);
+  const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+
+  let offset = 0;
+  while (offset + 30 <= buffer.length && buffer.readUInt32LE(offset) === 0x04034b50) {
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraLength = buffer.readUInt16LE(offset + 28);
+    const fileNameStart = offset + 30;
+    const dataStart = fileNameStart + fileNameLength + extraLength;
+    const fileName = buffer
+      .subarray(fileNameStart, fileNameStart + fileNameLength)
+      .toString("utf8");
+    if (fileName === targetPath) {
+      buffer.fill(0, dataStart, dataStart + compressedSize);
+      return buffer;
+    }
+    offset = dataStart + compressedSize;
+  }
+
+  throw new Error(`Test fixture entry not found: ${targetPath}`);
+}
 
 /** First decode step in preview-host `materializeBinaryContent`. Our encoder emits one envelope. */
 function materializePreviewHostBinary(content: string): Buffer {
@@ -58,6 +88,76 @@ describe("extractImportedFilesFromZip", () => {
 
     const files = await extractImportedFilesFromZip(buffer);
     expect(files.map((file) => file.path)).toEqual(["src/app/page.tsx"]);
+  });
+
+  it("enforces preview-host per-file, total and file-count budgets for text", async () => {
+    const perFile = new JSZip();
+    perFile.file("app/page.tsx", "12345");
+    await expect(
+      extractImportedFilesFromZip(await perFile.generateAsync({ type: "nodebuffer" }), {
+        maxPreviewFileBytes: 4,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
+
+    const total = new JSZip();
+    total.file("app/page.tsx", "1234");
+    total.file("app/layout.tsx", "5678");
+    await expect(
+      extractImportedFilesFromZip(await total.generateAsync({ type: "nodebuffer" }), {
+        maxPreviewTotalBytes: 7,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
+
+    const count = new JSZip();
+    count.file("app/page.tsx", "x");
+    count.file("app/layout.tsx", "y");
+    await expect(
+      extractImportedFilesFromZip(await count.generateAsync({ type: "nodebuffer" }), {
+        maxPreviewFiles: 1,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
+  });
+
+  it("rejects the same over-budget text/binary payload regardless of ZIP order", async () => {
+    const cases: Array<Array<[string, string | Buffer]>> = [
+      [
+        ["public/logo.png", Buffer.from([1, 2, 3])],
+        ["app/page.tsx", "x"],
+      ],
+      [
+        ["app/page.tsx", "x"],
+        ["public/logo.png", Buffer.from([1, 2, 3])],
+      ],
+    ];
+
+    for (const entries of cases) {
+      const zip = new JSZip();
+      for (const [path, content] of entries) zip.file(path, content);
+      await expect(
+        extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+          maxPreviewTotalBytes: Buffer.byteLength(
+            encodeImportedBinaryContent(Buffer.from([1, 2, 3])),
+            "utf8",
+          ),
+        }),
+      ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
+    }
+  });
+
+  it("maps an unreadable allowed entry to a controlled extract error", async () => {
+    const corrupt = await corruptCompressedEntry(
+      {
+        "app/page.tsx": "export default function Page() { return null }",
+        "public/logo.png": Buffer.alloc(4096, 7),
+      },
+      "public/logo.png",
+    );
+
+    await expect(extractImportedFilesFromZip(corrupt)).rejects.toMatchObject({
+      code: "zip_invalid",
+      step: "extract",
+      status: 400,
+    });
   });
 
   it("keeps referenced images and fonts as a single canonical base64 envelope", async () => {
@@ -107,9 +207,11 @@ describe("extractImportedFilesFromZip", () => {
     expect(persisted.find((file) => file.path === "public/logo.png")?.content).toBe(
       encodeImportedBinaryContent(PNG_1X1),
     );
-    expect(materializePreviewHostBinary(persisted.find((file) => file.path === "public/logo.png")!.content)).toEqual(
-      PNG_1X1,
-    );
+    expect(
+      materializePreviewHostBinary(
+        persisted.find((file) => file.path === "public/logo.png")!.content,
+      ),
+    ).toEqual(PNG_1X1);
     expect(
       materializePreviewHostBinary(
         persisted.find((file) => file.path === "public/fonts/site.woff2")!.content,
@@ -121,7 +223,9 @@ describe("extractImportedFilesFromZip", () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/logo.png", PNG_1X1);
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }));
+    const files = await extractImportedFilesFromZip(
+      await zip.generateAsync({ type: "nodebuffer" }),
+    );
     const logo = files.find((file) => file.path === "public/logo.png");
     expect(logo?.content.startsWith("base64:")).toBe(true);
     expect(logo?.content.includes("\uFFFD")).toBe(false);
@@ -132,20 +236,23 @@ describe("extractImportedFilesFromZip", () => {
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("node_modules/foo.png", PNG_1X1);
     zip.file(".env", "SECRET=1");
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }));
+    const files = await extractImportedFilesFromZip(
+      await zip.generateAsync({ type: "nodebuffer" }),
+    );
     expect(files.map((file) => file.path)).toEqual(["app/page.tsx"]);
   });
 
-  it("skips an oversized binary without mixing it into the text budget", async () => {
+  it("rejects an oversized binary with a structured limit error", async () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/huge.png", Buffer.alloc(PNG_1X1.byteLength + 16, 1));
     zip.file("public/ok.png", PNG_1X1);
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxBinaryFileBytes: PNG_1X1.byteLength,
-      maxBinaryTotalBytes: 1024,
-    });
-    expect(files.map((file) => file.path).sort()).toEqual(["app/page.tsx", "public/ok.png"]);
+    await expect(
+      extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+        maxBinaryFileBytes: PNG_1X1.byteLength,
+        maxBinaryTotalBytes: 1024,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
   });
 
   it("enforces a separate total binary budget on decoded bytes", async () => {
@@ -153,47 +260,55 @@ describe("extractImportedFilesFromZip", () => {
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/a.png", Buffer.alloc(20, 2));
     zip.file("public/b.png", Buffer.alloc(20, 3));
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxBinaryFileBytes: 24,
-      maxBinaryTotalBytes: 24,
-    });
-    expect(files.filter((file) => file.language === "binary")).toHaveLength(1);
-    expect(files.some((file) => file.path === "app/page.tsx")).toBe(true);
+    await expect(
+      extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+        maxBinaryFileBytes: 24,
+        maxBinaryTotalBytes: 24,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
   });
 
   it("keeps SVG as text, not a binary envelope", async () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/mark.svg", '<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>');
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }));
+    const files = await extractImportedFilesFromZip(
+      await zip.generateAsync({ type: "nodebuffer" }),
+    );
     const svg = files.find((file) => file.path === "public/mark.svg");
     expect(svg?.language).not.toBe("binary");
     expect(svg?.content.startsWith("base64:")).toBe(false);
     expect(svg?.content).toContain("<svg");
   });
 
-  it("skips extra binaries at the file cap instead of failing the import", async () => {
+  it("rejects extra binaries at the file cap instead of silently omitting them", async () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/a.png", PNG_1X1);
     zip.file("public/b.png", PNG_1X1);
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxFiles: 1,
-    });
-    expect(files.map((file) => file.path)).toEqual(["app/page.tsx"]);
+    await expect(
+      extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+        maxFiles: 1,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
   });
 
   it("loads a persisted envelope whose declared zip size is larger than the decoded cap", async () => {
     const wrapped = Buffer.from(encodeImportedBinaryContent(PNG_1X1), "utf8");
     expect(wrapped.byteLength).toBeGreaterThan(PNG_1X1.byteLength);
-    expect(wrapped.byteLength).toBeLessThanOrEqual(maxDeclaredImportBinaryBytes(PNG_1X1.byteLength));
+    expect(wrapped.byteLength).toBeLessThanOrEqual(
+      maxDeclaredImportBinaryBytes(PNG_1X1.byteLength),
+    );
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/logo.png", wrapped);
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxBinaryFileBytes: PNG_1X1.byteLength,
-      maxBinaryTotalBytes: 1024,
-    });
+    const files = await extractImportedFilesFromZip(
+      await zip.generateAsync({ type: "nodebuffer" }),
+      {
+        maxBinaryFileBytes: PNG_1X1.byteLength,
+        maxBinaryTotalBytes: 1024,
+      },
+    );
     expect(files.find((file) => file.path === "public/logo.png")?.content).toBe(
       encodeImportedBinaryContent(PNG_1X1),
     );
@@ -209,29 +324,33 @@ describe("extractImportedFilesFromZip", () => {
     expect(Buffer.byteLength(over, "utf8")).toBeGreaterThan(PREVIEW_HOST_MAX_FILE_BYTES);
   });
 
-  it("skips a binary whose envelope would exceed preview-host per-file transport", async () => {
+  it("rejects a binary whose envelope would exceed preview-host per-file transport", async () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/ok.png", PNG_1X1);
     zip.file("public/wide.png", Buffer.alloc(80, 4));
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxPreviewFileBytes: Buffer.byteLength(encodeImportedBinaryContent(PNG_1X1), "utf8"),
-    });
-    expect(files.map((file) => file.path).sort()).toEqual(["app/page.tsx", "public/ok.png"]);
+    await expect(
+      extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+        maxPreviewFileBytes: Buffer.byteLength(encodeImportedBinaryContent(PNG_1X1), "utf8"),
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
   });
 
-  it("skips extra binaries before they push the preview-host total payload over the cap", async () => {
+  it("rejects binaries before they push the preview-host total payload over the cap", async () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/a.png", Buffer.alloc(20, 2));
     zip.file("public/b.png", Buffer.alloc(20, 3));
-    const pageTransport = Buffer.byteLength("export default function Page() { return null }", "utf8");
+    const pageTransport = Buffer.byteLength(
+      "export default function Page() { return null }",
+      "utf8",
+    );
     const oneBinary = Buffer.byteLength(encodeImportedBinaryContent(Buffer.alloc(20, 2)), "utf8");
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
-      maxPreviewTotalBytes: pageTransport + oneBinary + 1,
-    });
-    expect(files.filter((file) => file.language === "binary")).toHaveLength(1);
-    expect(files.some((file) => file.path === "app/page.tsx")).toBe(true);
+    await expect(
+      extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }), {
+        maxPreviewTotalBytes: pageTransport + oneBinary + 1,
+      }),
+    ).rejects.toMatchObject({ code: "zip_too_large", step: "extract", status: 413 });
   });
 
   it("unwraps a persisted base64 envelope once so re-import does not double-wrap", async () => {
@@ -240,9 +359,46 @@ describe("extractImportedFilesFromZip", () => {
     const zip = new JSZip();
     zip.file("app/page.tsx", "export default function Page() { return null }");
     zip.file("public/logo.png", wrapped);
-    const files = await extractImportedFilesFromZip(await zip.generateAsync({ type: "nodebuffer" }));
+    const files = await extractImportedFilesFromZip(
+      await zip.generateAsync({ type: "nodebuffer" }),
+    );
     expect(files.find((file) => file.path === "public/logo.png")?.content).toBe(
       encodeImportedBinaryContent(PNG_1X1),
     );
+  });
+});
+
+describe("imported source selection", () => {
+  it("rejects asset-only sets and treats a simple HTML file as usable source", () => {
+    expect(
+      hasUsableImportedSource([
+        { path: "public/logo.png", content: "base64:AQID", language: "binary" },
+        { path: "public/mark.svg", content: "<svg />", language: "svg" },
+      ]),
+    ).toBe(false);
+    expect(
+      hasUsableImportedSource([
+        { path: "public/logo.png", content: "base64:AQID", language: "binary" },
+        { path: "index.html", content: "<main>Hej</main>", language: "html" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("does not treat README-only documentation as runnable site source", () => {
+    expect(
+      hasUsableImportedSource([
+        { path: "README.md", content: "# Dokumentation", language: "markdown" },
+        { path: "public/logo.png", content: "base64:AQID", language: "binary" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("never selects an earlier binary asset over a usable HTML source", () => {
+    expect(
+      findPrimaryImportedFile([
+        { path: "public/logo.png", content: "base64:AQID", language: "binary" },
+        { path: "index.html", content: "<main>Hej</main>", language: "html" },
+      ]),
+    ).toBe("<main>Hej</main>");
   });
 });

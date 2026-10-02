@@ -25,6 +25,6 @@ subagenter ger korta risksignaler. Körordning:
    Backoffice-impact och medvetet exkluderade filer. Fullprofilen körs av
    GitHub Actions efter push.
 
-Ett fullgott oberoende Sol-pass på aktuell diff kan uppfylla `git.mdc`:s
+Ett fullgott oberoende bugggranskningspass på aktuell diff kan uppfylla `git.mdc`:s
 lokala reviewkrav; kör inte ett identiskt extra pass. Protected paths eller ny
-head-SHA kräver färsk Sol-review. Ingen commit/push utan användarens mandat.
+head-SHA kräver färsk oberoende bugggranskning. Ingen commit/push utan mandat.
