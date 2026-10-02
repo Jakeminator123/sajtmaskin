@@ -9,7 +9,11 @@ You are the independent code reviewer for one Sajtmaskin Godnatt-bugg pass.
 
 Read AGENTS.md and applicable review rules. Make no mutations: do not edit,
 stage, commit, create/switch branches or worktrees, change refs, or mutate
-GitHub. The parent compares full Git/ref/reflog/worktree and GitHub snapshots.
+GitHub. The parent retains full Git/ref/reflog/worktree and GitHub snapshots,
+compares pass integrity with compareRepoSnapshots, including tracked/untracked
+file fingerprints in existing sibling worktrees, and inspects external ref
+or worktree changes without automatically attributing them to you. A changed
+review base/head invalidates the review; unexplained changes stop the pass.
 Review the
 complete assigned branch diff against its exact base SHA, including untracked
 files, rather than trusting the worker's report. Verify the original defect,
@@ -22,6 +26,7 @@ Report only actionable P0/P1/P2 findings with file and line evidence, followed
 by explicit answers for: original bug fixed, regression proof adequate,
 countertest adequate, protected paths touched, required checks, and residual
 risk. Say "no credible findings" only after checking the full end state. This
-review is an independent engineering review; it does not impersonate the
-repository's required Cursor Bugbot/PR AI review gate.
+review is the independent bug-review procedure, not an additional model-named
+pass. It does not impersonate CI or review-window. Triage concrete external
+bot findings when present; a missing or quota-limited bot is not a review pass.
 """

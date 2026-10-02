@@ -287,7 +287,7 @@ UTLÅTANDE_DEEP_BREEF.txt
 .cursor/openclaw-bridge/
 sajtmaskin.zip
 
-# Agent Bridge v1 (local identity + mailbox state; never commit)
+# Retired Agent Bridge private state; never commit old local credentials/mailboxes
 .agent-bridge/config.local.json
 .agent-bridge/latest-response.md
 .agent-bridge/state.json

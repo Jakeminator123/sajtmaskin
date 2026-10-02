@@ -53,6 +53,9 @@ function lines(value) {
     .filter(Boolean);
 }
 
+/** Leveransgren för vanligt PR-arbete (preview.sajtmaskin.se), skild från trunk. */
+export const DEFAULT_DELIVERY_BRANCH = "preview";
+
 export function parseArgs(argv) {
   const options = { plan: false, full: false, fetch: true, keepGoing: false, base: null };
   for (let i = 0; i < argv.length; i += 1) {
@@ -65,6 +68,52 @@ export function parseArgs(argv) {
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
+}
+
+/**
+ * Jämförelsebas för lokal verify:pr.
+ * Explicit `--base` vinner. Annars preview, oavsett lokal branch. Även en
+ * synkbranch måste innehålla färsk preview; rå master är inte en färdig synk.
+ * Produktens produktion granskas uttryckligen med --base origin/master.
+ */
+export function resolveVerificationBase({ explicitBase, branch: _branch, policy: _policy }) {
+  if (explicitBase) return explicitBase;
+  return `origin/${DEFAULT_DELIVERY_BRANCH}`;
+}
+
+/**
+ * Vilken remote-gren `git fetch origin <ref>` ska hämta för en given bas.
+ * Endast origin-tracking-refar hämtas, med hela branchnamnet. Lokala refs/SHA:n
+ * är uttryckliga snapshots och får aldrig tolkas som remote-branchnamn.
+ */
+export function resolveFetchRefForBase(base) {
+  const value = String(base ?? "").trim();
+  if (!value) return null;
+  const originMatch = /^(?:refs\/remotes\/)?origin\/([^\s\\]+)$/.exec(value);
+  if (originMatch) return originMatch[1];
+  return null;
+}
+
+/** Tydligt fel när lokal bas-ref saknas eller inte gått att verifiera efter fetch. */
+export function formatMissingBaseError(base) {
+  const fetchRef = resolveFetchRefForBase(base);
+  const remedy = fetchRef
+    ? `Hämta den (git fetch origin ${fetchRef})`
+    : "Kontrollera den lokala refen/SHA:n eller hämta dess remote-gren uttryckligen";
+  return `basen ${base} saknas lokalt. ${remedy} och försök igen.`;
+}
+
+/**
+ * @param {{ branch: string, base: string }} context
+ * @param {(args: string[], options?: Record<string, unknown>) => { status: number | null }} [gitCommand]
+ */
+export function assertFreshVerificationBase({ branch, base }, gitCommand = git) {
+  const ancestor = gitCommand(["merge-base", "--is-ancestor", base, "HEAD"], {
+    allowFailure: true,
+  });
+  if (ancestor.status !== 0) {
+    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
+  }
 }
 
 /**
@@ -179,26 +228,34 @@ async function main() {
   const inputs = loadWorkflowInputs(REPO_ROOT);
   const { policy } = inputs;
 
-  if (options.fetch && !isCiRunner(process.env)) {
-    console.log(`[verify:pr] hämtar origin/${policy.trunk}…`);
-    const fetched = git(["fetch", "origin", policy.trunk, "--quiet"], { allowFailure: true });
-    if (fetched.status !== 0) {
-      throw new Error(
-        `kunde inte hämta färsk ${policy.trunk}: ${(fetched.stderr || "okänt fel").trim()}`,
-      );
-    }
-  }
-
   const branch = git(["branch", "--show-current"]).stdout.trim();
   const head = git(["rev-parse", "HEAD"]).stdout.trim();
   assertBranchSafety({ branch, head, policy });
 
-  const base = options.base ?? `origin/${policy.trunk}`;
-  git(["rev-parse", "--verify", base]);
-  const ancestor = git(["merge-base", "--is-ancestor", base, "HEAD"], { allowFailure: true });
-  if (ancestor.status !== 0) {
-    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
+  const base = resolveVerificationBase({
+    explicitBase: options.base,
+    branch,
+    policy,
+  });
+
+  if (options.fetch && !isCiRunner(process.env)) {
+    const fetchRef = resolveFetchRefForBase(base);
+    if (fetchRef) {
+      console.log(`[verify:pr] hämtar origin/${fetchRef}…`);
+      const fetched = git(["fetch", "origin", fetchRef, "--quiet"], { allowFailure: true });
+      if (fetched.status !== 0) {
+        throw new Error(
+          `kunde inte hämta färsk ${fetchRef}: ${(fetched.stderr || "okänt fel").trim()}`,
+        );
+      }
+    }
   }
+
+  const verified = git(["rev-parse", "--verify", base], { allowFailure: true });
+  if (verified.status !== 0) {
+    throw new Error(formatMissingBaseError(base));
+  }
+  assertFreshVerificationBase({ branch, base });
 
   const tracked = trackedPathsForBase(base);
   const untracked = lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);

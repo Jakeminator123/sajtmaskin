@@ -15,14 +15,18 @@ Lokal framgång bevisar **inte** prod. Identitet ägs av `config/db-targets.json
 tabell i `docs/ENV.md`. Skriptetikett `[DEV]`/`[PROD]` vinner över flaggnamn.
 Verifiera med `npm run db:check-target -- --expect=dev|prod`.
 
-Migrationer körs **inte** vid Vercel-deploy. Ny migration: registrera i
-`MIGRATION_ORDER`, applicera dev **och** prod (`npm run db:migrate` /
-`db:migrate:prod`) före merge. CI-jobbet `prod-migrations-apply` körs på
-push till `master` **eller** `preview` (samma prod-Postgres).
+Migrationer körs **inte** vid Vercel-deploy, Git-operationer, dev-start
+eller vanliga CI-pushar. Registrera i `MIGRATION_ORDER`, testa isolerat
+och ta fram en granskad DB-plan. DB-skrivningar är ett separat mandat,
+inte en följd av ett kod-/mergeuppdrag.
 
-Preview delar prod-DB med en produktion som kör **gammal** kod. Automatisk
-preview-apply släpper därför bara **additiv** DDL (`npm run db:migrate:additive-check`);
-brytande migrationer körs medvetet via `npm run promote`. Steg och CI:
+Preview delar prod-DB med en produktion som kör **gammal** kod. Additiv
+DDL kan också låsa, påverka policies/triggers eller ändra beteende.
+`npm run promote` är en kodleverans, inte ett DB-mandat eller atomisk deploy.
+CI läser ledger och live-paritet; rött kräver inspektion, aldrig auto-reparation.
+Initiera tom dev-DB uttryckligt med `db:init`; använd `db:ensure` för pending
+migrationer i initierad dev-DB. Prod kräver separat ägarbeslut, granskad
+körplan och verifierad direkt/session-mode-anslutning. Steg och CI:
 [`docs/runbooks/db-migrations.md`](../../docs/runbooks/db-migrations.md).
 
 Env på tre ställen: `.env.local`, `vercel env` för
@@ -32,4 +36,5 @@ kräver ny deploy.
 Preview-host (Fly) är egen miljö: `preview-host/fly.toml` / `fly secrets`.
 Vercel-env når inte Fly.
 
-Innan merge: funkar det i prod, inte bara lokalt?
+Ingen live-apply, historisk checksum-backfill eller DB-reparation utan mandat.
+En kodrevert återställer inte DB-data eller schema. Före merge: redovisa DB-effekt.

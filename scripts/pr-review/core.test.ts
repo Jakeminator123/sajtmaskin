@@ -17,7 +17,7 @@ import {
 const PR = {
   repository: "Jakeminator123/sajtmaskin",
   number: 42,
-  baseRef: "master",
+  baseRef: "preview",
   headSha: "a".repeat(40),
   headRepository: "Jakeminator123/sajtmaskin",
   draft: true,
@@ -182,7 +182,7 @@ describe("PR review state machine", () => {
     expect(decideReview({ pr: PR, state })).toEqual({ kind: "skip", reason: "run-limit" });
   });
 
-  it("skips non-master bases and merged PRs", () => {
+  it("skips bases other than preview and merged PRs", () => {
     expect(
       decideReview({ pr: { ...PR, baseRef: "release" }, state: createInitialState(PR) }),
     ).toEqual({
