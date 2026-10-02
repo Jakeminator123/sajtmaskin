@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import type { AuthUser } from "@/lib/auth/auth-store";
 import {
   currentBuilderReturnTo,
   googleOAuthStartHref,
@@ -18,9 +19,17 @@ interface AuthModalProps {
   defaultMode?: "login" | "register";
   /** First-party path to resume after Google or e-postverifiering. */
   returnTo?: string;
+  /** Runs only after an inline e-postlogin has updated the auth store. */
+  onSuccess?: (user: AuthUser) => void | Promise<void>;
 }
 
-export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: AuthModalProps) {
+export function AuthModal({
+  isOpen,
+  onClose,
+  defaultMode = "login",
+  returnTo,
+  onSuccess,
+}: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -155,6 +164,16 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
       setEmail("");
       setPassword("");
       setName("");
+
+      if (mode === "login" && data.user && onSuccess) {
+        try {
+          void Promise.resolve(onSuccess(data.user)).catch((continuationError) => {
+            console.error("[AuthModal] Post-login continuation failed:", continuationError);
+          });
+        } catch (continuationError) {
+          console.error("[AuthModal] Post-login continuation failed:", continuationError);
+        }
+      }
     } catch {
       setError("Kunde inte ansluta till servern");
     } finally {
