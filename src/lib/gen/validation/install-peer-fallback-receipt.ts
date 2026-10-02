@@ -59,6 +59,16 @@ function normalizeRevision(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeMutationRevision(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
+function normalizeLifecycleToken(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 /** Host and app both use sha256 hex. Anything else is not install-proof. */
 export function normalizeDependencyFingerprint(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -148,6 +158,8 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
   filesRevision: string | null;
   dependencyFingerprint: string | null;
   kind: PreviewInstallKind;
+  lifecycleToken: string | null;
+  mutationRevision: number | null;
 } | null {
   if (log.category !== INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY) return null;
   const kind = readInstallPeerFallbackReceiptKind(log.meta);
@@ -157,16 +169,51 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
     filesRevision: normalizeRevision(meta?.filesRevision),
     dependencyFingerprint: normalizeDependencyFingerprint(meta?.dependencyFingerprint),
     kind,
+    lifecycleToken: normalizeLifecycleToken(meta?.lifecycleToken),
+    mutationRevision: normalizeMutationRevision(meta?.mutationRevision),
   };
 }
 
 function latestDecisive(
-  receipts: ReadonlyArray<{ kind: PreviewInstallKind }>,
+  receipts: ReadonlyArray<{
+    kind: PreviewInstallKind;
+    lifecycleToken: string | null;
+    mutationRevision: number | null;
+  }>,
 ): PreviewInstallKind | null {
-  const latest = receipts.find(
+  const decisive = receipts.filter(
     (entry) => entry.kind === "fallback" || entry.kind === "strict_pass",
   );
-  return latest?.kind ?? null;
+  const latest = decisive[0];
+  if (!latest) return null;
+  if (latest.mutationRevision === null) {
+    // An unordered strict acknowledgement cannot safely clear an already
+    // recorded fallback: it may be a delayed response from an older host/run.
+    if (
+      latest.kind === "strict_pass" &&
+      decisive.some(
+        (entry) =>
+          entry.kind === "fallback" &&
+          (entry.mutationRevision !== null || entry.lifecycleToken !== null),
+      )
+    ) {
+      return "fallback";
+    }
+    return latest.kind;
+  }
+  // Logs are normally newest-first, but asynchronous status acknowledgements
+  // may be persisted out of arrival order. Once the newest row has a host
+  // ordering receipt, select the greatest revision so a stale run cannot win.
+  // The host persists this counter per chat and advances it across lifecycles.
+  return decisive.reduce((current, entry) => {
+    if (
+      entry.mutationRevision !== null &&
+      entry.mutationRevision > current.mutationRevision
+    ) {
+      return { kind: entry.kind, mutationRevision: entry.mutationRevision };
+    }
+    return current;
+  }, { kind: latest.kind, mutationRevision: latest.mutationRevision }).kind;
 }
 
 /**

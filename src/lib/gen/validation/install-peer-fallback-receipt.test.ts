@@ -26,6 +26,24 @@ function receipt(
   };
 }
 
+function orderedReceipt(
+  kind: "fallback" | "strict_pass",
+  dependencyFingerprint: string,
+  lifecycleToken: string,
+  mutationRevision: number,
+) {
+  return {
+    category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+    meta: {
+      kind,
+      usedFallback: kind === "fallback",
+      dependencyFingerprint,
+      lifecycleToken,
+      mutationRevision,
+    },
+  };
+}
+
 const PACKAGE_A = JSON.stringify({
   dependencies: { next: "14.2.25", react: "^19.1.0", "react-dom": "^19.1.0" },
 });
@@ -161,6 +179,55 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
       installPeerFallbackReceiptBlocksPublish(
         [receipt(false, "rev-b", "strict_pass"), receipt(true, "rev-a", "fallback")],
         { filesRevision: "rev-b", files: filesTreeACopyEdit },
+      ),
+    ).toBe(true);
+  });
+
+  it("uses host mutation order when same-lifecycle acknowledgements arrive stale", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-1", 2),
+          orderedReceipt("strict_pass", fingerprint, "life-1", 3),
+          orderedReceipt("fallback", fingerprint, "life-1", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("uses the chat-global mutation order across lifecycle tokens", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-old", 2),
+          orderedReceipt("fallback", fingerprint, "life-new", 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-old", 2),
+          orderedReceipt("strict_pass", fingerprint, "life-new", 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("fails closed when an unordered strict receipt follows an ordered fallback", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          receipt(false, "rev-a", "strict_pass", fingerprint),
+          orderedReceipt("fallback", fingerprint, "life-1", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
       ),
     ).toBe(true);
   });

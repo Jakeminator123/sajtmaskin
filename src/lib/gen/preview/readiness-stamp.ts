@@ -8,6 +8,7 @@ import {
   dependencyFingerprintFromFiles,
   normalizeDependencyFingerprint,
   previewInstallKindFromHostStatus,
+  type PreviewInstallKind,
 } from "@/lib/gen/validation/install-peer-fallback-receipt";
 
 /** Same stored md5 as `engine_versions.files_revision` (`md5(files_json)`). */
@@ -110,7 +111,8 @@ export async function applyPreviewReadinessOutcome(params: {
     | "peerConflictDetected"
     | "installKind"
     | "dependencyFingerprint"
-  >;
+  > &
+    Partial<Pick<PreviewHostStatusResult, "lifecycleToken" | "mutationRevision">>;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
   try {
@@ -212,16 +214,35 @@ export async function applyPreviewReadinessOutcome(params: {
       const dependencyFingerprint = receiptFiles
         ? dependencyFingerprintFromFiles(receiptFiles)
         : hostFingerprint;
-      const receiptKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}:${installKind ?? "unknown"}`;
-      if (
-        shouldWriteReceipt &&
-        !legacyPeerDepsVersionIds.has(receiptKey) &&
-        !legacyPeerDepsInFlight.has(receiptKey)
-      ) {
+      const lifecycleToken = params.resumed.lifecycleToken?.trim() || null;
+      const mutationRevision =
+        typeof params.resumed.mutationRevision === "number" &&
+        Number.isSafeInteger(params.resumed.mutationRevision) &&
+        params.resumed.mutationRevision > 0
+          ? params.resumed.mutationRevision
+          : null;
+      // A host mutation is the install attempt's durable identity. Kind alone
+      // is not: the same dependency tree may legitimately transition
+      // fallback -> strict_pass -> fallback across separate boots. Older hosts
+      // lack mutationRevision, so dedup consecutive identical kinds there while
+      // still preserving real kind transitions.
+      const receiptScopeKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}`;
+      const receiptRunKey =
+        mutationRevision === null
+          ? "legacy-transition"
+          : `${lifecycleToken ?? "unknown-lifecycle"}:${mutationRevision}`;
+      const receiptKey = `${receiptScopeKey}:${receiptRunKey}`;
+      const persistReceipt = async () => {
+        const alreadyStored =
+          mutationRevision === null
+            ? legacyPeerDepsLatestKindByScope.get(receiptScopeKey) === installKind
+            : legacyPeerDepsVersionIds.has(receiptKey);
+        const inFlightKey = mutationRevision === null ? receiptScopeKey : receiptKey;
+        if (!shouldWriteReceipt || alreadyStored || legacyPeerDepsInFlight.has(inFlightKey)) return;
         // Temporary reservation only. Permanent dedup is set after the
         // publish-blocking receipt is proven stored — `createEngineVersionErrorLogs`
         // is best-effort and may return [] on 55P03 without throwing.
-        legacyPeerDepsInFlight.add(receiptKey);
+        legacyPeerDepsInFlight.add(inFlightKey);
         try {
           const { createEngineVersionErrorLogs } = await import(
             "@/lib/db/services/version-errors"
@@ -242,6 +263,8 @@ export async function applyPreviewReadinessOutcome(params: {
                   filesRevision: receiptRevision,
                   dependencyFingerprint,
                   bootFilesRevision: params.bootedFilesRevision?.trim() || null,
+                  lifecycleToken,
+                  mutationRevision,
                   source: "preview_install_peer_fallback",
                 },
               },
@@ -267,11 +290,20 @@ export async function applyPreviewReadinessOutcome(params: {
             { lockTimeoutMs: 2_000 },
           );
           if (hasStoredInstallPeerFallbackReceipt(stored)) {
-            legacyPeerDepsVersionIds.add(receiptKey);
+            if (mutationRevision === null && installKind) {
+              legacyPeerDepsLatestKindByScope.set(receiptScopeKey, installKind);
+            } else {
+              legacyPeerDepsVersionIds.add(receiptKey);
+            }
           }
         } finally {
-          legacyPeerDepsInFlight.delete(receiptKey);
+          legacyPeerDepsInFlight.delete(inFlightKey);
         }
+      };
+      if (mutationRevision === null) {
+        await serializeLegacyPeerDepsReceipt(receiptScopeKey, persistReceipt);
+      } else {
+        await persistReceipt();
       }
     }
   } catch (err) {
@@ -309,6 +341,30 @@ const EMPTY_LOCKFILE_PERSIST: RegeneratedLockfilePersistResult = {
 const failedPreviewVersionIds = new Set<string>();
 const legacyPeerDepsVersionIds = new Set<string>();
 const legacyPeerDepsInFlight = new Set<string>();
+const legacyPeerDepsLatestKindByScope = new Map<string, PreviewInstallKind>();
+const legacyPeerDepsWriteQueues = new Map<string, Promise<void>>();
+
+async function serializeLegacyPeerDepsReceipt(
+  scopeKey: string,
+  write: () => Promise<void>,
+): Promise<void> {
+  const previous = legacyPeerDepsWriteQueues.get(scopeKey) ?? Promise.resolve();
+  let release!: () => void;
+  const turn = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => turn);
+  legacyPeerDepsWriteQueues.set(scopeKey, tail);
+  await previous.catch(() => undefined);
+  try {
+    await write();
+  } finally {
+    release();
+    if (legacyPeerDepsWriteQueues.get(scopeKey) === tail) {
+      legacyPeerDepsWriteQueues.delete(scopeKey);
+    }
+  }
+}
 
 function hasStoredInstallPeerFallbackReceipt(rows: unknown): boolean {
   if (!Array.isArray(rows)) return false;
@@ -447,4 +503,6 @@ export function __resetPersistedLockfileGuardForTesting(): void {
   failedPreviewVersionIds.clear();
   legacyPeerDepsVersionIds.clear();
   legacyPeerDepsInFlight.clear();
+  legacyPeerDepsLatestKindByScope.clear();
+  legacyPeerDepsWriteQueues.clear();
 }
