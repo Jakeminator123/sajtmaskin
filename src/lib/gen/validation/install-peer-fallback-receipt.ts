@@ -187,14 +187,12 @@ function latestDecisive(
   const latest = decisive[0];
   if (!latest) return null;
   if (latest.mutationRevision === null) {
-    // An unordered strict acknowledgement cannot safely clear an already
-    // recorded fallback: it may be a delayed response from an older host/run.
+    // Newest-first remains authoritative for legacy receipts. An unordered
+    // strict acknowledgement cannot safely clear a revisioned fallback.
     if (
       latest.kind === "strict_pass" &&
       decisive.some(
-        (entry) =>
-          entry.kind === "fallback" &&
-          (entry.mutationRevision !== null || entry.lifecycleToken !== null),
+        (entry) => entry.kind === "fallback" && entry.mutationRevision !== null,
       )
     ) {
       return "fallback";

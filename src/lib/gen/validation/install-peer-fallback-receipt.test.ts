@@ -44,6 +44,22 @@ function orderedReceipt(
   };
 }
 
+function legacyLifecycleReceipt(
+  kind: "fallback" | "strict_pass",
+  dependencyFingerprint: string,
+  lifecycleToken: string,
+) {
+  return {
+    category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
+    meta: {
+      kind,
+      usedFallback: kind === "fallback",
+      dependencyFingerprint,
+      lifecycleToken,
+    },
+  };
+}
+
 const PACKAGE_A = JSON.stringify({
   dependencies: { next: "14.2.25", react: "^19.1.0", "react-dom": "^19.1.0" },
 });
@@ -217,6 +233,45 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
         { dependencyFingerprint: fingerprint },
       ),
     ).toBe(false);
+  });
+
+  it("uses newest-first order for lifecycle-token-only legacy receipts", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-1"),
+          legacyLifecycleReceipt("fallback", fingerprint, "life-1"),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("uses newest-first order across lifecycle-token-only legacy receipts", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-new"),
+          legacyLifecycleReceipt("fallback", fingerprint, "life-old"),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not let a lifecycle-token-only strict receipt clear an ordered fallback", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          legacyLifecycleReceipt("strict_pass", fingerprint, "life-new"),
+          orderedReceipt("fallback", fingerprint, "life-old", 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
   });
 
   it("fails closed when an unordered strict receipt follows an ordered fallback", () => {
