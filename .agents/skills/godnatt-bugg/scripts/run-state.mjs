@@ -9,8 +9,6 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
@@ -20,16 +18,16 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SKILL_ROOT = resolve(dirname(SCRIPT_PATH), "..");
 const DEFAULT_BACKLOG = resolve(SKILL_ROOT, "..", "..", "..", "BUG-SWARM-BACKLOG.md");
-const STATE_VERSION = 4;
-const LEGACY_STATE_VERSION = 3;
+const STATE_VERSION = 5;
+const LEGACY_STATE_VERSIONS = new Set([3, 4]);
 const DEFAULT_COOLDOWN_MINUTES = 5;
 const DEFAULT_LEASE_MINUTES = 240;
-const MUTEX_STALE_MS = 60_000;
 const GIT_EVIDENCE_TIMEOUT_MS = 5_000;
 const GH_EVIDENCE_TIMEOUT_MS = 30_000;
 const MAX_EVIDENCE_AGE_MS = 2 * 60_000;
 const MAX_EVIDENCE_FUTURE_SKEW_MS = 30_000;
 const DELIVERY_BASE = "preview";
+const WORKFLOW_POLICY_PATH = "config/agent-workflow.json";
 
 export const STAGES = Object.freeze([
   "claimed",
@@ -120,6 +118,7 @@ export function createRunState({
   runId,
   promotionCode = null,
   automationId = null,
+  trustedRolloutEvidence = null,
 }) {
   if (!Number.isInteger(count) || count < 1 || count > 25) {
     throw new RunStateError("count måste vara ett heltal mellan 1 och 25.");
@@ -142,6 +141,8 @@ export function createRunState({
   }
 
   const timestamp = toIso(now);
+  const rolloutEvidence =
+    mode === "full" ? validateFullRolloutEvidence(trustedRolloutEvidence, now) : null;
   return {
     version: STATE_VERSION,
     runId,
@@ -161,13 +162,14 @@ export function createRunState({
     updatedAt: timestamp,
     notBefore: null,
     pauseReason: null,
+    fullRolloutEvidence: rolloutEvidence,
     lease: null,
     current: null,
     history: [],
   };
 }
 
-export function acquireLease(state, { now, token = randomUUID() }) {
+export function acquireLease(state, { now, token = randomUUID(), trustedRolloutEvidence = null }) {
   const next = normalizeState(state);
   assertRunnableState(next);
   const timestamp = toIso(now);
@@ -187,6 +189,9 @@ export function acquireLease(state, { now, token = randomUUID() }) {
       expiredAt: next.lease.expiresAt,
       recoverCommand: `recover --run-id ${next.runId} --reason <kontrollerad-orsak>`,
     });
+  }
+  if (next.mode === "full") {
+    next.fullRolloutEvidence = validateFullRolloutEvidence(trustedRolloutEvidence, now);
   }
 
   next.status = "running";
@@ -260,6 +265,9 @@ export function claimCandidate(state, { token, smId, candidates, now }) {
     blockingLabel: null,
     repository: null,
     deliveryBase: null,
+    baseSha: null,
+    legacyRebaselineRequired: false,
+    legacySourceVersion: null,
     deliveryEvidence: {
       draftPr: null,
       latestOpen: null,
@@ -268,6 +276,7 @@ export function claimCandidate(state, { token, smId, candidates, now }) {
       merged: null,
       cleanup: null,
       completed: null,
+      legacyRebaseline: null,
     },
     note: null,
   };
@@ -324,6 +333,121 @@ export function advanceStage(state, { token, stage, now, metadata = {}, trustedE
   return next;
 }
 
+export function reopenReview(state, { token, reason, now, trustedEvidence = null }) {
+  const next = normalizeState(state);
+  assertLease(next, token, now);
+  if (next.mode !== "full" || next.current?.stage !== "ready-to-merge") {
+    throw new RunStateError("re-review kräver full mode i ready-to-merge.", 8);
+  }
+  if (!reason?.trim()) throw new RunStateError("re-review kräver --reason.");
+  const evidence = validateDeliveryEvidence(next.current, trustedEvidence, {
+    now,
+    allowRevisionUpdate: true,
+    priorObservedAt: latestEvidenceObservedAt(next.current),
+  });
+  requirePullRequestState(evidence, {
+    state: "OPEN",
+    isDraft: false,
+    stage: "re-review",
+  });
+  const headChanged = evidence.headRefOid !== next.current.headSha;
+  const baseChanged = evidence.liveBaseSha !== next.current.baseSha;
+  if (!headChanged && !baseChanged) {
+    throw new RunStateError("re-review kräver faktiskt ändrad head- eller live base-SHA.", 8);
+  }
+  const timestamp = toIso(now);
+  next.history.push({
+    kind: "review-reopened",
+    at: timestamp,
+    reason: reason.trim(),
+    prNumber: next.current.prNumber,
+    branch: next.current.branch,
+    worktree: next.current.worktree,
+    previousHeadSha: next.current.headSha,
+    previousBaseSha: next.current.baseSha,
+    nextHeadSha: evidence.headRefOid,
+    nextBaseSha: evidence.liveBaseSha,
+    previousReadyEvidence: next.current.deliveryEvidence.readyToMerge,
+  });
+  next.current.stage = "ci-review";
+  next.current.headSha = evidence.headRefOid;
+  next.current.baseSha = evidence.liveBaseSha;
+  next.current.isDraft = false;
+  next.current.deliveryEvidence.readyToMerge = null;
+  next.current.deliveryEvidence.reviewed = null;
+  next.current.deliveryEvidence.latestOpen = evidence;
+  validateStageEvidence(next.current, next.mode);
+  next.updatedAt = timestamp;
+  next.lease.heartbeatAt = timestamp;
+  next.lease.expiresAt = addMinutes(timestamp, next.leaseMinutes);
+  return next;
+}
+
+export function rebaselineLegacyState(state, { token, reason, now, trustedEvidence = null }) {
+  const next = normalizeState(state);
+  assertLease(next, token, now);
+  const stageIndex = STAGES.indexOf(next.current?.stage);
+  if (
+    next.mode !== "full" ||
+    !next.current ||
+    next.current.legacyRebaselineRequired !== true ||
+    stageIndex < STAGES.indexOf("ci-review")
+  ) {
+    throw new RunStateError(
+      "rebaseline-legacy kräver ett migrerat legacy full-state från ci-review eller senare.",
+      8,
+    );
+  }
+  if (!reason?.trim()) throw new RunStateError("rebaseline-legacy kräver --reason.");
+  const evidence = validateDeliveryEvidence(next.current, trustedEvidence, {
+    now,
+    allowRevisionUpdate: false,
+    priorObservedAt: latestEvidenceObservedAt(next.current),
+  });
+  requirePullRequestState(evidence, {
+    state: "OPEN",
+    isDraft: true,
+    stage: "rebaseline-legacy",
+  });
+  const timestamp = toIso(now);
+  next.history.push({
+    kind: "legacy-rebaselined",
+    at: timestamp,
+    reason: reason.trim(),
+    sourceVersion: next.current.legacySourceVersion,
+    prNumber: next.current.prNumber,
+    branch: next.current.branch,
+    worktree: next.current.worktree,
+    headSha: next.current.headSha,
+    previousBaseSha: next.current.baseSha,
+    previousStage: next.current.stage,
+    previousMergeSha: next.current.mergeSha,
+    preservedReviewPasses: next.current.reviewPasses.length,
+  });
+  next.current.stage = "ci-review";
+  next.current.repository = evidence.repository;
+  next.current.deliveryBase = evidence.baseRefName;
+  next.current.baseSha = evidence.liveBaseSha;
+  next.current.isDraft = true;
+  next.current.mergeSha = null;
+  next.current.deliveryEvidence = {
+    draftPr: null,
+    latestOpen: evidence,
+    readyToMerge: null,
+    reviewed: null,
+    merged: null,
+    cleanup: null,
+    completed: null,
+    legacyRebaseline: evidence,
+  };
+  next.current.legacyRebaselineRequired = false;
+  validateStageEvidence(next.current, next.mode);
+  next.updatedAt = timestamp;
+  next.lease.heartbeatAt = timestamp;
+  next.lease.expiresAt = addMinutes(timestamp, next.leaseMinutes);
+  return next;
+}
+
 function assertNoUntrustedDeliveryMetadata(metadata) {
   const forbidden = [
     "prNumber",
@@ -357,11 +481,13 @@ function applyStageEvidence(current, mode, stage, trustedEvidence, now) {
     return;
   }
 
-  const allowHeadUpdate = stage === "draft-pr" || stage === "ci-review";
+  const allowRevisionUpdate = stage === "draft-pr" || stage === "ci-review";
+  const allowPostMergeBase = stage === "merged" || stage === "cleanup";
   const priorObservedAt = latestEvidenceObservedAt(current);
   const evidence = validateDeliveryEvidence(current, trustedEvidence, {
     now,
-    allowHeadUpdate,
+    allowRevisionUpdate,
+    allowPostMergeBase,
     requireStrictlyNewer: stage === "cleanup",
     priorObservedAt,
   });
@@ -380,6 +506,7 @@ function applyStageEvidence(current, mode, stage, trustedEvidence, now) {
     current.headSha = evidence.headRefOid;
     current.repository = evidence.repository;
     current.deliveryBase = evidence.baseRefName;
+    current.baseSha = evidence.liveBaseSha;
     current.isDraft = true;
     if (mode === "evaluation") {
       current.mergeForbidden = true;
@@ -396,12 +523,13 @@ function applyStageEvidence(current, mode, stage, trustedEvidence, now) {
     return;
   }
 
-  if (!current.deliveryEvidence.draftPr) {
+  if (!current.deliveryEvidence.draftPr && !current.deliveryEvidence.legacyRebaseline) {
     throw new RunStateError("Leveransflödet saknar verifierat draft-pr-bevis.", 8);
   }
   if (stage === "ci-review") {
     requirePullRequestState(evidence, { state: "OPEN", stage });
     current.headSha = evidence.headRefOid;
+    current.baseSha = evidence.liveBaseSha;
     current.isDraft = evidence.isDraft;
     current.deliveryEvidence.latestOpen = evidence;
     return;
@@ -421,6 +549,7 @@ function applyStageEvidence(current, mode, stage, trustedEvidence, now) {
     if (!SHA_PATTERN.test(evidence.mergeCommitOid ?? "")) {
       throw new RunStateError("Merged evidence saknar exakt mergeCommit SHA.", 8);
     }
+    requirePreviewContainsMerge(evidence, evidence.mergeCommitOid, "merged");
     current.mergeSha = evidence.mergeCommitOid;
     current.deliveryEvidence.merged = evidence;
     return;
@@ -432,6 +561,8 @@ function applyStageEvidence(current, mode, stage, trustedEvidence, now) {
   if (evidence.mergeCommitOid !== current.mergeSha) {
     throw new RunStateError("Cleanup evidence matchar inte registrerad mergeCommit SHA.", 8);
   }
+  requirePreviewContainsMerge(evidence, current.mergeSha, "cleanup-ready");
+  requireCleanupReadiness(current, evidence, "cleanup-ready");
   current.deliveryEvidence.cleanup = evidence;
 }
 
@@ -450,7 +581,13 @@ function assertUniquePassEvidence(state, { branch, prNumber }) {
 function validateDeliveryEvidence(
   current,
   evidence,
-  { now, allowHeadUpdate = false, requireStrictlyNewer = false, priorObservedAt = null },
+  {
+    now,
+    allowRevisionUpdate = false,
+    allowPostMergeBase = false,
+    requireStrictlyNewer = false,
+    priorObservedAt = null,
+  },
 ) {
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
     throw new RunStateError("Stage kräver färskt trustedEvidence från GitHub API.", 8);
@@ -464,6 +601,8 @@ function validateDeliveryEvidence(
     "headRefOid",
     "localBranch",
     "localHeadSha",
+    "localWorktree",
+    "liveBaseSha",
     "state",
     "observedAt",
   ];
@@ -497,6 +636,12 @@ function validateDeliveryEvidence(
     throw new RunStateError("PR-nummer är immutable efter första verifieringen.", 8);
   }
   if (
+    current.worktree &&
+    normalizeFsPath(current.worktree) !== normalizeFsPath(evidence.localWorktree)
+  ) {
+    throw new RunStateError("PR-evidence kommer inte från registrerad immutable app-worktree.", 8);
+  }
+  if (
     evidence.headRefName !== current.branch ||
     evidence.localBranch !== current.branch ||
     evidence.headRefName !== evidence.localBranch
@@ -510,8 +655,19 @@ function validateDeliveryEvidence(
   ) {
     throw new RunStateError("PR head-SHA måste vara exakt lokal aktuell HEAD.", 8);
   }
-  if (!allowHeadUpdate && current.headSha !== null && current.headSha !== evidence.headRefOid) {
+  if (!allowRevisionUpdate && current.headSha !== null && current.headSha !== evidence.headRefOid) {
     throw new RunStateError("PR head-SHA har ändrats efter den SHA-bundna grinden.", 8);
+  }
+  if (!SHA_PATTERN.test(evidence.liveBaseSha)) {
+    throw new RunStateError("PR-evidence saknar live preview base-SHA.", 8);
+  }
+  if (
+    !allowRevisionUpdate &&
+    !allowPostMergeBase &&
+    current.baseSha !== null &&
+    current.baseSha !== evidence.liveBaseSha
+  ) {
+    throw new RunStateError("Live preview base-SHA har ändrats efter reviewgrinden.", 8);
   }
   if (typeof evidence.isDraft !== "boolean") {
     throw new RunStateError("PR-evidence saknar isDraft boolean.", 8);
@@ -555,11 +711,18 @@ function validateDeliveryEvidence(
     headRefOid: evidence.headRefOid,
     localBranch: evidence.localBranch,
     localHeadSha: evidence.localHeadSha,
+    localWorktree: resolve(evidence.localWorktree),
+    liveBaseSha: evidence.liveBaseSha,
     mergeCommitOid: evidence.mergeCommitOid ?? null,
     mergedAt: evidence.mergedAt ?? null,
     titlePrefixPresent: evidence.titlePrefixPresent,
     bodyMarkerPresent: evidence.bodyMarkerPresent,
     blockingLabels: [...evidence.blockingLabels],
+    remoteBranchRef: evidence.remoteBranchRef ?? null,
+    remoteBranchAbsent: evidence.remoteBranchAbsent ?? null,
+    worktreeClean: evidence.worktreeClean ?? null,
+    previewAncestryStatus: evidence.previewAncestryStatus ?? null,
+    previewMergeBaseSha: evidence.previewMergeBaseSha ?? null,
     observedAt: new Date(observedMs).toISOString(),
   };
 }
@@ -580,6 +743,35 @@ function requirePullRequestState(evidence, { state, isDraft, stage }) {
   }
 }
 
+function requireCleanupReadiness(current, evidence, stage) {
+  const expectedRef = `refs/heads/${current.branch}`;
+  if (evidence.remoteBranchRef !== expectedRef || evidence.remoteBranchAbsent !== true) {
+    throw new RunStateError(
+      `${stage} kräver verifierat absent remote pass-branch ${expectedRef}; fel/okänt svar är stopp.`,
+      8,
+    );
+  }
+  if (evidence.worktreeClean !== true) {
+    throw new RunStateError(`${stage} kräver ren registrerad app-worktree.`, 8);
+  }
+  if (evidence.localHeadSha !== current.headSha) {
+    throw new RunStateError(`${stage} kräver app-worktree på exakt registrerad head-SHA.`, 8);
+  }
+}
+
+function requirePreviewContainsMerge(evidence, mergeSha, stage) {
+  if (!SHA_PATTERN.test(mergeSha ?? "")) {
+    throw new RunStateError(`${stage} saknar registrerad mergeCommit SHA.`, 8);
+  }
+  if (evidence.liveBaseSha === mergeSha) return;
+  if (evidence.previewAncestryStatus !== "ahead" || evidence.previewMergeBaseSha !== mergeSha) {
+    throw new RunStateError(
+      `${stage} kräver bevis att registrerad mergeCommit fortfarande är ancestor till live preview-tip; rewound/diverged/okänt är stopp.`,
+      8,
+    );
+  }
+}
+
 function latestEvidenceObservedAt(current) {
   const evidence = current.deliveryEvidence ?? {};
   const timestamps = [
@@ -590,6 +782,7 @@ function latestEvidenceObservedAt(current) {
     evidence.readyToMerge,
     evidence.latestOpen,
     evidence.draftPr,
+    evidence.legacyRebaseline,
   ]
     .map((item) => item?.observedAt)
     .filter(Boolean)
@@ -612,7 +805,17 @@ export function heartbeatLease(state, { token, now }) {
 
 export function recordReviewPass(
   state,
-  { token, source, verdict, reviewedSha, note, now, sourceMetadata = null, trustedEvidence = null },
+  {
+    token,
+    source,
+    verdict,
+    reviewedSha,
+    reviewedBaseSha,
+    note,
+    now,
+    sourceMetadata = null,
+    trustedEvidence = null,
+  },
 ) {
   const next = normalizeState(state);
   assertLease(next, token, now);
@@ -634,7 +837,7 @@ export function recordReviewPass(
   }
   const evidence = validateDeliveryEvidence(next.current, trustedEvidence, {
     now,
-    allowHeadUpdate: false,
+    allowRevisionUpdate: false,
     priorObservedAt: latestEvidenceObservedAt(next.current),
   });
   requirePullRequestState(evidence, {
@@ -652,6 +855,16 @@ export function recordReviewPass(
       8,
     );
   }
+  if (
+    !SHA_PATTERN.test(reviewedBaseSha ?? "") ||
+    reviewedBaseSha !== next.current.baseSha ||
+    reviewedBaseSha !== evidence.liveBaseSha
+  ) {
+    throw new RunStateError(
+      "--reviewed-base-sha måste vara exakt live preview-SHA som granskades.",
+      8,
+    );
+  }
   const normalizedSourceMetadata = normalizeReviewSourceMetadata(source, sourceMetadata);
   const timestamp = toIso(now);
   next.current.reviewPasses.push({
@@ -659,6 +872,7 @@ export function recordReviewPass(
     source,
     verdict,
     sha: evidence.headRefOid,
+    baseSha: evidence.liveBaseSha,
     note: note?.trim() || null,
     sourceMetadata: normalizedSourceMetadata,
     evidence,
@@ -703,7 +917,7 @@ export function completePass(state, { token, outcome, evidence, now, trustedEvid
     validateStageEvidence(next.current, next.mode);
     if (!hasAcceptedCurrentReview(next.current)) {
       throw new RunStateError(
-        "Evaluation-pass kräver en godkänd review för exakt aktuell head-SHA.",
+        "Evaluation-pass kräver en godkänd review för exakt aktuell head- och base-SHA.",
       );
     }
     if (next.current.mergeSha !== null) {
@@ -782,7 +996,8 @@ function normalizeReviewSourceMetadata(source, sourceMetadata) {
 function applyCompletionEvidence(current, mode, trustedEvidence, now) {
   const evidence = validateDeliveryEvidence(current, trustedEvidence, {
     now,
-    allowHeadUpdate: false,
+    allowRevisionUpdate: false,
+    allowPostMergeBase: mode === "full",
     requireStrictlyNewer: true,
     priorObservedAt: latestEvidenceObservedAt(current),
   });
@@ -816,6 +1031,8 @@ function applyCompletionEvidence(current, mode, trustedEvidence, now) {
     if (evidence.mergeCommitOid !== current.mergeSha) {
       throw new RunStateError("Full-complete matchar inte registrerad mergeCommit SHA.", 8);
     }
+    requirePreviewContainsMerge(evidence, current.mergeSha, "full-complete");
+    requireCleanupReadiness(current, evidence, "full-complete cleanup-ready");
   }
   current.deliveryEvidence.completed = evidence;
 }
@@ -871,7 +1088,10 @@ export function resumeRun(state, { runId, reason, now }) {
   return next;
 }
 
-export function promoteRun(state, { runId, authorization, reason, now }) {
+export function promoteRun(
+  state,
+  { runId, authorization, reason, now, trustedRolloutEvidence = null },
+) {
   const next = normalizeState(state);
   assertRunId(next, runId);
   if (next.status !== "paused") throw new RunStateError("Bara en pausad run kan promoveras.");
@@ -890,6 +1110,7 @@ export function promoteRun(state, { runId, authorization, reason, now }) {
     throw new RunStateError("Ogiltig promotion capability.", 8);
   }
   if (!reason?.trim()) throw new RunStateError("promote kräver --reason.");
+  const rolloutEvidence = validateFullRolloutEvidence(trustedRolloutEvidence, now);
   const timestamp = toIso(now);
   next.history.push({
     kind: "run-promoted",
@@ -899,6 +1120,7 @@ export function promoteRun(state, { runId, authorization, reason, now }) {
     reason: reason.trim(),
   });
   next.mode = "full";
+  next.fullRolloutEvidence = rolloutEvidence;
   next.promotionAuthorizationHash = null;
   next.status = "ready";
   next.pauseReason = null;
@@ -922,7 +1144,7 @@ export function releaseLease(state, { token, reason, now }) {
 function hasAcceptedCurrentReview(current) {
   for (let index = current.reviewPasses.length - 1; index >= 0; index -= 1) {
     const review = current.reviewPasses[index];
-    if (review.sha !== current.headSha) continue;
+    if (review.sha !== current.headSha || review.baseSha !== current.baseSha) continue;
     return review.verdict === "clean" || review.verdict === "findings-fixed";
   }
   return false;
@@ -930,6 +1152,12 @@ function hasAcceptedCurrentReview(current) {
 
 function validateStageEvidence(current, mode) {
   const stageIndex = STAGES.indexOf(current.stage);
+  if (current.legacyRebaselineRequired === true && stageIndex >= STAGES.indexOf("ci-review")) {
+    throw new RunStateError(
+      "Legacy-state saknar base-bundet bevis; kör explicit rebaseline-legacy.",
+      8,
+    );
+  }
   if (stageIndex >= STAGES.indexOf("worktree-ready")) {
     if (!BRANCH_PATTERN.test(current.branch ?? "")) {
       throw new RunStateError("worktree-ready kräver en fix/feat/docs/chore pass-branch.");
@@ -945,7 +1173,10 @@ function validateStageEvidence(current, mode) {
     if (!SHA_PATTERN.test(current.headSha ?? "")) {
       throw new RunStateError("draft-pr kräver en exakt 40-teckens head-SHA.");
     }
-    if (!current.deliveryEvidence?.draftPr) {
+    if (!SHA_PATTERN.test(current.baseSha ?? "")) {
+      throw new RunStateError("draft-pr kräver live preview base-SHA.", 8);
+    }
+    if (!current.deliveryEvidence?.draftPr && !current.deliveryEvidence?.legacyRebaseline) {
       throw new RunStateError("draft-pr kräver färskt GitHub API-bevis.", 8);
     }
     if (!current.repository || current.deliveryBase !== DELIVERY_BASE) {
@@ -979,7 +1210,7 @@ function validateStageEvidence(current, mode) {
   if (stageIndex >= STAGES.indexOf("ready-to-merge")) {
     if (!hasAcceptedCurrentReview(current)) {
       throw new RunStateError(
-        "ready-to-merge kräver en godkänd review för exakt aktuell head-SHA.",
+        "ready-to-merge kräver en godkänd review för exakt aktuell head- och base-SHA.",
       );
     }
     if (!current.deliveryEvidence?.readyToMerge || current.isDraft !== false) {
@@ -991,8 +1222,11 @@ function validateStageEvidence(current, mode) {
       throw new RunStateError("merged kräver verifierat MERGED-bevis och exakt mergeCommit SHA.");
     }
   }
-  if (stageIndex >= STAGES.indexOf("cleanup") && !current.deliveryEvidence?.cleanup) {
-    throw new RunStateError("cleanup kräver ett nytt verifierat MERGED-bevis.", 8);
+  if (stageIndex >= STAGES.indexOf("cleanup")) {
+    if (!current.deliveryEvidence?.cleanup) {
+      throw new RunStateError("cleanup kräver ett nytt verifierat MERGED-bevis.", 8);
+    }
+    requireCleanupReadiness(current, current.deliveryEvidence.cleanup, "cleanup-ready");
   }
 }
 
@@ -1048,16 +1282,74 @@ function hashToken(token) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function validateFullRolloutEvidence(evidence, now) {
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    throw new RunStateError(
+      "Full mode är spärrat tills canonical preview-policy kan verifieras live.",
+      8,
+    );
+  }
+  if (
+    !REPOSITORY_PATTERN.test(evidence.repository ?? "") ||
+    evidence.repository !== evidence.localRepository
+  ) {
+    throw new RunStateError("Rollout-evidence matchar inte lokal repository.", 8);
+  }
+  if (
+    evidence.refName !== DELIVERY_BASE ||
+    !SHA_PATTERN.test(evidence.refSha ?? "") ||
+    evidence.policyPath !== WORKFLOW_POLICY_PATH ||
+    !SHA_PATTERN.test(evidence.policyBlobSha ?? "")
+  ) {
+    throw new RunStateError("Rollout-evidence saknar canonical preview ref/policy-bindning.", 8);
+  }
+  if (evidence.deliveryBranch !== DELIVERY_BASE) {
+    throw new RunStateError(
+      `Canonical preview-policy måste ange deliveryBranch=${DELIVERY_BASE} innan full mode.`,
+      8,
+    );
+  }
+  assertFreshObservedAt(evidence.observedAt, now, "Rollout-evidence");
+  return {
+    provider: "gh-api-graphql",
+    repository: evidence.repository,
+    localRepository: evidence.localRepository,
+    refName: evidence.refName,
+    refSha: evidence.refSha,
+    policyPath: evidence.policyPath,
+    policyBlobSha: evidence.policyBlobSha,
+    deliveryBranch: evidence.deliveryBranch,
+    observedAt: new Date(Date.parse(evidence.observedAt)).toISOString(),
+  };
+}
+
+function assertFreshObservedAt(observedAt, now, label) {
+  const observedMs = Date.parse(observedAt);
+  const nowMs = Date.parse(toIso(now));
+  if (!Number.isFinite(observedMs)) {
+    throw new RunStateError(`${label} har ogiltig observedAt.`, 8);
+  }
+  if (observedMs < nowMs - MAX_EVIDENCE_AGE_MS) {
+    throw new RunStateError(`${label} är stale; hämta nytt read-only GitHub-bevis.`, 8);
+  }
+  if (observedMs > nowMs + MAX_EVIDENCE_FUTURE_SKEW_MS) {
+    throw new RunStateError(`${label} har observedAt orimligt långt i framtiden.`, 8);
+  }
+  return observedMs;
+}
+
 function clone(value) {
   return structuredClone(value);
 }
 
 function normalizeState(value) {
   const next = clone(value);
-  if (![STATE_VERSION, LEGACY_STATE_VERSION].includes(next.version)) {
+  const sourceVersion = next.version;
+  if (sourceVersion !== STATE_VERSION && !LEGACY_STATE_VERSIONS.has(sourceVersion)) {
     throw new RunStateError(`Okänd state-version: ${next.version}`);
   }
   next.version = STATE_VERSION;
+  next.fullRolloutEvidence ??= null;
   normalizeLeaseRecord(next.lease, { active: true });
   if (!Array.isArray(next.history)) next.history = [];
   for (const entry of next.history) {
@@ -1066,6 +1358,15 @@ function normalizeState(value) {
   if (next.current) {
     next.current.repository ??= null;
     next.current.deliveryBase ??= null;
+    next.current.baseSha ??= null;
+    if (LEGACY_STATE_VERSIONS.has(sourceVersion)) {
+      next.current.legacySourceVersion = sourceVersion;
+      next.current.legacyRebaselineRequired =
+        STAGES.indexOf(next.current.stage) >= STAGES.indexOf("ci-review");
+    } else {
+      next.current.legacySourceVersion ??= null;
+      next.current.legacyRebaselineRequired ??= false;
+    }
     next.current.deliveryEvidence = {
       draftPr: null,
       latestOpen: null,
@@ -1074,6 +1375,7 @@ function normalizeState(value) {
       merged: null,
       cleanup: null,
       completed: null,
+      legacyRebaseline: null,
       ...(next.current.deliveryEvidence ?? {}),
     };
     if (!Array.isArray(next.current.reviewPasses)) next.current.reviewPasses = [];
@@ -1132,6 +1434,7 @@ function resolveStateDir(cwd = process.cwd()) {
   const raw = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
   }).trim();
   const commonDir = isAbsolute(raw) ? raw : resolve(cwd, raw);
   return join(commonDir, "codex", "godnatt-bugg");
@@ -1166,18 +1469,24 @@ function atomicWrite(path, value) {
 
 function withMutex(mutexPath, fn) {
   mkdirSync(dirname(mutexPath), { recursive: true });
-  if (existsSync(mutexPath) && Date.now() - statSync(mutexPath).mtimeMs > MUTEX_STALE_MS) {
-    unlinkSync(mutexPath);
-  }
   let fd;
   try {
     fd = openSync(mutexPath, "wx");
   } catch (error) {
     if (error.code === "EEXIST")
-      throw new RunStateError("Stateverktyget används av en annan process.", 3);
+      throw new RunStateError(
+        "Stateverktygets ägarlås finns redan och tas aldrig över automatiskt; inspektera ägare/process innan manuell åtgärd.",
+        3,
+        { mutexPath },
+      );
     throw error;
   }
   try {
+    writeFileSync(
+      fd,
+      `${JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() })}\n`,
+      "utf8",
+    );
     return fn();
   } finally {
     closeSync(fd);
@@ -1201,6 +1510,7 @@ export function readLivePullRequestEvidence({
   prNumber,
   cwd = process.cwd(),
   execFile = execFileSync,
+  includeCleanup = false,
 }) {
   if (!Number.isInteger(prNumber) || prNumber < 1) {
     throw new RunStateError("Live PR-evidence kräver ett positivt PR-nummer.");
@@ -1209,16 +1519,19 @@ export function readLivePullRequestEvidence({
     cwd,
     encoding: "utf8",
     timeout: GIT_EVIDENCE_TIMEOUT_MS,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
   }).trim();
   const localHeadSha = execFile("git", ["rev-parse", "HEAD"], {
     cwd,
     encoding: "utf8",
     timeout: GIT_EVIDENCE_TIMEOUT_MS,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
   }).trim();
   const originUrl = execFile("git", ["remote", "get-url", "origin"], {
     cwd,
     encoding: "utf8",
     timeout: GIT_EVIDENCE_TIMEOUT_MS,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
   }).trim();
   const localRepository = repositoryFromRemoteUrl(originUrl);
   const response = execFile(
@@ -1244,6 +1557,62 @@ export function readLivePullRequestEvidence({
   const labels = Array.isArray(pull?.labels)
     ? pull.labels.map((label) => label?.name).filter(isString)
     : [];
+  const preview = readLivePreviewRefEvidence({ cwd, execFile, localRepository });
+  const mergeCommitOid = mergedAt ? (pull?.merge_commit_sha ?? null) : null;
+  let previewAncestryStatus = null;
+  let previewMergeBaseSha = null;
+  if (
+    SHA_PATTERN.test(mergeCommitOid ?? "") &&
+    SHA_PATTERN.test(preview.refSha ?? "") &&
+    mergeCommitOid !== preview.refSha
+  ) {
+    const compareResponse = execFile(
+      "gh",
+      [
+        "api",
+        `repos/{owner}/{repo}/compare/${mergeCommitOid}...${preview.refSha}`,
+        "--method",
+        "GET",
+      ],
+      {
+        cwd,
+        encoding: "utf8",
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: GH_EVIDENCE_TIMEOUT_MS,
+      },
+    );
+    let compare;
+    try {
+      compare = JSON.parse(compareResponse);
+    } catch {
+      throw new RunStateError("GitHub API returnerade ogiltig JSON för preview ancestry.", 8);
+    }
+    previewAncestryStatus = compare?.status ?? null;
+    previewMergeBaseSha = compare?.merge_base_commit?.sha ?? null;
+  }
+  const remoteBranchRef = `refs/heads/${pull?.head?.ref ?? ""}`;
+  let remoteBranchAbsent = null;
+  let worktreeClean = null;
+  if (includeCleanup) {
+    const remoteBranchResult = execFile(
+      "git",
+      ["ls-remote", "--heads", "origin", remoteBranchRef],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: GIT_EVIDENCE_TIMEOUT_MS,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      },
+    );
+    remoteBranchAbsent = remoteBranchResult.trim() === "";
+    const status = execFile("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+      cwd,
+      encoding: "utf8",
+      timeout: GIT_EVIDENCE_TIMEOUT_MS,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+    });
+    worktreeClean = status.trim() === "";
+  }
   return {
     provider: "gh-api",
     repository,
@@ -1257,7 +1626,9 @@ export function readLivePullRequestEvidence({
     headRefOid: pull?.head?.sha,
     localBranch,
     localHeadSha,
-    mergeCommitOid: mergedAt ? (pull?.merge_commit_sha ?? null) : null,
+    localWorktree: resolve(cwd),
+    liveBaseSha: preview.refSha,
+    mergeCommitOid,
     mergedAt,
     titlePrefixPresent:
       typeof pull?.title === "string" && pull.title.startsWith(EVALUATION_TITLE_PREFIX),
@@ -1265,6 +1636,116 @@ export function readLivePullRequestEvidence({
     blockingLabels: labels.filter((label) =>
       ["do-not-merge", "admin-review-required"].includes(label),
     ),
+    remoteBranchRef,
+    remoteBranchAbsent,
+    worktreeClean,
+    previewAncestryStatus,
+    previewMergeBaseSha,
+    observedAt: new Date().toISOString(),
+  };
+}
+
+function readLivePreviewRefEvidence({
+  cwd = process.cwd(),
+  execFile = execFileSync,
+  localRepository: providedLocalRepository = null,
+} = {}) {
+  const localRepository =
+    providedLocalRepository ??
+    repositoryFromRemoteUrl(
+      execFile("git", ["remote", "get-url", "origin"], {
+        cwd,
+        encoding: "utf8",
+        timeout: GIT_EVIDENCE_TIMEOUT_MS,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      }).trim(),
+    );
+  const query = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){nameWithOwner preview:ref(qualifiedName:"refs/heads/${DELIVERY_BASE}"){target{oid}}}}`;
+  const response = execFile(
+    "gh",
+    ["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-f", `query=${query}`],
+    {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: GH_EVIDENCE_TIMEOUT_MS,
+    },
+  );
+  let payload;
+  try {
+    payload = JSON.parse(response);
+  } catch {
+    throw new RunStateError("GitHub GraphQL returnerade ogiltig preview-ref JSON.", 8);
+  }
+  const repository = payload?.data?.repository;
+  if (!repository || repository.nameWithOwner !== localRepository) {
+    throw new RunStateError("GitHub preview-ref matchar inte lokal repository.", 8);
+  }
+  return {
+    provider: "gh-api-graphql",
+    repository: repository.nameWithOwner,
+    localRepository,
+    refName: DELIVERY_BASE,
+    refSha: repository.preview?.target?.oid,
+    observedAt: new Date().toISOString(),
+  };
+}
+
+export function readLivePreviewPolicyEvidence({
+  cwd = process.cwd(),
+  execFile = execFileSync,
+  localRepository: providedLocalRepository = null,
+} = {}) {
+  const localRepository =
+    providedLocalRepository ??
+    repositoryFromRemoteUrl(
+      execFile("git", ["remote", "get-url", "origin"], {
+        cwd,
+        encoding: "utf8",
+        timeout: GIT_EVIDENCE_TIMEOUT_MS,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      }).trim(),
+    );
+  const query = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){nameWithOwner preview:ref(qualifiedName:"refs/heads/${DELIVERY_BASE}"){target{oid}} agentWorkflow:object(expression:"${DELIVERY_BASE}:${WORKFLOW_POLICY_PATH}"){... on Blob{oid text isBinary}}}}`;
+  const response = execFile(
+    "gh",
+    ["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-f", `query=${query}`],
+    {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: GH_EVIDENCE_TIMEOUT_MS,
+    },
+  );
+  let payload;
+  try {
+    payload = JSON.parse(response);
+  } catch {
+    throw new RunStateError("GitHub GraphQL returnerade ogiltig preview-policy JSON.", 8);
+  }
+  const repository = payload?.data?.repository;
+  if (!repository || repository.nameWithOwner !== localRepository) {
+    throw new RunStateError("GitHub preview-policy matchar inte lokal repository.", 8);
+  }
+  const blob = repository.agentWorkflow;
+  if (blob?.isBinary === true || typeof blob?.text !== "string") {
+    throw new RunStateError("Canonical preview agent-workflow är saknad eller inte text.", 8);
+  }
+  let policy;
+  try {
+    policy = JSON.parse(blob.text);
+  } catch {
+    throw new RunStateError("Canonical preview agent-workflow innehåller ogiltig JSON.", 8);
+  }
+  return {
+    provider: "gh-api-graphql",
+    repository: repository.nameWithOwner,
+    localRepository,
+    refName: DELIVERY_BASE,
+    refSha: repository.preview?.target?.oid,
+    policyPath: WORKFLOW_POLICY_PATH,
+    policyBlobSha: blob.oid,
+    deliveryBranch: policy.deliveryBranch,
     observedAt: new Date().toISOString(),
   };
 }
@@ -1384,6 +1865,8 @@ function main(argv = process.argv.slice(2)) {
       archivePreviousRun(statePaths, previous);
       const mode = flags.mode ?? "pilot";
       const promotionCode = mode === "pilot" ? randomBytes(16).toString("hex") : null;
+      const trustedRolloutEvidence = mode === "full" ? readLivePreviewPolicyEvidence() : null;
+      now = new Date();
       const state = createRunState({
         count: numberFlag(flags, "count", 1),
         mode,
@@ -1393,6 +1876,7 @@ function main(argv = process.argv.slice(2)) {
         runId: randomUUID(),
         promotionCode,
         automationId: flags["automation-id"] ?? null,
+        trustedRolloutEvidence,
       });
       atomicWrite(statePaths.state, state);
       print({ ok: true, statePath: statePaths.state, promotionCode, state });
@@ -1404,7 +1888,12 @@ function main(argv = process.argv.slice(2)) {
     let next;
     let token;
     if (command === "acquire") {
-      ({ state: next, token } = acquireLease(state, { now }));
+      const trustedRolloutEvidence = state.mode === "full" ? readLivePreviewPolicyEvidence() : null;
+      now = new Date();
+      ({ state: next, token } = acquireLease(state, {
+        now,
+        trustedRolloutEvidence,
+      }));
     } else if (command === "recover") {
       next = recoverStaleLease(state, { runId: flags["run-id"], reason: flags.reason, now });
     } else if (command === "claim") {
@@ -1421,7 +1910,10 @@ function main(argv = process.argv.slice(2)) {
         const prNumber = liveEvidencePrNumber(state, flags, {
           allowRegistration: flags.name === "draft-pr",
         });
-        trustedEvidence = readLivePullRequestEvidence({ prNumber });
+        trustedEvidence = readLivePullRequestEvidence({
+          prNumber,
+          includeCleanup: flags.name === "cleanup",
+        });
         now = new Date();
       }
       next = advanceStage(state, {
@@ -1444,6 +1936,7 @@ function main(argv = process.argv.slice(2)) {
         source: flags.source,
         verdict: flags.verdict,
         reviewedSha: flags["reviewed-sha"],
+        reviewedBaseSha: flags["reviewed-base-sha"],
         note: flags.note,
         now,
         sourceMetadata: reviewSourceMetadataFrom(flags),
@@ -1453,12 +1946,37 @@ function main(argv = process.argv.slice(2)) {
       rejectUntrustedEvidenceFlags(flags);
       const trustedEvidence = readLivePullRequestEvidence({
         prNumber: liveEvidencePrNumber(state, flags),
+        includeCleanup: state.mode === "full",
       });
       now = new Date();
       next = completePass(state, {
         token: flags.token,
         outcome: flags.outcome,
         evidence: flags.evidence,
+        now,
+        trustedEvidence,
+      });
+    } else if (command === "re-review") {
+      rejectUntrustedEvidenceFlags(flags);
+      const trustedEvidence = readLivePullRequestEvidence({
+        prNumber: liveEvidencePrNumber(state, flags),
+      });
+      now = new Date();
+      next = reopenReview(state, {
+        token: flags.token,
+        reason: flags.reason,
+        now,
+        trustedEvidence,
+      });
+    } else if (command === "rebaseline-legacy") {
+      rejectUntrustedEvidenceFlags(flags);
+      const trustedEvidence = readLivePullRequestEvidence({
+        prNumber: liveEvidencePrNumber(state, flags),
+      });
+      now = new Date();
+      next = rebaselineLegacyState(state, {
+        token: flags.token,
+        reason: flags.reason,
         now,
         trustedEvidence,
       });
@@ -1469,17 +1987,20 @@ function main(argv = process.argv.slice(2)) {
     } else if (command === "resume") {
       next = resumeRun(state, { runId: flags["run-id"], reason: flags.reason, now });
     } else if (command === "promote") {
+      const trustedRolloutEvidence = readLivePreviewPolicyEvidence();
+      now = new Date();
       next = promoteRun(state, {
         runId: flags["run-id"],
         authorization: flags.authorization,
         reason: flags.reason,
         now,
+        trustedRolloutEvidence,
       });
     } else if (command === "release") {
       next = releaseLease(state, { token: flags.token, reason: flags.reason, now });
     } else {
       throw new RunStateError(
-        "Kommando krävs: queue|begin|status|acquire|recover|claim|stage|heartbeat|review|complete|skip|pause|resume|promote|release",
+        "Kommando krävs: queue|begin|status|acquire|recover|claim|stage|heartbeat|review|complete|re-review|rebaseline-legacy|skip|pause|resume|promote|release",
       );
     }
 

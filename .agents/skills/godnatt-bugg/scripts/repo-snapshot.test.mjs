@@ -57,6 +57,51 @@ describe("repo snapshot", () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+  for (const change of ["tracked", "staged", "untracked", "untracked-content"]) {
+    it(`detects ${change} file changes in an existing sibling worktree`, () => {
+      const { repo, git } = fixture();
+      const sibling = mkdtempSync(join(tmpdir(), "godnatt-snapshot-sibling-"));
+      try {
+        git("worktree", "add", "-b", "fix/sibling", sibling);
+        if (change === "untracked-content") writeFileSync(join(sibling, "new.txt"), "before\n", "utf8");
+        const before = captureRepoSnapshot(repo);
+        writeFileSync(join(sibling, change.startsWith("untracked") ? "new.txt" : "proof.txt"), "after\n", "utf8");
+        if (change === "staged") execFileSync("git", ["add", "proof.txt"], { cwd: sibling });
+        const after = captureRepoSnapshot(repo);
+        assert.equal(after.head, before.head);
+        assert.equal(after.refsSha256, before.refsSha256);
+        assert.equal(after.worktreesSha256, before.worktreesSha256);
+        assert.equal(after.statusSha256, before.statusSha256);
+        const result = compareRepoSnapshots(before, after);
+        assert.equal(result.kind, "external-change");
+        assert.deepEqual(result.passChanges, []);
+        assert.equal(result.externalWorktrees.length, 1);
+        assert.equal(result.requiresInspection, true);
+      } finally {
+        rmSync(sibling, { recursive: true, force: true });
+        rmSync(repo, { recursive: true, force: true });
+      }
+    });
+  }
+  it("ignores sibling gitignored files but detects writes in the pass itself", () => {
+    const { repo, git } = fixture();
+    const sibling = mkdtempSync(join(tmpdir(), "godnatt-snapshot-sibling-"));
+    try {
+      writeFileSync(join(repo, ".gitignore"), ".env\n", "utf8");
+      git("add", ".gitignore");
+      git("commit", "-m", "ignore local secrets");
+      git("worktree", "add", "-b", "fix/sibling", sibling);
+      const before = captureRepoSnapshot(repo);
+      writeFileSync(join(sibling, ".env"), "ignored fixture\n", "utf8");
+      const afterIgnored = captureRepoSnapshot(repo);
+      assert.deepEqual(afterIgnored, before);
+      writeFileSync(join(repo, "proof.txt"), "pass change\n", "utf8");
+      assert.equal(compareRepoSnapshots(before, captureRepoSnapshot(repo)).kind, "pass-mutation");
+    } finally {
+      rmSync(sibling, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("snapshot comparison is fail-closed", () => {
@@ -68,6 +113,7 @@ describe("snapshot comparison is fail-closed", () => {
     version: 2, repoRoot: "/pass", head: shaA, branch: "fix/pass",
     refs: { "refs/heads/fix/pass": shaA, "refs/heads/other": shaA },
     worktrees: { "/pass": `HEAD ${shaA}\nbranch refs/heads/fix/pass`, "/other": `HEAD ${shaA}\nbranch refs/heads/other` },
+    siblingWorktrees: { "/other": hashA },
     refsSha256: hashA, reflogSha256: hashA, worktreesSha256: hashA,
     statusSha256: hashA, stagedDiffSha256: hashA, unstagedDiffSha256: hashA,
     headReflogSha256: hashA, untracked: [],
@@ -95,10 +141,18 @@ describe("snapshot comparison is fail-closed", () => {
     const before = { ...initial, version: 1 };
     const after = { ...before, refsSha256: hashB };
     assert.equal(compareRepoSnapshots(before, after).kind, "unclassified-change");
+    assert.equal(compareRepoSnapshots(before, before).kind, "unclassified-change");
+  });
+  it("requires complete readable fingerprints of every sibling worktree", () => {
+    for (const siblingWorktrees of [{}, { "/other": { error: "access denied" } },
+      { "/other": hashA, "/unregistered": hashA }, { "/other": "invalid" }]) {
+      const incomplete = { ...initial, siblingWorktrees };
+      assert.equal(compareRepoSnapshots(incomplete, incomplete).kind, "unclassified-change");
+    }
   });
   it("recognizes the pass worktree with Windows slash and case differences", () => {
     const before = { ...initial, repoRoot: "C:\\Users\\Jakem\\pass",
-      worktrees: { "C:/Users/Jakem/pass": initial.worktrees["/pass"] } };
+      worktrees: { "C:/Users/Jakem/pass": initial.worktrees["/pass"] }, siblingWorktrees: {} };
     const after = { ...before, head: shaB, refs: { ...before.refs, "refs/heads/fix/pass": shaB },
       worktrees: { "c:/users/jakem/pass": `HEAD ${shaB}\nbranch refs/heads/fix/pass` }, worktreesSha256: hashB };
     const result = compareRepoSnapshots(before, after);
@@ -108,7 +162,7 @@ describe("snapshot comparison is fail-closed", () => {
   });
   it("does not report Windows path spelling alone as a mutation", () => {
     const before = { ...initial, repoRoot: "C:\\Users\\Jakem\\pass",
-      worktrees: { "C:/Users/Jakem/pass": initial.worktrees["/pass"] } };
+      worktrees: { "C:/Users/Jakem/pass": initial.worktrees["/pass"] }, siblingWorktrees: {} };
     const after = { ...before, repoRoot: "c:/users/jakem/pass",
       worktrees: { "c:/users/jakem/pass": initial.worktrees["/pass"] } };
     assert.equal(compareRepoSnapshots(before, after).kind, "unchanged");

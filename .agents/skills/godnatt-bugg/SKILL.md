@@ -39,7 +39,7 @@ Evaluation är ett uttryckligt men begränsat admin-testmandat. Det tillåter N
 unika kandidater i samma Cloud-task, en dedikerad branch och en draft-PR per
 kandidat samt högst tre review/fix-pass per PR. Varje PR måste vara draft,
 innehålla adminvarningen och bära mergeförbud i state. Ett evaluation-pass
-räknas terminalt först efter en godkänd review för aktuell head-SHA; det betyder
+räknas terminalt först efter en godkänd review för aktuell head/base-SHA; det betyder
 "utvärderings-PR skapad", aldrig "buggen är löst i master". State tillåter
 aldrig evaluation förbi draft-pr och vägrar återvälja ett SM-id som redan
 behandlats i batchen.
@@ -49,6 +49,11 @@ skapa/uppdatera PR, merga efter hela repo-grinden och städa den mergade
 pass-branchen så långt appens worktree-livscykel medger. Inget läge tillåter
 force-push, historikomskrivning, prod-datamutation, deploy, domänändring,
 hemlighetshantering eller borttagning av permanenta/current worktrees.
+
+Full begin, pilot-promotion och full acquire spärras dessutom tills den live
+kanoniska policyn på GitHub-preview har `deliveryBranch: preview`. Ett lokalt
+ändrat policyträd eller en draft-PR är inte aktivering. Grinden läser bara;
+den startar ingen automation och ersätter aldrig CI-/mergegrinden.
 
 Ett scheduled-anrop är aldrig i sig merge-mandat. Det får bara fortsätta den
 full-batch och count som användaren redan har armerat. Evaluation körs som en
@@ -119,7 +124,9 @@ pass bör inte beröra mer än ungefär 40 filer. Claima först när valet är g
 
 Kör repo-snapshot.mjs och behåll hela JSON-objektet i tasken. Det täcker HEAD,
 branch/ref-tips, reflog, staged/unstaged, status, ospårade filhashar och
-worktree-lista. Snapshotta även relevant GitHub PR/comment/review-state via
+worktree-lista samt motsvarande working-file-fingerprints i befintliga sibling-
+worktrees. Ignorerade filer läses inte. Saknat/oläsbart sibling-bevis och äldre
+snapshot utan denna täckning är stopp, aldrig clean. Snapshotta även relevant GitHub PR/comment/review-state via
 read-only API. Starta godnatt_investigator med backloggraden ordagrant,
 origin/master-SHA för produktionspåståendet och origin/preview-SHA för leverans,
 app-worktree-path och krav på verdict relevant, already-resolved, reclassify
@@ -252,15 +259,18 @@ Vänta icke-blockerande. Läs reviews, inline-kommentarer, checks och labels fö
 aktuell head-SHA. Följ fallbackordningen om extern review uteblir. Registrera
 varje komplett oberoende bugggranskningspass i state:
 
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source independent-agent --reviewer-model gpt-5.6-sol --reviewer REVIEW_TASK_ID --verdict clean --reviewed-sha FULL_HEAD_SHA --note "triage"
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source independent-agent --reviewer-model gpt-5.6-sol --reviewer REVIEW_TASK_ID --verdict clean --reviewed-sha FULL_HEAD_SHA --reviewed-base-sha FULL_PREVIEW_BASE_SHA --note "triage"
 
-Tillåtna källor och verdicts valideras. State stoppar pass fyra. Varje ny commit
-kräver att ci-review-stagets SHA uppdateras och att en ny godkänd review
-registreras för den SHA:n. Efter tre reviewpass: pausa vid kvarvarande fynd
+Tillåtna källor och verdicts valideras. State stoppar pass fyra. Granskaren måste
+ange både fryst head och live preview-base-SHA; PR-API:ets historiska basefält
+ersätter inte aktuell branch-tip. Ny head/base kräver uppdaterat draft-pr- eller
+ci-review-steg och ny godkänd granskning. Efter ready-to-merge används explicit
+`re-review --reason ...`; samma PR,
+branch och worktree samt hela historiken och trepassgränsen. Efter tre reviewpass: pausa vid kvarvarande fynd
 eller rött check; taket är aldrig merge-tillåtelse.
 
 I full mode: flytta till ci-review och sedan ready-to-merge. State kräver en
-clean eller findings-fixed review för exakt aktuell head-SHA. I evaluation:
+clean eller findings-fixed review för exakt aktuell head- och base-SHA. I evaluation:
 slutför draft-passet direkt från draft-pr efter motsvarande review:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs complete --token TOKEN --outcome draft-fix --evidence "PR #123 är verifierat draft/adminspärrad och omergad"
@@ -297,11 +307,18 @@ Ta aldrig bort current app-worktree med worktree-script eller rå git. Desktop
 3. Radera remote pass-branch bara om den fortfarande finns och ett av de exakta
    mergebevisen är grönt; använd aldrig force.
 4. Lämna den utcheckade lokala branchen till appens worktree-teardown.
-5. Flytta state till cleanup och complete med PR/merge-SHA som evidence.
+5. Flytta state till cleanup och complete. State återläser exakt mergad PR,
+   lyckad `ls-remote` utan pass-ref och en ren registrerad worktree på exakt
+   PR-head. GitHub-ancestry måste bevisa att mergecommiten finns på aktuell
+   preview; en senare legitim preview-merge är tillåten, rewound/diverged är
+   stopp. Text är inte bevis och nätverksfel är inte branch-absence.
 
 Först complete minskar remaining. Vid kvarvarande pass sätter state minst fem
 minuters cooldown och nästa automationstick får ett nytt app-worktree från
 senaste preview.
+Complete betyder verifierat cleanup-ready-handoff, inte att Desktop redan
+raderat worktreet. Appens fysiska teardown sker därefter och får inte påstås
+vara verifierad av stateverktyget.
 
 När state blir paused: pausa automationen men arkivera inte tasken om current
 finns; worktree/branch är immutable och måste återupptas i originaltasken.
