@@ -25,9 +25,9 @@ session per checkout. Worktree skapas när Jakob ber om det.
 - Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
 - Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Modellval och reasoning ägs av [`subagent-models.mdc`](rules/subagent-models.mdc).
-Proceduren heter oberoende bugggranskning; Sol är ett modellval. Godnatt har
-egna profiler. Styr subagenter, inte sajtrouting; kopiera inte en gammal slug.
+Modellval: [`subagent-models.mdc`](rules/subagent-models.mdc). Proceduren heter
+oberoende bugggranskning, inte Sol. Godnatt har egna profiler; produktens
+sajtrouting styrs separat.
 
 ## Regler
 
@@ -35,20 +35,19 @@ Frontmatter i varje `.cursor/rules/*.mdc` äger aktiveringen. Tre tunna regler
 är generella: `repo-router.mdc`, `git.mdc` och `workflow.mdc`. Övriga är
 globstyrda eller agent-requested.
 
-| Uppgift                       | Regel                                                           |
-| ----------------------------- | --------------------------------------------------------------- |
-| Hitta owner/sökväg            | `repo-router.mdc`                                               |
-| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc` |
-| Worktree på begäran | `agent-worktree.mdc` |
-| Merge/PR-efterkontroll        | `pr-merge.mdc`                                                  |
-| Pipeline/scaffold/dossier/env | matchande globregel                                             |
-| Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
-| Subagenter                    | `subagent-models.mdc`                                           |
-| MVP-bias / ny feature         | `project-phase-priorities.mdc`                                  |
-| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                                         |
+| Uppgift                       | Regel                                       |
+| ----------------------------- | ------------------------------------------- |
+| Hitta owner/sökväg            | `repo-router.mdc`                           |
+| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`   |
+| Worktree på begäran           | `agent-worktree.mdc`                        |
+| Merge/PR-efterkontroll        | `pr-merge.mdc`                              |
+| Pipeline/scaffold/dossier/env | matchande globregel                         |
+| Terminologi                   | `terminology.mdc` + riktad glossary-sökning |
+| Subagenter                    | `subagent-models.mdc`                       |
+| MVP-bias / ny feature         | `project-phase-priorities.mdc`              |
+| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                     |
 
-Bifoga bara den regel som äger uppgiften. `@.cursor/rules/` i sin helhet skapar
-brus och motstridiga instruktioner.
+Läs regeln som äger uppgiften; hela `@.cursor/rules/` ger brus.
 
 ## Skills och kommandon
 

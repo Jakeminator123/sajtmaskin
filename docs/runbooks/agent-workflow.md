@@ -24,12 +24,12 @@ diffar, head/base, checks och review omvärderas.
 
 ## Mergevägar
 
-| Syfte | Väg |
-|---|---|
-| Vanlig leverans till preview | Separat mergeuppdrag och den betrodda `merge:execute`-controllern; squash |
-| Produktion | Promote-PR till master, extra bekräftelse efter produktionsvarningen; manuell expected-head-merge |
-| CI-trust-root-bootstrap | Separat ägarbeslut; manuell expected-head-merge till preview |
-| Ancestry-synk efter release | Dedikerad synk-PR till preview, uttryckligt merge-commit-uppdrag; manuell expected-head-merge, aldrig squash |
+| Syfte                        | Väg                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Vanlig leverans till preview | Separat mergeuppdrag och den betrodda `merge:execute`-controllern; squash                                    |
+| Produktion                   | Promote-PR till master, extra bekräftelse efter produktionsvarningen; manuell expected-head-merge            |
+| CI-trust-root-bootstrap      | Separat ägarbeslut; manuell expected-head-merge till preview                                                 |
+| Ancestry-synk efter release  | Dedikerad synk-PR till preview, uttryckligt merge-commit-uppdrag; manuell expected-head-merge, aldrig squash |
 
 Ingen generell admin-, UI- eller API-fallback för vanliga PR:er. De manuella
 undantagen ersätter inte CI, oberoende bugggranskning, färskt head/base,
