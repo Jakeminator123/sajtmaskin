@@ -1,11 +1,15 @@
 "use client";
 
 import type { AuditResult } from "@/types/audit";
+import type { PublicAnalysReport } from "@/lib/audit/public-report";
+import { generatePublicAnalysPdfHtml } from "@/lib/audit/public-analys-pdf";
 
-interface AuditPdfReportProps {
-  result: AuditResult;
+type AuditPdfReportProps = {
   onClose: () => void;
-}
+} & (
+  | { result: AuditResult; publicReport?: never; auditedUrl?: never }
+  | { result?: never; publicReport: PublicAnalysReport; auditedUrl: string }
+);
 
 // ── SVG Chart Generators ──────────────────────────────────────────
 
@@ -175,13 +179,26 @@ const SVG_ICONS = {
  * Professional audit report with SVG charts and clean typography.
  * Uses browser print for PDF generation.
  */
-export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
+export function AuditPdfReport(props: AuditPdfReportProps) {
+  const { onClose } = props;
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Tillåt popup-fönster för att generera PDF");
       return;
     }
+
+    if ("publicReport" in props && props.publicReport) {
+      printWindow.document.write(
+        generatePublicAnalysPdfHtml(props.publicReport, props.auditedUrl),
+      );
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      return;
+    }
+
+    const result = props.result;
 
     const scores = result.audit_scores || {};
     const avgScore = calculateAvgScore(scores);
