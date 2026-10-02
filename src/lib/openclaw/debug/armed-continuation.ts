@@ -554,16 +554,48 @@ export function buildArmedHandshakePrompt(input: { remaining: number }): string 
   );
 }
 
-const wokenHandshakeMandates = new Set<number>();
-
-export function hasArmedHandshakeWoken(createdAt: number): boolean {
-  return wokenHandshakeMandates.has(createdAt);
+export interface ArmedHandshakeWakeReservation {
+  createdAt: number;
+  token: symbol;
 }
 
-export function markArmedHandshakeWoken(createdAt: number): void {
-  wokenHandshakeMandates.add(createdAt);
+type ArmedHandshakeWakeState = { status: "pending"; token: symbol } | { status: "settled" };
+
+const handshakeWakeStates = new Map<number, ArmedHandshakeWakeState>();
+
+export function hasArmedHandshakeWoken(createdAt: number): boolean {
+  return handshakeWakeStates.has(createdAt);
+}
+
+/** Atomically claim the single handshake wake that belongs to this mandate. */
+export function reserveArmedHandshakeWake(
+  createdAt: number,
+): ArmedHandshakeWakeReservation | null {
+  if (handshakeWakeStates.has(createdAt)) return null;
+  const reservation = { createdAt, token: Symbol("armed-handshake-wake") };
+  handshakeWakeStates.set(createdAt, { status: "pending", token: reservation.token });
+  return reservation;
+}
+
+/** Keep the wake consumed once dispatch may have reached the server. */
+export function settleArmedHandshakeWake(
+  reservation: ArmedHandshakeWakeReservation,
+): boolean {
+  const state = handshakeWakeStates.get(reservation.createdAt);
+  if (state?.status !== "pending" || state.token !== reservation.token) return false;
+  handshakeWakeStates.set(reservation.createdAt, { status: "settled" });
+  return true;
+}
+
+/** Release only the caller's own pending wake after certified non-dispatch. */
+export function releaseArmedHandshakeWake(
+  reservation: ArmedHandshakeWakeReservation,
+): boolean {
+  const state = handshakeWakeStates.get(reservation.createdAt);
+  if (state?.status !== "pending" || state.token !== reservation.token) return false;
+  return handshakeWakeStates.delete(reservation.createdAt);
 }
 
 export function resetArmedHandshakeWakesForTests(): void {
-  wokenHandshakeMandates.clear();
+  handshakeWakeStates.clear();
 }
