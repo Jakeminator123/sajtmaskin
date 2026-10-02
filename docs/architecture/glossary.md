@@ -221,7 +221,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 - **Codex repo-agent:** arbetar i repot och läser `AGENTS.md` samt `.codex/`.
 - **GitHub/Vercel-bot:** review- eller deploysignal, inte produktens Verifier.
 - **Sajtmaskins produktmodell:** runtimeval i `config/ai_models/manifest.json`.
-- **Extern coach/LLM:** har bara den kontext användaren uttryckligen ger den.
+- **Extern chatt/LLM:** har bara den kontext användaren uttryckligen ger den.
 
 Dessa modellplan delar inte automatiskt sluggar eller routing.
 
