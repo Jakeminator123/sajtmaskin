@@ -1,31 +1,11 @@
 #!/usr/bin/env node
 /**
  * Installerar repots git-hooks: en fail-closed PR-verifiering före push och
- * soft schema-synk efter att arbetskopians git-läge har ändrats.
- *
- * Varför den finns: prod är idiotsäkert. `prod-migrations-apply` kör vid varje
- * push till master eller preview och `prod-migrations-applied` verifierar
- * efteråt, så en migration kan inte bli deployad utan att köras. Dev hade
- * ingen motsvarighet:
- * `db:init` applicerar bara på `npm run dev`-vägen, och den är soft. Kör du
- * `SKIP_PREDEV=1`, startar `next-runner.mjs` direkt, eller rör databasen från
- * något annat script, kunde du köra vidare på ett schema koden lämnat bakom sig
- * — vilket syns som obegripliga fel långt senare (`column ... does not exist`
- * mitt i en testsvit).
- *
- * Samma glömskerisk fanns före push: planen kunde hoppas över och GitHub
- * fick upptäcka följdfel flera minuter senare. Därför är pre-push-hooken hård
- * för `verify:pr --plan`, medan DB-hookarna nedan fortsätter vara soft.
- *
- * Symmetrin hookarna ger: prod får migrationer när kod pushas till master
- * eller preview, dev får dem när den grenen dras hem. Drift uppstår vid
- * `git pull`/`git checkout`, så det är där den ska botas — därav tre
- * DB-hooks och inte en: en merge-pull, ett grenbyte och en rebase-pull är
- * tre olika vägar hem, och bara den första ger `post-merge`.
- *
- * Hookarna kör aldrig DDL själva — de anropar `ensure-schema.mjs`, som i sin tur
- * delegerar till `run-migrations.ts`. Där bor prod-skrivskyddet
- * (`assertSafeWriteTarget`), så en hook kan inte råka migrera prod.
+ * ingen DB-kod efter att arbetskopians git-läge har ändrats.
+ * Grenbyte, pull och rebase är inte ett migrationsmandat. De tidigare tre
+ * managed DB-posthookarna pensioneras, med temporär återställningskopia.
+ * Pre-push kräver verify:pr --plan. Dev-serverns read-only vakt rapporterar
+ * drift; db:ensure/db:migrate för dev kräver ett uttryckligt uppdrag.
  *
  * Säkerhet mot att skriva över någon annans hook: varje genererad fil bär en
  * markör. Saknas markören i en befintlig hook rör vi den inte, utan rapporterar.
@@ -35,29 +15,34 @@
  *   npm run hooks:install -- --quiet
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 17;
+export const HOOK_VERSION = 18;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
-export const MANAGED_HOOKS = Object.freeze([
-  "pre-push",
-  "post-merge",
-  "post-checkout",
-  "post-rewrite",
-]);
+export const MANAGED_HOOKS = Object.freeze(["pre-push"]);
+export const RETIRED_DB_HOOKS = Object.freeze(["post-merge", "post-checkout", "post-rewrite"]);
 
 /**
  * Hook-kroppen. `sh` och inte node-shebang: git kör hooks via sh även på
  * Windows (Git for Windows levererar sitt eget), medan en `.mjs` som hook
  * kräver att filen är exekverbar på ett sätt Windows inte ger oss.
  *
- * DB-hookarna är tysta i normalfallet och avbryter aldrig git-kommandot:
- * `--soft` ger alltid exit 0, `--quiet-ok` skriver inget när allt är i synk.
- * `pre-push` är avsiktligt motsatsen: `verify:pr --plan` måste bli grönt, annars
+ * Pensionerade DB-hooknamn ger bara no-op-stubbar och installeras aldrig.
+ * `pre-push` är fail-closed: `verify:pr --plan` måste bli grönt, annars
  * stoppas pushen. Riktade kontroller körs lokalt och GitHub Actions äger den
  * blockerande fullprofilen. Bara CI och den uttryckliga escape hatchen får
  * hoppa över planen.
@@ -279,52 +264,29 @@ exit "$status"
 `;
   }
 
-  // post-checkout får (prevHEAD, newHEAD, branchFlag). branchFlag=0 betyder att
-  // ENSTAKA FILER checkats ut, inte ett grenbyte — då kan inga nya migrationer
-  // ha tillkommit och hooken ska inte kosta något.
-  //
-  // post-rewrite finns för `git pull --rebase`, som är en helt egen väg: den
-  // kör aldrig post-merge, och rebase med merge-backenden (default sedan git
-  // 2.26) ger inget palitligt post-checkout heller. post-rewrite kors med
-  // "rebase" eller "amend" som arg 1 — bara rebase kan ha hamtat hem nya
-  // migrationer, en amend kan det inte.
-  const guards = {
-    "post-checkout":
-      '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n',
-    "post-rewrite":
-      '# Bara rebase (git pull --rebase), inte commit --amend.\nif [ "$1" != "rebase" ]; then exit 0; fi\n',
-  };
-  const guard = guards[hookName] ?? "";
-
+  if (!RETIRED_DB_HOOKS.includes(hookName)) throw new Error(`Unknown hook: ${hookName}`);
+  // Compatibility for callers inspecting a retired name. Never execute the
+  // newly checked-out branch's Node code; these stubs are NOT installed.
   return `#!/bin/sh
-# ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: db-schema-sync)
-#
-# Genererad av scripts/dev/install-git-hooks.mjs — redigera inte för hand.
-# Kör 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
-#
-# Håller dev-databasen i kapp med migrationerna i repot. Tyst när allt är i
-# synk. Avbryter aldrig git-kommandot.
-
-# Escape hatch och CI: hookarna finns för lokal utveckling. Exakta värden gör
-# att CI=false eller SAJTMASKIN_SKIP_DB_HOOKS=0 inte hoppar över av misstag.
-if [ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ] || [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
-
-# Kör bara i ett repo som faktiskt har skriptet. Har utvecklaren en GLOBAL
-# core.hooksPath delas katalogen med alla andra repon, och dar vore det har
-# bara ett module-not-found-brus.
-[ -f scripts/db/ensure-schema.mjs ] || exit 0
-${guard}
-# Saknas node är det inget fel värt att larma om i en git-hook.
-command -v node >/dev/null 2>&1 || exit 0
-
-# En ny worktree har de spårade skripten före worktree:setup har installerat
-# dependencies. Försök inte importera pg/dotenv i det mellanläget.
-[ -f node_modules/pg/package.json ] || exit 0
-[ -f node_modules/dotenv/package.json ] || exit 0
-
-node scripts/db/ensure-schema.mjs --soft --quiet-ok
+# ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: retired)
 exit 0
 `;
+}
+
+/** Only exact, known managed DB headers may be retired; future/foreign files stop. */
+export function decideHookRetirement({ hookName, existing }) {
+  if (!existing) return { action: "skip", reason: "saknas" };
+  if (!RETIRED_DB_HOOKS.includes(hookName)) {
+    return { action: "conflict", reason: "inte en pensionerad DB-hook" };
+  }
+  const match = new RegExp(
+    `^# ${HOOK_MARKER} v(\\d+) \\(${hookName}: db-schema-sync\\)\\r?$`,
+    "mu",
+  ).exec(existing);
+  if (!match || Number(match[1]) > HOOK_VERSION) {
+    return { action: "conflict", reason: "främmande eller nyare hook; rörs inte" };
+  }
+  return { action: "retire", reason: "managed DB-posthook pensionerad" };
 }
 
 /**
@@ -404,16 +366,40 @@ function main() {
   const conflicts = [];
   let written = 0;
 
-  for (const hookName of MANAGED_HOOKS) {
+  // Preflight every exact target before changing any hook. A foreign hook is
+  // a hard stop, including foreign posthooks we must not delete.
+  const installs = MANAGED_HOOKS.map((hookName) => {
     const target = join(hooksDir, hookName);
     const desired = renderHookScript(hookName);
     const existing = existsSync(target) ? readFileSync(target, "utf8") : null;
-    const { action, reason } = decideHookInstall({ existing, desired });
-
-    if (action === "conflict") {
-      conflicts.push(`${hookName} (${reason})`);
-      continue;
+    return { hookName, target, desired, ...decideHookInstall({ existing, desired }) };
+  });
+  const retirements = RETIRED_DB_HOOKS.map((hookName) => {
+    const target = join(hooksDir, hookName);
+    const existing = existsSync(target) ? readFileSync(target, "utf8") : null;
+    return { hookName, target, ...decideHookRetirement({ hookName, existing }) };
+  });
+  for (const operation of [...installs, ...retirements]) {
+    if (operation.action === "conflict")
+      conflicts.push(`${operation.hookName} (${operation.reason})`);
+  }
+  if (conflicts.length > 0) {
+    console.error(`[hooks] Rörde INTE hooks: ${conflicts.join(", ")}. Ägarbeslut krävs.`);
+    return 1;
+  }
+  const toRetire = retirements.filter((operation) => operation.action === "retire");
+  if (toRetire.length > 0) {
+    const recoveryDir = mkdtempSync(join(tmpdir(), "sajtmaskin-retired-db-hooks-"));
+    // Copy all files successfully before removing any. Only these three exact
+    // marker-owned files are removed; no directory is ever recursively deleted.
+    for (const { hookName, target } of toRetire) copyFileSync(target, join(recoveryDir, hookName));
+    for (const { hookName, target } of toRetire) {
+      unlinkSync(target);
+      log(`[hooks] ${hookName} pensionerad. Återställningskopia: ${join(recoveryDir, hookName)}`);
     }
+  }
+
+  for (const { hookName, target, desired, action, reason } of installs) {
     if (action === "skip") continue;
 
     writeFileSync(target, desired, { encoding: "utf8" });
@@ -427,20 +413,14 @@ function main() {
     log(`[hooks] ${hookName} installerad (${reason}).`);
   }
 
-  if (conflicts.length > 0) {
-    console.error(
-      `[hooks] Rorde INTE: ${conflicts.join(", ")}. ` +
-        "Kedja in den befintliga hooken eller ta bort den och kor 'npm run hooks:install' igen.",
-    );
-  }
-  if (written === 0 && conflicts.length === 0) {
+  if (written === 0 && toRetire.length === 0) {
     log("[hooks] Redan aktuella.");
   }
   // En främmande hook får aldrig skrivas över, men installationen får heller
   // inte påstå att den lyckades: särskilt en konflikt på pre-push lämnar den
   // lokala verifieringsgrinden frånkopplad. `hooks:install:soft` kan fortfarande
   // användas av predev för att rapportera utan att blockera appstart.
-  return conflicts.length > 0 ? 1 : 0;
+  return 0;
 }
 
 // Kör bara som CLI, inte när testet importerar de rena funktionerna.

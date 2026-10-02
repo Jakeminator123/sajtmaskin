@@ -384,6 +384,11 @@ const TRUSTED_PROD_DB_PUSH_OR_DISPATCH =
   "${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const REJECT_NON_MASTER_DISPATCH =
   "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}";
+const CREDENTIALS_PRESENT = "steps.creds.outputs.present == 'true'";
+const TRUSTED_MASTER_CREDENTIALS_PRESENT =
+  "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
+const TRUSTED_SCHEDULE_OR_MASTER_DISPATCH =
+  "${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}";
 // Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
 // innan GitHub placerar körningen i cancel-in-progress-gruppen. Annars kan ett
 // no-op-event avbryta den riktiga gate-körningen utan att publicera ett avslut.
@@ -717,48 +722,79 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("heavy dead-code must retain advisory knip and a blocking orphan-file gate");
   }
 
-  for (const jobName of ["prod-migrations-apply", "prod-migrations-applied", "db-schema-parity"]) {
+  if (document?.jobs?.["prod-migrations-apply"] !== undefined) {
+    errors.push("CI must not contain an automatic prod-migrations-apply job");
+  }
+
+  for (const jobName of ["prod-migrations-applied", "db-schema-parity"]) {
     if (!hasExactExpression(document?.jobs?.[jobName]?.if, TRUSTED_PROD_DB_PUSH_OR_DISPATCH)) {
       errors.push(
         `${jobName} may receive live credentials only on trusted master or preview events`,
       );
     }
-  }
-  if (
-    !includesEvery(document?.jobs?.["prod-migrations-apply"]?.needs, [
-      "quality",
-      "schema-drift",
-      "build",
-      "backoffice-tests",
-    ])
-  ) {
-    errors.push("prod migrations must wait for every blocking CI lane");
+    if (document?.jobs?.[jobName]?.needs !== undefined) {
+      errors.push(`${jobName} must remain an independent read-only observation job`);
+    }
   }
 
-  // Preview delar prod-Postgres med Production, men `master` kan ligga långt
-  // bakom. Den automatiska preview-applyn får därför bara släppa additiv DDL —
-  // annars kan staging bryta produktionen före promote. Grinden måste ligga
-  // FÖRE apply och får aldrig vara continue-on-error.
-  const applySteps = document?.jobs?.["prod-migrations-apply"]?.steps ?? [];
-  const additiveIndex = applySteps.findIndex(
-    (step) => step.run === "npm run db:migrate:additive-check",
+  const prodLedger = document?.jobs?.["prod-migrations-applied"];
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: prodLedger,
+      label: "prod migration ledger",
+      credentialNames: ["POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=prod",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}" },
+        },
+        {
+          run: "node scripts/db/check-migrations-applied.mjs",
+          env: {
+            POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}",
+            DB_SSL_REJECT_UNAUTHORIZED: "false",
+          },
+        },
+      ],
+    }),
   );
-  const runMigrationsIndex = applySteps.findIndex(
-    (step) => step.run === "npx tsx scripts/db/run-migrations.ts",
+
+  const parity = document?.jobs?.["db-schema-parity"];
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: parity,
+      label: "CI schema parity",
+      credentialNames: ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=dev",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_DEV }}" },
+        },
+        {
+          run: "node scripts/db/check-db-env-target.mjs --expect=prod",
+          env: { POSTGRES_URL: "${{ secrets.POSTGRES_URL_PROD }}" },
+        },
+        {
+          run: "npm run db:schema-parity -- --require",
+          env: {
+            POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+            POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+          },
+        },
+      ],
+    }),
   );
-  if (
-    additiveIndex === -1 ||
-    runMigrationsIndex === -1 ||
-    additiveIndex > runMigrationsIndex ||
-    !hasExactExpression(
-      applySteps[additiveIndex]?.if,
-      "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}",
-    ) ||
-    Object.hasOwn(applySteps[additiveIndex] ?? {}, "continue-on-error")
-  ) {
-    errors.push(
-      "preview apply must be blocked by the additive-only migration gate before running migrations",
-    );
+
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (
+      containsLiveDbSecretExpression(job) &&
+      !["prod-migrations-applied", "db-schema-parity"].includes(jobName)
+    ) {
+      errors.push(`live DB secrets must stay inside the two read-only CI jobs, found ${jobName}`);
+    }
+    if (containsSecretExpression(job) && containsForbiddenLiveDbWrite(job)) {
+      errors.push(`${jobName} must not combine repo secrets with a live DB write command`);
+    }
   }
 
   return errors;
@@ -766,6 +802,129 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
 
 function containsSecretExpression(value) {
   return /\bsecrets\s*(?:\.|\[)/u.test(JSON.stringify(value ?? null));
+}
+
+function containsLiveDbSecretExpression(value) {
+  return /POSTGRES_URL(?:_DEV|_PROD)?[^}]*\bsecrets\s*(?:\.|\[)/iu.test(
+    JSON.stringify(value ?? null),
+  );
+}
+
+function containsForbiddenLiveDbWrite(value) {
+  const serialized = JSON.stringify(value ?? null);
+  if (/DB_ALLOW_PROD_LIKE_WRITE/iu.test(serialized)) return true;
+
+  for (const step of value?.steps ?? []) {
+    for (const line of String(step?.run ?? "").split(/\r?\n/u)) {
+      const command = line.trim().toLowerCase();
+      if (/scripts[\\/]db[\\/]run-migrations(?:\.ts)?\b/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:migrate(?:\s|$|--)/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:init(?:\s|$|--)/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:ensure\b/u.test(command) && !/--check-only\b/u.test(command)) {
+        return true;
+      }
+      if (/\bnpm\s+run\s+db:perf/u.test(command)) return true;
+      if (/\bnpm\s+run\s+db:push(?:\s|$|--)/u.test(command)) return true;
+    }
+  }
+  return false;
+}
+
+function hasExactEnv(actual, expected) {
+  const actualEntries = Object.entries(actual ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const expectedEntries = Object.entries(expected ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  return JSON.stringify(actualEntries) === JSON.stringify(expectedEntries);
+}
+
+function isFailClosedCredentialDetector(step, credentialNames, expectedIf) {
+  if (
+    step?.id !== "creds" ||
+    Object.hasOwn(step ?? {}, "continue-on-error") ||
+    (expectedIf === undefined
+      ? step?.if !== undefined
+      : !hasExactExpression(step?.if, expectedIf)) ||
+    !hasExactEnv(
+      step?.env,
+      Object.fromEntries(credentialNames.map((name) => [name, `\${{ secrets.${name} }}`])),
+    )
+  ) {
+    return false;
+  }
+
+  const lines = String(step.run ?? "")
+    .trim()
+    .split(/\r?\n/u)
+    .map((line) => line.trim());
+  const presentCondition = credentialNames.map((name) => `[ -n "$${name}" ]`).join(" && ");
+  return (
+    lines.length === 9 &&
+    lines[0] === `if ${presentCondition}; then` &&
+    lines[1] === 'echo "present=true" >> "$GITHUB_OUTPUT"' &&
+    lines[2] === 'elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then' &&
+    lines[3]?.startsWith('echo "::error::') &&
+    lines[3]?.endsWith('"') &&
+    lines[4] === "exit 1" &&
+    lines[5] === "else" &&
+    lines[6] === 'echo "present=false" >> "$GITHUB_OUTPUT"' &&
+    lines[7]?.startsWith('echo "::warning::') &&
+    lines[7]?.endsWith('"') &&
+    lines[8] === "fi"
+  );
+}
+
+function evaluateReadOnlyLiveDbJob({ job, label, credentialNames, expectedSteps, credentialIf }) {
+  const errors = [];
+  if (!job) return [`${label} job is missing`];
+  if (Object.hasOwn(job, "continue-on-error")) {
+    errors.push(`${label} must remain blocking`);
+  }
+  if (containsSecretExpression({ ...job, steps: [] })) {
+    errors.push(`${label} secrets must stay on individually guarded steps`);
+  }
+  if (containsForbiddenLiveDbWrite(job)) {
+    errors.push(`${label} must remain read-only`);
+  }
+
+  const steps = job.steps ?? [];
+  const checkout = steps.find((step) => step.uses === "actions/checkout@v7");
+  if (!checkout || checkout?.with?.["persist-credentials"] !== false) {
+    errors.push(`${label} must checkout without persisted credentials`);
+  }
+
+  const detector = steps.find((step) => step.id === "creds");
+  if (!isFailClosedCredentialDetector(detector, credentialNames, credentialIf)) {
+    errors.push(`${label} must hard-fail missing credentials on the main repository`);
+  }
+
+  let previousIndex = steps.indexOf(detector);
+  const expectedSecretSteps = new Set(detector ? [detector] : []);
+  for (const expected of expectedSteps) {
+    const index = steps.findIndex((step) => step.run === expected.run);
+    const step = steps[index];
+    if (
+      index <= previousIndex ||
+      !hasExactExpression(step?.if, CREDENTIALS_PRESENT) ||
+      Object.hasOwn(step ?? {}, "continue-on-error") ||
+      !hasExactEnv(step?.env, expected.env)
+    ) {
+      errors.push(`${label} must run '${expected.run}' as an ordered blocking read-only step`);
+    }
+    if (step) expectedSecretSteps.add(step);
+    previousIndex = index;
+  }
+
+  const actualSecretSteps = steps.filter(containsSecretExpression);
+  if (
+    actualSecretSteps.length !== expectedSecretSteps.size ||
+    actualSecretSteps.some((step) => !expectedSecretSteps.has(step))
+  ) {
+    errors.push(`${label} may expose secrets only to its credential guard and allowlisted reads`);
+  }
+  return errors;
 }
 
 function hasFailingManualRefRejection(document) {
@@ -877,6 +1036,35 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
   ) {
     errors.push("DB/Blob PR smoke must execute every allowlisted Python input without secrets");
   }
+  const blobDetector = blobJob?.steps?.find((step) => step.id === "creds");
+  const blobLive = blobJob?.steps?.find(
+    (step) =>
+      step.run === "python scripts/db/pydatabastest.py --ci" && containsSecretExpression(step),
+  );
+  if (
+    !isFailClosedCredentialDetector(
+      blobDetector,
+      ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD", "BLOB_READ_WRITE_TOKEN"],
+      TRUSTED_MASTER_PUSH_OR_DISPATCH,
+    )
+  ) {
+    errors.push(
+      "DB/Blob live verification must hard-fail missing credentials on the main repository",
+    );
+  }
+  if (
+    !blobLive ||
+    !hasExactExpression(blobLive.if, TRUSTED_MASTER_CREDENTIALS_PRESENT) ||
+    Object.hasOwn(blobLive, "continue-on-error") ||
+    !hasExactEnv(blobLive.env, {
+      POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+      POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+      BLOB_READ_WRITE_TOKEN: "${{ secrets.BLOB_READ_WRITE_TOKEN }}",
+      DB_SSL_REJECT_UNAUTHORIZED: "false",
+    })
+  ) {
+    errors.push("DB/Blob live verification must be an exact blocking read-only guarded step");
+  }
   let blobSecretSteps = 0;
   for (const [jobName, job] of Object.entries(blob?.jobs ?? {})) {
     if (jobName !== "db-blob-sync" && containsSecretExpression(job)) {
@@ -885,27 +1073,51 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
     for (const step of job?.steps ?? []) {
       if (!containsSecretExpression(step)) continue;
       blobSecretSteps += 1;
-      if (
-        jobName !== "db-blob-sync" ||
-        !hasExactExpression(step.if, TRUSTED_MASTER_PUSH_OR_DISPATCH) ||
-        Object.hasOwn(step, "continue-on-error")
-      ) {
+      if (jobName !== "db-blob-sync" || ![blobDetector, blobLive].includes(step)) {
         errors.push(
-          "every DB/Blob secret-bearing step must block and require trusted master explicitly",
+          "DB/Blob secrets may only reach the credential guard and exact live read-only gate",
         );
       }
     }
   }
-  if (blobSecretSteps === 0) {
-    errors.push("DB/Blob workflow lost its guarded live verification step");
+  if (blobSecretSteps !== 2) {
+    errors.push("DB/Blob workflow must retain exactly two guarded secret-bearing steps");
   }
 
-  const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
-  const trustedParityJob =
-    "${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}";
-  if (!hasExactExpression(parityJob?.if, trustedParityJob)) {
-    errors.push("scheduled schema parity must exclude non-master manual refs before checkout");
+  const parityEvents = parity?.on;
+  if (
+    !Array.isArray(parityEvents?.schedule) ||
+    !Object.hasOwn(parityEvents ?? {}, "workflow_dispatch")
+  ) {
+    errors.push("schema-parity workflow must retain both schedule and manual dispatch triggers");
   }
+  const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
+  if (!hasExactExpression(parityJob?.if, TRUSTED_SCHEDULE_OR_MASTER_DISPATCH)) {
+    errors.push("scheduled schema parity must allow cron but exclude non-master manual refs");
+  }
+  const parityCheckout = parityJob?.steps?.find((step) => step.uses === "actions/checkout@v7");
+  if (
+    parityCheckout?.with?.ref !== "master" ||
+    parityCheckout?.with?.["persist-credentials"] !== false
+  ) {
+    errors.push("scheduled schema parity must checkout exact master without persisted credentials");
+  }
+  errors.push(
+    ...evaluateReadOnlyLiveDbJob({
+      job: parityJob,
+      label: "scheduled schema parity",
+      credentialNames: ["POSTGRES_URL_DEV", "POSTGRES_URL_PROD"],
+      expectedSteps: [
+        {
+          run: "npm run db:schema-parity -- --require",
+          env: {
+            POSTGRES_URL_DEV: "${{ secrets.POSTGRES_URL_DEV }}",
+            POSTGRES_URL_PROD: "${{ secrets.POSTGRES_URL_PROD }}",
+          },
+        },
+      ],
+    }),
+  );
   let paritySecretSteps = 0;
   for (const [jobName, job] of Object.entries(parity?.jobs ?? {})) {
     if (!containsSecretExpression(job)) continue;
@@ -913,9 +1125,12 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
     if (jobName !== "db-schema-parity-scheduled") {
       errors.push("schema-parity secrets must stay inside the master-guarded job");
     }
+    if (containsForbiddenLiveDbWrite(job)) {
+      errors.push("scheduled schema parity must not contain live DB write commands");
+    }
   }
-  if (paritySecretSteps === 0) {
-    errors.push("schema-parity workflow lost its guarded live verification step");
+  if (paritySecretSteps !== 2) {
+    errors.push("schema-parity workflow must retain its exact credential guard and live read");
   }
 
   return errors;

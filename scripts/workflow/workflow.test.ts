@@ -591,7 +591,7 @@ describe("agent workflow repository contract", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
-  it("keeps CI scope fail-closed and live credentials on trusted master or preview", () => {
+  it("keeps CI scope fail-closed and live database jobs strictly read-only", () => {
     const source = readFileSync(".github/workflows/ci.yml", "utf8");
     const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
@@ -609,10 +609,6 @@ describe("agent workflow repository contract", () => {
       ),
       replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
       replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
-      replaceOnce(
-        "needs: [quality, schema-drift, build, backoffice-tests]",
-        "needs: [quality, schema-drift]",
-      ),
       replaceOnce(
         "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
         "needs.scope.outputs.run_heavy == 'true'",
@@ -643,12 +639,38 @@ describe("agent workflow repository contract", () => {
         "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
         "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
       ),
-      // Preview delar prod-DB: utan den additiva grinden kan staging bryta
-      // produktionen före promote.
-      replaceOnce("run: npm run db:migrate:additive-check", "run: echo additive-check-skipped"),
       replaceOnce(
-        "        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}\n        run: npm run db:migrate:additive-check",
-        "        if: ${{ steps.creds.outputs.present == 'true' }}\n        run: npm run db:migrate:additive-check\n        continue-on-error: true",
+        "  prod-migrations-applied:\n",
+        "  prod-migrations-apply:\n    runs-on: ubuntu-latest\n    steps: []\n\n  prod-migrations-applied:\n",
+      ),
+      replaceOnce(
+        "  prod-migrations-applied:\n    if:",
+        "  prod-migrations-applied:\n    needs: prod-migrations-apply\n    if:",
+      ),
+      replaceOnce(
+        '            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-ledgern kan inte verifieras (false-green-risk)."\n            exit 1',
+        '            echo "::warning::prod-ledgern verifierades inte"\n            exit 0',
+      ),
+      replaceOnce(
+        "run: node scripts/db/check-db-env-target.mjs --expect=prod",
+        "run: node scripts/db/check-db-env-target.mjs --expect=dev",
+      ),
+      replaceOnce(
+        "run: node scripts/db/check-migrations-applied.mjs",
+        "run: npx tsx scripts/db/run-migrations.ts",
+      ),
+      replaceOnce(
+        '          DB_SSL_REJECT_UNAUTHORIZED: "false"\n\n  # Read-only dev↔prod-paritet.',
+        '          DB_SSL_REJECT_UNAUTHORIZED: "false"\n          DB_ALLOW_PROD_LIKE_WRITE: "1"\n\n  # Read-only dev↔prod-paritet.',
+      ),
+      ...[
+        "npx tsx scripts/db/run-migrations.ts",
+        "npm run db:init",
+        "npm run db:ensure",
+        "npm run db:perf-indexes",
+        "npm run db:push",
+      ].map((command) =>
+        replaceOnce("run: npm run db:schema-parity -- --require", `run: ${command}`),
       ),
     ];
     for (const candidate of weakened) {
@@ -778,13 +800,25 @@ describe("agent workflow repository contract", () => {
         "        run: python scripts/db/pydatabastest.py --ci\n        env:",
         "        run: python scripts/db/pydatabastest.py --ci\n        continue-on-error: true\n        env:",
       ),
+      replaceOnce(
+        '            echo "::error::POSTGRES_URL_DEV, POSTGRES_URL_PROD och/eller BLOB_READ_WRITE_TOKEN saknas på huvudrepot — live-gaten kan inte verifieras (false-green-risk)."\n            exit 1',
+        '            echo "::warning::live-gaten verifierades inte"\n            exit 0',
+      ),
+      replaceOnce(
+        "if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+        "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+      ),
+      replaceOnce(
+        "          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}\n        run: |",
+        "        run: |",
+      ),
     ];
     for (const candidate of weakened) {
       expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
     }
   });
 
-  it("rejects secret-bearing manual workflow runs outside master", () => {
+  it("rejects unsafe manual refs and pins scheduled parity to master read-only code", () => {
     const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
     const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
     expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
@@ -839,8 +873,42 @@ describe("agent workflow repository contract", () => {
         blob,
         replaceOnce(
           parity,
-          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}",
           "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}",
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+        ),
+      ],
+      [blob, replaceOnce(parity, "  schedule:\n", "  push:\n")],
+      [blob, replaceOnce(parity, "          ref: master", "          ref: preview")],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          '            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — schema-paritet kan inte verifieras. Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"\n            exit 1',
+          '            echo "::warning::schema-paritet verifierades inte"\n            exit 0',
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "run: npm run db:schema-parity -- --require",
+          "run: npx tsx scripts/db/run-migrations.ts",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}\n",
+          '          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}\n          DB_ALLOW_PROD_LIKE_WRITE: "1"\n',
         ),
       ],
       [
