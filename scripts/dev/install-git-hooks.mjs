@@ -34,6 +34,7 @@ export const HOOK_VERSION = 18;
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
 export const MANAGED_HOOKS = Object.freeze(["pre-push"]);
+/** @type {readonly HookName[]} */
 export const RETIRED_DB_HOOKS = Object.freeze(["post-merge", "post-checkout", "post-rewrite"]);
 
 /**
