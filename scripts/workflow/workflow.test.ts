@@ -495,7 +495,7 @@ describe("local base freshness", () => {
 });
 
 describe("verify:pr base resolution", () => {
-  const policy = { trunk: "master", deliveryBranch: undefined as string | undefined };
+  const policy = { trunk: "master" };
 
   it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
     expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
@@ -521,26 +521,32 @@ describe("verify:pr base resolution", () => {
     ).toBe("origin/preview");
   });
 
-  it("använder trunk när branchen själv är master", () => {
+  it("byter inte tyst till produktionsbas bara för att den lokala branchen heter master", () => {
     expect(resolveVerificationBase({ explicitBase: null, branch: "master", policy })).toBe(
-      "origin/master",
+      "origin/preview",
     );
   });
 
-  it("respekterar policy.deliveryBranch när den finns", () => {
+  it("respekterar en explicit lokal snapshot", () => {
     expect(
       resolveVerificationBase({
-        explicitBase: null,
+        explicitBase: "HEAD~1",
         branch: "fix/x",
-        policy: { trunk: "master", deliveryBranch: "preview" },
+        policy,
       }),
-    ).toBe("origin/preview");
+    ).toBe("HEAD~1");
   });
 
   it("hämtar den bas som faktiskt valts — origin/preview ska inte fetcha master", () => {
     expect(resolveFetchRefForBase("origin/preview")).toBe("preview");
     expect(resolveFetchRefForBase("origin/master")).toBe("master");
-    expect(resolveFetchRefForBase("preview")).toBe("preview");
+    expect(resolveFetchRefForBase("origin/release/2026-10")).toBe("release/2026-10");
+    expect(resolveFetchRefForBase("refs/remotes/origin/release/x")).toBe("release/x");
+    expect(resolveFetchRefForBase("preview")).toBeNull();
+    expect(resolveFetchRefForBase("HEAD~1")).toBeNull();
+    expect(resolveFetchRefForBase("local-tag")).toBeNull();
+    expect(resolveFetchRefForBase("refs/heads/local-branch")).toBeNull();
+    expect(resolveFetchRefForBase("upstream/main")).toBeNull();
     expect(resolveFetchRefForBase("abcdef1")).toBeNull();
     expect(resolveFetchRefForBase("")).toBeNull();
   });
@@ -549,6 +555,7 @@ describe("verify:pr base resolution", () => {
     expect(formatMissingBaseError("origin/preview")).toContain("git fetch origin preview");
     expect(formatMissingBaseError("origin/preview")).not.toContain("git fetch origin master");
     expect(formatMissingBaseError("origin/master")).toContain("git fetch origin master");
+    expect(formatMissingBaseError("HEAD~1")).not.toContain("git fetch origin HEAD~1");
   });
 
   it("läser --base ur parseArgs", () => {

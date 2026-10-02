@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -23,6 +23,7 @@ import {
   parseRemoteBranchNames,
   selectPromoteHighlights,
 } from "./promote.mjs";
+import { assertFreshVerificationBase, resolveVerificationBase } from "./verify-pr.mjs";
 
 function git(cwd: string, args: string[]) {
   return execFileSync("git", args, {
@@ -283,6 +284,40 @@ describe("missingProductionSyncMessage", () => {
     expect(message).toMatch(/MERGE-commit/i);
     expect(message).toMatch(/inte squash/i);
     expect(message).toMatch(/synkar inte/i);
+      expect(message).toContain("synkbranch från färsk origin/preview");
+  });
+});
+
+describe("verify:pr bas och ancestry i ett tillfälligt git-repo", () => {
+  it("stoppar rå master men godkänner en preview-baserad synk som innehåller båda tips", () => {
+    const cwd = seedPromoteRepo();
+    try {
+      git(cwd, ["checkout", "preview"]);
+      writeCommit(cwd, "preview-only.txt", "staging\n", "feat: preview-only");
+      git(cwd, ["update-ref", "refs/remotes/origin/preview", "preview"]);
+      git(cwd, ["checkout", "master"]);
+      writeCommit(cwd, "hotfix.txt", "production\n", "fix: production-only");
+      const gitCommand = (args: string[]) => spawnSync("git", args, { cwd, encoding: "utf8" });
+      const policy = { trunk: "master" };
+      const branch = git(cwd, ["branch", "--show-current"]);
+      const base = resolveVerificationBase({ explicitBase: null, branch, policy });
+      expect(base).toBe("origin/preview");
+      expect(() => assertFreshVerificationBase({ branch, base }, gitCommand)).toThrow(
+        "master innehåller inte färsk origin/preview",
+      );
+
+      git(cwd, ["checkout", "-b", "sync-from-preview", "origin/preview"]);
+      git(cwd, ["merge", "master", "-m", "sync: master into preview"]);
+      expect(() =>
+        assertFreshVerificationBase({ branch: "sync-from-preview", base }, gitCommand),
+      ).not.toThrow();
+      expect(git(cwd, ["merge-base", "--is-ancestor", "master", "HEAD"])).toBe("");
+      expect(parseGitNameStatus(git(cwd, ["diff", "--name-status", "-z", base]))).toEqual([
+        "hotfix.txt",
+      ]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });
 
@@ -312,6 +347,18 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(plan.treeDiffers).toBe(true);
       expect(plan.shouldPromote).toBe(true);
       expect(plan.commits.some((c) => c.subject.includes("feat: C"))).toBe(true);
+      const changedPaths = parseGitNameStatus(
+        git(cwd, ["diff", "--name-status", "-z", "-M", "master", "preview"]),
+      );
+      const body = buildPromoteBody({
+        changedPaths,
+        baseSha: git(cwd, ["rev-parse", "master"]),
+        headSha: git(cwd, ["rev-parse", "preview"]),
+        branch: "promote/test",
+        date: "2026-09-08",
+      });
+      expect(body).toContain("`c.txt`");
+      expect(body).not.toContain("`b.txt`");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -335,6 +382,21 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       const plan = planFromRefs(cwd, "master", "preview");
       expect(plan.treeDiffers).toBe(false);
       expect(plan.shouldPromote).toBe(false);
+
+      writeCommit(cwd, "new.txt", "new work\n", "feat: new work after squash");
+      const changedPaths = parseGitNameStatus(
+        git(cwd, ["diff", "--name-status", "-z", "-M", "master", "preview"]),
+      );
+      expect(changedPaths).toEqual(["new.txt"]);
+      const body = buildPromoteBody({
+        changedPaths,
+        baseSha: git(cwd, ["rev-parse", "master"]),
+        headSha: git(cwd, ["rev-parse", "preview"]),
+        branch: "promote/test",
+        date: "2026-09-08",
+      });
+      expect(body).toContain("`new.txt`");
+      expect(body).not.toContain("`feat.txt`");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -409,39 +471,34 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
 });
 
 describe("buildPromoteTitle", () => {
-  it("använder commit-rubriken rakt av när det bara är en ändring", () => {
-    const commits = parseCommitLines("bbbbbbb fix(ci): kör CI även för PR:ar mot preview");
-    expect(buildPromoteTitle(commits, "2026-09-08")).toBe(
-      "promote: fix(ci): kör CI även för PR:ar mot preview",
+  it("beskriver faktisk träddiff i stället för squashad commithistorik", () => {
+    expect(buildPromoteTitle(["src/new.ts"], "2026-09-08")).toBe(
+      "promote: 1 ändrad sökväg från preview till master (2026-09-08)",
     );
   });
 
   it("räknar ändringarna när de är flera", () => {
-    const commits = parseCommitLines("aaaaaaa ett\nbbbbbbb två\nccccccc tre");
-    expect(buildPromoteTitle(commits, "2026-09-08")).toBe(
-      "promote: 3 ändringar från preview till master (2026-09-08)",
+    expect(buildPromoteTitle(["a.txt", "b.txt", "c.txt"], "2026-09-08")).toBe(
+      "promote: 3 ändrade sökvägar från preview till master (2026-09-08)",
     );
   });
 });
 
 describe("buildPromoteBody", () => {
-  const commits = parseCommitLines(
-    ["aaaaaaa1 fix(ci): trigga preview", "bbbbbbb2 Merge branch 'x'", "ccccccc3 chore: städ"].join(
-      "\n",
-    ),
-  );
+  const changedPaths = ["c.txt", "src/new.ts"];
   const body = buildPromoteBody({
-    commits,
+    changedPaths,
     baseSha: "95b8f29bbcd36a8c66b9d3aed751d5cb48c1d55a",
     headSha: "6c1022e5a5262d6f0967aa87cd0b82a062d6b80e",
     branch: "promote/2026-09-08",
     date: "2026-09-08",
   });
 
-  it("listar innehållet utan merge-commits", () => {
-    expect(body).toContain("`aaaaaaa1` fix(ci): trigga preview");
-    expect(body).toContain("`ccccccc3` chore: städ");
-    expect(body).not.toContain("Merge branch");
+  it("listar endast faktiskt ändrade sökvägar", () => {
+    expect(body).toContain("`c.txt`");
+    expect(body).toContain("`src/new.ts`");
+    expect(body).not.toContain("aaaaaaa1");
+    expect(body).toContain("Faktisk diff mot produktion");
   });
 
   it("bär båda SHA:na som mergegrinden behöver", () => {
@@ -466,13 +523,29 @@ describe("buildPromoteBody", () => {
     expect(body).toContain("- [ ] P0/P1 = 0");
   });
 
+  it("begränsar fillistan utan att tappa totala diffstorleken", () => {
+    const manyPaths = Array.from({ length: 101 }, (_, i) => `src/change-${i}.ts`);
+    const largeBody = buildPromoteBody({
+      changedPaths: manyPaths,
+      baseSha: "a".repeat(40),
+      headSha: "b".repeat(40),
+      branch: "promote/test",
+      date: "2026-09-08",
+    });
+    expect(largeBody).toContain("101 ändrade sökvägar");
+    expect(largeBody).toContain("`src/change-99.ts`");
+    expect(largeBody).not.toContain("`src/change-100.ts`");
+    expect(largeBody).toContain("1 ytterligare sökvägar");
+    expect(largeBody.length).toBeLessThan(65_536);
+  });
+
   it("utelämnar bootstrap-sektionen när inga trust-root-träffar finns", () => {
     expect(body).not.toContain("## Bootstrap-godkännande krävs");
   });
 
   it("lägger till omarkerad bootstrap-sektion när trust-root-träffar finns", () => {
     const withHits = buildPromoteBody({
-      commits,
+      changedPaths,
       baseSha: "95b8f29bbcd36a8c66b9d3aed751d5cb48c1d55a",
       headSha: "6c1022e5a5262d6f0967aa87cd0b82a062d6b80e",
       branch: "promote/2026-09-08",

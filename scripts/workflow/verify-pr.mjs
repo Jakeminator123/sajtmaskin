@@ -72,35 +72,48 @@ export function parseArgs(argv) {
 
 /**
  * Jämförelsebas för lokal verify:pr.
- * Explicit `--base` vinner. På trunk-branchen används origin/<trunk>.
- * Annars leveransgrenen (preview), inte master — vanliga preview-PR:ar ska
- * inte defaulta till produktionsbasen.
+ * Explicit `--base` vinner. Annars preview, oavsett lokal branch. Även en
+ * synkbranch måste innehålla färsk preview; rå master är inte en färdig synk.
+ * Produktens produktion granskas uttryckligen med --base origin/master.
  */
-export function resolveVerificationBase({ explicitBase, branch, policy }) {
+export function resolveVerificationBase({ explicitBase, branch: _branch, policy: _policy }) {
   if (explicitBase) return explicitBase;
-  if (branch === policy.trunk) return `origin/${policy.trunk}`;
-  const delivery = policy.deliveryBranch ?? DEFAULT_DELIVERY_BRANCH;
-  return `origin/${delivery}`;
+  return `origin/${DEFAULT_DELIVERY_BRANCH}`;
 }
 
 /**
  * Vilken remote-gren `git fetch origin <ref>` ska hämta för en given bas.
- * `origin/preview` → `preview`. Saknad/okänd form → null (ingen fetch).
+ * Endast origin-tracking-refar hämtas, med hela branchnamnet. Lokala refs/SHA:n
+ * är uttryckliga snapshots och får aldrig tolkas som remote-branchnamn.
  */
 export function resolveFetchRefForBase(base) {
   const value = String(base ?? "").trim();
   if (!value) return null;
-  const originMatch = /^origin\/([^/\s]+)$/.exec(value);
+  const originMatch = /^(?:refs\/remotes\/)?origin\/([^\s\\]+)$/.exec(value);
   if (originMatch) return originMatch[1];
-  if (/^[0-9a-f]{7,40}$/i.test(value)) return null;
-  if (!value.includes("/") && !value.includes("\\")) return value;
   return null;
 }
 
 /** Tydligt fel när lokal bas-ref saknas eller inte gått att verifiera efter fetch. */
 export function formatMissingBaseError(base) {
   const fetchRef = resolveFetchRefForBase(base);
-  return `basen ${base} saknas lokalt. Hämta den (t.ex. git fetch origin ${fetchRef ?? base}) och försök igen.`;
+  const remedy = fetchRef
+    ? `Hämta den (git fetch origin ${fetchRef})`
+    : "Kontrollera den lokala refen/SHA:n eller hämta dess remote-gren uttryckligen";
+  return `basen ${base} saknas lokalt. ${remedy} och försök igen.`;
+}
+
+/**
+ * @param {{ branch: string, base: string }} context
+ * @param {(args: string[], options?: Record<string, unknown>) => { status: number | null }} [gitCommand]
+ */
+export function assertFreshVerificationBase({ branch, base }, gitCommand = git) {
+  const ancestor = gitCommand(["merge-base", "--is-ancestor", base, "HEAD"], {
+    allowFailure: true,
+  });
+  if (ancestor.status !== 0) {
+    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
+  }
 }
 
 /**
@@ -242,10 +255,7 @@ async function main() {
   if (verified.status !== 0) {
     throw new Error(formatMissingBaseError(base));
   }
-  const ancestor = git(["merge-base", "--is-ancestor", base, "HEAD"], { allowFailure: true });
-  if (ancestor.status !== 0) {
-    throw new Error(`${branch} innehåller inte färsk ${base}. Uppdatera branchen innan PR/push.`);
-  }
+  assertFreshVerificationBase({ branch, base });
 
   const tracked = trackedPathsForBase(base);
   const untracked = lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);

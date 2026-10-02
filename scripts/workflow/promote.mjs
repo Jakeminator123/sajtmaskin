@@ -149,7 +149,8 @@ export function hasContentToPromote(_commits, treeDiffers) {
 }
 
 /**
- * Var commitlistan börjar för promote-beskrivningen. Synk-mergen är inte en
+ * Var planens historikmetadata börjar. Releasebeskrivningen använder träddiff.
+ * Synk-mergen är inte en
  * säker cutoff: selektiv release kan lämna osläppt historik före den. Börja
  * alltid vid production så osläppta commits syns i underlaget; när träden är
  * identiska avbryter hasContentToPromote innan listan används.
@@ -184,32 +185,35 @@ export function missingProductionSyncMessage({ productionBranch, stagingBranch, 
   const short = String(baseSha ?? "").slice(0, 8);
   return [
     `origin/${stagingBranch} saknar origin/${productionBranch} (${short}).`,
-    `Öppna en egen PR från ${productionBranch} mot ${stagingBranch} och merga den med MERGE-commit (inte squash), kör sedan promote igen.`,
+    `Bered en synkbranch från färsk origin/${stagingBranch} och ta in origin/${productionBranch} med merge-commit. Öppna PR mot ${stagingBranch} och merga med MERGE-commit (inte squash), kör sedan promote igen.`,
     "Planering eller skapande av release-PR synkar inte master → preview serverside.",
   ].join(" ");
 }
 
-export function buildPromoteTitle(commits, date) {
-  const highlights = selectPromoteHighlights(commits);
-  if (highlights.length === 1) {
-    return `promote: ${highlights[0].subject}`;
-  }
-  return `promote: ${highlights.length} ändringar från preview till master (${date})`;
+export function buildPromoteTitle(changedPaths, date) {
+  const count = new Set(changedPaths).size;
+  return `promote: ${count} ändrad${count === 1 ? " sökväg" : "e sökvägar"} från preview till master (${date})`;
 }
 
 export function buildPromoteBody({
-  commits,
+  changedPaths,
   baseSha,
   headSha,
   branch,
   date,
   manualMergePaths = /** @type {string[]} */ ([]),
 }) {
-  const highlights = selectPromoteHighlights(commits);
+  const paths = [...new Set(changedPaths)];
+  const shown = paths.slice(0, 100);
   const list =
-    highlights.length > 0
-      ? highlights.map((c) => `- \`${c.sha.slice(0, 8)}\` ${c.subject}`).join("\n")
-      : "- (inga icke-merge-commits)";
+    paths.length > 0
+      ? [
+          ...shown.map((path) => `- \`${path}\``),
+          ...(paths.length > shown.length
+            ? [`- … ${paths.length - shown.length} ytterligare sökvägar; se hela diffen mellan ovanstående SHA:n.`]
+            : []),
+        ].join("\n")
+      : "- (ingen träddiff)";
 
   const bootstrap =
     manualMergePaths.length > 0
@@ -230,12 +234,14 @@ export function buildPromoteBody({
   return [
     "## Vad ändras?",
     "",
-    `- Kort scope: promote av ${highlights.length} ändring${highlights.length === 1 ? "" : "ar"} från staging (\`${STAGING_BRANCH}\`) till produktion (\`${PRODUCTION_BRANCH}\`). Ingen ny kod — allt har redan mergats till \`${STAGING_BRANCH}\` och testats där.`,
+    `- Kort scope: ${paths.length} ändrade sökvägar i träddiffen från staging (\`${STAGING_BRANCH}\`) till produktion (\`${PRODUCTION_BRANCH}\`). Promote skriver ingen ny kod; innehållet tas från staging. Bekräfta att preview är stabil före release.`,
     `- Base-SHA: \`${baseSha}\` (\`origin/${PRODUCTION_BRANCH}\`)`,
     `- Head-SHA: \`${headSha}\` (\`origin/${STAGING_BRANCH}\` vid ${date})`,
     `- Promote-gren: \`${branch}\` — kortlivad slaskgren så att auto-delete vid merge tar den i stället för \`${STAGING_BRANCH}\`.`,
     "",
-    "## Innehåll",
+    "## Faktisk diff mot produktion",
+    "",
+    "Träd mot träd, inte commithistorik: redan squash-släppta commits räknas inte som nya ändringar. Vid rename ingår både gammal och ny sökväg.",
     "",
     list,
     "",
@@ -269,12 +275,12 @@ function gh(args) {
   return execFileSync("gh", args, { cwd: REPO_ROOT, encoding: "utf8" }).trim();
 }
 
-/** Innehåller origin/preview redan origin/masters tip? */
-function stagingContainsProduction() {
+/** Innehåller den frysta staging-SHA:n redan produktionens frysta tip? */
+function stagingContainsProduction(baseSha, headSha) {
   try {
     execFileSync(
       "git",
-      ["merge-base", "--is-ancestor", `origin/${PRODUCTION_BRANCH}`, `origin/${STAGING_BRANCH}`],
+      ["merge-base", "--is-ancestor", baseSha, headSha],
       { cwd: REPO_ROOT, stdio: "ignore" },
     );
     return true;
@@ -307,24 +313,27 @@ function main() {
 
   // Squash-merge lämnar masters tip utanför preview. Promote skapar eller
   // planerar aldrig den synken — det måste vara en uttrycklig merge-commit-PR.
-  if (!stagingContainsProduction()) {
-    throw new Error(
-      missingProductionSyncMessage({
-        productionBranch: PRODUCTION_BRANCH,
-        stagingBranch: STAGING_BRANCH,
-        baseSha,
-      }),
-    );
+  if (!stagingContainsProduction(baseSha, headSha)) {
+    const message = missingProductionSyncMessage({
+      productionBranch: PRODUCTION_BRANCH,
+      stagingBranch: STAGING_BRANCH,
+      baseSha,
+    });
+    if (options.dryRun) {
+      console.log(`[promote] --dry-run: ${message}`);
+      return;
+    }
+    throw new Error(message);
   }
 
-  // Trädskillnad är sanningen för "finns något osläppt". Commitlistan börjar
-  // vid master (inte senaste synk-merge) så selektivt osläppt historik syns.
-  const rangeStart = commitRangeStart(null, `origin/${PRODUCTION_BRANCH}`);
+  // Trädskillnad avgör release. Historiken är bara planmetadata, inte en lista
+  // över nya ändringar: tidigare squash-släppta commits kan fortfarande finnas där.
+  const rangeStart = commitRangeStart(null, baseSha);
   const commits = parseCommitLines(
-    git(["log", "--oneline", "--no-decorate", `${rangeStart}..origin/${STAGING_BRANCH}`]),
+    git(["log", "--oneline", "--no-decorate", `${rangeStart}..${headSha}`]),
   );
-  const productionTree = git(["rev-parse", `origin/${PRODUCTION_BRANCH}^{tree}`]);
-  const stagingTree = git(["rev-parse", `origin/${STAGING_BRANCH}^{tree}`]);
+  const productionTree = git(["rev-parse", `${baseSha}^{tree}`]);
+  const stagingTree = git(["rev-parse", `${headSha}^{tree}`]);
   const plan = evaluatePromotePlan({
     productionSha: baseSha,
     stagingSha: headSha,
@@ -345,15 +354,6 @@ function main() {
     git(["ls-remote", "--heads", "origin", `${PROMOTE_BRANCH_PREFIX}*`]),
   );
   const branch = buildPromoteBranchName(date, existing);
-  const title = buildPromoteTitle(commits, date);
-
-  console.log(
-    `[promote] ${commits.length} commit(s) från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`,
-  );
-  for (const commit of selectPromoteHighlights(commits)) {
-    console.log(`  ${commit.sha.slice(0, 8)} ${commit.subject}`);
-  }
-
   // Samma fail-closed parser som verify:pr (`-z`, kastar på trasig post) och
   // både gammalt och nytt namn vid rename — controllern läser previous_filename.
   // Två punkter (träd mot träd), inte tre: efter en squash-promote ligger
@@ -365,15 +365,19 @@ function main() {
       "--name-status",
       "-z",
       "-M",
-      `origin/${PRODUCTION_BRANCH}`,
-      `origin/${STAGING_BRANCH}`,
+      baseSha,
+      headSha,
     ]),
   );
   const prefixes = manualMergePrefixesFromPolicy(
-    git(["show", `origin/${PRODUCTION_BRANCH}:config/agent-workflow.json`]),
+    git(["show", `${baseSha}:config/agent-workflow.json`]),
   );
   const manualMergePaths = findManualMergePaths(changedPaths, prefixes);
-  const body = buildPromoteBody({ commits, baseSha, headSha, branch, date, manualMergePaths });
+  const title = buildPromoteTitle(changedPaths, date);
+  const body = buildPromoteBody({ changedPaths, baseSha, headSha, branch, date, manualMergePaths });
+  console.log(
+    `[promote] ${new Set(changedPaths).size} ändrade sökvägar från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`,
+  );
 
   if (manualMergePaths.length > 0) {
     console.log("");
@@ -444,7 +448,7 @@ function main() {
   }
   console.log("");
   console.log(
-    `  Efter merge: öppna en egen PR ${PRODUCTION_BRANCH} → ${STAGING_BRANCH} med MERGE-commit (inte squash) så staging innehåller squash-commiten innan nästa promote.`,
+    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna PR mot ${STAGING_BRANCH} och merga med MERGE-commit (inte squash) innan nästa promote.`,
   );
 }
 
