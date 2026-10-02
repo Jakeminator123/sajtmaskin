@@ -2017,8 +2017,9 @@ export async function runTrustedMerge({
 
   // workflow_dispatch är ett dokumenterat undantag från GITHUB_TOKEN:s
   // recursion-skydd. ci.yml på preview kör samma post-push-grind som en vanlig
-  // staging-push, inklusive additiv preview-migration. Live-secret-jobbet
-  // db-blob-sync stannar på master och startar när produktion promotas.
+  // staging-push. Livekontrollerna observerar DB read-only; inga migrationer
+  // eller prestandaindex appliceras. db-blob-sync är en separat master-ägd
+  // workflow och dispatchas inte här.
   for (const workflow of ["ci.yml"]) {
     try {
       await client.request(`/actions/workflows/${workflow}/dispatches`, {
