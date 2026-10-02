@@ -378,6 +378,7 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       installKind: "fallback" as const,
       lifecycleToken: "life_1",
       mutationRevision: 1,
+      installAttemptRevision: 1,
     };
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",
@@ -465,6 +466,96 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(
       installPeerFallbackReceiptBlocksPublish(receipts, { dependencyFingerprint }),
     ).toBe(true);
+  });
+
+  it("records recovery-boot transitions when lifecycle and mutation revision stay unchanged", async () => {
+    const dependencyFingerprint = "e".repeat(64);
+    const run = (
+      installKind: "fallback" | "strict_pass",
+      installAttemptRevision: number,
+    ) => ({
+      readinessState: "ready" as const,
+      readinessError: null,
+      regeneratedLockfile: null,
+      httpReady: true,
+      usedLegacyPeerDeps: installKind === "fallback",
+      peerConflictDetected: installKind === "fallback",
+      installKind,
+      dependencyFingerprint,
+      lifecycleToken: "life_recovery",
+      mutationRevision: 7,
+      installAttemptRevision,
+    });
+
+    for (const resumed of [run("strict_pass", 1), run("fallback", 2)]) {
+      await applyPreviewReadinessOutcome({
+        chatId: "chat_1",
+        versionId: "v-recovery",
+        bootedFilesRevision: "rev-a",
+        resumed,
+      });
+    }
+
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(2);
+    const receipts = createEngineVersionErrorLogs.mock.calls
+      .map(([payloads]) =>
+        (payloads as Array<{ category: string; meta: Record<string, unknown> }>).find(
+          (row) => row.category === "preview:install-peer-fallback",
+        ),
+      )
+      .filter((row): row is NonNullable<typeof row> => row != null)
+      .reverse();
+    expect(receipts.map((row) => row.meta.installAttemptRevision)).toEqual([2, 1]);
+    const { installPeerFallbackReceiptBlocksPublish } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    expect(
+      installPeerFallbackReceiptBlocksPublish(receipts, { dependencyFingerprint }),
+    ).toBe(true);
+  });
+
+  it("lets a later strict recovery boot clear a fallback for the same mutation", async () => {
+    const dependencyFingerprint = "f".repeat(64);
+    const run = (
+      installKind: "fallback" | "strict_pass",
+      installAttemptRevision: number,
+    ) => ({
+      readinessState: "ready" as const,
+      readinessError: null,
+      regeneratedLockfile: null,
+      httpReady: true,
+      usedLegacyPeerDeps: installKind === "fallback",
+      peerConflictDetected: installKind === "fallback",
+      installKind,
+      dependencyFingerprint,
+      lifecycleToken: "life_recovery_clear",
+      mutationRevision: 8,
+      installAttemptRevision,
+    });
+
+    for (const resumed of [run("fallback", 1), run("strict_pass", 2)]) {
+      await applyPreviewReadinessOutcome({
+        chatId: "chat_1",
+        versionId: "v-recovery-clear",
+        bootedFilesRevision: "rev-a",
+        resumed,
+      });
+    }
+
+    const receipts = createEngineVersionErrorLogs.mock.calls
+      .map(([payloads]) =>
+        (payloads as Array<{ category: string; meta: Record<string, unknown> }>).find(
+          (row) => row.category === "preview:install-peer-fallback",
+        ),
+      )
+      .filter((row): row is NonNullable<typeof row> => row != null)
+      .reverse();
+    const { installPeerFallbackReceiptBlocksPublish } = await import(
+      "@/lib/gen/validation/install-peer-fallback-receipt"
+    );
+    expect(
+      installPeerFallbackReceiptBlocksPublish(receipts, { dependencyFingerprint }),
+    ).toBe(false);
   });
 
   it("preserves legacy fallback -> strict_pass -> fallback transitions while deduping repeat polls", async () => {
@@ -567,9 +658,9 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     ).toBe(true);
   });
 
-  it("orders stale install acknowledgements by host mutation revision, not arrival time", async () => {
+  it("orders stale same-mutation acknowledgements by host install attempt, not arrival time", async () => {
     const dependencyFingerprint = "b".repeat(64);
-    const run = (installKind: "fallback" | "strict_pass", mutationRevision: number) => ({
+    const run = (installKind: "fallback" | "strict_pass", installAttemptRevision: number) => ({
       readinessState: "ready" as const,
       readinessError: null,
       regeneratedLockfile: null,
@@ -579,7 +670,8 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       installKind,
       dependencyFingerprint,
       lifecycleToken: "life_1",
-      mutationRevision,
+      mutationRevision: 7,
+      installAttemptRevision,
     });
 
     for (const resumed of [run("fallback", 1), run("strict_pass", 3), run("fallback", 2)]) {
@@ -599,7 +691,7 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
       )
       .filter((row): row is NonNullable<typeof row> => row != null)
       .reverse();
-    expect(receipts.map((row) => row.meta.mutationRevision)).toEqual([2, 3, 1]);
+    expect(receipts.map((row) => row.meta.installAttemptRevision)).toEqual([2, 3, 1]);
     const { installPeerFallbackReceiptBlocksPublish } = await import(
       "@/lib/gen/validation/install-peer-fallback-receipt"
     );

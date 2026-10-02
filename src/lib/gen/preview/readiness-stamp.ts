@@ -112,7 +112,12 @@ export async function applyPreviewReadinessOutcome(params: {
     | "installKind"
     | "dependencyFingerprint"
   > &
-    Partial<Pick<PreviewHostStatusResult, "lifecycleToken" | "mutationRevision">>;
+    Partial<
+      Pick<
+        PreviewHostStatusResult,
+        "lifecycleToken" | "mutationRevision" | "installAttemptRevision"
+      >
+    >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
   try {
@@ -221,23 +226,28 @@ export async function applyPreviewReadinessOutcome(params: {
         params.resumed.mutationRevision > 0
           ? params.resumed.mutationRevision
           : null;
-      // A host mutation is the install attempt's durable identity. Kind alone
-      // is not: the same dependency tree may legitimately transition
-      // fallback -> strict_pass -> fallback across separate boots. Older hosts
-      // lack mutationRevision, so dedup consecutive identical kinds there while
-      // still preserving real kind transitions.
+      const installAttemptRevision =
+        typeof params.resumed.installAttemptRevision === "number" &&
+        Number.isSafeInteger(params.resumed.installAttemptRevision) &&
+        params.resumed.installAttemptRevision > 0
+          ? params.resumed.installAttemptRevision
+          : null;
+      // A host mutation is not an install attempt: runtime recovery can reinstall
+      // the same lifecycle+mutation. New hosts therefore provide a durable boot
+      // attempt. Older hosts use serialized transition dedup so a changed kind is
+      // never permanently suppressed (ordering remains conservative in the gate).
       const receiptScopeKey = `${params.versionId}:${dependencyFingerprint ?? receiptRevision ?? ""}`;
-      const receiptRunKey =
-        mutationRevision === null
-          ? "legacy-transition"
-          : `${lifecycleToken ?? "unknown-lifecycle"}:${mutationRevision}`;
+      const hasInstallAttempt = installAttemptRevision !== null;
+      const receiptRunKey = hasInstallAttempt
+        ? `${lifecycleToken ?? "unknown-lifecycle"}:${mutationRevision ?? "unknown-mutation"}:${installAttemptRevision}`
+        : "legacy-transition";
       const receiptKey = `${receiptScopeKey}:${receiptRunKey}`;
       const persistReceipt = async () => {
         const alreadyStored =
-          mutationRevision === null
+          !hasInstallAttempt
             ? legacyPeerDepsLatestKindByScope.get(receiptScopeKey) === installKind
             : legacyPeerDepsVersionIds.has(receiptKey);
-        const inFlightKey = mutationRevision === null ? receiptScopeKey : receiptKey;
+        const inFlightKey = hasInstallAttempt ? receiptKey : receiptScopeKey;
         if (!shouldWriteReceipt || alreadyStored || legacyPeerDepsInFlight.has(inFlightKey)) return;
         // Temporary reservation only. Permanent dedup is set after the
         // publish-blocking receipt is proven stored — `createEngineVersionErrorLogs`
@@ -265,6 +275,7 @@ export async function applyPreviewReadinessOutcome(params: {
                   bootFilesRevision: params.bootedFilesRevision?.trim() || null,
                   lifecycleToken,
                   mutationRevision,
+                  installAttemptRevision,
                   source: "preview_install_peer_fallback",
                 },
               },
@@ -290,7 +301,7 @@ export async function applyPreviewReadinessOutcome(params: {
             { lockTimeoutMs: 2_000 },
           );
           if (hasStoredInstallPeerFallbackReceipt(stored)) {
-            if (mutationRevision === null && installKind) {
+            if (!hasInstallAttempt && installKind) {
               legacyPeerDepsLatestKindByScope.set(receiptScopeKey, installKind);
             } else {
               legacyPeerDepsVersionIds.add(receiptKey);
@@ -300,7 +311,7 @@ export async function applyPreviewReadinessOutcome(params: {
           legacyPeerDepsInFlight.delete(inFlightKey);
         }
       };
-      if (mutationRevision === null) {
+      if (!hasInstallAttempt) {
         await serializeLegacyPeerDepsReceipt(receiptScopeKey, persistReceipt);
       } else {
         await persistReceipt();

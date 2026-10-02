@@ -65,6 +65,12 @@ function normalizeMutationRevision(value: unknown): number | null {
     : null;
 }
 
+function normalizeInstallAttemptRevision(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
 function normalizeLifecycleToken(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -160,6 +166,7 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
   kind: PreviewInstallKind;
   lifecycleToken: string | null;
   mutationRevision: number | null;
+  installAttemptRevision: number | null;
 } | null {
   if (log.category !== INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY) return null;
   const kind = readInstallPeerFallbackReceiptKind(log.meta);
@@ -171,6 +178,7 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
     kind,
     lifecycleToken: normalizeLifecycleToken(meta?.lifecycleToken),
     mutationRevision: normalizeMutationRevision(meta?.mutationRevision),
+    installAttemptRevision: normalizeInstallAttemptRevision(meta?.installAttemptRevision),
   };
 }
 
@@ -179,6 +187,7 @@ function latestDecisive(
     kind: PreviewInstallKind;
     lifecycleToken: string | null;
     mutationRevision: number | null;
+    installAttemptRevision: number | null;
   }>,
 ): PreviewInstallKind | null {
   const decisive = receipts.filter(
@@ -200,18 +209,27 @@ function latestDecisive(
     return latest.kind;
   }
   // Logs are normally newest-first, but asynchronous status acknowledgements
-  // may be persisted out of arrival order. Once the newest row has a host
-  // ordering receipt, select the greatest revision so a stale run cannot win.
-  // The host persists this counter per chat and advances it across lifecycles.
-  return decisive.reduce((current, entry) => {
-    if (
-      entry.mutationRevision !== null &&
-      entry.mutationRevision > current.mutationRevision
-    ) {
-      return { kind: entry.kind, mutationRevision: entry.mutationRevision };
-    }
-    return current;
-  }, { kind: latest.kind, mutationRevision: latest.mutationRevision }).kind;
+  // may be persisted out of arrival order. mutationRevision orders file/session
+  // mutations; installAttemptRevision orders recovery boots of the SAME mutation.
+  const greatestMutation = decisive.reduce(
+    (current, entry) =>
+      entry.mutationRevision !== null && entry.mutationRevision > current
+        ? entry.mutationRevision
+        : current,
+    latest.mutationRevision,
+  );
+  const sameMutation = decisive.filter(
+    (entry) => entry.mutationRevision === greatestMutation,
+  );
+  const orderedAttempts = sameMutation.filter(
+    (entry) => entry.installAttemptRevision !== null,
+  );
+  if (orderedAttempts.length === 0) return sameMutation[0]?.kind ?? latest.kind;
+  return orderedAttempts.reduce((current, entry) =>
+    (entry.installAttemptRevision ?? 0) > (current.installAttemptRevision ?? 0)
+      ? entry
+      : current,
+  ).kind;
 }
 
 /**

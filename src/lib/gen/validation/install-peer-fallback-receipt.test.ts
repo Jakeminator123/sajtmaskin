@@ -31,6 +31,7 @@ function orderedReceipt(
   dependencyFingerprint: string,
   lifecycleToken: string,
   mutationRevision: number,
+  installAttemptRevision?: number,
 ) {
   return {
     category: INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY,
@@ -40,6 +41,7 @@ function orderedReceipt(
       dependencyFingerprint,
       lifecycleToken,
       mutationRevision,
+      ...(installAttemptRevision !== undefined ? { installAttemptRevision } : {}),
     },
   };
 }
@@ -211,6 +213,29 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
         { dependencyFingerprint: fingerprint },
       ),
     ).toBe(false);
+  });
+
+  it("uses install-attempt order when recovery boots share one mutation revision", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 2),
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 3),
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(false);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-1", 7, 2),
+          orderedReceipt("fallback", fingerprint, "life-1", 7, 3),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
   });
 
   it("uses the chat-global mutation order across lifecycle tokens", () => {
