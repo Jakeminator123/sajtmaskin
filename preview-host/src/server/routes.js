@@ -212,6 +212,10 @@ async function routeRequest(req, res) {
           ? latest.lifecycleToken
           : null,
       mutationRevision: readMutationRevision(latest),
+      installAttemptRevision:
+        Number.isSafeInteger(latest.installAttemptRevision) && latest.installAttemptRevision > 0
+          ? latest.installAttemptRevision
+          : null,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
       previewUrl: latest.previewUrl,

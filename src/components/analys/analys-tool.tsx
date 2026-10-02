@@ -8,7 +8,15 @@ import type { PublicAnalysReport } from "@/lib/audit/public-report";
 import { AnalysReport } from "./analys-report";
 
 type AnalysToolProps = {
-  onNeedAccount: () => void;
+  restoredResult?: PublicAnalysResult | null;
+  onPdf: (result: PublicAnalysResult) => void;
+  onBuild: (result: PublicAnalysResult) => void;
+  onAnalysisSuccess: (result: PublicAnalysResult) => void;
+};
+
+export type PublicAnalysResult = {
+  report: PublicAnalysReport;
+  auditedUrl: string;
 };
 
 /**
@@ -46,25 +54,43 @@ function localUrlProblem(value: string): string | null {
   return null;
 }
 
-function errorForStatus(status: number, fallback: string): string {
-  if (status === 429) {
-    return "Ni har redan kört en analys från den här uppkopplingen de senaste 24 timmarna. Skapa ett konto om ni vill köra fler.";
+export function publicAnalysErrorMessage(input: {
+  status: number;
+  fallback: string;
+  code?: string;
+}): string {
+  if (input.code === "public_analys_daily_quota_exhausted") {
+    return "Ni har redan kört en analys från den här uppkopplingen i dag. Skapa ett konto om ni vill köra fler.";
   }
-  if (status === 409) return fallback;
-  if (status >= 500) {
+  if (input.code === "public_analys_in_progress") {
+    return "En analys behandlas redan från den här uppkopplingen. Vänta tills den är klar.";
+  }
+  if (input.code === "public_analys_attempt_rate_limited") {
+    return "För många analysförsök på kort tid. Vänta en stund och försök igen.";
+  }
+  if (input.status === 409 || input.status === 429) return input.fallback;
+  if (input.status >= 500) {
     return "Analysen gick inte igenom just nu. Vänta en stund och försök igen.";
   }
-  return fallback;
+  return input.fallback;
 }
 
-export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
+export function AnalysTool({
+  restoredResult = null,
+  onPdf,
+  onBuild,
+  onAnalysisSuccess,
+}: AnalysToolProps) {
   const [url, setUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<PublicAnalysReport | null>(null);
-  const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<PublicAnalysResult | null>(restoredResult);
   const [progressStep, setProgressStep] = useState(0);
   const startedAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (restoredResult) setResult(restoredResult);
+  }, [restoredResult]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -98,7 +124,6 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
 
     setIsRunning(true);
     setError(null);
-    setReport(null);
     startedAtRef.current = Date.now();
 
     try {
@@ -107,19 +132,29 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { success?: boolean; report?: PublicAnalysReport; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        report?: PublicAnalysReport;
+        error?: string;
+        code?: string;
+      } | null;
 
       if (!response.ok || !payload?.success || !payload.report) {
         const fallback =
           payload?.error || "Kunde inte analysera sajten. Kontrollera adressen och försök igen.";
-        setError(errorForStatus(response.status, fallback));
+        setError(
+          publicAnalysErrorMessage({
+            status: response.status,
+            fallback,
+            code: payload?.code,
+          }),
+        );
         return;
       }
 
-      setReport(payload.report);
-      setAuditedUrl(trimmed);
+      const nextResult = { report: payload.report, auditedUrl: trimmed };
+      setResult(nextResult);
+      onAnalysisSuccess(nextResult);
     } catch {
       setError("Nätverksfel. Försök igen om en stund.");
     } finally {
@@ -191,8 +226,13 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
         </div>
       ) : null}
 
-      {report ? (
-        <AnalysReport report={report} auditedUrl={auditedUrl} onNeedAccount={onNeedAccount} />
+      {result ? (
+        <AnalysReport
+          report={result.report}
+          auditedUrl={result.auditedUrl}
+          onPdf={() => onPdf(result)}
+          onBuild={() => onBuild(result)}
+        />
       ) : null}
     </div>
   );
