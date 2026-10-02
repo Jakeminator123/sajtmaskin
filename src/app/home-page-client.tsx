@@ -21,7 +21,8 @@ import {
   type BuildIntent,
 } from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
-import { buildAuditDisplayPrompt, extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { extractAuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { createAuditBuildHandoff } from "@/lib/builder/audit-handoff-client";
 import { toast } from "sonner";
 import { noteAccountCreatedIfSignup } from "@/lib/ads/fire-google-ads-conversion";
 import { createProject } from "@/lib/projects/project-client";
@@ -201,33 +202,8 @@ function RootLandingContent() {
       setShowAuditModal(false);
       try {
         const payload = extractAuditHandoffPayload(result, url);
-        const prompt = buildAuditDisplayPrompt(payload);
-        const project = await createProject(
-          `Audit - ${new Date().toLocaleDateString("sv-SE")}`,
-          "audit",
-          prompt.substring(0, 100),
-        );
-        const response = await fetch("/api/prompts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, source: "audit", projectId: project.id, payload }),
-        });
-        const data = (await response.json().catch(() => null)) as {
-          success?: boolean;
-          promptId?: string;
-          error?: string;
-        } | null;
-        if (!response.ok || !data?.promptId) {
-          throw new Error(data?.error || "Kunde inte spara audit-prompten");
-        }
-        const intent = resolveBuildIntentForMethod("audit", buildIntent);
-        const params = new URLSearchParams();
-        params.set("project", project.id);
-        params.set("source", "audit");
-        params.set("promptId", data.promptId);
-        params.set("buildMethod", "audit");
-        params.set("buildIntent", intent);
-        router.push(`/builder?${params.toString()}`);
+        const handoff = await createAuditBuildHandoff(payload, buildIntent);
+        router.push(handoff.href);
       } catch (error) {
         console.error("[RootLanding] Audit handoff failed:", error);
         toast.error(
