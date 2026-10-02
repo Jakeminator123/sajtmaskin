@@ -19,10 +19,13 @@ const withRateLimit = vi.hoisted(() =>
       _request: NextRequest,
       bucket: string,
       handler: () => Promise<Response>,
-      options?: { failClosedOnTimeout?: boolean },
+      options?: { failClosedOnTimeout?: boolean; rateLimitErrorCode?: string },
     ) => {
       expect(bucket).toBe("analys:public:attempt");
-      expect(options).toEqual({ failClosedOnTimeout: true });
+      expect(options).toEqual({
+        failClosedOnTimeout: true,
+        rateLimitErrorCode: "public_analys_attempt_rate_limited",
+      });
       return handler();
     },
   ),
@@ -113,10 +116,13 @@ describe("POST /api/analys", () => {
         _request: NextRequest,
         bucket: string,
         handler: () => Promise<Response>,
-        options?: { failClosedOnTimeout?: boolean },
+        options?: { failClosedOnTimeout?: boolean; rateLimitErrorCode?: string },
       ) => {
         expect(bucket).toBe("analys:public:attempt");
-        expect(options).toEqual({ failClosedOnTimeout: true });
+        expect(options).toEqual({
+          failClosedOnTimeout: true,
+          rateLimitErrorCode: "public_analys_attempt_rate_limited",
+        });
         return handler();
       },
     );
@@ -251,7 +257,21 @@ describe("POST /api/analys", () => {
     expect((await POST(request({ url: "https://example.com" }))).status).toBe(200);
     const blocked = await POST(request({ url: "https://other.example" }));
     expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual(
+      expect.objectContaining({ code: "public_analys_daily_quota_exhausted" }),
+    );
     expect(runWebsiteAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a distinct 429 code while this client already has a reservation", async () => {
+    acquirePublicAnalysQuota.mockResolvedValue({ status: "reserved" });
+
+    const response = await POST(request({ url: "https://example.com" }));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({ code: "public_analys_in_progress" }),
+    );
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
   });
 
   it("fails closed without starting the engine when daily quota is unavailable", async () => {

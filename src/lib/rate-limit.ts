@@ -283,7 +283,11 @@ export async function withRateLimit(
   request: Request,
   endpoint: string,
   handler: () => Promise<Response>,
-  options?: { userId?: string; failClosedOnTimeout?: boolean },
+  options?: {
+    userId?: string;
+    failClosedOnTimeout?: boolean;
+    rateLimitErrorCode?: string;
+  },
 ): Promise<Response> {
   const clientId = getClientId(request, options);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
@@ -358,6 +362,7 @@ export async function withRateLimit(
       JSON.stringify({
         error: "Too many requests",
         retryAfter: Math.ceil((result.resetAt - Date.now()) / 1000),
+        ...(options?.rateLimitErrorCode ? { code: options.rateLimitErrorCode } : {}),
       }),
       {
         status: 429,

@@ -204,6 +204,36 @@ describe("rateLimit", () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBeTruthy();
     expect(blocked.headers.get("X-RateLimit-Remaining")).toBe("0");
+    expect(await blocked.json()).not.toHaveProperty("code");
+  });
+
+  it("adds a caller-owned error code to 429 responses only when opted in", async () => {
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+
+    const endpoint = `unit:withRateLimit-code:${Date.now()}`;
+    RATE_LIMITS[endpoint] = { maxRequests: 1, windowMs: 60_000 };
+    const request = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "7.7.7.8" },
+    });
+    const options = { rateLimitErrorCode: "public_analys_attempt_rate_limited" };
+
+    expect(
+      (await withRateLimit(request, endpoint, async () => new Response("ok"), options)).status,
+    ).toBe(200);
+    const blocked = await withRateLimit(
+      request,
+      endpoint,
+      async () => new Response("should-not-run"),
+      options,
+    );
+
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual(
+      expect.objectContaining({ code: "public_analys_attempt_rate_limited" }),
+    );
   });
 
   it("keys withRateLimit on verified userId across different IPs", async () => {

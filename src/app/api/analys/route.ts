@@ -122,9 +122,13 @@ export async function POST(request: NextRequest) {
             return errorResponse(503, "Analystjänsten kan inte verifiera dagens kvot just nu.");
           }
           if (quota.status === "committed") {
-            return errorResponse(429, "Dagens kostnadsfria analys är redan använd.");
+            return errorResponse(429, "Dagens kostnadsfria analys är redan använd.", {
+              code: "public_analys_daily_quota_exhausted",
+            });
           }
-          return errorResponse(429, "En kostnadsfri analys behandlas redan för denna anslutning.");
+          return errorResponse(429, "En kostnadsfri analys behandlas redan för denna anslutning.", {
+            code: "public_analys_in_progress",
+          });
         }
         const acquiredReservation = quota.reservation;
         reservation = acquiredReservation;
@@ -183,6 +187,9 @@ export async function POST(request: NextRequest) {
         }
       }
     },
-    { failClosedOnTimeout: true },
+    {
+      failClosedOnTimeout: true,
+      rateLimitErrorCode: "public_analys_attempt_rate_limited",
+    },
   );
 }

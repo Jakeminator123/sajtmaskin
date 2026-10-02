@@ -46,15 +46,25 @@ function localUrlProblem(value: string): string | null {
   return null;
 }
 
-function errorForStatus(status: number, fallback: string): string {
-  if (status === 429) {
-    return "Ni har redan kört en analys från den här uppkopplingen de senaste 24 timmarna. Skapa ett konto om ni vill köra fler.";
+export function publicAnalysErrorMessage(input: {
+  status: number;
+  fallback: string;
+  code?: string;
+}): string {
+  if (input.code === "public_analys_daily_quota_exhausted") {
+    return "Ni har redan kört en analys från den här uppkopplingen i dag. Skapa ett konto om ni vill köra fler.";
   }
-  if (status === 409) return fallback;
-  if (status >= 500) {
+  if (input.code === "public_analys_in_progress") {
+    return "En analys behandlas redan från den här uppkopplingen. Vänta tills den är klar.";
+  }
+  if (input.code === "public_analys_attempt_rate_limited") {
+    return "För många analysförsök på kort tid. Vänta en stund och försök igen.";
+  }
+  if (input.status === 409 || input.status === 429) return input.fallback;
+  if (input.status >= 500) {
     return "Analysen gick inte igenom just nu. Vänta en stund och försök igen.";
   }
-  return fallback;
+  return input.fallback;
 }
 
 export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
@@ -107,14 +117,23 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { success?: boolean; report?: PublicAnalysReport; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        report?: PublicAnalysReport;
+        error?: string;
+        code?: string;
+      } | null;
 
       if (!response.ok || !payload?.success || !payload.report) {
         const fallback =
           payload?.error || "Kunde inte analysera sajten. Kontrollera adressen och försök igen.";
-        setError(errorForStatus(response.status, fallback));
+        setError(
+          publicAnalysErrorMessage({
+            status: response.status,
+            fallback,
+            code: payload?.code,
+          }),
+        );
         return;
       }
 
