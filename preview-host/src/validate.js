@@ -1,7 +1,11 @@
 "use strict";
 
 const { normalizePrewarmLeaseKey } = require("./prewarm-leases.js");
-const { isSafeRelativePath, validateFilesJson } = require("./files-contract.js");
+const {
+  PREVIEW_HOST_FILE_BUDGET,
+  isSafeRelativePath,
+  validateFilesJson,
+} = require("./files-contract.js");
 
 const CHANGE_CLASSES = new Set(["fresh", "light", "medium", "heavy"]);
 const VERIFY_CHECKS = new Set(["typecheck", "build", "lint"]);
@@ -197,7 +201,7 @@ function validatePatchPayload(payload) {
     for (const value of p.removedPaths) {
       const rel = String(value || "").trim();
       if (!rel) continue;
-      if (rel.length > MAX_PATH_LEN) {
+      if (rel.length > PREVIEW_HOST_FILE_BUDGET.maxPathLength) {
         throw new Error("Invalid removedPaths: path too long");
       }
       if (!isSafeRelativePath(rel)) {
