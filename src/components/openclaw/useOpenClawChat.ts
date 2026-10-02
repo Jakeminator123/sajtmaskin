@@ -275,11 +275,15 @@ export function useOpenClawChat() {
         // model. Only `message` is safe here; `detail` names internal models
         // and subscriptions.
         if (gatewayError) {
+          const hasIncompleteAction =
+            parseOpenClawMessage(accumulated).hasIncompleteAction;
           updateAssistantMessage(
             placeholderId,
-            accumulated
-              ? `${accumulated}\n\n${gatewayError.message}`
-              : gatewayError.message,
+            hasIncompleteAction
+              ? `${gatewayError.message}\n\n${accumulated}`
+              : accumulated
+                ? `${accumulated}\n\n${gatewayError.message}`
+                : gatewayError.message,
           );
         } else if (!accumulated) {
           // Keep the fallback out of `accumulated`. A1's handshake wake
