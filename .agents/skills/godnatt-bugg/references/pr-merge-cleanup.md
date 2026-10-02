@@ -80,7 +80,7 @@ Merga endast när allt är sant:
 - Inga requested changes, blockerande trådar eller öppna P0/P1 finns.
 - Labels do-not-merge, agent:needs-human, risk:4 eller risk:5 saknas eller har
   uttryckligt ägarbeslut enligt regeln.
-- Oberoende bugggranskning och triage gäller exakt head-SHA.
+- Oberoende bugggranskning och triage gäller exakt head- och live preview-base-SHA.
 - Sign-off och merge:ready gäller exakt oförändrad head- och base-SHA.
 - PR-body och backloggändring beskriver det som faktiskt ska mergeas.
 
@@ -142,5 +142,11 @@ GitHub-PR med samma branch/head-SHA är bevisad. `--force-with-lease` låser äv
 racet mellan kontroll och delete; en ny remote-commit bevaras och stoppar
 cleanup. GitHub kan redan ha raderat branchen. Ett tomt/felande GitHub-svar är
 stopp. Den utcheckade lokala branchen lämnas till appens teardown. Flytta state
-till cleanup först efter denna verifiering. Vid dirty/omergad branch eller
+till cleanup först efter denna verifiering. State återläser PR, ren registrerad
+worktree på exakt PR-head och framgångsrik `ls-remote` utan pass-ref både vid
+cleanup och complete. GitHub-ancestry måste binda registrerad mergecommit till
+aktuell preview (identical/ahead med exakt merge-base); rewind/divergence eller
+API-/Git-fel är stopp. Complete verifierar endast att
+worktreet är redo för app-handoff, inte att Desktop redan utfört teardown.
+Vid dirty/omergad branch eller
 permanent/current-path-risk: pausa och bevara.

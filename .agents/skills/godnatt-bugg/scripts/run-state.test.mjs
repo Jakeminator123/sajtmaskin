@@ -24,8 +24,11 @@ import {
   pauseRun,
   promoteRun,
   readLivePullRequestEvidence,
+  readLivePreviewPolicyEvidence,
+  rebaselineLegacyState,
   recordReviewPass,
   recoverStaleLease,
+  reopenReview,
   skipCandidate,
 } from "./run-state.mjs";
 
@@ -36,6 +39,9 @@ const SECOND_PASS = "2026-08-11T20:12:00.000Z";
 const HEAD_SHA = "a".repeat(40);
 const NEW_HEAD_SHA = "b".repeat(40);
 const MERGE_SHA = "c".repeat(40);
+const BASE_SHA = "d".repeat(40);
+const NEW_BASE_SHA = "e".repeat(40);
+const POLICY_BLOB_SHA = "f".repeat(40);
 const REVIEW_TIME = "2026-08-11T20:06:10.000Z";
 const READY_TIME = "2026-08-11T20:06:20.000Z";
 const MERGED_TIME = "2026-08-11T20:06:30.000Z";
@@ -57,16 +63,36 @@ const secondCandidate = {
 };
 
 function fresh(overrides = {}) {
+  const mode = overrides.mode ?? "full";
   return createRunState({
     count: 2,
-    mode: "full",
+    mode,
     cooldownMinutes: 5,
     leaseMinutes: 60,
     now: START,
     runId: "run-1",
     automationId: "godnatt-bugg",
+    trustedRolloutEvidence: mode === "full" ? rolloutEvidence({ observedAt: START }) : null,
     ...overrides,
   });
+}
+
+function rolloutEvidence({
+  deliveryBranch = "preview",
+  refSha = BASE_SHA,
+  observedAt = START,
+} = {}) {
+  return {
+    provider: "gh-api-graphql",
+    repository: "owner/sajtmaskin",
+    localRepository: "owner/sajtmaskin",
+    refName: "preview",
+    refSha,
+    policyPath: "config/agent-workflow.json",
+    policyBlobSha: POLICY_BLOB_SHA,
+    deliveryBranch,
+    observedAt,
+  };
 }
 
 function pilot() {
@@ -85,7 +111,12 @@ function evaluation() {
 }
 
 function acquired(state = fresh(), now = START) {
-  return acquireLease(state, { now, token: "token-1" }).state;
+  return acquireLease(state, {
+    now,
+    token: "token-1",
+    trustedRolloutEvidence:
+      state.mode === "full" ? rolloutEvidence({ refSha: BASE_SHA, observedAt: now }) : null,
+  }).state;
 }
 
 function claimed(state = acquired(), now = START) {
@@ -114,6 +145,13 @@ function pullEvidence({
   titlePrefixPresent = false,
   bodyMarkerPresent = false,
   blockingLabels = [],
+  liveBaseSha = BASE_SHA,
+  localWorktree = PASS_WORKTREE,
+  remoteBranchRef = `refs/heads/${branch}`,
+  remoteBranchAbsent = null,
+  worktreeClean = null,
+  previewAncestryStatus = null,
+  previewMergeBaseSha = null,
   observedAt = LATER,
 } = {}) {
   return {
@@ -129,11 +167,18 @@ function pullEvidence({
     headRefOid: headSha,
     localBranch,
     localHeadSha,
+    localWorktree,
+    liveBaseSha,
     mergeCommitOid,
     mergedAt,
     titlePrefixPresent,
     bodyMarkerPresent,
     blockingLabels,
+    remoteBranchRef,
+    remoteBranchAbsent,
+    worktreeClean,
+    previewAncestryStatus,
+    previewMergeBaseSha,
     observedAt,
   };
 }
@@ -164,6 +209,7 @@ function independentReview(state, overrides = {}) {
     source: overrides.source ?? "independent-agent",
     verdict: overrides.verdict ?? "clean",
     reviewedSha: overrides.reviewedSha ?? state.current.headSha,
+    reviewedBaseSha: overrides.reviewedBaseSha ?? state.current.baseSha,
     note: overrides.note,
     now: overrides.now ?? evidence.observedAt,
     sourceMetadata:
@@ -220,6 +266,23 @@ function advanceToDraft(
   });
 }
 
+function readyForMerge(state = claimed()) {
+  state = advanceToDraft(state);
+  state = advanceStage(state, {
+    token: "token-1",
+    stage: "ci-review",
+    now: LATER,
+    trustedEvidence: pullEvidence(),
+  });
+  state = independentReview(state);
+  return advanceStage(state, {
+    token: "token-1",
+    stage: "ready-to-merge",
+    now: READY_TIME,
+    trustedEvidence: pullEvidence({ isDraft: false, observedAt: READY_TIME }),
+  });
+}
+
 describe("parseActiveQueue", () => {
   it("returns unchecked records only from Aktiv kö", () => {
     const markdown = [
@@ -256,7 +319,11 @@ describe("parseActiveQueue", () => {
 
 describe("lease safety", () => {
   it("persists only a token hash and returns the raw token only from acquire", () => {
-    const result = acquireLease(fresh(), { now: START, token: "raw-runner-secret" });
+    const result = acquireLease(fresh(), {
+      now: START,
+      token: "raw-runner-secret",
+      trustedRolloutEvidence: rolloutEvidence(),
+    });
     assert.equal(result.token, "raw-runner-secret");
     assert.equal("token" in result.state.lease, false);
     assert.match(result.state.lease.tokenHash, /^[a-f0-9]{64}$/u);
@@ -375,10 +442,62 @@ describe("mode and authorization", () => {
       authorization: "pilot-capability",
       reason: "ägaren anropade godnatt-bugg full för denna run",
       now: LATER,
+      trustedRolloutEvidence: rolloutEvidence({ observedAt: LATER }),
     });
     assert.equal(promoted.mode, "full");
     assert.equal(promoted.status, "ready");
     assert.equal(promoted.promotionAuthorizationHash, null);
+  });
+
+  it("fails full begin, acquire, and promotion closed without fresh canonical preview rollout", () => {
+    assert.throws(
+      () =>
+        createRunState({
+          count: 1,
+          mode: "full",
+          cooldownMinutes: 5,
+          leaseMinutes: 60,
+          now: START,
+          runId: "blocked-full",
+        }),
+      /canonical preview-policy/u,
+    );
+    assert.throws(
+      () => fresh({ trustedRolloutEvidence: rolloutEvidence({ deliveryBranch: "master" }) }),
+      /deliveryBranch=preview/u,
+    );
+    assert.throws(
+      () => acquireLease(fresh(), { now: START, token: "token-1" }),
+      /canonical preview-policy/u,
+    );
+    assert.throws(
+      () =>
+        acquireLease(fresh(), {
+          now: LATER,
+          token: "token-1",
+          trustedRolloutEvidence: rolloutEvidence({ observedAt: START }),
+        }),
+      /stale/u,
+    );
+
+    const pausedPilot = pauseRun(advanceToDraft(claimed(acquired(pilot()))), {
+      token: "token-1",
+      reason: "pilot väntar på rollout",
+      now: LATER,
+    });
+    assert.throws(
+      () =>
+        promoteRun(pausedPilot, {
+          runId: "run-1",
+          authorization: "pilot-capability",
+          reason: "ägarmandat utan verifierad rollout",
+          now: LATER,
+        }),
+      /canonical preview-policy/u,
+    );
+
+    assert.doesNotThrow(() => acquired(pilot()));
+    assert.doesNotThrow(() => acquired(evaluation()));
   });
 });
 
@@ -593,6 +712,7 @@ describe("pass state machine", () => {
       trustedEvidence: pullEvidence({
         state: "MERGED",
         isDraft: false,
+        liveBaseSha: MERGE_SHA,
         observedAt: MERGED_TIME,
       }),
     });
@@ -603,6 +723,9 @@ describe("pass state machine", () => {
       trustedEvidence: pullEvidence({
         state: "MERGED",
         isDraft: false,
+        liveBaseSha: MERGE_SHA,
+        remoteBranchAbsent: true,
+        worktreeClean: true,
         observedAt: CLEANUP_TIME,
       }),
     });
@@ -614,6 +737,9 @@ describe("pass state machine", () => {
       trustedEvidence: pullEvidence({
         state: "MERGED",
         isDraft: false,
+        liveBaseSha: MERGE_SHA,
+        remoteBranchAbsent: true,
+        worktreeClean: true,
         observedAt: COMPLETE_TIME,
       }),
     });
@@ -626,6 +752,82 @@ describe("pass state machine", () => {
     assert.equal(state.current, null);
     assert.equal(state.lease, null);
     assert.equal(state.notBefore, "2026-08-11T20:11:50.000Z");
+  });
+
+  it("accepts a descendant preview tip after merge but rejects rewound or unknown ancestry", () => {
+    const merged = advanceStage(readyForMerge(), {
+      token: "token-1",
+      stage: "merged",
+      now: MERGED_TIME,
+      trustedEvidence: pullEvidence({
+        state: "MERGED",
+        isDraft: false,
+        liveBaseSha: MERGE_SHA,
+        observedAt: MERGED_TIME,
+      }),
+    });
+    const cleanupEvidence = pullEvidence({
+      state: "MERGED",
+      isDraft: false,
+      liveBaseSha: NEW_BASE_SHA,
+      previewAncestryStatus: "ahead",
+      previewMergeBaseSha: MERGE_SHA,
+      remoteBranchAbsent: true,
+      worktreeClean: true,
+      observedAt: CLEANUP_TIME,
+    });
+    const cleaned = advanceStage(merged, {
+      token: "token-1",
+      stage: "cleanup",
+      now: CLEANUP_TIME,
+      trustedEvidence: cleanupEvidence,
+    });
+    assert.equal(cleaned.current.stage, "cleanup");
+    assert.equal(
+      completePass(cleaned, {
+        token: "token-1",
+        outcome: "fixed",
+        evidence: "cleanup-ready med descendant preview-tip",
+        now: COMPLETE_TIME,
+        trustedEvidence: { ...cleanupEvidence, observedAt: COMPLETE_TIME },
+      }).completedPasses,
+      1,
+    );
+
+    for (const evidence of [
+      { previewAncestryStatus: "diverged", previewMergeBaseSha: MERGE_SHA },
+      { previewAncestryStatus: "behind", previewMergeBaseSha: MERGE_SHA },
+      { previewAncestryStatus: "ahead", previewMergeBaseSha: BASE_SHA },
+      { previewAncestryStatus: null, previewMergeBaseSha: null },
+    ]) {
+      assert.throws(
+        () =>
+          advanceStage(merged, {
+            token: "token-1",
+            stage: "cleanup",
+            now: CLEANUP_TIME,
+            trustedEvidence: { ...cleanupEvidence, ...evidence },
+          }),
+        /ancestor.*rewound\/diverged\/okänt/u,
+      );
+    }
+
+    for (const evidence of [
+      { remoteBranchAbsent: false },
+      { remoteBranchAbsent: null },
+      { worktreeClean: false },
+      { localHeadSha: NEW_HEAD_SHA },
+      { localWorktree: resolve("annat-worktree") },
+    ]) {
+      assert.throws(() =>
+        advanceStage(merged, {
+          token: "token-1",
+          stage: "cleanup",
+          now: CLEANUP_TIME,
+          trustedEvidence: { ...cleanupEvidence, ...evidence },
+        }),
+      );
+    }
   });
 
   it("cycles through two distinct evaluation drafts without merge authority", () => {
@@ -781,7 +983,7 @@ describe("pass state machine", () => {
             observedAt: MERGED_TIME,
           }),
         }),
-      /exakt aktuell head-SHA/u,
+      /exakt aktuell head- och base-SHA/u,
     );
   });
 
@@ -807,7 +1009,7 @@ describe("pass state machine", () => {
           now: READY_TIME,
           trustedEvidence: pullEvidence({ isDraft: false, observedAt: READY_TIME }),
         }),
-      /godkänd review för exakt aktuell head-SHA/u,
+      /godkänd review för exakt aktuell head- och base-SHA/u,
     );
 
     state = independentReview(state, {
@@ -823,6 +1025,213 @@ describe("pass state machine", () => {
         trustedEvidence: pullEvidence({ isDraft: false, observedAt: READY_TIME }),
       }).current.stage,
       "ready-to-merge",
+    );
+  });
+
+  it("invalidates an accepted review when the live preview base changes", () => {
+    let state = advanceToDraft(claimed());
+    state = advanceStage(state, {
+      token: "token-1",
+      stage: "ci-review",
+      now: LATER,
+      trustedEvidence: pullEvidence(),
+    });
+    state = independentReview(state);
+    state = advanceStage(state, {
+      token: "token-1",
+      stage: "ci-review",
+      now: READY_TIME,
+      trustedEvidence: pullEvidence({ liveBaseSha: NEW_BASE_SHA, observedAt: READY_TIME }),
+    });
+
+    assert.throws(
+      () =>
+        advanceStage(state, {
+          token: "token-1",
+          stage: "ready-to-merge",
+          now: MERGED_TIME,
+          trustedEvidence: pullEvidence({
+            liveBaseSha: NEW_BASE_SHA,
+            isDraft: false,
+            observedAt: MERGED_TIME,
+          }),
+        }),
+      /exakt aktuell head- och base-SHA/u,
+    );
+    assert.throws(
+      () =>
+        independentReview(state, {
+          reviewedBaseSha: BASE_SHA,
+          evidence: { liveBaseSha: NEW_BASE_SHA, observedAt: MERGED_TIME },
+          now: MERGED_TIME,
+        }),
+      /reviewed-base-sha/u,
+    );
+
+    state = independentReview(state, {
+      reviewedBaseSha: NEW_BASE_SHA,
+      evidence: { liveBaseSha: NEW_BASE_SHA, observedAt: MERGED_TIME },
+      now: MERGED_TIME,
+    });
+    assert.equal(
+      advanceStage(state, {
+        token: "token-1",
+        stage: "ready-to-merge",
+        now: CLEANUP_TIME,
+        trustedEvidence: pullEvidence({
+          liveBaseSha: NEW_BASE_SHA,
+          isDraft: false,
+          observedAt: CLEANUP_TIME,
+        }),
+      }).current.stage,
+      "ready-to-merge",
+    );
+  });
+
+  it("reopens ready review only for an explicit immutable PR revision", () => {
+    const ready = readyForMerge();
+    assert.throws(
+      () =>
+        advanceStage(ready, {
+          token: "token-1",
+          stage: "ci-review",
+          now: MERGED_TIME,
+          trustedEvidence: pullEvidence({ observedAt: MERGED_TIME }),
+        }),
+      /bakåt/u,
+    );
+    assert.throws(
+      () =>
+        reopenReview(ready, {
+          token: "token-1",
+          reason: "ingen faktisk revision",
+          now: MERGED_TIME,
+          trustedEvidence: pullEvidence({ isDraft: false, observedAt: MERGED_TIME }),
+        }),
+      /faktiskt ändrad/u,
+    );
+    assert.throws(
+      () =>
+        reopenReview(ready, {
+          token: "token-1",
+          reason: "fel worktree",
+          now: MERGED_TIME,
+          trustedEvidence: pullEvidence({
+            headSha: NEW_HEAD_SHA,
+            isDraft: false,
+            localWorktree: resolve("fel-worktree"),
+            observedAt: MERGED_TIME,
+          }),
+        }),
+      /immutable app-worktree/u,
+    );
+
+    const reopened = reopenReview(ready, {
+      token: "token-1",
+      reason: "preview och pass-head ändrades efter ready",
+      now: MERGED_TIME,
+      trustedEvidence: pullEvidence({
+        headSha: NEW_HEAD_SHA,
+        liveBaseSha: NEW_BASE_SHA,
+        isDraft: false,
+        observedAt: MERGED_TIME,
+      }),
+    });
+    assert.equal(reopened.current.stage, "ci-review");
+    assert.equal(reopened.current.headSha, NEW_HEAD_SHA);
+    assert.equal(reopened.current.baseSha, NEW_BASE_SHA);
+    assert.equal(reopened.current.reviewPasses.length, 1);
+    assert.equal(reopened.current.deliveryEvidence.readyToMerge, null);
+    assert.equal(reopened.history.at(-1).kind, "review-reopened");
+    assert.equal(reopened.history.at(-1).reason, "preview och pass-head ändrades efter ready");
+    assert.equal(reopened.history.at(-1).previousHeadSha, HEAD_SHA);
+    assert.equal(reopened.history.at(-1).previousBaseSha, BASE_SHA);
+    assert.equal(reopened.history.at(-1).nextHeadSha, NEW_HEAD_SHA);
+    assert.equal(reopened.history.at(-1).nextBaseSha, NEW_BASE_SHA);
+  });
+
+  it("requires explicit legacy rebaseline and preserves history without trusting old reviews", () => {
+    let legacy = advanceToDraft(claimed());
+    legacy = advanceStage(legacy, {
+      token: "token-1",
+      stage: "ci-review",
+      now: LATER,
+      trustedEvidence: pullEvidence(),
+    });
+    legacy = independentReview(legacy);
+    legacy.version = 3;
+    delete legacy.current.baseSha;
+    delete legacy.current.reviewPasses[0].baseSha;
+
+    assert.throws(
+      () =>
+        advanceStage(legacy, {
+          token: "token-1",
+          stage: "ready-to-merge",
+          now: READY_TIME,
+          trustedEvidence: pullEvidence({ isDraft: false, observedAt: READY_TIME }),
+        }),
+      /rebaseline-legacy/u,
+    );
+    assert.throws(
+      () =>
+        rebaselineLegacyState(legacy, {
+          token: "token-1",
+          reason: "fel deliverybas",
+          now: READY_TIME,
+          trustedEvidence: pullEvidence({
+            baseRefName: "master",
+            liveBaseSha: NEW_BASE_SHA,
+            observedAt: READY_TIME,
+          }),
+        }),
+      /base preview/u,
+    );
+
+    const legacyV4 = structuredClone(legacy);
+    legacyV4.version = 4;
+    const rebasedV4 = rebaselineLegacyState(legacyV4, {
+      token: "token-1",
+      reason: "v4 kräver samma explicita rescue",
+      now: READY_TIME,
+      trustedEvidence: pullEvidence({
+        liveBaseSha: NEW_BASE_SHA,
+        observedAt: READY_TIME,
+      }),
+    });
+    assert.equal(rebasedV4.current.legacySourceVersion, 4);
+    assert.equal(rebasedV4.history.at(-1).sourceVersion, 4);
+
+    const rebased = rebaselineLegacyState(legacy, {
+      token: "token-1",
+      reason: "ny live draft och preview-bas verifierad",
+      now: READY_TIME,
+      trustedEvidence: pullEvidence({
+        liveBaseSha: NEW_BASE_SHA,
+        observedAt: READY_TIME,
+      }),
+    });
+    assert.equal(rebased.version, 5);
+    assert.equal(rebased.current.stage, "ci-review");
+    assert.equal(rebased.current.baseSha, NEW_BASE_SHA);
+    assert.equal(rebased.current.legacyRebaselineRequired, false);
+    assert.equal(rebased.current.reviewPasses.length, 1);
+    assert.equal(rebased.current.deliveryEvidence.draftPr, null);
+    assert.equal(rebased.current.deliveryEvidence.legacyRebaseline.liveBaseSha, NEW_BASE_SHA);
+    assert.equal(rebased.history.at(-1).kind, "legacy-rebaselined");
+    assert.throws(
+      () =>
+        advanceStage(rebased, {
+          token: "token-1",
+          stage: "ready-to-merge",
+          now: MERGED_TIME,
+          trustedEvidence: pullEvidence({
+            liveBaseSha: NEW_BASE_SHA,
+            isDraft: false,
+            observedAt: MERGED_TIME,
+          }),
+        }),
+      /godkänd review/u,
     );
   });
 
@@ -932,6 +1341,7 @@ describe("pass state machine", () => {
           source: "pr-ai-review",
           verdict: "clean",
           reviewedSha: HEAD_SHA,
+          reviewedBaseSha: BASE_SHA,
           now: REVIEW_TIME,
           trustedEvidence: pullEvidence({ observedAt: REVIEW_TIME }),
         }),
@@ -944,6 +1354,7 @@ describe("pass state machine", () => {
           source: "independent-agent",
           verdict: "clean",
           reviewedSha: HEAD_SHA,
+          reviewedBaseSha: BASE_SHA,
           now: REVIEW_TIME,
           trustedEvidence: pullEvidence({ observedAt: REVIEW_TIME }),
         }),
@@ -969,6 +1380,7 @@ describe("pass state machine", () => {
       source: "pr-ai-review",
       verdict: "clean",
       sha: HEAD_SHA,
+      baseSha: BASE_SHA,
       note: "historisk post",
     });
     assert.equal(
@@ -1057,6 +1469,16 @@ describe("live evidence reader", () => {
         return "https://github.com/owner/sajtmaskin.git\n";
       }
       if (command === "gh") {
+        if (args[1] === "graphql") {
+          return JSON.stringify({
+            data: {
+              repository: {
+                nameWithOwner: "owner/sajtmaskin",
+                preview: { target: { oid: BASE_SHA } },
+              },
+            },
+          });
+        }
         return JSON.stringify({
           number: 123,
           state: "open",
@@ -1080,16 +1502,144 @@ describe("live evidence reader", () => {
     const evidence = readLivePullRequestEvidence({ prNumber: 123, execFile });
     assert.equal(evidence.state, "OPEN");
     assert.equal(evidence.mergeCommitOid, null);
+    assert.equal(evidence.liveBaseSha, BASE_SHA);
     assert.equal(evidence.titlePrefixPresent, true);
     assert.equal(evidence.bodyMarkerPresent, true);
-    const ghCall = calls.find((call) => call.command === "gh");
+    const ghCall = calls.find((call) => call.command === "gh" && call.args[1] !== "graphql");
     assert.deepEqual(ghCall.args, ["api", "repos/{owner}/{repo}/pulls/123", "--method", "GET"]);
     assert.equal(ghCall.options.timeout, 30_000);
+    assert.equal(
+      calls.find((call) => call.command === "gh" && call.args[1] === "graphql").options.timeout,
+      30_000,
+    );
     assert.equal(
       calls
         .filter((call) => call.command === "git")
         .every((call) => call.options.timeout === 5_000),
       true,
+    );
+    assert.equal(
+      calls
+        .filter((call) => call.command === "git")
+        .every((call) => call.options.env.GIT_OPTIONAL_LOCKS === "0"),
+      true,
+    );
+  });
+
+  it("binds cleanup to branch absence, clean worktree, and GitHub merge ancestry", () => {
+    const calls = [];
+    const execFile = (command, args, options) => {
+      calls.push({ command, args, options });
+      if (command === "git" && args[0] === "branch") return "fix/sm-022-safe-cleanup\n";
+      if (command === "git" && args[0] === "rev-parse") return `${HEAD_SHA}\n`;
+      if (command === "git" && args[0] === "remote") {
+        return "https://github.com/owner/sajtmaskin.git\n";
+      }
+      if (command === "git" && args[0] === "ls-remote") return "";
+      if (command === "git" && args[0] === "status") return "";
+      if (command === "gh" && args[1] === "graphql") {
+        return JSON.stringify({
+          data: {
+            repository: {
+              nameWithOwner: "owner/sajtmaskin",
+              preview: { target: { oid: NEW_BASE_SHA } },
+            },
+          },
+        });
+      }
+      if (command === "gh" && args[1].includes("/compare/")) {
+        return JSON.stringify({
+          status: "ahead",
+          merge_base_commit: { sha: MERGE_SHA },
+        });
+      }
+      if (command === "gh") {
+        return JSON.stringify({
+          number: 123,
+          state: "closed",
+          draft: false,
+          merged_at: MERGED_TIME,
+          merge_commit_sha: MERGE_SHA,
+          title: "Fix",
+          body: "",
+          labels: [],
+          base: { ref: "preview", repo: { full_name: "owner/sajtmaskin" } },
+          head: {
+            ref: "fix/sm-022-safe-cleanup",
+            sha: HEAD_SHA,
+            repo: { full_name: "owner/sajtmaskin" },
+          },
+        });
+      }
+      throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+    };
+
+    const evidence = readLivePullRequestEvidence({
+      prNumber: 123,
+      execFile,
+      includeCleanup: true,
+    });
+    assert.equal(evidence.state, "MERGED");
+    assert.equal(evidence.liveBaseSha, NEW_BASE_SHA);
+    assert.equal(evidence.previewAncestryStatus, "ahead");
+    assert.equal(evidence.previewMergeBaseSha, MERGE_SHA);
+    assert.equal(evidence.remoteBranchAbsent, true);
+    assert.equal(evidence.worktreeClean, true);
+    assert.equal(
+      calls.find((call) => call.command === "git" && call.args[0] === "ls-remote").options.timeout,
+      5_000,
+    );
+    assert.equal(
+      calls.find((call) => call.command === "gh" && call.args[1].includes("/compare/")).options
+        .timeout,
+      30_000,
+    );
+
+    assert.throws(
+      () =>
+        readLivePullRequestEvidence({
+          prNumber: 123,
+          includeCleanup: true,
+          execFile(command, args, options) {
+            if (command === "git" && args[0] === "ls-remote") {
+              throw new Error("remote lookup failed");
+            }
+            return execFile(command, args, options);
+          },
+        }),
+      /remote lookup failed/u,
+    );
+  });
+
+  it("reads rollout policy only from the live preview ref", () => {
+    const calls = [];
+    const evidence = readLivePreviewPolicyEvidence({
+      execFile(command, args, options) {
+        calls.push({ command, args, options });
+        if (command === "git") return "https://github.com/owner/sajtmaskin.git\n";
+        return JSON.stringify({
+          data: {
+            repository: {
+              nameWithOwner: "owner/sajtmaskin",
+              preview: { target: { oid: BASE_SHA } },
+              agentWorkflow: {
+                oid: POLICY_BLOB_SHA,
+                text: JSON.stringify({ deliveryBranch: "preview" }),
+                isBinary: false,
+              },
+            },
+          },
+        });
+      },
+    });
+    assert.equal(evidence.refName, "preview");
+    assert.equal(evidence.refSha, BASE_SHA);
+    assert.equal(evidence.policyPath, "config/agent-workflow.json");
+    assert.equal(evidence.policyBlobSha, POLICY_BLOB_SHA);
+    assert.equal(evidence.deliveryBranch, "preview");
+    assert.match(
+      calls.find((call) => call.command === "gh").args.at(-1),
+      /preview:config\/agent-workflow\.json/u,
     );
   });
 });
@@ -1132,7 +1682,7 @@ describe("CLI", () => {
     }
   });
 
-  it("persists full state and rejects a second live runner", () => {
+  it("persists hash-only lease state and rejects a second live runner", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "godnatt-bugg-state-"));
     const run = (...args) =>
       spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
@@ -1145,19 +1695,12 @@ describe("CLI", () => {
       assert.equal(invalidPilot.status, 2);
       assert.match(invalidPilot.stderr, /exakt ett pass/u);
 
-      const begin = run(
-        "begin",
-        "--count",
-        "2",
-        "--mode",
-        "full",
-        "--automation-id",
-        "godnatt-bugg",
-      );
+      const begin = run("begin", "--count", "2", "--mode", "evaluation");
       assert.equal(begin.status, 0, begin.stderr);
       const beginPayload = JSON.parse(begin.stdout);
       assert.equal(beginPayload.promotionCode, null);
       assert.equal(beginPayload.state.remainingPasses, 2);
+      assert.equal(beginPayload.state.mode, "evaluation");
       assert.equal(beginPayload.state.mergedPasses, 0);
       assert.equal(beginPayload.state.draftPasses, 0);
 
@@ -1179,6 +1722,29 @@ describe("CLI", () => {
       assert.equal(status.status, 0, status.stderr);
       assert.equal(JSON.parse(status.stdout).state.status, "running");
       assert.doesNotMatch(status.stdout, new RegExp(acquirePayload.token, "u"));
+    } finally {
+      rmSync(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("never takes over or unlinks an existing mutex", () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "godnatt-bugg-mutex-state-"));
+    const run = (...args) =>
+      spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+        encoding: "utf8",
+        env: { ...process.env, GODNATT_BUGG_STATE_DIR: stateDir },
+      });
+    const mutexPath = join(stateDir, ".mutex");
+    const owner = JSON.stringify({ pid: 999999, acquiredAt: "2000-01-01T00:00:00.000Z" });
+    try {
+      const begin = run("begin", "--count", "1", "--mode", "evaluation");
+      assert.equal(begin.status, 0, begin.stderr);
+      writeFileSync(mutexPath, `${owner}\n`, "utf8");
+
+      const status = run("status");
+      assert.equal(status.status, 3);
+      assert.match(status.stderr, /ägarlås.*aldrig över automatiskt/u);
+      assert.equal(readFileSync(mutexPath, "utf8"), `${owner}\n`);
     } finally {
       rmSync(stateDir, { recursive: true, force: true });
     }
@@ -1214,7 +1780,7 @@ describe("CLI", () => {
       const status = run("status");
       assert.equal(status.status, 0, status.stderr);
       const payload = JSON.parse(status.stdout);
-      assert.equal(payload.state.version, 4);
+      assert.equal(payload.state.version, 5);
       assert.equal(payload.state.status, "running");
       assert.match(payload.state.lease.tokenHash, /^[a-f0-9]{64}$/u);
       assert.doesNotMatch(status.stdout, /legacy-raw-runner-secret/u);
@@ -1228,6 +1794,20 @@ describe("CLI", () => {
       const heartbeat = run("heartbeat", "--token", legacyToken);
       assert.equal(heartbeat.status, 0, heartbeat.stderr);
       assert.doesNotMatch(heartbeat.stdout, /legacy-raw-runner-secret/u);
+
+      const conflict = acquired();
+      conflict.version = 3;
+      conflict.lease.token = legacyToken;
+      conflict.lease.tokenHash = "0".repeat(64);
+      conflict.lease.expiresAt = "2099-01-01T00:00:00.000Z";
+      writeFileSync(join(stateDir, "state.json"), `${JSON.stringify(conflict, null, 2)}\n`, "utf8");
+      const conflictStatus = run("status");
+      assert.equal(conflictStatus.status, 0, conflictStatus.stderr);
+      assert.equal(JSON.parse(conflictStatus.stdout).state.lease.credentialConflict, true);
+      assert.doesNotMatch(conflictStatus.stdout, /legacy-raw-runner-secret/u);
+      const rejectedHeartbeat = run("heartbeat", "--token", legacyToken);
+      assert.equal(rejectedHeartbeat.status, 3);
+      assert.match(rejectedHeartbeat.stderr, /Ogiltig eller saknad runner-token/u);
     } finally {
       rmSync(stateDir, { recursive: true, force: true });
     }

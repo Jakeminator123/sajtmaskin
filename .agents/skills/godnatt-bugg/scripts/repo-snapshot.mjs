@@ -14,6 +14,8 @@ function git(cwd, args) {
     cwd,
     encoding: "buffer",
     maxBuffer: MAX_BUFFER,
+    timeout: 10_000,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
   });
 }
 
@@ -59,6 +61,26 @@ function normalizedWorktrees(records) {
   return Object.fromEntries(Object.entries(records).map(([path, value]) => [worktreePath(path), value]));
 }
 
+function workingFiles(repoRoot) {
+  const untracked = nulList(
+    git(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+  ).map((path) => {
+    try {
+      const absolutePath = resolve(repoRoot, path);
+      const stats = statSync(absolutePath);
+      return { path, size: stats.size, sha256: sha256(readFileSync(absolutePath)) };
+    } catch (error) {
+      return { path, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  return {
+    statusSha256: sha256(git(repoRoot, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])),
+    unstagedDiffSha256: sha256(git(repoRoot, ["diff", "--binary", "--no-ext-diff"])),
+    stagedDiffSha256: sha256(git(repoRoot, ["diff", "--cached", "--binary", "--no-ext-diff"])),
+    untracked,
+  };
+}
+
 function validSnapshot(snapshot) {
   if (!snapshot || ![1, 2].includes(snapshot.version)) return false;
   const hashes = ["refsSha256", "reflogSha256", "statusSha256", "unstagedDiffSha256",
@@ -79,7 +101,15 @@ function validSnapshot(snapshot) {
   if (!Object.entries(snapshot.refs).every(([ref, sha]) => ref.startsWith("refs/") &&
     typeof sha === "string" && /^[a-f0-9]{40}$/u.test(sha))) return false;
   if (!Object.values(snapshot.worktrees).every((value) => typeof value === "string")) return false;
-  const ownWorktree = normalizedWorktrees(snapshot.worktrees)[worktreePath(snapshot.repoRoot)];
+  const records = normalizedWorktrees(snapshot.worktrees);
+  if (Object.keys(records).length !== Object.keys(snapshot.worktrees).length) return false;
+  const siblings = snapshot.siblingWorktrees;
+  if (!siblings || typeof siblings !== "object" || Array.isArray(siblings)) return false;
+  const expectedSiblings = Object.keys(records).filter((path) =>
+    path !== worktreePath(snapshot.repoRoot) && !records[path].split("\n").includes("bare")).sort();
+  if (JSON.stringify(Object.keys(siblings).sort()) !== JSON.stringify(expectedSiblings) ||
+    !Object.values(siblings).every((hash) => typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash))) return false;
+  const ownWorktree = records[worktreePath(snapshot.repoRoot)];
   if (typeof ownWorktree !== "string") return false;
   const ownLines = ownWorktree.split("\n");
   if (!ownLines.includes(`HEAD ${snapshot.head}`)) return false;
@@ -112,15 +142,16 @@ export function compareRepoSnapshots(before, after, { passBranch = before?.branc
   const incomplete = (before.version >= 2 || after.version >= 2) && !structured;
   const refs = structured ? changedKeys(before.refs, after.refs) : [];
   const worktrees = structured ? changedKeys(normalizedWorktrees(before.worktrees), normalizedWorktrees(after.worktrees)) : [];
+  const siblingFiles = structured ? changedKeys(before.siblingWorktrees, after.siblingWorktrees) : [];
   const passRef = passBranch ? `refs/heads/${passBranch}` : null;
   if (passRef && refs.includes(passRef)) passChanges.push(passRef);
   const passPath = worktreePath(before.repoRoot);
   if (worktrees.includes(passPath)) passChanges.push("pass-worktree");
   const externalRefs = refs.filter((ref) => ref !== passRef);
-  const externalWorktrees = worktrees.filter((path) => path !== passPath);
+  const externalWorktrees = [...new Set([...worktrees.filter((path) => path !== passPath), ...siblingFiles])].sort();
   const globalChanges = ["refsSha256", "reflogSha256", "worktreesSha256"]
     .filter((key) => before[key] !== after[key]);
-  const unexplained = incomplete || (!structured && globalChanges.length > 0) ||
+  const unexplained = incomplete || !structured ||
     (globalChanges.length > 0 && refs.length === 0 && worktrees.length === 0);
   return {
     kind: passChanges.length > 0 ? "pass-mutation" : unexplained ? "unclassified-change" :
@@ -137,28 +168,22 @@ export function compareRepoSnapshots(before, after, { passBranch = before?.branc
 
 export function captureRepoSnapshot(cwd = process.cwd()) {
   const repoRoot = text(git(cwd, ["rev-parse", "--show-toplevel"]));
-  const untracked = nulList(
-    git(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-  ).map((path) => {
-    const absolutePath = resolve(repoRoot, path);
-    try {
-      const stats = statSync(absolutePath);
-      const content = readFileSync(absolutePath);
-      return { path, size: stats.size, sha256: sha256(content) };
-    } catch (error) {
-      return {
-        path,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  });
-
+  const files = workingFiles(repoRoot);
   const refs = git(repoRoot, ["for-each-ref", "--format=%(refname) %(objectname)"]);
   const reflog = git(repoRoot, ["reflog", "show", "--all", "--date=raw", "--format=%H %gD %gs"]);
-  const status = git(repoRoot, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
-  const unstaged = git(repoRoot, ["diff", "--binary", "--no-ext-diff"]);
-  const staged = git(repoRoot, ["diff", "--cached", "--binary", "--no-ext-diff"]);
   const worktrees = git(repoRoot, ["worktree", "list", "--porcelain"]);
+  const records = worktreeRecords(worktrees);
+  const siblingWorktrees = Object.fromEntries(Object.entries(records).filter(([path, record]) =>
+    worktreePath(path) !== worktreePath(repoRoot) && !record.split("\n").includes("bare")).map(([path]) => {
+    try {
+      const sibling = workingFiles(path);
+      // Unreadable files are incomplete proof, never a stable clean fingerprint.
+      if (sibling.untracked.some((entry) => entry.error !== undefined)) throw new Error("unreadable sibling files");
+      return [worktreePath(path), sha256(JSON.stringify(sibling))];
+    } catch (error) {
+      return [worktreePath(path), { error: error instanceof Error ? error.message : String(error) }];
+    }
+  }));
 
   return {
     version: 2,
@@ -166,15 +191,16 @@ export function captureRepoSnapshot(cwd = process.cwd()) {
     head: text(git(repoRoot, ["rev-parse", "HEAD"])),
     branch: text(git(repoRoot, ["branch", "--show-current"])) || null,
     refs: refRecords(refs),
-    worktrees: worktreeRecords(worktrees),
+    worktrees: records,
+    siblingWorktrees,
     headReflogSha256: sha256(git(repoRoot, ["reflog", "show", "HEAD", "--date=raw", "--format=%H %gD %gs"])),
     refsSha256: sha256(refs),
     reflogSha256: sha256(reflog),
-    statusSha256: sha256(status),
-    unstagedDiffSha256: sha256(unstaged),
-    stagedDiffSha256: sha256(staged),
+    statusSha256: files.statusSha256,
+    unstagedDiffSha256: files.unstagedDiffSha256,
+    stagedDiffSha256: files.stagedDiffSha256,
     worktreesSha256: sha256(worktrees),
-    untracked,
+    untracked: files.untracked,
   };
 }
 
