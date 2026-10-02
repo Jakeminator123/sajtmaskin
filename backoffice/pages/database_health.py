@@ -10,13 +10,12 @@ Streamlit-sida med tre delar:
      Audit-logg skrivs till `data/observability/db-perf-indexes-runs.ndjson`.
   3. **Historik**: linjegrafer från snapshot-NDJSON (rader, latens, missing).
 
-Auto-applicering: `npm run dev` triggar `predev` som kör perf-indexes som
-soft-step (failar inte dev-server om migrationen krånglar). I prod körs
-ingenting automatiskt — knappen är den enda triggern.
+Dev-start och CI-push applicerar inte index automatiskt. CLI och knappen är
+uttryckliga skrivvägar; mål, plan och lås-/trafikpåverkan måste granskas.
 
 Designprincip: användaren kan vara icke-teknisk. Vi gör det medvetet
-SVÅRT att råka klicka apply (text-ruta + checkbox). Skriptet är säkert
-även vid "olyckliga" klick (idempotent), men friktionen tvingar reflektion.
+SVÅRT att råka klicka apply (text-ruta + checkbox). Idempotens är inte ett
+säkerhetsbevis: index-DDL kan låsa writes och kräver ett medvetet beslut.
 """
 
 from __future__ import annotations
@@ -268,8 +267,8 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
         )
         st.code("npm run db:perf-indexes", language="bash")
         st.caption(
-            "Skriptet är idempotent (`CREATE INDEX IF NOT EXISTS`) — säkert att köra om-och-om-igen, "
-            "även mot prod. Skapar bara de index som saknas."
+            "Granska först `npm run db:perf-indexes:dry` och verifiera mål. "
+            "Faktisk apply kräver separat mandat och --reason; index-DDL kan låsa writes även när den är idempotent."
         )
         with st.expander("Vilka index saknas?", expanded=True):
             df = pd.DataFrame(missing_indexes)
@@ -441,7 +440,7 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
                 st.caption("stderr:")
                 st.code(last["stderr_tail"], language="bash")
 
-    # Audit-historik (alla kör — auto-predev + manuella)
+    # Audit-historik: explicita körningar och bevarade äldre auto-kvitton
     audit_rows = _load_perf_audit_log(ctx, max_rows=20)
     if audit_rows:
         with st.expander(f"Audit-logg (sista {len(audit_rows)} körningar)", expanded=False):

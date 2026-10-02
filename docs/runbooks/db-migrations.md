@@ -36,8 +36,10 @@ pending migrationer eller avsiktlig dev/prod-skillnad behöver inspekteras och
 en separat DB-plan. Ett grönt PR-jobb utan live-creds är inte live-DB-bevis.
 
 `npm run hooks:install` behövs efter workflowuppdatering. Endast de tre
-exakta gamla markerägda posthook-filerna tas bort, efter att alla kopierats
-till en avgränsad temporär återställningsmapp. `pre-push` behålls.
+exakta gamla markerägda DB-hookkropparna ersätts efter att alla kopierats
+till en avgränsad temporär återställningsmapp. Passiva versionsmärkta stoppfiler
+kör bara `exit 0`: äldre checkouts får inte återskapa de aktiva hookarna.
+`pre-push` behålls.
 Länkade worktrees delar normalt hookkatalogen; äldre checkouts får inte
 nedgradera den nyare hooken.
 

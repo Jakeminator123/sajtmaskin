@@ -2,21 +2,16 @@
  * Performance index migration — 2026-04-24 långbänk.
  *
  * Idempotent: alla `CREATE INDEX IF NOT EXISTS` + dedupe-aware (hoppar över
- * index som redan täcks av annat namn på samma kolumner). Säker att köra
- * om-och-om-igen mot dev OCH prod. Använder INTE `CONCURRENTLY` för att
- * fungera i transaktion; tabellerna är små nog (engine_messages: tusentals
- * rader) att kort write-lock är acceptabelt. Om du har miljontals rader:
- * kör manuellt med CONCURRENTLY.
+ * index som redan täcks av annat namn på samma kolumner). Idempotens är inte
+ * ett säkerhets-/apply-mandat. Använder INTE `CONCURRENTLY`; granska därför
+ * lås-/trafikpåverkan och faktiskt mål före separat auktoriserad apply.
  *
  * Kör:
  *   npm run db:perf-indexes                              # apply
  *   npm run db:perf-indexes:dry                          # dry-run
- *   node scripts/db/add-performance-indexes.mjs --reason "auto: predev"
+ *   node scripts/db/add-performance-indexes.mjs --reason "manual: reviewed plan"
  *
- * Auto-körning:
- *   - `npm run dev` triggar `predev` som inkluderar denna migration
- *     (samma mönster som `db:init`). Säker eftersom skriptet är idempotent
- *     och dev pekar mot dev-DB:n via `.env.local`.
+ * Explicita ingångar (aldrig från predev eller CI-push):
  *   - I prod: backoffice-sidan "Databashälsa" har en knapp som kräver
  *     skriftlig motivering ("varför kör du detta?") + bekräftelse innan
  *     den triggar denna migration. Audit-logg skrivs till
@@ -275,8 +270,8 @@ const DRY_RUN = process.argv.includes("--dry-run");
 /**
  * Plocka ut värdet från `--reason "..."` eller `--reason=...`. Används för
  * audit-loggen så vi kan svara på "varför kördes denna migration kl 03:14
- * i lördags?". `predev`-anropet skickar `--reason auto:predev`; backoffice-
- * knappen skickar användarens skrivna motivering.
+ * i lördags?". CLI och backoffice-knappen skickar den uttryckliga
+ * operatörsmotiveringen; äldre auto-kvitton är historik, inte aktiva triggers.
  */
 function parseReasonArg() {
   const args = process.argv.slice(2);

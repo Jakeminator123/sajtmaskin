@@ -119,14 +119,14 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(18);
+    expect(HOOK_VERSION).toBe(19);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
     }
   });
 
-  it("installerar bara pre-push och pensionerar alla DB-posthooks utan kodkörning", () => {
+  it("bara pre-push kör repo-kod; pensionerade DB-posthooks är passiva", () => {
     expect(MANAGED_HOOKS).toEqual(["pre-push"]);
     expect(RETIRED_DB_HOOKS).toEqual(["post-merge", "post-checkout", "post-rewrite"]);
     for (const hook of RETIRED_DB_HOOKS) {
@@ -609,12 +609,17 @@ describe("retire managed DB hooks", () => {
 
   it("retirer bara kända managed headers, inte främmande eller framtida hooks", () => {
     for (const hookName of RETIRED_DB_HOOKS) {
-      expect(decideHookRetirement({ hookName, existing: null }).action).toBe("skip");
+      expect(decideHookRetirement({ hookName, existing: null }).action).toBe("retire");
+      expect(decideHookRetirement({ hookName, existing: renderHookScript(hookName) }).action).toBe(
+        "skip",
+      );
       expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
       for (const existing of [
         "#!/bin/sh\necho foreign\n",
         `#!/bin/sh\n# example ${HOOK_MARKER}\n`,
         oldHook(hookName, HOOK_VERSION + 1),
+        oldHook(hookName, HOOK_VERSION),
+        renderHookScript(hookName) + "node unexpected.mjs\n",
         oldHook("pre-push"),
       ]) {
         expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
@@ -641,11 +646,25 @@ describe("retire managed DB hooks", () => {
     expect(result.status).toBe(0);
     expect(readFileSync(join(hooksDir, "pre-push"), "utf8")).toBe(renderHookScript("pre-push"));
     for (const hook of RETIRED_DB_HOOKS) {
-      expect(existsSync(join(hooksDir, hook))).toBe(false);
+      expect(readFileSync(join(hooksDir, hook), "utf8")).toBe(renderHookScript(hook));
       const line = result.stdout.split("\n").find((value) => value.includes(`${hook} pensionerad`));
       const recoveryPath = line?.split("Återställningskopia: ")[1]?.trim();
       expect(recoveryPath).toBeTruthy();
       expect(readFileSync(recoveryPath!, "utf8")).toBe(oldHook(hook));
+    }
+  });
+
+  it("passiva tombstones hindrar äldre installerare från att återinföra aktiva DB-hooks", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      // The legacy installer compares managed version before writing. A
+      // missing file would be written; a passive newer header must conflict.
+      expect(decideHookInstall({ existing: null, desired: oldHook(hookName) }).action).toBe(
+        "write",
+      );
+      expect(
+        decideHookInstall({ existing: renderHookScript(hookName), desired: oldHook(hookName) })
+          .action,
+      ).toBe("conflict");
     }
   });
 

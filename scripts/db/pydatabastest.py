@@ -865,7 +865,7 @@ def print_count_table(dev: DbState, prod: DbState) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Optional remediation (interactive only, dev only, non-destructive)
+# Optional write/repair (interactive only, explicit dev decision)
 # --------------------------------------------------------------------------- #
 
 
@@ -877,7 +877,7 @@ def maybe_remediate(dev: DbState, interactive: bool) -> None:
         flush=True,
     )
     try:
-        answer = input("Run `npm run db:init` against the dev DB now? (idempotent, non-destructive) [y/N] ")
+        answer = input("WRITE/REPAIR: `npm run db:init` can UPDATE/DELETE existing dev data. Run it now? [y/N] ")
     except (EOFError, KeyboardInterrupt):
         print("\nSkipping remediation.", flush=True)
         return

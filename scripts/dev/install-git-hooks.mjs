@@ -29,7 +29,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 18;
+export const HOOK_VERSION = 19;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -42,7 +42,7 @@ export const RETIRED_DB_HOOKS = Object.freeze(["post-merge", "post-checkout", "p
  * Windows (Git for Windows levererar sitt eget), medan en `.mjs` som hook
  * kräver att filen är exekverbar på ett sätt Windows inte ger oss.
  *
- * Pensionerade DB-hooknamn ger bara no-op-stubbar och installeras aldrig.
+ * Pensionerade DB-hooknamn ger bara passiva no-op-stubbar för nedgraderingsskydd.
  * `pre-push` är fail-closed: `verify:pr --plan` måste bli grönt, annars
  * stoppas pushen. Riktade kontroller körs lokalt och GitHub Actions äger den
  * blockerande fullprofilen. Bara CI och den uttryckliga escape hatchen får
@@ -266,8 +266,8 @@ exit "$status"
   }
 
   if (!RETIRED_DB_HOOKS.includes(hookName)) throw new Error(`Unknown hook: ${hookName}`);
-  // Compatibility for callers inspecting a retired name. Never execute the
-  // newly checked-out branch's Node code; these stubs are NOT installed.
+  // Passive downgrade barriers: old worktrees must not recreate a missing
+  // active DB hook. Git may execute these stubs, but they never invoke Node.
   return `#!/bin/sh
 # ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: retired)
 exit 0
@@ -276,15 +276,17 @@ exit 0
 
 /** Only exact, known managed DB headers may be retired; future/foreign files stop. */
 export function decideHookRetirement({ hookName, existing }) {
-  if (!existing) return { action: "skip", reason: "saknas" };
   if (!RETIRED_DB_HOOKS.includes(hookName)) {
     return { action: "conflict", reason: "inte en pensionerad DB-hook" };
   }
+  if (!existing)
+    return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
+  if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
   const match = new RegExp(
-    `^# ${HOOK_MARKER} v(\\d+) \\(${hookName}: db-schema-sync\\)\\r?$`,
+    `^# ${HOOK_MARKER} v(\\d+) \\(${hookName}: (?:db-schema-sync|retired)\\)\\r?$`,
     "mu",
   ).exec(existing);
-  if (!match || Number(match[1]) > HOOK_VERSION) {
+  if (!match || Number(match[1]) >= HOOK_VERSION) {
     return { action: "conflict", reason: "främmande eller nyare hook; rörs inte" };
   }
   return { action: "retire", reason: "managed DB-posthook pensionerad" };
@@ -378,7 +380,7 @@ function main() {
   const retirements = RETIRED_DB_HOOKS.map((hookName) => {
     const target = join(hooksDir, hookName);
     const existing = existsSync(target) ? readFileSync(target, "utf8") : null;
-    return { hookName, target, ...decideHookRetirement({ hookName, existing }) };
+    return { hookName, target, existing, ...decideHookRetirement({ hookName, existing }) };
   });
   for (const operation of [...installs, ...retirements]) {
     if (operation.action === "conflict")
@@ -390,13 +392,26 @@ function main() {
   }
   const toRetire = retirements.filter((operation) => operation.action === "retire");
   if (toRetire.length > 0) {
-    const recoveryDir = mkdtempSync(join(tmpdir(), "sajtmaskin-retired-db-hooks-"));
-    // Copy all files successfully before removing any. Only these three exact
-    // marker-owned files are removed; no directory is ever recursively deleted.
-    for (const { hookName, target } of toRetire) copyFileSync(target, join(recoveryDir, hookName));
-    for (const { hookName, target } of toRetire) {
-      unlinkSync(target);
-      log(`[hooks] ${hookName} pensionerad. Återställningskopia: ${join(recoveryDir, hookName)}`);
+    const oldHooks = toRetire.filter((operation) => operation.existing !== null);
+    const recoveryDir =
+      oldHooks.length > 0 ? mkdtempSync(join(tmpdir(), "sajtmaskin-retired-db-hooks-")) : null;
+    // Copy all existing managed bodies before removing any. No directory is
+    // recursively deleted; absent files get passive anti-downgrade stubs too.
+    for (const { hookName, target } of oldHooks) copyFileSync(target, join(recoveryDir, hookName));
+    for (const { hookName, target, existing } of toRetire) {
+      if (existsSync(target)) unlinkSync(target);
+      writeFileSync(target, renderHookScript(hookName), { encoding: "utf8" });
+      try {
+        chmodSync(target, 0o755);
+      } catch {
+        /* Windows has no executable bit. */
+      }
+      log(
+        `[hooks] ${hookName} pensionerad (passivt nedgraderingsskydd).` +
+          (recoveryDir && existing !== null
+            ? ` Återställningskopia: ${join(recoveryDir, hookName)}`
+            : ""),
+      );
     }
   }
 

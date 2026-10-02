@@ -7,7 +7,7 @@
 <!-- source-fingerprint: docs/schemas/strict/backoffice-domain-map.schema.json sha256:bea5600512e840ee -->
 <!-- source-fingerprint: docs/schemas/strict/control-plane-registry.schema.json sha256:74ad77ab2059be1e -->
 <!-- source-fingerprint: docs/schemas/strict/db-health-check-report.schema.json sha256:cf2768d09f0d3090 -->
-<!-- source-fingerprint: docs/schemas/strict/db-perf-indexes-audit-line.schema.json sha256:19bda2322c4e4ede -->
+<!-- source-fingerprint: docs/schemas/strict/db-perf-indexes-audit-line.schema.json sha256:e23bdd279264131f -->
 <!-- source-fingerprint: docs/schemas/strict/domain-rules.schema.json sha256:fade2032ef57bc1c -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:679b125ad148dea6 -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-verbatim-restored.schema.json sha256:dbeaefe19ccead17 -->

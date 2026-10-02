@@ -582,7 +582,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   }
 
   if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
-    errors.push("CI concurrency must serialize runs per ref, including master migrations");
+    errors.push("CI concurrency must serialize read-only trusted observations per ref");
   }
   if (
     !hasExactExpression(
@@ -590,7 +590,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
       "${{ github.event_name == 'pull_request' }}",
     )
   ) {
-    errors.push("CI may cancel stale PR runs but must never cancel a running master migration");
+    errors.push("CI may cancel stale PR runs but must let trusted observations finish");
   }
 
   const scope = document?.jobs?.scope;
