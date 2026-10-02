@@ -63,17 +63,24 @@ beforeEach(() => {
   redisGet.mockImplementation(async (key: string) => redisValues.get(key) ?? null);
   redisEval.mockImplementation(
     async (script: string, keys: string[], args: Array<string | number>) => {
-      const key = keys[0];
-      const current = redisValues.get(key);
       if (script.includes('redis.call("set"')) {
-        if (current !== args[0]) return 0;
-        redisValues.set(key, String(args[1]));
+        const [sourceKey, deliveryKey] = keys;
+        if (redisValues.get(sourceKey) !== args[0]) return 0;
+        if (sourceKey !== deliveryKey && redisValues.has(deliveryKey)) return 0;
+        redisValues.set(deliveryKey, String(args[1]));
+        if (sourceKey !== deliveryKey) redisValues.delete(sourceKey);
         if (redisControl.throwAfterCommit) throw new Error("commit response lost");
         return 1;
       }
-      if (current !== args[0] && current !== args[1]) return 0;
-      redisValues.delete(key);
-      return 1;
+      let released = 0;
+      for (const key of keys) {
+        const current = redisValues.get(key);
+        if (current === args[0] || current === args[1]) {
+          redisValues.delete(key);
+          released += 1;
+        }
+      }
+      return released;
     },
   );
 });
@@ -179,9 +186,9 @@ describe("public analys daily quota", () => {
       string[],
       Array<string | number>,
     ];
-    expect(commitScript).toContain('redis.call("get", KEYS[1]) == ARGV[1]');
-    expect(commitScript).toContain('redis.call("set", KEYS[1], ARGV[2], "EX", ARGV[3])');
-    expect(commitKeys).toEqual([first.reservation.key]);
+    expect(commitScript).toContain('redis.call("get", KEYS[1]) ~= ARGV[1]');
+    expect(commitScript).toContain('redis.call("set", KEYS[2], ARGV[2], "EX", ARGV[3])');
+    expect(commitKeys).toEqual([first.reservation.key, first.reservation.key]);
     expect(commitArgs).toEqual([
       first.reservation.token,
       `committed:${first.reservation.token}`,
@@ -225,14 +232,32 @@ describe("public analys daily quota", () => {
   it("releases its own committed token when the commit acknowledgement is lost", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
     process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
-    const first = await acquirePublicAnalysQuota("ip:203.0.113.7");
+    const now = new Date("2026-07-01T10:00:00.000Z");
+    const first = await acquirePublicAnalysQuota("ip:203.0.113.7", now);
     if (first.status !== "acquired") throw new Error("expected reservation");
     redisControl.throwAfterCommit = true;
 
-    expect(await commitPublicAnalysQuota(first.reservation)).toBe("unavailable");
+    expect(await commitPublicAnalysQuota(first.reservation, now)).toBe("unavailable");
     redisControl.throwAfterCommit = false;
-    expect(await releasePublicAnalysQuota(first.reservation)).toBe("released");
-    expect((await acquirePublicAnalysQuota("ip:203.0.113.7")).status).toBe("acquired");
+    expect(await releasePublicAnalysQuota(first.reservation, now)).toBe("released");
+    expect((await acquirePublicAnalysQuota("ip:203.0.113.7", now)).status).toBe("acquired");
+  });
+
+  it("releases its own re-keyed token when the commit acknowledgement is lost", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    const beforeMidnight = new Date("2026-07-01T21:59:59.000Z");
+    const afterMidnight = new Date("2026-07-01T22:00:00.000Z");
+    const first = await acquirePublicAnalysQuota("ip:203.0.113.14", beforeMidnight);
+    if (first.status !== "acquired") throw new Error("expected reservation");
+    redisControl.throwAfterCommit = true;
+
+    expect(await commitPublicAnalysQuota(first.reservation, afterMidnight)).toBe("unavailable");
+    redisControl.throwAfterCommit = false;
+    expect(await releasePublicAnalysQuota(first.reservation, afterMidnight)).toBe("released");
+    expect((await acquirePublicAnalysQuota("ip:203.0.113.14", afterMidnight)).status).toBe(
+      "acquired",
+    );
   });
 
   it("uses Stockholm calendar days across spring and autumn DST boundaries", () => {
@@ -257,5 +282,35 @@ describe("public analys daily quota", () => {
     expect((await acquirePublicAnalysQuota("ip:203.0.113.8", afterMidnight)).status).toBe(
       "acquired",
     );
+  });
+
+  it("charges a report to the Stockholm day when it is delivered after midnight", async () => {
+    const beforeMidnight = new Date("2026-07-01T21:59:59.000Z");
+    const afterMidnight = new Date("2026-07-01T22:00:00.000Z");
+    const first = await acquirePublicAnalysQuota("ip:203.0.113.12", beforeMidnight);
+    if (first.status !== "acquired") throw new Error("expected reservation");
+
+    expect(await commitPublicAnalysQuota(first.reservation, afterMidnight)).toBe("committed");
+    expect(await acquirePublicAnalysQuota("ip:203.0.113.12", afterMidnight)).toEqual({
+      status: "committed",
+    });
+  });
+
+  it("atomically refuses a midnight re-key when the delivery day is already claimed", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    const beforeMidnight = new Date("2026-07-01T21:59:59.000Z");
+    const afterMidnight = new Date("2026-07-01T22:00:00.000Z");
+    const oldDay = await acquirePublicAnalysQuota("ip:203.0.113.13", beforeMidnight);
+    const deliveryDay = await acquirePublicAnalysQuota("ip:203.0.113.13", afterMidnight);
+    if (oldDay.status !== "acquired" || deliveryDay.status !== "acquired") {
+      throw new Error("expected both day reservations");
+    }
+
+    expect(await commitPublicAnalysQuota(oldDay.reservation, afterMidnight)).toBe("lost");
+    expect(redisValues.get(oldDay.reservation.key)).toBe(oldDay.reservation.token);
+    expect(redisValues.get(deliveryDay.reservation.key)).toBe(deliveryDay.reservation.token);
+    expect(await releasePublicAnalysQuota(oldDay.reservation, afterMidnight)).toBe("released");
+    expect(redisValues.get(deliveryDay.reservation.key)).toBe(deliveryDay.reservation.token);
   });
 });

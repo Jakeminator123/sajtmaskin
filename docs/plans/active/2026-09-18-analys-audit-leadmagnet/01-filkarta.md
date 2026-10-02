@@ -29,7 +29,8 @@
 | PDF | `src/components/audit/AuditPdfReport.tsx` | A1 (återanvänd) | `AuditPdfReport` |
 | Prompt | `src/lib/audit-prompts.ts` | A1 | `buildPublicAnalysPrompt` |
 | Credits | oförändrad `prepareCredits` för `/api/audit` | A2 | publik väg tar inte credits |
-| Rate limit | `src/lib/rate-limit.ts` | A2/A3 | `analys:public` 1/24h |
+| Leveranskvot | `src/lib/audit/public-analys-quota.ts` | A2/A3 | 1 levererad rapport/klient/Stockholmsdygn |
+| Missbrukstak | `src/lib/rate-limit.ts` | A2/A3 | `analys:public:attempt` 3/10 min |
 | In-flight | [`src/app/api/audit/modules/in-flight.ts`](../../../../src/app/api/audit/modules/in-flight.ts) | A3 | `inFlightAudits` |
 | Entry-copy | [`src/components/modals/entry-modal.tsx`](../../../../src/components/modals/entry-modal.tsx) | A4 | `ENTRY_MODES.audit` |
 | Handoff | [`src/lib/builder/audit-handoff.ts`](../../../../src/lib/builder/audit-handoff.ts), [`src/app/page.tsx`](../../../../src/app/page.tsx) | A4 | `extractAuditHandoffPayload` |

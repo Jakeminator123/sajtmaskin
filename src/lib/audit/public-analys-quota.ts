@@ -25,8 +25,10 @@ type MemoryEntry = {
 
 export type PublicAnalysQuotaReservation = {
   key: string;
+  clientHash: string;
   token: string;
   mode: "redis" | "memory";
+  commitKey?: string;
 };
 
 export type PublicAnalysQuotaAcquireResult =
@@ -36,19 +38,28 @@ export type PublicAnalysQuotaAcquireResult =
 export type PublicAnalysQuotaMutationResult = "committed" | "released" | "lost" | "unavailable";
 
 const COMMIT_SCRIPT = `
-if redis.call("get", KEYS[1]) == ARGV[1] then
-  redis.call("set", KEYS[1], ARGV[2], "EX", ARGV[3])
-  return 1
+if redis.call("get", KEYS[1]) ~= ARGV[1] then
+  return 0
 end
-return 0
+if KEYS[1] ~= KEYS[2] and redis.call("exists", KEYS[2]) == 1 then
+  return 0
+end
+redis.call("set", KEYS[2], ARGV[2], "EX", ARGV[3])
+if KEYS[1] ~= KEYS[2] then
+  redis.call("del", KEYS[1])
+end
+return 1
 `;
 
 const RELEASE_SCRIPT = `
-local current = redis.call("get", KEYS[1])
-if current == ARGV[1] or current == ARGV[2] then
-  return redis.call("del", KEYS[1])
+local released = 0
+for _, key in ipairs(KEYS) do
+  local current = redis.call("get", key)
+  if current == ARGV[1] or current == ARGV[2] then
+    released = released + redis.call("del", key)
+  end
 end
-return 0
+return released
 `;
 
 const memoryStore = new Map<string, MemoryEntry>();
@@ -98,9 +109,12 @@ export function getStockholmCalendarDay(now: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function quotaKey(clientId: string, now: Date): string {
+function hashClientId(clientId: string): string {
+  return createHash("sha256").update(clientId).digest("hex");
+}
+
+function quotaKey(clientHash: string, now: Date): string {
   const namespace = REDIS_KEY_PREFIX.replace(/:$/, "");
-  const clientHash = createHash("sha256").update(clientId).digest("hex");
   return `sajtmaskin:${namespace}:public-analys-quota:${getStockholmCalendarDay(now)}:${clientHash}`;
 }
 
@@ -115,7 +129,8 @@ export async function acquirePublicAnalysQuota(
   clientId: string,
   now = new Date(),
 ): Promise<PublicAnalysQuotaAcquireResult> {
-  const key = quotaKey(clientId, now);
+  const clientHash = hashClientId(clientId);
+  const key = quotaKey(clientHash, now);
   const token = `reserved:${randomUUID()}`;
   let backend: QuotaBackend | null;
   try {
@@ -134,13 +149,13 @@ export async function acquirePublicAnalysQuota(
       value: token,
       expiresAt: now.getTime() + RESERVATION_TTL_SECONDS * 1_000,
     });
-    return { status: "acquired", reservation: { key, token, mode: "memory" } };
+    return { status: "acquired", reservation: { key, clientHash, token, mode: "memory" } };
   }
 
   try {
     const didSet = await backend.set(key, token, { nx: true, ex: RESERVATION_TTL_SECONDS });
     if (didSet === "OK") {
-      return { status: "acquired", reservation: { key, token, mode: "redis" } };
+      return { status: "acquired", reservation: { key, clientHash, token, mode: "redis" } };
     }
     const current = await backend.get<string>(key);
     return {
@@ -159,13 +174,23 @@ export async function commitPublicAnalysQuota(
   reservation: PublicAnalysQuotaReservation,
   now = new Date(),
 ): Promise<PublicAnalysQuotaMutationResult> {
+  const deliveryKey = quotaKey(reservation.clientHash, now);
+  reservation.commitKey = deliveryKey;
+
   if (reservation.mode === "memory") {
     const current = currentMemoryEntry(reservation.key, now.getTime());
     if (current?.value !== reservation.token) return "lost";
-    memoryStore.set(reservation.key, {
+    if (
+      deliveryKey !== reservation.key &&
+      currentMemoryEntry(deliveryKey, now.getTime()) !== null
+    ) {
+      return "lost";
+    }
+    memoryStore.set(deliveryKey, {
       value: `${COMMITTED_PREFIX}${reservation.token}`,
       expiresAt: now.getTime() + COMMITTED_TTL_SECONDS * 1_000,
     });
+    if (deliveryKey !== reservation.key) memoryStore.delete(reservation.key);
     return "committed";
   }
 
@@ -180,7 +205,7 @@ export async function commitPublicAnalysQuota(
   try {
     const result = await backend.eval<[string, string, number], number>(
       COMMIT_SCRIPT,
-      [reservation.key],
+      [reservation.key, deliveryKey],
       [reservation.token, `${COMMITTED_PREFIX}${reservation.token}`, COMMITTED_TTL_SECONDS],
     );
     return result === 1 ? "committed" : "lost";
@@ -194,16 +219,24 @@ export async function releasePublicAnalysQuota(
   reservation: PublicAnalysQuotaReservation,
   now = new Date(),
 ): Promise<PublicAnalysQuotaMutationResult> {
+  const keys =
+    reservation.commitKey && reservation.commitKey !== reservation.key
+      ? [reservation.key, reservation.commitKey]
+      : [reservation.key];
+
   if (reservation.mode === "memory") {
-    const current = currentMemoryEntry(reservation.key, now.getTime());
-    if (
-      current?.value !== reservation.token &&
-      current?.value !== `${COMMITTED_PREFIX}${reservation.token}`
-    ) {
-      return "lost";
+    let released = false;
+    for (const key of keys) {
+      const current = currentMemoryEntry(key, now.getTime());
+      if (
+        current?.value === reservation.token ||
+        current?.value === `${COMMITTED_PREFIX}${reservation.token}`
+      ) {
+        memoryStore.delete(key);
+        released = true;
+      }
     }
-    memoryStore.delete(reservation.key);
-    return "released";
+    return released ? "released" : "lost";
   }
 
   let backend: QuotaBackend | null;
@@ -215,12 +248,11 @@ export async function releasePublicAnalysQuota(
   }
   if (!backend) return "unavailable";
   try {
-    const result = await backend.eval<[string, string], number>(
-      RELEASE_SCRIPT,
-      [reservation.key],
-      [reservation.token, `${COMMITTED_PREFIX}${reservation.token}`],
-    );
-    return result === 1 ? "released" : "lost";
+    const result = await backend.eval<[string, string], number>(RELEASE_SCRIPT, keys, [
+      reservation.token,
+      `${COMMITTED_PREFIX}${reservation.token}`,
+    ]);
+    return result > 0 ? "released" : "lost";
   } catch (error) {
     console.error("[PublicAnalysQuota] Failed to release quota:", error);
     return "unavailable";
