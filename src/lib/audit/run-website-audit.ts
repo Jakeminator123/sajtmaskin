@@ -104,7 +104,13 @@ function responsesErrorCode(error: unknown): string {
   return candidate.code || candidate.error?.code || candidate.cause?.code || "";
 }
 
-function isTransientResponsesError(error: unknown): boolean {
+function isOwnedResponsesTimeout(signal: AbortSignal | undefined): boolean {
+  if (!signal?.aborted) return false;
+  const reason = signal.reason as { name?: unknown } | null | undefined;
+  return reason?.name === "TimeoutError";
+}
+
+function isTransientResponsesError(error: unknown, attemptSignal?: AbortSignal): boolean {
   const candidate = error as ResponsesErrorShape;
   const code = responsesErrorCode(error);
   if (code === "model_not_found") return true;
@@ -118,8 +124,11 @@ function isTransientResponsesError(error: unknown): boolean {
 
   const name = candidate.name || candidate.cause?.name || "";
   const message = `${candidate.message || ""} ${candidate.cause?.message || ""}`;
+  if (error instanceof OpenAI.APIUserAbortError || name === "AbortError") {
+    return isOwnedResponsesTimeout(attemptSignal);
+  }
+  if (error instanceof OpenAI.APIConnectionError) return true;
   return (
-    name === "AbortError" ||
     name === "APIConnectionError" ||
     name === "APIConnectionTimeoutError" ||
     TRANSIENT_NETWORK_CODES.has(code) ||
@@ -250,6 +259,7 @@ export async function runWebsiteAudit(input: {
         `[${requestId}] Calling Responses API (${responsesModel}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
       );
 
+      const attemptSignal = AbortSignal.timeout(attemptBudgetMs);
       let response: OpenAI.Responses.Response;
       try {
         response = await openai.responses.create(
@@ -270,11 +280,11 @@ export async function runWebsiteAudit(input: {
           {
             maxRetries: 0,
             timeout: attemptBudgetMs,
-            signal: AbortSignal.timeout(attemptBudgetMs),
+            signal: attemptSignal,
           },
         );
       } catch (error) {
-        if (!isTransientResponsesError(error)) throw error;
+        if (!isTransientResponsesError(error, attemptSignal)) throw error;
         lastTransientError = error;
         console.warn(`[${requestId}] Transient Responses failure for ${candidateModel}:`, error);
 

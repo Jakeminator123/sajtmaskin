@@ -1,16 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APIConnectionError, APIUserAbortError } from "openai";
 import { resolveAuditRun } from "@/lib/audit/audit-tier";
 
 const responsesCreate = vi.hoisted(() => vi.fn());
 const openAIConstructor = vi.hoisted(() => vi.fn());
 const scrapeWebsite = vi.hoisted(() => vi.fn());
 
-vi.mock("openai", () => ({
-  default: function MockOpenAI(options: unknown) {
-    openAIConstructor(options);
-    return { responses: { create: responsesCreate } };
-  },
-}));
+vi.mock("openai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("openai")>();
+  const MockOpenAI = Object.assign(
+    function MockOpenAI(options: unknown) {
+      openAIConstructor(options);
+      return { responses: { create: responsesCreate } };
+    },
+    {
+      APIConnectionError: actual.APIConnectionError,
+      APIUserAbortError: actual.APIUserAbortError,
+    },
+  );
+  return { ...actual, default: MockOpenAI };
+});
 
 vi.mock("ai", () => ({ generateText: vi.fn() }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: vi.fn() }));
@@ -240,13 +249,43 @@ describe("runWebsiteAudit Responses fallback", () => {
     expect(responsesCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("passes a body-lifetime AbortSignal and can fallback after it aborts", async () => {
+  it("falls back when the SDK wraps the owned body-timeout signal", async () => {
     const controllers: AbortController[] = [];
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => {
       const controller = new AbortController();
       controllers.push(controller);
       return controller.signal;
     });
+    responsesCreate
+      .mockImplementationOnce(
+        (_body: unknown, options: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            options.signal.addEventListener(
+              "abort",
+              () => reject(new APIUserAbortError()),
+              { once: true },
+            );
+          }),
+      )
+      .mockResolvedValueOnce(successfulResponse());
+
+    const pending = runPublic(Date.now() - 260_000);
+    await vi.waitFor(() => expect(responsesCreate).toHaveBeenCalledTimes(1));
+    const firstOptions = responsesCreate.mock.calls[0]?.[1] as {
+      timeout: number;
+      signal: AbortSignal;
+    };
+    expect(firstOptions.signal).toBe(controllers[0].signal);
+    expect(timeoutSpy).toHaveBeenNthCalledWith(1, firstOptions.timeout);
+    controllers[0].abort(new DOMException("The operation timed out", "TimeoutError"));
+
+    expect((await pending).ok).toBe(true);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back for a native AbortError only when the owned timeout expired", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
     responsesCreate
       .mockImplementationOnce(
         (_body: unknown, options: { signal: AbortSignal }) =>
@@ -262,15 +301,45 @@ describe("runWebsiteAudit Responses fallback", () => {
 
     const pending = runPublic(Date.now() - 260_000);
     await vi.waitFor(() => expect(responsesCreate).toHaveBeenCalledTimes(1));
-    const firstOptions = responsesCreate.mock.calls[0]?.[1] as {
-      timeout: number;
-      signal: AbortSignal;
-    };
-    expect(firstOptions.signal).toBe(controllers[0].signal);
-    expect(timeoutSpy).toHaveBeenNthCalledWith(1, firstOptions.timeout);
-    controllers[0].abort();
+    controller.abort(new DOMException("The operation timed out", "TimeoutError"));
 
     expect((await pending).ok).toBe(true);
+    expect(responsesCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fallback when an SDK abort wrapper has no expired owned signal", async () => {
+    const error = new APIUserAbortError();
+    responsesCreate.mockRejectedValue(error);
+
+    await expect(runPublic()).rejects.toBe(error);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fallback when the attempt signal was cancelled for a non-timeout reason", async () => {
+    const controller = new AbortController();
+    const error = new APIUserAbortError();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    responsesCreate.mockImplementationOnce(
+      (_body: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => reject(error), { once: true });
+        }),
+    );
+
+    const pending = runPublic();
+    await vi.waitFor(() => expect(responsesCreate).toHaveBeenCalledTimes(1));
+    controller.abort(new DOMException("Caller cancelled", "AbortError"));
+
+    await expect(pending).rejects.toBe(error);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back for the SDK's generic connection wrapper", async () => {
+    responsesCreate
+      .mockRejectedValueOnce(new APIConnectionError({}))
+      .mockResolvedValueOnce(successfulResponse());
+
+    expect((await runPublic()).ok).toBe(true);
     expect(responsesCreate).toHaveBeenCalledTimes(2);
   });
 
