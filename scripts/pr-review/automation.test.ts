@@ -19,7 +19,7 @@ function createHarness() {
   const pr = {
     repository: "Jakeminator123/sajtmaskin",
     number: 88,
-    baseRef: "master",
+    baseRef: "preview",
     headSha: "a".repeat(40),
     changedFiles: 1,
     headRepository: "Jakeminator123/sajtmaskin",
