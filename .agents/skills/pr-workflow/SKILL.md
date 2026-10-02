@@ -23,8 +23,8 @@ om inte Jakob nämner en.
    Hämta den du faktiskt använder: `git fetch origin preview` respektive
    `git fetch origin master`. Frys basens SHA när flera kandidater eller
    agenter ska jämföras — annars mäts de mot olika underlag.
-3. Jobba i den öppna checkouten, eller skapa en valfri branch. Worktree bara
-   vid parallellt arbete — se `agent-worktree.mdc`.
+3. Jobba i den öppna checkouten, en skrivande session åt gången, i Codex
+   eller Cursor. Worktree när Jakob ber om det — se `agent-worktree.mdc`.
 4. Kontrollera öppna PR:er för samma owner om ändringen kan krocka.
 
 Skyddade sökvägar är inte förbjudna. De ska inkludera rätt owner och följdytor
@@ -70,7 +70,7 @@ Kör `npm run promote` när Jakob ber om att släppa till produktion («merga
 preview till master», «promota», «släpp skarpt»). Kommandot hämtar origin,
 listar vad som skiljer, skapar en kortlivad `promote/<datum>`-gren vid previews
 tip via GitHubs refs-API (rör inte din checkout) och öppnar PR:en mot `master`
-med commitlista, båda SHA:na och produktionsvarningen. `npm run promote:dry`
+med faktisk träddiff, båda SHA:na och produktionsvarningen. `npm run promote:dry`
 visar vad som skulle hända.
 
 Head-grenen får **aldrig** vara `preview`: repot har `delete_branch_on_merge`,
@@ -81,20 +81,23 @@ Kommandot mergar aldrig till `master`. Efter PR:en gäller `pr-merge.mdc` som
 vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
 före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
 
-Controllern squash-mergar, så masters nya commit finns inte i `preview`
-efteråt. Saknar `preview` masters tip mergar `npm run promote` därför först
-`master → preview` serverside (innehållsneutralt efter en squash-promote) innan
-den räknar commits — annars listas redan släppta ändringar igen och nästa
-promote-PR stoppas av kravet att head innehåller aktuell `master`. Kör
-kommandot en gång efter varje promote-merge för att stänga hålet direkt.
+En squash-release ger master en ny commit som inte finns i `preview`
+efteråt. Promote synkar inte serverside. Saknas master: bered en synkbranch
+från färsk preview som tar in master med merge-commit; öppna PR mot preview
+och begär separat manuell expected-head-merge med merge-commit (inte squash
+eller `merge:execute`) enligt synkvägen i `pr-merge.mdc`, innan nästa promote.
+Samma CI/review gäller; ingen blandad feature-PR. Dry-run skriver
+inga remote-refs. Osläppt innehåll och releasetext avgörs av faktisk träddiff,
+inte squashad commithistorik.
 
 ## 5. Merge och städ
 
 När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc` och den
-befintliga `merge:ready` / `merge:execute`-grinden. Innan `merge:execute` till
-master: varna att det går till produktion och vänta på extra bekräftelse i
-samma chatt. Merga inte på eget bevåg. `preview` är en delad remote-gren, inte
-trunk och inte builder-ytan.
+befintliga `merge:ready` / `merge:execute`-grinden. Den squash-mergar till
+`preview`, aldrig till `master`. Merga inte på eget bevåg. Innan en promote-PR
+mergas till master: varna att det går till produktion och vänta på extra
+bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
+remote-gren, inte trunk och inte builder-ytan.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Rör aldrig `BRA` eller

@@ -18,8 +18,6 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/commands/pr-herde.md": 2_000,
   ".cursor/commands/post-review.md": 1_800,
   ".cursor/commands/avslutning.md": 1_500,
-  ".cursor/commands/bridge.md": 800,
-  ".cursor/commands/bryggagent.md": 1_400,
 });
 
 export const REQUIRED_ALWAYS_RULES = Object.freeze([
@@ -114,13 +112,13 @@ function byteLength(root, path) {
   return Buffer.byteLength(read(root, path));
 }
 
-function filesBelow(root, relativeDir, suffix) {
+function filesBelow(root, relativeDir, suffix, excludedDirs = []) {
   const absolute = resolve(root, relativeDir);
-  if (!existsSync(absolute)) return [];
+  if (excludedDirs.includes(relativeDir) || !existsSync(absolute)) return [];
   return readdirSync(absolute, { withFileTypes: true })
     .flatMap((entry) => {
       const relative = `${relativeDir}/${entry.name}`;
-      if (entry.isDirectory()) return filesBelow(root, relative, suffix);
+      if (entry.isDirectory()) return filesBelow(root, relative, suffix, excludedDirs);
       return entry.isFile() && relative.endsWith(suffix) ? [relative] : [];
     })
     .sort();
@@ -135,7 +133,9 @@ function skillIds(root, relativeDir) {
 function activeContextFiles(root) {
   return [
     ...ACTIVE_CONTEXT_FILES,
-    ...ACTIVE_CONTEXT_ROOTS.flatMap((dir) => filesBelow(root, dir, "")),
+    ...ACTIVE_CONTEXT_ROOTS.flatMap((dir) =>
+      filesBelow(root, dir, "", [".cursor/tmp", ".cursor/worktrees"]),
+    ),
   ]
     .filter((path) => ACTIVE_TEXT_SUFFIXES.some((suffix) => path.endsWith(suffix)))
     .sort();

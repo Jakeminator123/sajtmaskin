@@ -16,7 +16,7 @@ import {
   reviewMutationRequiresNewSignoff,
   shouldRunTrustedGate,
   isIntegrityGateFailure,
-  targetsTrunk,
+  targetsDelivery,
   validateTrustedPrAiEvidence,
   validateAccountPrReviewEvidence,
 } from "./trusted-review-window.mjs";
@@ -289,7 +289,7 @@ function trustedReviewEvidence(headSha = HEAD) {
     version: 1,
     repository: REPOSITORY,
     prNumber: 1,
-    baseBranch: "master",
+    baseBranch: "preview",
     firstReviewedHeadSha: headSha,
     latestProcessedHeadSha: headSha,
     exhaustiveReviewCompleted: true,
@@ -2133,9 +2133,10 @@ describe("check workflow provenance", () => {
 });
 
 describe("trusted review-window check decisions", () => {
-  it("publicerar aldrig required check på PR mot annan base än trunk", () => {
-    expect(targetsTrunk({ base: { ref: "master" } }, { trunk: "master" } as never)).toBe(true);
-    expect(targetsTrunk({ base: { ref: "preview" } }, { trunk: "master" } as never)).toBe(false);
+  it("publicerar aldrig required check på PR mot annan base än preview", () => {
+    const policy = { deliveryBranch: "preview" } as never;
+    expect(targetsDelivery({ base: { ref: "preview" } }, policy)).toBe(true);
+    expect(targetsDelivery({ base: { ref: "master" } }, policy)).toBe(false);
   });
 
   it("kräver required checks men låter saknat reviewkvitto bara noteras", () => {
@@ -2168,7 +2169,21 @@ describe("trusted review-window check decisions", () => {
       policy as never,
     );
     expect(cursorBugbot.botsDone).toBe(true);
-    expect(cursorBugbot.completedSuccess).toBeGreaterThan(0);
+    expect(cursorBugbot.completedSuccess).toBe(0);
+    expect(gateSuccessReason(cursorBugbot)).toContain("blockerar inte");
+
+    const completedReview = evaluateHeadChecks(
+      [
+        ...greenRuns(),
+        run("Cursor Bugbot", {
+          app: { id: 88, slug: "cursor" },
+          conclusion: "success",
+          provenance: { kind: "external", valid: true },
+        }),
+      ],
+      policy as never,
+    );
+    expect(completedReview.completedSuccess).toBe(1);
 
     const missingServerTime = evaluateHeadChecks(
       greenRuns().map((item) =>
@@ -2450,6 +2465,7 @@ describe("final merge evidence", () => {
 function integrationPolicy() {
   return {
     trunk: "master",
+    deliveryBranch: "preview",
     requiredChecks: policy.requiredChecks,
     requiredCheckOwners: policy.requiredCheckOwners,
     review: {
@@ -2551,7 +2567,7 @@ function integrationHarness({
     state: "open",
     draft,
     changed_files: changedFiles.length,
-    base: { ref: "master" },
+    base: { ref: "preview" },
     head: { sha: HEAD, ref: "feature/test", repo: { full_name: REPOSITORY } },
     user: { login: "pr-author" },
     body: "",
@@ -2605,7 +2621,7 @@ function integrationHarness({
         patches.push({ path, ...(options.body ?? {}) });
         return options.body;
       }
-      if (path === "/git/ref/heads/master") {
+      if (path === "/git/ref/heads/preview") {
         counters.evidence += 1;
         return { object: { sha: BASE } };
       }
@@ -2682,7 +2698,7 @@ function mergeHarness({
     state: "open",
     draft: false,
     changed_files: changedFiles.length,
-    base: { ref: "master" },
+    base: { ref: "preview" },
     head: { sha: HEAD },
     user: { login: "pr-author" },
     labels: [{ name: "merge:ready" }],
@@ -2734,7 +2750,7 @@ function mergeHarness({
       calls.push({ path, method: options.method ?? "GET", body: options.body });
       if (path === "/pulls/1") return structuredClone(pr);
       if (path === "/issues/comments/77") return structuredClone(command);
-      if (path === "/git/ref/heads/master") return { object: { sha: BASE } };
+      if (path === "/git/ref/heads/preview") return { object: { sha: BASE } };
       if (path === `/compare/${BASE}...${HEAD}`) {
         return { status: "ahead", merge_base_commit: { sha: BASE } };
       }
@@ -2756,7 +2772,7 @@ function mergeHarness({
         return { merged: true, sha: "d".repeat(40) };
       }
       if (path.startsWith("/actions/workflows/") && options.method === "POST") {
-        if (failDispatch && path.includes("db-blob-sync-check.yml")) {
+        if (failDispatch && path.includes("ci.yml/dispatches")) {
           throw new Error("dispatch unavailable");
         }
         return null;
@@ -2770,7 +2786,7 @@ function mergeHarness({
       ];
     },
     async paginate(path: string) {
-      if (path === "/pulls?state=open&base=master") return [];
+      if (path === "/pulls?state=open&base=preview") return [];
       if (path.startsWith(`/commits/${HEAD}/check-runs`)) return structuredClone(checks);
       if (path === "/issues/1/comments") {
         return [
@@ -2837,12 +2853,7 @@ describe("trusted review-window controller", () => {
         expect.objectContaining({
           path: "/actions/workflows/ci.yml/dispatches",
           method: "POST",
-          body: { ref: "master" },
-        }),
-        expect.objectContaining({
-          path: "/actions/workflows/db-blob-sync-check.yml/dispatches",
-          method: "POST",
-          body: { ref: "master" },
+          body: { ref: "preview" },
         }),
       ]),
     );
@@ -2979,17 +2990,15 @@ describe("trusted review-window controller", () => {
     ).rejects.toThrow("PR #1 är redan mergad");
     expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(true);
     expect(calls.some((call) => call.path.endsWith("ci.yml/dispatches"))).toBe(true);
-    expect(calls.some((call) => call.path.endsWith("db-blob-sync-check.yml/dispatches"))).toBe(
-      true,
-    );
+    expect(calls.some((call) => call.path.includes("db-blob-sync-check.yml"))).toBe(false);
   });
 
-  it("gör no-op före checkskrivning när PR:n inte riktas mot trunk", async () => {
+  it("gör no-op före checkskrivning när PR:n inte riktas mot preview", async () => {
     let writes = 0;
     const client = {
       async request(path: string, options: { method?: string } = {}) {
         if (path === "/pulls/9") {
-          return { base: { ref: "preview" }, head: { sha: HEAD } };
+          return { base: { ref: "master" }, head: { sha: HEAD } };
         }
         if (options.method === "POST" || options.method === "PATCH") writes += 1;
         throw new Error(`unexpected ${path}`);
@@ -3000,7 +3009,7 @@ describe("trusted review-window controller", () => {
       prNumber: 9,
       policy: integrationPolicy() as never,
     });
-    expect(result).toEqual({ conclusion: "ignored", reason: "base preview" });
+    expect(result).toEqual({ conclusion: "ignored", reason: "base master" });
     expect(writes).toBe(0);
   });
 
@@ -3165,7 +3174,7 @@ describe("trusted review-window controller", () => {
     });
   });
 
-  it("blockerar exakt head före labelborttagning på master-push och lämnar drafts orörda", async () => {
+  it("blockerar exakt head före labelborttagning på preview-push och lämnar drafts orörda", async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const client = {
       async paginate(path: string) {

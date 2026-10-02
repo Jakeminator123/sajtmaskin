@@ -12,6 +12,7 @@ The gate script itself is CWD-independent and is invoked from the repo root
 """
 
 import unittest
+from unittest.mock import patch
 
 from pydatabastest import (
     ACKNOWLEDGED_EXTRA_TABLES,
@@ -20,8 +21,10 @@ from pydatabastest import (
     KNOWN_EXTRA_TABLES,
     PASS,
     WARN,
+    DbState,
     classify_empty_group,
     classify_table_drift,
+    maybe_remediate,
 )
 
 
@@ -101,6 +104,36 @@ class ClassifyTableDriftTests(unittest.TestCase):
         extra, missing_known = classify_table_drift(self._full_schema())
         self.assertEqual(extra, [])
         self.assertEqual(missing_known, [])
+
+
+class RemediationMandateTests(unittest.TestCase):
+    def setUp(self):
+        self.dev = DbState("dev")
+        self.dev.reachable = True
+        self.dev.missing = ["users"]
+        self.dev.url = "postgresql://postgres@localhost/test"
+
+    def test_ci_never_prompts_or_applies(self):
+        with patch("builtins.input") as prompt, patch("pydatabastest.subprocess.run") as run:
+            maybe_remediate(self.dev, interactive=False)
+            prompt.assert_not_called()
+            run.assert_not_called()
+
+    def test_declining_does_not_apply_and_prompt_warns_about_data_repair(self):
+        with patch("builtins.input", return_value="") as prompt, patch("pydatabastest.subprocess.run") as run:
+            maybe_remediate(self.dev, interactive=True)
+            message = prompt.call_args.args[0]
+            self.assertIn("WRITE/REPAIR", message)
+            self.assertIn("UPDATE/DELETE", message)
+            self.assertNotIn("non-destructive", message)
+            run.assert_not_called()
+
+    def test_only_explicit_yes_runs_dev_init(self):
+        with patch("builtins.input", return_value="yes"), patch("pydatabastest.subprocess.run") as run:
+            maybe_remediate(self.dev, interactive=True)
+            run.assert_called_once()
+            self.assertEqual(run.call_args.args[0][1:], ["run", "db:init"])
+            self.assertEqual(run.call_args.kwargs["env"]["POSTGRES_URL"], self.dev.url)
 
 
 if __name__ == "__main__":
