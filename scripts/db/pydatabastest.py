@@ -529,7 +529,7 @@ def classify_empty_group(
 
     mode:
       - 'enforce': EMPTY-group must be 0 rows; non-zero/unverified -> FAIL (hard reset DB).
-      - 'warn'   : dev is a used dev/preview scratch DB; accumulated rows are an
+      - 'warn'   : dev is a used development DB; accumulated rows are an
                    Advisory (WARN), not a Blocker. A failed COUNT is still a WARN.
       - 'info'   : prod carries live data; row counts are informational (PASS),
                    only a failed COUNT warns.
@@ -954,8 +954,8 @@ def main(argv: List[str]) -> int:
         print(f"  (dev creds via {dev_src[0]})", flush=True)
     if prod_src:
         print(f"  (prod creds via {prod_src[0]})", flush=True)
-    # Dev is a used dev/preview scratch DB (preview deployments + local dev write
-    # generated-site rows here), so accumulated EMPTY-group rows are an Advisory
+    # Dev is a used development DB (verified local dev can write generated-site
+    # rows here), so accumulated EMPTY-group rows are an Advisory
     # (WARN), not a Blocker. Prod carries live user-site data → EMPTY rows are
     # informational there. Both still enforce connectivity, schema, no drift,
     # preserved tables and parity.
