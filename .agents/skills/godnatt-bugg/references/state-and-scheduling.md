@@ -65,7 +65,7 @@ Flytta exakt ett stage i taget i full mode:
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name reviewed
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123 --sha 40_HEX_HEAD_SHA
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ci-review --sha 40_HEX_HEAD_SHA
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source pr-ai-review --verdict clean --sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source bugbot-local --verdict clean --sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ready-to-merge
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name merged --merge-sha 40_HEX_MERGE_SHA
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name cleanup
@@ -102,7 +102,8 @@ Förnya legitimt långt arbete:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs heartbeat --token TOKEN
 
-Räkna först efter verifierad merge och app-worktree-handoff:
+Räkna full-pass först efter verifierad merge till preview och app-worktree-handoff.
+Detta är leveransbevis, inte produktionsrelease; master kräver separat promote.
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs complete --token TOKEN --outcome fixed --evidence "PR #123 merged as 40_HEX_MERGE_SHA; app-worktree handoff verified"
 

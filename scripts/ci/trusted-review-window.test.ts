@@ -2169,7 +2169,21 @@ describe("trusted review-window check decisions", () => {
       policy as never,
     );
     expect(cursorBugbot.botsDone).toBe(true);
-    expect(cursorBugbot.completedSuccess).toBeGreaterThan(0);
+    expect(cursorBugbot.completedSuccess).toBe(0);
+    expect(gateSuccessReason(cursorBugbot)).toContain("blockerar inte");
+
+    const completedReview = evaluateHeadChecks(
+      [
+        ...greenRuns(),
+        run("Cursor Bugbot", {
+          app: { id: 88, slug: "cursor" },
+          conclusion: "success",
+          provenance: { kind: "external", valid: true },
+        }),
+      ],
+      policy as never,
+    );
+    expect(completedReview.completedSuccess).toBe(1);
 
     const missingServerTime = evaluateHeadChecks(
       greenRuns().map((item) =>

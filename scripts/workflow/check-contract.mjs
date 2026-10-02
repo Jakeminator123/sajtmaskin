@@ -18,6 +18,17 @@ export { requiredCheckOwnerSpec };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
+/** @param {{ name: string, source: string }[]} workflows */
+export function evaluateRetiredApiReviewWorkflows(workflows) {
+  return workflows
+    .filter(
+      ({ name, source }) =>
+        name === "pr-ai-review.yml" ||
+        /scripts\/pr-review\/(?:run|receipt)\.mjs/u.test(source),
+    )
+    .map(({ name }) => `${name}: automatic API PR review is retired; do not duplicate local/external review`);
+}
+
 // Avsiktlig konstitutionell duplicering. Den redigerbara policyn får lägga till
 // skydd, men får inte kunna sänka sin egen verifiering och sedan godkänna sig
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
@@ -1098,24 +1109,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const backlogValidator = read(root, "scripts/dev/check-bug-backlog.mjs");
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
-  const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
-  let prAiReviewDocument = null;
-  try {
-    prAiReviewDocument = yaml.load(prAiReview);
-  } catch {
-    prAiReviewDocument = null;
-  }
-  if (!hasExactStringSet(prAiReviewDocument?.on?.pull_request_target?.branches, ["preview"])) {
-    errors.push("PR AI review must listen only to preview pull requests");
-  }
+  // Historical receipt parsers remain fail-closed. There is no automatic
+  // API reviewer workflow; absence must not be mistaken for a green review.
   const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
   const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
   if (
-    !prAiReview.includes("checks: write") ||
-    !prAiReview.includes("id: review") ||
-    !prAiReview.includes("if: steps.review.outcome == 'success'") ||
-    !prAiReview.includes("run: node scripts/pr-review/receipt.mjs") ||
     !prAiReviewer.includes("writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result)") ||
     !prAiAutomation.includes('kind: "receipt-recovery"') ||
     !prAiAutomation.includes("verifiedCurrentReview") ||
@@ -1147,6 +1146,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))
     .map((name) => ({ name, source: read(root, `.github/workflows/${name}`) }));
+  errors.push(...evaluateRetiredApiReviewWorkflows(workflowSources));
   errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
   errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
   for (const workflow of workflowSources) {

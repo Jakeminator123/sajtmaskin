@@ -22,6 +22,7 @@ Report only actionable P0/P1/P2 findings with file and line evidence, followed
 by explicit answers for: original bug fixed, regression proof adequate,
 countertest adequate, protected paths touched, required checks, and residual
 risk. Say "no credible findings" only after checking the full end state. This
-review is an independent engineering review; it does not impersonate the
-repository's required Cursor Bugbot/PR AI review gate.
+review is the independent bug-review procedure, not an additional model-named
+pass. It does not impersonate CI or review-window. Triage concrete external
+bot findings when present; a missing or quota-limited bot is not a review pass.
 """

@@ -5,14 +5,14 @@ Det är inte Desktop-automationen och ger aldrig merge-authority.
 
 ## Förutsättningar
 
-Starta inte Cloud-tasken förrän aktuell `origin/master` innehåller:
+Starta inte Cloud-tasken förrän aktuell `origin/preview` innehåller:
 
 - `.agents/skills/godnatt-bugg/`, inklusive evaluation-state och tester;
 - `.codex/agents/godnatt-{investigator,worker,reviewer}.toml`;
 - permanenta worktree-skyddet och dess tester.
 
 Cloud checkar ut en pushad branch eller commit och kan inte använda lokala
-ocommittade filer. Evaluation ska därför starta från den master-SHA där
+ocommittade filer. Evaluation ska därför starta från den preview-SHA där
 infrastrukturen redan har mergats. Desktop-automationen `godnatt-bugg` ska vara
 PAUSED före, under och efter testet.
 
@@ -31,7 +31,7 @@ DELETION ARE STRICTLY FORBIDDEN.
 Preflight:
 1. Read root AGENTS.md, the complete $godnatt-bugg skill, and its
    cloud-evaluation, state/scheduling, and PR-gate references.
-2. Verify HEAD and origin/master. Stop unless origin/master itself contains the
+2. Verify HEAD and origin/preview. Stop unless origin/preview itself contains the
    evaluation-capable Godnatt-bugg state machine and tests.
 3. Verify authenticated GitHub write access can push two dedicated branches
    and create two separate draft PRs. If not, stop and report the exact
@@ -42,7 +42,8 @@ Preflight:
    pilot, full, scheduled, promote, merge, or cleanup stages.
 
 For each pass:
-1. Fetch fresh origin/master and inspect all open PRs, labels, reviews, and
+1. Fetch fresh origin/preview and origin/master. Use master only for production
+   revalidation; inspect all open PRs, labels, reviews, and
    changed paths. Avoid overlapping work.
 2. Select one unchecked, bounded candidate from exactly `## Aktiv kö`. Never
    select an SM id already handled by this evaluation batch.
@@ -51,11 +52,11 @@ For each pass:
 4. Use the project-scoped investigator, worker, and reviewer profiles when
    available. Preserve their read/write boundaries and snapshot checks.
 5. Implement only the smallest safe candidate change on a unique dedicated
-   branch from fresh origin/master. Run regression and opposite-direction
+   branch from fresh origin/preview. Run regression and opposite-direction
    tests plus applicable repository checks.
 6. Commit and push only that candidate branch. Create a DRAFT PR against
-   master. Include any backlog update in that same PR; master remains the
-   canonical unresolved state until an admin merges it.
+   preview. Include any backlog update in that same PR. An unmerged draft is
+   not a delivered fix, and delivery to preview is not a production release.
 7. Prefix the title exactly with:
 
    [DO NOT MERGE — ADMIN REVIEW REQUIRED]
@@ -72,7 +73,8 @@ For each pass:
 10. Verify the draft/admin/merge guards through GitHub, then register them in
     state with the exact current 40-character head SHA.
 11. Allow automated review. If no useful review is available, follow the
-    repository fallback to an independent local Bugbot/manual pass. Fix
+    repository fallback to independent read-only bug review; the model or
+    GitHub bot is not the procedure name. Fix
     credible findings on the candidate branch and re-review the new head SHA.
     Stop after at most three review/fix passes; the cap never permits merging.
 12. Complete the evaluation pass only from `draft-pr`, only after a clean or
@@ -83,7 +85,7 @@ Between pass 1 and pass 2:
 - Leave the first PR open and draft and leave its remote branch intact.
 - Respect the state machine's five-minute notBefore cooldown; do not lower or
   bypass it.
-- Return the Cloud worktree to a clean state, fetch fresh origin/master, and
+- Return the Cloud worktree to a clean state, fetch fresh origin/preview, and
   reacquire the lease only when cooldown has elapsed.
 
 At completion return a table with pass number, SM id, verdict, branch, draft PR

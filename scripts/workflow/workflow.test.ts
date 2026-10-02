@@ -26,11 +26,15 @@ import {
   pathMatchesPattern,
 } from "./path-impact.mjs";
 import {
+  DEFAULT_DELIVERY_BRANCH,
   assertBranchSafety,
   classifyProcessResult,
   executeVerificationCommands,
+  formatMissingBaseError,
   isCiRunner,
   parseArgs,
+  resolveFetchRefForBase,
+  resolveVerificationBase,
   resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
@@ -487,6 +491,76 @@ describe("local base freshness", () => {
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
     ]);
+  });
+});
+
+describe("verify:pr base resolution", () => {
+  const policy = { trunk: "master" };
+
+  it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
+    expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
+    expect(
+      resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy }),
+    ).toBe("origin/preview");
+  });
+
+  it("låter explicit --base vinna, inklusive origin/master för produktionsgranskning", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/master",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/master");
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/preview",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/preview");
+  });
+
+  it("byter inte tyst till produktionsbas bara för att den lokala branchen heter master", () => {
+    expect(resolveVerificationBase({ explicitBase: null, branch: "master", policy })).toBe(
+      "origin/preview",
+    );
+  });
+
+  it("respekterar en explicit lokal snapshot", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "HEAD~1",
+        branch: "fix/x",
+        policy,
+      }),
+    ).toBe("HEAD~1");
+  });
+
+  it("hämtar den bas som faktiskt valts — origin/preview ska inte fetcha master", () => {
+    expect(resolveFetchRefForBase("origin/preview")).toBe("preview");
+    expect(resolveFetchRefForBase("origin/master")).toBe("master");
+    expect(resolveFetchRefForBase("origin/release/2026-10")).toBe("release/2026-10");
+    expect(resolveFetchRefForBase("refs/remotes/origin/release/x")).toBe("release/x");
+    expect(resolveFetchRefForBase("preview")).toBeNull();
+    expect(resolveFetchRefForBase("HEAD~1")).toBeNull();
+    expect(resolveFetchRefForBase("local-tag")).toBeNull();
+    expect(resolveFetchRefForBase("refs/heads/local-branch")).toBeNull();
+    expect(resolveFetchRefForBase("upstream/main")).toBeNull();
+    expect(resolveFetchRefForBase("abcdef1")).toBeNull();
+    expect(resolveFetchRefForBase("")).toBeNull();
+  });
+
+  it("beskriver saknad lokal bas-ref med rätt fetch-mål", () => {
+    expect(formatMissingBaseError("origin/preview")).toContain("git fetch origin preview");
+    expect(formatMissingBaseError("origin/preview")).not.toContain("git fetch origin master");
+    expect(formatMissingBaseError("origin/master")).toContain("git fetch origin master");
+    expect(formatMissingBaseError("HEAD~1")).not.toContain("git fetch origin HEAD~1");
+  });
+
+  it("läser --base ur parseArgs", () => {
+    expect(parseArgs(["--base", "origin/preview"]).base).toBe("origin/preview");
+    expect(parseArgs([]).base).toBeNull();
   });
 });
 

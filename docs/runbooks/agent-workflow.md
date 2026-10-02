@@ -1,254 +1,104 @@
-# Från lokal agent till preview och produktion
+# Agentarbete: preview först, produktion separat
 
-Det här är människoguiden. Maskinvärden finns i
-[`config/agent-workflow.json`](../../config/agent-workflow.json) och verifieras
-av `npm run workflow:contract`. Körordning och promote-detalj ägs av
-[`.agents/skills/pr-workflow/SKILL.md`](../../.agents/skills/pr-workflow/SKILL.md)
-(§4b); mergegrinden mot `preview` av
-[`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc).
+Körordningen ägs av [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md),
+mergekraven av [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc), värden och
+checks av [config/agent-workflow.json](../../config/agent-workflow.json).
+Denna guide förklarar ansvar och undantag; den är ingen andra checklista.
 
-Flödet har två steg. Allt arbete går som PR mot `preview` (staging,
-`preview.sajtmaskin.se`). Produktion uppdateras via `npm run promote`, som
-öppnar en PR från en kortlivad `promote/<datum>`-gren mot `master`. Head får
-aldrig vara `preview`: `delete_branch_on_merge` raderade staging 2026-09-08.
+## Lokalt arbete
 
-```mermaid
-flowchart TD
-  U["Jakob beskriver målet"] --> A["Agent i öppna checkouten"]
-  A --> B["Canonical owner + följdytor"]
-  B --> C["verify:pr --plan + riktade tester"]
-  C --> P["PR mot preview"]
-  P --> W{"CI-trust root i diffen?"}
-  W -- "nej" --> Q["Required checks + review-window"]
-  Q --> M["merge:execute squash till preview"]
-  W -- "ja" --> X["Bootstrap: ägaren squash-mergar<br/>själv med expected head"]
-  M --> Y["CI på nya preview"]
-  X --> Y
-  Y --> R["npm run promote när Jakob vill"]
-  R --> S["kortlivad promote/datum-gren"]
-  S --> T["PR mot master"]
-  T --> H2["Varning: master = produktion"]
-  H2 --> H3["Extra bekräftelse i samma chatt"]
-  H3 --> K["Manuell squash till master"]
-  K --> J["tidy visar FRI"]
-```
+Jobba normalt i den öppna checkouten, i Codex eller Cursor. Worktree och
+Scout/Builder/Steward används bara när Jakob beställer dem. Godnatt är ett
+uttryckligt opt-in med sina egna isoleringskrav, inte standard för andra jobb.
 
-## Det enkla arbetssättet för Jakob
+Vanligt utvecklingsarbete utgår från färsk `origin/preview`. Använd
+`origin/master` som granskningsbas bara för produktionspåståenden.
+`verify:pr --plan` väljer preview som default och visar riktade kontroller;
+CI väljer fail-closed tung profil eller ett explicit light-kvitto.
+Full lokal verify krävs när själva verifieringsmotorn ändras.
+Installera repots hooks vid färsk clone eller workflowändring.
 
-1. Öppna repo-roten (File → Open Folder) och beskriv vad du vill ändra.
-2. Agenten är en vanlig repo-agent. Ingen Scout/Builder/Steward-roll om du inte
-   nämner den. Ingen tvingad worktree. Branchnamn behöver inget `fix/`-prefix.
-3. Agenten ändrar, testar och öppnar PR mot `preview` när du ber om det.
-4. Agenten pausar vid dataförlust, security/cross-tenant eller oväntat stort
-   scope.
-5. När preview-PR:en är grön: säg att den får mergas. `merge:execute`
-   squash-mergar till `preview`. Controllern tar inte `master`.
-6. Produktion: säg «promota» / «släpp till produktion». Agenten kör
-   `npm run promote` (öppnar PR från `promote/<datum>` mot `master`; mergar
-   aldrig). När promote-headen är grön: ge ett uttryckligt mergeuppdrag.
-   Agenten varnar att det går till **master (produktion)** och väntar på extra
-   bekräftelse i samma chatt. Den mergen görs manuellt.
+Bevara andras ändringar. En PR per avgränsat ägarskap; överlappande PR:er
+hanteras seriellt. Efter varje merge hämtas ny preview och återstående
+diffar, head/base, checks och review omvärderas.
 
-Skyddade ytor betyder alltså **extra bevis, inte förbjudet område**. Om en
-produktändring påverkar ett strict schema, en policy, Sajtmaskins Backoffice
-eller dokumentation ska de verkliga följdytorna ändras i samma PR. Om rapporten
-visar `declared-only` eller en manuell validator ska agenten redovisa det öppet;
-det får inte beskrivas som runtime-låst.
+## Mergevägar
 
-## Så samverkar skydden
+| Syfte | Väg |
+|---|---|
+| Vanlig leverans till preview | Separat mergeuppdrag och den betrodda `merge:execute`-controllern; squash |
+| Produktion | Promote-PR till master, extra bekräftelse efter produktionsvarningen; manuell expected-head-merge |
+| CI-trust-root-bootstrap | Separat ägarbeslut; manuell expected-head-merge till preview |
+| Ancestry-synk efter release | Dedikerad synk-PR till preview, uttryckligt merge-commit-uppdrag; manuell expected-head-merge, aldrig squash |
 
-Varje lager har en owner. Den här tabellen är översikt, inte en andra
-implementation.
+Ingen generell admin-, UI- eller API-fallback för vanliga PR:er. De manuella
+undantagen ersätter inte CI, oberoende bugggranskning, färskt head/base,
+tidsgolv, triage eller DB-riskkontroll.
 
-| Lager | Skyddar | Kanonisk owner |
-| --- | --- | --- |
-| *Protect preview* | Required checks, non-fast-forward och deletion på staging. Preview-PR:ar mergas när checks är gröna. | Live GitHub-ruleset (speglar *Protect master*; ingen expected-fil i repo). Beslut: [`docs/decisions/README.md`](../decisions/README.md) 2026-09-05. |
-| *Protect master* | Samma native skydd på trunk. `review-window` är grind, inte ruleset-check. | [`.github/rulesets/protect-master.expected.json`](../../.github/rulesets/protect-master.expected.json) |
-| `review-window` / `merge:execute` | 7 min, sign-off och betrodd squash till `preview`. PR mot `master` tas inte av controllern. | [`trusted-review-window.mjs`](../../scripts/ci/trusted-review-window.mjs) (`targetsDelivery`) + [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc) |
-| `manualMergePathPrefixes` / bootstrap | CI-trust roots går inte genom vanlig `merge:execute`. | [`config/agent-workflow.json`](../../config/agent-workflow.json) + avsnittet [Särskilt spår för CI-trust roots](#särskilt-spår-för-ci-trust-roots) |
-| `delete_branch_on_merge` + slaskgren | Auto-delete tar `promote/<datum>`, inte `preview`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (GitHub-inställningen `delete_branch_on_merge` har ingen fil-owner) |
-| Synk efter squash-promote | Masters squash-commit saknas i `preview`; `npm run promote` mergar `master → preview` serverside innan den räknar, så släppta ändringar inte listas igen och promote-headen innehåller `master`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (`syncStagingWithProduction`) |
-| Dependabot `target-branch` | Beroendebumpar landar på `preview`. Dependabot läser filen från default-grenen `preview`. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
-| Lokal `pre-push` | Stoppar push om `verify:pr --plan` är rött. | [`install-git-hooks.mjs`](../../scripts/dev/install-git-hooks.mjs) + [`verify-pr.mjs`](../../scripts/workflow/verify-pr.mjs) |
-| CI tung / light | Required checks på varje head: tung för ready runtime, högrisk och `master`; explicit light-kvitto för safe docs och vanliga drafts. | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) + [`ci-scope.mjs`](../../scripts/workflow/ci-scope.mjs) / [`path-impact.mjs`](../../scripts/workflow/path-impact.mjs) |
+Preview och produktion delar databas. Även SQL-fri preview-merge eller
+CI-dispatch kan starta jobb mot produktions-DB; en kodrevert återställer inte
+databasändringar. Okända eller otillåtna dataeffekter är stopp.
 
-## Start och verifiering
+## Granskning är inte CI
 
-```bash
-npm run hooks:install       # en gång per clone; idempotent och worktree-delad
-npm run verify:pr -- --plan  # visa vad diffen påverkar (även pre-push-hooken)
-npm run sync:derived         # skriv om genererade projektioner vid behov
-# kör relevanta riktade kontroller; GitHub väljer tung profil eller light-kvitto
-```
+Oberoende bugggranskning är arbetsmetoden. Modellen väljs enligt
+[subagent-models.mdc](../../.cursor/rules/subagent-models.mdc); ”Sol” är inte
+procedurnamnet. Författaren är inte sin egen oberoende granskare.
 
-`verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren
-och Backoffice domain-map samt deduplicerar hårda validators. Okända filer får
-fail-safe runtime- och fullprofil; runtimefiler utan en control-plane-owner
-rapporteras som information men har redan runtimeprofilen. `preview-host/**`
-får också paketets egna grindar. Protected paths är tillåtna men får den fulla
-CI-profilen och ska följas genom owner → konsument/validator → schema/Backoffice
-→ genererad projektion/docs. Lokalt körs relevanta riktade kontroller. Bare
-`npm run verify:pr` är frivillig felsökning, eller ett uttryckligt krav när
-själva CI-/verifieringsmotorn ändras. GitHub publicerar required checks på varje
-PR-head. Ready runtime, högrisk och `master` kör tung profil; bevisat safe docs
-och vanliga drafts får i stället ett explicit grönt light-kvitto. Underkommandon
-kan uppdatera lokala gitignorerade cacheartefakter, exempelvis `.eslintcache`
-och validatorcache; kontrollera därför tracked diff, inte en helt orörd
-arbetsmapp.
+`review-window` verifierar CI, säkerhet, deployment, proveniens och live
+head/base. Den väntar inte på `merge:ready` och bevisar inte oberoende review.
+Externa reviewkvitton är optional; neutral, quota, skip och stale är inte pass.
+Konkreta externa fynd måste ändå triageras. Den betalda API-workflowen är
+pensionerad; historiska parsers och manuell runner är inte automatisk review.
 
-## Flera agenter utan statuskonflikter
+Kommentar före `merge:ready`-label och slutligt mänskligt mandat följer
+`pr-merge.mdc`. Finalcontrollern återläser evidensen live och serialiserar
+preview-merges. Ingen PR blir mergegodkänd bara för att en check är grön.
 
-Kandidat-PR:ar går mot `preview`. Kandidatbrancher ska i första hand ändra sin
-kod och sina lokala tester, inte slåss om delade statusytor som
-`BUG-SWARM-BACKLOG.md`, canvas, planindex eller genererade kontraktdokument. En
-utsedd integrationsagent gör en enda reconciliation från senaste live `preview`
-(och mot live `master` efter promote): porterar de verifierade ändringarna,
-uppdaterar canonical owners och regenererar de delade projektionerna en gång.
+## Ancestry-synk efter en release
 
-Om två PR:er överlappar samma owner ska de mergas seriellt eller ersättas av en
-ren integrations-PR. Efter varje merge till `preview` hämtas live `preview` igen
-och återstående PR:ers faktiska diff, head-SHA, checks och reviewfynd
-omvärderas. En äldre generated-/statusfil vinner aldrig en konflikt bara för
-att den redan låg i en branch; källägaren på nya `preview` vinner och
-projektionen regenereras.
+Promote skapar en kortlivad `promote/<datum>`-gren från preview, aldrig en PR
+med preview som head: GitHub kan annars radera staging vid auto-delete.
+Kommandot skapar PR, inte release eller dold master→preview-synk.
+Osläppt innehåll avgörs av faktisk träddiff.
 
-Branchnamn har inget obligatoriskt prefix. `*BRA*` och `rescue/*` är fortfarande
-frysta backuper.
+Efter squash-release saknar preview masters nya tip. Bered då en separat
+branch från färsk preview som tar in master med merge-commit. Head ska
+innehålla båda live tipsen och inga blandade featureändringar. Begär separat
+manuell expected-head-merge med merge-commit, utan `--admin` eller
+`merge:execute`. Verifiera efteråt master-ancestry och CI på nya preview.
 
-Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
-idempotent och stoppar push om `verify:pr --plan` är rött. Riktade kontroller
-körs lokalt. CI publicerar required checks för den pushade committen och väljer
-fail-closed tung profil eller ett explicit light-kvitto, så en saknad lokal hook
-kan inte göra en ogiltig PR grön.
-
-På PR mot `preview` gäller
-[`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). När `quality`,
-`backoffice-tests`, `schema-drift`, `build`, Vercel och alla reviewfynd är
-klara — medan `review-window` fortfarande väntar — posta först
-`merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-som PR-kommentar och sätt sedan labeln `merge:ready`. Label-eventet läser
-aktuell head och base-refens levande tip via GitHub. Båda måste matcha
-kommentaren, compare/merge-base måste visa att head innehåller base-tipen och
-kommentaren måste komma från PR-författaren eller en mänsklig repo-collaborator.
-Först därefter kan `merge:execute` köras. Den head-bundna required checken
-`review-window` blir grön när quality och övriga required checks är klara.
-Ett Cursor-/Codex-/bugbot-kvitto noteras om det finns, men saknat, hoppat eller
-404:at Cloud Agent-kvitto blockerar inte. Orchestrator-jobbet
-`trusted-review-window` är inte required checken — en avbruten körning av det
-jobbet ska inte läsas som röd grind. `bugkoll:` i `merge:ready` är den
-mänskliga noteringen.
-
-När den är grön postar en mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` den
-slutliga kommandoraden (PR-författarskap ensamt ger inte merge-mandat):
-
-`merge:execute — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-
-Detta är den enda kanoniska agentmergen. `issue_comment` kör kod från default
-branch. Controllern hämtar kommentaren via dess GitHub-id, läser live head,
-base, checks, reviews och båda kommentarstyperna flera gånger med ett kort
-settle-fönster och kräver oförändrad evidensfingerprint. Sedan läser den live
-base/compare igen och gör en squash-merge till `preview` med GitHubs expected-head-SHA.
-PR:er mot `master` lämnas utanför controllern.
-Review-event-workflows får inte användas för denna token: deras YAML kommer
-från PR:ens obetrodda merge-ref.
-
-Reviews läses paginerat via GitHubs GraphQL-data, eftersom REST-listan inte har
-reviewens serverbundna `updatedAt`. Både inskicknings- och senaste ändringstid
-ingår i ordningen och evidensfingerprinten. Om en bot editerar ett gammalt
-reviewinlägg med ett nytt fynd efter sign-off eller mergekommando blir mandatet
-alltså stale även om review-ID:t är oförändrat.
-
-Final merge använder inte checknamnet eller dess självvalda `external_id` som
-behörighetsbevis. Alla GitHub Actions-workflows delar appidentitet, så den
-betrodda controllern räknar om core-checkar, botstatus, live sign-off och
-sjuminutersgolvet från den senaste serverbundna körningen av varje
-deklarerad ägar-workflow (`.github/workflows/ci.yml` och separat ägd
-`dossier-acceptance.yml`) på eventet `pull_request`. Äldre eller avbrutna
-körningar på samma head-SHA efter draft→ready, och en äldre same-SHA `push`-CI på
-samma ägarfil (t.ex. preview-tipp som återanvänds som promote-head), är stale, inte
-checknamnskollision, när en senare PR-associerad owned `pull_request`-run med samma skyddade checks är
-verifierbart grön. `workflow_dispatch`, `schedule` och andra event på samma SHA är inte
-stale-undantag. En spoofad check från annan workflow spärrar fortfarande.
-Varje required check knyts
-till sitt exakta jobb via GitHubs job-/check-run-URL och måste ha
-serverreturnerade Actions-steg; en steglös custom check räknas inte som ett
-core-jobb. Ett custom reviewkvitto som delar en annan workflows suite blir inte
-ett jobb bara av den anledningen: controllern kräver en exakt jobb-/check-ID-
-bindning och använder annars live review-state + review-ID. Tiden kommer från
-WorkflowRun-resursens `created_at`, inte från ett
-återanvänt checknamn. För varje jobbnamn väljs senaste attempt där just jobbet
-kördes; ett partial rerun behåller därmed andra serververifierade jobb utan att
-återanvända ett ersatt resultat. Ett dubblerat skyddat jobbnamn i något attempt
-stoppar. För fork-PR:ar där GitHub lämnar PR-associationen tom krävs exakt
-matchning mot live head-repository och branch;
-oklar eller flerdubbel identitet stoppar. Vanliga `pull_request`-workflows får
-inga skrivrättigheter; skrivande Dependabot-klassificering kör enbart
-default-branch-kod och kan aldrig merga.
+GitHub måste tillåta merge-commit; verifiera live `allow_merge_commit` och
+målgrenens ruleset före denna väg. Repot tillät metoden vid kontroll
+2026-10-02. Trust-root-diff kräver dessutom bootstrapbeslut.
 
 ## Särskilt spår för CI-trust roots
 
-`manualMergePathPrefixes` i `config/agent-workflow.json` äger trust roots för
-hela grinden: workflowfiler, default-branch-controller/reviewmoduler, själva
-scope-exekverbara filerna och deras centrala JSON-inputs. Den vanliga
-`review-window`- och `merge:execute`-controllern vägrar därför en PR där en fil
-har nuvarande **eller tidigare** namn på någon sådan yta. Det är det enda
-verkligt manuella mergeundantaget, och ska inte blandas med en produktändring.
+`manualMergePathPrefixes` och det oberoende golvet i workflow-kontraktet
+hindrar PR-kod från att godkänna sin egen controller/scope/policy-ändring.
+Nuvarande och tidigare namn räknas vid rename. Sådana PR:er går inte genom
+vanlig `merge:execute`; de behöver separat dokumenterad ägarbootstrap.
+Röd/pending CI, blockerande fynd och okända DB-effekter får inte bypassas.
 
-En sådan ändring görs i en separat PR: ägaren godkänner uttryckligen
-infrastruktur-bootstrapen, agenten kör samma lokala plan + riktade kontroller,
-CI, oberoende review och sjuminutersfönster, och det exakta head/base-paret läses
-om direkt före en dokumenterad expected-head-squash-merge till `preview`.
-Efteråt körs CI på nya preview och övriga öppna PR:ar omvärderas. `npm run
-promote` varnar redan när PR:en öppnas om diffen rör en trust root; vägran ägs
-av controllern. Själva införandet av denna spärr är en engångs-bootstrap; när
-den finns på preview får ingen agent dölja en workflowändring bakom ett vanligt
-mergekommando. Det oberoende golvet i `workflow:contract` hindrar en PR-head
-från att ta bort sin egen trust root ur den redigerbara policyn.
+## Live inställningar och kvarvarande gränser
 
-Den egna `trusted-pr-ai-review`-checkens namn är inte heller reviewbevis. Både
-den levande state-kommentaren och dess publicerade review-ID måste binda till
-exakt repo, PR och head; en stale eller omdöpt Actions-check räknas inte.
-Saknad nyckel eller Platform-kvot ger `neutral` utan Codex-överlämning.
-Historiska konto-kvitton kan fortfarande läsas, men nya PR:er ska inte
-lämnas över till Codex-kontot.
+GitHub rulesets och merge methods är externa owners. Repo-projektioner,
+CODEOWNERS eller gamla snapshots bevisar inte live enforcement. Native skydd
+har inte skärpts i denna förenkling; ägarbeslutet om lösa skydd behålls.
+Expected head låser head, men GitHub saknar motsvarande atomiskt base-SHA-lås.
+Färsk base-läsning och serialisering minskar, men stänger inte, base-racet.
 
-Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
-base-SHA-parameter. Native Protect master kräver inte up-to-date/strict
-(ägarbeslut 2026-09-02). Controllern serialiserar merges till `preview` och
-minimerar racet med en sista base/compare-läsning. Extra mänsklig bekräftelse
-krävs när en promote-PR ska till `master`, och den mergen görs manuellt. En manuell
-webbmerge eller bypass har kvar base-racet. Påstå inte att racet är stängt.
+Cursor-dashboardens PR-mergare är en separat automation. Repo-regler kan inte
+stänga av den; quota/neutral är inte bevis för avstängning. Undvik parallella
+mergare innan preview-controllern används.
 
-Native GitHub visar fortfarande required checks som namn + GitHub Actions-app,
-inte som en kryptografiskt unik workflow-publicerare. Därför är manuell
-webbmerge, generell API-merge och separat auto-merge inte agentvägar. Om UI:n i
-framtiden också ska vara lika stark krävs en separat GitHub App-identitet eller
-ett ruleset med required workflow; tills dess används bara `merge:execute`.
+Efter controllermerge invalideras gammal base-evidens och `ci.yml` dispatchas
+på preview, eftersom `GITHUB_TOKEN`-merge inte normalt startar push-workflows.
+`POST_MERGE_VERIFICATION_FAILED` betyder att PR:n redan är mergad men
+efterkontrollen föll: reparera/rerun efterkontrollen, merga inte samma PR igen.
+`db-blob-sync-check.yml` är separat master-ägd; det gör inte andra DB-jobb
+master-only.
 
-Repo-kontraktet som reserverar `review-window`-namnet och jobb-/stegbindningen
-är defense-in-depth. De gör inte native UI kryptografiskt säkert, eftersom en
-PR-ref kan försöka ändra både workflow och kontrakt före merge. Det är just
-varför workflowfiler stoppas av den kanoniska controllern och UI/API-merge inte
-är en godkänd agentväg.
-
-Efter lyckad merge kör controllern base-invalideringen direkt och dispatchar
-`ci.yml` på `preview`. Det behövs eftersom en merge med `GITHUB_TOKEN` normalt
-inte triggar nya push-workflows. `db-blob-sync-check.yml` stannar på `master`:
-den bär live-secrets och startar när produktion promotas. Om post-merge-steget
-fallerar blir jobbet rött med `POST_MERGE_VERIFICATION_FAILED`, men PR:n är
-redan terminalt mergad: kör då base-invalidering och `ci.yml`-dispatchen
-manuellt; försök aldrig merga samma PR igen.
-
-## Vad agenten ska redovisa
-
-- canonical owners och eventuella `declared-only`-kontrakt,
-- träffade Backoffice-sidor eller uttryckligt ”ingen träff”,
-- schemas/policies och deras validators,
-- körda tester samt kvarvarande risk,
-- exakt branch, base-SHA och head-SHA.
-
-Detaljerad körordning finns i
-[`.agents/skills/pr-workflow/SKILL.md`](../../.agents/skills/pr-workflow/SKILL.md);
-mergegrinden mot `preview` i
-[`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). Denna guide
-ersätter äldre manuella checklistor och ska inte kopieras till fler filer.
+Rapportera faktisk branch/head/base, verifiering, reviewkälla, berörda
+Backoffice-/schema-/policyföljder och kvarvarande risk. Produktion och DB-apply
+kräver fortfarande sina egna uttryckliga mandat.

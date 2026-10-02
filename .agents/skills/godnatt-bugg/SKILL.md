@@ -85,7 +85,8 @@ kommandon, promotion och automationslivscykel. Läs
 2. Kontrollera cwd, git status, aktuell branch och git worktree list.
 3. Läs AGENTS.md, BUG-SWARM-BACKLOG.md och reglerna för git, workflow,
    worktrees, Bugbot och merge.
-4. Kör git fetch origin master. Kör inte automatisk reset, merge, rebase eller
+4. Hämta både origin/preview (leverans) och origin/master (produktionsbevis).
+   Kör inte automatisk reset, merge, rebase eller
    sync-master.
 5. Läs öppna PR:er med labels, head-branch och paths. Avstå från överlapp.
 6. Kör queue och acquire. Vid busy/cooldown/paused/completed: gör ingen mutation
@@ -118,7 +119,8 @@ pass bör inte beröra mer än ungefär 40 filer. Claima först när valet är g
 Kör repo-snapshot.mjs och behåll hela JSON-objektet i tasken. Det täcker HEAD,
 branch/ref-tips, reflog, staged/unstaged, status, ospårade filhashar och
 worktree-lista. Snapshotta även relevant GitHub PR/comment/review-state via
-read-only API. Starta godnatt_investigator med backloggraden ordagrant, origin/master-SHA,
+read-only API. Starta godnatt_investigator med backloggraden ordagrant,
+origin/master-SHA för produktionspåståendet och origin/preview-SHA för leverans,
 app-worktree-path och krav på verdict relevant, already-resolved, reclassify
 eller blocked.
 
@@ -140,9 +142,10 @@ draft-PR har skapats och reviewats; master-raden är fortsatt olöst.
 ### 4. Förbered pass-worktreet
 
 Kräv ren app-worktree utan användarändringar. Skapa unik pass-branch från färsk
-origin/master i samma worktree:
+origin/preview i samma worktree. Om felet redan är fixat där ska det inte
+implementeras igen bara för att master ännu inte är promotad:
 
-    git switch -c fix/sm-NNN-kort-slug origin/master
+    git switch -c fix/sm-NNN-kort-slug origin/preview
 
 Använd feat/docs/chore-prefix endast när klassningen faktiskt kräver det.
 Verifiera exakt branch, absolut cwd och base-SHA. Registrera samma path:
@@ -185,16 +188,18 @@ reviewn som oberoende och bevara diffen för handoff.
 
 Nya fel som diffen orsakar måste fixas. Orelaterade falsifierbara fel får en ny
 stabil SM-rad endast med tydliga bevis; starta inte en andra fix i samma pass.
-Reviewer-passet ersätter inte repots Cursor Bugbot/PR AI-gate. Flytta till
+Reviewer-passet är oberoende review, inte ett CI-kvitto. Externa botfynd ska
+också triageras; ingen automatisk betald API-review krävs. Flytta till
 reviewed.
 
 ### 7. Commit, Bugbot och draft-PR
 
-Följ kanoniska git-/PR-regler. Kör tester och obligatorisk lokal Bugbot på
-komplett diff före PR/push när den är tillgänglig. Kör om SHA-känslig buggkoll
+Följ kanoniska git-/PR-regler. Kör tester och oberoende bugggranskning på
+komplett diff före PR/push. Återanvänd ett fullgott reviewer-pass, inte ett
+identiskt extra Bugbot-/Sol-pass. Kör om SHA-känslig buggkoll
 efter varje ny commit.
 
-Commitera avsiktligt, pusha och skapa draft-PR mot master. Sätt backloggradens
+Commitera avsiktligt, pusha och skapa draft-PR mot preview. Sätt backloggradens
 PR-referens och gör same-PR-arkivering enligt BUG-SWARM-BACKLOG.md. Fixed-raden
 lämnar bara Aktiv kö genom PR:n som faktiskt mergas.
 
@@ -227,14 +232,14 @@ minuter från den aktuella head-körningens jobbstart; required check
 review-window är teknisk sanning och startas om av ny head-SHA.
 
 I evaluation: håll PR:n i draft. Låt normal automation reviewa; fall tillbaka
-till lokal Bugbot/manuell bugggranskning enligt repots ordning om en användbar
+på oberoende readonly bugggranskning om en användbar extern
 review saknas. Registrera reviewn medan stage förblir draft-pr. Efter ny commit
 uppdaterar du samma draft-pr-stage med aktuell SHA och reviewar om. Sätt aldrig
 `merge:ready`, sign-off eller ready-for-review.
 
 Vänta icke-blockerande. Läs reviews, inline-kommentarer, checks och labels för
 aktuell head-SHA. Följ fallbackordningen om extern review uteblir. Registrera
-varje komplett PR-review/Bugbot-pass i state:
+varje komplett oberoende bugggranskningspass i state:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source SOURCE --verdict clean --sha FULL_HEAD_SHA --note "triage"
 
@@ -254,14 +259,17 @@ Tillåtna evaluation-outcomes är `draft-fix`, `draft-already-resolved` och
 
 ### 9. Sign-off och merge
 
-I full mode: vänta först på övriga required checks, Vercel och reviewfynd.
-Posta därefter sign-off + `merge:ready`; den betrodda `review-window` blir grön
-först när live head/base, signeraridentitet och ordning är verifierade. Merga
-sedan endast när hela pr-merge.mdc är uppfylld: rätt base, ej draft, mergeable,
+I full mode: vänta först på required checks, Vercel och oberoende review.
+`review-window` väntar inte på labeln och bevisar inte review. Posta därefter
+sign-off + `merge:ready`; finalmandatet validerar live head/base och ordning.
+Följ bara preview-vägen i pr-merge.mdc: rätt base, ej draft, mergeable,
 inga blockerande reviews/trådar/labels, P0/P1=0 och stabil head/base.
 
 Läs övriga PR:er på nytt. Om base/head ändras: kör om alla SHA-känsliga gates.
-Verifiera PR state och origin/master efter merge. Registrera exakt merge-SHA:
+Verifiera PR state och origin/preview efter merge. Master uppdateras inte här;
+promote kräver ett separat produktionsuppdrag. Preview kan köra jobb mot
+delad produktions-DB: okända effekter eller otillåtna datawrites är stopp.
+Registrera exakt merge-SHA:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name merged --merge-sha FULL_MERGE_SHA
 
@@ -270,7 +278,7 @@ Verifiera PR state och origin/master efter merge. Registrera exakt merge-SHA:
 Ta aldrig bort current app-worktree med worktree-script eller rå git. Desktop
 äger det. Efter verifierad merge:
 
-1. git fetch origin master.
+1. git fetch origin preview.
 2. Bevisa landningen med antingen `merge-base --is-ancestor` eller en mergad
    GitHub-PR vars `headRefName` och `headRefOid` exakt matchar PASS_BRANCH och
    dess lokala SHA. Detta andra bevis krävs efter squash-merge; ett API-fel är
@@ -282,7 +290,7 @@ Ta aldrig bort current app-worktree med worktree-script eller rå git. Desktop
 
 Först complete minskar remaining. Vid kvarvarande pass sätter state minst fem
 minuters cooldown och nästa automationstick får ett nytt app-worktree från
-senaste master.
+senaste preview.
 
 När state blir paused: pausa automationen men arkivera inte tasken om current
 finns; worktree/branch är immutable och måste återupptas i originaltasken.
@@ -298,7 +306,7 @@ Evaluation har ingen merge-cleanup. Efter varje verifierat draft-complete:
 2. lämna remote-branchen kvar för admin;
 3. verifiera att inget mergats eller markerats ready;
 4. vänta ut femminuters-cooldown;
-5. hämta färsk origin/master och skapa nästa unika pass-branch i samma rena
+5. hämta färsk origin/preview och origin/master; skapa nästa pass-branch från preview i samma rena
    Cloud-worktree.
 
 När evaluation blir completed: avsluta Cloud-tasken med en tabell över alla

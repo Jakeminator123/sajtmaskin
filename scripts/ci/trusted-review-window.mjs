@@ -136,7 +136,7 @@ export function evaluateHeadChecks(
   const externalCompletedSuccess = qualifying.filter(
     (run) =>
       run.status === "completed" &&
-      (run.conclusion === "success" || run.conclusion === "neutral"),
+      run.conclusion === "success",
   ).length;
   const completedSuccess = externalCompletedSuccess + (trustedReview.valid ? 1 : 0);
   const qualifyingPending = qualifying.filter((run) => run.status !== "completed").length;
@@ -193,7 +193,8 @@ export function evaluateHeadChecks(
   }
 
   return {
-    // Cursor-/Codex-/bugbot-kvitton noteras men blockerar inte. En Cloud Agent
+    // Cursor-/Codex-/bugbot-kvitton noteras men blockerar inte. Neutral är
+    // inte en utförd review och får aldrig räknas som success. En Cloud Agent
     // som 404:ar eller hoppas över ska inte hålla review-window röd. Säkerhet,
     // Vercel och namnkollisioner spärrar fortfarande.
     botsDone:
