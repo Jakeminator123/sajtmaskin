@@ -61,6 +61,24 @@ trots att `pwsh` 7 är installerat. 5.1 skriver
 - Kör kommandon som `& $env:PWSH -NoLogo -NoProfile -Command '…'` om skalet är 5.1.
 - `[windows] sandbox = "elevated"` är avsiktligt; aliaset i WindowsApps failar där.
 
+### Windows systemvariabler och sökverktyg
+
+`shell_environment_policy.filters` behåller `SystemDrive` och `ProgramData`.
+De är vanliga systemsökvägar, inte hemligheter. Windows behöver dem för att
+expandera bland annat `%SystemDrive%\ProgramData`. Saknade variabler är den
+sannolika orsaken när systemcache hamnar i en bokstavlig `%SystemDrive%`-mapp
+under kommandots arbetskatalog. Det är inte projektdata och ska inte committas.
+
+Kontrollera kommandots miljö med `Test-Path Env:SystemDrive` och
+`Test-Path Env:ProgramData`; båda ska vara `True` på Windows. En redan startad
+session kan behöva laddas om innan ändringen märks. Secretsfiltrering och
+behörighetsnivå ändras inte för att rätta systemsökvägar.
+
+Om `rg` inte går att starta: kontrollera `Get-Command rg -All`. En WinGet-länk
+kan ligga före Codex bundlade exe i PATH. Använd den fungerande exe:n med
+explicit sökväg, eller `git grep` för spårade filer. Ändra inte system-PATH
+eller installera om verktyg automatiskt.
+
 ## Cursor-paritet
 
 - Repo-regler: `AGENTS.md` pekar vidare till `docs/` och `.cursor/rules/`.
