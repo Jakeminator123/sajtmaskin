@@ -62,6 +62,7 @@ export function AuthModal({
       setPassword("");
       setName("");
       setShowPassword(false);
+      setIsLoading(false);
       setError(null);
       setSuccessMessage(null);
       setShowResendVerification(false);

@@ -140,4 +140,38 @@ describe("AuthModal onSuccess", () => {
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.queryByText("Kunde inte ansluta till servern")).toBeNull();
   });
+
+  it("resets loading when the parent closes and later reopens during a delayed login", async () => {
+    let resolveLogin!: (response: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveLogin = resolve;
+      }),
+    );
+    const onSuccess = vi.fn();
+    const onClose = vi.fn();
+    const view = render(
+      <AuthModal isOpen onClose={onClose} defaultMode="login" onSuccess={onSuccess} />,
+    );
+
+    fillAndSubmit();
+    view.rerender(
+      <AuthModal isOpen={false} onClose={onClose} defaultMode="login" onSuccess={onSuccess} />,
+    );
+
+    await act(async () => {
+      resolveLogin(new Response(JSON.stringify({ success: true, user })));
+      await Promise.resolve();
+    });
+
+    view.rerender(
+      <AuthModal isOpen onClose={onClose} defaultMode="login" onSuccess={onSuccess} />,
+    );
+    expect((screen.getByRole("button", { name: "Logga in" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    expect(setUser).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.queryByText("Kunde inte ansluta till servern")).toBeNull();
+  });
 });
