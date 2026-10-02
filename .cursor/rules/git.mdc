@@ -10,7 +10,8 @@ Policy: [`config/agent-workflow.json`](../../config/agent-workflow.json).
 
 ## Default
 
-Du är en vanlig repo-agent i den checkout Cursor har öppen. Jobba där.
+Jobba i den checkout som är öppen i Codex eller Cursor. Samma regler gäller
+i båda. En skrivande session per checkout; andra agenter får läsa.
 `Scout` / `Builder` / `Steward` gäller **bara** när Jakob uttryckligen nämner
 rollen eller kör `/scout`, `/builder` eller `/steward`.
 
@@ -27,12 +28,11 @@ rollen eller kör `/scout`, `/builder` eller `/steward`.
   2026-09-08). Kommandot mergar inte; grinden i `pr-merge.mdc` gäller som vanligt.
 - Rör aldrig `*BRA*` eller `rescue/*`.
 - Branchprefix (`fix/` …) är inte obligatoriskt.
-- Worktree är valfritt för parallellt arbete — se `agent-worktree.mdc`.
+- Worktree bara när Jakob ber om det — se `agent-worktree.mdc`.
 - Merga inte utan ett separat uttryckligt mergeuppdrag.
 - Master-merge: visa en tydlig varning (produktion) och vänta på extra
   bekräftelse i samma chatt. Detalj: `pr-merge.mdc`.
-- Ordet **preview** är flertydigt — slå upp det i glossaryn. `preview`-grenen
-  ≠ Preview-ytan (builder-iframe) ≠ `preview_host`.
+- `preview`-grenen är staging, inte builderns preview eller `preview_host`.
 
 Ignore: `.cursorignore` är secrets/Read-fällor. Secretsmönster tas bara bort på
 uttryckligt ägarbeslut, registrerat i `docs/decisions/`.

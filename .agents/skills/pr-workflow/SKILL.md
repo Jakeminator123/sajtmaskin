@@ -23,8 +23,8 @@ om inte Jakob nämner en.
    Hämta den du faktiskt använder: `git fetch origin preview` respektive
    `git fetch origin master`. Frys basens SHA när flera kandidater eller
    agenter ska jämföras — annars mäts de mot olika underlag.
-3. Jobba i den öppna checkouten, eller skapa en valfri branch. Worktree bara
-   vid parallellt arbete — se `agent-worktree.mdc`.
+3. Jobba i den öppna checkouten, en skrivande session åt gången, i Codex
+   eller Cursor. Worktree när Jakob ber om det — se `agent-worktree.mdc`.
 4. Kontrollera öppna PR:er för samma owner om ändringen kan krocka.
 
 Skyddade sökvägar är inte förbjudna. De ska inkludera rätt owner och följdytor

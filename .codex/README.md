@@ -25,7 +25,7 @@ samma diff — `npm run workflow:contract` jämför filerna och blir röd annars
   helt hos godkännandesteget och hos repots egna grindar (git-hooks,
   `verify:pr`, PR-grinden) — inte hos processisolering.
 - `web_search = "live"` — färska svar prioriteras framför cachens säkerhet.
-- `model_verbosity = "low"` — Codex är sekundär agent i det här repot.
+- `model_verbosity = "low"` — korta svar.
 - Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
   startad uppgift med host-managed sandbox kan fortfarande kräva värdens
   godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
@@ -38,20 +38,16 @@ Repo-roten är samma mapp för båda verktygen; skriv inte ut en maskinspecifik
 sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder
 (`.cursor/README.md`), och Codex-projektet `sajtmaskin` pekar på samma rot.
 
-**Codex är sekundär agent i det här repot.** `AGENTS.md` och `.cursor/rules/`
-äger arbetssättet; den här filen beskriver bara Codex-lagret.
+Codex och Cursor följer samma arbetssätt, ägt av `AGENTS.md`,
+`pr-workflow` och `.cursor/rules/`. Den här filen beskriver Codex-lagret.
 
-- **Varför Codex ändå använder worktree:** inte för att huvudcheckouten är
-  förbjuden — `AGENTS.md` säger uttryckligen att en vanlig agent jobbar i den
-  öppna checkouten. Skälet är att Cursor normalt äger huvudcheckouten samtidigt.
-  Två skrivande agenter i samma arbetskopia trampar på varandra, så Codex tar en
-  egen. Arbetar Codex ensamt och Cursor är stängt gäller `AGENTS.md` som vanligt.
+- **Arbetsyta:** jobba i den öppna checkouten. En skrivande session per
+  checkout; andra agenter får läsa. Worktree skapas när Jakob ber om det,
+  enligt [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc).
 - **Bas:** följ `pr-workflow` § 1.2 — `origin/preview` för vanligt
   utvecklingsarbete, `origin/master` bara när påståendet gäller produktion.
-- Registreringen av projektet gör inte huvudcheckouten till en skrivyta.
-- Handoff till `Local` görs bara när huvudcheckouten är verifierat ren och ingen
-  annan process äger den. En branch får bara vara utcheckad i en worktree åt
-  gången, och bara en aktör ansvarar för merge.
+- **Handoff/branchbyte:** kontrollera lokala ändringar och vem som skriver i
+  ytan. Bevara pågående arbete. Bara en aktör ansvarar för en merge.
 
 ## Windows-skal (pwsh 7)
 

@@ -18,7 +18,7 @@ approval_policy = "on-request"
 sandbox_mode = "danger-full-access"
 web_search = "live"
 
-# Kortare svar: Codex är sekundär agent här, Cursor äger huvudflödet.
+# Kortare svar; arbetssättet är gemensamt för Codex och Cursor.
 model_verbosity = "low"
 [windows]
 sandbox = "elevated"

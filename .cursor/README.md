@@ -13,6 +13,9 @@ startkontext; övriga regler/skills laddas först när beskrivning, glob eller
 explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
 backloggstacken som rutin.
 
+Codex och Cursor följer samma arbetsregler: öppna checkouten, en skrivande
+session per checkout. Worktree skapas när Jakob ber om det.
+
 ## Vad märker jag lokalt?
 
 Ändringarna gäller efter att branchen hämtats.
@@ -35,7 +38,8 @@ globstyrda eller agent-requested.
 | Uppgift                       | Regel                                                           |
 | ----------------------------- | --------------------------------------------------------------- |
 | Hitta owner/sökväg            | `repo-router.mdc`                                               |
-| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`, `agent-worktree.mdc` |
+| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc` |
+| Worktree på begäran | `agent-worktree.mdc` |
 | Merge/PR-efterkontroll        | `pr-merge.mdc`                                                  |
 | Pipeline/scaffold/dossier/env | matchande globregel                                             |
 | Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
