@@ -338,7 +338,7 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
     ).toBe(true);
   });
 
-  it("lets a later ordered strict pass clear older unordered evidence", () => {
+  it("does not let ordered strict clear incomparable unordered fallback evidence", () => {
     const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
     expect(
       installPeerFallbackReceiptBlocksPublish(
@@ -348,7 +348,20 @@ describe("installPeerFallbackReceiptBlocksPublish", () => {
         ],
         { dependencyFingerprint: fingerprint },
       ),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("fails closed across incomparable mutation-less lifecycles", () => {
+    const fingerprint = dependencyFingerprintFromFiles(filesTreeA);
+    expect(
+      installPeerFallbackReceiptBlocksPublish(
+        [
+          orderedReceipt("strict_pass", fingerprint, "life-old", null, 2),
+          orderedReceipt("fallback", fingerprint, "life-new", null, 1),
+        ],
+        { dependencyFingerprint: fingerprint },
+      ),
+    ).toBe(true);
   });
 });
 

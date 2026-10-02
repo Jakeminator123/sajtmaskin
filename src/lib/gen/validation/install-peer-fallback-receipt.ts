@@ -208,15 +208,18 @@ function latestDecisive(
         ? entry
         : current,
     );
-    const winnerIndex = comparable.indexOf(greatestAttempt);
-    const newerUnordered = comparable
-      .slice(0, winnerIndex)
-      .find((entry) => entry.installAttemptRevision === null);
-    // A newer legacy fallback has no attempt order and must fail closed. A
-    // newer unordered strict acknowledgement likewise cannot clear an ordered
-    // fallback. Older legacy evidence can be cleared by a later ordered strict
-    // receipt because newest-first persistence supplies that relative order.
-    if (greatestAttempt.kind === "fallback" || newerUnordered?.kind === "fallback") {
+    // Once attempt-ordered evidence exists, receipts without an attempt are
+    // incomparable: DB insertion order is not causal order. Any such fallback
+    // therefore remains blocking until a later comparable mutation supersedes
+    // it. An unordered strict acknowledgement also cannot clear an ordered
+    // fallback.
+    if (
+      greatestAttempt.kind === "fallback" ||
+      comparable.some(
+        (entry) =>
+          entry.installAttemptRevision === null && entry.kind === "fallback",
+      )
+    ) {
       return "fallback";
     }
     return "strict_pass";
@@ -227,13 +230,29 @@ function latestDecisive(
     // In that case attempt order is still authoritative within its lifecycle;
     // different lifecycles remain newest-first because their attempt counters
     // are not comparable.
-    const comparable = latest.lifecycleToken
-      ? decisive.filter(
-          (entry) =>
-            entry.mutationRevision === null && entry.lifecycleToken === latest.lifecycleToken,
-        )
-      : decisive.filter((entry) => entry.mutationRevision === null);
-    const mutationlessKind = latestAttemptDecision(comparable);
+    const mutationless = decisive.filter((entry) => entry.mutationRevision === null);
+    const hasAttemptOrder = mutationless.some(
+      (entry) => entry.installAttemptRevision !== null,
+    );
+    let mutationlessKind: PreviewInstallKind;
+    if (!hasAttemptOrder) {
+      mutationlessKind = mutationless[0]?.kind ?? latest.kind;
+    } else {
+      // Attempt counters are scoped to a lifecycle. Different lifecycles are
+      // incomparable when mutationRevision is absent, so any lifecycle whose
+      // own latest/ordered evidence is fallback must fail closed.
+      const byLifecycle = new Map<string | null, typeof mutationless>();
+      for (const entry of mutationless) {
+        const group = byLifecycle.get(entry.lifecycleToken) ?? [];
+        group.push(entry);
+        byLifecycle.set(entry.lifecycleToken, group);
+      }
+      mutationlessKind = [...byLifecycle.values()].some(
+        (group) => latestAttemptDecision(group) === "fallback",
+      )
+        ? "fallback"
+        : "strict_pass";
+    }
     // An unordered/mutation-less strict acknowledgement cannot safely clear a
     // receipt from a known later mutation.
     if (
