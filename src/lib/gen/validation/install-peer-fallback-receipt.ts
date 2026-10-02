@@ -195,18 +195,56 @@ function latestDecisive(
   );
   const latest = decisive[0];
   if (!latest) return null;
+
+  const latestAttemptDecision = (
+    comparable: typeof decisive,
+  ): PreviewInstallKind => {
+    const orderedAttempts = comparable.filter(
+      (entry) => entry.installAttemptRevision !== null,
+    );
+    if (orderedAttempts.length === 0) return comparable[0]?.kind ?? latest.kind;
+    const greatestAttempt = orderedAttempts.reduce((current, entry) =>
+      (entry.installAttemptRevision ?? 0) > (current.installAttemptRevision ?? 0)
+        ? entry
+        : current,
+    );
+    const winnerIndex = comparable.indexOf(greatestAttempt);
+    const newerUnordered = comparable
+      .slice(0, winnerIndex)
+      .find((entry) => entry.installAttemptRevision === null);
+    // A newer legacy fallback has no attempt order and must fail closed. A
+    // newer unordered strict acknowledgement likewise cannot clear an ordered
+    // fallback. Older legacy evidence can be cleared by a later ordered strict
+    // receipt because newest-first persistence supplies that relative order.
+    if (greatestAttempt.kind === "fallback" || newerUnordered?.kind === "fallback") {
+      return "fallback";
+    }
+    return "strict_pass";
+  };
+
   if (latest.mutationRevision === null) {
-    // Newest-first remains authoritative for legacy receipts. An unordered
-    // strict acknowledgement cannot safely clear a revisioned fallback.
+    // A recovered legacy session may lack mutationRevision even on a new host.
+    // In that case attempt order is still authoritative within its lifecycle;
+    // different lifecycles remain newest-first because their attempt counters
+    // are not comparable.
+    const comparable = latest.lifecycleToken
+      ? decisive.filter(
+          (entry) =>
+            entry.mutationRevision === null && entry.lifecycleToken === latest.lifecycleToken,
+        )
+      : decisive.filter((entry) => entry.mutationRevision === null);
+    const mutationlessKind = latestAttemptDecision(comparable);
+    // An unordered/mutation-less strict acknowledgement cannot safely clear a
+    // receipt from a known later mutation.
     if (
-      latest.kind === "strict_pass" &&
+      mutationlessKind === "strict_pass" &&
       decisive.some(
         (entry) => entry.kind === "fallback" && entry.mutationRevision !== null,
       )
     ) {
       return "fallback";
     }
-    return latest.kind;
+    return mutationlessKind;
   }
   // Logs are normally newest-first, but asynchronous status acknowledgements
   // may be persisted out of arrival order. mutationRevision orders file/session
@@ -221,15 +259,7 @@ function latestDecisive(
   const sameMutation = decisive.filter(
     (entry) => entry.mutationRevision === greatestMutation,
   );
-  const orderedAttempts = sameMutation.filter(
-    (entry) => entry.installAttemptRevision !== null,
-  );
-  if (orderedAttempts.length === 0) return sameMutation[0]?.kind ?? latest.kind;
-  return orderedAttempts.reduce((current, entry) =>
-    (entry.installAttemptRevision ?? 0) > (current.installAttemptRevision ?? 0)
-      ? entry
-      : current,
-  ).kind;
+  return latestAttemptDecision(sameMutation);
 }
 
 /**
