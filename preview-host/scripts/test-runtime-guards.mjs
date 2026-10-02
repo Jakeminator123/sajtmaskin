@@ -197,6 +197,17 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("clean-exit window retains only the new attempt", afterWindow.timestamps.length === 1);
 }
 
+// 5a. Install attempts advance independently of file/session mutations so a
+// proxy-driven recovery boot gets a fresh durable receipt identity.
+{
+  const { nextInstallAttemptRevision } = runtime.__testing;
+  check("first install attempt starts at one", nextInstallAttemptRevision({}) === 1);
+  check(
+    "recovery boot advances persisted install attempt",
+    nextInstallAttemptRevision({ installAttemptRevision: 7, mutationRevision: 3 }) === 8,
+  );
+}
+
 // 5b. A hot patch promotes the receipt owned by the existing child. When that
 // child later exits, the current patched session must be settled; the stale
 // boot-time receipt must not make the exit callback silently ignore it.

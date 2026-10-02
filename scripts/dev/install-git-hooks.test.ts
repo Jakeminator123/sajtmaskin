@@ -1,4 +1,11 @@
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,7 +15,9 @@ import {
   HOOK_MARKER,
   HOOK_VERSION,
   MANAGED_HOOKS,
+  RETIRED_DB_HOOKS,
   decideHookInstall,
+  decideHookRetirement,
   renderHookScript,
 } from "./install-git-hooks.mjs";
 
@@ -101,9 +110,7 @@ const FAKE_GIT = [
   "",
 ].join("\n");
 
-// Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master eller
-// preview, dev av dessa hooks när den grenen dras hem. Går de sönder tyst är
-// vi tillbaka i "kör mot ett schema koden lämnat bakom sig".
+// Git-operationer får rapportera drift, aldrig ge ett implicit migrationsmandat.
 describe("renderHookScript", () => {
   it("hittar Git Bash på Windows när git är installerat", () => {
     if (process.platform === "win32" && spawnSync("git", ["--version"]).status === 0) {
@@ -112,68 +119,23 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(17);
+    expect(HOOK_VERSION).toBe(19);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
     }
   });
 
-  it("kör schema-synken soft och tyst — en hook får aldrig avbryta git", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
-    expect(script.trimEnd().endsWith("exit 0")).toBe(true);
-  });
-
-  it("hoppar över schema-synken tills worktree:setup har gett node_modules", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain("[ -f node_modules/pg/package.json ] || exit 0");
-    expect(script).toContain("[ -f node_modules/dotenv/package.json ] || exit 0");
-    expect(script.indexOf("[ -f node_modules/pg/package.json ] || exit 0")).toBeLessThan(
-      script.indexOf("scripts/db/ensure-schema.mjs --soft --quiet-ok"),
-    );
-  });
-
-  it("har en exakt escape hatch och står bara över vid sann CI-signal", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain('[ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ]');
-    expect(script).toContain('[ "${CI:-}" = "true" ]');
-    expect(script).not.toContain('[ -n "$CI" ]');
-  });
-
-  // resolveHooksDir hedrar `git config core.hooksPath` utan `--local`, alltså
-  // även en GLOBAL katalog — och den delas med alla andra repon på maskinen.
-  // Utan den här grinden hade hooken kört `node scripts/db/ensure-schema.mjs`
-  // där och spytt module-not-found i orelaterade projekt.
-  it("är en no-op i repon som saknar skriptet (global core.hooksPath)", () => {
-    for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
-      expect(renderHookScript(hook)).toContain("[ -f scripts/db/ensure-schema.mjs ] || exit 0");
+  it("bara pre-push kör repo-kod; pensionerade DB-posthooks är passiva", () => {
+    expect(MANAGED_HOOKS).toEqual(["pre-push"]);
+    expect(RETIRED_DB_HOOKS).toEqual(["post-merge", "post-checkout", "post-rewrite"]);
+    for (const hook of RETIRED_DB_HOOKS) {
+      const script = renderHookScript(hook);
+      expect(script).toContain(`${hook}: retired`);
+      expect(script).not.toContain("node");
+      expect(script).not.toContain("scripts/db");
+      expect(script.trimEnd().endsWith("exit 0")).toBe(true);
     }
-  });
-
-  it("post-checkout kör bara vid grenbyten, inte vid fil-utcheckning", () => {
-    // Utan grinden skulle varje `git checkout -- <fil>` kosta en DB-rundtur.
-    const script = renderHookScript("post-checkout");
-    expect(script).toContain('if [ "$3" != "1" ]; then exit 0; fi');
-  });
-
-  it("post-merge har ingen grenflagga att titta på", () => {
-    expect(renderHookScript("post-merge")).not.toContain('"$3"');
-  });
-
-  // `git pull --rebase` kör aldrig post-merge, och rebase med merge-backenden
-  // (default sedan git 2.26) ger inget pålitligt post-checkout. Utan
-  // post-rewrite är rebase-pull en blind fläck — den vanligaste vägen hem för
-  // den som har pull.rebase=true.
-  it("post-rewrite kör bara för rebase, inte för commit --amend", () => {
-    const script = renderHookScript("post-rewrite");
-    expect(script).toContain('if [ "$1" != "rebase" ]; then exit 0; fi');
-    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
-  });
-
-  it("varje hook har sin egen grind — ingen ärver en annans", () => {
-    expect(renderHookScript("post-rewrite")).not.toContain('"$3"');
-    expect(renderHookScript("post-checkout")).not.toContain('"$1" != "rebase"');
   });
 
   it("pre-push kör verify:pr --plan och låter dess exitkod stoppa pushen", () => {
@@ -596,7 +558,7 @@ describe("renderHookScript", () => {
 });
 
 describe("decideHookInstall", () => {
-  const desired = renderHookScript("post-merge");
+  const desired = renderHookScript("pre-push");
 
   it("skriver när hooken saknas", () => {
     expect(decideHookInstall({ existing: null, desired }).action).toBe("write");
@@ -619,7 +581,7 @@ describe("decideHookInstall", () => {
   });
 
   it("failar stängt när samma managed version har annat innehåll", () => {
-    const altered = desired.replace("--soft --quiet-ok", "--soft");
+    const altered = desired.replace('exit "$status"', "exit 0");
     const decision = decideHookInstall({ existing: altered, desired });
     expect(decision.action).toBe("conflict");
     expect(decision.reason).toContain("oväntat annat innehåll");
@@ -638,5 +600,157 @@ describe("decideHookInstall", () => {
     expect(
       decideHookInstall({ existing: "#!/bin/sh\necho foreign\n", desired: prePush }).action,
     ).toBe("conflict");
+  });
+});
+
+describe("retire managed DB hooks", () => {
+  // Frozen canonical v17 body from preview eafca9ec. Test data only:
+  // it is never executed and production code contains only full-file hashes.
+  const oldHook = (name: string, version = 17) => {
+    const guards: Record<string, string> = {
+      "post-checkout":
+        '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n',
+      "post-rewrite":
+        '# Bara rebase (git pull --rebase), inte commit --amend.\nif [ "$1" != "rebase" ]; then exit 0; fi\n',
+    };
+    return `#!/bin/sh
+# ${HOOK_MARKER} v${version} (${name}: db-schema-sync)
+#
+# Genererad av scripts/dev/install-git-hooks.mjs — redigera inte för hand.
+# Kör 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
+#
+# Håller dev-databasen i kapp med migrationerna i repot. Tyst när allt är i
+# synk. Avbryter aldrig git-kommandot.
+
+# Escape hatch och CI: hookarna finns för lokal utveckling. Exakta värden gör
+# att CI=false eller SAJTMASKIN_SKIP_DB_HOOKS=0 inte hoppar över av misstag.
+if [ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ] || [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
+
+# Kör bara i ett repo som faktiskt har skriptet. Har utvecklaren en GLOBAL
+# core.hooksPath delas katalogen med alla andra repon, och dar vore det har
+# bara ett module-not-found-brus.
+[ -f scripts/db/ensure-schema.mjs ] || exit 0
+${guards[name] ?? ""}
+# Saknas node är det inget fel värt att larma om i en git-hook.
+command -v node >/dev/null 2>&1 || exit 0
+
+# En ny worktree har de spårade skripten före worktree:setup har installerat
+# dependencies. Försök inte importera pg/dotenv i det mellanläget.
+[ -f node_modules/pg/package.json ] || exit 0
+[ -f node_modules/dotenv/package.json ] || exit 0
+
+node scripts/db/ensure-schema.mjs --soft --quiet-ok
+exit 0
+`;
+  };
+
+  it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+        for (const existing of [
+          legacy + "echo local-custom-hook\n",
+          "echo local-custom-hook\n" + legacy,
+          legacy.replace("exit 0", "echo local-custom-hook; exit 0"),
+          legacy.replace("\n", "\r\n"),
+          legacy.trimEnd(),
+        ]) {
+          expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
+        }
+      }
+    }
+  });
+
+  it("retirer bara exakt kända fulla bodies, inte främmande eller framtida hooks", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      expect(decideHookRetirement({ hookName, existing: null }).action).toBe("retire");
+      expect(decideHookRetirement({ hookName, existing: renderHookScript(hookName) }).action).toBe(
+        "skip",
+      );
+      expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+        expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
+        expect(
+          decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
+        ).toBe("retire");
+      }
+      for (const existing of [
+        "",
+        "#!/bin/sh\necho foreign\n",
+        `#!/bin/sh\n# example ${HOOK_MARKER}\n`,
+        `#!/bin/sh\n# ${HOOK_MARKER} v17 (${hookName}: db-schema-sync)\nnode scripts/db/ensure-schema.mjs --soft --quiet-ok\n`,
+        oldHook(hookName, 16),
+        oldHook(hookName, HOOK_VERSION + 1),
+        oldHook(hookName, HOOK_VERSION),
+        renderHookScript(hookName) + "node unexpected.mjs\n",
+        oldHook("pre-push"),
+      ]) {
+        expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
+      }
+    }
+    expect(
+      decideHookRetirement({ hookName: "pre-push", existing: oldHook("pre-push") }).action,
+    ).toBe("conflict");
+  });
+
+  it("uppgraderar verkliga isolerade hooks och bevarar återställningskopior", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-retirement-test-"));
+    expect(spawnSync("git", ["init", fixture], { encoding: "utf8" }).status).toBe(0);
+    const hooksDir = join(fixture, ".git", "hooks");
+    expect(spawnSync("git", ["config", "core.hooksPath", hooksDir], { cwd: fixture }).status).toBe(
+      0,
+    );
+    for (const hook of RETIRED_DB_HOOKS) writeFileSync(join(hooksDir, hook), oldHook(hook));
+    const result = spawnSync(process.execPath, [resolve("scripts/dev/install-git-hooks.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(hooksDir, "pre-push"), "utf8")).toBe(renderHookScript("pre-push"));
+    for (const hook of RETIRED_DB_HOOKS) {
+      expect(readFileSync(join(hooksDir, hook), "utf8")).toBe(renderHookScript(hook));
+      const line = result.stdout.split("\n").find((value) => value.includes(`${hook} pensionerad`));
+      const recoveryPath = line?.split("Återställningskopia: ")[1]?.trim();
+      expect(recoveryPath).toBeTruthy();
+      expect(readFileSync(recoveryPath!, "utf8")).toBe(oldHook(hook));
+    }
+  });
+
+  it("passiva tombstones hindrar äldre installerare från att återinföra aktiva DB-hooks", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      // The legacy installer compares managed version before writing. A
+      // missing file would be written; a passive newer header must conflict.
+      expect(decideHookInstall({ existing: null, desired: oldHook(hookName) }).action).toBe(
+        "write",
+      );
+      expect(
+        decideHookInstall({ existing: renderHookScript(hookName), desired: oldHook(hookName) })
+          .action,
+      ).toBe("conflict");
+    }
+  });
+
+  it.each([
+    "#!/bin/sh\necho foreign\n",
+    oldHook("post-checkout") + "echo local-custom-hook\n",
+    renderHookScript("post-checkout").replace("v19", "v18") + "echo local-custom-hook\n",
+  ])("främmande eller modifierad hook stoppar hela installationen (%#)", (foreign) => {
+    const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-conflict-test-"));
+    expect(spawnSync("git", ["init", fixture]).status).toBe(0);
+    const hooksDir = join(fixture, ".git", "hooks");
+    expect(spawnSync("git", ["config", "core.hooksPath", hooksDir], { cwd: fixture }).status).toBe(
+      0,
+    );
+    writeFileSync(join(hooksDir, "post-checkout"), foreign);
+    writeFileSync(join(hooksDir, "post-merge"), oldHook("post-merge"));
+    const result = spawnSync(process.execPath, [resolve("scripts/dev/install-git-hooks.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    expect(result.status).toBe(1);
+    expect(readFileSync(join(hooksDir, "post-checkout"), "utf8")).toBe(foreign);
+    expect(readFileSync(join(hooksDir, "post-merge"), "utf8")).toBe(oldHook("post-merge"));
+    expect(existsSync(join(hooksDir, "pre-push"))).toBe(false);
   });
 });

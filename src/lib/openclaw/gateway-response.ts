@@ -12,6 +12,11 @@
 
 export type GatewayErrorKind = "rate_limit" | "auth" | "unknown";
 
+export const OPENCLAW_DISPATCH_HEADER = "X-OpenClaw-Dispatch";
+export const OPENCLAW_DISPATCH_NOT_STARTED = "not-started";
+export const OPENCLAW_DISPATCH_STARTED = "started";
+export type OpenClawDispatchOutcome = "not-started" | "started" | "uncertain";
+
 export interface GatewayErrorDescription {
   kind: GatewayErrorKind;
   /** Short Swedish sentence safe to show an end user. */

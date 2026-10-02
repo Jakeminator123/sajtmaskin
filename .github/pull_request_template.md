@@ -33,9 +33,10 @@ Körda riktade kontroller:
 - Återställning/rollback:
 
 > Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. PR mot
-> `preview` mergas när required checks är gröna och fynden triagerade. Bara PR
-> mot `master` (promote) har `review-window`: när alla andra checks och
-> reviewfynd är klara, posta först
+> `preview` mergas med `merge:execute` när required checks är gröna och fynden
+> triagerade och Jakob gett separat mergeuppdrag. `review-window` kan bli grön
+> utan ready-label. När kontroller, review och tidsgolv är klara, posta först
 > `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, …` som kommentar och
-> sätt sedan labeln. `review-window` blir grön först efter sin betrodda
-> live-validering; båda SHA:na måste fortfarande vara aktuella.
+> sätt sedan labeln. Controllern validerar mandatet live; båda SHA:na måste
+> fortfarande vara aktuella. Promote till
+> `master` är manuell och går inte genom controllern.
