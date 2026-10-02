@@ -1,10 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  RATE_LIMITS,
-  checkRateLimit,
-  getClientId,
-  withRateLimit,
-} from "./rate-limit";
+
+const distributedLimit = vi.hoisted(() => vi.fn());
+const ratelimitConstructor = vi.hoisted(() => vi.fn());
+const ratelimitControl = vi.hoisted(() => ({ throwOnConstruct: false }));
+
+vi.mock("@upstash/ratelimit", () => ({
+  Ratelimit: class MockRatelimit {
+    static fixedWindow(maxRequests: number, window: string) {
+      return { maxRequests, window };
+    }
+
+    limiter = { limit: distributedLimit };
+
+    constructor(options: unknown) {
+      ratelimitConstructor(options);
+      if (ratelimitControl.throwOnConstruct) throw new Error("invalid limiter configuration");
+    }
+
+    limit(clientId: string) {
+      return this.limiter.limit(clientId);
+    }
+  },
+}));
+
+vi.mock("@upstash/redis", () => ({
+  Redis: class MockRedis {},
+}));
+
+import { RATE_LIMITS, checkRateLimit, getClientId, withRateLimit } from "./rate-limit";
 
 const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -14,6 +37,8 @@ const originalAllowMemoryProd = process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_I
 const originalTrustForwardedFor = process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 
 afterEach(() => {
+  ratelimitControl.throwOnConstruct = false;
+  vi.clearAllMocks();
   vi.unstubAllEnvs();
   if (originalUpstashUrl) process.env.UPSTASH_REDIS_REST_URL = originalUpstashUrl;
   else delete process.env.UPSTASH_REDIS_REST_URL;
@@ -23,13 +48,22 @@ afterEach(() => {
   else delete process.env.KV_REST_API_URL;
   if (originalKvToken) process.env.KV_REST_API_TOKEN = originalKvToken;
   else delete process.env.KV_REST_API_TOKEN;
-  if (originalAllowMemoryProd) process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD = originalAllowMemoryProd;
+  if (originalAllowMemoryProd)
+    process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD = originalAllowMemoryProd;
   else delete process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD;
-  if (originalTrustForwardedFor) process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR = originalTrustForwardedFor;
+  if (originalTrustForwardedFor)
+    process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR = originalTrustForwardedFor;
   else delete process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 });
 
 describe("rateLimit", () => {
+  it("configures the public attempt bucket at three requests per ten minutes", () => {
+    expect(RATE_LIMITS["analys:public:attempt"]).toEqual({
+      maxRequests: 3,
+      windowMs: 10 * 60 * 1000,
+    });
+  });
+
   it("uses verified userId when provided", () => {
     const req = new Request("https://example.com", {
       headers: { "x-forwarded-for": "1.2.3.4" },
@@ -162,8 +196,10 @@ describe("rateLimit", () => {
     const req2 = new Request("https://example.com", {
       headers: { "x-forwarded-for": "7.7.7.7" },
     });
-    const blocked = await withRateLimit(req2, endpoint, async () =>
-      new Response("should-not-run", { status: 200 }),
+    const blocked = await withRateLimit(
+      req2,
+      endpoint,
+      async () => new Response("should-not-run", { status: 200 }),
     );
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBeTruthy();
@@ -236,5 +272,98 @@ describe("rateLimit", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("X-RateLimit-Mode")).toBe("memory");
+  });
+
+  it("keeps the default distributed-timeout behavior fail-open", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    distributedLimit.mockResolvedValue({
+      success: true,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+      reason: "timeout",
+    });
+    const handler = vi.fn(async () => new Response("ok"));
+
+    const response = await withRateLimit(
+      new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.1" } }),
+      `unit:timeout-default:${Date.now()}`,
+      handler,
+    );
+
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed on a distributed timeout only when opted in", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    distributedLimit.mockResolvedValue({
+      success: true,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+      reason: "timeout",
+    });
+    const handler = vi.fn(async () => new Response("should-not-run"));
+
+    const response = await withRateLimit(
+      new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.2" } }),
+      `unit:timeout-closed:${Date.now()}`,
+      handler,
+      { failClosedOnTimeout: true },
+    );
+
+    expect(response.status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+    expect(ratelimitConstructor).toHaveBeenCalledWith(expect.objectContaining({ timeout: 2_000 }));
+  });
+
+  it("fails closed on a limiter exception when opted in", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    distributedLimit.mockRejectedValue(new Error("redis unavailable"));
+    const handler = vi.fn(async () => new Response("should-not-run"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await withRateLimit(
+      new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.3" } }),
+      `unit:exception-closed:${Date.now()}`,
+      handler,
+      { failClosedOnTimeout: true },
+    );
+
+    expect(response.status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the opted-in limiter cannot be constructed", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    ratelimitControl.throwOnConstruct = true;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await withRateLimit(
+      new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.5" } }),
+      `unit:constructor-closed:${Date.now()}`,
+      async () => new Response("should-not-run"),
+      { failClosedOnTimeout: true },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("X-RateLimit-Mode")).toBe("unavailable");
+  });
+
+  it("preserves the default exception behavior for other endpoints", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "secret";
+    distributedLimit.mockRejectedValue(new Error("redis unavailable"));
+
+    await expect(
+      withRateLimit(
+        new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.4" } }),
+        `unit:exception-default:${Date.now()}`,
+        async () => new Response("should-not-run"),
+      ),
+    ).rejects.toThrow("redis unavailable");
   });
 });
