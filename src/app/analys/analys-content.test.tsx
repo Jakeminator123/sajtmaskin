@@ -168,8 +168,31 @@ function deferredVoid() {
   return { promise, resolve };
 }
 
+function installSerialWebLocks() {
+  let tail: Promise<unknown> = Promise.resolve();
+  const locks = {
+    request: (
+      _name: string,
+      _options: LockOptions,
+      callback: (lock: Lock | null) => unknown | PromiseLike<unknown>,
+    ) => {
+      const result = tail.then(() => callback(null));
+      tail = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    },
+  } as unknown as LockManager;
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: locks,
+  });
+}
+
 describe("AnalysContent auth resume", () => {
   beforeEach(() => {
+    installSerialWebLocks();
     window.localStorage.clear();
     state.params = new URLSearchParams();
     state.auth.user = null;
@@ -211,7 +234,7 @@ describe("AnalysContent auth resume", () => {
   });
 
   it("claims one build after a fresh remount auth check under StrictMode", async () => {
-    savePendingPublicAnalys({ action: "build", ...sampleResult });
+    await savePendingPublicAnalys({ action: "build", ...sampleResult });
     state.params = new URLSearchParams("resume=build");
     state.auth.fetchUser.mockImplementation(async () => {
       state.auth.user = authenticatedUser;
@@ -229,7 +252,7 @@ describe("AnalysContent auth resume", () => {
   });
 
   it("does not resume a verified email flow until fresh auth is actually present", async () => {
-    savePendingPublicAnalys({ action: "pdf", ...sampleResult });
+    await savePendingPublicAnalys({ action: "pdf", ...sampleResult });
     state.params = new URLSearchParams("resume=pdf&verified=success");
     state.auth.fetchUser.mockImplementation(async () => {
       state.auth.user = null;
@@ -303,11 +326,11 @@ describe("AnalysContent auth resume", () => {
     render(<AnalysContent />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+    await waitFor(() => expect(state.auth.fetchUser).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Complete analysis C" }));
     pendingFetch.resolve();
 
     expect(await screen.findByText("Restored: Rapport C")).not.toBeNull();
-    await waitFor(() => expect(state.auth.fetchUser).toHaveBeenCalledTimes(1));
     expect(screen.queryByTestId("auth-modal")).toBeNull();
     expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
   });
@@ -335,7 +358,7 @@ describe("AnalysContent auth resume", () => {
   ])(
     "stops verified=error reason %s before auth or claim and preserves pending",
     async (reason, message) => {
-      savePendingPublicAnalys({ action: "pdf", ...sampleResult });
+      await savePendingPublicAnalys({ action: "pdf", ...sampleResult });
       state.params = new URLSearchParams(`resume=pdf&verified=error&reason=${reason}`);
 
       render(
@@ -364,7 +387,7 @@ describe("AnalysContent auth resume", () => {
   );
 
   it("shows verified success once, preserves resume, and waits for a fresh unauthenticated check", async () => {
-    savePendingPublicAnalys({ action: "pdf", ...sampleResult });
+    await savePendingPublicAnalys({ action: "pdf", ...sampleResult });
     state.params = new URLSearchParams("resume=pdf&verified=success");
     state.auth.fetchUser.mockImplementation(async () => {
       state.auth.user = null;
@@ -393,7 +416,7 @@ describe("AnalysContent auth resume", () => {
   });
 
   it("shows verified success once and claims one build after fresh authenticated state", async () => {
-    savePendingPublicAnalys({ action: "build", ...sampleResult });
+    await savePendingPublicAnalys({ action: "build", ...sampleResult });
     state.params = new URLSearchParams("resume=build&verified=success");
     state.auth.fetchUser.mockImplementation(async () => {
       state.auth.user = authenticatedUser;

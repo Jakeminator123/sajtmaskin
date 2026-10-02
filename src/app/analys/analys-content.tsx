@@ -92,7 +92,7 @@ export function AnalysContent() {
       disarmPendingIntent();
       setShowAuthModal(false);
       setRestoredResult(result);
-      clearPendingPublicAnalys();
+      void clearPendingPublicAnalys();
       if (resumeAction || verifiedParam) clearResumeQuery();
     },
     [clearResumeQuery, disarmPendingIntent, resumeAction, verifiedParam],
@@ -120,7 +120,7 @@ export function AnalysContent() {
         const handoff = await createAuditBuildHandoff(payload, DEFAULT_BUILD_INTENT);
         router.push(handoff.href);
       } catch (error) {
-        savePendingPublicAnalys({
+        await savePendingPublicAnalys({
           action: pending.action,
           report: pending.report,
           auditedUrl: pending.auditedUrl,
@@ -137,7 +137,7 @@ export function AnalysContent() {
 
   const claimAndRun = useCallback(
     async (action: PublicAnalysAction) => {
-      const claimed = claimPendingPublicAnalys(action);
+      const claimed = await claimPendingPublicAnalys(action);
       if (claimed) await runClaimedAction(claimed);
     },
     [runClaimedAction],
@@ -146,11 +146,13 @@ export function AnalysContent() {
   const handleProtectedAction = useCallback(
     async (action: PublicAnalysAction, result: PublicAnalysResult) => {
       if (authCheckInFlightRef.current || continuationInFlightRef.current) return;
-      const saved = savePendingPublicAnalys({
+      const intentGeneration = ++intentGenerationRef.current;
+      const saved = await savePendingPublicAnalys({
         action,
         report: result.report,
         auditedUrl: result.auditedUrl,
       });
+      if (intentGeneration !== intentGenerationRef.current) return;
       if (!saved) {
         toast.error("Kunde inte spara rapporten för fortsatt inloggning. Försök igen.");
         return;
@@ -158,7 +160,6 @@ export function AnalysContent() {
 
       setPendingAction(action);
       setRestoredResult({ report: saved.report, auditedUrl: saved.auditedUrl });
-      const intentGeneration = ++intentGenerationRef.current;
       authCheckInFlightRef.current = true;
       try {
         await fetchUser();

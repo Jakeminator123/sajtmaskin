@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const setUser = vi.hoisted(() => vi.fn());
@@ -113,6 +113,31 @@ describe("AuthModal onSuccess", () => {
     fillAndSubmit();
     await waitFor(() => expect(setUser).toHaveBeenCalledTimes(1));
     await Promise.resolve();
+    expect(screen.queryByText("Kunde inte ansluta till servern")).toBeNull();
+  });
+
+  it("invalidates a delayed successful login when the modal is dismissed", async () => {
+    let resolveLogin!: (response: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveLogin = resolve;
+      }),
+    );
+    const onSuccess = vi.fn();
+    const onClose = vi.fn();
+    render(<AuthModal isOpen onClose={onClose} defaultMode="login" onSuccess={onSuccess} />);
+
+    fillAndSubmit();
+    fireEvent.click(screen.getByRole("button", { name: "Stäng inloggning" }));
+
+    await act(async () => {
+      resolveLogin(new Response(JSON.stringify({ success: true, user })));
+      await Promise.resolve();
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(setUser).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.queryByText("Kunde inte ansluta till servern")).toBeNull();
   });
 });

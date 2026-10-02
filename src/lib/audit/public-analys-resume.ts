@@ -4,6 +4,7 @@ export const PUBLIC_ANALYS_PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 export const PUBLIC_ANALYS_PENDING_MAX_BYTES = 64 * 1_024;
 
 const STORAGE_KEY = "sajtmaskin:public-analys-resume:v1";
+const STORAGE_LOCK = `${STORAGE_KEY}:mutation`;
 const MAX_TEXT = 600;
 const MAX_URL = 2_048;
 const MAX_LIST = 6;
@@ -35,6 +36,7 @@ export type PendingPublicAnalys = {
 
 type StorageOptions = {
   storage?: Storage | null;
+  locks?: LockManager | null;
   now?: number;
 };
 
@@ -255,6 +257,26 @@ function resolveStorage(options: StorageOptions): Storage | null {
   }
 }
 
+function resolveLocks(options: StorageOptions): LockManager | null {
+  if (Object.prototype.hasOwnProperty.call(options, "locks")) return options.locks ?? null;
+  if (typeof navigator === "undefined") return null;
+  return navigator.locks ?? null;
+}
+
+async function withMutationLock<T>(
+  options: StorageOptions,
+  fallback: T,
+  mutation: () => T,
+): Promise<T> {
+  const locks = resolveLocks(options);
+  if (!locks) return fallback;
+  try {
+    return await locks.request(STORAGE_LOCK, { mode: "exclusive" }, mutation);
+  } catch {
+    return fallback;
+  }
+}
+
 function removeSafely(storage: Storage): boolean {
   try {
     storage.removeItem(STORAGE_KEY);
@@ -294,14 +316,14 @@ function parsePending(raw: string, now: number): PendingPublicAnalys | null {
   }
 }
 
-export function savePendingPublicAnalys(
+export async function savePendingPublicAnalys(
   input: {
     action: PublicAnalysAction;
     report: PublicAnalysReport;
     auditedUrl: string;
   },
   options: StorageOptions = {},
-): PendingPublicAnalys | null {
+): Promise<PendingPublicAnalys | null> {
   const storage = resolveStorage(options);
   const report = normalizePublicReport(input.report);
   const auditedUrl = normalizeAuditedUrl(input.auditedUrl);
@@ -315,12 +337,14 @@ export function savePendingPublicAnalys(
   };
   const serialized = JSON.stringify(pending);
   if (byteLength(serialized) > PUBLIC_ANALYS_PENDING_MAX_BYTES) return null;
-  try {
-    storage.setItem(STORAGE_KEY, serialized);
-    return pending;
-  } catch {
-    return null;
-  }
+  return withMutationLock(options, null, () => {
+    try {
+      storage.setItem(STORAGE_KEY, serialized);
+      return pending;
+    } catch {
+      return null;
+    }
+  });
 }
 
 export function readPendingPublicAnalys(options: StorageOptions = {}): PendingPublicAnalys | null {
@@ -329,26 +353,26 @@ export function readPendingPublicAnalys(options: StorageOptions = {}): PendingPu
   try {
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const pending = parsePending(raw, options.now ?? Date.now());
-    if (!pending) removeSafely(storage);
-    return pending;
+    return parsePending(raw, options.now ?? Date.now());
   } catch {
     return null;
   }
 }
 
-export function clearPendingPublicAnalys(options: StorageOptions = {}): boolean {
+export async function clearPendingPublicAnalys(options: StorageOptions = {}): Promise<boolean> {
   const storage = resolveStorage(options);
-  return storage ? removeSafely(storage) : false;
+  return storage ? withMutationLock(options, false, () => removeSafely(storage)) : false;
 }
 
-export function claimPendingPublicAnalys(
+export async function claimPendingPublicAnalys(
   action: PublicAnalysAction,
   options: StorageOptions = {},
-): PendingPublicAnalys | null {
+): Promise<PendingPublicAnalys | null> {
   const storage = resolveStorage(options);
   if (!storage) return null;
-  const pending = readPendingPublicAnalys({ ...options, storage });
-  if (!pending || pending.action !== action) return null;
-  return removeSafely(storage) ? pending : null;
+  return withMutationLock(options, null, () => {
+    const pending = readPendingPublicAnalys({ ...options, storage });
+    if (!pending || pending.action !== action) return null;
+    return removeSafely(storage) ? pending : null;
+  });
 }

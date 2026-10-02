@@ -6,7 +6,9 @@ Kanonisk kortregel: [`.cursor/rules/agent-worktree.mdc`](../../.cursor/rules/age
 
 ## När
 
-Flera agenter som ska skriva samtidigt, eller när Jakob ber om en isolerad yta.
+När Jakob ber om en isolerad yta, exempelvis för parallella skribenter.
+Codex och Cursor arbetar annars i den öppna checkouten, en skrivande session
+åt gången. Andra agenter får läsa samma checkout.
 
 ## Skapa
 
@@ -49,11 +51,6 @@ npm run worktree:remove -- ..\sajtmaskin-<kort>
 Wrappern kopplar loss ev. länkar först. `--force` kräver
 `SAJTMASKIN_DISCARD_REASON` och att ingen PR är öppen.
 
-## Codex
-
-Codex-projektet pekar på repo-roten, men huvudcheckouten är läs- och testankare.
-Codex skriver i ett eget worktree från färsk `origin/preview` (eller
-`origin/master` när påståendet gäller produktion) — se
-[`.codex/README.md`](../../.codex/README.md). En långlivad worktree som verkligen
-behövs skyddas med git-configen `sajtmaskin.protectedWorktree`, inte med ett
-särskilt Codex-branchnamn.
+En befintlig app-isolerad checkout följer samma arbetsregler. En långlivad
+worktree som behöver skyddas använder git-configen
+`sajtmaskin.protectedWorktree`.
