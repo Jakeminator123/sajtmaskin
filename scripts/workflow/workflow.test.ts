@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +18,7 @@ import {
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
+  PATH_GROUP_FLOORS,
   collectImpact,
   expandBraces,
   loadWorkflowInputs,
@@ -92,6 +93,37 @@ describe("agent workflow path matching", () => {
 
 describe("agent workflow impact", () => {
   const inputs = loadWorkflowInputs();
+
+  it("does not expose the retired coach mailbox as executable tooling", () => {
+    for (const path of [
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+      ".agent-bridge/config.example.json",
+      ".cursor/commands/bridge.md",
+      ".cursor/commands/bryggagent.md",
+      "docs/agent-bridge/README.md",
+      "docs/agent-bridge/protocol.md",
+      "docs/agent-bridge/roles/brygg.md",
+      "docs/agent-bridge/roles/builder.md",
+      "docs/agent-bridge/roles/merge.md",
+      "docs/agent-bridge/roles/scout.md",
+    ]) {
+      expect(existsSync(path)).toBe(false);
+    }
+    const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(scripts).not.toHaveProperty("test:agent-bridge");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(ci).not.toContain("test:agent-bridge");
+    expect(ci).toContain("scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts");
+    for (const pattern of [
+      ".agent-bridge/**",
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+    ]) {
+      expect(inputs.policy.pathGroups.agent).not.toContain(pattern);
+      expect(PATH_GROUP_FLOORS.agent).not.toContain(pattern);
+    }
+  });
 
   it("keeps workstation cleanup out of the PR verification profile", () => {
     expect(inputs.policy.verificationProfiles.full).not.toEqual(

@@ -110,10 +110,7 @@
       ".worktreeinclude",
       "config/agent-workflow.json",
       "scripts/dev/check-agent-context-budget.mjs",
-      "scripts/workflow/**",
-      ".agent-bridge/**",
-      "scripts/agent_bridge.py",
-      "scripts/test_agent_bridge.py"
+      "scripts/workflow/**"
     ],
     "runtime": [
       "src/**",
