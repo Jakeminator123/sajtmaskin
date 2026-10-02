@@ -51,6 +51,104 @@ const SCORE_KEYS = [
   "mobile",
 ] as const;
 
+const RESPONSES_TOTAL_BUDGET_MS = 270_000;
+const RESPONSES_ATTEMPT_BUDGET_MS = 90_000;
+const RESPONSES_MAX_ATTEMPTS = 2;
+const PERMANENT_QUOTA_CODES = new Set(["insufficient_quota", "billing_hard_limit_reached"]);
+const TRANSIENT_NETWORK_CODES = new Set([
+  "ECONNABORTED",
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+type ResponsesErrorShape = {
+  status?: number;
+  code?: string;
+  name?: string;
+  message?: string;
+  headers?: Headers | Record<string, string | undefined>;
+  error?: { code?: string };
+  cause?: { code?: string; name?: string; message?: string };
+};
+
+type ResponsesLifecycle = "completed" | "transient" | "permanent" | "uncertain";
+
+function classifyResponsesLifecycle(response: OpenAI.Responses.Response): ResponsesLifecycle {
+  if (response.status === "completed") {
+    return response.error === null && response.incomplete_details === null
+      ? "completed"
+      : "uncertain";
+  }
+
+  if (response.status === "failed") {
+    const code = response.error?.code;
+    return code === "server_error" || code === "rate_limit_exceeded"
+      ? "transient"
+      : "permanent";
+  }
+
+  if (response.status === "incomplete") {
+    return response.incomplete_details?.reason === "max_output_tokens"
+      ? "transient"
+      : "permanent";
+  }
+
+  return "uncertain";
+}
+
+function responsesErrorCode(error: unknown): string {
+  const candidate = error as ResponsesErrorShape;
+  return candidate.code || candidate.error?.code || candidate.cause?.code || "";
+}
+
+function isTransientResponsesError(error: unknown): boolean {
+  const candidate = error as ResponsesErrorShape;
+  const code = responsesErrorCode(error);
+  if (code === "model_not_found") return true;
+  if (PERMANENT_QUOTA_CODES.has(code)) return false;
+
+  const status = candidate.status;
+  if (status === 408 || status === 429 || (typeof status === "number" && status >= 500)) {
+    return true;
+  }
+  if (typeof status === "number" && status >= 400 && status < 500) return false;
+
+  const name = candidate.name || candidate.cause?.name || "";
+  const message = `${candidate.message || ""} ${candidate.cause?.message || ""}`;
+  return (
+    name === "AbortError" ||
+    name === "APIConnectionError" ||
+    name === "APIConnectionTimeoutError" ||
+    TRANSIENT_NETWORK_CODES.has(code) ||
+    /timed?\s*out|timeout|connection reset|socket hang up|fetch failed/i.test(message)
+  );
+}
+
+function retryAfterMs(error: unknown, nowMs: number): number | null {
+  const headers = (error as ResponsesErrorShape).headers;
+  let value: string | null | undefined;
+  if (headers instanceof Headers) {
+    value = headers.get("retry-after");
+  } else if (headers) {
+    const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === "retry-after");
+    value = entry?.[1];
+  }
+  if (!value) return null;
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+  const retryAt = Date.parse(value);
+  if (!Number.isFinite(retryAt)) return null;
+  return Math.max(0, retryAt - nowMs);
+}
+
+async function waitForRetry(delayMs: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
+
 function scrapeErrorStatus(errorMessage: string): number {
   if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) return 403;
   if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) return 401;
@@ -122,12 +220,11 @@ export async function runWebsiteAudit(input: {
   let inputTokens = 0;
   let outputTokens = 0;
   let usedModel: string = modelCandidates[0] ?? primaryModel;
+  let responsesCostUSD: number | null = null;
 
   if (FEATURES.useResponsesApi) {
-    const RESPONSES_MODEL = toResponsesModelId(primaryModel);
-    usedModel = primaryModel;
-
-    const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+    responsesCostUSD = 0;
+    const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey, maxRetries: 0 });
 
     const tools: OpenAI.Responses.Tool[] = allowWebSearch
       ? [{ type: "web_search_preview" as const, search_context_size: "low" as const }]
@@ -137,45 +234,127 @@ export async function runWebsiteAudit(input: {
       .map((m) => `${m.role === "system" ? "[System]\n" : ""}${m.content}`)
       .join("\n\n");
 
-    console.info(
-      `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
-    );
+    const responsesDeadline = requestStartTime + RESPONSES_TOTAL_BUDGET_MS;
+    const candidates = modelCandidates.slice(0, RESPONSES_MAX_ATTEMPTS);
+    let selectedResponse: OpenAI.Responses.Response | null = null;
+    let lastTransientError: unknown = null;
 
-    const response = await openai.responses.create({
-      model: RESPONSES_MODEL,
-      input: [{ role: "user", content: promptContent }],
-      tools: tools.length > 0 ? tools : undefined,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "website_audit",
-          schema: run.schema,
-          strict: true,
-        },
-      },
-      store: false,
-    });
+    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+      const candidateModel = candidates[candidateIndex];
+      const remainingMs = responsesDeadline - Date.now();
+      if (remainingMs <= 0) break;
 
-    const apiDuration = Date.now() - requestStartTime;
+      const attemptBudgetMs = Math.min(RESPONSES_ATTEMPT_BUDGET_MS, remainingMs);
+      const responsesModel = toResponsesModelId(candidateModel);
+      console.info(
+        `[${requestId}] Calling Responses API (${responsesModel}, web_search=${allowWebSearch}, prompt=${promptKind}, mode=${resolvedAuditMode}, pages=${run.maxPages})`,
+      );
 
-    webSearchCallCount = response.output.filter((item) => item.type === "web_search_call").length;
+      let response: OpenAI.Responses.Response;
+      try {
+        response = await openai.responses.create(
+          {
+            model: responsesModel,
+            input: [{ role: "user", content: promptContent }],
+            tools: tools.length > 0 ? tools : undefined,
+            text: {
+              format: {
+                type: "json_schema",
+                name: "website_audit",
+                schema: run.schema,
+                strict: true,
+              },
+            },
+            store: false,
+          },
+          {
+            maxRetries: 0,
+            timeout: attemptBudgetMs,
+            signal: AbortSignal.timeout(attemptBudgetMs),
+          },
+        );
+      } catch (error) {
+        if (!isTransientResponsesError(error)) throw error;
+        lastTransientError = error;
+        console.warn(`[${requestId}] Transient Responses failure for ${candidateModel}:`, error);
 
-    if (response.usage) {
-      inputTokens = response.usage.input_tokens ?? 0;
-      outputTokens = response.usage.output_tokens ?? 0;
+        if (candidateIndex + 1 >= candidates.length) break;
+        const delayMs = retryAfterMs(error, Date.now());
+        if (delayMs !== null) {
+          const remainingAfterFailure = responsesDeadline - Date.now();
+          if (delayMs >= remainingAfterFailure) break;
+          await waitForRetry(delayMs);
+        }
+        continue;
+      }
+
+      const responseInputTokens = response.usage?.input_tokens ?? 0;
+      const responseOutputTokens = response.usage?.output_tokens ?? 0;
+      inputTokens += responseInputTokens;
+      outputTokens += responseOutputTokens;
+      webSearchCallCount += response.output.filter(
+        (item) => item.type === "web_search_call",
+      ).length;
+      const candidatePricing = getPricingForModel(candidateModel);
+      responsesCostUSD +=
+        (responseInputTokens * candidatePricing.input +
+          responseOutputTokens * candidatePricing.output) /
+        1_000_000;
+
+      const lifecycle = classifyResponsesLifecycle(response);
+      if (lifecycle !== "completed") {
+        const lifecycleEvidence = {
+          status: response.status,
+          errorCode: response.error?.code,
+          incompleteReason: response.incomplete_details?.reason,
+        };
+
+        if (lifecycle === "transient") {
+          lastTransientError = lifecycleEvidence;
+          console.warn(
+            `[${requestId}] Transient Responses status from ${candidateModel}, trying next candidate`,
+            lifecycleEvidence,
+          );
+          continue;
+        }
+
+        console.error(
+          `[${requestId}] Responses status from ${candidateModel} is not safe to accept or retry`,
+          lifecycleEvidence,
+        );
+        return {
+          ok: false,
+          status: 502,
+          error: "AI-tjänsten kunde inte slutföra analysen.",
+        };
+      }
+
+      if (!response.output_text || response.output_text.trim().length === 0) {
+        console.warn(`[${requestId}] Empty response from ${candidateModel}, trying next candidate`);
+        continue;
+      }
+
+      selectedResponse = response;
+      usedModel = candidateModel;
+      break;
     }
 
+    if (!selectedResponse) {
+      console.error(`[${requestId}] All Responses candidates failed`, lastTransientError);
+      return {
+        ok: false,
+        status: 502,
+        error: "Auditens modellkedja kunde inte generera ett svar.",
+      };
+    }
+
+    const apiDuration = Date.now() - requestStartTime;
     console.info(
       `[${requestId}] Responses API completed in ${apiDuration}ms (web_searches=${webSearchCallCount})`,
     );
 
-    if (!response.output_text || response.output_text.trim().length === 0) {
-      console.error(`[${requestId}] Empty response from Responses API`);
-      return { ok: false, status: 500, error: "Tom respons från AI. Försök igen." };
-    }
-
     try {
-      auditResult = JSON.parse(response.output_text);
+      auditResult = JSON.parse(selectedResponse.output_text);
       console.info(`[${requestId}] Structured output parsed successfully`);
     } catch (parseErr) {
       console.error(`[${requestId}] Structured output parse failed (unexpected):`, parseErr);
@@ -360,7 +539,8 @@ export async function runWebsiteAudit(input: {
   }
 
   const pricing = getPricingForModel(usedModel);
-  const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+  const costUSD =
+    responsesCostUSD ?? (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
   const costSEK = costUSD * USD_TO_SEK;
   console.info(
     `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, prompt=${promptKind}, pages=${
