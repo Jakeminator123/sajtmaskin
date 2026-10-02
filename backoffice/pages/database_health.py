@@ -252,7 +252,8 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
     if summary.get("total_tables_missing", 0) > 0:
         st.error(
             f"⚠️ **{summary['total_tables_missing']} förväntade tabeller saknas i DB:n.** "
-            "Kör `npm run db:init` för att skapa dem (säker — `CREATE TABLE IF NOT EXISTS`)."
+            "Verifiera målet och ta fram en separat DB-plan. `db:init` är WRITE/REPAIR för dev "
+            "och kan UPDATE/DELETE befintliga data; det är inte en säker standardfix."
         )
     if summary.get("total_table_probe_failures", 0) > 0:
         st.error(
@@ -263,9 +264,9 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
     if missing_indexes:
         st.error(
             f"⚠️ **{len(missing_indexes)} index saknas.** Det här är den vanligaste orsaken till "
-            "långsamma queries. Kör:"
+            "långsamma queries. Granska först planen:"
         )
-        st.code("npm run db:perf-indexes", language="bash")
+        st.code("npm run db:perf-indexes:dry", language="bash")
         st.caption(
             "Granska först `npm run db:perf-indexes:dry` och verifiera mål. "
             "Faktisk apply kräver separat mandat och --reason; index-DDL kan låsa writes även när den är idempotent."
@@ -319,7 +320,8 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
     SVÅRT att råka klicka — text-rutan tvingar reflektion, kryss-rutan
     bekräftar att man läst varningen, och targetet visas i klartext.
     Skriptet i sig (`add-performance-indexes.mjs`) är idempotent + dedupe-
-    aware, så även "olyckliga" klick är säkra. Audit-logg skrivs alltid.
+    aware, men non-CONCURRENT index-DDL kan blockera writes. Separat mandat,
+    verifierat mål och granskad plan krävs; kontrollera resultat och audit.
     """
     st.subheader("🔧 Applicera saknade index")
 
@@ -345,28 +347,28 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
 **Vad händer:**
 - Skriptet skapar alla index som backoffice-checken markerat som "saknade" ovan.
 - Skriptet är **idempotent** (`CREATE INDEX IF NOT EXISTS`) — om något redan
-  finns hoppas det över. Du kan trycka den 100 gånger utan skada.
+  finns hoppas det över. Det är en retry-egenskap, inte ett säkerhetsbevis.
 - Det är **dedupe-aware** — om ett index med annat namn redan täcker samma
   kolumner, hoppas det över istället för att skapa en duplikat.
-- Skriptet **ändrar inte data** i tabellerna. Det skapar bara index, vilket
-  Postgres bygger i bakgrunden och gör queries snabbare.
-- En audit-rad skrivs till `data/observability/db-perf-indexes-runs.ndjson`
-  med tidsstämpel, din motivering, och resultatet.
+- Skriptet ändrar DB-struktur med **non-CONCURRENT CREATE INDEX**, vilket
+  kan blockera skrivningar medan indexet byggs. Det är ingen bakgrundsgaranti.
+- Kontrollera resultat och audit i `data/observability/db-perf-indexes-runs.ndjson`.
+  En loggrad är inte i sig ett bevis på lyckad apply.
 
 **Vad kan gå fel:**
-- DB:n är otillgänglig → migrationen failar tyst, audit-logg visar varför.
-- Två agenter försöker skapa samma index samtidigt → en av dem får
-  "already exists" och hoppar över. Inget skadligt händer.
-- Indexet tar längre tid att bygga än 5 minuter → timeout. På små tabeller
-  (< 100k rader) bör det aldrig hända.
+- Anslutningsfel eller SQL-fel → kontrollera resultatet; dölj inte ett misslyckande.
+- Parallella indexbyggen kan konkurrera om lås. Kör inte flera apply samtidigt.
+- Knappens femminuterstimeout kan ge ett ofullständigt resultat. Kontrollera
+  faktisk DB-status före en eventuell omkörning.
 
-**När du ska klicka:**
-- När hälsokollen ovan visar saknade index OCH du noterar att appen är slö.
-- Efter en schema-migration som lagt till nya tabeller.
-- Som rutin efter större deploys.
+**Före apply:**
+- Separat mandat för index-DDL mot det verifierade målet.
+- Granskad dry-run-plan och bedömd lås-/trafikpåverkan.
+- Planerad körning; ett deploy- eller mergeuppdrag räcker inte.
 
 **När du INTE ska klicka:**
 - Om du inte har kollat att DB-pekaren ovan stämmer (`.env.local` POSTGRES_URL).
+- Som rutin efter deploy eller bara för att ett index saknas.
 - Om appen pågår en stor write-burst (t.ex. mass-import). Vänta tills lugnt.
             """
         )

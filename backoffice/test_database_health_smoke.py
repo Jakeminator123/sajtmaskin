@@ -83,6 +83,19 @@ class DatabaseHealthSmokeTests(unittest.TestCase):
             "har den ändrats? Uppdatera även hjälptexten och denna test om så.",
         )
 
+    def test_write_help_does_not_present_repair_or_index_ddl_as_harmless(self) -> None:
+        source = (REPO_ROOT / "backoffice/pages/database_health.py").read_text(encoding="utf-8")
+        for warning in ("UPDATE/DELETE", "non-CONCURRENT", "blockera", "Separat mandat"):
+            self.assertIn(warning, source)
+        for false_safety in (
+            '"olyckliga" klick är säkra',
+            "100 gånger utan skada",
+            "Inget skadligt händer",
+            "Som rutin efter större deploys",
+            "säker — `CREATE TABLE IF NOT EXISTS`",
+        ):
+            self.assertNotIn(false_safety, source)
+
 
 class RedisHealthSmokeTests(unittest.TestCase):
     def test_module_imports_without_errors(self) -> None:
