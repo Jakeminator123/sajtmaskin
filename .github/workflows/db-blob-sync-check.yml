@@ -15,8 +15,8 @@ on:
   push:
     branches: [master]
   pull_request:
-    branches: [master]
-    # PR-körningen saknar live-creds och kan därför bara bevisa workflowets
+    branches: [preview, master]
+    # Båda leveransbasernas PR-körningar saknar live-creds och bevisar bara workflowets
     # egna Python-inputs. Schema/runtime ägs av required schema-drift i ci.yml.
     paths:
       - ".github/workflows/db-blob-sync-check.yml"

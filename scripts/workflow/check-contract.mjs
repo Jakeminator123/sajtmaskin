@@ -27,10 +27,12 @@ export function evaluateRetiredApiReviewWorkflows(workflows) {
   return workflows
     .filter(
       ({ name, source }) =>
-        name === "pr-ai-review.yml" ||
-        /scripts\/pr-review\/(?:run|receipt)\.mjs/u.test(source),
+        name === "pr-ai-review.yml" || /scripts\/pr-review\/(?:run|receipt)\.mjs/u.test(source),
     )
-    .map(({ name }) => `${name}: automatic API PR review is retired; do not duplicate local/external review`);
+    .map(
+      ({ name }) =>
+        `${name}: automatic API PR review is retired; do not duplicate local/external review`,
+    );
 }
 
 // Avsiktlig konstitutionell duplicering. Den redigerbara policyn får lägga till
@@ -1021,11 +1023,11 @@ export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
 
   const blobEvents = blob?.on;
   if (
-    !hasExactStringSet(blobEvents?.pull_request?.branches, ["master"]) ||
+    !hasExactStringSet(blobEvents?.pull_request?.branches, ["preview", "master"]) ||
     !hasExactStringSet(blobEvents?.pull_request?.paths, DB_BLOB_PR_PATH_FLOOR) ||
     blobEvents?.pull_request?.["paths-ignore"] !== undefined
   ) {
-    errors.push("DB/Blob PR trigger must use the exact executable-input path allowlist");
+    errors.push("DB/Blob PR trigger must cover preview/master with the exact input path allowlist");
   }
   if (
     !hasExactStringSet(blobEvents?.push?.branches, ["master"]) ||

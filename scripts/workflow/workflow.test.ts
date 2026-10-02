@@ -531,9 +531,9 @@ describe("verify:pr base resolution", () => {
 
   it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
     expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
-    expect(
-      resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy }),
-    ).toBe("origin/preview");
+    expect(resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy })).toBe(
+      "origin/preview",
+    );
   });
 
   it("låter explicit --base vinna, inklusive origin/master för produktionsgranskning", () => {
@@ -843,7 +843,9 @@ describe("agent workflow repository contract", () => {
   });
 
   it("keeps the trusted controller import graph free of npm packages", () => {
-    expect(collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8"))).toEqual(
+    expect(
+      collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8")),
+    ).toEqual(
       expect.arrayContaining([
         "node:crypto",
         "node:fs",
@@ -865,10 +867,7 @@ describe("agent workflow repository contract", () => {
           "scripts/workflow/check-contract.mjs":
             'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
         },
-        [
-          "scripts/ci/trusted-review-window.mjs",
-          "scripts/ci/merge-ready-freshness.mjs",
-        ],
+        ["scripts/ci/trusted-review-window.mjs", "scripts/ci/merge-ready-freshness.mjs"],
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -876,6 +875,17 @@ describe("agent workflow repository contract", () => {
         "scripts/workflow/check-contract.mjs imports non-node package 'js-yaml'",
       ]),
     );
+  });
+
+  it("runs secretless DB/Blob Python PR validation on preview and master", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(blob).toContain("  pull_request:\n    branches: [preview, master]");
+    for (const branches of ["master", "preview", "preview, master, feature"]) {
+      const candidate = blob.replace("branches: [preview, master]", `branches: [${branches}]`);
+      expect(candidate).not.toBe(blob);
+      expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
+    }
   });
 
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
@@ -1090,7 +1100,10 @@ describe("agent workflow repository contract", () => {
       "on: push\njobs:\n  dossier-acceptance:\n    name: harmless\n    runs-on: ubuntu-latest\n",
     ],
     ["other.yml", "on: push\njobs:\n  fake:\n    name: build\n    runs-on: ubuntu-latest\n"],
-    ["other.yml", "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n",
+    ],
     [
       "other.yml",
       "on: push\njobs:\n  fake:\n    name: trusted-pr-ai-review\n    runs-on: ubuntu-latest\n",
@@ -1136,7 +1149,7 @@ describe("agent workflow repository contract", () => {
       evaluateDossierAcceptanceWorkflow(
         source.replace(
           "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
-          "    paths: [\"data/dossiers/**\"]\n",
+          '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
     ).toBeGreaterThan(0);

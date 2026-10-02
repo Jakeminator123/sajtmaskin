@@ -8,13 +8,15 @@
  * drift; db:ensure/db:migrate för dev kräver ett uttryckligt uppdrag.
  *
  * Säkerhet mot att skriva över någon annans hook: varje genererad fil bär en
- * markör. Saknas markören i en befintlig hook rör vi den inte, utan rapporterar.
+ * markör. DB-posthookar pensioneras bara vid exakt känt filinnehåll; en
+ * markör ensam bevisar inte att en hook saknar lokala ändringar.
  *
  * Användning:
  *   npm run hooks:install          # installera/uppgradera
  *   npm run hooks:install -- --quiet
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -274,20 +276,40 @@ exit 0
 `;
 }
 
-/** Only exact, known managed DB headers may be retired; future/foreign files stop. */
+// Full-file SHA-256 of the canonical v17 renderer at preview eafca9ec.
+// LF and uniformly CRLF are separate known serializations, not normalized
+// input. Other versions, mixed endings or any local addition fail closed.
+const LEGACY_DB_HOOK_HASHES = Object.freeze({
+  "post-merge": [
+    "3429bea902f44cea43ec523ea0bd4bdbb9f804b842f58c799caef80111a79739",
+    "9018a34bcbbe30788ec5893b3185b5e2ca073254d73844103d0b8e7a32652368",
+  ],
+  "post-checkout": [
+    "24405de5023274c5c64b03bc7d3036abeef08acae05694dc5527fe8831d84388",
+    "ce7a71839dfa8a1425d3cfcbb95344d79b3ec7a6101676585a02703f0651e38e",
+  ],
+  "post-rewrite": [
+    "e65e732549a3f5cc1e36911e8ba64cc0b6fc04be7d7a45d6218e5d975484664b",
+    "79dea44d691b18eb16776bf44db378b1820a7881f4d53d1ebc8f91cfcd94f46b",
+  ],
+});
+
+/** Only exact known full bodies may be retired; modified/unknown files stop. */
 export function decideHookRetirement({ hookName, existing }) {
   if (!RETIRED_DB_HOOKS.includes(hookName)) {
     return { action: "conflict", reason: "inte en pensionerad DB-hook" };
   }
-  if (!existing)
+  if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const match = new RegExp(
-    `^# ${HOOK_MARKER} v(\\d+) \\(${hookName}: (?:db-schema-sync|retired)\\)\\r?$`,
-    "mu",
-  ).exec(existing);
-  if (!match || Number(match[1]) >= HOOK_VERSION) {
-    return { action: "conflict", reason: "främmande eller nyare hook; rörs inte" };
+  const legacyPassive = `#!/bin/sh\n# ${HOOK_MARKER} v18 (${hookName}: retired)\nexit 0\n`;
+  const hash = createHash("sha256").update(existing).digest("hex");
+  if (
+    !LEGACY_DB_HOOK_HASHES[hookName].includes(hash) &&
+    existing !== legacyPassive &&
+    existing !== legacyPassive.replace(/\n/g, "\r\n")
+  ) {
+    return { action: "conflict", reason: "modifierad, okänd eller nyare hook; rörs inte" };
   }
   return { action: "retire", reason: "managed DB-posthook pensionerad" };
 }

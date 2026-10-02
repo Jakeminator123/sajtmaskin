@@ -604,19 +604,81 @@ describe("decideHookInstall", () => {
 });
 
 describe("retire managed DB hooks", () => {
-  const oldHook = (name: string, version = 17) =>
-    `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${name}: db-schema-sync)\nnode scripts/db/ensure-schema.mjs --soft --quiet-ok\n`;
+  // Frozen canonical v17 body from preview eafca9ec. Test data only:
+  // it is never executed and production code contains only full-file hashes.
+  const oldHook = (name: string, version = 17) => {
+    const guards: Record<string, string> = {
+      "post-checkout":
+        '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n',
+      "post-rewrite":
+        '# Bara rebase (git pull --rebase), inte commit --amend.\nif [ "$1" != "rebase" ]; then exit 0; fi\n',
+    };
+    return `#!/bin/sh
+# ${HOOK_MARKER} v${version} (${name}: db-schema-sync)
+#
+# Genererad av scripts/dev/install-git-hooks.mjs — redigera inte för hand.
+# Kör 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
+#
+# Håller dev-databasen i kapp med migrationerna i repot. Tyst när allt är i
+# synk. Avbryter aldrig git-kommandot.
 
-  it("retirer bara kända managed headers, inte främmande eller framtida hooks", () => {
+# Escape hatch och CI: hookarna finns för lokal utveckling. Exakta värden gör
+# att CI=false eller SAJTMASKIN_SKIP_DB_HOOKS=0 inte hoppar över av misstag.
+if [ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ] || [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
+
+# Kör bara i ett repo som faktiskt har skriptet. Har utvecklaren en GLOBAL
+# core.hooksPath delas katalogen med alla andra repon, och dar vore det har
+# bara ett module-not-found-brus.
+[ -f scripts/db/ensure-schema.mjs ] || exit 0
+${guards[name] ?? ""}
+# Saknas node är det inget fel värt att larma om i en git-hook.
+command -v node >/dev/null 2>&1 || exit 0
+
+# En ny worktree har de spårade skripten före worktree:setup har installerat
+# dependencies. Försök inte importera pg/dotenv i det mellanläget.
+[ -f node_modules/pg/package.json ] || exit 0
+[ -f node_modules/dotenv/package.json ] || exit 0
+
+node scripts/db/ensure-schema.mjs --soft --quiet-ok
+exit 0
+`;
+  };
+
+  it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
+    for (const hookName of RETIRED_DB_HOOKS) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+        for (const existing of [
+          legacy + "echo local-custom-hook\n",
+          "echo local-custom-hook\n" + legacy,
+          legacy.replace("exit 0", "echo local-custom-hook; exit 0"),
+          legacy.replace("\n", "\r\n"),
+          legacy.trimEnd(),
+        ]) {
+          expect(decideHookRetirement({ hookName, existing }).action).toBe("conflict");
+        }
+      }
+    }
+  });
+
+  it("retirer bara exakt kända fulla bodies, inte främmande eller framtida hooks", () => {
     for (const hookName of RETIRED_DB_HOOKS) {
       expect(decideHookRetirement({ hookName, existing: null }).action).toBe("retire");
       expect(decideHookRetirement({ hookName, existing: renderHookScript(hookName) }).action).toBe(
         "skip",
       );
       expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+        expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
+        expect(
+          decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
+        ).toBe("retire");
+      }
       for (const existing of [
+        "",
         "#!/bin/sh\necho foreign\n",
         `#!/bin/sh\n# example ${HOOK_MARKER}\n`,
+        `#!/bin/sh\n# ${HOOK_MARKER} v17 (${hookName}: db-schema-sync)\nnode scripts/db/ensure-schema.mjs --soft --quiet-ok\n`,
+        oldHook(hookName, 16),
         oldHook(hookName, HOOK_VERSION + 1),
         oldHook(hookName, HOOK_VERSION),
         renderHookScript(hookName) + "node unexpected.mjs\n",
@@ -668,14 +730,17 @@ describe("retire managed DB hooks", () => {
     }
   });
 
-  it("främmande hook stoppar alla ändringar innan någon managed hook tas bort", () => {
+  it.each([
+    "#!/bin/sh\necho foreign\n",
+    oldHook("post-checkout") + "echo local-custom-hook\n",
+    renderHookScript("post-checkout").replace("v19", "v18") + "echo local-custom-hook\n",
+  ])("främmande eller modifierad hook stoppar hela installationen (%#)", (foreign) => {
     const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-conflict-test-"));
     expect(spawnSync("git", ["init", fixture]).status).toBe(0);
     const hooksDir = join(fixture, ".git", "hooks");
     expect(spawnSync("git", ["config", "core.hooksPath", hooksDir], { cwd: fixture }).status).toBe(
       0,
     );
-    const foreign = "#!/bin/sh\necho foreign\n";
     writeFileSync(join(hooksDir, "post-checkout"), foreign);
     writeFileSync(join(hooksDir, "post-merge"), oldHook("post-merge"));
     const result = spawnSync(process.execPath, [resolve("scripts/dev/install-git-hooks.mjs")], {
