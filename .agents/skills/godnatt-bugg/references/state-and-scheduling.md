@@ -42,7 +42,13 @@ Läs state och ta lease:
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs status
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs acquire
 
-Spara token från JSON-svaret. Aktiv lease, cooldown, paused och completed har
+Spara token från acquire-svaret privat; bara acquire lämnar ut den. State lagrar
+endast tokenhash och status/mutationssvar maskerar privata leaseuppgifter.
+Historisk v3-klartextlease hashmigreras under lås utan att status eller lease
+återställs; även historik redigeras. Motstridigt hash/token-bevis stoppar
+framsteg. En aktiv lease får aldrig tas över; utgången lease kräver fortsatt
+uttrycklig recover och inspektion.
+Aktiv lease, cooldown, paused och completed har
 egna exit paths så att en tick kan avsluta utan parallellt arbete.
 
 Stale lease får inte tas över automatiskt. Kontrollera först PR, task, branch,
@@ -63,22 +69,22 @@ Flytta exakt ett stage i taget i full mode:
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name worktree-ready --branch fix/sm-022-cleanup --worktree ABSOLUTE_APP_WORKTREE
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name implemented
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name reviewed
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123 --sha 40_HEX_HEAD_SHA
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ci-review --sha 40_HEX_HEAD_SHA
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source pr-ai-review --verdict clean --sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ci-review
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source independent-agent --reviewer-model gpt-5.6-sol --reviewer REVIEW_TASK_ID --verdict clean --reviewed-sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ready-to-merge
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name merged --merge-sha 40_HEX_MERGE_SHA
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name merged
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name cleanup
 
 Pilot registrerar samma PR först efter GitHub-verifiering att den fortfarande
 är draft och stannar därefter vid `draft-pr`:
 
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123 --sha 40_HEX_HEAD_SHA --is-draft true
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123
 
 Evaluation registrerar draft/adminspärren på draft-pr-staget och stannar där:
 
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123 --sha 40_HEX_HEAD_SHA --is-draft true --merge-forbidden true --admin-review-required true --pr-title-prefix "[DO NOT MERGE — ADMIN REVIEW REQUIRED]" --pr-body-marker "AUTOMATED GODNATT-BUGG EVALUATION."
-    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source bugbot-local --verdict clean --sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs review --token TOKEN --source independent-agent --reviewer-model gpt-5.6-sol --reviewer REVIEW_TASK_ID --verdict clean --reviewed-sha 40_HEX_HEAD_SHA --note "inga trovärdiga fynd"
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs complete --token TOKEN --outcome draft-fix --evidence "PR #123 verifierad draft/adminspärrad och omergad"
 
 State spärrar:
@@ -95,14 +101,27 @@ State spärrar:
 - full-complete före cleanup och evaluation-complete utanför draft-pr,
 - mutation efter worktree-ready från annan cwd än registrerad app-worktree.
 
-Review source: bugbot, bugbot-local, pr-ai-review, codex eller manual.
-Review verdict: clean, findings-fixed eller blocked.
+CLI:n återläser live PR för PR-/review-/merge-/complete-steg. Basen måste vara
+preview; nummer, head-branch, head-SHA och aktuell lokal branch/HEAD måste
+matcha registreringen. Initialt krävs öppen draft i alla lägen. Full går vidare
+först efter faktisk ready-övergång och räknar pass först efter verifierad merge.
+Evaluation kräver färskt öppet draft-/adminbevis även vid complete. Flaggor och
+fri `--evidence`-text är inte bevis; API-fel eller äldre ofullständig registrering
+stoppar framsteg utan att historik skrivs om.
+
+Review source: independent-agent, bugbot, bugbot-local, codex eller manual.
+`pr-ai-review` är pensionerad: äldre historik får läsas, inga nya pass registreras.
+Review verdict: clean, findings-fixed eller blocked. `--reviewed-sha` är ett
+obligatoriskt påstående om vilken commit granskaren faktiskt såg; det måste
+matcha live PR och registrerad head. SHA hämtas inte som ersättning för en
+föråldrad review. Ange faktisk modell/reviewer i metadata.
 
 Förnya legitimt långt arbete:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs heartbeat --token TOKEN
 
-Räkna först efter verifierad merge och app-worktree-handoff:
+Räkna full-pass först efter verifierad merge till preview och app-worktree-handoff.
+Detta är leveransbevis, inte produktionsrelease; master kräver separat promote.
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs complete --token TOKEN --outcome fixed --evidence "PR #123 merged as 40_HEX_MERGE_SHA; app-worktree handoff verified"
 
