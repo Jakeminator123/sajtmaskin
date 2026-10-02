@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   },
   createHandoff: vi.fn(),
   toastError: vi.fn(),
+  toastSuccess: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -38,7 +39,13 @@ vi.mock("@/lib/auth/auth-store", () => {
   return { useAuthStore };
 });
 vi.mock("@/components/landing-v2/navbar", () => ({
-  Navbar: () => <nav>Navbar</nav>,
+  Navbar: ({ onLoginClick }: { onLoginClick: () => void }) => (
+    <nav>
+      <button type="button" onClick={onLoginClick}>
+        Navbar login
+      </button>
+    </nav>
+  ),
 }));
 vi.mock("@/components/landing-v2/landing-footer", () => ({
   LandingFooter: () => <footer>Footer</footer>,
@@ -51,10 +58,12 @@ vi.mock("@/components/analys/analys-tool", () => ({
     restoredResult,
     onPdf,
     onBuild,
+    onAnalysisSuccess,
   }: {
     restoredResult?: PublicAnalysResult | null;
     onPdf: (result: PublicAnalysResult) => void;
     onBuild: (result: PublicAnalysResult) => void;
+    onAnalysisSuccess?: (result: PublicAnalysResult) => void;
   }) => (
     <div>
       {restoredResult ? <span>Restored: {restoredResult.report.company}</span> : null}
@@ -64,6 +73,9 @@ vi.mock("@/components/analys/analys-tool", () => ({
       <button type="button" onClick={() => onBuild(sampleResult)}>
         Mock build
       </button>
+      <button type="button" onClick={() => onAnalysisSuccess?.(replacementResult)}>
+        Complete analysis C
+      </button>
     </div>
   ),
 }));
@@ -72,21 +84,27 @@ vi.mock("@/components/auth/auth-modal", () => ({
     isOpen,
     defaultMode,
     returnTo,
+    onClose,
     onSuccess,
   }: {
     isOpen: boolean;
     defaultMode: "login" | "register";
     returnTo?: string;
+    onClose: () => void;
     onSuccess?: (user: unknown) => void | Promise<void>;
   }) =>
     isOpen ? (
       <div data-testid="auth-modal">
         <span>{defaultMode}</span>
         <span>{returnTo}</span>
+        <button type="button" onClick={onClose}>
+          Close auth
+        </button>
         <button
           type="button"
           onClick={() => {
             state.auth.user = authenticatedUser;
+            onClose();
             void onSuccess?.(authenticatedUser);
           }}
         >
@@ -96,12 +114,16 @@ vi.mock("@/components/auth/auth-modal", () => ({
     ) : null,
 }));
 vi.mock("@/components/audit/AuditPdfReport", () => ({
-  AuditPdfReport: () => <div data-testid="public-pdf-dialog">Public PDF</div>,
+  AuditPdfReport: ({ publicReport }: { publicReport: { company?: string } }) => (
+    <div data-testid="public-pdf-dialog">Public PDF: {publicReport.company}</div>
+  ),
 }));
 vi.mock("@/lib/builder/audit-handoff-client", () => ({
   createAuditBuildHandoff: (...args: unknown[]) => state.createHandoff(...args),
 }));
-vi.mock("sonner", () => ({ toast: { error: state.toastError } }));
+vi.mock("sonner", () => ({
+  toast: { error: state.toastError, success: state.toastSuccess },
+}));
 
 import { AnalysContent } from "./analys-content";
 
@@ -129,6 +151,23 @@ const sampleResult: PublicAnalysResult = {
   auditedUrl: "https://publika.se",
 };
 
+const replacementResult: PublicAnalysResult = {
+  report: {
+    company: "Rapport C",
+    domain: "c.example.se",
+    audit_scores: { seo: 88 },
+  },
+  auditedUrl: "https://c.example.se",
+};
+
+function deferredVoid() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 describe("AnalysContent auth resume", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -139,6 +178,7 @@ describe("AnalysContent auth resume", () => {
     state.router.replace.mockReset();
     state.createHandoff.mockReset().mockResolvedValue({ href: "/builder?chat=prompt_1" });
     state.toastError.mockReset();
+    state.toastSuccess.mockReset();
   });
 
   it("requires a fresh auth check even when the persisted store starts with a stale user", async () => {
@@ -202,6 +242,173 @@ describe("AnalysContent auth resume", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Complete login" }));
     await screen.findByTestId("public-pdf-dialog");
+  });
+
+  it.each([
+    { label: "Mock PDF", effect: "pdf" as const },
+    { label: "Mock build", effect: "build" as const },
+  ])(
+    "does not run stale A $effect after dismiss, successful C, and later navbar login",
+    async ({ label }) => {
+      state.auth.fetchUser.mockImplementation(async () => {
+        state.auth.user = null;
+      });
+      render(<AnalysContent />);
+
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      await screen.findByTestId("auth-modal");
+      fireEvent.click(screen.getByRole("button", { name: "Close auth" }));
+      fireEvent.click(screen.getByRole("button", { name: "Complete analysis C" }));
+      expect(await screen.findByText("Restored: Rapport C")).not.toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Navbar login" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Complete login" }));
+
+      await waitFor(() => expect(screen.queryByTestId("auth-modal")).toBeNull());
+      expect(screen.getByText("Restored: Rapport C")).not.toBeNull();
+      expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
+      expect(state.createHandoff).not.toHaveBeenCalled();
+      expect(readPendingPublicAnalys()).toBeNull();
+    },
+  );
+
+  it("disarms a dismissed CTA but preserves A for an explicit authenticated retry", async () => {
+    state.auth.fetchUser.mockImplementation(async () => {
+      state.auth.user = null;
+    });
+    render(<AnalysContent />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+    await screen.findByTestId("auth-modal");
+    fireEvent.click(screen.getByRole("button", { name: "Close auth" }));
+    expect(readPendingPublicAnalys()?.report.company).toBe("Publika AB");
+
+    fireEvent.click(screen.getByRole("button", { name: "Navbar login" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Complete login" }));
+    await waitFor(() => expect(screen.queryByTestId("auth-modal")).toBeNull());
+    expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
+    expect(readPendingPublicAnalys()?.report.company).toBe("Publika AB");
+
+    state.auth.fetchUser.mockImplementation(async () => {
+      state.auth.user = authenticatedUser;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+    await screen.findByTestId("public-pdf-dialog");
+    expect(screen.getByTestId("public-pdf-dialog").textContent).toContain("Publika AB");
+  });
+
+  it("does not let an old auth check reopen the modal after a newer analysis succeeds", async () => {
+    const pendingFetch = deferredVoid();
+    state.auth.fetchUser.mockImplementationOnce(() => pendingFetch.promise);
+    render(<AnalysContent />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete analysis C" }));
+    pendingFetch.resolve();
+
+    expect(await screen.findByText("Restored: Rapport C")).not.toBeNull();
+    await waitFor(() => expect(state.auth.fetchUser).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("auth-modal")).toBeNull();
+    expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
+  });
+
+  it("does not let an old auth check reopen a navbar modal after dismissal", async () => {
+    const pendingFetch = deferredVoid();
+    state.auth.fetchUser.mockImplementationOnce(() => pendingFetch.promise);
+    render(<AnalysContent />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Navbar login" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Close auth" }));
+    pendingFetch.resolve();
+
+    await waitFor(() => expect(state.auth.fetchUser).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("auth-modal")).toBeNull();
+    expect(readPendingPublicAnalys()?.report.company).toBe("Publika AB");
+  });
+
+  it.each([
+    ["missing_token", "Verifieringslänken saknar token."],
+    ["invalid_or_expired", "Verifieringslänken är ogiltig eller har gått ut."],
+    ["server_error", "Något gick fel vid e-postverifiering."],
+    ["future_reason", "Kunde inte verifiera e-postadressen."],
+  ])(
+    "stops verified=error reason %s before auth or claim and preserves pending",
+    async (reason, message) => {
+      savePendingPublicAnalys({ action: "pdf", ...sampleResult });
+      state.params = new URLSearchParams(`resume=pdf&verified=error&reason=${reason}`);
+
+      render(
+        <StrictMode>
+          <AnalysContent />
+        </StrictMode>,
+      );
+
+      await waitFor(() => expect(state.toastError).toHaveBeenCalledWith(message));
+      expect(state.toastError).toHaveBeenCalledTimes(1);
+      expect(state.auth.fetchUser).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("auth-modal")).toBeNull();
+      expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
+      expect(state.createHandoff).not.toHaveBeenCalled();
+      expect(readPendingPublicAnalys()?.report.company).toBe("Publika AB");
+      expect(screen.getByText("Restored: Publika AB")).not.toBeNull();
+      expect(state.router.replace).toHaveBeenCalledWith("/analys", { scroll: false });
+
+      state.auth.fetchUser.mockImplementation(async () => {
+        state.auth.user = authenticatedUser;
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Mock PDF" }));
+      await screen.findByTestId("public-pdf-dialog");
+      expect(screen.getByTestId("public-pdf-dialog").textContent).toContain("Publika AB");
+    },
+  );
+
+  it("shows verified success once, preserves resume, and waits for a fresh unauthenticated check", async () => {
+    savePendingPublicAnalys({ action: "pdf", ...sampleResult });
+    state.params = new URLSearchParams("resume=pdf&verified=success");
+    state.auth.fetchUser.mockImplementation(async () => {
+      state.auth.user = null;
+    });
+
+    render(
+      <StrictMode>
+        <AnalysContent />
+      </StrictMode>,
+    );
+
+    await screen.findByTestId("auth-modal");
+    expect(state.toastSuccess).toHaveBeenCalledWith(
+      "E-postadressen är verifierad. Logga in för att fortsätta.",
+    );
+    expect(state.toastSuccess).toHaveBeenCalledTimes(1);
+    expect(state.router.replace).toHaveBeenCalledWith("/analys?resume=pdf", {
+      scroll: false,
+    });
+    expect(screen.queryByTestId("public-pdf-dialog")).toBeNull();
+    expect(readPendingPublicAnalys()?.action).toBe("pdf");
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete login" }));
+    await screen.findByTestId("public-pdf-dialog");
+    expect(screen.getAllByTestId("public-pdf-dialog")).toHaveLength(1);
+  });
+
+  it("shows verified success once and claims one build after fresh authenticated state", async () => {
+    savePendingPublicAnalys({ action: "build", ...sampleResult });
+    state.params = new URLSearchParams("resume=build&verified=success");
+    state.auth.fetchUser.mockImplementation(async () => {
+      state.auth.user = authenticatedUser;
+    });
+
+    render(
+      <StrictMode>
+        <AnalysContent />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(state.createHandoff).toHaveBeenCalledTimes(1));
+    expect(state.toastSuccess).toHaveBeenCalledTimes(1);
+    expect(state.router.push).toHaveBeenCalledTimes(1);
+    expect(readPendingPublicAnalys()).toBeNull();
   });
 
   it("requeues a failed build without an auto-loop and retries only after a new click", async () => {

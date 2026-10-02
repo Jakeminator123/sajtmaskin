@@ -13,6 +13,7 @@ import { AnalysTool, type PublicAnalysResult } from "@/components/analys/analys-
 import { useAuthStore } from "@/lib/auth/auth-store";
 import {
   claimPendingPublicAnalys,
+  clearPendingPublicAnalys,
   readPendingPublicAnalys,
   savePendingPublicAnalys,
   type PendingPublicAnalys,
@@ -21,6 +22,15 @@ import {
 import { extractPublicAnalysHandoffPayload } from "@/lib/builder/audit-handoff";
 import { createAuditBuildHandoff } from "@/lib/builder/audit-handoff-client";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
+
+function verificationErrorMessage(reason: string | null): string {
+  if (reason === "missing_token") return "Verifieringslänken saknar token.";
+  if (reason === "invalid_or_expired") {
+    return "Verifieringslänken är ogiltig eller har gått ut.";
+  }
+  if (reason === "server_error") return "Något gick fel vid e-postverifiering.";
+  return "Kunde inte verifiera e-postadressen.";
+}
 
 export function AnalysContent() {
   const router = useRouter();
@@ -34,8 +44,12 @@ export function AnalysContent() {
   const continuationInFlightRef = useRef(false);
   const authCheckInFlightRef = useRef(false);
   const autoResumeStartedRef = useRef(false);
+  const intentGenerationRef = useRef(0);
+  const verificationFeedbackHandledRef = useRef<string | null>(null);
 
   const resumeParam = searchParams.get("resume");
+  const verifiedParam = searchParams.get("verified");
+  const verificationReason = searchParams.get("reason");
   const resumeAction: PublicAnalysAction | null =
     resumeParam === "pdf" || resumeParam === "build" ? resumeParam : null;
 
@@ -52,6 +66,37 @@ export function AnalysContent() {
   const clearResumeQuery = useCallback(() => {
     router.replace("/analys", { scroll: false });
   }, [router]);
+
+  const clearVerificationFeedback = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("verified");
+    nextParams.delete("reason");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `/analys?${nextQuery}` : "/analys", { scroll: false });
+  }, [router, searchParams]);
+
+  const disarmPendingIntent = useCallback(() => {
+    intentGenerationRef.current += 1;
+    authCheckInFlightRef.current = false;
+    setPendingAction(null);
+  }, []);
+
+  const handleAuthModalClose = useCallback(() => {
+    disarmPendingIntent();
+    setShowAuthModal(false);
+    clearResumeQuery();
+  }, [clearResumeQuery, disarmPendingIntent]);
+
+  const handleAnalysisSuccess = useCallback(
+    (result: PublicAnalysResult) => {
+      disarmPendingIntent();
+      setShowAuthModal(false);
+      setRestoredResult(result);
+      clearPendingPublicAnalys();
+      if (resumeAction || verifiedParam) clearResumeQuery();
+    },
+    [clearResumeQuery, disarmPendingIntent, resumeAction, verifiedParam],
+  );
 
   const runClaimedAction = useCallback(
     async (pending: PendingPublicAnalys) => {
@@ -113,9 +158,11 @@ export function AnalysContent() {
 
       setPendingAction(action);
       setRestoredResult({ report: saved.report, auditedUrl: saved.auditedUrl });
+      const intentGeneration = ++intentGenerationRef.current;
       authCheckInFlightRef.current = true;
       try {
         await fetchUser();
+        if (intentGeneration !== intentGenerationRef.current) return;
         if (useAuthStore.getState().user) {
           await claimAndRun(action);
         } else {
@@ -134,15 +181,37 @@ export function AnalysContent() {
     if (pending) {
       setRestoredResult({ report: pending.report, auditedUrl: pending.auditedUrl });
     }
+
+    const verificationKey = `${verifiedParam ?? ""}:${verificationReason ?? ""}:${resumeParam ?? ""}`;
+    if (verifiedParam === "error") {
+      if (verificationFeedbackHandledRef.current !== verificationKey) {
+        verificationFeedbackHandledRef.current = verificationKey;
+        toast.error(verificationErrorMessage(verificationReason));
+        disarmPendingIntent();
+        setShowAuthModal(false);
+        clearResumeQuery();
+      }
+      return;
+    }
+    if (
+      verifiedParam === "success" &&
+      verificationFeedbackHandledRef.current !== verificationKey
+    ) {
+      verificationFeedbackHandledRef.current = verificationKey;
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+      clearVerificationFeedback();
+    }
+
     if (!resumeAction || !pending || pending.action !== resumeAction) return;
     setPendingAction(resumeAction);
     if (autoResumeStartedRef.current) return;
     autoResumeStartedRef.current = true;
+    const intentGeneration = ++intentGenerationRef.current;
 
     let active = true;
     void fetchUser()
       .then(async () => {
-        if (!active) return;
+        if (!active || intentGeneration !== intentGenerationRef.current) return;
         if (useAuthStore.getState().user) {
           await claimAndRun(resumeAction);
         } else {
@@ -158,7 +227,17 @@ export function AnalysContent() {
       active = false;
       autoResumeStartedRef.current = false;
     };
-  }, [claimAndRun, fetchUser, resumeAction]);
+  }, [
+    claimAndRun,
+    clearResumeQuery,
+    clearVerificationFeedback,
+    disarmPendingIntent,
+    fetchUser,
+    resumeAction,
+    resumeParam,
+    verificationReason,
+    verifiedParam,
+  ]);
 
   const handleInlineLoginSuccess = useCallback(async () => {
     if (pendingAction) await claimAndRun(pendingAction);
@@ -202,6 +281,7 @@ export function AnalysContent() {
               restoredResult={restoredResult}
               onPdf={(result) => void handleProtectedAction("pdf", result)}
               onBuild={(result) => void handleProtectedAction("build", result)}
+              onAnalysisSuccess={handleAnalysisSuccess}
             />
 
             <section className="mx-auto w-full max-w-3xl px-6 pb-16">
@@ -224,7 +304,7 @@ export function AnalysContent() {
       </div>
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={handleAuthModalClose}
         defaultMode={authMode}
         returnTo={pendingAction ? `/analys?resume=${pendingAction}` : undefined}
         onSuccess={handleInlineLoginSuccess}

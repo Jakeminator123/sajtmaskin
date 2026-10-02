@@ -337,6 +337,11 @@ export function readPendingPublicAnalys(options: StorageOptions = {}): PendingPu
   }
 }
 
+export function clearPendingPublicAnalys(options: StorageOptions = {}): boolean {
+  const storage = resolveStorage(options);
+  return storage ? removeSafely(storage) : false;
+}
+
 export function claimPendingPublicAnalys(
   action: PublicAnalysAction,
   options: StorageOptions = {},

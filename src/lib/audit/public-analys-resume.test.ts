@@ -3,6 +3,7 @@ import {
   PUBLIC_ANALYS_PENDING_MAX_BYTES,
   PUBLIC_ANALYS_PENDING_TTL_MS,
   claimPendingPublicAnalys,
+  clearPendingPublicAnalys,
   readPendingPublicAnalys,
   savePendingPublicAnalys,
 } from "./public-analys-resume";
@@ -66,6 +67,24 @@ describe("public analysis pending resume", () => {
 
     expect(claimPendingPublicAnalys("pdf", { storage, now: 1_001 })).toBeNull();
     expect(readPendingPublicAnalys({ storage, now: 1_001 })?.action).toBe("build");
+  });
+
+  it("clears a superseded pending action and fails closed when removal throws", () => {
+    const storage = memoryStorage();
+    savePendingPublicAnalys(
+      { action: "build", report, auditedUrl: "example.se" },
+      { storage, now: 1_000 },
+    );
+
+    expect(clearPendingPublicAnalys({ storage })).toBe(true);
+    expect(readPendingPublicAnalys({ storage, now: 1_001 })).toBeNull();
+
+    const throwingStorage = {
+      removeItem: () => {
+        throw new Error("blocked");
+      },
+    } as unknown as Storage;
+    expect(clearPendingPublicAnalys({ storage: throwingStorage })).toBe(false);
   });
 
   it("expires after 24 hours and rejects malformed, future, and oversized data", () => {

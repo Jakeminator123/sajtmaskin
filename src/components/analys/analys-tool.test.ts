@@ -48,6 +48,7 @@ describe("publicAnalysErrorMessage", () => {
 
 describe("AnalysTool report preservation", () => {
   it("keeps the previous report and URL on failure, then replaces both on success", async () => {
+    const onAnalysisSuccess = vi.fn();
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -69,6 +70,7 @@ describe("AnalysTool report preservation", () => {
       createElement(AnalysTool, {
         onPdf: vi.fn(),
         onBuild: vi.fn(),
+        onAnalysisSuccess,
       }),
     );
     const input = screen.getByLabelText("Webbplatsadress");
@@ -76,6 +78,10 @@ describe("AnalysTool report preservation", () => {
     fireEvent.change(input, { target: { value: "a.example.se" } });
     fireEvent.click(screen.getByRole("button", { name: /Analysera sajten/ }));
     await screen.findByText("Rapport A");
+    expect(onAnalysisSuccess).toHaveBeenLastCalledWith({
+      report: { company: "Rapport A", audit_scores: {} },
+      auditedUrl: "a.example.se",
+    });
     expect(screen.queryByText("a.example.se")).not.toBeNull();
 
     fireEvent.change(input, { target: { value: "b.example.se" } });
@@ -83,12 +89,18 @@ describe("AnalysTool report preservation", () => {
     await screen.findByRole("alert");
     expect(screen.queryByText("Rapport A")).not.toBeNull();
     expect(screen.queryByText("a.example.se")).not.toBeNull();
+    expect(onAnalysisSuccess).toHaveBeenCalledTimes(1);
 
     fireEvent.change(input, { target: { value: "c.example.se" } });
     fireEvent.click(screen.getByRole("button", { name: /Analysera sajten/ }));
     await waitFor(() => expect(screen.queryByText("Rapport C")).not.toBeNull());
     expect(screen.queryByText("c.example.se")).not.toBeNull();
     expect(screen.queryByText("Rapport A")).toBeNull();
+    expect(onAnalysisSuccess).toHaveBeenLastCalledWith({
+      report: { company: "Rapport C", audit_scores: {} },
+      auditedUrl: "c.example.se",
+    });
+    expect(onAnalysisSuccess).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     vi.restoreAllMocks();
   });

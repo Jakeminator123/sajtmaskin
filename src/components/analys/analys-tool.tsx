@@ -11,6 +11,7 @@ type AnalysToolProps = {
   restoredResult?: PublicAnalysResult | null;
   onPdf: (result: PublicAnalysResult) => void;
   onBuild: (result: PublicAnalysResult) => void;
+  onAnalysisSuccess: (result: PublicAnalysResult) => void;
 };
 
 export type PublicAnalysResult = {
@@ -74,7 +75,12 @@ export function publicAnalysErrorMessage(input: {
   return input.fallback;
 }
 
-export function AnalysTool({ restoredResult = null, onPdf, onBuild }: AnalysToolProps) {
+export function AnalysTool({
+  restoredResult = null,
+  onPdf,
+  onBuild,
+  onAnalysisSuccess,
+}: AnalysToolProps) {
   const [url, setUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +152,9 @@ export function AnalysTool({ restoredResult = null, onPdf, onBuild }: AnalysTool
         return;
       }
 
-      setResult({ report: payload.report, auditedUrl: trimmed });
+      const nextResult = { report: payload.report, auditedUrl: trimmed };
+      setResult(nextResult);
+      onAnalysisSuccess(nextResult);
     } catch {
       setError("Nätverksfel. Försök igen om en stund.");
     } finally {
