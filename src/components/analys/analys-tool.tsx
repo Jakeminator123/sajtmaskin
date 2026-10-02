@@ -8,7 +8,15 @@ import type { PublicAnalysReport } from "@/lib/audit/public-report";
 import { AnalysReport } from "./analys-report";
 
 type AnalysToolProps = {
-  onNeedAccount: () => void;
+  restoredResult?: PublicAnalysResult | null;
+  onPdf: (result: PublicAnalysResult) => void;
+  onBuild: (result: PublicAnalysResult) => void;
+  onAnalysisSuccess: (result: PublicAnalysResult) => void;
+};
+
+export type PublicAnalysResult = {
+  report: PublicAnalysReport;
+  auditedUrl: string;
 };
 
 /**
@@ -67,14 +75,22 @@ export function publicAnalysErrorMessage(input: {
   return input.fallback;
 }
 
-export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
+export function AnalysTool({
+  restoredResult = null,
+  onPdf,
+  onBuild,
+  onAnalysisSuccess,
+}: AnalysToolProps) {
   const [url, setUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<PublicAnalysReport | null>(null);
-  const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<PublicAnalysResult | null>(restoredResult);
   const [progressStep, setProgressStep] = useState(0);
   const startedAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (restoredResult) setResult(restoredResult);
+  }, [restoredResult]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -108,7 +124,6 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
 
     setIsRunning(true);
     setError(null);
-    setReport(null);
     startedAtRef.current = Date.now();
 
     try {
@@ -137,8 +152,9 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
         return;
       }
 
-      setReport(payload.report);
-      setAuditedUrl(trimmed);
+      const nextResult = { report: payload.report, auditedUrl: trimmed };
+      setResult(nextResult);
+      onAnalysisSuccess(nextResult);
     } catch {
       setError("Nätverksfel. Försök igen om en stund.");
     } finally {
@@ -210,8 +226,13 @@ export function AnalysTool({ onNeedAccount }: AnalysToolProps) {
         </div>
       ) : null}
 
-      {report ? (
-        <AnalysReport report={report} auditedUrl={auditedUrl} onNeedAccount={onNeedAccount} />
+      {result ? (
+        <AnalysReport
+          report={result.report}
+          auditedUrl={result.auditedUrl}
+          onPdf={() => onPdf(result)}
+          onBuild={() => onBuild(result)}
+        />
       ) : null}
     </div>
   );

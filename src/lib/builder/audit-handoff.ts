@@ -9,6 +9,7 @@
 import { z } from "zod";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { AuditResult } from "@/types/audit";
+import type { PublicAnalysReport } from "@/lib/audit/public-report";
 
 export const AUDIT_HANDOFF_PAYLOAD_KIND = "audit" as const;
 
@@ -16,6 +17,16 @@ const TOP_ISSUES = 8;
 const TOP_IMPROVEMENTS = 8;
 const MAX_SECTION_CONTENT_CHARS = 1_200;
 const MAX_KEYWORD_HINTS = 8;
+const PUBLIC_SCORE_KEYS = [
+  "seo",
+  "technical_seo",
+  "ux",
+  "content",
+  "performance",
+  "accessibility",
+  "security",
+  "mobile",
+] as const;
 
 const sectionTypeSchema = z.enum([
   "hero",
@@ -279,6 +290,49 @@ export function extractAuditHandoffPayload(
     ),
     template_data: optionalParse(templateDataSchema, result.template_data),
     source_images: sourceImages && sourceImages.length > 0 ? sourceImages : undefined,
+  });
+}
+
+export function extractPublicAnalysHandoffPayload(
+  report: PublicAnalysReport,
+  url?: string | null,
+): AuditHandoffPayload {
+  const contentStrategy = report.seo
+    ? optionalParse(contentStrategySchema, {
+        key_pages: report.seo.key_pages,
+        seo_foundation: report.seo.foundation,
+        conversion_paths: report.seo.conversion_paths,
+      })
+    : undefined;
+
+  const publicScores = report.audit_scores
+    ? Object.fromEntries(
+        PUBLIC_SCORE_KEYS.flatMap((key) => {
+          const score = report.audit_scores?.[key];
+          return typeof score === "number" && Number.isFinite(score) ? [[key, score]] : [];
+        }),
+      )
+    : undefined;
+
+  const publicImprovements = Array.isArray(report.improvements)
+    ? report.improvements.slice(0, TOP_IMPROVEMENTS).map((improvement) => ({
+        item: improvement.item,
+        impact: improvement.impact,
+        effort: improvement.effort,
+        category: improvement.category,
+        why: improvement.why,
+        how: improvement.how,
+      }))
+    : undefined;
+
+  return auditHandoffPayloadSchema.parse({
+    domain: asTrimmed(report.domain) ?? hostnameFromUrl(url) ?? undefined,
+    url: asTrimmed(url) ?? undefined,
+    company: asTrimmed(report.company) ?? undefined,
+    content_strategy: contentStrategy,
+    audit_scores: optionalParse(z.record(z.string(), z.number()), publicScores),
+    issues: optionalParse(z.array(z.string()), report.issues?.slice(0, TOP_ISSUES)),
+    improvements: optionalParse(z.array(improvementSchema), publicImprovements),
   });
 }
 
