@@ -69,8 +69,8 @@ implementation.
 | `review-window` / `merge:execute` | 7 min, sign-off och betrodd squash. Bara PR mot trunk — alltså promote-PR:en, inte preview. | [`trusted-review-window.mjs`](../../scripts/ci/trusted-review-window.mjs) (`targetsTrunk`) + [`pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc) |
 | `manualMergePathPrefixes` / bootstrap | CI-trust roots går inte genom vanlig `merge:execute`. | [`config/agent-workflow.json`](../../config/agent-workflow.json) + avsnittet [Särskilt spår för CI-trust roots](#särskilt-spår-för-ci-trust-roots) |
 | `delete_branch_on_merge` + slaskgren | Auto-delete tar `promote/<datum>`, inte `preview`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (GitHub-inställningen `delete_branch_on_merge` har ingen fil-owner) |
-| Synk efter squash-promote | Masters squash-commit saknas i `preview`; `npm run promote` mergar `master → preview` serverside innan den räknar, så släppta ändringar inte listas igen och promote-headen innehåller `master`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) (`syncStagingWithProduction`) |
-| Dependabot `target-branch` | Beroendebumpar landar på `preview` och följer samma två steg. Dependabot läser filen från default-grenen `master`, så raden gäller först när `dependabot.yml` promotats dit. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
+| Synk efter squash-promote | Masters squash-commit saknas i `preview`. `npm run promote` synkar **inte** serverside; bered en synkbranch från färsk preview som tar in master och öppna PR mot preview med merge-commit (inte squash) innan nästa promote. Osläppt innehåll avgörs av trädskillnad mot `master`. | [`promote.mjs`](../../scripts/workflow/promote.mjs) |
+| Dependabot `target-branch` | Beroendebumpar landar på `preview` och följer samma två steg. GitHubs default-branch är `preview`, där Dependabot läser konfigurationen. | [`.github/dependabot.yml`](../../.github/dependabot.yml) |
 | Lokal `pre-push` | Stoppar push om `verify:pr --plan` är rött. | [`install-git-hooks.mjs`](../../scripts/dev/install-git-hooks.mjs) + [`verify-pr.mjs`](../../scripts/workflow/verify-pr.mjs) |
 | CI tung / light | Required checks på varje head: tung för ready runtime, högrisk och `master`; explicit light-kvitto för safe docs och vanliga drafts. | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) + [`ci-scope.mjs`](../../scripts/workflow/ci-scope.mjs) / [`path-impact.mjs`](../../scripts/workflow/path-impact.mjs) |
 
@@ -83,7 +83,15 @@ npm run sync:derived         # skriv om genererade projektioner vid behov
 # kör relevanta riktade kontroller; GitHub väljer tung profil eller light-kvitto
 ```
 
-`verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren
+`verify:pr` jämför som default med färsk `origin/preview` (leveransgrenen).
+Produktionsgranskning mot trunk kräver explicit `--base origin/master`, oavsett
+lokalt branchnamn. Ancestry-grinden kräver alltid att arbetsbranchen innehåller
+vald bas: rå `master` är inte en färdig synkbranch. Bered synken på en branch
+från färsk preview som tar in master, inte genom att kringgå grinden.
+Endast `origin/<gren>` hämtas
+automatiskt (även slash i branchnamnet); lokala refs/SHA:n är snapshots.
+Releaseunderlag visar faktisk träddiff, inte redan squash-släppt commithistorik.
+Det läser control-plane-registren
 och Backoffice domain-map samt deduplicerar hårda validators. Okända filer får
 fail-safe runtime- och fullprofil; runtimefiler utan en control-plane-owner
 rapporteras som information men har redan runtimeprofilen. `preview-host/**`

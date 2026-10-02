@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +18,7 @@ import {
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
+  PATH_GROUP_FLOORS,
   collectImpact,
   expandBraces,
   loadWorkflowInputs,
@@ -26,11 +27,15 @@ import {
   pathMatchesPattern,
 } from "./path-impact.mjs";
 import {
+  DEFAULT_DELIVERY_BRANCH,
   assertBranchSafety,
   classifyProcessResult,
   executeVerificationCommands,
+  formatMissingBaseError,
   isCiRunner,
   parseArgs,
+  resolveFetchRefForBase,
+  resolveVerificationBase,
   resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
@@ -88,6 +93,37 @@ describe("agent workflow path matching", () => {
 
 describe("agent workflow impact", () => {
   const inputs = loadWorkflowInputs();
+
+  it("does not expose the retired coach mailbox as executable tooling", () => {
+    for (const path of [
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+      ".agent-bridge/config.example.json",
+      ".cursor/commands/bridge.md",
+      ".cursor/commands/bryggagent.md",
+      "docs/agent-bridge/README.md",
+      "docs/agent-bridge/protocol.md",
+      "docs/agent-bridge/roles/brygg.md",
+      "docs/agent-bridge/roles/builder.md",
+      "docs/agent-bridge/roles/merge.md",
+      "docs/agent-bridge/roles/scout.md",
+    ]) {
+      expect(existsSync(path)).toBe(false);
+    }
+    const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(scripts).not.toHaveProperty("test:agent-bridge");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(ci).not.toContain("test:agent-bridge");
+    expect(ci).toContain("scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts");
+    for (const pattern of [
+      ".agent-bridge/**",
+      "scripts/agent_bridge.py",
+      "scripts/test_agent_bridge.py",
+    ]) {
+      expect(inputs.policy.pathGroups.agent).not.toContain(pattern);
+      expect(PATH_GROUP_FLOORS.agent).not.toContain(pattern);
+    }
+  });
 
   it("keeps workstation cleanup out of the PR verification profile", () => {
     expect(inputs.policy.verificationProfiles.full).not.toEqual(
@@ -487,6 +523,76 @@ describe("local base freshness", () => {
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
     ]);
+  });
+});
+
+describe("verify:pr base resolution", () => {
+  const policy = { trunk: "master" };
+
+  it("defaultar vanligt arbete till leveransgrenen preview, inte trunk", () => {
+    expect(DEFAULT_DELIVERY_BRANCH).toBe("preview");
+    expect(
+      resolveVerificationBase({ explicitBase: null, branch: "fix/example", policy }),
+    ).toBe("origin/preview");
+  });
+
+  it("låter explicit --base vinna, inklusive origin/master för produktionsgranskning", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/master",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/master");
+    expect(
+      resolveVerificationBase({
+        explicitBase: "origin/preview",
+        branch: "fix/example",
+        policy,
+      }),
+    ).toBe("origin/preview");
+  });
+
+  it("byter inte tyst till produktionsbas bara för att den lokala branchen heter master", () => {
+    expect(resolveVerificationBase({ explicitBase: null, branch: "master", policy })).toBe(
+      "origin/preview",
+    );
+  });
+
+  it("respekterar en explicit lokal snapshot", () => {
+    expect(
+      resolveVerificationBase({
+        explicitBase: "HEAD~1",
+        branch: "fix/x",
+        policy,
+      }),
+    ).toBe("HEAD~1");
+  });
+
+  it("hämtar den bas som faktiskt valts — origin/preview ska inte fetcha master", () => {
+    expect(resolveFetchRefForBase("origin/preview")).toBe("preview");
+    expect(resolveFetchRefForBase("origin/master")).toBe("master");
+    expect(resolveFetchRefForBase("origin/release/2026-10")).toBe("release/2026-10");
+    expect(resolveFetchRefForBase("refs/remotes/origin/release/x")).toBe("release/x");
+    expect(resolveFetchRefForBase("preview")).toBeNull();
+    expect(resolveFetchRefForBase("HEAD~1")).toBeNull();
+    expect(resolveFetchRefForBase("local-tag")).toBeNull();
+    expect(resolveFetchRefForBase("refs/heads/local-branch")).toBeNull();
+    expect(resolveFetchRefForBase("upstream/main")).toBeNull();
+    expect(resolveFetchRefForBase("abcdef1")).toBeNull();
+    expect(resolveFetchRefForBase("")).toBeNull();
+  });
+
+  it("beskriver saknad lokal bas-ref med rätt fetch-mål", () => {
+    expect(formatMissingBaseError("origin/preview")).toContain("git fetch origin preview");
+    expect(formatMissingBaseError("origin/preview")).not.toContain("git fetch origin master");
+    expect(formatMissingBaseError("origin/master")).toContain("git fetch origin master");
+    expect(formatMissingBaseError("HEAD~1")).not.toContain("git fetch origin HEAD~1");
+  });
+
+  it("läser --base ur parseArgs", () => {
+    expect(parseArgs(["--base", "origin/preview"]).base).toBe("origin/preview");
+    expect(parseArgs([]).base).toBeNull();
   });
 });
 

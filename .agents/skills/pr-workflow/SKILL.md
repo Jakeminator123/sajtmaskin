@@ -70,7 +70,7 @@ Kör `npm run promote` när Jakob ber om att släppa till produktion («merga
 preview till master», «promota», «släpp skarpt»). Kommandot hämtar origin,
 listar vad som skiljer, skapar en kortlivad `promote/<datum>`-gren vid previews
 tip via GitHubs refs-API (rör inte din checkout) och öppnar PR:en mot `master`
-med commitlista, båda SHA:na och produktionsvarningen. `npm run promote:dry`
+med faktisk träddiff, båda SHA:na och produktionsvarningen. `npm run promote:dry`
 visar vad som skulle hända.
 
 Head-grenen får **aldrig** vara `preview`: repot har `delete_branch_on_merge`,
@@ -82,11 +82,13 @@ vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
 före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
 
 Controllern squash-mergar, så masters nya commit finns inte i `preview`
-efteråt. Saknar `preview` masters tip mergar `npm run promote` därför först
-`master → preview` serverside (innehållsneutralt efter en squash-promote) innan
-den räknar commits — annars listas redan släppta ändringar igen och nästa
-promote-PR stoppas av kravet att head innehåller aktuell `master`. Kör
-kommandot en gång efter varje promote-merge för att stänga hålet direkt.
+efteråt. `npm run promote` synkar **inte** `master → preview` serverside —
+saknar preview masters tip: bered en synkbranch från färsk `origin/preview`,
+ta in `origin/master` med merge-commit och öppna PR mot preview. Merga den med
+merge-commit (inte squash) innan nästa promote. Osläppt innehåll och
+releasebeskrivning avgörs av faktisk trädskillnad mot `master`, inte squashad
+commithistorik. Dry-run skriver aldrig
+remote-refs och ger bara receptet när synk saknas.
 
 ## 5. Merge och städ
 
