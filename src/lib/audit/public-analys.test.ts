@@ -83,6 +83,6 @@ describe("public /analys client surface", () => {
   it("gästen får signup-CTA i stället för en PDF som kräver konto", () => {
     const report = readFileSync(resolve("src/components/analys/analys-report.tsx"), "utf8");
     expect(report).not.toMatch(/AuditPdfReport/);
-    expect(report).toMatch(/PDF, sparad historik och bygge kräver konto/);
+    expect(report).toMatch(/PDF och bygge kräver konto/);
   });
 });

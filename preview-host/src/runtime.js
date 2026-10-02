@@ -52,6 +52,7 @@ module.exports = {
     RUNTIME_CLEAN_EXIT_LIMIT: processLifecycle.RUNTIME_CLEAN_EXIT_LIMIT,
     RUNTIME_CLEAN_EXIT_WINDOW_MS: processLifecycle.RUNTIME_CLEAN_EXIT_WINDOW_MS,
     classifyRuntimeBootFailureLoop: processLifecycle.classifyRuntimeBootFailureLoop,
+    nextInstallAttemptRevision: processLifecycle.nextInstallAttemptRevision,
     RUNTIME_BOOT_FAILURE_LIMIT: processLifecycle.RUNTIME_BOOT_FAILURE_LIMIT,
     RUNTIME_BOOT_FAILURE_WINDOW_MS: processLifecycle.RUNTIME_BOOT_FAILURE_WINDOW_MS,
     isNoSpaceInstallFailure: packageInstall.isNoSpaceInstallFailure,

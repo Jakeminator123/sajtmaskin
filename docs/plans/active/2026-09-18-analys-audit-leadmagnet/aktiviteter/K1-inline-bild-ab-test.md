@@ -54,10 +54,10 @@ Beslutsregel, i den ordningen:
 | Render-till-bild | [`captureThumbnailScreenshot`](../../../../../src/lib/projects/thumbnail-capture.ts) — 1200×750 JPEG, SSRF-grindad, samma motor som projektminiatyrerna |
 | Analys som mottagaren kan köra själv | `/analys` (#1471) — **länk**, inte en rapportmotor per lead |
 
-`/analys` är takad till 1 körning per IP och dygn och kan därför inte
-producera rapporter för pilotens leads. Bilden i utskicket kommer från den
-genererade förslagssidan; `/analys` är på sin höjd en länk i mejlet eller
-ett manuellt stickprov innan utskicket. Se
+`/analys` är takad till 1 levererad rapport per klient och Stockholmsdygn
+och kan därför inte producera rapporter för pilotens leads. Bilden i
+utskicket kommer från den genererade förslagssidan; `/analys` är på sin
+höjd en länk i mejlet eller ett manuellt stickprov innan utskicket. Se
 [`../resterande-fyra-spar.md`](../resterande-fyra-spar.md).
 
 Kört lokalt 2026-09-18: `example.com` → 15,5 kB JPEG på ~2,5 s.

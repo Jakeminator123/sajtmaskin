@@ -35,6 +35,11 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: [],
+    // Sviterna delar schema och singletonraden pricing_settings/default.
+    // Prispatch-testet sätter bl.a. wizard=0; kör därför filer i följd så
+    // wizardens debiteringskontrakt inte läser en annan svits tillfälliga pris.
+    // Promise.all inom en svit testar fortfarande verkliga samtidiga anrop.
+    fileParallelism: false,
     include: POSTGRES_TEST_GLOBS,
     exclude: SHARED_TEST_EXCLUDE,
   },

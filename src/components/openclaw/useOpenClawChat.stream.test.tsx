@@ -6,11 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPENCLAW_EMPTY_REPLY_COPY } from "@/lib/openclaw/gateway-response";
 import { resetArmedHandshakeWakesForTests } from "@/lib/openclaw/debug/armed-continuation";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { emptyCampaignScript } from "@/lib/kostnadsfri/agent-campaign-script";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { useOpenClawChat } from "./useOpenClawChat";
 
 const PREVIEW_REPRO_PHRASE =
   "gör 3 follow-ups och buggranska. Första steget: skicka själv en builder-prompt som gör hero-rubriken tydligare.";
+const originalConsumeCampaignAdviceRound =
+  useOpenClawStore.getState().consumeCampaignAdviceRound;
 
 function sseBody(...payloads: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -70,6 +73,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   resetArmedHandshakeWakesForTests();
+  delete window.__SITEMASKIN_CONTEXT;
   act(() => {
     useOpenClawStore.setState({
       editEnabled: false,
@@ -79,6 +83,7 @@ afterEach(() => {
       armedContinuation: null,
       messages: [],
       isStreaming: false,
+      consumeCampaignAdviceRound: originalConsumeCampaignAdviceRound,
     });
   });
 });
@@ -150,6 +155,79 @@ describe("useOpenClawChat — terminal empty stream", () => {
     );
     expect(screen.getByText(/slut på kapacitet/)).toBeTruthy();
     expect(screen.queryByText(OPENCLAW_EMPTY_REPLY_COPY)).toBeNull();
+  });
+
+  it("keeps the gateway error visible after a truncated action block", async () => {
+    const consumeCampaignAdviceRound = vi.fn(() => "ok" as const);
+    const fetchFn = vi.fn(
+      async () =>
+        new Response(
+          sseBody(
+            JSON.stringify({
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    content: [
+                      "Jag började svaret.",
+                      "<openclaw-action>",
+                      '{"type":"start_bug_hunt","mode":"followups","count":3',
+                    ].join("\n"),
+                  },
+                },
+              ],
+            }),
+            JSON.stringify({
+              error: {
+                message: "You've reached your Codex subscription usage limit.",
+                type: "rate_limit_error",
+              },
+            }),
+            "[DONE]",
+          ),
+          {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    window.__SITEMASKIN_CONTEXT = { page: "kostnadsfri" };
+    act(() => {
+      useOpenClawStore.setState({
+        campaignScript: emptyCampaignScript("zax-2-0-ab"),
+        consumeCampaignAdviceRound,
+      });
+    });
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const assistant = useOpenClawStore
+      .getState()
+      .messages.find((message) => message.role === "assistant")!;
+    const { container } = render(
+      <OpenClawMessage
+        streaming={useOpenClawStore.getState().isStreaming}
+        msg={assistant}
+      />,
+    );
+
+    expect(screen.getByText(/slut på kapacitet/)).toBeTruthy();
+    expect(screen.getByText(/Jag började svaret\./)).toBeTruthy();
+    expect(screen.queryByText(OPENCLAW_EMPTY_REPLY_COPY)).toBeNull();
+    expect(container.querySelectorAll(".h-1\\.5.w-1\\.5.animate-pulse")).toHaveLength(0);
+    expect(useOpenClawStore.getState().isStreaming).toBe(false);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+    expect(
+      useOpenClawStore.getState().messages.some((message) =>
+        message.content.includes("[Automatisk väckning]"),
+      ),
+    ).toBe(false);
+    expect(consumeCampaignAdviceRound).not.toHaveBeenCalled();
   });
 
   it("does not handshake-wake from a complete hunt block followed by an error envelope", async () => {
