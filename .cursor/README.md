@@ -22,9 +22,9 @@ backloggstacken som rutin.
 - Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
 - Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Sol: Grok 4.7 Extra High Fast (`grok-4.7-xhigh-fast`) ur sessionens lista. Luna = mekanisk read-only,
-Terra = uttrycklig lågrisk. Godnatt har egna profiler. Styr subagenter, inte
-sajtrouting. Kopiera inte en gammal slug.
+Modellval och reasoning ägs av [`subagent-models.mdc`](rules/subagent-models.mdc).
+Proceduren heter oberoende bugggranskning; Sol är ett modellval. Godnatt har
+egna profiler. Styr subagenter, inte sajtrouting; kopiera inte en gammal slug.
 
 ## Regler
 
