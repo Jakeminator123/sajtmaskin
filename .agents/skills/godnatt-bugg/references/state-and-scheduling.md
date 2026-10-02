@@ -31,6 +31,13 @@ och `config/agent-workflow.json` på den refen. `deliveryBranch` måste vara
 Lokala filer/flaggor kan inte ersätta live-beviset. Pilot och evaluation kan
 fortsatt skapa draft-only-underlag utan att armera full eller automation.
 
+Arbetsmutationer kräver också ett verifierat rollout-grant bundet till den
+aktiva full-leasen. En redan aktiv v3/v4-lease utan det beviset får inte
+fortsätta genom migration. Behåll originaltask/worktree: pausa eller gör
+explicit release med rätt token och orsak, och acquire därefter med färsk
+live-policyvalidering. Historik/current/reviewantal bevaras; ingen automatisk
+lease-takeover eller reset är tillåten. Pilot/evaluation påverkas inte.
+
 State lagrar bara SHA-256-hashen av pilotens slumpade capability. En scheduled
 runner kan därför inte läsa state och själv promovera piloten. När användaren
 uttryckligen godkänner hela grinden:

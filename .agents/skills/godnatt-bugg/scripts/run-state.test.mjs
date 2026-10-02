@@ -19,6 +19,7 @@ import {
   claimCandidate,
   completePass,
   createRunState,
+  heartbeatLease,
   normalizeFsPath,
   parseActiveQueue,
   pauseRun,
@@ -28,6 +29,7 @@ import {
   rebaselineLegacyState,
   recordReviewPass,
   recoverStaleLease,
+  releaseLease,
   reopenReview,
   skipCandidate,
 } from "./run-state.mjs";
@@ -117,6 +119,13 @@ function acquired(state = fresh(), now = START) {
     trustedRolloutEvidence:
       state.mode === "full" ? rolloutEvidence({ refSha: BASE_SHA, observedAt: now }) : null,
   }).state;
+}
+
+function legacyFullWithoutRuntimeGrant(state, version) {
+  const legacy = structuredClone(state);
+  legacy.version = version;
+  delete legacy.fullRolloutEvidence;
+  return legacy;
 }
 
 function claimed(state = acquired(), now = START) {
@@ -283,6 +292,33 @@ function readyForMerge(state = claimed()) {
   });
 }
 
+function cleanupReady(state = readyForMerge()) {
+  state = advanceStage(state, {
+    token: "token-1",
+    stage: "merged",
+    now: MERGED_TIME,
+    trustedEvidence: pullEvidence({
+      state: "MERGED",
+      isDraft: false,
+      liveBaseSha: MERGE_SHA,
+      observedAt: MERGED_TIME,
+    }),
+  });
+  return advanceStage(state, {
+    token: "token-1",
+    stage: "cleanup",
+    now: CLEANUP_TIME,
+    trustedEvidence: pullEvidence({
+      state: "MERGED",
+      isDraft: false,
+      liveBaseSha: MERGE_SHA,
+      remoteBranchAbsent: true,
+      worktreeClean: true,
+      observedAt: CLEANUP_TIME,
+    }),
+  });
+}
+
 describe("parseActiveQueue", () => {
   it("returns unchecked records only from Aktiv kö", () => {
     const markdown = [
@@ -348,6 +384,147 @@ describe("lease safety", () => {
     });
     assert.equal(recovered.status, "ready");
     assert.equal(recovered.lease, null);
+  });
+
+  it("blocks every normal full mutation when a v3/v4 active lease lacks a runtime rollout grant", () => {
+    let reviewable = advanceToDraft(claimed());
+    reviewable = advanceStage(reviewable, {
+      token: "token-1",
+      stage: "ci-review",
+      now: LATER,
+      trustedEvidence: pullEvidence(),
+    });
+    const completable = cleanupReady();
+
+    for (const version of [3, 4]) {
+      const fixtures = [
+        () =>
+          claimCandidate(legacyFullWithoutRuntimeGrant(acquired(), version), {
+            token: "token-1",
+            smId: candidate.id,
+            candidates: [candidate],
+            now: LATER,
+          }),
+        () =>
+          heartbeatLease(legacyFullWithoutRuntimeGrant(acquired(), version), {
+            token: "token-1",
+            now: LATER,
+          }),
+        () =>
+          advanceStage(legacyFullWithoutRuntimeGrant(claimed(), version), {
+            token: "token-1",
+            stage: "verified",
+            now: LATER,
+          }),
+        () => independentReview(legacyFullWithoutRuntimeGrant(reviewable, version)),
+        () =>
+          completePass(legacyFullWithoutRuntimeGrant(completable, version), {
+            token: "token-1",
+            outcome: "fixed",
+            evidence: "försök utan runtime rolloutgrant",
+            now: COMPLETE_TIME,
+            trustedEvidence: pullEvidence({
+              state: "MERGED",
+              isDraft: false,
+              liveBaseSha: MERGE_SHA,
+              remoteBranchAbsent: true,
+              worktreeClean: true,
+              observedAt: COMPLETE_TIME,
+            }),
+          }),
+      ];
+      for (const mutate of fixtures) {
+        assert.throws(mutate, /rolloutgrant bundet till aktiv lease/u);
+      }
+    }
+  });
+
+  it("binds a full rollout grant to the exact active lease", () => {
+    const state = acquired();
+    assert.equal(state.fullRolloutEvidence.grantedForLeaseAt, state.lease.acquiredAt);
+    assert.doesNotThrow(() => heartbeatLease(state, { token: "token-1", now: SECOND_PASS }));
+    assert.doesNotThrow(() =>
+      advanceStage(claimed(), {
+        token: "token-1",
+        stage: "verified",
+        now: SECOND_PASS,
+      }),
+    );
+
+    const replayed = structuredClone(state);
+    replayed.fullRolloutEvidence.grantedForLeaseAt = LATER;
+    assert.throws(
+      () => heartbeatLease(replayed, { token: "token-1", now: LATER }),
+      /rolloutgrant bundet till aktiv lease/u,
+    );
+
+    const staleAtAcquisition = structuredClone(state);
+    staleAtAcquisition.fullRolloutEvidence.observedAt = "2026-08-11T19:00:00.000Z";
+    assert.throws(
+      () => heartbeatLease(staleAtAcquisition, { token: "token-1", now: LATER }),
+      /Rollout-evidence är stale/u,
+    );
+
+    const weakened = structuredClone(state);
+    weakened.fullRolloutEvidence.deliveryBranch = "master";
+    assert.throws(
+      () => heartbeatLease(weakened, { token: "token-1", now: LATER }),
+      /deliveryBranch=preview/u,
+    );
+  });
+
+  it("keeps safe release and pause available, then requires fresh validated acquire", () => {
+    const legacy = legacyFullWithoutRuntimeGrant(advanceToDraft(claimed()), 3);
+    const historyBefore = structuredClone(legacy.history);
+    const released = releaseLease(legacy, {
+      token: "token-1",
+      reason: "frigör legacy lease före nytt live-policybevis",
+      now: REVIEW_TIME,
+    });
+    assert.equal(released.status, "ready");
+    assert.equal(released.lease, null);
+    assert.deepEqual(released.history.slice(0, -1), historyBefore);
+    assert.equal(released.history.at(-1).kind, "lease-released");
+    assert.equal(released.current.stage, "draft-pr");
+    assert.equal(released.current.branch, "fix/sm-022-safe-cleanup");
+    assert.equal(released.current.worktree, PASS_WORKTREE);
+    assert.equal(released.current.prNumber, 123);
+    assert.equal(released.runId, legacy.runId);
+    assert.equal(released.mode, "full");
+    assert.equal(released.automationId, legacy.automationId);
+    assert.equal(released.promotionAuthorizationHash, legacy.promotionAuthorizationHash);
+
+    assert.throws(
+      () => acquireLease(released, { now: REVIEW_TIME, token: "token-2" }),
+      /canonical preview-policy/u,
+    );
+    const reacquired = acquireLease(released, {
+      now: REVIEW_TIME,
+      token: "token-2",
+      trustedRolloutEvidence: rolloutEvidence({ observedAt: REVIEW_TIME }),
+    }).state;
+    assert.equal(reacquired.fullRolloutEvidence.grantedForLeaseAt, reacquired.lease.acquiredAt);
+    assert.deepEqual(reacquired.current, released.current);
+    assert.deepEqual(reacquired.history, released.history);
+    assert.equal(reacquired.promotionAuthorizationHash, released.promotionAuthorizationHash);
+    assert.throws(
+      () => heartbeatLease(reacquired, { token: "token-1", now: READY_TIME }),
+      /Ogiltig eller saknad runner-token/u,
+    );
+    assert.doesNotThrow(() => heartbeatLease(reacquired, { token: "token-2", now: READY_TIME }));
+
+    const paused = pauseRun(legacyFullWithoutRuntimeGrant(acquired(), 4), {
+      token: "token-1",
+      reason: "säker halt utan rolloutgrant",
+      now: LATER,
+    });
+    assert.equal(paused.status, "paused");
+    assert.equal(paused.lease, null);
+
+    assert.doesNotThrow(() => heartbeatLease(acquired(pilot()), { token: "token-1", now: LATER }));
+    assert.doesNotThrow(() =>
+      heartbeatLease(acquired(evaluation()), { token: "token-1", now: LATER }),
+    );
   });
 });
 

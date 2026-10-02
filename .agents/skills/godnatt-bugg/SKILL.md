@@ -54,6 +54,9 @@ Full begin, pilot-promotion och full acquire spärras dessutom tills den live
 kanoniska policyn på GitHub-preview har `deliveryBranch: preview`. Ett lokalt
 ändrat policyträd eller en draft-PR är inte aktivering. Grinden läser bara;
 den startar ingen automation och ersätter aldrig CI-/mergegrinden.
+En gammal aktiv full-lease utan verifierat lease-bundet rollout-grant får inte
+fortsätta arbeta genom migration. Säker pause/release är tillåten; nytt acquire
+kräver färsk live-policy och originaltaskens immutable binding.
 
 Ett scheduled-anrop är aldrig i sig merge-mandat. Det får bara fortsätta den
 full-batch och count som användaren redan har armerat. Evaluation körs som en
