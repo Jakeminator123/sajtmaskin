@@ -541,6 +541,8 @@ describe("buildPromoteBody", () => {
 
   it("utelämnar bootstrap-sektionen när inga trust-root-träffar finns", () => {
     expect(body).not.toContain("## Bootstrap-godkännande krävs");
+    expect(body).toContain("Manuell merge kräver uttrycklig ägarbekräftelse");
+    expect(body).toContain("`merge:execute` tar bara `preview`, aldrig produktion");
   });
 
   it("lägger till omarkerad bootstrap-sektion när trust-root-träffar finns", () => {

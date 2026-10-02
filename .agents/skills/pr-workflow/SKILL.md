@@ -81,22 +81,23 @@ Kommandot mergar aldrig till `master`. Efter PR:en gäller `pr-merge.mdc` som
 vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
 före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
 
-Controllern squash-mergar, så masters nya commit finns inte i `preview`
-efteråt. `npm run promote` synkar **inte** `master → preview` serverside —
-saknar preview masters tip: bered en synkbranch från färsk `origin/preview`,
-ta in `origin/master` med merge-commit och öppna PR mot preview. Merga den med
-merge-commit (inte squash) innan nästa promote. Osläppt innehåll och
-releasebeskrivning avgörs av faktisk trädskillnad mot `master`, inte squashad
-commithistorik. Dry-run skriver aldrig
-remote-refs och ger bara receptet när synk saknas.
+En squash-release ger master en ny commit som inte finns i `preview`
+efteråt. Promote synkar inte serverside. Saknas master: bered en synkbranch
+från färsk preview som tar in master med merge-commit; öppna PR mot preview
+och begär separat manuell expected-head-merge med merge-commit (inte squash
+eller `merge:execute`) enligt synkvägen i `pr-merge.mdc`, innan nästa promote.
+Samma CI/review gäller; ingen blandad feature-PR. Dry-run skriver
+inga remote-refs. Osläppt innehåll och releasetext avgörs av faktisk träddiff,
+inte squashad commithistorik.
 
 ## 5. Merge och städ
 
 När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc` och den
-befintliga `merge:ready` / `merge:execute`-grinden. Innan `merge:execute` till
-master: varna att det går till produktion och vänta på extra bekräftelse i
-samma chatt. Merga inte på eget bevåg. `preview` är en delad remote-gren, inte
-trunk och inte builder-ytan.
+befintliga `merge:ready` / `merge:execute`-grinden. Den squash-mergar till
+`preview`, aldrig till `master`. Merga inte på eget bevåg. Innan en promote-PR
+mergas till master: varna att det går till produktion och vänta på extra
+bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
+remote-gren, inte trunk och inte builder-ytan.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Rör aldrig `BRA` eller

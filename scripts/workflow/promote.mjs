@@ -23,7 +23,7 @@
  * Förvarning: rör diffen en CI-trust root (`manualMergePathPrefixes`) varnar
  * kommandot redan här — 2026-09-08 upptäcktes det först i review-window.
  *
- * Synk: controllern squash-mergar, så masters nya commit finns inte i preview
+ * Synk: en squash-release ger master en ny commit som inte finns i preview
  * efteråt. Planering eller skapande av promote-PR synkar **inte** master →
  * preview via merges-API. Saknar preview masters tip: avbryt och öppna en egen
  * PR (merge-commit, inte squash). Osläppt innehåll avgörs av trädskillnad mot
@@ -94,10 +94,9 @@ export function parseRemoteBranchNames(stdout) {
 }
 
 /**
- * Prefixlistan controllern faktiskt använder. `review-window` kör
- * default-branch-kod och läser MASTERS policy, så förvarningen måste läsa
- * samma fil från `origin/master` — inte checkoutens (som kan vara preview
- * med en ännu inte promotad ändring). Samma fallback som controllern.
+ * Produktionens bootstrap-policy. Läs filen från den frysta master-tippen,
+ * inte checkoutens ännu osläppta policy. Produktion mergas alltid manuellt;
+ * prefixlistan avgör om ett separat infrastruktur-godkännande också krävs.
  */
 export function manualMergePrefixesFromPolicy(policyJson) {
   const policy = JSON.parse(String(policyJson ?? ""));
@@ -220,7 +219,7 @@ export function buildPromoteBody({
       ? [
           "## Bootstrap-godkännande krävs",
           "",
-          "Den vanliga review-window/merge:execute-controllern vägrar denna PR eftersom den rör CI-trust roots:",
+          "Dessa CI-trust roots kräver dessutom ett separat infrastruktur-godkännande:",
           "",
           ...manualMergePaths.map((path) => `- \`${path}\``),
           "",
@@ -261,7 +260,7 @@ export function buildPromoteBody({
     "- Kvarvarande risk:",
     `- Återställning/rollback: revert av promote-commiten på \`${PRODUCTION_BRANCH}\`; \`${STAGING_BRANCH}\` behåller tippen.`,
     "",
-    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Merga bara efter uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`.`,
+    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Manuell merge kräver uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`. \`merge:execute\` tar bara \`${STAGING_BRANCH}\`, aldrig produktion.`,
     "",
     "<!-- Skapad av `npm run promote`. -->",
   ].join("\n");
@@ -382,7 +381,7 @@ function main() {
   if (manualMergePaths.length > 0) {
     console.log("");
     console.log(
-      "⚠ Denna promote rör CI-trust roots och kräver ditt bootstrap-godkännande (review-window/merge:execute vägrar):",
+      "⚠ Denna promote rör CI-trust roots och kräver dessutom ditt bootstrap-godkännande:",
     );
     for (const path of manualMergePaths) {
       console.log(`  ${path}`);
@@ -439,8 +438,8 @@ function main() {
   console.log("  Kvar innan merge:");
   console.log("   1. Invänta gröna required checks på promote-headen.");
   console.log("   2. Kör en bugkoll på diffen mot produktion och triagera fynden.");
-  console.log("   3. Posta merge:ready-kommentaren, sätt sedan labeln (i den ordningen).");
-  console.log("   4. Merga först efter uttrycklig bekräftelse — se .cursor/rules/pr-merge.mdc.");
+  console.log("   3. Varna för produktion och invänta extra uttrycklig ägarbekräftelse i samma chatt.");
+  console.log("   4. Manuell expected-head-merge till master — merge:execute tar bara preview. Se .cursor/rules/pr-merge.mdc.");
   if (manualMergePaths.length > 0) {
     console.log(
       "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
@@ -448,7 +447,7 @@ function main() {
   }
   console.log("");
   console.log(
-    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna PR mot ${STAGING_BRANCH} och merga med MERGE-commit (inte squash) innan nästa promote.`,
+    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna separat PR mot ${STAGING_BRANCH} och begär manuell expected-head MERGE-commit enligt pr-merge.mdc (inte squash eller merge:execute) innan nästa promote.`,
   );
 }
 
