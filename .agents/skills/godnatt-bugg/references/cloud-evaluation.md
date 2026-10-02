@@ -71,14 +71,19 @@ For each pass:
 9. Apply an existing `do-not-merge` or `admin-review-required` label when
    available. Do not create a repository-wide label for this test.
 10. Verify the draft/admin/merge guards through GitHub, then register them in
-    state with the exact current 40-character head SHA.
+    state with the exact current 40-character head SHA and live preview-base
+    SHA. The PR API's historical base SHA is not the current preview tip.
 11. Allow automated review. If no useful review is available, follow the
     repository fallback to independent read-only bug review; the model or
     GitHub bot is not the procedure name. Fix
-    credible findings on the candidate branch and re-review the new head SHA.
+    credible findings on the candidate branch. Any head or preview-base move
+    requires re-registering the current `draft-pr` stage and a new review for
+    both frozen SHAs. The review command must assert `--reviewed-sha` and
+    `--reviewed-base-sha`; never use the full-only `re-review` transition here.
     Stop after at most three review/fix passes; the cap never permits merging.
 12. Complete the evaluation pass only from `draft-pr`, only after a clean or
-    findings-fixed review for the current SHA, and only after re-verifying the
+    findings-fixed review for the current head and live preview-base SHAs,
+    and only after re-verifying the
     PR is still draft/admin-blocked and unmerged.
 
 Between pass 1 and pass 2:

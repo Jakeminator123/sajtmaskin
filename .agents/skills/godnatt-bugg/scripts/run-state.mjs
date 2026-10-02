@@ -191,7 +191,10 @@ export function acquireLease(state, { now, token = randomUUID(), trustedRolloutE
     });
   }
   if (next.mode === "full") {
-    next.fullRolloutEvidence = validateFullRolloutEvidence(trustedRolloutEvidence, now);
+    next.fullRolloutEvidence = {
+      ...validateFullRolloutEvidence(trustedRolloutEvidence, now),
+      grantedForLeaseAt: timestamp,
+    };
   }
 
   next.status = "running";
@@ -1065,7 +1068,7 @@ export function skipCandidate(state, { token, reason, now }) {
 
 export function pauseRun(state, { token, reason, now }) {
   const next = normalizeState(state);
-  assertLease(next, token, now);
+  assertLease(next, token, now, { allowFullWithoutRolloutGrant: true });
   if (!reason?.trim()) throw new RunStateError("pause kräver --reason.");
   next.status = "paused";
   next.pauseReason = reason.trim();
@@ -1131,7 +1134,7 @@ export function promoteRun(
 
 export function releaseLease(state, { token, reason, now }) {
   const next = normalizeState(state);
-  assertLease(next, token, now);
+  assertLease(next, token, now, { allowFullWithoutRolloutGrant: true });
   if (!reason?.trim()) throw new RunStateError("release kräver --reason.");
   const timestamp = toIso(now);
   next.history.push({ kind: "lease-released", at: timestamp, reason: reason.trim() });
@@ -1259,7 +1262,7 @@ function assertRunId(state, runId) {
   if (state.runId !== runId) throw new RunStateError("run-id matchar inte aktiv run.");
 }
 
-function assertLease(state, token, now) {
+function assertLease(state, token, now, { allowFullWithoutRolloutGrant = false } = {}) {
   const tokenHash = typeof token === "string" && token ? hashToken(token) : null;
   const expectedHash = state.lease?.tokenHash;
   if (
@@ -1276,6 +1279,23 @@ function assertLease(state, token, now) {
       expiredAt: state.lease.expiresAt,
     });
   }
+  if (!allowFullWithoutRolloutGrant) assertFullRuntimeRolloutGrant(state);
+}
+
+function assertFullRuntimeRolloutGrant(state) {
+  if (state.mode !== "full") return;
+  const evidence = state.fullRolloutEvidence;
+  if (
+    !evidence ||
+    typeof evidence !== "object" ||
+    evidence.grantedForLeaseAt !== state.lease.acquiredAt
+  ) {
+    throw new RunStateError(
+      "Full-run saknar rolloutgrant bundet till aktiv lease; använd release med befintlig token och acquire för nytt live-policybevis.",
+      8,
+    );
+  }
+  validateFullRolloutEvidence(evidence, state.lease.acquiredAt);
 }
 
 function hashToken(token) {
