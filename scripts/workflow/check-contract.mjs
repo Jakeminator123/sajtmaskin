@@ -4,7 +4,11 @@ import yaml from "js-yaml";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { dirname as posixDirname, join as posixJoin, normalize as posixNormalize } from "node:path/posix";
+import {
+  dirname as posixDirname,
+  join as posixJoin,
+  normalize as posixNormalize,
+} from "node:path/posix";
 import { fileURLToPath } from "node:url";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
@@ -340,7 +344,9 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   for (const [name, count] of canonicalCoreCounts) {
     if (count !== 1) {
       const owner = ownerWorkflowForRequiredCheck(name, policy);
-      errors.push(`${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`);
+      errors.push(
+        `${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`,
+      );
     }
   }
   return errors;
@@ -398,7 +404,7 @@ const TRUSTED_REVIEW_GATE_JOB_IF =
   "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' ) || " +
   "( github.event_name == 'issue_comment' && github.event.action == 'created' && " +
   "github.event.issue.pull_request != null && " +
-  "contains(fromJSON('[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"]'), github.event.comment.author_association) && " +
+  'contains(fromJSON(\'["OWNER","MEMBER","COLLABORATOR"]\'), github.event.comment.author_association) && ' +
   "github.event.comment.body == 'review-window:refresh' ) || " +
   "( github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' )";
 const TRUSTED_REVIEW_GATE_CONCURRENCY =
@@ -468,7 +474,11 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "ready_for_review",
     "converted_to_draft",
   ];
-  if (pullRequest && typeof pullRequest === "object" && !includesEvery(pullRequest.types, requiredTypes)) {
+  if (
+    pullRequest &&
+    typeof pullRequest === "object" &&
+    !includesEvery(pullRequest.types, requiredTypes)
+  ) {
     errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
   }
 
@@ -483,8 +493,13 @@ export function evaluateDossierAcceptanceWorkflow(source) {
 
   for (const jobName of ["discover", "dependency-registry"]) {
     const job = document?.jobs?.[jobName];
-    if (!values(job?.needs).includes("scope") || !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)) {
-      errors.push(`${jobName} may run the expensive dossier matrix only after a successful in-scope decision`);
+    if (
+      !values(job?.needs).includes("scope") ||
+      !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)
+    ) {
+      errors.push(
+        `${jobName} may run the expensive dossier matrix only after a successful in-scope decision`,
+      );
     }
   }
 
@@ -496,7 +511,12 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     errors.push("keyless-production-build may run only after a successful in-scope discover job");
   }
 
-  if (!hasExactExpression(document?.jobs?.["verification-evidence"]?.if, "github.event_name != 'pull_request'")) {
+  if (
+    !hasExactExpression(
+      document?.jobs?.["verification-evidence"]?.if,
+      "github.event_name != 'pull_request'",
+    )
+  ) {
     errors.push("verification-evidence must stay off pull-request runs");
   }
 
@@ -509,7 +529,9 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "keyless-production-build",
   ];
   if (!includesEvery(aggregate?.needs, aggregateNeeds)) {
-    errors.push("dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds");
+    errors.push(
+      "dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds",
+    );
   }
   if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
     errors.push(
@@ -1147,7 +1169,11 @@ export function evaluatePolicyFloors(policy) {
 
   requireValues("requiredChecks", policy.requiredChecks, POLICY_FLOORS.requiredChecks);
   const ownerFile = (owner) =>
-    typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    typeof owner === "string"
+      ? owner
+      : String(owner?.path ?? "")
+          .split("/")
+          .at(-1);
   for (const [check, floorOwner] of Object.entries(POLICY_FLOORS.requiredCheckOwners)) {
     if (ownerFile(policy.requiredCheckOwners?.[check]) !== ownerFile(floorOwner)) {
       errors.push(`requiredCheckOwners security floor missing: ${check}=${ownerFile(floorOwner)}`);
@@ -1265,7 +1291,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     if (!(policy.requiredChecks ?? []).includes(check)) {
       errors.push(`requiredCheckOwners has unused check ${check}`);
     }
-    const file = typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    const file =
+      typeof owner === "string"
+        ? owner
+        : String(owner?.path ?? "")
+            .split("/")
+            .at(-1);
     if (!file || !existsSync(resolve(root, ".github/workflows", file))) {
       errors.push(`requiredCheckOwners ${check} points at missing workflow ${file}`);
     }

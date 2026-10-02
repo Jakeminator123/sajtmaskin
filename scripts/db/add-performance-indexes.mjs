@@ -35,10 +35,7 @@ config({ path: ".env.local" });
 
 assertSafeWriteTarget({ commandName: "db:perf-indexes" });
 
-const AUDIT_LOG_PATH = join(
-  process.cwd(),
-  "data/observability/db-perf-indexes-runs.ndjson",
-);
+const AUDIT_LOG_PATH = join(process.cwd(), "data/observability/db-perf-indexes-runs.ndjson");
 
 // normalizeEnvUrl: trims, fångar uninterpolerade `${VAR}`-värden från env-puller
 const connectionString =
@@ -60,8 +57,7 @@ url.searchParams.delete("supa");
 const pool = new Pool({
   connectionString: url.toString(),
   ssl: {
-    rejectUnauthorized:
-      process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
   // Fail fast on an unreachable DB (this was the actual predev hang). But do
   // NOT cap statement/query time here: this script runs plain (non-CONCURRENT)
@@ -293,10 +289,9 @@ async function tableExists(name) {
 }
 
 async function indexExists(name) {
-  const { rows } = await pool.query(
-    `SELECT 1 FROM pg_indexes WHERE indexname = $1 LIMIT 1`,
-    [name],
-  );
+  const { rows } = await pool.query(`SELECT 1 FROM pg_indexes WHERE indexname = $1 LIMIT 1`, [
+    name,
+  ]);
   return rows.length > 0;
 }
 
@@ -330,10 +325,7 @@ async function findCoveringIndex(table, columns) {
           .replace(/^"(.+)"$/, "$1"),
       )
       .filter(Boolean);
-    if (
-      cols.length === columns.length &&
-      cols.every((c, idx) => c === columns[idx])
-    ) {
+    if (cols.length === columns.length && cols.every((c, idx) => c === columns[idx])) {
       return r.indexname;
     }
   }
@@ -350,7 +342,12 @@ function extractColumns(sql) {
   if (!m) return null;
   return m[1]
     .split(",")
-    .map((c) => c.trim().replace(/\s+(DESC|ASC)\s*$/i, "").replace(/^"(.+)"$/, "$1"))
+    .map((c) =>
+      c
+        .trim()
+        .replace(/\s+(DESC|ASC)\s*$/i, "")
+        .replace(/^"(.+)"$/, "$1"),
+    )
     .filter(Boolean);
 }
 
