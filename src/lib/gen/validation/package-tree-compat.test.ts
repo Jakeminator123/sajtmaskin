@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { satisfies } from "semver";
 import {
   INCIDENT_V0_PACKAGE_JSON,
   detectPackageTreeConflicts,
@@ -82,6 +83,42 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.1", react: "18.0.0" } })).toHaveLength(1);
     expect(detectPackageTreeConflicts({ dependencies: { next: "^13.0.0", react: "18.0.0" } }, { next: "13.0.1", react: "18.0.0" })).toHaveLength(1);
     expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: "^19" } })[0]?.message).toContain("ERESOLVE");
+  });
+
+  it.each(["18.0.0-rc.0", "^18.0.0-rc.0", ">=18.0.0-rc.0 <18.0.0"])("admits prerelease React %s under the published Next 13.0.0 peer", (react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react } })).toEqual([]);
+  });
+  it("validates an exact locked prerelease with normal npm prerelease admission", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: "^18.0.0-rc.0" } }, { next: "13.0.0", react: "18.0.0-rc.0" })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.1", react: "18.3.0-rc.0" } })).toHaveLength(1);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: ">=17 <18.0.0" } })).toHaveLength(1);
+  });
+  it("preserves known Next 12 peer conflicts without rejecting supported React 17/18", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "12.3.4", react: "^19" } })).toHaveLength(1);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "12 || 13", react: "^19" } })).toHaveLength(1);
+    for (const react of ["17.0.2", "18.0.0", "18.0.0-rc.0"]) {
+      expect(detectPackageTreeConflicts({ dependencies: { next: "12.3.4", react } })).toEqual([]);
+    }
+    expect(detectPackageTreeConflicts({ dependencies: { next: ">=12 <16", react: "^19" } })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: ">=12 <16", react: "^19" } }, { next: "12.3.4", react: "19.0.0" })).toHaveLength(1);
+  });
+  it("matches published exact peers across stable/prerelease boundary fixtures", () => {
+    const contracts = [
+      ["12.0.0", "^17.0.2"],
+      ["12.0.1", "^17.0.2 || ^18.0.0"],
+      ["12.0.4", "^17.0.2 || ^18.0.0"],
+      ["12.0.5", "^17.0.2 || ^18.0.0-0"],
+      ["12.3.4", "^17.0.2 || ^18.0.0-0"],
+      ["13.0.0", "^18.0.0-0"],
+      ["13.0.1", "^18.2.0"],
+      ["14.2.25", "^18.2.0"],
+    ];
+    const versions = ["16.14.0", "17.0.1", "17.0.2", "17.0.3", "18.0.0-0", "18.0.0-rc.0", "18.0.0", "18.1.0", "18.2.0", "18.3.0-rc.0", "18.3.0", "19.0.0-rc.0", "19.0.0"];
+    for (const [next, peer] of contracts) {
+      for (const react of versions) {
+        expect(detectPackageTreeConflicts({ dependencies: { next, react } }), `${next}/${react}`).toHaveLength(satisfies(react, peer) ? 0 : 1);
+      }
+    }
   });
 
   it.each([

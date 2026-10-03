@@ -46,7 +46,11 @@ export function loadGoogleAdsTag(adsId: string, nonce?: string): Promise<boolean
       clearTimeout(timer);
       script.onload = null;
       script.onerror = null;
-      window.sajtmaskinAdsTagLoaded = loaded;
+      // A replaced module's timer may settle after the replacement loaded.
+      // Only the current script owns the document-wide readiness flag.
+      if (document.getElementById(SCRIPT_ID) === script) {
+        window.sajtmaskinAdsTagLoaded = loaded;
+      }
       if (loaded) script.dataset.loaded = "true";
       else script.remove();
       resolve(loaded);

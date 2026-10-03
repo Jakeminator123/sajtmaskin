@@ -100,6 +100,23 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     }
   });
 
+  it("does not let a stale loader timeout clear a successfully replaced tag", async () => {
+    const firstLoader = await import("@/lib/ads/load-google-ads-tag");
+    const first = firstLoader.loadGoogleAdsTag("AW-123456789");
+    vi.resetModules();
+    const secondLoader = await import("@/lib/ads/load-google-ads-tag");
+    const second = secondLoader.loadGoogleAdsTag("AW-123456789");
+    script().dispatchEvent(new Event("load"));
+    expect(await second).toBe(true);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await first).toBe(false);
+    expect(window.sajtmaskinAdsTagLoaded).toBe(true);
+    const ads = await import("@/lib/ads/fire-google-ads-conversion");
+    ads.noteGoogleAdsConversion("account_created");
+    ads.flushPendingGoogleAdsConversions();
+    expect(conversions()).toHaveLength(1);
+  });
+
   it("does not flush or retry after consent is revoked during a load", async () => {
     const { GoogleAdsTag } = await import("./google-ads-tag");
     const ads = await import("@/lib/ads/fire-google-ads-conversion");

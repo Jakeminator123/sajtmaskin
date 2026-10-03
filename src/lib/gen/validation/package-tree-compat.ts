@@ -11,7 +11,7 @@
  * listed so a human can choose a coherent tree.
  */
 
-import { intersects, minVersion, satisfies, subset, valid, validRange } from "semver";
+import { Range, intersects, minVersion, satisfies, subset, valid, validRange } from "semver";
 
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
@@ -61,6 +61,16 @@ const DEP_FIELDS = [
   "peerDependencies",
 ] as const;
 
+// Published npm peer contracts; select all contracts an unlocked range admits.
+// Do not extend these boundaries by guessing a contract for newer Next lines.
+const NEXT_REACT_PEERS = [
+  { next: "12.0.0", react: "^17.0.2" },
+  { next: ">=12.0.1 <12.0.5", react: "^17.0.2 || ^18.0.0" },
+  { next: ">=12.0.5 <13.0.0", react: "^17.0.2 || ^18.0.0-0" },
+  { next: "13.0.0", react: "^18.0.0-0" },
+  { next: ">=13.0.1 <15.0.0", react: "^18.2.0" },
+] as const;
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -107,21 +117,34 @@ function peerMapFromRanges(deps: Record<string, string>): PackageTreePeerMap {
   };
 }
 
+function rangesShareVersion(left: string, right: string): boolean {
+  // intersects() rejects some compatible exact prereleases. Prove admission
+  // using a witness for each AND-pair, with npm's normal prerelease rules for
+  // BOTH original ranges (never globally enable includePrerelease).
+  return new Range(left).set.some((leftSet) => new Range(right).set.some((rightSet) => {
+    const minimum = minVersion([...leftSet, ...rightSet].map((comparator) => comparator.value).filter(Boolean).join(" "));
+    if (!minimum) return false;
+    const candidates = [minimum.version, `${minimum.major}.${minimum.minor}.${minimum.patch}`];
+    return candidates.some((version) => satisfies(version, left) && satisfies(version, right));
+  }));
+}
+
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
 ): { nextMajor: number; reactMajor: number; reactPeer: string } | null {
   if (!validRange(nextRange) || !validRange(reactRange)) return null;
   // Only claim a conflict when EVERY admitted Next version belongs to the
-  // known 13/14 peer contracts and NO admitted React version meets their union.
+  // known 12/13/14 peer contracts and NO admitted React version meets their union.
   // A broad Next range may resolve to 15+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
   if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
-  if (!subset(nextRange, ">=13.0.0 <15.0.0")) return null;
-  // The published 13.0.0 manifest admits ^18.0.0-0; 13.0.1+ requires
-  // ^18.2.0. An unlocked range admitting 13.0.0 is not proof of ERESOLVE.
-  const reactPeer = intersects(nextRange, "13.0.0") ? "^18.0.0-0" : "^18.2.0";
-  if (intersects(reactRange, reactPeer)) return null;
+  if (!subset(nextRange, ">=12.0.0 <15.0.0")) return null;
+  const reactPeer = [...new Set(NEXT_REACT_PEERS
+    .filter((contract) => intersects(nextRange, contract.next))
+    .map((contract) => contract.react))].join(" || ");
+  if (!reactPeer) return null;
+  if (rangesShareVersion(reactRange, reactPeer)) return null;
   const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
   if (nextMajor === null || reactMajor === null) return null;
@@ -131,15 +154,17 @@ function nextReactEresolve(
 function repairOptionsForNextReact(params: {
   nextMajor: number;
   reactMajor: number;
+  reactPeer: string;
   peers: PackageTreePeerMap;
 }): string[] {
   const reactDomNote = params.peers.reactDom ? ` and react-dom ${params.peers.reactDom}` : "";
   const typesNote = params.peers.typesReact
     ? ` Keep @types/react (${params.peers.typesReact}) on the same React major.`
     : "";
+  const compatibleMajor = minVersion(params.reactPeer)?.major;
   return [
     `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
-    `Pin React 18 (and react-dom 18) to match Next ${params.nextMajor}.${typesNote}`,
+    `Pin React ${compatibleMajor} (and react-dom ${compatibleMajor}) within ${params.reactPeer} to match Next ${params.nextMajor}.${typesNote}`,
     "Leave the imported tree verbatim and do not publish until the tree is coherent.",
   ];
 }
@@ -181,6 +206,7 @@ export function detectPackageTreeConflicts(
         repairOptions: repairOptionsForNextReact({
           nextMajor: mismatch.nextMajor,
           reactMajor: mismatch.reactMajor,
+          reactPeer: mismatch.reactPeer,
           peers,
         }),
       });
