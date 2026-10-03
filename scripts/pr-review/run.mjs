@@ -6,6 +6,7 @@ import {
   exhaustiveJsonSchema,
   followUpInstructions,
   followUpJsonSchema,
+  TARGET_BASE_BRANCH,
 } from "./core.mjs";
 import { runReviewAutomation } from "./automation.mjs";
 import { writeReviewRunResult } from "./receipt.mjs";
@@ -270,7 +271,7 @@ export function isOpenAIAccountFallbackError(error) {
 export async function requestAccountFallback({ github, prNumber, reason }) {
   const pr = await github.getPullRequest(prNumber);
   if (pr.mergedAt) return { kind: "skip", reason: "merged", modelCalls: 0, writes: 0 };
-  if (pr.baseRef !== "master") {
+  if (pr.baseRef !== TARGET_BASE_BRANCH) {
     return { kind: "skip", reason: "wrong-base", modelCalls: 0, writes: 0 };
   }
   return { kind: "skip", reason, modelCalls: 0, writes: 0 };

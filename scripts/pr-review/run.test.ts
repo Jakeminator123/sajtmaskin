@@ -82,7 +82,7 @@ describe("OpenAI account fallback", () => {
     const comments: Array<{ body: string; author: string }> = [];
     const github = {
       async getPullRequest() {
-        return { headSha, baseRef: "master", mergedAt: null };
+        return { headSha, baseRef: "preview", mergedAt: null };
       },
       async listIssueComments() {
         return comments;

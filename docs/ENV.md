@@ -32,7 +32,7 @@ Utan dessa brukar kärnan inte vara användbar i **preview + production**:
 
 Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** för `development` / `preview` / `production` enligt behov.
 
-> **CI auto-migration-secret — `POSTGRES_URL_PROD`:** GitHub Actions-jobbet `prod-migrations-apply` ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) auto-applicerar DB-migrationer mot prod vid push till `master` eller `preview` (samma prod-Postgres), och kräver repo-secret:en `POSTGRES_URL_PROD` (poolad prod-URL, samma värde som Vercels `POSTGRES_URL` i production). Sätt/rotera med `gh secret set POSTGRES_URL_PROD`. **Saknas den på huvudrepot faller CI-jobbet rött** (inte tyst grönt) så en glömd migration inte kan slinka till prod oupptäckt. Detaljer: [`.cursor/rules/db-env-parity.mdc`](../.cursor/rules/db-env-parity.mdc).
+> **CI read-only DB-secret — `POSTGRES_URL_PROD`:** GitHub Actions läser prod-ledger och dev/prod-paritet, men push eller vanlig dispatch applicerar inte migrationer/index. På huvudrepot är saknad secret ett hårt fel, aldrig ett grönt live-kvitto. Preview och Production delar fortfarande samma databas. Live DDL är ett separat uppdrag och kräver verifierad direkt/session-mode-anslutning; anta inte att runtime-poolad URL är rätt för sessionslås. Detaljer: [`DB-runbook`](runbooks/db-migrations.md).
 
 ---
 
@@ -128,12 +128,12 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Vercel **Preview** (`preview.sajtmaskin.se` / `preview`-branchen) | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
 | Vercel **Production** | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
 | Lokal dev (**`.env.local`**) | `POSTGRES_URL` | dev (eller lokal throwaway-Postgres) | `eu-north-1` |
-| GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | CI refererar båda; migrate-jobben mappar prod-secreten → `POSTGRES_URL`, `db-schema-parity` mappar dev-secreten likadant för dev-synk och läser båda direkt för live-paritetsgaten | resp. ovan |
+| GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | Read-only ledger-/live-paritetskontroller. Ingen automatisk dev/prod-apply. Efemär CI-testdatabas är separat och behöver inga live-secrets. | resp. ovan |
 | `.env.vercel.production.pulled` | endast **explicit lokal prod-snapshot** | prod | `us-east-1` |
 | Supabase-MCP (IDE-tooling) | — | scoped till **dev**-projektet, read-only | `eu-north-1` |
 
 - **Maskinläsbar sanning:** [`config/db-targets.json`](../config/db-targets.json).
-- **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` innan prod-migrationer auto-appliceras (`prod-migrations-apply` i [`ci.yml`](../.github/workflows/ci.yml)) — fel projekt ⇒ hårt rött.
+- **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` före read-only ledgerkontroll; live-paritet kontrollerar båda målen internt. Fel projekt ⇒ hårt rött.
 - Next.js-runtime läser **aldrig** `POSTGRES_URL_DEV`/`POSTGRES_URL_PROD` — de finns bara i CI.
 
 ---

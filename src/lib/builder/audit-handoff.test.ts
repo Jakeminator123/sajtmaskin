@@ -6,9 +6,11 @@ import {
   buildAuditDisplayPrompt,
   deriveAuditInitHints,
   extractAuditHandoffPayload,
+  extractPublicAnalysHandoffPayload,
   publicAuditHandoffView,
 } from "./audit-handoff";
 import type { AuditResult } from "@/types/audit";
+import type { PublicAnalysReport } from "@/lib/audit/public-report";
 
 function sampleResult(): AuditResult {
   return {
@@ -141,5 +143,68 @@ describe("buildAuditDisplayPrompt", () => {
     expect(buildAuditDisplayPrompt(extractAuditHandoffPayload(sampleResult()))).toBe(
       "Bygg en förbättrad sajt för granit.se",
     );
+  });
+});
+
+describe("extractPublicAnalysHandoffPayload", () => {
+  it("maps only the public projection into the audit handoff allowlist", () => {
+    const report = {
+      company: "Publika AB",
+      domain: "publika.se",
+      audit_scores: { seo: 71, ux: 64, private_score: 99 },
+      issues: ["Svag CTA"],
+      improvements: [
+        {
+          item: "Tydligare CTA",
+          impact: "high",
+          effort: "low",
+          category: "Marketing",
+          why: "Konvertering",
+          how: "Flytta knappen ovanför vikningen",
+          cost: { usd: 99 },
+          template_data: { generation_prompt: "privat" },
+          internals: { traceId: "secret" },
+        },
+      ],
+      seo: {
+        foundation: "Beskriv tjänsten tydligare",
+        key_pages: ["Tjänster", "Kontakt"],
+        conversion_paths: ["Hero till offert"],
+      },
+      site_content: { company_name: "ska inte med" },
+      cost: { usd: 99 },
+      template_data: { generation_prompt: "hemlig" },
+    } as unknown as PublicAnalysReport;
+
+    const payload = extractPublicAnalysHandoffPayload(report, "https://publika.se");
+
+    expect(payload).toEqual({
+      domain: "publika.se",
+      url: "https://publika.se",
+      company: "Publika AB",
+      content_strategy: {
+        key_pages: ["Tjänster", "Kontakt"],
+        seo_foundation: "Beskriv tjänsten tydligare",
+        conversion_paths: ["Hero till offert"],
+      },
+      audit_scores: { seo: 71, ux: 64 },
+      issues: ["Svag CTA"],
+      improvements: [
+        {
+          item: "Tydligare CTA",
+          impact: "high",
+          effort: "low",
+          category: "Marketing",
+          why: "Konvertering",
+          how: "Flytta knappen ovanför vikningen",
+        },
+      ],
+    });
+    expect(JSON.stringify(payload)).not.toContain("site_content");
+    expect(JSON.stringify(payload)).not.toContain("hemlig");
+    expect(JSON.stringify(payload)).not.toContain("99");
+    expect(JSON.stringify(payload)).not.toContain("private_score");
+    expect(JSON.stringify(payload)).not.toContain("template_data");
+    expect(JSON.stringify(payload)).not.toContain("internals");
   });
 });

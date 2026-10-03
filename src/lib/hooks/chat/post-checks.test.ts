@@ -2576,7 +2576,7 @@ describe("runPostGenerationChecks", () => {
             checkedUrl: "https://preview.example/ver_1",
             routesChecked: 1,
             attestation: CURRENT_POSTCHECK_ATTESTATION,
-            screenshots,
+            screenshots: null,
             liveReview: {
               status: "completed",
               durationMs: 12,
@@ -2588,6 +2588,7 @@ describe("runPostGenerationChecks", () => {
                 reasoning: "",
                 issues: [],
               },
+              screenshots,
             },
           });
         }

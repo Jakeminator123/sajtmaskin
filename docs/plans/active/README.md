@@ -43,11 +43,6 @@ De här styr inte nya ändringar. Beställ inte om leveransen.
 | Briefing + Källpaket | [`../archived/2026-08-18-briefing-och-kallpaket.md`](../archived/2026-08-18-briefing-och-kallpaket.md) | B1–B4 + B8–B11 avklarat. B7 (variantens auktoritetsordning) angränsar till kvalitetsplanens C; B5 (shadcnblocks-mätning) och B6 (Ändringsbrief) är parkerade och ligger **inte** i A0–D. N3–N5 stannar som ägarbeslut. |
 | Inloggad Audit-nivåer | [`../avklarat/2026-09-18-audit-nivaer/00-master-plan.md`](../avklarat/2026-09-18-audit-nivaer/00-master-plan.md) | Levererad i #1479. Recon #1478 är superseded. |
 
-**Agent Bridge #1469** är ett separat tooling-spår, inte en produktplan och inte
-parkerat: PR:en är aktiv Draft och rörde sig senast 2026-09-18. Klassificera den
-inte som superseded härifrån. Driftstatus, rollmodell och vad som är bevisat
-avgörs i #1469, inte i planhygienen.
-
 Scaffold-bindning #1425 och reparationskedjans levererade steg (publiceringsgrind,
 `SM-082`–`SM-084`, C1–C6 på preview) ligger i
 [`../avklarat/README.md`](../avklarat/README.md). Beställ inte samma
