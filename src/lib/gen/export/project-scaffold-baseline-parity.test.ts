@@ -297,7 +297,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
     const pv = parseVersion(platform.next);
     const ev = parseVersion(exported.dependencies!.next);
     expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
-    expect(exported.dependencies!.next).toBe("16.3.1");
+    expect(exported.dependencies!.next).toBe("16.3.8");
   });
 
   it("emits eslint-config-next matching the platform major.minor", () => {
@@ -308,7 +308,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
     const pv = parseVersion(platform["eslint-config-next"]);
     const ev = parseVersion(exported.devDependencies!["eslint-config-next"]);
     expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
-    expect(exported.devDependencies!["eslint-config-next"]).toBe("16.3.1");
+    expect(exported.devDependencies!["eslint-config-next"]).toBe("16.3.8");
   });
 
   it("force-pins next even when the model emits an older range", () => {
@@ -320,7 +320,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       },
       ...minimalGeneratedFiles(),
     ]);
-    expect(parseExportedPackageJson(files).dependencies?.next).toBe("16.3.1");
+    expect(parseExportedPackageJson(files).dependencies?.next).toBe("16.3.8");
   });
 
   it("force-pins eslint-config-next even when the model emits an older range", () => {
@@ -328,7 +328,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       {
         path: "package.json",
         content: JSON.stringify({
-          dependencies: { next: "16.3.1" },
+          dependencies: { next: "16.3.8" },
           devDependencies: { "eslint-config-next": "16.2.9" },
         }),
         language: "json",
@@ -336,7 +336,7 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     expect(parseExportedPackageJson(files).devDependencies?.["eslint-config-next"]).toBe(
-      "16.3.1",
+      "16.3.8",
     );
   });
 
@@ -352,8 +352,8 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     const pkg = parseExportedPackageJson(files);
-    expect(pkg.dependencies?.next).toBe("16.3.1");
-    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.next).toBe("16.3.8");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.8");
     expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
     expect(pkg.devDependencies?.next).toBeUndefined();
   });
@@ -371,8 +371,8 @@ describe("exported generated-project baseline (not just the root app)", () => {
       ...minimalGeneratedFiles(),
     ]);
     const pkg = parseExportedPackageJson(files);
-    expect(pkg.dependencies?.next).toBe("16.3.1");
-    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.next).toBe("16.3.8");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.8");
     expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
     expect(pkg.devDependencies?.next).toBeUndefined();
   });

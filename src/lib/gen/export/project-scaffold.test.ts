@@ -33,7 +33,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
     expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
@@ -115,7 +115,7 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
   });
 
@@ -124,9 +124,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { dependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
   });
 
   it("moves a misplaced next out of devDependencies", () => {
@@ -134,9 +134,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { next: "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
     expect(merged.devDependencies.next).toBeUndefined();
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
   });
 });
 
@@ -406,12 +406,12 @@ describe("buildCompleteProject", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0 <23");
-    expect(pkg.dependencies.next).toBe("16.3.1");
+    expect(pkg.dependencies.next).toBe("16.3.8");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.devDependencies.eslint).toBe("9.39.2");
-    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.3.8");
   });
 
   it("ships a canonical use-reduced-motion hook so motion components avoid hand-rolled mounted guards", () => {
@@ -643,7 +643,7 @@ describe("buildCompleteProject", () => {
     };
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.dependencies.next).toBe("16.3.1");
+    expect(pkg.dependencies.next).toBe("16.3.8");
     expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(pkg.dependencies.three).toBe("0.185.1");
