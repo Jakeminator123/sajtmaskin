@@ -143,4 +143,14 @@ describe("atomic audit build handoff (mock transaction, never live DB)", () => {
     expect(await createAuditProjectHandoff(input)).toMatchObject({ consumed: true });
     expect(state.projects).toHaveLength(1);
   });
+  it("reuses owner/canonical-payload identity without comparing or overwriting display copy", async () => {
+    const first = await createAuditProjectHandoff(input);
+    state.handoffs[0].prompt = "Display copy from the deployment that accepted this attempt";
+    const replay = await createAuditProjectHandoff({ ...input, payload: { company: input.payload.company, audit_scores: input.payload.audit_scores, url: input.payload.url, domain: input.payload.domain } });
+    expect(replay).toEqual(first);
+    expect(state.handoffs[0].prompt).toBe("Display copy from the deployment that accepted this attempt");
+    expect(state.handoffs).toHaveLength(1);
+    expect(state.projects).toHaveLength(1);
+    expect(canCreateProject).toHaveBeenCalledTimes(1);
+  });
 });

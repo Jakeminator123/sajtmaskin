@@ -47,7 +47,6 @@ export async function createAuditProjectHandoff(params: {
   const promptId = `audit_${createHash("sha256")
     .update(JSON.stringify([params.userId, params.attemptId.toLowerCase()]))
     .digest("hex")}`;
-  const prompt = buildAuditDisplayPrompt(params.payload);
   return db.transaction(async (tx) => {
     // Serialize this owner's audit attempts, including quota count + insert.
     // The lock lasts only for the transaction, not for browser/network/cache work.
@@ -62,7 +61,6 @@ export async function createAuditProjectHandoff(params: {
     if (existing) {
       if (
         existing.source !== "audit" ||
-        existing.prompt !== prompt ||
         canonical(existing.payload) !== canonical(params.payload) ||
         !existing.project_id
       ) {
@@ -80,6 +78,8 @@ export async function createAuditProjectHandoff(params: {
     const limit = await canCreateProject(params.userId, null, params.isPaidUser, tx);
     if (!limit.allowed)
       throw new AuditBuildHandoffError(limit.reason || "Projektgränsen har nåtts.", 403);
+    // Display copy is stored with the first accepted attempt, not identity.
+    const prompt = buildAuditDisplayPrompt(params.payload);
     const projectId = nanoid();
     const now = new Date();
     await tx.insert(appProjects).values({

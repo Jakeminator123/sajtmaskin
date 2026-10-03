@@ -253,7 +253,7 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   });
   it.each([
     ["pnpm-lock.yaml", "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0(react@18.0.0)\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n"],
-    ["pnpm-lock.yml", "lockfileVersion: 5.4\ndependencies:\n  next: 13.0.0_react@18.0.0\n  react: 18.0.0\n"],
+    ["pnpm-lock.yml", "lockfileVersion: 5.4\nspecifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0_react@18.0.0\n  react: 18.0.0\n"],
     ["yarn.lock", '# yarn lockfile v1\n\n"next@^13.0.0":\n  version "13.0.0"\n\nreact@18.0.0:\n  version "18.0.0"\n'],
     ["yarn.lock", '__metadata:\n  version: 6\n"next@npm:^13.0.0":\n  version: 13.0.0\n"react@npm:18.0.0":\n  version: 18.0.0\n'],
   ])("honors coherent sibling %s selections, including a src manifest", (lockPath, content) => {
@@ -266,12 +266,28 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   it("uses the effective pnpm lock instead of an inactive npm lock and preserves locked conflicts", () => {
     const files = [
       { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@9.0.0", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
-      { path: "pnpm-lock.yaml", content: "dependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
+      { path: "pnpm-lock.yaml", content: "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
       { path: "package-lock.json", content: JSON.stringify({ packages: { "node_modules/next": { version: "13.0.1" }, "node_modules/react": { version: "18.0.0" } } }) },
     ];
     expect(findPackageTreeConflictsInFiles(files)).toBeNull();
-    files[1].content = "dependencies:\n  next: 13.0.1\n  react: 18.0.0\n";
+    files[1].content = "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.1\n  react: 18.0.0\n";
     expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it.each(["next", "react"])("does not clear uncertainty using a stale pnpm importer %s specifier", (stale) => {
+    const files = [{ path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }, {
+      path: "pnpm-lock.yaml", content: `importers:\n  .:\n    dependencies:\n      next:\n        specifier: ${stale === "next" ? "13.0.0" : "^13.0.0"}\n        version: 13.0.0\n      react:\n        specifier: ${stale === "react" ? "^18.0.0" : "18.0.0"}\n        version: 18.0.0\n`,
+    }];
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each([
+    "dependencies:\n  next: 13.0.0\n  react: 18.0.0\n",
+    "specifiers:\n  next: 13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n",
+    "importers:\n  .:\n    devDependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n",
+  ])("requires current manifest specifiers and dependency fields for legacy/modern pnpm evidence", (content) => {
+    expect(findPackageTreeConflictsInFiles([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content },
+    ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
   });
   it.each([
     ["pnpm-lock.yaml", "dependencies:\n  next: 12.3.4\n  react: 18.0.0\n"],

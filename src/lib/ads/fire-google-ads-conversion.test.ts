@@ -34,11 +34,13 @@ describe("fireGoogleAdsConversion", () => {
     window.gtag = undefined;
     window.sajtmaskinAdsTagLoaded = false;
     window.dataLayer = [];
+    delete window.sajtmaskinAdsTransientState;
     window.history.replaceState({}, "", "/builder");
     vi.unstubAllEnvs();
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     window.gtag = undefined;
   });
@@ -99,6 +101,53 @@ describe("fireGoogleAdsConversion", () => {
     noteGoogleAdsConversion("first_generation");
     expect(isGoogleAdsPending("first_generation")).toBe(true);
     expect(isGoogleAdsClaimed("first_generation")).toBe(false);
+  });
+  it.each(["builder_start", "account_created", "first_generation"] as const)("retains %s until load when pending storage quota is exhausted", (event) => {
+    enableAds(); acceptConsent();
+    window.sajtmaskinAdsTagLoaded = false;
+    window.gtag = vi.fn();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota exhausted"); });
+    noteGoogleAdsConversion(event);
+    expect(isGoogleAdsPending(event)).toBe(true);
+    expect(window.gtag).not.toHaveBeenCalled();
+    window.sajtmaskinAdsTagLoaded = true;
+    flushPendingGoogleAdsConversions();
+    flushPendingGoogleAdsConversions();
+    noteGoogleAdsConversion(event);
+    expect(window.gtag).toHaveBeenCalledTimes(1);
+    expect(isGoogleAdsClaimed(event)).toBe(true);
+    expect(isGoogleAdsPending(event)).toBe(false);
+  });
+  it("keeps pending/claimed fallback across module reload, without a retry loop on unremovable storage", async () => {
+    enableAds(); acceptConsent();
+    window.sajtmaskinAdsTagLoaded = false;
+    window.gtag = vi.fn();
+    localStorage.setItem("sajtmaskin:ads:pending:account_created", "1");
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("blocked"); });
+    noteGoogleAdsConversion("account_created");
+    vi.resetModules();
+    const reloaded = await import("./fire-google-ads-conversion");
+    expect(reloaded.isGoogleAdsPending("account_created")).toBe(true);
+    window.sajtmaskinAdsTagLoaded = true;
+    reloaded.flushPendingGoogleAdsConversions();
+    reloaded.flushPendingGoogleAdsConversions();
+    reloaded.noteGoogleAdsConversion("account_created");
+    expect(window.gtag).toHaveBeenCalledTimes(1);
+    expect(reloaded.isGoogleAdsPending("account_created")).toBe(false);
+    expect(reloaded.isGoogleAdsClaimed("account_created")).toBe(true);
+  });
+  it("retains a builder event when access to sessionStorage itself is blocked", () => {
+    enableAds(); acceptConsent();
+    window.sajtmaskinAdsTagLoaded = false;
+    window.gtag = vi.fn();
+    vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => { throw new Error("blocked"); });
+    noteBuilderStartFromLocation("/builder", "?new=1");
+    expect(isGoogleAdsPending("builder_start")).toBe(true);
+    window.sajtmaskinAdsTagLoaded = true;
+    flushPendingGoogleAdsConversions();
+    noteBuilderStartFromLocation("/builder", "?new=1");
+    expect(window.gtag).toHaveBeenCalledTimes(1);
   });
 
   it("fires builder_start once per session even if note is repeated", () => {

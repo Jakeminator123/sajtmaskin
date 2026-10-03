@@ -20,7 +20,7 @@ function pnpmVersion(value: unknown): string | null {
   return valid(candidate);
 }
 
-function pnpmSelections(raw: string): LockedNextReact | undefined {
+function pnpmSelections(raw: string, pkg: Record<string, unknown>): LockedNextReact | undefined {
   const doc = yamlDocument(raw);
   if (!doc) return undefined;
   const root = doc.has("importers") ? ["importers", "."] : [];
@@ -28,6 +28,10 @@ function pnpmSelections(raw: string): LockedNextReact | undefined {
     for (const field of ["dependencies", "devDependencies", "optionalDependencies"]) {
       const entry = doc.getIn([...root, field, name], true);
       if (!entry) continue;
+      const specifier = isMap(entry) ? entry.get("specifier") : doc.getIn([...root, "specifiers", name]);
+      // Frozen pnpm install refuses stale specifiers even when the selected
+      // version happens to satisfy a newly widened manifest range.
+      if (typeof specifier !== "string" || specifier !== record(pkg[field])?.[name]) return null;
       const value = isMap(entry) ? entry.get("version") : isScalar(entry) ? entry.value : null;
       return pnpmVersion(value);
     }
@@ -81,7 +85,7 @@ export function readLockedNextReact(files: Files, packagePath: string, pkg: Reco
   // a different installer when the declaration and preview lock policy disagree.
   if (declared && declared !== manager) return undefined;
   try {
-    if (pnpm) return pnpmSelections(pnpm.content);
+    if (pnpm) return pnpmSelections(pnpm.content, pkg);
     if (yarn) return yarnSelections(yarn.content, deps);
     if (!npm) return undefined;
     const lock = record(JSON.parse(npm.content));
