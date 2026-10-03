@@ -172,6 +172,15 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflict?.message).not.toContain("is an npm ERESOLVE tree");
     expect(detectPackageTreeConflicts({ dependencies: { next, react: "^19" } }, { next: "15.0.4", react: "19.0.0" })).toEqual([]);
   });
+  it.each([">=14", "14 || >=17", "*", ">=14 <18"])("requires evidence for the unknown tail of %s, without inventing ERESOLVE", (next) => {
+    for (const react of ["17.0.2", "18.2.0", "19.0.0"]) {
+      const conflicts = detectPackageTreeConflicts({ dependencies: { next, react } });
+      expect(conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+      expect(conflicts[0]?.message).not.toContain("is an npm ERESOLVE tree");
+    }
+    expect(detectPackageTreeConflicts({ dependencies: { next, react: "18.2.0" } }, { next: "14.2.25", react: "18.2.0" })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next, react: "17.0.2" } }, { next: "14.2.25", react: "17.0.2" })[0]?.code).toBe("next_react_peer_eresolve");
+  });
   it("does not invent a peer contract for Next 0/1 before React peers were declared", () => {
     expect(detectPackageTreeConflicts({ dependencies: { next: "1.2.3", react: "19.0.0" } })).toEqual([]);
   });
@@ -253,7 +262,7 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   });
   it.each([
     ["pnpm-lock.yaml", "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0(react@18.0.0)\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n"],
-    ["pnpm-lock.yml", "lockfileVersion: 5.4\nspecifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0_react@18.0.0\n  react: 18.0.0\n"],
+    ["pnpm-lock.yaml", "lockfileVersion: 5.4\nspecifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0_react@18.0.0\n  react: 18.0.0\n"],
     ["yarn.lock", '# yarn lockfile v1\n\n"next@^13.0.0":\n  version "13.0.0"\n\nreact@18.0.0:\n  version "18.0.0"\n'],
     ["yarn.lock", '__metadata:\n  version: 6\n"next@npm:^13.0.0":\n  version: 13.0.0\n"react@npm:18.0.0":\n  version: 18.0.0\n'],
   ])("honors coherent sibling %s selections, including a src manifest", (lockPath, content) => {
@@ -290,6 +299,7 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
   });
   it.each([
+    ["pnpm-lock.yml", "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n"],
     ["pnpm-lock.yaml", "dependencies:\n  next: 12.3.4\n  react: 18.0.0\n"],
     ["pnpm-lock.yaml", "importers:\n  other:\n    dependencies:\n      next: 13.0.0\n      react: 18.0.0\n"],
     ["pnpm-lock.yaml", "dependencies: !!js/object { next: 13.0.0, react: 18.0.0 }\n"],

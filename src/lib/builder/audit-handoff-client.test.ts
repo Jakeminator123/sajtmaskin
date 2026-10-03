@@ -182,6 +182,27 @@ describe("createAuditBuildHandoff", () => {
     );
     expect(navigator.locks.request).toHaveBeenCalledTimes(2);
   });
+  it("reuses a lost-ACK attempt after reload when equivalent nested object keys are reordered", async () => {
+    const original = { ...payload, audit_scores: { seo: 70, ux: 80 }, improvements: [{ item: "Fix", impact: "high" as const }] };
+    const reordered = { improvements: [{ impact: "high" as const, item: "Fix" }], audit_scores: { ux: 80, seo: 70 }, company: payload.company, url: payload.url, domain: payload.domain };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("ACK lost")).mockImplementation(async () => success());
+    await expect(createAuditBuildHandoff(original, "website")).rejects.toThrow("ACK lost");
+    vi.resetModules();
+    await (await import("./audit-handoff-client")).createAuditBuildHandoff(reordered, "website");
+    const ids = fetchMock.mock.calls.map((call) => JSON.parse(call[1]?.body as string).auditBuildAttemptId);
+    expect(ids[1]).toBe(ids[0]);
+    expect(Object.keys(localStorage)).toHaveLength(1);
+  });
+  it("coalesces reordered payloads across tabs but preserves array order as distinct identity", async () => {
+    const first = { ...payload, audit_scores: { seo: 70, ux: 80 }, issues: ["A", "B"] };
+    const reordered = { issues: ["A", "B"], audit_scores: { ux: 80, seo: 70 }, company: payload.company, domain: payload.domain, url: payload.url };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => success());
+    await Promise.all([createAuditBuildHandoff(first, "website"), createAuditBuildHandoff(reordered, "website")]);
+    await createAuditBuildHandoff({ ...first, issues: ["B", "A"] }, "website");
+    const ids = fetchMock.mock.calls.map((call) => JSON.parse(call[1]?.body as string).auditBuildAttemptId);
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
   it("fails before the network request when cross-tab locking is unavailable", async () => {
     vi.stubGlobal("navigator", {});
     const fetchMock = vi.spyOn(globalThis, "fetch");

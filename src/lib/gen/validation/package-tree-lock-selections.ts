@@ -84,6 +84,9 @@ export function readLockedNextReact(files: Files, packagePath: string, pkg: Reco
   // Corepack/Vercel may choose the declared manager; do not use evidence for
   // a different installer when the declaration and preview lock policy disagree.
   if (declared && declared !== manager) return undefined;
+  // Preview recognizes the .yml alias, but pnpm's wanted lock and Vercel's
+  // detection use pnpm-lock.yaml. The alias alone cannot prove selection.
+  if (pnpm && normalize(pnpm.path) !== `${folder}pnpm-lock.yaml`) return undefined;
   try {
     if (pnpm) return pnpmSelections(pnpm.content, pkg);
     if (yarn) return yarnSelections(yarn.content, deps);

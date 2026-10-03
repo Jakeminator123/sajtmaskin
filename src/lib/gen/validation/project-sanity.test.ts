@@ -729,6 +729,11 @@ export function ThemeToggle() {
     expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
     expect(result.valid).toBe(false);
   });
+  it.each(["package.json", "src/package.json"])("holds an open-ended Next range in %s until a verified pair is selected", (path) => {
+    const result = runProjectSanityChecks([{ path, language: "json", content: JSON.stringify({ dependencies: { next: ">=14", react: "17.0.2" } }) }]);
+    expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
+    expect(result.valid).toBe(false);
+  });
   it.each(["package.json", "src/package.json"])("holds mixed Next 14/15 choices until a coherent sibling lock proves selection in %s", (path) => {
     const pkg = { path, language: "json", content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) };
     const unresolved = runProjectSanityChecks([pkg]);

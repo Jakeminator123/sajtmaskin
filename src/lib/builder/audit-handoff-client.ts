@@ -1,5 +1,5 @@
 import { resolveBuildIntentForMethod, type BuildIntent } from "@/lib/builder/build-intent";
-import { buildAuditDisplayPrompt, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { buildAuditDisplayPrompt, serializeAuditHandoffIdentity, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { useAuthStore } from "@/lib/auth/auth-store";
 
 export type AuditBuildHandoffResult = {
@@ -15,7 +15,7 @@ async function getAttempt(payload: AuditHandoffPayload, ownerId: string, superse
     // Persist retry identity, not the analysis report itself.
     const digest = await crypto.subtle.digest(
       "SHA-256",
-      new TextEncoder().encode(JSON.stringify([ownerId, payload])),
+      new TextEncoder().encode(serializeAuditHandoffIdentity([ownerId, payload])),
     );
     const fingerprint = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),

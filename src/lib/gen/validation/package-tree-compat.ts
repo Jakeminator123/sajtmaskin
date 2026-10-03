@@ -154,7 +154,7 @@ function nextReactEresolve(
   // A broad Next range may resolve to 17+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
   if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
-  if (!subset(nextRange, ">=2.0.0 <17.0.0")) return null;
+  const fullyKnown = subset(nextRange, ">=2.0.0 <17.0.0");
   const contracts = NEXT_REACT_PEERS.filter((contract) => rangesShareVersion(nextRange, contract.next));
   if (contracts.length === 0) return null;
   const reactChoices = new Range(reactRange);
@@ -163,8 +163,8 @@ function nextReactEresolve(
     // singleton OR choices using normal npm prerelease admission instead.
     choice.length === 1 && choice[0].operator === "" && Boolean(valid(choice[0].value)) && satisfies(choice[0].value, peer),
   );
-  if (contracts.every((contract) => withinPeer(contract.react))) return null;
-  const code = contracts.every((contract) => !rangesShareVersion(reactRange, contract.react))
+  if (fullyKnown && contracts.every((contract) => withinPeer(contract.react))) return null;
+  const code = fullyKnown && contracts.every((contract) => !rangesShareVersion(reactRange, contract.react))
     ? "next_react_peer_eresolve"
     : "next_react_peer_resolution_required";
   const reactPeer = [...new Set(contracts.map((contract) => contract.react))].join(" || ");
@@ -220,7 +220,7 @@ export function detectPackageTreeConflicts(
         reactMajor: mismatch.reactMajor,
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
-          ? `next ${deps.next} and react ${deps.react} admit peer-incompatible resolution choices. A historical compatible pair does not prove the installer's selected tree. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
+          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The range admits incompatible choices or Next contracts outside the verified lines; a historical compatible pair is not selection evidence. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,

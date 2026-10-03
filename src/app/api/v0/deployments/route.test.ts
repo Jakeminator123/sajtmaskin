@@ -367,6 +367,26 @@ describe("POST /api/v0/deployments", () => {
     expect(commit).not.toHaveBeenCalled();
     expect(createVercelDeployment).not.toHaveBeenCalled();
   });
+  it.each([true, false])("holds an unlocked open-ended Next range before credit commit or provider call (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: ">=14", react: "17.0.2" } }) },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly, skipAutoFix: true }),
+    }));
+    const data = await response.json();
+    expect(response.status).toBe(precheckOnly ? 200 : 409);
+    if (precheckOnly) {
+      expect(data.deployReadiness.ready).toBe(false);
+      expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+      expect(prepareCredits).not.toHaveBeenCalled();
+    } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
 
   it("precheckOnly surfaces placeholder-covered Stripe env as warning, not blocker", async () => {
     // STRIPE_SECRET_KEY is in `41-tier3-stub-placeholders.env.txt`, so it

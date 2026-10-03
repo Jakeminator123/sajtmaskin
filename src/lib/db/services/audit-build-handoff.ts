@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { appProjects, promptHandoffs } from "@/lib/db/schema";
 import { canCreateProject } from "@/lib/projects/project-cleanup";
-import { buildAuditDisplayPrompt, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { buildAuditDisplayPrompt, serializeAuditHandoffIdentity, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
 import { assertDbConfigured } from "./shared";
 
 export class AuditBuildHandoffError extends Error {
@@ -15,19 +15,6 @@ export class AuditBuildHandoffError extends Error {
   ) {
     super(message);
   }
-}
-
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record)
-      .sort()
-      .filter((key) => record[key] !== undefined)
-      .map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "null";
 }
 
 /** Existing tables/PK only. Failed transactions create no project; ambiguous ACK retries reuse it. */
@@ -61,7 +48,7 @@ export async function createAuditProjectHandoff(params: {
     if (existing) {
       if (
         existing.source !== "audit" ||
-        canonical(existing.payload) !== canonical(params.payload) ||
+        serializeAuditHandoffIdentity(existing.payload) !== serializeAuditHandoffIdentity(params.payload) ||
         !existing.project_id
       ) {
         throw new AuditBuildHandoffError("Byggförsöket matchar inte denna analys.", 409);
