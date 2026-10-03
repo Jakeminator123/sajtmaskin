@@ -18,7 +18,7 @@ regler som den routar till innan någon åtgärd.
   batchens authority måste vara bokstavlig.
 - $godnatt-bugg evaluation N: skapa en Cloud-/adminutvärdering med N separata
   draft-PR-pass. Commit, push och draft-PR är tillåtna; ready-for-review,
-  sign-off, merge, PR-close och branch-delete är förbjudna.
+  merge, PR-close och branch-delete är förbjudna.
 - $godnatt-bugg full N: skapa en full batch med N terminala pass.
 - $godnatt-bugg full AUTHORIZATION: promovera en pausad pilot med dess privata
   capability; skapa inte en ny batch.
@@ -245,18 +245,18 @@ Lägg befintlig `do-not-merge` eller `admin-review-required`-label om den finns;
 state återläser label och exakta titel-/bodymarkörer. Skapa ingen repo-label för
 testet. Kontrollera draft/adminmarkörerna på nytt före evaluation-complete.
 
-### 8. Review-fönster och högst tre PR-reviewpass
+### 8. GitHub-review och högst tre PR-reviewpass
 
 I full mode: gör PR:n ready och följ
-[pr-merge-cleanup.md](references/pr-merge-cleanup.md). Repots gräns är 7
-minuter från den aktuella head-körningens jobbstart; required check
-review-window är teknisk sanning och startas om av ny head-SHA.
+[pr-merge-cleanup.md](references/pr-merge-cleanup.md). GitHubs required checks
+och reviews är teknisk sanning; ny head eller ny integrationsbas gör äldre
+resultat stale enligt rulesetet.
 
 I evaluation: håll PR:n i draft. Låt normal automation reviewa; fall tillbaka
 på oberoende readonly bugggranskning om en användbar extern
 review saknas. Registrera reviewn medan stage förblir draft-pr. Efter ny commit
-uppdaterar du samma draft-pr-stage med aktuell SHA och reviewar om. Sätt aldrig
-`merge:ready`, sign-off eller ready-for-review.
+uppdaterar du samma draft-pr-stage med aktuell SHA och reviewar om. Gör aldrig
+evaluation-PR:n ready och merga den inte.
 
 Vänta icke-blockerande. Läs reviews, inline-kommentarer, checks och labels för
 aktuell head-SHA. Följ fallbackordningen om extern review uteblir. Registrera
@@ -281,11 +281,11 @@ slutför draft-passet direkt från draft-pr efter motsvarande review:
 Tillåtna evaluation-outcomes är `draft-fix`, `draft-already-resolved` och
 `draft-reclassified`.
 
-### 9. Sign-off och merge
+### 9. Native mergevillkor och merge
 
-I full mode: vänta först på required checks, Vercel och oberoende review.
-`review-window` väntar inte på labeln och bevisar inte review. Posta därefter
-sign-off + `merge:ready`; finalmandatet validerar live head/base och ordning.
+I full mode: invänta required checks, Vercel och oberoende review. GitHub-status
+bevisar inte review; kontrollera reviews och trådar separat. Finalmandatet får
+vara uttryckligt villkorat i förväg och validerar native villkor när de uppfylls.
 Följ bara preview-vägen i pr-merge.mdc: rätt base, ej draft, mergeable,
 inga blockerande reviews/trådar/labels, P0/P1=0 och stabil head/base.
 

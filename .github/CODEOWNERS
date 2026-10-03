@@ -1,6 +1,29 @@
-# Governance: alla spårade filer ägs av repo-ägaren för code-owner-review.
-# CODEOWNERS blockerar inte i sig direktpush eller admin-bypass; det avgörs av
-# GitHubs aktuella ruleset. Repoets normala agentflöde förbjuder direkt master och
-# `--admin` som genväg; se config/agent-workflow.json och pr-workflow-skillen.
+# Riktade ownerbeslut för ytor där en generell review inte räcker. GitHubs
+# rulesets äger mergegrinden; dessa rader gör rätt owner synlig i PR:n.
 
-* @Jakeminator123
+# CI-behörigheter, branch policy och supply-chain-automation
+/.github/ @Jakeminator123
+/config/agent-workflow.json @Jakeminator123
+/config/dependabot-automerge.json @Jakeminator123
+/config/control-plane/policy-registry.json @Jakeminator123
+/config/control-plane/schema-registry.json @Jakeminator123
+/config/backoffice/domain-map.json @Jakeminator123
+/.cursor/rules/pr-merge.mdc @Jakeminator123
+/scripts/ci/ @Jakeminator123
+/scripts/pr-review/ @Jakeminator123
+/scripts/workflow/ @Jakeminator123
+/src/lib/control-plane/policy-registry.ts @Jakeminator123
+
+# Säkerhet och autentisering
+/src/lib/auth/ @Jakeminator123
+/src/lib/security/ @Jakeminator123
+/src/app/api/auth/ @Jakeminator123
+
+# Betalning
+/src/lib/billing/ @Jakeminator123
+/src/app/api/stripe/ @Jakeminator123
+
+# Databas och migrationer; DB-apply kräver fortfarande separat mandat
+/src/lib/db/ @Jakeminator123
+/scripts/db/ @Jakeminator123
+/drizzle/ @Jakeminator123

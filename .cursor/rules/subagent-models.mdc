@@ -33,7 +33,7 @@ extra procedur eller ett andra obligatoriskt reviewpass.
    uppföljning. Dokumentera faktisk modell, reasoning, SHA:n och utfall.
 3. Arbete klart + inga blockers + gröna draft-checks: ready for review kan
    starta full CI. Ready är inte mergegodkännande; `pr-merge.mdc` och ett
-   separat uttryckligt mergeuppdrag gäller fortfarande.
+   uttryckligt eller förhandsvillkorat mergemandat gäller fortfarande.
 
 ChatGPT-webben behåller Jakobs stående `gpt-5.6-sol`/`high`-mandat för
 oberoende bugggranskning när modellen finns i sessionen. Fråga inte igen

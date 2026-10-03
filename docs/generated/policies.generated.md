@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:5a1a5b81fdefbe3b -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:857129e1a1753dc2 -->
 
 # Policies
 
@@ -219,7 +219,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 60 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 61 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
@@ -228,6 +228,7 @@ This index contains 60 control-plane entries. It is a map to canonical owners, n
 | `ai-model-pricing`                            | `policy`            | `config/ai_models/pricing.json`                                   | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `backoffice-domain-map`                       | `rule`              | `config/backoffice/domain-map.json`                               | `test:ci`               | `hard`    | `n/a`           | No               |
 | `build-spec-policy-inference`                 | `policy`            | `src/lib/gen/build-spec/policy-inference.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `dependabot-automerge-policy`                 | `rule`              | `config/dependabot-automerge.json`                                | `workflow:contract`     | `hard`    | `n/a`           | No               |
 | `domain-rules`                                | `policy`            | `config/domain-rules.json`                                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
 | `dossier-verbatim-policy`                     | `policy`            | `src/lib/gen/dossiers/verbatim-policy.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `embeddings-blob-manifest-runtime`            | `runtime-authority` | `src/lib/gen/embeddings/embeddings-storage.ts`                    | `embeddings:ensure`     | `hard`    | `wired`         | Yes              |

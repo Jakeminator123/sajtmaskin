@@ -15,8 +15,8 @@ concurrency:
   # vanliga single-pending-beteende behålls för kön.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# PR-head kod far aldrig ett skrivtoken. Betrodda check-runs publiceras av den
-# separata pull_request_target-controllern med snava, explicita rattigheter.
+# PR-head-kod får bara läsbehörighet. Skrivande Dependabot-automation körs
+# separat med betrodd kod från default-branchen.
 permissions:
   contents: read
   pull-requests: read

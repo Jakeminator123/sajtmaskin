@@ -20,13 +20,9 @@ describe("retired automatic API PR review", () => {
     expect(evaluateRetiredApiReviewWorkflows([workflow])).toHaveLength(1);
   });
 
-  it("keeps historical receipt and live-head validation without treating absence as success", () => {
+  it("keeps historical receipt validation bound to the live head", () => {
     const receipt = readFileSync("scripts/pr-review/receipt.mjs", "utf8");
-    const gate = readFileSync("scripts/ci/trusted-review-window.mjs", "utf8");
     expect(receipt).toContain("runResult.review.headSha !== currentHeadSha");
     expect(receipt).toContain("publishedReview?.reviewId === reviewId");
-    expect(gate).toContain("validateTrustedPrAiEvidence");
-    expect(gate).toContain("review.commit_id");
-    expect(gate).toContain("review.author_association");
   });
 });
