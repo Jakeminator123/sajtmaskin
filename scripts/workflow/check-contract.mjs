@@ -40,6 +40,7 @@ export function evaluateRetiredApiReviewWorkflows(workflows) {
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
+  manualMergeRuleSha256: "880433b4dea601a50865302cfa60f74e6b9c215df6dd119fab971de9051b4475",
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
   // Required PR-head checks and the workflow file that may publish them.
   // `review-window` is owned by the trusted default-branch controller, not a
@@ -47,6 +48,7 @@ export const POLICY_FLOORS = Object.freeze({
   requiredCheckOwners: REQUIRED_CHECK_OWNERS,
   requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
   manualMergePathPrefixes: [
+    ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",
@@ -255,12 +257,37 @@ function workflowEvents(document) {
   return new Set();
 }
 
-function grantsWrite(permission) {
+function grantsWrite(permission, capabilities = null) {
   if (typeof permission === "string") return permission.toLowerCase() === "write-all";
   if (!permission || typeof permission !== "object") return false;
-  return Object.values(permission).some(
-    (value) => typeof value === "string" && value.toLowerCase() === "write",
+  return Object.entries(permission).some(
+    ([capability, value]) =>
+      (!capabilities || capabilities.includes(capability)) &&
+      typeof value === "string" && value.toLowerCase() === "write",
   );
+}
+
+export function evaluateTrustedControllerPermissions(source) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch {
+    return ["trusted controller permissions must be valid YAML"];
+  }
+  const errors = [];
+  if (document?.permissions === undefined || document?.permissions === null) {
+    errors.push("trusted controller must declare explicit non-merge permissions");
+  }
+  const capabilities = ["contents", "actions"];
+  if (grantsWrite(document?.permissions, capabilities)) {
+    errors.push("trusted controller must not grant contents/actions write at workflow level");
+  }
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (grantsWrite(job?.permissions, capabilities)) {
+      errors.push(`trusted controller job ${jobName} must not grant contents/actions write`);
+    }
+  }
+  return errors;
 }
 
 export function evaluatePrHeadWorkflowPermissions(workflowSources) {
@@ -1289,30 +1316,15 @@ export function evaluateCiBranch(policy, env = process.env) {
   return null;
 }
 
+export function manualMergeRuleDigest(source) {
+  // Pin the entire approved trust root; never infer safety from phrase presence.
+  return createHash("sha256").update(source.replace(/\r\n/gu, "\n").trim()).digest("hex");
+}
+
 export function evaluateManualBootstrapRule(source) {
-  const clauses = [
-    "Enda policyundantaget",
-    "`review-window: action_required`",
-    "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
-    "`manualMergePathPrefixes`",
-    "dokumenterad ägarbootstrap",
-    "oberoende review",
-    "Alla övriga röda/pending checks",
-    "aldrig native GitHub-skydd",
-    "använd inte admin-bypass",
-    "ändra checkresultat för att få grönt",
-    "det röda orchestrator-jobbet `trusted-review-window`",
-    "verifierat betrodd default-controller-körning för samma PR och aktuell head",
-    "`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`",
-    "enda felorsaken måste vara exakt samma bootstrap-summary",
-    "Paret räknas som en bootstrap-spärr",
-    "Varje annan jobbfailure",
-    "felannotation eller loggfel som inte härleds ur exakt denna",
-    "annan head/proveniens eller native GitHub-spärr förblir stopp",
-  ];
-  return clauses.every((clause) => source.includes(clause))
+  return manualMergeRuleDigest(source) === POLICY_FLOORS.manualMergeRuleSha256
     ? []
-    : ["manual bootstrap must replace only the trusted head-bound bootstrap gate; other checks and native protection remain mandatory"];
+    : ["manual merge policy differs from the approved exact policy fingerprint"];
 }
 
 export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
@@ -1547,10 +1559,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     );
   }
 
+  errors.push(...evaluateTrustedControllerPermissions(freshness));
   if (
     freshness.includes("execute-merge:") ||
-    freshness.includes("contents: write") ||
-    freshness.includes("actions: write") ||
     freshness.includes("trusted-review-window.mjs merge") ||
     trustedReviewWindow.includes("runTrustedMerge") ||
     /\/pulls\/\$\{[^}]+\}\/merge/u.test(trustedReviewWindow) ||

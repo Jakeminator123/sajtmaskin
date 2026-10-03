@@ -36,6 +36,10 @@ enda felorsaken måste vara exakt samma bootstrap-summary. Paret räknas som en 
 Varje annan jobbfailure, felannotation eller loggfel som inte härleds ur exakt denna
 bootstrap-summary, annan head/proveniens eller native GitHub-spärr förblir stopp.
 
+Hela denna regel är exakt pinnad i `POLICY_FLOORS.manualMergeRuleSha256`.
+Det låser godkänd text, inte live-evidens eller fri-prosa-semantik. Regeländringar
+kräver synlig floor-uppdatering, ägarbootstrap och oberoende review.
+
 ## Leverans till preview
 
 1. När kontroller/review och policyns tidsgolv är klara och head innehåller

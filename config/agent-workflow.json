@@ -36,6 +36,7 @@
     "dossier-acceptance": "dossier-acceptance.yml"
   },
   "manualMergePathPrefixes": [
+    ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",

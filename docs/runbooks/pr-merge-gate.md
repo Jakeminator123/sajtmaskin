@@ -36,6 +36,10 @@ Den snäva regeln i `pr-merge.mdc` omfattar även motsvarande röda
 `trusted-review-window`-orchestrator endast efter verifierad betrodd körning,
 samma PR/head och identisk ensam bootstrap-felorsak. Det är ett check/job-par
 från samma spärr, inte en dispens från andra fel eller native GitHub-skydd.
+Mergeregeln är själv en trust root och hela filen har ett exakt, statiskt
+policyfingeravtryck i verifierarens floor. Hashen bevisar textidentitet, inte
+semantik eller aktuella liveförhållanden; endast radslut och yttre whitespace
+normaliseras. Regeländringar kräver synlig floor-ändring och bootstrap/review.
 
 ## Produktion och synk
 

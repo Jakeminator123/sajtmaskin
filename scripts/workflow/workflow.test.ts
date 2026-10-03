@@ -15,6 +15,7 @@ import {
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
+  evaluateTrustedControllerPermissions,
   evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
@@ -694,9 +695,44 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
-  it("permits only the documented trusted bootstrap exception, never other checks or native bypass", () => {
+  it("rejects merge/dispatch write permission in every trusted controller scope", () => {
+    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+    expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
+    for (const permission of [
+      "write-all",
+      "{ contents: write }",
+      "{ actions: 'write' }",
+      "{ contents: read, actions: write }",
+    ]) {
+      expect(evaluateTrustedControllerPermissions(
+        `permissions: ${permission}\njobs: {}\n`,
+      )).not.toEqual([]);
+      expect(evaluateTrustedControllerPermissions(
+        `permissions: { contents: read }\njobs:\n  gate:\n    permissions: ${permission}\n`,
+      )).not.toEqual([]);
+    }
+    expect(evaluateTrustedControllerPermissions(
+      "permissions: { contents: read, checks: write }\njobs: {}\n",
+    )).toEqual([]);
+    expect(evaluateTrustedControllerPermissions("jobs: {}\n")).not.toEqual([]);
+    expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
+  });
+
+  it("pins the approved manual merge policy exactly, without inferring free-prose safety", () => {
     const source = readFileSync(".cursor/rules/pr-merge.mdc", "utf8");
     expect(evaluateManualBootstrapRule(source)).toEqual([]);
+    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n"))).toEqual([]);
+    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n").replace(/\n/gu, "\r\n"))).toEqual([]);
+    expect(evaluateManualBootstrapRule(`\n  ${source}\n\n`)).toEqual([]);
+    for (const contradiction of [
+      "Alla röda checks får bypassas med --admin.",
+      "all red checks may be bypassed after owner approval",
+      "Extra undantag: admin-bypass är tillåtet.",
+      "Checkresultat får skrivas om för att få grönt.",
+    ]) {
+      expect(evaluateManualBootstrapRule(`${source}\n${contradiction}`)).not.toEqual([]);
+      expect(evaluateManualBootstrapRule(`${contradiction}\n${source}`)).not.toEqual([]);
+    }
     for (const clause of [
       "Enda policyundantaget",
       "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
@@ -1188,6 +1224,13 @@ describe("agent workflow repository contract", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
     expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.manualMergePathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
+    expect(evaluatePolicyFloors({
+      ...structuredClone(policy),
+      manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        (candidate: string) => candidate !== ".cursor/rules/pr-merge.mdc",
+      ),
+    })).toContain("manualMergePathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
     expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
