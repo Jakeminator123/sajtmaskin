@@ -847,7 +847,6 @@ describe("agent workflow repository contract", () => {
       collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8")),
     ).toEqual(
       expect.arrayContaining([
-        "node:crypto",
         "node:fs",
         "node:path",
         "node:url",

@@ -260,7 +260,7 @@ export function buildPromoteBody({
     "- Kvarvarande risk:",
     `- Återställning/rollback: revert av promote-commiten på \`${PRODUCTION_BRANCH}\`; \`${STAGING_BRANCH}\` behåller tippen.`,
     "",
-    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Manuell merge kräver uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`. \`merge:execute\` tar bara \`${STAGING_BRANCH}\`, aldrig produktion.`,
+    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Manuell merge kräver uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`. Alla PR-merges utförs manuellt med expected head; använd aldrig auto-merge.`,
     "",
     "<!-- Skapad av `npm run promote`. -->",
   ].join("\n");
@@ -439,7 +439,7 @@ function main() {
   console.log("   1. Invänta gröna required checks på promote-headen.");
   console.log("   2. Kör en bugkoll på diffen mot produktion och triagera fynden.");
   console.log("   3. Varna för produktion och invänta extra uttrycklig ägarbekräftelse i samma chatt.");
-  console.log("   4. Manuell expected-head-merge till master — merge:execute tar bara preview. Se .cursor/rules/pr-merge.mdc.");
+  console.log("   4. Manuell expected-head-merge till master. Se .cursor/rules/pr-merge.mdc.");
   if (manualMergePaths.length > 0) {
     console.log(
       "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
@@ -447,7 +447,7 @@ function main() {
   }
   console.log("");
   console.log(
-    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna separat PR mot ${STAGING_BRANCH} och begär manuell expected-head MERGE-commit enligt pr-merge.mdc (inte squash eller merge:execute) innan nästa promote.`,
+    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna separat PR mot ${STAGING_BRANCH} och begär manuell expected-head MERGE-commit enligt pr-merge.mdc (inte squash eller auto-merge) innan nästa promote.`,
   );
 }
 

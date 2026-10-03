@@ -1520,31 +1520,17 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "trusted review-window must block exact present deployment failures or pending runs",
     );
   }
+
   if (
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs merge") ||
-    !freshness.includes("group: trusted-preview-merge") ||
-    !freshness.includes('if [ "$BASE_REF" != "preview" ]; then') ||
-    !freshness.includes("actions: write") ||
-    !freshness.includes("contents: write") ||
-    !freshness.includes("COMMENT_ID: ${{ github.event.comment.id }}") ||
-    !freshnessValidator.includes("validateMergeExecuteMandate") ||
-    !freshnessValidator.includes("TRUSTED_SIGNOFF_ASSOCIATIONS.has(association)") ||
-    !trustedReviewWindow.includes("mergeEvidenceFingerprint") ||
-    !trustedReviewWindow.includes("const second = await readAndValidate()") ||
-    !trustedReviewWindow.includes("const final = await readAndValidate()") ||
-    !trustedReviewWindow.includes('body: { sha: expectedHeadSha, merge_method: "squash" }') ||
-    !trustedReviewWindow.includes("/compare/${liveBaseSha}...${expectedHeadSha}") ||
-    !trustedReviewWindow.includes(
-      "await invalidateForBasePush({ client, baseSha: mergedBaseSha, policy })",
-    ) ||
-    !trustedReviewWindow.includes('for (const workflow of ["ci.yml"])') ||
-    !trustedReviewWindow.includes("body: { ref: deliveryRef(policy) }") ||
-    trustedReviewWindow.includes("db-blob-sync-check.yml") ||
-    !trustedReviewWindow.includes("POST_MERGE_VERIFICATION_FAILED")
+    freshness.includes("execute-merge:") ||
+    freshness.includes("contents: write") ||
+    freshness.includes("actions: write") ||
+    freshness.includes("trusted-review-window.mjs merge") ||
+    trustedReviewWindow.includes("runTrustedMerge") ||
+    /\/pulls\/\$\{[^}]+\}\/merge/u.test(trustedReviewWindow) ||
+    !trustedReviewWindow.includes('["gate", "invalidate-base"].includes(mode)')
   ) {
-    errors.push(
-      "final merge must require a trusted exact mandate, stable double live evidence and expected-head squash CAS",
-    );
+    errors.push("review-window must not merge PRs or dispatch workflows; unsupported modes must fail closed");
   }
 
   const ci = read(root, ".github/workflows/ci.yml");

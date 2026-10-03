@@ -4,7 +4,8 @@
 
 File → Open Folder → repo-roten `sajtmaskin`. En Git-root, ingen
 `.code-workspace`. Inte TEMP-fönster eller ett uppgifts-worktree.
-MCP: `.cursor/mcp.json`. Terminal/pwsh 7: `.vscode/settings.json`.
+Valfri projekt-MCP: `.cursor/mcp.json`; verifiera med `npm run doctor`.
+Codex har egna anslutningar. Terminal/pwsh 7: `.vscode/settings.json`.
 
 ## Grundprincip
 

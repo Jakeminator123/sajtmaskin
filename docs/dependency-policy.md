@@ -109,5 +109,5 @@ PR-branchen och innehåller ingen merge- eller auto-merge-åtgärd.
 
 Alla Dependabot-PR:ar går därefter genom samma lokala plan + riktade kontroller,
 required GitHub-checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off
-och `merge:execute` som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
+och manuella merge med expected head som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
 aldrig ”får mergas utan kontroll”.

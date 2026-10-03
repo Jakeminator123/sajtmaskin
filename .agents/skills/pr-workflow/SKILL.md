@@ -85,16 +85,17 @@ En squash-release ger master en ny commit som inte finns i `preview`
 efteråt. Promote synkar inte serverside. Saknas master: bered en synkbranch
 från färsk preview som tar in master med merge-commit; öppna PR mot preview
 och begär separat manuell expected-head-merge med merge-commit (inte squash
-eller `merge:execute`) enligt synkvägen i `pr-merge.mdc`, innan nästa promote.
+eller auto-merge) enligt synkvägen i `pr-merge.mdc`, innan nästa promote.
 Samma CI/review gäller; ingen blandad feature-PR. Dry-run skriver
 inga remote-refs. Osläppt innehåll och releasetext avgörs av faktisk träddiff,
 inte squashad commithistorik.
 
 ## 5. Merge och städ
 
-När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc` och den
-befintliga `merge:ready` / `merge:execute`-grinden. Den squash-mergar till
-`preview`, aldrig till `master`. Merga inte på eget bevåg. Innan en promote-PR
+När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc`, kontrollera
+färsk sign-off och merga manuellt till `preview` med squash och expected head
+(`gh pr merge --squash --match-head-commit`). Använd inte `--auto` eller
+`--admin`. Merga inte på eget bevåg. Innan en promote-PR
 mergas till master: varna att det går till produktion och vänta på extra
 bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
 remote-gren, inte trunk och inte builder-ytan.

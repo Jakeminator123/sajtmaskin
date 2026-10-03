@@ -15,8 +15,6 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/commands/logg.md": 800,
   ".cursor/commands/logg-internet.md": 800,
   ".cursor/commands/explore.md": 1_000,
-  ".cursor/commands/pr-herde.md": 2_000,
-  ".cursor/commands/post-review.md": 1_800,
   ".cursor/commands/avslutning.md": 1_500,
 });
 

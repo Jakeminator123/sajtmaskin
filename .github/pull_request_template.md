@@ -32,11 +32,9 @@ Körda riktade kontroller:
 - Kvarvarande risk:
 - Återställning/rollback:
 
-> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. PR mot
-> `preview` mergas med `merge:execute` när required checks är gröna och fynden
-> triagerade och Jakob gett separat mergeuppdrag. `review-window` kan bli grön
-> utan ready-label. När kontroller, review och tidsgolv är klara, posta först
-> `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, …` som kommentar och
-> sätt sedan labeln. Controllern validerar mandatet live; båda SHA:na måste
-> fortfarande vara aktuella. Promote till
-> `master` är manuell och går inte genom controllern.
+> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår.
+> Efter gröna checks, oberoende review och tidsgolv: posta ready-kommentaren
+> före labeln `merge:ready`. Merge kräver ett separat uttryckligt uppdrag,
+> färsk head/base-kontroll och manuell `--match-head-commit`; använd inte
+> `--auto` eller `--admin`. Trust-root-ändringar behöver dokumenterad
+> ägarbootstrap. Promote till `master` kräver extra produktionsbekräftelse.

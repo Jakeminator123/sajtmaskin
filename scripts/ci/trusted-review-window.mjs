@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isInvalidatingBotEvent,
-  validateMergeExecuteMandate,
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
 import { requiredCheckOwnerSpec } from "../workflow/required-check-owners.mjs";
@@ -19,7 +17,7 @@ import {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const POLICY = JSON.parse(readFileSync(resolve(ROOT, "config/agent-workflow.json"), "utf8"));
 
-/** Leveransgrenen som `merge:execute` får squash-merga till. `trunk` är produktion. */
+/** Leveransgrenen som review-window observerar. `trunk` är produktion. */
 export function deliveryRef(policy = POLICY) {
   const branch = policy?.deliveryBranch;
   if (branch !== "preview") {
@@ -30,7 +28,6 @@ export function deliveryRef(policy = POLICY) {
 const CHECK_NAME = "review-window";
 const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:";
 const POLL_SECONDS = 20;
-const MERGE_SETTLE_SECONDS = 5;
 const MAX_PROVENANCE_ATTEMPTS = 20;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
@@ -1380,242 +1377,6 @@ function policyPathStartsWithAny(path, prefixes) {
   return prefixes.some((prefix) => String(path).startsWith(prefix));
 }
 
-function hashBody(value) {
-  return createHash("sha256")
-    .update(String(value ?? ""), "utf8")
-    .digest("hex");
-}
-
-function sortById(values) {
-  return [...values].sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
-}
-
-/**
- * Fingerprint only GitHub-server data that can affect the final merge
- * decision. Bodies are hashed so logs/tests never need to echo review text.
- */
-export function mergeEvidenceFingerprint({ evidence, checkRuns, commandComment }) {
-  const normalized = {
-    pr: {
-      number: evidence.pr.number,
-      state: evidence.pr.state,
-      draft: evidence.pr.draft,
-      headSha: evidence.pr.head?.sha,
-      baseRef: evidence.pr.base?.ref,
-      baseSha: evidence.baseSha,
-      baseIsAncestor: evidence.baseIsAncestor,
-      labels: (evidence.pr.labels ?? []).map((label) => label.name).sort(),
-      fileUniverseComplete: evidence.fileUniverseComplete,
-      manualMergeFiles: [...(evidence.manualMergeFiles ?? [])].sort(),
-    },
-    command: {
-      id: commandComment.id,
-      createdAt: commandComment.created_at,
-      updatedAt: commandComment.updated_at,
-      body: hashBody(commandComment.body),
-      login: commandComment.user?.login,
-      type: commandComment.user?.type,
-      association: commandComment.author_association,
-    },
-    checks: sortById(checkRuns).map((run) => ({
-      id: run.id,
-      name: run.name,
-      status: run.status,
-      conclusion: run.conclusion,
-      startedAt: run.started_at,
-      completedAt: run.completed_at,
-      appId: run.app?.id,
-      appSlug: run.app?.slug,
-      externalId: run.external_id,
-      provenance: {
-        kind: run.provenance?.kind,
-        valid: run.provenance?.valid,
-        workflowRunId: run.provenance?.workflowRun?.id,
-        workflowPath: run.provenance?.workflowRun?.path,
-        workflowEvent: run.provenance?.workflowRun?.event,
-        workflowCreatedAt: run.provenance?.workflowRun?.created_at,
-        jobId: run.provenance?.job?.id,
-        jobCheckRunUrl: run.provenance?.job?.check_run_url,
-      },
-    })),
-    issueComments: sortById(evidence.issueComments).map((comment) => ({
-      id: comment.id,
-      createdAt: comment.created_at,
-      updatedAt: comment.updated_at,
-      body: hashBody(comment.body),
-      login: comment.user?.login,
-      type: comment.user?.type,
-      association: comment.author_association,
-    })),
-    reviews: sortById(evidence.reviews).map((review) => ({
-      id: review.id,
-      state: review.state,
-      submittedAt: review.submitted_at,
-      updatedAt: review.updated_at,
-      commitId: review.commit_id,
-      body: hashBody(review.body),
-      login: review.user?.login,
-      type: review.user?.type,
-    })),
-    reviewComments: sortById(evidence.reviewComments).map((comment) => ({
-      id: comment.id,
-      createdAt: comment.created_at,
-      updatedAt: comment.updated_at,
-      commitId: comment.commit_id,
-      body: hashBody(comment.body),
-      login: comment.user?.login,
-      type: comment.user?.type,
-    })),
-  };
-  return createHash("sha256").update(JSON.stringify(normalized), "utf8").digest("hex");
-}
-
-/** Latest server timestamp for every PR conversation item except the command
- * itself. Missing timestamps fail closed instead of silently dropping data. */
-export function latestConversationEpoch(evidence, commandCommentId) {
-  const values = [];
-  for (const comment of evidence.issueComments) {
-    if (Number(comment.id) === Number(commandCommentId)) continue;
-    values.push(comment.updated_at ?? comment.created_at);
-  }
-  for (const review of evidence.reviews) {
-    const reviewAt = reviewEvidenceEpoch(review);
-    if (reviewAt === null) return { valid: false, latestEpoch: 0 };
-    values.push(iso(reviewAt));
-  }
-  for (const comment of evidence.reviewComments) {
-    values.push(comment.updated_at ?? comment.created_at);
-  }
-  let latest = 0;
-  for (const value of values) {
-    const parsed = epoch(value);
-    if (parsed === null) return { valid: false, latestEpoch: 0 };
-    latest = Math.max(latest, parsed);
-  }
-  return { valid: true, latestEpoch: latest };
-}
-
-async function readMergeSnapshot(client, prNumber, commentId, expectedHeadSha, policy) {
-  const [commandComment, evidence, rawCheckRuns] = await Promise.all([
-    client.request(`/issues/comments/${commentId}`),
-    readLiveEvidence(client, prNumber, expectedHeadSha, policy),
-    listCheckRuns(client, expectedHeadSha),
-  ]);
-  const checkRuns = await enrichCheckRunProvenance({
-    client,
-    checkRuns: rawCheckRuns,
-    expectedHeadSha,
-    expectedHeadRepository: evidence.pr.head?.repo?.full_name,
-    expectedHeadRef: evidence.pr.head?.ref,
-    prNumber,
-    repository: client.repository,
-    policy,
-  });
-  const trustedReview = validateTrustedPrAiEvidence({
-    issueComments: evidence.issueComments ?? [],
-    reviews: evidence.reviews ?? [],
-    headSha: expectedHeadSha,
-    prAuthor: evidence.pr.user,
-    repository: client.repository,
-    prNumber,
-  });
-  return { commandComment, evidence, checkRuns, trustedReview };
-}
-
-export function validateMergeSnapshot({
-  snapshot,
-  prNumber,
-  expectedHeadSha,
-  expectedBaseSha,
-  policy = POLICY,
-}) {
-  const { commandComment, evidence, checkRuns, trustedReview } = snapshot;
-  if (evidence.staleHead || evidence.wrongBase) {
-    return { valid: false, reason: "PR-head eller base flyttades" };
-  }
-  const pr = evidence.pr;
-  if (pr.state !== "open" || pr.draft === true) {
-    return { valid: false, reason: "PR:n är stängd eller draft" };
-  }
-  if (!evidence.fileUniverseComplete) {
-    return { valid: false, reason: "PR-filistan kunde inte verifieras komplett" };
-  }
-  if (evidence.manualMergeFiles.length > 0) {
-    return {
-      valid: false,
-      reason: `workflow-infrastruktur kräver explicit bootstrap: ${evidence.manualMergeFiles.join(", ")}`,
-    };
-  }
-  if (!targetsDelivery(pr, policy)) {
-    return { valid: false, reason: `PR:n riktas mot ${pr.base?.ref ?? "okänd base"}` };
-  }
-  if (pr.head?.sha?.toLowerCase() !== expectedHeadSha.toLowerCase()) {
-    return { valid: false, reason: "live head matchar inte merge-kommandot" };
-  }
-  if (
-    evidence.baseSha?.toLowerCase() !== expectedBaseSha.toLowerCase() ||
-    evidence.baseIsAncestor !== true
-  ) {
-    return {
-      valid: false,
-      reason: `live ${deliveryRef(policy)} matchar inte kommandot eller saknas i PR-head`,
-    };
-  }
-  if (!String(commandComment.issue_url ?? "").endsWith(`/issues/${prNumber}`)) {
-    return { valid: false, reason: "merge-kommentaren hör inte till den aktuella PR:n" };
-  }
-  if (commandComment.updated_at !== commandComment.created_at) {
-    return { valid: false, reason: "merge:execute-kommentaren har redigerats" };
-  }
-  const mandate = validateMergeExecuteMandate({
-    body: commandComment.body ?? "",
-    createdAt: commandComment.created_at,
-    authorLogin: commandComment.user?.login,
-    authorType: commandComment.user?.type,
-    authorAssociation: commandComment.author_association,
-    headSha: expectedHeadSha,
-    baseSha: expectedBaseSha,
-  });
-  if (!mandate.valid) return mandate;
-  if (!(pr.labels ?? []).some((label) => label.name === "merge:ready")) {
-    return { valid: false, reason: "merge:ready-label saknas vid final merge" };
-  }
-
-  // Lita aldrig på `review-window`-namnet eller external_id som merge-mandat:
-  // alla vanliga workflows delar GitHub Actions-appidentitet och en check run-
-  // skapare väljer external_id själv. Den betrodda default-branch-controllern
-  // återvaliderar därför core-checkar, botar, live sign-off och sjuminutersgolv
-  // direkt. GitHubs required check är fortfarande en UX/native branch gate.
-  const checks = evaluateHeadChecks(checkRuns, policy, trustedReview);
-  if (!checks.botsDone || !checks.requiredDone) {
-    return { valid: false, reason: failureSummary(checks, "live merge-evidens är inte klar") };
-  }
-  const signoffMinimumEpoch = Math.max(
-    checks.latestCompletionEpoch,
-    checks.latestRequiredCreatedEpoch + Number(policy.review.minHeadAgeSeconds ?? 0),
-  );
-  const signoff = validateEvidence(evidence, expectedHeadSha, signoffMinimumEpoch);
-  if (!signoff.valid) {
-    return { valid: false, reason: `live sign-off avvisad: ${signoff.reason}` };
-  }
-  const commandEpoch = epoch(commandComment.created_at);
-  const conversation = latestConversationEpoch(evidence, commandComment.id);
-  if (!conversation.valid || commandEpoch === null) {
-    return { valid: false, reason: "PR-konversationens serverside-tider kunde inte verifieras" };
-  }
-  if (commandEpoch <= Math.max(conversation.latestEpoch, checks.latestCompletionEpoch)) {
-    return {
-      valid: false,
-      reason: "merge:execute måste postas strikt efter alla checks, reviews och kommentarer",
-    };
-  }
-
-  return {
-    valid: true,
-    reason: mandate.reason,
-    fingerprint: mergeEvidenceFingerprint(snapshot),
-  };
-}
 
 function validateEvidence(evidence, headSha, minimumEpoch) {
   const findings = latestInvalidatingFindingEpoch(evidence);
@@ -1847,7 +1608,7 @@ export async function runTrustedGate({
             confirmationState.completedSuccess > 0
               ? "Quality godkänd; reviewkvitto noterat"
               : "Quality godkänd; reviewkvitto noterat som saknat",
-            `${reason}. merge:ready krävs bara för merge:execute, inte för review-window.`,
+            `${reason}. merge:ready dokumenterar manuell sign-off; review-window kan bli grön utan den.`,
             now(),
           );
           finished = true;
@@ -1892,157 +1653,6 @@ export async function runTrustedGate({
     }
     throw error;
   }
-}
-
-export async function runTrustedMerge({
-  client,
-  prNumber,
-  commentId,
-  pause = sleep,
-  settleSeconds = MERGE_SETTLE_SECONDS,
-  policy = POLICY,
-}) {
-  const [initialPr, initialComment] = await Promise.all([
-    client.request(`/pulls/${prNumber}`),
-    client.request(`/issues/comments/${commentId}`),
-  ]);
-  if (!targetsDelivery(initialPr, policy)) {
-    throw new Error(`PR #${prNumber} riktas inte mot ${deliveryRef(policy)}`);
-  }
-  if (!String(initialComment.issue_url ?? "").endsWith(`/issues/${prNumber}`)) {
-    throw new Error("merge:execute-kommentaren hör inte till den aktuella PR:n");
-  }
-  const expectedHeadSha = initialPr.head?.sha ?? "";
-  if (!/^[0-9a-f]{40}$/i.test(expectedHeadSha)) throw new Error("GitHub gav ogiltig PR-head");
-  const basePath = deliveryRef(policy)
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  const initialBaseRef = await client.request(`/git/ref/heads/${basePath}`);
-  const expectedBaseSha = initialBaseRef.object?.sha ?? "";
-  const initialMandate = validateMergeExecuteMandate({
-    body: initialComment.body ?? "",
-    createdAt: initialComment.created_at,
-    authorLogin: initialComment.user?.login,
-    authorType: initialComment.user?.type,
-    authorAssociation: initialComment.author_association,
-    headSha: expectedHeadSha,
-    baseSha: expectedBaseSha,
-  });
-  if (!initialMandate.valid) throw new Error(initialMandate.reason);
-
-  const readAndValidate = async () => {
-    const snapshot = await readMergeSnapshot(client, prNumber, commentId, expectedHeadSha, policy);
-    const validation = validateMergeSnapshot({
-      snapshot,
-      prNumber,
-      expectedHeadSha,
-      expectedBaseSha,
-      policy,
-    });
-    if (!validation.valid) throw new Error(validation.reason);
-    return { snapshot, validation };
-  };
-
-  const first = await readAndValidate();
-  await pause(Math.max(1, settleSeconds) * 1000);
-  const second = await readAndValidate();
-  if (second.validation.fingerprint !== first.validation.fingerprint) {
-    throw new Error("checks eller PR-evidens ändrades under merge-settle; posta nytt mandat");
-  }
-
-  // En omedelbar tredje läsning krymper fönstret efter settle. Därefter görs
-  // en separat live base/compare precis före SHA-CAS:en i merge-API:t.
-  const final = await readAndValidate();
-  if (final.validation.fingerprint !== second.validation.fingerprint) {
-    throw new Error("checks eller PR-evidens ändrades precis före merge");
-  }
-
-  const [livePr, liveBaseRef, liveComment] = await Promise.all([
-    client.request(`/pulls/${prNumber}`),
-    client.request(`/git/ref/heads/${basePath}`),
-    client.request(`/issues/comments/${commentId}`),
-  ]);
-  const liveBaseSha = liveBaseRef.object?.sha ?? "";
-  if (
-    livePr.state !== "open" ||
-    livePr.head?.sha?.toLowerCase() !== expectedHeadSha.toLowerCase() ||
-    liveBaseSha.toLowerCase() !== expectedBaseSha.toLowerCase() ||
-    liveComment.updated_at !== initialComment.updated_at ||
-    hashBody(liveComment.body) !== hashBody(initialComment.body)
-  ) {
-    throw new Error("head, base eller merge-mandat flyttades precis före merge");
-  }
-  const comparison = await client.request(`/compare/${liveBaseSha}...${expectedHeadSha}`);
-  if (
-    !["ahead", "identical"].includes(comparison.status) ||
-    comparison.merge_base_commit?.sha?.toLowerCase() !== liveBaseSha.toLowerCase()
-  ) {
-    throw new Error(`PR-head innehåller inte live ${deliveryRef(policy)} precis före merge`);
-  }
-
-  const result = await client.request(`/pulls/${prNumber}/merge`, {
-    method: "PUT",
-    body: { sha: expectedHeadSha, merge_method: "squash" },
-  });
-  if (result?.merged !== true) {
-    throw new Error(`GitHub avvisade merge: ${result?.message ?? "okänd orsak"}`);
-  }
-  console.log(`Merged PR #${prNumber} at ${expectedHeadSha} onto ${expectedBaseSha}`);
-  const postMergeFailures = [];
-  let mergedBaseSha = result.sha ?? "";
-  if (!/^[0-9a-f]{40}$/i.test(mergedBaseSha)) {
-    try {
-      const mergedBaseRef = await client.request(`/git/ref/heads/${basePath}`);
-      mergedBaseSha = mergedBaseRef.object?.sha ?? "";
-    } catch (error) {
-      postMergeFailures.push(
-        `kunde inte läsa merge-SHA: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  if (/^[0-9a-f]{40}$/i.test(mergedBaseSha)) {
-    try {
-      // GITHUB_TOKEN-genererade push-event startar normalt inte nya workflows.
-      // Gör därför samma base-invalidering explicit efter terminal merge.
-      await invalidateForBasePush({ client, baseSha: mergedBaseSha, policy });
-    } catch (error) {
-      postMergeFailures.push(
-        `base-invalidering: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  } else {
-    postMergeFailures.push("GitHub gav ingen giltig 40-teckens merge-SHA");
-  }
-
-  // workflow_dispatch är ett dokumenterat undantag från GITHUB_TOKEN:s
-  // recursion-skydd. ci.yml på preview kör samma post-push-grind som en vanlig
-  // staging-push. Livekontrollerna observerar DB read-only; inga migrationer
-  // eller prestandaindex appliceras. db-blob-sync är en separat master-ägd
-  // workflow och dispatchas inte här.
-  for (const workflow of ["ci.yml"]) {
-    try {
-      await client.request(`/actions/workflows/${workflow}/dispatches`, {
-        method: "POST",
-        body: { ref: deliveryRef(policy) },
-      });
-    } catch (error) {
-      postMergeFailures.push(
-        `${workflow} dispatch: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  if (postMergeFailures.length > 0) {
-    throw new Error(
-      `POST_MERGE_VERIFICATION_FAILED — PR #${prNumber} är redan mergad; kör base-invalidering och workflow_dispatch manuellt: ${postMergeFailures.join("; ")}`,
-    );
-  }
-  return {
-    merged: true,
-    headSha: expectedHeadSha,
-    baseSha: expectedBaseSha,
-    mergeSha: result.sha ?? null,
-  };
 }
 
 export async function invalidateForBasePush({
@@ -2095,11 +1705,14 @@ export async function invalidateForBasePush({
 }
 
 async function main() {
+  const mode = process.argv[2] ?? "gate";
+  if (!["gate", "invalidate-base"].includes(mode)) {
+    throw new Error(`Unsupported mode: ${mode}. Merge utförs manuellt; denna controller kan inte merga.`);
+  }
   const repository = process.env.REPO ?? process.env.GITHUB_REPOSITORY ?? "";
   const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
   if (!repository || !token) throw new Error("REPO/GITHUB_REPOSITORY och GH_TOKEN krävs");
   const client = createClient({ repository, token });
-  const mode = process.argv[2] ?? "gate";
   if (mode === "invalidate-base") {
     const baseSha = process.env.BASE_SHA ?? "";
     if (!/^[0-9a-f]{40}$/i.test(baseSha)) throw new Error("BASE_SHA måste vara exakt 40 hex");
@@ -2109,13 +1722,6 @@ async function main() {
   const prNumber = Number(process.env.PR_NUMBER);
   if (!Number.isInteger(prNumber) || prNumber <= 0)
     throw new Error("PR_NUMBER måste vara positivt");
-  if (mode === "merge") {
-    const commentId = Number(process.env.COMMENT_ID);
-    if (!Number.isInteger(commentId) || commentId <= 0)
-      throw new Error("COMMENT_ID måste vara positivt");
-    await runTrustedMerge({ client, prNumber, commentId });
-    return;
-  }
   await runTrustedGate({
     client,
     prNumber,
