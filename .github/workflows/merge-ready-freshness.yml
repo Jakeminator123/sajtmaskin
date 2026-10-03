@@ -2,13 +2,14 @@ name: merge-ready-freshness
 
 # Betrodd default-branch-controller: publicera den head-bundna required checken
 # `review-window`, validera `merge:ready` och ta bort stale mandat när head,
-# master eller granskningsunderlaget ändras.
+# preview eller granskningsunderlaget ändras. Squash-merge går bara till preview.
+# master nås via manuell promote, inte via merge:execute.
 
 on:
   # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
   # skriver labels och får därför aldrig exekvera kod från PR-headen.
   pull_request_target:
-    branches: [master]
+    branches: [preview]
     types:
       [
         opened,
@@ -39,7 +40,7 @@ on:
   # En PR:s testade merge-resultat kan bli inaktuellt även utan ny head-commit
   # när dess bas flyttas. Ogiltigförklara därför alla öppna, sign-offade PR:er.
   push:
-    branches: [master]
+    branches: [preview]
 
 permissions:
   actions: read
@@ -169,14 +170,14 @@ jobs:
           esac
 
           # PR-objektets `.base.sha` är historisk och får INTE användas som
-          # aktuell master-tip. Läs base-refens levande SHA via Git refs-API:t
+          # aktuell preview-tip. Läs base-refens levande SHA via Git refs-API:t
           # och bevisa sedan via compare/merge-base att head faktiskt innehåller
           # den. Lookup-/compare-fel lämnas fail-closed som false i payloaden.
           pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
           BASE_REF=$(printf '%s' "$pr_json" | jq -r '.base.ref')
-          if [ "$BASE_REF" != "master" ]; then
-            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte master — no-op."
+          if [ "$BASE_REF" != "preview" ]; then
+            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte preview — no-op."
             exit 0
           fi
           BASE_SHA=""
@@ -275,8 +276,8 @@ jobs:
     timeout-minutes: 5
     concurrency:
       # Canonical merges serialiseras så att två godkända PR:er inte flyttar
-      # master under varandras slutvalidering.
-      group: trusted-master-merge
+      # preview under varandras slutvalidering.
+      group: trusted-preview-merge
       cancel-in-progress: false
     permissions:
       actions: write
@@ -298,7 +299,7 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
         run: node scripts/ci/trusted-review-window.mjs merge
 
-  invalidate-on-master-push:
+  invalidate-on-preview-push:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -313,7 +314,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Block every open PR on exact head after master moves
+      - name: Block every open PR on exact head after preview moves
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
