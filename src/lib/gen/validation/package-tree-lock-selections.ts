@@ -19,9 +19,18 @@ function siblingLocks(files: Files, packagePath: string) {
 /** Installer identity does not depend on whether the selected lock is valid. */
 export function effectivePackageTreeInstaller(files: Files, packagePath: string, pkg: Record<string, unknown>): string {
   const { manager } = siblingLocks(files, packagePath);
-  const dev = record(record(pkg.devEngines)?.packageManager);
-  const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0]
-    : typeof dev?.name === "string" ? dev.name : null;
+  const dev = record(pkg.devEngines)?.packageManager;
+  // npm validates devEngines before installation. Legacy precedence must not
+  // hide contradictory names, including the supported array form.
+  const declarations = [
+    ...(typeof pkg.packageManager === "string" ? [pkg.packageManager.split("@")[0]] : []),
+    ...(Array.isArray(dev) ? dev : [dev]).flatMap((entry) => {
+      const name = record(entry)?.name;
+      return typeof name === "string" ? [name] : [];
+    }),
+  ];
+  if (new Set(declarations).size > 1) return "unverified";
+  const declared = declarations[0] ?? null;
   return declared && manager && declared !== manager ? "unverified" : declared ?? manager ?? "npm";
 }
 

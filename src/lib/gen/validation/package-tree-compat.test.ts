@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { satisfies } from "semver";
+import { effectivePackageTreeInstaller } from "./package-tree-lock-selections";
 import {
   INCIDENT_V0_PACKAGE_JSON,
   detectPackageTreeConflicts,
@@ -11,6 +12,35 @@ import {
 const INCIDENT_PACKAGE_JSON_TEXT = `${JSON.stringify(INCIDENT_V0_PACKAGE_JSON, null, 2)}\n`;
 
 describe("extractDependencyMajor", () => {
+  it.each(["pnpm", "yarn"])("does not hide a conflicting %s devEngines declaration behind npm", (name) => {
+    const pkg = { packageManager: "npm@11.4.2", devEngines: { packageManager: { name } },
+      dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+    expect(effectivePackageTreeInstaller([], "package.json", pkg)).toBe("unverified");
+    expect(detectPackageTreeConflicts(pkg)[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ ...pkg, devEngines: { packageManager: [{ name: "npm" }, { name }] } })[0]?.code)
+      .toBe("next_react_peer_resolution_required");
+  });
+  it.each(["", "src/"])("does not use an npm lock to hide contradictory manager names beside %s", (folder) => {
+    for (const name of ["pnpm", "yarn"]) {
+      const pkg = { packageManager: "npm@11.4.2", devEngines: { packageManager: { name } },
+        dependencies: { next: "14.2.25", react: "latest" } };
+      const files = [{ path: `${folder}package.json`, content: JSON.stringify(pkg) }, {
+        path: `${folder}package-lock.json`, content: JSON.stringify({ packages: {
+          "node_modules/next": { version: "14.2.25" }, "node_modules/react": { version: "18.3.1" },
+        } }),
+      }];
+      expect(effectivePackageTreeInstaller(files, `${folder}package.json`, pkg)).toBe("unverified");
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+        .toBe("next_react_peer_resolution_required");
+    }
+  });
+  it.each([false, true])("preserves agreeing npm declarations (array=%s)", (array) => {
+    const dev = { name: "npm", version: "11.4.2" };
+    const pkg = { packageManager: "npm@11.4.2", devEngines: { packageManager: array ? [dev] : dev },
+      dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+    expect(effectivePackageTreeInstaller([], "package.json", pkg)).toBe("npm");
+    expect(detectPackageTreeConflicts(pkg)).toEqual([]);
+  });
   it.each(["NPM:", "NpM:"])("normalizes only the native npm alias protocol %s", (protocol) => {
     expect(detectPackageTreeConflicts({ dependencies: {
       next: `${protocol}next@14.2.25`, react: `${protocol}react@18.3.1`,
