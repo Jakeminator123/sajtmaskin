@@ -21,6 +21,7 @@ function acceptConsent() {
 
 function enableAds() {
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
+  window.sajtmaskinAdsTagLoaded = true;
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL", "builder_lbl");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL", "account_lbl");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL", "first_lbl");
@@ -31,6 +32,7 @@ describe("fireGoogleAdsConversion", () => {
     localStorage.clear();
     sessionStorage.clear();
     window.gtag = undefined;
+    window.sajtmaskinAdsTagLoaded = false;
     window.dataLayer = [];
     window.history.replaceState({}, "", "/builder");
     vi.unstubAllEnvs();
@@ -75,6 +77,28 @@ describe("fireGoogleAdsConversion", () => {
       send_to: "AW-123456789/account_lbl",
     });
     expect(isGoogleAdsClaimed("account_created")).toBe(true);
+  });
+
+  it("retains pending events while only the unloaded queue shim exists", () => {
+    enableAds(); acceptConsent();
+    window.sajtmaskinAdsTagLoaded = false;
+    window.gtag = vi.fn();
+    noteGoogleAdsConversion("account_created");
+    expect(window.gtag).not.toHaveBeenCalled();
+    expect(isGoogleAdsPending("account_created")).toBe(true);
+    expect(isGoogleAdsClaimed("account_created")).toBe(false);
+    window.sajtmaskinAdsTagLoaded = true;
+    flushPendingGoogleAdsConversions();
+    expect(window.gtag).toHaveBeenCalledTimes(1);
+    expect(isGoogleAdsClaimed("account_created")).toBe(true);
+  });
+
+  it("retains pending if submitting to the loaded tag throws", () => {
+    enableAds(); acceptConsent();
+    window.gtag = vi.fn(() => { throw new Error("tag failed"); });
+    noteGoogleAdsConversion("first_generation");
+    expect(isGoogleAdsPending("first_generation")).toBe(true);
+    expect(isGoogleAdsClaimed("first_generation")).toBe(false);
   });
 
   it("fires builder_start once per session even if note is repeated", () => {

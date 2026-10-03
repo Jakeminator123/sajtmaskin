@@ -17,6 +17,7 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: GtagFn;
+    sajtmaskinAdsTagLoaded?: boolean;
   }
 }
 
@@ -124,10 +125,11 @@ function canSendGoogleAdsConversion(event: GoogleAdsConversionEvent): boolean {
   if (!hasAcceptedCookieConsent()) return false;
   if (isAdminAppPath(window.location.pathname)) return false;
   if (typeof window.gtag !== "function") return false;
+  if (window.sajtmaskinAdsTagLoaded !== true) return false;
   return true;
 }
 
-/** No-op unless the account tag, event label, consent and `window.gtag` are all present. */
+/** Only submit after actual tag load; a local gtag queue shim is not sufficient. */
 export function fireGoogleAdsConversion(event: GoogleAdsConversionEvent): boolean {
   if (isGoogleAdsClaimed(event)) {
     storageRemove(adsStorage(event), pendingKey(event));
@@ -139,9 +141,13 @@ export function fireGoogleAdsConversion(event: GoogleAdsConversionEvent): boolea
   if (!sendTo || typeof window.gtag !== "function") return false;
 
   const storage = adsStorage(event);
+  try {
+    window.gtag("event", "conversion", { send_to: sendTo });
+  } catch {
+    return false;
+  }
   storageSet(storage, claimedKey(event), "1");
   storageRemove(storage, pendingKey(event));
-  window.gtag("event", "conversion", { send_to: sendTo });
   return true;
 }
 

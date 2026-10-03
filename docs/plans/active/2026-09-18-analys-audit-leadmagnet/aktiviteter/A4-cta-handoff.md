@@ -22,9 +22,15 @@ sektion är mer ärlig («Logga in för att använda audit-funktionen») men
 partner-`?mode=audit` kan visa entry-modalen först
 ([`use-entry-params.ts`](../../../../../src/lib/entry/use-entry-params.ts)).
 
-Efter lyckad audit gör [`src/app/page.tsx`](../../../../../src/app/page.tsx)
-`extractAuditHandoffPayload` → `createProject` → `POST /api/prompts` →
-builder. `AuditModal` har primär CTA «Bygg förbättrad sida», plus Spara
+Efter lyckad audit använder startsidan och `/analys`
+[`audit-handoff-client.ts`](../../../../../src/lib/builder/audit-handoff-client.ts):
+handoff-payload → `POST /api/prompts` → builder. Inloggade byggförsök har
+en beständig attempt-UUID och en payload-fingerprint i lokal lagring.
+Servern binder försöket till aktuell användare och skapar projekt och
+prompt atomiskt i befintliga tabeller. Misslyckad transaktion skapar inget
+projekt; återförsök efter tappat svar återanvänder det redan skapade, även
+vid full projektkvot. Ingen blind DELETE, ny migration eller automatisk
+generation ingår. `AuditModal` har primär CTA «Bygg förbättrad sida», plus Spara
 (`POST /api/audits` → `saveUserAudit`) och PDF/JSON utan auth-gate i UI.
 
 På en publik `/analys` är «Bygg…» och «Spara» meningslösa eller lögn
@@ -95,7 +101,8 @@ inte en tredje generator.
 - Sök i repo: audit-entry lovar inte «helt gratis» / «kostnadsfri»
   analys.
 - Gäst på `/analys` ser signup — inte en död Spara/Bygg-knapp som 401:ar.
-- Inloggad handoff är samma som dagens `handleBuildFromAudit`.
+- Inloggad handoff återanvänder audit-payload och builder-URL på båda ytorna;
+  projekt/prompt-persistensen är atomisk och återförsök idempotenta.
 - Tester: entry-modal-copy (ny eller utökad), ev. modal-flaggor,
   befintliga `audit-handoff.test.ts` och
   `audit-modal.save-state.test.tsx` fortfarande gröna.

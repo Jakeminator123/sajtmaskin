@@ -5,29 +5,18 @@ import { usePathname } from "next/navigation";
 import {
   flushPendingGoogleAdsConversions,
   hasAcceptedCookieConsent,
+  isGoogleAdsPending,
   noteAccountCreatedFromLocation,
   noteBuilderStartFromLocation,
   subscribeCookieConsent,
 } from "@/lib/ads/fire-google-ads-conversion";
-import { getGoogleAdsConfig, isAdminAppPath, isGoogleAdsEnabled } from "@/lib/ads/google-ads";
-
-function injectGoogleAdsTag(adsId: string, nonce?: string): void {
-  if (typeof window === "undefined") return;
-  if (typeof window.gtag === "function") return;
-
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer?.push(args);
-  };
-  window.gtag("js", new Date());
-  window.gtag("config", adsId);
-
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(adsId)}`;
-  if (nonce) script.setAttribute("nonce", nonce);
-  document.head.appendChild(script);
-}
+import {
+  getGoogleAdsConfig,
+  GOOGLE_ADS_CONVERSION_EVENTS,
+  isAdminAppPath,
+  isGoogleAdsEnabled,
+} from "@/lib/ads/google-ads";
+import { loadGoogleAdsTag } from "@/lib/ads/load-google-ads-tag";
 
 function getServerCookieConsentSnapshot(): boolean {
   return false;
@@ -53,10 +42,36 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
     if (isAdminAppPath(pathname)) return;
     if (!consentAccepted) return;
 
-    injectGoogleAdsTag(config.adsId, nonce);
     noteBuilderStartFromLocation(pathname);
     noteAccountCreatedFromLocation();
-    flushPendingGoogleAdsConversions();
+    let stopped = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let delay = 1_000;
+    const adsId = config.adsId;
+    const attempt = async () => {
+      let loaded = false;
+      try {
+        loaded = await loadGoogleAdsTag(adsId, nonce);
+      } catch {
+        /* retry, never claim */
+      }
+      if (stopped || !hasAcceptedCookieConsent() || isAdminAppPath(window.location.pathname))
+        return;
+      if (loaded) {
+        flushPendingGoogleAdsConversions();
+      }
+      if (!loaded || GOOGLE_ADS_CONVERSION_EVENTS.some(isGoogleAdsPending)) {
+        retry = setTimeout(() => {
+          void attempt();
+        }, delay);
+        delay = Math.min(delay * 2, 30_000);
+      }
+    };
+    void attempt();
+    return () => {
+      stopped = true;
+      clearTimeout(retry);
+    };
   }, [consentAccepted, nonce, pathname]);
 
   return null;
