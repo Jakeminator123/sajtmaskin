@@ -21,7 +21,7 @@ import type { KostnadsfriPage } from "./shared";
 import type { KostnadsfriGeneration } from "@/lib/kostnadsfri/mail-register-contract";
 import { resolveKostnadsfriGenerationProjection } from "@/lib/kostnadsfri/mail-register-contract";
 
-export async function createKostnadsfriPage(data: {
+export type CreateKostnadsfriPageInput = {
   slug: string;
   passwordHash: string;
   companyName: string;
@@ -34,29 +34,71 @@ export async function createKostnadsfriPage(data: {
   /** Set when the row is created by a caller that already mailed the invite. */
   sentAt?: Date;
   source?: string;
-}): Promise<KostnadsfriPage> {
-  assertDbConfigured();
+};
+
+function kostnadsfriPageInsertValues(data: CreateKostnadsfriPageInput) {
   const now = new Date();
-  const rows = await db
-    .insert(kostnadsfriPages)
-    .values({
-      slug: data.slug,
-      password_hash: data.passwordHash,
-      company_name: data.companyName,
-      industry: data.industry || null,
-      website: data.website || null,
-      contact_email: data.contactEmail || null,
-      contact_name: data.contactName || null,
-      extra_data: data.extraData || null,
-      status: "active",
-      created_at: now,
-      updated_at: now,
-      expires_at: data.expiresAt || null,
-      sent_at: data.sentAt || null,
-      source: data.source || null,
-    })
-    .returning();
+  return {
+    slug: data.slug,
+    password_hash: data.passwordHash,
+    company_name: data.companyName,
+    industry: data.industry || null,
+    website: data.website || null,
+    contact_email: data.contactEmail || null,
+    contact_name: data.contactName || null,
+    extra_data: data.extraData || null,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+    expires_at: data.expiresAt || null,
+    sent_at: data.sentAt || null,
+    source: data.source || null,
+  };
+}
+
+export async function createKostnadsfriPage(
+  data: CreateKostnadsfriPageInput,
+): Promise<KostnadsfriPage> {
+  assertDbConfigured();
+  const rows = await db.insert(kostnadsfriPages).values(kostnadsfriPageInsertValues(data)).returning();
   return rows[0];
+}
+
+class KostnadsfriMailEventCreateConflict extends Error {}
+
+/**
+ * Create path with a mail receipt: the page row and the mail event commit
+ * together or not at all. A `messageId` that is already registered can never
+ * belong to a page that does not exist yet, so it is always a conflict, and
+ * the transaction rolls back so no orphan register row is left behind a 409.
+ */
+export async function createKostnadsfriPageWithMailEvent(
+  data: CreateKostnadsfriPageInput,
+  mailEvent: Omit<KostnadsfriMailEventInput, "pageId" | "slug">,
+): Promise<
+  | { status: "created"; page: KostnadsfriPage; event: KostnadsfriMailEvent }
+  | { status: "conflict" }
+> {
+  assertDbConfigured();
+  try {
+    return await db.transaction(async (tx) => {
+      const pages = await tx
+        .insert(kostnadsfriPages)
+        .values(kostnadsfriPageInsertValues(data))
+        .returning();
+      const page = pages[0];
+      const events = await tx
+        .insert(kostnadsfriMailEvents)
+        .values(mailEventInsertValues({ ...mailEvent, pageId: page.id, slug: data.slug }))
+        .onConflictDoNothing({ target: kostnadsfriMailEvents.message_id })
+        .returning();
+      if (!events[0]) throw new KostnadsfriMailEventCreateConflict();
+      return { status: "created" as const, page, event: events[0] };
+    });
+  } catch (error) {
+    if (error instanceof KostnadsfriMailEventCreateConflict) return { status: "conflict" };
+    throw error;
+  }
 }
 
 /**
@@ -291,6 +333,25 @@ function mailEventMatches(row: KostnadsfriMailEvent, input: KostnadsfriMailEvent
   );
 }
 
+function mailEventInsertValues(input: KostnadsfriMailEventInput) {
+  return {
+    message_id: input.messageId,
+    kostnadsfri_page_id: input.pageId,
+    slug: input.slug,
+    recipient: input.recipient,
+    sender: input.sender,
+    flow_id: input.flowId,
+    step: input.step,
+    variant: input.variant,
+    scheduled_at: input.scheduledAt,
+    smtp_accepted_at: input.smtpAcceptedAt,
+    delivered_at: input.deliveredAt,
+    replied_at: input.repliedAt,
+    outcome: input.outcome,
+    source: input.source,
+  };
+}
+
 /** Idempotent insert. A reused message id with different facts is a conflict. */
 export async function recordKostnadsfriMailEvent(
   input: KostnadsfriMailEventInput,
@@ -301,22 +362,7 @@ export async function recordKostnadsfriMailEvent(
   assertDbConfigured();
   const inserted = await db
     .insert(kostnadsfriMailEvents)
-    .values({
-      message_id: input.messageId,
-      kostnadsfri_page_id: input.pageId,
-      slug: input.slug,
-      recipient: input.recipient,
-      sender: input.sender,
-      flow_id: input.flowId,
-      step: input.step,
-      variant: input.variant,
-      scheduled_at: input.scheduledAt,
-      smtp_accepted_at: input.smtpAcceptedAt,
-      delivered_at: input.deliveredAt,
-      replied_at: input.repliedAt,
-      outcome: input.outcome,
-      source: input.source,
-    })
+    .values(mailEventInsertValues(input))
     .onConflictDoNothing({ target: kostnadsfriMailEvents.message_id })
     .returning();
   if (inserted[0]) return { status: "created", event: inserted[0] };
@@ -514,11 +560,21 @@ export async function getKostnadsfriMailEventStats(): Promise<KostnadsfriMailEve
  * participate. A failed log is only terminal while no successful version is
  * bound to the invitation.
  */
-export async function getKostnadsfriGenerationBySlug(): Promise<
-  Map<string, KostnadsfriGeneration>
-> {
+export async function getKostnadsfriGenerationBySlug(
+  /**
+   * Restrict the projection to these invitation slugs (the page being served).
+   * Omit for the full register, e.g. the admin view.
+   */
+  slugs?: readonly string[],
+): Promise<Map<string, KostnadsfriGeneration>> {
   assertDbConfigured();
-  const entitlements = await db.select().from(kostnadsfriCampaignEntitlements);
+  if (slugs && slugs.length === 0) return new Map();
+  const entitlements = slugs
+    ? await db
+        .select()
+        .from(kostnadsfriCampaignEntitlements)
+        .where(inArray(kostnadsfriCampaignEntitlements.invitation_slug, [...new Set(slugs)]))
+    : await db.select().from(kostnadsfriCampaignEntitlements);
   const entitlementIds = entitlements.map((row) => row.id);
   const completionMarkers =
     entitlementIds.length > 0

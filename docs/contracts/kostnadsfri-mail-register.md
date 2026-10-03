@@ -56,13 +56,21 @@ Analysfel ger `visits`, `verified` och `started` som `null`, aldrig falska nollo
 
 Defaultläsningen behåller tidigare ordning och högst 2 000 rader. En komplett,
 stabil id-ordnad läsning börjar med `?cursor=0&limit=500` och följer
-`registry.nextCursor` tills `registry.complete=true`.
+`registry.nextCursor` tills `registry.complete=true`. Om defaultläsningen
+kapas (`complete=false`) är `registry.nextCursor` `"0"`: legacyordningen kan
+inte återupptas, så konsumenten läser om hela registret i id-ordning och
+deduplicerar på `slug`.
 
 `GET /api/kostnadsfri/mail-events?limit=500` läser enskilda mejl i stigande
 skapelseordning. Följ dess opaka `nextCursor` tills `complete=true`. Markören
 bär `created_at` med mikrosekunder plus `messageId`, så sista raden upprepas
 aldrig och rader med samma tidsstämpel hoppas inte över. En markör med bara
 millisekunder avvisas med 400.
+
+Ett `mailEvent` för ett företag som har avregistrerat sig ger 409, både
+`step=first` och `step=follow`. När `POST` skapar en ny sida med `mailEvent`
+sparas sidan och mejlraden i samma transaktion; ett redan registrerat
+`messageId` ger 409 och ingen ny sida.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

@@ -9,6 +9,7 @@ const listKostnadsfriPagesAfterId = vi.hoisted(() => vi.fn());
 const getKostnadsfriVisitStats = vi.hoisted(() => vi.fn());
 const getKostnadsfriGenerationBySlug = vi.hoisted(() => vi.fn());
 const recordKostnadsfriMailEvent = vi.hoisted(() => vi.fn());
+const createKostnadsfriPageWithMailEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
@@ -19,6 +20,7 @@ vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriVisitStats,
   getKostnadsfriGenerationBySlug,
   recordKostnadsfriMailEvent,
+  createKostnadsfriPageWithMailEvent,
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
@@ -318,6 +320,100 @@ describe("POST /api/kostnadsfri", () => {
     expect((await res.json()).error).toMatch(/unsubscribed/i);
     expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a first mail after the company has unsubscribed", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({ extra_data: { unsubscribedAt: "2026-10-02T09:00:00.000Z" } }),
+    );
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        contactEmail: "hej@acme.se",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "c".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/unsubscribed/i);
+    expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("creates page and mail event together and returns 409 without a page on messageId conflict", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPageWithMailEvent.mockResolvedValueOnce({ status: "conflict" });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "d".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(createKostnadsfriPageWithMailEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: "acme-ab", source: "render-mail-flow:text" }),
+      expect.objectContaining({ messageId: "d".repeat(32), step: "first" }),
+    );
+    // The non-transactional create is never used when a mailEvent is present.
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
+  });
+
+  it("returns the created page and receipt from the transactional create", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPageWithMailEvent.mockResolvedValueOnce({
+      status: "created",
+      page: pageRow({ id: 7, sent_at: new Date("2026-10-03T08:30:00.000Z") }),
+      event: { message_id: "9".repeat(32) },
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "9".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mailEvent).toEqual({ messageId: "9".repeat(32), status: "created" });
+    expect(body.page).toMatchObject({ id: 7, slug: "acme-ab", sentAt: "2026-10-03T08:30:00.000Z" });
   });
 
   it("rejects message-id reuse with different facts", async () => {
@@ -780,5 +876,41 @@ describe("GET /api/kostnadsfri", () => {
     expect(listKostnadsfriPagesAfterId).toHaveBeenCalledWith(10, 2);
     expect(body.pages).toHaveLength(1);
     expect(body.registry).toMatchObject({ complete: false, nextCursor: "11", returned: 1 });
+  });
+
+  it("points a capped legacy read at the complete id-ordered walk", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([
+      pageRow({ id: 5 }),
+      pageRow({ id: 3, slug: "beta-ab" }),
+    ]);
+
+    const res = await GET(getRequest(API_KEY, "?limit=1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.registry).toMatchObject({
+      complete: false,
+      nextCursor: "0",
+      paginationMode: "legacy-send-order",
+    });
+  });
+
+  it("keeps nextCursor null when the legacy read is complete", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow()]);
+
+    const body = await (await GET(getRequest())).json();
+
+    expect(body.registry).toMatchObject({ complete: true, nextCursor: null });
+  });
+
+  it("reads generation state only for the slugs on the returned page", async () => {
+    listKostnadsfriPagesAfterId.mockResolvedValueOnce([
+      pageRow({ id: 11 }),
+      pageRow({ id: 12, slug: "beta-ab" }),
+    ]);
+
+    await GET(getRequest(API_KEY, "?cursor=10&limit=1"));
+
+    expect(getKostnadsfriGenerationBySlug).toHaveBeenCalledWith(["acme-ab"]);
   });
 });
