@@ -50,8 +50,9 @@ codegen lyckas medan previewytan ser död/vit ut — se
    ökar lease-/boot-konflikt mot prod. Rekommendation vid sällan-körning:
    sätt `SAJTMASKIN_PREVIEW_PREWARM=false` (eller unset) i `.env.local`.
 3. **Kall lokal stack** — saknad embeddings-diskcache / warm-cache, Turbopack
-   cold 404 på första stream-anropet efter restart, `SKIP_PREDEV` som hoppar
-   över `db:init`.
+   cold 404 på första stream-anropet efter restart eller en read-only
+   schema-varning som ännu inte åtgärdats explicit. Dev-start applicerar inte
+   migrationer.
 4. **Olika defaults local vs prod** — t.ex. auto-repair vid build-error är
    default **på** i `NODE_ENV=development`, **av** i production
    (`src/lib/gen/verify/server-verify/build-error-trigger.ts`).
@@ -71,23 +72,31 @@ PowerShell från repo-roten:
    ```powershell
    npm run db:check-target -- --expect=dev
    ```
-2. Starta med full `predev` första gången efter lång paus (synkar DEV-schema):
+2. Kontrollera schema innan en ovanlig lokal körning:
+   ```powershell
+   npm run db:migrate:check
+   ```
+   På en redan initialiserad DEV-DB: kör `npm run db:ensure` uttryckligt om
+   migrationer väntar. För en helt ny throwaway-DB: kör `npm run db:init`
+   uttryckligt. `db:init` är inte en data-no-op; dess reparationssteg kan köra
+   `UPDATE`/`DELETE`, så använd det inte som rutin mot en delad databas.
+3. Starta appen:
    ```powershell
    npm run dev
    ```
-   Undvik `SKIP_PREDEV=1` / enbart `node scripts/dev/next-runner.mjs dev` tills
-   schemat är aktuellt. Om varning om saknade migrationer: `npm run db:ensure`.
-3. Bekräfta preview-host innan generate — öppna hostens `/health` (Fly-bas-URL
+   `predev` gör setup/preflight men inga DB-skrivningar. `next-runner.mjs`
+   startar en read-only bakgrundsvakt som varnar om migrationer saknas.
+4. Bekräfta preview-host innan generate — öppna hostens `/health` (Fly-bas-URL
    eller lokal `:8080`). Hybrid mot **icke-lokal** host (t.ex. Fly) kräver
    `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens `.env.local` (samma secret som
    hostens `PREVIEW_HOST_API_KEY`) — se [`docs/ENV.md`](../ENV.md).
-4. Logga in. Anonyma sessioner får inte generera; vanliga konton får en
+5. Logga in. Anonyma sessioner får inte generera; vanliga konton får en
    versionsbunden gratisgenerering och adresser i `ADMIN_EMAILS` är testkonton.
-5. Generera en gång. Om stream svarar 404 direkt efter restart: vänta några
+6. Generera en gång. Om stream svarar 404 direkt efter restart: vänta några
    sekunder och försök igen (Turbopack cold compile).
-6. Preview strejkar? Felsök Fly/session först (`preview_session_disabled`, vit
+7. Preview strejkar? Felsök Fly/session först (`preview_session_disabled`, vit
    iframe, timeout) — inte Postgres. Se [`preview-white-screen.md`](preview-white-screen.md).
-7. Valfritt — mjukare lokal körning mot delad Fly:
+8. Valfritt — mjukare lokal körning mot delad Fly:
    - `SAJTMASKIN_PREVIEW_PREWARM=false` i `.env.local`
    - behåll `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev` när
      preview-URL:er är `*.fly.dev`
@@ -135,9 +144,15 @@ Scaffold-/template-embeddings läses via
 ## Behåll DEV ≈ PROD (schema)
 
 - Lokal + Vercel **Development** → DEV-ref.
-- Vercel **Production** → PROD-ref.
-- Synka med `npm run db:migrate` / `db:migrate:prod` och
-  `npm run db:schema-parity` — se [`db-migrations.md`](db-migrations.md).
+- `preview`-grenen och Vercel **Production** delar produktionsmålet; anta inte
+  att preview har en isolerad databas.
+- Synka en redan initialiserad DEV uttryckligt med `npm run db:ensure`; använd
+  `db:init` bara för ny throwaway/setup. `npm run db:schema-parity` jämför
+  read-only.
+- Produktionsapply är ett separat ägarauktoriserat steg via den säkra runnern
+  efter PR #1516-integrationen. Deploy och DB-apply är inte atomiska, och
+  migrationer är inte automatiskt additiva eller reversibla. Se
+  [`db-migrations.md`](db-migrations.md).
 - Dela gärna LLM-nycklar mellan miljöer.
 - Var mer försiktig med **delad preview-host** och **delad Redis** om lokal
   felsökning ska vara deterministisk.

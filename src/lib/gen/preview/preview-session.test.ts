@@ -8,6 +8,9 @@ const fetchPreviewHostFilesManifest = vi.hoisted(() => vi.fn());
 const fetchPreviewHostStatus = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const logPreviewLifecycleTelemetry = vi.hoisted(() => vi.fn());
+const getStoredProjectEnvVarMap = vi.hoisted(() =>
+  vi.fn(async () => ({ STRIPE_SECRET_KEY: "sk_from_project" })),
+);
 
 vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
   logPreviewLifecycleTelemetry,
@@ -40,9 +43,7 @@ vi.mock("../autofix/repair-generated-files", () => ({
 }));
 
 vi.mock("@/lib/projects/project-env-vars", () => ({
-  getStoredProjectEnvVarMap: vi.fn(async () => ({
-    STRIPE_SECRET_KEY: "sk_from_project",
-  })),
+  getStoredProjectEnvVarMap,
 }));
 
 import {
@@ -66,9 +67,138 @@ afterEach(() => {
   fetchPreviewHostStatus.mockReset();
   buildCompleteProject.mockReset();
   logPreviewLifecycleTelemetry.mockReset();
+  getStoredProjectEnvVarMap.mockClear();
 });
 
 describe("startPreviewSession update path", () => {
+  function runtimeBoundaryFiles(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      path: `src/file-${index}.ts`,
+      content: `export const value${index} = ${index};`,
+      language: "typescript" as const,
+    }));
+  }
+
+  it("rejects an over-budget final update payload after runtime file injection", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    await touchPreviewSessionAsync({
+      chatId: "chat-update-budget",
+      previewSessionId: "ps-update-budget",
+      previewUrl: "https://preview-host.example.com/chat-update-budget",
+      versionId: "version-old",
+      tier2Provider: "preview_host",
+    });
+
+    const result = await startPreviewSession(runtimeBoundaryFiles(499), {
+      chatId: "chat-update-budget",
+      versionIdForSession: "version-new",
+      skipProjectScaffold: true,
+      skipRepair: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { stage: "preview-start" },
+    });
+    expect(updatePreviewHostSession).not.toHaveBeenCalled();
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects an over-budget final fresh payload after runtime file injection", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+
+    const result = await startPreviewSession(runtimeBoundaryFiles(499), {
+      chatId: "chat-fresh-budget",
+      versionIdForSession: "version-new",
+      skipProjectScaffold: true,
+      skipRepair: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { stage: "preview-start" },
+    });
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+    expect(updatePreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("reuses a prepared import env snapshot without reloading project env", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    startPreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-prepared-env",
+      previewUrl: "https://preview-host.example.com/chat-prepared-env",
+      startOutcome: "recreated",
+    });
+    const preparedEnv = "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=project-prepared\n";
+
+    const result = await startPreviewSession(
+      [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page(){return <main/>;}",
+          language: "typescript",
+        },
+      ],
+      {
+        appProjectId: "project-prepared",
+        preparedEnvLocalContents: preparedEnv,
+        chatId: "chat-prepared-env",
+        versionIdForSession: "version-prepared-env",
+        skipProjectScaffold: true,
+        skipRepair: true,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(startPreviewHostSession.mock.calls[0]?.[0]?.filesJson?.[".env.local"]).toBe(
+      preparedEnv,
+    );
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("reuses a prepared import env snapshot on update without reloading project env", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    updatePreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-prepared-update",
+      previewUrl: "https://preview-host.example.com/chat-prepared-update",
+      startOutcome: "recreated",
+    });
+    await touchPreviewSessionAsync({
+      chatId: "chat-prepared-update",
+      previewSessionId: "ps-prepared-update",
+      previewUrl: "https://preview-host.example.com/chat-prepared-update",
+      versionId: "version-old",
+      tier2Provider: "preview_host",
+    });
+    const preparedEnv = "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=project-prepared-update\n";
+
+    const result = await startPreviewSession(
+      [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page(){return <main/>;}",
+          language: "typescript",
+        },
+      ],
+      {
+        appProjectId: "project-prepared-update",
+        preparedEnvLocalContents: preparedEnv,
+        chatId: "chat-prepared-update",
+        versionIdForSession: "version-new",
+        skipProjectScaffold: true,
+        skipRepair: true,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson?.[".env.local"]).toBe(
+      preparedEnv,
+    );
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
   it("resends files when the same version id now has a different content revision", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     updatePreviewHostSession.mockResolvedValueOnce({
@@ -87,7 +217,13 @@ describe("startPreviewSession update path", () => {
     });
 
     const result = await startPreviewSession(
-      [{ path: "app/page.tsx", content: "export default () => <main>N+1</main>", language: "typescript" }],
+      [
+        {
+          path: "app/page.tsx",
+          content: "export default () => <main>N+1</main>",
+          language: "typescript",
+        },
+      ],
       {
         chatId: "chat-rewrite",
         versionIdForSession: "version-rewritten-in-place",
@@ -153,8 +289,7 @@ describe("startPreviewSession update path", () => {
     expect(startPreviewHostSession).not.toHaveBeenCalled();
 
     const filesJson = updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(filesJson?.[".env.local"]).toContain("MODEL_KEY=from_model");
     expect(filesJson?.[".env.local"]).toContain("STRIPE_SECRET_KEY=sk_from_model");
     expect(filesJson?.[".env.local"]).toContain("NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=proj-1");
@@ -211,8 +346,7 @@ describe("startPreviewSession update path", () => {
 
     expect(result.ok).toBe(true);
     const filesJson = updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(filesJson?.[".env.local"]).toContain("STRIPE_SECRET_KEY=sk_from_project");
     expect(filesJson?.[".env.local"]).not.toContain("sk_test_placeholder_preview_not_real");
     expect(filesJson?.[".env.local"]).not.toContain("PIPELINE_ONLY_KEY");
@@ -261,8 +395,7 @@ describe("startPreviewSession update path", () => {
     expect(result.ok).toBe(true);
     expect(buildCompleteProject).toHaveBeenCalledOnce();
     const filesJson = updatePreviewHostSession.mock.calls[0]?.[0]?.filesJson as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(filesJson?.[".env.local"]).toContain("NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=proj-2");
     expect(filesJson?.[".env.local"]).toContain("STRIPE_SECRET_KEY=sk_from_project");
   });
@@ -522,8 +655,7 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     mockManifest("version-v1", livePayload, false, { booting: true });
     mockPatchOk("version-v1");
 
-    const pageFixed =
-      "export default function Page(){return <main>ersatt unsplash</main>;}";
+    const pageFixed = "export default function Page(){return <main>ersatt unsplash</main>;}";
     const result = await startPreviewSession([file("app/page.tsx", pageFixed)], {
       appProjectId: "proj-patch",
       chatId: "chat-patch",
@@ -816,16 +948,13 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
       };
     });
 
-    const result = await startPreviewSession(
-      [file("app/page.tsx", PAGE_V1)],
-      {
-        chatId: "chat-resume-race",
-        versionIdForSession: "version-a",
-        filesRevisionForSession: "revision-a",
-        skipProjectScaffold: true,
-        skipRepair: true,
-      },
-    );
+    const result = await startPreviewSession([file("app/page.tsx", PAGE_V1)], {
+      chatId: "chat-resume-race",
+      versionIdForSession: "version-a",
+      filesRevisionForSession: "revision-a",
+      skipProjectScaffold: true,
+      skipRepair: true,
+    });
 
     expect(result).toEqual({
       ok: false,

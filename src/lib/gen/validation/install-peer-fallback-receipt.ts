@@ -59,6 +59,22 @@ function normalizeRevision(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeMutationRevision(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
+function normalizeInstallAttemptRevision(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
+function normalizeLifecycleToken(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 /** Host and app both use sha256 hex. Anything else is not install-proof. */
 export function normalizeDependencyFingerprint(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -148,6 +164,9 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
   filesRevision: string | null;
   dependencyFingerprint: string | null;
   kind: PreviewInstallKind;
+  lifecycleToken: string | null;
+  mutationRevision: number | null;
+  installAttemptRevision: number | null;
 } | null {
   if (log.category !== INSTALL_PEER_FALLBACK_RECEIPT_CATEGORY) return null;
   const kind = readInstallPeerFallbackReceiptKind(log.meta);
@@ -157,16 +176,109 @@ function readReceipt(log: InstallPeerFallbackReceiptLog): {
     filesRevision: normalizeRevision(meta?.filesRevision),
     dependencyFingerprint: normalizeDependencyFingerprint(meta?.dependencyFingerprint),
     kind,
+    lifecycleToken: normalizeLifecycleToken(meta?.lifecycleToken),
+    mutationRevision: normalizeMutationRevision(meta?.mutationRevision),
+    installAttemptRevision: normalizeInstallAttemptRevision(meta?.installAttemptRevision),
   };
 }
 
 function latestDecisive(
-  receipts: ReadonlyArray<{ kind: PreviewInstallKind }>,
+  receipts: ReadonlyArray<{
+    kind: PreviewInstallKind;
+    lifecycleToken: string | null;
+    mutationRevision: number | null;
+    installAttemptRevision: number | null;
+  }>,
 ): PreviewInstallKind | null {
-  const latest = receipts.find(
+  const decisive = receipts.filter(
     (entry) => entry.kind === "fallback" || entry.kind === "strict_pass",
   );
-  return latest?.kind ?? null;
+  const latest = decisive[0];
+  if (!latest) return null;
+
+  const latestAttemptDecision = (
+    comparable: typeof decisive,
+  ): PreviewInstallKind => {
+    const orderedAttempts = comparable.filter(
+      (entry) => entry.installAttemptRevision !== null,
+    );
+    if (orderedAttempts.length === 0) return comparable[0]?.kind ?? latest.kind;
+    const greatestAttempt = orderedAttempts.reduce((current, entry) =>
+      (entry.installAttemptRevision ?? 0) > (current.installAttemptRevision ?? 0)
+        ? entry
+        : current,
+    );
+    // Once attempt-ordered evidence exists, receipts without an attempt are
+    // incomparable: DB insertion order is not causal order. Any such fallback
+    // therefore remains blocking until a later comparable mutation supersedes
+    // it. An unordered strict acknowledgement also cannot clear an ordered
+    // fallback.
+    if (
+      greatestAttempt.kind === "fallback" ||
+      comparable.some(
+        (entry) =>
+          entry.installAttemptRevision === null && entry.kind === "fallback",
+      )
+    ) {
+      return "fallback";
+    }
+    return "strict_pass";
+  };
+
+  if (latest.mutationRevision === null) {
+    // A recovered legacy session may lack mutationRevision even on a new host.
+    // In that case attempt order is still authoritative within its lifecycle;
+    // different lifecycles remain newest-first because their attempt counters
+    // are not comparable.
+    const mutationless = decisive.filter((entry) => entry.mutationRevision === null);
+    const hasAttemptOrder = mutationless.some(
+      (entry) => entry.installAttemptRevision !== null,
+    );
+    let mutationlessKind: PreviewInstallKind;
+    if (!hasAttemptOrder) {
+      mutationlessKind = mutationless[0]?.kind ?? latest.kind;
+    } else {
+      // Attempt counters are scoped to a lifecycle. Different lifecycles are
+      // incomparable when mutationRevision is absent, so any lifecycle whose
+      // own latest/ordered evidence is fallback must fail closed.
+      const byLifecycle = new Map<string | null, typeof mutationless>();
+      for (const entry of mutationless) {
+        const group = byLifecycle.get(entry.lifecycleToken) ?? [];
+        group.push(entry);
+        byLifecycle.set(entry.lifecycleToken, group);
+      }
+      mutationlessKind = [...byLifecycle.values()].some(
+        (group) => latestAttemptDecision(group) === "fallback",
+      )
+        ? "fallback"
+        : "strict_pass";
+    }
+    // An unordered/mutation-less strict acknowledgement cannot safely clear a
+    // receipt from a known later mutation.
+    if (
+      mutationlessKind === "strict_pass" &&
+      decisive.some(
+        (entry) => entry.kind === "fallback" && entry.mutationRevision !== null,
+      )
+    ) {
+      return "fallback";
+    }
+    return mutationlessKind;
+  }
+  // Logs are normally newest-first, but asynchronous status acknowledgements
+  // may be persisted out of arrival order. mutationRevision orders file/session
+  // mutations; installAttemptRevision orders recovery boots of the SAME mutation.
+  const greatestMutation = decisive.reduce(
+    (current, entry) =>
+      entry.mutationRevision !== null && entry.mutationRevision > current
+        ? entry.mutationRevision
+        : current,
+    latest.mutationRevision,
+  );
+  const sameMutation = decisive.filter(
+    (entry) => entry.mutationRevision === greatestMutation,
+  );
+  return latestAttemptDecision(sameMutation);
 }
 
 /**

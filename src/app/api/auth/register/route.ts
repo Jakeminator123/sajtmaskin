@@ -17,7 +17,7 @@ import {
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
-import { sanitizeKostnadsfriAuthReturnTo } from "@/lib/kostnadsfri/auth-return";
+import { sanitizeAuthReturnTo } from "@/lib/auth/auth-return";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:register", async () => {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         name?: string;
         returnTo?: string;
       };
-      const safeReturnTo = sanitizeKostnadsfriAuthReturnTo(returnTo, URLS.baseUrl);
+      const safeReturnTo = sanitizeAuthReturnTo(returnTo, URLS.baseUrl);
 
       // Validate input
       if (!email || !password) {

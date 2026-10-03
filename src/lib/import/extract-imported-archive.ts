@@ -4,6 +4,10 @@ import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 import { ImportInitError } from "./github-import-errors";
 import { MAX_LOCAL_ZIP_BASE64_CHARS, MAX_LOCAL_ZIP_UPLOAD_BYTES } from "./import-init-contract";
+import {
+  isSafeRelativePath,
+  PREVIEW_HOST_FILE_BUDGET,
+} from "../../../preview-host/src/files-contract.js";
 
 export const MAX_IMPORTED_FILES = 600;
 export const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
@@ -11,9 +15,9 @@ export const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
  * Mirror `preview-host/src/validate.js`. The host weighs `CodeFile.content`
  * UTF-8 — including the `base64:` envelope — not decoded asset bytes.
  */
-export const PREVIEW_HOST_MAX_FILES = 500;
-export const PREVIEW_HOST_MAX_FILE_BYTES = 2 * 1024 * 1024;
-export const PREVIEW_HOST_MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+export const PREVIEW_HOST_MAX_FILES = PREVIEW_HOST_FILE_BUDGET.maxFiles;
+export const PREVIEW_HOST_MAX_FILE_BYTES = PREVIEW_HOST_FILE_BUDGET.maxFileBytes;
+export const PREVIEW_HOST_MAX_TOTAL_BYTES = PREVIEW_HOST_FILE_BUDGET.maxTotalBytes;
 const BINARY_BASE64_PREFIX = "base64:";
 
 export function maxDecodedBytesForPreviewTransport(maxTransportBytes: number): number {
@@ -97,6 +101,35 @@ const TEXT_BASENAMES = new Set([
   "bun.lock",
   "bun.lockb",
 ]);
+const USABLE_SOURCE_EXTENSIONS = [
+  ".html",
+  ".htm",
+  ".mdx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+] as const;
+
+function importLimitError(message: string): ImportInitError {
+  return new ImportInitError({
+    message,
+    code: "zip_too_large",
+    step: "extract",
+    status: 413,
+  });
+}
+
+function invalidZipEntryError(): ImportInitError {
+  return new ImportInitError({
+    message: "ZIP-arkivet innehåller en fil som inte kunde läsas.",
+    code: "zip_invalid",
+    step: "extract",
+    status: 400,
+  });
+}
 
 export function normalizeImportedPath(rawPath: string): string | null {
   const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -214,7 +247,7 @@ function stripCommonArchiveRoot(paths: string[]): string[] {
 export function decodeLocalZipContent(base64: string): Buffer {
   if (base64.length > MAX_LOCAL_ZIP_BASE64_CHARS) {
     throw new ImportInitError({
-      message: `Lokal ZIP får vara högst ${Math.floor(MAX_LOCAL_ZIP_UPLOAD_BYTES / (1024 * 1024) * 10) / 10} MB när den skickas via formuläret.`,
+      message: `Lokal ZIP får vara högst ${Math.floor((MAX_LOCAL_ZIP_UPLOAD_BYTES / (1024 * 1024)) * 10) / 10} MB när den skickas via formuläret.`,
       code: "zip_too_large",
       step: "download",
       status: 413,
@@ -231,7 +264,7 @@ export function decodeLocalZipContent(base64: string): Buffer {
   }
   if (buffer.byteLength > MAX_LOCAL_ZIP_UPLOAD_BYTES) {
     throw new ImportInitError({
-      message: `Lokal ZIP får vara högst ${Math.floor(MAX_LOCAL_ZIP_UPLOAD_BYTES / (1024 * 1024) * 10) / 10} MB när den skickas via formuläret.`,
+      message: `Lokal ZIP får vara högst ${Math.floor((MAX_LOCAL_ZIP_UPLOAD_BYTES / (1024 * 1024)) * 10) / 10} MB när den skickas via formuläret.`,
       code: "zip_too_large",
       step: "download",
       status: 413,
@@ -251,7 +284,12 @@ export async function extractImportedFilesFromZip(
   const maxPreviewTotalBytes = options.maxPreviewTotalBytes ?? PREVIEW_HOST_MAX_TOTAL_BYTES;
   const maxPreviewFiles = options.maxPreviewFiles ?? PREVIEW_HOST_MAX_FILES;
   const maxDeclaredBinaryBytes = maxDeclaredImportBinaryBytes(maxBinaryFileBytes);
-  const zip = await JSZip.loadAsync(buffer);
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(buffer);
+  } catch {
+    throw invalidZipEntryError();
+  }
   const rawEntries = Object.values(zip.files)
     .filter((entry) => !entry.dir)
     .map((entry) => entry.name);
@@ -267,18 +305,39 @@ export async function extractImportedFilesFromZip(
     const strippedName = normalizedEntries[index];
     const safePath = normalizeImportedPath(strippedName);
     if (!safePath) continue;
+    if (
+      safePath.length > PREVIEW_HOST_FILE_BUDGET.maxPathLength ||
+      !isSafeRelativePath(safePath)
+    ) {
+      throw new ImportInitError({
+        message: `Filsökvägen ${safePath} kan inte användas i preview.`,
+        code: "zip_invalid",
+        step: "extract",
+        status: 400,
+      });
+    }
 
     const asText = shouldTreatAsText(safePath);
     const asBinary = !asText && shouldTreatAsImportBinary(safePath);
     if (!asText && !asBinary) continue;
 
     const entry = zip.files[originalName];
+    const declared = declaredUncompressedSize(entry);
+    if (asText && declared != null && declared > maxPreviewFileBytes) {
+      throw importLimitError(`Filen ${safePath} är för stor för preview.`);
+    }
     if (asBinary) {
-      const declared = declaredUncompressedSize(entry);
-      if (declared != null && declared > maxDeclaredBinaryBytes) continue;
+      if (declared != null && declared > maxDeclaredBinaryBytes) {
+        throw importLimitError(`Filen ${safePath} är för stor för import.`);
+      }
     }
 
-    const contentBuffer = Buffer.from(await entry.async("uint8array"));
+    let contentBuffer: Buffer;
+    try {
+      contentBuffer = Buffer.from(await entry.async("uint8array"));
+    } catch {
+      throw invalidZipEntryError();
+    }
 
     if (asText) {
       if (looksBinary(contentBuffer)) continue;
@@ -286,20 +345,16 @@ export async function extractImportedFilesFromZip(
       const textTransport = Buffer.byteLength(textContent, "utf8");
       totalTextBytes += contentBuffer.byteLength;
       if (totalTextBytes > MAX_IMPORTED_TEXT_BYTES) {
-        throw new ImportInitError({
-          message: "Importerat projekt innehåller för mycket text.",
-          code: "zip_too_large",
-          step: "extract",
-          status: 413,
-        });
+        throw importLimitError("Importerat projekt innehåller för mycket text.");
       }
-      if (files.length >= maxFiles) {
-        throw new ImportInitError({
-          message: `För många filer i importen (${files.length} >= ${maxFiles}).`,
-          code: "zip_invalid",
-          step: "extract",
-          status: 400,
-        });
+      if (textTransport > maxPreviewFileBytes) {
+        throw importLimitError(`Filen ${safePath} är för stor för preview.`);
+      }
+      if (totalPreviewTransportBytes + textTransport > maxPreviewTotalBytes) {
+        throw importLimitError("Importerat projekt är för stort för preview.");
+      }
+      if (files.length >= maxFiles || files.length >= maxPreviewFiles) {
+        throw importLimitError("Importerat projekt innehåller för många filer för preview.");
       }
       files.push({
         path: safePath,
@@ -313,11 +368,21 @@ export async function extractImportedFilesFromZip(
     const binaryBytes = normalizeImportedBinaryBytes(contentBuffer);
     const content = encodeImportedBinaryContent(binaryBytes);
     const transport = Buffer.byteLength(content, "utf8");
-    if (binaryBytes.byteLength > maxBinaryFileBytes) continue;
-    if (transport > maxPreviewFileBytes) continue;
-    if (totalBinaryBytes + binaryBytes.byteLength > maxBinaryTotalBytes) continue;
-    if (totalPreviewTransportBytes + transport > maxPreviewTotalBytes) continue;
-    if (files.length >= maxFiles || files.length >= maxPreviewFiles) continue;
+    if (binaryBytes.byteLength > maxBinaryFileBytes) {
+      throw importLimitError(`Filen ${safePath} är för stor för import.`);
+    }
+    if (transport > maxPreviewFileBytes) {
+      throw importLimitError(`Filen ${safePath} är för stor för preview.`);
+    }
+    if (totalBinaryBytes + binaryBytes.byteLength > maxBinaryTotalBytes) {
+      throw importLimitError("Importerat projekt innehåller för mycket binärdata.");
+    }
+    if (totalPreviewTransportBytes + transport > maxPreviewTotalBytes) {
+      throw importLimitError("Importerat projekt är för stort för preview.");
+    }
+    if (files.length >= maxFiles || files.length >= maxPreviewFiles) {
+      throw importLimitError("Importerat projekt innehåller för många filer för preview.");
+    }
     totalBinaryBytes += binaryBytes.byteLength;
     totalPreviewTransportBytes += transport;
     files.push({
@@ -330,7 +395,16 @@ export async function extractImportedFilesFromZip(
   return files;
 }
 
-export function findPrimaryImportedFile(files: Array<{ path: string; content: string }>): string {
+export function hasUsableImportedSource<T extends { path: string }>(files: T[]): boolean {
+  return files.some((file) => {
+    const lowerPath = file.path.toLowerCase();
+    return USABLE_SOURCE_EXTENSIONS.some((extension) => lowerPath.endsWith(extension));
+  });
+}
+
+export function findPrimaryImportedFile<T extends { path: string; content: string }>(
+  files: T[],
+): string {
   if (files.length === 0) return "";
   const mainFile =
     files.find(
@@ -341,6 +415,6 @@ export function findPrimaryImportedFile(files: Array<{ path: string; content: st
         file.path.endsWith("Page.tsx"),
     ) ??
     files.find((file) => file.path.endsWith(".tsx")) ??
-    files[0];
+    files.find((file) => hasUsableImportedSource([file]));
   return mainFile?.content ?? "";
 }
