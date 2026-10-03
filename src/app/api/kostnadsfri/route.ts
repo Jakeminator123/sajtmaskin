@@ -3,10 +3,13 @@ import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
+  getKostnadsfriGenerationBySlug,
   getKostnadsfriPageBySlug,
   getKostnadsfriVisitStats,
+  listKostnadsfriPagesAfterId,
   listKostnadsfriPages,
   markKostnadsfriPageSent,
+  recordKostnadsfriMailEvent,
 } from "@/lib/db/services/kostnadsfri";
 import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
@@ -21,6 +24,12 @@ import {
 import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
+import {
+  KOSTNADSFRI_MAIL_SOURCE_ANIMATED,
+  KOSTNADSFRI_MAIL_SOURCE_TEXT,
+  UNKNOWN_KOSTNADSFRI_GENERATION,
+  type KostnadsfriGeneration,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 /**
  * Machine entry for the kostnadsfri mail-link flow. Requires
@@ -69,6 +78,22 @@ const createSchema = z.object({
    * `src/lib/kostnadsfri/company-profile.ts`.
    */
   profile: z.record(z.string(), z.unknown()).optional(),
+  /** Additive one-row-per-message receipt. Old callers may omit it. */
+  mailEvent: z
+    .object({
+      messageId: z.string().regex(/^[a-f0-9]{32}$/),
+      flowId: z.string().trim().min(1).max(120),
+      step: z.enum(["first", "follow"]),
+      variant: z.enum(["text", "animated"]),
+      sender: z.email(),
+      recipient: z.email(),
+      scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
+      smtpAcceptedAt: z.string().datetime({ offset: true }).nullable().optional(),
+      deliveredAt: z.string().datetime({ offset: true }).nullable().optional(),
+      repliedAt: z.string().datetime({ offset: true }).nullable().optional(),
+      outcome: z.enum(["scheduled", "accepted", "uncertain", "failed"]),
+    })
+    .optional(),
 });
 
 /** Default `source` when a send is registered without naming its origin. */
@@ -111,7 +136,12 @@ function toIso(value: Date | string | null): string | null {
 function serializePage(
   page: KostnadsfriPage,
   visits?: { visits: number; verified: number; started: number },
+  options: {
+    analyticsAvailable?: boolean;
+    generation?: KostnadsfriGeneration;
+  } = {},
 ) {
+  const analyticsAvailable = options.analyticsAvailable !== false;
   return {
     slug: page.slug,
     companyName: page.company_name,
@@ -123,9 +153,10 @@ function serializePage(
     createdAt: toIso(page.created_at),
     expiresAt: toIso(page.expires_at),
     unsubscribedAt: unsubscribedAtFromExtra(page.extra_data),
-    visits: visits?.visits ?? 0,
-    verified: visits?.verified ?? 0,
-    started: visits?.started ?? 0,
+    visits: analyticsAvailable ? (visits?.visits ?? 0) : null,
+    verified: analyticsAvailable ? (visits?.verified ?? 0) : null,
+    started: analyticsAvailable ? (visits?.started ?? 0) : null,
+    generation: options.generation ?? { ...UNKNOWN_KOSTNADSFRI_GENERATION },
   };
 }
 
@@ -155,7 +186,44 @@ export async function POST(request: NextRequest) {
       source,
       openclaw,
       profile,
+      mailEvent,
     } = validation.data;
+
+    const expectedMailSource = mailEvent
+      ? mailEvent.variant === "text"
+        ? KOSTNADSFRI_MAIL_SOURCE_TEXT
+        : KOSTNADSFRI_MAIL_SOURCE_ANIMATED
+      : null;
+    if (mailEvent) {
+      if (mailEvent.outcome === "accepted") {
+        if (source !== expectedMailSource) {
+          return NextResponse.json(
+            { success: false, error: `source must be ${expectedMailSource} for this mailEvent` },
+            { status: 400 },
+          );
+        }
+        if (!sentAt || !mailEvent.smtpAcceptedAt) {
+          return NextResponse.json(
+            { success: false, error: "accepted mailEvent requires sentAt and smtpAcceptedAt" },
+            { status: 400 },
+          );
+        }
+        if (new Date(sentAt).getTime() !== new Date(mailEvent.smtpAcceptedAt).getTime()) {
+          return NextResponse.json(
+            { success: false, error: "sentAt must equal mailEvent.smtpAcceptedAt" },
+            { status: 400 },
+          );
+        }
+      } else if (sentAt || source || mailEvent.smtpAcceptedAt) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "non-accepted mailEvent must not include sentAt, source or smtpAcceptedAt",
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     // Personnummer och ledamöters hemadresser finns i källan men hör inte i en
     // sajt, och `extra_data` går både till browsern och in i wizarden. Fältnamn
@@ -196,22 +264,58 @@ export async function POST(request: NextRequest) {
     if (existing) {
       // Without `sentAt` this route stays create-only, so a known slug is a
       // conflict exactly like before.
-      if (!sentAt) {
+      if (!sentAt && !mailEvent) {
         return NextResponse.json(
           { success: false, error: `A page with slug "${slug}" already exists` },
           { status: 409 },
         );
       }
 
-      const updated = await markKostnadsfriPageSent(slug, {
-        sentAt: new Date(sentAt),
-        source: source || DEFAULT_SEND_SOURCE,
-        contactEmail,
-        // Utskicksverktyget skickar ofta profilen i samma anrop som
-        // sändregistreringen. Utan den här patchen tappades den på upsert-vägen.
-        // Nyckeln utelämnas helt utan profil — en tom patch är inget att skriva.
-        ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
-      });
+      if (mailEvent?.step === "follow" && unsubscribedAtFromExtra(existing.extra_data)) {
+        return NextResponse.json(
+          { success: false, error: "The company unsubscribed before this follow-up" },
+          { status: 409 },
+        );
+      }
+
+      const mailReceipt = mailEvent
+        ? await recordKostnadsfriMailEvent({
+            messageId: mailEvent.messageId,
+            pageId: existing.id,
+            slug,
+            recipient: mailEvent.recipient,
+            sender: mailEvent.sender,
+            flowId: mailEvent.flowId,
+            step: mailEvent.step,
+            variant: mailEvent.variant,
+            scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
+            smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
+            deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
+            repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
+            outcome: mailEvent.outcome,
+            source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
+          })
+        : null;
+      if (mailReceipt?.status === "conflict") {
+        return NextResponse.json(
+          { success: false, error: "messageId is already registered with different facts" },
+          { status: 409 },
+        );
+      }
+
+      // A follow-up is a new mail event, not a rewrite of the company's
+      // original register row. The compatibility fields stay on the first mail.
+      const shouldUpdateCompatibilityFields =
+        !mailEvent || (mailEvent.step === "first" && mailEvent.outcome === "accepted");
+      const updated =
+        shouldUpdateCompatibilityFields && sentAt
+          ? await markKostnadsfriPageSent(slug, {
+              sentAt: new Date(sentAt),
+              source: source || DEFAULT_SEND_SOURCE,
+              contactEmail,
+              ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+            })
+          : existing;
       if (!updated) {
         // Row disappeared between the lookup and the update.
         return NextResponse.json(
@@ -226,8 +330,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         updated: true,
+        ...(mailReceipt
+          ? { mailEvent: { messageId: mailReceipt.event.message_id, status: mailReceipt.status } }
+          : {}),
         page: { id: updated.id, ...serializePage(updated), url },
       });
+    }
+
+    if (mailEvent?.step === "follow") {
+      return NextResponse.json(
+        { success: false, error: "A follow-up cannot create a missing company register row" },
+        { status: 409 },
+      );
     }
 
     // Create: slug + password (explicit or deterministic from slug + seed) + link
@@ -270,9 +384,37 @@ export async function POST(request: NextRequest) {
       source: sentAt ? source || DEFAULT_SEND_SOURCE : undefined,
     });
 
+    const mailReceipt = mailEvent
+      ? await recordKostnadsfriMailEvent({
+          messageId: mailEvent.messageId,
+          pageId: page.id,
+          slug,
+          recipient: mailEvent.recipient,
+          sender: mailEvent.sender,
+          flowId: mailEvent.flowId,
+          step: mailEvent.step,
+          variant: mailEvent.variant,
+          scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
+          smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
+          deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
+          repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
+          outcome: mailEvent.outcome,
+          source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
+        })
+      : null;
+    if (mailReceipt?.status === "conflict") {
+      return NextResponse.json(
+        { success: false, error: "messageId is already registered with different facts" },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
       updated: false,
+      ...(mailReceipt
+        ? { mailEvent: { messageId: mailReceipt.event.message_id, status: mailReceipt.status } }
+        : {}),
       page: {
         id: page.id,
         ...serializePage(page),
@@ -296,10 +438,27 @@ export async function GET(request: NextRequest) {
   try {
     if (!isAuthorized(request)) return unauthorized();
 
-    const [rows, visitStats] = await Promise.all([
-      listKostnadsfriPages(LIST_LIMIT),
+    const rawCursor = request.nextUrl.searchParams.get("cursor");
+    const afterId = rawCursor === null ? null : Number.parseInt(rawCursor, 10);
+    if (rawCursor !== null && (!Number.isSafeInteger(afterId) || (afterId ?? -1) < 0)) {
+      return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
+    }
+    const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") || "", 10);
+    const pageLimit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(rawLimit, 1), LIST_LIMIT)
+      : rawCursor === null
+        ? LIST_LIMIT
+        : 500;
+    const checkedAt = new Date().toISOString();
+    const [rowBatch, visitStats, generations] = await Promise.all([
+      afterId === null
+        ? listKostnadsfriPages(pageLimit + 1)
+        : listKostnadsfriPagesAfterId(afterId, pageLimit + 1),
       getKostnadsfriVisitStats(90, 0).catch(() => null),
+      getKostnadsfriGenerationBySlug().catch(() => null),
     ]);
+    const hasMore = rowBatch.length > pageLimit;
+    const rows = rowBatch.slice(0, pageLimit);
     const visitsBySlug = new Map(
       (visitStats?.perSlug ?? []).map((stat) => [
         stat.slug,
@@ -308,7 +467,33 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json({
       success: true,
-      pages: rows.map((row) => serializePage(row, visitsBySlug.get(row.slug))),
+      pages: rows.map((row) =>
+        serializePage(row, visitsBySlug.get(row.slug), {
+          analyticsAvailable: visitStats !== null,
+          generation:
+            generations?.get(row.slug) ??
+            (generations ? { state: "not-started", completedAt: null, siteId: null } : undefined),
+        }),
+      ),
+      registry: {
+        checkedAt,
+        returned: rows.length,
+        limit: pageLimit,
+        complete: !hasMore,
+        nextCursor:
+          hasMore && afterId !== null ? String(rows.at(-1)?.id ?? "") : null,
+        paginationMode: afterId === null ? "legacy-send-order" : "complete-id-order",
+      },
+      analytics: {
+        available: visitStats !== null,
+        windowDays: 90,
+        checkedAt,
+        complete: visitStats !== null && !visitStats.truncated,
+      },
+      generation: {
+        available: generations !== null,
+        checkedAt,
+      },
     });
   } catch (error: unknown) {
     logKostnadsfriFailure("list pages", error);

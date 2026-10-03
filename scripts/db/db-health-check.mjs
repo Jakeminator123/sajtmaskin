@@ -69,6 +69,7 @@ const EXPECTED_TABLES = [
   "user_audits",
   // Kostnadsfri
   "kostnadsfri_pages",
+  "kostnadsfri_mail_events",
   "kostnadsfri_campaign_entitlements",
   // Engine (own-engine codegen)
   "engine_chats",
