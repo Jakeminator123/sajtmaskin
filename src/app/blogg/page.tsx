@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Blogg",
   description:
     "Artiklar om Sajtmaskin, webb bästa praxis och produktnyheter — första inlägg publiceras när redaktionen är igång.",
+  alternates: publicPageAlternates("/blogg"),
 };
 
 export default function BloggPage() {
@@ -76,6 +78,30 @@ export default function BloggPage() {
                 <li>
                   <Link href="/faq" className="text-primary underline-offset-4 hover:underline">
                     Vanliga frågor
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/skapa-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/skapa-hemsida-med-ai"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida med AI
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/vad-kostar-en-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Vad kostar en hemsida?
                   </Link>
                 </li>
                 <li>

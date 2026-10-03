@@ -18,8 +18,10 @@ interface EntryModeConfig {
 const ENTRY_MODES: Record<EntryMode, EntryModeConfig> = {
   audit: {
     title: "Analysera din webbplats",
+    // Lova inget avgiftsfritt här: den inloggade auditen kostar credits
+    // (basic 15 / avancerad 25). Den fria varianten bor på /analys.
     subtitle:
-      "Ange din webbadress och få en kostnadsfri AI-analys med konkreta förbättringsförslag — helt gratis.",
+      "Ange din webbadress och få en AI-analys med konkreta förbättringsförslag. Analysen körs i ditt konto och drar credits.",
     cta: "Starta analys",
     icon: <Search className="h-5 w-5" />,
     accentClass: "text-brand-amber",

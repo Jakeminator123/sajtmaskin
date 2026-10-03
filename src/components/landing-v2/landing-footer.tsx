@@ -2,10 +2,11 @@
 
 import { Zap } from "lucide-react"
 import Link from "next/link"
+import { getSeoLandingHubLinks } from "@/lib/seo-landing-pages/registry"
 
 export function LandingFooter() {
   return (
-    <footer className="px-6 py-10 border-t border-border/15">
+    <footer className="px-6 pt-10 pb-28 border-t border-border/15">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
           <div className="col-span-2 md:col-span-1">
@@ -35,6 +36,11 @@ export function LandingFooter() {
               <li>
                 <a href="/teknik#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Funktioner
+                </a>
+              </li>
+              <li>
+                <a href="/analys" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Analys
                 </a>
               </li>
               <li>
@@ -113,6 +119,23 @@ export function LandingFooter() {
               </li>
             </ul>
           </div>
+        </div>
+        <div className="mb-10 border-t border-border/15 pt-8">
+          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
+            Guider
+          </h4>
+          <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {getSeoLandingHubLinks().map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={link.href}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 border-t border-border/15">
           <p className="text-xs text-muted-foreground/60">

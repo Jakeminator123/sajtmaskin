@@ -6,11 +6,13 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { recordPageView } from "@/lib/db/services/analytics";
 import { createPromptHandoff, getProjectByIdForOwner } from "@/lib/db/services/projects";
 import { bindVerifiedKostnadsfriCampaign } from "@/lib/db/services/kostnadsfri-campaign";
-import { cachePromptHandoff } from "@/lib/data/redis";
+import { cachePromptHandoff, deleteCache } from "@/lib/data/redis";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 import { auditHandoffPayloadSchema } from "@/lib/builder/audit-handoff";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import { readKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
+import { sanitizeKostnadsfriWizardSnapshot } from "@/lib/kostnadsfri/wizard-snapshot";
+import { compiledPromptHasHospitalityGamingConflict } from "@/lib/kostnadsfri/industry-conflict";
 
 const createPromptSchema = z.object({
   prompt: z
@@ -20,6 +22,10 @@ const createPromptSchema = z.object({
   source: z.string().optional(),
   projectId: z.string().optional(),
   payload: auditHandoffPayloadSchema.optional(),
+  auditBuildAttemptId: z.string().uuid().optional(),
+  auditBuildOwnerId: z.string().min(1).max(256).optional(),
+  /** Fail-closed MiniWizard receipt; stored on the existing handoff payload. */
+  wizardSnapshot: z.record(z.string(), z.unknown()).optional(),
   /** Kostnadsfri flow only: the invited slug, so "skapad" is recorded server-side. */
   kostnadsfriSlug: z
     .string()
@@ -77,7 +83,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { prompt, source, projectId, kostnadsfriSlug, payload } = validation.data;
+      const {
+        prompt, source, projectId, kostnadsfriSlug, payload, wizardSnapshot, auditBuildAttemptId, auditBuildOwnerId,
+      } = validation.data;
       const trimmedPrompt = prompt.trim();
       if (!trimmedPrompt) {
         return NextResponse.json({ success: false, error: "Prompt is required" }, { status: 400 });
@@ -85,6 +93,47 @@ export async function POST(request: NextRequest) {
 
       const user = await getCurrentUser(request);
       const sessionId = session.sessionId;
+      if (auditBuildAttemptId) {
+        if (source !== "audit" || !payload || projectId) {
+          return attachSessionCookie(NextResponse.json(
+            { success: false, error: "Ogiltig analys-handoff." }, { status: 400 },
+          ));
+        }
+        if (!user?.id) {
+          return attachSessionCookie(NextResponse.json(
+            { success: false, error: "Logga in för att bygga hemsidan." }, { status: 401 },
+          ));
+        }
+        if (auditBuildOwnerId && auditBuildOwnerId !== user.id) {
+          return attachSessionCookie(NextResponse.json(
+            { success: false, error: "Inloggningen har ändrats. Ladda om analysen och försök igen." }, { status: 409 },
+          ));
+        }
+        const { createAuditProjectHandoff, AuditBuildHandoffError } = await import(
+          "@/lib/db/services/audit-build-handoff"
+        );
+        try {
+          const handoff = await createAuditProjectHandoff({
+            attemptId: auditBuildAttemptId, userId: user.id,
+            isPaidUser: user.diamonds > 100, payload,
+          });
+          // Cache is an acceleration, never part of the transaction's success ACK.
+          await Promise.all([
+            deleteCache("projects:list"), deleteCache(`projects:list:user:${user.id}`),
+            deleteCache(`projects:list:user:${user.id}:session:${sessionId}`),
+          ]).catch((error) => {
+            console.warn("[API/prompts] Audit project-list cache invalidation failed", error);
+          });
+          return attachSessionCookie(NextResponse.json({ success: true, ...handoff }));
+        } catch (error) {
+          if (error instanceof AuditBuildHandoffError) {
+            return attachSessionCookie(NextResponse.json(
+              { success: false, error: error.message, ...(error.code ? { code: error.code } : {}) }, { status: error.status },
+            ));
+          }
+          throw error;
+        }
+      }
       if (!user?.id && !sessionId) {
         return attachSessionCookie(
           NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
@@ -129,7 +178,23 @@ export async function POST(request: NextRequest) {
             ),
           );
         }
+        if (compiledPromptHasHospitalityGamingConflict(trimmedPrompt)) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                success: false,
+                error:
+                  "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+                code: "kostnadsfri_industry_conflict",
+              },
+              { status: 409 },
+            ),
+          );
+        }
       }
+
+      const kostnadsfriSnapshot =
+        source === "kostnadsfri" ? sanitizeKostnadsfriWizardSnapshot(wizardSnapshot) : null;
 
       const created = await createPromptHandoff({
         prompt: trimmedPrompt,
@@ -137,7 +202,12 @@ export async function POST(request: NextRequest) {
         projectId: projectId || null,
         userId: user?.id || null,
         sessionId: sessionId || null,
-        payload: source === "audit" ? payload ?? null : null,
+        payload:
+          source === "audit"
+            ? payload ?? null
+            : kostnadsfriSnapshot
+              ? { wizardSnapshot: kostnadsfriSnapshot }
+              : null,
       });
 
       if (source === "kostnadsfri" && kostnadsfriSlug) {

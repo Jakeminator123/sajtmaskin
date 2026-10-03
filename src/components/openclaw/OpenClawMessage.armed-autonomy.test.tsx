@@ -68,6 +68,7 @@ afterEach(() => {
       powersOn: false,
       grantedPowers: [],
       armedMandate: null,
+      armedContinuation: null,
     });
   });
   vi.clearAllMocks();
@@ -179,5 +180,102 @@ describe("OpenClawMessage — armed auto-send överlever omrenderingar (SM-026)"
 
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Skickad till buildern/i)).toBeTruthy();
+  });
+});
+
+describe("OpenClawMessage — armed auto-send gates", () => {
+  function followupFillMessage(id: string, timestamp: number): Msg {
+    return {
+      id,
+      role: "assistant",
+      timestamp,
+      content: [
+        "Kör nästa follow-up.",
+        "<openclaw-action>",
+        JSON.stringify({
+          type: "fill_text_field",
+          target: "builder.chat.primary",
+          value: "Gör hero-rubriken tydligare",
+          submit: true,
+          label: "Builder-chatten",
+        }),
+        "</openclaw-action>",
+      ].join("\n"),
+    };
+  }
+
+  it("never clicks send for submit:true without an active mandate", async () => {
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
+      armedMandate: null,
+    });
+
+    render(<OpenClawMessage msg={followupFillMessage("msg-no-mandate", Date.now())} />);
+
+    expect(screen.getByText("Fältförslag")).toBeTruthy();
+    expect(screen.queryByText(/Armerad autonomi · auto-send/i)).toBeNull();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("sends exactly once for a new assistant action under an active mandate", async () => {
+    const armedAt = Date.now() - 1_000;
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
+      armedMandate: {
+        mode: "followups",
+        remaining: 3,
+        reason: "gör 3 follow-ups",
+        createdAt: armedAt,
+      },
+    });
+
+    render(<OpenClawMessage msg={followupFillMessage("msg-once-send", armedAt + 500)} />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
+  });
+
+  it("does not double-send when the armed card remounts", async () => {
+    const armedAt = Date.now() - 1_000;
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
+      armedMandate: {
+        mode: "followups",
+        remaining: 3,
+        reason: "gör 3 follow-ups",
+        createdAt: armedAt,
+      },
+    });
+
+    const msg = followupFillMessage("msg-remount-send", armedAt + 500);
+    const { unmount } = render(<OpenClawMessage msg={msg} />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+
+    unmount();
+    render(<OpenClawMessage msg={msg} />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 });

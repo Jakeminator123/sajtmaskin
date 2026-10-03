@@ -1,31 +1,34 @@
 import type { MetadataRoute } from "next";
-import { URLS } from "@/lib/config";
+import { publicCanonicalPath } from "@/lib/public-canonical-url";
 import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry";
-
-const BASE_URL = URLS.baseUrl;
 
 /**
  * Relativa marknads-/juridik-vägar i sitemap (för regression).
  * **Checklista när du lägger till en ny publik sida:**
  * - Vanlig produktsida: skapa `src/app/.../page.tsx`, lägg vägen här,
  *   uppdatera relevant footer om sidan ska länkas, kör sitemap-testet.
+ *   `/exempel` länkas från nav och startsida; `LandingFooter` lämnas orörd.
  * - SEO-landningssida: registrera i `src/lib/seo-landing-pages/registry.ts`
  *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
  *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
+ *
+ * Auth-gatingade eller noindex-ytor (`/buy-credits`, `/analys`, `/builder`, …)
+ * hör inte här. `lastModified` utelämnas medvetet — körningstid är inte ett
+ * ändringsdatum.
  */
 export const STATIC_SITEMAP_REL_PATHS = [
   "",
   "/templates",
   "/teknik",
-  "/buy-credits",
   "/faq",
   "/om",
+  "/exempel",
   "/blogg",
   "/terms",
   "/privacy",
 ] as const;
 
-const CATEGORIES = [
+export const SITEMAP_CATEGORY_SLUGS = [
   "ai",
   "animations",
   "components",
@@ -35,55 +38,16 @@ const CATEGORIES = [
   "layouts",
   "website-templates",
   "apps-and-games",
-];
+] as const;
+
+function sitemapEntry(path: string): MetadataRoute.Sitemap[number] {
+  return { url: publicCanonicalPath(path) };
+}
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-
-  const staticPriorities: Record<string, number> = {
-    "": 1.0,
-    "/templates": 0.9,
-    "/teknik": 0.8,
-    "/buy-credits": 0.7,
-    "/faq": 0.5,
-    "/om": 0.45,
-    "/blogg": 0.45,
-    "/terms": 0.3,
-    "/privacy": 0.3,
-  };
-
-  const staticFrequencies: Record<string, "weekly" | "monthly" | "yearly"> = {
-    "": "weekly",
-    "/templates": "weekly",
-    "/teknik": "monthly",
-    "/buy-credits": "monthly",
-    "/faq": "monthly",
-    "/om": "monthly",
-    "/blogg": "weekly",
-    "/terms": "yearly",
-    "/privacy": "yearly",
-  };
-
-  const staticPages: MetadataRoute.Sitemap = STATIC_SITEMAP_REL_PATHS.map((path) => ({
-    url: path === "" ? BASE_URL : `${BASE_URL}${path}`,
-    lastModified: now,
-    changeFrequency: staticFrequencies[path] ?? "monthly",
-    priority: staticPriorities[path] ?? 0.5,
-  }));
-
-  const categoryPages: MetadataRoute.Sitemap = CATEGORIES.map((category) => ({
-    url: `${BASE_URL}/category/${category}`,
-    lastModified: now,
-    changeFrequency: "weekly" as const,
-    priority: 0.7,
-  }));
-
-  const landingPages: MetadataRoute.Sitemap = getIndexableSeoLandingRelPaths().map((path) => ({
-    url: `${BASE_URL}${path}`,
-    lastModified: now,
-    changeFrequency: "weekly" as const,
-    priority: 0.8,
-  }));
-
-  return [...staticPages, ...categoryPages, ...landingPages];
+  return [
+    ...STATIC_SITEMAP_REL_PATHS.map((path) => sitemapEntry(path)),
+    ...SITEMAP_CATEGORY_SLUGS.map((category) => sitemapEntry(`/category/${category}`)),
+    ...getIndexableSeoLandingRelPaths().map((path) => sitemapEntry(path)),
+  ];
 }

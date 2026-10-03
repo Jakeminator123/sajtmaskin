@@ -3,8 +3,8 @@
  * pekar på RÄTT Supabase-projekt för den avsedda miljön (dev/prod), enligt
  * den kanoniska mappningen i `config/db-targets.json`.
  *
- * Syfte: stoppa dev/prod-förvirring — t.ex. att CI:s prod-migrationer körs
- * mot dev-databasen, eller att en lokal `.env.local` råkar peka på prod.
+ * Syfte: stoppa dev/prod-förvirring — t.ex. att CI:s prod-ledgerkontroll läser
+ * dev-databasen, eller att en lokal `.env.local` råkar peka på prod.
  *
  * Användning:
  *   node scripts/db/check-db-env-target.mjs --expect=prod   # CI-prod-guard

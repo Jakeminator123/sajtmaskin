@@ -4,6 +4,7 @@ import {
   runProjectSanityChecks,
 } from "./project-sanity";
 import type { CodeFile } from "@/lib/gen/parser";
+import { INCIDENT_V0_PACKAGE_JSON } from "./package-tree-compat";
 
 describe("runProjectSanityChecks", () => {
   afterEach(() => {
@@ -693,5 +694,67 @@ export function ThemeToggle() {
         issue.message.includes("useTheme() but root layout does not wrap"),
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    { next: "16.2.3", react: "18.3.1" },
+    { next: "15.5.4", react: "^19" },
+  ])("does not invent a Next/React peer failure for %j", (dependencies) => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: JSON.stringify({ dependencies }) },
+    ]);
+    expect(
+      result.issues.filter((issue) => issue.category === "dependency_install_failure"),
+    ).toEqual([]);
+  });
+
+  it.each(["package.json", "src/package.json"])("flags the incident Next 14 + React 19 ERESOLVE tree in %s", (path) => {
+    const result = runProjectSanityChecks([
+      {
+        path,
+        language: "json",
+        content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON),
+      },
+    ]);
+    const issue = result.issues.find((entry) => entry.subject === "package-tree:next_react_peer_eresolve");
+    expect(issue?.severity).toBe("error");
+    expect(issue?.category).toBe("dependency_install_failure");
+    expect(issue?.message).toMatch(/14\.2\.25/);
+    expect(issue?.message).toMatch(/\^19/);
+    expect(issue?.file).toBe(path);
+    expect(result.valid).toBe(false);
+  });
+  it.each(["package.json", "src/package.json"])("requires selection evidence for unlocked cross-contract peers in %s", (path) => {
+    const result = runProjectSanityChecks([{ path, language: "json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }]);
+    expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
+    expect(result.valid).toBe(false);
+  });
+  it.each(["package.json", "src/package.json"])("holds an open-ended Next range in %s until a verified pair is selected", (path) => {
+    const result = runProjectSanityChecks([{ path, language: "json", content: JSON.stringify({ dependencies: { next: ">=14", react: "17.0.2" } }) }]);
+    expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
+    expect(result.valid).toBe(false);
+  });
+  it.each(["package.json", "src/package.json"])("holds mixed Next 14/15 choices until a coherent sibling lock proves selection in %s", (path) => {
+    const pkg = { path, language: "json", content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) };
+    const unresolved = runProjectSanityChecks([pkg]);
+    expect(unresolved.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
+    expect(unresolved.issues.some((issue) => issue.subject === "package-tree:next_react_peer_eresolve")).toBe(false);
+    const resolved = runProjectSanityChecks([pkg, {
+      path: path.replace("package.json", "package-lock.json"), language: "json",
+      content: JSON.stringify({ packages: { "node_modules/next": { version: "15.5.4" }, "node_modules/react": { version: "19.0.0" } } }),
+    }]);
+    expect(resolved.issues.filter((issue) => issue.category === "dependency_install_failure")).toEqual([]);
+  });
+  it.each([["11.1.4", "19.0.0"], ["16.2.3", "17.0.2"]])("retains proven peer errors outside Next 12-14 in sanity for %s/%s", (next, react) => {
+    const result = runProjectSanityChecks([{ path: "package.json", language: "json", content: JSON.stringify({ dependencies: { next, react } }) }]);
+    expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_eresolve")?.severity).toBe("error");
+    expect(result.valid).toBe(false);
+  });
+  it("keeps root manifest priority when a different src manifest also exists", () => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: JSON.stringify({ dependencies: { next: "16.2.3", react: "18.2.0" } }) },
+      { path: "src/package.json", language: "json", content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON) },
+    ]);
+    expect(result.issues.filter((issue) => issue.category === "dependency_install_failure")).toEqual([]);
   });
 });

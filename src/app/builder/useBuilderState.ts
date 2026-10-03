@@ -9,6 +9,7 @@ import {
   type BuildMethod,
 } from "@/lib/builder/build-intent";
 import { deriveBuilderEntryState } from "./builder-entry";
+import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import {
   getDefaultPaletteState,
@@ -143,6 +144,11 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     });
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [scaffoldMode]);
+
+  useEffect(() => {
+    if (!entry.forceNew) return;
+    noteGoogleAdsConversion("builder_start");
+  }, [entry.forceNew]);
 
   const effectiveThinking = enableThinking;
   const resolvedBuildIntent = useMemo(

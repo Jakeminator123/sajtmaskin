@@ -7,7 +7,14 @@ import type { ScrapedSiteImage, WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 // Crawl settings
-const MAX_PAGES = 4; // root + up to three strong internal pages
+const MAX_PAGES = 4; // absolute ceiling: root + up to three strong internal pages
+
+export function resolveScrapePageLimit(maxPages?: number): number {
+  if (typeof maxPages === "number" && Number.isFinite(maxPages)) {
+    return Math.max(1, Math.min(MAX_PAGES, Math.floor(maxPages)));
+  }
+  return MAX_PAGES;
+}
 const PRIMARY_MIN_WORDS = 160; // prefer pages with real copy, not just hero
 const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
 const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
@@ -915,7 +922,11 @@ export async function quickScrapeWebsite(url: string): Promise<{
  * Scrape website content for audit analysis.
  * Tries to pick a meaningful entry page and pulls a few internal pages for context.
  */
-export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
+export async function scrapeWebsite(
+  url: string,
+  options?: { maxPages?: number },
+): Promise<WebsiteContent> {
+  const pageLimit = resolveScrapePageLimit(options?.maxPages);
   const normalizedUrl = normalizeInputUrl(url);
   if (!normalizedUrl) {
     throw new Error("URL måste anges");
@@ -988,7 +999,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   }
 
   // Crawl top-scoring internal links until we reach the cap or run out of good candidates
-  while (candidateQueue.length > 0 && pages.length < MAX_PAGES) {
+  while (candidateQueue.length > 0 && pages.length < pageLimit) {
     const candidate = candidateQueue.shift();
     if (!candidate || visited.has(candidate.url)) continue;
 
@@ -1022,7 +1033,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 
   const pagesForAggregation: ParsedPage[] = [];
   const addForAggregation = (p: ParsedPage) => {
-    if (pagesForAggregation.length >= MAX_PAGES) return;
+    if (pagesForAggregation.length >= pageLimit) return;
     if (pagesForAggregation.some((x) => x.url === p.url)) return;
     pagesForAggregation.push(p);
   };
@@ -1032,7 +1043,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 
   const aggregationSource = aggregationCandidates.length > 0 ? aggregationCandidates : pages;
   for (const page of aggregationSource) {
-    if (pagesForAggregation.length >= MAX_PAGES) break;
+    if (pagesForAggregation.length >= pageLimit) break;
     addForAggregation(page);
   }
 

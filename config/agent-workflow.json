@@ -2,6 +2,7 @@
   "$schema": "../docs/schemas/strict/agent-workflow.schema.json",
   "schemaVersion": 1,
   "trunk": "master",
+  "deliveryBranch": "preview",
   "allowedBranchPrefixes": [],
   "branchPrefixExemptActors": ["dependabot[bot]"],
   "immutableRemoteBranchPatterns": ["*BRA*", "rescue/*"],
@@ -35,6 +36,7 @@
     "dossier-acceptance": "dossier-acceptance.yml"
   },
   "manualMergePathPrefixes": [
+    ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",

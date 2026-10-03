@@ -66,12 +66,16 @@ describe("doctor — MCP", () => {
 
   it("namnger servrar som saknas lokalt", () => {
     const verdict = checkMcp({ live: ["vercel"], template: ["vercel", "context7"] });
-    expect(verdict.level).toBe("note");
+    expect(verdict.level).toBe("info");
     expect(verdict.message).toContain("context7");
   });
 
-  it("varnar när live-filen saknas helt", () => {
-    expect(checkMcp({ live: null, template: ["vercel"] }).level).toBe("warn");
+  it("rapporterar valfri saknad projektfil utan varning eller påstående om globala anslutningar", () => {
+    const verdict = checkMcp({ live: null, template: ["vercel"] });
+    expect(verdict.level).toBe("info");
+    expect(verdict.message).toContain("valfri");
+    expect(verdict.message).toContain("Codex-verktyg kontrolleras inte");
+    expect(verdict.fix).toContain("-- <sökväg>");
   });
 });
 
@@ -143,7 +147,10 @@ describe("doctor — dubblerade skills", () => {
       commandMirrors: [],
     });
     expect(findings[0].level).toBe("warn");
-    expect(findings[0].message).toContain("2 skills");
+    expect(findings[0].message).toContain("2 skillnamn");
+    expect(findings[0].message).toContain("möjlig dubbelladdning");
+    expect(findings[0].fix).toContain("Behåll den delade ~/.agents/skills-roten");
+    expect(findings[0].fix).not.toContain("Flytta undan");
   });
 
   it("hittar source-command-speglingar som warn, så --quiet visar dem", () => {
@@ -157,6 +164,7 @@ describe("doctor — dubblerade skills", () => {
     });
     expect(findings[0].level).toBe("warn");
     expect(findings[0].message).toContain("2 source-command");
+    expect(findings[0].fix).not.toContain("Remove-Item");
   });
 
   it("är tyst när rötterna inte överlappar", () => {

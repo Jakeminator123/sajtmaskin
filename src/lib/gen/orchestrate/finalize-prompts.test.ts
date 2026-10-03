@@ -45,6 +45,15 @@ vi.mock("../scaffold-variants", async (importOriginal) => {
   };
 });
 
+// Testa den riktiga keyword-matchningen utan nätberoende till Blob/OpenAI.
+// Embedding-matchningen har egna tester i scaffold-variants/matcher.test.ts.
+vi.mock("@/lib/gen/embeddings/embeddings-storage", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/lib/gen/embeddings/embeddings-storage")
+  >();
+  return { ...actual, loadEmbeddingsArtifact: vi.fn(async () => null) };
+});
+
 import {
   finalizeOrchestrationPrompts,
   shouldResolveVariantTemplateInspiration,
@@ -188,8 +197,7 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     const base = await resolveOrchestrationBase(input);
     const finalized = await finalizeOrchestrationPrompts(base, input);
 
-    expect(finalized.variantSelection.source).not.toBe("hint-fallback");
-    expect(["keyword", "embedding"]).toContain(finalized.variantSelection.source);
+    expect(finalized.variantSelection.source).toBe("keyword");
     expect(finalized.variantSelection.hintId).toBe("nature-flow");
     expect(finalized.variantSelection.finalId).toBeTruthy();
     expect(finalized.variantSelection.changedFromHint).toBe(

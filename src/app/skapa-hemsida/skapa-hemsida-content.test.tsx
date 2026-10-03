@@ -27,10 +27,8 @@ describe("SkapaHemsidaContent", () => {
     expect(headings[0]?.textContent).toBe(entry.plannedH1);
 
     const ctaLinks = screen.getAllByRole("link", { name: "Skapa hemsida" });
-    expect(ctaLinks.length).toBeGreaterThan(0);
-    expect(ctaLinks.every((link) => link.getAttribute("href") === SEO_LANDING_CTA_HREF)).toBe(
-      true,
-    );
+    expect(ctaLinks.some((link) => link.getAttribute("href") === SEO_LANDING_CTA_HREF)).toBe(true);
+    expect(ctaLinks.every((link) => link.getAttribute("href") !== "/skapa-hemsida")).toBe(true);
 
     expect(
       screen.getAllByRole("link", { name: "Se hur AI-vägen fungerar" }).every(
@@ -38,10 +36,17 @@ describe("SkapaHemsidaContent", () => {
       ),
     ).toBe(true);
 
+    expect(
+      screen.getByRole("link", { name: /^Vad kostar en hemsida$/ }).getAttribute("href"),
+    ).toBe("/vad-kostar-en-hemsida");
+    expect(screen.queryByText(/kostnadsdelar kommer senare/i)).toBeNull();
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("skapa-hemsida-med-ai");
     for (const slug of readyRelated) {
       const related = getSeoLandingEntry(slug);
+      expect(related.status).toBe("ready");
       expect(screen.getByRole("link", { name: related.title }).getAttribute("href")).toBe(
         `/${slug}`,
       );

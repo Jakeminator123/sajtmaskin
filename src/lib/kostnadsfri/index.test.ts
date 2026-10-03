@@ -10,6 +10,7 @@ import {
   extractCompanyData,
   generatePassword,
   hasKostnadsfriPasswordSecret,
+  KostnadsfriIndustryConflictError,
   type MiniWizardData,
 } from "./index";
 
@@ -191,6 +192,59 @@ describe("buildPromptFromWizardData — profilen når inte prompten", () => {
     expect(prompt).not.toContain("HEMLIG PROFILTEXT");
     expect(prompt).not.toContain("Revisorsgatan");
     expect(prompt).not.toContain("559599-5639");
+  });
+});
+
+describe("buildPromptFromWizardData — bransch vs verksamhet", () => {
+  it("does not turn industry=null and a lottery/gaming description into a restaurant brief", () => {
+    const prompt = buildPromptFromWizardData(
+      wizardData({
+        industry: "",
+        description: "Bolaget utvecklar lotteri- och spelplattformar för reglerade marknader.",
+        usp: "Licensierad igaming-plattform",
+      }),
+    );
+
+    expect(prompt).not.toMatch(/Restaurang\/Bar/);
+    expect(prompt).not.toMatch(/Meny/);
+    expect(prompt).not.toMatch(/Boka bord/);
+    expect(promptPagePriorities(prompt)).toEqual(["Hem", "Tjänster", "Kontakt", "Om oss"]);
+    expect(prompt).toMatch(/a general company/);
+  });
+
+  it("refuses a restaurant industry plus lottery/gaming description instead of a hybrid prompt", () => {
+    expect(() =>
+      buildPromptFromWizardData(
+        wizardData({
+          industry: "restaurant",
+          description: "Lotteri och spelplattformar med spellicens.",
+        }),
+      ),
+    ).toThrow(KostnadsfriIndustryConflictError);
+
+    expect(() =>
+      buildPromptFromWizardData(wizardData({ industry: "", description: "Casino och sportsbook" }), {
+        industryId: "restaurant",
+      }),
+    ).toThrow(KostnadsfriIndustryConflictError);
+  });
+
+  it("still compiles a matching restaurant brief", () => {
+    const prompt = buildPromptFromWizardData(
+      wizardData({
+        industry: "restaurant",
+        description: "Husmanskost och bar i Gamla stan.",
+      }),
+    );
+
+    expect(prompt).toContain("Restaurang/Bar");
+    expect(promptPagePriorities(prompt)).toEqual([
+      "Hem",
+      "Meny",
+      "Kontakt",
+      "Boka bord",
+      "Om oss",
+    ]);
   });
 });
 

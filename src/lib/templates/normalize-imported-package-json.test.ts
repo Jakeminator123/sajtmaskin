@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
+import { INCIDENT_V0_PACKAGE_JSON } from "@/lib/gen/validation/package-tree-compat";
 import {
   MOTION_DOM_COMPAT_PIN,
   normalizeImportedRepoFiles,
@@ -244,5 +245,17 @@ describe("normalizeImportedRepoFiles — motion lockstep repair", () => {
     ).toHaveLength(0);
     expect(normalizeImportedRepoFiles([codeFile("app/page.tsx")]).applied).toHaveLength(0);
     expect(normalizeImportedRepoFiles([]).applied).toHaveLength(0);
+  });
+});
+
+describe("normalizeImportedRepoFiles — Next/React ERESOLVE detect (incident B)", () => {
+  it("detects the incident tree without rewriting it", () => {
+    const files = [pkgFile({ ...INCIDENT_V0_PACKAGE_JSON }), codeFile("app/page.tsx")];
+    const result = normalizeImportedRepoFiles(files);
+    expect(result.applied).toHaveLength(0);
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]?.nextRange).toBe("14.2.25");
+    expect(result.conflicts[0]?.reactRange).toBe("^19");
+    expect(parsePkg(result.files).dependencies).toEqual(INCIDENT_V0_PACKAGE_JSON.dependencies);
   });
 });

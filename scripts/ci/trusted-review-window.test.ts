@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import {
   createClient,
   deadlineDecision,
@@ -9,14 +11,11 @@ import {
   hasBaseInvalidation,
   invalidateForBasePush,
   latestInvalidatingFindingEpoch,
-  latestConversationEpoch,
-  mergeEvidenceFingerprint,
-  runTrustedMerge,
   runTrustedGate,
   reviewMutationRequiresNewSignoff,
   shouldRunTrustedGate,
   isIntegrityGateFailure,
-  targetsTrunk,
+  targetsDelivery,
   validateTrustedPrAiEvidence,
   validateAccountPrReviewEvidence,
 } from "./trusted-review-window.mjs";
@@ -56,6 +55,28 @@ const OTHER_HEAD = "b".repeat(40);
 const BASE = "c".repeat(40);
 const REPOSITORY = "example/repo";
 const TRUSTED_REVIEW = { valid: true, completedAtEpoch: 110 };
+
+describe("trusted controller cannot merge", () => {
+  it.each(["merge", "execute-merge", "unknown"])("rejects %s before credentials or API access", (mode) => {
+    const result = spawnSync(
+      process.execPath,
+      [resolve("scripts/ci/trusted-review-window.mjs"), mode],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          REPO: "",
+          GITHUB_REPOSITORY: "",
+          GH_TOKEN: "",
+          GITHUB_TOKEN: "",
+        },
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`Unsupported mode: ${mode}`);
+    expect(result.stderr).not.toContain("GH_TOKEN krävs");
+  });
+});
 
 describe("trusted gate event filter", () => {
   it.each([
@@ -289,7 +310,7 @@ function trustedReviewEvidence(headSha = HEAD) {
     version: 1,
     repository: REPOSITORY,
     prNumber: 1,
-    baseBranch: "master",
+    baseBranch: "preview",
     firstReviewedHeadSha: headSha,
     latestProcessedHeadSha: headSha,
     exhaustiveReviewCompleted: true,
@@ -2133,9 +2154,10 @@ describe("check workflow provenance", () => {
 });
 
 describe("trusted review-window check decisions", () => {
-  it("publicerar aldrig required check på PR mot annan base än trunk", () => {
-    expect(targetsTrunk({ base: { ref: "master" } }, { trunk: "master" } as never)).toBe(true);
-    expect(targetsTrunk({ base: { ref: "preview" } }, { trunk: "master" } as never)).toBe(false);
+  it("publicerar aldrig required check på PR mot annan base än preview", () => {
+    const policy = { deliveryBranch: "preview" } as never;
+    expect(targetsDelivery({ base: { ref: "preview" } }, policy)).toBe(true);
+    expect(targetsDelivery({ base: { ref: "master" } }, policy)).toBe(false);
   });
 
   it("kräver required checks men låter saknat reviewkvitto bara noteras", () => {
@@ -2168,7 +2190,21 @@ describe("trusted review-window check decisions", () => {
       policy as never,
     );
     expect(cursorBugbot.botsDone).toBe(true);
-    expect(cursorBugbot.completedSuccess).toBeGreaterThan(0);
+    expect(cursorBugbot.completedSuccess).toBe(0);
+    expect(gateSuccessReason(cursorBugbot)).toContain("blockerar inte");
+
+    const completedReview = evaluateHeadChecks(
+      [
+        ...greenRuns(),
+        run("Cursor Bugbot", {
+          app: { id: 88, slug: "cursor" },
+          conclusion: "success",
+          provenance: { kind: "external", valid: true },
+        }),
+      ],
+      policy as never,
+    );
+    expect(completedReview.completedSuccess).toBe(1);
 
     const missingServerTime = evaluateHeadChecks(
       greenRuns().map((item) =>
@@ -2385,71 +2421,10 @@ describe("trusted review-window finding order", () => {
   });
 });
 
-describe("final merge evidence", () => {
-  it("räknar alla reviews och kommentarer men undantar själva kommandot", () => {
-    const evidence = {
-      issueComments: [
-        { id: 7, created_at: at(100), updated_at: at(120) },
-        { id: 9, created_at: at(500), updated_at: at(500) },
-      ],
-      reviews: [{ id: 2, submitted_at: at(130), updated_at: at(130) }],
-      reviewComments: [{ id: 3, created_at: at(140), updated_at: at(150) }],
-    };
-    expect(latestConversationEpoch(evidence as never, 9)).toEqual({
-      valid: true,
-      latestEpoch: 150,
-    });
-    expect(
-      latestConversationEpoch(
-        { ...evidence, reviews: [{ id: 2, submitted_at: at(130), updated_at: null }] } as never,
-        9,
-      ).valid,
-    ).toBe(false);
-  });
-
-  it("fingerprintar även bodyändringar utan att exponera bodytexten", () => {
-    const base = {
-      evidence: {
-        pr: {
-          number: 1,
-          state: "open",
-          draft: false,
-          head: { sha: HEAD },
-          base: { ref: "master" },
-          labels: [{ name: "merge:ready" }],
-        },
-        baseSha: BASE,
-        baseIsAncestor: true,
-        issueComments: [{ id: 1, body: "hemligt", created_at: at(100), updated_at: at(100) }],
-        reviews: [],
-        reviewComments: [],
-      },
-      checkRuns: [],
-      commandComment: {
-        id: 9,
-        body: "command",
-        created_at: at(200),
-        updated_at: at(200),
-        user: { login: "owner", type: "User" },
-        author_association: "OWNER",
-      },
-    };
-    const first = mergeEvidenceFingerprint(base as never);
-    const second = mergeEvidenceFingerprint({
-      ...base,
-      evidence: {
-        ...base.evidence,
-        issueComments: [{ ...base.evidence.issueComments[0], body: "ändrat" }],
-      },
-    } as never);
-    expect(first).not.toBe(second);
-    expect(first).not.toContain("hemligt");
-  });
-});
-
 function integrationPolicy() {
   return {
     trunk: "master",
+    deliveryBranch: "preview",
     requiredChecks: policy.requiredChecks,
     requiredCheckOwners: policy.requiredCheckOwners,
     review: {
@@ -2551,7 +2526,7 @@ function integrationHarness({
     state: "open",
     draft,
     changed_files: changedFiles.length,
-    base: { ref: "master" },
+    base: { ref: "preview" },
     head: { sha: HEAD, ref: "feature/test", repo: { full_name: REPOSITORY } },
     user: { login: "pr-author" },
     body: "",
@@ -2605,7 +2580,7 @@ function integrationHarness({
         patches.push({ path, ...(options.body ?? {}) });
         return options.body;
       }
-      if (path === "/git/ref/heads/master") {
+      if (path === "/git/ref/heads/preview") {
         counters.evidence += 1;
         return { object: { sha: BASE } };
       }
@@ -2656,340 +2631,13 @@ function integrationHarness({
   return { client, patches, counters };
 }
 
-function mergeHarness({
-  failDispatch = false,
-  invalidSignoff = false,
-  includeForgedWindow = false,
-  missingReviewReceipt = false,
-  failedRequiredCheck = false,
-  newerBotFinding = false,
-  editedBotReview = false,
-  workflowFileChange = false,
-  workflowRename = false,
-  duplicateFiles = false,
-} = {}) {
-  const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
-  let mutateConversation = false;
-  const changedFiles = workflowFileChange
-    ? [{ filename: ".github/workflows/new.yml" }]
-    : workflowRename
-      ? [{ filename: "docs/renamed.yml", previous_filename: ".github/workflows/ci.yml" }]
-      : duplicateFiles
-        ? [{ filename: "README.md" }, { filename: "README.md" }]
-        : [];
-  const pr = {
-    number: 1,
-    state: "open",
-    draft: false,
-    changed_files: changedFiles.length,
-    base: { ref: "master" },
-    head: { sha: HEAD },
-    user: { login: "pr-author" },
-    labels: [{ name: "merge:ready" }],
-  };
-  const command = {
-    id: 77,
-    issue_url: "https://api.github.com/repos/example/repo/issues/1",
-    body: `merge:execute — head-sha: ${HEAD}, base-sha: ${BASE}, at: 1970-01-01T00:03:20Z, bugkoll: trusted, triage: klar, P0/P1: 0`,
-    created_at: at(200),
-    updated_at: at(200),
-    user: { login: "maintainer", type: "User" },
-    author_association: "MEMBER",
-  };
-  const signoff = {
-    id: 55,
-    body: invalidSignoff
-      ? "saknar verifierbar sign-off"
-      : `merge:ready — head-sha: ${HEAD}, base-sha: ${BASE}, at: 1970-01-01T00:02:30Z, bugkoll: trusted, triage: klar, P0/P1: 0`,
-    created_at: at(150),
-    updated_at: at(150),
-    user: { login: "pr-author", type: "User" },
-    author_association: "NONE",
-  };
-  // Samma GitHub Actions-app och ett självvalt external_id är avsiktligt inte
-  // tillräckligt för merge. Harnessen behandlar denna som möjlig förfalskning.
-  const forgedWindow = run("review-window", {
-    id: 900,
-    external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:100`,
-    completed_at: at(120),
-  });
-  const coreChecks = greenRuns().map((item) =>
-    failedRequiredCheck && item.name === "quality" ? { ...item, conclusion: "failure" } : item,
-  );
-  const checks = rawChecks([...coreChecks, ...(includeForgedWindow ? [forgedWindow] : [])]);
-  const reviewEvidence = trustedReviewEvidence();
-  const editedReview = {
-    id: 654,
-    body: "<!-- BUGBOT_REVIEW --> P1 tillagt efter mandatet",
-    state: "COMMENTED",
-    commit_id: HEAD,
-    submitted_at: at(100),
-    updated_at: at(250),
-    user: { login: "cursor[bot]", type: "Bot" },
-    author_association: "NONE",
-  };
-  const client = {
-    repository: REPOSITORY,
-    async request(path: string, options: { method?: string; body?: Record<string, unknown> } = {}) {
-      calls.push({ path, method: options.method ?? "GET", body: options.body });
-      if (path === "/pulls/1") return structuredClone(pr);
-      if (path === "/issues/comments/77") return structuredClone(command);
-      if (path === "/git/ref/heads/master") return { object: { sha: BASE } };
-      if (path === `/compare/${BASE}...${HEAD}`) {
-        return { status: "ahead", merge_base_commit: { sha: BASE } };
-      }
-      if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
-        return { workflow_runs: [canonicalWorkflowRun()] };
-      }
-      if (path.startsWith("/actions/workflows/dossier-acceptance.yml/runs?")) {
-        const owned = ownedWorkflowRunForSuite(checks, 761);
-        return { workflow_runs: owned ? [owned] : [] };
-      }
-      if (path.startsWith("/actions/runs?check_suite_id=")) {
-        const suiteId = Number(
-          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
-        );
-        const owned = ownedWorkflowRunForSuite(checks, suiteId);
-        return { workflow_runs: owned ? [owned] : [] };
-      }
-      if (path === "/pulls/1/merge" && options.method === "PUT") {
-        return { merged: true, sha: "d".repeat(40) };
-      }
-      if (path.startsWith("/actions/workflows/") && options.method === "POST") {
-        if (failDispatch && path.includes("db-blob-sync-check.yml")) {
-          throw new Error("dispatch unavailable");
-        }
-        return null;
-      }
-      throw new Error(`unexpected request ${options.method ?? "GET"} ${path}`);
-    },
-    async listReviewsWithServerTimes() {
-      return [
-        ...(missingReviewReceipt ? [] : structuredClone(reviewEvidence.reviews)),
-        ...(editedBotReview ? [structuredClone(editedReview)] : []),
-      ];
-    },
-    async paginate(path: string) {
-      if (path === "/pulls?state=open&base=master") return [];
-      if (path.startsWith(`/commits/${HEAD}/check-runs`)) return structuredClone(checks);
-      if (path === "/issues/1/comments") {
-        return [
-          ...(missingReviewReceipt ? [] : structuredClone(reviewEvidence.issueComments)),
-          {
-            ...structuredClone(signoff),
-            body: mutateConversation
-              ? String(signoff.body).replace("triage: klar", "triage: omkontrollerad")
-              : signoff.body,
-          },
-          ...(newerBotFinding
-            ? [
-                {
-                  id: 56,
-                  body: "<!-- BUGBOT_REVIEW --> nytt blockerande fynd",
-                  created_at: at(175),
-                  updated_at: at(175),
-                  user: { login: "cursor[bot]", type: "Bot" },
-                  author_association: "NONE",
-                },
-              ]
-            : []),
-          structuredClone(command),
-        ];
-      }
-      if (path === "/pulls/1/comments") return [];
-      if (path === "/pulls/1/files") return structuredClone(changedFiles);
-      if (path.startsWith("/actions/runs/500/attempts/1/jobs")) return canonicalJobs(checks);
-      if (path.startsWith("/actions/runs/9601/attempts/1/jobs")) return ownedJobs(checks);
-      throw new Error(`unexpected paginate ${path}`);
-    },
-  };
-  return {
-    client,
-    calls,
-    mutate: () => {
-      mutateConversation = true;
-    },
-  };
-}
-
 describe("trusted review-window controller", () => {
-  it("mergar bara via squash med expected head efter stabil dubbel live-evidens", async () => {
-    const { client, calls } = mergeHarness();
-    const result = await runTrustedMerge({
-      client: client as never,
-      prNumber: 1,
-      commentId: 77,
-      pause: async () => undefined,
-      settleSeconds: 1,
-      policy: integrationPolicy() as never,
-    });
-    expect(result).toMatchObject({ merged: true, headSha: HEAD, baseSha: BASE });
-    expect(calls.find((call) => call.path === "/pulls/1/merge")).toMatchObject({
-      path: "/pulls/1/merge",
-      method: "PUT",
-      body: { sha: HEAD, merge_method: "squash" },
-    });
-    expect(
-      calls.filter((call) => call.path === `/compare/${BASE}...${HEAD}`).length,
-    ).toBeGreaterThan(3);
-    expect(calls).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: "/actions/workflows/ci.yml/dispatches",
-          method: "POST",
-          body: { ref: "master" },
-        }),
-        expect.objectContaining({
-          path: "/actions/workflows/db-blob-sync-check.yml/dispatches",
-          method: "POST",
-          body: { ref: "master" },
-        }),
-      ]),
-    );
-  });
-
-  it("låter aldrig ett förfalskningsbart review-window-kvitto ersätta live sign-off", async () => {
-    const { client, calls } = mergeHarness({
-      invalidSignoff: true,
-      includeForgedWindow: true,
-    });
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow("live sign-off avvisad");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it.each([
-    { name: "ny workflowfil", options: { workflowFileChange: true } },
-    { name: "workflowfilens tidigare namn", options: { workflowRename: true } },
-  ])("kräver explicit bootstrap för $name", async ({ options }) => {
-    const { client, calls } = mergeHarness(options);
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow("explicit bootstrap");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it("stoppar merge om GitHubs PR-fillista inte är entydigt komplett", async () => {
-    const { client, calls } = mergeHarness({ duplicateFiles: true });
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow("filistan kunde inte verifieras komplett");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it.each([
-    {
-      name: "röd required check",
-      options: { failedRequiredCheck: true },
-      message: "required checks är röda",
-    },
-    {
-      name: "nyare botfynd",
-      options: { newerBotFinding: true },
-      message: "live sign-off avvisad",
-    },
-    {
-      name: "bot-review som editerats efter mandatet",
-      options: { editedBotReview: true },
-      message: "live sign-off avvisad",
-    },
-  ])("låter inte förfalskad check dölja $name", async ({ options, message }) => {
-    const { client, calls } = mergeHarness({
-      ...options,
-      includeForgedWindow: true,
-    });
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow(message);
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it("mäter finalt sjuminutersgolv från GitHubs required-checktider", async () => {
-    const { client, calls } = mergeHarness();
-    const hardenedPolicy = integrationPolicy();
-    hardenedPolicy.review.minHeadAgeSeconds = 420;
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: hardenedPolicy as never,
-      }),
-    ).rejects.toThrow("granskningsfönstret");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it("avbryter om evidens ändras under settle-fönstret", async () => {
-    const { client, calls, mutate } = mergeHarness();
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => mutate(),
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow("evidens ändrades under merge-settle");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
-  });
-
-  it("rapporterar terminal merge tydligt om post-merge-dispatch misslyckas", async () => {
-    const { client, calls } = mergeHarness({ failDispatch: true });
-    await expect(
-      runTrustedMerge({
-        client: client as never,
-        prNumber: 1,
-        commentId: 77,
-        pause: async () => undefined,
-        settleSeconds: 1,
-        policy: integrationPolicy() as never,
-      }),
-    ).rejects.toThrow("PR #1 är redan mergad");
-    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(true);
-    expect(calls.some((call) => call.path.endsWith("ci.yml/dispatches"))).toBe(true);
-    expect(calls.some((call) => call.path.endsWith("db-blob-sync-check.yml/dispatches"))).toBe(
-      true,
-    );
-  });
-
-  it("gör no-op före checkskrivning när PR:n inte riktas mot trunk", async () => {
+  it("gör no-op före checkskrivning när PR:n inte riktas mot preview", async () => {
     let writes = 0;
     const client = {
       async request(path: string, options: { method?: string } = {}) {
         if (path === "/pulls/9") {
-          return { base: { ref: "preview" }, head: { sha: HEAD } };
+          return { base: { ref: "master" }, head: { sha: HEAD } };
         }
         if (options.method === "POST" || options.method === "PATCH") writes += 1;
         throw new Error(`unexpected ${path}`);
@@ -3000,7 +2648,7 @@ describe("trusted review-window controller", () => {
       prNumber: 9,
       policy: integrationPolicy() as never,
     });
-    expect(result).toEqual({ conclusion: "ignored", reason: "base preview" });
+    expect(result).toEqual({ conclusion: "ignored", reason: "base master" });
     expect(writes).toBe(0);
   });
 
@@ -3165,7 +2813,7 @@ describe("trusted review-window controller", () => {
     });
   });
 
-  it("blockerar exakt head före labelborttagning på master-push och lämnar drafts orörda", async () => {
+  it("blockerar exakt head före labelborttagning på preview-push och lämnar drafts orörda", async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const client = {
       async paginate(path: string) {

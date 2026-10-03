@@ -13,6 +13,7 @@ const EXTERNAL_MACHINE_ENDPOINTS = new Set([
   "/api/webhooks/v0",
   "/api/webhooks/vercel",
   "/api/kostnadsfri/unsubscribe",
+  "/api/admin/handoff",
 ]);
 
 /**

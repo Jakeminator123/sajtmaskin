@@ -133,6 +133,32 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
   });
+  it.each(["pnpm-lock.yaml", "yarn.lock"])("checks the ordinary deploy transformation instead of discarded %s evidence", async (path) => {
+    vi.stubEnv("SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX", "");
+    vi.stubEnv("DEPLOY_DISABLE_AUTO_FIX", "");
+    try {
+      getPreferredVersion.mockResolvedValue({ id: "ver_1", chat_id: "chat_1", lifecycle_stage: "design", verification_state: "passed", release_state: "promoted" });
+      const files = [
+        { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+        { path, content: path.startsWith("pnpm") ? "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" : '"next@^13.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n' },
+      ];
+      getVersionFiles.mockResolvedValue(files);
+      const original = JSON.stringify(files);
+      const { req, ctx } = readinessRequest();
+      const response = await GET(req, ctx);
+      const data = await response.json() as ReadinessBody;
+      expect(response.status).toBe(200);
+      expect(data.readiness?.canDeploy).toBe(false);
+      expect(data.readiness?.blockers.map((entry) => entry.id)).toContain("package-tree-eresolve-blocks-publish");
+      expect(JSON.stringify(files)).toBe(original);
+      // Match the same authoritative server-side skip policy as POST deploy.
+      vi.stubEnv("SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX", "1");
+      const preserved = await (await GET(req, ctx)).json() as ReadinessBody;
+      expect(preserved.readiness?.blockers.map((entry) => entry.id)).not.toContain("package-tree-eresolve-blocks-publish");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   // A1: the readiness poll is one of the four reads that 500:ed 29 times during
   // the 2026-07-13 pool exhaustion. A transient failure must be retryable.

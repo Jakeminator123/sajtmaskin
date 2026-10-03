@@ -5,6 +5,7 @@ import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
 import {
+  getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
@@ -143,9 +144,7 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
-export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
-  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
-}
+export const readyRelatedSeoLandingSlugs = getReadyRelatedSeoLandingSlugs;
 
 export function HemsidaUtanKodContent() {
   const entry = getSeoLandingEntry(SLUG);
@@ -191,15 +190,16 @@ export function HemsidaUtanKodContent() {
             <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <div>
                 <p className="mb-3 text-xs font-medium tracking-widest text-primary uppercase">
-                  Utan kod
+                  Skapa hemsida utan kod
                 </p>
                 <h1 className="text-balance font-(--font-heading) text-3xl leading-[1.1] tracking-tight text-foreground md:text-5xl">
                   {entry.plannedH1}
                 </h1>
                 <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
                   Utan kod betyder att du bygger och publicerar utan att skriva programmering. Du
-                  slipper syntax — men inte beslut om erbjudande, bevis och nästa steg för
-                  besökaren.
+                  slipper syntax — men inte beslut om erbjudande, bevis och nästa steg. AI-flödet
+                  är en väg; en visuell editor är en annan. Den här sidan svarar på vad du kan göra
+                  själv, inte på hur Sajtmaskins AI-steg ser ut i detalj.
                 </p>
                 <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <CtaButton>Börja utan kod</CtaButton>

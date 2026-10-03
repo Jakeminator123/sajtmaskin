@@ -1,50 +1,41 @@
 ---
-description: "Läs före Task/subagent: Sol för omdöme, Luna för mekanisk read-only, Terra för avgränsad lågrisk. Skicka alltid explicit model från sessionens lista."
+description: "Läs före subagent: använd miljöns tillgängliga modell, oberoende review och uttryckligt modellval före standard."
 alwaysApply: false
 ---
 
-# Subagentmodeller
+# Subagenter utan editorlåsta modellkrav
 
-Skicka alltid ett explicit `model`-värde från den **aktuella sessionens**
-tillåtna lista. Kopiera inte en gammal slug. En ogiltig slug får inte tyst
-ärva parent.
+Kontrollera aktuell sessions tillåtna modellista. Använd explicit `model`
+när verktyget stöder det; kopiera inte en annan editors eller äldre sessions
+slug. En ogiltig modell får inte tyst ersättas eller ärva parent.
 
-| Roll | Välj i sessionens lista | Använd för |
-|---|---|---|
-| Sol | Grok 4.6 Extra High Fast | implementation, orkestrering, review, Bugbot, PR |
-| Luna | GPT-5.6 Luna | mekanisk sök, indexering, verifierbara read-only-svärmar |
-| Terra | GPT-5.6 Terra | avgränsad lågrisk med deterministiskt facit |
+- Codex: projektets standardmodell och reasoning ägs av `.codex/config.toml`.
+  Den nuvarande Sol-standarden är `gpt-5.6-sol`; välj den när tillgänglig.
+- Cursor: använd sessionens tillgängliga starka modell för kodomdöme.
+  Grok-valet i en Cursor-session är inte ett krav på Codex eller ChatGPT.
+- Luna: endast mekanisk read-only med lätt verifierbart facit.
+- Terra: avgränsad lågrisk, aldrig tyst kostnadsfallback.
+- Godnatt: de uttryckliga profilerna gäller. Produktens sajtmodeller påverkas inte.
 
-## ChatGPT i webbläsaren: draft → ready
+Reasoning: `high` normalt; `xhigh` vid protected paths, P0/security,
+cross-tenant, irreversibel DB-risk eller motsägande review.
+Jakobs uttryckliga modellval vinner. Saknas just den valda modellen: rapportera
+hindret och be om val, inte ett tyst modellbyte.
 
-Vid arbete från ChatGPT i webbläsaren (chatgpt.com) är en oberoende
-**GPT-5.6 Sol med `high` reasoning** standard för bugggranskning och vägen
-från draft till ready for review. Detta är Jakobs stående modellmandat;
-fråga inte igen bara för att Grok-valet i tabellen saknas i den miljön.
-Välj uttryckligen sessionens Sol-modell (här `gpt-5.6-sol`) och `high`.
-Om Sol saknas: redovisa hindret, byt inte modell tyst.
+## Oberoende PR-review och draft → ready
 
-1. Låt en separat readonly-agent granska aktuell head mot aktuell base.
-   Författaren får inte granska sitt eget arbete som oberoende agent.
-2. Åtgärda eller konkret triagera fynd; verifiera berörda delar. Ny head
-   eller base kräver uppföljning på den nya diffen och tidigare fynd.
-3. Dokumentera modell, reasoning, head/base-SHA, fynd och triage i PR:n.
-   När arbetet är klart, inga blockerande fynd återstår och draftprofilens
-   checks är gröna: markera ready for review så att full CI kan starta.
-4. Ready for review är inte mergeklar. Fulla required checks, Vercel och
-   review-/sign-off-grinden i `pr-merge.mdc` gäller fortfarande. Merge kräver
-   ett separat uttryckligt mergeuppdrag.
+Proceduren heter oberoende bugggranskning. Sol är ett modellnamn, inte en
+extra procedur eller ett andra obligatoriskt reviewpass.
 
-## Övriga modellregler
+1. En separat readonly-agent granskar exakt aktuell head mot aktuell base.
+   Författaren får inte utgöra sitt eget oberoende pass.
+2. Åtgärda/triagera konkreta fynd och kör berört riktat. Ny head/base kräver
+   uppföljning. Dokumentera faktisk modell, reasoning, SHA:n och utfall.
+3. Arbete klart + inga blockers + gröna draft-checks: ready for review kan
+   starta full CI. Ready är inte mergegodkännande; `pr-merge.mdc` och ett
+   separat uttryckligt mergeuppdrag gäller fortfarande.
 
-Produktens sajtmodeller (Premium m.m.) påverkas inte. Godnatt följer sina
-profiler.
-
-Reasoning: `high` som default. `xhigh` vid protected paths, P0/security/
-cross-tenant, irreversibel data-/migrationsrisk eller motsägande review.
-Luna bara när arbetet är mekaniskt, read-only och lätt att verifiera. Terra
-är medvetet låg-risk, inte tyst kostnadsfallback.
-
-Användarens uttryckliga modellval vinner. Saknas den valda slugen i
-sessionens lista: stoppa och säg till. Begränsa antal agenter och
-svarslängd, inte kvaliteten på huvudbedömningen.
+ChatGPT-webben behåller Jakobs stående `gpt-5.6-sol`/`high`-mandat för
+oberoende bugggranskning när modellen finns i sessionen. Fråga inte igen
+bara för att Cursor-sessionens Grok-modell saknas i webben.
+Begränsa antal agenter och kontextbrus, inte reviewkvaliteten.

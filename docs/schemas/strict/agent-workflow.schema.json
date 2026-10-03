@@ -9,6 +9,7 @@
     "$schema",
     "schemaVersion",
     "trunk",
+    "deliveryBranch",
     "allowedBranchPrefixes",
     "branchPrefixExemptActors",
     "immutableRemoteBranchPatterns",
@@ -26,6 +27,7 @@
     "$schema": { "const": "../docs/schemas/strict/agent-workflow.schema.json" },
     "schemaVersion": { "const": 1 },
     "trunk": { "const": "master" },
+    "deliveryBranch": { "const": "preview" },
     "allowedBranchPrefixes": {
       "type": "array",
       "minItems": 0,

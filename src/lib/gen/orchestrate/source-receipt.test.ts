@@ -111,3 +111,81 @@ describe("buildSourceReceipt — variant inspiration paths", () => {
     expect(sources[0]?.reachedPrompt).toBe(true);
   });
 });
+
+describe("buildSourceReceipt — separating image from excerpts (A0)", () => {
+  const WITH_EXCERPT: VariantTemplateInspiration = {
+    ...INSPIRATION,
+    structuralReferences: [
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        reason: "primary-page",
+        excerpt: "<main />",
+      },
+    ],
+  };
+
+  it("reports image-only when the block was pruned but the still was sent", () => {
+    const [source] = buildSourceReceipt({
+      variantTemplateInspiration: WITH_EXCERPT,
+      pruning: { keptBlockKeys: ["scaffold_variant_this_generation"] },
+      variantTemplateImageSent: true,
+    });
+
+    expect(source?.reachedPrompt).toBe(true);
+    expect(source?.stillImageSent).toBe(true);
+    expect(source?.inspirationBlockKept).toBe(false);
+    expect(source?.addendumTextSent).toBe(false);
+  });
+
+  it("reports excerpts without image when the block survived and the still was crowded out", () => {
+    const [source] = buildSourceReceipt({
+      variantTemplateInspiration: WITH_EXCERPT,
+      pruning: { keptBlockKeys: ["variant_template_inspiration"] },
+      variantTemplateImageSent: false,
+    });
+
+    expect(source?.reachedPrompt).toBe(true);
+    expect(source?.stillImageSent).toBe(false);
+    expect(source?.inspirationBlockKept).toBe(true);
+    expect(source?.addendumTextSent).toBe(true);
+  });
+
+  it("separates a kept block from delivered excerpts when the entry has none", () => {
+    const [source] = buildSourceReceipt({
+      variantTemplateInspiration: INSPIRATION,
+      variantTemplateAddendumState: "disabled",
+      pruning: { keptBlockKeys: ["variant_template_inspiration"] },
+      variantTemplateImageSent: true,
+    });
+
+    expect(source?.reachedPrompt).toBe(true);
+    expect(source?.inspirationBlockKept).toBe(true);
+    expect(source?.addendumTextSent).toBe(false);
+    expect(source?.reason).toBe("addendum:disabled");
+  });
+
+  it("reports nothing delivered when both channels missed", () => {
+    const [source] = buildSourceReceipt({
+      variantTemplateInspiration: WITH_EXCERPT,
+      pruning: { keptBlockKeys: ["scaffold_variant_this_generation"] },
+      variantTemplateImageSent: false,
+    });
+
+    expect(source?.reachedPrompt).toBe(false);
+    expect(source?.stillImageSent).toBe(false);
+    expect(source?.inspirationBlockKept).toBe(false);
+    expect(source?.addendumTextSent).toBe(false);
+  });
+
+  it("leaves the new flags off other source kinds", () => {
+    const sources = buildSourceReceipt({
+      mediaCatalog: [{ alias: "hero", url: "https://cdn.example.com/hero.jpg", alt: "Hero" }],
+      pruning: { keptBlockKeys: ["media_catalog"] },
+    });
+
+    expect(sources[0]?.kind).toBe("media");
+    expect(sources[0]).not.toHaveProperty("stillImageSent");
+    expect(sources[0]).not.toHaveProperty("inspirationBlockKept");
+  });
+});

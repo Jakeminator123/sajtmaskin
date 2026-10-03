@@ -15,6 +15,7 @@ import { dbConfigured } from "@/lib/db/client";
 import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
 import { triggerBuildErrorRepair } from "@/lib/gen/verify/server-verify";
 import { isQualityGateConfigured } from "@/lib/gen/verify/preview-quality-gate";
+import { withRepairPhaseSignal } from "@/lib/gen/verify/repair-phase-signal";
 import { getVercelDeploymentBuildLogText } from "@/lib/vercel/vercel-deploy";
 import { DEPLOY_REPAIR_ORIGIN } from "@/lib/db/repair-files-payload";
 
@@ -70,8 +71,12 @@ export async function runDeployBuildRepair(
   // Best-effort: hämta faktisk Vercel-byggloggtext (kort timeout, aldrig
   // blockerande). Faller tillbaka på den feltext som redan loggats.
   const logText = vercelDeploymentId
-    ? await getVercelDeploymentBuildLogText(vercelDeploymentId, { timeoutMs: 4000 }).catch(
-        () => null,
+    ? await withRepairPhaseSignal(
+        { chatId, versionId, phase: "build_log" },
+        () =>
+          getVercelDeploymentBuildLogText(vercelDeploymentId, { timeoutMs: 4000 }).catch(
+            () => null,
+          ),
       )
     : null;
   const message = logText && logText.trim().length > 0 ? logText.trim() : fallbackMessage;

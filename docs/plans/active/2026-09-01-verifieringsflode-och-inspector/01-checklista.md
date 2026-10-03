@@ -1,7 +1,10 @@
 # Checklista — få hela kedjan att fungera
 
-Bocka av uppifrån och ned. Ägare = Jakob om inget annat sägs. När allt är
-avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
+Bocka av uppifrån och ned. Ägare = Jakob om inget annat sägs.
+
+**Stängningsvillkor (2026-09-18):** det är **B** och **C** som avgör. När de är
+avbockade flyttas mappen till `docs/plans/avklarat/` som en rad i dess README.
+D är parkerade beslut och F är UX-svans — inget av dem blockerar flytten.
 
 ## A. Redan klart (2026-09-01, verifierat)
 
@@ -31,9 +34,12 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
       komma inom ~1 s (bridge). Om den amber-bannern "Inspektorn kan inte
       läsa den här previewn" visas är det `SM-073`-hostläget — previewn
       behöver laddas om/startas om; buggen är då fortfarande värd host-fixen.
-- [ ] Testa kamera-knappen i Sajtagent-widgeten (live review manuellt) — den
-      fastnade i evig spinner 2026-08-31; verifiera om `/tmp`-fixen även
-      löste den eller om det är en egen defekt (skapa i så fall ny SM-rad).
+- ~~Testa kamera-knappen i Sajtagent-widgeten (live review manuellt)~~ —
+      **utanför scope 2026-09-18.** `SM-070` är parkerad och
+      `SAJTMASKIN_LIVE_REVIEW` är av, så kameraspåret är inte ett
+      lanseringskrav och blockerar inte att planen stängs. Återupptas när
+      live review faktiskt ska aktiveras; se
+      [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md).
 
 ## C. Kvarvarande kodarbete (agent-körbart)
 
@@ -55,7 +61,7 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
       "Preview klar med luckor" m.fl.) ska aldrig synas — duplicerar
       versionsbadge + chatt. Borttagen i
       [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237)
-      (öppen vid sessionens avslut; CI körde om efter lintfix).
+      — mergad 2026-09-01.
 - [ ] `SM-074` prod-verifiering efter #1232: follow-up mot hibernerad VM
       (>10 min idle) ska läka utan `preview_ready_timeout`. Serverhärdning
       av follow-up-handoff (`reason=runtime_not_running`) är valfri
@@ -63,10 +69,13 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
 
 ## D. Ägarbeslut (bara Jakob)
 
-- [ ] `SM-070`/live review: auto-grant är PÅ i prod men härdningen (retrybar
-      Blob-upload, 7d-purge + chat-delete, beständig attempt-budget) är inte
-      klar. Besluta: stäng `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` tills härdad,
-      eller ratificera nuläget i `docs/decisions/README.md`.
+Inget i D blockerar att den här planen stängs. Bocka av B och C.
+
+- [ ] `SM-070`/live review — **parkerat spår, inte denna plans grind.**
+      Härdningen (retrybar Blob-upload, 7d-purge + chat-delete, beständig
+      attempt-budget) är inte klar. Beslutet hör i
+      [`../../archived/2026-08-20-live-review.md`](../../archived/2026-08-20-live-review.md)
+      och `docs/decisions/README.md`. Slå inte på flaggan för att stänga B.
 - [ ] Fly-maskinklass (befintlig backlogfråga): burst-sessioner pressar även
       preview-hostens CPU; `shared-cpu-8x` är +3 USD/mån för dubbel kvot.
 
@@ -75,8 +84,8 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
 | Nyckel | Läge i prod | Kommentar |
 |---|---|---|
 | `NEXT_PUBLIC_SAJTMASKIN_INSPECT_BRIDGE` | `1` | Behåll — bridge är rätt motor; kartläget är död i serverless. |
-| `SAJTMASKIN_LIVE_REVIEW` | `true` | Fungerar (gpt-4o-verdicts i prod-logg). |
-| `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` | `true` | Se ägarbeslutet i D. |
+| `SAJTMASKIN_LIVE_REVIEW` | **av** | Koddefault av. Read-only Vercel 2026-09-18: nyckeln saknas i projektet → runtime av. Historisk rad som sa `true` i prod var fel. |
+| `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT` | nyckel finns, värde oläst | Finns på preview+production. Värdet dekrypterades inte. Kan inte slå på review utan `SAJTMASKIN_LIVE_REVIEW`. |
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK` | på (default) | Behåll. |
 
 Inga nya env-nycklar krävs för de landade fixarna.
@@ -84,12 +93,12 @@ Inga nya env-nycklar krävs för de landade fixarna.
 ## F. Session stängd 2026-09-01 — kvar till nästa pass
 
 Kodspåret i den här chatten är levererat (klient + efterkontroll). Planen
-stannar i `active/` tills B (prod-burst) är avbockad. Nästa agent tar en
+stannar i `active/` tills **B och C** är avbockade. Nästa agent tar en
 rad här, inte en ny utredning.
 
 | Vad | Varför | Inte i denna session |
 |---|---|---|
-| Merga [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237) när CI är grön | Sanningsraden borta; kräver separat mergeuppdrag | Inget merge här |
+| [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237) | Sanningsraden bort. **Mergad 2026-09-01.** Ingen ny mergeorder. | Klar |
 | Kompakt "Reparation"-kort i chatten | Auto-fix-turen från #1234 ser ut som en hel generering | Presentation, inte grind |
 | `logPassId` på product-postcheck-loggar | "Observationer utan körpass" döljer vad rundan åtgärdade | Telemetri |
 | Skärp `cta_no_handler` | Tidsluckor/hamburgare flaggar trots React-state | Heuristik; falska positiva |

@@ -17,6 +17,7 @@ import {
   updateUserLastLogin,
 } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
+import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 import {
   AUTH_COOKIE_HOST_NAME,
@@ -494,6 +495,38 @@ export async function loginUser(
   return { user: hydratedUser, token };
 }
 
+/**
+ * Mint the same admin session as a successful env-credential login, without
+ * taking a password. Used by the dashboard handoff after the ticket is valid.
+ */
+export async function createConfiguredAdminLogin(): Promise<
+  { token: string } | { error: "unconfigured" }
+> {
+  const adminMatch = getAdminCredentials().find(
+    (cred) => isAdminEmail(cred.email) && isAdminEmailEdge(cred.email),
+  );
+  if (!adminMatch) return { error: "unconfigured" };
+
+  const adminEmail = adminMatch.email.trim().toLowerCase();
+  let user = await getUserByEmail(adminEmail);
+  if (!user) {
+    const result = await registerUser(adminEmail, adminMatch.password, adminMatch.name);
+    if ("error" in result) return { error: "unconfigured" };
+    user = result.user;
+  }
+  await bootstrapAdminUser(user);
+  await updateUserLastLogin(user.id);
+  const hydratedUser = (await getUserById(user.id)) ?? user;
+  if (
+    !hydratedUser.email ||
+    !isAdminEmail(hydratedUser.email) ||
+    !isAdminEmailEdge(hydratedUser.email)
+  ) {
+    return { error: "unconfigured" };
+  }
+  return { token: createToken(hydratedUser.id, hydratedUser.email) };
+}
+
 // ============ Admin Bootstrap ============
 
 /**
@@ -641,7 +674,7 @@ export async function handleGoogleCallback(
   code: string,
   redirectUri?: string,
   codeVerifier?: string,
-): Promise<{ user: User; token: string } | { error: string }> {
+): Promise<{ user: User; token: string; created: boolean } | { error: string }> {
   // Exchange code for tokens
   const tokens = await exchangeGoogleCode(code, redirectUri, codeVerifier);
   if (!tokens) {
@@ -658,8 +691,7 @@ export async function handleGoogleCallback(
     return { error: "E-postadressen är inte verifierad hos Google. Verifiera den i ditt Google-konto och försök igen." };
   }
 
-  // Create or update user
-  const user = await createGoogleUser(
+  const { user, created } = await createGoogleUser(
     googleUser.id,
     googleUser.email,
     googleUser.name,
@@ -682,7 +714,7 @@ export async function handleGoogleCallback(
   const hydratedUser = (await getUserById(user.id)) ?? user;
   const token = createToken(hydratedUser.id, hydratedUser.email!);
 
-  return { user: hydratedUser, token };
+  return { user: hydratedUser, token, created };
 }
 
 // ============ Type exports ============

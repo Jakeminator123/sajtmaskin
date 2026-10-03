@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Om oss",
   description:
     "Om Sajtmaskin — AI-driven webbplattform för svenska företag. Pretty Good B.V.",
+  alternates: publicPageAlternates("/om"),
 };
 
 export default function OmPage() {
@@ -55,6 +57,22 @@ export default function OmPage() {
                 <li>
                   <Link href="/faq" className="text-primary underline-offset-4 hover:underline">
                     Vanliga frågor
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/skapa-hemsida"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/hemsida-till-foretag"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Hemsida till företag
                   </Link>
                 </li>
                 <li>
