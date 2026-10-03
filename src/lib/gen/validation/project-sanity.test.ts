@@ -708,10 +708,10 @@ export function ThemeToggle() {
     ).toEqual([]);
   });
 
-  it("flags the incident Next 14 + React 19 ERESOLVE tree", () => {
+  it.each(["package.json", "src/package.json"])("flags the incident Next 14 + React 19 ERESOLVE tree in %s", (path) => {
     const result = runProjectSanityChecks([
       {
-        path: "package.json",
+        path,
         language: "json",
         content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON),
       },
@@ -721,6 +721,14 @@ export function ThemeToggle() {
     expect(issue?.category).toBe("dependency_install_failure");
     expect(issue?.message).toMatch(/14\.2\.25/);
     expect(issue?.message).toMatch(/\^19/);
+    expect(issue?.file).toBe(path);
     expect(result.valid).toBe(false);
+  });
+  it("keeps root manifest priority when a different src manifest also exists", () => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: JSON.stringify({ dependencies: { next: "16.2.3", react: "18.2.0" } }) },
+      { path: "src/package.json", language: "json", content: JSON.stringify(INCIDENT_V0_PACKAGE_JSON) },
+    ]);
+    expect(result.issues.filter((issue) => issue.category === "dependency_install_failure")).toEqual([]);
   });
 });

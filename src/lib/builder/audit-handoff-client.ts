@@ -7,7 +7,7 @@ export type AuditBuildHandoffResult = {
   href: string;
 };
 
-const ATTEMPT_KEY = "sajtmaskin:audit-build-attempt:v1";
+const ATTEMPT_PREFIX = "sajtmaskin:audit-build-attempt:v1:";
 
 async function getAttempt(payload: AuditHandoffPayload): Promise<string> {
   try {
@@ -19,20 +19,26 @@ async function getAttempt(payload: AuditHandoffPayload): Promise<string> {
     const fingerprint = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
     ).join("");
-    const raw = window.localStorage.getItem(ATTEMPT_KEY);
-    const previous = raw ? JSON.parse(raw) : null;
-    if (
-      previous?.fingerprint === fingerprint &&
-      typeof previous.id === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previous.id)
-    )
-      return previous.id;
-    const id = crypto.randomUUID();
-    window.localStorage.setItem(ATTEMPT_KEY, JSON.stringify({ id, fingerprint }));
-    return id;
+    const key = `${ATTEMPT_PREFIX}${fingerprint}`;
+    // The public analysis resume flow already requires Web Locks. Fail before
+    // persistence rather than mint two ids in a cross-tab read/write race.
+    if (!navigator.locks) throw new Error("Web Locks unavailable");
+    return await navigator.locks.request(key, { mode: "exclusive" }, () => {
+      const previous = window.localStorage.getItem(key);
+      if (
+        previous &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previous)
+      )
+        return previous;
+      const id = crypto.randomUUID();
+      window.localStorage.setItem(key, id);
+      return id;
+    });
   } catch {
     // Do not start a durable operation when its ambiguous ACK cannot be retried.
-    throw new Error("Kunde inte spara byggförsöket. Tillåt lokal lagring och försök igen.");
+    throw new Error(
+      "Kunde inte spara byggförsöket. Tillåt lokal lagring och använd en uppdaterad webbläsare.",
+    );
   }
 }
 
@@ -68,8 +74,8 @@ export async function createAuditBuildHandoff(
   params.set("buildMethod", "audit");
   params.set("buildIntent", intent);
 
-  // Retain the last analysis attempt through reloads/tabs/navigation errors.
-  // A different analysis payload starts a new intent; the server also binds the id to the authenticated owner.
+  // Retain one attempt per analysis through reloads/tabs/navigation errors.
+  // Other analyses cannot overwrite it; the server binds each id to the authenticated owner.
   return {
     projectId: data.projectId,
     promptId: data.promptId,

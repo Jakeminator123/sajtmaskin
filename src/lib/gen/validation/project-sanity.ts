@@ -794,7 +794,7 @@ export function runProjectSanityChecks(
         }
       }
 
-      checkKnownBadPeers(deps, issues, files);
+      checkKnownBadPeers(deps, issues, files, pkgFile.path);
     } catch {
       issues.push(
         createSanityIssue(
@@ -894,6 +894,7 @@ function checkKnownBadPeers(
   deps: Record<string, string>,
   issues: SanityIssue[],
   files: readonly CodeFile[],
+  packageJsonPath: string,
 ): void {
   const reactMajor = deps.react ? extractMajor(deps.react) : null;
 
@@ -930,10 +931,10 @@ function checkKnownBadPeers(
 
   // Same range/lockfile-aware owner as import, readiness and publish. Do not
   // invent a second Next/React major heuristic here.
-  for (const conflict of findPackageTreeConflictsInFiles(files)?.conflicts ?? []) {
+  for (const conflict of findPackageTreeConflictsInFiles(files, packageJsonPath)?.conflicts ?? []) {
     issues.push(
       createSanityIssue(
-        "package.json",
+        packageJsonPath,
         "error",
         formatPackageTreeConflictDetail(conflict),
         "dependency_install_failure",

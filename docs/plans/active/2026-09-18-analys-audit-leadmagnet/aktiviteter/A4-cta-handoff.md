@@ -25,7 +25,9 @@ partner-`?mode=audit` kan visa entry-modalen först
 Efter lyckad audit använder startsidan och `/analys`
 [`audit-handoff-client.ts`](../../../../../src/lib/builder/audit-handoff-client.ts):
 handoff-payload → `POST /api/prompts` → builder. Inloggade byggförsök har
-en beständig attempt-UUID och en payload-fingerprint i lokal lagring.
+en beständig attempt-UUID per payload-fingerprint i lokal lagring. Web Locks
+serialiserar identifieringen mellan flikar; utan lagring/lås startas ingen
+serveroperation. En annan analys kan inte skriva över ett väntande försöks id.
 Servern binder försöket till aktuell användare och skapar projekt och
 prompt atomiskt i befintliga tabeller. Misslyckad transaktion skapar inget
 projekt; återförsök efter tappat svar återanvänder det redan skapade, även

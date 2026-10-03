@@ -198,14 +198,20 @@ export function findPackageJsonFile<T extends { path: string; content: string }>
 
 export function findPackageTreeConflictsInFiles(
   files: ReadonlyArray<{ path: string; content: string }>,
+  packageJsonPath?: string,
 ): { path: string; conflicts: PackageTreeConflict[] } | null {
-  const pkgFile = findPackageJsonFile(files);
+  const normalizePath = (path: string) => path.replace(/^\/+/, "").replace(/\\/g, "/");
+  // Default import/publish contract is root-only. Sanity can explicitly pass
+  // its supported src/package.json fallback without changing those callers.
+  const pkgFile = packageJsonPath
+    ? files.find((file) => normalizePath(file.path) === normalizePath(packageJsonPath))
+    : findPackageJsonFile(files);
   if (!pkgFile) return null;
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
-  const lockFile = files.find(
-    (file) => file.path.replace(/^\/+/, "").replace(/\\/g, "/") === "package-lock.json",
-  );
+  const packagePath = normalizePath(pkgFile.path);
+  const lockPath = `${packagePath.slice(0, packagePath.lastIndexOf("/") + 1)}package-lock.json`;
+  const lockFile = files.find((file) => normalizePath(file.path) === lockPath);
   const lock = lockFile ? parsePackageJsonRecord(lockFile.content) : null;
   const packages = asRecord(lock?.packages);
   // npm v2/v3, with a v1 fallback. Ignore stale/out-of-range selections in

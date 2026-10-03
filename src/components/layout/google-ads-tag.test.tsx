@@ -28,6 +28,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
   afterEach(async () => {
     cleanup();
     await vi.runOnlyPendingTimersAsync();
+    vi.restoreAllMocks();
     vi.useRealTimers();
     vi.unstubAllEnvs();
   });
@@ -107,5 +108,18 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     const { GoogleAdsTag } = await import("./google-ads-tag");
     render(<GoogleAdsTag />);
     expect(document.getElementById("sajtmaskin-google-ads")).toBeNull();
+  });
+  it("does not retry a pending event whose label is unset after tag load", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL", "");
+    const { GoogleAdsTag } = await import("./google-ads-tag");
+    const ads = await import("@/lib/ads/fire-google-ads-conversion");
+    const timers = vi.spyOn(globalThis, "setTimeout");
+    render(<GoogleAdsTag />);
+    ads.noteGoogleAdsConversion("first_generation");
+    await act(async () => {
+      script().dispatchEvent(new Event("load"));
+    });
+    expect(conversions()).toHaveLength(0);
+    expect(timers.mock.calls.filter((call) => call[1] === 1_000)).toHaveLength(0);
   });
 });

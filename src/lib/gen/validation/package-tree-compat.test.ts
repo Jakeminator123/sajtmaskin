@@ -153,4 +153,21 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
       ])?.conflicts,
     ).toHaveLength(1);
   });
+  it("keeps root-only default lookup but accepts an explicitly selected src manifest", () => {
+    const files = [{ path: "src/package.json", content: INCIDENT_PACKAGE_JSON_TEXT }];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    expect(findPackageTreeConflictsInFiles(files, "src/package.json")).toMatchObject({
+      path: "src/package.json", conflicts: [{ code: "next_react_peer_eresolve" }],
+    });
+  });
+  it("uses the lock next to the selected src manifest, not an unrelated root lock", () => {
+    const lock = (next: string) => JSON.stringify({ packages: {
+      "node_modules/next": { version: next }, "node_modules/react": { version: "19.0.0" },
+    } });
+    expect(findPackageTreeConflictsInFiles([
+      { path: "src/package.json", content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) },
+      { path: "package-lock.json", content: lock("15.5.4") },
+      { path: "src/package-lock.json", content: lock("14.2.25") },
+    ], "src/package.json")?.conflicts).toHaveLength(1);
+  });
 });

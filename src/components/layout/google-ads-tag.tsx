@@ -12,6 +12,7 @@ import {
 } from "@/lib/ads/fire-google-ads-conversion";
 import {
   getGoogleAdsConfig,
+  conversionId,
   GOOGLE_ADS_CONVERSION_EVENTS,
   isAdminAppPath,
   isGoogleAdsEnabled,
@@ -60,7 +61,12 @@ export function GoogleAdsTag({ nonce }: { nonce?: string }) {
       if (loaded) {
         flushPendingGoogleAdsConversions();
       }
-      if (!loaded || GOOGLE_ADS_CONVERSION_EVENTS.some(isGoogleAdsPending)) {
+      if (
+        !loaded ||
+        GOOGLE_ADS_CONVERSION_EVENTS.some(
+          (event) => Boolean(conversionId(event)) && isGoogleAdsPending(event),
+        )
+      ) {
         retry = setTimeout(() => {
           void attempt();
         }, delay);
