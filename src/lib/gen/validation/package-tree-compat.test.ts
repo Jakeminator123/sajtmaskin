@@ -74,6 +74,16 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflicts).toEqual([]);
   });
 
+  it.each(["13.0.0", "^13.0.0", "13 || 14"])("preserves the React 18.0 contract admitted by Next %s", (next) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next, react: "18.0.0" } })).toEqual([]);
+  });
+
+  it("still rejects React 18.0 when the selected Next excludes 13.0.0", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.1", react: "18.0.0" } })).toHaveLength(1);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "^13.0.0", react: "18.0.0" } }, { next: "13.0.1", react: "18.0.0" })).toHaveLength(1);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: "^19" } })[0]?.message).toContain("ERESOLVE");
+  });
+
   it.each([
     [">=14 <16", "^19"],
     ["14 || 15", "^19"],

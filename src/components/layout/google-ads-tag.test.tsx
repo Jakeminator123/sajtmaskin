@@ -19,6 +19,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
     window.gtag = undefined;
     window.dataLayer = [];
     window.sajtmaskinAdsTagLoaded = false;
+    window.sajtmaskinAdsConfiguredIds = [];
     state.pathname = "/";
     window.history.replaceState({}, "", "/");
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_ADS_ID", "AW-123456789");
@@ -57,6 +58,7 @@ describe("GoogleAdsTag real loader (no external network)", () => {
         await vi.advanceTimersByTimeAsync(1_000);
       });
       expect(script()).not.toBeNull();
+      expect(window.dataLayer?.filter((entry) => Array.isArray(entry) && entry[0] === "config")).toHaveLength(1);
       await act(async () => {
         script().dispatchEvent(new Event("load"));
       });
@@ -81,6 +83,21 @@ describe("GoogleAdsTag real loader (no external network)", () => {
       script().dispatchEvent(new Event("load"));
     });
     expect(conversions()).toHaveLength(1);
+  });
+
+  it("keeps configuration queued once across failed loads and module reloads", async () => {
+    const firstLoader = await import("@/lib/ads/load-google-ads-tag");
+    const first = firstLoader.loadGoogleAdsTag("AW-123456789");
+    script().dispatchEvent(new Event("error"));
+    expect(await first).toBe(false);
+    vi.resetModules();
+    const retryLoader = await import("@/lib/ads/load-google-ads-tag");
+    const retry = retryLoader.loadGoogleAdsTag("AW-123456789");
+    script().dispatchEvent(new Event("load"));
+    expect(await retry).toBe(true);
+    for (const command of ["js", "config"]) {
+      expect(window.dataLayer?.filter((entry) => Array.isArray(entry) && entry[0] === command)).toHaveLength(1);
+    }
   });
 
   it("does not flush or retry after consent is revoked during a load", async () => {

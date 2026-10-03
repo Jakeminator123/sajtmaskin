@@ -110,18 +110,22 @@ function peerMapFromRanges(deps: Record<string, string>): PackageTreePeerMap {
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
-): { nextMajor: number; reactMajor: number } | null {
+): { nextMajor: number; reactMajor: number; reactPeer: string } | null {
   if (!validRange(nextRange) || !validRange(reactRange)) return null;
   // Only claim a conflict when EVERY admitted Next version belongs to the
-  // known 13/14 peer contract and NO admitted React version meets ^18.2.0.
+  // known 13/14 peer contracts and NO admitted React version meets their union.
   // A broad Next range may resolve to 15+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
   if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
-  if (!subset(nextRange, ">=13.0.0 <15.0.0") || intersects(reactRange, "^18.2.0")) return null;
+  if (!subset(nextRange, ">=13.0.0 <15.0.0")) return null;
+  // The published 13.0.0 manifest admits ^18.0.0-0; 13.0.1+ requires
+  // ^18.2.0. An unlocked range admitting 13.0.0 is not proof of ERESOLVE.
+  const reactPeer = intersects(nextRange, "13.0.0") ? "^18.0.0-0" : "^18.2.0";
+  if (intersects(reactRange, reactPeer)) return null;
   const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
   if (nextMajor === null || reactMajor === null) return null;
-  return { nextMajor, reactMajor };
+  return { nextMajor, reactMajor, reactPeer };
 }
 
 function repairOptionsForNextReact(params: {
@@ -172,7 +176,7 @@ export function detectPackageTreeConflicts(
         peers,
         message:
           `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
-          ` (Next ${mismatch.nextMajor} peers React ^18.2.0, not this React selection/range).` +
+          ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
         repairOptions: repairOptionsForNextReact({
           nextMajor: mismatch.nextMajor,

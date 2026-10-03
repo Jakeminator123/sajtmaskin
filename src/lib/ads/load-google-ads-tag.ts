@@ -4,6 +4,12 @@ const SCRIPT_ID = "sajtmaskin-google-ads";
 const LOAD_TIMEOUT_MS = 15_000;
 let loading: Promise<boolean> | null = null;
 
+declare global {
+  interface Window {
+    sajtmaskinAdsConfiguredIds?: string[];
+  }
+}
+
 /** A queue shim is not proof that the remote tag loaded. Failed loads can retry. */
 export function loadGoogleAdsTag(adsId: string, nonce?: string): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -21,7 +27,13 @@ export function loadGoogleAdsTag(adsId: string, nonce?: string): Promise<boolean
     }) as GtagFn;
     window.gtag("js", new Date());
   }
-  window.gtag("config", adsId);
+  // Failed script loads leave the same dataLayer intact. Retry injection,
+  // not configuration; keep this per-document identity across module reloads.
+  const configuredIds = (window.sajtmaskinAdsConfiguredIds ??= []);
+  if (!configuredIds.includes(adsId)) {
+    window.gtag("config", adsId);
+    configuredIds.push(adsId);
+  }
   existing?.remove();
   const script = document.createElement("script");
   script.id = SCRIPT_ID;
