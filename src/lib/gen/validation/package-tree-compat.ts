@@ -152,19 +152,16 @@ function nextReactEresolve(
 }
 
 function repairOptionsForNextReact(params: {
-  nextMajor: number;
   reactMajor: number;
-  reactPeer: string;
   peers: PackageTreePeerMap;
 }): string[] {
   const reactDomNote = params.peers.reactDom ? ` and react-dom ${params.peers.reactDom}` : "";
   const typesNote = params.peers.typesReact
     ? ` Keep @types/react (${params.peers.typesReact}) on the same React major.`
     : "";
-  const compatibleMajor = minVersion(params.reactPeer)?.major;
   return [
     `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
-    `Pin React ${compatibleMajor} (and react-dom ${compatibleMajor}) within ${params.reactPeer} to match Next ${params.nextMajor}.${typesNote}`,
+    `Pin Next to one published exact release, then pin React and react-dom to that release's own peer range; do not leave a cross-contract Next range unlocked.${typesNote}`,
     "Leave the imported tree verbatim and do not publish until the tree is coherent.",
   ];
 }
@@ -204,9 +201,7 @@ export function detectPackageTreeConflicts(
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
         repairOptions: repairOptionsForNextReact({
-          nextMajor: mismatch.nextMajor,
           reactMajor: mismatch.reactMajor,
-          reactPeer: mismatch.reactPeer,
           peers,
         }),
       });

@@ -39,7 +39,7 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflicts[0]?.message).toMatch(/ERESOLVE/);
     expect(conflicts[0]?.message).toMatch(/legacy-peer-deps/);
     expect(conflicts[0]?.repairOptions.some((option) => /Bump Next/i.test(option))).toBe(true);
-    expect(conflicts[0]?.repairOptions.some((option) => /Pin React 18/i.test(option))).toBe(true);
+    expect(conflicts[0]?.repairOptions.some((option) => /Pin Next.*exact.*React.*react-dom.*peer range/i.test(option))).toBe(true);
     expect(conflicts[0]?.repairOptions.some((option) => /do not publish/i.test(option))).toBe(true);
   });
 
@@ -119,6 +119,11 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
         expect(detectPackageTreeConflicts({ dependencies: { next, react } }), `${next}/${react}`).toHaveLength(satisfies(react, peer) ? 0 : 1);
       }
     }
+  });
+  it("does not advertise pinning only React against a cross-contract peer union", () => {
+    const conflict = detectPackageTreeConflicts({ dependencies: { next: "12.0.0 || 13.0.1", react: "19.0.0" } })[0]!;
+    expect(conflict.repairOptions[1]).toMatch(/Pin Next.*exact.*React.*react-dom.*peer range/i);
+    expect(conflict.repairOptions[1]).not.toMatch(/^Pin React 17/);
   });
 
   it.each([
