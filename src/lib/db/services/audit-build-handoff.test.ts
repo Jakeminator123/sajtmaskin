@@ -133,7 +133,7 @@ describe("atomic audit build handoff (mock transaction, never live DB)", () => {
     expect(state.projects).toHaveLength(0);
     expect(state.handoffs).toHaveLength(1);
   });
-  it("reports consumed prompts without creating a second build", async () => {
+  it("reports consumed prompts without creating a second project", async () => {
     await createAuditProjectHandoff(input);
     state.handoffs[0].consumed_at = new Date();
     expect(await createAuditProjectHandoff(input)).toMatchObject({ consumed: true });

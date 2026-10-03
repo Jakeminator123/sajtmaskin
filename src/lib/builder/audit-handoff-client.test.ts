@@ -57,7 +57,7 @@ describe("createAuditBuildHandoff", () => {
       expect(fetchMock.mock.calls.every((call) => call[0] === "/api/prompts")).toBe(true);
     },
   );
-  it("opens the existing project without replaying a consumed prompt", async () => {
+  it("keeps audit context when a consumed prompt must be hydrated after a lost response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -68,7 +68,7 @@ describe("createAuditBuildHandoff", () => {
         }),
       ),
     );
-    expect((await createAuditBuildHandoff(payload, "website")).href).not.toContain("promptId=");
+    expect((await createAuditBuildHandoff(payload, "website")).href).toContain("promptId=prompt_1");
   });
   it("keeps one attempt after a successful ACK so navigation failure cannot allocate a second project", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => success());

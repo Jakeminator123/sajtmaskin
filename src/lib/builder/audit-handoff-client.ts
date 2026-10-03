@@ -62,7 +62,9 @@ export async function createAuditBuildHandoff(
   const params = new URLSearchParams();
   params.set("project", data.projectId);
   params.set("source", "audit");
-  if (!data.consumed) params.set("promptId", data.promptId);
+  // Consumption is not proof that builder hydration/navigation succeeded.
+  // The existing owner-scoped GET can restore even a consumed audit prompt.
+  params.set("promptId", data.promptId);
   params.set("buildMethod", "audit");
   params.set("buildIntent", intent);
 
