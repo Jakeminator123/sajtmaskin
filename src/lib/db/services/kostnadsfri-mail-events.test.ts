@@ -60,6 +60,7 @@ vi.mock("@/lib/db/client", async () => {
 import {
   createKostnadsfriPageWithMailEvent,
   getKostnadsfriGenerationBySlug,
+  isAllowedMailOutcomeTransition,
 } from "./kostnadsfri";
 
 const page = { slug: "acme-ab", passwordHash: "hash", companyName: "Acme AB" };
@@ -116,5 +117,23 @@ describe("getKostnadsfriGenerationBySlug", () => {
     await getKostnadsfriGenerationBySlug(["acme-ab", "beta-ab", "acme-ab"]);
 
     expect(state.entitlementWhere).toEqual([["acme-ab", "beta-ab"]]);
+  });
+});
+
+describe("isAllowedMailOutcomeTransition", () => {
+  it("only moves forward towards accepted", () => {
+    expect(isAllowedMailOutcomeTransition("scheduled", "uncertain")).toBe(true);
+    expect(isAllowedMailOutcomeTransition("scheduled", "failed")).toBe(true);
+    expect(isAllowedMailOutcomeTransition("failed", "accepted")).toBe(true);
+    expect(isAllowedMailOutcomeTransition("uncertain", "accepted")).toBe(true);
+    expect(isAllowedMailOutcomeTransition("failed", "failed")).toBe(true);
+  });
+
+  it("rejects backwards and sideways moves", () => {
+    expect(isAllowedMailOutcomeTransition("failed", "scheduled")).toBe(false);
+    expect(isAllowedMailOutcomeTransition("uncertain", "failed")).toBe(false);
+    expect(isAllowedMailOutcomeTransition("failed", "uncertain")).toBe(false);
+    expect(isAllowedMailOutcomeTransition("accepted", "failed")).toBe(false);
+    expect(isAllowedMailOutcomeTransition("accepted", "scheduled")).toBe(false);
   });
 });

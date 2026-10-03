@@ -416,6 +416,41 @@ describe("POST /api/kostnadsfri", () => {
     expect(body.page).toMatchObject({ id: 7, slug: "acme-ab", sentAt: "2026-10-03T08:30:00.000Z" });
   });
 
+  it("keeps the first recorded sentAt/source when a later step=first arrives", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-10-01T08:00:00.000Z"), source: "render-mail-flow:text" }),
+    );
+    recordKostnadsfriMailEvent.mockResolvedValueOnce({
+      status: "created",
+      event: { message_id: "8".repeat(32) },
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:animated",
+        mailEvent: {
+          messageId: "8".repeat(32),
+          flowId: "flow_2",
+          step: "first",
+          variant: "animated",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect((await res.json()).page).toMatchObject({
+      sentAt: "2026-10-01T08:00:00.000Z",
+      source: "render-mail-flow:text",
+    });
+  });
+
   it("rejects message-id reuse with different facts", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
     recordKostnadsfriMailEvent.mockResolvedValueOnce({
@@ -912,5 +947,13 @@ describe("GET /api/kostnadsfri", () => {
     await GET(getRequest(API_KEY, "?cursor=10&limit=1"));
 
     expect(getKostnadsfriGenerationBySlug).toHaveBeenCalledWith(["acme-ab"]);
+  });
+
+  it("rejects a non-canonical numeric registry cursor instead of truncating it", async () => {
+    for (const cursor of ["100garbage", "100.9", "-1", "1e3", " 5"]) {
+      const res = await GET(getRequest(API_KEY, `?cursor=${encodeURIComponent(cursor)}`));
+      expect(res.status).toBe(400);
+    }
+    expect(listKostnadsfriPagesAfterId).not.toHaveBeenCalled();
   });
 });

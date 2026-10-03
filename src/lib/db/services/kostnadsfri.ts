@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, like, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   engineGenerationLogs,
@@ -352,6 +352,25 @@ function mailEventInsertValues(input: KostnadsfriMailEventInput) {
   };
 }
 
+const MAIL_OUTCOME_RANK: Record<string, number> = {
+  scheduled: 0,
+  uncertain: 1,
+  failed: 1,
+  accepted: 2,
+};
+
+/**
+ * Outcomes only move forward: scheduled → uncertain/failed → accepted, and
+ * accepted is final. A delayed or retried payload can never move an outcome
+ * back (failed → scheduled) or sideways (uncertain ↔ failed).
+ */
+export function isAllowedMailOutcomeTransition(current: string, next: string): boolean {
+  if (current === next) return true;
+  const from = MAIL_OUTCOME_RANK[current];
+  const to = MAIL_OUTCOME_RANK[next];
+  return from !== undefined && to !== undefined && to > from;
+}
+
 /** Idempotent insert. A reused message id with different facts is a conflict. */
 export async function recordKostnadsfriMailEvent(
   input: KostnadsfriMailEventInput,
@@ -378,9 +397,8 @@ export async function recordKostnadsfriMailEvent(
   }
   const sameOptionalTime = (stored: Date | string | null, next: Date | null) =>
     next === null || stored === null || new Date(stored).getTime() === next.getTime();
-  const acceptedCannotRegress = current.outcome === "accepted" && input.outcome !== "accepted";
   if (
-    acceptedCannotRegress ||
+    !isAllowedMailOutcomeTransition(current.outcome, input.outcome) ||
     !sameOptionalTime(current.smtp_accepted_at, input.smtpAcceptedAt) ||
     !sameOptionalTime(current.delivered_at, input.deliveredAt) ||
     !sameOptionalTime(current.replied_at, input.repliedAt)
@@ -413,12 +431,17 @@ export async function recordKostnadsfriMailEvent(
         updated_at: new Date(),
       })
       .where(
-        input.outcome === "accepted"
-          ? eq(kostnadsfriMailEvents.message_id, input.messageId)
-          : and(
-              eq(kostnadsfriMailEvents.message_id, input.messageId),
-              ne(kostnadsfriMailEvents.outcome, "accepted"),
+        // Re-check the transition against the row as it is now, so a racing
+        // write can never be moved backwards or sideways.
+        and(
+          eq(kostnadsfriMailEvents.message_id, input.messageId),
+          inArray(
+            kostnadsfriMailEvents.outcome,
+            Object.keys(MAIL_OUTCOME_RANK).filter((outcome) =>
+              isAllowedMailOutcomeTransition(outcome, input.outcome),
             ),
+          ),
+        ),
       )
       .returning();
     if (!updated[0]) {

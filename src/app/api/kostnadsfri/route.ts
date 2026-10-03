@@ -314,9 +314,12 @@ export async function POST(request: NextRequest) {
       }
 
       // A follow-up is a new mail event, not a rewrite of the company's
-      // original register row. The compatibility fields stay on the first mail.
+      // original register row. The compatibility fields stay on the first
+      // recorded send: a later `step=first` (new flow, new messageId) never
+      // overwrites an existing sentAt/source, or the A/B cohort would move.
       const shouldUpdateCompatibilityFields =
-        !mailEvent || (mailEvent.step === "first" && mailEvent.outcome === "accepted");
+        !mailEvent ||
+        (mailEvent.step === "first" && mailEvent.outcome === "accepted" && !existing.sent_at);
       const updated =
         shouldUpdateCompatibilityFields && sentAt
           ? await markKostnadsfriPageSent(slug, {
@@ -455,8 +458,11 @@ export async function GET(request: NextRequest) {
     if (!isAuthorized(request)) return unauthorized();
 
     const rawCursor = request.nextUrl.searchParams.get("cursor");
-    const afterId = rawCursor === null ? null : Number.parseInt(rawCursor, 10);
-    if (rawCursor !== null && (!Number.isSafeInteger(afterId) || (afterId ?? -1) < 0)) {
+    // Canonical non-negative integer only: parseInt would accept "100garbage"
+    // or "100.9" as 100 and silently skip rows.
+    const afterId =
+      rawCursor === null || !/^\d+$/.test(rawCursor) ? null : Number(rawCursor);
+    if (rawCursor !== null && (afterId === null || !Number.isSafeInteger(afterId))) {
       return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
     }
     const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") || "", 10);

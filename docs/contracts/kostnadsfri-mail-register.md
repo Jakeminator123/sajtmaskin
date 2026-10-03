@@ -35,9 +35,11 @@ Ett nytt utskick kan dessutom skicka:
 `messageId` är de 32 hextecknen från
 `sha256("render-mail-flow-v1:" + flowId + ":" + jobId).slice(0, 32)`.
 Samma id och samma fakta är idempotent (`duplicate`). Samma id med andra fakta
-ger 409. Samma oförändrade mejl får monotont gå från `scheduled`, `uncertain`
-eller `failed` till `accepted`; acceptans kan inte rullas tillbaka. `step=follow` skapar en ny mejlrad men ändrar inte företagets
-ursprungliga `sentAt` eller `source`. `sentAt` betyder SMTP-acceptans i det
+ger 409. Samma oförändrade mejl får bara gå framåt: `scheduled` →
+`uncertain`/`failed` → `accepted`; acceptans kan inte rullas tillbaka och
+`uncertain` och `failed` byter inte till varandra (409). `step=follow` skapar en ny mejlrad men ändrar inte företagets
+ursprungliga `sentAt` eller `source`. Ett senare `step=first` (nytt flöde)
+skriver inte heller över ett redan registrerat `sentAt/source`. `sentAt` betyder SMTP-acceptans i det
 bakåtkompatibla registret, inte första utskicket och inte leverans.
 
 Förberedelse utan SMTP-acceptans ska inte skicka `sentAt`, variantsource eller
