@@ -1299,6 +1299,8 @@ export function evaluateManualBootstrapRule(source) {
     "oberoende review",
     "Alla övriga röda/pending checks",
     "aldrig native GitHub-skydd",
+    "använd inte admin-bypass",
+    "ändra checkresultat för att få grönt",
   ];
   return clauses.every((clause) => source.includes(clause))
     ? []
