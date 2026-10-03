@@ -26,6 +26,28 @@ import { createRequire } from "node:module";
 // CI/package guard: preview-host/package.json `test:guards` must keep this
 // script in the same blocking chain as the other guard scripts.
 const require = createRequire(import.meta.url);
+const { validatePatchPayload } = require("../src/validate.js");
+const maxLengthRemovedPath = `${"a".repeat(508)}.tsx`;
+const overLengthRemovedPath = `${"a".repeat(509)}.tsx`;
+assert.equal(maxLengthRemovedPath.length, 512);
+assert.equal(overLengthRemovedPath.length, 513);
+assert.deepEqual(
+  validatePatchPayload({
+    previewSessionId: "ps_path_boundary",
+    versionId: "ver_path_boundary",
+    removedPaths: [maxLengthRemovedPath],
+  }).removedPaths,
+  [maxLengthRemovedPath],
+);
+assert.throws(
+  () =>
+    validatePatchPayload({
+      previewSessionId: "ps_path_boundary",
+      versionId: "ver_path_boundary",
+      removedPaths: [overLengthRemovedPath],
+    }),
+  /Invalid removedPaths: path too long/,
+);
 const dataDir = mkdtempSync(join(tmpdir(), "preview-host-patch-lane-"));
 process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 process.env.HOST = "127.0.0.1";

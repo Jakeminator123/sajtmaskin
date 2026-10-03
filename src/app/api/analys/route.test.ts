@@ -8,10 +8,24 @@ const validateAndNormalizeUrl = vi.hoisted(() => vi.fn());
 const getCanonicalUrlKey = vi.hoisted(() => vi.fn());
 const runWebsiteAudit = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
+const getClientId = vi.hoisted(() => vi.fn(() => "ip:203.0.113.10"));
+const acquirePublicAnalysQuota = vi.hoisted(() => vi.fn());
+const commitPublicAnalysQuota = vi.hoisted(() => vi.fn());
+const releasePublicAnalysQuota = vi.hoisted(() => vi.fn());
+const inFlightAudits = vi.hoisted(() => new Map<string, unknown>());
 const withRateLimit = vi.hoisted(() =>
   vi.fn(
-    (_request: NextRequest, bucket: string, handler: () => Promise<Response>) => {
-      expect(bucket).toBe("analys:public");
+    (
+      _request: NextRequest,
+      bucket: string,
+      handler: () => Promise<Response>,
+      options?: { failClosedOnTimeout?: boolean; rateLimitErrorCode?: string },
+    ) => {
+      expect(bucket).toBe("analys:public:attempt");
+      expect(options).toEqual({
+        failClosedOnTimeout: true,
+        rateLimitErrorCode: "public_analys_attempt_rate_limited",
+      });
       return handler();
     },
   ),
@@ -30,11 +44,13 @@ vi.mock("@/lib/audit/run-website-audit", () => ({
   }),
 }));
 vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
-vi.mock("@/lib/rate-limit", () => ({ withRateLimit }));
-vi.mock("@/app/api/audit/modules/in-flight", () => {
-  const inFlightAudits = new Map();
-  return { inFlightAudits };
-});
+vi.mock("@/lib/rate-limit", () => ({ getClientId, withRateLimit }));
+vi.mock("@/lib/audit/public-analys-quota", () => ({
+  acquirePublicAnalysQuota,
+  commitPublicAnalysQuota,
+  releasePublicAnalysQuota,
+}));
+vi.mock("@/app/api/audit/modules/in-flight", () => ({ inFlightAudits }));
 
 const { POST } = await import("./route");
 
@@ -47,11 +63,28 @@ const engineResult = {
   audit_scores: { seo: 71, security: 40 },
   improvements: [{ item: "Skriv om startsidan", impact: "high", effort: "low" }],
   site_content: { company_name: "Example", description: "hemlig extraktion", sections: [] },
-  template_data: { generation_prompt: "superprompt", must_have_sections: [], style_notes: "", improvements_to_apply: [] },
-  color_theme: { primary_color: "#fff", background_color: "#000", text_color: "#fff", theme_type: "dark", style_description: "x" },
+  template_data: {
+    generation_prompt: "superprompt",
+    must_have_sections: [],
+    style_notes: "",
+    improvements_to_apply: [],
+  },
+  color_theme: {
+    primary_color: "#fff",
+    background_color: "#000",
+    text_color: "#fff",
+    theme_type: "dark",
+    style_description: "x",
+  },
   budget_estimate: { currency: "SEK", low: 10000, high: 50000 },
   cost: { tokens: 1234, sek: 0.13, usd: 0.0121 },
 } as unknown as AuditResult;
+
+const reservation = {
+  key: "quota-key",
+  token: "reserved:test-token",
+  mode: "memory" as const,
+};
 
 describe("analys route configuration", () => {
   it("keeps maxDuration as a direct literal export in the route module", () => {
@@ -72,17 +105,30 @@ function request(body: unknown): NextRequest {
 describe("POST /api/analys", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    inFlightAudits.clear();
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     validateAndNormalizeUrl.mockImplementation(() => "https://example.com/");
     getCanonicalUrlKey.mockReturnValue("example.com");
     withRateLimit.mockImplementation(
-      (_request: NextRequest, bucket: string, handler: () => Promise<Response>) => {
-        expect(bucket).toBe("analys:public");
+      (
+        _request: NextRequest,
+        bucket: string,
+        handler: () => Promise<Response>,
+        options?: { failClosedOnTimeout?: boolean; rateLimitErrorCode?: string },
+      ) => {
+        expect(bucket).toBe("analys:public:attempt");
+        expect(options).toEqual({
+          failClosedOnTimeout: true,
+          rateLimitErrorCode: "public_analys_attempt_rate_limited",
+        });
         return handler();
       },
     );
+    acquirePublicAnalysQuota.mockResolvedValue({ status: "acquired", reservation });
+    commitPublicAnalysQuota.mockResolvedValue("committed");
+    releasePublicAnalysQuota.mockResolvedValue("released");
     runWebsiteAudit.mockResolvedValue({
       ok: true,
       result: engineResult,
@@ -96,7 +142,21 @@ describe("POST /api/analys", () => {
     expect(response.status).toBe(400);
     expect(withRateLimit).not.toHaveBeenCalled();
     expect(runWebsiteAudit).not.toHaveBeenCalled();
+    expect(acquirePublicAnalysQuota).not.toHaveBeenCalled();
     expect(prepareCredits).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["null", "null"],
+    ["an array", "[]"],
+    ["a JSON string", '"hello"'],
+    ["an empty object", "{}"],
+  ])("rejects %s without quota or engine work", async (_label, rawBody) => {
+    const response = await POST(request(rawBody));
+    expect(response.status).toBe(400);
+    expect(withRateLimit).not.toHaveBeenCalled();
+    expect(acquirePublicAnalysQuota).not.toHaveBeenCalled();
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
   });
 
   it("rejects invalid URLs before the rate limiter", async () => {
@@ -131,6 +191,8 @@ describe("POST /api/analys", () => {
     expect(payload.surface).toBe("public-analys");
     expect(payload.report.company).toBe("Example");
     expect(prepareCredits).not.toHaveBeenCalled();
+    expect(acquirePublicAnalysQuota).toHaveBeenCalledWith("ip:203.0.113.10");
+    expect(commitPublicAnalysQuota).toHaveBeenCalledWith(reservation);
     expect(runWebsiteAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         normalizedUrl: "https://example.com/",
@@ -167,5 +229,79 @@ describe("POST /api/analys", () => {
     const payload = await response.json();
     expect(payload.success).toBe(false);
     expect(payload.error).toBe("Scrape misslyckades");
+    expect(commitPublicAnalysQuota).not.toHaveBeenCalled();
+    expect(releasePublicAnalysQuota).toHaveBeenCalledWith(reservation);
+  });
+
+  it("allows a retry after an engine failure releases its reservation", async () => {
+    runWebsiteAudit
+      .mockResolvedValueOnce({ ok: false, status: 502, error: "Scrape misslyckades" })
+      .mockResolvedValueOnce({
+        ok: true,
+        result: engineResult,
+        usedFallback: false,
+        usedModel: "openai/gpt-5.6-luna",
+      });
+
+    expect((await POST(request({ url: "https://example.com" }))).status).toBe(502);
+    expect((await POST(request({ url: "https://example.com" }))).status).toBe(200);
+    expect(releasePublicAnalysQuota).toHaveBeenCalledTimes(1);
+    expect(runWebsiteAudit).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks a second run after a report was committed", async () => {
+    acquirePublicAnalysQuota
+      .mockResolvedValueOnce({ status: "acquired", reservation })
+      .mockResolvedValueOnce({ status: "committed" });
+
+    expect((await POST(request({ url: "https://example.com" }))).status).toBe(200);
+    const blocked = await POST(request({ url: "https://other.example" }));
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual(
+      expect.objectContaining({ code: "public_analys_daily_quota_exhausted" }),
+    );
+    expect(runWebsiteAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a distinct 429 code while this client already has a reservation", async () => {
+    acquirePublicAnalysQuota.mockResolvedValue({ status: "reserved" });
+
+    const response = await POST(request({ url: "https://example.com" }));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({ code: "public_analys_in_progress" }),
+    );
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without starting the engine when daily quota is unavailable", async () => {
+    acquirePublicAnalysQuota.mockResolvedValue({ status: "unavailable" });
+    const response = await POST(request({ url: "https://example.com" }));
+    expect(response.status).toBe(503);
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 without a report when commit cannot be proven", async () => {
+    commitPublicAnalysQuota.mockResolvedValue("unavailable");
+    const response = await POST(request({ url: "https://example.com" }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(payload.report).toBeUndefined();
+    expect(payload.success).toBe(false);
+    expect(releasePublicAnalysQuota).toHaveBeenCalledWith(reservation);
+  });
+
+  it("returns a URL duplicate before acquiring daily quota", async () => {
+    inFlightAudits.set("public:example.com", {
+      startTime: Date.now(),
+      userId: "public",
+      promise: Promise.resolve(engineResult),
+    });
+
+    const response = await POST(request({ url: "https://example.com" }));
+    expect(response.status).toBe(409);
+    expect(acquirePublicAnalysQuota).not.toHaveBeenCalled();
+    expect(runWebsiteAudit).not.toHaveBeenCalled();
   });
 });

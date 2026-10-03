@@ -197,4 +197,20 @@ describe("consumeHandoffJti", () => {
     redisSet.mockResolvedValueOnce(null);
     expect(await consumeHandoffJti("c".repeat(32))).toBe("replay");
   });
+
+  it("accepts only one of two overlapping claims for the same ticket", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "token";
+    let claimed = false;
+    redisSet.mockImplementation(async () => {
+      await Promise.resolve();
+      if (claimed) return null;
+      claimed = true;
+      return "OK";
+    });
+    const jti = "d".repeat(32);
+    const results = await Promise.all([consumeHandoffJti(jti), consumeHandoffJti(jti)]);
+    expect(results.slice().sort()).toEqual(["fresh", "replay"]);
+    expect(redisSet).toHaveBeenCalledTimes(2);
+  });
 });

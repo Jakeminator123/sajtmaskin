@@ -126,9 +126,14 @@ export async function createProject(
   description?: string,
   sessionId?: string,
   userId?: string,
+  options?: { preallocatedId?: string },
 ): Promise<Project> {
   assertDbConfigured();
-  const id = nanoid();
+  const preallocatedId = options?.preallocatedId;
+  if (preallocatedId !== undefined && !/^[A-Za-z0-9_-]{21}$/.test(preallocatedId)) {
+    throw new Error("Invalid server-preallocated project id");
+  }
+  const id = preallocatedId ?? allocateProjectId();
   const now = new Date();
   const rows = await db
     .insert(appProjects)
@@ -144,6 +149,11 @@ export async function createProject(
     })
     .returning();
   return rows[0];
+}
+
+/** Allocate an app-project id server-side before persistence when a preflight needs the final id. */
+export function allocateProjectId(): string {
+  return nanoid();
 }
 
 export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<Project[]> {
