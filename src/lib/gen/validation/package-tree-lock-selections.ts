@@ -1,5 +1,5 @@
 import { isMap, isScalar, parseAllDocuments } from "yaml";
-import { major, valid } from "semver";
+import { gte, major, satisfies, valid, validRange } from "semver";
 
 type Files = ReadonlyArray<{ path: string; content: string }>;
 export type LockedNextReact = { next: string; react: string; reactSpecifier?: string };
@@ -20,18 +20,30 @@ function siblingLocks(files: Files, packagePath: string) {
 export function effectivePackageTreeInstaller(files: Files, packagePath: string, pkg: Record<string, unknown>): string {
   const { manager } = siblingLocks(files, packagePath);
   const dev = record(pkg.devEngines)?.packageManager;
-  // npm validates devEngines before installation. Legacy precedence must not
-  // hide contradictory names, including the supported array form.
-  const declarations = [
-    ...(typeof pkg.packageManager === "string" ? [pkg.packageManager.split("@")[0]] : []),
-    ...(Array.isArray(dev) ? dev : [dev]).flatMap((entry) => {
-      const name = record(entry)?.name;
-      return typeof name === "string" ? [name] : [];
-    }),
-  ];
-  if (new Set(declarations).size > 1) return "unverified";
-  const declared = declarations[0] ?? null;
-  return declared && manager && declared !== manager ? "unverified" : declared ?? manager ?? "npm";
+  const legacy = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0] : null;
+  const single = record(dev);
+  // An array constrains the selected installer with OR alternatives; it does
+  // not select the first manager or require every distinct name simultaneously.
+  const declared = legacy ?? (typeof single?.name === "string" ? single.name : null);
+  if (declared && manager && declared !== manager) return "unverified";
+  const selected = declared ?? manager ?? "npm";
+  if (Array.isArray(dev) && dev.length) {
+    const alternatives = dev.map(record);
+    if (alternatives.some((entry) => !entry || Object.keys(entry).some((key) => !["name", "version", "onFail"].includes(key)) ||
+      typeof entry.name !== "string" ||
+      (entry.name === selected && "version" in entry && typeof entry.version !== "string") ||
+      ("onFail" in entry && (typeof entry.onFail !== "string" ||
+        !["ignore", "warn", "error", "download"].includes(entry.onFail))))) return "unverified";
+    const version = legacy && typeof pkg.packageManager === "string" ? valid(pkg.packageManager.slice(legacy.length + 1)) : null;
+    const matches = alternatives.some((entry) => entry!.name === selected &&
+      (!("version" in entry!) || (version !== null && (validRange(String(entry!.version))
+        ? satisfies(version, String(entry!.version)) : version === entry!.version))));
+    // npm uses the last alternative's onFail only when all alternatives fail.
+    if (!matches && !["ignore", "warn"].includes(String(alternatives.at(-1)!.onFail))) return "unverified";
+  } else if (single && single.name !== selected && !["ignore", "warn"].includes(String(single.onFail))) {
+    return "unverified";
+  }
+  return selected;
 }
 
 function yamlDocument(raw: string, pnpm = false, expectedPnpmVersion?: string) {
@@ -76,6 +88,9 @@ function compatiblePnpmSchema(schema: unknown, pkg: Record<string, unknown>): bo
   const version = declaredPnpmVersion(pkg);
   const managerMajor = version ? major(version) : null;
   if (managerMajor === null) return false;
+  // pnpm 9.0.0 still required re-resolution of v6. Frozen v6.0 support was
+  // restored in 9.0.1; pnpm 10+ drops it again. Do not admit unknown v6 minors.
+  if (managerMajor === 9 && schemaMajor === 6) return schema === "6.0" && gte(version!, "9.0.1");
   // pnpm 7/8 explicitly accept both the legacy v5 and v6 formats in their
   // frozen-install path; a simple one-major-to-one-schema table is incorrect.
   const expected = managerMajor >= 5 && managerMajor <= 6 ? [5]

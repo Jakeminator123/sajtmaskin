@@ -17,8 +17,8 @@ describe("extractDependencyMajor", () => {
       dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
     expect(effectivePackageTreeInstaller([], "package.json", pkg)).toBe("unverified");
     expect(detectPackageTreeConflicts(pkg)[0]?.code).toBe("next_react_peer_resolution_required");
-    expect(detectPackageTreeConflicts({ ...pkg, devEngines: { packageManager: [{ name: "npm" }, { name }] } })[0]?.code)
-      .toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ ...pkg, devEngines: { packageManager: [{ name: "npm" }, { name }] } }))
+      .toEqual([]); // Array entries are alternatives, not simultaneous requirements.
   });
   it.each(["", "src/"])("does not use an npm lock to hide contradictory manager names beside %s", (folder) => {
     for (const name of ["pnpm", "yarn"]) {
@@ -40,6 +40,65 @@ describe("extractDependencyMajor", () => {
       dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
     expect(effectivePackageTreeInstaller([], "package.json", pkg)).toBe("npm");
     expect(detectPackageTreeConflicts(pkg)).toEqual([]);
+  });
+  it.each(["", "src/"])("resolves matching installer alternatives beside %s", (folder) => {
+    for (const packageManager of [undefined, "npm@11.4.2"]) {
+      const pkg = { packageManager, devEngines: { packageManager: [{ name: "npm" }, { name: "pnpm" }] },
+        dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+      const files = [{ path: `${folder}package.json`, content: JSON.stringify(pkg) }];
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+      expect(effectivePackageTreeInstaller(files, `${folder}package.json`, pkg)).toBe("npm");
+    }
+  });
+  it("checks version-bound alternatives and keeps advisory failures non-fatal", () => {
+    const pkg = { packageManager: "npm@11.4.2", dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+    const detect = (alternatives: unknown[]) => detectPackageTreeConflicts({ ...pkg, devEngines: { packageManager: alternatives } });
+    expect(detect([{ name: "pnpm" }, { name: "npm", version: "^11" }])).toEqual([]);
+    expect(detect([{ name: "npm", version: "^11" }, { name: "pnpm" }])).toEqual([]);
+    expect(detect([{ name: "pnpm", version: 9 }, { name: "npm" }])).toEqual([]); // npm checks the name before the version.
+    expect(detect([{ name: "npm", version: "^10" }, { name: "npm", version: "^12" }])[0]?.code)
+      .toBe("next_react_peer_resolution_required");
+    for (const onFail of ["warn", "ignore"]) {
+      expect(detect([{ name: "pnpm", onFail }])).toEqual([]);
+    }
+    expect(detect([{ name: "pnpm", onFail: "download" }])[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detect([{ name: "pnpm", onFail: "warn" }, { name: "yarn" }])[0]?.code)
+      .toBe("next_react_peer_resolution_required");
+    expect(detect([{ name: "pnpm" }, { name: "yarn", onFail: "warn" }])).toEqual([]);
+    expect(detect([])).toEqual([]);
+    expect(detect([{ name: "npm", version: 11 }])[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detect([{ name: "npm", onFail: ["warn"] }])[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detect([{ name: "npm", extra: true }])[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detect([{ name: "npm" }, null])[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ ...pkg, packageManager: undefined,
+      devEngines: { packageManager: [{ name: "npm", version: "^11" }] } })[0]?.code)
+      .toBe("next_react_peer_resolution_required"); // No invented runtime version.
+  });
+  it.each(["", "src/"])("admits current v6 locks only for patched pnpm 9 beside %s", (folder) => {
+    for (const version of ["9.0.0", "9.0.1", "9.15.9", "10.28.1"]) {
+      const pkg = { packageManager: `pnpm@${version}`, dependencies: { next: "^13.0.0", react: "18.0.0" } };
+      const graph = "lockfileVersion: '6.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
+      const files = [{ path: `${folder}package.json`, content: JSON.stringify(pkg) }, { path: `${folder}pnpm-lock.yaml`, content: graph }];
+      if (version === "9.0.1" || version === "9.15.9") {
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+        files[1].content = graph.replace("specifier: ^13.0.0", "specifier: ^13.1.0");
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required");
+        files[1].content = graph.replace("version: 18.0.0", "version: 19.0.0");
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required"); // Out-of-range lock selection is not install proof.
+        files[0].content = JSON.stringify({ ...pkg, dependencies: { ...pkg.dependencies, react: "19.0.0" } });
+        files[1].content = graph.replaceAll("18.0.0", "19.0.0");
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+        files[0].content = JSON.stringify(pkg);
+        files[1].content = graph.replace("'6.0'", "'6.1'");
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required");
+      } else {
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required");
+      }
+    }
   });
   it.each(["NPM:", "NpM:"])("normalizes only the native npm alias protocol %s", (protocol) => {
     expect(detectPackageTreeConflicts({ dependencies: {
