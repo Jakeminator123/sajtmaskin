@@ -13,6 +13,9 @@ startkontext; övriga regler/skills laddas först när beskrivning, glob eller
 explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
 backloggstacken som rutin.
 
+Codex och Cursor följer samma arbetsregler: öppna checkouten, en skrivande
+session per checkout. Worktree skapas när Jakob ber om det.
+
 ## Vad märker jag lokalt?
 
 Ändringarna gäller efter att branchen hämtats.
@@ -22,9 +25,9 @@ backloggstacken som rutin.
 - Stale sökträffar: öppna reporoten igen och kontrollera indexstatus.
 - Produktmodeller, runtime och `backoffice/` påverkas inte av kontextreglerna.
 
-Sol: Grok 4.7 Extra High Fast (`grok-4.7-xhigh-fast`) ur sessionens lista. Luna = mekanisk read-only,
-Terra = uttrycklig lågrisk. Godnatt har egna profiler. Styr subagenter, inte
-sajtrouting. Kopiera inte en gammal slug.
+Modellval: [`subagent-models.mdc`](rules/subagent-models.mdc). Proceduren heter
+oberoende bugggranskning, inte Sol. Godnatt har egna profiler; produktens
+sajtrouting styrs separat.
 
 ## Regler
 
@@ -32,19 +35,19 @@ Frontmatter i varje `.cursor/rules/*.mdc` äger aktiveringen. Tre tunna regler
 är generella: `repo-router.mdc`, `git.mdc` och `workflow.mdc`. Övriga är
 globstyrda eller agent-requested.
 
-| Uppgift                       | Regel                                                           |
-| ----------------------------- | --------------------------------------------------------------- |
-| Hitta owner/sökväg            | `repo-router.mdc`                                               |
-| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`, `agent-worktree.mdc` |
-| Merge/PR-efterkontroll        | `pr-merge.mdc`                                                  |
-| Pipeline/scaffold/dossier/env | matchande globregel                                             |
-| Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
-| Subagenter                    | `subagent-models.mdc`                                           |
-| MVP-bias / ny feature         | `project-phase-priorities.mdc`                                  |
-| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                                         |
+| Uppgift                       | Regel                                       |
+| ----------------------------- | ------------------------------------------- |
+| Hitta owner/sökväg            | `repo-router.mdc`                           |
+| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`   |
+| Worktree på begäran           | `agent-worktree.mdc`                        |
+| Merge/PR-efterkontroll        | `pr-merge.mdc`                              |
+| Pipeline/scaffold/dossier/env | matchande globregel                         |
+| Terminologi                   | `terminology.mdc` + riktad glossary-sökning |
+| Subagenter                    | `subagent-models.mdc`                       |
+| MVP-bias / ny feature         | `project-phase-priorities.mdc`              |
+| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                     |
 
-Bifoga bara den regel som äger uppgiften. `@.cursor/rules/` i sin helhet skapar
-brus och motstridiga instruktioner.
+Läs regeln som äger uppgiften; hela `@.cursor/rules/` ger brus.
 
 ## Skills och kommandon
 
@@ -53,8 +56,7 @@ kräver verktyget som skillen anger. Stora kommandon är tunna routrar dit; skap
 inte en andra editorlokal skillkopia.
 
 `pr-workflow` laddas för allt skriv-, PR- och mergearbete. Övriga stora skills
-(`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`,
-`/bridge`, `/bryggagent`) läses
+(`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`) läses
 bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 
 ## Stora sanningskällor

@@ -96,6 +96,22 @@ describe("active documentation link checks", () => {
     ]);
   });
 
+  it("rejects a GitHub router link to an unstaged deleted workflow", async () => {
+    const trackedPaths = [".github/README.md", ".github/workflows/pr-ai-review.yml"];
+    const readTrackedFile = async () => "[Reviewer](workflows/pr-ai-review.yml)";
+    expect(await checkActiveDocLinks({ trackedPaths, readTrackedFile })).toEqual([]);
+    expect(await checkActiveDocLinks({
+      trackedPaths,
+      readTrackedFile,
+      deletedPaths: [".github/workflows/pr-ai-review.yml"],
+    })).toEqual([{
+      sourcePath: ".github/README.md",
+      target: "workflows/pr-ai-review.yml",
+      resolvedPath: ".github/workflows/pr-ai-review.yml",
+      reason: "missing",
+    }]);
+  });
+
   it("sväljer inte ett riktigt läsfel", async () => {
     await expect(
       checkActiveDocLinks({

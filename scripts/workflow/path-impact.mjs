@@ -33,9 +33,6 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     "config/agent-workflow.json",
     "scripts/dev/check-agent-context-budget.mjs",
     "scripts/workflow/**",
-    ".agent-bridge/**",
-    "scripts/agent_bridge.py",
-    "scripts/test_agent_bridge.py",
   ]),
   runtime: Object.freeze([
     "src/**",

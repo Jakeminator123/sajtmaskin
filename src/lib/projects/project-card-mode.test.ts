@@ -5,6 +5,7 @@ import {
   isDraftSegment,
   isPublishedSegment,
   matchesProjectListSegment,
+  PROJECT_SITE_LOAD_ERROR,
   projectCardMode,
   projectCardPrimaryHref,
 } from "./project-card-mode";
@@ -32,8 +33,9 @@ describe("projectCardMode", () => {
   it("treats a missing overview as a legacy draft, not as a live site", () => {
     expect(projectCardMode(undefined)).toBe("loading");
     expect(projectCardMode(null)).toBe("legacy");
-    // A thrown getProjectSite() must stay undefined — not be mapped onto null.
+    expect(projectCardMode(PROJECT_SITE_LOAD_ERROR)).toBe("unavailable");
     expect(isDraftSegment(undefined)).toBe(false);
+    expect(isDraftSegment(PROJECT_SITE_LOAD_ERROR)).toBe(false);
   });
 
   it("separates live, in-flight and broken publishes", () => {
@@ -54,6 +56,7 @@ describe("projectCardPrimaryHref", () => {
     expect(projectCardPrimaryHref("proj_1", "draft")).toBe("/builder?project=proj_1");
     expect(projectCardPrimaryHref("proj_1", "legacy")).toBe("/builder?project=proj_1");
     expect(projectCardPrimaryHref("proj_1", "loading")).toBe("/builder?project=proj_1");
+    expect(projectCardPrimaryHref("proj_1", "unavailable")).toBe("/builder?project=proj_1");
   });
 });
 
@@ -84,17 +87,29 @@ describe("project list segments", () => {
     expect(isDraftSegment(firstPublishError)).toBe(true);
 
     expect(
-      countProjectListSegments([live, republishing, draft, legacy, undefined, firstPublishError]),
+      countProjectListSegments([
+        live,
+        republishing,
+        draft,
+        legacy,
+        undefined,
+        PROJECT_SITE_LOAD_ERROR,
+        firstPublishError,
+      ]),
     ).toEqual({
-      all: 6,
+      all: 7,
       published: 2,
       drafts: 3,
     });
   });
 
-  it("keeps cards visible in every segment while the overview is still loading", () => {
-    expect(matchesProjectListSegment(undefined, "published")).toBe(true);
-    expect(matchesProjectListSegment(undefined, "drafts")).toBe(true);
+  it("keeps unresolved and failed overviews in All but out of classified segments", () => {
+    expect(matchesProjectListSegment(undefined, "all")).toBe(true);
+    expect(matchesProjectListSegment(PROJECT_SITE_LOAD_ERROR, "all")).toBe(true);
+    expect(matchesProjectListSegment(undefined, "published")).toBe(false);
+    expect(matchesProjectListSegment(undefined, "drafts")).toBe(false);
+    expect(matchesProjectListSegment(PROJECT_SITE_LOAD_ERROR, "published")).toBe(false);
+    expect(matchesProjectListSegment(PROJECT_SITE_LOAD_ERROR, "drafts")).toBe(false);
     expect(matchesProjectListSegment(site(), "published")).toBe(false);
     expect(matchesProjectListSegment(site(), "drafts")).toBe(true);
     expect(

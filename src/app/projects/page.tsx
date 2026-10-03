@@ -14,12 +14,13 @@ import {
   getProjectSite,
   deleteProject,
   Project,
-  type ProjectSite,
 } from "@/lib/projects/project-client";
 import { ProjectCard } from "@/components/projects/project-card";
 import {
   countProjectListSegments,
   matchesProjectListSegment,
+  PROJECT_SITE_LOAD_ERROR,
+  type ProjectCardSiteValue,
   type ProjectListSegment,
 } from "@/lib/projects/project-card-mode";
 import {
@@ -58,7 +59,7 @@ function ProjectsPageInner() {
     projectName: string;
   }>({ isOpen: false, projectId: "", projectName: "" });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [sitesById, setSitesById] = useState<Record<string, ProjectSite | null>>({});
+  const [sitesById, setSitesById] = useState<Record<string, ProjectCardSiteValue>>({});
 
   useEffect(() => {
     loadProjects();
@@ -108,18 +109,31 @@ function ProjectsPageInner() {
         try {
           return [project.id, await getProjectSite(project.id)] as const;
         } catch {
-          // Leave the card in the loading/neutral state. Mapping a transient
-          // 500 onto `null` would both hide a working portal retry and paint
-          // the row as a confirmed "Utkast". A real missing site is `null`.
-          return null;
+          // A transient 500/network error is neither loading nor a confirmed
+          // missing site. Keep it explicit so the card can retry without being
+          // painted as a draft.
+          return [project.id, PROJECT_SITE_LOAD_ERROR] as const;
         }
       }),
     );
-    setSitesById(
-      Object.fromEntries(
-        siteEntries.filter((entry): entry is readonly [string, ProjectSite | null] => entry !== null),
-      ),
-    );
+    setSitesById(Object.fromEntries(siteEntries));
+  }
+
+  async function retryProjectSite(projectId: string) {
+    setSitesById((previous) => {
+      const next = { ...previous };
+      delete next[projectId];
+      return next;
+    });
+    try {
+      const site = await getProjectSite(projectId);
+      setSitesById((previous) => ({ ...previous, [projectId]: site }));
+    } catch {
+      setSitesById((previous) => ({
+        ...previous,
+        [projectId]: PROJECT_SITE_LOAD_ERROR,
+      }));
+    }
   }
 
   function openDeleteDialog(id: string, name: string) {
@@ -279,6 +293,7 @@ function ProjectsPageInner() {
                     project={project}
                     site={sitesById[project.id]}
                     onDelete={openDeleteDialog}
+                    onRetrySite={retryProjectSite}
                   />
                 ))}
               </div>

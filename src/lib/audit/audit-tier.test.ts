@@ -142,6 +142,57 @@ describe("Advanced-only field stripping", () => {
     expect(fallback.business_profile).toBeTruthy();
     expect(fallback.competitor_insights).toBeTruthy();
   });
+
+  it("gives Avancerad at least twelve distinct actionable fallback improvements", () => {
+    const fallback = createFallbackResult(
+      {
+        title: "Exempel",
+        description: "En sida",
+        wordCount: 200,
+        hasSSL: true,
+        headings: ["Hem"],
+        meta: { viewport: "width=device-width" },
+        links: { internal: 2, external: 1 },
+        images: 1,
+        responseTime: 100,
+      },
+      "https://example.se",
+      "advanced",
+    );
+    const improvements = fallback.improvements as Array<{
+      item: string;
+      why: string;
+      how: string;
+    }>;
+
+    expect(improvements.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(improvements.map((item) => item.item)).size).toBe(improvements.length);
+    expect(new Set(improvements.map((item) => item.why)).size).toBe(improvements.length);
+    expect(new Set(improvements.map((item) => item.how)).size).toBe(improvements.length);
+    expect(improvements.every((item) => item.why.trim() && item.how.trim())).toBe(true);
+  });
+
+  it("keeps basic and public deterministic fallbacks at eight improvements", () => {
+    const content = {
+      title: "Exempel",
+      description: "En sida",
+      wordCount: 200,
+      hasSSL: true,
+      headings: ["Hem"],
+      meta: { viewport: "width=device-width" },
+      links: { internal: 2, external: 1 },
+      images: 1,
+      responseTime: 100,
+    };
+
+    expect(
+      createFallbackResult(content, "https://example.se", "basic").improvements as unknown[],
+    ).toHaveLength(8);
+    expect(
+      createFallbackResult(content, "https://example.se", "basic", { schemaKind: "full" })
+        .improvements as unknown[],
+    ).toHaveLength(8);
+  });
 });
 
 describe("prices stay put", () => {
