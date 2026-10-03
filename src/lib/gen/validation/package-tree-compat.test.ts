@@ -74,6 +74,26 @@ describe("extractDependencyMajor", () => {
       devEngines: { packageManager: [{ name: "npm", version: "^11" }] } })[0]?.code)
       .toBe("next_react_peer_resolution_required"); // No invented runtime version.
   });
+  it.each(["", "src/"])("validates singular installer constraints beside %s", (folder) => {
+    const pkg = { packageManager: "npm@11.4.2", dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+    const detect = (constraint: unknown) => {
+      const manifest = { ...pkg, devEngines: { packageManager: constraint } };
+      return findPackageTreeConflictsInFiles([{ path: `${folder}package.json`, content: JSON.stringify(manifest) }], `${folder}package.json`);
+    };
+    expect(detect({ name: "npm", version: "^11" })).toBeNull();
+    for (const constraint of [{ name: "npm", version: "^10" }, { name: "npm", version: 11 },
+      { name: "npm", onFail: "invalid" }, { name: "npm", onFail: ["warn"] }, { name: "npm", extra: true },
+      {}, null, "npm", { name: "npm", version: "^10", onFail: "download" }]) {
+      expect(detect(constraint)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+    }
+    for (const onFail of ["warn", "ignore"]) {
+      expect(detect({ name: "npm", version: "^10", onFail })).toBeNull();
+      expect(detect({ name: "pnpm", onFail })).toBeNull();
+    }
+    expect(detect({ name: "pnpm" })?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detect({ name: "npm" })).toBeNull();
+    expect(detect(undefined)).toBeNull();
+  });
   it.each(["", "src/"])("admits current v6 locks only for patched pnpm 9 beside %s", (folder) => {
     for (const version of ["9.0.0", "9.0.1", "9.15.9", "10.28.1"]) {
       const pkg = { packageManager: `pnpm@${version}`, dependencies: { next: "^13.0.0", react: "18.0.0" } };

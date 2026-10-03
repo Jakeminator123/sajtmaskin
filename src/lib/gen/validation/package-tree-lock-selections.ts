@@ -27,21 +27,20 @@ export function effectivePackageTreeInstaller(files: Files, packagePath: string,
   const declared = legacy ?? (typeof single?.name === "string" ? single.name : null);
   if (declared && manager && declared !== manager) return "unverified";
   const selected = declared ?? manager ?? "npm";
-  if (Array.isArray(dev) && dev.length) {
-    const alternatives = dev.map(record);
+  const alternatives = (dev === undefined ? [] : Array.isArray(dev) ? dev : [dev]).map(record);
+  if (alternatives.length) {
     if (alternatives.some((entry) => !entry || Object.keys(entry).some((key) => !["name", "version", "onFail"].includes(key)) ||
       typeof entry.name !== "string" ||
       (entry.name === selected && "version" in entry && typeof entry.version !== "string") ||
       ("onFail" in entry && (typeof entry.onFail !== "string" ||
         !["ignore", "warn", "error", "download"].includes(entry.onFail))))) return "unverified";
-    const version = legacy && typeof pkg.packageManager === "string" ? valid(pkg.packageManager.slice(legacy.length + 1)) : null;
+    const version = legacy && typeof pkg.packageManager === "string" ? valid(pkg.packageManager.slice(legacy.length + 1))
+      : typeof single?.version === "string" ? valid(single.version) : null;
     const matches = alternatives.some((entry) => entry!.name === selected &&
       (!("version" in entry!) || (version !== null && (validRange(String(entry!.version))
         ? satisfies(version, String(entry!.version)) : version === entry!.version))));
     // npm uses the last alternative's onFail only when all alternatives fail.
     if (!matches && !["ignore", "warn"].includes(String(alternatives.at(-1)!.onFail))) return "unverified";
-  } else if (single && single.name !== selected && !["ignore", "warn"].includes(String(single.onFail))) {
-    return "unverified";
   }
   return selected;
 }
