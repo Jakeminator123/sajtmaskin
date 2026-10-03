@@ -706,6 +706,14 @@ describe("agent workflow repository contract", () => {
       "aldrig native GitHub-skydd",
       "använd inte admin-bypass",
       "ändra checkresultat för att få grönt",
+      "det röda orchestrator-jobbet `trusted-review-window`",
+      "verifierat betrodd default-controller-körning för samma PR och aktuell head",
+      "`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`",
+      "enda felorsaken måste vara exakt samma bootstrap-summary",
+      "Paret räknas som en bootstrap-spärr",
+      "Varje annan jobbfailure",
+      "felannotation eller loggfel som inte härleds ur exakt denna",
+      "annan head/proveniens eller native GitHub-spärr förblir stopp",
     ]) {
       const candidate = source.replaceAll(clause, "");
       expect(candidate).not.toBe(source);

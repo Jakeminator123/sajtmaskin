@@ -37,7 +37,7 @@ snapshoten nedan är aldrig ensam mergeauktoritet.
 | `quality`                     | Ja                                                                                   | **Ja**                                                       |
 | `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
 | `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
-| `review-window`               | Checken kan bli `action_required` vid väntan; orchestrator-jobbet ska då sluta grönt | Agentpolicy, inte native required check; endast det snäva bootstrap-undantaget i `pr-merge.mdc` får ersätta bootstrap-spärren |
+| `review-window`               | Väntan kan ge `action_required` med grön orchestrator; integrity-/bootstrap-fel ger också röd orchestrator | Agentpolicy, inte native required check; endast det head-/proveniens-/orsaksbundna bootstrap-paret i `pr-merge.mdc` får ersättas |
 | `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
 | `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |

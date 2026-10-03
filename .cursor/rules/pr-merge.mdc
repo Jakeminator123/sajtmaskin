@@ -28,6 +28,14 @@ och oberoende review får endast den bootstrap-spärren ersättas. Alla övriga 
 och blockerande fynd förblir stopp. Undantaget gäller agentpolicyn, aldrig native GitHub-skydd;
 använd inte admin-bypass eller ändra checkresultat för att få grönt.
 
+Samma undantag omfattar det röda orchestrator-jobbet `trusted-review-window`
+endast i en verifierat betrodd default-controller-körning för samma PR och aktuell head.
+Körningen måste ha publicerat den head-bundna `review-window`-checken med
+`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`;
+enda felorsaken måste vara exakt samma bootstrap-summary. Paret räknas som en bootstrap-spärr.
+Varje annan jobbfailure, felannotation eller loggfel som inte härleds ur exakt denna
+bootstrap-summary, annan head/proveniens eller native GitHub-spärr förblir stopp.
+
 ## Leverans till preview
 
 1. När kontroller/review och policyns tidsgolv är klara och head innehåller

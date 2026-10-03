@@ -32,6 +32,10 @@ Trust-root-ändringar fortsätter ge `review-window: action_required` och
 kräver separat dokumenterad ägarbootstrap och oberoende review. Bootstrap
 ersätter endast denna förväntade spärr, aldrig andra röda/pending checks
 eller blockerande fynd.
+Den snäva regeln i `pr-merge.mdc` omfattar även motsvarande röda
+`trusted-review-window`-orchestrator endast efter verifierad betrodd körning,
+samma PR/head och identisk ensam bootstrap-felorsak. Det är ett check/job-par
+från samma spärr, inte en dispens från andra fel eller native GitHub-skydd.
 
 ## Produktion och synk
 
