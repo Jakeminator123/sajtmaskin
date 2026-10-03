@@ -8,6 +8,7 @@ import {
   evaluateCiScopeWorkflow,
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
+  evaluateManualBootstrapRule,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
@@ -693,6 +694,25 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
+  it("permits only the documented trusted bootstrap exception, never other checks or native bypass", () => {
+    const source = readFileSync(".cursor/rules/pr-merge.mdc", "utf8");
+    expect(evaluateManualBootstrapRule(source)).toEqual([]);
+    for (const clause of [
+      "Enda policyundantaget",
+      "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
+      "`manualMergePathPrefixes`",
+      "dokumenterad ägarbootstrap",
+      "Alla övriga röda/pending checks",
+      "aldrig native GitHub-skydd",
+    ]) {
+      const candidate = source.replaceAll(clause, "");
+      expect(candidate).not.toBe(source);
+      expect(evaluateManualBootstrapRule(candidate)).not.toEqual([]);
+    }
+    expect(evaluateManualBootstrapRule("all red checks may be bypassed after owner approval"))
+      .not.toEqual([]);
+  });
+
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });

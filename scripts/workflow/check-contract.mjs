@@ -1289,6 +1289,22 @@ export function evaluateCiBranch(policy, env = process.env) {
   return null;
 }
 
+export function evaluateManualBootstrapRule(source) {
+  const clauses = [
+    "Enda policyundantaget",
+    "`review-window: action_required`",
+    "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
+    "`manualMergePathPrefixes`",
+    "dokumenterad ägarbootstrap",
+    "oberoende review",
+    "Alla övriga röda/pending checks",
+    "aldrig native GitHub-skydd",
+  ];
+  return clauses.every((clause) => source.includes(clause))
+    ? []
+    : ["manual bootstrap must replace only the trusted head-bound bootstrap gate; other checks and native protection remain mandatory"];
+}
+
 export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const errors = [];
   const policy = json(root, "config/agent-workflow.json");
@@ -1406,7 +1422,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
     if (events.has("pull_request_review") || events.has("pull_request_review_comment")) {
       errors.push(
-        `${workflow.name} must not listen to PR-ref review events; final merge re-reads reviews from trusted issue_comment code`,
+        `${workflow.name} must not listen to PR-ref review events; the manual merger must re-read all live review evidence`,
       );
     }
   }
@@ -1582,6 +1598,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (!/force-push/i.test(gitRule)) errors.push("git.mdc must explicitly forbid force-push");
   const mergeRule = read(root, ".cursor/rules/pr-merge.mdc");
+  errors.push(...evaluateManualBootstrapRule(mergeRule));
   if (!mergeRule.includes("config/agent-workflow.json")) {
     errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
   }
