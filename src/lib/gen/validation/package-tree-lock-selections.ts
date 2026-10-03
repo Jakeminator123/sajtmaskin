@@ -70,13 +70,13 @@ function pnpmVersion(value: unknown, name: "next" | "react"): string | null {
 }
 
 function declaredPnpmVersion(pkg: Record<string, unknown>): string | null {
-  const dev = record(record(pkg.devEngines)?.packageManager);
-  const legacy = typeof pkg.packageManager === "string" && pkg.packageManager.startsWith("pnpm@")
+  if (effectivePackageTreeInstaller([], "package.json", pkg) !== "pnpm") return null;
+  // A permitted advisory failure does not replace the active legacy pin.
+  // A malformed legacy declaration must never fall back to an inactive dev pin.
+  if (typeof pkg.packageManager === "string") return pkg.packageManager.startsWith("pnpm@")
     ? valid(pkg.packageManager.slice("pnpm@".length)) : null;
-  if (dev && (dev.name !== "pnpm" || dev.onFail === "ignore" || !valid(String(dev.version ?? "")))) return null;
-  const pinned = dev ? valid(String(dev.version)) : null;
-  if (legacy && pinned && legacy !== pinned) return null;
-  return legacy ?? pinned;
+  const dev = record(record(pkg.devEngines)?.packageManager);
+  return dev?.name === "pnpm" ? valid(String(dev.version ?? "")) : null;
 }
 
 function compatiblePnpmSchema(schema: unknown, pkg: Record<string, unknown>): boolean {

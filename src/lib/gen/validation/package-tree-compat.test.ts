@@ -120,6 +120,34 @@ describe("extractDependencyMajor", () => {
       }
     }
   });
+  it.each(["", "src/"])("retains the effective pnpm pin after advisory constraints beside %s", (folder) => {
+    const graph = "lockfileVersion: '6.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
+    for (const onFail of ["warn", "ignore"]) {
+      for (const constraint of [{ name: "npm", onFail }, { name: "pnpm", version: "^8", onFail },
+        { name: "pnpm", version: "9.0.0", onFail }, { name: "pnpm", version: "9.15.9", onFail },
+        [{ name: "npm", onFail }], [{ name: "npm" }, { name: "pnpm", version: "^9" }]]) {
+        const pkg = { packageManager: "pnpm@9.15.9", devEngines: { packageManager: constraint },
+          dependencies: { next: "^13.0.0", react: "18.0.0" } };
+        const files = [{ path: `${folder}package.json`, content: JSON.stringify(pkg) },
+          { path: `${folder}pnpm-lock.yaml`, content: graph }];
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+        files[1].content = graph.replace("specifier: ^13.0.0", "specifier: ^13.1.0");
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required");
+        files[1].content = graph.replaceAll("18.0.0", "19.0.0");
+        files[0].content = JSON.stringify({ ...pkg, dependencies: { ...pkg.dependencies, react: "19.0.0" } });
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+        files[1].content = graph;
+        files[0].content = JSON.stringify({ ...pkg, packageManager: "pnpm@invalid" });
+        expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code)
+          .toBe("next_react_peer_resolution_required"); // Never substitute a dev pin for a malformed legacy pin.
+      }
+      const pkg = { devEngines: { packageManager: { name: "pnpm", version: "9.15.9", onFail } },
+        dependencies: { next: "^13.0.0", react: "18.0.0" } };
+      expect(findPackageTreeConflictsInFiles([{ path: `${folder}package.json`, content: JSON.stringify(pkg) },
+        { path: `${folder}pnpm-lock.yaml`, content: graph }], `${folder}package.json`)).toBeNull();
+    }
+  });
   it.each(["NPM:", "NpM:"])("normalizes only the native npm alias protocol %s", (protocol) => {
     expect(detectPackageTreeConflicts({ dependencies: {
       next: `${protocol}next@14.2.25`, react: `${protocol}react@18.3.1`,
