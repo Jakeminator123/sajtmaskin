@@ -22,8 +22,8 @@ describe("extractDependencyMajor", () => {
       next: "14.2.25", react: `${protocol}@fork/react@18.3.1`,
     } }, { next: "14.2.25", react: "18.3.1", reactSpecifier: `${protocol}@fork/react@18.3.1` })[0]?.code).toBe("next_react_peer_resolution_required");
   });
-  it.each(["yarn.lock", "pnpm-lock.yaml"])("uses current case-variant alias descriptors in %s without widening stale evidence", (lockPath) => {
-    const react = "NpM:react@2024-latest";
+  it.each(["yarn.lock", "pnpm-lock.yaml"])("uses current lowercase alias descriptors in %s without widening stale evidence", (lockPath) => {
+    const react = "npm:react@2024-latest";
     const files = [
       { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react } }) },
       { path: lockPath, content: lockPath === "yarn.lock"
@@ -33,8 +33,40 @@ describe("extractDependencyMajor", () => {
     expect(findPackageTreeConflictsInFiles(files)).toBeNull();
     files[1].content = files[1].content.replaceAll("18.3.1", "19.0.0");
     expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
-    files[1].content = files[1].content.replace(react, "npm:react@2024-latest");
+    files[1].content = files[1].content.replace(react, "npm:react@latest");
     expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each(["pnpm@10.28.1", "yarn@4.14.1"])("does not treat npm-only case-folding as support from %s", (packageManager) => {
+    const dependencies = { next: "NPM:next@14.2.25", react: "NpM:react@18.3.1" };
+    expect(detectPackageTreeConflicts({ packageManager, dependencies })[0]?.code).toBe("next_react_peer_resolution_required");
+    const [name, version] = packageManager.split("@");
+    expect(detectPackageTreeConflicts({ devEngines: { packageManager: { name, version } }, dependencies })[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ packageManager: "npm@11.4.2", dependencies })).toEqual([]);
+    expect(detectPackageTreeConflicts({ packageManager, dependencies: {
+      next: "17.0.0", react: "NPM:react@18.3.1",
+    } })[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ packageManager, dependencies: {
+      next: "17.0.0", react: "18.3.1",
+    } })).toEqual([]); // No invented Next 17 peer contract.
+  });
+  it.each(["", "src/"])("rejects case-folded aliases for inferred or conflicting installers beside %s", (folder) => {
+    for (const lockPath of ["pnpm-lock.yaml", "yarn.lock"]) {
+      const pkg = { dependencies: { next: "14.2.25", react: "NpM:react@18.3.1" } };
+      const files = [{ path: `${folder}package.json`, content: JSON.stringify(pkg) }, { path: `${folder}${lockPath}`, content: "invalid lock" }];
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+      files[0].content = JSON.stringify({ ...pkg, packageManager: "npm@11.4.2" });
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+      files[0].content = JSON.stringify(pkg);
+      const canonical = "npm:react@18.3.1";
+      files[0].content = JSON.stringify({ dependencies: { next: "14.2.25", react: canonical } });
+      files[1].content = lockPath === "yarn.lock"
+        ? `"next@14.2.25":\n  version "14.2.25"\n"react@${canonical}":\n  version "18.3.1"\n`
+        : `lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: 14.2.25\n        version: 14.2.25(react@18.3.1)\n      react:\n        specifier: ${canonical}\n        version: react@18.3.1\n`;
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+      files[0].content = files[0].content.replace(canonical, "NpM:react@18.3.1");
+      files[1].content = files[1].content.replace(canonical, "NpM:react@18.3.1");
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+    }
   });
   it.each(["2024-latest", "_stable", "-canary", "release!", "(stable)", "~local"])("admits descriptor-bound native npm tag %s", (react) => {
     const files = [

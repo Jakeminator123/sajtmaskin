@@ -7,6 +7,24 @@ const normalize = (path: string) => path.replace(/^\/+/, "").replace(/\\/g, "/")
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
+function siblingLocks(files: Files, packagePath: string) {
+  const folder = normalize(packagePath).slice(0, normalize(packagePath).lastIndexOf("/") + 1);
+  const file = (name: string) => files.find((entry) => normalize(entry.path) === `${folder}${name}`);
+  const pnpm = file("pnpm-lock.yaml") ?? file("pnpm-lock.yml");
+  const yarn = file("yarn.lock");
+  const npm = file("npm-shrinkwrap.json") ?? file("package-lock.json");
+  return { folder, pnpm, yarn, npm, manager: pnpm ? "pnpm" : yarn ? "yarn" : npm ? "npm" : null };
+}
+
+/** Installer identity does not depend on whether the selected lock is valid. */
+export function effectivePackageTreeInstaller(files: Files, packagePath: string, pkg: Record<string, unknown>): string {
+  const { manager } = siblingLocks(files, packagePath);
+  const dev = record(record(pkg.devEngines)?.packageManager);
+  const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0]
+    : typeof dev?.name === "string" ? dev.name : null;
+  return declared && manager && declared !== manager ? "unverified" : declared ?? manager ?? "npm";
+}
+
 function yamlDocument(raw: string, pnpm = false, expectedPnpmVersion?: string) {
   // Inspect the AST, not toJS(): no alias expansion or custom object types.
   if (raw.length > 2_000_000) return null;
@@ -125,18 +143,10 @@ function yarnSelections(raw: string, deps: Record<string, string>): LockedNextRe
 
 /** Sibling lock of the selected manifest; same pnpm > Yarn > npm order as preview-host. */
 export function readLockedNextReact(files: Files, packagePath: string, pkg: Record<string, unknown>, deps: Record<string, string>): LockedNextReact | undefined {
-  const folder = normalize(packagePath).slice(0, normalize(packagePath).lastIndexOf("/") + 1);
-  const file = (name: string) => files.find((entry) => normalize(entry.path) === `${folder}${name}`);
-  const pnpm = file("pnpm-lock.yaml") ?? file("pnpm-lock.yml");
-  const yarn = file("yarn.lock");
-  const npm = file("npm-shrinkwrap.json") ?? file("package-lock.json");
-  const manager = pnpm ? "pnpm" : yarn ? "yarn" : npm ? "npm" : null;
-  const dev = record(record(pkg.devEngines)?.packageManager);
-  const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0]
-    : typeof dev?.name === "string" ? dev.name : null;
+  const { folder, pnpm, yarn, npm, manager } = siblingLocks(files, packagePath);
   // Corepack/Vercel may choose the declared manager; do not use evidence for
   // a different installer when the declaration and preview lock policy disagree.
-  if (declared && declared !== manager) return undefined;
+  if (effectivePackageTreeInstaller(files, packagePath, pkg) !== manager) return undefined;
   // Preview recognizes the .yml alias, but pnpm's wanted lock and Vercel's
   // detection use pnpm-lock.yaml. The alias alone cannot prove selection.
   if (pnpm && normalize(pnpm.path) !== `${folder}pnpm-lock.yaml`) return undefined;

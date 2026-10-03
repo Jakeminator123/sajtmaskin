@@ -12,7 +12,7 @@
  */
 
 import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
-import { readLockedNextReact } from "./package-tree-lock-selections";
+import { effectivePackageTreeInstaller, readLockedNextReact } from "./package-tree-lock-selections";
 
 function isNativeRegistryTag(rawSpec: string): boolean {
   const spec = rawSpec.trim();
@@ -158,8 +158,15 @@ function rangesShareVersion(left: string, right: string): boolean {
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
+  unsupportedInstallerAlias = false,
 ): { code: PackageTreeConflictCode; nextMajor: number; reactMajor: number | null; reactPeer: string } | null {
   if (!validRange(nextRange) || !minVersion(nextRange)) return null;
+  // This is an installer-spec failure, independent of any Next peer table.
+  // A known numeric Next declaration supplies diagnostics, not a made-up peer.
+  if (unsupportedInstallerAlias) return {
+    code: "next_react_peer_resolution_required",
+    nextMajor: extractDependencyMajor(nextRange)!, reactMajor: null, reactPeer: "",
+  };
   // An unlocked range is safe only if every admitted React choice fits every
   // admitted Next contract. One historical compatible pair is not evidence
   // for the versions npm will select. Distinguish a proven conflict from an
@@ -220,6 +227,7 @@ function nativeAliasRange(name: "next" | "react", declaration: string): string {
 export function detectPackageTreeConflicts(
   pkg: unknown,
   locked?: LockedVersions,
+  installer?: string,
 ): PackageTreeConflict[] {
   const record = asRecord(pkg);
   if (!record) return [];
@@ -228,7 +236,14 @@ export function detectPackageTreeConflicts(
   if (deps.next && deps.react) {
     const nextRange = nativeAliasRange("next", deps.next);
     const reactRange = nativeAliasRange("react", deps.react);
+    const effectiveInstaller = installer ?? effectivePackageTreeInstaller([], "package.json", record);
+    // npm-package-arg case-folds this protocol; pnpm and Yarn do not. Do not
+    // turn npm syntax into fabricated evidence for another/unknown installer.
+    const unsupportedInstallerAlias = effectiveInstaller !== "npm" &&
+      ((nextRange !== deps.next && !deps.next.startsWith("npm:")) ||
+        (reactRange !== deps.react && !deps.react.startsWith("npm:")));
     const useLocked =
+      !unsupportedInstallerAlias &&
       locked &&
       valid(locked.next) &&
       valid(locked.react) &&
@@ -241,6 +256,7 @@ export function detectPackageTreeConflicts(
     const mismatch = nextReactEresolve(
       useLocked ? locked.next : nextRange,
       useLocked ? locked.react : reactRange,
+      unsupportedInstallerAlias,
     );
     if (mismatch) {
       const peers = peerMapFromRanges(deps);
@@ -252,17 +268,22 @@ export function detectPackageTreeConflicts(
         reactMajor: mismatch.reactMajor,
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
-          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. ` +
+          ? unsupportedInstallerAlias
+            ? `Case-variant npm: aliases do not prove supported resolution by the effective ${effectiveInstaller} installer. Use canonical lowercase npm: descriptors for pnpm/Yarn or verify npm installation before publishing.`
+            : `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. ` +
             (!validRange(reactRange) && !isNativeRegistryTag(reactRange)
               ? "URL/git/file/fork declarations need native package identity evidence, not just a lock version field. Pin an exact native matching pair before publishing."
               : "Supply an in-range or current native-tag lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.")
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
-        repairOptions: repairOptionsForNextReact({
-          reactMajor: mismatch.reactMajor,
-          peers,
-        }),
+        repairOptions: [
+          ...(unsupportedInstallerAlias ? ["Use canonical lowercase npm: alias descriptors for this installer; do not fabricate a lock selection."] : []),
+          ...repairOptionsForNextReact({
+            reactMajor: mismatch.reactMajor,
+            peers,
+          }),
+        ],
       });
     }
   }
@@ -294,7 +315,7 @@ export function findPackageTreeConflictsInFiles(
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
   const locked = readLockedNextReact(files, pkgFile.path, parsed, collectDeclaredDependencyRanges(parsed));
-  const conflicts = detectPackageTreeConflicts(parsed, locked);
+  const conflicts = detectPackageTreeConflicts(parsed, locked, effectivePackageTreeInstaller(files, pkgFile.path, parsed));
   if (conflicts.length === 0) return null;
   return { path: pkgFile.path, conflicts };
 }
