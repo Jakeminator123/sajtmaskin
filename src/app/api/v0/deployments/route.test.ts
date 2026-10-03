@@ -232,6 +232,66 @@ describe("POST /api/v0/deployments", () => {
     getEngineVersionErrorLogs.mockResolvedValue([]);
   });
 
+  it.each([false, true])(
+    "package-tree block is structured and non-ready in precheck (fallback=%s)",
+    async (fallback) => {
+      if (fallback) {
+        getEngineVersionErrorLogs.mockResolvedValue([
+          {
+            category: "preview:install-peer-fallback",
+            meta: { usedFallback: true, filesRevision: "revision_1" },
+          },
+        ]);
+      } else {
+        getVersionFiles.mockResolvedValue([
+          {
+            path: "package.json",
+            content: JSON.stringify({
+              dependencies: { next: "14.2.25", react: "^19" },
+            }),
+          },
+        ]);
+      }
+      const res = await POST(
+        new Request("http://localhost/api/v0/deployments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+        }),
+      );
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.packageTreeGate).toMatchObject({
+        allowed: false,
+        code: fallback ? "DEPLOY_INSTALL_PEER_FALLBACK" : "DEPLOY_PACKAGE_TREE_ERESOLVE",
+      });
+      expect(json.deployReadiness.ready).toBe(false);
+      expect(prepareCredits).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])("blocks unresolved cross-contract peers before provider/credit commit (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    getVersionFiles.mockResolvedValue([{ path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }]);
+    const res = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly }),
+    }));
+    const json = await res.json();
+    expect(res.status).toBe(precheckOnly ? 200 : 409);
+    if (precheckOnly) {
+      expect(json.deployReadiness.ready).toBe(false);
+      expect(json.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+    } else {
+      expect(json.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    }
+    if (precheckOnly) expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
   it("precheckOnly returns 200 with deployReadiness without calling credits", async () => {
     const req = new Request("http://localhost/api/v0/deployments", {
       method: "POST",
@@ -254,6 +314,105 @@ describe("POST /api/v0/deployments", () => {
     expect(json.fileCount).toBe(1);
     expect(json.deployReadiness?.ready).toBe(true);
     expect(json.deployReadiness?.missingEnv).toEqual([]);
+  });
+  it.each(["pnpm-lock.yaml", "yarn.lock"])("honors %s peer evidence when deploy preserves the original tree", async (path) => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path, content: path.startsWith("pnpm") ? "lockfileVersion: 9.0\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0(react@18.0.0)\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n" : '"next@^13.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n' },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true, skipAutoFix: true }),
+    }));
+    const data = await response.json();
+    expect(response.status).toBe(200);
+    expect(data.packageTreeGate).toEqual({ allowed: true });
+    expect(data.deployReadiness.ready).toBe(true);
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+  it("does not reuse pnpm evidence after default pre-deploy fixes deliberately remove that lock", async () => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+    }));
+    const data = await response.json();
+    expect(data.fixesApplied).toContain("Removed lockfiles to prefer npm: pnpm-lock.yaml");
+    expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+    expect(data.deployReadiness.ready).toBe(false);
+  });
+
+  it.each([true, false])("does not trust a stale pnpm specifier in a preserved deploy tree (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: "importers:\n  .:\n    dependencies:\n      next:\n        specifier: 13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n" },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly, skipAutoFix: true }),
+    }));
+    const data = await response.json();
+    expect(response.status).toBe(precheckOnly ? 200 : 409);
+    if (precheckOnly) {
+      expect(data.deployReadiness.ready).toBe(false);
+      expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+      expect(prepareCredits).not.toHaveBeenCalled();
+    } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+  it.each([true, false])("holds an unlocked open-ended Next range before credit commit or provider call (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: ">=14", react: "17.0.2" } }) },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly, skipAutoFix: true }),
+    }));
+    const data = await response.json();
+    expect(response.status).toBe(precheckOnly ? 200 : 409);
+    if (precheckOnly) {
+      expect(data.deployReadiness.ready).toBe(false);
+      expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+      expect(prepareCredits).not.toHaveBeenCalled();
+    } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+  it.each([true, false])("blocks native aliases and the effective npm shrinkwrap before credit commit/provider (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    const lock = (next: string) => JSON.stringify({ packages: { "node_modules/next": { version: next }, "node_modules/react": { version: "19.0.0" } } });
+    for (const files of [
+      [{ path: "package.json", content: JSON.stringify({ dependencies: { next: "npm:next@14.2.25", react: "npm:react@19.0.0" } }) }],
+      [
+        { path: "package.json", content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) },
+        { path: "package-lock.json", content: lock("15.5.4") },
+        { path: "npm-shrinkwrap.json", content: lock("14.2.25") },
+      ],
+    ]) {
+      getVersionFiles.mockResolvedValue(files);
+      const response = await POST(new Request("http://localhost/api/v0/deployments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly }),
+      }));
+      const data = await response.json();
+      expect(response.status).toBe(precheckOnly ? 200 : 409);
+      if (precheckOnly) {
+        expect(data.deployReadiness.ready).toBe(false);
+        expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_eresolve");
+      } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    }
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
   });
 
   it("precheckOnly surfaces placeholder-covered Stripe env as warning, not blocker", async () => {

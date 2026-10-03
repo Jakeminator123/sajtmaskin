@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { ExempelContent } from "./exempel-content";
 import { ExempelShell } from "./exempel-shell";
 import { EXEMPEL_CANONICAL_URL, EXEMPEL_DISCLOSURE } from "@/lib/exempel/showcase-sites";
+import { publicIndexRobots } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Exempel på hemsidor",
   description:
     "Se fem Sajtmaskin-exempel: Byråflöde, Springa, Palma, Paddlelines och Glass. Rekonstruktioner som visar visuella riktningar — inte kundomdömen eller riktiga verksamheter.",
   alternates: { canonical: EXEMPEL_CANONICAL_URL },
-  robots: { index: true, follow: true },
+  robots: publicIndexRobots(),
   openGraph: {
     title: "Exempel på hemsidor",
     description:
