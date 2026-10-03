@@ -75,6 +75,15 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflicts).toEqual([]);
   });
 
+  it.each([
+    ["11.1.4", "19.0.0"], ["16.2.3", "17.0.2"],
+    ["10.2.3", "19.0.0"], ["9.5.5", "19.0.0"],
+    ["4.0.0", "19.0.0"], ["15.0.0", "19.0.0"],
+  ])("retains published peer rejection outside Next 12-14 for %s/%s", (next, react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next, react } })[0]?.code).toBe("next_react_peer_eresolve");
+    expect(detectPackageTreeConflicts({ dependencies: { next: `^${next}`, react } }, { next, react })[0]?.code).toBe("next_react_peer_eresolve");
+  });
+
   it("preserves the React 18.0 contract of an exact Next 13.0.0 choice", () => {
     expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: "18.0.0" } })).toEqual([]);
   });
@@ -112,11 +121,14 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     for (const react of ["17.0.2", "18.0.0", "18.0.0-rc.0"]) {
       expect(detectPackageTreeConflicts({ dependencies: { next: "12.3.4", react } })).toEqual([]);
     }
-    expect(detectPackageTreeConflicts({ dependencies: { next: ">=12 <16", react: "^19" } })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: ">=12 <16", react: "^19" } })[0]?.code).toBe("next_react_peer_resolution_required");
     expect(detectPackageTreeConflicts({ dependencies: { next: ">=12 <16", react: "^19" } }, { next: "12.3.4", react: "19.0.0" })).toHaveLength(1);
   });
   it("matches published exact peers across stable/prerelease boundary fixtures", () => {
     const contracts = [
+      ["2.0.0", "^15.4.2"], ["3.0.1", "^15.4.2"], ["3.0.2", "^15.5.4"],
+      ["4.0.0", "^16.0.0"], ["7.0.0", "^16.0.0"], ["8.0.0", "^16.6.0"],
+      ["9.5.5", "^16.6.0"], ["10.0.0", "^16.6.0 || ^17"], ["11.1.4", "^17.0.2"],
       ["12.0.0", "^17.0.2"],
       ["12.0.1", "^17.0.2 || ^18.0.0"],
       ["12.0.4", "^17.0.2 || ^18.0.0"],
@@ -125,8 +137,16 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
       ["13.0.0", "^18.0.0-0"],
       ["13.0.1", "^18.2.0"],
       ["14.2.25", "^18.2.0"],
+      ["15.0.0", "^18.2.0 || 19.0.0-rc-65a56d0e-20241020"],
+      ["15.0.1", "^18.2.0 || 19.0.0-rc-69d4b800-20241021"],
+      ["15.0.2", "^18.2.0 || 19.0.0-rc-02c0e824-20241028"],
+      ["15.0.3", "^18.2.0 || 19.0.0-rc-66855b96-20241106"],
+      ["15.0.4", "^18.2.0 || 19.0.0-rc-66855b96-20241106 || ^19.0.0"],
+      ["15.1.0", "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0"],
+      ["16.2.3", "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0"],
+      ["16.3.8", "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0"],
     ];
-    const versions = ["16.14.0", "17.0.1", "17.0.2", "17.0.3", "18.0.0-0", "18.0.0-rc.0", "18.0.0", "18.1.0", "18.2.0", "18.3.0-rc.0", "18.3.0", "19.0.0-rc.0", "19.0.0"];
+    const versions = ["15.4.1", "15.4.2", "15.5.4", "16.0.0", "16.6.0", "16.14.0", "17.0.0", "17.0.1", "17.0.2", "17.0.3", "18.0.0-0", "18.0.0-rc.0", "18.0.0", "18.1.0", "18.2.0", "18.3.0-rc.0", "18.3.0", "19.0.0-rc.0", "19.0.0-rc-65a56d0e-20241020", "19.0.0-rc-69d4b800-20241021", "19.0.0-rc-02c0e824-20241028", "19.0.0-rc-66855b96-20241106", "19.0.0-rc-de68d2f4-20241204", "19.0.0"];
     for (const [next, peer] of contracts) {
       for (const react of versions) {
         expect(detectPackageTreeConflicts({ dependencies: { next, react } }), `${next}/${react}`).toHaveLength(satisfies(react, peer) ? 0 : 1);
@@ -140,12 +160,20 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   });
 
   it.each([
-    [">=14 <16", "^19"],
-    ["14 || 15", "^19"],
     ["latest", "^19"],
     ["github:org/next#v14", "^19"],
+    ["^17.0.0", "^19"],
   ])("does not claim ERESOLVE without proof for Next %s and React %s", (next, react) => {
     expect(detectPackageTreeConflicts({ dependencies: { next, react } })).toEqual([]);
+  });
+  it.each([">=14 <16", "14 || 15", "15.0.0 || 15.0.4"])("requires resolution evidence, not an ERESOLVE claim, for %s", (next) => {
+    const conflict = detectPackageTreeConflicts({ dependencies: { next, react: "^19" } })[0];
+    expect(conflict?.code).toBe("next_react_peer_resolution_required");
+    expect(conflict?.message).not.toContain("is an npm ERESOLVE tree");
+    expect(detectPackageTreeConflicts({ dependencies: { next, react: "^19" } }, { next: "15.0.4", react: "19.0.0" })).toEqual([]);
+  });
+  it("does not invent a peer contract for Next 0/1 before React peers were declared", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "1.2.3", react: "19.0.0" } })).toEqual([]);
   });
 
   it("uses in-range lockfile selections, not the first major of a broad declaration", () => {

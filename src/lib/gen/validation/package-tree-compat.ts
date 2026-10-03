@@ -62,14 +62,26 @@ const DEP_FIELDS = [
   "peerDependencies",
 ] as const;
 
-// Published npm peer contracts; select all contracts an unlocked range admits.
-// Do not extend these boundaries by guessing a contract for newer Next lines.
+// Published stable npm peer contracts (419 releases through Next 16.3.8).
+// Select all contracts an unlocked range admits; never guess a newer major.
+// Next 0/1 did not declare a React peer, so do not invent one for those lines.
 const NEXT_REACT_PEERS = [
-  { next: "12.0.0", react: "^17.0.2" },
+  { next: ">=2.0.0 <3.0.2", react: "^15.4.2" },
+  { next: ">=3.0.2 <4.0.0", react: "^15.5.4" },
+  { next: ">=4.0.0 <8.0.0", react: "^16.0.0" },
+  { next: ">=8.0.0 <10.0.0", react: "^16.6.0" },
+  { next: ">=10.0.0 <11.0.0", react: "^16.6.0 || ^17" },
+  { next: ">=11.0.0 <12.0.1", react: "^17.0.2" },
   { next: ">=12.0.1 <12.0.5", react: "^17.0.2 || ^18.0.0" },
   { next: ">=12.0.5 <13.0.0", react: "^17.0.2 || ^18.0.0-0" },
   { next: "13.0.0", react: "^18.0.0-0" },
   { next: ">=13.0.1 <15.0.0", react: "^18.2.0" },
+  { next: "15.0.0", react: "^18.2.0 || 19.0.0-rc-65a56d0e-20241020" },
+  { next: "15.0.1", react: "^18.2.0 || 19.0.0-rc-69d4b800-20241021" },
+  { next: "15.0.2", react: "^18.2.0 || 19.0.0-rc-02c0e824-20241028" },
+  { next: "15.0.3", react: "^18.2.0 || 19.0.0-rc-66855b96-20241106" },
+  { next: ">=15.0.4 <15.1.0", react: "^18.2.0 || 19.0.0-rc-66855b96-20241106 || ^19.0.0" },
+  { next: ">=15.1.0 <17.0.0", react: "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0" },
 ] as const;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -139,10 +151,10 @@ function nextReactEresolve(
   // admitted Next contract. One historical compatible pair is not evidence
   // for the versions npm will select. Distinguish a proven conflict from an
   // ambiguous range requiring an in-range lock or exact matching pair.
-  // A broad Next range may resolve to 15+; tags, git specs and newer lines
+  // A broad Next range may resolve to 17+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
   if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
-  if (!subset(nextRange, ">=12.0.0 <15.0.0")) return null;
+  if (!subset(nextRange, ">=2.0.0 <17.0.0")) return null;
   const contracts = NEXT_REACT_PEERS.filter((contract) => rangesShareVersion(nextRange, contract.next));
   if (contracts.length === 0) return null;
   const reactChoices = new Range(reactRange);
