@@ -536,6 +536,31 @@ describe("POST /api/v0/deployments", () => {
     );
   });
 
+  it.each([true, false])("holds unresolved React specs and invalid effective pnpm schemas before provider/credit commit (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    for (const invalidSchema of [false, true]) {
+      getVersionFiles.mockResolvedValue(invalidSchema ? [
+        { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@10.28.1", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+        { path: "pnpm-lock.yaml", content: "lockfileVersion: '999.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n" },
+      ] : [
+        { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react: "https://registry.npmjs.org/react/-/react-19.0.0.tgz" } }) },
+      ]);
+      const response = await POST(new Request("http://localhost/api/v0/deployments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly, skipAutoFix: invalidSchema }),
+      }));
+      const data = await response.json();
+      if (precheckOnly) {
+        expect(data.deployReadiness.ready).toBe(false);
+        expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+        expect(prepareCredits).not.toHaveBeenCalled();
+      } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    }
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
   it("precheckOnly runs auto-fix by default (K-007): removes pnpm-lock, no skip message in fixesApplied", async () => {
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },

@@ -140,7 +140,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       getPreferredVersion.mockResolvedValue({ id: "ver_1", chat_id: "chat_1", lifecycle_stage: "design", verification_state: "passed", release_state: "promoted" });
       const files = [
         { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
-        { path, content: path.startsWith("pnpm") ? "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" : '"next@^13.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n' },
+        { path, content: path.startsWith("pnpm") ? "lockfileVersion: 5.4\nspecifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" : '"next@^13.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n' },
       ];
       getVersionFiles.mockResolvedValue(files);
       const original = JSON.stringify(files);

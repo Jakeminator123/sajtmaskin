@@ -1,5 +1,5 @@
-import { isMap, isScalar, parseDocument } from "yaml";
-import { valid } from "semver";
+import { isMap, isScalar, parseAllDocuments } from "yaml";
+import { major, valid } from "semver";
 
 type Files = ReadonlyArray<{ path: string; content: string }>;
 export type LockedNextReact = { next: string; react: string };
@@ -7,33 +7,65 @@ const normalize = (path: string) => path.replace(/^\/+/, "").replace(/\\/g, "/")
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
-function yamlDocument(raw: string) {
+function yamlDocument(raw: string, pnpm = false) {
   // Inspect the AST, not toJS(): no alias expansion or custom object types.
   if (raw.length > 2_000_000) return null;
-  const doc = parseDocument(raw, { schema: "failsafe", stringKeys: true, uniqueKeys: true });
-  return doc.errors.length || doc.warnings.length ? null : doc;
+  const docs = parseAllDocuments(raw, { schema: "failsafe", stringKeys: true, uniqueKeys: true });
+  if (!docs.length || docs.length > (pnpm ? 2 : 1) || docs.some((doc) => doc.errors.length || doc.warnings.length)) return null;
+  // pnpm's optional environment document precedes the project graph. Never
+  // merge their importers or let an invalid environment document hide errors.
+  const doc = docs.at(-1)!;
+  if (docs.length === 2 && docs[0].get("lockfileVersion") !== doc.get("lockfileVersion")) return null;
+  return doc;
 }
 
-function pnpmVersion(value: unknown): string | null {
+function pnpmVersion(value: unknown, name: "next" | "react"): string | null {
   if (typeof value !== "string") return null;
-  const candidate = value.replace(/^\/(?:next|react)\//, "").split(/[(_]/, 1)[0];
+  const target = value.startsWith(`/${name}/`) ? value.slice(name.length + 2)
+    : value.startsWith(`${name}@`) ? value.slice(name.length + 1) : value;
+  const candidate = target.split(/[(_]/, 1)[0];
   return valid(candidate);
 }
 
+function declaredPnpmMajor(pkg: Record<string, unknown>): number | null {
+  const version = typeof pkg.packageManager === "string" ? valid(pkg.packageManager.slice("pnpm@".length)) : null;
+  return version ? major(version) : null;
+}
+
+function compatiblePnpmSchema(schema: unknown, pkg: Record<string, unknown>): boolean {
+  if (typeof schema !== "string" || !/^\d+(?:\.\d+)?$/.test(schema)) return false;
+  const schemaMajor = Number(schema.split(".")[0]);
+  if (![5, 6, 9].includes(schemaMajor)) return false;
+  if (typeof pkg.packageManager !== "string") return true; // Vercel infers the manager from this known schema.
+  const managerMajor = declaredPnpmMajor(pkg);
+  if (managerMajor === null) return false;
+  // pnpm 7/8 explicitly accept both the legacy v5 and v6 formats in their
+  // frozen-install path; a simple one-major-to-one-schema table is incorrect.
+  const expected = managerMajor >= 5 && managerMajor <= 6 ? [5]
+    : managerMajor === 7 || managerMajor === 8 ? [5, 6]
+      : managerMajor >= 9 && managerMajor <= 12 ? [9] : [];
+  return expected.includes(schemaMajor);
+}
+
 function pnpmSelections(raw: string, pkg: Record<string, unknown>): LockedNextReact | undefined {
-  const doc = yamlDocument(raw);
-  if (!doc) return undefined;
+  const managerMajor = declaredPnpmMajor(pkg);
+  // Older/default Vercel pnpm readers use single-document yaml.load. A newer
+  // explicitly pinned reader is required before multi-document proof is safe.
+  const doc = yamlDocument(raw, managerMajor !== null && managerMajor >= 11 && managerMajor <= 12);
+  if (!doc || !compatiblePnpmSchema(doc.get("lockfileVersion"), pkg)) return undefined;
+  const legacy = String(doc.get("lockfileVersion")).startsWith("5");
   const root = doc.has("importers") ? ["importers", "."] : [];
-  const version = (name: string) => {
+  const version = (name: "next" | "react") => {
     for (const field of ["dependencies", "devDependencies", "optionalDependencies"]) {
       const entry = doc.getIn([...root, field, name], true);
       if (!entry) continue;
+      if (legacy ? !isScalar(entry) : !isMap(entry)) return null;
       const specifier = isMap(entry) ? entry.get("specifier") : doc.getIn([...root, "specifiers", name]);
       // Frozen pnpm install refuses stale specifiers even when the selected
       // version happens to satisfy a newly widened manifest range.
       if (typeof specifier !== "string" || specifier !== record(pkg[field])?.[name]) return null;
       const value = isMap(entry) ? entry.get("version") : isScalar(entry) ? entry.value : null;
-      return pnpmVersion(value);
+      return pnpmVersion(value, name);
     }
     return null;
   };
