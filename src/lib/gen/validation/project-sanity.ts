@@ -4,7 +4,7 @@ import { isSonnerBoilerplate } from "@/lib/gen/autofix/rules/layout-provider-fix
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 import {
-  detectPackageTreeConflicts,
+  findPackageTreeConflictsInFiles,
   formatPackageTreeConflictDetail,
 } from "@/lib/gen/validation/package-tree-compat";
 
@@ -794,7 +794,7 @@ export function runProjectSanityChecks(
         }
       }
 
-      checkKnownBadPeers(deps, issues);
+      checkKnownBadPeers(deps, issues, files);
     } catch {
       issues.push(
         createSanityIssue(
@@ -893,6 +893,7 @@ function extractMajor(version: string): number | null {
 function checkKnownBadPeers(
   deps: Record<string, string>,
   issues: SanityIssue[],
+  files: readonly CodeFile[],
 ): void {
   const reactMajor = deps.react ? extractMajor(deps.react) : null;
 
@@ -927,27 +928,9 @@ function checkKnownBadPeers(
     }
   }
 
-  // next 16+ requires react 19+ (kept as the historical message for existing tests)
-  if (deps.next && reactMajor !== null) {
-    const nextMajor = extractMajor(deps.next);
-    if (nextMajor !== null && nextMajor >= 16 && reactMajor < 19) {
-      issues.push(
-        createSanityIssue(
-          "package.json",
-          "error",
-          `next ${deps.next} requires react >=19 but react is ${deps.react}`,
-          "dependency_install_failure",
-        ),
-      );
-    }
-  }
-
-  // Next 14 + React 19 (and the reverse Next 16 + React 18, already above)
-  // is the npm ERESOLVE class Vercel dies on. Preview-host --legacy-peer-deps
-  // is a display bypass, not compatibility. Detect here so import/post-checks
-  // surface it; publish is blocked by the readiness/deploy file gate.
-  for (const conflict of detectPackageTreeConflicts({ dependencies: deps })) {
-    if (conflict.nextMajor >= 16 && conflict.reactMajor < 19) continue;
+  // Same range/lockfile-aware owner as import, readiness and publish. Do not
+  // invent a second Next/React major heuristic here.
+  for (const conflict of findPackageTreeConflictsInFiles(files)?.conflicts ?? []) {
     issues.push(
       createSanityIssue(
         "package.json",

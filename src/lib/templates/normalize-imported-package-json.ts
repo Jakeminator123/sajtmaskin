@@ -1,6 +1,6 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import {
-  detectPackageTreeConflicts,
+  findPackageTreeConflictsInFiles,
   parsePackageJsonRecord,
   type PackageTreeConflict,
 } from "@/lib/gen/validation/package-tree-compat";
@@ -204,13 +204,21 @@ export function normalizeImportedRepoFiles(files: CodeFile[]): ImportNormalizeRe
     }
   }
 
-  const conflicts = detectPackageTreeConflicts(nextPkg);
-  if (applied.length === 0) return { files, applied: [], conflicts };
+  if (applied.length === 0)
+    return {
+      files,
+      applied: [],
+      conflicts: findPackageTreeConflictsInFiles(files)?.conflicts ?? [],
+    };
 
   const nextFiles = [...files];
   nextFiles[pkgIndex] = {
     ...files[pkgIndex],
     content: `${JSON.stringify(nextPkg, null, 2)}\n`,
   };
-  return { files: nextFiles, applied, conflicts };
+  return {
+    files: nextFiles,
+    applied,
+    conflicts: findPackageTreeConflictsInFiles(nextFiles)?.conflicts ?? [],
+  };
 }

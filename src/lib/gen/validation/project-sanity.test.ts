@@ -696,6 +696,18 @@ export function ThemeToggle() {
     ).toBe(true);
   });
 
+  it.each([
+    { next: "16.2.3", react: "18.3.1" },
+    { next: ">=14 <16", react: "^19" },
+  ])("does not invent a Next/React peer failure for %j", (dependencies) => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: JSON.stringify({ dependencies }) },
+    ]);
+    expect(
+      result.issues.filter((issue) => issue.category === "dependency_install_failure"),
+    ).toEqual([]);
+  });
+
   it("flags the incident Next 14 + React 19 ERESOLVE tree", () => {
     const result = runProjectSanityChecks([
       {

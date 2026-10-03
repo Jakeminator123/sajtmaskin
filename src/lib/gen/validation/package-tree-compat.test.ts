@@ -38,12 +38,8 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflicts[0]?.message).toMatch(/ERESOLVE/);
     expect(conflicts[0]?.message).toMatch(/legacy-peer-deps/);
     expect(conflicts[0]?.repairOptions.some((option) => /Bump Next/i.test(option))).toBe(true);
-    expect(conflicts[0]?.repairOptions.some((option) => /Pin React 18/i.test(option))).toBe(
-      true,
-    );
-    expect(conflicts[0]?.repairOptions.some((option) => /do not publish/i.test(option))).toBe(
-      true,
-    );
+    expect(conflicts[0]?.repairOptions.some((option) => /Pin React 18/i.test(option))).toBe(true);
+    expect(conflicts[0]?.repairOptions.some((option) => /do not publish/i.test(option))).toBe(true);
   });
 
   it("locks the fixture text to the incident package.json", () => {
@@ -71,11 +67,90 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     ).toEqual([]);
   });
 
-  it("still flags Next 16 + React 18 (the existing reverse ERESOLVE)", () => {
+  it("does not invent a Next 16 + React 18 conflict (Next still peers React 18)", () => {
     const conflicts = detectPackageTreeConflicts({
       dependencies: { next: "16.2.3", react: "18.3.1" },
     });
-    expect(conflicts[0]?.nextMajor).toBe(16);
-    expect(conflicts[0]?.reactMajor).toBe(18);
+    expect(conflicts).toEqual([]);
+  });
+
+  it.each([
+    [">=14 <16", "^19"],
+    ["14 || 15", "^19"],
+    ["14.2.25", "^18.2 || ^19"],
+    ["14.2.25", "*"],
+    ["latest", "^19"],
+    ["github:org/next#v14", "^19"],
+  ])("does not claim ERESOLVE without proof for Next %s and React %s", (next, react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next, react } })).toEqual([]);
+  });
+
+  it("uses in-range lockfile selections, not the first major of a broad declaration", () => {
+    const files = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }),
+      },
+      {
+        path: "package-lock.json",
+        content: JSON.stringify({
+          lockfileVersion: 3,
+          packages: {
+            "node_modules/next": { version: "14.2.25" },
+            "node_modules/react": { version: "19.0.0" },
+          },
+        }),
+      },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.nextMajor).toBe(14);
+    files[1].content = JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        "node_modules/next": { version: "15.5.4" },
+        "node_modules/react": { version: "19.0.0" },
+      },
+    });
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+  });
+
+  it("detects a locked React 19 selection inside a mixed 18/19 range", () => {
+    expect(
+      findPackageTreeConflictsInFiles([
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { next: "14.2.25", react: "^18.2 || ^19" } }),
+        },
+        {
+          path: "package-lock.json",
+          content: JSON.stringify({
+            lockfileVersion: 1,
+            dependencies: {
+              next: { version: "14.2.25" },
+              react: { version: "19.0.0" },
+            },
+          }),
+        },
+      ])?.conflicts[0]?.reactMajor,
+    ).toBe(19);
+  });
+
+  it("ignores out-of-range lock selections rather than clearing a manifest conflict", () => {
+    expect(
+      findPackageTreeConflictsInFiles([
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { next: "14.2.25", react: "^19" } }),
+        },
+        {
+          path: "package-lock.json",
+          content: JSON.stringify({
+            packages: {
+              "node_modules/next": { version: "15.5.4" },
+              "node_modules/react": { version: "18.3.1" },
+            },
+          }),
+        },
+      ])?.conflicts,
+    ).toHaveLength(1);
   });
 });

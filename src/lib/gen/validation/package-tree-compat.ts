@@ -11,6 +11,8 @@
  * listed so a human can choose a coherent tree.
  */
 
+import { intersects, minVersion, satisfies, subset, valid, validRange } from "semver";
+
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
 /**
@@ -73,12 +75,10 @@ export function parsePackageJsonRecord(raw: string): Record<string, unknown> | n
   }
 }
 
-/** First integer in a semver range (`^19`, `14.2.25`, `>=18.2.0` → 19 / 14 / 18). */
+/** Representative minimum for diagnostics only; never treat it as a resolved version. */
 export function extractDependencyMajor(range: string): number | null {
-  const match = range.trim().match(/\d+/);
-  if (!match) return null;
-  const major = Number.parseInt(match[0], 10);
-  return Number.isFinite(major) ? major : null;
+  const parsed = validRange(range);
+  return parsed ? (minVersion(parsed)?.major ?? null) : null;
 }
 
 export function collectDeclaredDependencyRanges(
@@ -111,14 +111,17 @@ function nextReactEresolve(
   nextRange: string,
   reactRange: string,
 ): { nextMajor: number; reactMajor: number } | null {
+  if (!validRange(nextRange) || !validRange(reactRange)) return null;
+  // Only claim a conflict when EVERY admitted Next version belongs to the
+  // known 13/14 peer contract and NO admitted React version meets ^18.2.0.
+  // A broad Next range may resolve to 15+; tags, git specs and newer lines
+  // need real install evidence, not a made-up major-version contract.
+  if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
+  if (!subset(nextRange, ">=13.0.0 <15.0.0") || intersects(reactRange, "^18.2.0")) return null;
   const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
   if (nextMajor === null || reactMajor === null) return null;
-  // Next 13/14 declare `react@^18.2.0`. React 19 → npm ERESOLVE (incident).
-  if (nextMajor <= 14 && reactMajor >= 19) return { nextMajor, reactMajor };
-  // Next 16+ declares `react@^19`. React 18 → npm ERESOLVE.
-  if (nextMajor >= 16 && reactMajor < 19) return { nextMajor, reactMajor };
-  return null;
+  return { nextMajor, reactMajor };
 }
 
 function repairOptionsForNextReact(params: {
@@ -126,33 +129,38 @@ function repairOptionsForNextReact(params: {
   reactMajor: number;
   peers: PackageTreePeerMap;
 }): string[] {
-  const reactDomNote = params.peers.reactDom
-    ? ` and react-dom ${params.peers.reactDom}`
-    : "";
+  const reactDomNote = params.peers.reactDom ? ` and react-dom ${params.peers.reactDom}` : "";
   const typesNote = params.peers.typesReact
     ? ` Keep @types/react (${params.peers.typesReact}) on the same React major.`
     : "";
-  if (params.nextMajor <= 14 && params.reactMajor >= 19) {
-    return [
-      `Bump Next to a 15+ line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
-      `Pin React 18 (and react-dom 18) to match Next ${params.nextMajor}.${typesNote}`,
-      "Leave the imported tree verbatim and do not publish until the tree is coherent.",
-    ];
-  }
   return [
-    `Bump React to 19+ (and react-dom) to match Next ${params.nextMajor}.${typesNote}`,
-    `Pin Next to a 15 line that still peers React ${params.reactMajor}.${typesNote}`,
+    `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
+    `Pin React 18 (and react-dom 18) to match Next ${params.nextMajor}.${typesNote}`,
     "Leave the imported tree verbatim and do not publish until the tree is coherent.",
   ];
 }
 
-export function detectPackageTreeConflicts(pkg: unknown): PackageTreeConflict[] {
+type LockedVersions = { next: string; react: string };
+
+export function detectPackageTreeConflicts(
+  pkg: unknown,
+  locked?: LockedVersions,
+): PackageTreeConflict[] {
   const record = asRecord(pkg);
   if (!record) return [];
   const deps = collectDeclaredDependencyRanges(record);
   const conflicts: PackageTreeConflict[] = [];
   if (deps.next && deps.react) {
-    const mismatch = nextReactEresolve(deps.next, deps.react);
+    const useLocked =
+      locked &&
+      valid(locked.next) &&
+      valid(locked.react) &&
+      satisfies(locked.next, deps.next) &&
+      satisfies(locked.react, deps.react);
+    const mismatch = nextReactEresolve(
+      useLocked ? locked.next : deps.next,
+      useLocked ? locked.react : deps.react,
+    );
     if (mismatch) {
       const peers = peerMapFromRanges(deps);
       conflicts.push({
@@ -164,7 +172,7 @@ export function detectPackageTreeConflicts(pkg: unknown): PackageTreeConflict[] 
         peers,
         message:
           `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
-          ` (Next ${mismatch.nextMajor} does not peer React ${mismatch.reactMajor}).` +
+          ` (Next ${mismatch.nextMajor} peers React ^18.2.0, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
         repairOptions: repairOptionsForNextReact({
           nextMajor: mismatch.nextMajor,
@@ -195,7 +203,19 @@ export function findPackageTreeConflictsInFiles(
   if (!pkgFile) return null;
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
-  const conflicts = detectPackageTreeConflicts(parsed);
+  const lockFile = files.find(
+    (file) => file.path.replace(/^\/+/, "").replace(/\\/g, "/") === "package-lock.json",
+  );
+  const lock = lockFile ? parsePackageJsonRecord(lockFile.content) : null;
+  const packages = asRecord(lock?.packages);
+  // npm v2/v3, with a v1 fallback. Ignore stale/out-of-range selections in
+  // detectPackageTreeConflicts; a lockfile is not proof for another manifest.
+  const legacy = asRecord(lock?.dependencies);
+  const next = asRecord(packages?.["node_modules/next"] ?? legacy?.next)?.version;
+  const react = asRecord(packages?.["node_modules/react"] ?? legacy?.react)?.version;
+  const locked =
+    typeof next === "string" && typeof react === "string" ? { next, react } : undefined;
+  const conflicts = detectPackageTreeConflicts(parsed, locked);
   if (conflicts.length === 0) return null;
   return { path: pkgFile.path, conflicts };
 }

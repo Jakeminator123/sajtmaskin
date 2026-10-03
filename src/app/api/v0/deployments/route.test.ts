@@ -232,6 +232,45 @@ describe("POST /api/v0/deployments", () => {
     getEngineVersionErrorLogs.mockResolvedValue([]);
   });
 
+  it.each([false, true])(
+    "package-tree block is structured and non-ready in precheck (fallback=%s)",
+    async (fallback) => {
+      if (fallback) {
+        getEngineVersionErrorLogs.mockResolvedValue([
+          {
+            category: "preview:install-peer-fallback",
+            meta: { usedFallback: true, filesRevision: "revision_1" },
+          },
+        ]);
+      } else {
+        getVersionFiles.mockResolvedValue([
+          {
+            path: "package.json",
+            content: JSON.stringify({
+              dependencies: { next: "14.2.25", react: "^19" },
+            }),
+          },
+        ]);
+      }
+      const res = await POST(
+        new Request("http://localhost/api/v0/deployments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+        }),
+      );
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.packageTreeGate).toMatchObject({
+        allowed: false,
+        code: fallback ? "DEPLOY_INSTALL_PEER_FALLBACK" : "DEPLOY_PACKAGE_TREE_ERESOLVE",
+      });
+      expect(json.deployReadiness.ready).toBe(false);
+      expect(prepareCredits).not.toHaveBeenCalled();
+      expect(createVercelDeployment).not.toHaveBeenCalled();
+    },
+  );
+
   it("precheckOnly returns 200 with deployReadiness without calling credits", async () => {
     const req = new Request("http://localhost/api/v0/deployments", {
       method: "POST",
