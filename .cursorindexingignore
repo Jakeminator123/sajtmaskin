@@ -73,8 +73,8 @@ templates_v0/
 .cursor/automation/archive/
 .cursor/automation/input/
 .cursor/migration-archive/
-# Scratch från /logg m.m. — läsbar, inte sökbar. mcp.json och OpenClaw-bryggan
-# stannar i .cursorignore (kan bära tokens / env-citat).
+# Scratch från /logg m.m. — läsbar, inte sökbar. OpenClaw-bryggan
+# är lässpärrad; mcp.json skyddas av secret-read-hooken.
 .cursor/worktrees/
 .cursor/tmp/
 .cursor/*tmp*

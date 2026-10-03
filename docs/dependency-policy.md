@@ -10,7 +10,7 @@ uppgraderingar tas en domän åt gången med full review.**
 
 | Klass               | Hantering                                                                                                                                      | Merge                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar (`npm-production-patch`, `npm-development-patch`). Låg-risk-patchar kan få labeln `dependabot-patch-safe`. | Samma kanoniska review-window, mänskliga mandat och betrodda merge-controller som övriga PR:ar. |
+| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar (`npm-production-patch`, `npm-development-patch`). Låg-risk-patchar kan få labeln `dependabot-patch-safe`. | Samma review-window, separata mänskliga mandat och manuella expected-head-merge som övriga PR:ar. |
 | **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar.                         | Kan få snabb review men aldrig en separat auto-merge-väg.                                       |
 | **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog, kör riktat lokalt och invänta tung GitHub-profil.   |
 | **Security**        | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors.                                                 | Samma grindar, men prioriterad handläggning.                                                    |
@@ -109,5 +109,5 @@ PR-branchen och innehåller ingen merge- eller auto-merge-åtgärd.
 
 Alla Dependabot-PR:ar går därefter genom samma lokala plan + riktade kontroller,
 required GitHub-checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off
-och `merge:execute` som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
+och manuella merge med expected head som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
 aldrig ”får mergas utan kontroll”.

@@ -21,9 +21,6 @@
 
 /** Tolererar em-dash, en-dash, bindestreck eller kolon efter `merge:ready`. */
 export const SIGNOFF_PATTERN = /merge:ready\s*[—–:-]?\s*head-sha:/i;
-export const MERGE_EXECUTE_PATTERN =
-  /^merge:execute\s*[—–:-]\s*head-sha:\s*([0-9a-f]{40}),\s*base-sha:\s*([0-9a-f]{40}),\s*at:\s*([^,\s]+),\s*bugkoll:\s*([^,\r\n]+),\s*triage:\s*([^,\r\n]+),\s*P0\/P1:\s*0\s*$/i;
-
 const HEAD_SHA_FIELD_PATTERN = /(?:^|[,\s])head-sha:\s*([^,\s]+)/i;
 const BASE_SHA_FIELD_PATTERN = /(?:^|[,\s])base-sha:\s*([^,\s]+)/i;
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
@@ -169,76 +166,6 @@ export function validateMergeReadySignoff(input) {
     valid: true,
     reason: `sign-off matchar aktuell head ${signoffHeadSha.slice(0, 7)} och base ${signoffBaseSha.slice(0, 7)}`,
     createdAt: signoff.createdAt,
-  };
-}
-
-/**
- * Det sista merge-mandatet är striktare än den vanliga sign-offen. Bara en
- * mänsklig repoägare/medlem/collaborator får beordra merge; PR-författarskap
- * räcker uttryckligen inte. Hela kommentaren måste vara en enda exakt,
- * head/base-bunden kommandorad så att dold eller tvetydig fritext inte kan
- * tolkas som mandat.
- *
- * @param {{
- *   body: string,
- *   createdAt?: string | null,
- *   authorLogin?: string | null,
- *   authorType?: string | null,
- *   authorAssociation?: string | null,
- *   headSha: string,
- *   baseSha: string,
- * }} input
- */
-export function validateMergeExecuteMandate(input) {
-  const match = input.body?.trim().match(MERGE_EXECUTE_PATTERN);
-  if (!match) {
-    return {
-      valid: false,
-      reason:
-        "merge:execute måste vara en enda exakt rad med head-sha, base-sha, at, bugkoll, triage och P0/P1: 0",
-    };
-  }
-
-  const [, commandHead, commandBase, at, bugCheck, triage] = match;
-  if (
-    !SHA_PATTERN.test(input.headSha ?? "") ||
-    commandHead.toLowerCase() !== input.headSha.toLowerCase()
-  ) {
-    return { valid: false, reason: "merge:execute head-sha matchar inte aktuell PR-head" };
-  }
-  if (
-    !SHA_PATTERN.test(input.baseSha ?? "") ||
-    commandBase.toLowerCase() !== input.baseSha.toLowerCase()
-  ) {
-    return { valid: false, reason: "merge:execute base-sha matchar inte aktuell preview" };
-  }
-  if (!UTC_PATTERN.test(at) || Number.isNaN(Date.parse(at))) {
-    return { valid: false, reason: "merge:execute kräver ett giltigt at-fält i UTC" };
-  }
-  if (!bugCheck.trim() || !triage.trim()) {
-    return { valid: false, reason: "merge:execute kräver icke-tom bugkoll och triage" };
-  }
-
-  const login = input.authorLogin?.trim().toLowerCase() ?? "";
-  const type = input.authorType?.trim().toLowerCase() ?? "";
-  const association = input.authorAssociation?.trim().toUpperCase() ?? "";
-  if (!login || type !== "user" || login.endsWith("[bot]")) {
-    return { valid: false, reason: "merge:execute måste postas av en verifierad människa" };
-  }
-  if (!TRUSTED_SIGNOFF_ASSOCIATIONS.has(association)) {
-    return {
-      valid: false,
-      reason: `merge:execute-författaren ${login} saknar OWNER/MEMBER/COLLABORATOR-behörighet`,
-    };
-  }
-  if (toEpoch(input.createdAt) === null) {
-    return { valid: false, reason: "merge:execute saknar GitHub-verifierad created_at" };
-  }
-
-  return {
-    valid: true,
-    reason: `merge:execute är bundet till head ${commandHead.slice(0, 7)} och base ${commandBase.slice(0, 7)}`,
-    createdAt: input.createdAt,
   };
 }
 

@@ -3,63 +3,66 @@ description: "PR-grind: läs efter skapad PR, vid review och före uttryckligen 
 alwaysApply: false
 ---
 
-# PR och merge
+# PR och manuell merge
 
 Körordning: `.agents/skills/pr-workflow/SKILL.md`. Checks, tidsgränser och
-protected paths: `config/agent-workflow.json`. Bakgrund och bootstrap:
-`docs/runbooks/pr-merge-gate.md`. Modeller: `subagent-models.mdc`.
-
-## Mergevägar
-
-- Vanligt arbete: PR mot `preview`; en betrodd controller kan squash-merga
-  efter separat mergeuppdrag. `merge:execute` får aldrig ta `master`.
-  Preview och produktion delar DB; även SQL-fri preview-merge kan starta
-  produktions-DB-jobb. Okända effekter är ett stopp, inte staging-isolering.
-- Produktion: promote-PR mot `master`. Varna med PR-nummer och vänta på en
-  ny bekräftelse i samma chatt. Äldre «ok» eller «kör på» är inte godkännande.
-  Mergen är manuell; även SQL-fri merge kan starta jobb mot produktions-DB.
-- CI-trust roots (`manualMergePathPrefixes`): separat ägarstyrd bootstrap.
-  Agenten godkänner inte sig själv. Bootstrap ersätter bara controllerspärren,
-  aldrig röd/pending CI, blockerande fynd eller okända databaseffekter.
-- Ancestry-synk efter release: dedikerad PR från färsk preview som tar in
-  master. Head ska innehålla båda live tipsen. Efter samma CI, review och
-  tidsgolv krävs ett separat uttryckligt uppdrag för manuell merge-commit
-  med expected head, utan `--admin`. Aldrig squash eller `merge:execute`:
-  då försvinner master-ancestry igen. Inga blandade featureändringar.
-  Trust-root-diff kräver dessutom bootstrap; verifiera ancestry och CI efteråt.
-
-## Före ready och sign-off
+protected paths: `config/agent-workflow.json`. Bakgrund:
+`docs/runbooks/pr-merge-gate.md`.
 
 Efter varje ny head/base: riktad verifiering, gröna required GitHub-checks på
-exakt SHA och färsk oberoende review. Läs även inline comments, reviews,
-PR-kommentarer, check-run summary/text och annotations. Triagera varje fynd:
-fixat, loggat i rätt tracker eller verifierbart avfärdat. Arbete kvar = draft.
-Full lokal verify krävs inte för varje push; använd PR-skillens verifiering.
-
-`review-window` kräver inte `merge:ready` för att bli grön. Controllern gör
-ingen modellreview, och ett saknat Cursor-/Codex-/API-kvitto är inte ett
-blockerande fynd. Oberoende review är ett separat mänskligt ansvar och
-ersätts inte av grön CI eller egen attest; checken bevisar inte den reviewn.
+exakt SHA och färsk oberoende review. Läs inline comments, reviews,
+PR-kommentarer, check-run summary/text och annotations; triagera konkreta
+fynd. Arbete kvar = draft. `review-window` bevisar tekniska kontroller och
+proveniens, aldrig oberoende review eller mergemandat.
 
 Hårda stopp: draft, fel base, konflikt, röd/pending required check eller
 deployment, requested changes, otriagerat blockerande fynd, P0/P1,
 security/cross-tenant, secretläcka, false-green eller brutet kontrakt.
-Även `do-not-merge`, `agent:needs-human`, `risk:4`/`risk:5`, adminspärrad
-Godnatt-evaluation och PR från EmaCodeHero stoppas för ägarbeslut.
+`do-not-merge`, `agent:needs-human`, `risk:4`/`risk:5`, adminspärrad
+Godnatt-evaluation och PR från EmaCodeHero kräver ägarbeslut.
 
-## Enda normala preview-mergevägen
+Enda policyundantaget är `review-window: action_required` vars betrodda,
+head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`
+för verifierade ändringar i `manualMergePathPrefixes`. Efter dokumenterad ägarbootstrap
+och oberoende review får endast den bootstrap-spärren ersättas. Alla övriga röda/pending checks
+och blockerande fynd förblir stopp. Undantaget gäller agentpolicyn, aldrig native GitHub-skydd;
+använd inte admin-bypass eller ändra checkresultat för att få grönt.
 
-1. När kontroller/review är klara, head innehåller live base och tidsgolvet i
-   policyn passerat: kommentera först, sätt sedan labeln `merge:ready`:
+Samma undantag omfattar det röda orchestrator-jobbet `trusted-review-window`
+endast i en verifierat betrodd default-controller-körning för samma PR och aktuell head.
+Körningen måste ha publicerat den head-bundna `review-window`-checken med
+`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`;
+enda felorsaken måste vara exakt samma bootstrap-summary. Paret räknas som en bootstrap-spärr.
+Varje annan jobbfailure, felannotation eller loggfel som inte härleds ur exakt denna
+bootstrap-summary, annan head/proveniens eller native GitHub-spärr förblir stopp.
+
+Hela denna regel är exakt pinnad i `POLICY_FLOORS.manualMergeRuleSha256`.
+Det låser godkänd text, inte live-evidens eller fri-prosa-semantik. Regeländringar
+kräver synlig floor-uppdatering, ägarbootstrap och oberoende review.
+
+## Leverans till preview
+
+1. När kontroller/review och policyns tidsgolv är klara och head innehåller
+   aktuell preview: posta ready-kommentaren före labeln `merge:ready`:
    `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-2. Efter ett separat uttryckligt mergeuppdrag postar en verifierad mänsklig
-   `OWNER`, `MEMBER` eller `COLLABORATOR` en ny, oredigerad PR-kommentar:
-   `merge:execute — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
-3. Controllern återläser hela underlaget live, kräver senare kommentar än
-   evidensen och squash-mergar med expected head. Ny head/base eller senare
-   fynd ogiltigförklarar mandatet. Ingen separat API-/webbmerge eller `--admin`
-   förbi grinden. Mergaren sätter inte författarens ready-signal åt den.
+2. Invänta separat uttryckligt mergeuppdrag. Ready-label och grön CI är inte
+   godkännande. Trust-root-ändringar (`manualMergePathPrefixes`) kräver
+   dessutom separat dokumenterad ägarbootstrap och oberoende granskning.
+3. Återläs head, live base, checks och hela granskningsunderlaget direkt före
+   merge. Ny head/base eller senare fynd kräver ny verifiering och sign-off.
+4. Kör manuellt `gh pr merge <nummer> --squash --match-head-commit <40 hex>`.
+   Använd aldrig `--auto` eller `--admin`. Serialisera merges; kontrollera
+   att base fortfarande är den granskade, hämta färsk preview efteråt och
+   verifiera terminal PR-status samt CI/deployment på mergecommiten.
 
-Serialisera merges, hämta färsk preview och omvärdera övriga PR:er efteråt.
-Röd post-merge-verifiering återkörs; samma PR mergas inte igen.
-Använd engångskontroller eller produktens bevakning, inga watch-loopar.
+## Produktion och ancestry-synk
+
+Promote-PR till master: varna med PR-nummer och vänta på en ny uttrycklig
+bekräftelse i samma chatt. Mergen är manuell med expected head. Ancestry-synk
+efter release kräver dedikerad preview-PR vars head innehåller båda live tipsen,
+separat mergeuppdrag och `--merge --match-head-commit`; squash tappar ancestry.
+
+Preview delar produktions-DB. Startup, Git-posthooks och CI applicerar inte
+schema eller migrationer; DB-apply kräver eget uttryckligt mandat. Okända
+dataeffekter är ett stopp. Återkör misslyckad efterkontroll på en redan mergad
+PR; merga inte samma PR igen.

@@ -40,6 +40,7 @@ export function evaluateRetiredApiReviewWorkflows(workflows) {
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
+  manualMergeRuleSha256: "880433b4dea601a50865302cfa60f74e6b9c215df6dd119fab971de9051b4475",
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
   // Required PR-head checks and the workflow file that may publish them.
   // `review-window` is owned by the trusted default-branch controller, not a
@@ -47,6 +48,7 @@ export const POLICY_FLOORS = Object.freeze({
   requiredCheckOwners: REQUIRED_CHECK_OWNERS,
   requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
   manualMergePathPrefixes: [
+    ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",
@@ -255,12 +257,37 @@ function workflowEvents(document) {
   return new Set();
 }
 
-function grantsWrite(permission) {
+function grantsWrite(permission, capabilities = null) {
   if (typeof permission === "string") return permission.toLowerCase() === "write-all";
   if (!permission || typeof permission !== "object") return false;
-  return Object.values(permission).some(
-    (value) => typeof value === "string" && value.toLowerCase() === "write",
+  return Object.entries(permission).some(
+    ([capability, value]) =>
+      (!capabilities || capabilities.includes(capability)) &&
+      typeof value === "string" && value.toLowerCase() === "write",
   );
+}
+
+export function evaluateTrustedControllerPermissions(source) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch {
+    return ["trusted controller permissions must be valid YAML"];
+  }
+  const errors = [];
+  if (document?.permissions === undefined || document?.permissions === null) {
+    errors.push("trusted controller must declare explicit non-merge permissions");
+  }
+  const capabilities = ["contents", "actions"];
+  if (grantsWrite(document?.permissions, capabilities)) {
+    errors.push("trusted controller must not grant contents/actions write at workflow level");
+  }
+  for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
+    if (grantsWrite(job?.permissions, capabilities)) {
+      errors.push(`trusted controller job ${jobName} must not grant contents/actions write`);
+    }
+  }
+  return errors;
 }
 
 export function evaluatePrHeadWorkflowPermissions(workflowSources) {
@@ -1289,6 +1316,17 @@ export function evaluateCiBranch(policy, env = process.env) {
   return null;
 }
 
+export function manualMergeRuleDigest(source) {
+  // Pin the entire approved trust root; never infer safety from phrase presence.
+  return createHash("sha256").update(source.replace(/\r\n/gu, "\n").trim()).digest("hex");
+}
+
+export function evaluateManualBootstrapRule(source) {
+  return manualMergeRuleDigest(source) === POLICY_FLOORS.manualMergeRuleSha256
+    ? []
+    : ["manual merge policy differs from the approved exact policy fingerprint"];
+}
+
 export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const errors = [];
   const policy = json(root, "config/agent-workflow.json");
@@ -1406,7 +1444,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
     if (events.has("pull_request_review") || events.has("pull_request_review_comment")) {
       errors.push(
-        `${workflow.name} must not listen to PR-ref review events; final merge re-reads reviews from trusted issue_comment code`,
+        `${workflow.name} must not listen to PR-ref review events; the manual merger must re-read all live review evidence`,
       );
     }
   }
@@ -1475,7 +1513,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     ) ||
     !trustedReviewWindow.includes("head_sha: headSha") ||
     !trustedReviewWindow.includes('conclusion: "action_required"') ||
-    !trustedReviewWindow.includes("validateMergeReadySignoff") ||
+    !freshnessValidator.includes("validateMergeReadySignoff") ||
     !trustedReviewWindow.includes("latestInvalidatingFindingEpoch") ||
     !trustedReviewWindow.includes("validateTrustedPrAiEvidence") ||
     !trustedReviewWindow.includes("/actions/runs?check_suite_id=") ||
@@ -1520,31 +1558,16 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "trusted review-window must block exact present deployment failures or pending runs",
     );
   }
+
+  errors.push(...evaluateTrustedControllerPermissions(freshness));
   if (
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs merge") ||
-    !freshness.includes("group: trusted-preview-merge") ||
-    !freshness.includes('if [ "$BASE_REF" != "preview" ]; then') ||
-    !freshness.includes("actions: write") ||
-    !freshness.includes("contents: write") ||
-    !freshness.includes("COMMENT_ID: ${{ github.event.comment.id }}") ||
-    !freshnessValidator.includes("validateMergeExecuteMandate") ||
-    !freshnessValidator.includes("TRUSTED_SIGNOFF_ASSOCIATIONS.has(association)") ||
-    !trustedReviewWindow.includes("mergeEvidenceFingerprint") ||
-    !trustedReviewWindow.includes("const second = await readAndValidate()") ||
-    !trustedReviewWindow.includes("const final = await readAndValidate()") ||
-    !trustedReviewWindow.includes('body: { sha: expectedHeadSha, merge_method: "squash" }') ||
-    !trustedReviewWindow.includes("/compare/${liveBaseSha}...${expectedHeadSha}") ||
-    !trustedReviewWindow.includes(
-      "await invalidateForBasePush({ client, baseSha: mergedBaseSha, policy })",
-    ) ||
-    !trustedReviewWindow.includes('for (const workflow of ["ci.yml"])') ||
-    !trustedReviewWindow.includes("body: { ref: deliveryRef(policy) }") ||
-    trustedReviewWindow.includes("db-blob-sync-check.yml") ||
-    !trustedReviewWindow.includes("POST_MERGE_VERIFICATION_FAILED")
+    freshness.includes("execute-merge:") ||
+    freshness.includes("trusted-review-window.mjs merge") ||
+    trustedReviewWindow.includes("runTrustedMerge") ||
+    /\/pulls\/\$\{[^}]+\}\/merge/u.test(trustedReviewWindow) ||
+    !trustedReviewWindow.includes('["gate", "invalidate-base"].includes(mode)')
   ) {
-    errors.push(
-      "final merge must require a trusted exact mandate, stable double live evidence and expected-head squash CAS",
-    );
+    errors.push("review-window must not merge PRs or dispatch workflows; unsupported modes must fail closed");
   }
 
   const ci = read(root, ".github/workflows/ci.yml");
@@ -1596,6 +1619,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (!/force-push/i.test(gitRule)) errors.push("git.mdc must explicitly forbid force-push");
   const mergeRule = read(root, ".cursor/rules/pr-merge.mdc");
+  errors.push(...evaluateManualBootstrapRule(mergeRule));
   if (!mergeRule.includes("config/agent-workflow.json")) {
     errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
   }

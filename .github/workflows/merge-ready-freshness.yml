@@ -2,8 +2,8 @@ name: merge-ready-freshness
 
 # Betrodd default-branch-controller: publicera den head-bundna required checken
 # `review-window`, validera `merge:ready` och ta bort stale mandat när head,
-# preview eller granskningsunderlaget ändras. Squash-merge går bara till preview.
-# master nås via manuell promote, inte via merge:execute.
+# preview eller granskningsunderlaget ändras. Merge utförs manuellt efter
+# separat uppdrag; workflowen har ingen merge- eller dispatch-behörighet.
 
 on:
   # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
@@ -31,7 +31,7 @@ on:
         type: string
   # pull_request_review och pull_request_review_comment får aldrig läggas här:
   # GitHub kör deras workflow-YAML från PR:ens obetrodda merge-ref. Sen review-
-  # evidens läses live igen av den betrodda merge-kommandovägen nedan.
+  # evidens måste läsas live igen före den manuella mergevägen.
   # Codex-sammanfattningar, GitGuardian och bugbot-summeringar landar som
   # vanliga PR-kommentarer, inte som reviews. Utan den här triggern överlever
   # labeln precis de fynden (granskning 2026-07-29).
@@ -109,7 +109,7 @@ jobs:
       issues: write
     # Vercels issue-kommentarer är deploy-brus och filtreras bort. Review- och
     # inline-kommentarer hanteras inte via ett privilegierat PR-ref-event; den
-    # finala merge-kommandovägen läser i stället hela konversationen live.
+    # manuella mergaren läser i stället hela konversationen live.
     if: >
       (
         github.event_name == 'pull_request_target' &&
@@ -259,45 +259,6 @@ jobs:
           gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "merge:ready"
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body "♻️ \`merge:ready\` borttagen automatiskt: ${REASON}."
           echo "Removed merge:ready on PR #${PR_NUMBER}: ${REASON}"
-
-  execute-merge:
-    if: >
-      github.event_name == 'issue_comment' &&
-      github.event.action == 'created' &&
-      github.event.issue.pull_request != null &&
-      github.event.sender.type == 'User' &&
-      (
-        github.event.comment.author_association == 'OWNER' ||
-        github.event.comment.author_association == 'MEMBER' ||
-        github.event.comment.author_association == 'COLLABORATOR'
-      ) &&
-      startsWith(github.event.comment.body, 'merge:execute')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    concurrency:
-      # Canonical merges serialiseras så att två godkända PR:er inte flyttar
-      # preview under varandras slutvalidering.
-      group: trusted-preview-merge
-      cancel-in-progress: false
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-      checks: write
-      issues: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Re-read all evidence and execute SHA-bound squash merge
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-        run: node scripts/ci/trusted-review-window.mjs merge
 
   invalidate-on-preview-push:
     if: github.event_name == 'push'

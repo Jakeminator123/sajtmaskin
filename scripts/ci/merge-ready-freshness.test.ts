@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   decideMergeReadyAction,
-  validateMergeExecuteMandate,
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
 
@@ -633,54 +632,6 @@ describe("decideMergeReadyAction", () => {
     expect(invalidMinimum.reason).toContain("minimitid");
   });
 
-  it("accepterar bara ett exakt head/base-bundet merge:execute från collaborator", () => {
-    const body = `merge:execute — head-sha: ${HEAD}, base-sha: ${BASE}, at: 2026-07-29T12:10:00Z, bugkoll: bugbot, triage: klar, P0/P1: 0`;
-    expect(
-      validateMergeExecuteMandate({
-        body,
-        createdAt: "2026-07-29T12:10:01Z",
-        authorLogin: "maintainer",
-        authorType: "User",
-        authorAssociation: "COLLABORATOR",
-        headSha: HEAD,
-        baseSha: BASE,
-      }).valid,
-    ).toBe(true);
-    expect(
-      validateMergeExecuteMandate({
-        body,
-        createdAt: "2026-07-29T12:10:01Z",
-        authorLogin: "pr-author",
-        authorType: "User",
-        authorAssociation: "NONE",
-        headSha: HEAD,
-        baseSha: BASE,
-      }).reason,
-    ).toContain("OWNER/MEMBER/COLLABORATOR");
-    expect(
-      validateMergeExecuteMandate({
-        body: `${body}\nmerge gärna`,
-        createdAt: "2026-07-29T12:10:01Z",
-        authorLogin: "maintainer",
-        authorType: "User",
-        authorAssociation: "OWNER",
-        headSha: HEAD,
-        baseSha: BASE,
-      }).valid,
-    ).toBe(false);
-    expect(
-      validateMergeExecuteMandate({
-        body,
-        createdAt: "2026-07-29T12:10:01Z",
-        authorLogin: "maintainer",
-        authorType: "User",
-        authorAssociation: "OWNER",
-        headSha: HEAD,
-        baseSha: OTHER_BASE,
-      }).reason,
-    ).toContain("aktuell preview");
-  });
-
   it("trådar sender och event-body säkert från workflowens eventfil", () => {
     const workflow = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
 
@@ -701,8 +652,10 @@ describe("decideMergeReadyAction", () => {
     expect(workflow).not.toContain("${{ github.event.comment.body }}");
     expect(workflow).not.toMatch(/^  pull_request_review(?:_comment)?:/m);
     expect(workflow).not.toContain("review-event-listener");
-    expect(workflow).toContain("node scripts/ci/trusted-review-window.mjs merge");
-    expect(workflow).toContain("startsWith(github.event.comment.body, 'merge:execute')");
+    expect(workflow).not.toContain("execute-merge:");
+    expect(workflow).not.toContain("node scripts/ci/trusted-review-window.mjs merge");
+    expect(workflow).not.toContain("contents: write");
+    expect(workflow).not.toContain("actions: write");
     expect(workflow).toContain("github.event.comment.body == 'review-window:refresh'");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("GATE_REFRESH:");
