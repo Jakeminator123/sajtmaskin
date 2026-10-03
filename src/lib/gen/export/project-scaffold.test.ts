@@ -81,7 +81,7 @@ describe("mergePackageJsonWithBaseline", () => {
       },
     }) as { dependencies: Record<string, string> };
     expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
-    expect(merged.dependencies["@react-three/fiber"]).toBe("9.7.0");
+    expect(merged.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.185.1");
   });
@@ -644,7 +644,7 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.dependencies.next).toBe("16.3.8");
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.7.0");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(pkg.dependencies.three).toBe("0.185.1");
   });
@@ -700,7 +700,7 @@ describe("buildCompleteProject", () => {
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
       dependencies: Record<string, string>;
     };
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.7.0");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(pkg.dependencies.three).toBe("0.185.1");
   });
 
