@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -60,10 +60,30 @@ function seedPromoteRepo() {
   git(cwd, ["init", "-b", "master"]);
   git(cwd, ["config", "user.name", "Promote Test"]);
   git(cwd, ["config", "user.email", "promote-test@example.com"]);
+  // Fixtures must not launch background Git maintenance during teardown.
+  git(cwd, ["config", "gc.auto", "0"]);
+  git(cwd, ["config", "maintenance.auto", "false"]);
   writeCommit(cwd, "base.txt", "base\n", "base");
   git(cwd, ["branch", "preview"]);
   return cwd;
 }
+
+function removePromoteRepo(cwd: string) {
+  const target = resolve(cwd);
+  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith("promote-plan-")) {
+    throw new Error(`Refusing cleanup outside a promote-plan fixture: ${target}`);
+  }
+  // Retry transient filesystem races without suppressing persistent failures.
+  rmSync(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
+describe("promote fixture cleanup", () => {
+  it("refuses the temp root and unrelated directories", () => {
+    expect(() => removePromoteRepo(tmpdir())).toThrow("Refusing cleanup");
+    expect(() => removePromoteRepo(join(tmpdir(), "unrelated-repo"))).toThrow("Refusing cleanup");
+    expect(() => removePromoteRepo(join(process.cwd(), "promote-plan-unrelated"))).toThrow("Refusing cleanup");
+  });
+});
 
 describe("promote-flödets riktning", () => {
   it("promoterar från staging till produktion, aldrig tvärtom", () => {
@@ -316,7 +336,7 @@ describe("verify:pr bas och ancestry i ett tillfälligt git-repo", () => {
         "hotfix.txt",
       ]);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 });
@@ -360,7 +380,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(body).toContain("`c.txt`");
       expect(body).not.toContain("`b.txt`");
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 
@@ -398,7 +418,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(body).toContain("`new.txt`");
       expect(body).not.toContain("`feat.txt`");
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 
@@ -419,7 +439,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(plan.shouldPromote).toBe(true);
       expect(plan.commits.some((c) => c.subject.includes("preview-only"))).toBe(true);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 
@@ -430,7 +450,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(plan.sameTip).toBe(true);
       expect(plan.shouldPromote).toBe(false);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 
@@ -447,7 +467,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(plan.treeDiffers).toBe(false);
       expect(plan.shouldPromote).toBe(false);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 
@@ -465,7 +485,7 @@ describe("evaluatePromotePlan i tillfälliga git-repon", () => {
       expect(later.commits.some((c) => c.subject.includes("under förberedelse"))).toBe(true);
       expect(later.commits.length).toBeGreaterThan(mid.commits.length);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePromoteRepo(cwd);
     }
   });
 });
