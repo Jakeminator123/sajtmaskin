@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuditBuildHandoff } from "./audit-handoff-client";
+const auth = vi.hoisted(() => ({ user: { id: "user_1" } as { id: string } | null }));
+vi.mock("@/lib/auth/auth-store", () => ({ useAuthStore: { getState: () => auth } }));
 const payload = {
   domain: "example.se",
   url: "https://example.se",
@@ -12,6 +14,8 @@ const success = () =>
 describe("createAuditBuildHandoff", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.clearAllMocks();
+    auth.user = { id: "user_1" };
     localStorage.clear();
     sessionStorage.clear();
     const pending = new Map<string, Promise<unknown>>();
@@ -38,6 +42,7 @@ describe("createAuditBuildHandoff", () => {
       prompt: "Bygg en förbättrad sajt för example.se",
       source: "audit",
       auditBuildAttemptId: expect.any(String),
+      auditBuildOwnerId: "user_1",
       payload,
     });
     expect(body.projectId).toBeUndefined();
@@ -97,6 +102,39 @@ describe("createAuditBuildHandoff", () => {
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string).auditBuildAttemptId,
     );
   });
+  it("rotates a confirmed missing-project attempt once, retaining the replacement on lost ACK", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(success());
+    await createAuditBuildHandoff(payload, "website");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ code: "AUDIT_HANDOFF_PROJECT_MISSING", error: "deleted" }), { status: 409 }));
+    fetchMock.mockRejectedValueOnce(new Error("replacement ACK lost"));
+    await expect(createAuditBuildHandoff(payload, "website")).rejects.toThrow("replacement ACK lost");
+    fetchMock.mockResolvedValueOnce(success());
+    await createAuditBuildHandoff(payload, "website");
+    const ids = fetchMock.mock.calls.map((call) => JSON.parse(call[1]?.body as string).auditBuildAttemptId);
+    expect(ids[0]).toBe(ids[1]);
+    expect(ids[2]).not.toBe(ids[1]);
+    expect(ids[3]).toBe(ids[2]);
+    expect(fetchMock.mock.calls.every((call) => call[1]?.method === "POST")).toBe(true);
+  });
+  it("coalesces simultaneous missing-project responses into one replacement identity", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(success());
+    await createAuditBuildHandoff(payload, "website");
+    const staleId = JSON.parse(fetchMock.mock.calls[0][1]?.body as string).auditBuildAttemptId;
+    fetchMock.mockImplementation(async (_url, init) => JSON.parse(init?.body as string).auditBuildAttemptId === staleId
+      ? new Response(JSON.stringify({ code: "AUDIT_HANDOFF_PROJECT_MISSING" }), { status: 409 }) : success());
+    await Promise.all([createAuditBuildHandoff(payload, "website"), createAuditBuildHandoff(payload, "website")]);
+    const ids = fetchMock.mock.calls.slice(1).map((call) => JSON.parse(call[1]?.body as string).auditBuildAttemptId).filter((id) => id !== staleId);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(1);
+  });
+  it("never rotates on an untyped conflict or loops on repeated missing-project replies", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response('{"error":"payload conflict"}', { status: 409 }));
+    await expect(createAuditBuildHandoff(payload, "website")).rejects.toThrow("payload conflict");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockImplementation(async () => new Response('{"code":"AUDIT_HANDOFF_PROJECT_MISSING","error":"deleted"}', { status: 409 }));
+    await expect(createAuditBuildHandoff(payload, "website")).rejects.toThrow("deleted");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
   it("starts a new intent for a different analysis", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => success());
     await createAuditBuildHandoff(payload, "website");
@@ -104,6 +142,19 @@ describe("createAuditBuildHandoff", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string).auditBuildAttemptId).not.toBe(
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string).auditBuildAttemptId,
     );
+  });
+  it("isolates retry rotation across accounts sharing the same analysis/browser", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => success());
+    await createAuditBuildHandoff(payload, "website");
+    const original = JSON.parse(fetchMock.mock.calls[0][1]?.body as string).auditBuildAttemptId;
+    auth.user = { id: "user_2" };
+    await createAuditBuildHandoff(payload, "website");
+    fetchMock.mockResolvedValueOnce(new Response('{"code":"AUDIT_HANDOFF_PROJECT_MISSING"}', { status: 409 }));
+    await createAuditBuildHandoff(payload, "website");
+    auth.user = { id: "user_1" };
+    await createAuditBuildHandoff(payload, "website");
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)?.[1]?.body as string).auditBuildAttemptId).toBe(original);
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string).auditBuildAttemptId).not.toBe(original);
   });
   it("keeps A's retry identity while another tab starts analysis B", async () => {
     const fetchMock = vi

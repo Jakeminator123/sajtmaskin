@@ -315,6 +315,36 @@ describe("POST /api/v0/deployments", () => {
     expect(json.deployReadiness?.ready).toBe(true);
     expect(json.deployReadiness?.missingEnv).toEqual([]);
   });
+  it.each(["pnpm-lock.yaml", "yarn.lock"])("honors %s peer evidence when deploy preserves the original tree", async (path) => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path, content: path.startsWith("pnpm") ? "lockfileVersion: 9.0\nimporters:\n  .:\n    dependencies:\n      next:\n        version: 13.0.0(react@18.0.0)\n      react:\n        version: 18.0.0\n" : '"next@^13.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n' },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true, skipAutoFix: true }),
+    }));
+    const data = await response.json();
+    expect(response.status).toBe(200);
+    expect(data.packageTreeGate).toEqual({ allowed: true });
+    expect(data.deployReadiness.ready).toBe(true);
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+  it("does not reuse pnpm evidence after default pre-deploy fixes deliberately remove that lock", async () => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: "dependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
+    ]);
+    const response = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly: true }),
+    }));
+    const data = await response.json();
+    expect(data.fixesApplied).toContain("Removed lockfiles to prefer npm: pnpm-lock.yaml");
+    expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+    expect(data.deployReadiness.ready).toBe(false);
+  });
 
   it("precheckOnly surfaces placeholder-covered Stripe env as warning, not blocker", async () => {
     // STRIPE_SECRET_KEY is in `41-tier3-stub-placeholders.env.txt`, so it

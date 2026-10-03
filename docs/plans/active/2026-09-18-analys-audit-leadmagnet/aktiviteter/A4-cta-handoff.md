@@ -32,7 +32,11 @@ Servern binder försöket till aktuell användare och skapar projekt och
 prompt atomiskt i befintliga tabeller. Misslyckad transaktion skapar inget
 projekt; återförsök efter tappat svar återanvänder det redan skapade, även
 vid full projektkvot. Ingen blind DELETE, ny migration eller automatisk
-generation ingår. `AuditModal` har primär CTA «Bygg förbättrad sida», plus Spara
+  generation ingår. Om servern efter ägar-/payloadkontroll bekräftar att
+  projektet har raderats roteras endast det gamla attempt-id:t under Web Lock
+  och ett ersättningsförsök görs. Nätfel/vanlig 409 roterar inte; ett tappat
+  ersättningssvar behåller det nya id:t. Gamla handoff-rader raderas inte.
+  `AuditModal` har primär CTA «Bygg förbättrad sida», plus Spara
 (`POST /api/audits` → `saveUserAudit`) och PDF/JSON utan auth-gate i UI.
 
 På en publik `/analys` är «Bygg…» och «Spara» meningslösa eller lögn

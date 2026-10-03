@@ -223,6 +223,41 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
       path: "src/package.json", conflicts: [{ code: "next_react_peer_eresolve" }],
     });
   });
+  it.each([
+    ["pnpm-lock.yaml", "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0(react@18.0.0)\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n"],
+    ["pnpm-lock.yml", "lockfileVersion: 5.4\ndependencies:\n  next: 13.0.0_react@18.0.0\n  react: 18.0.0\n"],
+    ["yarn.lock", '# yarn lockfile v1\n\n"next@^13.0.0":\n  version "13.0.0"\n\nreact@18.0.0:\n  version "18.0.0"\n'],
+    ["yarn.lock", '__metadata:\n  version: 6\n"next@npm:^13.0.0":\n  version: 13.0.0\n"react@npm:18.0.0":\n  version: 18.0.0\n'],
+  ])("honors coherent sibling %s selections, including a src manifest", (lockPath, content) => {
+    for (const folder of ["", "src/"]) {
+      const files = [{ path: `${folder}package.json`, content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }, { path: `${folder}${lockPath}`, content }];
+      expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+      expect(findPackageTreeConflictsInFiles([files[0]], `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+    }
+  });
+  it("uses the effective pnpm lock instead of an inactive npm lock and preserves locked conflicts", () => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@9.0.0", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: "dependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
+      { path: "package-lock.json", content: JSON.stringify({ packages: { "node_modules/next": { version: "13.0.1" }, "node_modules/react": { version: "18.0.0" } } }) },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = "dependencies:\n  next: 13.0.1\n  react: 18.0.0\n";
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it.each([
+    ["pnpm-lock.yaml", "dependencies:\n  next: 12.3.4\n  react: 18.0.0\n"],
+    ["pnpm-lock.yaml", "importers:\n  other:\n    dependencies:\n      next: 13.0.0\n      react: 18.0.0\n"],
+    ["pnpm-lock.yaml", "dependencies: !!js/object { next: 13.0.0, react: 18.0.0 }\n"],
+    ["pnpm-lock.yaml", "dependencies:\n  next: 13.0.0\n  next: 13.0.1\n  react: 18.0.0\n"],
+    ["pnpm-lock.yaml", "versions: &v 13.0.0\ndependencies:\n  next: *v\n  react: 18.0.0\n"],
+    ["yarn.lock", '"next@^12.0.0":\n  version "13.0.0"\nreact@18.0.0:\n  version "18.0.0"\n'],
+    ["yarn.lock", '"next@^13.0.0":\n  version "13.0.0"\n"next@^13.0.0":\n  version "13.0.1"\nreact@18.0.0:\n  version "18.0.0"\n'],
+  ])("does not use stale, unrelated, ambiguous or unsafe %s evidence", (path, content) => {
+    expect(findPackageTreeConflictsInFiles([
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }, { path, content },
+    ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
   it("uses the lock next to the selected src manifest, not an unrelated root lock", () => {
     const lock = (next: string) => JSON.stringify({ packages: {
       "node_modules/next": { version: next }, "node_modules/react": { version: "19.0.0" },

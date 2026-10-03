@@ -129,9 +129,13 @@ describe("atomic audit build handoff (mock transaction, never live DB)", () => {
     expect(state.projects).toHaveLength(1);
     expect(state.handoffs).toHaveLength(1);
     state.projects = [];
-    await expect(createAuditProjectHandoff(input)).rejects.toMatchObject({ status: 409 });
+    await expect(createAuditProjectHandoff(input)).rejects.toMatchObject({ status: 409, code: "AUDIT_HANDOFF_PROJECT_MISSING" });
     expect(state.projects).toHaveLength(0);
     expect(state.handoffs).toHaveLength(1);
+    const replacement = await createAuditProjectHandoff({ ...input, attemptId: "22222222-2222-4222-8222-222222222222" });
+    expect(replacement.projectId).not.toBe(state.handoffs[0].project_id);
+    expect(state.projects).toHaveLength(1);
+    expect(state.handoffs).toHaveLength(2);
   });
   it("reports consumed prompts without creating a second project", async () => {
     await createAuditProjectHandoff(input);

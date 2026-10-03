@@ -12,6 +12,7 @@
  */
 
 import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
+import { readLockedNextReact } from "./package-tree-lock-selections";
 
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
@@ -207,7 +208,7 @@ export function detectPackageTreeConflicts(
         reactMajor: mismatch.reactMajor,
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
-          ? `next ${deps.next} and react ${deps.react} admit peer-incompatible resolution choices. A historical compatible pair does not prove npm's selected tree. Supply an in-range package-lock.json with coherent Next/React selections or pin an exact matching pair before publishing.`
+          ? `next ${deps.next} and react ${deps.react} admit peer-incompatible resolution choices. A historical compatible pair does not prove the installer's selected tree. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
@@ -245,18 +246,7 @@ export function findPackageTreeConflictsInFiles(
   if (!pkgFile) return null;
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
-  const packagePath = normalizePath(pkgFile.path);
-  const lockPath = `${packagePath.slice(0, packagePath.lastIndexOf("/") + 1)}package-lock.json`;
-  const lockFile = files.find((file) => normalizePath(file.path) === lockPath);
-  const lock = lockFile ? parsePackageJsonRecord(lockFile.content) : null;
-  const packages = asRecord(lock?.packages);
-  // npm v2/v3, with a v1 fallback. Ignore stale/out-of-range selections in
-  // detectPackageTreeConflicts; a lockfile is not proof for another manifest.
-  const legacy = asRecord(lock?.dependencies);
-  const next = asRecord(packages?.["node_modules/next"] ?? legacy?.next)?.version;
-  const react = asRecord(packages?.["node_modules/react"] ?? legacy?.react)?.version;
-  const locked =
-    typeof next === "string" && typeof react === "string" ? { next, react } : undefined;
+  const locked = readLockedNextReact(files, pkgFile.path, parsed, collectDeclaredDependencyRanges(parsed));
   const conflicts = detectPackageTreeConflicts(parsed, locked);
   if (conflicts.length === 0) return null;
   return { path: pkgFile.path, conflicts };

@@ -1,5 +1,6 @@
 import { resolveBuildIntentForMethod, type BuildIntent } from "@/lib/builder/build-intent";
 import { buildAuditDisplayPrompt, type AuditHandoffPayload } from "@/lib/builder/audit-handoff";
+import { useAuthStore } from "@/lib/auth/auth-store";
 
 export type AuditBuildHandoffResult = {
   projectId: string;
@@ -9,12 +10,12 @@ export type AuditBuildHandoffResult = {
 
 const ATTEMPT_PREFIX = "sajtmaskin:audit-build-attempt:v1:";
 
-async function getAttempt(payload: AuditHandoffPayload): Promise<string> {
+async function getAttempt(payload: AuditHandoffPayload, ownerId: string, supersededId?: string): Promise<string> {
   try {
     // Persist retry identity, not the analysis report itself.
     const digest = await crypto.subtle.digest(
       "SHA-256",
-      new TextEncoder().encode(JSON.stringify(payload)),
+      new TextEncoder().encode(JSON.stringify([ownerId, payload])),
     );
     const fingerprint = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
@@ -26,7 +27,7 @@ async function getAttempt(payload: AuditHandoffPayload): Promise<string> {
     return await navigator.locks.request(key, { mode: "exclusive" }, () => {
       const previous = window.localStorage.getItem(key);
       if (
-        previous &&
+        previous && previous !== supersededId &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previous)
       )
         return previous;
@@ -47,19 +48,33 @@ export async function createAuditBuildHandoff(
   selectedIntent: BuildIntent,
 ): Promise<AuditBuildHandoffResult> {
   const prompt = buildAuditDisplayPrompt(payload);
-  const auditBuildAttemptId = await getAttempt(payload);
-  const response = await fetch("/api/prompts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, source: "audit", auditBuildAttemptId, payload }),
-  });
-  const data = (await response.json().catch(() => null)) as {
+  const ownerId = useAuthStore.getState().user?.id;
+  if (!ownerId) throw new Error("Logga in för att bygga hemsidan.");
+  let auditBuildAttemptId = await getAttempt(payload, ownerId);
+  type HandoffResponse = {
     success?: boolean;
     promptId?: string;
     projectId?: string;
     consumed?: boolean;
     error?: string;
+    code?: string;
   } | null;
+  const request = async () => {
+    const response = await fetch("/api/prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, source: "audit", auditBuildAttemptId, auditBuildOwnerId: ownerId, payload }),
+    });
+    return { response, data: await response.json().catch(() => null) as HandoffResponse };
+  };
+  let { response, data } = await request();
+  if (response.status === 409 && data?.code === "AUDIT_HANDOFF_PROJECT_MISSING") {
+    // The owner-bound server has positively confirmed the old project is gone.
+    // Rotate once, atomically across tabs; never rotate on an ambiguous ACK or
+    // ordinary payload conflict, and never delete a server project/handoff.
+    auditBuildAttemptId = await getAttempt(payload, ownerId, auditBuildAttemptId);
+    ({ response, data } = await request());
+  }
   if (!response.ok || !data?.success || !data.promptId || !data.projectId) {
     throw new Error(data?.error || "Kunde inte spara audit-prompten");
   }

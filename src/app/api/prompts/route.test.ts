@@ -40,7 +40,7 @@ const getCurrentUser = vi.hoisted(() => vi.fn(async () => null as { id: string; 
 const createAuditProjectHandoff = vi.hoisted(() => vi.fn(async () => ({ projectId: "project_1", promptId: "prompt_1", consumed: false })));
 const deleteCache = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock("@/lib/db/services/audit-build-handoff", () => ({ createAuditProjectHandoff,
-  AuditBuildHandoffError: class extends Error { constructor(message: string, readonly status: number) { super(message); } },
+  AuditBuildHandoffError: class extends Error { constructor(message: string, readonly status: number, readonly code?: "AUDIT_HANDOFF_PROJECT_MISSING") { super(message); } },
 }));
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
@@ -93,6 +93,11 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     }
     expect(createAuditProjectHandoff).not.toHaveBeenCalled();
   });
+  it("rejects a stale browser account snapshot before creating an audit project", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_2", diamonds: 0 });
+    expect((await POST(promptRequest({ ...auditBody, auditBuildOwnerId: "user_1" }))).status).toBe(409);
+    expect(createAuditProjectHandoff).not.toHaveBeenCalled();
+  });
   it("returns the atomic ACK even when project-list cache invalidation fails", async () => {
     getCurrentUser.mockResolvedValue({ id: "user_1", diamonds: 0 });
     deleteCache.mockRejectedValueOnce(new Error("cache down"));
@@ -100,6 +105,15 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ success: true, projectId: "project_1", promptId: "prompt_1" });
     expect(createAuditProjectHandoff).toHaveBeenCalledWith({ attemptId: auditBody.auditBuildAttemptId, userId: "user_1", isPaidUser: false, payload: auditBody.payload });
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
+  it("returns a typed owner-bound missing-project conflict for safe retry rotation", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1", diamonds: 0 });
+    const { AuditBuildHandoffError } = await import("@/lib/db/services/audit-build-handoff");
+    createAuditProjectHandoff.mockRejectedValueOnce(new AuditBuildHandoffError("Projektet finns inte längre", 409, "AUDIT_HANDOFF_PROJECT_MISSING"));
+    const response = await POST(promptRequest(auditBody));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ success: false, code: "AUDIT_HANDOFF_PROJECT_MISSING" });
     expect(createPromptHandoff).not.toHaveBeenCalled();
   });
   it("returns both the __Host- session and parent-domain leftover expiry", async () => {

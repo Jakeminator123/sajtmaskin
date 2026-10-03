@@ -11,6 +11,7 @@ export class AuditBuildHandoffError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: "AUDIT_HANDOFF_PROJECT_MISSING",
   ) {
     super(message);
   }
@@ -73,7 +74,7 @@ export async function createAuditProjectHandoff(params: {
         .where(and(eq(appProjects.id, existing.project_id), eq(appProjects.user_id, params.userId)))
         .limit(1);
       if (!project)
-        throw new AuditBuildHandoffError("Projektet för byggförsöket finns inte längre.", 409);
+        throw new AuditBuildHandoffError("Projektet för byggförsöket finns inte längre.", 409, "AUDIT_HANDOFF_PROJECT_MISSING");
       return { projectId: project.id, promptId, consumed: Boolean(existing.consumed_at) };
     }
     const limit = await canCreateProject(params.userId, null, params.isPaidUser, tx);

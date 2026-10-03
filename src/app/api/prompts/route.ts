@@ -23,6 +23,7 @@ const createPromptSchema = z.object({
   projectId: z.string().optional(),
   payload: auditHandoffPayloadSchema.optional(),
   auditBuildAttemptId: z.string().uuid().optional(),
+  auditBuildOwnerId: z.string().min(1).max(256).optional(),
   /** Fail-closed MiniWizard receipt; stored on the existing handoff payload. */
   wizardSnapshot: z.record(z.string(), z.unknown()).optional(),
   /** Kostnadsfri flow only: the invited slug, so "skapad" is recorded server-side. */
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
       }
 
       const {
-        prompt, source, projectId, kostnadsfriSlug, payload, wizardSnapshot, auditBuildAttemptId,
+        prompt, source, projectId, kostnadsfriSlug, payload, wizardSnapshot, auditBuildAttemptId, auditBuildOwnerId,
       } = validation.data;
       const trimmedPrompt = prompt.trim();
       if (!trimmedPrompt) {
@@ -101,6 +102,11 @@ export async function POST(request: NextRequest) {
         if (!user?.id) {
           return attachSessionCookie(NextResponse.json(
             { success: false, error: "Logga in för att bygga hemsidan." }, { status: 401 },
+          ));
+        }
+        if (auditBuildOwnerId && auditBuildOwnerId !== user.id) {
+          return attachSessionCookie(NextResponse.json(
+            { success: false, error: "Inloggningen har ändrats. Ladda om analysen och försök igen." }, { status: 409 },
           ));
         }
         const { createAuditProjectHandoff, AuditBuildHandoffError } = await import(
@@ -122,7 +128,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           if (error instanceof AuditBuildHandoffError) {
             return attachSessionCookie(NextResponse.json(
-              { success: false, error: error.message }, { status: error.status },
+              { success: false, error: error.message, ...(error.code ? { code: error.code } : {}) }, { status: error.status },
             ));
           }
           throw error;
