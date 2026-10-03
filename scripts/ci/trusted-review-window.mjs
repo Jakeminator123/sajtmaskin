@@ -2,10 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  isInvalidatingBotEvent,
-  validateMergeReadySignoff,
-} from "./merge-ready-freshness.mjs";
+import { isInvalidatingBotEvent } from "./merge-ready-freshness.mjs";
 import { requiredCheckOwnerSpec } from "../workflow/required-check-owners.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
 import {
@@ -1375,29 +1372,6 @@ async function readLiveEvidence(
 
 function policyPathStartsWithAny(path, prefixes) {
   return prefixes.some((prefix) => String(path).startsWith(prefix));
-}
-
-
-function validateEvidence(evidence, headSha, minimumEpoch) {
-  const findings = latestInvalidatingFindingEpoch(evidence);
-  if (!findings.valid) return { valid: false, reason: "botfynd saknar verifierbar tid" };
-  const effectiveMinimum = Math.max(minimumEpoch, findings.latestEpoch);
-  return validateMergeReadySignoff({
-    headSha,
-    baseSha: evidence.baseSha,
-    baseIsAncestor: evidence.baseIsAncestor,
-    labels: (evidence.pr.labels ?? []).map((label) => label.name),
-    prAuthorLogin: evidence.pr.user?.login,
-    minimumSignoffCreatedAt: iso(effectiveMinimum),
-    prBody: evidence.pr.body ?? "",
-    comments: evidence.issueComments.map((comment) => ({
-      body: comment.body ?? "",
-      createdAt: comment.created_at,
-      authorLogin: comment.user?.login,
-      authorType: comment.user?.type,
-      authorAssociation: comment.author_association,
-    })),
-  });
 }
 
 function failureSummary(state, freshnessReason) {

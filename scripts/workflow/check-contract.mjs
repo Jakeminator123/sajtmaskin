@@ -1475,7 +1475,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     ) ||
     !trustedReviewWindow.includes("head_sha: headSha") ||
     !trustedReviewWindow.includes('conclusion: "action_required"') ||
-    !trustedReviewWindow.includes("validateMergeReadySignoff") ||
+    !freshnessValidator.includes("validateMergeReadySignoff") ||
     !trustedReviewWindow.includes("latestInvalidatingFindingEpoch") ||
     !trustedReviewWindow.includes("validateTrustedPrAiEvidence") ||
     !trustedReviewWindow.includes("/actions/runs?check_suite_id=") ||
