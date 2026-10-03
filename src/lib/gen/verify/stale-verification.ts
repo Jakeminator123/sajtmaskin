@@ -19,7 +19,10 @@
  * without a database connection. The lease-safe DB write lives in the sibling
  * `settle-stale-verification.ts`.
  */
-import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
+import {
+  STALE_VERIFICATION_TIMEOUT_MS,
+  VERSION_LEASE_HEARTBEAT_STALE_MS,
+} from "@/lib/gen/defaults";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { isKnownRevisionMismatch, shortRevision } from "./content-revision";
 
@@ -38,29 +41,64 @@ export function isNonTerminalVerificationState(
   );
 }
 
+function toEpochMs(value: string | Date | null | undefined): number | null {
+  if (!value) return null;
+  const ms = value instanceof Date ? value.getTime() : Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * A lease is fresh while it is running, unexpired, AND either still inside
+ * the isolate birth window (`created_at`) or still heartbeating (`updated_at`
+ * from `renewVersionLease`). Isolate-kill leaves `status='running'` with
+ * `lease_expires_at` in the future — that zombie stops renewing, so
+ * `updated_at` goes stale. A live job that started >950s ago but keeps
+ * renewing must NOT be stolen.
+ */
+export function isFreshVersionLease(
+  lease: {
+    status?: string | null;
+    leaseExpiresAt?: string | Date | null;
+    createdAt?: string | Date | null;
+    updatedAt?: string | Date | null;
+  } | null | undefined,
+  nowMs: number = Date.now(),
+  isolateBudgetMs: number = STALE_VERIFICATION_TIMEOUT_MS,
+  heartbeatStaleMs: number = VERSION_LEASE_HEARTBEAT_STALE_MS,
+): boolean {
+  if (!lease || lease.status !== "running") return false;
+  const expiresAtMs = toEpochMs(lease.leaseExpiresAt);
+  const createdAtMs = toEpochMs(lease.createdAt);
+  const heartbeatMs = toEpochMs(lease.updatedAt) ?? createdAtMs;
+  if (expiresAtMs == null || createdAtMs == null || heartbeatMs == null) return false;
+  if (expiresAtMs <= nowMs) return false;
+  const birthFresh = nowMs - createdAtMs <= isolateBudgetMs;
+  const heartbeatFresh = nowMs - heartbeatMs <= heartbeatStaleMs;
+  return birthFresh || heartbeatFresh;
+}
+
 /**
  * True when a version has been sitting in a non-terminal verification state
  * (`pending`/`verifying`/`repairing`) longer than the shared repair/quality-gate
- * route budget. Clock is the version's `created_at`: a deterministic gate
- * failure never gets better by "trying again", so once the budget is blown the
- * row should settle terminally. Terminal states and missing/invalid timestamps
- * are never stale.
+ * route budget. Default clock is the version's `created_at`. Pass
+ * `activityStartedAt` (lease/job start) when a later repair/verify began on an
+ * already-created version — `created_at + 950s` is the wrong deadline for a
+ * deploy-repair that starts minutes after the row was inserted. Terminal
+ * states and missing/invalid timestamps are never stale.
  */
 export function isTimedOutVerificationState(
   verificationState: string | null | undefined,
   createdAt: string | Date | null | undefined,
+  activityStartedAt?: string | Date | null,
 ): boolean {
   if (!isNonTerminalVerificationState(verificationState)) {
     return false;
   }
-  if (!createdAt) {
+  const clockMs = toEpochMs(activityStartedAt) ?? toEpochMs(createdAt);
+  if (clockMs == null) {
     return false;
   }
-  const createdAtMs = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
-  if (!Number.isFinite(createdAtMs)) {
-    return false;
-  }
-  return Date.now() - createdAtMs > STALE_VERIFICATION_TIMEOUT_MS;
+  return Date.now() - clockMs > STALE_VERIFICATION_TIMEOUT_MS;
 }
 
 /**

@@ -11,6 +11,8 @@ import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 import { auditHandoffPayloadSchema } from "@/lib/builder/audit-handoff";
 import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import { readKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
+import { sanitizeKostnadsfriWizardSnapshot } from "@/lib/kostnadsfri/wizard-snapshot";
+import { compiledPromptHasHospitalityGamingConflict } from "@/lib/kostnadsfri/industry-conflict";
 
 const createPromptSchema = z.object({
   prompt: z
@@ -20,6 +22,8 @@ const createPromptSchema = z.object({
   source: z.string().optional(),
   projectId: z.string().optional(),
   payload: auditHandoffPayloadSchema.optional(),
+  /** Fail-closed MiniWizard receipt; stored on the existing handoff payload. */
+  wizardSnapshot: z.record(z.string(), z.unknown()).optional(),
   /** Kostnadsfri flow only: the invited slug, so "skapad" is recorded server-side. */
   kostnadsfriSlug: z
     .string()
@@ -77,7 +81,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { prompt, source, projectId, kostnadsfriSlug, payload } = validation.data;
+      const { prompt, source, projectId, kostnadsfriSlug, payload, wizardSnapshot } =
+        validation.data;
       const trimmedPrompt = prompt.trim();
       if (!trimmedPrompt) {
         return NextResponse.json({ success: false, error: "Prompt is required" }, { status: 400 });
@@ -129,7 +134,23 @@ export async function POST(request: NextRequest) {
             ),
           );
         }
+        if (compiledPromptHasHospitalityGamingConflict(trimmedPrompt)) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                success: false,
+                error:
+                  "Branschen stämmer inte med verksamhetsbeskrivningen. Välj en annan bransch eller ändra beskrivningen.",
+                code: "kostnadsfri_industry_conflict",
+              },
+              { status: 409 },
+            ),
+          );
+        }
       }
+
+      const kostnadsfriSnapshot =
+        source === "kostnadsfri" ? sanitizeKostnadsfriWizardSnapshot(wizardSnapshot) : null;
 
       const created = await createPromptHandoff({
         prompt: trimmedPrompt,
@@ -137,7 +158,12 @@ export async function POST(request: NextRequest) {
         projectId: projectId || null,
         userId: user?.id || null,
         sessionId: sessionId || null,
-        payload: source === "audit" ? payload ?? null : null,
+        payload:
+          source === "audit"
+            ? payload ?? null
+            : kostnadsfriSnapshot
+              ? { wizardSnapshot: kostnadsfriSnapshot }
+              : null,
       });
 
       if (source === "kostnadsfri" && kostnadsfriSlug) {

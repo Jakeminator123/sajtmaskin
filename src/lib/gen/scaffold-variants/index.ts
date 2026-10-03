@@ -19,11 +19,11 @@ export { buildVariantHintsForBrief, formatVariantHintsForPrompt } from "./varian
 export type { VariantHints } from "./variant-hints";
 export {
   buildVariantTemplateReferenceAttachments,
-  extractVariantTemplateStructuralReferences,
   resolveVariantTemplateInspiration,
   selectVariantTemplateReference,
   VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES,
 } from "./template-inspiration";
+export { extractVariantTemplateStructuralReferences } from "./template-structural-extractor";
 export type {
   VariantTemplateFullProjectCategory,
   VariantTemplateInspiration,

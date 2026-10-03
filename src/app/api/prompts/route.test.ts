@@ -226,6 +226,71 @@ describe("POST /api/prompts — kostnadsfri funnel", () => {
     expect(createPromptHandoff).toHaveBeenCalledTimes(1);
   });
 
+  it("stores a sanitized wizard snapshot on the kostnadsfri handoff payload", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    const res = await POST(
+      promptRequest(
+        {
+          prompt: "Bygg en sajt",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+          wizardSnapshot: {
+            industryId: "restaurant",
+            followupOverrodeIndustry: true,
+            resolvedIndustryId: "restaurant",
+            descriptionHash: "a".repeat(64),
+            uspHash: null,
+            descriptionPreview: "Ring ada@acme.se om lotteri",
+            email: "ada@acme.se",
+          },
+        },
+        true,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(createPromptHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "kostnadsfri",
+        payload: {
+          wizardSnapshot: {
+            industryId: "restaurant",
+            followupOverrodeIndustry: true,
+            resolvedIndustryId: "restaurant",
+            descriptionHash: "a".repeat(64),
+            uspHash: null,
+            descriptionPreview: "Ring om lotteri",
+            uspPreview: null,
+          },
+        },
+      }),
+    );
+  });
+
+  it("rejects a compiled restaurant+lottery prompt before handoff", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    const res = await POST(
+      promptRequest(
+        {
+          prompt:
+            'Build a professional website for "ImpactWin Group AB", a Restaurang/Bar company based in Stockholm.\n' +
+            "About the company: Utvecklar digitala plattformar för lotteriförsäljning.",
+          source: "kostnadsfri",
+          kostnadsfriSlug: "ikea-ab",
+          projectId: "project_1",
+        },
+        true,
+      ),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "kostnadsfri_industry_conflict",
+    });
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
+
   it("drops payload unless source is audit", async () => {
     const stored = await POST(
       promptRequest({

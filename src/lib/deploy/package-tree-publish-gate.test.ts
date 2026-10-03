@@ -1,0 +1,191 @@
+import { describe, expect, it } from "vitest";
+import { INCIDENT_V0_PACKAGE_JSON } from "@/lib/gen/validation/package-tree-compat";
+import { dependencyFingerprintFromFiles } from "@/lib/gen/validation/install-peer-fallback-receipt";
+import {
+  DEPLOY_INSTALL_PEER_FALLBACK,
+  DEPLOY_PACKAGE_TREE_ERESOLVE,
+  resolveInstallPeerFallbackGate,
+  resolvePackageTreePublishGate,
+} from "./package-tree-publish-gate";
+
+const incidentFiles = [
+  {
+    path: "package.json",
+    content: `${JSON.stringify(INCIDENT_V0_PACKAGE_JSON, null, 2)}\n`,
+  },
+];
+
+describe("resolvePackageTreePublishGate", () => {
+  it("blocks publish on the incident Next 14 + React 19 tree", () => {
+    const gate = resolvePackageTreePublishGate({ files: incidentFiles });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_PACKAGE_TREE_ERESOLVE);
+    expect(gate.message).toMatch(/14\.2\.25/);
+    expect(gate.message).toMatch(/\^19/);
+  });
+
+  it("blocks publish when preview only started after legacy-peer-deps", () => {
+    const gate = resolveInstallPeerFallbackGate(["install-peer-fallback"]);
+    expect(gate).toMatchObject({
+      allowed: false,
+      code: DEPLOY_INSTALL_PEER_FALLBACK,
+    });
+  });
+
+  it("prefers the durable file conflict over the fallback advisory", () => {
+    const gate = resolvePackageTreePublishGate({
+      files: incidentFiles,
+      latestGateAdvisoryChecks: ["install-peer-fallback"],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_PACKAGE_TREE_ERESOLVE);
+  });
+
+  it("keeps blocking after a later clean quality-gate when the revision receipt is fallback", () => {
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+          }),
+        },
+      ],
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-a",
+      errorLogs: [
+        {
+          category: "preflight:quality-gate",
+          meta: { passed: true, advisory: false, advisoryChecks: [] },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: { usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
+  it("keeps blocking when a later skip receipt claims usedFallback:false", () => {
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+          }),
+        },
+      ],
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-a",
+      errorLogs: [
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "skipped", usedFallback: false, filesRevision: "rev-a" },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "fallback", usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
+  it("keeps blocking after page.tsx-only revision B + skipped install + clean quality-gate", () => {
+    const packageJson = JSON.stringify({
+      dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+    });
+    const filesRevA = [
+      { path: "package.json", content: packageJson },
+      { path: "app/page.tsx", content: "export default function Page() { return <p>A</p>; }" },
+    ];
+    const filesRevB = [
+      { path: "package.json", content: packageJson },
+      { path: "app/page.tsx", content: "export default function Page() { return <p>B</p>; }" },
+    ];
+    const fingerprint = dependencyFingerprintFromFiles(filesRevA);
+    expect(dependencyFingerprintFromFiles(filesRevB)).toBe(fingerprint);
+
+    const gate = resolvePackageTreePublishGate({
+      files: filesRevB,
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-b",
+      errorLogs: [
+        {
+          category: "preflight:quality-gate",
+          meta: { passed: true, advisory: false, advisoryChecks: [] },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: {
+            kind: "skipped",
+            usedFallback: false,
+            filesRevision: "rev-b",
+            dependencyFingerprint: fingerprint,
+          },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: {
+            kind: "fallback",
+            usedFallback: true,
+            filesRevision: "rev-a",
+            dependencyFingerprint: fingerprint,
+          },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
+  it("does not let an unfingerprinted strict_pass wash away a legacy fallback", () => {
+    const packageJson = JSON.stringify({
+      dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+    });
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        { path: "package.json", content: packageJson },
+        { path: "app/page.tsx", content: "export default function Page() { return <p>B</p>; }" },
+      ],
+      latestGateAdvisoryChecks: [],
+      filesRevision: "rev-b",
+      errorLogs: [
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "strict_pass", usedFallback: false, filesRevision: "rev-b" },
+        },
+        {
+          category: "preview:install-peer-fallback",
+          meta: { kind: "fallback", usedFallback: true, filesRevision: "rev-a" },
+        },
+      ],
+    });
+    expect(gate.allowed).toBe(false);
+    if (gate.allowed) return;
+    expect(gate.code).toBe(DEPLOY_INSTALL_PEER_FALLBACK);
+  });
+
+  it("allows a coherent Next 15 + React 19 tree", () => {
+    const gate = resolvePackageTreePublishGate({
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "15.5.4", react: "^19.1.0", "react-dom": "^19.1.0" },
+          }),
+        },
+      ],
+    });
+    expect(gate).toEqual({ allowed: true });
+  });
+});

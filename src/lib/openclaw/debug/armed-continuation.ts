@@ -502,3 +502,100 @@ export function buildArmedContinuationPrompt(input: {
     stepPart
   );
 }
+
+/**
+ * Handshake after a confirmation-only `start_bug_hunt` reply. The user's
+ * arming sentence already created the mandate; the assistant card does not
+ * send or watch. Without this wake the run dies after the confirmation.
+ *
+ * One wake per mandate (`createdAt`). It never creates, renews or extends
+ * the mandate — `useOpenClawChat` also passes `allowArming: false`.
+ */
+export type ArmedHandshakeDecision = { kind: "idle" } | { kind: "wake" };
+
+export function decideArmedHandshakeWake(input: {
+  actionType: string | null;
+  mandate: ArmedMandate | null;
+  editEnabled: boolean;
+  alreadyWoken: boolean;
+  openClawStreaming: boolean;
+  /**
+   * The hunt stream must have finished without a gateway error envelope.
+   * A complete `start_bug_hunt` followed by an error chunk is not a
+   * successful confirmation and must not spend the one-shot wake.
+   */
+  streamSucceeded: boolean;
+}): ArmedHandshakeDecision {
+  if (!input.streamSucceeded) return { kind: "idle" };
+  if (input.alreadyWoken) return { kind: "idle" };
+  if (!input.editEnabled) return { kind: "idle" };
+  if (!isMandateActive(input.mandate) || input.mandate?.mode !== "followups") {
+    return { kind: "idle" };
+  }
+  if (input.openClawStreaming) return { kind: "idle" };
+  if (input.actionType !== "start_bug_hunt") return { kind: "idle" };
+  return { kind: "wake" };
+}
+
+/**
+ * First-step wake. Must not parse as arming or stop — same contract as
+ * `buildArmedContinuationPrompt`. The wording is locked by a test.
+ */
+export function buildArmedHandshakePrompt(input: { remaining: number }): string {
+  const stepPart =
+    input.remaining > 1
+      ? ` Du har ${input.remaining} steg kvar i mandatet.`
+      : " Detta är sista steget i mandatet.";
+  return (
+    "[Automatisk väckning] Mandatet är redan aktivt. Läs användarens senaste instruktion och aktuell byggkontext." +
+    " Svara med exakt ett action-block som fyller builder-fältet och skickar det." +
+    " Förnya inte mandatet och ändra inte dess längd." +
+    stepPart
+  );
+}
+
+export interface ArmedHandshakeWakeReservation {
+  createdAt: number;
+  token: symbol;
+}
+
+type ArmedHandshakeWakeState = { status: "pending"; token: symbol } | { status: "settled" };
+
+const handshakeWakeStates = new Map<number, ArmedHandshakeWakeState>();
+
+export function hasArmedHandshakeWoken(createdAt: number): boolean {
+  return handshakeWakeStates.has(createdAt);
+}
+
+/** Atomically claim the single handshake wake that belongs to this mandate. */
+export function reserveArmedHandshakeWake(
+  createdAt: number,
+): ArmedHandshakeWakeReservation | null {
+  if (handshakeWakeStates.has(createdAt)) return null;
+  const reservation = { createdAt, token: Symbol("armed-handshake-wake") };
+  handshakeWakeStates.set(createdAt, { status: "pending", token: reservation.token });
+  return reservation;
+}
+
+/** Keep the wake consumed once dispatch may have reached the server. */
+export function settleArmedHandshakeWake(
+  reservation: ArmedHandshakeWakeReservation,
+): boolean {
+  const state = handshakeWakeStates.get(reservation.createdAt);
+  if (state?.status !== "pending" || state.token !== reservation.token) return false;
+  handshakeWakeStates.set(reservation.createdAt, { status: "settled" });
+  return true;
+}
+
+/** Release only the caller's own pending wake after certified non-dispatch. */
+export function releaseArmedHandshakeWake(
+  reservation: ArmedHandshakeWakeReservation,
+): boolean {
+  const state = handshakeWakeStates.get(reservation.createdAt);
+  if (state?.status !== "pending" || state.token !== reservation.token) return false;
+  return handshakeWakeStates.delete(reservation.createdAt);
+}
+
+export function resetArmedHandshakeWakesForTests(): void {
+  handshakeWakeStates.clear();
+}

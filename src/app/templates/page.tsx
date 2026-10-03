@@ -3,12 +3,14 @@ import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { TemplatesBrowser } from "@/components/templates/templates-browser";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 import { Wand2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Templates",
   description:
     "Bläddra bland professionella templates. Färdiga webbplatser för alla branscher och behov.",
+  alternates: publicPageAlternates("/templates"),
 };
 
 export default function TemplatesPage() {
@@ -37,6 +39,15 @@ export default function TemplatesPage() {
           <div className="mt-16 text-center">
             <p className="text-muted-foreground mb-4 text-sm">
               Hittar du inte vad du söker? Beskriv din idé och låt AI skapa en unik design.
+              Eller läs{" "}
+              <Link href="/skapa-hemsida-med-ai" className="text-foreground underline-offset-4 hover:underline">
+                hur du skapar hemsida med AI
+              </Link>{" "}
+              och{" "}
+              <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                jämför hemsideprogram
+              </Link>
+              .
             </p>
             <Link
               href="/"

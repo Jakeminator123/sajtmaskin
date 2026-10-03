@@ -668,6 +668,17 @@ describe("decideMergeReadyAction", () => {
         baseSha: BASE,
       }).valid,
     ).toBe(false);
+    expect(
+      validateMergeExecuteMandate({
+        body,
+        createdAt: "2026-07-29T12:10:01Z",
+        authorLogin: "maintainer",
+        authorType: "User",
+        authorAssociation: "OWNER",
+        headSha: HEAD,
+        baseSha: OTHER_BASE,
+      }).reason,
+    ).toContain("aktuell preview");
   });
 
   it("trådar sender och event-body säkert från workflowens eventfil", () => {
@@ -698,7 +709,7 @@ describe("decideMergeReadyAction", () => {
     expect(workflow).toContain("inputs.pr_number");
   });
 
-  it("kör label-skrivningar från betrodd default-branch och täcker master-push", () => {
+  it("kör label-skrivningar från betrodd default-branch och täcker preview-push", () => {
     const workflow = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
 
     expect(workflow).toContain("pull_request_target:");
@@ -717,7 +728,7 @@ describe("decideMergeReadyAction", () => {
     expect(workflow).toContain("baseIsAncestor: $baseIsAncestor");
     expect(workflow).not.toMatch(/\n  pull_request:\n/);
     expect(workflow).toContain("ref: ${{ github.event.repository.default_branch }}");
-    expect(workflow).toContain("invalidate-on-master-push:");
+    expect(workflow).toContain("invalidate-on-preview-push:");
     expect(workflow).toContain("github.event_name == 'push'");
     expect(workflow).toContain("node scripts/ci/trusted-review-window.mjs gate");
     expect(workflow).toContain("node scripts/ci/trusted-review-window.mjs invalidate-base");

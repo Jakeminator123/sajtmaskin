@@ -42,6 +42,10 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/gen/defaults", () => ({
   AUDIT_STRUCTURED_DEFAULT_MODEL: "openai/gpt-test",
   AUDIT_STRUCTURED_FALLBACK_MODELS: [],
+  // Den publika /analys-vägen har egna manifestdefaults; schema.ts läser båda
+  // paren, så mocken måste ge alla fyra även om produkttestet inte rör dem.
+  AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL: "openai/gpt-test-public",
+  AUDIT_PUBLIC_STRUCTURED_FALLBACK_MODELS: [],
 }));
 
 const { POST } = await import("./route");

@@ -6,29 +6,29 @@ export const creditPackageCopy: Record<
   { description: string; features: readonly string[]; cta: string }
 > = {
   starter: {
-    description: "Perfekt för att testa",
+    description: "För att komma igång",
     features: [
-      "AI-generering & förfining",
-      "Aldrig utgångsdatum",
-      "Engångsköp - ingen prenumeration",
+      "Används när du bygger, ändrar eller publicerar",
+      "Kostnaden beror på vad du gör",
+      "Engångsköp — credits går inte ut",
     ],
     cta: "Köp Starter",
   },
   popular: {
     description: "Bästa balans för de flesta",
     features: [
-      "AI-generering & förfining",
-      "Aldrig utgångsdatum",
-      "Engångsköp - ingen prenumeration",
+      "Används när du bygger, ändrar eller publicerar",
+      "Kostnaden beror på vad du gör",
+      "Engångsköp — credits går inte ut",
     ],
     cta: "Köp Popular",
   },
   pro: {
-    description: "För högre tempo och fler iterationer",
+    description: "För högre tempo och fler ändringar",
     features: [
-      "AI-generering & förfining",
-      "Aldrig utgångsdatum",
-      "Engångsköp - ingen prenumeration",
+      "Används när du bygger, ändrar eller publicerar",
+      "Kostnaden beror på vad du gör",
+      "Engångsköp — credits går inte ut",
     ],
     cta: "Köp Pro",
   },

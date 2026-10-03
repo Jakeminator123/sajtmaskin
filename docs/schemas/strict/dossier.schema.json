@@ -160,7 +160,7 @@
     "sourceRepoUrl": {
       "type": "string",
       "format": "uri",
-      "description": "Optional pointer to the upstream reference (typically a GitHub repo in data/template-references/)."
+      "description": "Optional pointer to the upstream reference (typically a GitHub repo cloned into the _template_refs/dossier-references/ sibling folder)."
     },
     "notes": {
       "type": "string",

@@ -5,6 +5,7 @@ import { LandingFooter } from "@/components/landing-v2/landing-footer";
 import { SiteBackground } from "@/components/layout/site-background";
 import { Button } from "@/components/ui/button";
 import {
+  getReadyRelatedSeoLandingSlugs,
   getSeoLandingEntry,
   SEO_LANDING_CTA_HREF,
   type SeoLandingSlug,
@@ -166,9 +167,7 @@ function RelatedLink({ slug }: { slug: SeoLandingSlug }) {
   );
 }
 
-export function readyRelatedSeoLandingSlugs(slugs: readonly SeoLandingSlug[]) {
-  return slugs.filter((slug) => getSeoLandingEntry(slug).status === "ready");
-}
+export const readyRelatedSeoLandingSlugs = getReadyRelatedSeoLandingSlugs;
 
 export function SkapaHemsidaContent() {
   const entry = getSeoLandingEntry(SLUG);
@@ -365,10 +364,23 @@ export function SkapaHemsidaContent() {
           </section>
 
           <section className="border-t border-border/15 px-6 py-16 md:py-24">
+            <div className="mx-auto mb-6 max-w-6xl">
+              <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
+                Här är minimumet innan ni väljer verktyg. Vad sidan ska åstadkomma för företaget —
+                förtroende och förfrågningar — ligger på{" "}
+                <Link
+                  href="/hemsida-till-foretag"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  hemsida till företag
+                </Link>
+                .
+              </p>
+            </div>
             <div className="mx-auto grid max-w-6xl items-start gap-4 lg:grid-cols-2">
               <div className="rounded-[28px] border border-border/40 bg-card/70 p-6 md:p-8">
                 <h2 className="font-(--font-heading) text-xl text-foreground md:text-2xl">
-                  Vad en företagssida brukar behöva
+                  Vad en första version brukar behöva
                 </h2>
                 <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted-foreground">
                   {SITE_NEEDS.map((item) => (
@@ -405,9 +417,14 @@ export function SkapaHemsidaContent() {
               </h2>
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 Det finns inget enda rätt belopp för att skapa en hemsida. Byrå tar mer i start.
-                Ett CMS eller en AI-builder flyttar mer arbete — och mer ansvar — till er. En
-                separat guide om kostnadsdelar kommer senare; räkna inte med en färdig
-                priskalkyl där ännu.
+                Ett CMS eller en AI-builder flyttar mer arbete — och mer ansvar — till er.{" "}
+                <Link
+                  href="/vad-kostar-en-hemsida"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  Vad kostar en hemsida
+                </Link>{" "}
+                listar kostnadsdelarna — drivare, inte en fast priskalkyl.
               </p>
               <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
                 I Sajtmaskin betalar du credits som engångsköp, utan prenumeration. Publicering
@@ -463,9 +480,8 @@ export function SkapaHemsidaContent() {
                   Relaterat
                 </p>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Den här sidan är teknikneutral. AI-processen ligger på en egen sida. Guider om
-                  hemsideprogram och vad en hemsida kostar fylls på när de är klara — de syns inte
-                  som länkar förrän dess.
+                  Den här sidan är teknikneutral. AI-processen, hemsideprogram och vad en hemsida
+                  kostar ligger på egna sidor.
                 </p>
                 <ul className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
                   {readyRelated.map((slug) => (

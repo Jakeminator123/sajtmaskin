@@ -9,6 +9,7 @@
  */
 import { resolveWizardIndustryHint } from "@/lib/builder/wizard-taxonomy";
 import type { KostnadsfriAgentBrief } from "./agent-brief";
+import { assertNoHospitalityGamingConflict } from "./industry-conflict";
 
 export const KOSTNADSFRI_FOLLOWUP_LIMIT = 3;
 export const KOSTNADSFRI_FOLLOWUP_ANSWER_MAX = 280;
@@ -289,13 +290,19 @@ export function applyFollowupAnswersToWizard<T extends WizardFollowupEnrichment>
   wizard: T,
   answers: KostnadsfriFollowupAnswers,
 ): T {
-  return {
+  const next = {
     ...wizard,
     usp: answers.usp ?? wizard.usp,
     targetAudience: answers.targetAudience ?? wizard.targetAudience,
     description: answers.description ?? wizard.description,
     industry: answers.industryId ?? wizard.industry,
   };
+  assertNoHospitalityGamingConflict(
+    resolveWizardIndustryHint(next.industry),
+    next.description,
+    next.usp,
+  );
+  return next;
 }
 
 export function buildFollowupAddendum(answers: KostnadsfriFollowupAnswers): string {

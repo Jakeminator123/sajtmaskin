@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { publicPageAlternates } from "@/lib/public-canonical-url";
 
 export const metadata: Metadata = {
   title: "Integritetspolicy",
   description:
     "Integritetspolicy för Sajtmaskin – hur vi hanterar dina personuppgifter. Pretty Good B.V.",
+  alternates: publicPageAlternates("/privacy"),
 };
 
 export default function PrivacyPage() {

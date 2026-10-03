@@ -25,7 +25,7 @@ samma diff — `npm run workflow:contract` jämför filerna och blir röd annars
   helt hos godkännandesteget och hos repots egna grindar (git-hooks,
   `verify:pr`, PR-grinden) — inte hos processisolering.
 - `web_search = "live"` — färska svar prioriteras framför cachens säkerhet.
-- `model_verbosity = "low"` — Codex är sekundär agent i det här repot.
+- `model_verbosity = "low"` — korta svar.
 - Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
   startad uppgift med host-managed sandbox kan fortfarande kräva värdens
   godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
@@ -38,20 +38,16 @@ Repo-roten är samma mapp för båda verktygen; skriv inte ut en maskinspecifik
 sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder
 (`.cursor/README.md`), och Codex-projektet `sajtmaskin` pekar på samma rot.
 
-**Codex är sekundär agent i det här repot.** `AGENTS.md` och `.cursor/rules/`
-äger arbetssättet; den här filen beskriver bara Codex-lagret.
+Codex och Cursor följer samma arbetssätt, ägt av `AGENTS.md`,
+`pr-workflow` och `.cursor/rules/`. Den här filen beskriver Codex-lagret.
 
-- **Varför Codex ändå använder worktree:** inte för att huvudcheckouten är
-  förbjuden — `AGENTS.md` säger uttryckligen att en vanlig agent jobbar i den
-  öppna checkouten. Skälet är att Cursor normalt äger huvudcheckouten samtidigt.
-  Två skrivande agenter i samma arbetskopia trampar på varandra, så Codex tar en
-  egen. Arbetar Codex ensamt och Cursor är stängt gäller `AGENTS.md` som vanligt.
+- **Arbetsyta:** jobba i den öppna checkouten. En skrivande session per
+  checkout; andra agenter får läsa. Worktree skapas när Jakob ber om det,
+  enligt [agent-worktree.mdc](../.cursor/rules/agent-worktree.mdc).
 - **Bas:** följ `pr-workflow` § 1.2 — `origin/preview` för vanligt
   utvecklingsarbete, `origin/master` bara när påståendet gäller produktion.
-- Registreringen av projektet gör inte huvudcheckouten till en skrivyta.
-- Handoff till `Local` görs bara när huvudcheckouten är verifierat ren och ingen
-  annan process äger den. En branch får bara vara utcheckad i en worktree åt
-  gången, och bara en aktör ansvarar för merge.
+- **Handoff/branchbyte:** kontrollera lokala ändringar och vem som skriver i
+  ytan. Bevara pågående arbete. Bara en aktör ansvarar för en merge.
 
 ## Windows-skal (pwsh 7)
 
@@ -64,6 +60,24 @@ trots att `pwsh` 7 är installerat. 5.1 skriver
 - `PWSH` injiceras via `shell_environment_policy.set` i `config.toml`.
 - Kör kommandon som `& $env:PWSH -NoLogo -NoProfile -Command '…'` om skalet är 5.1.
 - `[windows] sandbox = "elevated"` är avsiktligt; aliaset i WindowsApps failar där.
+
+### Windows systemvariabler och sökverktyg
+
+`shell_environment_policy.filters` behåller `SystemDrive` och `ProgramData`.
+De är vanliga systemsökvägar, inte hemligheter. Windows behöver dem för att
+expandera bland annat `%SystemDrive%\ProgramData`. Saknade variabler är den
+sannolika orsaken när systemcache hamnar i en bokstavlig `%SystemDrive%`-mapp
+under kommandots arbetskatalog. Det är inte projektdata och ska inte committas.
+
+Kontrollera kommandots miljö med `Test-Path Env:SystemDrive` och
+`Test-Path Env:ProgramData`; båda ska vara `True` på Windows. En redan startad
+session kan behöva laddas om innan ändringen märks. Secretsfiltrering och
+behörighetsnivå ändras inte för att rätta systemsökvägar.
+
+Om `rg` inte går att starta: kontrollera `Get-Command rg -All`. En WinGet-länk
+kan ligga före Codex bundlade exe i PATH. Använd den fungerande exe:n med
+explicit sökväg, eller `git grep` för spårade filer. Ändra inte system-PATH
+eller installera om verktyg automatiskt.
 
 ## Cursor-paritet
 

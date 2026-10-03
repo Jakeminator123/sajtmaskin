@@ -33,7 +33,7 @@ import path from "node:path";
  * file contents rather than the path separator.
  */
 export const EXTRACTOR_SOURCE_RELATIVE_PATHS = [
-  "src/lib/gen/scaffold-variants/template-inspiration.ts",
+  "src/lib/gen/scaffold-variants/template-structural-extractor.ts",
   "src/lib/templates/local-v0-template-source.ts",
 ] as const;
 

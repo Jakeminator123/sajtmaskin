@@ -17,7 +17,8 @@ const baseVariant: ScaffoldVariant = {
   signatureMotif: "warm tints, rounded surfaces, and softly layered cards",
   colorMode: "light",
   promptHints: ["Prioritize opening hours."],
-  sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"],
+  // `hit` candidates: curator-disabled templates are never selectable.
+  sourceTemplateIds: ["XOMN4texeRO", "iBPsMqPGRTZ"],
   themeTokens: {
     background: "oklch(0.985 0.012 82)",
     foreground: "oklch(0.24 0.02 42)",
@@ -102,7 +103,7 @@ describe("buildVariantHintsForBrief", () => {
       baseVariant,
     );
     expect(hints?.sourceTemplate).toMatchObject({
-      id: "8QhCJAwn16K",
+      id: "XOMN4texeRO",
       category: "landing-pages",
     });
     expect(formatVariantHintsForPrompt(hints!)).toContain(

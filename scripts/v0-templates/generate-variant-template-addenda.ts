@@ -27,7 +27,7 @@ import {
   type VariantTemplateAddendum,
   VARIANT_TEMPLATE_ADDENDA_VERSION,
 } from "../../src/lib/gen/scaffold-variants/variant-template-addendum";
-import { extractVariantTemplateStructuralReferences } from "../../src/lib/gen/scaffold-variants/template-inspiration";
+import { extractVariantTemplateStructuralReferences } from "../../src/lib/gen/scaffold-variants/template-structural-extractor";
 import { computeExtractorSha256 } from "../../src/lib/gen/scaffold-variants/extractor-fingerprint";
 import { extractV0TemplateReferenceFiles } from "../../src/lib/templates/local-v0-template-source";
 

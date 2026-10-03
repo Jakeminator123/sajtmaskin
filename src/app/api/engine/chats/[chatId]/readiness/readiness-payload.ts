@@ -1,6 +1,11 @@
 import type { ChatReadinessItem } from "@/lib/chat-readiness";
 import { resolveReadinessCategoryFromSeverity } from "@/lib/chat-readiness";
 import type { DeployReleaseGateResult } from "@/lib/db/engine-version-lifecycle";
+import type { PackageTreePublishGateResult } from "@/lib/deploy/package-tree-publish-gate";
+import {
+  DEPLOY_INSTALL_PEER_FALLBACK,
+  DEPLOY_PACKAGE_TREE_ERESOLVE,
+} from "@/lib/deploy/package-tree-publish-gate";
 
 const SEO_ADVISORY_CODES = {
   "missing-metadata": {
@@ -122,6 +127,37 @@ export function buildTypecheckAdvisoryBlocker(
       "Förhandsgranskningen fungerar, men publiceringen bygger sajten med en strikt typkontroll som skulle misslyckas. Kör en reparation eller be om en autofix i chatten, och publicera när versionen är verifierad utan varningar.",
     severity: "blocker",
     action: "versions",
+  };
+}
+
+/**
+ * Preview can start after `--legacy-peer-deps` while Vercel `npm install`
+ * still ERESOLVE:s. Same publish channel as invalid JSON / typecheck
+ * advisory — a readiness blocker that `canDeploy` and deploy 409 share.
+ */
+export function buildPackageTreePublishBlocker(
+  gate: PackageTreePublishGateResult,
+): ChatReadinessItem | null {
+  if (gate.allowed) return null;
+  if (gate.code === DEPLOY_INSTALL_PEER_FALLBACK) {
+    return {
+      id: "install-peer-fallback-blocks-publish",
+      title: "Förhandsgranskningen ljuger om install.",
+      detail:
+        "Preview startade först efter npm --legacy-peer-deps. Det är en förbikoppling, inte ett grönt kvitto. Vercel-installationen kommer att stanna på samma paketkonflikt. Justera Next/React-paret till ett sammanhängande träd innan du publicerar.",
+      severity: "blocker",
+      action: "deploy",
+    };
+  }
+  if (gate.code !== DEPLOY_PACKAGE_TREE_ERESOLVE) return null;
+  return {
+    id: "package-tree-eresolve-blocks-publish",
+    title: "Paketträdet kan inte installeras på Vercel.",
+    detail:
+      gate.message ||
+      "package.json har ett Next/React-par som npm vägrar (ERESOLVE). Preview kan ändå starta med --legacy-peer-deps. Publicera inte förrän trädet är sammanhängande.",
+    severity: "blocker",
+    action: "deploy",
   };
 }
 

@@ -61,6 +61,19 @@ export function TeknikContent() {
                   grund som de b&auml;sta digitala bolagen bygger p&aring;. H&auml;r &auml;r
                   detaljerna, s&aring; startsidan kan h&aring;llas stram.
                 </p>
+                <p className="text-muted-foreground mx-auto mt-4 max-w-xl text-sm leading-relaxed">
+                  Vill du j&auml;mf&ouml;ra arbetss&auml;tt eller se AI-fl&ouml;det?{" "}
+                  <Link href="/hemsideprogram" className="text-foreground underline-offset-4 hover:underline">
+                    Hemsideprogram
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="/skapa-hemsida-med-ai"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    Skapa hemsida med AI
+                  </Link>
+                </p>
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Button
                     size="lg"

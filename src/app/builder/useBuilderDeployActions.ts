@@ -13,6 +13,8 @@ import { persistVersionErrorLogs as persistVersionErrorLogsShared } from "@/lib/
 import type { VersionErrorLogPayload } from "@/lib/hooks/chat/types";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 import { debugLog } from "@/lib/utils/debug";
+import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
+import { REPAIR_ABORTED_TOAST } from "@/lib/gen/verify/repair-abort-copy";
 import {
   markPendingCreatedVersion,
   type PendingCreatedVersionRef,
@@ -532,6 +534,12 @@ export function useBuilderDeployActions({
         message?: string;
         error?: string;
       };
+      if (res.status === 504) {
+        toast.error(REPAIR_ABORTED_TOAST);
+        mutateVersions();
+        mutateChat();
+        return;
+      }
       if (!res.ok && res.status !== 409) {
         throw new Error(data.message || data.error || `Reparation misslyckades (HTTP ${res.status})`);
       }
@@ -553,7 +561,14 @@ export function useBuilderDeployActions({
         );
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Reparation misslyckades");
+      const message = error instanceof Error ? error.message : "";
+      toast.error(
+        /504|timed out|Failed to fetch/i.test(message)
+          ? REPAIR_ABORTED_TOAST
+          : message || "Reparation misslyckades",
+      );
+      mutateVersions();
+      mutateChat();
     } finally {
       setIsRepublishRepairing(false);
     }
@@ -578,6 +593,7 @@ export function useBuilderDeployActions({
       const normalized = pendingInstructionsRef.current?.trim() || "";
       const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
       if (data.versionId) {
+        noteGoogleAdsConversion("first_generation");
         if (data.onlySelectVersionIfWasLatest) {
           const sel = selectedVersionIdRef.current;
           const latest = latestVersionIdRef.current;

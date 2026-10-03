@@ -212,6 +212,10 @@ async function routeRequest(req, res) {
           ? latest.lifecycleToken
           : null,
       mutationRevision: readMutationRevision(latest),
+      installAttemptRevision:
+        Number.isSafeInteger(latest.installAttemptRevision) && latest.installAttemptRevision > 0
+          ? latest.installAttemptRevision
+          : null,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
       previewUrl: latest.previewUrl,
@@ -225,6 +229,18 @@ async function routeRequest(req, res) {
       typeof latest.regeneratedLockfile.path === "string" &&
       typeof latest.regeneratedLockfile.content === "string"
         ? { regeneratedLockfile: latest.regeneratedLockfile }
+        : {}),
+      ...(latest.usedLegacyPeerDeps === true && latest.peerConflictDetected === true
+        ? { usedLegacyPeerDeps: true, peerConflictDetected: true }
+        : {}),
+      ...(latest.installKind === "fallback" ||
+      latest.installKind === "strict_pass" ||
+      latest.installKind === "skipped"
+        ? { installKind: latest.installKind }
+        : {}),
+      ...(typeof latest.dependencyFingerprint === "string" &&
+      /^[a-f0-9]{64}$/i.test(latest.dependencyFingerprint)
+        ? { dependencyFingerprint: latest.dependencyFingerprint.toLowerCase() }
         : {}),
     });
   }

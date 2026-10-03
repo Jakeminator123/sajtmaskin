@@ -31,9 +31,16 @@ describe("SkapaHemsidaMedAiContent", () => {
 
     for (const slug of entry.relatedSlugs) {
       const related = getSeoLandingEntry(slug);
+      expect(related.status).toBe("ready");
       expect(screen.getByRole("link", { name: related.title }).getAttribute("href")).toBe(
         `/${slug}`,
       );
     }
+
+    expect(screen.queryByText(/reserverade/i)).toBeNull();
+    expect(screen.queryByText(/fylls på/i)).toBeNull();
+    expect(screen.queryByText(/färdiga guider/i)).toBeNull();
+    expect(document.body.textContent ?? "").not.toMatch(/\d+\s*kr\b/i);
+    expect(document.body.textContent ?? "").not.toMatch(/\b(?:49|99|179)\b/);
   });
 });

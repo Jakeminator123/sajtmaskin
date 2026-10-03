@@ -47,6 +47,14 @@ describe("OpenClaw edit system prompt — server gate", () => {
     expect(prompt).toContain("apply_quick_edit");
   });
 
+  it("asks for the first fill instead of a confirmation-only hunt when the first step is already described", () => {
+    const prompt = promptFor(true, ["armed_autonomy"]);
+    expect(prompt).toContain("redan beskrivit första builder-steget");
+    expect(prompt).toContain("hoppa över bekräftelsen");
+    expect(prompt).toContain("fill_text_field");
+    expect(prompt).toContain("Exakt ETT action-block per svar");
+  });
+
   it("ignores unknown power names instead of widening the grant", () => {
     expect(promptFor(true, ["publish_site", "write_platform_code"])).toBeNull();
   });

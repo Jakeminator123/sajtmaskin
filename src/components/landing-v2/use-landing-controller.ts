@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createProject, deleteProject } from "@/lib/projects/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
+import { trackHomepageEvent } from "@/components/landing-v2/landing-analytics"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
 import {
   use3DTilt,
@@ -58,6 +59,9 @@ export function useLandingController({
 
   const pickCategory = useCallback(
     (id: string | null) => {
+      if (id) {
+        trackHomepageEvent("homepage_method", { method: id })
+      }
       if (onSelectedCategoryChange) {
         onSelectedCategoryChange(id)
       } else {
@@ -89,12 +93,20 @@ export function useLandingController({
   }, [isAuditMode, showVoiceRecorder])
 
   const startBuild = useCallback(
-    async (categoryOverride?: string | null, promptOverride?: string) => {
+    async (
+      categoryOverride?: string | null,
+      promptOverride?: string,
+      options?: { location?: "hero" | "bottom" },
+    ) => {
       if (isSubmitting) return
 
       const targetCategory = categoryOverride ?? selectedCategory
       const prompt = (promptOverride ?? inputValue).trim()
       const routeTarget = resolveLandingRouteTarget(targetCategory)
+      trackHomepageEvent("homepage_cta", {
+        location: options?.location ?? "hero",
+        method: targetCategory ?? "fritext",
+      })
 
       setIsSubmitting(true)
 
