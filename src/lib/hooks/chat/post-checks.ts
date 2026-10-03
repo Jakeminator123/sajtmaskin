@@ -914,7 +914,12 @@ export async function runPostGenerationChecks(params: {
         // Server message rows never get these client-appended tool parts.
         output: {
           ...productPostcheck.liveReview,
-          screenshots: productPostcheck.screenshots ?? null,
+          screenshots:
+            productPostcheck.screenshots ??
+            (productPostcheck.liveReview.status === "completed"
+              ? productPostcheck.liveReview.screenshots
+              : null) ??
+            null,
         },
       });
     }
