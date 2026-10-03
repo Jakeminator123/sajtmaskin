@@ -78,7 +78,7 @@ export function readLockedNextReact(files: Files, packagePath: string, pkg: Reco
   const file = (name: string) => files.find((entry) => normalize(entry.path) === `${folder}${name}`);
   const pnpm = file("pnpm-lock.yaml") ?? file("pnpm-lock.yml");
   const yarn = file("yarn.lock");
-  const npm = file("package-lock.json");
+  const npm = file("npm-shrinkwrap.json") ?? file("package-lock.json");
   const manager = pnpm ? "pnpm" : yarn ? "yarn" : npm ? "npm" : null;
   const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0] : null;
   // Corepack/Vercel may choose the declared manager; do not use evidence for

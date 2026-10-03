@@ -184,6 +184,33 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   it("does not invent a peer contract for Next 0/1 before React peers were declared", () => {
     expect(detectPackageTreeConflicts({ dependencies: { next: "1.2.3", react: "19.0.0" } })).toEqual([]);
   });
+  it.each([
+    ["npm:next@14.2.25", "19.0.0"],
+    ["14.2.25", "npm:react@^19"],
+    ["npm:next@14.2.25", "npm:react@19.0.0"],
+  ])("checks native npm aliases for %s/%s", (next, react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next, react } })[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it("uses normalized alias ranges to admit a coherent locked pair while retaining raw declarations", () => {
+    const pkg = { dependencies: { next: "npm:next@>=14 <16", react: "npm:react@^19" } };
+    expect(detectPackageTreeConflicts(pkg)[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts(pkg, { next: "15.5.4", react: "19.0.0" })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "npm:next@15.5.4", react: "npm:react@19.0.0" } })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "npm:@fork/next@14.2.25", react: "19.0.0" } })).toEqual([]);
+  });
+  it.each(["", "src/"])("uses npm shrinkwrap before an inactive package-lock beside %s manifest", (folder) => {
+    const lock = (next: string) => JSON.stringify({ packages: { "node_modules/next": { version: next }, "node_modules/react": { version: "19.0.0" } } });
+    const files = [
+      { path: `${folder}package.json`, content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) },
+      { path: `${folder}package-lock.json`, content: lock("15.5.4") },
+      { path: `${folder}npm-shrinkwrap.json`, content: lock("14.2.25") },
+    ];
+    expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+    files[2].content = lock("15.5.4");
+    expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)).toBeNull();
+    files[2].content = "not json";
+    expect(findPackageTreeConflictsInFiles(files, `${folder}package.json`)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
 
   it("uses in-range lockfile selections, not the first major of a broad declaration", () => {
     const files = [

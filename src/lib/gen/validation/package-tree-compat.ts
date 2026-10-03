@@ -191,6 +191,12 @@ function repairOptionsForNextReact(params: {
 
 type LockedVersions = { next: string; react: string };
 
+function nativeAliasRange(name: "next" | "react", declaration: string): string {
+  const prefix = `npm:${name}@`;
+  // Other alias targets are not the native package and have no known peer contract here.
+  return declaration.startsWith(prefix) ? declaration.slice(prefix.length) : declaration;
+}
+
 export function detectPackageTreeConflicts(
   pkg: unknown,
   locked?: LockedVersions,
@@ -200,15 +206,17 @@ export function detectPackageTreeConflicts(
   const deps = collectDeclaredDependencyRanges(record);
   const conflicts: PackageTreeConflict[] = [];
   if (deps.next && deps.react) {
+    const nextRange = nativeAliasRange("next", deps.next);
+    const reactRange = nativeAliasRange("react", deps.react);
     const useLocked =
       locked &&
       valid(locked.next) &&
       valid(locked.react) &&
-      satisfies(locked.next, deps.next) &&
-      satisfies(locked.react, deps.react);
+      satisfies(locked.next, nextRange) &&
+      satisfies(locked.react, reactRange);
     const mismatch = nextReactEresolve(
-      useLocked ? locked.next : deps.next,
-      useLocked ? locked.react : deps.react,
+      useLocked ? locked.next : nextRange,
+      useLocked ? locked.react : reactRange,
     );
     if (mismatch) {
       const peers = peerMapFromRanges(deps);

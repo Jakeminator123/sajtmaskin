@@ -387,6 +387,33 @@ describe("POST /api/v0/deployments", () => {
     expect(commit).not.toHaveBeenCalled();
     expect(createVercelDeployment).not.toHaveBeenCalled();
   });
+  it.each([true, false])("blocks native aliases and the effective npm shrinkwrap before credit commit/provider (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    const lock = (next: string) => JSON.stringify({ packages: { "node_modules/next": { version: next }, "node_modules/react": { version: "19.0.0" } } });
+    for (const files of [
+      [{ path: "package.json", content: JSON.stringify({ dependencies: { next: "npm:next@14.2.25", react: "npm:react@19.0.0" } }) }],
+      [
+        { path: "package.json", content: JSON.stringify({ dependencies: { next: ">=14 <16", react: "^19" } }) },
+        { path: "package-lock.json", content: lock("15.5.4") },
+        { path: "npm-shrinkwrap.json", content: lock("14.2.25") },
+      ],
+    ]) {
+      getVersionFiles.mockResolvedValue(files);
+      const response = await POST(new Request("http://localhost/api/v0/deployments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly }),
+      }));
+      const data = await response.json();
+      expect(response.status).toBe(precheckOnly ? 200 : 409);
+      if (precheckOnly) {
+        expect(data.deployReadiness.ready).toBe(false);
+        expect(data.packageTreeGate.conflict.code).toBe("next_react_peer_eresolve");
+      } else expect(data.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    }
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
 
   it("precheckOnly surfaces placeholder-covered Stripe env as warning, not blocker", async () => {
     // STRIPE_SECRET_KEY is in `41-tier3-stub-placeholders.env.txt`, so it
