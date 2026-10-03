@@ -285,6 +285,18 @@ describe("proxy exact-Origin guard", () => {
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("does not let the dashboard origin through on a normal mutation", async () => {
+    const res = await proxy(
+      new NextRequest("https://sajtmaskin.se/api/projects", {
+        method: "POST",
+        headers: { origin: "https://sajtmaskin-dash.onrender.com" },
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: "origin_not_allowed" });
+  });
+
   it("rejects an untrusted API preflight and answers an exact trusted one", async () => {
     const denied = await proxy(
       new NextRequest("https://sajtmaskin.se/api/projects", {
