@@ -8,7 +8,6 @@ import {
   evaluateCiScopeWorkflow,
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
-  evaluateManualBootstrapRule,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
@@ -16,7 +15,6 @@ import {
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
   evaluateTrustedControllerPermissions,
-  evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -695,8 +693,8 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
-  it("rejects merge/dispatch write permission in every trusted controller scope", () => {
-    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+  it("pins the narrow permission set for the trusted Dependabot controller", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
     for (const permission of [
       "write-all",
@@ -711,52 +709,8 @@ describe("agent workflow repository contract", () => {
         `permissions: { contents: read }\njobs:\n  gate:\n    permissions: ${permission}\n`,
       )).not.toEqual([]);
     }
-    expect(evaluateTrustedControllerPermissions(
-      "permissions: { contents: read, checks: write }\njobs: {}\n",
-    )).toEqual([]);
     expect(evaluateTrustedControllerPermissions("jobs: {}\n")).not.toEqual([]);
     expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
-  });
-
-  it("pins the approved manual merge policy exactly, without inferring free-prose safety", () => {
-    const source = readFileSync(".cursor/rules/pr-merge.mdc", "utf8");
-    expect(evaluateManualBootstrapRule(source)).toEqual([]);
-    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n"))).toEqual([]);
-    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n").replace(/\n/gu, "\r\n"))).toEqual([]);
-    expect(evaluateManualBootstrapRule(`\n  ${source}\n\n`)).toEqual([]);
-    for (const contradiction of [
-      "Alla röda checks får bypassas med --admin.",
-      "all red checks may be bypassed after owner approval",
-      "Extra undantag: admin-bypass är tillåtet.",
-      "Checkresultat får skrivas om för att få grönt.",
-    ]) {
-      expect(evaluateManualBootstrapRule(`${source}\n${contradiction}`)).not.toEqual([]);
-      expect(evaluateManualBootstrapRule(`${contradiction}\n${source}`)).not.toEqual([]);
-    }
-    for (const clause of [
-      "Enda policyundantaget",
-      "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
-      "`manualMergePathPrefixes`",
-      "dokumenterad ägarbootstrap",
-      "Alla övriga röda/pending checks",
-      "aldrig native GitHub-skydd",
-      "använd inte admin-bypass",
-      "ändra checkresultat för att få grönt",
-      "det röda orchestrator-jobbet `trusted-review-window`",
-      "verifierat betrodd default-controller-körning för samma PR och aktuell head",
-      "`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`",
-      "enda felorsaken måste vara exakt samma bootstrap-summary",
-      "Paret räknas som en bootstrap-spärr",
-      "Varje annan jobbfailure",
-      "felannotation eller loggfel som inte härleds ur exakt denna",
-      "annan head/proveniens eller native GitHub-spärr förblir stopp",
-    ]) {
-      const candidate = source.replaceAll(clause, "");
-      expect(candidate).not.toBe(source);
-      expect(evaluateManualBootstrapRule(candidate)).not.toEqual([]);
-    }
-    expect(evaluateManualBootstrapRule("all red checks may be bypassed after owner approval"))
-      .not.toEqual([]);
   });
 
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
@@ -877,62 +831,27 @@ describe("agent workflow repository contract", () => {
     ).toContain("broad stability job must remain warn-only");
   });
 
-  it("keeps no-op review events outside trusted gate concurrency", () => {
-    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
-    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
-
-    const mutations = [
-      source.replace(
-        "        github.event.action == 'ready_for_review'\n",
-        "        github.event.action == 'ready_for_review' ||\n" +
-          "        github.event.action == 'edited'\n",
-      ),
-      source.replace(
-        "      github.event_name == 'pull_request_target' &&\n",
-        "      (github.event_name == 'pull_request_target' || " +
-          "github.event_name == 'issue_comment') &&\n",
-      ),
-      source.replace(
-        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}\n",
-        "      group: trusted-review-window\n",
-      ),
-      source.replace(
-        "\npermissions:\n",
-        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
-      ),
-    ];
-
-    for (const candidate of mutations) {
-      expect(candidate).not.toBe(source);
-      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
-    }
-  });
-
   it("keeps the trusted controller import graph free of npm packages", () => {
     expect(
-      collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8")),
+      collectEsmSpecifiers(readFileSync("scripts/ci/dependabot-automerge.mjs", "utf8")),
     ).toEqual(
       expect.arrayContaining([
         "node:fs",
         "node:path",
         "node:url",
-        "./merge-ready-freshness.mjs",
-        "../workflow/required-check-owners.mjs",
-        "../pr-review/core.mjs",
-        "../pr-review/account-fallback.mjs",
+        "node:util",
       ]),
     );
     expect(evaluateTrustedControllerImportGraph()).toEqual([]);
     expect(
       evaluateDependencyFreeImportGraph(
         {
-          "scripts/ci/trusted-review-window.mjs":
+          "scripts/ci/dependabot-automerge.mjs":
             'import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";\n',
-          "scripts/ci/merge-ready-freshness.mjs": "",
           "scripts/workflow/check-contract.mjs":
             'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
         },
-        ["scripts/ci/trusted-review-window.mjs", "scripts/ci/merge-ready-freshness.mjs"],
+        ["scripts/ci/dependabot-automerge.mjs"],
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -1109,18 +1028,22 @@ describe("agent workflow repository contract", () => {
   });
 
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
-    const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(source).toContain("pull_request_target:");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
-    expect(source).not.toContain("actions/checkout");
-    expect(source).not.toContain("gh pr merge");
-    expect(source).not.toContain("DEPENDABOT_AUTOMERGE_ENABLED");
+    expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
+    expect(source).toContain('gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
+    expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
+    expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
     expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(source).toContain("if: always()");
     expect(source).toContain("steps.meta.outcome == 'success'");
     expect(source).toContain("--force");
-    expect(source).toContain('--remove-label "dependabot-patch-safe"');
+    expect(source).toContain('--remove-label "dependabot-automerge"');
   });
 
   it.each([
@@ -1153,12 +1076,6 @@ describe("agent workflow repository contract", () => {
   });
 
   it.each([
-    ["review-window.yaml", "on: push\njobs: {}\n"],
-    ["other.yml", "on: push\njobs:\n  review-window:\n    runs-on: ubuntu-latest\n"],
-    [
-      "other.yml",
-      "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
-    ],
     ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
     [
       "other.yml",
@@ -1177,7 +1094,7 @@ describe("agent workflow repository contract", () => {
       "other.yml",
       "on: pull_request\njobs:\n  fake:\n    name: ${{ matrix.check }}\n    runs-on: ubuntu-latest\n",
     ],
-  ])("reserves the native review-window identity: %s", (name, source) => {
+  ])("reserves canonical check and review identities: %s", (name, source) => {
     expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
   });
 
@@ -1223,34 +1140,34 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
-    expect(policy.manualMergePathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.ownerReviewPathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
     expect(evaluatePolicyFloors({
       ...structuredClone(policy),
-      manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+      ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
         (candidate: string) => candidate !== ".cursor/rules/pr-merge.mdc",
       ),
-    })).toContain("manualMergePathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
+    })).toContain("ownerReviewPathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
     );
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/required-check-owners.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
     );
 
     const weakened = [
@@ -1266,9 +1183,9 @@ describe("agent workflow repository contract", () => {
           "dossier-acceptance": "ci.yml",
         },
       },
-      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+      ...policy.ownerReviewPathPrefixes.map((prefix: string) => ({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== prefix,
         ),
       })),

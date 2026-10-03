@@ -1,0 +1,86 @@
+name: Dependabot native auto-merge
+
+# Skrivande controller för ett mycket smalt undantag. pull_request_target kör
+# alltid den betrodda default-branch-versionen av workflow och validator; PR-head
+# checkas aldrig ut eller exekveras med detta token.
+on:
+  pull_request_target:
+    branches: [preview]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate patch contents without executing PR code
+        id: validate
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ steps.meta.outputs.dependency-names }}
+        run: node scripts/ci/dependabot-automerge.mjs
+
+      - name: Reconcile label and native auto-merge
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          ELIGIBLE: ${{ steps.meta.outcome == 'success' && steps.validate.outcome == 'success' }}
+        run: |
+          gh label create "dependabot-automerge" \
+            --repo "$REPO" \
+            --color "0e8a16" \
+            --description "Allowlisted patch; native auto-merge waits for branch rules" \
+            --force
+
+          has_label=$(gh pr view "$PR_URL" --json labels --jq \
+            '[.labels[].name] | contains(["dependabot-automerge"])')
+
+          if [ "$ELIGIBLE" = "true" ] && [ "$IS_DRAFT" != "true" ]; then
+            if [ "$has_label" != "true" ]; then
+              gh pr edit "$PR_URL" --add-label "dependabot-automerge"
+            fi
+            gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
+          else
+            if [ "$has_label" = "true" ]; then
+              gh pr edit "$PR_URL" --remove-label "dependabot-automerge"
+            fi
+            auto_merge=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
+            if [ "$auto_merge" = "true" ]; then
+              gh pr merge "$PR_URL" --disable-auto
+            fi
+            echo "Manuell review krävs (eligible=$ELIGIBLE, draft=$IS_DRAFT)."
+          fi

@@ -86,8 +86,8 @@ describe("Protect master ruleset drift", () => {
     expect(spec.expected.required_status_checks.required_status_checks_source).toBe(
       REQUIRED_CHECKS_SOURCE,
     );
-    expect(spec.expected.pull_request.required_review_thread_resolution).toBe(false);
-    expect(spec.expected.required_status_checks.strict_required_status_checks_policy).toBe(false);
+    expect(spec.expected.pull_request.required_review_thread_resolution).toBe(true);
+    expect(spec.expected.required_status_checks.strict_required_status_checks_policy).toBe(true);
 
     const contexts = resolveExpectedStatusChecks(spec).map((check: StatusCheck) => check.context);
     expect(contexts).toEqual([
@@ -95,20 +95,20 @@ describe("Protect master ruleset drift", () => {
       "backoffice-tests",
       "schema-drift",
       "build",
+      "dossier-acceptance",
       "GitGuardian Security Checks",
     ]);
     expect(contexts).not.toContain("review-window");
-    expect(contexts).not.toContain("dossier-acceptance");
-    expect(policy.requiredChecks).toEqual(expect.arrayContaining(["review-window"]));
+    expect(policy.requiredChecks).toEqual(expect.arrayContaining(["dossier-acceptance"]));
   });
 
   it("treats a tighter live GitHub ruleset as drift until expected is changed", () => {
     const live = matchingLiveRuleset();
-    rule(live, "pull_request").parameters!.required_review_thread_resolution = true;
-    rule(live, "required_status_checks").parameters!.strict_required_status_checks_policy = true;
+    rule(live, "pull_request").parameters!.required_review_thread_resolution = false;
+    rule(live, "required_status_checks").parameters!.strict_required_status_checks_policy = false;
     rule(live, "required_status_checks").parameters!.required_status_checks = [
       ...rule(live, "required_status_checks").parameters!.required_status_checks!,
-      { context: "review-window" },
+      { context: "unexpected-check" },
     ];
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual(

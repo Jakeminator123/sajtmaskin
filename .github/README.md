@@ -5,28 +5,18 @@
 | [`workflows/ci.yml`](workflows/ci.yml)                                             | Push/PR mot `preview` och `master`: build, typecheck, lint, tester, kontrakt, schema-drift och Backoffice. Live DB-jobb granskas separat; PR-kod får inga produktionshemligheter. |
 | [`workflows/db-blob-sync-check.yml`](workflows/db-blob-sync-check.yml)             | Read-only DB-/Blob-kontroll; PR-kod får inga produktionshemligheter.                                                                                                              |
 | [`workflows/db-schema-parity.yml`](workflows/db-schema-parity.yml)                 | Daglig read-only-jämförelse av LEVANDE dev↔prod-schema (`npm run db:schema-parity`); push-vägen täcks av `db-schema-parity`-jobbet i ci.yml.                                      |
-| [`workflows/merge-ready-freshness.yml`](workflows/merge-ready-freshness.yml)       | Betrodd default-branch-controller: head-bunden `review-window`, live sign-off och stale-label/base-invalidering.                                                                  |
 | [PR-granskning](../docs/runbooks/github-pr-review-automation.md)                    | Oberoende lokal review och befintliga externa botytor. Den separata automatiska API-review-workflowen är pensionerad. |
-| [`workflows/dependabot-safe-classify.yml`](workflows/dependabot-safe-classify.yml) | Betrodd desired-state-synk av låg-risk-labeln: skapar/uppdaterar, lägger till eller tar bort; mergar aldrig och kör ingen PR-head-kod.                                            |
+| [`workflows/dependabot-automerge.yml`](workflows/dependabot-automerge.yml)         | Betrodd default-branch-controller som innehållsvaliderar allowlistade npm-patchar och aktiverar GitHubs native auto-merge; PR-head-kod körs aldrig med skrivtoken.                 |
 | [`dependabot.yml`](dependabot.yml)                                                 | Veckovisa uppdateringar för npm och GitHub Actions.                                                                                                                               |
 
-Workflow-filerna äger GitHub-körningen. Required checknamn, deras canonical
-workflowkälla (`.github/workflows/ci.yml` + `pull_request`) och väntetider ägs
-av `config/agent-workflow.json`;
+Workflow-filerna äger GitHub-körningen. Canonical checknamn och deras
+workflowkälla (`.github/workflows/ci.yml` + `pull_request`) ägs av
+`config/agent-workflow.json`; GitHubs live rulesets äger mergekraven.
 `npm run workflow:contract` stoppar drift mellan policy, workflow, hook och
 router. Lokalt körs `npm run verify:pr -- --plan` och relevanta riktade
 kontroller före push; CI publicerar tung profil eller ett explicit light-kvitto.
 
-Controllern binder varje core-check till senaste canonical WorkflowRun och
-senaste serververifierade försök för respektive jobbnamn via jobbets
-check-run-URL samt serverreturnerade Actions-steg; namn eller gemensam
-Actions-app räcker inte. Steglösa custom checks är aldrig core-proveniens, och
-ett custom reviewkvitto i en annan workflows suite kräver exakt jobb-/check-ID-
-bindning för att klassas som jobb. För en fork-run utan PR-association krävs
-exakt live head-repository och branch.
-
-En vanlig agentmerge får inte ändra `.github/workflows/**`. Controllern
-kontrollerar både nuvarande och tidigare filnamn och kräver då en separat,
-ägargodkänd infrastruktur-bootstrap efter full verifiering. PR-head-workflows
-är explicit read-only; skrivande automation måste köra betrodd
-default-branch-kod och får inte innehålla en parallell mergeväg.
+Required checks publiceras en gång per aktuell PR-head. Strict/up-to-date i
+ruleset gör gamla basresultat ogiltiga. PR-head-workflows är explicit read-only;
+skrivande automation måste köra betrodd default-branch-kod. Dependabot-
+controllern får endast begära native auto-merge; GitHub väntar själv på ruleset.
