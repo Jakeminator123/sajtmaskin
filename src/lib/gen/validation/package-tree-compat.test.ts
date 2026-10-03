@@ -11,6 +11,18 @@ import {
 const INCIDENT_PACKAGE_JSON_TEXT = `${JSON.stringify(INCIDENT_V0_PACKAGE_JSON, null, 2)}\n`;
 
 describe("extractDependencyMajor", () => {
+  it.each(["2024-latest", "_stable", "-canary", "release!", "(stable)", "~local"])("admits descriptor-bound native npm tag %s", (react) => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react } }) },
+      { path: "yarn.lock", content: `"next@14.2.25":\n  version "14.2.25"\n"react@${react}":\n  version "18.3.1"\n` },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace("18.3.1", "19.0.0");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it.each([".local", "react.tgz", "react.tar.gz", "react.tar", "~/local", "bad tag", "bad%tag"])("does not admit file or invalid tag %s as native registry evidence", (react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react } }, { next: "14.2.25", react: "18.3.1", reactSpecifier: react })[0]?.code).toBe("next_react_peer_resolution_required");
+  });
   it("does not mistake installer detection for pnpm 9 compatibility with schema 7", () => {
     const graph = "lockfileVersion: '7.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
     for (const packageManager of [undefined, "pnpm@9.15.9"]) {

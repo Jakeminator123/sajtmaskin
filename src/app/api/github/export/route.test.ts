@@ -160,12 +160,14 @@ describe("POST /api/github/export", () => {
   it("sends the original imported bytes in GitHub blobs, preserving text", async () => {
     buildPortableExportProject.mockResolvedValue([
       { path: "public/logo.png", content: "base64:iVBORwD/", language: "binary" },
+      { path: "public/binary.txt", content: "base64:AP8BgA==", language: "binary" },
       { path: "README.md", content: "base64:YWJj", language: "text" },
     ]);
     const { recorded } = installGitHubMock();
     const response = await POST(exportRequest());
     expect(response.status).toBe(200);
     expect(recorded.blobs.map((content) => Buffer.from(content, "base64"))).toContainEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
+    expect(recorded.blobs.map((content) => Buffer.from(content, "base64"))).toContainEqual(Buffer.from([0, 255, 1, 128]));
     expect(recorded.blobs.map((content) => Buffer.from(content, "base64").toString("utf8"))).toContain("base64:YWJj");
   });
   beforeEach(() => {

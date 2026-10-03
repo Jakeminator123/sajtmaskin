@@ -54,6 +54,7 @@ describe("POST public version export zip", () => {
       { path: "env.example", content: "STRIPE_SECRET_KEY=sk_live_real\n", language: "text" },
       { path: ".env.local", content: "STRIPE_SECRET_KEY=sk_live_real\n", language: "text" },
       { path: "public/fonts/site.woff2", content: "base64:iVBORwD/", language: "binary" },
+      { path: "public/binary.txt", content: "base64:iVBORwD/", language: "binary" },
       { path: "README.md", content: "base64:YWJj", language: "text" },
     ]);
 

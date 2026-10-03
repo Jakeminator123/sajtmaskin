@@ -80,6 +80,7 @@ describe("GET /api/download", () => {
       { path: "env.example", content: "FOO=\n", language: "text" },
       { path: ".env.local", content: "FOO=bar\n", language: "text" },
       { path: "public/logo.png", content: "base64:iVBORwD/", language: "binary" },
+      { path: "public/binary.txt", content: "base64:iVBORwD/", language: "binary" },
       { path: "README.md", content: "base64:YWJj", language: "text" },
     ]);
 
@@ -97,6 +98,7 @@ describe("GET /api/download", () => {
     expect(names).toContain("env.example");
     expect(names).not.toContain(".env.local");
     expect(await zip.file("public/logo.png")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
+    expect(await zip.file("public/binary.txt")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
     expect(await zip.file("README.md")!.async("string")).toBe("base64:YWJj");
   });
 });

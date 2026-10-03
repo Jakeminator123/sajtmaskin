@@ -38,7 +38,7 @@ async function buildZipBufferFromEngineVersion(
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";
     if (!path || typeof file.content !== "string") continue;
-    zip.file(path, importedFileContentForExport(path, file.content));
+    zip.file(path, importedFileContentForExport(path, file.content, file.language));
   }
   return zip.generateAsync({ type: "arraybuffer" });
 }

@@ -2456,6 +2456,7 @@ describe("POST /api/v0/deployments", () => {
       { path: "package.json", content: '{"name":"demo","private":true}' },
       { path: ".env.local", content: "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\n" },
       { path: "env.example", content: "STRIPE_SECRET_KEY=\n" },
+      { path: "public/binary.txt", content: "base64:AP8BgA==", language: "binary" },
     ]);
 
     const req = new Request("http://localhost/api/v0/deployments", {
@@ -2470,11 +2471,12 @@ describe("POST /api/v0/deployments", () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
     expect(createVercelDeployment).toHaveBeenCalledTimes(1);
-    const call = createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string }> };
+    const call = createVercelDeployment.mock.calls[0][0] as { files: Array<{ name: string; content: string; language?: string }> };
     const filePaths = call.files.map((f) => f.name);
     expect(filePaths).not.toContain(".env.local");
     expect(filePaths).toContain("env.example");
     expect(filePaths).toContain("package.json");
+    expect(call.files.find((file) => file.name === "public/binary.txt")).toMatchObject({ content: "base64:AP8BgA==", language: "binary" });
   });
 
   it.each(["false", "true"])("preserves configured env and customer redirects with the canonical flag=%s", async (flag) => {

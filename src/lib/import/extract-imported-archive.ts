@@ -180,7 +180,7 @@ function isBase64AlphabetCode(code: number): boolean {
 }
 
 function decodeCanonicalBase64(value: string): Buffer | null {
-  if (!value || value.length % 4 !== 0) return null;
+  if (value.length % 4 !== 0) return null;
   let dataEnd = value.length;
   while (dataEnd > 0 && value.charCodeAt(dataEnd - 1) === 0x3d) dataEnd -= 1;
   if (value.length - dataEnd > 2) return null;
@@ -209,8 +209,16 @@ export function decodeImportedBinaryContent(content: string): Buffer | null {
 }
 
 /** Decode only at an outbound binary boundary; persisted files and text stay verbatim. */
-export function importedFileContentForExport(path: string, content: string | Buffer): string | Buffer {
-  if (Buffer.isBuffer(content) || !shouldTreatAsImportBinary(path)) return content;
+export function importedFileContentForExport(
+  path: string,
+  content: string | Buffer,
+  language?: string,
+): string | Buffer {
+  // Template imports persist every binary, not just the local ZIP image/font
+  // subset. Honor their marker even for a text-shaped filename. Legacy v0
+  // projections omit language, so non-text paths retain the envelope contract.
+  const binary = language === "binary" || (language === undefined && !shouldTreatAsText(path));
+  if (Buffer.isBuffer(content) || !binary) return content;
   return decodeImportedBinaryContent(content) ?? content;
 }
 

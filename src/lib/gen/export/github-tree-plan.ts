@@ -27,6 +27,7 @@ export interface GitHubExportFile {
 export type GitHubExportSourceFile = {
   path: string;
   content: string | Buffer;
+  language?: string;
 };
 
 export interface GitHubExportPlan {
@@ -148,7 +149,7 @@ function collectCurrentFiles(projectFiles: GitHubExportSourceFile[]): Map<string
     ) continue;
     const path = normalizeGitHubExportPath(file.path);
     if (!path || path === GITHUB_EXPORT_MANIFEST_PATH) continue;
-    currentFiles.set(path, { path, content: importedFileContentForExport(path, file.content) });
+    currentFiles.set(path, { path, content: importedFileContentForExport(path, file.content, file.language) });
   }
   return currentFiles;
 }

@@ -3,7 +3,7 @@ import { sanitizeVercelProjectName, toVercelFilesFromTextFiles } from "./vercel-
 import { encodeImportedBinaryContent } from "@/lib/import/extract-imported-archive";
 
 describe("imported binary deployment", () => {
-  it.each(["public/logo.png", "public/fonts/site.woff2"])("preserves decoded bytes for %s", (name) => {
+  it.each(["public/logo.png", "public/fonts/site.woff2", "public/document.pdf", "public/video.mp4", "public/custom.asset"])("preserves decoded bytes for %s", (name) => {
     const bytes = Buffer.from([137, 80, 78, 71, 0, 255]);
     const files = [{ name, content: encodeImportedBinaryContent(bytes) }];
     const before = JSON.stringify(files);
@@ -15,6 +15,8 @@ describe("imported binary deployment", () => {
     for (const [name, content] of [["README.md", "base64:YWJj"], ["public/mark.svg", "base64:YWJj"], ["public/logo.png", "base64:not valid"]]) {
       expect(Buffer.from(toVercelFilesFromTextFiles([{ name, content }])[0].data, "base64").toString("utf8")).toBe(content);
     }
+    const source = { name: "public/asset.custom", content: "base64:YWJj", language: "text" };
+    expect(Buffer.from(toVercelFilesFromTextFiles([source])[0].data, "base64").toString("utf8")).toBe(source.content);
   });
 });
 

@@ -18,6 +18,8 @@ describe("owner project ZIP binary transport", () => {
   it("preserves binary bytes, text and placeholder filtering", async () => {
     const files = [
       { name: "public/logo.png", content: "base64:iVBORwD/" },
+      { name: "public/custom.asset", content: "base64:iVBORwD/" },
+      { name: "public/binary.txt", content: "base64:iVBORwD/", language: "binary" },
       { name: "README.md", content: "base64:YWJj" },
       { name: "public/missing.png", content: "[BASE64_IMAGE:missing.png]" },
     ];
@@ -28,6 +30,8 @@ describe("owner project ZIP binary transport", () => {
     expect(getProjectByIdForOwner).toHaveBeenCalledWith("project_1", { userId: "user_1" });
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     expect(await zip.file("public/logo.png")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
+    expect(await zip.file("public/custom.asset")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
+    expect(await zip.file("public/binary.txt")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
     expect(await zip.file("README.md")!.async("string")).toBe("base64:YWJj");
     expect(zip.file("public/missing.png")).toBeNull();
     expect(JSON.stringify(files)).toBe(before);

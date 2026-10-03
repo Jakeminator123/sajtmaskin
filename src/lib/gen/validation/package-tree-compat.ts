@@ -14,6 +14,19 @@
 import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
 import { readLockedNextReact } from "./package-tree-lock-selections";
 
+function isNativeRegistryTag(rawSpec: string): boolean {
+  const spec = rawSpec.trim();
+  // npm-package-arg routes paths and tar archives before registry tags. Its
+  // registry fallback allows URI-unescaped names that are not SemVer ranges;
+  // alphabetic-first matching rejects valid tags and admits e.g. react.tgz.
+  if (!spec || validRange(spec, true) || spec.startsWith(".") || /\.(?:tgz|tar\.gz|tar)$/i.test(spec)) return false;
+  try {
+    return encodeURIComponent(spec) === spec;
+  } catch {
+    return false;
+  }
+}
+
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
 /**
@@ -222,7 +235,7 @@ export function detectPackageTreeConflicts(
         // Native registry tags can use a current descriptor-bound selection.
         // URL/git/file/fork specs cannot establish native React identity from
         // a version field alone and must not be admitted by this shortcut.
-        (/^[A-Za-z][A-Za-z0-9._-]*$/.test(reactRange) && locked.reactSpecifier === deps.react));
+        (isNativeRegistryTag(reactRange) && locked.reactSpecifier === deps.react));
     const mismatch = nextReactEresolve(
       useLocked ? locked.next : nextRange,
       useLocked ? locked.react : reactRange,
@@ -238,7 +251,7 @@ export function detectPackageTreeConflicts(
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
           ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. ` +
-            (!validRange(reactRange) && !/^[A-Za-z][A-Za-z0-9._-]*$/.test(reactRange)
+            (!validRange(reactRange) && !isNativeRegistryTag(reactRange)
               ? "URL/git/file/fork declarations need native package identity evidence, not just a lock version field. Pin an exact native matching pair before publishing."
               : "Supply an in-range or current native-tag lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.")
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +

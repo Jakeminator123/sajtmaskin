@@ -214,13 +214,13 @@ export function buildGeneratedVercelProjectName(
 }
 
 export function toVercelFilesFromTextFiles(
-  files: Array<{ name: string; content: string }>,
+  files: Array<{ name: string; content: string; language?: string }>,
 ): VercelFile[] {
   return files
     .filter((f) => f && typeof f.name === "string" && typeof f.content === "string")
     .map((f) => ({
       file: f.name.replace(/^\/+/, ""),
-      data: Buffer.from(importedFileContentForExport(f.name, f.content)).toString("base64"),
+      data: Buffer.from(importedFileContentForExport(f.name, f.content, f.language)).toString("base64"),
       encoding: "base64" as const,
     }));
 }
