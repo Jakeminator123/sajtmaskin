@@ -75,8 +75,21 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
     expect(conflicts).toEqual([]);
   });
 
-  it.each(["13.0.0", "^13.0.0", "13 || 14"])("preserves the React 18.0 contract admitted by Next %s", (next) => {
-    expect(detectPackageTreeConflicts({ dependencies: { next, react: "18.0.0" } })).toEqual([]);
+  it("preserves the React 18.0 contract of an exact Next 13.0.0 choice", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "13.0.0", react: "18.0.0" } })).toEqual([]);
+  });
+  it.each(["^13.0.0", "13 || 14", "12.0.0 || 13.0.1"])("requires resolution evidence rather than one historical compatible Next contract for %s", (next) => {
+    const conflict = detectPackageTreeConflicts({ dependencies: { next, react: next.startsWith("12") ? "17.0.2" : "18.0.0" } })[0];
+    expect(conflict?.code).toBe("next_react_peer_resolution_required");
+    expect(conflict?.message).toMatch(/lockfile|exact/i);
+    expect(conflict?.message).not.toContain("is an npm ERESOLVE tree");
+  });
+  it("requires evidence for mixed React choices but allows compatible choices or an in-range exact lock", () => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react: "^18.2 || ^19" } })[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react: "*" } })[0]?.code).toBe("next_react_peer_resolution_required");
+    expect(detectPackageTreeConflicts({ dependencies: { next: "^13.0.0", react: "^18.2.0" } })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "^13.0.0", react: "18.0.0" } }, { next: "13.0.0", react: "18.0.0" })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react: "^18.2 || ^19" } }, { next: "14.2.25", react: "18.3.1" })).toEqual([]);
   });
 
   it("still rejects React 18.0 when the selected Next excludes 13.0.0", () => {
@@ -129,8 +142,6 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   it.each([
     [">=14 <16", "^19"],
     ["14 || 15", "^19"],
-    ["14.2.25", "^18.2 || ^19"],
-    ["14.2.25", "*"],
     ["latest", "^19"],
     ["github:org/next#v14", "^19"],
   ])("does not claim ERESOLVE without proof for Next %s and React %s", (next, react) => {

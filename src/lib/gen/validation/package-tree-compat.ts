@@ -11,7 +11,7 @@
  * listed so a human can choose a coherent tree.
  */
 
-import { Range, intersects, minVersion, satisfies, subset, valid, validRange } from "semver";
+import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
 
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
@@ -40,7 +40,7 @@ export type PackageTreePeerMap = {
   typesReactDom?: string;
 };
 
-export type PackageTreeConflictCode = "next_react_peer_eresolve";
+export type PackageTreeConflictCode = "next_react_peer_eresolve" | "next_react_peer_resolution_required";
 
 export type PackageTreeConflict = {
   code: PackageTreeConflictCode;
@@ -132,23 +132,33 @@ function rangesShareVersion(left: string, right: string): boolean {
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
-): { nextMajor: number; reactMajor: number; reactPeer: string } | null {
+): { code: PackageTreeConflictCode; nextMajor: number; reactMajor: number; reactPeer: string } | null {
   if (!validRange(nextRange) || !validRange(reactRange)) return null;
-  // Only claim a conflict when EVERY admitted Next version belongs to the
-  // known 12/13/14 peer contracts and NO admitted React version meets their union.
+  // An unlocked range is safe only if every admitted React choice fits every
+  // admitted Next contract. One historical compatible pair is not evidence
+  // for the versions npm will select. Distinguish a proven conflict from an
+  // ambiguous range requiring an in-range lock or exact matching pair.
   // A broad Next range may resolve to 15+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
   if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
   if (!subset(nextRange, ">=12.0.0 <15.0.0")) return null;
-  const reactPeer = [...new Set(NEXT_REACT_PEERS
-    .filter((contract) => intersects(nextRange, contract.next))
-    .map((contract) => contract.react))].join(" || ");
-  if (!reactPeer) return null;
-  if (rangesShareVersion(reactRange, reactPeer)) return null;
+  const contracts = NEXT_REACT_PEERS.filter((contract) => rangesShareVersion(nextRange, contract.next));
+  if (contracts.length === 0) return null;
+  const reactChoices = new Range(reactRange);
+  const withinPeer = (peer: string) => subset(reactRange, peer) || reactChoices.set.every((choice) =>
+    // node-semver subset rejects some admitted exact prereleases; validate
+    // singleton OR choices using normal npm prerelease admission instead.
+    choice.length === 1 && choice[0].operator === "" && Boolean(valid(choice[0].value)) && satisfies(choice[0].value, peer),
+  );
+  if (contracts.every((contract) => withinPeer(contract.react))) return null;
+  const code = contracts.every((contract) => !rangesShareVersion(reactRange, contract.react))
+    ? "next_react_peer_eresolve"
+    : "next_react_peer_resolution_required";
+  const reactPeer = [...new Set(contracts.map((contract) => contract.react))].join(" || ");
   const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
   if (nextMajor === null || reactMajor === null) return null;
-  return { nextMajor, reactMajor, reactPeer };
+  return { code, nextMajor, reactMajor, reactPeer };
 }
 
 function repairOptionsForNextReact(params: {
@@ -190,14 +200,15 @@ export function detectPackageTreeConflicts(
     if (mismatch) {
       const peers = peerMapFromRanges(deps);
       conflicts.push({
-        code: "next_react_peer_eresolve",
+        code: mismatch.code,
         nextRange: deps.next,
         reactRange: deps.react,
         nextMajor: mismatch.nextMajor,
         reactMajor: mismatch.reactMajor,
         peers,
-        message:
-          `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
+        message: mismatch.code === "next_react_peer_resolution_required"
+          ? `next ${deps.next} and react ${deps.react} admit peer-incompatible resolution choices. A historical compatible pair does not prove npm's selected tree. Supply an in-range package-lock.json with coherent Next/React selections or pin an exact matching pair before publishing.`
+          : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
         repairOptions: repairOptionsForNextReact({

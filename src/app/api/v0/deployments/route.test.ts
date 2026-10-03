@@ -271,6 +271,27 @@ describe("POST /api/v0/deployments", () => {
     },
   );
 
+  it.each([true, false])("blocks unresolved cross-contract peers before provider/credit commit (precheck=%s)", async (precheckOnly) => {
+    const commit = vi.fn();
+    if (!precheckOnly) prepareCredits.mockResolvedValue({ ok: true, commit, refund: vi.fn() });
+    getVersionFiles.mockResolvedValue([{ path: "package.json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }]);
+    const res = await POST(new Request("http://localhost/api/v0/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1", precheckOnly }),
+    }));
+    const json = await res.json();
+    expect(res.status).toBe(precheckOnly ? 200 : 409);
+    if (precheckOnly) {
+      expect(json.deployReadiness.ready).toBe(false);
+      expect(json.packageTreeGate.conflict.code).toBe("next_react_peer_resolution_required");
+    } else {
+      expect(json.code).toBe("DEPLOY_PACKAGE_TREE_ERESOLVE");
+    }
+    if (precheckOnly) expect(prepareCredits).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    expect(createVercelDeployment).not.toHaveBeenCalled();
+  });
+
   it("precheckOnly returns 200 with deployReadiness without calling credits", async () => {
     const req = new Request("http://localhost/api/v0/deployments", {
       method: "POST",

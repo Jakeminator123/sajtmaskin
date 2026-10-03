@@ -724,6 +724,11 @@ export function ThemeToggle() {
     expect(issue?.file).toBe(path);
     expect(result.valid).toBe(false);
   });
+  it.each(["package.json", "src/package.json"])("requires selection evidence for unlocked cross-contract peers in %s", (path) => {
+    const result = runProjectSanityChecks([{ path, language: "json", content: JSON.stringify({ dependencies: { next: "^13.0.0", react: "18.0.0" } }) }]);
+    expect(result.issues.find((issue) => issue.subject === "package-tree:next_react_peer_resolution_required")?.severity).toBe("error");
+    expect(result.valid).toBe(false);
+  });
   it("keeps root manifest priority when a different src manifest also exists", () => {
     const result = runProjectSanityChecks([
       { path: "package.json", language: "json", content: JSON.stringify({ dependencies: { next: "16.2.3", react: "18.2.0" } }) },
