@@ -73,6 +73,9 @@ Ett `mailEvent` för ett företag som har avregistrerat sig ger 409, både
 `step=first` och `step=follow`. När `POST` skapar en ny sida med `mailEvent`
 sparas sidan och mejlraden i samma transaktion; ett redan registrerat
 `messageId` ger 409 och ingen ny sida.
+För en befintlig sida låses företagsraden och avregistreringen läses om i samma
+transaktion som mejlraden skrivs, så en samtidig avregistrering kan inte
+smita förbi kontrollen.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

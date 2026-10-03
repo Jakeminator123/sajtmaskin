@@ -6,6 +6,8 @@ const state = vi.hoisted(() => ({
   pages: [] as Record<string, unknown>[],
   events: [] as Record<string, unknown>[],
   entitlementWhere: [] as unknown[],
+  lockedPageExtra: null as unknown,
+  locks: 0,
 }));
 
 vi.mock("./shared", () => ({ assertDbConfigured: vi.fn() }));
@@ -34,7 +36,19 @@ vi.mock("@/lib/db/client", async () => {
       transaction: async (run: (tx: unknown) => Promise<unknown>) => {
         const snapshot = structuredClone({ pages: state.pages, events: state.events });
         try {
-          return await run({ insert: insertInto });
+          return await run({
+            insert: insertInto,
+            select: () => ({
+              from: () => ({
+                where: () => ({
+                  for: async (strength: string) => {
+                    if (strength === "update") state.locks += 1;
+                    return [{ extraData: state.lockedPageExtra }];
+                  },
+                }),
+              }),
+            }),
+          });
         } catch (error) {
           state.pages = snapshot.pages;
           state.events = snapshot.events;
@@ -60,6 +74,7 @@ vi.mock("@/lib/db/client", async () => {
 import {
   createKostnadsfriPageWithMailEvent,
   getKostnadsfriGenerationBySlug,
+  recordKostnadsfriMailEventForSubscribedPage,
   isAllowedMailOutcomeTransition,
 } from "./kostnadsfri";
 
@@ -83,6 +98,8 @@ beforeEach(() => {
   state.pages = [];
   state.events = [];
   state.entitlementWhere = [];
+  state.lockedPageExtra = null;
+  state.locks = 0;
 });
 
 describe("createKostnadsfriPageWithMailEvent (mock transaction, never live DB)", () => {
@@ -135,5 +152,33 @@ describe("isAllowedMailOutcomeTransition", () => {
     expect(isAllowedMailOutcomeTransition("failed", "uncertain")).toBe(false);
     expect(isAllowedMailOutcomeTransition("accepted", "failed")).toBe(false);
     expect(isAllowedMailOutcomeTransition("accepted", "scheduled")).toBe(false);
+  });
+});
+
+describe("recordKostnadsfriMailEventForSubscribedPage (registration vs unsubscribe race)", () => {
+  it("writes no receipt when an unsubscribe committed after the route's unlocked lookup", async () => {
+    // The route saw a subscribed company; the locked re-read inside the
+    // transaction sees the opt-out that committed in between.
+    state.lockedPageExtra = { unsubscribedAt: "2026-10-03T08:29:59.000Z" };
+
+    const result = await recordKostnadsfriMailEventForSubscribedPage({
+      ...mailEvent,
+      step: "follow",
+      pageId: 1,
+      slug: "acme-ab",
+    });
+
+    expect(result).toEqual({ status: "unsubscribed" });
+    expect(state.locks).toBe(1);
+    expect(state.events).toEqual([]);
+
+    state.lockedPageExtra = null;
+    const subscribed = await recordKostnadsfriMailEventForSubscribedPage({
+      ...mailEvent,
+      pageId: 1,
+      slug: "acme-ab",
+    });
+    expect(subscribed.status).toBe("created");
+    expect(state.events).toHaveLength(1);
   });
 });

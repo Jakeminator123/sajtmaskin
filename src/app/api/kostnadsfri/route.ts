@@ -10,7 +10,7 @@ import {
   listKostnadsfriPagesAfterId,
   listKostnadsfriPages,
   markKostnadsfriPageSent,
-  recordKostnadsfriMailEvent,
+  recordKostnadsfriMailEventForSubscribedPage,
 } from "@/lib/db/services/kostnadsfri";
 import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
@@ -288,8 +288,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Locked re-check: an unsubscribe that commits after the lookup above
+      // still stops the receipt.
       const mailReceipt = mailEvent
-        ? await recordKostnadsfriMailEvent({
+        ? await recordKostnadsfriMailEventForSubscribedPage({
             messageId: mailEvent.messageId,
             pageId: existing.id,
             slug,
@@ -306,6 +308,12 @@ export async function POST(request: NextRequest) {
             source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
           })
         : null;
+      if (mailReceipt?.status === "unsubscribed") {
+        return NextResponse.json(
+          { success: false, error: "The company unsubscribed before this mail" },
+          { status: 409 },
+        );
+      }
       if (mailReceipt?.status === "conflict") {
         return NextResponse.json(
           { success: false, error: "messageId is already registered with different facts" },

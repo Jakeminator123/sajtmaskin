@@ -8,7 +8,7 @@ const listKostnadsfriPages = vi.hoisted(() => vi.fn());
 const listKostnadsfriPagesAfterId = vi.hoisted(() => vi.fn());
 const getKostnadsfriVisitStats = vi.hoisted(() => vi.fn());
 const getKostnadsfriGenerationBySlug = vi.hoisted(() => vi.fn());
-const recordKostnadsfriMailEvent = vi.hoisted(() => vi.fn());
+const recordKostnadsfriMailEventForSubscribedPage = vi.hoisted(() => vi.fn());
 const createKostnadsfriPageWithMailEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
@@ -19,7 +19,7 @@ vi.mock("@/lib/db/services/kostnadsfri", () => ({
   listKostnadsfriPagesAfterId,
   getKostnadsfriVisitStats,
   getKostnadsfriGenerationBySlug,
-  recordKostnadsfriMailEvent,
+  recordKostnadsfriMailEventForSubscribedPage,
   createKostnadsfriPageWithMailEvent,
 }));
 
@@ -246,7 +246,7 @@ describe("POST /api/kostnadsfri", () => {
         source: "render-mail-flow:text",
       }),
     );
-    recordKostnadsfriMailEvent.mockResolvedValueOnce({
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "duplicate",
       event: { message_id: "a".repeat(32) },
     });
@@ -273,7 +273,7 @@ describe("POST /api/kostnadsfri", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(recordKostnadsfriMailEvent).toHaveBeenCalledWith(
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
       expect.objectContaining({
         messageId: "a".repeat(32),
         step: "follow",
@@ -318,7 +318,7 @@ describe("POST /api/kostnadsfri", () => {
 
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/unsubscribed/i);
-    expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
   });
 
@@ -348,7 +348,7 @@ describe("POST /api/kostnadsfri", () => {
 
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/unsubscribed/i);
-    expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
   });
 
@@ -381,7 +381,7 @@ describe("POST /api/kostnadsfri", () => {
     );
     // The non-transactional create is never used when a mailEvent is present.
     expect(createKostnadsfriPage).not.toHaveBeenCalled();
-    expect(recordKostnadsfriMailEvent).not.toHaveBeenCalled();
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
   });
 
   it("returns the created page and receipt from the transactional create", async () => {
@@ -420,7 +420,7 @@ describe("POST /api/kostnadsfri", () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(
       pageRow({ sent_at: new Date("2026-10-01T08:00:00.000Z"), source: "render-mail-flow:text" }),
     );
-    recordKostnadsfriMailEvent.mockResolvedValueOnce({
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "created",
       event: { message_id: "8".repeat(32) },
     });
@@ -453,7 +453,7 @@ describe("POST /api/kostnadsfri", () => {
 
   it("rejects message-id reuse with different facts", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
-    recordKostnadsfriMailEvent.mockResolvedValueOnce({
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "conflict",
       event: { message_id: "b".repeat(32) },
     });
@@ -482,7 +482,7 @@ describe("POST /api/kostnadsfri", () => {
 
   it("records preparation without claiming SMTP acceptance in the company register", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
-    recordKostnadsfriMailEvent.mockResolvedValueOnce({
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "created",
       event: { message_id: "e".repeat(32) },
     });
@@ -504,7 +504,7 @@ describe("POST /api/kostnadsfri", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(recordKostnadsfriMailEvent).toHaveBeenCalledWith(
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
       expect.objectContaining({
         smtpAcceptedAt: null,
         source: "render-mail-flow:text",

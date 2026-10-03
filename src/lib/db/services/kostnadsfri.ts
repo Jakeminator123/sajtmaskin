@@ -16,6 +16,7 @@ import {
   type KostnadsfriAnalyticsEvent,
 } from "@/lib/kostnadsfri/analytics-paths";
 import { buildKostnadsfriProfileFallback } from "@/lib/kostnadsfri/company-profile";
+import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
 import type { KostnadsfriGeneration } from "@/lib/kostnadsfri/mail-register-contract";
@@ -372,13 +373,49 @@ export function isAllowedMailOutcomeTransition(current: string, next: string): b
 }
 
 /** Idempotent insert. A reused message id with different facts is a conflict. */
-export async function recordKostnadsfriMailEvent(
-  input: KostnadsfriMailEventInput,
-): Promise<{
+type KostnadsfriMailEventRecord = {
   status: "created" | "updated" | "duplicate" | "conflict";
   event: KostnadsfriMailEvent;
-}> {
+};
+
+type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function recordKostnadsfriMailEvent(
+  input: KostnadsfriMailEventInput,
+): Promise<KostnadsfriMailEventRecord> {
   assertDbConfigured();
+  return recordMailEventWith(db, input);
+}
+
+/**
+ * Registration that is serialized with unsubscribe. The company row is locked
+ * (`FOR UPDATE`) and its opt-out re-read inside the same transaction as the
+ * event write. `markKostnadsfriPageUnsubscribed` updates that row, so an
+ * unsubscribe either commits first (and this returns `unsubscribed` without
+ * writing) or waits until the receipt has committed. The route's own
+ * pre-check reads an unlocked snapshot and cannot close that window alone.
+ */
+export async function recordKostnadsfriMailEventForSubscribedPage(
+  input: KostnadsfriMailEventInput & { pageId: number },
+): Promise<KostnadsfriMailEventRecord | { status: "unsubscribed" }> {
+  assertDbConfigured();
+  return db.transaction(async (tx) => {
+    const locked = await tx
+      .select({ extraData: kostnadsfriPages.extra_data })
+      .from(kostnadsfriPages)
+      .where(eq(kostnadsfriPages.id, input.pageId))
+      .for("update");
+    if (unsubscribedAtFromExtra(locked[0]?.extraData ?? null)) {
+      return { status: "unsubscribed" as const };
+    }
+    return recordMailEventWith(tx, input);
+  });
+}
+
+async function recordMailEventWith(
+  db: DbExecutor,
+  input: KostnadsfriMailEventInput,
+): Promise<KostnadsfriMailEventRecord> {
   const inserted = await db
     .insert(kostnadsfriMailEvents)
     .values(mailEventInsertValues(input))
