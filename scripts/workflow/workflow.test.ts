@@ -693,7 +693,7 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
-  it("pins the narrow permission set for the trusted Dependabot controller", () => {
+  it("keeps GITHUB_TOKEN read-only in the trusted Dependabot controller", () => {
     const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
     for (const permission of [
@@ -1037,16 +1037,24 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("auto_merge_enabled");
     expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
     expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
-    expect(source).toContain('GH_TOKEN="$AUTOMERGE_TOKEN" gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
-    expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; auto-merge aktiveras inte");
+    expect(source).not.toContain("secrets.GITHUB_TOKEN");
+    expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget");
+    expect(source).toContain("if: github.event.action == 'synchronize'");
+    expect(source.indexOf("Disarm previous request before validating a new head"))
+      .toBeLessThan(source.indexOf("Validate patch contents without executing PR code"));
+    expect(source).toContain('gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
     expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
     expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
     expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(source).toContain("if: always()");
+    expect(source).toContain("steps.auth.outputs.available == 'true'");
     expect(source).toContain("steps.meta.outcome == 'success'");
-    expect(source).toContain("--force");
-    expect(source).toContain('--remove-label "dependabot-automerge"');
+    expect(source).not.toContain("gh label create");
+    expect(source).not.toContain("gh pr edit");
+    expect(readFileSync(".github/CODEOWNERS", "utf8")).toContain(
+      "/config/control-plane/schema-registry.json @Jakeminator123",
+    );
   });
 
   it.each([

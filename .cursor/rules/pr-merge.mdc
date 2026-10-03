@@ -24,7 +24,7 @@ reviews och trådar som blockerar merge.
 4. Merge kräver uttryckligt mandat. Ett villkorat mandat i förväg gäller när de
    angivna native villkoren senare är uppfyllda och behöver inte efterfrågas
    igen; ett vanligt koduppdrag är inte mergemandat.
-5. En agent som utför manuell merge använder
+5. En agent som utför en vanlig manuell preview-merge använder
    `gh pr merge --squash --match-head-commit <granskad head>`; ny head kräver
    ny review. Bara Dependabot-vägen använder native auto-merge. Aldrig
    `--admin`. Kontrollera efteråt att push-CI och deployment startade.
@@ -39,7 +39,9 @@ review.
 
 `master` uppdateras endast genom separat promote-PR. Visa produktionsvarning
 och invänta en ny uttrycklig bekräftelse i samma chatt; native auto-merge används
-inte. Ancestry-synk använder dedikerad preview-PR och merge-commit.
+inte. Ancestry-synk använder dedikerad preview-PR och kommandot
+`gh pr merge --merge --match-head-commit <granskad head>` så att både ancestry
+och exakt granskad head bevaras.
 
 Preview delar produktions-DB. Kodmerge, CI och deploy ger aldrig mandat att
 applicera schema, migrationer eller ändra produktionsdata. DB-apply kräver ett

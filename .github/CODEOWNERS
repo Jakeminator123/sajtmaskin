@@ -6,6 +6,7 @@
 /config/agent-workflow.json @Jakeminator123
 /config/dependabot-automerge.json @Jakeminator123
 /config/control-plane/policy-registry.json @Jakeminator123
+/config/control-plane/schema-registry.json @Jakeminator123
 /config/backoffice/domain-map.json @Jakeminator123
 /.cursor/rules/pr-merge.mdc @Jakeminator123
 /scripts/ci/ @Jakeminator123

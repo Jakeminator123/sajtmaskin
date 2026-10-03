@@ -10,7 +10,7 @@ PR:ar. Allt annat tas manuellt, en domän åt gången.**
 
 | Klass               | Hantering                                                                                                                                      | Merge                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar. Bara paket i [`config/dependabot-automerge.json`](../config/dependabot-automerge.json) kan få labeln `dependabot-automerge`. | Native auto-merge efter semantisk manifest-/lockvalidering och alla branch rules; övriga patchar är manuella. |
+| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar. Bara paket i [`config/dependabot-automerge.json`](../config/dependabot-automerge.json) kan kvalificera. | Native auto-merge efter semantisk manifest-/lockvalidering och alla branch rules; övriga patchar är manuella. |
 | **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar.                         | Kan få snabb review men aldrig en separat auto-merge-väg.                                       |
 | **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog, kör riktat lokalt och invänta tung GitHub-profil.   |
 | **Security**        | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors.                                                 | Samma grindar, men prioriterad handläggning.                                                    |
@@ -111,9 +111,12 @@ bara GitHubs native auto-merge när allt nedan är bevisat:
   registret och introducerar ingen install-script-markering.
 
 Vid osäkerhet, draft, major/minor, core-/baselinepaket, scriptändring eller
-blandad koddiff tas labeln bort och eventuell auto-merge stängs av. GitHub
+blandad koddiff stängs eventuell auto-merge av. GitHub
 väntar sedan på strict/up-to-date required checks. Mergepushen startar samma
 `push`-CI och deployment som en manuell GitHub-merge. Själva mergebegäran
 använder `DEPENDABOT_AUTOMERGE_TOKEN` (fine-grained PAT eller GitHub App-token),
 inte workflowets `GITHUB_TOKEN`, eftersom GitHub annars undertrycker följande
-Actions-event. Saknad secret är fail-closed och aktiverar ingen auto-merge.
+Actions-event. Tokenvärdet lagras med samma namn i både Actions secrets och
+Dependabot secrets: mänskligt utlösta events läser det förra och Dependabot-
+utlösta events det senare. Saknad secret är fail-closed och controllern gör
+inga skrivningar.

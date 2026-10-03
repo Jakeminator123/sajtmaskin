@@ -290,9 +290,9 @@ export function evaluateTrustedControllerPermissions(source) {
   if (document?.permissions === undefined || document?.permissions === null) {
     errors.push("trusted controller must declare explicit permissions");
   }
-  const expected = { contents: "write", "pull-requests": "write", issues: "write" };
+  const expected = { contents: "read", "pull-requests": "read" };
   if (!isDeepStrictEqual(document?.permissions, expected)) {
-    errors.push("Dependabot controller permissions must be exactly contents/pull-requests/issues write");
+    errors.push("Dependabot controller GITHUB_TOKEN permissions must be exactly contents/pull-requests read");
   }
   for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
     if (job?.permissions !== undefined) {
@@ -1369,6 +1369,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   const dependabotWorkflow =
     workflowSources.find(({ name }) => name === "dependabot-automerge.yml")?.source ?? "";
+  const dependabotDisarmIndex = dependabotWorkflow.indexOf(
+    "Disarm previous request before validating a new head",
+  );
+  const dependabotValidateIndex = dependabotWorkflow.indexOf(
+    "Validate patch contents without executing PR code",
+  );
   const dependabotPolicy = json(root, "config/dependabot-automerge.json");
   if (
     dependabotPolicy.schemaVersion !== 1 ||
@@ -1399,13 +1405,21 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotWorkflow.includes("auto_merge_enabled") ||
     !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
     !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
-    !dependabotWorkflow.includes('GH_TOKEN="$AUTOMERGE_TOKEN" gh pr merge') ||
+    dependabotWorkflow.includes("secrets.GITHUB_TOKEN") ||
+    !dependabotWorkflow.includes(
+      "DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget.",
+    ) ||
+    !dependabotWorkflow.includes("if: github.event.action == 'synchronize'") ||
+    dependabotDisarmIndex < 0 ||
+    dependabotValidateIndex < 0 ||
+    dependabotDisarmIndex > dependabotValidateIndex ||
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --squash --match-head-commit \"$HEAD_SHA\"") ||
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||
+    !dependabotWorkflow.includes("steps.auth.outputs.available == 'true'") ||
     !dependabotWorkflow.includes("steps.meta.outcome == 'success'") ||
-    !dependabotWorkflow.includes("--force") ||
-    !dependabotWorkflow.includes('--remove-label "dependabot-automerge"') ||
+    dependabotWorkflow.includes("gh label create") ||
+    dependabotWorkflow.includes("gh pr edit") ||
     !dependabotWorkflow.includes("github.event.pull_request.user.login == 'dependabot[bot]'") ||
     !dependabotWorkflow.includes(
       "github.event.pull_request.head.repo.full_name == github.repository",
@@ -1417,6 +1431,10 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   errors.push(...evaluateTrustedControllerImportGraph(root));
   errors.push(...evaluateTrustedControllerPermissions(dependabotWorkflow));
+  const codeowners = read(root, ".github/CODEOWNERS");
+  if (!codeowners.includes("/config/control-plane/schema-registry.json @Jakeminator123")) {
+    errors.push("CODEOWNERS must cover the owner-reviewed control-plane schema registry");
+  }
 
   const ci = read(root, ".github/workflows/ci.yml");
   const dbBlobSync = read(root, ".github/workflows/db-blob-sync-check.yml");
