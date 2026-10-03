@@ -11,6 +11,59 @@ import {
 const INCIDENT_PACKAGE_JSON_TEXT = `${JSON.stringify(INCIDENT_V0_PACKAGE_JSON, null, 2)}\n`;
 
 describe("extractDependencyMajor", () => {
+  it.each(["2024-latest", "_stable", "-canary", "release!", "(stable)", "~local"])("admits descriptor-bound native npm tag %s", (react) => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react } }) },
+      { path: "yarn.lock", content: `"next@14.2.25":\n  version "14.2.25"\n"react@${react}":\n  version "18.3.1"\n` },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace("18.3.1", "19.0.0");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it.each([".local", "react.tgz", "react.tar.gz", "react.tar", "~/local", "bad tag", "bad%tag"])("does not admit file or invalid tag %s as native registry evidence", (react) => {
+    expect(detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react } }, { next: "14.2.25", react: "18.3.1", reactSpecifier: react })[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it("does not mistake installer detection for pnpm 9 compatibility with schema 7", () => {
+    const graph = "lockfileVersion: '7.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
+    for (const packageManager of [undefined, "pnpm@9.15.9"]) {
+      expect(findPackageTreeConflictsInFiles([
+        { path: "package.json", content: JSON.stringify({ packageManager, dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+        { path: "pnpm-lock.yaml", content: graph },
+      ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+    }
+  });
+  it("uses native Yarn tag evidence but retains incompatible resolved peers", () => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react: "latest" } }) },
+      { path: "yarn.lock", content: 'next@14.2.25:\n  version "14.2.25"\nreact@latest:\n  version "18.3.1"\n' },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace("18.3.1", "19.0.0");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+  });
+  it.each(["https://example.com/react.tgz", "github:fork/react", "file:../react", "npm:@fork/react@latest"])("does not infer native identity for %s from a version-only lock", (react) => {
+    const conflict = detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react } }, { next: "14.2.25", react: "18.3.1", reactSpecifier: react })[0];
+    expect(conflict?.code).toBe("next_react_peer_resolution_required");
+    expect(conflict?.message).toContain("need native package identity evidence");
+  });
+  it("admits current native tag selections from a pnpm importer but rejects stale evidence", () => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react: "latest" } }) },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: 14.2.25\n        version: 14.2.25\n      react:\n        specifier: latest\n        version: 18.3.1\n" },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace("specifier: latest", "specifier: beta");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each(["11.23.0", "12.3.4"])("reads an exact devEngines pnpm %s pin before a two-document lock", (version) => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ devEngines: { packageManager: { name: "pnpm", version } }, dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: `---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    packageManagerDependencies:\n      pnpm:\n        specifier: ${version}\n        version: ${version}\n---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n` },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace(`version: ${version}`, "version: 12.99.0");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
   it("reads caret, exact and comparator ranges", () => {
     expect(extractDependencyMajor("^19")).toBe(19);
     expect(extractDependencyMajor("14.2.25")).toBe(14);
@@ -302,11 +355,11 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
   it("uses the effective pnpm lock instead of an inactive npm lock and preserves locked conflicts", () => {
     const files = [
       { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@9.0.0", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
-      { path: "pnpm-lock.yaml", content: "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n" },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n" },
       { path: "package-lock.json", content: JSON.stringify({ packages: { "node_modules/next": { version: "13.0.1" }, "node_modules/react": { version: "18.0.0" } } }) },
     ];
     expect(findPackageTreeConflictsInFiles(files)).toBeNull();
-    files[1].content = "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.1\n  react: 18.0.0\n";
+    files[1].content = files[1].content.replace("version: 13.0.0", "version: 13.0.1");
     expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
   });
   it.each(["next", "react"])("does not clear uncertainty using a stale pnpm importer %s specifier", (stale) => {
@@ -348,5 +401,51 @@ describe("detectPackageTreeConflicts — incident fixture", () => {
       { path: "package-lock.json", content: lock("15.5.4") },
       { path: "src/package-lock.json", content: lock("14.2.25") },
     ], "src/package.json")?.conflicts).toHaveLength(1);
+  });
+  it("reads the project document after a pnpm environment document without merging importers", () => {
+    const content = "---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    configDependencies: {}\n    packageManagerDependencies:\n      pnpm:\n        specifier: 12.3.4\n        version: 12.3.4\n---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0(react@18.0.0)\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
+    for (const folder of ["", "src/"]) {
+      expect(findPackageTreeConflictsInFiles([
+        { path: `${folder}package.json`, content: JSON.stringify({ packageManager: "pnpm@12.3.4", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+        { path: `${folder}pnpm-lock.yaml`, content },
+      ], `${folder}package.json`)).toBeNull();
+    }
+  });
+  it("decodes only the expected native package target in pnpm alias resolutions", () => {
+    const files = [
+      { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@10.28.1", dependencies: { next: "npm:next@>=14 <16", react: "npm:react@^19" } }) },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: npm:next@>=14 <16\n        version: next@15.5.4(react@19.0.0)\n      react:\n        specifier: npm:react@^19\n        version: react@19.0.0\n" },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replace("next@15.5.4", "other-next@15.5.4");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each([null, "999.0", "6.0"])("does not trust missing or incompatible pnpm 10 lock schema %s", (schema) => {
+    expect(findPackageTreeConflictsInFiles([
+      { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@10.28.1", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: `${schema ? `lockfileVersion: '${schema}'\n` : ""}importers:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n` },
+    ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each([["7.33.7", "5.4"], ["7.33.7", "6.0"], ["8.15.9", "5.4"], ["8.15.9", "6.1"], ["9.15.9", "9.0"], ["10.28.1", "9.0"]])("retains coherent pnpm %s schema %s frozen selections", (manager, schema) => {
+    const graph = schema.startsWith("5")
+      ? "specifiers:\n  next: ^13.0.0\n  react: 18.0.0\ndependencies:\n  next: 13.0.0\n  react: 18.0.0\n"
+      : "importers:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n";
+    expect(findPackageTreeConflictsInFiles([
+      { path: "package.json", content: JSON.stringify({ packageManager: `pnpm@${manager}`, dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: `lockfileVersion: '${schema}'\n${graph}` },
+    ])).toBeNull();
+  });
+  it("does not offer multi-document proof to a pinned older single-document pnpm reader", () => {
+    expect(findPackageTreeConflictsInFiles([
+      { path: "package.json", content: JSON.stringify({ packageManager: "pnpm@10.28.1", dependencies: { next: "^13.0.0", react: "18.0.0" } }) },
+      { path: "pnpm-lock.yaml", content: "---\nlockfileVersion: '9.0'\nimporters: {}\n---\nlockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: ^13.0.0\n        version: 13.0.0\n      react:\n        specifier: 18.0.0\n        version: 18.0.0\n" },
+    ])?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each(["https://registry.npmjs.org/react/-/react-19.0.0.tgz", "latest", "github:facebook/react", "file:../react", "npm:@fork/react@19.0.0"])("requires evidence for an unresolved React spec %s against a known Next peer", (react) => {
+    const conflict = detectPackageTreeConflicts({ dependencies: { next: "14.2.25", react } })[0];
+    expect(conflict?.code).toBe("next_react_peer_resolution_required");
+    expect(conflict?.reactMajor).toBeNull();
+    expect(conflict?.message).not.toContain("is an npm ERESOLVE tree");
+    expect(conflict?.repairOptions.join(" ")).not.toContain("React null");
   });
 });

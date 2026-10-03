@@ -1,10 +1,13 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { isNonTextContentFile } from "@/lib/gen/context/file-context-builder";
+import { toVercelFilesFromTextFiles } from "@/lib/vercel/vercel-deploy";
+import { buildGitHubExportPlan } from "@/lib/gen/export/github-tree-plan";
 import {
   decodeImportedBinaryContent,
   decodeLocalZipContent,
   encodeImportedBinaryContent,
+  importedFileContentForExport,
   extractImportedFilesFromZip,
   findPrimaryImportedFile,
   hasUsableImportedSource,
@@ -202,6 +205,20 @@ describe("extractImportedFilesFromZip", () => {
     });
     expect(byPath["app/page.tsx"].content).toContain("/logo.png");
     expect(byPath["app/globals.css"].content).toContain("/fonts/site.woff2");
+    const serializedBeforeExport = JSON.stringify(files);
+    const deploy = toVercelFilesFromTextFiles(files.map((file) => ({ name: file.path, content: file.content })));
+    const github = buildGitHubExportPlan(files);
+    const exported = new JSZip();
+    for (const file of files) exported.file(file.path, importedFileContentForExport(file.path, file.content));
+    const archive = await JSZip.loadAsync(await exported.generateAsync({ type: "nodebuffer" }));
+    for (const [path, bytes] of [["public/logo.png", PNG_1X1], ["public/fonts/site.woff2", WOFF2_STUB]] as const) {
+      expect(Buffer.from(deploy.find((file) => file.file === path)!.data, "base64")).toEqual(bytes);
+      expect(github.files.find((file) => file.path === path)?.content).toEqual(bytes);
+      expect(await archive.file(path)!.async("nodebuffer")).toEqual(bytes);
+    }
+    expect(JSON.stringify(files)).toBe(serializedBeforeExport);
+    const reimported = await extractImportedFilesFromZip(await exported.generateAsync({ type: "nodebuffer" }));
+    expect(reimported.find((file) => file.path === "public/logo.png")?.content).toBe(encodeImportedBinaryContent(PNG_1X1));
 
     const persisted = JSON.parse(JSON.stringify(files)) as typeof files;
     expect(persisted.find((file) => file.path === "public/logo.png")?.content).toBe(
