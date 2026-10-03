@@ -1413,6 +1413,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotWorkflow.includes("github.event.action == 'synchronize'") ||
     !dependabotWorkflow.includes("github.actor != 'dependabot[bot]'") ||
     !dependabotWorkflow.includes("workflows: [CI]") ||
+    !dependabotWorkflow.includes("queue: max") ||
+    !dependabotWorkflow.includes("cancel-in-progress: false") ||
     !dependabotWorkflow.includes("github.event.workflow_run.conclusion == 'success'") ||
     !dependabotWorkflow.includes("listPullRequestsAssociatedWithCommit") ||
     !dependabotWorkflow.includes("pr.head.sha === expectedHead") ||
@@ -1420,7 +1422,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     dependabotDisarmIndex < 0 ||
     dependabotValidateIndex < 0 ||
     dependabotDisarmIndex > dependabotValidateIndex ||
-    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --squash --match-head-commit \"$HEAD_SHA\"") ||
+    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --merge --match-head-commit \"$HEAD_SHA\"") ||
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||
     !dependabotWorkflow.includes("steps.auth.outputs.available == 'true'") ||

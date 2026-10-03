@@ -16,6 +16,7 @@ permissions:
 
 concurrency:
   group: dependabot-automerge-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch }}
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -123,7 +124,7 @@ jobs:
             exit 0
           fi
           if [ "$ELIGIBLE" = "true" ] && [ "$IS_DRAFT" != "true" ] && [ "$CI_OK" = "true" ]; then
-            gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
+            gh pr merge "$PR_URL" --auto --merge --match-head-commit "$HEAD_SHA"
           else
             auto_merge=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
             if [ "$auto_merge" = "true" ]; then

@@ -1034,6 +1034,8 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("pull_request_target:");
     expect(source).toContain("workflow_run:");
     expect(source).toContain("workflows: [CI]");
+    expect(source).toContain("queue: max");
+    expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
     expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
     expect(source).toContain("persist-credentials: false");
@@ -1048,7 +1050,8 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain('"$current_base" != "$BASE_SHA"');
     expect(source.indexOf("Disarm previous request before validating a new head"))
       .toBeLessThan(source.indexOf("Validate patch contents without executing PR code"));
-    expect(source).toContain('gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
+    expect(source).toContain('gh pr merge "$PR_URL" --auto --merge --match-head-commit "$HEAD_SHA"');
+    expect(source).not.toContain("--squash");
     expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
     expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");

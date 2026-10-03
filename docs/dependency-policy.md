@@ -123,4 +123,8 @@ Actions-event. Tokenvärdet lagras endast i Actions secrets. `workflow_run`
 kan läsa den efter Dependabots PR-CI, även när ursprunglig PR-körning saknar
 secrets. Vid start av ny CI stängs en äldre mergebegäran av före validering;
 aktivering sker efter godkänd CI och en ny läsning av aktuell head/base.
+Alla controller-events köas med `queue: max` så en väntande avväpning inte
+ersätts av ett senare event. Dependabot använder native merge-commit, eftersom
+en squash med Dependabot som författare kan begränsa följande push-CI:s secrets
+och token.
 Saknad secret är fail-closed och controllern gör inga skrivningar.
