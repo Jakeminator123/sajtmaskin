@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 
 /**
  * GET /api/projects/[id]/download
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ) {
         continue;
       }
-      zip.file(file.path, file.content);
+      zip.file(file.path, importedFileContentForExport(file.path, file.content));
     }
 
     // Generate ZIP as ArrayBuffer (compatible with NextResponse)

@@ -1,3 +1,5 @@
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
+
 const BLOCKED_PATHS = ["node_modules/", ".git/"];
 /**
  * GitHub export additionally refuses dotenv files that ZIP may still ship.
@@ -146,7 +148,7 @@ function collectCurrentFiles(projectFiles: GitHubExportSourceFile[]): Map<string
     ) continue;
     const path = normalizeGitHubExportPath(file.path);
     if (!path || path === GITHUB_EXPORT_MANIFEST_PATH) continue;
-    currentFiles.set(path, { path, content: file.content });
+    currentFiles.set(path, { path, content: importedFileContentForExport(path, file.content) });
   }
   return currentFiles;
 }

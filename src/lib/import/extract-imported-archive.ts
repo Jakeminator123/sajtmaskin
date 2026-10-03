@@ -208,6 +208,12 @@ export function decodeImportedBinaryContent(content: string): Buffer | null {
   return decodeCanonicalBase64(content.slice(BINARY_BASE64_PREFIX.length));
 }
 
+/** Decode only at an outbound binary boundary; persisted files and text stay verbatim. */
+export function importedFileContentForExport(path: string, content: string | Buffer): string | Buffer {
+  if (Buffer.isBuffer(content) || !shouldTreatAsImportBinary(path)) return content;
+  return decodeImportedBinaryContent(content) ?? content;
+}
+
 function declaredUncompressedSize(entry: unknown): number | null {
   if (!entry || typeof entry !== "object") return null;
   const data = (entry as { _data?: unknown })._data;

@@ -41,6 +41,8 @@ describe("GET owner version download zip", () => {
       { path: ".gitignore", content: "node_modules\n.env*\n!.env.example\n", language: "text" },
       { path: "env.example", content: "STRIPE_SECRET_KEY=\n", language: "text" },
       { path: ".env.local", content: "STRIPE_SECRET_KEY=sk_live_x\n", language: "text" },
+      { path: "public/fonts/site.woff2", content: "base64:iVBORwD/", language: "binary" },
+      { path: "README.md", content: "base64:YWJj", language: "text" },
     ]);
 
     const res = await GET(
@@ -56,6 +58,8 @@ describe("GET owner version download zip", () => {
     expect(names).toContain(".gitignore");
     expect(names).toContain("env.example");
     expect(names).not.toContain(".env.local");
+    expect(await zip.file("public/fonts/site.woff2")!.async("nodebuffer")).toEqual(Buffer.from([137, 80, 78, 71, 0, 255]));
+    expect(await zip.file("README.md")!.async("string")).toBe("base64:YWJj");
   });
 
   it("returns 404 when the version is not scoped to the chat", async () => {

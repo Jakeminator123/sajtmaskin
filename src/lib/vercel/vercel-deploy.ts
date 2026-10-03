@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "crypto";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { getVercelToken } from "@/lib/vercel";
 import {
   normalizeDomainHostname,
@@ -219,7 +220,7 @@ export function toVercelFilesFromTextFiles(
     .filter((f) => f && typeof f.name === "string" && typeof f.content === "string")
     .map((f) => ({
       file: f.name.replace(/^\/+/, ""),
-      data: Buffer.from(f.content, "utf8").toString("base64"),
+      data: Buffer.from(importedFileContentForExport(f.name, f.content)).toString("base64"),
       encoding: "base64" as const,
     }));
 }

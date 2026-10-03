@@ -194,7 +194,7 @@ function repairOptionsForNextReact(params: {
   ];
 }
 
-type LockedVersions = { next: string; react: string };
+type LockedVersions = { next: string; react: string; reactSpecifier?: string };
 
 function nativeAliasRange(name: "next" | "react", declaration: string): string {
   const prefix = `npm:${name}@`;
@@ -218,7 +218,11 @@ export function detectPackageTreeConflicts(
       valid(locked.next) &&
       valid(locked.react) &&
       satisfies(locked.next, nextRange) &&
-      satisfies(locked.react, reactRange);
+      (satisfies(locked.react, reactRange) ||
+        // Native registry tags can use a current descriptor-bound selection.
+        // URL/git/file/fork specs cannot establish native React identity from
+        // a version field alone and must not be admitted by this shortcut.
+        (/^[A-Za-z][A-Za-z0-9._-]*$/.test(reactRange) && locked.reactSpecifier === deps.react));
     const mismatch = nextReactEresolve(
       useLocked ? locked.next : nextRange,
       useLocked ? locked.react : reactRange,
@@ -233,7 +237,10 @@ export function detectPackageTreeConflicts(
         reactMajor: mismatch.reactMajor,
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
-          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
+          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. ` +
+            (!validRange(reactRange) && !/^[A-Za-z][A-Za-z0-9._-]*$/.test(reactRange)
+              ? "URL/git/file/fork declarations need native package identity evidence, not just a lock version field. Pin an exact native matching pair before publishing."
+              : "Supply an in-range or current native-tag lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.")
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,

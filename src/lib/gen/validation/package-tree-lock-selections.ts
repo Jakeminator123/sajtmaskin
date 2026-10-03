@@ -2,12 +2,12 @@ import { isMap, isScalar, parseAllDocuments } from "yaml";
 import { major, valid } from "semver";
 
 type Files = ReadonlyArray<{ path: string; content: string }>;
-export type LockedNextReact = { next: string; react: string };
+export type LockedNextReact = { next: string; react: string; reactSpecifier?: string };
 const normalize = (path: string) => path.replace(/^\/+/, "").replace(/\\/g, "/");
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
-function yamlDocument(raw: string, pnpm = false) {
+function yamlDocument(raw: string, pnpm = false, expectedPnpmVersion?: string) {
   // Inspect the AST, not toJS(): no alias expansion or custom object types.
   if (raw.length > 2_000_000) return null;
   const docs = parseAllDocuments(raw, { schema: "failsafe", stringKeys: true, uniqueKeys: true });
@@ -16,6 +16,10 @@ function yamlDocument(raw: string, pnpm = false) {
   // merge their importers or let an invalid environment document hide errors.
   const doc = docs.at(-1)!;
   if (docs.length === 2 && docs[0].get("lockfileVersion") !== doc.get("lockfileVersion")) return null;
+  if (docs.length === 2 && expectedPnpmVersion) {
+    const pin = docs[0].getIn(["importers", ".", "packageManagerDependencies", "pnpm", "version"]);
+    if (valid(String(pin ?? "")) !== expectedPnpmVersion) return null;
+  }
   return doc;
 }
 
@@ -27,17 +31,23 @@ function pnpmVersion(value: unknown, name: "next" | "react"): string | null {
   return valid(candidate);
 }
 
-function declaredPnpmMajor(pkg: Record<string, unknown>): number | null {
-  const version = typeof pkg.packageManager === "string" ? valid(pkg.packageManager.slice("pnpm@".length)) : null;
-  return version ? major(version) : null;
+function declaredPnpmVersion(pkg: Record<string, unknown>): string | null {
+  const dev = record(record(pkg.devEngines)?.packageManager);
+  const legacy = typeof pkg.packageManager === "string" && pkg.packageManager.startsWith("pnpm@")
+    ? valid(pkg.packageManager.slice("pnpm@".length)) : null;
+  if (dev && (dev.name !== "pnpm" || dev.onFail === "ignore" || !valid(String(dev.version ?? "")))) return null;
+  const pinned = dev ? valid(String(dev.version)) : null;
+  if (legacy && pinned && legacy !== pinned) return null;
+  return legacy ?? pinned;
 }
 
 function compatiblePnpmSchema(schema: unknown, pkg: Record<string, unknown>): boolean {
   if (typeof schema !== "string" || !/^\d+(?:\.\d+)?$/.test(schema)) return false;
   const schemaMajor = Number(schema.split(".")[0]);
   if (![5, 6, 9].includes(schemaMajor)) return false;
-  if (typeof pkg.packageManager !== "string") return true; // Vercel infers the manager from this known schema.
-  const managerMajor = declaredPnpmMajor(pkg);
+  if (typeof pkg.packageManager !== "string" && !record(record(pkg.devEngines)?.packageManager)) return true; // Vercel infers the manager from this known schema.
+  const version = declaredPnpmVersion(pkg);
+  const managerMajor = version ? major(version) : null;
   if (managerMajor === null) return false;
   // pnpm 7/8 explicitly accept both the legacy v5 and v6 formats in their
   // frozen-install path; a simple one-major-to-one-schema table is incorrect.
@@ -48,10 +58,11 @@ function compatiblePnpmSchema(schema: unknown, pkg: Record<string, unknown>): bo
 }
 
 function pnpmSelections(raw: string, pkg: Record<string, unknown>): LockedNextReact | undefined {
-  const managerMajor = declaredPnpmMajor(pkg);
+  const managerVersion = declaredPnpmVersion(pkg);
+  const managerMajor = managerVersion ? major(managerVersion) : null;
   // Older/default Vercel pnpm readers use single-document yaml.load. A newer
   // explicitly pinned reader is required before multi-document proof is safe.
-  const doc = yamlDocument(raw, managerMajor !== null && managerMajor >= 11 && managerMajor <= 12);
+  const doc = yamlDocument(raw, managerMajor !== null && managerMajor >= 11 && managerMajor <= 12, managerVersion ?? undefined);
   if (!doc || !compatiblePnpmSchema(doc.get("lockfileVersion"), pkg)) return undefined;
   const legacy = String(doc.get("lockfileVersion")).startsWith("5");
   const root = doc.has("importers") ? ["importers", "."] : [];
@@ -70,7 +81,15 @@ function pnpmSelections(raw: string, pkg: Record<string, unknown>): LockedNextRe
     return null;
   };
   const next = version("next"), react = version("react");
-  return next && react ? { next, react } : undefined;
+  return next && react ? { next, react, reactSpecifier: depsReactSpecifier(pkg) } : undefined;
+}
+
+function depsReactSpecifier(pkg: Record<string, unknown>): string | undefined {
+  for (const field of ["dependencies", "devDependencies", "optionalDependencies"]) {
+    const specifier = record(pkg[field])?.react;
+    if (typeof specifier === "string") return specifier;
+  }
+  return undefined;
 }
 
 function yarnSelections(raw: string, deps: Record<string, string>): LockedNextReact | undefined {
@@ -101,7 +120,7 @@ function yarnSelections(raw: string, deps: Record<string, string>): LockedNextRe
     }
   }
   if (candidates.next.size !== 1 || candidates.react.size !== 1) return undefined;
-  return { next: [...candidates.next][0], react: [...candidates.react][0] };
+  return { next: [...candidates.next][0], react: [...candidates.react][0], reactSpecifier: deps.react };
 }
 
 /** Sibling lock of the selected manifest; same pnpm > Yarn > npm order as preview-host. */
@@ -112,7 +131,9 @@ export function readLockedNextReact(files: Files, packagePath: string, pkg: Reco
   const yarn = file("yarn.lock");
   const npm = file("npm-shrinkwrap.json") ?? file("package-lock.json");
   const manager = pnpm ? "pnpm" : yarn ? "yarn" : npm ? "npm" : null;
-  const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0] : null;
+  const dev = record(record(pkg.devEngines)?.packageManager);
+  const declared = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0]
+    : typeof dev?.name === "string" ? dev.name : null;
   // Corepack/Vercel may choose the declared manager; do not use evidence for
   // a different installer when the declaration and preview lock policy disagree.
   if (declared && declared !== manager) return undefined;
