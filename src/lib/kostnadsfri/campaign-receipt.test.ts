@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createKostnadsfriCampaignReceipt,
+  readVerifiedKostnadsfriCampaignReceipt,
   verifyKostnadsfriCampaignReceipt,
 } from "./campaign-receipt";
 
@@ -45,5 +46,29 @@ describe("kostnadsfri campaign receipt", () => {
         now: new Date("2026-09-22T12:00:01Z"),
       }),
     ).toBe(false);
+  });
+
+  it("preserves a validated mail correlation without making it authorization", () => {
+    const receipt = createKostnadsfriCampaignReceipt({
+      slug: "acme-ab",
+      sessionId: "sess_1",
+      mailMessageId: "d".repeat(32),
+      mailVariant: "animated",
+      now,
+    });
+    expect(
+      readVerifiedKostnadsfriCampaignReceipt(receipt, {
+        slug: "acme-ab",
+        sessionId: "sess_1",
+        now,
+      }),
+    ).toMatchObject({ mailMessageId: "d".repeat(32), mailVariant: "animated" });
+    expect(
+      readVerifiedKostnadsfriCampaignReceipt(receipt, {
+        slug: "other-ab",
+        sessionId: "sess_1",
+        now,
+      }),
+    ).toBeNull();
   });
 });
