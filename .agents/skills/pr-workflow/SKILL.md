@@ -46,6 +46,9 @@ rapportens `runtimeStatus`.
 - Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions
   publicerar required checks på varje head: tung profil för ready runtime,
   högrisk och `master`, explicit light-kvitto för safe docs och vanliga drafts.
+  Hela `test:ci`-sviten fördelas över fyra parallella jobb; `quality` kräver alla
+  fyra. Samla kända rättningar före push. Att återgå till draft startar ingen
+  ny CI-körning; en ny head eller ready-status verifieras som vanligt.
   Bare `npm run verify:pr` är frivillig felsökning/reproduktion, eller ett
   uttryckligt krav när själva CI-/verifieringsmotorn ändras.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
@@ -59,6 +62,12 @@ rapportens `runtimeStatus`.
    sju minuter från den nya SHA-körningen.
 4. Läs checks, reviews och kommentarer. Varje konkret fynd ska vara fixat,
    loggat eller avfärdat.
+
+Samla verifierade fynd i en review innan rättningsrundan. Efter rättningar
+granskas ändringsdeltat och dess integration; återanvänd tidigare review för
+oförändrad kod när blob-/trädidentitet kan visas. Ny head kräver ett aktuellt
+reviewkvitto, inte att hela PR:n granskas om från början. Redovisa konkret
+vilket fynd eller vilken required check som fortfarande blockerar.
 
 ## 4b. Promote till produktion
 

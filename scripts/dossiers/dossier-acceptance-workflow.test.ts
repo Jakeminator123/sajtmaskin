@@ -160,7 +160,7 @@ describe("dossier acceptance workflow contract", () => {
     const pullRequestBlock = workflow.slice(start, end);
     expect(pullRequestBlock).not.toContain("    paths:");
     expect(pullRequestBlock).toContain("ready_for_review");
-    expect(pullRequestBlock).toContain("converted_to_draft");
+    expect(pullRequestBlock).not.toContain("converted_to_draft");
     expect(workflow).toContain('    - cron: "17 3 * * 2"');
     expect(workflow).toContain("  workflow_dispatch: {}");
     expect(workflow).toContain(
