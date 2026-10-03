@@ -841,7 +841,14 @@ export async function POST(req: Request) {
           console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
         }
 
-        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
+        // SEO/image transforms use text-file projections. Reattach persisted
+        // language at the outbound boundary so a binary with a text-shaped
+        // path is not mistaken for source after those projections.
+        const sourceLanguages = new Map(codeFiles.map((file) => [file.path, file.language]));
+        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files.map((file) => ({
+          ...file,
+          language: sourceLanguages.get(file.name),
+        })));
 
         const created = await createVercelDeployment({
           projectName: ensuredProject.name,

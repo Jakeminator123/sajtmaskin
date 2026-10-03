@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
@@ -31,7 +32,7 @@ export async function GET(
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       for (const file of completeProject) {
-        zip.file(file.path, file.content);
+        zip.file(file.path, importedFileContentForExport(file.path, file.content, file.language));
       }
 
       const buffer = await zip.generateAsync({ type: "nodebuffer" });
