@@ -346,6 +346,7 @@ export async function POST(req: Request) {
         files: importedFiles.map((file) => ({
           name: file.path,
           content: file.content,
+          language: file.language,
           locked: lockedSet.has(file.path.replace(/^\.?\//, "")),
         })),
         messages: (await chatRepo.getChat(chat.id))?.messages ?? [],

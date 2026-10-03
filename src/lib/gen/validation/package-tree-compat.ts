@@ -210,9 +210,11 @@ function repairOptionsForNextReact(params: {
 type LockedVersions = { next: string; react: string; reactSpecifier?: string };
 
 function nativeAliasRange(name: "next" | "react", declaration: string): string {
-  const prefix = `npm:${name}@`;
+  const protocol = declaration.slice(0, 4).toLowerCase();
+  const target = `${name}@`;
   // Other alias targets are not the native package and have no known peer contract here.
-  return declaration.startsWith(prefix) ? declaration.slice(prefix.length) : declaration;
+  return protocol === "npm:" && declaration.slice(4).startsWith(target)
+    ? declaration.slice(4 + target.length) : declaration;
 }
 
 export function detectPackageTreeConflicts(

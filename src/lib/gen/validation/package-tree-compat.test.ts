@@ -11,6 +11,31 @@ import {
 const INCIDENT_PACKAGE_JSON_TEXT = `${JSON.stringify(INCIDENT_V0_PACKAGE_JSON, null, 2)}\n`;
 
 describe("extractDependencyMajor", () => {
+  it.each(["NPM:", "NpM:"])("normalizes only the native npm alias protocol %s", (protocol) => {
+    expect(detectPackageTreeConflicts({ dependencies: {
+      next: `${protocol}next@14.2.25`, react: `${protocol}react@18.3.1`,
+    } })).toEqual([]);
+    expect(detectPackageTreeConflicts({ dependencies: {
+      next: `${protocol}next@14.2.25`, react: `${protocol}react@19.0.0`,
+    } })[0]?.code).toBe("next_react_peer_eresolve");
+    expect(detectPackageTreeConflicts({ dependencies: {
+      next: "14.2.25", react: `${protocol}@fork/react@18.3.1`,
+    } }, { next: "14.2.25", react: "18.3.1", reactSpecifier: `${protocol}@fork/react@18.3.1` })[0]?.code).toBe("next_react_peer_resolution_required");
+  });
+  it.each(["yarn.lock", "pnpm-lock.yaml"])("uses current case-variant alias descriptors in %s without widening stale evidence", (lockPath) => {
+    const react = "NpM:react@2024-latest";
+    const files = [
+      { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react } }) },
+      { path: lockPath, content: lockPath === "yarn.lock"
+        ? `"next@14.2.25":\n  version "14.2.25"\n"react@${react}":\n  version "18.3.1"\n`
+        : `lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      next:\n        specifier: 14.2.25\n        version: 14.2.25(react@18.3.1)\n      react:\n        specifier: ${react}\n        version: react@18.3.1\n` },
+    ];
+    expect(findPackageTreeConflictsInFiles(files)).toBeNull();
+    files[1].content = files[1].content.replaceAll("18.3.1", "19.0.0");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_eresolve");
+    files[1].content = files[1].content.replace(react, "npm:react@2024-latest");
+    expect(findPackageTreeConflictsInFiles(files)?.conflicts[0]?.code).toBe("next_react_peer_resolution_required");
+  });
   it.each(["2024-latest", "_stable", "-canary", "release!", "(stable)", "~local"])("admits descriptor-bound native npm tag %s", (react) => {
     const files = [
       { path: "package.json", content: JSON.stringify({ dependencies: { next: "14.2.25", react } }) },

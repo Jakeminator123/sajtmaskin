@@ -1,9 +1,12 @@
 import JSZip from "jszip";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createProject = vi.hoisted(() => vi.fn());
 const allocateProjectId = vi.hoisted(() => vi.fn());
 const saveProjectData = vi.hoisted(() => vi.fn());
+const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
+const getProjectData = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
@@ -23,6 +26,8 @@ vi.mock("@/lib/db/services/projects", () => ({
   allocateProjectId,
   createProject,
   saveProjectData,
+  getProjectByIdForOwner,
+  getProjectData,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -86,6 +91,8 @@ describe("POST /api/engine/chats/init", () => {
     createProject.mockReset();
     allocateProjectId.mockReset();
     saveProjectData.mockReset();
+    getProjectByIdForOwner.mockReset();
+    getProjectData.mockReset();
     createChat.mockReset();
     addMessage.mockReset();
     createDraftVersion.mockReset();
@@ -241,6 +248,36 @@ describe("POST /api/engine/chats/init", () => {
     );
     expect(commitCredits).toHaveBeenCalled();
     expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("persists importer language and downloads the actual saved projection without inventing binary markers", async () => {
+    const bytes = Buffer.from([137, 80, 78, 71, 0, 255]);
+    const zip = new JSZip();
+    zip.file("repo-root/index.html", "<main>Hej</main>");
+    zip.file("repo-root/public/logo.png", bytes);
+    zip.file("repo-root/README.md", "base64:YWJj");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    const response = await POST(new Request("https://example.com/api/engine/chats/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+    }));
+    expect(response.status).toBe(200);
+    const saved = saveProjectData.mock.calls.find(([payload]) => payload.files !== undefined)?.[0];
+    expect(saved.files).toContainEqual(expect.objectContaining({
+      name: "public/logo.png", content: `base64:${bytes.toString("base64")}`, language: "binary",
+    }));
+    getProjectByIdForOwner.mockResolvedValue({ id: "proj_import", name: "Imported" });
+    getProjectData.mockResolvedValue(saved);
+    const { GET: download } = await import("@/app/api/projects/[id]/download/route");
+    const downloaded = await download(new NextRequest("https://example.com/api/projects/proj_import/download"), {
+      params: Promise.resolve({ id: "proj_import" }),
+    });
+    expect(downloaded.status).toBe(200);
+    expect(getProjectByIdForOwner).toHaveBeenCalledWith("proj_import", { userId: "user_import" });
+    const exported = await JSZip.loadAsync(await downloaded.arrayBuffer());
+    expect(await exported.file("public/logo.png")!.async("nodebuffer")).toEqual(bytes);
+    expect(await exported.file("README.md")!.async("string")).toBe("base64:YWJj");
   });
 
   it("prepares and snapshots stored env for an existing project before credits", async () => {
