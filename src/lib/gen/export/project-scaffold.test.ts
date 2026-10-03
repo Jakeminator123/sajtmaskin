@@ -1036,7 +1036,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
     expect(result.issues.some((i) => i.message.includes("@react-three/fiber"))).toBe(false);
   });
 
-  it("flags next 16 with react 18", () => {
+  it("accepts next 16.2.3 with its supported react 18 peer", () => {
     const files: CodeFile[] = [
       {
         path: "package.json",
@@ -1048,7 +1048,8 @@ describe("runProjectSanityChecks peer heuristics", () => {
       { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
     ];
     const result = runProjectSanityChecks(files);
-    expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(true);
-    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
+    // Published next@16.2.3 peerDependencies include ^18.2.0.
+    expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(false);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(false);
   });
 });

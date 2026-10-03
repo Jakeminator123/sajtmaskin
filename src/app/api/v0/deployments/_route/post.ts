@@ -437,6 +437,7 @@ export async function POST(req: Request) {
         missingEnvKeys: envRequirements.missingEnvKeys,
         preDeployWarnings: [...warnings, ...placeholderCoveredWarnings],
         invalidFilePaths: invalidFiles,
+        packageTreeAllowed: packageTreeGate.allowed,
       });
       // Structured, per-key warning for the UI (product decision: NEVER a
       // hard block — demo sites with an info sign must stay publishable).
@@ -470,6 +471,7 @@ export async function POST(req: Request) {
           // användaren försöker byta namn.
           projectNameLock,
           brandedPilotGate,
+          packageTreeGate,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,

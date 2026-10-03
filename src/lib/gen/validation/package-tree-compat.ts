@@ -11,6 +11,9 @@
  * listed so a human can choose a coherent tree.
  */
 
+import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
+import { readLockedNextReact } from "./package-tree-lock-selections";
+
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
 /**
@@ -38,7 +41,7 @@ export type PackageTreePeerMap = {
   typesReactDom?: string;
 };
 
-export type PackageTreeConflictCode = "next_react_peer_eresolve";
+export type PackageTreeConflictCode = "next_react_peer_eresolve" | "next_react_peer_resolution_required";
 
 export type PackageTreeConflict = {
   code: PackageTreeConflictCode;
@@ -59,6 +62,28 @@ const DEP_FIELDS = [
   "peerDependencies",
 ] as const;
 
+// Published stable npm peer contracts (419 releases through Next 16.3.8).
+// Select all contracts an unlocked range admits; never guess a newer major.
+// Next 0/1 did not declare a React peer, so do not invent one for those lines.
+const NEXT_REACT_PEERS = [
+  { next: ">=2.0.0 <3.0.2", react: "^15.4.2" },
+  { next: ">=3.0.2 <4.0.0", react: "^15.5.4" },
+  { next: ">=4.0.0 <8.0.0", react: "^16.0.0" },
+  { next: ">=8.0.0 <10.0.0", react: "^16.6.0" },
+  { next: ">=10.0.0 <11.0.0", react: "^16.6.0 || ^17" },
+  { next: ">=11.0.0 <12.0.1", react: "^17.0.2" },
+  { next: ">=12.0.1 <12.0.5", react: "^17.0.2 || ^18.0.0" },
+  { next: ">=12.0.5 <13.0.0", react: "^17.0.2 || ^18.0.0-0" },
+  { next: "13.0.0", react: "^18.0.0-0" },
+  { next: ">=13.0.1 <15.0.0", react: "^18.2.0" },
+  { next: "15.0.0", react: "^18.2.0 || 19.0.0-rc-65a56d0e-20241020" },
+  { next: "15.0.1", react: "^18.2.0 || 19.0.0-rc-69d4b800-20241021" },
+  { next: "15.0.2", react: "^18.2.0 || 19.0.0-rc-02c0e824-20241028" },
+  { next: "15.0.3", react: "^18.2.0 || 19.0.0-rc-66855b96-20241106" },
+  { next: ">=15.0.4 <15.1.0", react: "^18.2.0 || 19.0.0-rc-66855b96-20241106 || ^19.0.0" },
+  { next: ">=15.1.0 <17.0.0", react: "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0" },
+] as const;
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -73,12 +98,10 @@ export function parsePackageJsonRecord(raw: string): Record<string, unknown> | n
   }
 }
 
-/** First integer in a semver range (`^19`, `14.2.25`, `>=18.2.0` → 19 / 14 / 18). */
+/** Representative minimum for diagnostics only; never treat it as a resolved version. */
 export function extractDependencyMajor(range: string): number | null {
-  const match = range.trim().match(/\d+/);
-  if (!match) return null;
-  const major = Number.parseInt(match[0], 10);
-  return Number.isFinite(major) ? major : null;
+  const parsed = validRange(range);
+  return parsed ? (minVersion(parsed)?.major ?? null) : null;
 }
 
 export function collectDeclaredDependencyRanges(
@@ -107,67 +130,109 @@ function peerMapFromRanges(deps: Record<string, string>): PackageTreePeerMap {
   };
 }
 
+function rangesShareVersion(left: string, right: string): boolean {
+  // intersects() rejects some compatible exact prereleases. Prove admission
+  // using a witness for each AND-pair, with npm's normal prerelease rules for
+  // BOTH original ranges (never globally enable includePrerelease).
+  return new Range(left).set.some((leftSet) => new Range(right).set.some((rightSet) => {
+    const minimum = minVersion([...leftSet, ...rightSet].map((comparator) => comparator.value).filter(Boolean).join(" "));
+    if (!minimum) return false;
+    const candidates = [minimum.version, `${minimum.major}.${minimum.minor}.${minimum.patch}`];
+    return candidates.some((version) => satisfies(version, left) && satisfies(version, right));
+  }));
+}
+
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
-): { nextMajor: number; reactMajor: number } | null {
+): { code: PackageTreeConflictCode; nextMajor: number; reactMajor: number; reactPeer: string } | null {
+  if (!validRange(nextRange) || !validRange(reactRange)) return null;
+  // An unlocked range is safe only if every admitted React choice fits every
+  // admitted Next contract. One historical compatible pair is not evidence
+  // for the versions npm will select. Distinguish a proven conflict from an
+  // ambiguous range requiring an in-range lock or exact matching pair.
+  // A broad Next range may resolve to 17+; tags, git specs and newer lines
+  // need real install evidence, not a made-up major-version contract.
+  if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
+  const fullyKnown = subset(nextRange, ">=2.0.0 <17.0.0");
+  const contracts = NEXT_REACT_PEERS.filter((contract) => rangesShareVersion(nextRange, contract.next));
+  if (contracts.length === 0) return null;
+  const reactChoices = new Range(reactRange);
+  const withinPeer = (peer: string) => subset(reactRange, peer) || reactChoices.set.every((choice) =>
+    // node-semver subset rejects some admitted exact prereleases; validate
+    // singleton OR choices using normal npm prerelease admission instead.
+    choice.length === 1 && choice[0].operator === "" && Boolean(valid(choice[0].value)) && satisfies(choice[0].value, peer),
+  );
+  if (fullyKnown && contracts.every((contract) => withinPeer(contract.react))) return null;
+  const code = fullyKnown && contracts.every((contract) => !rangesShareVersion(reactRange, contract.react))
+    ? "next_react_peer_eresolve"
+    : "next_react_peer_resolution_required";
+  const reactPeer = [...new Set(contracts.map((contract) => contract.react))].join(" || ");
   const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
   if (nextMajor === null || reactMajor === null) return null;
-  // Next 13/14 declare `react@^18.2.0`. React 19 → npm ERESOLVE (incident).
-  if (nextMajor <= 14 && reactMajor >= 19) return { nextMajor, reactMajor };
-  // Next 16+ declares `react@^19`. React 18 → npm ERESOLVE.
-  if (nextMajor >= 16 && reactMajor < 19) return { nextMajor, reactMajor };
-  return null;
+  return { code, nextMajor, reactMajor, reactPeer };
 }
 
 function repairOptionsForNextReact(params: {
-  nextMajor: number;
   reactMajor: number;
   peers: PackageTreePeerMap;
 }): string[] {
-  const reactDomNote = params.peers.reactDom
-    ? ` and react-dom ${params.peers.reactDom}`
-    : "";
+  const reactDomNote = params.peers.reactDom ? ` and react-dom ${params.peers.reactDom}` : "";
   const typesNote = params.peers.typesReact
     ? ` Keep @types/react (${params.peers.typesReact}) on the same React major.`
     : "";
-  if (params.nextMajor <= 14 && params.reactMajor >= 19) {
-    return [
-      `Bump Next to a 15+ line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
-      `Pin React 18 (and react-dom 18) to match Next ${params.nextMajor}.${typesNote}`,
-      "Leave the imported tree verbatim and do not publish until the tree is coherent.",
-    ];
-  }
   return [
-    `Bump React to 19+ (and react-dom) to match Next ${params.nextMajor}.${typesNote}`,
-    `Pin Next to a 15 line that still peers React ${params.reactMajor}.${typesNote}`,
+    `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
+    `Pin Next to one published exact release, then pin React and react-dom to that release's own peer range; do not leave a cross-contract Next range unlocked.${typesNote}`,
     "Leave the imported tree verbatim and do not publish until the tree is coherent.",
   ];
 }
 
-export function detectPackageTreeConflicts(pkg: unknown): PackageTreeConflict[] {
+type LockedVersions = { next: string; react: string };
+
+function nativeAliasRange(name: "next" | "react", declaration: string): string {
+  const prefix = `npm:${name}@`;
+  // Other alias targets are not the native package and have no known peer contract here.
+  return declaration.startsWith(prefix) ? declaration.slice(prefix.length) : declaration;
+}
+
+export function detectPackageTreeConflicts(
+  pkg: unknown,
+  locked?: LockedVersions,
+): PackageTreeConflict[] {
   const record = asRecord(pkg);
   if (!record) return [];
   const deps = collectDeclaredDependencyRanges(record);
   const conflicts: PackageTreeConflict[] = [];
   if (deps.next && deps.react) {
-    const mismatch = nextReactEresolve(deps.next, deps.react);
+    const nextRange = nativeAliasRange("next", deps.next);
+    const reactRange = nativeAliasRange("react", deps.react);
+    const useLocked =
+      locked &&
+      valid(locked.next) &&
+      valid(locked.react) &&
+      satisfies(locked.next, nextRange) &&
+      satisfies(locked.react, reactRange);
+    const mismatch = nextReactEresolve(
+      useLocked ? locked.next : nextRange,
+      useLocked ? locked.react : reactRange,
+    );
     if (mismatch) {
       const peers = peerMapFromRanges(deps);
       conflicts.push({
-        code: "next_react_peer_eresolve",
+        code: mismatch.code,
         nextRange: deps.next,
         reactRange: deps.react,
         nextMajor: mismatch.nextMajor,
         reactMajor: mismatch.reactMajor,
         peers,
-        message:
-          `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
-          ` (Next ${mismatch.nextMajor} does not peer React ${mismatch.reactMajor}).` +
+        message: mismatch.code === "next_react_peer_resolution_required"
+          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The range admits incompatible choices or Next contracts outside the verified lines; a historical compatible pair is not selection evidence. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
+          : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
+          ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
         repairOptions: repairOptionsForNextReact({
-          nextMajor: mismatch.nextMajor,
           reactMajor: mismatch.reactMajor,
           peers,
         }),
@@ -190,12 +255,19 @@ export function findPackageJsonFile<T extends { path: string; content: string }>
 
 export function findPackageTreeConflictsInFiles(
   files: ReadonlyArray<{ path: string; content: string }>,
+  packageJsonPath?: string,
 ): { path: string; conflicts: PackageTreeConflict[] } | null {
-  const pkgFile = findPackageJsonFile(files);
+  const normalizePath = (path: string) => path.replace(/^\/+/, "").replace(/\\/g, "/");
+  // Default import/publish contract is root-only. Sanity can explicitly pass
+  // its supported src/package.json fallback without changing those callers.
+  const pkgFile = packageJsonPath
+    ? files.find((file) => normalizePath(file.path) === normalizePath(packageJsonPath))
+    : findPackageJsonFile(files);
   if (!pkgFile) return null;
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
-  const conflicts = detectPackageTreeConflicts(parsed);
+  const locked = readLockedNextReact(files, pkgFile.path, parsed, collectDeclaredDependencyRanges(parsed));
+  const conflicts = detectPackageTreeConflicts(parsed, locked);
   if (conflicts.length === 0) return null;
   return { path: pkgFile.path, conflicts };
 }

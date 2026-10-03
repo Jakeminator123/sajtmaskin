@@ -36,7 +36,12 @@ const bindVerifiedKostnadsfriCampaign = vi.hoisted(() =>
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
-const getCurrentUser = vi.hoisted(() => vi.fn(async () => null as { id: string } | null));
+const getCurrentUser = vi.hoisted(() => vi.fn(async () => null as { id: string; diamonds?: number } | null));
+const createAuditProjectHandoff = vi.hoisted(() => vi.fn(async () => ({ projectId: "project_1", promptId: "prompt_1", consumed: false })));
+const deleteCache = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/db/services/audit-build-handoff", () => ({ createAuditProjectHandoff,
+  AuditBuildHandoffError: class extends Error { constructor(message: string, readonly status: number, readonly code?: "AUDIT_HANDOFF_PROJECT_MISSING") { super(message); } },
+}));
 
 vi.mock("@/lib/auth/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/auth/session", () => ({
@@ -46,7 +51,7 @@ vi.mock("@/lib/db/services/projects", () => ({ createPromptHandoff, getProjectBy
 vi.mock("@/lib/db/services/kostnadsfri-campaign", () => ({
   bindVerifiedKostnadsfriCampaign,
 }));
-vi.mock("@/lib/data/redis", () => ({ cachePromptHandoff: vi.fn(async () => undefined) }));
+vi.mock("@/lib/data/redis", () => ({ cachePromptHandoff: vi.fn(async () => undefined), deleteCache }));
 vi.mock("@/lib/db/services/analytics", () => ({ recordPageView }));
 // `after()` needs a request scope in Next; run the callback inline in tests.
 vi.mock("next/server", async (importOriginal) => {
@@ -74,6 +79,43 @@ afterEach(() => {
 });
 
 describe("POST /api/prompts — kostnadsfri funnel", () => {
+  const auditBody = { prompt: "Bygg en sajt", source: "audit",
+    auditBuildAttemptId: "11111111-1111-4111-8111-111111111111",
+    payload: { domain: "example.se", url: "https://example.se", company: "Example AB", audit_scores: { seo: 70 } } };
+  it("requires authenticated ownership before atomic audit creation", async () => {
+    expect((await POST(promptRequest(auditBody))).status).toBe(401);
+    expect(createAuditProjectHandoff).not.toHaveBeenCalled();
+  });
+  it("rejects client project ids, non-audit source and invalid attempt ids", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1", diamonds: 0 });
+    for (const override of [{ projectId: "someone-elses-project" }, { source: "other" }, { auditBuildAttemptId: "bad" }]) {
+      expect((await POST(promptRequest({ ...auditBody, ...override }))).status).toBe(400);
+    }
+    expect(createAuditProjectHandoff).not.toHaveBeenCalled();
+  });
+  it("rejects a stale browser account snapshot before creating an audit project", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_2", diamonds: 0 });
+    expect((await POST(promptRequest({ ...auditBody, auditBuildOwnerId: "user_1" }))).status).toBe(409);
+    expect(createAuditProjectHandoff).not.toHaveBeenCalled();
+  });
+  it("returns the atomic ACK even when project-list cache invalidation fails", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1", diamonds: 0 });
+    deleteCache.mockRejectedValueOnce(new Error("cache down"));
+    const response = await POST(promptRequest(auditBody));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, projectId: "project_1", promptId: "prompt_1" });
+    expect(createAuditProjectHandoff).toHaveBeenCalledWith({ attemptId: auditBody.auditBuildAttemptId, userId: "user_1", isPaidUser: false, payload: auditBody.payload });
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
+  it("returns a typed owner-bound missing-project conflict for safe retry rotation", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user_1", diamonds: 0 });
+    const { AuditBuildHandoffError } = await import("@/lib/db/services/audit-build-handoff");
+    createAuditProjectHandoff.mockRejectedValueOnce(new AuditBuildHandoffError("Projektet finns inte längre", 409, "AUDIT_HANDOFF_PROJECT_MISSING"));
+    const response = await POST(promptRequest(auditBody));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ success: false, code: "AUDIT_HANDOFF_PROJECT_MISSING" });
+    expect(createPromptHandoff).not.toHaveBeenCalled();
+  });
   it("returns both the __Host- session and parent-domain leftover expiry", async () => {
     const session = await vi.importActual<typeof import("@/lib/auth/session")>(
       "@/lib/auth/session",
