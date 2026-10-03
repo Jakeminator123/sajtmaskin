@@ -1034,8 +1034,11 @@ describe("agent workflow repository contract", () => {
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
     expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
     expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("auto_merge_enabled");
     expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
-    expect(source).toContain('gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
+    expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
+    expect(source).toContain('GH_TOKEN="$AUTOMERGE_TOKEN" gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
+    expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; auto-merge aktiveras inte");
     expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
     expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");

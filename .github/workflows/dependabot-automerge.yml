@@ -6,7 +6,7 @@ name: Dependabot native auto-merge
 on:
   pull_request_target:
     branches: [preview]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, auto_merge_enabled]
 
 permissions:
   contents: write
@@ -59,6 +59,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IS_DRAFT: ${{ github.event.pull_request.draft }}
           ELIGIBLE: ${{ steps.meta.outcome == 'success' && steps.validate.outcome == 'success' }}
+          AUTOMERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
         run: |
           gh label create "dependabot-automerge" \
             --repo "$REPO" \
@@ -70,10 +71,14 @@ jobs:
             '[.labels[].name] | contains(["dependabot-automerge"])')
 
           if [ "$ELIGIBLE" = "true" ] && [ "$IS_DRAFT" != "true" ]; then
+            if [ -z "$AUTOMERGE_TOKEN" ]; then
+              echo "::error::DEPENDABOT_AUTOMERGE_TOKEN saknas; auto-merge aktiveras inte."
+              exit 1
+            fi
             if [ "$has_label" != "true" ]; then
               gh pr edit "$PR_URL" --add-label "dependabot-automerge"
             fi
-            gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
+            GH_TOKEN="$AUTOMERGE_TOKEN" gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
           else
             if [ "$has_label" = "true" ]; then
               gh pr edit "$PR_URL" --remove-label "dependabot-automerge"

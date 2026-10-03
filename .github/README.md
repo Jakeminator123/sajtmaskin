@@ -20,3 +20,5 @@ Required checks publiceras en gång per aktuell PR-head. Strict/up-to-date i
 ruleset gör gamla basresultat ogiltiga. PR-head-workflows är explicit read-only;
 skrivande automation måste köra betrodd default-branch-kod. Dependabot-
 controllern får endast begära native auto-merge; GitHub väntar själv på ruleset.
+Mergebegäran använder repo-secreten `DEPENDABOT_AUTOMERGE_TOKEN` så mergepushen
+kan starta ordinarie `push`-CI; PR-head exekveras fortfarande aldrig med token.

@@ -13,9 +13,9 @@ canonical lokala checknamn och reviewytor.
 4. Läs required checks, reviews, kommentarer, trådar och deployment på GitHub.
    Säkerhet, betalning, databas och CI-behörigheter kräver riktad oberoende
    review och ownerbeslut registrerat i PR:n.
-5. Merga med GitHubs vanliga funktion när native villkor och mergemandat är
-   uppfyllda. Ett uttryckligt villkorat mandat kan ges i förväg. Använd aldrig
-   admin-bypass.
+5. När native villkor och mergemandat är uppfyllda använder en agent
+   `gh pr merge --squash --match-head-commit <granskad head>`. Ett uttryckligt
+   villkorat mandat kan ges i förväg. Använd aldrig admin-bypass.
 6. Bekräfta terminal PR-status och att push-CI samt deployment startade på
    mergecommiten.
 

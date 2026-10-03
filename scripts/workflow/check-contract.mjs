@@ -1396,7 +1396,10 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     dependabotEvents.has("pull_request") ||
     !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
     !dependabotWorkflow.includes("persist-credentials: false") ||
+    !dependabotWorkflow.includes("auto_merge_enabled") ||
     !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
+    !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
+    !dependabotWorkflow.includes('GH_TOKEN="$AUTOMERGE_TOKEN" gh pr merge') ||
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --squash --match-head-commit \"$HEAD_SHA\"") ||
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||

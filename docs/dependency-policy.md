@@ -113,4 +113,7 @@ bara GitHubs native auto-merge när allt nedan är bevisat:
 Vid osäkerhet, draft, major/minor, core-/baselinepaket, scriptändring eller
 blandad koddiff tas labeln bort och eventuell auto-merge stängs av. GitHub
 väntar sedan på strict/up-to-date required checks. Mergepushen startar samma
-`push`-CI och deployment som en manuell GitHub-merge.
+`push`-CI och deployment som en manuell GitHub-merge. Själva mergebegäran
+använder `DEPENDABOT_AUTOMERGE_TOKEN` (fine-grained PAT eller GitHub App-token),
+inte workflowets `GITHUB_TOKEN`, eftersom GitHub annars undertrycker följande
+Actions-event. Saknad secret är fail-closed och aktiverar ingen auto-merge.

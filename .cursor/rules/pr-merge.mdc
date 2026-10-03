@@ -24,9 +24,10 @@ reviews och trådar som blockerar merge.
 4. Merge kräver uttryckligt mandat. Ett villkorat mandat i förväg gäller när de
    angivna native villkoren senare är uppfyllda och behöver inte efterfrågas
    igen; ett vanligt koduppdrag är inte mergemandat.
-5. Använd GitHubs vanliga squash-merge eller native auto-merge. Aldrig
-   `--admin`. Kontrollera efteråt att PR:n är terminal och att push-CI samt
-   deployment startade på mergecommiten.
+5. En agent som utför manuell merge använder
+   `gh pr merge --squash --match-head-commit <granskad head>`; ny head kräver
+   ny review. Bara Dependabot-vägen använder native auto-merge. Aldrig
+   `--admin`. Kontrollera efteråt att push-CI och deployment startade.
 
 Dependabot-undantaget ägs av `.github/workflows/dependabot-automerge.yml` och
 `config/dependabot-automerge.json`: endast allowlistade npm-patchar med en ren

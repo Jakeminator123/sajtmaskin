@@ -5,8 +5,13 @@
 /.github/ @Jakeminator123
 /config/agent-workflow.json @Jakeminator123
 /config/dependabot-automerge.json @Jakeminator123
+/config/control-plane/policy-registry.json @Jakeminator123
+/config/backoffice/domain-map.json @Jakeminator123
+/.cursor/rules/pr-merge.mdc @Jakeminator123
 /scripts/ci/ @Jakeminator123
+/scripts/pr-review/ @Jakeminator123
 /scripts/workflow/ @Jakeminator123
+/src/lib/control-plane/policy-registry.ts @Jakeminator123
 
 # Säkerhet och autentisering
 /src/lib/auth/ @Jakeminator123

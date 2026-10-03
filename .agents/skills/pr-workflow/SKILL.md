@@ -93,9 +93,10 @@ inte squashad commithistorik.
 ## 5. Merge och städ
 
 När Jakob ger ett uttryckligt eller förhandsvillkorat mergemandat: följ
-`pr-merge.mdc` och använd GitHubs vanliga squash-merge när native villkor är
-uppfyllda. Bara den allowlistade Dependabot-vägen får aktivera native
-auto-merge. Använd aldrig `--admin` och merga inte på eget bevåg. Innan en promote-PR
+`pr-merge.mdc` och använd `gh pr merge --squash --match-head-commit` med den
+granskade headen när native villkor är uppfyllda. Bara den allowlistade
+Dependabot-vägen får aktivera native auto-merge. Använd aldrig `--admin` och
+merga inte på eget bevåg. Innan en promote-PR
 mergas till master: varna att det går till produktion och vänta på extra
 bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
 remote-gren, inte trunk och inte builder-ytan.
