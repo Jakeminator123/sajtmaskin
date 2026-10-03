@@ -1398,7 +1398,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (
     !dependabotEvents.has("pull_request_target") ||
-    dependabotEvents.size !== 1 ||
+    !dependabotEvents.has("workflow_run") ||
+    dependabotEvents.size !== 2 ||
     dependabotEvents.has("pull_request") ||
     !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
     !dependabotWorkflow.includes("persist-credentials: false") ||
@@ -1409,7 +1410,13 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotWorkflow.includes(
       "DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget.",
     ) ||
-    !dependabotWorkflow.includes("if: github.event.action == 'synchronize'") ||
+    !dependabotWorkflow.includes("github.event.action == 'synchronize'") ||
+    !dependabotWorkflow.includes("github.actor != 'dependabot[bot]'") ||
+    !dependabotWorkflow.includes("workflows: [CI]") ||
+    !dependabotWorkflow.includes("github.event.workflow_run.conclusion == 'success'") ||
+    !dependabotWorkflow.includes("listPullRequestsAssociatedWithCommit") ||
+    !dependabotWorkflow.includes("pr.head.sha === expectedHead") ||
+    !dependabotWorkflow.includes('"$current_base" != "$BASE_SHA"') ||
     dependabotDisarmIndex < 0 ||
     dependabotValidateIndex < 0 ||
     dependabotDisarmIndex > dependabotValidateIndex ||
@@ -1417,7 +1424,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||
     !dependabotWorkflow.includes("steps.auth.outputs.available == 'true'") ||
-    !dependabotWorkflow.includes("steps.meta.outcome == 'success'") ||
+    !dependabotWorkflow.includes("steps.validate.outcome == 'success'") ||
     dependabotWorkflow.includes("gh label create") ||
     dependabotWorkflow.includes("gh pr edit") ||
     !dependabotWorkflow.includes("github.event.pull_request.user.login == 'dependabot[bot]'") ||

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -1031,6 +1032,8 @@ describe("agent workflow repository contract", () => {
     const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(source).toContain("pull_request_target:");
+    expect(source).toContain("workflow_run:");
+    expect(source).toContain("workflows: [CI]");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
     expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
     expect(source).toContain("persist-credentials: false");
@@ -1039,7 +1042,10 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
     expect(source).not.toContain("secrets.GITHUB_TOKEN");
     expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget");
-    expect(source).toContain("if: github.event.action == 'synchronize'");
+    expect(source).toContain("github.event.action == 'synchronize'");
+    expect(source).toContain("github.actor != 'dependabot[bot]'");
+    expect(source).toContain("pr.head.sha === expectedHead");
+    expect(source).toContain('"$current_base" != "$BASE_SHA"');
     expect(source.indexOf("Disarm previous request before validating a new head"))
       .toBeLessThan(source.indexOf("Validate patch contents without executing PR code"));
     expect(source).toContain('gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"');
@@ -1049,12 +1055,50 @@ describe("agent workflow repository contract", () => {
     expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(source).toContain("if: always()");
     expect(source).toContain("steps.auth.outputs.available == 'true'");
-    expect(source).toContain("steps.meta.outcome == 'success'");
+    expect(source).toContain("steps.validate.outcome == 'success'");
     expect(source).not.toContain("gh label create");
     expect(source).not.toContain("gh pr edit");
     expect(readFileSync(".github/CODEOWNERS", "utf8")).toContain(
       "/config/control-plane/schema-registry.json @Jakeminator123",
     );
+  });
+
+  it("selects only the current open same-repository Dependabot PR for workflow_run", async () => {
+    const yaml = createRequire(import.meta.url)("js-yaml") as { load: (source: string) => unknown };
+    const document = yaml.load(readFileSync(".github/workflows/dependabot-automerge.yml", "utf8")) as {
+      jobs: { classify: { steps: Array<{ id?: string; with?: { script?: string } }> } };
+    };
+    const script = document.jobs.classify.steps.find((step) => step.id === "pr")!.with!.script!;
+    const runSelector = new Function("context", "github", "core", `return (async () => { ${script} })()`);
+    const head = "a".repeat(40);
+    const valid = {
+      number: 42, state: "open", user: { login: "dependabot[bot]" },
+      base: { ref: "preview", sha: "b".repeat(40) },
+      head: { sha: head, repo: { full_name: "Jakeminator123/sajtmaskin" } },
+      html_url: "https://github.com/Jakeminator123/sajtmaskin/pull/42", draft: false,
+    };
+    const select = async (pr: typeof valid, candidates = [pr]) => {
+      const outputs: Record<string, unknown> = {};
+      await runSelector(
+        { repo: { owner: "Jakeminator123", repo: "sajtmaskin" }, payload: { workflow_run: { head_sha: head } } },
+        { rest: {
+          repos: { listPullRequestsAssociatedWithCommit: async () => ({ data: candidates }) },
+          pulls: { get: async () => ({ data: pr }) },
+        } },
+        { setOutput: (key: string, value: unknown) => { outputs[key] = value; } },
+      );
+      return outputs;
+    };
+    expect(await select(valid)).toMatchObject({ number: 42, head, base: valid.base.sha });
+    for (const pr of [
+      { ...valid, state: "closed" },
+      { ...valid, user: { login: "someone" } },
+      { ...valid, base: { ...valid.base, ref: "master" } },
+      { ...valid, head: { ...valid.head, sha: "c".repeat(40) } },
+      { ...valid, head: { ...valid.head, repo: { full_name: "fork/sajtmaskin" } } },
+    ]) expect(await select(pr)).toEqual({});
+    expect(await select(valid, [])).toEqual({});
+    expect(await select(valid, [valid, valid])).toEqual({});
   });
 
   it.each([

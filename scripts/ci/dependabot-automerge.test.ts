@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  changedDirectDependencies,
   matchesAllowedPackage,
   parseDependencyNames,
   validateLockChanges,
@@ -8,7 +9,7 @@ import {
   validateSnapshot,
 } from "./dependabot-automerge.mjs";
 
-const allowed = ["@radix-ui/*", "nanoid", "swr"];
+const allowed = ["@radix-ui/*", "nanoid", "swr", "child"];
 
 type LockEntry = {
   version?: string;
@@ -86,6 +87,20 @@ describe("Dependabot native auto-merge classification", () => {
         headLock,
       }),
     ).not.toThrow();
+  });
+
+  it("derives lock-only direct updates from versions and rejects hidden minor/core changes", () => {
+    const base = lock("5.1.0");
+    const patch = lock("5.1.1");
+    patch.packages[""].dependencies!.nanoid = "^5.1.0";
+    expect(changedDirectDependencies(pkg(), pkg(), base, patch)).toEqual(["nanoid"]);
+    expect(() => validateLockChanges(base, patch, ["nanoid"], allowed)).not.toThrow();
+    const minor = structuredClone(patch);
+    minor.packages["node_modules/nanoid"].version = "5.2.0";
+    expect(() => validateLockChanges(base, minor, ["nanoid"], allowed)).toThrow(/inte en patch/u);
+    const core = structuredClone(patch);
+    core.packages["node_modules/child"].version = "1.0.1";
+    expect(() => validateLockChanges(base, core, ["nanoid"], ["nanoid"])).toThrow(/inte allowlistat/u);
   });
 
   it.each([

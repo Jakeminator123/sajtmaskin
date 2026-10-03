@@ -97,6 +97,23 @@ export function validateManifestChanges(before, after, dependencyNames, allowedP
   }
 }
 
+export function changedDirectDependencies(basePackage, headPackage, baseLock, headLock) {
+  const names = new Set();
+  for (const section of DEPENDENCY_SECTIONS) {
+    for (const name of new Set([
+      ...Object.keys(basePackage?.[section] ?? {}),
+      ...Object.keys(headPackage?.[section] ?? {}),
+    ])) {
+      const path = `node_modules/${name}`;
+      if (basePackage?.[section]?.[name] !== headPackage?.[section]?.[name] ||
+          !isDeepStrictEqual(baseLock?.packages?.[path], headLock?.packages?.[path])) {
+        names.add(name);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
 function parentPackagePath(packagePath) {
   if (!packagePath) return null;
   const nested = packagePath.lastIndexOf("/node_modules/");
@@ -182,7 +199,11 @@ export function validateLockChanges(baseLock, headLock, dependencyNames, allowed
       allowedPaths.has(packagePath),
       `${packagePath}: lockändringen ligger utanför allowlistade pakets beroendeträd`,
     );
-    if (headPackages[packagePath]) assertSafeRegistryEntry(packagePath, headPackages[packagePath]);
+    const name = packagePath.slice(packagePath.lastIndexOf("node_modules/") + "node_modules/".length);
+    invariant(matchesAllowedPackage(name, allowedPatterns), `${name}: lockpaketet är inte allowlistat`);
+    invariant(basePackages[packagePath] && headPackages[packagePath], `${packagePath}: lockpaket lades till eller togs bort`);
+    assertPatchChange(packagePath, basePackages[packagePath].version, headPackages[packagePath].version);
+    assertSafeRegistryEntry(packagePath, headPackages[packagePath]);
   }
 }
 
@@ -250,7 +271,6 @@ export async function validateFromEnvironment(env = process.env) {
   invariant(env.BASE_SHA && env.HEAD_SHA, "base/head-SHA saknas");
   const config = JSON.parse(readFileSync(resolve(ROOT, "config/dependabot-automerge.json"), "utf8"));
   invariant(env.BASE_REF === config.baseBranch, `fel basgren: ${env.BASE_REF || "okänd"}`);
-  const dependencyNames = parseDependencyNames(env.DEPENDENCY_NAMES);
   const changedFiles = await listPullRequestFiles(env.REPO, env.PR_NUMBER, env.GH_TOKEN);
   const [basePackage, headPackage, baseLock, headLock] = await Promise.all([
     readGitHubFile(env.REPO, "package.json", env.BASE_SHA, env.GH_TOKEN),
@@ -258,9 +278,11 @@ export async function validateFromEnvironment(env = process.env) {
     readGitHubFile(env.REPO, "package-lock.json", env.BASE_SHA, env.GH_TOKEN),
     readGitHubFile(env.REPO, "package-lock.json", env.HEAD_SHA, env.GH_TOKEN),
   ]);
+  // Klassificera faktiska versioner; ingen PR-text, titel eller obetrodd CI-artefakt.
+  const dependencyNames = changedDirectDependencies(basePackage, headPackage, baseLock, headLock);
   validateSnapshot({
     config,
-    updateType: env.UPDATE_TYPE,
+    updateType: "version-update:semver-patch",
     dependencyNames,
     changedFiles,
     basePackage,

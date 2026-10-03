@@ -99,16 +99,19 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
 ## Auto-merge-kontrakt
 
 [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) kör
-endast betrodd default-branch-kod via `pull_request_target`. PR-head checkas
+endast betrodd default-branch-kod via `workflow_run` efter CI och mänskligt
+utlösta `pull_request_target`-events. PR-head checkas
 aldrig ut med skrivtoken eller produktionshemligheter. Controllern aktiverar
 bara GitHubs native auto-merge när allt nedan är bevisat:
 
 - basen är `preview`, avsändaren är Dependabot och uppdateringen är en patch;
-- alla paket är direkta npm-beroenden i den uttryckliga allowlisten;
+- alla uppdaterade direkta npm-beroenden finns i den uttryckliga allowlisten;
 - bara `package.json` och `package-lock.json` har ändrats;
 - manifestet ändrar endast tillåtna patchversioner;
-- lockändringar ligger i de tillåtna paketens beroendeträd, kommer från npm-
-  registret och introducerar ingen install-script-markering.
+- varje ändrat lockpaket är också allowlistat och en faktisk patchökning;
+  ändringen ligger i de tillåtna paketens beroendeträd, kommer från npm-
+  registret och introducerar ingen install-script-markering. Tillagda eller
+  borttagna lockpaket går till manuell review.
 
 Vid osäkerhet, draft, major/minor, core-/baselinepaket, scriptändring eller
 blandad koddiff stängs eventuell auto-merge av. GitHub
@@ -116,7 +119,8 @@ väntar sedan på strict/up-to-date required checks. Mergepushen startar samma
 `push`-CI och deployment som en manuell GitHub-merge. Själva mergebegäran
 använder `DEPENDABOT_AUTOMERGE_TOKEN` (fine-grained PAT eller GitHub App-token),
 inte workflowets `GITHUB_TOKEN`, eftersom GitHub annars undertrycker följande
-Actions-event. Tokenvärdet lagras med samma namn i både Actions secrets och
-Dependabot secrets: mänskligt utlösta events läser det förra och Dependabot-
-utlösta events det senare. Saknad secret är fail-closed och controllern gör
-inga skrivningar.
+Actions-event. Tokenvärdet lagras endast i Actions secrets. `workflow_run`
+kan läsa den efter Dependabots PR-CI, även när ursprunglig PR-körning saknar
+secrets. Vid start av ny CI stängs en äldre mergebegäran av före validering;
+aktivering sker efter godkänd CI och en ny läsning av aktuell head/base.
+Saknad secret är fail-closed och controllern gör inga skrivningar.
