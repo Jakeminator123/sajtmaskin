@@ -59,7 +59,10 @@ stabil id-ordnad läsning börjar med `?cursor=0&limit=500` och följer
 `registry.nextCursor` tills `registry.complete=true`.
 
 `GET /api/kostnadsfri/mail-events?limit=500` läser enskilda mejl i stigande
-skapelseordning. Följ dess opaka `nextCursor` tills `complete=true`.
+skapelseordning. Följ dess opaka `nextCursor` tills `complete=true`. Markören
+bär `created_at` med mikrosekunder plus `messageId`, så sista raden upprepas
+aldrig och rader med samma tidsstämpel hoppas inte över. En markör med bara
+millisekunder avvisas med 400.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, like, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, like, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   engineGenerationLogs,
@@ -424,29 +424,38 @@ export async function getAcceptedKostnadsfriMailEvent(
   return rows[0] ?? null;
 }
 
+/**
+ * Full-precision keyset cursor value for a mail event. Postgres stores
+ * `created_at` with microseconds while JS `Date` truncates to milliseconds, so
+ * the cursor is rendered by Postgres itself as canonical UTC text.
+ */
+export type KostnadsfriMailEventPageRow = KostnadsfriMailEvent & { cursor_created_at: string };
+
+/**
+ * Strict keyset page ordered by (created_at, message_id). The row comparison
+ * runs entirely in Postgres at microsecond precision, so the cursor row is
+ * never repeated and same-timestamp rows are never skipped.
+ */
 export async function listKostnadsfriMailEventsAfter(
-  afterCreatedAt: Date | null,
+  afterCreatedAt: string | null,
   afterMessageId: string | null,
   limit: number,
-): Promise<KostnadsfriMailEvent[]> {
+): Promise<KostnadsfriMailEventPageRow[]> {
   assertDbConfigured();
+  const cursorCreatedAt = sql<string>`to_char(${kostnadsfriMailEvents.created_at} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
   const query = db
-    .select()
+    .select({ event: kostnadsfriMailEvents, cursorCreatedAt })
     .from(kostnadsfriMailEvents)
     .orderBy(asc(kostnadsfriMailEvents.created_at), asc(kostnadsfriMailEvents.message_id));
-  return afterCreatedAt && afterMessageId
-    ? query
-        .where(
-          or(
-            gt(kostnadsfriMailEvents.created_at, afterCreatedAt),
-            and(
-              eq(kostnadsfriMailEvents.created_at, afterCreatedAt),
-              gt(kostnadsfriMailEvents.message_id, afterMessageId),
-            ),
-          ),
-        )
-        .limit(limit)
-    : query.limit(limit);
+  const rows =
+    afterCreatedAt && afterMessageId
+      ? await query
+          .where(
+            sql`(${kostnadsfriMailEvents.created_at}, ${kostnadsfriMailEvents.message_id}) > (${afterCreatedAt}::timestamptz, ${afterMessageId})`,
+          )
+          .limit(limit)
+      : await query.limit(limit);
+  return rows.map((row) => ({ ...row.event, cursor_created_at: row.cursorCreatedAt }));
 }
 
 export type KostnadsfriMailEventStats = {

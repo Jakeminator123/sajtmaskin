@@ -13,7 +13,7 @@ function request(query = "", key: string | null = "test-key") {
   return new NextRequest(`http://localhost/api/kostnadsfri/mail-events${query}`, { headers });
 }
 
-function event(messageId: string, createdAt: string) {
+function event(messageId: string, createdAt: string, cursorCreatedAt = createdAt) {
   return {
     message_id: messageId,
     slug: "acme-ab",
@@ -27,6 +27,7 @@ function event(messageId: string, createdAt: string) {
     outcome: "accepted",
     source: "render-mail-flow:text",
     created_at: new Date(createdAt),
+    cursor_created_at: cursorCreatedAt,
   };
 }
 
@@ -47,7 +48,7 @@ describe("GET /api/kostnadsfri/mail-events", () => {
 
   it("returns a complete per-message page with SMTP acceptance distinct from creation", async () => {
     listKostnadsfriMailEventsAfter.mockResolvedValueOnce([
-      event("a".repeat(32), "2026-10-03T08:31:00Z"),
+      event("a".repeat(32), "2026-10-03T08:31:00Z", "2026-10-03T08:31:00.000000Z"),
     ]);
     const res = await GET(request("?limit=2"));
     const body = await res.json();
@@ -63,20 +64,31 @@ describe("GET /api/kostnadsfri/mail-events", () => {
     });
   });
 
-  it("provides an opaque composite cursor without dropping a same-timestamp row", async () => {
-    const first = event("a".repeat(32), "2026-10-03T08:31:00Z");
-    const second = event("b".repeat(32), "2026-10-03T08:31:00Z");
+  it("keeps microsecond precision in the opaque cursor so the cursor row is not repeated", async () => {
+    const first = event("a".repeat(32), "2026-10-03T08:31:00.123Z", "2026-10-03T08:31:00.123456Z");
+    const second = event("b".repeat(32), "2026-10-03T08:31:00.123Z", "2026-10-03T08:31:00.123789Z");
     listKostnadsfriMailEventsAfter.mockResolvedValueOnce([first, second]);
     const firstPage = await (await GET(request("?limit=1"))).json();
     expect(firstPage.complete).toBe(false);
+    expect(Buffer.from(firstPage.nextCursor, "base64url").toString("utf8")).toBe(
+      `2026-10-03T08:31:00.123456Z|${"a".repeat(32)}`,
+    );
 
     listKostnadsfriMailEventsAfter.mockResolvedValueOnce([second]);
     const secondPage = await GET(request(`?limit=1&cursor=${firstPage.nextCursor}`));
     expect(secondPage.status).toBe(200);
     expect(listKostnadsfriMailEventsAfter).toHaveBeenLastCalledWith(
-      new Date("2026-10-03T08:31:00.000Z"),
+      "2026-10-03T08:31:00.123456Z",
       "a".repeat(32),
       2,
     );
   });
+
+  it("rejects a millisecond-precision cursor instead of silently repeating rows", async () => {
+    const legacy = Buffer.from(`2026-10-03T08:31:00.123Z|${"a".repeat(32)}`).toString("base64url");
+    const res = await GET(request(`?cursor=${legacy}`));
+    expect(res.status).toBe(400);
+    expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
+  });
+
 });
