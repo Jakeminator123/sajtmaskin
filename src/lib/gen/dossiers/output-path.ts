@@ -8,6 +8,7 @@
  */
 
 import { SCAFFOLD_PROTECTED_PATHS } from "@/lib/gen/scaffolds/protected-paths";
+import { validateFilePath } from "../security/path-validator";
 
 const MIN_PATH_LENGTH = 3;
 const MAX_PATH_LENGTH = 240;
@@ -34,6 +35,7 @@ const SCAFFOLD_RESERVED_OUTPUT_PATHS: ReadonlySet<string> = new Set([
 
 const WINDOWS_DEVICE_BASENAME_RE =
   /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$/i;
+const WINDOWS_CONSOLE_DEVICE_BASENAME_RE = /^(?:conin\$|conout\$)$/i;
 const FORBIDDEN_PORTABLE_CHAR_RE = /[<>:"|?*]/;
 const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
 
@@ -127,7 +129,10 @@ function assertPortableRelativePath(path: string): void {
     if (segment !== segment.trim()) {
       throw new DossierFilePathError(path, "segments must not start or end with whitespace");
     }
-    if (WINDOWS_DEVICE_BASENAME_RE.test(segment)) {
+    if (
+      WINDOWS_DEVICE_BASENAME_RE.test(segment) ||
+      WINDOWS_CONSOLE_DEVICE_BASENAME_RE.test(segment)
+    ) {
       throw new DossierFilePathError(
         path,
         `uses reserved Windows device name ${JSON.stringify(segment)}`,
@@ -163,6 +168,13 @@ export function resolveDossierFilePath(dossierPath: string): ResolvedDossierFile
     throw new DossierFilePathError(
       dossierPath,
       `maps to output path ${JSON.stringify(outputPath)}, which conflicts with scaffold-reserved output path ${JSON.stringify(reservedConflict)}`,
+    );
+  }
+  const generatedPathValidation = validateFilePath(outputPath);
+  if (!generatedPathValidation.valid) {
+    throw new DossierFilePathError(
+      dossierPath,
+      `maps to unsupported generated-project path ${JSON.stringify(outputPath)}: ${generatedPathValidation.reason ?? "invalid path"}`,
     );
   }
   return { sourcePath: dossierPath, outputPath, outputIdentity };

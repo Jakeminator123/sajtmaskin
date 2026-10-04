@@ -9,6 +9,8 @@
  * 2026-05-01.
  */
 import { describe, expect, it } from "vitest";
+import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
+import { validateFilePath } from "@/lib/gen/security/path-validator";
 import {
   dossierOutputPathIdentity,
   findDivergentDossierOutputPathConflicts,
@@ -128,10 +130,27 @@ describe("resolveDossierFilePath", () => {
     ["components/com1", "Windows device"],
     ["components/foo./bar.ts", "end in a dot or space"],
     ["components/foo /bar.ts", "end in a dot or space"],
+    ["components/foo bar.ts", "invalid characters"],
+    ["components/caf\u00e9.ts", "invalid characters"],
+    ["components/\u180efoo.ts", "invalid characters"],
+    ["server/foo.ts", "outside allowed directories"],
+    ["components/node_modules/x.ts", "Blocked path segment"],
     ["ab", "3..240"],
     [`components/${"a".repeat(240)}.ts`, "3..240"],
   ])("rejects non-portable path %j", (path, message) => {
     expect(() => resolveDossierFilePath(path)).toThrow(message);
+  });
+
+  it("validates the mapped output length while allowing a longer source path", () => {
+    const acceptedName = `${"a".repeat(193)}.ts`;
+    const rejectedName = `${"a".repeat(194)}.ts`;
+    const accepted = resolveDossierFilePath(`components/lib/${acceptedName}`);
+    expect(accepted.sourcePath.length).toBeGreaterThan(200);
+    expect(accepted.outputPath).toBe(`lib/${acceptedName}`);
+    expect(accepted.outputPath).toHaveLength(200);
+    expect(() => resolveDossierFilePath(`components/lib/${rejectedName}`)).toThrow(
+      "exceeds 200",
+    );
   });
 
   it.each([
@@ -164,6 +183,21 @@ describe("resolveDossierFilePath", () => {
     expect(() => resolveDossierFilePath(path)).toThrow("Windows device");
   });
 
+  it.each(["CONIN$", "conout$", "components/CoNiN$"])(
+    "rejects exact Windows console device alias %s",
+    (path) => {
+      expect(() => resolveDossierFilePath(path)).toThrow("Windows device");
+    },
+  );
+
+  it.each(["CONIN$.txt", "components/conout$.log"])(
+    "does not classify extended console spelling %s as a Windows device",
+    (path) => {
+      expect(() => resolveDossierFilePath(path)).not.toThrow("Windows device");
+      expect(() => resolveDossierFilePath(path)).toThrow("invalid characters");
+    },
+  );
+
   it.each([
     "app/layout.tsx",
     "APP/LAYOUT.TSX",
@@ -194,9 +228,8 @@ describe("resolveDossierFilePath", () => {
   });
 
   it.each([
-    "application/page.tsx",
     "app/layout.tsx-extra/child.ts",
-    "package.json-assets/file.ts",
+    "components/package.json-assets/file.ts",
     "app/icon.svg-extra",
   ])("allows reserved-prefix sibling %s", (path) => {
     expect(resolveDossierFilePath(path).outputPath).toBe(path);
@@ -218,14 +251,22 @@ describe("resolveDossierFilePath", () => {
   });
 
   it.each([
-    "components/foo bar.ts",
     "components/api/chat/route.ts",
     "app/docs/[...slug]/page.tsx",
     "app/docs/[[...optional]]/page.tsx",
+    "app/(marketing)/page.tsx",
+    "app/@modal/default.tsx",
   ])("keeps accepted source and output paths canonical for %s", (path) => {
     const resolved = resolveDossierFilePath(path);
     expect(normalizeDossierProjectPath(resolved.sourcePath)).toBe(resolved.sourcePath);
     expect(normalizeDossierProjectPath(resolved.outputPath)).toBe(resolved.outputPath);
+    expect(validateFilePath(resolved.outputPath)).toEqual({ valid: true });
+    const parsed = parseCodeProject(
+      serializeCodeProject([
+        { path: resolved.outputPath, content: "export {};", language: "ts" },
+      ]),
+    );
+    expect(parsed.files.map((file) => file.path)).toEqual([resolved.outputPath]);
   });
 });
 
@@ -260,7 +301,6 @@ describe("portable output collisions", () => {
   it.each([
     ["components/cache", "components/cache/item.ts"],
     ["components/Cache", "components/cache/item.ts"],
-    ["components/cafe\u0301", "components/caf\u00e9/item.ts"],
   ])("rejects portable file/directory claims %s and %s", (parent, child) => {
     expect(
       findDivergentDossierOutputPathConflicts([

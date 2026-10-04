@@ -104,10 +104,10 @@ describe("isSafeDossierPath", () => {
   // substrängen `..` men är inte traversal — en substring-check tappade
   // dem tyst. Segment-checken ska släppa igenom dem.
   it("accepts literal catch-all directory names ([...slug])", () => {
-    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/docs/[...slug]/page.tsx")).toBe(
+    expect(isSafeDossierPath("hard", "stripe-checkout", "app/docs/[...slug]/page.tsx")).toBe(
       true,
     );
-    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/[[...slug]]/page.tsx")).toBe(
+    expect(isSafeDossierPath("hard", "stripe-checkout", "app/[[...slug]]/page.tsx")).toBe(
       true,
     );
   });
@@ -117,7 +117,7 @@ describe("isSafeDossierPath", () => {
     expect(isSafeDossierPath("hard", "stripe-checkout", "components/../../../etc")).toBe(false);
     // Traversal gömd EFTER en legitim catch-all-katalog ska fortfarande stoppas.
     expect(
-      isSafeDossierPath("hard", "stripe-checkout", "files/app/[...slug]/../../../etc/passwd"),
+      isSafeDossierPath("hard", "stripe-checkout", "app/[...slug]/../../../etc/passwd"),
     ).toBe(false);
   });
 

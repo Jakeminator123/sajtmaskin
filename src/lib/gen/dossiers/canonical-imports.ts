@@ -211,6 +211,12 @@ function collectModuleStringLiterals(sourceFile: ts.SourceFile): ts.StringLitera
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       add(node.moduleSpecifier);
+    } else if (
+      ts.isModuleDeclaration(node) &&
+      ts.isStringLiteralLike(node.name) &&
+      !node.name.text.includes("*")
+    ) {
+      literals.push(node.name);
     } else if (ts.isImportEqualsDeclaration(node)) {
       if (ts.isExternalModuleReference(node.moduleReference)) add(node.moduleReference.expression);
     } else if (ts.isCallExpression(node)) {

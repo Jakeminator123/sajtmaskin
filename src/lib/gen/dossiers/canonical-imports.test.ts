@@ -42,6 +42,69 @@ describe("rewriteDossierImportsForRenames", () => {
     );
   });
 
+  it("rewrites local alias module augmentations", () => {
+    const result = rewriteDossierImportsForRenames(
+      [
+        file(
+          "types/augment.d.ts",
+          'declare module "@/components/Old" { export interface Props { ok: true } }',
+        ),
+        file("components/Old.ts", "export const old = true;"),
+      ],
+      [{ fromPath: "components/Old.ts", toPath: "components/new.ts" }],
+    );
+    expect(result.files[0]!.content).toContain('module "@/components/new"');
+  });
+
+  it("preserves a relative module augmentation when its importer moves", () => {
+    const result = rewriteDossierImportsForRenames(
+      [
+        file(
+          "types/Old/augment.d.ts",
+          'declare module "../../components/shared" { export interface Props { ok: true } }',
+        ),
+        file("components/shared.ts", "export const shared = true;"),
+      ],
+      [{ fromPath: "types/Old/augment.d.ts", toPath: "types/deeper/new/augment.d.ts" }],
+    );
+    expect(result.files[0]!.content).toContain(
+      'module "../../../components/shared"',
+    );
+  });
+
+  it("leaves package and wildcard ambient modules untouched when the importer moves", () => {
+    const content = [
+      'declare module "react" {}',
+      'declare module "*.svg" {}',
+      'declare module "@/components/*" {}',
+      'declare module "./*" {}',
+    ].join("\n");
+    const files = [file("types/Old/ambient.d.ts", content)];
+    expect(() =>
+      rewriteDossierImportsForRenames(files, [
+        { fromPath: "types/Old/ambient.d.ts", toPath: "types/new/ambient.d.ts" },
+      ]),
+    ).not.toThrow();
+    expect(
+      rewriteDossierImportsForRenames(files, [
+        { fromPath: "types/Old/ambient.d.ts", toPath: "types/new/ambient.d.ts" },
+      ]),
+    ).toEqual({ files, changed: false });
+  });
+
+  it("fails atomically for a malformed file containing a local module augmentation", () => {
+    const files = [
+      file("types/augment.d.ts", 'declare module "@/components/Old" {'),
+      file("components/Old.ts", "export const old = true;"),
+    ];
+    expect(() =>
+      rewriteDossierImportsForRenames(files, [
+        { fromPath: "components/Old.ts", toPath: "components/new.ts" },
+      ]),
+    ).toThrow("import-rewrite-unsafe");
+    expect(files[0]!.content).toContain('module "@/components/Old"');
+  });
+
   it.each([
     ["app/page.ts", "ts"],
     ["app/page.tsx", "tsx"],

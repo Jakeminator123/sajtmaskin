@@ -89,9 +89,9 @@ describe("resolveDossierIdsPresentInVersion", () => {
 
   it("does not treat a case alias of a scaffold baseline path as distinctive", () => {
     vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
-      syntheticDossier("baseline-alias", "LIB/UTILS.ts"),
+      syntheticDossier("baseline-alias", "lib/UTILS.ts"),
     ]);
-    expect(resolveDossierIdsPresentInVersion(["LIB/UTILS.ts"])).toEqual([]);
+    expect(resolveDossierIdsPresentInVersion(["lib/UTILS.ts"])).toEqual([]);
   });
 
   it("still requires exact canonical casing for functional file presence", () => {
@@ -186,15 +186,6 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(resolveDossierIdsPresentInVersion([path])).not.toContain("openai-chat");
   });
 
-  it("does not treat a Unicode-composition alias as functional presence", () => {
-    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
-      syntheticDossier("unicode-path", "components/Caf\u00e9.ts"),
-    ]);
-    expect(resolveDossierIdsPresentInVersion(["components/Cafe\u0301.ts"])).toEqual([]);
-    expect(resolveDossierIdsPresentInVersion(["components/Caf\u00e9.ts"])).toEqual([
-      "unicode-path",
-    ]);
-  });
 });
 
 describe("resolveDossiersPresentInVersion", () => {

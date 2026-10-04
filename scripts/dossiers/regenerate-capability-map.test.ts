@@ -178,6 +178,7 @@ describe("capability-map projection: source fingerprints", () => {
     expect(FIXED_SOURCE_PATHS).toContain("src/lib/builder/dossier-axes.ts");
     expect(FIXED_SOURCE_PATHS).toContain("src/lib/gen/dossiers/output-path.ts");
     expect(FIXED_SOURCE_PATHS).toContain("src/lib/gen/scaffolds/protected-paths.ts");
+    expect(FIXED_SOURCE_PATHS).toContain("src/lib/gen/security/path-validator.ts");
     expect(FIXED_SOURCE_PATHS).not.toContain(
       "src/lib/gen/orchestrate/capability-prompt-filter.ts",
     );

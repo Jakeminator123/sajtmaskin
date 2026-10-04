@@ -100,6 +100,15 @@ describe("validateDossierManifest — canonical file paths", () => {
     "components/NUL.ts",
     "components/bad?.ts",
     "components/trailing./file.ts",
+    "components/foo bar.ts",
+    "components/caf\u00e9.ts",
+    "components/\u180efoo.ts",
+    "server/foo.ts",
+    "components/node_modules/x.ts",
+    `components/lib/${"a".repeat(194)}.ts`,
+    "CONIN$",
+    "components/conout$",
+    "CONIN$.txt",
     "APP/LAYOUT.TSX",
   ])("rejects unsafe or scaffold-reserved path %s", (path) => {
     const result = validateDossierManifest(
@@ -141,9 +150,10 @@ describe("validateDossierManifest — canonical file paths", () => {
         files: [
           { path: "app/statistik/page.tsx", role: "client" },
           { path: "components/legal/notice.tsx", role: "client" },
-          { path: "components/foo bar.ts", role: "shared" },
           { path: "app/docs/[...slug]/page.tsx", role: "server" },
           { path: "app/docs/[[...optional]]/page.tsx", role: "server" },
+          { path: "app/(marketing)/page.tsx", role: "client" },
+          { path: "app/@modal/default.tsx", role: "client" },
         ],
       },
       { expectedId: "example-dossier", class: "soft" },
@@ -161,10 +171,6 @@ describe("validateDossierManifest — canonical file paths", () => {
         { path: "components/Foo.ts", role: "shared" },
         { path: "components/foo.ts", role: "shared" },
       ],
-      [
-        { path: "components/cafe\u0301.ts", role: "shared" },
-        { path: "components/caf\u00e9.ts", role: "shared" },
-      ],
     ]) {
       const result = validateDossierManifest(
         { ...VALID_MANIFEST, files },
@@ -176,8 +182,8 @@ describe("validateDossierManifest — canonical file paths", () => {
   });
 
   it.each([
-    ["components/api/chat/route.ts", "Components/api/chat/route.ts"],
-    ["components/api/chat", "Components/api/chat/route.ts"],
+    ["components/api/chat/route.ts", "components/api/Chat/route.ts"],
+    ["components/api/chat", "components/api/Chat/route.ts"],
   ])("rejects portable source-path collision %s and %s before output mapping", (first, second) => {
     const result = validateDossierManifest(
       {
@@ -199,7 +205,7 @@ describe("validateDossierManifest — canonical file paths", () => {
         ...VALID_MANIFEST,
         files: [
           { path: "components/api/chat", role: "server" },
-          { path: "Components/api/chatty/route.ts", role: "server" },
+          { path: "components/api/Chatty/route.ts", role: "server" },
         ],
       },
       { expectedId: "example-dossier", class: "soft" },
@@ -210,7 +216,6 @@ describe("validateDossierManifest — canonical file paths", () => {
   it.each([
     ["components/cache", "components/cache/item.ts"],
     ["components/Cache", "components/cache/item.ts"],
-    ["components/cafe\u0301", "components/caf\u00e9/item.ts"],
   ])("rejects intra-manifest file/directory claims %s and %s", (parent, child) => {
     const result = validateDossierManifest(
       {

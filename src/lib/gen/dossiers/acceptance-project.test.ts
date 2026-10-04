@@ -1,16 +1,39 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isBuiltinPackage,
   parseManifestDependencySpec,
   resolveExportableVersion,
 } from "@/lib/gen/autofix/dep-completer";
 import { getAllDossiers, getDossierFileContent } from "./registry";
+import * as registry from "./registry";
 import { mapDossierPathToOutput } from "./output-path";
 import { buildDossierAcceptanceProject } from "./acceptance-project";
+import type { DossierEntry } from "./types";
+
+function mockAcceptanceDossier(paths: string[]): void {
+  const dossier: DossierEntry = {
+    class: "soft",
+    id: "synthetic-acceptance",
+    label: "Synthetic acceptance",
+    capability: "synthetic-acceptance",
+    codeFidelity: "rewritable",
+    complexity: "simple",
+    defaultForCapability: false,
+    summary: "Synthetic dossier for acceptance path-conflict tests.",
+    files: paths.map((path) => ({ path, role: "shared" as const })),
+    lastVerified: "2026-01-01",
+  };
+  vi.spyOn(registry, "getDossierById").mockReturnValue(dossier);
+  vi.spyOn(registry, "getDossierFileContent").mockImplementation(
+    (_class, _id, path) => `export const source = ${JSON.stringify(path)};`,
+  );
+}
 
 describe("keyless dossier acceptance project", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("materializes every file-shipping dossier (hard + soft) with exact files and deterministic dependencies", () => {
     const fileShippingDossiers = getAllDossiers().filter(
       (dossier) => (dossier.files ?? []).length > 0,
@@ -61,6 +84,43 @@ describe("keyless dossier acceptance project", () => {
     expect(() => buildDossierAcceptanceProject(fileless!.id)).toThrow(
       /requires a dossier with declared files/,
     );
+  });
+
+  it("allows an exact literal scaffold overlay", () => {
+    mockAcceptanceDossier(["app/page.tsx"]);
+    const project = buildDossierAcceptanceProject("synthetic-acceptance");
+    expect(project.files.find((file) => file.path === "app/page.tsx")?.content).toContain(
+      '"app/page.tsx"',
+    );
+  });
+
+  it("rejects a portable scaffold alias before overwriting it", () => {
+    mockAcceptanceDossier(["app/Page.tsx"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+      "acceptance-output-conflict",
+    );
+  });
+
+  it.each(["components", "components/site-header.tsx/child.ts"])(
+    "rejects scaffold file/directory conflict %s",
+    (path) => {
+      mockAcceptanceDossier([path]);
+      expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+        "acceptance-output-conflict",
+      );
+    },
+  );
+
+  it("rejects a file/directory conflict with an already materialized dossier file", () => {
+    mockAcceptanceDossier(["components/cache", "components/cache/item.ts"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).toThrow(
+      "acceptance-output-conflict",
+    );
+  });
+
+  it("allows a scaffold prefix sibling without a slash boundary", () => {
+    mockAcceptanceDossier(["components/site-header.tsx-extra"]);
+    expect(() => buildDossierAcceptanceProject("synthetic-acceptance")).not.toThrow();
   });
 
   it("materializes openai-chat with the AI SDK ranges used by the warm typecheck", () => {
