@@ -5,7 +5,9 @@ on:
     branches: [master, preview]
   pull_request:
     branches: [master, preview]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    # Draft blocks merge already; changing to draft must not cancel/restart
+    # an otherwise valid same-head run. Ready still upgrades deferred checks.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch: {}
 
 concurrency:
@@ -142,13 +144,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # `POSTGRES_URL` sätts medvetet BARA på de två DB-stegen nedan, aldrig på
-      # jobbnivå: standard-sviten körs utan databas, och flera tester verifierar
-      # att appen degraderar snyggt när den saknas. En jobbnivå-variabel hade
-      # ändrat förutsättningen för dem tyst.
-      - name: Test
-        run: npm run test:ci
-
       # Applicerar schema + alla migrationer i MIGRATION_ORDER, inklusive
       # add-files-revision.sql, mot den efemära databasen.
       - name: Initiera testdatabasen
@@ -190,6 +185,41 @@ jobs:
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
+
+  # Same complete suite as test:ci, split by Vitest across four isolated
+  # runners. No path selection or cached test result: every heavy head runs
+  # all four parts. quality requires the whole matrix to succeed.
+  quality-tests:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure embeddings (sync + verify)
+        run: npm run embeddings:ensure
+
+      # No POSTGRES_URL here: database and deterministic stability contracts
+      # retain their separate blocking lanes in quality-core.
+      - name: Test shard (blocking)
+        run: npm run test:ci -- --shard=${{ matrix.shard }}/4
 
   # Avtal, genererade projektioner och dokumentation körs parallellt med
   # runtime/test-lanen ovan. Det gör huvudgrinden snabbare utan att någon kontroll
@@ -251,7 +281,7 @@ jobs:
       # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
       - name: Validate workflow and CI scope decisions
         if: ${{ !cancelled() }}
-        run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts
+        run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts
 
       - name: Verify generated contract docs
         if: ${{ !cancelled() }}
@@ -297,7 +327,7 @@ jobs:
         run: npm run canvas:check
 
   quality:
-    needs: [scope, quality-core, quality-contracts, preview-host-guards, dead-code]
+    needs: [scope, quality-core, quality-tests, quality-contracts, preview-host-guards, dead-code]
     # Kör efter failed/skipped dependencies för att publicera grinden, men låt
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
@@ -308,6 +338,7 @@ jobs:
           SCOPE_RESULT: ${{ needs.scope.result }}
           RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}
           CORE_RESULT: ${{ needs['quality-core'].result }}
+          TESTS_RESULT: ${{ needs['quality-tests'].result }}
           CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}
           PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}
           DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}
@@ -318,18 +349,22 @@ jobs:
             EXPECT_HEAVY=false
           fi
           if [ "$CONTRACTS_RESULT" != "success" ] || [ "$PREVIEW_HOST_RESULT" != "success" ] || [ "$DEAD_CODE_RESULT" != "success" ]; then
-            echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
+            echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
             exit 1
           fi
-          if [ "$EXPECT_HEAVY" = "true" ] && [ "$CORE_RESULT" != "success" ]; then
-            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
+          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ]; }; then
+            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
             exit 1
           fi
           if [ "$EXPECT_HEAVY" = "false" ] && [ "$CORE_RESULT" != "skipped" ] && [ "$CORE_RESULT" != "success" ]; then
             echo "::error::Latt CI tillat men quality-core fick ovantat resultat ${CORE_RESULT}"
             exit 1
           fi
-          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT})"
+          if [ "$EXPECT_HEAVY" = "false" ] && [ "$TESTS_RESULT" != "skipped" ] && [ "$TESTS_RESULT" != "success" ]; then
+            echo "::error::Latt CI tillat men quality-tests fick ovantat resultat ${TESTS_RESULT}"
+            exit 1
+          fi
+          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT})"
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för

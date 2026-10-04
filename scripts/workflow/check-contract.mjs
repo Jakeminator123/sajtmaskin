@@ -504,14 +504,16 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
+    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
   const scope = document?.jobs?.scope;
@@ -593,10 +595,12 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
   if (!includesEvery(pullRequest?.types, requiredTypes)) {
-    errors.push("CI pull_request events must rerun scope when draft readiness changes");
+    errors.push("CI must run on new heads and upgrade deferred checks on ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("CI must not restart unchanged work on converted_to_draft");
   }
 
   if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
@@ -633,6 +637,28 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     )
   ) {
     errors.push("quality-core may defer work only on an explicit successful light scope");
+  }
+  const qualityTests = document?.jobs?.["quality-tests"];
+  const shardCommand = "npm run test:ci -- --shard=${{ matrix.shard }}/4";
+  const shardStep = qualityTests?.steps?.find((step) => step.run === shardCommand);
+  if (
+    !values(qualityTests?.needs).includes("scope") ||
+    !hasExactExpression(qualityTests?.if, qualityCore?.if) ||
+    !hasExactStringSet(qualityTests?.strategy?.matrix?.shard, ["1", "2", "3", "4"]) ||
+    qualityTests?.strategy?.matrix?.include !== undefined ||
+    qualityTests?.strategy?.matrix?.exclude !== undefined ||
+    qualityTests?.strategy?.["fail-fast"] !== false ||
+    qualityTests?.strategy?.["max-parallel"] !== 4 ||
+    qualityTests?.["continue-on-error"] !== undefined ||
+    !shardStep ||
+    shardStep.if !== undefined ||
+    shardStep["continue-on-error"] !== undefined ||
+    packageScripts?.["test:ci"] !== "vitest run"
+  ) {
+    errors.push("quality-tests must run all four blocking native Vitest shards on heavy scope");
+  }
+  if (qualityCore?.steps?.some((step) => step.run === "npm run test:ci")) {
+    errors.push("quality-core must not duplicate the complete sharded test suite");
   }
   const e2eContract = qualityCore?.steps?.find((step) => step.run === "npm run test:e2e:contract");
   if (
@@ -720,12 +746,19 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const qualityNeeds = [
     "scope",
     "quality-core",
+    "quality-tests",
     "quality-contracts",
     "preview-host-guards",
     "dead-code",
   ];
   if (!includesEvery(document?.jobs?.quality?.needs, qualityNeeds)) {
-    errors.push("quality must aggregate scope, core, contracts, preview-host and dead-code");
+    errors.push("quality must aggregate scope, core, all test shards, contracts, preview-host and dead-code");
+  }
+  const aggregate = document?.jobs?.quality?.steps?.find(
+    (step) => step.name === "Aggregate required quality result",
+  );
+  if (!hasExactExpression(aggregate?.env?.TESTS_RESULT, "${{ needs['quality-tests'].result }}")) {
+    errors.push("quality must bind TESTS_RESULT to the complete test matrix");
   }
   if (!hasExactExpression(document?.jobs?.quality?.if, "${{ !cancelled() }}")) {
     errors.push(

@@ -729,7 +729,7 @@ describe("agent workflow repository contract", () => {
     };
 
     const weakened = [
-      replaceOnce("ready_for_review, ", ""),
+      replaceOnce("reopened, ready_for_review", "reopened"),
       replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
@@ -1188,7 +1188,7 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
