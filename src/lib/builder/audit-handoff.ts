@@ -13,6 +13,20 @@ import type { PublicAnalysReport } from "@/lib/audit/public-report";
 
 export const AUDIT_HANDOFF_PAYLOAD_KIND = "audit" as const;
 
+/** Shared client retry identity and server replay comparison; array order is significant. */
+export function serializeAuditHandoffIdentity(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(serializeAuditHandoffIdentity).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .filter((key) => record[key] !== undefined)
+      .map((key) => `${JSON.stringify(key)}:${serializeAuditHandoffIdentity(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
 const TOP_ISSUES = 8;
 const TOP_IMPROVEMENTS = 8;
 const MAX_SECTION_CONTENT_CHARS = 1_200;
