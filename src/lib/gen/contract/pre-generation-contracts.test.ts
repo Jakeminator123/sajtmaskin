@@ -446,8 +446,8 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     }
   });
 
-  it("does not guess an auth capability for an ambiguous legacy Supabase label", () => {
-    const ctx = inferPreGenerationContracts({
+  it("keeps a generic legacy Supabase identity unresolved instead of guessing DB or Clerk", () => {
+    const first = inferPreGenerationContracts({
       prompt: "Keep the existing login",
       buildIntent: "app",
       capabilities: baseCaps({ needsAuth: true }),
@@ -460,10 +460,180 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
         },
       ],
     });
+    const second = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: first.contracts.integrations,
+    });
 
+    for (const round of [first, second]) {
+      expect(round.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "auth",
+          status: "unresolved",
+        }),
+      ]);
+      expect(round.contracts.integrations[0]).not.toHaveProperty("providerKey");
+      expect(round.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ dossierCapability: "database" }),
+      );
+      expect(round.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: "clerk" }),
+      );
+      expect(round.contracts.authProvider).toBeUndefined();
+      expect(round.contracts.databaseProvider).toBeUndefined();
+    }
+  });
+
+  it("preserves a specifically named legacy Supabase Auth identity", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Keep the existing login",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: [
+        {
+          provider: "Supabase",
+          name: "Supabase Auth",
+          reason: "Stored by an older snapshot",
+          status: "chosen",
+        },
+      ],
+    });
+
+    expect(ctx.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        selectionSource: "legacy-preserved",
+      }),
+    ]);
     expect(ctx.contracts.integrations).not.toContainEqual(
-      expect.objectContaining({ providerKey: "supabase", dossierCapability: "auth" }),
+      expect.objectContaining({ dossierCapability: "database" }),
     );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+  });
+
+  it.each([
+    [
+      "auth-only",
+      baseCaps({ needsAuth: true }),
+      [{ providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" }],
+      ["auth"],
+    ],
+    [
+      "database-only",
+      baseCaps({ needsDatabase: true }),
+      [{ providerKey: "supabase", dossierCapability: "database", packageRoot: "@supabase/supabase-js" }],
+      ["database"],
+    ],
+    [
+      "mixed",
+      baseCaps({ needsAuth: true, needsDatabase: true }),
+      [
+        { providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" },
+        { providerKey: "supabase", dossierCapability: "database", packageRoot: "@supabase/supabase-js" },
+      ],
+      ["auth", "database"],
+    ],
+  ] as const)("resolves Supabase project evidence by provider and capability for %s", (_label, capabilities, evidence, expectedCapabilities) => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Keep the existing project wiring",
+      buildIntent: "app",
+      capabilities,
+      projectProviderEvidence: evidence,
+    });
+
+    expect(
+      ctx.contracts.integrations
+        .filter((entry) => entry.providerKey === "supabase")
+        .map((entry) => entry.dossierCapability)
+        .sort(),
+    ).toEqual([...expectedCapabilities].sort());
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "postgres" }),
+    );
+  });
+
+  it.each([
+    [
+      "Do not use Supabase database; keep the existing login",
+      "auth",
+      "database",
+    ],
+    [
+      "Do not use Supabase auth; keep the existing database",
+      "database",
+      "auth",
+    ],
+  ] as const)(
+    "scopes a Supabase negation to its capability: %s",
+    (prompt, preservedCapability, rejectedCapability) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+        inheritedIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "supabase",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase Auth",
+            reason: "Explicit auth choice",
+            status: "chosen",
+          },
+          {
+            kind: "database",
+            providerKey: "supabase",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase",
+            reason: "Explicit database choice",
+            status: "chosen",
+          },
+        ],
+      });
+
+      expect(ctx.contracts.integrations).toContainEqual(
+        expect.objectContaining({
+          providerKey: "supabase",
+          dossierCapability: preservedCapability,
+          status: "chosen",
+        }),
+      );
+      const rejected = ctx.contracts.integrations.find(
+        (entry) => entry.dossierCapability === rejectedCapability,
+      );
+      expect(rejected).toMatchObject({ status: "unresolved" });
+      expect(rejected).not.toHaveProperty("providerKey");
+    },
+  );
+
+  it("deduplicates method evidence without replacing current explicit provenance", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use PostgreSQL with Prisma",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+      projectProviderEvidence: [
+        { providerKey: "prisma", kind: "database", packageRoot: "@prisma/client" },
+      ],
+    });
+    const prisma = ctx.contracts.integrations.filter((entry) => entry.providerKey === "prisma");
+
+    expect(prisma).toHaveLength(1);
+    expect(prisma[0]).toMatchObject({
+      kind: "database",
+      selectionSource: "explicit",
+      reason: "Prompten nämner Prisma uttryckligen.",
+    });
   });
 
   it("prefers current project proof over an older legacy-preserved provider", () => {

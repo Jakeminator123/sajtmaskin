@@ -133,10 +133,21 @@ function pushEnvVars(target: PlanEnvVarContract[], nextVars: string[], reason: s
 
 function pushIntegration(target: PlanIntegrationContract[], nextIntegration: PlanIntegrationContract): void {
   const existing = target.find(
-    (entry) =>
-      entry.provider.toLowerCase() === nextIntegration.provider.toLowerCase() &&
-      entry.dossierCapability?.toLowerCase() ===
-        nextIntegration.dossierCapability?.toLowerCase(),
+    (entry) => {
+      const sameCapability =
+        entry.dossierCapability?.toLowerCase() ===
+        nextIntegration.dossierCapability?.toLowerCase();
+      if (entry.providerKey && nextIntegration.providerKey) {
+        return (
+          entry.providerKey.toLowerCase() === nextIntegration.providerKey.toLowerCase() &&
+          entry.kind === nextIntegration.kind &&
+          sameCapability
+        );
+      }
+      return (
+        entry.provider.toLowerCase() === nextIntegration.provider.toLowerCase() && sameCapability
+      );
+    },
   );
   if (existing) return;
   target.push(nextIntegration);
@@ -145,7 +156,7 @@ function pushIntegration(target: PlanIntegrationContract[], nextIntegration: Pla
 function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilities): boolean {
   // Do not treat `needsEcommerce` alone as persistence — storefront prompts often
   // lack real DB intent; SQLite default belongs on explicit persistence signals.
-  if (capabilities.needsDatabase || capabilities.needsAuth) return true;
+  if (capabilities.needsDatabase) return true;
   if (/\b(database|databas|save|persist|storage|crm|member area|portal)\b/i.test(corpus)) return true;
   if (/\b(booking|calendar|submission|submissions|konto)\b/i.test(corpus)) {
     const hasExplicitBackendIntent = /\b(database|databas|backend|server|api route|persist|save to|store in)\b/i.test(corpus);
@@ -260,9 +271,39 @@ export function inferPreGenerationContracts(params: {
     }
     return true;
   });
+  const clauses = corpus.split(/[;!?\n]+/u).map((clause) => clause.trim()).filter(Boolean);
+  const supabaseNegatedCapabilities = new Set<string>();
+  for (const clause of clauses) {
+    if (!/\bsupabase\b/iu.test(clause) || !isTermFullyNegated(clause, /\bsupabase\b/iu)) {
+      continue;
+    }
+    const hasAuthCue =
+      /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(clause);
+    const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(clause);
+    if (hasAuthCue && !hasDatabaseCue) {
+      supabaseNegatedCapabilities.add("auth");
+    } else if (hasDatabaseCue && !hasAuthCue) {
+      supabaseNegatedCapabilities.add("database");
+    } else {
+      supabaseNegatedCapabilities.add("auth");
+      supabaseNegatedCapabilities.add("database");
+    }
+  }
   const negatedRules = PROVIDER_RULES.filter((rule) => {
-    const matching = rule.patterns.filter((pattern) => pattern.test(corpus));
-    return matching.length > 0 && matching.every((pattern) => isTermFullyNegated(corpus, pattern));
+    const capability = capabilityForRule(rule);
+    if (
+      rule.providerKey === "supabase" &&
+      (capability === "auth" || capability === "database")
+    ) {
+      return supabaseNegatedCapabilities.has(capability);
+    }
+    return clauses.some((clause) => {
+      const matching = rule.patterns.filter((pattern) => pattern.test(clause));
+      return (
+        matching.length > 0 &&
+        matching.every((pattern) => isTermFullyNegated(clause, pattern))
+      );
+    });
   });
 
   const integrationForRule = (
@@ -293,38 +334,113 @@ export function inferPreGenerationContracts(params: {
       contracts.paymentProvider = integration.name || integration.provider;
     }
   };
-  const resolveLegacyIntegration = (
+  const resolveLegacyIntegrations = (
     inherited: PlanIntegrationContract,
-  ): PlanIntegrationContract | null => {
-    if (inherited.status !== "chosen") return null;
+  ): PlanIntegrationContract[] => {
+    if (inherited.status !== "chosen") return [];
     if (
       inherited.selectionSource === "legacy-preserved" &&
       inherited.providerKey &&
       inherited.dossierCapability
     ) {
-      return { ...inherited };
+      return [{ ...inherited }];
     }
-    if (inherited.selectionSource) return null;
+    if (inherited.selectionSource) return [];
     if (inherited.providerKey && inherited.dossierCapability) {
-      return { ...inherited, selectionSource: "legacy-preserved" };
+      return [{ ...inherited, selectionSource: "legacy-preserved" }];
     }
     const label = `${inherited.provider} ${inherited.name}`.trim();
+    const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const compactLabels = new Set(
+      [inherited.provider, inherited.name].map(compact).filter(Boolean),
+    );
+    const specificMatches = PROVIDER_RULES.filter(
+      (rule) =>
+        Boolean(capabilityForRule(rule)) &&
+        compact(rule.name) !== compact(rule.provider) &&
+        compactLabels.has(compact(rule.name)),
+    );
+    if (specificMatches.length === 1) {
+      const [rule] = specificMatches;
+      return [
+        {
+          ...integrationForRule(rule, "legacy-preserved"),
+          reason: inherited.reason || `Preserved unambiguous legacy choice ${rule.name}.`,
+        },
+      ];
+    }
+    const directlyMatchedProviderKeys = new Set(
+      PROVIDER_RULES.filter(
+        (rule) =>
+          Boolean(capabilityForRule(rule)) &&
+          (compactLabels.has(compact(rule.providerKey)) ||
+            compactLabels.has(compact(rule.provider)) ||
+            compactLabels.has(compact(rule.name)) ||
+            rule.patterns.some((pattern) => pattern.test(label))),
+      ).map((rule) => rule.providerKey),
+    );
+    if (directlyMatchedProviderKeys.size !== 1) return [];
     const matches = PROVIDER_RULES.filter(
       (rule) =>
         Boolean(capabilityForRule(rule)) &&
-        (rule.providerKey.toLowerCase() === inherited.providerKey?.toLowerCase() ||
-          rule.patterns.some((pattern) => pattern.test(label))),
+        directlyMatchedProviderKeys.has(rule.providerKey),
     );
     const unique = new Map(
       matches.map((rule) => [`${rule.providerKey}:${capabilityForRule(rule)}`, rule]),
     );
-    if (unique.size !== 1) return null;
-    const [rule] = unique.values();
-    return {
-      ...integrationForRule(rule, "legacy-preserved"),
-      reason: inherited.reason || `Preserved unambiguous legacy choice ${rule.name}.`,
-    };
+    if (unique.size === 1) {
+      const [rule] = unique.values();
+      return [
+        {
+          ...integrationForRule(rule, "legacy-preserved"),
+          reason: inherited.reason || `Preserved unambiguous legacy choice ${rule.name}.`,
+        },
+      ];
+    }
+    const requestedCapabilities = new Set<string>();
+    if (capabilities.needsAuth) requestedCapabilities.add("auth");
+    if (capabilities.needsDatabase) requestedCapabilities.add("database");
+    if (capabilities.needsPayments) requestedCapabilities.add("payments");
+    return Array.from(unique.values())
+      .filter((rule) => {
+        const capability = capabilityForRule(rule);
+        return Boolean(capability && requestedCapabilities.has(capability));
+      })
+      .map((rule) => {
+        const capability = capabilityForRule(rule)!;
+        return {
+          kind: rule.kind,
+          dossierCapability: capability,
+          provider: `${capability} provider not selected`,
+          name: `${capability} provider not selected`,
+          reason: `${inherited.provider} is ambiguous across multiple capabilities; choose the intended provider.`,
+          status: "unresolved" as const,
+        };
+      });
   };
+  const isContractNegated = (contract: PlanIntegrationContract): boolean =>
+    Boolean(
+      contract.providerKey &&
+        negatedRules.some((rule) => {
+          if (rule.providerKey !== contract.providerKey) return false;
+          const ruleCapability = capabilityForRule(rule);
+          if (contract.dossierCapability) {
+            return ruleCapability === contract.dossierCapability;
+          }
+          return !ruleCapability && (!contract.kind || rule.kind === contract.kind);
+        }),
+    );
+  const unresolvedAfterNegation = (
+    inherited: PlanIntegrationContract,
+  ): PlanIntegrationContract => ({
+    kind: inherited.kind,
+    dossierCapability: inherited.dossierCapability,
+    selectionSource: "explicit",
+    provider: `${inherited.kind ?? inherited.dossierCapability ?? "Integration"} provider not selected`,
+    name: `${inherited.kind ?? inherited.dossierCapability ?? "Integration"} provider not selected`,
+    reason: `${inherited.provider} was explicitly rejected; choose another provider.`,
+    status: "unresolved",
+  });
 
   // Current positive choices own their capability and replace inherited state.
   const currentRules = positiveRules.filter((rule) => !capabilityForRule(rule));
@@ -377,31 +493,23 @@ export function inferPreGenerationContracts(params: {
   // then preserved only when their provider/capability is unambiguous.
   const legacyCandidates: PlanIntegrationContract[] = [];
   for (const inherited of inheritedIntegrations) {
-    const legacy = resolveLegacyIntegration(inherited);
-    const normalizedInherited = legacy ?? inherited;
-    const capability = normalizedInherited.dossierCapability;
-    if (capability && capabilityHasContract(capability)) continue;
-    const wasNegated = Boolean(
-      normalizedInherited.providerKey &&
-        negatedRules.some((rule) => rule.providerKey === normalizedInherited.providerKey),
-    );
-    if (wasNegated) {
-      integrations.push({
-        kind: normalizedInherited.kind,
-        dossierCapability: capability,
-        selectionSource: "explicit",
-        provider: `${normalizedInherited.kind ?? capability ?? "Integration"} provider not selected`,
-        name: `${normalizedInherited.kind ?? capability ?? "Integration"} provider not selected`,
-        reason: `${normalizedInherited.provider} was explicitly rejected; choose another provider.`,
-        status: "unresolved",
-      });
-      continue;
-    }
     if (inherited.selectionSource === "explicit" || inherited.status === "unresolved") {
-      integrations.push({ ...inherited });
+      const capability = inherited.dossierCapability;
+      if (capability && capabilityHasContract(capability)) continue;
+      integrations.push(
+        isContractNegated(inherited) ? unresolvedAfterNegation(inherited) : { ...inherited },
+      );
       continue;
     }
-    if (legacy) legacyCandidates.push(legacy);
+    for (const legacy of resolveLegacyIntegrations(inherited)) {
+      const capability = legacy.dossierCapability;
+      if (capability && capabilityHasContract(capability)) continue;
+      if (isContractNegated(legacy)) {
+        integrations.push(unresolvedAfterNegation(legacy));
+      } else {
+        legacyCandidates.push(legacy);
+      }
+    }
   }
 
   const evidenceByCapability = new Map<string, ProjectProviderEvidence[]>();
@@ -411,7 +519,7 @@ export function inferPreGenerationContracts(params: {
         (candidate) => candidate.providerKey === evidence.providerKey && !capabilityForRule(candidate),
       );
       if (rule) {
-        integrations.push({
+        pushIntegration(integrations, {
           ...integrationForRule(rule),
           reason: `Existing project dependency and runtime import prove ${rule.name}.`,
         });
@@ -436,9 +544,12 @@ export function inferPreGenerationContracts(params: {
       });
       continue;
     }
-    const rule = PROVIDER_RULES.find((candidate) => candidate.providerKey === providerKeys[0]);
+    const rule = PROVIDER_RULES.find(
+      (candidate) =>
+        candidate.providerKey === providerKeys[0] && capabilityForRule(candidate) === capability,
+    );
     if (!rule) continue;
-    integrations.push({
+    pushIntegration(integrations, {
       ...integrationForRule(rule),
       reason: `Existing project dependency and runtime import prove ${rule.name}.`,
     });
