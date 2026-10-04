@@ -118,7 +118,11 @@ try {
       running: false,
       booting: false,
     });
-    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 9 }));
+    let bootRuns = 0;
+    runtime.__testing.setBootRunnerForTesting(async () => {
+      bootRuns += 1;
+      return { runtimePort: 9 };
+    });
     runtime.__testing.takeRestartBootsQueuedForTesting();
 
     const result = runtime.applyRuntimePatch(chatId, {
@@ -137,6 +141,10 @@ try {
       1,
       "a dead runtime must still get a boot from the merged filesJson",
     );
+    // The queued boot reads the runner in a later microtask. Drain it while
+    // the fake runner is installed so cleanup cannot launch a real dev server.
+    await runtime.ensureRuntimeForChat(chatId);
+    assert.equal(bootRuns, 1, "the queued fake boot must finish before cleanup");
     runtime.__testing.setBootRunnerForTesting(null);
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
   }
@@ -154,7 +162,11 @@ try {
       running: false,
       booting: true,
     });
-    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 9 }));
+    let bootRuns = 0;
+    runtime.__testing.setBootRunnerForTesting(async () => {
+      bootRuns += 1;
+      return { runtimePort: 9 };
+    });
     runtime.__testing.takeRestartBootsQueuedForTesting();
 
     const result = runtime.applyRuntimePatch(chatId, {
@@ -173,6 +185,8 @@ try {
       1,
       "a new versionId during boot must still force a restart boot",
     );
+    await runtime.ensureRuntimeForChat(chatId);
+    assert.equal(bootRuns, 1, "the queued restart must finish before cleanup");
     runtime.__testing.setBootRunnerForTesting(null);
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
   }
