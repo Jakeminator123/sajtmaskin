@@ -267,4 +267,44 @@ describe("detectProjectProviderEvidence", () => {
       ),
     ).toEqual([]);
   });
+
+  it.each([
+    "src/auth.test.ts",
+    "src/auth.spec.tsx",
+    "src/__tests__/auth.ts",
+    "test/auth.ts",
+    "tests/auth.ts",
+    "src/fixtures/auth.ts",
+    "src/__fixtures__/auth.ts",
+    "src/auth.fixture.ts",
+    "src/auth.fixtures.tsx",
+  ])("does not accept provider imports from non-runtime test or fixture paths: %s", (path) => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ devDependencies: { "next-auth": "5" } }),
+          },
+          { path, content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([]);
+  });
+
+  it("still accepts the same declared provider import from production source", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { "next-auth": "5" } }),
+          },
+          { path: "src/auth.ts", content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
 });

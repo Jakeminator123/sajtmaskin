@@ -32,8 +32,27 @@ function packageRootForSpecifier(specifier: string): string {
   return specifier.split("/")[0] ?? specifier;
 }
 
+function isRuntimeProviderEvidencePath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/").toLowerCase();
+  const segments = normalized.split("/");
+  if (
+    segments.some((segment) =>
+      ["test", "tests", "__tests__", "fixture", "fixtures", "__fixtures__"].includes(
+        segment,
+      ),
+    )
+  ) {
+    return false;
+  }
+  return !/(?:^|\/)[^/]+\.(?:test|spec|fixtures?)\.[cm]?[jt]sx?$/u.test(normalized);
+}
+
 function runtimeModuleSpecifiers(file: ProjectFile): Set<string> {
-  if (!isGuardablePath(file.path) || countParseErrors(file.content, file.path) > 0) {
+  if (
+    !isRuntimeProviderEvidencePath(file.path) ||
+    !isGuardablePath(file.path) ||
+    countParseErrors(file.content, file.path) > 0
+  ) {
     return new Set();
   }
   const source = createTsxSourceFile(file.path, file.content);

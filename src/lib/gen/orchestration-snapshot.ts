@@ -449,7 +449,11 @@ export function readF3ApprovedFromSnapshot(snapshot: Record<string, unknown> | n
   const removedSet = new Set(removed);
   return {
     capabilities: capabilities.filter((capability) => !removedSet.has(capability)),
-    providers: filterProvidersForRemovedCapabilities(providers, removed),
+    providers: filterProvidersForRemovedCapabilities(
+      providers,
+      removed,
+      readProviderContractsFromSnapshot(snapshot),
+    ),
   };
 }
 

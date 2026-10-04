@@ -715,6 +715,55 @@ describe("capability-removal durability (resurrection regression)", () => {
     expect(contract.capabilities).toEqual([]);
   });
 
+  it("drops a removed Supabase database approval while preserving independent auth scope", () => {
+    const snapshot = {
+      removedCapabilities: ["database"],
+      f3ApprovedCapabilities: ["database", "auth"],
+      f3ApprovedProviders: ["supabase", "supabase-auth"],
+      contractIntegrations: [
+        {
+          kind: "database",
+          providerKey: "supabase",
+          dossierCapability: "database",
+          provider: "Supabase",
+          name: "Supabase",
+          reason: "Approved database provider.",
+          status: "chosen",
+        },
+        {
+          kind: "auth",
+          providerKey: "supabase",
+          dossierCapability: "auth",
+          provider: "Supabase",
+          name: "Supabase Auth",
+          reason: "Independent active auth provider.",
+          status: "chosen",
+        },
+      ],
+    };
+
+    expect(readF3ApprovedFromSnapshot(snapshot)).toEqual({
+      capabilities: ["auth"],
+      providers: ["supabase-auth"],
+    });
+    expect(
+      buildFollowUpContract({
+        snapshot,
+        persistedScaffoldId: null,
+        persistedVariantId: null,
+        existingRoutePaths: [],
+        existingShellRoutePaths: [],
+        priorQualityTarget: null,
+      }).inheritedProviderContracts,
+    ).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
+  });
+
   it("restores a removed capability only after an explicit re-add signal", () => {
     const removed = mergePersistedOrchestrationSnapshots(
       {

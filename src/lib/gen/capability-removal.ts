@@ -183,11 +183,24 @@ export function filterRemovedCapabilitiesFromBriefSummary(
 export function filterProvidersForRemovedCapabilities(
   providers: readonly string[],
   removedCapabilities: readonly string[],
+  providerContracts: ReadonlyArray<
+    PreGenerationContractContext["contracts"]["integrations"][number]
+  > = [],
 ): string[] {
   const removed = normalizeCapabilitySet(removedCapabilities);
   if (removed.size === 0) return [...providers];
   return providers.filter(
-    (provider) => !providerMatchesRemovedCapability(provider, removed),
+    (provider) =>
+      !providerMatchesRemovedCapability(provider, removed) &&
+      !providerContracts.some(
+        (contract) =>
+          contract.status === "chosen" &&
+          contract.providerKey?.toLowerCase() === provider.trim().toLowerCase() &&
+          Boolean(
+            contract.dossierCapability &&
+              removed.has(contract.dossierCapability.toLowerCase()),
+          ),
+      ),
   );
 }
 

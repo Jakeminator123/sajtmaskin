@@ -213,6 +213,7 @@ export async function resolveOrchestrationBase(
       ]),
     ),
     removedCapabilities,
+    input.followUpContract?.inheritedProviderContracts ?? [],
   );
   const capabilityRemovalHint = buildCapabilityRemovalHint(
     removedCapabilities,

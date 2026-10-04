@@ -626,6 +626,7 @@
         "name": "Swish",
         "envVars": [],
         "matchPatterns": ["\\bswish\\b"],
+        "status": "unresolved",
         "reason": "Prompten nämner Swish uttryckligen; implementationen måste väljas innan F3."
       },
       {
