@@ -13,7 +13,7 @@
  * statuses without inventing an ordered selected -> configured -> verified
  * state machine.
  */
-import { mapDossierPathToOutput } from "./output-path";
+import { mapDossierPathToOutput, normalizeDossierProjectPath } from "./output-path";
 import { dossierRequiresF3, type DossierEntry } from "./types";
 
 export type DossierLifecycleOverviewStatus =
@@ -78,11 +78,6 @@ export interface DossierLifecycleResolution {
   buildKeysWithoutRealValue: string[];
 }
 
-/** Normalize a version file path for comparison (mirrors version-presence). */
-function normalizeProjectPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
-}
-
 const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 
 /**
@@ -108,7 +103,7 @@ function resolveServerEvidenceSatisfied(
 ): boolean | null {
   const serverPaths = (entry.files ?? [])
     .filter((file) => file.role === "server")
-    .map((file) => normalizeProjectPath(mapDossierPathToOutput(file.path)));
+    .map((file) => normalizeDossierProjectPath(mapDossierPathToOutput(file.path)));
   if (serverPaths.length === 0) return true;
   if (versionFiles === null) return null;
 
@@ -116,7 +111,7 @@ function resolveServerEvidenceSatisfied(
     typeof file.path === "string" && file.path.trim().length > 0
       ? [
           {
-            path: normalizeProjectPath(file.path),
+            path: normalizeDossierProjectPath(file.path),
             content: typeof file.content === "string" ? file.content : "",
           },
         ]

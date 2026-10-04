@@ -13,6 +13,7 @@ import {
   dossierOutputPathIdentity,
   findDivergentDossierOutputPathConflicts,
   mapDossierPathToOutput,
+  normalizeDossierProjectPath,
   resolveDossierFilePath,
 } from "./output-path";
 
@@ -94,6 +95,17 @@ describe("mapDossierPathToOutput", () => {
 });
 
 describe("resolveDossierFilePath", () => {
+  it.each([
+    [" /components/Foo.ts ", "components/Foo.ts"],
+    ["./components/Foo.ts", "components/Foo.ts"],
+    ["///components/Foo.ts", "components/Foo.ts"],
+    ["components///Foo.ts", "components/Foo.ts"],
+    ["components\\Foo.ts", "components/Foo.ts"],
+    ["../components/Foo.ts", "../components/Foo.ts"],
+  ])("normalizes project path spelling %j without resolving traversal", (path, expected) => {
+    expect(normalizeDossierProjectPath(path)).toBe(expected);
+  });
+
   it("returns the portable source, mapped output and Unicode/case-folded identity", () => {
     expect(resolveDossierFilePath("components/api/chat/route.ts")).toEqual({
       sourcePath: "components/api/chat/route.ts",
@@ -192,6 +204,33 @@ describe("portable output collisions", () => {
       findDivergentDossierOutputPathConflicts([
         { dossierId: "a", capability: "one", sourcePath: "components/shared.ts", content: "same" },
         { dossierId: "b", capability: "two", sourcePath: "components/shared.ts", content: "same" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ["components/cache", "components/cache/item.ts"],
+    ["components/Cache", "components/cache/item.ts"],
+    ["components/cafe\u0301", "components/caf\u00e9/item.ts"],
+  ])("rejects portable file/directory claims %s and %s", (parent, child) => {
+    expect(
+      findDivergentDossierOutputPathConflicts([
+        { dossierId: "parent", capability: "one", sourcePath: parent, content: "same" },
+        { dossierId: "child", capability: "two", sourcePath: child, content: "same" },
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it("does not confuse prefix siblings with file/directory conflicts", () => {
+    expect(
+      findDivergentDossierOutputPathConflicts([
+        { dossierId: "a", capability: "one", sourcePath: "components/cache", content: "same" },
+        {
+          dossierId: "b",
+          capability: "two",
+          sourcePath: "components/cache-item/file.ts",
+          content: "same",
+        },
       ]),
     ).toEqual([]);
   });

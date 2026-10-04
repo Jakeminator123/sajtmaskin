@@ -171,7 +171,7 @@ describe("resolveDossierIdsPresentInVersion", () => {
 
   it("normalizes leading ./ and / in file paths", () => {
     const ids = resolveDossierIdsPresentInVersion([
-      "./app/api/chat/route.ts",
+      " .//app///api/chat/route.ts ",
     ]);
     expect(ids).toContain("openai-chat");
   });

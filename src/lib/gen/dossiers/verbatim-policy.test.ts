@@ -125,6 +125,74 @@ describe("applyDossierVerbatimPolicy", () => {
       expect(restored).toEqual([]);
     });
 
+    it.each([
+      ["rewritable", "/components/Foo.ts"],
+      ["verbatim", "/components/Foo.ts"],
+      ["rewritable", "./components/Foo.ts"],
+      ["rewritable", "components\\Foo.ts"],
+    ] as const)("canonicalizes lone %s project-path spelling %s", (mode, path) => {
+      const canonical = "canonical bytes";
+      const llmContent = mode === "rewritable" ? "LLM-owned content" : canonical;
+      mockGetDossierFileContent.mockReturnValue(canonical);
+      const dossier = makeVerbatimDossier({
+        codeFidelity: mode,
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: mode }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile(path, llmContent)],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: llmContent }),
+      ]);
+    });
+
+    it("rewrites verified imports to a canonicalized dossier target", () => {
+      mockGetDossierFileContent.mockReturnValue("canonical seed");
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [
+          {
+            path: "components/db-config-notice.tsx",
+            role: "client",
+            injectionMode: "rewritable",
+          },
+        ],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [
+          makeFile("components/DB-config-notice.tsx", "LLM-owned notice"),
+          makeFile(
+            "app/page.tsx",
+            'import { Notice } from "@/components/DB-config-notice";\nexport default Notice;',
+          ),
+        ],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files[0]).toEqual(
+        expect.objectContaining({
+          path: "components/db-config-notice.tsx",
+          content: "LLM-owned notice",
+        }),
+      );
+      expect(result.files[1]!.content).toContain('from "@/components/db-config-notice"');
+    });
+
+    it("leaves a lone path alias and its importer untouched when canonical bytes are unavailable", () => {
+      mockGetDossierFileContent.mockReturnValue(null);
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared" }],
+      });
+      const llmFiles = [
+        makeFile("components/foo.ts", "LLM bytes"),
+        makeFile("app/page.tsx", 'import { value } from "@/components/foo";'),
+      ];
+      const before = structuredClone(llmFiles);
+      const result = applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] });
+      expect(result).toEqual({ files: before, restored: [], changed: false });
+      expect(llmFiles).toEqual(before);
+    });
+
     it("restores a corrupted ThreeCanvasShell wrapper back to the canonical dossier file", () => {
       const canonical = '"use client";\nexport function ThreeCanvasShell() { return null; }\n';
       mockGetDossierFileContent.mockReturnValue(canonical);
@@ -437,6 +505,38 @@ describe("applyDossierVerbatimPolicy", () => {
     const before = structuredClone(llmFiles);
     expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
       "llm-output-alias-conflict",
+    );
+    expect(llmFiles).toEqual(before);
+  });
+
+  it("treats leading-slash and canonical spellings as duplicate aliases before mutation", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/Foo.ts", role: "shared" }],
+    });
+    const llmFiles = [
+      makeFile("components/Foo.ts", "first"),
+      makeFile("/components/Foo.ts", "second"),
+    ];
+    const before = structuredClone(llmFiles);
+    expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
+      "llm-output-alias-conflict",
+    );
+    expect(llmFiles).toEqual(before);
+  });
+
+  it("fails before mutation when an LLM path is a file/directory conflict with a selected path", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/cache", role: "shared" }],
+    });
+    const llmFiles = [
+      makeFile("components/cache", "selected"),
+      makeFile("components/cache/item.ts", "child"),
+    ];
+    const before = structuredClone(llmFiles);
+    expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
+      "llm-output-path-conflict",
     );
     expect(llmFiles).toEqual(before);
   });

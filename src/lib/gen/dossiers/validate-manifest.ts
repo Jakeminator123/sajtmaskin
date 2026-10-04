@@ -20,7 +20,10 @@ import { join } from "node:path";
 import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
 import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
-import { resolveDossierFilePath } from "./output-path";
+import {
+  dossierOutputPathsHaveFileDirectoryConflict,
+  resolveDossierFilePath,
+} from "./output-path";
 import type {
   DossierClass,
   DossierEntry,
@@ -121,6 +124,7 @@ export function validateDossierManifest(
         string,
         { sourcePath: string; outputPath: string; index: number }
       >();
+      const resolvedOwners: Array<{ sourcePath: string; outputPath: string; index: number }> = [];
       for (const [index, file] of manifest.files.entries()) {
         const path =
           typeof file === "object" && file !== null ? (file as { path?: unknown }).path : undefined;
@@ -143,6 +147,19 @@ export function validateDossierManifest(
               index,
             });
           }
+          for (const previousOwner of resolvedOwners) {
+            if (
+              dossierOutputPathsHaveFileDirectoryConflict(
+                previousOwner.outputPath,
+                resolved.outputPath,
+              )
+            ) {
+              errors.push(
+                `/files/${index}/path ${JSON.stringify(path)} has a portable file/directory conflict with files[${previousOwner.index}].path ${JSON.stringify(previousOwner.sourcePath)}`,
+              );
+            }
+          }
+          resolvedOwners.push({ sourcePath: path, outputPath: resolved.outputPath, index });
         } catch (error) {
           errors.push(
             `/files/${index}/path ${error instanceof Error ? error.message : "is invalid"}`,

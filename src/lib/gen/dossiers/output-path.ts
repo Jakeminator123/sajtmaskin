@@ -58,6 +58,27 @@ export function dossierOutputPathIdentity(outputPath: string): string {
   return outputPath.normalize("NFC").toLowerCase();
 }
 
+/**
+ * Normalize spelling from generated-project file lists without making an
+ * unsafe path valid. In particular, traversal segments stay visible for the
+ * strict manifest/path owners to reject; this helper never resolves them.
+ */
+export function normalizeDossierProjectPath(projectPath: string): string {
+  let normalized = projectPath.trim().replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  while (normalized.startsWith("./")) normalized = normalized.slice(2);
+  return normalized.replace(/^\/+/, "");
+}
+
+/** True when one portable output identity is a strict directory ancestor of the other. */
+export function dossierOutputPathsHaveFileDirectoryConflict(
+  leftOutputPath: string,
+  rightOutputPath: string,
+): boolean {
+  const left = dossierOutputPathIdentity(leftOutputPath);
+  const right = dossierOutputPathIdentity(rightOutputPath);
+  return left !== right && (left.startsWith(`${right}/`) || right.startsWith(`${left}/`));
+}
+
 function assertPortableRelativePath(path: string): void {
   if (path.length < MIN_PATH_LENGTH || path.length > MAX_PATH_LENGTH) {
     throw new DossierFilePathError(
@@ -155,12 +176,15 @@ export interface DossierOutputPathConflict {
 export function findDivergentDossierOutputPathConflicts(
   claims: readonly DossierOutputPathClaim[],
 ): DossierOutputPathConflict[] {
+  const resolvedClaims = claims.map((claim) => ({
+    claim,
+    resolved: resolveDossierFilePath(claim.sourcePath),
+  }));
   const grouped = new Map<
     string,
     { outputPath: string; claims: DossierOutputPathClaim[]; outputPaths: Set<string> }
   >();
-  for (const claim of claims) {
-    const resolved = resolveDossierFilePath(claim.sourcePath);
+  for (const { claim, resolved } of resolvedClaims) {
     const group = grouped.get(resolved.outputIdentity) ?? {
       outputPath: resolved.outputPath,
       claims: [],
@@ -180,6 +204,27 @@ export function findDivergentDossierOutputPathConflicts(
       group.claims.every((claim) => typeof claim.content === "string" && claim.content === first);
     if (!byteIdentical || group.outputPaths.size !== 1) {
       conflicts.push({ outputPath: group.outputPath, outputIdentity, claims: [...group.claims] });
+    }
+  }
+  for (let leftIndex = 0; leftIndex < resolvedClaims.length; leftIndex += 1) {
+    const left = resolvedClaims[leftIndex]!;
+    for (let rightIndex = leftIndex + 1; rightIndex < resolvedClaims.length; rightIndex += 1) {
+      const right = resolvedClaims[rightIndex]!;
+      if (
+        !dossierOutputPathsHaveFileDirectoryConflict(
+          left.resolved.outputPath,
+          right.resolved.outputPath,
+        )
+      ) {
+        continue;
+      }
+      const parent =
+        left.resolved.outputIdentity.length < right.resolved.outputIdentity.length ? left : right;
+      conflicts.push({
+        outputPath: parent.resolved.outputPath,
+        outputIdentity: parent.resolved.outputIdentity,
+        claims: [left.claim, right.claim],
+      });
     }
   }
   return conflicts.sort((a, b) => a.outputIdentity.localeCompare(b.outputIdentity));

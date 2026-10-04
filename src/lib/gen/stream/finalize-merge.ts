@@ -7,10 +7,14 @@ import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
-import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
+import {
+  applyDossierCanonicalPathPolicy,
+  applyDossierVerbatimPolicy,
+} from "@/lib/gen/dossiers/verbatim-policy";
 import {
   dossierOutputPathIdentity,
   mapDossierPathToOutput,
+  normalizeDossierProjectPath,
 } from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-route-plan";
@@ -166,7 +170,7 @@ export interface MergeGeneratedProjectFilesResult {
 }
 
 function normalizeDossierPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.?\//, "");
+  return normalizeDossierProjectPath(path);
 }
 
 function dossierPathOwnershipIdentity(path: string): string {
@@ -448,7 +452,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    const canonicalPathResult = applyDossierCanonicalPathPolicy({
+      llmFiles: mergedFiles,
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let finalFiles = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -641,7 +649,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    const canonicalPathResult = applyDossierCanonicalPathPolicy({
+      llmFiles: mergedFiles,
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let afterCrossFile = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -695,7 +707,11 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
-  const crossFileResult = checkCrossFileImports(generatedFiles, selectedDossierIds);
+  const canonicalPathResult = applyDossierCanonicalPathPolicy({
+    llmFiles: generatedFiles,
+    selectedDossiers: selectedDossiers ?? [],
+  });
+  const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
   let crossFileFiles = crossFileResult.files;
   if (crossFileResult.fixes.length > 0) {
     devLogAppend("in-progress", {

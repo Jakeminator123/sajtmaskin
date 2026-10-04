@@ -54,22 +54,18 @@ import { isDossierConfigured } from "./select";
 import { resolveSelectedDossiersFromSnapshot } from "./snapshot-selection";
 import {
   dossierOutputPathIdentity,
+  normalizeDossierProjectPath,
   resolveDossierFilePath,
 } from "./output-path";
 import type { DossierEntry, DossierFile, SelectedDossier } from "./types";
 
-/** Normalize a project file path for comparison (strip `./` and leading `/`). */
-function normalizeProjectPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
-}
-
 /** Mapped output path for a dossier manifest file. */
 function outputPathFor(file: DossierFile): string {
-  return normalizeProjectPath(resolveDossierFilePath(file.path).outputPath);
+  return normalizeDossierProjectPath(resolveDossierFilePath(file.path).outputPath);
 }
 
 function outputOwnershipIdentity(path: string): string {
-  return dossierOutputPathIdentity(normalizeProjectPath(path));
+  return dossierOutputPathIdentity(normalizeDossierProjectPath(path));
 }
 
 /**
@@ -134,7 +130,7 @@ export function resolveDossierIdsPresentInVersion(
   const presentPaths = new Set<string>();
   for (const path of filePaths) {
     if (typeof path === "string" && path.trim().length > 0) {
-      presentPaths.add(normalizeProjectPath(path));
+      presentPaths.add(normalizeDossierProjectPath(path));
     }
   }
   if (presentPaths.size === 0) return [];

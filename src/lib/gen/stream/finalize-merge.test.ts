@@ -1115,6 +1115,86 @@ describe("no-scaffold fallback dossier path persistence", () => {
     });
     expect(result.filesJson).toBe(originalFilesJson);
   });
+
+  it("persists import rewrites that follow a canonicalized dossier path", () => {
+    getDossierFileContent.mockReturnValue("canonical seed");
+    const originalFiles = [
+      {
+        path: "components/DB-config-notice.tsx",
+        content: "LLM-owned notice",
+        language: "tsx" as const,
+      },
+      {
+        path: "app/page.tsx",
+        content:
+          'import { Notice } from "@/components/DB-config-notice";\nexport default Notice;',
+        language: "tsx" as const,
+      },
+    ];
+    const dossier = {
+      ...selectedPathDossier("rewritable"),
+      files: [
+        {
+          path: "components/db-config-notice.tsx",
+          role: "client",
+          injectionMode: "rewritable",
+        },
+      ],
+    } as DossierEntry;
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-fallback-import-rename",
+      originalFilesJson: JSON.stringify(originalFiles),
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [dossier],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(files.find((file) => file.path === "components/db-config-notice.tsx")).toBeDefined();
+    expect(files.find((file) => file.path === "app/page.tsx")?.content).toContain(
+      'from "@/components/db-config-notice"',
+    );
+  });
+
+  it("canonicalizes dossier paths before the cross-file checker can create a case-alias stub", () => {
+    getDossierFileContent.mockReturnValue("canonical seed");
+    const dossier = {
+      ...selectedPathDossier("rewritable"),
+      files: [
+        {
+          path: "components/db-config-notice.tsx",
+          role: "client",
+          injectionMode: "rewritable",
+        },
+      ],
+    } as DossierEntry;
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-precheck-import-rename",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "components/DB-config-notice.tsx",
+          content: "export const Notice = () => null;",
+          language: "tsx",
+        },
+        {
+          path: "app/page.tsx",
+          content:
+            'import { Notice } from "@/components/db-config-notice";\nexport default Notice;',
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [dossier],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(result.crossFileStubs).toEqual([]);
+    expect(
+      files.filter((file) => file.path.toLowerCase() === "components/db-config-notice.tsx"),
+    ).toHaveLength(1);
+    expect(files.find((file) => file.path === "components/db-config-notice.tsx")).toBeDefined();
+  });
 });
 
 const DASHBOARD_SIDEBAR = readFileSync(

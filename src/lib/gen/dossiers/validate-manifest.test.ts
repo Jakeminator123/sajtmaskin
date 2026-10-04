@@ -149,6 +149,39 @@ describe("validateDossierManifest — canonical file paths", () => {
       if (!result.valid) expect(result.errors.join("\n")).toContain("collides");
     }
   });
+
+  it.each([
+    ["components/cache", "components/cache/item.ts"],
+    ["components/Cache", "components/cache/item.ts"],
+    ["components/cafe\u0301", "components/caf\u00e9/item.ts"],
+  ])("rejects intra-manifest file/directory claims %s and %s", (parent, child) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: parent, role: "shared" },
+          { path: child, role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("file/directory");
+  });
+
+  it("allows path-prefix siblings that do not share a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/cache", role: "shared" },
+          { path: "components/cache-item/file.ts", role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
 });
 
 describe("validateDossierManifest — mock field (Våg 2)", () => {
