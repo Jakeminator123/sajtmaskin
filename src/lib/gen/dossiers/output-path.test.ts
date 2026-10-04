@@ -135,6 +135,25 @@ describe("resolveDossierFilePath", () => {
   });
 
   it.each([
+    [" components/foo.ts", "ASCII at root start"],
+    ["components/foo.ts ", "ASCII at root end"],
+    ["components/ nested/foo.ts", "ASCII at internal start"],
+    ["components/nested /foo.ts", "ASCII at internal end"],
+    ["\u00a0components/foo.ts", "NBSP at root start"],
+    ["components/foo.ts\u00a0", "NBSP at root end"],
+    ["components/\u00a0nested/foo.ts", "NBSP at internal start"],
+    ["components/nested\u00a0/foo.ts", "NBSP at internal end"],
+    ["\ufeffcomponents/foo.ts", "FEFF at root start"],
+    ["components/foo.ts\ufeff", "FEFF at root end"],
+    ["components/\ufeffnested/foo.ts", "FEFF at internal start"],
+    ["components/nested\ufeff/foo.ts", "FEFF at internal end"],
+    ["\u2009components/foo.ts", "thin space at root start"],
+    ["components/nested\u3000/foo.ts", "ideographic space at internal end"],
+  ])("rejects JavaScript-trim whitespace at a segment boundary (%s)", (path) => {
+    expect(() => resolveDossierFilePath(path)).toThrow();
+  });
+
+  it.each([
     "components/COM¹",
     "components/com².txt",
     "components/sub/CoM³.log",
@@ -196,6 +215,17 @@ describe("resolveDossierFilePath", () => {
     expect(resolveDossierFilePath("app/docs/[[...slug]]/page.tsx").outputPath).toBe(
       "app/docs/[[...slug]]/page.tsx",
     );
+  });
+
+  it.each([
+    "components/foo bar.ts",
+    "components/api/chat/route.ts",
+    "app/docs/[...slug]/page.tsx",
+    "app/docs/[[...optional]]/page.tsx",
+  ])("keeps accepted source and output paths canonical for %s", (path) => {
+    const resolved = resolveDossierFilePath(path);
+    expect(normalizeDossierProjectPath(resolved.sourcePath)).toBe(resolved.sourcePath);
+    expect(normalizeDossierProjectPath(resolved.outputPath)).toBe(resolved.outputPath);
   });
 });
 

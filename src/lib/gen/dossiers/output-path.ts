@@ -124,6 +124,9 @@ function assertPortableRelativePath(path: string): void {
     if (/[. ]$/.test(segment)) {
       throw new DossierFilePathError(path, "segments must not end in a dot or space");
     }
+    if (segment !== segment.trim()) {
+      throw new DossierFilePathError(path, "segments must not start or end with whitespace");
+    }
     if (WINDOWS_DEVICE_BASENAME_RE.test(segment)) {
       throw new DossierFilePathError(
         path,

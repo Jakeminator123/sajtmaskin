@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-10-04T14:02:43.445Z",
+  "generatedAt": "2026-10-04T14:33:58.363Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -1251,12 +1251,12 @@
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "data/dossiers/soft/xyflow-spatial-canvas/manifest.json": "0e1f14c77efeb99f5de9d0793156de66c1e31190d717c4ea932a384b5c005f4e",
-    "docs/schemas/strict/dossier.schema.json": "21765e9b735494e276b1beb9bc395cb202f9da6dc958cf484332e78ffe47a74d",
+    "docs/schemas/strict/dossier.schema.json": "d1838d6767ebfa9f895a2b3381a1a81be86b39cbb4b66e00b03aa65b5851c900",
     "scripts/dossiers/regenerate-capability-map.ts": "50256a25d07f97f5a17ceb7eb57196872a6186d0653f844008181d2de7d1c128",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
     "src/lib/builder/dossier-groups.ts": "cec7995deac773287a69ff81951e4ebf4b344fd7ca4c8b5a2c022f9930f3abe1",
     "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
-    "src/lib/gen/dossiers/output-path.ts": "faf82aa281c7a450017f46038c1b2fea9aa1b59d0b21be43c976fc65d9f5c38c",
+    "src/lib/gen/dossiers/output-path.ts": "84e90571d2e62406a4767c8c71264a13a7f8183399c6b478ecbdcdf598b324f8",
     "src/lib/gen/dossiers/registry.ts": "c55c9457ba811d8a6a51d4f7453bd55d44198e194e004cb87a9cb32b19896312",
     "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",
     "src/lib/gen/dossiers/validate-manifest.ts": "d072b9a67dc1e9b07b35f91ffd332243b1499a79dc7e90cc4266ba48fde6027d",

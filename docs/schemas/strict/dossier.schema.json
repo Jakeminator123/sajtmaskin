@@ -124,7 +124,7 @@
             "minLength": 3,
             "maxLength": 240,
             "pattern": "^[^\\\\/][^\\\\\\u0000-\\u001F\\u007F]*$",
-            "description": "Canonical portable path relative to the dossier directory, using forward slashes. Runtime validation additionally rejects traversal, Windows device names and forbidden characters, trailing dot/space aliases, scaffold-reserved outputs and case-folded output collisions. Typically under 'components/'."
+            "description": "Canonical portable path relative to the dossier directory, using forward slashes. Runtime validation additionally requires already-canonical segments without leading or trailing JavaScript-trim whitespace, and rejects traversal, Windows device names and forbidden characters, trailing dots, scaffold-reserved outputs and case-folded output collisions. Internal spaces remain valid. Typically under 'components/'."
           },
           "role": { "type": "string", "enum": ["client", "server", "shared"] },
           "injectionMode": {

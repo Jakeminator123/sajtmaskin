@@ -110,6 +110,30 @@ describe("validateDossierManifest — canonical file paths", () => {
     if (!result.valid) expect(result.errors.join("\n")).toContain("path");
   });
 
+  it.each([
+    " components/foo.ts",
+    "components/foo.ts ",
+    "components/ nested/foo.ts",
+    "components/nested /foo.ts",
+    "\u00a0components/foo.ts",
+    "components/foo.ts\u00a0",
+    "components/\u00a0nested/foo.ts",
+    "components/nested\u00a0/foo.ts",
+    "\ufeffcomponents/foo.ts",
+    "components/foo.ts\ufeff",
+    "components/\ufeffnested/foo.ts",
+    "components/nested\ufeff/foo.ts",
+    "\u2009components/foo.ts",
+    "components/nested\u3000/foo.ts",
+  ])("rejects a manifest path with segment-boundary whitespace %j", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
   it("accepts legitimate app, component and Next.js catch-all paths", () => {
     const result = validateDossierManifest(
       {
@@ -117,6 +141,7 @@ describe("validateDossierManifest — canonical file paths", () => {
         files: [
           { path: "app/statistik/page.tsx", role: "client" },
           { path: "components/legal/notice.tsx", role: "client" },
+          { path: "components/foo bar.ts", role: "shared" },
           { path: "app/docs/[...slug]/page.tsx", role: "server" },
           { path: "app/docs/[[...optional]]/page.tsx", role: "server" },
         ],
