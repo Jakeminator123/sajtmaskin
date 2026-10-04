@@ -108,6 +108,34 @@ function baseParams(
 }
 
 describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
+  it.each(["plan", "codegen"] as const)("forwards exact project files and provider contracts in %s mode", (mode) => {
+    const previousFiles = [
+      { path: "package.json", content: '{"dependencies":{"next-auth":"5"}}', language: "json" },
+    ];
+    const orchestrationSnapshot = {
+      contractIntegrations: [
+        {
+          kind: "auth",
+          providerKey: "next-auth",
+          dossierCapability: "auth",
+          selectionSource: "legacy-preserved",
+          provider: "NextAuth / Auth.js",
+          name: "NextAuth / Auth.js",
+          reason: "Existing project",
+          status: "chosen",
+        },
+      ],
+    };
+    const result = buildFollowUpOrchestrationInput(
+      baseParams({ mode, previousFiles, orchestrationSnapshot }),
+    );
+    expect(result.previousFiles).toBe(previousFiles);
+    expect(result.followUpContract?.inheritedProviderContracts?.[0]).toMatchObject({
+      providerKey: "next-auth",
+      dossierCapability: "auth",
+      selectionSource: "legacy-preserved",
+    });
+  });
   it("plan-mode produces all common fields and no codegen-only fields", () => {
     const planInput = buildFollowUpOrchestrationInput(baseParams({ mode: "plan" }));
 

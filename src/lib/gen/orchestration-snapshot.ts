@@ -7,6 +7,10 @@ import type { BuildSpecQualityTarget } from "./build-spec";
 import { filterProvidersForRemovedCapabilities } from "./capability-removal";
 import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
+import {
+  normalizePlanIntegrationContract,
+  type PlanIntegrationContract,
+} from "./plan/schema";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
 const SAFE_KEY_ALLOWLIST = new Set(["contractAuthProvider"]);
@@ -50,6 +54,31 @@ const PROTECTED_CAPABILITY_SIGNAL_KEYS = [
   "f3ApprovedProviders",
 ] as const;
 const MAX_PROTECTED_ARRAY_LEN = 40;
+
+function sanitizeProtectedIntegrationContracts(value: unknown): PlanIntegrationContract[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .slice(0, MAX_PROTECTED_ARRAY_LEN)
+    .map(normalizePlanIntegrationContract)
+    .filter((entry): entry is PlanIntegrationContract => Boolean(entry))
+    .map((entry) => ({
+      ...entry,
+      ...(entry.providerKey ? { providerKey: truncateString(entry.providerKey) } : {}),
+      ...(entry.dossierCapability
+        ? { dossierCapability: truncateString(entry.dossierCapability) }
+        : {}),
+      provider: truncateString(entry.provider),
+      name: truncateString(entry.name),
+      reason: truncateString(entry.reason),
+      envVars: (entry.envVars ?? []).slice(0, MAX_PROTECTED_ARRAY_LEN).map(truncateString),
+    }));
+}
+
+export function readProviderContractsFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): PlanIntegrationContract[] {
+  return sanitizeProtectedIntegrationContracts(snapshot?.contractIntegrations) ?? [];
+}
 
 function truncateString(s: string): string {
   if (s.length <= MAX_STRING) return s;
@@ -109,11 +138,15 @@ export function sanitizeOrchestrationSnapshotForStorage(
       out[key] = list;
       capabilitySignalsWritten.add(key);
     }
+    if ("contractIntegrations" in input) {
+      const contracts = sanitizeProtectedIntegrationContracts(input.contractIntegrations);
+      if (contracts) out.contractIntegrations = contracts;
+    }
   }
   if (keyCount.n > MAX_KEYS) return out;
   for (const [k, v] of Object.entries(input)) {
     if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
-    if (depth === 0 && capabilitySignalsWritten.has(k)) continue;
+    if (depth === 0 && (capabilitySignalsWritten.has(k) || k === "contractIntegrations")) continue;
     if (keyCount.n > MAX_KEYS) break;
     if (!SAFE_KEY_ALLOWLIST.has(k) && SENSITIVE_KEY_SUBSTR.test(k)) continue;
     keyCount.n += 1;
@@ -648,6 +681,8 @@ export interface FollowUpContract {
    * top-level `requestedCapabilities` (brief + inferred-bridge + prior floor),
    * with the briefSummary subset as fallback for older snapshots. */
   capabilities: string[];
+  /** Typed durable provider decisions inherited by both plan and codegen. */
+  inheritedProviderContracts?: PlanIntegrationContract[];
   /**
    * Dossier capabilities the user EXPLICITLY approved in an earlier F3
    * suggestion round (durable across rounds/refresh — persisted on the
@@ -772,6 +807,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
     },
     capabilities: [...inheritedCapabilities],
+    inheritedProviderContracts: readProviderContractsFromSnapshot(snapshot),
     // `readF3ApprovedFromSnapshot` is the single owner of the durable-removal
     // subtraction for approvals (capabilities AND providers) — see its doc.
     // Every reader (this contract + the raw fallback in

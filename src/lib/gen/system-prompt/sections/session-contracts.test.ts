@@ -4,7 +4,11 @@ import {
   buildImportedRepoBaselineSnapshot,
   buildImportedRepoContractContext,
 } from "@/lib/templates/imported-repo-contract";
-import { renderImportedRepoBlock, renderTier3IntegrationBlock } from "./session-contracts";
+import {
+  renderImportedRepoBlock,
+  renderPreGenerationContractsBlock,
+  renderTier3IntegrationBlock,
+} from "./session-contracts";
 
 const f3BuildSpec = {
   previewPolicy: "fidelity3",
@@ -60,6 +64,33 @@ describe("renderImportedRepoBlock", () => {
 });
 
 describe("renderTier3IntegrationBlock", () => {
+  it("does not replace an unresolved provider contract with legacy defaults", () => {
+    const lines = renderPreGenerationContractsBlock(
+      {
+        contracts: {
+          dataMode: "persisted",
+          integrations: [
+            {
+              kind: "auth",
+              dossierCapability: "auth",
+              selectionSource: "explicit",
+              provider: "Authentication provider not selected",
+              name: "Authentication provider not selected",
+              reason: "Clerk was rejected",
+              status: "unresolved",
+            },
+          ],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+      },
+      f3BuildSpec,
+    ).join("\n");
+    expect(lines).toContain("provider choice unresolved");
+    expect(lines).toContain("Never substitute a capability default");
+    expect(lines).not.toContain("Auth.js Credentials");
+    expect(lines).not.toContain("SQLite");
+  });
   it("prefers the file-derived parent-version spec over empty prompt contracts", () => {
     const lines = renderTier3IntegrationBlock({
       buildSpec: f3BuildSpec,

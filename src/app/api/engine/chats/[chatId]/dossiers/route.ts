@@ -72,7 +72,11 @@ import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
   extractBriefSummaryFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
+  readProviderContractsFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
+import { buildDossierIntegrationPlan } from "@/lib/gen/contract/provider-compatibility";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
   mapProviderKeysToDossierCapabilities,
@@ -220,6 +224,29 @@ async function buildDossierOverview(
           configuredEnvKeys,
         }).selected
       : initialSelectedDossiers;
+  const providerContracts = readProviderContractsFromSnapshot(
+    chat.orchestration_snapshot as Record<string, unknown> | null,
+  );
+  const projectProviderEvidence =
+    providerContracts.length > 0
+      ? detectProjectProviderEvidence(
+          versionFiles ?? [],
+          getPreGenerationContractsConfigFromManifest().providerRules,
+        )
+      : [];
+  const compatibleCapabilitySelectedDossiers =
+    providerContracts.length > 0
+      ? buildDossierIntegrationPlan({
+          contracts: { dataMode: "unknown", integrations: providerContracts, envVars: [] },
+          dossierSelection: {
+            selected: capabilitySelectedDossiers,
+            poolSize: 0,
+            byCapability: {},
+          },
+          projectFiles: versionFiles ?? [],
+          projectProviderEvidence,
+        }).dossierSelection.selected
+      : capabilitySelectedDossiers;
 
   // The capability re-selection REPLACES the list with capability defaults,
   // which can drop a version-present non-default sibling (e.g. mongodb-atlas
@@ -227,7 +254,7 @@ async function buildDossierOverview(
   // evidence always survives reconciliation. Presence is computed from the
   // already-loaded files — no extra read.
   const selectedById = new Map<string, SelectedDossier>();
-  for (const selected of [...capabilitySelectedDossiers, ...presentInVersionDossiers]) {
+  for (const selected of [...compatibleCapabilitySelectedDossiers, ...presentInVersionDossiers]) {
     if (!selectedById.has(selected.entry.id)) selectedById.set(selected.entry.id, selected);
   }
   const selectedDossiers = preferPendingIntegrationDossiers({

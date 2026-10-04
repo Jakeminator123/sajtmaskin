@@ -29,6 +29,8 @@ import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
 import type { GenerationSource } from "../generation-input-package";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
+import type { CodeFile } from "../parser";
+import type { DossierIntegrationDecision } from "../contract/provider-compatibility";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -175,6 +177,8 @@ export interface OrchestrationInput {
    * behavior, so init callers that don't carry this signal stay unaffected.
    */
   previousFilePaths?: string[];
+  /** Exact prior files used for provider evidence and occupied-path checks. */
+  previousFiles?: readonly CodeFile[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
@@ -394,6 +398,7 @@ export interface OrchestrationBase {
   f3ApprovedProviders?: string[];
   /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
   dossierSelection?: DossierSelectionResult | null;
+  dossierIntegrationDecisions?: DossierIntegrationDecision[];
   /**
    * Plan 06 (2026-04-24): per-capability specificity tier resolved for this
    * orchestration. Populated when the caller supplied

@@ -443,6 +443,46 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
 6. Eagerly load `instructions.md` for selected dossiers.
 
+### Providerkontrakt före injektion
+
+`PlanContracts.integrations` är den enda beständiga ägaren av ett valt
+providerbeslut. Ett kontrakt binder maskin-id (`providerKey`) till capability
+(`dossierCapability`) och anger om valet är explicit, ett dossier-default eller
+ett entydigt äldre val som bevarats som `legacy-preserved`.
+Ett olöst val har `status: "unresolved"` och saknar `providerKey`; det hindrar
+defaulten från att återkomma i en neutral uppföljning tills användaren gör ett
+positivt val. Projektbevis härleds på nytt varje runda och märks därför inte som
+användar-explicit. Äldre val utan provenance normaliseras bara när provider och
+capability kan härledas entydigt (t.ex. NextAuth/Auth.js eller SQLite); ett
+tvetydigt Supabase-label gissas aldrig som auth.
+
+Före injektion jämförs provider och capability som ett par. Ett explicit
+MongoDB-, Auth0- eller Swish-val får alltså aldrig dra in Postgres-, Clerk- eller
+Stripe-dossiern. MongoDB/Auth0 går via den befintliga generiska F3/LLM-vägen;
+en okänd provider utan säkert byggkontrakt stannar med 409. Dossierlösa metoder
+som Prisma/Drizzle äger inte databasprovidern: Prisma-bevis stoppar den
+konkurrerande Drizzle-dossiern, medan Postgres + Drizzle är kompatibelt. Samma
+gräns gäller Stripe Elements mot den hosted, one-time Checkout-dossiern: ett
+explicit Elements-val eller exakt paket + runtime-AST-bevis gör Checkout
+context-only i stället för att installera en konkurrerande betalmetod.
+
+Existerande projektkod räknas som positivt providerbevis bara när ett direkt
+`package.json`-beroende sammanfaller med en parse-ren runtime-import/export,
+global `require()` eller dynamisk import. Type-only-importer, kommentarer,
+strängar, lokalt skuggad `require`, trasig syntax och bara paketdeklaration är
+okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
+blir valet olöst i stället för manifestordningsstyrt.
+
+På filnivå blockerar en divergent befintlig server- eller verbatim-yta innan
+injektion. En byte-exakt del av dossierns kanoniska kärna får däremot kompletteras
+med saknade filer, och rewritable UI förblir adapterbar. Detta är
+kompatibilitets-/migrationsskydd, inte live provideracceptans. Känd dossierlös
+MongoDB/Auth0 kan starta den befintliga generiska F3/LLM-vägen, men det är ett
+startvillkor — inte bevis på full-stack-funktion eller liveacceptans. Bedömningen
+är avsiktligt begränsad till katalogen, kända provider-/metodregler, exakta
+paket + AST-importer och kanoniska kärnbytes; den är inte en allmän
+kompatibilitetsanalys för godtyckliga stacks.
+
 ### Version-presence union (reporting + gates)
 
 Selection answers "what should THIS round wire"; the separate question "what is

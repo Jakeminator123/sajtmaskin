@@ -27,6 +27,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
 
 import {
   checkTier3ReadinessForVersion,
+  deriveTier3BuildSpecForVersion,
   serverOwnedF3ReadinessParams,
 } from "./tier3-readiness";
 import type { ProductPostcheckPreviewProbe } from "./product-postcheck-preview-wait";
@@ -78,6 +79,38 @@ beforeEach(() => {
 });
 
 describe("checkTier3ReadinessForVersion (L1)", () => {
+  it("projects file-detected Auth0 into a Tier3 build requirement", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue([
+      {
+        key: "auth0",
+        provider: "auth0",
+        name: "Auth0",
+        intent: "env_vars",
+        envVars: ["AUTH0_SECRET", "AUTH0_CLIENT_ID"],
+        status: "detected",
+      },
+    ]);
+
+    const spec = await deriveTier3BuildSpecForVersion("ver_1", [], {
+      preloadedFiles: [
+        {
+          path: "lib/auth0.ts",
+          content: 'import { Auth0Client } from "@auth0/nextjs-auth0/server";',
+          language: "typescript",
+        },
+      ],
+    });
+
+    expect(spec?.requirements).toContainEqual(
+      expect.objectContaining({
+        key: "auth0",
+        provider: "auth0",
+        placeholderOkEnvKeys: expect.arrayContaining(["AUTH0_SECRET"]),
+        warnOnlyEnvKeys: expect.arrayContaining(["AUTH0_CLIENT_ID"]),
+      }),
+    );
+  });
+
   it("saknad F2-parent är never ready", async () => {
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3",

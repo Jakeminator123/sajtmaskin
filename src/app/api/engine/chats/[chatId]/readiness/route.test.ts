@@ -350,6 +350,226 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(json.readiness?.info.hasRealBuildIntegrations).toBe(true);
   });
 
+  it.each([
+    ["unresolved", undefined, undefined],
+    ["chosen", "mongodb", true],
+  ])("klassificerar %s context-only provider-kontrakt utan att påstå liveacceptans", async (status, providerKey, expected) => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        contractIntegrations: [
+          {
+            kind: "database",
+            ...(providerKey ? { providerKey } : {}),
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "MongoDB",
+            name: "MongoDB",
+            reason: "Explicit provider",
+            status,
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(expected);
+  });
+
+  it.each([
+    ["database", false],
+    ["auth", true],
+  ])(
+    "counts exact MongoDB evidence as delivered only for the matching %s capability",
+    async (dossierCapability, expected) => {
+      getEngineChatByIdForRequest.mockResolvedValue({
+        id: "chat_1",
+        project_id: "proj_1",
+        orchestration_snapshot: {
+          contractIntegrations: [
+            {
+              kind: dossierCapability === "auth" ? "auth" : "database",
+              providerKey: "mongodb",
+              dossierCapability,
+              selectionSource: "explicit",
+              provider: "MongoDB",
+              name: "MongoDB",
+              reason: "Explicit provider",
+              status: "chosen",
+            },
+          ],
+        },
+      });
+      getPreferredVersion.mockResolvedValue({
+        id: "ver_1",
+        chat_id: "chat_1",
+        lifecycle_stage: "design",
+        verification_state: "passed",
+        release_state: null,
+        verification_summary: null,
+      });
+      getVersionFiles.mockResolvedValue([
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { mongodb: "^6" } }),
+        },
+        {
+          path: "lib/mongodb.ts",
+          content: 'import { MongoClient } from "mongodb"; export const client = new MongoClient("mongodb://example");',
+        },
+      ]);
+      deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+      const { req, ctx } = readinessRequest();
+      const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+      expect(json.readiness?.info.hasRealBuildIntegrations).toBe(expected);
+    },
+  );
+
+  it("does not promise paid hosted Checkout work over an existing Elements implementation", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        contractIntegrations: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            selectionSource: "explicit",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Explicit provider",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@stripe/stripe-js": "^5" } }),
+      },
+      {
+        path: "components/payment.tsx",
+        content: 'import { loadStripe } from "@stripe/stripe-js"; export { loadStripe };',
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(false);
+  });
+
+  it("does not promise a free deterministic release for an undelivered Prisma method", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "auth0",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Auth0",
+            name: "Auth0",
+            reason: "Independent generic work must not short-circuit blockers",
+            status: "chosen",
+          },
+          {
+            kind: "database",
+            providerKey: "postgres",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Postgres",
+            name: "Postgres",
+            reason: "Explicit provider",
+            status: "chosen",
+          },
+          {
+            kind: "database",
+            providerKey: "prisma",
+            selectionSource: "explicit",
+            provider: "Prisma",
+            name: "Prisma",
+            reason: "Explicit method",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    getVersionFiles.mockResolvedValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBeUndefined();
+  });
+
+  it("does not keep an exact delivered provider contract on the paid build path", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        contractIntegrations: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            selectionSource: "explicit",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Explicit provider",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(false);
+  });
+
   it("does not release-gate-block an F2 (design) version (soft gate)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",

@@ -52,6 +52,78 @@ it("suppresses raw inferred flags for explicitly removed capabilities", () => {
 });
 
 describe("filterRemovedCapabilitiesFromContracts", () => {
+  it("removes dossierless and unresolved contracts by their canonical capability", () => {
+    const context: PreGenerationContractContext = {
+      contracts: {
+        dataMode: "persisted",
+        integrations: [
+          {
+            kind: "database",
+            providerKey: "mongodb",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "MongoDB",
+            name: "MongoDB",
+            reason: "explicit",
+            status: "chosen",
+            envVars: ["MONGODB_URI"],
+          },
+          {
+            kind: "auth",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Authentication provider not selected",
+            name: "Authentication provider not selected",
+            reason: "rejected",
+            status: "unresolved",
+          },
+        ],
+        envVars: [{ key: "MONGODB_URI", reason: "MongoDB" }],
+      },
+      unresolvedDecisions: [],
+    };
+    const withoutAuth = filterRemovedCapabilitiesFromContracts(context, ["auth"]);
+    expect(withoutAuth.contracts.integrations.map((item) => item.providerKey)).toEqual(["mongodb"]);
+    const withoutDatabase = filterRemovedCapabilitiesFromContracts(context, ["database"]);
+    expect(withoutDatabase.contracts.integrations).toHaveLength(1);
+    expect(withoutDatabase.contracts.integrations[0]?.status).toBe("unresolved");
+    expect(withoutDatabase.contracts.envVars).toEqual([]);
+  });
+
+  it.each([
+    ["database", "database", "prisma", "databaseProvider"],
+    ["payments", "payment", "stripe-elements", "paymentProvider"],
+    ["auth", "auth", "custom-auth-method", "authProvider"],
+  ] as const)(
+    "removes %s method-only contracts and clears its top-level provider",
+    (removedCapability, kind, methodKey, providerField) => {
+      const context: PreGenerationContractContext = {
+        contracts: {
+          dataMode: "persisted",
+          databaseProvider: "Legacy database label",
+          authProvider: "Legacy auth label",
+          paymentProvider: "Legacy payment label",
+          integrations: [
+            {
+              kind,
+              providerKey: methodKey,
+              provider: methodKey,
+              name: methodKey,
+              reason: "method",
+              status: "chosen",
+            },
+          ],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+      };
+
+      const result = filterRemovedCapabilitiesFromContracts(context, [removedCapability]);
+
+      expect(result.contracts.integrations).toEqual([]);
+      expect(result.contracts[providerField]).toBeUndefined();
+    },
+  );
   it("removes only the removed provider contracts and their exclusive env keys", () => {
     const context: PreGenerationContractContext = {
       contracts: {

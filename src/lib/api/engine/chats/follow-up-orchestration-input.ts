@@ -233,6 +233,7 @@ export function buildFollowUpOrchestrationInput(
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
     previousFilePaths: params.previousFilePaths ?? [],
+    previousFiles: params.previousFiles,
     capabilities: params.hasFollowUpBase ? inferCapabilities(params.message) : undefined,
     requestedDossierCapabilities: (() => {
       const merged = Array.from(

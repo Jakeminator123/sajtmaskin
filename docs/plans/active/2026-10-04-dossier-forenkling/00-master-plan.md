@@ -22,7 +22,12 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
 
 ## Startläge och arbetsordning
 
-- Live `preview`: `44f4338316289ec409b5049d5069557dfc33ec39`.
+- Live `preview`: `db86c053abdad696718eafad839137b8d37831d5` efter D2/D3 i PR #1549.
+  PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
+  på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
+  READY på 1:56. De 13 kända DB-paritetsraderna är oförändrade; ingen master-
+  eller DB-write ingick. Första verkliga Dependabot-auto-mergen är fortsatt
+  oprövad eftersom inga Dependabot-PR:er är öppna.
 - Återanvänd dossierkärnan i [PR #1548](https://github.com/Jakeminator123/sajtmaskin/pull/1548),
   reviewed head `b765e2f38185bca51f96b861abb7217d1321cd1d`; mergad till preview
   på `65e28f6097c756c9c78a54a22ae5533b81040848`. Postmerge kod-CI grön
@@ -49,6 +54,10 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
 - [ ] Koppla projektets faktiska provider-/paket-/filbevis till användningsgräns
   före kodinjektion. Stödd implementation, anpassningsbehov och okänt/ostött
   fall ska få ärliga, testbara utfall; ingen gissad full kompatibilitet.
+  Lokalt implementerat i compatibility-etappen 2026-10-04; inväntar fryst
+  review, CI och previewleverans innan punkten får bockas av. Samma kontrakt
+  bär även entydiga äldre provider-val som `legacy-preserved` genom neutrala
+  plan-/codegen-uppföljningar; tvetydiga äldre labels lämnas till ett nytt val.
 - [ ] Skilj skyddad återanvändbar kärna från projektanpassning med befintlig
   `verbatim`/`rewritable`-mekanism. Bevara signering, behörighet, hemlighetsskydd,
   konfigurationsfallback, exports och fungerande uppföljningar.
@@ -90,7 +99,9 @@ inte gömmas bakom en avbockad checklista.
 2. Gemensam dossierinformation och konsumenter: konfigurationsvägledning och
    providersteg utan nya readiness-/acceptansägare; samlad promptprojektion.
 3. Projektgränser och kompatibilitetsutfall före injektion; bevara exakta val,
-   snapshotkompatibilitet och båda motorvägar.
+   snapshotkompatibilitet och båda motorvägar. Lokalt delta omfattar typad
+   provider/capability-bindning, positiv AST-evidens, Prisma/Drizzle-metodgräns,
+   server/verbatim-migrationsgrind och samma guard i pending/finalize/readiness.
 4. Katalog/instruktioner och kärna kontra anpassning. Samla ändringarna efter
    owner, inte en bulkimport. Ändra inte Clerk-säkerhetspolicyn i smyg.
 5. Bevisat död kod, ärliga statusord, aktuella docs och verifieringsmatris.
