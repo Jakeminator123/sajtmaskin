@@ -134,6 +134,9 @@ try {
       expectedPreviousMutationRevision: 1,
     });
 
+    // The queued boot reads the runner in a later microtask. Drain it before
+    // assertions so even a failed assertion cannot restore the real runner early.
+    await runtime.ensureRuntimeForChat(chatId);
     assert.equal(result.mode, "booted");
     assert.equal(result.reason, "runtime_not_running");
     assert.equal(
@@ -141,9 +144,6 @@ try {
       1,
       "a dead runtime must still get a boot from the merged filesJson",
     );
-    // The queued boot reads the runner in a later microtask. Drain it while
-    // the fake runner is installed so cleanup cannot launch a real dev server.
-    await runtime.ensureRuntimeForChat(chatId);
     assert.equal(bootRuns, 1, "the queued fake boot must finish before cleanup");
     runtime.__testing.setBootRunnerForTesting(null);
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
@@ -178,6 +178,7 @@ try {
       expectedPreviousMutationRevision: 1,
     });
 
+    await runtime.ensureRuntimeForChat(chatId);
     assert.equal(result.mode, "booted");
     assert.equal(result.reason, "runtime_not_running");
     assert.equal(
@@ -185,7 +186,6 @@ try {
       1,
       "a new versionId during boot must still force a restart boot",
     );
-    await runtime.ensureRuntimeForChat(chatId);
     assert.equal(bootRuns, 1, "the queued restart must finish before cleanup");
     runtime.__testing.setBootRunnerForTesting(null);
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
