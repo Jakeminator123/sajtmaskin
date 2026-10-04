@@ -93,7 +93,7 @@ function applyCanonicalPathPolicy(
   }));
   // Preserve the historical unreadable-source fallback: it participates in
   // fail-closed collision checks, but cannot authorize a rename or mutation.
-  const mutableSelectedResolved = selectedResolved.filter(({ claim }) => Boolean(claim.content));
+  const mutableSelectedResolved = selectedResolved.filter(({ claim }) => claim.content !== null);
   const selectedIdentities = new Set(selectedResolved.map(({ resolved }) => resolved.outputIdentity));
   const duplicateSelectedLlmIdentities = [...selectedIdentities].filter(
     (identity) => (llmByIdentity.get(identity)?.length ?? 0) > 1,
@@ -208,7 +208,7 @@ export function applyDossierVerbatimPolicy(params: {
       // the merge path — treat as "cannot verify/seed" and leave files as-is.
       const canonical =
         canonicalByClaim.get(`${dossier.class}\0${dossier.id}\0${resolvedPath.sourcePath}`) ?? null;
-      if (!canonical) {
+      if (canonical === null) {
         if (isVerbatim) {
           console.warn(
             `[verbatim-policy] dossier ${dossier.id} declares verbatim file ${file.path} but disk content is unavailable - verbatim policy skipped for this file`,

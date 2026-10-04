@@ -21,6 +21,7 @@ import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
 import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
 import {
+  dossierOutputPathIdentity,
   dossierOutputPathsHaveFileDirectoryConflict,
   resolveDossierFilePath,
 } from "./output-path";
@@ -120,6 +121,8 @@ export function validateDossierManifest(
     }
 
     if (Array.isArray(manifest.files)) {
+      const ownersBySourceIdentity = new Map<string, { sourcePath: string; index: number }>();
+      const sourceOwners: Array<{ sourcePath: string; index: number }> = [];
       const ownersByOutputIdentity = new Map<
         string,
         { sourcePath: string; outputPath: string; index: number }
@@ -131,6 +134,23 @@ export function validateDossierManifest(
         if (typeof path !== "string") continue;
         try {
           const resolved = resolveDossierFilePath(path);
+          const sourceIdentity = dossierOutputPathIdentity(path);
+          const previousSource = ownersBySourceIdentity.get(sourceIdentity);
+          if (previousSource) {
+            errors.push(
+              `/files/${index}/path ${JSON.stringify(path)} collides with files[${previousSource.index}].path ${JSON.stringify(previousSource.sourcePath)} under portable source path identity`,
+            );
+          } else {
+            ownersBySourceIdentity.set(sourceIdentity, { sourcePath: path, index });
+          }
+          for (const previousOwner of sourceOwners) {
+            if (dossierOutputPathsHaveFileDirectoryConflict(previousOwner.sourcePath, path)) {
+              errors.push(
+                `/files/${index}/path ${JSON.stringify(path)} has a portable source path file/directory conflict with files[${previousOwner.index}].path ${JSON.stringify(previousOwner.sourcePath)}`,
+              );
+            }
+          }
+          sourceOwners.push({ sourcePath: path, index });
           const previous = ownersByOutputIdentity.get(resolved.outputIdentity);
           if (previous) {
             errors.push(

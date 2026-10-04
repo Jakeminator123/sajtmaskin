@@ -151,6 +151,38 @@ describe("validateDossierManifest — canonical file paths", () => {
   });
 
   it.each([
+    ["components/api/chat/route.ts", "Components/api/chat/route.ts"],
+    ["components/api/chat", "Components/api/chat/route.ts"],
+  ])("rejects portable source-path collision %s and %s before output mapping", (first, second) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: first, role: "server" },
+          { path: second, role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("source path");
+  });
+
+  it("allows source-path prefix siblings without a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/api/chat", role: "server" },
+          { path: "Components/api/chatty/route.ts", role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it.each([
     ["components/cache", "components/cache/item.ts"],
     ["components/Cache", "components/cache/item.ts"],
     ["components/cafe\u0301", "components/caf\u00e9/item.ts"],

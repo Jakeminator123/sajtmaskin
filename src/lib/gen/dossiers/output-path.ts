@@ -7,29 +7,30 @@
  * rendering, restoration and acceptance builds cannot drift apart.
  */
 
+import { SCAFFOLD_PROTECTED_PATHS } from "@/lib/gen/scaffolds/protected-paths";
+
 const MIN_PATH_LENGTH = 3;
 const MAX_PATH_LENGTH = 240;
 
 const ROOT_LEVEL_FILES = new Set(["middleware.ts", "instrumentation.ts", "drizzle.config.ts"]);
 const SENTRY_CONFIG_RE = /^sentry\.(client|server|edge)\.config\.ts$/;
 
-const SCAFFOLD_RESERVED_OUTPUT_PATHS = new Set(
-  [
-    "app/layout.tsx",
-    "app/globals.css",
-    "app/loading.tsx",
-    "app/error.tsx",
-    "app/not-found.tsx",
-    "app/template.tsx",
-    "package.json",
-    "tsconfig.json",
-    "next.config.js",
-    "next.config.mjs",
-    "next.config.ts",
-    "tailwind.config.ts",
-    "postcss.config.mjs",
-  ].map((path) => path.toLowerCase()),
-);
+const SCAFFOLD_RESERVED_OUTPUT_PATHS: ReadonlySet<string> = new Set([
+  "app/layout.tsx",
+  "app/globals.css",
+  "app/loading.tsx",
+  "app/error.tsx",
+  "app/not-found.tsx",
+  "app/template.tsx",
+  "package.json",
+  "tsconfig.json",
+  "next.config.js",
+  "next.config.mjs",
+  "next.config.ts",
+  "tailwind.config.ts",
+  "postcss.config.mjs",
+  ...SCAFFOLD_PROTECTED_PATHS,
+]);
 
 const WINDOWS_DEVICE_BASENAME_RE =
   /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$/i;
@@ -77,6 +78,19 @@ export function dossierOutputPathsHaveFileDirectoryConflict(
   const left = dossierOutputPathIdentity(leftOutputPath);
   const right = dossierOutputPathIdentity(rightOutputPath);
   return left !== right && (left.startsWith(`${right}/`) || right.startsWith(`${left}/`));
+}
+
+function findScaffoldReservedOutputConflict(outputPath: string): string | null {
+  const outputIdentity = dossierOutputPathIdentity(outputPath);
+  for (const reservedPath of SCAFFOLD_RESERVED_OUTPUT_PATHS) {
+    if (
+      dossierOutputPathIdentity(reservedPath) === outputIdentity ||
+      dossierOutputPathsHaveFileDirectoryConflict(reservedPath, outputPath)
+    ) {
+      return reservedPath;
+    }
+  }
+  return null;
 }
 
 function assertPortableRelativePath(path: string): void {
@@ -141,10 +155,11 @@ export function resolveDossierFilePath(dossierPath: string): ResolvedDossierFile
   const outputPath = mapValidatedPathToOutput(dossierPath);
   assertPortableRelativePath(outputPath);
   const outputIdentity = dossierOutputPathIdentity(outputPath);
-  if (SCAFFOLD_RESERVED_OUTPUT_PATHS.has(outputIdentity)) {
+  const reservedConflict = findScaffoldReservedOutputConflict(outputPath);
+  if (reservedConflict) {
     throw new DossierFilePathError(
       dossierPath,
-      `maps to scaffold-reserved output path ${JSON.stringify(outputPath)}`,
+      `maps to output path ${JSON.stringify(outputPath)}, which conflicts with scaffold-reserved output path ${JSON.stringify(reservedConflict)}`,
     );
   }
   return { sourcePath: dossierPath, outputPath, outputIdentity };

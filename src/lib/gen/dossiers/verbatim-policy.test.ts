@@ -193,6 +193,52 @@ describe("applyDossierVerbatimPolicy", () => {
       expect(llmFiles).toEqual(before);
     });
 
+    it("canonicalizes an empty rewritable file path without replacing LLM content", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "rewritable" }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile("components/foo.ts", "LLM-owned content")],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: "LLM-owned content" }),
+      ]);
+      expect(result.restored).toEqual([]);
+      expect(result.changed).toBe(true);
+    });
+
+    it("restores a readable empty verbatim file to zero bytes", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "verbatim" }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile("components/Foo.ts", "drift")],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files[0]?.content).toBe("");
+      expect(result.restored).toEqual([
+        expect.objectContaining({ reason: "verbatim_content_drift" }),
+      ]);
+    });
+
+    it("seeds a missing readable empty verbatim file", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "verbatim" }],
+      });
+      const result = applyDossierVerbatimPolicy({ llmFiles: [], selectedDossiers: [dossier] });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: "" }),
+      ]);
+      expect(result.restored).toEqual([
+        expect.objectContaining({ reason: "verbatim_file_missing_in_llm_output" }),
+      ]);
+    });
+
     it("restores a corrupted ThreeCanvasShell wrapper back to the canonical dossier file", () => {
       const canonical = '"use client";\nexport function ThreeCanvasShell() { return null; }\n';
       mockGetDossierFileContent.mockReturnValue(canonical);

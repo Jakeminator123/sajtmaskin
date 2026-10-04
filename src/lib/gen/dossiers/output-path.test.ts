@@ -164,6 +164,25 @@ describe("resolveDossierFilePath", () => {
     expect(() => resolveDossierFilePath(path)).toThrow("scaffold-reserved");
   });
 
+  it.each([
+    ["app", "app/layout.tsx"],
+    ["app/layout.tsx/child.ts", "app/layout.tsx"],
+    ["package.json/assets", "package.json"],
+    ["app/icon.svg", "app/icon.svg"],
+    ["APP/API/PLACEHOLDER/ROUTE.TS", "app/api/placeholder/route.ts"],
+  ])("rejects output %s that conflicts with reserved file %s", (path, reservedPath) => {
+    expect(() => resolveDossierFilePath(path)).toThrow(reservedPath);
+  });
+
+  it.each([
+    "application/page.tsx",
+    "app/layout.tsx-extra/child.ts",
+    "package.json-assets/file.ts",
+    "app/icon.svg-extra",
+  ])("allows reserved-prefix sibling %s", (path) => {
+    expect(resolveDossierFilePath(path).outputPath).toBe(path);
+  });
+
   it("allows ordinary paths and literal Next.js catch-all segments", () => {
     expect(resolveDossierFilePath("app/statistik/page.tsx").outputPath).toBe(
       "app/statistik/page.tsx",

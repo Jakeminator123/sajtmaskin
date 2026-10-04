@@ -62,6 +62,7 @@ export const FIXED_SOURCE_PATHS = [
   "src/lib/gen/dossiers/registry.ts",
   "src/lib/gen/dossiers/types.ts",
   "src/lib/gen/dossiers/validate-manifest.ts",
+  "src/lib/gen/scaffolds/protected-paths.ts",
 ] as const;
 
 const MOCK_MODE_VALUES = ["canned", "seed", "success", "visual", "none"] as const satisfies readonly DossierMockMode[];
