@@ -14,6 +14,7 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { rewriteDossierImportsForRenames, type DossierPathRename } from "./canonical-imports";
 import type { DossierEntry } from "./types";
+import { projectDossierIntegration } from "./integration";
 import { getDossierFileContent } from "./registry";
 import {
   dossierOutputPathIdentity,
@@ -46,8 +47,8 @@ interface PreparedSelectedDossiers {
 function prepareSelectedDossiers(selectedDossiers: readonly DossierEntry[]): PreparedSelectedDossiers {
   const canonicalByClaim = new Map<string, string | null>();
   const selectedClaims = selectedDossiers.flatMap((dossier) =>
-    (dossier.files ?? []).map((file) => {
-      const sourcePath = resolveDossierFilePath(file.path).sourcePath;
+    projectDossierIntegration(dossier).files.map((file) => {
+      const sourcePath = file.sourcePath;
       let content: string | null = null;
       try {
         content = getDossierFileContent(dossier.class, dossier.id, sourcePath);
@@ -198,10 +199,10 @@ export function applyDossierVerbatimPolicy(params: {
   }
 
   for (const dossier of params.selectedDossiers) {
-    for (const file of dossier.files ?? []) {
-      const resolvedPath = resolveDossierFilePath(file.path);
+    for (const file of projectDossierIntegration(dossier).files) {
+      const resolvedPath = file;
       // Per-file injectionMode takes precedence over dossier-level codeFidelity.
-      const effectiveMode = file.injectionMode ?? dossier.codeFidelity;
+      const effectiveMode = file.injectionMode;
       const isVerbatim = effectiveMode === "verbatim";
 
       // Safe-default: a malformed entry or unreadable disk must never crash

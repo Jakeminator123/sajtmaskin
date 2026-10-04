@@ -30,6 +30,28 @@ def _manifest_uri_format_is_valid(value: object) -> bool:
     return bool(parsed.scheme and parsed.netloc)
 
 
+def _provider_setup_url_format_is_valid(value: object) -> bool:
+    """Mirror the dossier runtime's dedicated HTTPS setup-link contract."""
+    if not isinstance(value, str):
+        return True
+    if len(value) > 2048 or any(
+        ord(char) <= 32 or char.isspace() or char in '<>()[]"`\\' for char in value
+    ):
+        return False
+    try:
+        parsed = urlparse(value)
+        _ = parsed.port
+        return bool(
+            parsed.scheme == "https"
+            and parsed.hostname
+            and parsed.hostname.strip(".")
+            and not parsed.username
+            and not parsed.password
+        )
+    except ValueError:
+        return False
+
+
 def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
     """Validate ``data`` against the JSON Schema file at ``schema_path``.
 
@@ -72,6 +94,7 @@ def validate_json_against_schema(data: Any, schema_path: Path) -> list[str]:
     # use `format: "uri"` (the check is simply never invoked).
     format_checker = FormatChecker()
     format_checker.checks("uri")(_manifest_uri_format_is_valid)
+    format_checker.checks("https-provider-setup")(_provider_setup_url_format_is_valid)
 
     validator = Draft202012Validator(schema, format_checker=format_checker)
     messages: list[str] = []

@@ -569,6 +569,25 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 
 The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
 
+### Configuration guidance and the internal integration projection
+
+`envVars` remains the sole dossier owner of external env requirements.
+Optional hard-only `configInputs` describes non-env project code values using
+an identifier `binding`, a `component-prop` or `code-config` target and purpose.
+It does not contain values, requiredness or status. Optional `providerSetup`
+contains ordered owner instructions; references must resolve to existing env
+keys or code-input ids. These instructions are not executed by the generator
+and never establish setup completion or provider acceptance.
+
+[`projectDossierIntegration()`](../../src/lib/gen/dossiers/integration.ts)
+is an internal, request-local projection used by prompt composition and dossier
+restoration. Paths, per-file fidelity, F3 requirements and guidance references
+come from existing canonical owners. It is not a persistent dossier model or
+a new generation/readiness phase. The shared prompt renderer surfaces guidance
+also when legacy instruction text is unavailable; omitted metadata adds no
+empty prompt section. Guidance must not change configured, lifecycle or
+`lastVerified` semantics.
+
 ### Re-verification and acceptance evidence
 
 `config/dossier-verification-policy.json` is the canonical cadence policy.

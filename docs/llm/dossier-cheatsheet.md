@@ -10,7 +10,7 @@ Aktuell katalog: [`docs/generated/capabilities.generated.md`](../generated/capab
 | Urval + prompt-injection | [`dossier-selection-flow.md`](dossier-selection-flow.md) |
 | Skriva ny dossier | [`dossier-author-template.md`](dossier-author-template.md) |
 | Axlar / design–integration / mock | [`dossier-system.md` § Tre oberoende axlar](../contracts/dossier-system.md#tre-oberoende-axlar-läs-denna-innan-du-drar-en-slutsats-om-en-dossier) |
-| D2–D4 (parkerad arkitekturskuld) | [`dossier-förenkling`](../plans/archived/2026-08-19-dossier-forenkling.md) |
+| Pågående förenkling | [`aktiv dossierplan`](../plans/active/2026-10-04-dossier-forenkling/00-master-plan.md) |
 
 ## Tre axlar (kort)
 
@@ -54,21 +54,22 @@ manifest utesluts ur runtime-poolen. Backoffice validerar mot samma fil före
 skrivning och läser enumvärden därifrån. JSON Schema äger formen; TypeScript,
 validatorns korsregler och runtimekod äger den fulla semantiken.
 
-## D2 → D3 → D4
+## Konfiguration och projektspecifik kod
 
-Dessa är en kvarvarande kvalitets-/underhållbarhetskedja. Det redan fungerande
-produktflödet blockeras inte av dem.
+- `envVars` äger fortfarande projektets externa konfiguration och befintlig
+  configured/readiness-semantik. Kopiera inte nyckelkrav till andra fält.
+- `configInputs` beskriver enbart icke-env kodvärden, exempelvis
+  `CheckoutButton`-propen `priceId`. Generatorn ska använda ägarens värde, inte
+  hitta på ett provider-id. Metadata lagrar inte värdet eller dess status.
+- `providerSetup` är ordnade instruktioner till ägaren hos leverantören. Stegen
+  kan referera befintliga env-nycklar och kodinputs, men kvitterar aldrig att
+  setup eller ett liveprov har gjorts.
+- [`projectDossierIntegration()`](../../src/lib/gen/dossiers/integration.ts)
+  projicerar samma filvägar/kodtrohet och konfigurationsvägledning för prompt
+  och filåterställning. Ingen ny agent, lagrad owner eller pipelinefas.
 
-- **D2:** `configInputs` för värden som fylls i hos Sajtmaskin och
-  `providerSetup` för verifierbara steg hos leverantören. `envVars` fortsätter
-  äga configured/readiness tills en separat migration beslutas.
-- **D3:** bygg en intern `HardDossierIntegration` som samlar hard-dossierns
-  promptbidrag. Refaktor, inte en ny LLM-agent eller pipelinefas.
-- **D4:** ge alla nio hard-dossiers `selected-sections` och verifiera att
-  `When to use`, `How to integrate` och `Avoid` faktiskt når modellen.
-
-Kör strikt **D2 → D3 → D4**. Ta inte bort ”Bygg integrationer” och ändra inte
-`SELECTED_SECTION_CHAR_CAP = 480` i detta spår.
+Instruktioner och fortsatt katalogarbete följer den aktiva planen ovan.
+”Bygg integrationer” och 480-teckengränsen per vald instruktionssektion behålls.
 
 ## Verifiera generering
 

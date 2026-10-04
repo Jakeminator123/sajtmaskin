@@ -114,6 +114,8 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     summary: data.summary,
     summarySv: data.summarySv,
     envVars: data.envVars,
+    configInputs: data.configInputs,
+    providerSetup: data.providerSetup,
     dependencies: data.dependencies,
     files: data.files,
     exposes: data.exposes,

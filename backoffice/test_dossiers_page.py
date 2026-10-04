@@ -827,6 +827,45 @@ class RebuildCapabilityMapTests(unittest.TestCase):
 
 
 class ManifestClassValidationTests(unittest.TestCase):
+    def _hard_with_guidance(self) -> dict:
+        return {
+            "id": "acme-payments",
+            "label": "Acme payments",
+            "capability": "payments",
+            "providers": ["acme"],
+            "codeFidelity": "rewritable",
+            "complexity": "simple",
+            "summary": "A complete hard manifest fixture for project configuration guidance.",
+            "lastVerified": "2026-10-04",
+            "envVars": [
+                {
+                    "key": "ACME_SECRET",
+                    "required": True,
+                    "purpose": "Authenticates server-side requests to Acme.",
+                }
+            ],
+            "configInputs": [
+                {
+                    "id": "price-id",
+                    "label": "Price id",
+                    "target": "component-prop",
+                    "binding": "priceId",
+                    "purpose": "Selects the Acme price used by the project checkout.",
+                }
+            ],
+            "providerSetup": [
+                {
+                    "id": "create-price",
+                    "title": "Create a price",
+                    "instruction": "Create the price in Acme before binding its id in code.",
+                    "references": {
+                        "envVarKeys": ["ACME_SECRET"],
+                        "configInputIds": ["price-id"],
+                    },
+                }
+            ],
+        }
+
     def test_raw_hard_manifest_requires_providers(self) -> None:
         self.assertIn(
             "hard manifests must declare a non-empty providers array",
@@ -863,6 +902,99 @@ class ManifestClassValidationTests(unittest.TestCase):
             "soft manifests must not declare non-empty envVars",
             dossiers_page._validate_manifest({"id": "acme", "envVars": []}, "soft"),
         )
+
+    def test_hard_configuration_guidance_cross_references_are_validated(self) -> None:
+        manifest = self._hard_with_guidance()
+        self.assertEqual(dossiers_page._validate_manifest(manifest, "hard"), [])
+
+        broken = {
+            **manifest,
+            "providerSetup": [
+                {
+                    **manifest["providerSetup"][0],
+                    "references": {
+                        "envVarKeys": ["MISSING_KEY"],
+                        "configInputIds": ["missing-input"],
+                    },
+                }
+            ],
+        }
+        errors = dossiers_page._validate_manifest(broken, "hard")
+        self.assertIn('unknown envVars.key "MISSING_KEY"', "\n".join(errors))
+        self.assertIn('unknown configInputs.id "missing-input"', "\n".join(errors))
+
+    def test_configuration_guidance_schema_bounds_context_arrays(self) -> None:
+        from backoffice.shared import validate_json_against_schema
+
+        for field in ("configInputs", "providerSetup"):
+            with self.subTest(field=field):
+                manifest = self._hard_with_guidance()
+                manifest[field] = [
+                    {**manifest[field][0], "id": f"entry-{index}"}
+                    for index in range(9)
+                ]
+                errors = validate_json_against_schema(
+                    manifest, dossiers_page.STRICT_SCHEMA_PATH
+                )
+                self.assertTrue(any(field in error for error in errors), errors)
+
+    def test_raw_save_rejects_unsafe_setup_url_before_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            dossier_root = repo_root / "data" / "dossiers"
+            path = dossier_root / "hard" / "acme-payments" / "manifest.json"
+            path.parent.mkdir(parents=True)
+            original = {
+                **self._hard_with_guidance(),
+                "summary": "A provider configuration fixture for the raw editor save boundary.",
+                "lastVerified": "2026-08-05",
+            }
+            path.write_text(json.dumps(original), encoding="utf-8")
+            for setup_url in (
+                "https://user:secret@example.com/setup",
+                "https://example.com:99999/setup",
+                "https://",
+                "https://...",
+            ):
+                with (
+                    self.subTest(setup_url=setup_url),
+                    mock.patch.object(dossiers_page, "REPO_ROOT", repo_root),
+                    mock.patch.object(dossiers_page, "DOSSIER_ROOT", dossier_root),
+                ):
+                    proposed = {
+                        **original,
+                        "providerSetup": [
+                            {**original["providerSetup"][0], "setupUrl": setup_url}
+                        ],
+                    }
+                    ok, msg = dossiers_page._save_raw_manifest(
+                        path, proposed, dossier_class="hard"
+                    )
+                    self.assertFalse(ok, msg)
+                    self.assertIn("Strict-schema", msg)
+                    self.assertEqual(json.loads(path.read_text(encoding="utf-8")), original)
+
+    def test_hard_configuration_guidance_rejects_duplicate_ids(self) -> None:
+        manifest = self._hard_with_guidance()
+        manifest["configInputs"] = [
+            manifest["configInputs"][0],
+            {**manifest["configInputs"][0], "label": "Duplicate input"},
+        ]
+        manifest["providerSetup"] = [
+            manifest["providerSetup"][0],
+            {**manifest["providerSetup"][0], "title": "Duplicate step"},
+        ]
+        errors = "\n".join(dossiers_page._validate_manifest(manifest, "hard"))
+        self.assertIn('duplicate configInputs id "price-id"', errors)
+        self.assertIn('duplicate providerSetup id "create-price"', errors)
+
+    def test_soft_manifest_forbids_provider_configuration_metadata(self) -> None:
+        base = self._hard_with_guidance()
+        base.pop("providers")
+        for field in ("configInputs", "providerSetup"):
+            candidate = {**base, field: []}
+            errors = "\n".join(dossiers_page._validate_manifest(candidate, "soft"))
+            self.assertIn(f"soft manifests must not declare {field}", errors)
 
     def test_raw_save_rejects_schema_invalid_provider_before_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

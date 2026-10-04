@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import streamlit as st
+from backoffice.shared_lib.validation import _provider_setup_url_format_is_valid
 
 from .io import _ensure_capability_map_current, _load_json
 from .labels import class_hint, class_label, mock_label
@@ -68,6 +69,50 @@ def _file_roles(row: dict[str, Any]) -> str:
     ) or "—"
 
 
+def configuration_guidance_lines(
+    manifest: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    """Format guidance metadata without deriving readiness/completion state."""
+    input_lines: list[str] = []
+    for raw in manifest.get("configInputs") or []:
+        if not isinstance(raw, dict):
+            continue
+        input_lines.append(
+            f"`{raw.get('id', '?')}` — {raw.get('label', '?')} "
+            f"(`{raw.get('target', '?')}`: `{raw.get('binding', '?')}`) — "
+            f"{raw.get('purpose', '')}"
+        )
+
+    setup_lines: list[str] = []
+    for index, raw in enumerate(manifest.get("providerSetup") or [], start=1):
+        if not isinstance(raw, dict):
+            continue
+        references = raw.get("references")
+        references = references if isinstance(references, dict) else {}
+        reference_parts: list[str] = []
+        env_keys = [str(value) for value in references.get("envVarKeys") or []]
+        config_ids = [str(value) for value in references.get("configInputIds") or []]
+        if env_keys:
+            reference_parts.append("env: " + ", ".join(f"`{key}`" for key in env_keys))
+        if config_ids:
+            reference_parts.append(
+                "kodvärden: " + ", ".join(f"`{item_id}`" for item_id in config_ids)
+            )
+        suffix = f" ({'; '.join(reference_parts)})" if reference_parts else ""
+        setup_lines.append(
+            f"{index}. **{raw.get('title', '?')}** — "
+            f"{raw.get('instruction', '')}{suffix}"
+        )
+    return input_lines, setup_lines
+
+
+def safe_provider_setup_url(value: Any) -> str | None:
+    """Raw disk metadata may precede validation; never interpolate it in Markdown."""
+    if not isinstance(value, str) or not _provider_setup_url_format_is_valid(value):
+        return None
+    return value
+
+
 def _render_system_map_row_detail(
     row: dict[str, Any], chosen: dict[str, Any] | None
 ) -> None:
@@ -128,6 +173,17 @@ def _render_system_map_row_detail(
             for f in files
         ]
         st.markdown("**Filer:**\n" + "\n".join(lines))
+
+    config_input_lines, provider_setup_lines = configuration_guidance_lines(chosen)
+    if config_input_lines:
+        st.markdown("**Projektvärden i kod (vägledning):**\n- " + "\n- ".join(config_input_lines))
+    if provider_setup_lines:
+        st.markdown("**Leverantörsinställning (ordnad vägledning):**\n" + "\n".join(provider_setup_lines))
+        for index, step in enumerate(chosen.get("providerSetup") or [], start=1):
+            if isinstance(step, dict):
+                setup_url = safe_provider_setup_url(step.get("setupUrl"))
+                if setup_url:
+                    st.link_button(f"Öppna leverantörens inställning (steg {index})", setup_url)
 
     if chosen.get("sourceRepoUrl"):
         st.caption(f"Källa: {chosen['sourceRepoUrl']}")

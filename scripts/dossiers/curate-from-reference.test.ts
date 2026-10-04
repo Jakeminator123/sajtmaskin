@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   allowedCurationModels,
   applyCuratorCapabilityChoice,
+  assertCurationOutput,
   curationAllocateArgs,
   curationCleanupArgs,
   curationEnvRule,
@@ -136,6 +137,53 @@ describe("curator capability enforcement", () => {
     expect(() =>
       applyCuratorCapabilityChoice({ capability: "cms", defaultForCapability: false }, "Not Valid"),
     ).toThrow(/--capability must be kebab-case/);
+  });
+
+  it("accepts hard-only non-env code inputs and ordered provider setup guidance", () => {
+    const value = {
+      manifest: {
+        id: "wrong-id",
+        label: "Example checkout",
+        capability: "payments",
+        providers: ["example"],
+        codeFidelity: "rewritable",
+        complexity: "simple",
+        summary: "A provider checkout fixture used to validate curation metadata output.",
+        lastVerified: "2026-10-04",
+        envVars: [
+          {
+            key: "EXAMPLE_SECRET",
+            required: true,
+            purpose: "Authenticates server-side requests to the example checkout provider.",
+          },
+        ],
+        configInputs: [
+          {
+            id: "price-id",
+            label: "Price id",
+            target: "component-prop",
+            binding: "priceId",
+            purpose: "Selects which provider price the project checkout should purchase.",
+          },
+        ],
+        providerSetup: [
+          {
+            id: "create-price",
+            title: "Create a checkout price",
+            instruction: "Create a price in the provider dashboard and bind its id in code.",
+            references: {
+              envVarKeys: ["EXAMPLE_SECRET"],
+              configInputIds: ["price-id"],
+            },
+          },
+        ],
+      },
+      instructions: "# When to use\n- Use it.\n# How to integrate\n- Wire it.\n# Avoid\n- Avoid drift.",
+    };
+
+    expect(() => assertCurationOutput(value, "example-checkout", "hard")).not.toThrow();
+    expect(value.manifest.id).toBe("example-checkout");
+    expect((value.manifest as Record<string, unknown>).verificationStatus).toBe("unverified");
   });
 });
 

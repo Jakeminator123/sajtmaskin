@@ -100,6 +100,8 @@ export type DossierTruthView = {
     required: boolean;
     enforcement: "build" | "feature-runtime" | "warn-only";
   }>;
+  configInputs: NonNullable<DossierEntry["configInputs"]>;
+  providerSetup: NonNullable<DossierEntry["providerSetup"]>;
   fileRoles: Record<string, number>;
   dependencies: string[];
   summarySv: string;
@@ -251,6 +253,22 @@ export function buildDossierTruth(
             enforcement: envVar.enforcement ?? "build",
           }))
           .sort((left, right) => left.key.localeCompare(right.key)),
+        configInputs: (dossier.configInputs ?? []).map((input) => ({ ...input })),
+        providerSetup: (dossier.providerSetup ?? []).map((step) => ({
+          ...step,
+          ...(step.references
+            ? {
+                references: {
+                  ...(step.references.envVarKeys
+                    ? { envVarKeys: [...step.references.envVarKeys] }
+                    : {}),
+                  ...(step.references.configInputIds
+                    ? { configInputIds: [...step.references.configInputIds] }
+                    : {}),
+                },
+              }
+            : {}),
+        })),
         fileRoles: Object.fromEntries(
           Object.entries(fileRoles).sort(([left], [right]) => left.localeCompare(right)),
         ),

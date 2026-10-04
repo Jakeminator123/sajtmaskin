@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-10-04T15:04:13.012Z",
+  "generatedAt": "2026-10-04T16:25:01.726Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -158,6 +158,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -218,6 +220,8 @@
           "enforcement": "warn-only"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 2,
         "server": 1
@@ -277,6 +281,8 @@
           "enforcement": "warn-only"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1,
         "server": 1
@@ -323,6 +329,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1,
         "server": 1
@@ -373,6 +381,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "server": 4,
         "shared": 2
@@ -435,6 +445,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1,
         "server": 1,
@@ -487,6 +499,37 @@
           "key": "STRIPE_SECRET_KEY",
           "required": true,
           "enforcement": "feature-runtime"
+        }
+      ],
+      "configInputs": [
+        {
+          "id": "price-id",
+          "label": "One-time Stripe Price",
+          "target": "component-prop",
+          "binding": "priceId",
+          "purpose": "Use the owner's real one-time Stripe Price id, stored once in named project code and passed to CheckoutButton. Never invent a price id; this value is not an env key or readiness evidence."
+        }
+      ],
+      "providerSetup": [
+        {
+          "id": "account-key",
+          "title": "Choose the Stripe account and key",
+          "instruction": "Use the owner's intended test or live Stripe account and store its server secret key in project configuration. Never put it in browser code.",
+          "references": {
+            "envVarKeys": [
+              "STRIPE_SECRET_KEY"
+            ]
+          }
+        },
+        {
+          "id": "one-time-price",
+          "title": "Create the one-time Price",
+          "instruction": "The owner creates the product and one-time Price in the same Stripe account, then supplies its real id for the project's checkout button.",
+          "references": {
+            "configInputIds": [
+              "price-id"
+            ]
+          }
         }
       ],
       "fileRoles": {
@@ -543,6 +586,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 2,
         "server": 4,
@@ -587,6 +632,19 @@
       "defaultForCapability": false,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [
+        {
+          "id": "enable-hosting-products",
+          "title": "Enable the Vercel products",
+          "instruction": "The platform or Vercel-project operator enables Analytics and Speed Insights. Standard Sajtmaskin hosting does not grant the site owner dashboard access. No dossier env key is required; this is hosting setup, not code readiness."
+        },
+        {
+          "id": "verify-dashboard-event",
+          "title": "Verify the deployed event",
+          "instruction": "The Vercel-project operator verifies a deployed request and dashboard event under the site's chosen consent policy. This is not a site-owner dashboard handoff or proof that a live test occurred. Use visitor-counter for owner-visible in-site counts."
+        }
+      ],
       "fileRoles": {
         "client": 1
       },
@@ -594,7 +652,7 @@
         "@vercel/analytics",
         "@vercel/speed-insights"
       ],
-      "summarySv": "Besöksstatistik inbyggd i hostingen: se hur många som besöker sajten och hur snabbt den laddar, utan att du behöver ställa in något — allt kopplas automatiskt när sajten publiceras. Utan den kopplingen stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
+      "summarySv": "Vercel-statistik för den som har åtkomst till hostingprojektets dashboard, normalt plattformsoperatören och inte sajtägaren. Blocket kräver inga egna env-nycklar men hostingprodukterna måste aktiveras. För statistik som sajtägaren själv kan se används i stället visitor-counter.",
       "verificationStatus": "accepted",
       "lastVerified": "2026-04-21",
       "f2Disposition": "deferred",
@@ -633,6 +691,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1,
         "server": 2,
@@ -688,6 +748,8 @@
           "enforcement": "feature-runtime"
         }
       ],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 2,
         "server": 2,
@@ -729,6 +791,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -766,6 +830,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1,
         "shared": 2
@@ -806,6 +872,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -844,6 +912,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -879,6 +949,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {},
       "dependencies": [],
       "summarySv": "Gör att sajten kan innehålla ett spelbart minispel med poäng, styrning och omstart, till exempel ett pussel- eller arkadspel. Välj det när du vill bjuda besökarna på något lekfullt; fungerar helt utan externa tjänster.",
@@ -912,6 +984,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -949,6 +1023,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -986,6 +1062,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 2,
         "shared": 1
@@ -1025,6 +1103,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 3
       },
@@ -1062,6 +1142,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 1
       },
@@ -1101,6 +1183,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {},
       "dependencies": [
         "@react-three/rapier"
@@ -1136,6 +1220,8 @@
       "defaultForCapability": true,
       "mock": "none",
       "envVars": [],
+      "configInputs": [],
+      "providerSetup": [],
       "fileRoles": {
         "client": 2,
         "shared": 1
@@ -1234,9 +1320,9 @@
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
     "data/dossiers/hard/postgres-drizzle/manifest.json": "1a2892030be6e1dd503c7b28788795de23fb32be36c47746a717f35f589a9a15",
     "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
-    "data/dossiers/hard/stripe-checkout/manifest.json": "09c25e6b5449cc37a177add0dddd02d51cc109441df5b99d5ada748c98d6ab3e",
+    "data/dossiers/hard/stripe-checkout/manifest.json": "f8600e208ddae07bf773014c68f6e5dc2e15c1d94611b159e569a94f24e39f6c",
     "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
-    "data/dossiers/hard/vercel-analytics/manifest.json": "cdc8f4b0bb84fb10eef49b397504f192fa96bef4ff387485ae413343c6a353da",
+    "data/dossiers/hard/vercel-analytics/manifest.json": "47282cd6d357af5c673dd35ede318f49294eb7cc843e4adbbf333dfd0799e369",
     "data/dossiers/hard/vercel-blob-media/manifest.json": "d6862608011b45e2676f3f45b55e1c49269971fd2e3d651d8eb567c401f7c83d",
     "data/dossiers/hard/visitor-counter/manifest.json": "91407c60034e2947355332eb0a711d3cb214bd979a9cd640690853c48bf26913",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
@@ -1251,15 +1337,15 @@
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "data/dossiers/soft/xyflow-spatial-canvas/manifest.json": "0e1f14c77efeb99f5de9d0793156de66c1e31190d717c4ea932a384b5c005f4e",
-    "docs/schemas/strict/dossier.schema.json": "91c2b46364396a63d82ba74c476cb3f9856d5a104092c05ef52fc3c7660b8bed",
-    "scripts/dossiers/regenerate-capability-map.ts": "5aef88384194eb40a8ee1720373f2490f3ea58298907cdf38544150d2dd71256",
+    "docs/schemas/strict/dossier.schema.json": "711c93774fa81edefbc41e8f17aa0f8e17d7b87eee43c970fc0c4ea6d3051a51",
+    "scripts/dossiers/regenerate-capability-map.ts": "a4662607c00dd187deb3dc40caa79ae3af60d8e67f93d4b72c6c96c0c5374602",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
     "src/lib/builder/dossier-groups.ts": "cec7995deac773287a69ff81951e4ebf4b344fd7ca4c8b5a2c022f9930f3abe1",
     "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
     "src/lib/gen/dossiers/output-path.ts": "b0f9a7107577b3fa083cda16e8f9d0d85277f38c6d95e4ba333dedbb90e62f9f",
-    "src/lib/gen/dossiers/registry.ts": "c55c9457ba811d8a6a51d4f7453bd55d44198e194e004cb87a9cb32b19896312",
-    "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",
-    "src/lib/gen/dossiers/validate-manifest.ts": "d072b9a67dc1e9b07b35f91ffd332243b1499a79dc7e90cc4266ba48fde6027d",
+    "src/lib/gen/dossiers/registry.ts": "1735ea0ce202cdfce5712146034728f6fe5e9b9b3074f57fd8710c89c7999dc0",
+    "src/lib/gen/dossiers/types.ts": "a736f3dc13ab3507fb827a5f9ddfd40b77190957e9589c59be6492d3338b51bf",
+    "src/lib/gen/dossiers/validate-manifest.ts": "0f15b172a8ab9068cca9f084b49034f3225a9f885f947b1d1a7475b18fd81ef6",
     "src/lib/gen/scaffolds/protected-paths.ts": "73e6e71c19ed54983e2397d7975ee6d8c4f4d06bcaa163d2e85bcb777636b2e4",
     "src/lib/gen/security/path-validator.ts": "cd21b9c6a57b414672bb9ed5b629a6fa1fe9cdbb58c19834c77d8b367ecf6f33"
   }

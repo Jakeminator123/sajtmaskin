@@ -39,6 +39,14 @@ const ajv = new Ajv({ allErrors: true, allowUnionTypes: true, strict: false });
 // validation here — sourceRepoUrl is curator-supplied and string-typed is
 // enough. Registering as no-op just stops the warning at compile time.
 ajv.addFormat("uri", true);
+ajv.addFormat("https-provider-setup", (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && /[^.]/.test(url.hostname) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+});
 const _validate: ValidateFunction = ajv.compile(dossierSchema);
 
 export interface DossierValidationContext {
@@ -97,6 +105,8 @@ export function validateDossierManifest(
       id?: unknown;
       providers?: unknown;
       envVars?: unknown;
+      configInputs?: unknown;
+      providerSetup?: unknown;
       files?: unknown;
     };
     const id = manifest.id;
@@ -117,6 +127,74 @@ export function validateDossierManifest(
       }
       if (Array.isArray(manifest.envVars) && manifest.envVars.length > 0) {
         errors.push("soft manifests must not declare non-empty envVars");
+      }
+      if (Object.prototype.hasOwnProperty.call(manifest, "configInputs")) {
+        errors.push("soft manifests must not declare configInputs");
+      }
+      if (Object.prototype.hasOwnProperty.call(manifest, "providerSetup")) {
+        errors.push("soft manifests must not declare providerSetup");
+      }
+    }
+
+    const envVarKeys = new Set(
+      Array.isArray(manifest.envVars)
+        ? manifest.envVars.flatMap((envVar) =>
+            typeof envVar === "object" &&
+            envVar !== null &&
+            typeof (envVar as { key?: unknown }).key === "string"
+              ? [(envVar as { key: string }).key]
+              : [],
+          )
+        : [],
+    );
+    const configInputIds = new Set<string>();
+    if (Array.isArray(manifest.configInputs)) {
+      for (const [index, input] of manifest.configInputs.entries()) {
+        if (typeof input !== "object" || input === null) continue;
+        const id = (input as { id?: unknown }).id;
+        if (typeof id !== "string") continue;
+        if (configInputIds.has(id)) {
+          errors.push(`/configInputs/${index}/id duplicate configInputs id ${JSON.stringify(id)}`);
+        } else {
+          configInputIds.add(id);
+        }
+      }
+    }
+    const providerSetupIds = new Set<string>();
+    if (Array.isArray(manifest.providerSetup)) {
+      for (const [index, step] of manifest.providerSetup.entries()) {
+        if (typeof step !== "object" || step === null) continue;
+        const setup = step as {
+          id?: unknown;
+          references?: { envVarKeys?: unknown; configInputIds?: unknown };
+        };
+        if (typeof setup.id === "string") {
+          if (providerSetupIds.has(setup.id)) {
+            errors.push(
+              `/providerSetup/${index}/id duplicate providerSetup id ${JSON.stringify(setup.id)}`,
+            );
+          } else {
+            providerSetupIds.add(setup.id);
+          }
+        }
+        if (Array.isArray(setup.references?.envVarKeys)) {
+          for (const key of setup.references.envVarKeys) {
+            if (typeof key === "string" && !envVarKeys.has(key)) {
+              errors.push(
+                `/providerSetup/${index}/references/envVarKeys unknown envVars.key ${JSON.stringify(key)}`,
+              );
+            }
+          }
+        }
+        if (Array.isArray(setup.references?.configInputIds)) {
+          for (const id of setup.references.configInputIds) {
+            if (typeof id === "string" && !configInputIds.has(id)) {
+              errors.push(
+                `/providerSetup/${index}/references/configInputIds unknown configInputs.id ${JSON.stringify(id)}`,
+              );
+            }
+          }
+        }
       }
     }
 

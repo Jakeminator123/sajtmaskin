@@ -6,6 +6,76 @@ import {
 } from "../../dossiers";
 import { renderCapabilityModifyHintBlock, renderDossierBlocks } from "./dossiers";
 
+describe("renderDossierBlocks — configuration guidance", () => {
+  function selection(withInstructions = true): DossierSelectionResult {
+    const stripe = getAllDossiers().find((entry) => entry.id === "stripe-checkout")!;
+    return {
+      poolSize: 1,
+      byCapability: { payments: [stripe.id] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: false,
+          entry: {
+            ...stripe,
+            instructions: withInstructions
+              ? getDossierInstructions(stripe.class, stripe.id)
+              : undefined,
+            configInputs: [
+              {
+                id: "price-id",
+                label: "One-time price",
+                target: "component-prop",
+                binding: "priceId",
+                purpose:
+                  "Use an owner-supplied one-time Price for CheckoutButton; never invent a price id.",
+              },
+            ],
+            providerSetup: [
+              {
+                id: "account",
+                title: "Provider account",
+                instruction: "Choose the provider sandbox account.",
+                references: { envVarKeys: ["STRIPE_SECRET_KEY"] },
+              },
+              {
+                id: "price",
+                title: "Create Price",
+                instruction: "Create the one-time product price.",
+                references: { configInputIds: ["price-id"] },
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+
+  it("surfaces code inputs separately from env keys and keeps provider steps ordered", () => {
+    const text = renderDossierBlocks(selection()).join("\n");
+    expect(text).toContain("Dossier Configuration Guidance");
+    expect(text).toContain("binding `priceId`");
+    expect(text).toContain("owner-supplied one-time Price");
+    expect(text).toContain("STRIPE_SECRET_KEY");
+    expect(text.indexOf("Provider account")).toBeLessThan(text.indexOf("Create Price"));
+    expect(text).toContain("not readiness or live acceptance evidence");
+    expect(text).toContain("UNCONFIGURED");
+  });
+
+  it("does not silently drop guidance when legacy instructions are unavailable", () => {
+    expect(renderDossierBlocks(selection(false)).join("\n")).toContain("binding `priceId`");
+  });
+
+  it("keeps the legacy prompt lean when metadata is absent", () => {
+    const selected = selection();
+    delete selected.selected[0].entry.configInputs;
+    delete selected.selected[0].entry.providerSetup;
+    expect(renderDossierBlocks(selected).join("\n")).not.toContain(
+      "Dossier Configuration Guidance",
+    );
+  });
+});
+
 // Plan 11 / open-question #12: when the follow-up was classified as
 // `capability-modify`, `renderCapabilityModifyHintBlock` is the dossier
 // section's substitute for the suppressed "Available Dossiers" pool. It
@@ -19,9 +89,9 @@ describe("renderCapabilityModifyHintBlock — plan 11 bug 3", () => {
   });
 
   it("returns nothing when capabilityIds is empty (defensive)", () => {
-    expect(
-      renderCapabilityModifyHintBlock({ capabilityIds: [], references: ["pricken"] }),
-    ).toEqual([]);
+    expect(renderCapabilityModifyHintBlock({ capabilityIds: [], references: ["pricken"] })).toEqual(
+      [],
+    );
   });
 
   it("emits the modify-this directive with capability ids and reference tokens", () => {
@@ -263,9 +333,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
                 injectionMode: "verbatim",
               },
             ],
-            exposes: [
-              { name: "ChatPanel", type: "component", import: "@/components/chat-panel" },
-            ],
+            exposes: [{ name: "ChatPanel", type: "component", import: "@/components/chat-panel" }],
             lastVerified: "2026-04-20",
           },
         },
@@ -347,9 +415,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
               envVars: [],
               dependencies: [],
               files: [],
-              exposes: [
-                { name: "trackEvent", type: "function", import: "@/lib/analytics" },
-              ],
+              exposes: [{ name: "trackEvent", type: "function", import: "@/lib/analytics" }],
               lastVerified: "2026-04-30",
             },
           },
@@ -409,9 +475,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
   // promptInstructionMode: "selected-sections" — surface the do/don't rules
   // from instructions.md (When to use / How to integrate / Avoid) without the
   // whole file or the manifest-only compact fallback.
-  function selectedSectionsSelection(
-    instructions: string | undefined,
-  ): DossierSelectionResult {
+  function selectedSectionsSelection(instructions: string | undefined): DossierSelectionResult {
     return {
       poolSize: 1,
       byCapability: { "logo-cloud": ["logo-cloud"] },
@@ -575,13 +639,17 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
   }
 
   it("emits the mock-mode hint line for a hard dossier (mock: canned)", () => {
-    const text = renderDossierBlocks(hardMockSelection("canned"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("canned"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: canned");
     expect(text).toContain("without a real key");
   });
 
   it("emits the mock: success hint for a success-mode hard dossier", () => {
-    const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("success"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: success");
   });
 
@@ -589,13 +657,17 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     // Taxonomy 2026-07-22: stripe-checkout/clerk-auth/supabase-auth/
     // paddle-billing/ably-realtime render the full surface; the action opens
     // an honest demo notice instead of performing the real operation.
-    const text = renderDossierBlocks(hardMockSelection("visual"), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection("visual"), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: visual — render the full interactive surface");
     expect(text).toContain("Never fabricate sessions, charges or live transport");
   });
 
   it("falls back to mock: none when the manifest omits mock", () => {
-    const text = renderDossierBlocks(hardMockSelection(undefined), { generationMode: "init" }).join("\n");
+    const text = renderDossierBlocks(hardMockSelection(undefined), { generationMode: "init" }).join(
+      "\n",
+    );
     expect(text).toContain("mock: none");
   });
 
@@ -661,9 +733,7 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
       ],
     };
 
-    expect(() => renderDossierBlocks(selection)).toThrow(
-      "verbatim-missing missing-hard-dossier",
-    );
+    expect(() => renderDossierBlocks(selection)).toThrow("verbatim-missing missing-hard-dossier");
   });
 
   it("fails before prompt construction for divergent selected output aliases", () => {

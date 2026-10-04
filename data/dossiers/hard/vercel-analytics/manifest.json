@@ -8,9 +8,21 @@
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
-  "summary": "Besöksstatistik: sidvisningar och Core Web Vitals för den publicerade sajten (implementeras med @vercel/analytics). Lägger till komponenterna <Analytics /> + <SpeedInsights /> i root-layouten — noll konfiguration, hostingen injicerar projekttoken automatiskt vid publicering. Självinaktiveras i utvecklingsläge och är säker att ha monterad i alla miljöer.",
-  "summarySv": "Besöksstatistik inbyggd i hostingen: se hur många som besöker sajten och hur snabbt den laddar, utan att du behöver ställa in något — allt kopplas automatiskt när sajten publiceras. Utan den kopplingen stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
+  "summary": "Vercel Analytics och Core Web Vitals via <Analytics /> + <SpeedInsights /> i root-layouten. Ingen dossier-env behövs; Vercel-projektets operatör aktiverar hostingprodukterna. Dashboarddata kräver åtkomst till Vercel-projektet, vilket sajtägaren normalt inte har i Sajtmaskins hosting. Utan hostingkoppling kan komponenterna självinaktiveras; ingen demoyta krävs.",
+  "summarySv": "Vercel-statistik för den som har åtkomst till hostingprojektets dashboard, normalt plattformsoperatören och inte sajtägaren. Blocket kräver inga egna env-nycklar men hostingprodukterna måste aktiveras. För statistik som sajtägaren själv kan se används i stället visitor-counter.",
   "envVars": [],
+  "providerSetup": [
+    {
+      "id": "enable-hosting-products",
+      "title": "Enable the Vercel products",
+      "instruction": "The platform or Vercel-project operator enables Analytics and Speed Insights. Standard Sajtmaskin hosting does not grant the site owner dashboard access. No dossier env key is required; this is hosting setup, not code readiness."
+    },
+    {
+      "id": "verify-dashboard-event",
+      "title": "Verify the deployed event",
+      "instruction": "The Vercel-project operator verifies a deployed request and dashboard event under the site's chosen consent policy. This is not a site-owner dashboard handoff or proof that a live test occurred. Use visitor-counter for owner-visible in-site counts."
+    }
+  ],
   "dependencies": ["@vercel/analytics", "@vercel/speed-insights"],
   "files": [
     {

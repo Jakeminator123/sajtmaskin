@@ -17,7 +17,7 @@ Do not use it for:
 # How to integrate
 
 1. Place `CheckoutButton` on the page where the user should pay (pricing card CTA, hero CTA, etc.).
-2. Pass `priceId` (a `price_…` id from the Stripe dashboard) and a `label`. The id is per-product data the site owner must supply — there is no env var or config input for it, so declare the ids in ONE named constant (e.g. `const STRIPE_PRICE_IDS = { pro: "price_…" }`) that the owner can find and edit, and never scatter invented ids across pages.
+2. Pass the owner-supplied `priceId` and a `label`. The manifest's `price-id` config input describes this component value, not an env key or readiness proof. Store it once in named project config. Until the owner supplies a real one-time Price, use a clearly empty value (e.g. `const STRIPE_PRICE_IDS = { pro: "" }`) and explain what is missing; never invent a `price_…` id or claim that the payment is ready.
 3. The button POSTs to `/api/checkout-session`, which creates a Stripe Checkout Session and returns a redirect URL.
 4. Stripe handles the actual payment UI, then redirects the user back to `success_url` (default: `/payment-success`) or `cancel_url` (default: `/`).
 

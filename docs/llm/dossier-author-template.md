@@ -39,6 +39,21 @@ omit `providers`. This field is the only provider→dossier ownership source;
 the integration registry supplies generic/dossierless fallbacks, and agent
 provider choices are derived from both catalogs.
 
+## Project values and provider setup
+
+Hard dossiers may declare `configInputs` for non-env project code values and
+ordered `providerSetup` instructions. External configuration stays in `envVars`;
+never duplicate requiredness, enforcement or configured state in guidance.
+`configInputs[].binding` is a prop/export identifier, not a dotted path or an
+env key. Explain its owning component/module in `purpose`. Provider steps may
+reference existing `envVars.key` and `configInputs.id`; unknown references and
+duplicate ids are rejected by the same runtime/Backoffice validator.
+
+These fields are consumed by the generation prompt and Backoffice, but are not
+completion, readiness or acceptance evidence. Do not invent Price ids or other
+provider values. Do not put credentials in examples. Omitted fields preserve
+legacy behavior, and soft dossiers must omit both fields.
+
 ## Capability naming
 
 Capability ids are kebab-case, free-form, but follow these conventions:
