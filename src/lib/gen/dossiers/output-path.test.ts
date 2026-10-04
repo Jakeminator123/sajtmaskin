@@ -123,6 +123,17 @@ describe("resolveDossierFilePath", () => {
   });
 
   it.each([
+    "components/COM¹",
+    "components/com².txt",
+    "components/sub/CoM³.log",
+    "components/LPT¹",
+    "components/lpt².md",
+    "components/sub/LpT³.ts",
+  ])("rejects Windows superscript device alias %s", (path) => {
+    expect(() => resolveDossierFilePath(path)).toThrow("Windows device");
+  });
+
+  it.each([
     "app/layout.tsx",
     "APP/LAYOUT.TSX",
     "app/globals.css",

@@ -1055,6 +1055,68 @@ describe("SCAFFOLD_PROTECTED_PATHS — scaffold-default lock for utility files",
   });
 });
 
+describe("no-scaffold fallback dossier path persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockReturnValue(null);
+  });
+
+  function selectedPathDossier(mode: "rewritable" | "verbatim"): DossierEntry {
+    return {
+      id: `fallback-${mode}`,
+      class: "soft",
+      capability: `fallback-${mode}`,
+      codeFidelity: mode,
+      files: [
+        {
+          path: "components/Foo.ts",
+          role: "shared",
+          injectionMode: mode,
+        },
+      ],
+    } as unknown as DossierEntry;
+  }
+
+  it.each(["rewritable", "verbatim"] as const)(
+    "persists a canonicalized %s dossier path when content is unchanged",
+    (mode) => {
+      const content = mode === "rewritable" ? "LLM-owned content" : "canonical bytes";
+      getDossierFileContent.mockReturnValue(
+        mode === "rewritable" ? "canonical seed" : content,
+      );
+      const originalFiles = [
+        { path: "components/foo.ts", content, language: "ts" as const },
+      ];
+
+      const result = mergeGeneratedProjectFiles({
+        chatId: `c-fallback-${mode}`,
+        originalFilesJson: JSON.stringify(originalFiles),
+        generatedFiles: [],
+        resolvedScaffold: null,
+        previousFiles: undefined,
+        selectedDossiers: [selectedPathDossier(mode)],
+      });
+
+      expect(JSON.parse(result.filesJson)).toEqual([
+        { path: "components/Foo.ts", content, language: "ts" },
+      ]);
+    },
+  );
+
+  it("returns the original serialized fallback unchanged when policy makes no change", () => {
+    const originalFilesJson = '[ { "path": "app/page.tsx", "content": "ok", "language": "tsx" } ]';
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-fallback-no-change",
+      originalFilesJson,
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+      selectedDossiers: [],
+    });
+    expect(result.filesJson).toBe(originalFilesJson);
+  });
+});
+
 const DASHBOARD_SIDEBAR = readFileSync(
   join(__dirname, "../scaffolds/dashboard/files/components/dashboard-sidebar.tsx"),
   "utf8",

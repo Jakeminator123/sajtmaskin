@@ -775,11 +775,10 @@ export function mergeGeneratedProjectFiles({
     selectedDossiers: selectedDossiers ?? [],
     chatId,
   });
-  const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
     filesJson:
-      hasVerbatimRestorations || hasFilteredOriginal || navSyncedFallback.changed
+      verbatimResult4.changed || hasFilteredOriginal || navSyncedFallback.changed
         ? JSON.stringify(verbatimResult4.files)
         : originalFilesJson,
     rejectedShrinks: [],

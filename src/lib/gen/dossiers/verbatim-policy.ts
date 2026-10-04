@@ -51,8 +51,9 @@ export function applyDossierVerbatimPolicy(params: {
   llmFiles: CodeFile[];
   selectedDossiers: DossierEntry[];
   chatId?: string | null;
-}): { files: CodeFile[]; restored: VerbatimRestoreEvent[] } {
+}): { files: CodeFile[]; restored: VerbatimRestoreEvent[]; changed: boolean } {
   const restored: VerbatimRestoreEvent[] = [];
+  let changed = false;
 
   const canonicalByClaim = new Map<string, string | null>();
   const selectedClaims = params.selectedDossiers.flatMap((dossier) =>
@@ -158,6 +159,7 @@ export function applyDossierVerbatimPolicy(params: {
                   : "txt";
         const restoredFile: CodeFile = { path: outputPath, content: canonical, language };
         params.llmFiles.push(restoredFile);
+        changed = true;
         llmByIdentity.set(resolvedPath.outputIdentity, [restoredFile]);
         restored.push({
           path: outputPath,
@@ -171,7 +173,10 @@ export function applyDossierVerbatimPolicy(params: {
 
       // A dossier-owned path must use the manifest's canonical spelling on
       // Linux too. Rewritable controls content, not path identity.
-      llmFile.path = outputPath;
+      if (llmFile.path !== outputPath) {
+        llmFile.path = outputPath;
+        changed = true;
+      }
 
       // Rewritable files present in the LLM output are the LLM's to shape —
       // never overwrite (SM-004 seeds absence only).
@@ -179,6 +184,7 @@ export function applyDossierVerbatimPolicy(params: {
 
       if (llmFile.content !== canonical) {
         llmFile.content = canonical;
+        changed = true;
         restored.push({
           path: outputPath,
           dossierId: dossier.id,
@@ -201,5 +207,5 @@ export function applyDossierVerbatimPolicy(params: {
     });
   }
 
-  return { files: params.llmFiles, restored };
+  return { files: params.llmFiles, restored, changed };
 }

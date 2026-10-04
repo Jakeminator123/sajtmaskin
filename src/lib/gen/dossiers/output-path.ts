@@ -31,7 +31,8 @@ const SCAFFOLD_RESERVED_OUTPUT_PATHS = new Set(
   ].map((path) => path.toLowerCase()),
 );
 
-const WINDOWS_DEVICE_BASENAME_RE = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+const WINDOWS_DEVICE_BASENAME_RE =
+  /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$/i;
 const FORBIDDEN_PORTABLE_CHAR_RE = /[<>:"|?*]/;
 const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
 
