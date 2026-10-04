@@ -3,10 +3,14 @@ import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
+  createKostnadsfriPageWithMailEvent,
+  getKostnadsfriGenerationBySlug,
   getKostnadsfriPageBySlug,
   getKostnadsfriVisitStats,
+  listKostnadsfriPagesAfterId,
   listKostnadsfriPages,
   markKostnadsfriPageSent,
+  recordKostnadsfriMailEventForSubscribedPage,
 } from "@/lib/db/services/kostnadsfri";
 import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import type { KostnadsfriPage } from "@/lib/db/services/shared";
@@ -21,6 +25,12 @@ import {
 import { generateSlug } from "@/lib/kostnadsfri/index";
 import { buildKostnadsfriInvite, KostnadsfriInviteError } from "@/lib/kostnadsfri/invite";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
+import {
+  KOSTNADSFRI_MAIL_SOURCE_ANIMATED,
+  KOSTNADSFRI_MAIL_SOURCE_TEXT,
+  UNKNOWN_KOSTNADSFRI_GENERATION,
+  type KostnadsfriGeneration,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 /**
  * Machine entry for the kostnadsfri mail-link flow. Requires
@@ -69,6 +79,22 @@ const createSchema = z.object({
    * `src/lib/kostnadsfri/company-profile.ts`.
    */
   profile: z.record(z.string(), z.unknown()).optional(),
+  /** Additive one-row-per-message receipt. Old callers may omit it. */
+  mailEvent: z
+    .object({
+      messageId: z.string().regex(/^[a-f0-9]{32}$/),
+      flowId: z.string().trim().min(1).max(120),
+      step: z.enum(["first", "follow"]),
+      variant: z.enum(["text", "animated"]),
+      sender: z.email(),
+      recipient: z.email(),
+      scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
+      smtpAcceptedAt: z.string().datetime({ offset: true }).nullable().optional(),
+      deliveredAt: z.string().datetime({ offset: true }).nullable().optional(),
+      repliedAt: z.string().datetime({ offset: true }).nullable().optional(),
+      outcome: z.enum(["scheduled", "accepted", "uncertain", "failed"]),
+    })
+    .optional(),
 });
 
 /** Default `source` when a send is registered without naming its origin. */
@@ -111,7 +137,12 @@ function toIso(value: Date | string | null): string | null {
 function serializePage(
   page: KostnadsfriPage,
   visits?: { visits: number; verified: number; started: number },
+  options: {
+    analyticsAvailable?: boolean;
+    generation?: KostnadsfriGeneration;
+  } = {},
 ) {
+  const analyticsAvailable = options.analyticsAvailable !== false;
   return {
     slug: page.slug,
     companyName: page.company_name,
@@ -123,9 +154,10 @@ function serializePage(
     createdAt: toIso(page.created_at),
     expiresAt: toIso(page.expires_at),
     unsubscribedAt: unsubscribedAtFromExtra(page.extra_data),
-    visits: visits?.visits ?? 0,
-    verified: visits?.verified ?? 0,
-    started: visits?.started ?? 0,
+    visits: analyticsAvailable ? (visits?.visits ?? 0) : null,
+    verified: analyticsAvailable ? (visits?.verified ?? 0) : null,
+    started: analyticsAvailable ? (visits?.started ?? 0) : null,
+    generation: options.generation ?? { ...UNKNOWN_KOSTNADSFRI_GENERATION },
   };
 }
 
@@ -155,7 +187,44 @@ export async function POST(request: NextRequest) {
       source,
       openclaw,
       profile,
+      mailEvent,
     } = validation.data;
+
+    const expectedMailSource = mailEvent
+      ? mailEvent.variant === "text"
+        ? KOSTNADSFRI_MAIL_SOURCE_TEXT
+        : KOSTNADSFRI_MAIL_SOURCE_ANIMATED
+      : null;
+    if (mailEvent) {
+      if (mailEvent.outcome === "accepted") {
+        if (source !== expectedMailSource) {
+          return NextResponse.json(
+            { success: false, error: `source must be ${expectedMailSource} for this mailEvent` },
+            { status: 400 },
+          );
+        }
+        if (!sentAt || !mailEvent.smtpAcceptedAt) {
+          return NextResponse.json(
+            { success: false, error: "accepted mailEvent requires sentAt and smtpAcceptedAt" },
+            { status: 400 },
+          );
+        }
+        if (new Date(sentAt).getTime() !== new Date(mailEvent.smtpAcceptedAt).getTime()) {
+          return NextResponse.json(
+            { success: false, error: "sentAt must equal mailEvent.smtpAcceptedAt" },
+            { status: 400 },
+          );
+        }
+      } else if (sentAt || source || mailEvent.smtpAcceptedAt) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "non-accepted mailEvent must not include sentAt, source or smtpAcceptedAt",
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     // Personnummer och ledamöters hemadresser finns i källan men hör inte i en
     // sajt, och `extra_data` går både till browsern och in i wizarden. Fältnamn
@@ -196,22 +265,98 @@ export async function POST(request: NextRequest) {
     if (existing) {
       // Without `sentAt` this route stays create-only, so a known slug is a
       // conflict exactly like before.
-      if (!sentAt) {
+      if (!sentAt && !mailEvent) {
         return NextResponse.json(
           { success: false, error: `A page with slug "${slug}" already exists` },
           { status: 409 },
         );
       }
 
-      const updated = await markKostnadsfriPageSent(slug, {
-        sentAt: new Date(sentAt),
-        source: source || DEFAULT_SEND_SOURCE,
-        contactEmail,
-        // Utskicksverktyget skickar ofta profilen i samma anrop som
-        // sändregistreringen. Utan den här patchen tappades den på upsert-vägen.
-        // Nyckeln utelämnas helt utan profil — en tom patch är inget att skriva.
-        ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
-      });
+      // Unsubscribe stops every new mail receipt for the company, first mail
+      // and follow-ups alike. A plain `sentAt` upsert without mailEvent keeps
+      // its old behaviour.
+      if (mailEvent && unsubscribedAtFromExtra(existing.extra_data)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              mailEvent.step === "follow"
+                ? "The company unsubscribed before this follow-up"
+                : "The company unsubscribed before this mail",
+          },
+          { status: 409 },
+        );
+      }
+
+      // Locked re-check: an unsubscribe that commits after the lookup above
+      // still stops the receipt. The cohort fields (`sentAt/source`) stay on
+      // the first recorded send: only an accepted `step=first` may fill them,
+      // under the same row lock and only while `sent_at` is still empty.
+      // Contact/profile refresh is separate company metadata: any accepted
+      // send (first or follow) may carry it, under the same lock and opt-out
+      // check. A conflict or opt-out changes nothing.
+      const acceptedSend = mailEvent?.outcome === "accepted" && sentAt;
+      const firstSend =
+        acceptedSend && mailEvent?.step === "first"
+          ? { sentAt: new Date(sentAt), source: source || DEFAULT_SEND_SOURCE }
+          : undefined;
+      const metadata = acceptedSend
+        ? {
+            contactEmail,
+            ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+          }
+        : undefined;
+      const mailReceipt = mailEvent
+        ? await recordKostnadsfriMailEventForSubscribedPage(
+            {
+              messageId: mailEvent.messageId,
+              pageId: existing.id,
+              slug,
+              recipient: mailEvent.recipient,
+              sender: mailEvent.sender,
+              flowId: mailEvent.flowId,
+              step: mailEvent.step,
+              variant: mailEvent.variant,
+              scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
+              smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
+              deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
+              repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
+              outcome: mailEvent.outcome,
+              source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
+            },
+            { firstSend, metadata },
+          )
+        : null;
+      if (mailReceipt?.status === "missing-page") {
+        return NextResponse.json(
+          { success: false, error: `A page with slug "${slug}" no longer exists` },
+          { status: 409 },
+        );
+      }
+      if (mailReceipt?.status === "unsubscribed") {
+        return NextResponse.json(
+          { success: false, error: "The company unsubscribed before this mail" },
+          { status: 409 },
+        );
+      }
+      if (mailReceipt?.status === "conflict") {
+        return NextResponse.json(
+          { success: false, error: "messageId is already registered with different facts" },
+          { status: 409 },
+        );
+      }
+
+      // Legacy upsert without mailEvent keeps its old behaviour.
+      const updated = mailReceipt
+        ? mailReceipt.page
+        : sentAt
+          ? await markKostnadsfriPageSent(slug, {
+              sentAt: new Date(sentAt),
+              source: source || DEFAULT_SEND_SOURCE,
+              contactEmail,
+              ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+            })
+          : existing;
       if (!updated) {
         // Row disappeared between the lookup and the update.
         return NextResponse.json(
@@ -226,8 +371,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         updated: true,
+        ...(mailReceipt
+          ? { mailEvent: { messageId: mailReceipt.event.message_id, status: mailReceipt.status } }
+          : {}),
         page: { id: updated.id, ...serializePage(updated), url },
       });
+    }
+
+    if (mailEvent?.step === "follow") {
+      return NextResponse.json(
+        { success: false, error: "A follow-up cannot create a missing company register row" },
+        { status: 409 },
+      );
     }
 
     // Create: slug + password (explicit or deterministic from slug + seed) + link
@@ -256,7 +411,7 @@ export async function POST(request: NextRequest) {
     if (openclawConfig) extraData.openclaw = openclawConfig;
     if (companyProfile) extraData.profile = companyProfile;
 
-    const page = await createKostnadsfriPage({
+    const pageInput = {
       slug,
       passwordHash,
       companyName,
@@ -268,11 +423,45 @@ export async function POST(request: NextRequest) {
       expiresAt,
       sentAt: sentAt ? new Date(sentAt) : undefined,
       source: sentAt ? source || DEFAULT_SEND_SOURCE : undefined,
-    });
+    };
+
+    let page: KostnadsfriPage;
+    let mailReceipt: { status: string; event: { message_id: string } } | null = null;
+    if (mailEvent) {
+      // Page + receipt in one transaction: a messageId conflict rolls the new
+      // page back instead of leaving it behind a 409.
+      const created = await createKostnadsfriPageWithMailEvent(pageInput, {
+        messageId: mailEvent.messageId,
+        recipient: mailEvent.recipient,
+        sender: mailEvent.sender,
+        flowId: mailEvent.flowId,
+        step: mailEvent.step,
+        variant: mailEvent.variant,
+        scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
+        smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
+        deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
+        repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
+        outcome: mailEvent.outcome,
+        source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
+      });
+      if (created.status === "conflict") {
+        return NextResponse.json(
+          { success: false, error: "messageId is already registered with different facts" },
+          { status: 409 },
+        );
+      }
+      page = created.page;
+      mailReceipt = { status: created.status, event: created.event };
+    } else {
+      page = await createKostnadsfriPage(pageInput);
+    }
 
     return NextResponse.json({
       success: true,
       updated: false,
+      ...(mailReceipt
+        ? { mailEvent: { messageId: mailReceipt.event.message_id, status: mailReceipt.status } }
+        : {}),
       page: {
         id: page.id,
         ...serializePage(page),
@@ -296,10 +485,32 @@ export async function GET(request: NextRequest) {
   try {
     if (!isAuthorized(request)) return unauthorized();
 
-    const [rows, visitStats] = await Promise.all([
-      listKostnadsfriPages(LIST_LIMIT),
+    const rawCursor = request.nextUrl.searchParams.get("cursor");
+    // Canonical non-negative integer only: parseInt would accept "100garbage"
+    // or "100.9" as 100 and silently skip rows.
+    const afterId = rawCursor === null || !/^\d+$/.test(rawCursor) ? null : Number(rawCursor);
+    if (rawCursor !== null && (afterId === null || !Number.isSafeInteger(afterId))) {
+      return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
+    }
+    const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") || "", 10);
+    const pageLimit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(rawLimit, 1), LIST_LIMIT)
+      : rawCursor === null
+        ? LIST_LIMIT
+        : 500;
+    const checkedAt = new Date().toISOString();
+    const [rowBatch, visitStats] = await Promise.all([
+      afterId === null
+        ? listKostnadsfriPages(pageLimit + 1)
+        : listKostnadsfriPagesAfterId(afterId, pageLimit + 1),
       getKostnadsfriVisitStats(90, 0).catch(() => null),
     ]);
+    const hasMore = rowBatch.length > pageLimit;
+    const rows = rowBatch.slice(0, pageLimit);
+    // Only the entitlements for the rows on this page, not the whole table.
+    const generations = await getKostnadsfriGenerationBySlug(rows.map((row) => row.slug)).catch(
+      () => null,
+    );
     const visitsBySlug = new Map(
       (visitStats?.perSlug ?? []).map((stat) => [
         stat.slug,
@@ -308,7 +519,34 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json({
       success: true,
-      pages: rows.map((row) => serializePage(row, visitsBySlug.get(row.slug))),
+      pages: rows.map((row) =>
+        serializePage(row, visitsBySlug.get(row.slug), {
+          analyticsAvailable: visitStats !== null,
+          generation:
+            generations?.get(row.slug) ??
+            (generations ? { state: "not-started", completedAt: null, siteId: null } : undefined),
+        }),
+      ),
+      registry: {
+        checkedAt,
+        returned: rows.length,
+        limit: pageLimit,
+        complete: !hasMore,
+        // Legacy send order cannot be resumed by id, so a capped legacy read
+        // points at the start of the complete id-ordered walk instead ("0").
+        nextCursor: hasMore ? (afterId === null ? "0" : String(rows.at(-1)?.id ?? "")) : null,
+        paginationMode: afterId === null ? "legacy-send-order" : "complete-id-order",
+      },
+      analytics: {
+        available: visitStats !== null,
+        windowDays: 90,
+        checkedAt,
+        complete: visitStats !== null && !visitStats.truncated,
+      },
+      generation: {
+        available: generations !== null,
+        checkedAt,
+      },
     });
   } catch (error: unknown) {
     logKostnadsfriFailure("list pages", error);

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "baseBranch": "preview",
+  "allowedFiles": ["package.json", "package-lock.json"],
+  "allowedPackages": [
+    "@radix-ui/*",
+    "ajv",
+    "date-fns",
+    "dotenv",
+    "nanoid",
+    "prettier",
+    "swr",
+    "tailwind-merge",
+    "zustand"
+  ]
+}

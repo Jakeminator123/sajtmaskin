@@ -14,9 +14,9 @@ import {
   buildPromoteTitle,
   commitRangeStart,
   evaluatePromotePlan,
-  findManualMergePaths,
+  findOwnerReviewPaths,
   hasContentToPromote,
-  manualMergePrefixesFromPolicy,
+  ownerReviewPrefixesFromPolicy,
   missingProductionSyncMessage,
   parseCommitLines,
   parsePromoteArgs,
@@ -155,30 +155,36 @@ describe("parseRemoteBranchNames", () => {
   });
 });
 
-describe("manualMergePrefixesFromPolicy", () => {
-  // Cursor-review på #1305: förvarningen måste läsa samma policy som
-  // controllern — masters — inte checkoutens. Samma fallback som
-  // trusted-review-window.mjs när nyckeln saknas; trasig lista ska kasta,
-  // inte tyst bli tom (då försvinner varningen).
+describe("ownerReviewPrefixesFromPolicy", () => {
+  // Förvarningen måste läsa produktionspolicyn från master, inte checkoutens
+  // ännu osläppta policy. Trasig lista ska kasta, inte tyst bli tom.
   it("läser prefixlistan ur policy-JSON", () => {
     expect(
-      manualMergePrefixesFromPolicy(
-        JSON.stringify({ manualMergePathPrefixes: [".github/workflows/", "scripts/ci/"] }),
+      ownerReviewPrefixesFromPolicy(
+        JSON.stringify({ ownerReviewPathPrefixes: [".github/workflows/", "scripts/ci/"] }),
       ),
     ).toEqual([".github/workflows/", "scripts/ci/"]);
   });
 
   it("faller tillbaka på controllerns default när nyckeln saknas", () => {
-    expect(manualMergePrefixesFromPolicy(JSON.stringify({ trunk: "master" }))).toEqual([
+    expect(ownerReviewPrefixesFromPolicy(JSON.stringify({ trunk: "master" }))).toEqual([
       ".github/workflows/",
     ]);
   });
 
+  it("läser föregående policynyckel från en ännu opromotad master", () => {
+    expect(
+      ownerReviewPrefixesFromPolicy(
+        JSON.stringify({ manualMergePathPrefixes: ["scripts/ci/", "scripts/workflow/"] }),
+      ),
+    ).toEqual(["scripts/ci/", "scripts/workflow/"]);
+  });
+
   it("kastar på trasig lista i stället för att tyst tömma varningen", () => {
     expect(() =>
-      manualMergePrefixesFromPolicy(JSON.stringify({ manualMergePathPrefixes: "scripts/ci/" })),
+      ownerReviewPrefixesFromPolicy(JSON.stringify({ ownerReviewPathPrefixes: "scripts/ci/" })),
     ).toThrow(/stränglista/);
-    expect(() => manualMergePrefixesFromPolicy("")).toThrow();
+    expect(() => ownerReviewPrefixesFromPolicy("")).toThrow();
   });
 
   it("hänger ihop med den fail-closed name-status-parsern från verify:pr", () => {
@@ -186,26 +192,26 @@ describe("manualMergePrefixesFromPolicy", () => {
     const paths = parseGitNameStatus(
       ["M\0src/app.ts", "R100\0scripts/ci/old.mjs\0scripts/other/new.mjs", ""].join("\0"),
     );
-    expect(findManualMergePaths(paths, [".github/workflows/", "scripts/ci/"])).toEqual([
+    expect(findOwnerReviewPaths(paths, [".github/workflows/", "scripts/ci/"])).toEqual([
       "scripts/ci/old.mjs",
     ]);
   });
 });
 
-describe("findManualMergePaths", () => {
+describe("findOwnerReviewPaths", () => {
   it("hittar sökvägar som börjar med ett prefix", () => {
     expect(
-      findManualMergePaths(["src/app.ts", ".github/workflows/ci.yml"], [".github/workflows/"]),
+      findOwnerReviewPaths(["src/app.ts", ".github/workflows/ci.yml"], [".github/workflows/"]),
     ).toEqual([".github/workflows/ci.yml"]);
   });
 
   it("ger tom lista utan träff", () => {
-    expect(findManualMergePaths(["src/app.ts"], [".github/workflows/"])).toEqual([]);
+    expect(findOwnerReviewPaths(["src/app.ts"], [".github/workflows/"])).toEqual([]);
   });
 
   it("deduplicerar och sorterar", () => {
     expect(
-      findManualMergePaths(
+      findOwnerReviewPaths(
         ["config/agent-workflow.json", ".github/workflows/ci.yml", "config/agent-workflow.json"],
         ["config/agent-workflow.json", ".github/workflows/"],
       ),
@@ -214,13 +220,13 @@ describe("findManualMergePaths", () => {
 
   it("matchar exakt fil-prefix och katalogprefix", () => {
     expect(
-      findManualMergePaths(
+      findOwnerReviewPaths(
         ["config/agent-workflow.json", "config/other.json"],
         ["config/agent-workflow.json"],
       ),
     ).toEqual(["config/agent-workflow.json"]);
     expect(
-      findManualMergePaths(
+      findOwnerReviewPaths(
         [".github/workflows/ci.yml", ".github/CODEOWNERS"],
         [".github/workflows/"],
       ),
@@ -228,10 +234,10 @@ describe("findManualMergePaths", () => {
   });
 
   it("klassar den riktiga policyns agent-workflow.json som träff", () => {
-    const prefixes = manualMergePrefixesFromPolicy(
+    const prefixes = ownerReviewPrefixesFromPolicy(
       readFileSync(resolve(process.cwd(), "config/agent-workflow.json"), "utf8"),
     );
-    expect(findManualMergePaths(["config/agent-workflow.json", "README.md"], prefixes)).toEqual([
+    expect(findOwnerReviewPaths(["config/agent-workflow.json", "README.md"], prefixes)).toEqual([
       "config/agent-workflow.json",
     ]);
   });
@@ -559,25 +565,25 @@ describe("buildPromoteBody", () => {
     expect(largeBody.length).toBeLessThan(65_536);
   });
 
-  it("utelämnar bootstrap-sektionen när inga trust-root-träffar finns", () => {
-    expect(body).not.toContain("## Bootstrap-godkännande krävs");
+  it("utelämnar ownersektionen när inga känsliga ytor träffas", () => {
+    expect(body).not.toContain("## Ownerbeslut krävs");
     expect(body).toContain("Manuell merge kräver uttrycklig ägarbekräftelse");
-    expect(body).toContain("Alla PR-merges utförs manuellt med expected head");
+    expect(body).toContain("Master-promotes auto-mergas aldrig");
   });
 
-  it("lägger till omarkerad bootstrap-sektion när trust-root-träffar finns", () => {
+  it("lägger till omarkerad ownersektion när känsliga ytor träffas", () => {
     const withHits = buildPromoteBody({
       changedPaths,
       baseSha: "95b8f29bbcd36a8c66b9d3aed751d5cb48c1d55a",
       headSha: "6c1022e5a5262d6f0967aa87cd0b82a062d6b80e",
       branch: "promote/2026-09-08",
       date: "2026-09-08",
-      manualMergePaths: ["config/agent-workflow.json"],
+      ownerReviewPaths: ["config/agent-workflow.json"],
     });
-    expect(withHits).toContain("## Bootstrap-godkännande krävs");
+    expect(withHits).toContain("## Ownerbeslut krävs");
     expect(withHits).toContain("`config/agent-workflow.json`");
     expect(withHits).toContain(
-      "- [ ] Ägaren har uttryckligen godkänt infrastruktur-bootstrapen i chatten",
+      "- [ ] Nödvändigt ownerbeslut är registrerat i PR:n",
     );
     expect(withHits).not.toContain("- [x]");
   });

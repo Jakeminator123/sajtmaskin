@@ -632,6 +632,40 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 });
 
 /**
+ * One durable row per attempted campaign email. The company register above is
+ * intentionally retained as the compatibility view; follow-ups must never
+ * overwrite its original send metadata.
+ */
+export const kostnadsfriMailEvents = pgTable(
+  "kostnadsfri_mail_events",
+  {
+    message_id: text("message_id").primaryKey(),
+    kostnadsfri_page_id: integer("kostnadsfri_page_id"),
+    slug: text("slug").notNull(),
+    recipient: text("recipient").notNull(),
+    sender: text("sender").notNull(),
+    flow_id: text("flow_id").notNull(),
+    step: text("step").notNull(),
+    variant: text("variant").notNull(),
+    scheduled_at: timestamptz("scheduled_at"),
+    smtp_accepted_at: timestamptz("smtp_accepted_at"),
+    delivered_at: timestamptz("delivered_at"),
+    replied_at: timestamptz("replied_at"),
+    outcome: text("outcome").notNull(),
+    source: text("source").notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    slugCreatedIdx: index("idx_kostnadsfri_mail_events_slug_created").on(
+      table.slug,
+      table.created_at,
+    ),
+    flowIdx: index("idx_kostnadsfri_mail_events_flow_id").on(table.flow_id),
+  }),
+);
+
+/**
  * Server-owned pilot entitlement. IDs are deliberately retained without FKs:
  * deleting a temporary project or account must not make an invitation
  * redeemable a second time.
@@ -650,6 +684,8 @@ export const kostnadsfriCampaignEntitlements = pgTable(
     initial_claimed_at: timestamptz("initial_claimed_at"),
     followup_version_id: text("followup_version_id"),
     followup_claimed_at: timestamptz("followup_claimed_at"),
+    /** Server-verified correlation from the accepted mail event, never raw query input. */
+    mail_message_id: text("mail_message_id"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
     updated_at: timestamptz("updated_at").defaultNow().notNull(),
   },

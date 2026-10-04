@@ -96,7 +96,7 @@ Between pass 1 and pass 2:
 At completion return a table with pass number, SM id, verdict, branch, draft PR
 URL, tests/checks, review source/pass count, and unresolved risks. Re-read both
 PRs from GitHub and explicitly confirm that both remain draft, neither has
-`merge:ready`, neither was closed, and nothing was merged.
+no PR was made ready, none was closed, and nothing was merged.
 
 Final mandatory statement:
 

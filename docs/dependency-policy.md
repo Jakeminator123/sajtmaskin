@@ -2,15 +2,15 @@
 
 Kanonisk policy för hur beroende-uppdateringar (dependency updates) hanteras i Sajtmaskin. Styr både Dependabot-konfigurationen ([`.github/dependabot.yml`](../.github/dependabot.yml)) och den manuella uppgraderingsrutinen.
 
-Kärnprincip: **små, säkra, isolerade PR:ar skapas och verifieras automatiskt —
-själva mergen går alltid genom den kanoniska review- och mandatvägen. Tunga
-uppgraderingar tas en domän åt gången med full review.**
+Kärnprincip: **uttryckligt allowlistade, innehållsvaliderade patchar får använda
+GitHubs native auto-merge och väntar där på samma required checks som andra
+PR:ar. Allt annat tas manuellt, en domän åt gången.**
 
 ## Riskklasser
 
 | Klass               | Hantering                                                                                                                                      | Merge                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar (`npm-production-patch`, `npm-development-patch`). Låg-risk-patchar kan få labeln `dependabot-patch-safe`. | Samma review-window, separata mänskliga mandat och manuella expected-head-merge som övriga PR:ar. |
+| **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar. Bara paket i [`config/dependabot-automerge.json`](../config/dependabot-automerge.json) kan kvalificera. | Native auto-merge efter semantisk manifest-/lockvalidering och alla branch rules; övriga patchar är manuella. |
 | **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar.                         | Kan få snabb review men aldrig en separat auto-merge-väg.                                       |
 | **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog, kör riktat lokalt och invänta tung GitHub-profil.   |
 | **Security**        | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors.                                                 | Samma grindar, men prioriterad handläggning.                                                    |
@@ -44,7 +44,7 @@ openai
 recharts
 ```
 
-Dessa är exkluderade i `npm-low-risk-minor`-gruppen och blockeras av metadata-klassificeraren ([`.github/workflows/dependabot-safe-classify.yml`](../.github/workflows/dependabot-safe-classify.yml)).
+Dessa är exkluderade i `npm-low-risk-minor`-gruppen och finns inte i auto-merge-allowlisten ([`.github/workflows/dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml)).
 
 ## Baseline-pinnade paket — kräver alltid manuell PR
 
@@ -62,7 +62,7 @@ lucide-react
 
 Dessa kan **aldrig** klassas som låg risk — **inte ens en patch**. En version-bump kräver att pinnen i `KNOWN_PACKAGES` (och för `lucide-react` även `project-scaffold.ts` + `node scripts/dev/generate-lucide-icons.mjs`) uppdateras i **samma commit** som `package.json`. Kontraktet som skyddar detta är parity-testet [`src/lib/gen/export/project-scaffold-baseline-parity.test.ts`](../src/lib/gen/export/project-scaffold-baseline-parity.test.ts): en osynkad bump gör testet rött i CI.
 
-Därför är samma paket blockerade i klassificerarens `core_regex` — en Dependabot-patch på ett baseline-pinnat paket labelas aldrig som `dependabot-patch-safe` och tas manuellt. Bakgrund: PR #399 (`@react-three/fiber` 9.6.0→9.6.1, patch) föll på just detta parity-test.
+Därför finns samma paket inte i auto-merge-allowlisten — en Dependabot-patch på ett baseline-pinnat paket tas manuellt. Bakgrund: PR #399 (`@react-three/fiber` 9.6.0→9.6.1, patch) föll på just detta parity-test.
 
 Samma paket är dessutom **uteslutna ur Dependabots grupperingar** (`exclude-patterns` i `npm-production-patch` och `npm-low-risk-minor` i [`.github/dependabot.yml`](../.github/dependabot.yml)) så att deras bumpar kommer som **isolerade PR:ar** i stället för att dra en "ren" grupp-PR röd. Annars skapar Dependabot varje vecka en grupp-PR som alltid går rött på parity-testet — motsatsen till låg risk (t.ex. #401 där `lucide-react`-minorn låg i `npm-low-risk-minor`-gruppen).
 
@@ -96,18 +96,35 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
    inklusive `test:ci` i `quality` och det separata `build`-jobbet, följt av
    review. Aldrig major i samma PR som config-/annan städning.
 
-## Klassificering — aldrig en separat mergeväg
+## Auto-merge-kontrakt
 
-[`dependabot-safe-classify.yml`](../.github/workflows/dependabot-safe-classify.yml)
-kör betrodd default-branch-kod och synkar bara metadata-labeln
-`dependabot-patch-safe` till önskat läge vid `opened`, `synchronize`,
-`reopened` och `ready_for_review`. Labeln finns endast om metadatahämtning och
-klassificering lyckas och aktuell PR fortfarande är en berättigad patch på ett
-icke-core-paket. Annars tas en gammal label bort; `--force` håller också
-labelbeskrivningen kanonisk. Workflowen checkar inte ut PR-head, kör inget från
-PR-branchen och innehåller ingen merge- eller auto-merge-åtgärd.
+[`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) kör
+endast betrodd default-branch-kod via `workflow_run` efter CI och mänskligt
+utlösta `pull_request_target`-events. PR-head checkas
+aldrig ut med skrivtoken eller produktionshemligheter. Controllern aktiverar
+bara GitHubs native auto-merge när allt nedan är bevisat:
 
-Alla Dependabot-PR:ar går därefter genom samma lokala plan + riktade kontroller,
-required GitHub-checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off
-och manuella merge med expected head som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
-aldrig ”får mergas utan kontroll”.
+- basen är `preview`, avsändaren är Dependabot och uppdateringen är en patch;
+- alla uppdaterade direkta npm-beroenden finns i den uttryckliga allowlisten;
+- bara `package.json` och `package-lock.json` har ändrats;
+- manifestet ändrar endast tillåtna patchversioner;
+- varje ändrat lockpaket är också allowlistat och en faktisk patchökning;
+  ändringen ligger i de tillåtna paketens beroendeträd, kommer från npm-
+  registret och introducerar ingen install-script-markering. Tillagda eller
+  borttagna lockpaket går till manuell review.
+
+Vid osäkerhet, draft, major/minor, core-/baselinepaket, scriptändring eller
+blandad koddiff stängs eventuell auto-merge av. GitHub
+väntar sedan på strict/up-to-date required checks. Mergepushen startar samma
+`push`-CI och deployment som en manuell GitHub-merge. Själva mergebegäran
+använder `DEPENDABOT_AUTOMERGE_TOKEN` (fine-grained PAT eller GitHub App-token),
+inte workflowets `GITHUB_TOKEN`, eftersom GitHub annars undertrycker följande
+Actions-event. Tokenvärdet lagras endast i Actions secrets. `workflow_run`
+kan läsa den efter Dependabots PR-CI, även när ursprunglig PR-körning saknar
+secrets. Vid start av ny CI stängs en äldre mergebegäran av före validering;
+aktivering sker efter godkänd CI och en ny läsning av aktuell head/base.
+Alla controller-events köas med `queue: max` så en väntande avväpning inte
+ersätts av ett senare event. Dependabot använder native merge-commit, eftersom
+en squash med Dependabot som författare kan begränsa följande push-CI:s secrets
+och token.
+Saknad secret är fail-closed och controllern gör inga skrivningar.

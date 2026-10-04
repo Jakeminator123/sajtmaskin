@@ -57,9 +57,9 @@ rapportens `runtimeStatus`.
 
 1. Commit:a exakta paths och push utan force. Nya PR:ar mot `preview`.
 2. Öppna PR med repots template när Jakob ber om det.
-3. Efter ny head-SHA: vänta in required GitHub-checks för exakt den SHA:n och
-   kör om berörda riktade kontroller vid behov. `review-window` väntar minst
-   sju minuter från den nya SHA-körningen.
+3. Efter ny head-SHA: låt GitHubs required checks och reviews avgöra mergebarhet
+   för den SHA:n och aktuell integrationsbas. Kör om berörda riktade kontroller
+   lokalt bara när ett fynd eller en ändring motiverar det.
 4. Läs checks, reviews och kommentarer. Varje konkret fynd ska vara fixat,
    loggat eller avfärdat.
 
@@ -87,24 +87,25 @@ så en promote med staging som head raderar staging vid merge. Det hände
 2026-09-08 och grenen fick återskapas manuellt.
 
 Kommandot mergar aldrig till `master`. Efter PR:en gäller `pr-merge.mdc` som
-vanligt: gröna required checks på promote-headen, bugkoll och triage, sign-off
-före label, och uttrycklig ägarbekräftelse efter produktionsvarningen.
+vanligt: gröna required checks på promote-headen, bugkoll/triage och uttrycklig
+ägarbekräftelse efter produktionsvarningen.
 
 En squash-release ger master en ny commit som inte finns i `preview`
 efteråt. Promote synkar inte serverside. Saknas master: bered en synkbranch
 från färsk preview som tar in master med merge-commit; öppna PR mot preview
-och begär separat manuell expected-head-merge med merge-commit (inte squash
-eller auto-merge) enligt synkvägen i `pr-merge.mdc`, innan nästa promote.
+och begär separat merge med merge-commit (inte squash eller auto-merge) enligt
+synkvägen i `pr-merge.mdc`, innan nästa promote.
 Samma CI/review gäller; ingen blandad feature-PR. Dry-run skriver
 inga remote-refs. Osläppt innehåll och releasetext avgörs av faktisk träddiff,
 inte squashad commithistorik.
 
 ## 5. Merge och städ
 
-När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc`, kontrollera
-färsk sign-off och merga manuellt till `preview` med squash och expected head
-(`gh pr merge --squash --match-head-commit`). Använd inte `--auto` eller
-`--admin`. Merga inte på eget bevåg. Innan en promote-PR
+När Jakob ger ett uttryckligt eller förhandsvillkorat mergemandat: följ
+`pr-merge.mdc` och använd `gh pr merge --squash --match-head-commit` med den
+granskade headen när native villkor är uppfyllda. Bara den allowlistade
+Dependabot-vägen får aktivera native auto-merge. Använd aldrig `--admin` och
+merga inte på eget bevåg. Innan en promote-PR
 mergas till master: varna att det går till produktion och vänta på extra
 bekräftelse i samma chatt. Den mergen är manuell. `preview` är en delad
 remote-gren, inte trunk och inte builder-ytan.

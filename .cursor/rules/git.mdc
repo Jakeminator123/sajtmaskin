@@ -29,7 +29,8 @@ rollen eller kör `/scout`, `/builder` eller `/steward`.
 - Rör aldrig `*BRA*` eller `rescue/*`.
 - Branchprefix (`fix/` …) är inte obligatoriskt.
 - Worktree bara när Jakob ber om det — se `agent-worktree.mdc`.
-- Merga inte utan ett separat uttryckligt mergeuppdrag.
+- Merga bara med uttryckligt eller förhandsvillkorat mandat; koduppdrag är inte
+  mandat.
 - Master-merge: visa en tydlig varning (produktion) och vänta på extra
   bekräftelse i samma chatt. Detalj: `pr-merge.mdc`.
 - `preview`-grenen är staging, inte builderns preview eller `preview_host`.

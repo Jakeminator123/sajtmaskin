@@ -19,9 +19,10 @@
 
 - [ ] `npm run verify:pr -- --plan`
 - [ ] Oberoende readonly review på aktuell head-SHA
+- [ ] Nödvändiga ownerbeslut för säkerhet/betalning/databas/CI-behörigheter är registrerade i GitHub-review eller PR-kommentar
 - [ ] Alla P0/P1 är fixade eller verifierbart avfärdade
 - [ ] Backoffice-/schema-/dokumentföljder ovan är uppdaterade eller uttryckligen ej träffade
-- [ ] Övriga required GitHub-checks (`quality`, Backoffice, schema, build) är gröna för aktuell head-SHA före sign-off
+- [ ] Required GitHub-checks (`quality`, Backoffice, schema, build, dossier-acceptance) är gröna för aktuell head-SHA
 
 Körda riktade kontroller:
 
@@ -32,9 +33,8 @@ Körda riktade kontroller:
 - Kvarvarande risk:
 - Återställning/rollback:
 
-> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår.
-> Efter gröna checks, oberoende review och tidsgolv: posta ready-kommentaren
-> före labeln `merge:ready`. Merge kräver ett separat uttryckligt uppdrag,
-> färsk head/base-kontroll och manuell `--match-head-commit`; använd inte
-> `--auto` eller `--admin`. Trust-root-ändringar behöver dokumenterad
-> ägarbootstrap. Promote till `master` kräver extra produktionsbekräftelse.
+> Lämna som draft medan arbete, CI-fixar eller reviewtriage återstår. GitHubs
+> ruleset, required checks, reviews och trådstatus äger mergebarheten. Merge
+> kräver uttryckligt eller förhandsvillkorat mandat; använd aldrig `--admin`.
+> Native auto-merge är endast för den allowlistade Dependabot-patchvägen.
+> Promote till `master` kräver extra produktionsbekräftelse.
