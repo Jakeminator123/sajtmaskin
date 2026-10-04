@@ -316,7 +316,7 @@ Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvV
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
-**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
+**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. A proven existing provider core instead uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files; rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
 
 ### Canonical file paths and collision policy
 
@@ -324,7 +324,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 Aliases and file-versus-directory ancestor conflicts within one manifest are invalid in both source paths and mapped outputs. Source checks are per dossier root, not across physically separate dossier directories, and do not impose a global case restriction. Dossiers actually selected together cannot claim divergent contents, different literal output paths under one ownership identity, or conflicting file/directory ancestors; exact-output, byte-identical shared helpers are allowed. Prompt rendering and verbatim restoration reject conflicts before producing a partial prompt or mutating the supplied file list. Acceptance materialization permits a dossier to overlay an exact literal scaffold path, but rejects different spellings under the same portable identity and file/directory conflicts with the scaffold or already-materialized files before inserting them. The same generated-project path normalizer identifies leading-slash, separator and `./` aliases without resolving traversal. Multiple generated aliases of a selected dossier path are rejected before restoration. A single generated alias is restored to the canonical output spelling, without overwriting rewritable content.
 
-Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Final verbatim restoration still restores canonical source bytes after the import-repair passes. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
+Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Selected installations retain canonical restoration; preserved previous cores are asserted without post-fixer restoration. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
 
 Ownership identity is not functional presence evidence: a dossier's server files must still exist at the exact canonical path on Linux. Persisted version paths are compared literally, without trimming or normalizing separators, prefixes, case or Unicode composition. Lifecycle server evidence uses the same literal comparison; its alternative model-built API-route heuristic also rejects noncanonical path spellings and dot/traversal segments. Declaration uniqueness, scaffold ownership and explicit dossier removal use portable identity so case/Unicode aliases cannot falsely identify a provider or evade cleanup. A readable zero-byte source is valid: its path is canonicalized, an omitted file is seeded, and verbatim drift is restored to zero bytes; present rewritable content is still preserved. The existing fallback for a single unreadable canonical source (`null`, not an empty string) remains unchanged; it is not new provider-acceptance evidence.
 
@@ -473,9 +473,20 @@ strängar, lokalt skuggad `require`, trasig syntax och bara paketdeklaration är
 okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
 blir valet olöst i stället för manifestordningsstyrt.
 
-På filnivå blockerar en divergent befintlig server- eller verbatim-yta innan
-injektion. En byte-exakt del av dossierns kanoniska kärna får däremot kompletteras
-med saknade filer, och rewritable UI förblir adapterbar. Detta är
+På filnivå blir en divergent befintlig kärna `context-only` när exakt
+manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att
+den redan tillhör samma provider. Befintliga bytes bevaras utan kataloguppgradering
+eller nya hjälpfiler. Även bevisade äldre kärnor under en capability som dagens
+uppföljning inte nämner bevaras. En obevisad upptagen server-/verbatim-yta
+blockerar; en byte-exakt kanonisk del får kompletteras med saknade filer och
+rewritable UI förblir adapterbar. Bevisad annan provider eller flera providers
+för samma capability ger migrationsspärr, aldrig automatisk source-radering.
+Det gäller även dossierlösa mål. Readiness/Tier3 prövar spärren före cached
+green och stale-verification-promotion; oläsbara eller tomma versionsfiler
+är otillgängligt bevis, inte ett bevis på att ingen migration behövs.
+Bedömningen återhärleds från tidigare filer och befintliga kontrakt varje
+runda; ingen ny beständig installationsledger. Explicit borttagning fortsätter
+vinna, medan faktiskt delade aktiva claims skyddas. Detta är
 kompatibilitets-/migrationsskydd, inte live provideracceptans. Känd dossierlös
 MongoDB/Auth0 kan starta den befintliga generiska F3/LLM-vägen, men det är ett
 startvillkor — inte bevis på full-stack-funktion eller liveacceptans. Bedömningen

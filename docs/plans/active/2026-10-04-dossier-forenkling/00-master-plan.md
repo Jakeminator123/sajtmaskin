@@ -22,7 +22,14 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
 
 ## Startläge och arbetsordning
 
-- Live `preview`: `db86c053abdad696718eafad839137b8d37831d5` efter D2/D3 i PR #1549.
+- Live `preview`: `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c` efter PR #1550.
+  Granskad head `e0f90f9287387794ce2eb4fd22a0c9bb23a3b023` och squash har
+  exakt samma träd. PR-CI: 12 928 standardtester + 126 DB + 54 stabilitet på
+  4:37; dossier 21/21 på 11:06 inklusive 5:04 kö (aktivt 6:02). Postmerge
+  kod-CI grön på 3:54; Vercel READY på rätt preview-SHA/alias på 1:52.
+  De 13 kända DB-paritetsraderna kvarstår. En sen automatisk review publicerade
+  fem nya verifierade fel efter merge; de rättas innan nästa leverans.
+- D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
   READY på 1:56. De 13 kända DB-paritetsraderna är oförändrade; ingen master-
@@ -32,7 +39,8 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   reviewed head `b765e2f38185bca51f96b861abb7217d1321cd1d`; mergad till preview
   på `65e28f6097c756c9c78a54a22ae5533b81040848`. Postmerge kod-CI grön
   (4:01), Vercel READY (1:47); samma accepterade DB-paritetsdrift kvarstår.
-- Ny arbetsbranch: `codex/dossier-simplification`, utgår från denna head.
+- Aktiv leveransbranch: `codex/dossier-existing-core`, normalt synkad mot
+  aktuell preview. Separat granskad katalogbranch inväntar bevarandeskyddet.
 - En skrivande session i huvudcheckouten. Innehåll, runtimeägare, legacy och
   testbevis kartläggs parallellt; implementationer integreras sekventiellt.
 - Dela leveransen i avgränsade PR:er efter ownerberoenden. Ny integrationsbas
@@ -58,14 +66,22 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   review, CI och previewleverans innan punkten får bockas av. Samma kontrakt
   bär även entydiga äldre provider-val som `legacy-preserved` genom neutrala
   plan-/codegen-uppföljningar; tvetydiga äldre labels lämnas till ett nytt val.
-  PR #1550 är nu ready på `e0f90f9287387794ce2eb4fd22a0c9bb23a3b023`.
+  PR #1550 är mergad på `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c`.
   Två oberoende delta-/integrationsreviews är CLEAN; samtliga åtta publicerade
   native fynd har RED/GREEN och sakliga lösningssvar. Slutmatris 538/538
-  riktade tester, typ/lint/derived/docs/plan/canvas gröna. Full aktuell CI,
-  deployment och native mergebarhet återstår; äldre CI är inte aktuellt GO.
+  riktade tester, typ/lint/derived/docs/plan/canvas gröna. Full aktuell CI och
+  deployment är verifierade. Fem sena fynd kvarstår: Swish-status, riktat
+  `instead of`-byte, purpose-negation, Supabase-godkännande per capability och
+  test-/fixture-importer som falskt runtimebevis. Punkten hålls öppen tills de
+  levererats; same-capability auto-delete ska inte införas, migrationsspärr
+  enligt ownerpolicy är lösningen.
 - [ ] Skilj skyddad återanvändbar kärna från projektanpassning med befintlig
   `verbatim`/`rewritable`-mekanism. Bevara signering, behörighet, hemlighetsskydd,
   konfigurationsfallback, exports och fungerande uppföljningar.
+  Bevarandeskyddet är lokalt fryst: samlad RED 6/104 → GREEN 104/104,
+  tomma versionsfiler RED 1/38 → GREEN 38/38, full riktad matris 363/363 och
+  docs 49/49. Runtime-commit `9a7f968bc9939c995b875e5569f7b869dbd6ff01`;
+  normal preview-synk ändrade inga bytes. Full PR-verifiering återstår.
 - [ ] Rensa motsägelsefull och föråldrad hard-vägledning. Användningsgräns,
   integration och `Avoid` ska faktiskt nå modellen i enhetlig, begränsad form;
   behåll 480-teckenskyddet och knappen Bygg integrationer.
