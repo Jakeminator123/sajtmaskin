@@ -6,6 +6,7 @@ import { recordPageView } from "@/lib/db/services/analytics";
 import {
   backfillKostnadsfriPageProfile,
   getKostnadsfriPageBySlug,
+  getAcceptedKostnadsfriMailEvent,
   markKostnadsfriProfileLookupSettled,
 } from "@/lib/db/services/kostnadsfri";
 import {
@@ -130,6 +131,8 @@ function recordVerified(request: NextRequest, slug: string, sessionId: string) {
 
 const verifySchema = z.object({
   password: z.string().min(1, "Password is required"),
+  mailId: z.string().regex(/^[a-f0-9]{32}$/).optional(),
+  variant: z.enum(["rent", "animated"]).optional(),
 });
 
 // Simple in-memory rate limiting for password attempts
@@ -161,12 +164,29 @@ export async function POST(
   try {
     const { slug } = await params;
     const session = ensureSessionIdFromRequest(request);
-    const verifiedResponse = (companyData: ReturnType<typeof companyDataFromSlug>) => {
+    const verifiedResponse = async (
+      companyData: ReturnType<typeof companyDataFromSlug>,
+      mailId?: string,
+    ) => {
+      // Query input is correlation only. It is signed into the receipt solely
+      // when it names an accepted event for this exact slug; changing mail_id
+      // or variant in the URL can never create entitlement or generation proof.
+      const acceptedMail = mailId
+        ? await getAcceptedKostnadsfriMailEvent(mailId, slug).catch(() => null)
+        : null;
       recordVerified(request, slug, session.sessionId);
       const response = NextResponse.json({ success: true, companyData });
       response.cookies.set({
         name: KOSTNADSFRI_CAMPAIGN_COOKIE,
-        value: createKostnadsfriCampaignReceipt({ slug, sessionId: session.sessionId }),
+        value: createKostnadsfriCampaignReceipt({
+          slug,
+          sessionId: session.sessionId,
+          mailMessageId: acceptedMail?.message_id ?? null,
+          mailVariant:
+            acceptedMail?.variant === "text" || acceptedMail?.variant === "animated"
+              ? acceptedMail.variant
+              : null,
+        }),
         httpOnly: true,
         secure: new URL(request.url).protocol === "https:",
         sameSite: "lax",
@@ -199,7 +219,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Lösenord krävs." }, { status: 400 });
     }
 
-    const { password } = validation.data;
+    const { password, mailId } = validation.data;
 
     // Try DB first (pre-created pages with enriched data)
     let page;
@@ -220,11 +240,12 @@ export async function POST(
         return NextResponse.json({ success: false, error: "Felaktigt lösenord." }, { status: 401 });
       }
 
-      return verifiedResponse(
+      return await verifiedResponse(
         await withProfileFallback(extractCompanyData(page), {
           hasRow: true,
           extraData: page.extra_data,
         }),
+        mailId,
       );
     }
 
@@ -242,8 +263,9 @@ export async function POST(
 
     // Success — slug-derived company data, enriched from the send tool when it
     // knows the company (no row to backfill in this mode).
-    return verifiedResponse(
+    return await verifiedResponse(
       await withProfileFallback(companyDataFromSlug(slug), { hasRow: false }),
+      mailId,
     );
   } catch (error: unknown) {
     console.error("[API/kostnadsfri/verify] Error:", error);

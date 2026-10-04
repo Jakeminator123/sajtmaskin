@@ -6,10 +6,11 @@ import {
   engineChats,
   generationBillings,
   kostnadsfriCampaignEntitlements,
+  kostnadsfriMailEvents,
   kostnadsfriPages,
 } from "@/lib/db/schema";
 import { isPageAccessible } from "@/lib/kostnadsfri";
-import { verifyKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
+import { readVerifiedKostnadsfriCampaignReceipt } from "@/lib/kostnadsfri/campaign-receipt";
 import { assertDbConfigured } from "./shared";
 
 export type KostnadsfriCampaignPhase = "initial" | "followup";
@@ -203,12 +204,11 @@ export async function bindVerifiedKostnadsfriCampaign(input: {
   sessionId: string;
 }): Promise<KostnadsfriCampaignBenefit | null> {
   assertDbConfigured();
-  if (
-    !verifyKostnadsfriCampaignReceipt(input.receipt, {
-      slug: input.invitationSlug,
-      sessionId: input.sessionId,
-    })
-  ) {
+  const receipt = readVerifiedKostnadsfriCampaignReceipt(input.receipt, {
+    slug: input.invitationSlug,
+    sessionId: input.sessionId,
+  });
+  if (!receipt) {
     return null;
   }
 
@@ -233,6 +233,22 @@ export async function bindVerifiedKostnadsfriCampaign(input: {
     const page = pageRows[0] ?? null;
     if (page && !isPageAccessible(page).accessible) return null;
 
+    let verifiedMailMessageId: string | null = null;
+    if (receipt.mailMessageId) {
+      const mailRows = await tx
+        .select({ messageId: kostnadsfriMailEvents.message_id })
+        .from(kostnadsfriMailEvents)
+        .where(
+          and(
+            eq(kostnadsfriMailEvents.message_id, receipt.mailMessageId),
+            eq(kostnadsfriMailEvents.slug, input.invitationSlug),
+            eq(kostnadsfriMailEvents.outcome, "accepted"),
+          ),
+        )
+        .limit(1);
+      verifiedMailMessageId = mailRows[0]?.messageId ?? null;
+    }
+
     const existingRows = await tx
       .select()
       .from(kostnadsfriCampaignEntitlements)
@@ -251,6 +267,7 @@ export async function bindVerifiedKostnadsfriCampaign(input: {
           project_id: input.projectId,
           user_id: project.user_id ?? null,
           session_id: input.sessionId,
+          mail_message_id: verifiedMailMessageId,
         })
         .onConflictDoNothing({ target: kostnadsfriCampaignEntitlements.invitation_slug })
         .returning();
@@ -267,6 +284,19 @@ export async function bindVerifiedKostnadsfriCampaign(input: {
     }
 
     if (!entitlement || !canReuseBinding(entitlement, input)) return null;
+    if (!entitlement.mail_message_id && verifiedMailMessageId) {
+      const updatedRows = await tx
+        .update(kostnadsfriCampaignEntitlements)
+        .set({ mail_message_id: verifiedMailMessageId, updated_at: new Date() })
+        .where(
+          and(
+            eq(kostnadsfriCampaignEntitlements.id, entitlement.id),
+            isNull(kostnadsfriCampaignEntitlements.mail_message_id),
+          ),
+        )
+        .returning();
+      entitlement = updatedRows[0] ?? entitlement;
+    }
     if (!entitlement.user_id && project.user_id) {
       const updatedRows = await tx
         .update(kostnadsfriCampaignEntitlements)

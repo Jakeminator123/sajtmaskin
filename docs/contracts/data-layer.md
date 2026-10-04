@@ -143,9 +143,18 @@ befintlig tabell).
 | `llm_usage`            | Tokenförbrukning per LLM-anrop (skrivs av varje fas, läses av kostnadsrollups) | Index på `chat_id`, `version_id`, `(user_id, created_at)`, `created_at`        |
 | `generation_billings`  | Kostnads- och debiteringssnapshot per version                                  | Unique `version_id`, index på `chat_id`, `(user_id, created_at)`, `created_at` |
 | `deployments`          | SSE-events under deploy (`GET /api/v0/deployments/[id]/events`)                | Index på `chat_id`, `version_id`, `vercel_deployment_id`                       |
+| `kostnadsfri_mail_events` | Ett beständigt kvitto per schemalagt mejl, läst per slug eller komplett cursor | PK `message_id`, index på `(slug, created_at)` och `flow_id`                    |
 
 Långbänk 2026-04-24 lade till de saknade index ovan via
 `scripts/db/add-performance-indexes.mjs` (idempotent — kör om-och-om-igen).
+
+`kostnadsfri_pages.sent_at/source` är en bakåtkompatibel företagsvy, inte
+fullständig mejlhistorik. Första accepterade utskicket kan fylla de fälten;
+uppföljningar skriver en ny rad i `kostnadsfri_mail_events` och får aldrig
+skriva över företagets ursprungliga registerpost. `message_id` är idempotens-
+och korrelationsnyckel, inte leveransbevis eller behörighet. Genereringsstatus
+härleds via den serverägda kedjan
+`kostnadsfri_campaign_entitlements → engine_chats → engine_versions`.
 
 `users.free_generation_available` är den kontoägda engångsentitlementen. Den
 claimas tillsammans med `free_generation_claimed_version_id` under användarens

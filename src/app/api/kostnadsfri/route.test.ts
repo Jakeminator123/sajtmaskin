@@ -5,14 +5,22 @@ const getKostnadsfriPageBySlug = vi.hoisted(() => vi.fn());
 const createKostnadsfriPage = vi.hoisted(() => vi.fn());
 const markKostnadsfriPageSent = vi.hoisted(() => vi.fn());
 const listKostnadsfriPages = vi.hoisted(() => vi.fn());
+const listKostnadsfriPagesAfterId = vi.hoisted(() => vi.fn());
 const getKostnadsfriVisitStats = vi.hoisted(() => vi.fn());
+const getKostnadsfriGenerationBySlug = vi.hoisted(() => vi.fn());
+const recordKostnadsfriMailEventForSubscribedPage = vi.hoisted(() => vi.fn());
+const createKostnadsfriPageWithMailEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/kostnadsfri", () => ({
   getKostnadsfriPageBySlug,
   createKostnadsfriPage,
   markKostnadsfriPageSent,
   listKostnadsfriPages,
+  listKostnadsfriPagesAfterId,
   getKostnadsfriVisitStats,
+  getKostnadsfriGenerationBySlug,
+  recordKostnadsfriMailEventForSubscribedPage,
+  createKostnadsfriPageWithMailEvent,
 }));
 
 vi.mock("@/lib/auth/auth", () => ({
@@ -20,6 +28,10 @@ vi.mock("@/lib/auth/auth", () => ({
 }));
 
 import { GET, POST } from "./route";
+import {
+  parseKostnadsfriRegisterEnvelopes,
+  parseKostnadsfriRegisterResponse,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 const API_KEY = "test-api-key";
 
@@ -56,16 +68,17 @@ function postRequest(body: unknown, apiKey: string | null = API_KEY) {
   });
 }
 
-function getRequest(apiKey: string | null = API_KEY) {
+function getRequest(apiKey: string | null = API_KEY, query = "") {
   const headers: Record<string, string> = {};
   if (apiKey !== null) headers["x-api-key"] = apiKey;
-  return new NextRequest("http://localhost/api/kostnadsfri", { method: "GET", headers });
+  return new NextRequest(`http://localhost/api/kostnadsfri${query}`, { method: "GET", headers });
 }
 
 beforeEach(() => {
   process.env.KOSTNADSFRI_API_KEY = API_KEY;
   process.env.KOSTNADSFRI_PASSWORD_SEED = "test-seed";
   getKostnadsfriVisitStats.mockResolvedValue({ perSlug: [], recent: [], truncated: false });
+  getKostnadsfriGenerationBySlug.mockResolvedValue(new Map());
 });
 
 afterEach(() => {
@@ -228,6 +241,357 @@ describe("POST /api/kostnadsfri", () => {
     expect(createKostnadsfriPage).toHaveBeenCalledWith(
       expect.objectContaining({ sentAt: undefined, source: undefined }),
     );
+  });
+
+  it("records a follow-up as a separate idempotent event without overwriting the first send", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({
+        sent_at: new Date("2026-10-01T08:00:00.000Z"),
+        source: "render-mail-flow:text",
+      }),
+    );
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "duplicate",
+      event: { message_id: "a".repeat(32) },
+      page: pageRow({
+        sent_at: new Date("2026-10-01T08:00:00.000Z"),
+        source: "render-mail-flow:text",
+      }),
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        contactEmail: "hej@acme.se",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:animated",
+        mailEvent: {
+          messageId: "a".repeat(32),
+          flowId: "flow_1",
+          step: "follow",
+          variant: "animated",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          scheduledAt: "2026-10-03T08:25:00.000Z",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "a".repeat(32),
+        step: "follow",
+        variant: "animated",
+      }),
+      // A follow-up never touches the cohort but still carries contact data.
+      { firstSend: undefined, metadata: { contactEmail: "hej@acme.se" } },
+    );
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect(body.mailEvent).toEqual({ messageId: "a".repeat(32), status: "duplicate" });
+    expect(body.page).toMatchObject({
+      sentAt: "2026-10-01T08:00:00.000Z",
+      source: "render-mail-flow:text",
+    });
+  });
+
+  it("returns the existing 409 contract when the locked company row disappeared", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({ status: "missing-page" });
+    const res = await POST(postRequest({
+      companyName: "Acme AB",
+      mailEvent: {
+        messageId: "a".repeat(32),
+        flowId: "flow_1",
+        step: "follow",
+        variant: "text",
+        sender: "hej@sajtmaskin.se",
+        recipient: "hej@acme.se",
+        scheduledAt: "2026-10-03T08:25:00.000Z",
+        outcome: "scheduled",
+      },
+    }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ success: false, error: 'A page with slug "acme-ab" no longer exists' });
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect(createKostnadsfriPageWithMailEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a follow-up after the company has unsubscribed", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({
+        sent_at: new Date("2026-10-01T08:00:00.000Z"),
+        source: "render-mail-flow:text",
+        extra_data: { unsubscribedAt: "2026-10-02T09:00:00.000Z" },
+      }),
+    );
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        contactEmail: "hej@acme.se",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:animated",
+        mailEvent: {
+          messageId: "f".repeat(32),
+          flowId: "flow_1",
+          step: "follow",
+          variant: "animated",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/unsubscribed/i);
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a first mail after the company has unsubscribed", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({ extra_data: { unsubscribedAt: "2026-10-02T09:00:00.000Z" } }),
+    );
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        contactEmail: "hej@acme.se",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "c".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/unsubscribed/i);
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("creates page and mail event together and returns 409 without a page on messageId conflict", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPageWithMailEvent.mockResolvedValueOnce({ status: "conflict" });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "d".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(createKostnadsfriPageWithMailEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: "acme-ab", source: "render-mail-flow:text" }),
+      expect.objectContaining({ messageId: "d".repeat(32), step: "first" }),
+    );
+    // The non-transactional create is never used when a mailEvent is present.
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect(recordKostnadsfriMailEventForSubscribedPage).not.toHaveBeenCalled();
+  });
+
+  it("returns the created page and receipt from the transactional create", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(null);
+    createKostnadsfriPageWithMailEvent.mockResolvedValueOnce({
+      status: "created",
+      page: pageRow({ id: 7, sent_at: new Date("2026-10-03T08:30:00.000Z") }),
+      event: { message_id: "9".repeat(32) },
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "9".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mailEvent).toEqual({ messageId: "9".repeat(32), status: "created" });
+    expect(body.page).toMatchObject({ id: 7, slug: "acme-ab", sentAt: "2026-10-03T08:30:00.000Z" });
+  });
+
+  it("keeps the first recorded sentAt/source when a later step=first arrives", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(
+      pageRow({ sent_at: new Date("2026-10-01T08:00:00.000Z"), source: "render-mail-flow:text" }),
+    );
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "created",
+      event: { message_id: "8".repeat(32) },
+      page: pageRow({ sent_at: new Date("2026-10-01T08:00:00.000Z"), source: "render-mail-flow:text" }),
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:animated",
+        mailEvent: {
+          messageId: "8".repeat(32),
+          flowId: "flow_2",
+          step: "first",
+          variant: "animated",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect((await res.json()).page).toMatchObject({
+      sentAt: "2026-10-01T08:00:00.000Z",
+      source: "render-mail-flow:text",
+    });
+  });
+
+  it("fills the first-send fields inside the locked registration, never via a separate update", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "created",
+      event: { message_id: "7".repeat(32) },
+      page: pageRow({ sent_at: new Date("2026-10-03T08:30:00.000Z"), source: "render-mail-flow:text" }),
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "7".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "7".repeat(32), pageId: 1 }),
+      {
+        firstSend: expect.objectContaining({
+          sentAt: new Date("2026-10-03T08:30:00.000Z"),
+          source: "render-mail-flow:text",
+        }),
+        metadata: { contactEmail: undefined },
+      },
+    );
+    // The unconditional, unlocked compatibility update is never used here.
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect((await res.json()).page).toMatchObject({ sentAt: "2026-10-03T08:30:00.000Z" });
+  });
+
+  it("rejects message-id reuse with different facts", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "conflict",
+      event: { message_id: "b".repeat(32) },
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "b".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+  });
+
+  it("records preparation without claiming SMTP acceptance in the company register", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "created",
+      event: { message_id: "e".repeat(32) },
+      page: pageRow(),
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        mailEvent: {
+          messageId: "e".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          scheduledAt: "2026-10-03T08:25:00.000Z",
+          outcome: "scheduled",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smtpAcceptedAt: null,
+        source: "render-mail-flow:text",
+        outcome: "scheduled",
+      }),
+      { firstSend: undefined },
+    );
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect((await res.json()).page).toMatchObject({ sentAt: null, source: null });
   });
 
   it("rejects a sentAt without timezone", async () => {
@@ -535,7 +899,7 @@ describe("GET /api/kostnadsfri", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(listKostnadsfriPages).toHaveBeenCalledWith(2000);
+    expect(listKostnadsfriPages).toHaveBeenCalledWith(2001);
     expect(body.success).toBe(true);
     expect(body.pages).toEqual([
       {
@@ -552,6 +916,7 @@ describe("GET /api/kostnadsfri", () => {
         visits: 0,
         verified: 0,
         started: 0,
+        generation: { state: "not-started", completedAt: null, siteId: null },
       },
       {
         slug: "beta-ab",
@@ -567,6 +932,7 @@ describe("GET /api/kostnadsfri", () => {
         visits: 0,
         verified: 0,
         started: 0,
+        generation: { state: "not-started", completedAt: null, siteId: null },
       },
     ]);
     expect(JSON.stringify(body)).not.toContain("password_hash");
@@ -597,5 +963,98 @@ describe("GET /api/kostnadsfri", () => {
       started: 0,
     });
     expect(JSON.stringify(body)).not.toContain("hemligt");
+  });
+
+  it("keeps the register valid when analytics is unavailable instead of returning false zeroes", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow()]);
+    getKostnadsfriVisitStats.mockRejectedValueOnce(new Error("analytics unavailable"));
+
+    const res = await GET(getRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.analytics).toMatchObject({ available: false, complete: false, windowDays: 90 });
+    expect(body.pages[0]).toMatchObject({ visits: null, verified: null, started: null });
+  });
+
+  it("exposes truncation and a stable id cursor instead of treating a capped register as complete", async () => {
+    listKostnadsfriPagesAfterId.mockResolvedValueOnce([
+      pageRow({ id: 11 }),
+      pageRow({ id: 12, slug: "beta-ab" }),
+    ]);
+
+    const res = await GET(getRequest(API_KEY, "?cursor=10&limit=1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listKostnadsfriPagesAfterId).toHaveBeenCalledWith(10, 2);
+    expect(body.pages).toHaveLength(1);
+    expect(body.registry).toMatchObject({ complete: false, nextCursor: "11", returned: 1 });
+  });
+
+  it("points a capped legacy read at the complete id-ordered walk", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([
+      pageRow({ id: 5 }),
+      pageRow({ id: 3, slug: "beta-ab" }),
+    ]);
+
+    const res = await GET(getRequest(API_KEY, "?limit=1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.registry).toMatchObject({
+      complete: false,
+      nextCursor: "0",
+      paginationMode: "legacy-send-order",
+    });
+  });
+
+  it("keeps nextCursor null when the legacy read is complete", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow()]);
+
+    const body = await (await GET(getRequest())).json();
+
+    expect(body.registry).toMatchObject({ complete: true, nextCursor: null });
+  });
+
+  it("reads generation state only for the slugs on the returned page", async () => {
+    listKostnadsfriPagesAfterId.mockResolvedValueOnce([
+      pageRow({ id: 11 }),
+      pageRow({ id: 12, slug: "beta-ab" }),
+    ]);
+
+    await GET(getRequest(API_KEY, "?cursor=10&limit=1"));
+
+    expect(getKostnadsfriGenerationBySlug).toHaveBeenCalledWith(["acme-ab"]);
+  });
+
+  it("rejects a non-canonical numeric registry cursor instead of truncating it", async () => {
+    for (const cursor of ["100garbage", "100.9", "-1", "1e3", " 5"]) {
+      const res = await GET(getRequest(API_KEY, `?cursor=${encodeURIComponent(cursor)}`));
+      expect(res.status).toBe(400);
+    }
+    expect(listKostnadsfriPagesAfterId).not.toHaveBeenCalled();
+  });
+
+  it("emits a response that satisfies the published contract, also when partially unavailable", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow({ id: 5 }), pageRow({ id: 3, slug: "beta-ab" })]);
+    getKostnadsfriVisitStats.mockRejectedValueOnce(new Error("analytics down"));
+    getKostnadsfriGenerationBySlug.mockRejectedValueOnce(new Error("generation down"));
+
+    const body = await (await GET(getRequest(API_KEY, "?limit=1"))).json();
+
+    expect(parseKostnadsfriRegisterEnvelopes(body)).toMatchObject({
+      registry: { complete: false, nextCursor: "0", paginationMode: "legacy-send-order" },
+      analytics: { available: false, complete: false },
+      generation: { available: false },
+    });
+    expect(parseKostnadsfriRegisterResponse(body)[0].generation.state).toBe("unknown");
+
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow()]);
+    const complete = await (await GET(getRequest())).json();
+    expect(parseKostnadsfriRegisterEnvelopes(complete).registry).toMatchObject({
+      complete: true,
+      nextCursor: null,
+    });
   });
 });
