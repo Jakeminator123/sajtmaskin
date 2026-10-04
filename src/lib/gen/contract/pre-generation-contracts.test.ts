@@ -486,6 +486,92 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     }
   });
 
+  it("lets exact Supabase auth project evidence replace an unsourced unresolved legacy choice", () => {
+    const unresolved = inferPreGenerationContracts({
+      prompt: "Keep the existing login",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: [
+        {
+          provider: "Supabase",
+          name: "Supabase",
+          reason: "Stored by an older snapshot",
+          status: "chosen",
+        },
+      ],
+    });
+    const neutral = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: unresolved.contracts.integrations,
+    });
+    const evidenced = inferPreGenerationContracts({
+      prompt: "Keep the existing login",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: neutral.contracts.integrations,
+      projectProviderEvidence: [
+        { providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" },
+      ],
+    });
+
+    expect(evidenced.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    ]);
+    expect(evidenced.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "database" }),
+    );
+    expect(evidenced.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+  });
+
+  it("does not let project evidence bypass an explicit unresolved provider rejection", () => {
+    const rejected = inferPreGenerationContracts({
+      prompt: "Do not use Supabase auth",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: [
+        {
+          kind: "auth",
+          providerKey: "supabase",
+          dossierCapability: "auth",
+          selectionSource: "explicit",
+          provider: "Supabase",
+          name: "Supabase Auth",
+          reason: "Explicit auth choice",
+          status: "chosen",
+        },
+      ],
+    });
+    const evidenced = inferPreGenerationContracts({
+      prompt: "Keep the existing login",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: rejected.contracts.integrations,
+      projectProviderEvidence: [
+        { providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" },
+      ],
+    });
+
+    expect(evidenced.contracts.integrations).toEqual([
+      expect.objectContaining({
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        status: "unresolved",
+      }),
+    ]);
+    expect(evidenced.contracts.integrations[0]).not.toHaveProperty("providerKey");
+    expect(evidenced.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+  });
+
   it("preserves a specifically named legacy Supabase Auth identity", () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Keep the existing login",
@@ -616,6 +702,80 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
       expect(rejected).not.toHaveProperty("providerKey");
     },
   );
+
+  it.each([
+    ["Do not use Supabase database; keep Supabase auth", "auth", "database"],
+    ["Do not use Supabase auth, but keep Supabase database", "database", "auth"],
+    ["Använd inte Supabase database; behåll Supabase auth", "auth", "database"],
+    ["Använd inte Supabase auth, men behåll Supabase database", "database", "auth"],
+  ] as const)(
+    "uses one segment decision for Supabase reject/keep pairs: %s",
+    (prompt, keptCapability, rejectedCapability) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+      });
+
+      expect(ctx.contracts.integrations).toContainEqual(
+        expect.objectContaining({
+          providerKey: "supabase",
+          dossierCapability: keptCapability,
+          status: "chosen",
+        }),
+      );
+      const rejected = ctx.contracts.integrations.find(
+        (entry) => entry.dossierCapability === rejectedCapability,
+      );
+      expect(rejected).toMatchObject({ status: "unresolved" });
+      expect(rejected).not.toHaveProperty("providerKey");
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: "clerk" }),
+      );
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: "postgres" }),
+      );
+    },
+  );
+
+  it("lets the current Supabase pair decision override stale brief text", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Do not use Supabase database; keep Supabase auth",
+      brief: { mustHave: ["Member portal backed by Supabase database"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
+    const database = ctx.contracts.integrations.find(
+      (entry) => entry.dossierCapability === "database",
+    );
+    expect(database).toMatchObject({ status: "unresolved" });
+    expect(database).not.toHaveProperty("providerKey");
+  });
+
+  it("keeps a generic Supabase rejection unresolved for both relevant capabilities", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Do not use Supabase",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.integrations).toHaveLength(2);
+    for (const capability of ["auth", "database"]) {
+      const integration = ctx.contracts.integrations.find(
+        (entry) => entry.dossierCapability === capability,
+      );
+      expect(integration).toMatchObject({ status: "unresolved" });
+      expect(integration).not.toHaveProperty("providerKey");
+    }
+  });
 
   it("deduplicates method evidence without replacing current explicit provenance", () => {
     const ctx = inferPreGenerationContracts({

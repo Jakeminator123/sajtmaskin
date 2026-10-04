@@ -155,7 +155,7 @@ function pushIntegration(target: PlanIntegrationContract[], nextIntegration: Pla
 
 function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilities): boolean {
   // Do not treat `needsEcommerce` alone as persistence — storefront prompts often
-  // lack real DB intent; SQLite default belongs on explicit persistence signals.
+  // lack real DB intent; database defaults belong on explicit persistence signals.
   if (capabilities.needsDatabase) return true;
   if (/\b(database|databas|save|persist|storage|crm|member area|portal)\b/i.test(corpus)) return true;
   if (/\b(booking|calendar|submission|submissions|konto)\b/i.test(corpus)) {
@@ -209,6 +209,7 @@ export function inferPreGenerationContracts(params: {
     projectProviderEvidence = [],
   } = params;
   const corpus = getPromptCorpus(prompt, brief);
+  const briefCorpus = getPromptCorpus("", brief);
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
   const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
   const suppressPayment = visualOnly || hasNegatedPaymentIntent(corpus);
@@ -236,9 +237,52 @@ export function inferPreGenerationContracts(params: {
       : rule.dossierCapability ??
         (rule.kind === "payment" ? "payments" : rule.kind === "auth" ? "auth" : undefined);
 
-  const matchedPositiveRules = PROVIDER_RULES.filter((rule) =>
-    rule.patterns.some((pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern)),
-  );
+  type SupabasePairDecision = "positive" | "negative";
+  const getSupabasePairDecisions = (source: string): Map<string, SupabasePairDecision> => {
+    const decisions = new Map<string, SupabasePairDecision>();
+    const segments = source
+      .split(/[;,!?.\n]+|\b(?:but|men)\b/iu)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+    for (const segment of segments) {
+      if (!/\bsupabase\b/iu.test(segment)) continue;
+      const decision: SupabasePairDecision = isTermFullyNegated(
+        segment,
+        /\bsupabase\b/iu,
+      )
+        ? "negative"
+        : "positive";
+      const hasAuthCue =
+        /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(segment);
+      const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(segment);
+      if (hasAuthCue) decisions.set("auth", decision);
+      if (hasDatabaseCue) decisions.set("database", decision);
+      if (!hasAuthCue && !hasDatabaseCue) {
+        if (decision === "negative") {
+          decisions.set("auth", decision);
+          decisions.set("database", decision);
+        } else {
+          decisions.set("database", decision);
+        }
+      }
+    }
+    return decisions;
+  };
+  const promptSupabaseDecisions = getSupabasePairDecisions(prompt);
+  const briefSupabaseDecisions = getSupabasePairDecisions(briefCorpus);
+  const supabasePairDecision = (capability: string): SupabasePairDecision | undefined =>
+    promptSupabaseDecisions.get(capability) ?? briefSupabaseDecisions.get(capability);
+  const isSupabasePairRule = (rule: ProviderRule): boolean =>
+    rule.providerKey === "supabase" &&
+    (capabilityForRule(rule) === "auth" || capabilityForRule(rule) === "database");
+  const matchedPositiveRules = PROVIDER_RULES.filter((rule) => {
+    if (isSupabasePairRule(rule)) {
+      return supabasePairDecision(capabilityForRule(rule)!) === "positive";
+    }
+    return rule.patterns.some(
+      (pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern),
+    );
+  });
   const switchTarget = corpus.match(
     /(?:\bfrom\b|\bfrån\b)[\s\S]{0,80}?\b(?:to|till)\b([\s\S]{1,80})/iu,
   )?.[1];
@@ -252,50 +296,15 @@ export function inferPreGenerationContracts(params: {
       .map((rule) => capabilityForRule(rule))
       .filter((capability): capability is string => Boolean(capability)),
   );
-  const hasSupabaseAuthRule = matchedPositiveRules.some(
-    (rule) => rule.providerKey === "supabase" && rule.dossierCapability === "auth",
-  );
-  const hasExplicitSupabaseDatabaseIntent =
-    /\bsupabase\b[^.!?\n]{0,48}\b(?:database|databas|db|storage|lagring)\b/iu.test(corpus) ||
-    /\b(?:database|databas|db|storage|lagring)\b[^.!?\n]{0,48}\bsupabase\b/iu.test(corpus);
   const positiveRules = matchedPositiveRules.filter((rule) => {
     const capability = capabilityForRule(rule);
     if (capability && targetCapabilities.has(capability)) return targetRules.includes(rule);
-    if (
-      hasSupabaseAuthRule &&
-      !hasExplicitSupabaseDatabaseIntent &&
-      rule.providerKey === "supabase" &&
-      rule.dossierCapability === "database"
-    ) {
-      return false;
-    }
     return true;
   });
   const clauses = corpus.split(/[;!?\n]+/u).map((clause) => clause.trim()).filter(Boolean);
-  const supabaseNegatedCapabilities = new Set<string>();
-  for (const clause of clauses) {
-    if (!/\bsupabase\b/iu.test(clause) || !isTermFullyNegated(clause, /\bsupabase\b/iu)) {
-      continue;
-    }
-    const hasAuthCue =
-      /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(clause);
-    const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(clause);
-    if (hasAuthCue && !hasDatabaseCue) {
-      supabaseNegatedCapabilities.add("auth");
-    } else if (hasDatabaseCue && !hasAuthCue) {
-      supabaseNegatedCapabilities.add("database");
-    } else {
-      supabaseNegatedCapabilities.add("auth");
-      supabaseNegatedCapabilities.add("database");
-    }
-  }
   const negatedRules = PROVIDER_RULES.filter((rule) => {
-    const capability = capabilityForRule(rule);
-    if (
-      rule.providerKey === "supabase" &&
-      (capability === "auth" || capability === "database")
-    ) {
-      return supabaseNegatedCapabilities.has(capability);
+    if (isSupabasePairRule(rule)) {
+      return supabasePairDecision(capabilityForRule(rule)!) === "negative";
     }
     return clauses.some((clause) => {
       const matching = rule.patterns.filter((pattern) => pattern.test(clause));
@@ -493,12 +502,16 @@ export function inferPreGenerationContracts(params: {
   // then preserved only when their provider/capability is unambiguous.
   const legacyCandidates: PlanIntegrationContract[] = [];
   for (const inherited of inheritedIntegrations) {
-    if (inherited.selectionSource === "explicit" || inherited.status === "unresolved") {
+    if (inherited.selectionSource === "explicit") {
       const capability = inherited.dossierCapability;
       if (capability && capabilityHasContract(capability)) continue;
       integrations.push(
         isContractNegated(inherited) ? unresolvedAfterNegation(inherited) : { ...inherited },
       );
+      continue;
+    }
+    if (inherited.status === "unresolved") {
+      legacyCandidates.push({ ...inherited });
       continue;
     }
     for (const legacy of resolveLegacyIntegrations(inherited)) {
