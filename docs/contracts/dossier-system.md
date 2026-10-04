@@ -469,9 +469,16 @@ context-only i stället för att installera en konkurrerande betalmetod.
 Existerande projektkod räknas som positivt providerbevis bara när ett direkt
 `package.json`-beroende sammanfaller med en parse-ren runtime-import/export,
 global `require()` eller dynamisk import. Type-only-importer, kommentarer,
-strängar, lokalt skuggad `require`, trasig syntax och bara paketdeklaration är
+strängar, lokalt skuggad `require`, trasig syntax, test-/spec-/fixturematerial
+och bara paketdeklaration är
 okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
-blir valet olöst i stället för manifestordningsstyrt.
+blir valet olöst i stället för manifestordningsstyrt. Explicit providerbyte
+tolkar riktningen även i `instead of`/`istället för`/`i stället för`; en separat
+`and keep`/`och behåll`-instruktion ingår inte i källans borttagning.
+Durabla F3-godkännanden filtreras mot befintliga provider-/capability-kontrakt:
+en borttagen Supabase-databas får inte återkomma via ett tvetydigt provider-hint,
+medan ett självständigt auth-kontrakt och dess capability/dossier bevaras.
+Ingen ny separat godkännandeledger införs.
 
 På filnivå blir en divergent befintlig kärna `context-only` när exakt
 manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att

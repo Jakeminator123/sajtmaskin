@@ -28,7 +28,8 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   4:37; dossier 21/21 på 11:06 inklusive 5:04 kö (aktivt 6:02). Postmerge
   kod-CI grön på 3:54; Vercel READY på rätt preview-SHA/alias på 1:52.
   De 13 kända DB-paritetsraderna kvarstår. En sen automatisk review publicerade
-  fem nya verifierade fel efter merge; de rättas innan nästa leverans.
+  fem nya verifierade fel efter merge; lokal rättning är fryst på
+  `1537de6aecc85305376d36ddcf3202e64cab1230`, inväntar aktuell review/CI/leverans.
 - D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
@@ -70,9 +71,13 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   Två oberoende delta-/integrationsreviews är CLEAN; samtliga åtta publicerade
   native fynd har RED/GREEN och sakliga lösningssvar. Slutmatris 538/538
   riktade tester, typ/lint/derived/docs/plan/canvas gröna. Full aktuell CI och
-  deployment är verifierade. Fem sena fynd kvarstår: Swish-status, riktat
+  deployment är verifierade. Fem sena fynd har fått lokal rättning: Swish-status, riktat
   `instead of`-byte, purpose-negation, Supabase-godkännande per capability och
-  test-/fixture-importer som falskt runtimebevis. Punkten hålls öppen tills de
+  test-/fixture-importer som falskt runtimebevis. Samlad RED 14/251, därefter
+  terminaldelta RED 7/188; fokus GREEN 258/258 och bred matris 581/581.
+  En stale Swish-chosen dubblettrad ersattes av starkare unresolved-/fullflödestest;
+  inga övriga täckningsfall togs bort. Type/lint/derived/docs/canvas/plan är gröna,
+  32 ownerklassificerade PR-paths. Punkten hålls öppen tills de
   levererats; same-capability auto-delete ska inte införas, migrationsspärr
   enligt ownerpolicy är lösningen.
 - [ ] Skilj skyddad återanvändbar kärna från projektanpassning med befintlig
