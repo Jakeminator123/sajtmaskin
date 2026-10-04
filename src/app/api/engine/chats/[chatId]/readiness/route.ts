@@ -46,7 +46,10 @@ import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
-import { resolveProviderContractDossierPlan } from "@/lib/gen/contract/provider-compatibility";
+import {
+  resolveExistingDossierCorePlan,
+  resolveProviderContractDossierPlan,
+} from "@/lib/gen/contract/provider-compatibility";
 import {
   detectProjectProviderEvidence,
   projectProviderEvidenceMatchesContract,
@@ -317,6 +320,19 @@ async function buildEngineReadiness(
     resolveProjectEnv(chat.project_id ?? null),
     getEngineVersionErrorLogs(version.id),
   ]);
+  const integrationCoreInspectionUnavailable = !versionFiles || versionFiles.length === 0;
+  const integrationMigrationRequired = versionFiles
+    ? resolveExistingDossierCorePlan({
+        contracts: readProviderContractsFromSnapshot(
+          chat.orchestration_snapshot as Record<string, unknown> | null,
+        ),
+        projectFiles: versionFiles,
+        projectProviderEvidence: detectProjectProviderEvidence(
+          versionFiles,
+          getPreGenerationContractsConfigFromManifest().providerRules,
+        ),
+      }).migrationRequired
+    : false;
 
   // Lease-safe stale-verification watchdog (shared with /version-status). Fails
   // a version stuck past the route budget ONLY when no job holds an active
@@ -338,56 +354,78 @@ async function buildEngineReadiness(
     }
     return isHeadVersion;
   };
-  const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
-    resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
-    // BB#299: don't false-red a stale row whose latest gate verdict is green.
-    resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
-    // Bugbot medium (#518): the green reconciliation only applies to the chat
-    // head; a non-head (superseded) stale row falls through to terminal-fail.
-    resolveIsHeadVersion,
-    // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
-    // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
-    // instead of leaving it in limbo — never promotes while a verify/repair job
-    // holds the lease and re-runs checks.
-    promoteReconciledVersion: async () => {
-      const promoted = await promoteVersionIfUnleased(
-        versionIdForReconcile,
-        RECONCILED_PROMOTE_SUMMARY,
-        { filesRevision: filesRevisionForReconcile },
-      );
-      // Bugbot medium (#518): mirror the quality-gate route — an advisory
-      // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
-      // after the reconcile-promote takes, else the builder would read a false
-      // green `done`. Only a real promoted Version emits (never `"guard_denied"`
-      // / `null`). A clean pass emits nothing. Best-effort telemetry.
-      const advisoryChecks =
-        promoted && promoted !== "guard_denied"
-          ? resolveLatestGateAdvisoryChecks(errorLogs)
-          : [];
-      if (advisoryChecks.length > 0) {
-        const lintAdvisory = advisoryChecks.includes("lint");
-        try {
-          emitBusEvent({
-            t: "version.degraded",
-            versionId: versionIdForReconcile,
-            chatId: chat.id,
-            kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
-            message: lintAdvisory
-              ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
-              : "Designläge: versionen promotades med typecheck-varningar (advisory).",
-            meta: { advisoryChecks },
-          });
-        } catch {
-          // Telemetry only — never block readiness on a bus failure.
+  if (!integrationMigrationRequired && !integrationCoreInspectionUnavailable) {
+    const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
+      resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
+      // BB#299: don't false-red a stale row whose latest gate verdict is green.
+      resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
+      // Bugbot medium (#518): the green reconciliation only applies to the chat
+      // head; a non-head (superseded) stale row falls through to terminal-fail.
+      resolveIsHeadVersion,
+      // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
+      // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+      // instead of leaving it in limbo — never promotes while a verify/repair job
+      // holds the lease and re-runs checks.
+      promoteReconciledVersion: async () => {
+        const promoted = await promoteVersionIfUnleased(
+          versionIdForReconcile,
+          RECONCILED_PROMOTE_SUMMARY,
+          { filesRevision: filesRevisionForReconcile },
+        );
+        // Bugbot medium (#518): mirror the quality-gate route — an advisory
+        // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
+        // after the reconcile-promote takes, else the builder would read a false
+        // green `done`. Only a real promoted Version emits (never `"guard_denied"`
+        // / `null`). A clean pass emits nothing. Best-effort telemetry.
+        const advisoryChecks =
+          promoted && promoted !== "guard_denied"
+            ? resolveLatestGateAdvisoryChecks(errorLogs)
+            : [];
+        if (advisoryChecks.length > 0) {
+          const lintAdvisory = advisoryChecks.includes("lint");
+          try {
+            emitBusEvent({
+              t: "version.degraded",
+              versionId: versionIdForReconcile,
+              chatId: chat.id,
+              kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
+              message: lintAdvisory
+                ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
+                : "Designläge: versionen promotades med typecheck-varningar (advisory).",
+              meta: { advisoryChecks },
+            });
+          } catch {
+            // Telemetry only — never block readiness on a bus failure.
+          }
         }
-      }
-      return promoted;
-    },
-  });
-  version = settledVersion;
+        return promoted;
+      },
+    });
+    version = settledVersion;
+  }
 
   const blockers: ChatReadinessItem[] = [];
   const warnings: ChatReadinessItem[] = [];
+  if (integrationMigrationRequired) {
+    blockers.push({
+      id: "integration-migration-required",
+      title: "Providerbytet behöver göras uttryckligen.",
+      detail:
+        "Versionen innehåller redan kärnkod för en annan provider. Migrera den integrationen innan versionen kan markeras klar.",
+      severity: "blocker",
+      action: "versions",
+    });
+  }
+  if (integrationCoreInspectionUnavailable) {
+    blockers.push({
+      id: "version-files-unavailable",
+      title: "Versionsfilerna kunde inte läsas.",
+      detail:
+        "Readiness kan inte avgöra om befintlig integrationskod är kompatibel. Försök igen innan versionen markeras klar.",
+      severity: "blocker",
+      action: "versions",
+    });
+  }
   if (wasAutoAccepted) {
     // Surface the (previously silent) auto-accept so the user can tell that the
     // active version changed without an explicit "Acceptera fix" click.

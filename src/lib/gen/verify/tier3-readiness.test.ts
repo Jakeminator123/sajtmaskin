@@ -79,6 +79,46 @@ beforeEach(() => {
 });
 
 describe("checkTier3ReadinessForVersion (L1)", () => {
+  it("holds a proven Clerk to Auth0 migration before a cached passed postcheck can release", async () => {
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["auth0"],
+      preloadedFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+          language: "ts",
+        },
+        {
+          path: "components/auth-buttons.tsx",
+          content: "export function AuthButtons(){ return null; }",
+          language: "tsx",
+        },
+        {
+          path: "components/clerk-provider-shell.tsx",
+          content: "export function ClerkProviderShell(){ return null; }",
+          language: "tsx",
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+          language: "json",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+    expect(getEngineVersionErrorLogsForCategories).not.toHaveBeenCalled();
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
   it("projects file-detected Auth0 into a Tier3 build requirement", async () => {
     detectIntegrationsFromVersionFiles.mockReturnValue([
       {

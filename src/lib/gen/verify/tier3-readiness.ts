@@ -39,6 +39,10 @@ import type {
 } from "@/lib/gen/plan/schema";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import {
   f3MayReleaseOnVerdict,
   interpretProductPostcheckClaim,
@@ -105,6 +109,7 @@ export type Tier3ReadinessReason =
   | "missing_env"
   | "version_files_unavailable"
   | "f3_parent_version_missing"
+  | "integration_migration_required"
   | ProductPostcheckF3GateReason
   | "preview_not_ready"
   | "readiness_unavailable";
@@ -121,6 +126,7 @@ export type Tier3ReadinessResult =
   | { ready: true; ok: true; spec: Tier3BuildSpec }
   | { ready: false; ok: false; reason: "version_files_unavailable"; retryable: true }
   | { ready: false; ok: false; reason: "f3_parent_version_missing"; retryable: false }
+  | { ready: false; ok: false; reason: "integration_migration_required"; retryable: false }
   | { ready: false; ok: false; reason: "preview_not_ready"; retryable: true }
   | { ready: false; ok: false; reason: "readiness_unavailable"; retryable: true }
   | Tier3ProductPostcheckHold
@@ -234,6 +240,51 @@ function dedupeApprovedProviderKeys(providerKeys: readonly string[]): string[] {
     normalized.push(trimmed);
   }
   return normalized;
+}
+
+function resolveCurrentProviderIntentContracts(params: {
+  snapshot: unknown;
+  pendingProviderKeys: readonly string[];
+  pendingDossierIds: readonly string[];
+}): PlanIntegrationContract[] {
+  const snapshot =
+    params.snapshot && typeof params.snapshot === "object" && !Array.isArray(params.snapshot)
+      ? (params.snapshot as Record<string, unknown>)
+      : null;
+  const byCapability = new Map(
+    readProviderContractsFromSnapshot(snapshot)
+      .filter((contract) => contract.dossierCapability)
+      .map((contract) => [contract.dossierCapability!.toLowerCase(), contract]),
+  );
+  const upsert = (capability: string, providerKey: string, kind?: PlanIntegrationContract["kind"]) => {
+    const normalizedCapability = capability.toLowerCase();
+    const normalizedProvider = providerKey.toLowerCase();
+    byCapability.set(normalizedCapability, {
+      kind,
+      providerKey: normalizedProvider,
+      dossierCapability: normalizedCapability,
+      selectionSource: "explicit",
+      provider: normalizedProvider,
+      name: normalizedProvider,
+      reason: "Current approved provider intent.",
+      status: "chosen",
+    });
+  };
+  for (const dossierId of params.pendingDossierIds) {
+    const dossier = getDossierById(dossierId);
+    const providerKey = dossier?.providers?.[0];
+    if (dossier && providerKey) upsert(dossier.capability, providerKey);
+  }
+  const rules = getPreGenerationContractsConfigFromManifest().providerRules;
+  for (const providerKey of dedupeApprovedProviderKeys(params.pendingProviderKeys)) {
+    const rule = rules.find(
+      (candidate) => candidate.providerKey.toLowerCase() === providerKey.toLowerCase(),
+    );
+    if (rule?.dossierCapability) {
+      upsert(rule.dossierCapability, providerKey, rule.kind);
+    }
+  }
+  return Array.from(byCapability.values());
 }
 
 function mergeUnique(listA: readonly string[], listB: readonly string[]): string[] {
@@ -421,6 +472,35 @@ export async function checkTier3ReadinessForVersion(
     }
   }
 
+  const versionFiles =
+    params.preloadedFiles !== undefined
+      ? params.preloadedFiles
+      : await getVersionFiles(params.versionId);
+  if (!versionFiles || versionFiles.length === 0) {
+    return { ready: false, ok: false, reason: "version_files_unavailable", retryable: true };
+  }
+  const currentContracts = resolveCurrentProviderIntentContracts({
+    snapshot: params.orchestrationSnapshot,
+    pendingProviderKeys: params.pendingApprovedProviderKeys ?? [],
+    pendingDossierIds: params.pendingApprovedDossierIds ?? [],
+  });
+  const existingCorePlan = resolveExistingDossierCorePlan({
+    contracts: currentContracts,
+    projectFiles: versionFiles,
+    projectProviderEvidence: detectProjectProviderEvidence(
+      versionFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    ),
+  });
+  if (existingCorePlan.migrationRequired) {
+    return {
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    };
+  }
+
   const postcheck = await readProductPostcheckVerdictForVersion(
     params.productPostcheckVersionId ?? params.parentVersionId ?? params.versionId,
   );
@@ -447,10 +527,6 @@ export async function checkTier3ReadinessForVersion(
     }
   }
 
-  const versionFiles =
-    params.preloadedFiles !== undefined
-      ? params.preloadedFiles
-      : await getVersionFiles(params.versionId);
   const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: params.orchestrationSnapshot,
     versionFiles,

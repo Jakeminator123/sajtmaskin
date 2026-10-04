@@ -10,6 +10,10 @@ import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import {
   applyDossierCanonicalPathPolicy,
   applyDossierVerbatimPolicy,
+  assertCompatibleDossierOutputClaims,
+  assertPreservedDossierVerbatimFiles,
+  capturePreservedDossierVerbatimSnapshot,
+  restorePreservedDossierVerbatimFiles,
 } from "@/lib/gen/dossiers/verbatim-policy";
 import {
   dossierOutputPathIdentity,
@@ -99,6 +103,8 @@ export interface MergeGeneratedProjectFilesParams {
    * `selectedDossierIds`; legacy/eval paths may still pass [].
    */
   selectedDossiers?: DossierEntry[];
+  /** Proven existing dossiers whose actual previous verbatim bytes stay frozen. */
+  preservedDossiers?: DossierEntry[];
   /** File-evidenced dossiers explicitly removed by this follow-up. */
   removedDossiers?: DossierEntry[];
   /**
@@ -181,9 +187,10 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   files: CodeFile[];
   removedDossiers: readonly DossierEntry[];
   selectedDossiers: readonly DossierEntry[];
+  preservedDossiers?: readonly DossierEntry[];
 }): { files: CodeFile[]; removedPaths: string[] } {
   const activePaths = new Set(
-    params.selectedDossiers.flatMap((dossier) =>
+    [...params.selectedDossiers, ...(params.preservedDossiers ?? [])].flatMap((dossier) =>
       (dossier.files ?? []).map((file) =>
         dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
       ),
@@ -382,13 +389,25 @@ export function mergeGeneratedProjectFiles({
   resolvedScaffold,
   previousFiles,
   selectedDossiers,
+  preservedDossiers,
   removedDossiers,
   routePlan,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
   // unresolved import owned by a selected dossier (not any registry-wide match).
-  const selectedDossierIds = selectedDossiers?.map((dossier) => dossier.id);
+  const removedDossierIds = new Set(
+    (removedDossiers ?? []).map((dossier) => dossier.id),
+  );
+  const effectivePreservedDossiers = (preservedDossiers ?? []).filter(
+    (dossier) => !removedDossierIds.has(dossier.id),
+  );
+  const selectedDossierIds = Array.from(
+    new Set([
+      ...(selectedDossiers ?? []).map((dossier) => dossier.id),
+      ...effectivePreservedDossiers.map((dossier) => dossier.id),
+    ]),
+  );
 
   // SCAFFOLD_PROTECTED_PATHS: drop LLM emissions targeting paths that must
   // come from the scaffold default. This guard runs BEFORE merge so both the
@@ -425,7 +444,26 @@ export function mergeGeneratedProjectFiles({
       rejectSignificantShrinks: true,
       rejectDroppedStructuralElements: true,
     });
-    const mergedFiles = mergeResult.files;
+    const preservedVerbatim = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: previousFiles!,
+      preservedDossiers: effectivePreservedDossiers,
+    });
+    assertCompatibleDossierOutputClaims({
+      files: mergeResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
+    });
+    const canonicalInstall = applyDossierVerbatimPolicy({
+      llmFiles: mergeResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
+      chatId,
+    });
+    const preservedPrepass = restorePreservedDossierVerbatimFiles({
+      files: canonicalInstall.files,
+      snapshot: preservedVerbatim,
+    });
+    const mergedFiles = preservedPrepass.files;
     const rejectedShrinks = mergeResult.warnings
       .filter((w) => w.type === "significant-shrink")
       .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
@@ -452,11 +490,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const canonicalPathResult = applyDossierCanonicalPathPolicy({
-      llmFiles: mergedFiles,
-      selectedDossiers: selectedDossiers ?? [],
+    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    assertPreservedDossierVerbatimFiles({
+      files: crossFileResult.files,
+      snapshot: preservedVerbatim,
     });
-    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let finalFiles = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -479,6 +517,7 @@ export function mergeGeneratedProjectFiles({
         fixes: typeOnlyModuleResult.fixes,
       });
     }
+    assertPreservedDossierVerbatimFiles({ files: finalFiles, snapshot: preservedVerbatim });
 
     if (resolvedScaffold) {
       const importResult = checkScaffoldImports(finalFiles, resolvedScaffold);
@@ -491,16 +530,19 @@ export function mergeGeneratedProjectFiles({
         });
       }
     }
+    assertPreservedDossierVerbatimFiles({ files: finalFiles, snapshot: preservedVerbatim });
 
     const verbatimResult1 = applyDossierVerbatimPolicy({
       llmFiles: finalFiles,
       selectedDossiers: selectedDossiers ?? [],
+      preservedVerbatim,
       chatId,
     });
     const removalResult = removeExplicitlyRemovedDossierFiles({
       files: verbatimResult1.files,
       removedDossiers: removedDossiers ?? [],
       selectedDossiers: selectedDossiers ?? [],
+      preservedDossiers: effectivePreservedDossiers,
     });
     if (removalResult.removedPaths.length > 0) {
       devLogAppend("in-progress", {
@@ -518,6 +560,10 @@ export function mergeGeneratedProjectFiles({
       removalResult.removedPaths.length > 0
         ? checkCrossFileImports(removalResult.files, selectedDossierIds)
         : { files: removalResult.files, fixes: [] };
+    assertPreservedDossierVerbatimFiles({
+      files: postRemovalCrossFileResult.files,
+      snapshot: preservedVerbatim,
+    });
     if (postRemovalCrossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
         type: "post-removal-cross-file-import-checker",
@@ -530,6 +576,7 @@ export function mergeGeneratedProjectFiles({
         ? applyDossierVerbatimPolicy({
             llmFiles: postRemovalCrossFileResult.files,
             selectedDossiers: selectedDossiers ?? [],
+            preservedVerbatim,
           })
         : { files: postRemovalCrossFileResult.files, restored: [] };
     const postRemovalVerbatimDrift = finalDossierResult.restored.filter(
@@ -542,6 +589,10 @@ export function mergeGeneratedProjectFiles({
           .join(", ")}`,
       );
     }
+    assertPreservedDossierVerbatimFiles({
+      files: finalDossierResult.files,
+      snapshot: preservedVerbatim,
+    });
 
     return {
       filesJson: JSON.stringify(finalDossierResult.files),

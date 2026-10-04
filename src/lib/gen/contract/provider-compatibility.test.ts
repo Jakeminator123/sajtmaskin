@@ -3,7 +3,10 @@ import { selectDossiersForRequest } from "../dossiers/select";
 import { resolveDossierFilePath } from "../dossiers/output-path";
 import { getDossierFileContent } from "../dossiers/registry";
 import type { PlanContracts } from "../plan/schema";
-import { buildDossierIntegrationPlan } from "./provider-compatibility";
+import {
+  buildDossierIntegrationPlan,
+  resolveExistingDossierCorePlan,
+} from "./provider-compatibility";
 
 function contracts(
   integration: PlanContracts["integrations"][number],
@@ -312,6 +315,92 @@ describe("buildDossierIntegrationPlan", () => {
     });
   });
 
+  it("keeps proven older Clerk core as context instead of replacing it from the catalog", () => {
+    const selection = selectDossiersForRequest({ requestedCapabilities: ["auth"] });
+    const plan = buildDossierIntegrationPlan({
+      contracts: contracts({
+        kind: "auth",
+        providerKey: "clerk",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        provider: "Clerk",
+        name: "Clerk",
+        reason: "Explicit provider contract",
+        status: "chosen",
+      }),
+      dossierSelection: selection,
+      projectFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        },
+        { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+        { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+        },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(plan.dossierSelection.selected).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      disposition: "context-only",
+      reasonCode: "existing-provider-core",
+    });
+  });
+
+  it("requires an explicit migration when proven Clerk core meets a Supabase auth choice", () => {
+    const selection = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Use Supabase auth",
+    });
+    expect(selection.selected[0]?.entry.id).toBe("supabase-auth");
+    const plan = buildDossierIntegrationPlan({
+      contracts: contracts({
+        kind: "auth",
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        provider: "Supabase",
+        name: "Supabase",
+        reason: "Explicit provider contract",
+        status: "chosen",
+      }),
+      dossierSelection: selection,
+      projectFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        },
+        { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+        { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(plan.dossierSelection.selected).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      disposition: "blocked",
+      reasonCode: "owned-path-conflict",
+    });
+  });
+
   it("does not let a Drizzle-owned path outrank an explicit Prisma method", () => {
     const plan = buildDossierIntegrationPlan({
       contracts: {
@@ -350,5 +439,186 @@ describe("buildDossierIntegrationPlan", () => {
       reasonCode: "method-incompatible",
       providerKey: "prisma",
     });
+  });
+});
+
+describe("resolveExistingDossierCorePlan", () => {
+  const olderClerkFiles = [
+    {
+      path: "middleware.ts",
+      content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+    },
+    { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+    { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+    {
+      path: "package.json",
+      content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+    },
+  ];
+  const clerkEvidence = [
+    {
+      kind: "auth" as const,
+      providerKey: "clerk",
+      dossierCapability: "auth",
+      packageRoot: "@clerk/nextjs",
+    },
+  ];
+
+  it("preserves proven old Clerk during an unrelated Stripe-only follow-up", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Current payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles: olderClerkFiles,
+      projectProviderEvidence: clerkEvidence,
+    });
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves proven canonical Clerk during an unrelated Stripe-only follow-up", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const canonicalFiles = (clerk.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content: getDossierFileContent(clerk.class, clerk.id, file.path)!,
+    }));
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Current payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles: canonicalFiles,
+      projectProviderEvidence: clerkEvidence,
+    });
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("holds actual dossierless Auth0 evidence when the current target is Clerk", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          provider: "Clerk",
+          name: "Clerk",
+          reason: "Current auth target",
+          status: "chosen",
+        },
+      ],
+      projectFiles: [
+        {
+          path: "lib/auth0.ts",
+          content: 'import { Auth0Client } from "@auth0/nextjs-auth0/server";',
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@auth0/nextjs-auth0": "^4" } }),
+        },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "auth0",
+          dossierCapability: "auth",
+          packageRoot: "@auth0/nextjs-auth0",
+        },
+      ],
+    });
+    expect(result.migrationRequired).toBe(true);
+  });
+
+  it("holds and preserves multiple proven existing auth providers without a current auth target", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const supabase = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Supabase auth",
+    }).selected[0]!.entry;
+    const paths = new Set<string>();
+    const projectFiles = [...(clerk.files ?? []), ...(supabase.files ?? [])].flatMap((file) => {
+      const path = resolveDossierFilePath(file.path).outputPath;
+      if (paths.has(path)) return [];
+      paths.add(path);
+      return [{ path, content: `older bytes for ${path}` }];
+    });
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated current target",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence: [
+        ...clerkEvidence,
+        {
+          kind: "auth",
+          providerKey: "supabase",
+          dossierCapability: "auth",
+          packageRoot: "@supabase/ssr",
+        },
+      ],
+    });
+    expect(result.migrationRequired).toBe(true);
+    expect(result.preservedDossiers.map((dossier) => dossier.id).sort()).toEqual([
+      "clerk-auth",
+      "supabase-auth",
+    ]);
+  });
+
+  it("lets explicit removal win over preservation", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: olderClerkFiles,
+      projectProviderEvidence: clerkEvidence,
+      removedDossierIds: new Set(["clerk-auth"]),
+    });
+    expect(result.preservedDossiers).toEqual([]);
+  });
+
+  it("requires migration for exact canonical Clerk core even when AST evidence is unavailable", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const canonicalFiles = (clerk.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content: getDossierFileContent(clerk.class, clerk.id, file.path)!,
+    }));
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "auth",
+          providerKey: "auth0",
+          dossierCapability: "auth",
+          provider: "Auth0",
+          name: "Auth0",
+          reason: "Current provider intent",
+          status: "chosen",
+        },
+      ],
+      projectFiles: canonicalFiles,
+      projectProviderEvidence: [],
+    });
+    expect(result.migrationRequired).toBe(true);
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
   });
 });

@@ -107,6 +107,99 @@ describe("removeExplicitlyRemovedDossierFiles portable identities", () => {
       }),
     ).toEqual({ files: [], removedPaths: ["components/foo.ts"] });
   });
+
+  it("keeps a shared path still claimed by a preserved existing dossier", () => {
+    const files = [{ path: "components/shared.ts", content: "kept", language: "ts" as const }];
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files,
+        removedDossiers: [dossier("removed", "components/shared.ts")],
+        selectedDossiers: [],
+        preservedDossiers: [dossier("preserved", "components/shared.ts")],
+      }),
+    ).toEqual({ files, removedPaths: [] });
+  });
+});
+
+describe("existing dossier verbatim preservation", () => {
+  const olderClerk = {
+    id: "clerk-auth",
+    class: "hard",
+    capability: "auth",
+    codeFidelity: "verbatim",
+    files: [
+      { path: "components/middleware.ts", role: "server", injectionMode: "verbatim" },
+      {
+        path: "components/lib/clerk/config.ts",
+        role: "shared",
+        injectionMode: "rewritable",
+      },
+    ],
+  } as unknown as DossierEntry;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockImplementation((_klass, _id, path) =>
+      path === "components/middleware.ts" ? "new catalog middleware" : null,
+    );
+    checkCrossFileImports.mockImplementation((files: unknown) => ({ files, fixes: [] }));
+  });
+
+  it("restores previous Clerk core before the first checker without seeding rewritable config", () => {
+    checkCrossFileImports.mockImplementationOnce((files: unknown) => {
+      expect(files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "middleware.ts", content: "older clerk middleware" }),
+        ]),
+      );
+      expect(
+        (files as Array<{ path: string }>).some((file) => file.path.includes("lib/clerk/config")),
+      ).toBe(false);
+      return { files, fixes: [] };
+    });
+    const result = mergeGeneratedProjectFiles({
+      chatId: "preserve-clerk",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        { path: "middleware.ts", content: "new catalog middleware", language: "ts" },
+        { path: "app/page.tsx", content: "export default function Page(){}", language: "tsx" },
+      ],
+      resolvedScaffold: null,
+      previousFiles: [
+        { path: "middleware.ts", content: "older clerk middleware", language: "ts" },
+        { path: "app/page.tsx", content: "export default function Page(){}", language: "tsx" },
+      ],
+      selectedDossiers: [],
+      preservedDossiers: [olderClerk],
+    });
+    const files = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(files).toContainEqual(
+      expect.objectContaining({ path: "middleware.ts", content: "older clerk middleware" }),
+    );
+    expect(files.some((file) => file.path.includes("lib/clerk/config"))).toBe(false);
+  });
+
+  it("fails closed when the first checker mutates preserved bytes", () => {
+    checkCrossFileImports.mockImplementationOnce((files: unknown) => ({
+      files: (files as Array<{ path: string; content: string; language: "ts" }>).map((file) =>
+        file.path === "middleware.ts" ? { ...file, content: "fixer drift" } : file,
+      ),
+      fixes: [{ sourceFile: "middleware.ts", missingImport: "./x", stubFile: "x.ts" }],
+    }));
+    expect(() =>
+      mergeGeneratedProjectFiles({
+        chatId: "preserve-clerk-drift",
+        originalFilesJson: "[]",
+        generatedFiles: [],
+        resolvedScaffold: null,
+        previousFiles: [
+          { path: "middleware.ts", content: "older clerk middleware", language: "ts" },
+        ],
+        selectedDossiers: [],
+        preservedDossiers: [olderClerk],
+      }),
+    ).toThrow("preserved-verbatim-mutation");
+  });
 });
 
 function makeScaffold(): ScaffoldManifest {

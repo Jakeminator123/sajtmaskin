@@ -622,6 +622,10 @@ export async function resolveOrchestrationBase(
   // (The third `retainedCapabilities` argument left 2026-08-06 with the
   // parked paddle-billing dossier — it only fed the subscriptions→payments
   // residue-sweep, which is gone.)
+  const projectProviderEvidence = detectProjectProviderEvidence(
+    input.previousFiles ?? [],
+    getPreGenerationContractsConfigFromManifest().providerRules,
+  );
   const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
     inferPreGenerationContracts({
       prompt: input.contractsPrompt ?? prompt,
@@ -629,10 +633,7 @@ export async function resolveOrchestrationBase(
       brief,
       capabilities,
       inheritedIntegrations: input.followUpContract?.inheritedProviderContracts,
-      projectProviderEvidence: detectProjectProviderEvidence(
-        input.previousFiles ?? [],
-        getPreGenerationContractsConfigFromManifest().providerRules,
-      ),
+      projectProviderEvidence,
     }),
     capabilityRemoval.removedCapabilities,
   );
@@ -861,6 +862,7 @@ export async function resolveOrchestrationBase(
         contracts: preGenerationContracts.contracts,
         dossierSelection,
         projectFiles: input.previousFiles ?? [],
+        projectProviderEvidence,
       });
       contractsChangedAfterBuildSpec =
         integrationPlan.contracts.integrations.length !==

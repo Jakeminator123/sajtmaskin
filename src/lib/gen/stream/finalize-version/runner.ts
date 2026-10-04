@@ -45,6 +45,10 @@ import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { resolveFinalizePathPolicy } from "./policy";
 import { runAutofixPrePhase, runUrlExpandPhase, summarizeAutofixFixers } from "./pre-phases";
 import {
@@ -204,6 +208,23 @@ export function resolveRemovedDossiersFromStreamMeta(
     );
 }
 
+export function resolveExistingDossierCoreFromStreamMeta(
+  streamMeta: Record<string, unknown> | null | undefined,
+  previousFiles: Parameters<typeof detectProjectProviderEvidence>[0],
+) {
+  const removedDossiers = resolveRemovedDossiersFromStreamMeta(streamMeta, previousFiles);
+  return resolveExistingDossierCorePlan({
+    contracts: readProviderContractsFromSnapshot(streamMeta),
+    projectFiles: previousFiles,
+    projectProviderEvidence: detectProjectProviderEvidence(
+      previousFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    ),
+    removedDossierIds: new Set(removedDossiers.map((dossier) => dossier.id)),
+    removedCapabilities: new Set(normalizeCapabilityIds(streamMeta?.removedCapabilities)),
+  });
+}
+
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
 ): Promise<FinalizeResult> {
@@ -348,6 +369,10 @@ export async function finalizeAndSaveVersion(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
     previousFiles,
   );
+  const existingCorePlan = resolveExistingDossierCoreFromStreamMeta(
+    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+    previousFiles ?? [],
+  );
 
   // 3–4. Fast path: validate syntax → materialize images → verifier →
   // parse/merge/preflight (with scaffold-retry + partial-file repair).
@@ -398,6 +423,7 @@ export async function finalizeAndSaveVersion(
     // applyDossierVerbatimPolicy kan skydda Stripe/Clerk/Sentry-glue
     // från tyst korruption när LLM omformar verbatim-filer.
     selectedDossiers,
+    preservedDossiers: existingCorePlan.preservedDossiers,
     removedDossiers,
     repairScopeId,
   });

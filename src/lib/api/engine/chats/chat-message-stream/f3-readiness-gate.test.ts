@@ -159,6 +159,31 @@ describe("runF3ReadinessGate — f3ResolvedBaseVersionId (lineage source)", () =
     expect(body.error).toBe("f3_base_mismatch");
   });
 
+  it("surfaces an explicit non-retryable migration hold instead of a generic file error", async () => {
+    vi.mocked(resolveChatPreferredVersionId).mockResolvedValue("v-preferred");
+    vi.mocked(checkTier3ReadinessForVersion).mockResolvedValue({
+      ok: false,
+      ready: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    } as Awaited<ReturnType<typeof checkTier3ReadinessForVersion>>);
+
+    const result = await runF3ReadinessGate(
+      gateParams({
+        parsedMeta: makeParsedMeta("v-preferred"),
+        metaEngineBaseVersionId: null,
+      }),
+    );
+
+    expect(result).toBeInstanceOf(Response);
+    if (!(result instanceof Response)) throw new Error("unreachable");
+    expect(result.status).toBe(409);
+    await expect(result.json()).resolves.toMatchObject({
+      error: "integration_migration_required",
+      retryable: false,
+    });
+  });
+
   it("returns null outside integrations rounds", async () => {
     const result = await runF3ReadinessGate(
       gateParams({

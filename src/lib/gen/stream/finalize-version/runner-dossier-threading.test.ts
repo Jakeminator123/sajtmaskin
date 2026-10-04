@@ -13,6 +13,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 const {
+  resolveExistingDossierCoreFromStreamMeta,
   resolveRemovedDossiersFromStreamMeta,
   resolveSelectedDossiersFromStreamMeta,
 } = await import("./runner");
@@ -143,5 +144,41 @@ describe("resolveRemovedDossiersFromStreamMeta", () => {
       ],
     );
     expect(result.map((entry) => entry.id)).toEqual(["stripe-checkout"]);
+  });
+});
+
+describe("resolveExistingDossierCoreFromStreamMeta", () => {
+  it("preserves proven old Clerk on a Stripe-only follow-up without inherited auth metadata", () => {
+    const result = resolveExistingDossierCoreFromStreamMeta(
+      {
+        selectedDossierIds: ["stripe-checkout"],
+        contractIntegrations: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Payment follow-up",
+            status: "chosen",
+          },
+        ],
+      },
+      [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        },
+        { path: "components/auth-buttons.tsx", content: "older buttons" },
+        { path: "components/clerk-provider-shell.tsx", content: "older shell" },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+        },
+      ],
+    );
+
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(result.migrationRequired).toBe(false);
   });
 });
