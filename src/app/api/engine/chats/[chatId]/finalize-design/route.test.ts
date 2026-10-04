@@ -404,6 +404,7 @@ describe("POST finalize-design", () => {
   it.each([
     ["auth", "supabase", "Supabase", "supabase-auth"],
     ["ai-chat", "openai", "OpenAI", "openai-chat"],
+    ["media-storage", "vercel-blob", "Vercel Blob", "vercel-blob-media"],
   ])(
     "treats the provider-capability pair %s/%s as exact dossier work, not generic work",
     async (capability, providerKey, provider, dossierId) => {

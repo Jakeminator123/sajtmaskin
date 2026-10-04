@@ -351,7 +351,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
   });
 
   it.each([
-    ["unresolved", undefined, false],
+    ["unresolved", undefined, undefined],
     ["chosen", "mongodb", true],
   ])("klassificerar %s context-only provider-kontrakt utan att påstå liveacceptans", async (status, providerKey, expected) => {
     getEngineChatByIdForRequest.mockResolvedValue({

@@ -628,7 +628,12 @@ async function buildEngineReadiness(
     );
     let hasUndeliveredIncompatibleMethod = false;
     let hasGenericProviderWork = false;
+    let hasUnresolvedProviderContract = false;
     for (const contract of pendingProviderContracts) {
+      if (contract.status === "unresolved" && contract.dossierCapability) {
+        hasUnresolvedProviderContract = true;
+        continue;
+      }
       if (
         contract.status !== "chosen" ||
         !contract.providerKey ||
@@ -667,7 +672,8 @@ async function buildEngineReadiness(
         hasGenericProviderWork = true;
       }
     }
-    hasRealBuildIntegrations = !tier3Spec || hasUndeliveredIncompatibleMethod
+    hasRealBuildIntegrations =
+      !tier3Spec || hasUndeliveredIncompatibleMethod || hasUnresolvedProviderContract
       ? undefined
       : pendingDossiers.length > 0 ||
         hasGenericProviderWork ||

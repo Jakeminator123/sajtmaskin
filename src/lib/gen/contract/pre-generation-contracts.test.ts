@@ -951,4 +951,359 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     expect(authContracts[0]).not.toHaveProperty("providerKey");
     expect(ctx.contracts.authProvider).toBeUndefined();
   });
+
+  it.each([
+    ["Do not use Clerk", undefined],
+    ["Use Auth0 instead", "auth0"],
+    ["Make the heading larger", "clerk"],
+  ] as const)(
+    "lets the current prompt own an auth decision over a stale brief: %s",
+    (prompt, expectedProviderKey) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        brief: { mustHave: ["Use Clerk auth"] },
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true }),
+      });
+      const auth = ctx.contracts.integrations.filter(
+        (entry) => entry.dossierCapability === "auth",
+      );
+
+      expect(auth).toHaveLength(1);
+      if (expectedProviderKey) {
+        expect(auth[0]).toMatchObject({ providerKey: expectedProviderKey, status: "chosen" });
+      } else {
+        expect(auth[0]).toMatchObject({ status: "unresolved", selectionSource: "explicit" });
+        expect(auth[0]).not.toHaveProperty("providerKey");
+      }
+      expect(auth).not.toContainEqual(expect.objectContaining({
+        providerKey: expectedProviderKey === "clerk" ? "auth0" : "clerk",
+      }));
+    },
+  );
+
+  it("lets a current method rejection override stale brief method metadata", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use PostgreSQL, but do not use Prisma",
+      brief: { mustHave: ["Use Prisma for the database"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "prisma" }),
+    );
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+    );
+  });
+
+  it("keeps an inherited explicit auth choice ahead of stale brief fallback", () => {
+    const selected = inferPreGenerationContracts({
+      prompt: "Use Auth0, not Clerk",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+    const neutral = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      brief: { mustHave: ["Use Clerk auth"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: selected.contracts.integrations,
+    });
+
+    expect(neutral.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "auth0",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+      }),
+    );
+    expect(neutral.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+  });
+
+  it("keeps an inherited explicit unresolved holder ahead of stale brief fallback", () => {
+    const rejected = inferPreGenerationContracts({
+      prompt: "Do not use Clerk",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+    const neutral = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      brief: { mustHave: ["Use Clerk auth"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: rejected.contracts.integrations,
+    });
+    const auth = neutral.contracts.integrations.filter(
+      (entry) => entry.dossierCapability === "auth",
+    );
+
+    expect(auth).toEqual([
+      expect.objectContaining({ status: "unresolved", selectionSource: "explicit" }),
+    ]);
+    expect(auth[0]).not.toHaveProperty("providerKey");
+  });
+
+  it("lets a current database method replace stale brief and inherited method choices", () => {
+    const staleBrief = inferPreGenerationContracts({
+      prompt: "Use Drizzle instead",
+      brief: { mustHave: ["Use Prisma for the database"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+    });
+    const inheritedPrisma = inferPreGenerationContracts({
+      prompt: "Use Drizzle instead",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+      inheritedIntegrations: [
+        {
+          kind: "database",
+          providerKey: "prisma",
+          selectionSource: "explicit",
+          provider: "Prisma",
+          name: "Prisma",
+          reason: "Previously selected method.",
+          status: "chosen",
+          envVars: ["DATABASE_URL"],
+        },
+      ],
+    });
+
+    for (const ctx of [staleBrief, inheritedPrisma]) {
+      expect(ctx.contracts.integrations).toContainEqual(
+        expect.objectContaining({ providerKey: "drizzle", selectionSource: "explicit" }),
+      );
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: "prisma" }),
+      );
+    }
+  });
+
+  it("does not let a stale brief switch resolve a current ambiguous provider choice", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Clerk and Auth0 for login",
+      brief: { mustHave: ["Switch from Clerk to Auth0"] },
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+    const auth = ctx.contracts.integrations.filter(
+      (entry) => entry.dossierCapability === "auth",
+    );
+
+    expect(auth).toEqual([
+      expect.objectContaining({ status: "unresolved", selectionSource: "explicit" }),
+    ]);
+    expect(auth[0]).not.toHaveProperty("providerKey");
+  });
+
+  it("reprojects inherited explicit provider identity and non-blocking env across neutral rounds", () => {
+    const explicit = inferPreGenerationContracts({
+      prompt: "Use Auth0, not Clerk",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+    const neutralOne = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: explicit.contracts.integrations,
+    });
+    const neutralTwo = inferPreGenerationContracts({
+      prompt: "Use a warmer background",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: neutralOne.contracts.integrations,
+    });
+
+    for (const round of [neutralOne, neutralTwo]) {
+      expect(round.contracts.authProvider).toBe("Auth0");
+      expect(round.contracts.envVars).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: "AUTH0_SECRET", required: false }),
+          expect.objectContaining({ key: "AUTH0_CLIENT_ID", required: false }),
+        ]),
+      );
+    }
+
+    const rejected = inferPreGenerationContracts({
+      prompt: "Do not use Auth0",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: neutralTwo.contracts.integrations,
+    });
+    expect(rejected.contracts.authProvider).toBeUndefined();
+    expect(rejected.contracts.envVars).not.toContainEqual(
+      expect.objectContaining({ key: "AUTH0_SECRET" }),
+    );
+
+    const replaced = inferPreGenerationContracts({
+      prompt: "Use Clerk auth",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: rejected.contracts.integrations,
+    });
+    expect(replaced.contracts.authProvider).toBe("Clerk");
+    expect(replaced.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "clerk", status: "chosen" }),
+    );
+  });
+
+  it.each([
+    ["Use Firebase for login", "auth", "Firebase"],
+    ["Use PayPal for payments", "payments", "PayPal"],
+  ] as const)(
+    "keeps recognized but undeliverable provider intent unresolved: %s",
+    (prompt, capability, label) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({
+          needsAuth: capability === "auth",
+          needsPayments: capability === "payments",
+        }),
+      });
+      expect(ctx.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: capability,
+          selectionSource: "explicit",
+          provider: label,
+          name: label,
+          status: "unresolved",
+        }),
+      ]);
+      expect(ctx.contracts.integrations[0]).not.toHaveProperty("providerKey");
+      expect(ctx.contracts.integrations[0].envVars ?? []).toEqual([]);
+      expect(ctx.contracts.authProvider).toBeUndefined();
+      expect(ctx.contracts.paymentProvider).toBeUndefined();
+      expect(ctx.contracts.envVars).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["Use Upstash as the database", "database", "Upstash"],
+    ["Använd Redis som databas", "database", "Redis"],
+    ["Use Resend for newsletter signup", "newsletter", "Resend"],
+    ["Använd Resend för nyhetsbrev", "newsletter", "Resend"],
+  ] as const)(
+    "holds a recognized provider with an unsupported purpose unresolved: %s",
+    (prompt, capability, label) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({
+          needsDatabase: capability === "database",
+        }),
+      });
+      expect(ctx.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: capability,
+          selectionSource: "explicit",
+          provider: label,
+          name: label,
+          status: "unresolved",
+        }),
+      ]);
+      expect(ctx.contracts.integrations[0]).not.toHaveProperty("providerKey");
+      expect(ctx.contracts.integrations[0].envVars ?? []).toEqual([]);
+      expect(ctx.contracts.databaseProvider).toBeUndefined();
+      expect(ctx.contracts.envVars).toEqual([]);
+    },
+  );
+
+  it("does not reinterpret bare or supported-purpose provider mentions", () => {
+    const bareUpstash = inferPreGenerationContracts({
+      prompt: "Use Upstash",
+      buildIntent: "app",
+      capabilities: baseCaps(),
+    });
+    expect(bareUpstash.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "upstash", status: "chosen" }),
+    );
+
+    const resendContact = inferPreGenerationContracts({
+      prompt: "Use Resend for the contact form",
+      buildIntent: "website",
+      capabilities: baseCaps(),
+    });
+    expect(resendContact.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "resend",
+        dossierCapability: "contact-form",
+        status: "chosen",
+      }),
+    );
+
+    const genericDatabase = inferPreGenerationContracts({
+      prompt: "Add a database",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+    });
+    expect(genericDatabase.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", status: "chosen" }),
+    );
+  });
+
+  it("keeps an inherited supported capability while holding another purpose unresolved", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Redis as the database",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+      inheritedIntegrations: [
+        {
+          kind: "integration",
+          providerKey: "upstash",
+          dossierCapability: "analytics",
+          selectionSource: "explicit",
+          provider: "Upstash",
+          name: "Upstash visitor counter",
+          reason: "Previously selected visitor counter.",
+          status: "chosen",
+          envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+        },
+      ],
+    });
+    expect(ctx.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          dossierCapability: "database",
+          provider: "Redis",
+          status: "unresolved",
+        }),
+        expect.objectContaining({
+          providerKey: "upstash",
+          dossierCapability: "analytics",
+          status: "chosen",
+        }),
+      ]),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "upstash", dossierCapability: undefined }),
+    );
+  });
+
+  it.each([
+    ["Use Google Analytics 4", "google-analytics"],
+    ["Use Google Tag Manager", "gtm"],
+    ["Use Plausible analytics", "plausible"],
+    ["Use PostHog analytics", "posthog"],
+  ] as const)("owns explicit analytics provider intent without an Upstash fallback: %s", (prompt, providerKey) => {
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities: baseCaps(),
+    });
+    expect(ctx.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey,
+        dossierCapability: "analytics",
+        selectionSource: "explicit",
+      }),
+    ]);
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "upstash" }),
+    );
+  });
 });

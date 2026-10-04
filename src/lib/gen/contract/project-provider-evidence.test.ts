@@ -123,4 +123,148 @@ describe("detectProjectProviderEvidence", () => {
       ),
     ).toEqual([]);
   });
+
+  it("keeps a real top-level require when an unrelated nested scope shadows require", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies: { "next-auth": "5" } }) },
+          {
+            path: "lib/auth.ts",
+            content: [
+              'const auth = require("next-auth");',
+              'function helper(require: (name: string) => unknown) { require("next-auth"); }',
+              "export { auth, helper };",
+            ].join("\n"),
+          },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it.each([
+    [
+      "parameter scope",
+      'function helper(require: (name: string) => unknown) { return require("next-auth"); }',
+    ],
+    [
+      "top-level const",
+      'const require = (name: string) => name; require("next-auth");',
+    ],
+    [
+      "destructured binding",
+      'const { require } = tools; require("next-auth");',
+    ],
+    [
+      "catch binding",
+      'try { throw new Error(); } catch (require) { require("next-auth"); }',
+    ],
+    [
+      "import binding",
+      'import { loader as require } from "./loader"; require("next-auth");',
+    ],
+  ])("suppresses a require call only where %s shadows the global", (_name, content) => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies: { "next-auth": "5" } }) },
+          { path: "lib/auth.ts", content },
+        ],
+        rules,
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not let a block-scoped require hide a sibling global require", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies: { "next-auth": "5" } }) },
+          {
+            path: "lib/auth.ts",
+            content: [
+              '{ const require = (name: string) => name; require("next-auth"); }',
+              'const auth = require("next-auth");',
+              "export { auth };",
+            ].join("\n"),
+          },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it("does not let a catch binding hide a genuine require outside the catch", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies: { "next-auth": "5" } }) },
+          {
+            path: "lib/auth.ts",
+            content: [
+              'try { throw new Error(); } catch (require) { require("next-auth"); }',
+              'const auth = require("next-auth");',
+              "export { auth };",
+            ].join("\n"),
+          },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it("limits let/const require bindings to their for-loop scope", () => {
+    const packageJson = {
+      path: "package.json",
+      content: JSON.stringify({ dependencies: { "next-auth": "5" } }),
+    };
+    expect(
+      detectProjectProviderEvidence(
+        [
+          packageJson,
+          {
+            path: "lib/auth.ts",
+            content: [
+              'for (let require of loaders) { require("next-auth"); }',
+              'const auth = require("next-auth");',
+              "export { auth };",
+            ].join("\n"),
+          },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+
+    for (const content of [
+      'for (const require in loaders) { require("next-auth"); }',
+      'for (let require = loader; ready; ready = false) { require("next-auth"); }',
+    ]) {
+      expect(
+        detectProjectProviderEvidence(
+          [packageJson, { path: "lib/auth.ts", content }],
+          rules,
+        ),
+      ).toEqual([]);
+    }
+  });
+
+  it("keeps var require function-scoped and hoisted", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies: { "next-auth": "5" } }) },
+          {
+            path: "lib/auth.ts",
+            content: [
+              'const auth = require("next-auth");',
+              "var require = loader;",
+              "export { auth };",
+            ].join("\n"),
+          },
+        ],
+        rules,
+      ),
+    ).toEqual([]);
+  });
 });

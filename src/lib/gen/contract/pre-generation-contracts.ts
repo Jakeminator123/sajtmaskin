@@ -44,7 +44,7 @@ type ProviderRule = {
   name: string;
   envVars: string[];
   patterns: RegExp[];
-  status?: "chosen" | "optional";
+  status?: "chosen" | "unresolved" | "optional";
   reason: string;
 };
 
@@ -270,65 +270,156 @@ export function inferPreGenerationContracts(params: {
   };
   const promptSupabaseDecisions = getSupabasePairDecisions(prompt);
   const briefSupabaseDecisions = getSupabasePairDecisions(briefCorpus);
-  const supabasePairDecision = (capability: string): SupabasePairDecision | undefined =>
-    promptSupabaseDecisions.get(capability) ?? briefSupabaseDecisions.get(capability);
   const isSupabasePairRule = (rule: ProviderRule): boolean =>
     rule.providerKey === "supabase" &&
     (capabilityForRule(rule) === "auth" || capabilityForRule(rule) === "database");
-  const matchedPositiveRules = PROVIDER_RULES.filter((rule) => {
-    if (isSupabasePairRule(rule)) {
-      return supabasePairDecision(capabilityForRule(rule)!) === "positive";
+  type RuleDecision = "positive" | "negative";
+  const isMethodRule = (rule: ProviderRule): boolean =>
+    Boolean(rule.methodOnly) ||
+    (!capabilityForRule(rule) && rule.kind === "database");
+  const ruleScope = (rule: ProviderRule): string => {
+    const capability = capabilityForRule(rule);
+    if (capability) return `capability:${capability}`;
+    if (isMethodRule(rule)) return `method:${rule.kind}`;
+    return `provider:${rule.providerKey}`;
+  };
+  const ruleForContract = (
+    contract: PlanIntegrationContract,
+  ): ProviderRule | undefined =>
+    contract.providerKey
+      ? PROVIDER_RULES.find((rule) => {
+          if (
+            rule.providerKey !== contract.providerKey ||
+            (contract.kind && rule.kind !== contract.kind)
+          ) {
+            return false;
+          }
+          const capability = capabilityForRule(rule);
+          return contract.dossierCapability
+            ? capability === contract.dossierCapability
+            : !capability;
+        })
+      : undefined;
+  const contractScope = (contract: PlanIntegrationContract): string => {
+    if (contract.dossierCapability) {
+      return `capability:${contract.dossierCapability}`;
     }
-    return rule.patterns.some(
-      (pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern),
+    const rule = ruleForContract(contract);
+    if (rule) return ruleScope(rule);
+    return `provider:${contract.providerKey ?? contract.provider}`;
+  };
+  const ruleDecisionInSource = (
+    rule: ProviderRule,
+    source: string,
+    supabaseDecisions: ReadonlyMap<string, SupabasePairDecision>,
+  ): RuleDecision | undefined => {
+    if (isSupabasePairRule(rule)) {
+      return supabaseDecisions.get(capabilityForRule(rule)!);
+    }
+    let positive = false;
+    let negative = false;
+    const sourceClauses = source
+      .split(/[,;!?\n]+/u)
+      .map((clause) => clause.trim())
+      .filter(Boolean);
+    for (const clause of sourceClauses) {
+      const matching = rule.patterns.filter((pattern) => pattern.test(clause));
+      if (matching.length === 0) continue;
+      if (matching.every((pattern) => isTermFullyNegated(clause, pattern))) {
+        negative = true;
+      } else {
+        positive = true;
+      }
+    }
+    if (positive) return "positive";
+    if (negative) return "negative";
+    return undefined;
+  };
+  const promptRuleDecisions = new Map(
+    PROVIDER_RULES.map((rule) => [
+      rule,
+      ruleDecisionInSource(rule, prompt, promptSupabaseDecisions),
+    ] as const),
+  );
+  const briefRuleDecisions = new Map(
+    PROVIDER_RULES.map((rule) => [
+      rule,
+      ruleDecisionInSource(rule, briefCorpus, briefSupabaseDecisions),
+    ] as const),
+  );
+  const promptDecisionScopes = new Set(
+    PROVIDER_RULES.filter((rule) => promptRuleDecisions.get(rule)).map(ruleScope),
+  );
+  const promptPositiveScopes = new Set(
+    PROVIDER_RULES.filter((rule) => promptRuleDecisions.get(rule) === "positive").map(
+      ruleScope,
+    ),
+  );
+  const inheritedExplicitScopes = new Set(
+    inheritedIntegrations
+      .filter((integration) => integration.selectionSource === "explicit")
+      .map(contractScope),
+  );
+  const decisionForRule = (rule: ProviderRule): RuleDecision | undefined =>
+    promptDecisionScopes.has(ruleScope(rule))
+      ? promptRuleDecisions.get(rule)
+      : inheritedExplicitScopes.has(ruleScope(rule))
+        ? undefined
+        : briefRuleDecisions.get(rule);
+  const matchedPositiveRules = PROVIDER_RULES.filter(
+    (rule) => decisionForRule(rule) === "positive",
+  );
+  const switchTarget = (source: string): string | undefined =>
+    source.match(
+      /(?:\bfrom\b|\bfrån\b)[\s\S]{0,80}?\b(?:to|till)\b([\s\S]{1,80})/iu,
+    )?.[1];
+  const promptSwitchTarget = switchTarget(prompt);
+  const briefSwitchTarget = switchTarget(briefCorpus);
+  const targetRules = matchedPositiveRules.filter((rule) => {
+    const target = promptDecisionScopes.has(ruleScope(rule))
+      ? promptSwitchTarget
+      : briefSwitchTarget;
+    return Boolean(
+      target && rule.patterns.some((pattern) => pattern.test(target)),
     );
   });
-  const switchTarget = corpus.match(
-    /(?:\bfrom\b|\bfrån\b)[\s\S]{0,80}?\b(?:to|till)\b([\s\S]{1,80})/iu,
-  )?.[1];
-  const targetRules = switchTarget
-    ? matchedPositiveRules.filter((rule) =>
-        rule.patterns.some((pattern) => pattern.test(switchTarget)),
-      )
-    : [];
-  const targetCapabilities = new Set(
-    targetRules
-      .map((rule) => capabilityForRule(rule))
-      .filter((capability): capability is string => Boolean(capability)),
+  const targetScopes = new Set(targetRules.map(ruleScope));
+  const unresolvedProviderKeys = new Set(
+    matchedPositiveRules
+      .filter((rule) => rule.status === "unresolved" && capabilityForRule(rule))
+      .map((rule) => rule.providerKey),
   );
   const positiveRules = matchedPositiveRules.filter((rule) => {
-    const capability = capabilityForRule(rule);
-    if (capability && targetCapabilities.has(capability)) return targetRules.includes(rule);
+    if (
+      rule.status !== "unresolved" &&
+      unresolvedProviderKeys.has(rule.providerKey)
+    ) {
+      return false;
+    }
+    if (targetScopes.has(ruleScope(rule))) return targetRules.includes(rule);
     return true;
   });
-  const clauses = corpus.split(/[;!?\n]+/u).map((clause) => clause.trim()).filter(Boolean);
-  const negatedRules = PROVIDER_RULES.filter((rule) => {
-    if (isSupabasePairRule(rule)) {
-      return supabasePairDecision(capabilityForRule(rule)!) === "negative";
-    }
-    return clauses.some((clause) => {
-      const matching = rule.patterns.filter((pattern) => pattern.test(clause));
-      return (
-        matching.length > 0 &&
-        matching.every((pattern) => isTermFullyNegated(clause, pattern))
-      );
-    });
-  });
+  const negatedRules = PROVIDER_RULES.filter(
+    (rule) => decisionForRule(rule) === "negative",
+  );
 
   const integrationForRule = (
     rule: ProviderRule,
     selectionSource?: NonNullable<PlanIntegrationContract["selectionSource"]>,
-  ): PlanIntegrationContract => ({
-    kind: rule.kind,
-    providerKey: rule.providerKey,
-    dossierCapability: capabilityForRule(rule),
-    ...(selectionSource ? { selectionSource } : {}),
-    provider: rule.provider,
-    name: rule.name,
-    reason: rule.reason,
-    status: rule.status ?? "chosen",
-    envVars: rule.envVars,
-  });
+  ): PlanIntegrationContract => {
+    const status = rule.status ?? "chosen";
+    return {
+      kind: rule.kind,
+      ...(status === "unresolved" ? {} : { providerKey: rule.providerKey }),
+      dossierCapability: capabilityForRule(rule),
+      ...(selectionSource ? { selectionSource } : {}),
+      provider: rule.provider,
+      name: rule.name,
+      reason: rule.reason,
+      status,
+      ...(status === "unresolved" ? {} : { envVars: rule.envVars }),
+    };
+  };
   const capabilityHasContract = (capability: string): boolean =>
     integrations.some((entry) => entry.dossierCapability === capability);
   const applyTopLevelProvider = (integration: PlanIntegrationContract): void => {
@@ -478,22 +569,25 @@ export function inferPreGenerationContracts(params: {
   }
   for (const rule of currentRules) {
     const capability = capabilityForRule(rule);
-    pushIntegration(integrations, integrationForRule(rule, "explicit"));
+    const integration = integrationForRule(rule, "explicit");
+    pushIntegration(integrations, integration);
 
-    if (rule.kind === "database" && capability === "database" && !contracts.databaseProvider) {
+    if (integration.status === "chosen" && rule.kind === "database" && capability === "database" && !contracts.databaseProvider) {
       contracts.databaseProvider = rule.provider;
     }
-    if (rule.kind === "auth" && !contracts.authProvider) {
+    if (integration.status === "chosen" && rule.kind === "auth" && !contracts.authProvider) {
       contracts.authProvider = rule.provider;
     }
-    if (rule.kind === "payment" && !contracts.paymentProvider) {
+    if (integration.status === "chosen" && rule.kind === "payment" && !contracts.paymentProvider) {
       contracts.paymentProvider = rule.provider;
     }
 
     // Inferred keyword matches are preview-first: never mark env as blocking — the
     // merged `.env.local` placeholders cover both layers
     // (`40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`).
-    pushEnvVars(envVars, rule.envVars, rule.reason, false);
+    if (integration.status === "chosen") {
+      pushEnvVars(envVars, rule.envVars, rule.reason, false);
+    }
   }
 
   // Explicit/unresolved snapshot choices survive neutral follow-ups unless
@@ -502,12 +596,18 @@ export function inferPreGenerationContracts(params: {
   // then preserved only when their provider/capability is unambiguous.
   const legacyCandidates: PlanIntegrationContract[] = [];
   for (const inherited of inheritedIntegrations) {
+    if (promptPositiveScopes.has(contractScope(inherited))) continue;
     if (inherited.selectionSource === "explicit") {
       const capability = inherited.dossierCapability;
       if (capability && capabilityHasContract(capability)) continue;
-      integrations.push(
-        isContractNegated(inherited) ? unresolvedAfterNegation(inherited) : { ...inherited },
-      );
+      const projected = isContractNegated(inherited)
+        ? unresolvedAfterNegation(inherited)
+        : { ...inherited };
+      integrations.push(projected);
+      if (projected.status === "chosen") {
+        pushEnvVars(envVars, projected.envVars ?? [], projected.reason, false);
+        applyTopLevelProvider(projected);
+      }
       continue;
     }
     if (inherited.status === "unresolved") {

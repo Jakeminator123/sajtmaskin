@@ -550,6 +550,17 @@
         "reason": "Prompten nämner Auth0 uttryckligen."
       },
       {
+        "kind": "auth",
+        "providerKey": "firebase",
+        "dossierCapability": "auth",
+        "provider": "Firebase",
+        "name": "Firebase",
+        "envVars": [],
+        "matchPatterns": ["\\bfirebase\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firebase för auth, men någon levererbar implementation är ännu inte vald."
+      },
+      {
         "kind": "payment",
         "providerKey": "stripe",
         "dossierCapability": "payments",
@@ -582,6 +593,31 @@
         "reason": "Prompten nämner Swish uttryckligen; implementationen måste väljas innan F3."
       },
       {
+        "kind": "payment",
+        "providerKey": "paypal",
+        "dossierCapability": "payments",
+        "provider": "PayPal",
+        "name": "PayPal",
+        "envVars": [],
+        "matchPatterns": ["\\bpaypal\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer PayPal för betalning, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "resend",
+        "dossierCapability": "newsletter",
+        "provider": "Resend",
+        "name": "Resend",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bresend\\b[^.!?;\\n]{0,48}\\bfor\\s+(?:the\\s+)?newsletter(?:\\s+signup)?\\b",
+          "\\bresend\\b[^.!?;\\n]{0,48}\\bför\\s+(?:ett\\s+)?nyhetsbrev\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Resend för nyhetsbrev, men den katalogiserade Resend-integrationen är ett kontaktformulär och ingen nyhetsbrevsimplementation är vald."
+      },
+      {
         "kind": "integration",
         "providerKey": "resend",
         "dossierCapability": "contact-form",
@@ -606,13 +642,41 @@
       {
         "kind": "integration",
         "providerKey": "vercel-blob",
-        "dossierCapability": "media-upload",
+        "dossierCapability": "media-storage",
         "packageRoots": ["@vercel/blob"],
         "provider": "Vercel Blob",
         "name": "Vercel Blob",
         "envVars": ["BLOB_READ_WRITE_TOKEN"],
         "matchPatterns": ["\\bvercel blob\\b", "\\bblob storage\\b"],
         "reason": "Prompten nämner blob storage eller Vercel Blob uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "upstash",
+        "dossierCapability": "database",
+        "provider": "Upstash",
+        "name": "Upstash",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bupstash\\b[^.!?;\\n]{0,48}\\b(?:as|for)\\s+(?:the\\s+|a\\s+)?database\\b",
+          "\\bupstash\\b[^.!?;\\n]{0,48}\\bsom\\s+(?:en\\s+)?databas\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Upstash som databas, men ingen katalogiserad databasimplementation är vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "upstash",
+        "dossierCapability": "database",
+        "provider": "Redis",
+        "name": "Redis",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bredis\\b[^.!?;\\n]{0,48}\\b(?:as|for)\\s+(?:the\\s+|a\\s+)?database\\b",
+          "\\bredis\\b[^.!?;\\n]{0,48}\\bsom\\s+(?:en\\s+)?databas\\b"
+        ],
+        "status": "unresolved",
+        "reason": "Prompten väljer Redis som databas, men ingen katalogiserad databasimplementation är vald."
       },
       {
         "kind": "integration",
@@ -627,6 +691,7 @@
       {
         "kind": "integration",
         "providerKey": "google-analytics",
+        "dossierCapability": "analytics",
         "provider": "Google Analytics 4",
         "name": "Google Analytics 4",
         "envVars": ["NEXT_PUBLIC_GA_ID"],
@@ -635,7 +700,8 @@
       },
       {
         "kind": "integration",
-        "providerKey": "google-tag-manager",
+        "providerKey": "gtm",
+        "dossierCapability": "analytics",
         "provider": "Google Tag Manager",
         "name": "Google Tag Manager",
         "envVars": ["NEXT_PUBLIC_GTM_ID"],
@@ -645,6 +711,7 @@
       {
         "kind": "integration",
         "providerKey": "plausible",
+        "dossierCapability": "analytics",
         "provider": "Plausible",
         "name": "Plausible",
         "envVars": ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
@@ -654,6 +721,7 @@
       {
         "kind": "integration",
         "providerKey": "posthog",
+        "dossierCapability": "analytics",
         "packageRoots": ["posthog-js"],
         "provider": "PostHog",
         "name": "PostHog",

@@ -181,7 +181,7 @@ const contractProviderRuleSchema = z.object({
   name: z.string(),
   envVars: z.array(z.string()),
   matchPatterns: z.array(z.string()),
-  status: z.enum(["chosen", "optional"]).optional(),
+  status: z.enum(["chosen", "unresolved", "optional"]).optional(),
   reason: z.string(),
 });
 

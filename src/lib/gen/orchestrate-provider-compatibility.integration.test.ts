@@ -198,4 +198,43 @@ describe("provider-compatible orchestration", () => {
     expect(base.buildSpec.changeScope).toBe("integration");
     expect(base.buildSpec.referenceCategories).toContain("backend");
   });
+
+  it.each([
+    ["Use Google Analytics 4", "google-analytics"],
+    ["Use Google Tag Manager", "gtm"],
+    ["Use Plausible analytics", "plausible"],
+    ["Use PostHog analytics", "posthog"],
+  ] as const)(
+    "keeps explicit analytics provider work context-only instead of injecting visitor-counter: %s",
+    async (prompt, providerKey) => {
+      const base = await resolveOrchestrationBase(
+        input(prompt, { requestedDossierCapabilities: ["analytics"] }),
+      );
+
+      expect(base.preGenerationContracts.contracts.integrations).toEqual([
+        expect.objectContaining({ providerKey, dossierCapability: "analytics" }),
+      ]);
+      expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+        "visitor-counter",
+      );
+    },
+  );
+
+  it("keeps explicit Vercel Blob on the media-storage dossier without generic duplication", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Use Vercel Blob for the owner's media library", {
+        requestedDossierCapabilities: ["media-storage"],
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey: "vercel-blob",
+        dossierCapability: "media-storage",
+      }),
+    ]);
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).toEqual([
+      "vercel-blob-media",
+    ]);
+  });
 });
