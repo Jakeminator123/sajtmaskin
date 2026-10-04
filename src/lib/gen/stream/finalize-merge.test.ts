@@ -861,6 +861,76 @@ describe("explicit dossier removal", () => {
 
     expect(paths).toEqual(["components/integration-config-notice.tsx"]);
   });
+
+  it("fails closed when the real post-removal checker rewrites restored verbatim bytes", async () => {
+    const actual = await vi.importActual<
+      typeof import("@/lib/gen/autofix/rules/cross-file-import-checker")
+    >("@/lib/gen/autofix/rules/cross-file-import-checker");
+    const canonical = [
+      'import { Panel } from "@/components/panel";',
+      "export function Owner() { return <Panel />; }",
+    ].join("\n");
+    const active = {
+      id: "active-verbatim",
+      class: "soft",
+      capability: "active-verbatim",
+      codeFidelity: "verbatim",
+      files: [
+        {
+          path: "components/owner.tsx",
+          role: "client",
+          injectionMode: "verbatim",
+        },
+      ],
+    } as unknown as DossierEntry;
+    const removed = makeDossier("removed-unrelated", "removed-unrelated", [
+      "components/unrelated.tsx",
+    ]);
+    const previousFiles = [
+      {
+        path: "components/owner.tsx",
+        content: "export function Owner() { return null; }",
+        language: "tsx",
+      },
+      {
+        path: "components/panel-component.tsx",
+        content: "export function Panel() { return <section />; }",
+        language: "tsx",
+      },
+      {
+        path: "components/unrelated.tsx",
+        content: "export function Unrelated() { return null; }",
+        language: "tsx",
+      },
+    ];
+    getDossierFileContent.mockImplementation((_klass, id, relPath) =>
+      id === "active-verbatim" && relPath === "components/owner.tsx" ? canonical : null,
+    );
+    checkCrossFileImports
+      .mockImplementationOnce((files: unknown) => ({ files, fixes: [] }))
+      .mockImplementationOnce((files: unknown) =>
+        actual.checkCrossFileImports(
+          files as Parameters<typeof actual.checkCrossFileImports>[0],
+        ),
+      );
+
+    try {
+      expect(() =>
+        mergeGeneratedProjectFiles({
+          chatId: "post-removal-verbatim-rewrite",
+          originalFilesJson: JSON.stringify(previousFiles),
+          generatedFiles: previousFiles,
+          resolvedScaffold: null,
+          previousFiles,
+          selectedDossiers: [active],
+          removedDossiers: [removed],
+        }),
+      ).toThrow("post-removal-verbatim-mutation");
+    } finally {
+      getDossierFileContent.mockReset();
+      getDossierFileContent.mockReturnValue(null);
+    }
+  });
 });
 
 /**

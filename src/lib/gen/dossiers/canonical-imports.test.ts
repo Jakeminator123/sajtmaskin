@@ -55,6 +55,29 @@ describe("rewriteDossierImportsForRenames", () => {
     expect(result.files[0]!.content).toContain('from "@/lib/canonical"');
   });
 
+  it.each([
+    ["types/FOO.d.ts", "types/foo.d.ts", "@/types/FOO", "@/types/foo"],
+    [
+      "types/Cafe\u0301.d.mts",
+      "types/Caf\u00e9.d.mts",
+      "@/types/Cafe\u0301",
+      "@/types/Caf\u00e9",
+    ],
+    ["types/FOO.d.cts", "types/foo.d.cts", "@/types/FOO", "@/types/foo"],
+  ])(
+    "strips the full declaration suffix from an extensionless type import %s",
+    (fromPath, toPath, source, expected) => {
+      const result = rewriteDossierImportsForRenames(
+        [
+          file("app/page.ts", `import type { Shape } from "${source}";`),
+          file(fromPath, "export type Shape = {};"),
+        ],
+        [{ fromPath, toPath }],
+      );
+      expect(result.files[0]!.content).toContain(`from "${expected}"`);
+    },
+  );
+
   it("preserves explicit extensions and index omission", () => {
     const content = [
       'import "@/lib/Legacy";',
@@ -77,6 +100,34 @@ describe("rewriteDossierImportsForRenames", () => {
     const result = rewriteDossierImportsForRenames(files, [
       { fromPath: "components/FOO.tsx", toPath: "components/foo.tsx" },
     ]);
+    expect(result.files[0]!.content).toContain('from "@/components/Foo"');
+  });
+
+  it("does not fuzzy-match a resolved extensionless file path to a renamed sibling", () => {
+    const files = [
+      file("app/page.ts", 'import { exact } from "@/components/Foo";'),
+      file("components/Foo", "export const exact = true;"),
+      file("components/FOO.ts", "export const other = true;"),
+    ];
+    const result = rewriteDossierImportsForRenames(files, [
+      { fromPath: "components/FOO.ts", toPath: "components/other.ts" },
+    ]);
+    expect(result.files[0]!.content).toContain('from "@/components/Foo"');
+  });
+
+  it("does not evaluate ambiguous fuzzy spellings after a different exact target resolves", () => {
+    const files = [
+      file("app/page.ts", 'import { exact } from "@/components/Foo";'),
+      file("components/Foo.ts", "export const exact = true;"),
+      file("components/FOO.tsx", "export const one = true;", "tsx"),
+      file("components/foo.js", "export const two = true;", "js"),
+    ];
+    const renames = [
+      { fromPath: "components/FOO.tsx", toPath: "components/one.tsx" },
+      { fromPath: "components/foo.js", toPath: "components/two.js" },
+    ];
+    expect(() => rewriteDossierImportsForRenames(files, renames)).not.toThrow();
+    const result = rewriteDossierImportsForRenames(files, renames);
     expect(result.files[0]!.content).toContain('from "@/components/Foo"');
   });
 

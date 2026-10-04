@@ -525,9 +525,26 @@ export function mergeGeneratedProjectFiles({
         fixes: postRemovalCrossFileResult.fixes,
       });
     }
+    const finalDossierResult =
+      removalResult.removedPaths.length > 0
+        ? applyDossierVerbatimPolicy({
+            llmFiles: postRemovalCrossFileResult.files,
+            selectedDossiers: selectedDossiers ?? [],
+          })
+        : { files: postRemovalCrossFileResult.files, restored: [] };
+    const postRemovalVerbatimDrift = finalDossierResult.restored.filter(
+      (event) => event.reason === "verbatim_content_drift",
+    );
+    if (postRemovalVerbatimDrift.length > 0) {
+      throw new Error(
+        `[dossiers] post-removal-verbatim-mutation: cross-file repair mutated canonical bytes for ${postRemovalVerbatimDrift
+          .map((event) => `${event.dossierId}:${event.path}`)
+          .join(", ")}`,
+      );
+    }
 
     return {
-      filesJson: JSON.stringify(postRemovalCrossFileResult.files),
+      filesJson: JSON.stringify(finalDossierResult.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],

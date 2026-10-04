@@ -30,7 +30,9 @@ interface TextEdit {
   text: string;
 }
 
+const DECLARATION_EXTENSIONS = [".d.mts", ".d.cts", ".d.ts"] as const;
 const MODULE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".mts", ".cts", ".mjs", ".cjs"] as const;
+const MODULE_RESOLUTION_EXTENSIONS = [...DECLARATION_EXTENSIONS, ...MODULE_EXTENSIONS] as const;
 
 function hasTraversalSegment(path: string): boolean {
   return path.split("/").some((segment) => segment === "..");
@@ -62,17 +64,29 @@ function normalizeRenames(renames: readonly DossierPathRename[]): NormalizedRena
 
 function stripModuleExtension(path: string): string | null {
   const lower = path.toLowerCase();
-  const extension = MODULE_EXTENSIONS.find((candidate) => lower.endsWith(candidate));
+  const extension = MODULE_RESOLUTION_EXTENSIONS.find((candidate) => lower.endsWith(candidate));
   return extension ? path.slice(0, -extension.length) : null;
 }
 
-function matchRename(
+function matchRenameExact(
+  resolvedPath: string,
+  renames: readonly NormalizedRename[],
+): { rename: NormalizedRename; form: "exact" } | null {
+  const identity = dossierOutputPathIdentity(resolvedPath);
+  const matches = renames.filter((rename) => rename.fromIdentity === identity);
+  if (matches.length > 1) {
+    throw new Error(`[dossiers] import-rewrite-ambiguous: ${JSON.stringify(resolvedPath)}`);
+  }
+  return matches.length === 1 ? { rename: matches[0]!, form: "exact" } : null;
+}
+
+function matchRenameFuzzy(
   resolvedTarget: string,
   renames: readonly NormalizedRename[],
 ): { rename: NormalizedRename; form: "exact" | "extensionless" | "indexless" } | null {
+  const exact = matchRenameExact(resolvedTarget, renames);
+  if (exact) return exact;
   const targetIdentity = dossierOutputPathIdentity(resolvedTarget);
-  const exact = renames.filter((rename) => rename.fromIdentity === targetIdentity);
-  if (exact.length === 1) return { rename: exact[0]!, form: "exact" };
 
   const extensionless = renames.filter((rename) => {
     const withoutExtension = stripModuleExtension(rename.fromPath);
@@ -91,14 +105,14 @@ function matchRename(
   });
   if (indexless.length === 1) return { rename: indexless[0]!, form: "indexless" };
 
-  const ambiguous = [...exact, ...extensionless, ...indexless];
+  const ambiguous = [...extensionless, ...indexless];
   if (ambiguous.length > 1) {
     throw new Error(`[dossiers] import-rewrite-ambiguous: ${JSON.stringify(resolvedTarget)}`);
   }
   return null;
 }
 
-function projectedTarget(match: NonNullable<ReturnType<typeof matchRename>>): string {
+function projectedTarget(match: NonNullable<ReturnType<typeof matchRenameFuzzy>>): string {
   if (match.form === "exact") return match.rename.toPath;
   const withoutExtension = stripModuleExtension(match.rename.toPath) ?? match.rename.toPath;
   return match.form === "indexless" && withoutExtension.toLowerCase().endsWith("/index")
@@ -169,8 +183,8 @@ function resolveLocalImportPathPortable(
     : [spelledTarget];
   const candidates = bases.flatMap((base) => [
     base,
-    ...MODULE_EXTENSIONS.map((extension) => `${base}${extension}`),
-    ...MODULE_EXTENSIONS.map((extension) => `${base}/index${extension}`),
+    ...MODULE_RESOLUTION_EXTENSIONS.map((extension) => `${base}${extension}`),
+    ...MODULE_RESOLUTION_EXTENSIONS.map((extension) => `${base}/index${extension}`),
   ]);
   const candidateIdentities = new Set(candidates.map(dossierOutputPathIdentity));
   const portableMatches = [...fileMap.keys()].filter((path) =>
@@ -235,7 +249,7 @@ export function rewriteDossierImportsForRenames(
   const rewritten = files.map((file) => {
     if (!isGuardablePath(file.path)) return file;
     const originalImporter = normalizeDossierProjectPath(file.path);
-    const importerRename = matchRename(originalImporter, normalizedRenames);
+    const importerRename = matchRenameExact(originalImporter, normalizedRenames);
     const canonicalImporter = importerRename?.rename.toPath ?? originalImporter;
     const sourceFile = createTsxSourceFile(file.path, file.content);
     const edits: TextEdit[] = [];
@@ -250,9 +264,11 @@ export function rewriteDossierImportsForRenames(
         specifier,
         spelledTarget,
       );
-      const exactMatch = exactResolved ? matchRename(exactResolved, normalizedRenames) : null;
-      const spellingMatch = matchRename(spelledTarget, normalizedRenames);
-      const targetRename = exactResolved === null ? spellingMatch : exactMatch;
+      const exactMatch = exactResolved
+        ? matchRenameExact(exactResolved, normalizedRenames)
+        : null;
+      const targetRename =
+        exactResolved === null ? matchRenameFuzzy(spelledTarget, normalizedRenames) : exactMatch;
       if (!targetRename && canonicalImporter === originalImporter) continue;
       if (
         !targetRename &&
