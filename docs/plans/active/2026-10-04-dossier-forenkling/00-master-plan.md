@@ -50,7 +50,7 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   dubbla readinessägare. Metadata får bara tillkomma med wired konsument.
 - [x] Implementera en intern samlad integrationsvy i befintlig pipeline och
   använd den i träffade prompt-/monteringskonsumenter, inklusive båda motorvägar.
-  D2/D3 är lokalt implementerat; CI/review/leverans återstår och kvitteras nedan.
+  D2/D3 är levererat genom PR #1549 med aktuell full CI och previewdeployment.
 - [ ] Koppla projektets faktiska provider-/paket-/filbevis till användningsgräns
   före kodinjektion. Stödd implementation, anpassningsbehov och okänt/ostött
   fall ska få ärliga, testbara utfall; ingen gissad full kompatibilitet.
@@ -58,6 +58,11 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   review, CI och previewleverans innan punkten får bockas av. Samma kontrakt
   bär även entydiga äldre provider-val som `legacy-preserved` genom neutrala
   plan-/codegen-uppföljningar; tvetydiga äldre labels lämnas till ett nytt val.
+  PR #1550 är nu ready på `e0f90f9287387794ce2eb4fd22a0c9bb23a3b023`.
+  Två oberoende delta-/integrationsreviews är CLEAN; samtliga åtta publicerade
+  native fynd har RED/GREEN och sakliga lösningssvar. Slutmatris 538/538
+  riktade tester, typ/lint/derived/docs/plan/canvas gröna. Full aktuell CI,
+  deployment och native mergebarhet återstår; äldre CI är inte aktuellt GO.
 - [ ] Skilj skyddad återanvändbar kärna från projektanpassning med befintlig
   `verbatim`/`rewritable`-mekanism. Bevara signering, behörighet, hemlighetsskydd,
   konfigurationsfallback, exports och fungerande uppföljningar.
@@ -102,8 +107,11 @@ inte gömmas bakom en avbockad checklista.
    snapshotkompatibilitet och båda motorvägar. Lokalt delta omfattar typad
    provider/capability-bindning, positiv AST-evidens, Prisma/Drizzle-metodgräns,
    server/verbatim-migrationsgrind och samma guard i pending/finalize/readiness.
-4. Katalog/instruktioner och kärna kontra anpassning. Samla ändringarna efter
-   owner, inte en bulkimport. Ändra inte Clerk-säkerhetspolicyn i smyg.
+4. Bevarande av befintlig kärna levereras först i en egen owner-PR. Återhärled
+   request-local bevarande från exakta tidigare filer, providerbevis och
+   befintliga kontrakt; ingen installationsledger eller automatisk migration.
+   Därefter synkas den redan granskade katalog-/instruktionsändringen till
+   aktuell preview och levereras separat. Ändra inte Clerk-policyn i smyg.
 5. Bevisat död kod, ärliga statusord, aktuella docs och verifieringsmatris.
 6. Review, aktuell full CI/deployment, previewmerge och terminal slutstädning.
 
@@ -111,6 +119,14 @@ Preliminär uppskattning: 3–6 timmars aktivt arbete, cirka 30–90 minuter
 ytterligare CI-/reviewväntan beroende på rättningsrundor. Det är en uppskattning,
 inte ett löfte eller ett verifieringskvitto. Scaffolds är nästa separata uppdrag
 och ska påminnas om i sluthandoff när checklistan faktiskt är avslutad.
+
+## Aktuell avgränsad paus
+
+OpenAI-specifikt API-arbete inväntar Jakobs svar om befintlig eller ny nyckel.
+Enbart säker förekomstkontroll är gjord; ingen hemlighet har visats, använts
+eller ändrats och inga liveanrop planeras. Befintlig OpenAI-kod är oförändrad;
+baseline/keyless CI och övrigt dossierarbete fortsätter. Checklistan får inte
+stängas som helt klar medan denna del fortfarande är pausad.
 
 ## Avslut
 
