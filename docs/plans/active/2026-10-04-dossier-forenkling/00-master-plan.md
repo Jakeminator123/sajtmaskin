@@ -54,8 +54,13 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   och alla nya storage-tester bevarade genom flytt. Totalen är fortsatt 40
   paths. Två oberoende delta-/integrationsreviews är CLEAN på exakt 92db7f3
   inom icke-OpenAI-deltat. Rootens dokumentuppföljning har 49/49 tester och
-  grön docs-/PR-plan. Ny full current-head CI och previewleverans återstår.
-  OpenAI-delen av SDK-fyndet är fortfarande HOLD vid Jakobs nyckelval.
+  grön docs-/PR-plan. Dokumenthead `84c478445ad69eba00812698fda0bec6e988dcb8`
+  fick full CI grön: 13 014 standardtester, DB 126 och stabilitet 54 på 3:40;
+  dossier 21/21 på 5:57 och exakt Vercel READY på 2:19. Dessa kvitton gäller
+  inte den senare OpenAI-rättningen. Jakob har nu valt befintlig nyckel.
+  Katalogens faktiska SDK har lagts till i den befintliga manifestregeln:
+  RED 2/87 → GREEN 87/87 och bred manifest-/kontraktsmatris 205/205.
+  Ny oberoende review, current-head CI/deployment och previewleverans återstår.
 - D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
@@ -172,15 +177,21 @@ ytterligare CI-/reviewväntan beroende på rättningsrundor. Det är en uppskatt
 inte ett löfte eller ett verifieringskvitto. Scaffolds är nästa separata uppdrag
 och ska påminnas om i sluthandoff när checklistan faktiskt är avslutad.
 
-## Aktuell avgränsad paus
+## Aktuell leveransstatus
 
-OpenAI-specifikt API-arbete inväntar Jakobs svar om befintlig eller ny nyckel.
-Enbart säker förekomstkontroll är gjord; ingen hemlighet har visats, använts
-eller ändrats och inga liveanrop planeras. Nativefyndet om katalogbundet SDK-bevis
-har en icke-OpenAI-del som kan rättas offline; OpenAI-delen får inte räknas som
-löst på grund av den rättningen. Befintlig OpenAI-kod är oförändrad;
-baseline/keyless CI och övrigt dossierarbete fortsätter. Checklistan får inte
-stängas som helt klar medan denna del fortfarande är pausad.
+Jakob har 2026-10-05 valt att behålla befintlig OpenAI-nyckel. Ingen hemlighet
+har visats, använts eller ändrats och inga liveanrop ingår. OpenAI-dossierns
+API-/SDK-kod och beroenden är oförändrade; rättningen utökar endast den befintliga
+manifestregeln så att dess faktiskt levererade SDK ger positivt providerbevis.
+Direkt paketberoende och produktions-AST-import krävs fortfarande; package-only,
+type-only och test-only förblir nekade. En divergent äldre kärna bevaras även
+vid en orelaterad uppföljning. Den lokala rättningen har RED/GREEN och 205/205
+berörda tester, typ/lint och projektioner gröna. Native SDK-fyndet och checklistan
+får inte räknas som avslutade förrän aktuell review och previewleverans är klara.
+
+TESTER:s elva dokument är säkrade i `251fac2047a9f542b929a01be7a06199f824192c`.
+Jakob har nu bett om separat integration och push; det innebär inte att den
+bredare testreformen har genomförts eller fått eget preview-mergemandat.
 
 ## Avslut
 

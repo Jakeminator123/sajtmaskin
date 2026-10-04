@@ -685,7 +685,7 @@
         "kind": "integration",
         "providerKey": "openai",
         "dossierCapability": "ai-chat",
-        "packageRoots": ["openai"],
+        "packageRoots": ["openai", "@ai-sdk/openai"],
         "provider": "OpenAI",
         "name": "OpenAI",
         "envVars": ["OPENAI_API_KEY"],

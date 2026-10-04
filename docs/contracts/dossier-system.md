@@ -487,6 +487,10 @@ skenbart konfliktfri delmängd. Ett pending provider-id får capability från
 sin exakta backing dossier först; utan backing används bara en entydig
 providerregel. Flera kandidater väljs inte genom manifestordning.
 
+Providerreglerna måste omfatta det SDK som katalogens kod faktiskt importerar,
+inte bara providerns ursprungliga paket. Samma krav på direkt paketberoende
+och positiv produktions-AST-import gäller varje deklarerad paketrot.
+
 På filnivå blir en divergent befintlig kärna `context-only` när exakt
 manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att
 den redan tillhör samma provider. Befintliga bytes bevaras utan kataloguppgradering

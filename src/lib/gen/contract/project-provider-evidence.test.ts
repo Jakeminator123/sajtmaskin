@@ -359,4 +359,58 @@ describe("detectProjectProviderEvidence", () => {
       expect.objectContaining({ providerKey: "supabase", dossierCapability: "database" }),
     );
   });
+
+  it.each(["@ai-sdk/openai", "openai"])(
+    "uses the actual manifest to prove %s as OpenAI ai-chat evidence",
+    (packageRoot) => {
+      const evidence = detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { [packageRoot]: "1" } }),
+          },
+          {
+            path: "app/api/chat/route.ts",
+            content: `import { openai } from "${packageRoot}"; export const model = openai;`,
+          },
+        ],
+        getPreGenerationContractsConfigFromManifest().providerRules,
+      );
+
+      expect(evidence).toContainEqual(
+        expect.objectContaining({
+          providerKey: "openai",
+          dossierCapability: "ai-chat",
+          packageRoot,
+        }),
+      );
+    },
+  );
+
+  it.each([
+    ["package only", []],
+    [
+      "type-only import",
+      [{ path: "app/api/chat/route.ts", content: 'import type { OpenAIProvider } from "@ai-sdk/openai";' }],
+    ],
+    [
+      "test-only import",
+      [{ path: "app/api/chat/route.test.ts", content: 'import { openai } from "@ai-sdk/openai";' }],
+    ],
+  ])("does not accept @ai-sdk/openai from %s", (_name, extraFiles) => {
+    const evidence = detectProjectProviderEvidence(
+      [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@ai-sdk/openai": "1" } }),
+        },
+        ...extraFiles,
+      ],
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+
+    expect(evidence).not.toContainEqual(
+      expect.objectContaining({ providerKey: "openai", dossierCapability: "ai-chat" }),
+    );
+  });
 });

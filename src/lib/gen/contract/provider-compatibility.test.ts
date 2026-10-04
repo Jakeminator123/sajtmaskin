@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { selectDossiersForRequest } from "../dossiers/select";
 import { resolveDossierFilePath } from "../dossiers/output-path";
 import { getDossierFileContent } from "../dossiers/registry";
 import type { PlanContracts } from "../plan/schema";
+import { detectProjectProviderEvidence } from "./project-provider-evidence";
 import {
   buildDossierIntegrationPlan,
   resolveExistingDossierCorePlan,
@@ -463,6 +465,53 @@ describe("resolveExistingDossierCorePlan", () => {
       packageRoot: "@clerk/nextjs",
     },
   ];
+
+  it("preserves divergent OpenAI dossier core proven by its shipped SDK package", () => {
+    const projectFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@ai-sdk/openai": "^3" } }),
+      },
+      {
+        path: "app/api/chat/route.ts",
+        content:
+          'import { openai } from "@ai-sdk/openai"; export const POST = () => openai("gpt"); // older divergent bytes',
+      },
+      {
+        path: "components/chat-panel.tsx",
+        content: "export function ChatPanel() { return null; } // older divergent bytes",
+      },
+    ];
+    const projectProviderEvidence = detectProjectProviderEvidence(
+      projectFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence,
+    });
+
+    expect(projectProviderEvidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "openai",
+        dossierCapability: "ai-chat",
+        packageRoot: "@ai-sdk/openai",
+      }),
+    );
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toContain("openai-chat");
+    expect(result.migrationRequired).toBe(false);
+  });
 
   it("preserves proven old Clerk during an unrelated Stripe-only follow-up", () => {
     const result = resolveExistingDossierCorePlan({
