@@ -11,6 +11,18 @@ function authorized(request: NextRequest): boolean {
 /** Postgres-rendered UTC timestamp with microseconds, e.g. 2026-10-03T08:31:00.123456Z. */
 const CURSOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
+/**
+ * JS `Date` normalizes 2026-02-31 to March 3 while Postgres rejects it, so the
+ * parsed date must round-trip to the same calendar components (to the
+ * millisecond; the microsecond digits are already constrained by the regex).
+ */
+function isCalendarExact(createdAt: string): boolean {
+  const parsed = new Date(createdAt);
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 23) === createdAt.slice(0, 23)
+  );
+}
+
 function decodeCursor(value: string | null): { createdAt: string; messageId: string } | null {
   if (!value) return null;
   try {
@@ -21,7 +33,7 @@ function decodeCursor(value: string | null): { createdAt: string; messageId: str
     if (
       separator < 1 ||
       !CURSOR_TIME.test(createdAt) ||
-      Number.isNaN(new Date(createdAt).getTime()) ||
+      !isCalendarExact(createdAt) ||
       !/^[a-f0-9]{32}$/.test(messageId)
     ) {
       return null;
@@ -72,9 +84,7 @@ export async function GET(request: NextRequest) {
         step: row.step,
         variant: row.variant,
         scheduledAt: row.scheduled_at ? new Date(row.scheduled_at).toISOString() : null,
-        smtpAcceptedAt: row.smtp_accepted_at
-          ? new Date(row.smtp_accepted_at).toISOString()
-          : null,
+        smtpAcceptedAt: row.smtp_accepted_at ? new Date(row.smtp_accepted_at).toISOString() : null,
         deliveredAt: row.delivered_at ? new Date(row.delivered_at).toISOString() : null,
         repliedAt: row.replied_at ? new Date(row.replied_at).toISOString() : null,
         outcome: row.outcome,

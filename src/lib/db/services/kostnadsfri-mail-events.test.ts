@@ -7,6 +7,9 @@ const state = vi.hoisted(() => ({
   events: [] as Record<string, unknown>[],
   entitlementWhere: [] as unknown[],
   lockedPageExtra: null as unknown,
+  lockedPage: { id: 1, sent_at: null, source: null } as Record<string, unknown>,
+  pageUpdates: [] as unknown[],
+  statsFields: null as Record<string, SQL> | null,
   locks: 0,
 }));
 
@@ -38,12 +41,28 @@ vi.mock("@/lib/db/client", async () => {
         try {
           return await run({
             insert: insertInto,
+            update: () => ({
+              set: (values: Record<string, unknown>) => ({
+                where: (clause: SQL) => ({
+                  returning: async () => {
+                    const query = new PgDialect().sqlToQuery(clause).sql;
+                    state.pageUpdates.push(query);
+                    // Model `WHERE id = $1 AND sent_at IS NULL`.
+                    if (!/"sent_at" is null/.test(query) || state.lockedPage.sent_at !== null) {
+                      return [];
+                    }
+                    state.lockedPage = { ...state.lockedPage, ...values };
+                    return [state.lockedPage];
+                  },
+                }),
+              }),
+            }),
             select: () => ({
               from: () => ({
                 where: () => ({
                   for: async (strength: string) => {
                     if (strength === "update") state.locks += 1;
-                    return [{ extraData: state.lockedPageExtra }];
+                    return [{ ...state.lockedPage, extra_data: state.lockedPageExtra }];
                   },
                 }),
               }),
@@ -56,8 +75,12 @@ vi.mock("@/lib/db/client", async () => {
         }
       },
       insert: insertInto,
-      select: () => ({
+      select: (fields?: Record<string, SQL>) => ({
         from: () => {
+          if (fields && "firstAccepted" in fields) {
+            state.statsFields = fields;
+            return { groupBy: async () => [] };
+          }
           const rows = Promise.resolve([]);
           return Object.assign(rows, {
             where: async (clause: SQL) => {
@@ -75,6 +98,7 @@ import {
   createKostnadsfriPageWithMailEvent,
   getKostnadsfriGenerationBySlug,
   recordKostnadsfriMailEventForSubscribedPage,
+  getKostnadsfriMailEventStats,
   isAllowedMailOutcomeTransition,
 } from "./kostnadsfri";
 
@@ -99,6 +123,9 @@ beforeEach(() => {
   state.events = [];
   state.entitlementWhere = [];
   state.lockedPageExtra = null;
+  state.lockedPage = { id: 1, sent_at: null, source: null };
+  state.pageUpdates = [];
+  state.statsFields = null;
   state.locks = 0;
 });
 
@@ -180,5 +207,49 @@ describe("recordKostnadsfriMailEventForSubscribedPage (registration vs unsubscri
     });
     expect(subscribed.status).toBe("created");
     expect(state.events).toHaveLength(1);
+  });
+});
+
+describe("first-send compatibility fields under the registration lock", () => {
+  it("lets only the first of two overlapping accepted step=first sends set sentAt/source", async () => {
+    const first = await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, pageId: 1, slug: "acme-ab" },
+      { firstSend: { sentAt: new Date("2026-10-03T08:30:00.000Z"), source: "render-mail-flow:text" } },
+    );
+    // The second request also read sent_at=null before it got the lock.
+    const second = await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, messageId: "b".repeat(32), variant: "animated", pageId: 1, slug: "acme-ab" },
+      {
+        firstSend: {
+          sentAt: new Date("2026-10-03T08:31:00.000Z"),
+          source: "render-mail-flow:animated",
+        },
+      },
+    );
+
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    expect(state.lockedPage).toMatchObject({
+      sent_at: new Date("2026-10-03T08:30:00.000Z"),
+      source: "render-mail-flow:text",
+    });
+    expect(state.pageUpdates).toHaveLength(1);
+    expect(state.pageUpdates[0]).toMatch(/"sent_at" is null/);
+    expect(second.status !== "unsubscribed" && second.page).toMatchObject({
+      source: "render-mail-flow:text",
+    });
+  });
+});
+
+describe("getKostnadsfriMailEventStats A/B denominator", () => {
+  it("counts only each company's earliest accepted first mail", async () => {
+    await getKostnadsfriMailEventStats();
+
+    const rendered = new PgDialect().sqlToQuery(state.statsFields!.firstAccepted).sql;
+    expect(rendered).toMatch(/not exists/);
+    expect(rendered).toMatch(/earlier\.slug = "kostnadsfri_mail_events"\."slug"/);
+    expect(rendered).toMatch(
+      /\(earlier\.created_at, earlier\.message_id\) < \("kostnadsfri_mail_events"\."created_at", "kostnadsfri_mail_events"\."message_id"\)/,
+    );
   });
 });

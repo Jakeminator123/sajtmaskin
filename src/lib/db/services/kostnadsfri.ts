@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   engineGenerationLogs,
@@ -116,16 +116,14 @@ export async function createKostnadsfriPageWithMailEvent(
  * ska byta ut hela `profile`-nyckeln men lämna `openclaw` orörd, och en
  * read-modify-write hade kunnat tappa en samtidig skrivning.
  */
-export async function markKostnadsfriPageSent(
-  slug: string,
-  data: {
-    sentAt: Date;
-    source: string;
-    contactEmail?: string | null;
-    extraDataPatch?: Record<string, unknown> | null;
-  },
-): Promise<KostnadsfriPage | null> {
-  assertDbConfigured();
+export type KostnadsfriPageSentInput = {
+  sentAt: Date;
+  source: string;
+  contactEmail?: string | null;
+  extraDataPatch?: Record<string, unknown> | null;
+};
+
+function kostnadsfriPageSentUpdates(data: KostnadsfriPageSentInput) {
   const updates: {
     sent_at: Date;
     source: string;
@@ -144,10 +142,17 @@ export async function markKostnadsfriPageSent(
       data.extraDataPatch,
     )}::jsonb`;
   }
+  return updates;
+}
 
+export async function markKostnadsfriPageSent(
+  slug: string,
+  data: KostnadsfriPageSentInput,
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
   const rows = await db
     .update(kostnadsfriPages)
-    .set(updates)
+    .set(kostnadsfriPageSentUpdates(data))
     .where(eq(kostnadsfriPages.slug, slug))
     .returning();
   return rows[0] ?? null;
@@ -397,18 +402,39 @@ export async function recordKostnadsfriMailEvent(
  */
 export async function recordKostnadsfriMailEventForSubscribedPage(
   input: KostnadsfriMailEventInput & { pageId: number },
-): Promise<KostnadsfriMailEventRecord | { status: "unsubscribed" }> {
+  options: {
+    /**
+     * Compatibility fields for the company's first accepted send. Written
+     * under the same row lock and only `WHERE sent_at IS NULL`, so two
+     * overlapping first sends can never overwrite each other's cohort.
+     */
+    firstSend?: KostnadsfriPageSentInput;
+  } = {},
+): Promise<
+  | (KostnadsfriMailEventRecord & { page: KostnadsfriPage | null })
+  | { status: "unsubscribed" }
+> {
   assertDbConfigured();
   return db.transaction(async (tx) => {
     const locked = await tx
-      .select({ extraData: kostnadsfriPages.extra_data })
+      .select()
       .from(kostnadsfriPages)
       .where(eq(kostnadsfriPages.id, input.pageId))
       .for("update");
-    if (unsubscribedAtFromExtra(locked[0]?.extraData ?? null)) {
+    const page = locked[0] ?? null;
+    if (unsubscribedAtFromExtra(page?.extra_data ?? null)) {
       return { status: "unsubscribed" as const };
     }
-    return recordMailEventWith(tx, input);
+    const record = await recordMailEventWith(tx, input);
+    if (record.status === "conflict" || !options.firstSend || !page || page.sent_at) {
+      return { ...record, page };
+    }
+    const updated = await tx
+      .update(kostnadsfriPages)
+      .set(kostnadsfriPageSentUpdates(options.firstSend))
+      .where(and(eq(kostnadsfriPages.id, input.pageId), isNull(kostnadsfriPages.sent_at)))
+      .returning();
+    return { ...record, page: updated[0] ?? page };
   });
 }
 
@@ -586,7 +612,17 @@ export async function getKostnadsfriMailEventStats(): Promise<KostnadsfriMailEve
       variant: kostnadsfriMailEvents.variant,
       total: sql<number>`count(*)::int`,
       accepted: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.outcome} = 'accepted')::int`,
-      firstAccepted: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.outcome} = 'accepted' and ${kostnadsfriMailEvents.step} = 'first')::int`,
+      // A/B denominator: one company, one cohort. Only the company's earliest
+      // accepted first mail counts, so a later `step=first` (new flow, maybe
+      // the other variant) cannot inflate either cohort. Matches the admin
+      // numerators, which count each page once by its preserved source.
+      firstAccepted: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.outcome} = 'accepted' and ${kostnadsfriMailEvents.step} = 'first' and not exists (
+        select 1 from kostnadsfri_mail_events earlier
+        where earlier.slug = ${kostnadsfriMailEvents.slug}
+          and earlier.step = 'first'
+          and earlier.outcome = 'accepted'
+          and (earlier.created_at, earlier.message_id) < (${kostnadsfriMailEvents.created_at}, ${kostnadsfriMailEvents.message_id})
+      ))::int`,
       delivered: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.delivered_at} is not null)::int`,
       replied: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.replied_at} is not null)::int`,
     })

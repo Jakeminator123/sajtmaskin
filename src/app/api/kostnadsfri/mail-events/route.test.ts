@@ -91,4 +91,17 @@ describe("GET /api/kostnadsfri/mail-events", () => {
     expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
   });
 
+  it("rejects calendar-invalid cursor timestamps with 400 instead of a database 500", async () => {
+    for (const time of [
+      "2026-02-31T08:31:00.123456Z",
+      "2026-13-01T08:31:00.123456Z",
+      "2026-10-03T24:00:00.000000Z",
+      "2026-10-03T08:60:00.123456Z",
+    ]) {
+      const cursor = Buffer.from(`${time}|${"a".repeat(32)}`).toString("base64url");
+      const res = await GET(request(`?cursor=${cursor}`));
+      expect(res.status).toBe(400);
+    }
+    expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
+  });
 });

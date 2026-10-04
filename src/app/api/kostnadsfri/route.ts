@@ -289,24 +289,39 @@ export async function POST(request: NextRequest) {
       }
 
       // Locked re-check: an unsubscribe that commits after the lookup above
-      // still stops the receipt.
+      // still stops the receipt. The compatibility fields stay on the first
+      // recorded send: only an accepted `step=first` may fill them, under the
+      // same row lock and only while `sent_at` is still empty. A follow-up or
+      // a later first mail (new flow) never moves the company's A/B cohort.
+      const firstSend =
+        mailEvent?.step === "first" && mailEvent.outcome === "accepted" && sentAt
+          ? {
+              sentAt: new Date(sentAt),
+              source: source || DEFAULT_SEND_SOURCE,
+              contactEmail,
+              ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+            }
+          : undefined;
       const mailReceipt = mailEvent
-        ? await recordKostnadsfriMailEventForSubscribedPage({
-            messageId: mailEvent.messageId,
-            pageId: existing.id,
-            slug,
-            recipient: mailEvent.recipient,
-            sender: mailEvent.sender,
-            flowId: mailEvent.flowId,
-            step: mailEvent.step,
-            variant: mailEvent.variant,
-            scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
-            smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
-            deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
-            repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
-            outcome: mailEvent.outcome,
-            source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
-          })
+        ? await recordKostnadsfriMailEventForSubscribedPage(
+            {
+              messageId: mailEvent.messageId,
+              pageId: existing.id,
+              slug,
+              recipient: mailEvent.recipient,
+              sender: mailEvent.sender,
+              flowId: mailEvent.flowId,
+              step: mailEvent.step,
+              variant: mailEvent.variant,
+              scheduledAt: mailEvent.scheduledAt ? new Date(mailEvent.scheduledAt) : null,
+              smtpAcceptedAt: mailEvent.smtpAcceptedAt ? new Date(mailEvent.smtpAcceptedAt) : null,
+              deliveredAt: mailEvent.deliveredAt ? new Date(mailEvent.deliveredAt) : null,
+              repliedAt: mailEvent.repliedAt ? new Date(mailEvent.repliedAt) : null,
+              outcome: mailEvent.outcome,
+              source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
+            },
+            { firstSend },
+          )
         : null;
       if (mailReceipt?.status === "unsubscribed") {
         return NextResponse.json(
@@ -321,15 +336,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // A follow-up is a new mail event, not a rewrite of the company's
-      // original register row. The compatibility fields stay on the first
-      // recorded send: a later `step=first` (new flow, new messageId) never
-      // overwrites an existing sentAt/source, or the A/B cohort would move.
-      const shouldUpdateCompatibilityFields =
-        !mailEvent ||
-        (mailEvent.step === "first" && mailEvent.outcome === "accepted" && !existing.sent_at);
-      const updated =
-        shouldUpdateCompatibilityFields && sentAt
+      // Legacy upsert without mailEvent keeps its old behaviour.
+      const updated = mailReceipt
+        ? mailReceipt.page
+        : sentAt
           ? await markKostnadsfriPageSent(slug, {
               sentAt: new Date(sentAt),
               source: source || DEFAULT_SEND_SOURCE,
@@ -468,8 +478,7 @@ export async function GET(request: NextRequest) {
     const rawCursor = request.nextUrl.searchParams.get("cursor");
     // Canonical non-negative integer only: parseInt would accept "100garbage"
     // or "100.9" as 100 and silently skip rows.
-    const afterId =
-      rawCursor === null || !/^\d+$/.test(rawCursor) ? null : Number(rawCursor);
+    const afterId = rawCursor === null || !/^\d+$/.test(rawCursor) ? null : Number(rawCursor);
     if (rawCursor !== null && (afterId === null || !Number.isSafeInteger(afterId))) {
       return NextResponse.json({ success: false, error: "Invalid cursor" }, { status: 400 });
     }
@@ -515,11 +524,7 @@ export async function GET(request: NextRequest) {
         complete: !hasMore,
         // Legacy send order cannot be resumed by id, so a capped legacy read
         // points at the start of the complete id-ordered walk instead ("0").
-        nextCursor: hasMore
-          ? afterId === null
-            ? "0"
-            : String(rows.at(-1)?.id ?? "")
-          : null,
+        nextCursor: hasMore ? (afterId === null ? "0" : String(rows.at(-1)?.id ?? "")) : null,
         paginationMode: afterId === null ? "legacy-send-order" : "complete-id-order",
       },
       analytics: {

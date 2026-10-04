@@ -67,7 +67,8 @@ deduplicerar på `slug`.
 skapelseordning. Följ dess opaka `nextCursor` tills `complete=true`. Markören
 bär `created_at` med mikrosekunder plus `messageId`, så sista raden upprepas
 aldrig och rader med samma tidsstämpel hoppas inte över. En markör med bara
-millisekunder avvisas med 400.
+millisekunder, eller ett datum som inte finns (t.ex. `2026-02-31`), avvisas
+med 400.
 
 Ett `mailEvent` för ett företag som har avregistrerat sig ger 409, både
 `step=first` och `step=follow`. När `POST` skapar en ny sida med `mailEvent`
@@ -76,6 +77,10 @@ sparas sidan och mejlraden i samma transaktion; ett redan registrerat
 För en befintlig sida låses företagsraden och avregistreringen läses om i samma
 transaktion som mejlraden skrivs, så en samtidig avregistrering kan inte
 smita förbi kontrollen.
+Företagets `sentAt/source` fylls i samma låsta transaktion och bara medan
+`sent_at` är tomt, så två samtidiga första mejl kan inte skriva över varandras
+kohort. A/B-nämnaren `firstAccepted` räknar bara varje företags tidigaste
+accepterade första mejl.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

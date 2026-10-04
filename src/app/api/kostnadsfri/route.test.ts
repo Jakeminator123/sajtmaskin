@@ -249,6 +249,10 @@ describe("POST /api/kostnadsfri", () => {
     recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "duplicate",
       event: { message_id: "a".repeat(32) },
+      page: pageRow({
+        sent_at: new Date("2026-10-01T08:00:00.000Z"),
+        source: "render-mail-flow:text",
+      }),
     });
 
     const res = await POST(
@@ -279,6 +283,7 @@ describe("POST /api/kostnadsfri", () => {
         step: "follow",
         variant: "animated",
       }),
+      { firstSend: undefined },
     );
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
     expect(body.mailEvent).toEqual({ messageId: "a".repeat(32), status: "duplicate" });
@@ -423,6 +428,7 @@ describe("POST /api/kostnadsfri", () => {
     recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "created",
       event: { message_id: "8".repeat(32) },
+      page: pageRow({ sent_at: new Date("2026-10-01T08:00:00.000Z"), source: "render-mail-flow:text" }),
     });
 
     const res = await POST(
@@ -449,6 +455,47 @@ describe("POST /api/kostnadsfri", () => {
       sentAt: "2026-10-01T08:00:00.000Z",
       source: "render-mail-flow:text",
     });
+  });
+
+  it("fills the first-send fields inside the locked registration, never via a separate update", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
+      status: "created",
+      event: { message_id: "7".repeat(32) },
+      page: pageRow({ sent_at: new Date("2026-10-03T08:30:00.000Z"), source: "render-mail-flow:text" }),
+    });
+
+    const res = await POST(
+      postRequest({
+        companyName: "Acme AB",
+        sentAt: "2026-10-03T08:30:00.000Z",
+        source: "render-mail-flow:text",
+        mailEvent: {
+          messageId: "7".repeat(32),
+          flowId: "flow_1",
+          step: "first",
+          variant: "text",
+          sender: "hej@sajtmaskin.se",
+          recipient: "hej@acme.se",
+          smtpAcceptedAt: "2026-10-03T08:30:00.000Z",
+          outcome: "accepted",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(recordKostnadsfriMailEventForSubscribedPage).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "7".repeat(32), pageId: 1 }),
+      {
+        firstSend: expect.objectContaining({
+          sentAt: new Date("2026-10-03T08:30:00.000Z"),
+          source: "render-mail-flow:text",
+        }),
+      },
+    );
+    // The unconditional, unlocked compatibility update is never used here.
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect((await res.json()).page).toMatchObject({ sentAt: "2026-10-03T08:30:00.000Z" });
   });
 
   it("rejects message-id reuse with different facts", async () => {
@@ -485,6 +532,7 @@ describe("POST /api/kostnadsfri", () => {
     recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({
       status: "created",
       event: { message_id: "e".repeat(32) },
+      page: pageRow(),
     });
 
     const res = await POST(
@@ -510,6 +558,7 @@ describe("POST /api/kostnadsfri", () => {
         source: "render-mail-flow:text",
         outcome: "scheduled",
       }),
+      { firstSend: undefined },
     );
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
     expect((await res.json()).page).toMatchObject({ sentAt: null, source: null });
