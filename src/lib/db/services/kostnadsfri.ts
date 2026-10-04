@@ -20,7 +20,10 @@ import { unsubscribedAtFromExtra } from "@/lib/kostnadsfri/unsubscribe";
 import { assertDbConfigured } from "./shared";
 import type { KostnadsfriPage } from "./shared";
 import type { KostnadsfriGeneration } from "@/lib/kostnadsfri/mail-register-contract";
-import { resolveKostnadsfriGenerationProjection } from "@/lib/kostnadsfri/mail-register-contract";
+import {
+  mailTypeFromSource,
+  resolveKostnadsfriGenerationProjection,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 export type CreateKostnadsfriPageInput = {
   slug: string;
@@ -123,18 +126,14 @@ export type KostnadsfriPageSentInput = {
   extraDataPatch?: Record<string, unknown> | null;
 };
 
-function kostnadsfriPageSentUpdates(data: KostnadsfriPageSentInput) {
-  const updates: {
-    sent_at: Date;
-    source: string;
-    updated_at: Date;
-    contact_email?: string;
-    extra_data?: ReturnType<typeof sql>;
-  } = {
-    sent_at: data.sentAt,
-    source: data.source,
-    updated_at: new Date(),
-  };
+/** Company metadata a registered send may refresh. Never the cohort fields. */
+export type KostnadsfriPageMetadataInput = {
+  contactEmail?: string | null;
+  extraDataPatch?: Record<string, unknown> | null;
+};
+
+function kostnadsfriPageMetadataUpdates(data: KostnadsfriPageMetadataInput) {
+  const updates: { contact_email?: string; extra_data?: ReturnType<typeof sql> } = {};
   const contactEmail = data.contactEmail?.trim();
   if (contactEmail) updates.contact_email = contactEmail;
   if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
@@ -143,6 +142,15 @@ function kostnadsfriPageSentUpdates(data: KostnadsfriPageSentInput) {
     )}::jsonb`;
   }
   return updates;
+}
+
+function kostnadsfriPageSentUpdates(data: KostnadsfriPageSentInput) {
+  return {
+    sent_at: data.sentAt,
+    source: data.source,
+    updated_at: new Date(),
+    ...kostnadsfriPageMetadataUpdates(data),
+  };
 }
 
 export async function markKostnadsfriPageSent(
@@ -404,11 +412,17 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
   input: KostnadsfriMailEventInput & { pageId: number },
   options: {
     /**
-     * Compatibility fields for the company's first accepted send. Written
-     * under the same row lock and only `WHERE sent_at IS NULL`, so two
-     * overlapping first sends can never overwrite each other's cohort.
+     * Cohort fields (`sent_at`/`source`) for the company's first accepted
+     * send. Written under the same row lock and only `WHERE sent_at IS NULL`,
+     * so two overlapping first sends can never overwrite each other's cohort.
      */
-    firstSend?: KostnadsfriPageSentInput;
+    firstSend?: { sentAt: Date; source: string };
+    /**
+     * Contact/profile refresh carried by an accepted send (first or follow).
+     * Applied under the same lock and opt-out check, independently of the
+     * protected cohort fields. Conflict or opt-out changes nothing.
+     */
+    metadata?: KostnadsfriPageMetadataInput;
   } = {},
 ): Promise<
   | (KostnadsfriMailEventRecord & { page: KostnadsfriPage | null })
@@ -426,15 +440,28 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
       return { status: "unsubscribed" as const };
     }
     const record = await recordMailEventWith(tx, input);
-    if (record.status === "conflict" || !options.firstSend || !page || page.sent_at) {
+    if (record.status === "conflict" || !page) {
       return { ...record, page };
     }
-    const updated = await tx
-      .update(kostnadsfriPages)
-      .set(kostnadsfriPageSentUpdates(options.firstSend))
-      .where(and(eq(kostnadsfriPages.id, input.pageId), isNull(kostnadsfriPages.sent_at)))
-      .returning();
-    return { ...record, page: updated[0] ?? page };
+    let current = page;
+    if (options.firstSend && !current.sent_at) {
+      const filled = await tx
+        .update(kostnadsfriPages)
+        .set(kostnadsfriPageSentUpdates({ ...options.firstSend, ...options.metadata }))
+        .where(and(eq(kostnadsfriPages.id, input.pageId), isNull(kostnadsfriPages.sent_at)))
+        .returning();
+      if (filled[0]) return { ...record, page: filled[0] };
+    }
+    const metadata = kostnadsfriPageMetadataUpdates(options.metadata ?? {});
+    if (Object.keys(metadata).length > 0) {
+      const refreshed = await tx
+        .update(kostnadsfriPages)
+        .set({ ...metadata, updated_at: new Date() })
+        .where(eq(kostnadsfriPages.id, input.pageId))
+        .returning();
+      current = refreshed[0] ?? current;
+    }
+    return { ...record, page: current };
   });
 }
 
@@ -599,11 +626,28 @@ export type KostnadsfriMailEventStats = {
     variant: "text" | "animated";
     total: number;
     accepted: number;
+    /**
+     * A/B denominator: companies in this cohort with at least one accepted
+     * first mail. The cohort is the company row's preserved `source`, the
+     * same field the admin numerators use, so each company counts once.
+     */
     firstAccepted: number;
     delivered: number;
     replied: number;
   }>;
 };
+
+/** Maps company rows (by preserved `source`) to the text/animated cohorts. */
+export function countFirstAcceptedCohorts(
+  rows: ReadonlyArray<{ source: string | null; companies: number }>,
+): Record<"text" | "animated", number> {
+  const counts = { text: 0, animated: 0 };
+  for (const row of rows) {
+    const cohort = mailTypeFromSource(row.source);
+    if (cohort === "text" || cohort === "animated") counts[cohort] += Number(row.companies);
+  }
+  return counts;
+}
 
 export async function getKostnadsfriMailEventStats(): Promise<KostnadsfriMailEventStats> {
   assertDbConfigured();
@@ -612,35 +656,39 @@ export async function getKostnadsfriMailEventStats(): Promise<KostnadsfriMailEve
       variant: kostnadsfriMailEvents.variant,
       total: sql<number>`count(*)::int`,
       accepted: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.outcome} = 'accepted')::int`,
-      // A/B denominator: one company, one cohort. Only the company's earliest
-      // accepted first mail counts, so a later `step=first` (new flow, maybe
-      // the other variant) cannot inflate either cohort. Matches the admin
-      // numerators, which count each page once by its preserved source.
-      firstAccepted: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.outcome} = 'accepted' and ${kostnadsfriMailEvents.step} = 'first' and not exists (
-        select 1 from kostnadsfri_mail_events earlier
-        where earlier.slug = ${kostnadsfriMailEvents.slug}
-          and earlier.step = 'first'
-          and earlier.outcome = 'accepted'
-          and (earlier.created_at, earlier.message_id) < (${kostnadsfriMailEvents.created_at}, ${kostnadsfriMailEvents.message_id})
-      ))::int`,
       delivered: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.delivered_at} is not null)::int`,
       replied: sql<number>`count(*) filter (where ${kostnadsfriMailEvents.replied_at} is not null)::int`,
     })
     .from(kostnadsfriMailEvents)
     .groupBy(kostnadsfriMailEvents.variant);
-  const byVariant = rows
-    .filter(
-      (row): row is typeof row & { variant: "text" | "animated" } =>
-        row.variant === "text" || row.variant === "animated",
+  const cohortRows = await db
+    .select({ source: kostnadsfriPages.source, companies: sql<number>`count(*)::int` })
+    .from(kostnadsfriPages)
+    .where(
+      sql`exists (
+        select 1 from kostnadsfri_mail_events first_mail
+        where first_mail.slug = ${kostnadsfriPages.slug}
+          and first_mail.step = 'first'
+          and first_mail.outcome = 'accepted'
+      )`,
     )
-    .map((row) => ({
-      variant: row.variant,
-      total: Number(row.total),
-      accepted: Number(row.accepted),
-      firstAccepted: Number(row.firstAccepted),
-      delivered: Number(row.delivered),
-      replied: Number(row.replied),
-    }));
+    .groupBy(kostnadsfriPages.source);
+  const firstAcceptedByVariant = countFirstAcceptedCohorts(cohortRows);
+  // Both cohorts are always reported: a company's cohort comes from its row,
+  // so it can have first-accepted companies without events of that variant.
+  const byVariant = (["text", "animated"] as const)
+    .map((variant) => {
+      const row = rows.find((candidate) => candidate.variant === variant);
+      return {
+        variant,
+        total: Number(row?.total ?? 0),
+        accepted: Number(row?.accepted ?? 0),
+        firstAccepted: firstAcceptedByVariant[variant],
+        delivered: Number(row?.delivered ?? 0),
+        replied: Number(row?.replied ?? 0),
+      };
+    })
+    .filter((row) => row.total > 0 || row.firstAccepted > 0);
   return {
     total: byVariant.reduce((sum, row) => sum + row.total, 0),
     accepted: byVariant.reduce((sum, row) => sum + row.accepted, 0),

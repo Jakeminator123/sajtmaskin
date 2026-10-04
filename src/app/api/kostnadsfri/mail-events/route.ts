@@ -15,8 +15,12 @@ const CURSOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
  * JS `Date` normalizes 2026-02-31 to March 3 while Postgres rejects it, so the
  * parsed date must round-trip to the same calendar components (to the
  * millisecond; the microsecond digits are already constrained by the regex).
+ * Year 0000 does not exist in PostgreSQL and is rejected too.
  */
 function isCalendarExact(createdAt: string): boolean {
+  // PostgreSQL has no AD year 0 (1 BC comes before AD 1), but JS Date and
+  // ISO 8601 accept 0000, so it has to be rejected explicitly.
+  if (createdAt.startsWith("0000-")) return false;
   const parsed = new Date(createdAt);
   return (
     !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 23) === createdAt.slice(0, 23)

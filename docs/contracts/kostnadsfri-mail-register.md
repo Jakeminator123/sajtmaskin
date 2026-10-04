@@ -58,7 +58,10 @@ Analysfel ger `visits`, `verified` och `started` som `null`, aldrig falska nollo
 
 Defaultläsningen behåller tidigare ordning och högst 2 000 rader. En komplett,
 stabil id-ordnad läsning börjar med `?cursor=0&limit=500` och följer
-`registry.nextCursor` tills `registry.complete=true`. Om defaultläsningen
+`registry.nextCursor` tills `registry.complete=true`. `registry`, `analytics` och
+`generation` valideras som en del av kontraktet: `complete=false` har alltid
+en `nextCursor`, `complete=true` aldrig, och otillgänglig analys kan inte vara
+`complete`. Om defaultläsningen
 kapas (`complete=false`) är `registry.nextCursor` `"0"`: legacyordningen kan
 inte återupptas, så konsumenten läser om hela registret i id-ordning och
 deduplicerar på `slug`.
@@ -67,8 +70,8 @@ deduplicerar på `slug`.
 skapelseordning. Följ dess opaka `nextCursor` tills `complete=true`. Markören
 bär `created_at` med mikrosekunder plus `messageId`, så sista raden upprepas
 aldrig och rader med samma tidsstämpel hoppas inte över. En markör med bara
-millisekunder, eller ett datum som inte finns (t.ex. `2026-02-31`), avvisas
-med 400.
+millisekunder, eller ett datum som inte finns (t.ex. `2026-02-31` eller år
+`0000`, som PostgreSQL saknar), avvisas med 400.
 
 Ett `mailEvent` för ett företag som har avregistrerat sig ger 409, både
 `step=first` och `step=follow`. När `POST` skapar en ny sida med `mailEvent`
@@ -79,8 +82,13 @@ transaktion som mejlraden skrivs, så en samtidig avregistrering kan inte
 smita förbi kontrollen.
 Företagets `sentAt/source` fylls i samma låsta transaktion och bara medan
 `sent_at` är tomt, så två samtidiga första mejl kan inte skriva över varandras
-kohort. A/B-nämnaren `firstAccepted` räknar bara varje företags tidigaste
-accepterade första mejl.
+kohort. Kontaktadress och profil är separat företagsmetadata: varje accepterat
+mejl (`first` eller `follow`) får uppdatera dem under samma lås och
+avregistreringskontroll, utan att röra `sentAt/source`. En konflikt eller en
+avregistrering ändrar ingenting. A/B-nämnaren `firstAccepted` räknar företag
+med minst ett accepterat första mejl, i den kohort som företagsradens bevarade
+`source` anger, alltså samma fält som adminvyns täljare. Varje företag räknas en
+gång oavsett i vilken ordning dess mejl accepterades; alla mejlrader behålls.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

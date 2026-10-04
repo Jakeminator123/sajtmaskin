@@ -28,6 +28,10 @@ vi.mock("@/lib/auth/auth", () => ({
 }));
 
 import { GET, POST } from "./route";
+import {
+  parseKostnadsfriRegisterEnvelopes,
+  parseKostnadsfriRegisterResponse,
+} from "@/lib/kostnadsfri/mail-register-contract";
 
 const API_KEY = "test-api-key";
 
@@ -283,7 +287,8 @@ describe("POST /api/kostnadsfri", () => {
         step: "follow",
         variant: "animated",
       }),
-      { firstSend: undefined },
+      // A follow-up never touches the cohort but still carries contact data.
+      { firstSend: undefined, metadata: { contactEmail: "hej@acme.se" } },
     );
     expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
     expect(body.mailEvent).toEqual({ messageId: "a".repeat(32), status: "duplicate" });
@@ -491,6 +496,7 @@ describe("POST /api/kostnadsfri", () => {
           sentAt: new Date("2026-10-03T08:30:00.000Z"),
           source: "render-mail-flow:text",
         }),
+        metadata: { contactEmail: undefined },
       },
     );
     // The unconditional, unlocked compatibility update is never used here.
@@ -1004,5 +1010,27 @@ describe("GET /api/kostnadsfri", () => {
       expect(res.status).toBe(400);
     }
     expect(listKostnadsfriPagesAfterId).not.toHaveBeenCalled();
+  });
+
+  it("emits a response that satisfies the published contract, also when partially unavailable", async () => {
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow({ id: 5 }), pageRow({ id: 3, slug: "beta-ab" })]);
+    getKostnadsfriVisitStats.mockRejectedValueOnce(new Error("analytics down"));
+    getKostnadsfriGenerationBySlug.mockRejectedValueOnce(new Error("generation down"));
+
+    const body = await (await GET(getRequest(API_KEY, "?limit=1"))).json();
+
+    expect(parseKostnadsfriRegisterEnvelopes(body)).toMatchObject({
+      registry: { complete: false, nextCursor: "0", paginationMode: "legacy-send-order" },
+      analytics: { available: false, complete: false },
+      generation: { available: false },
+    });
+    expect(parseKostnadsfriRegisterResponse(body)[0].generation.state).toBe("unknown");
+
+    listKostnadsfriPages.mockResolvedValueOnce([pageRow()]);
+    const complete = await (await GET(getRequest())).json();
+    expect(parseKostnadsfriRegisterEnvelopes(complete).registry).toMatchObject({
+      complete: true,
+      nextCursor: null,
+    });
   });
 });

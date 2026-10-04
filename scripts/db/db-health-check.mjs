@@ -31,6 +31,7 @@ import { config } from "dotenv";
 import { mkdir, appendFile } from "fs/promises";
 import { dirname, join } from "path";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import { findMissingIndexes, parseIndexDefinition } from "./db-health-indexes.mjs";
 
 config({ path: ".env.local" });
 
@@ -107,6 +108,13 @@ const EXPECTED_TABLES = [
 // `db-health-check` rapporterar "missing" först när NEITHER namnet existerar
 // NOR ett annat index täcker exakt samma kolumner (covering-aware).
 const EXPECTED_INDEXES_WITH_COLUMNS = {
+  // add-kostnadsfri-mail-events.sql. Utan dessa blev en DB som saknar båda
+  // indexen false-green (missing=[]) och en korrekt migrerad DB rapporterade
+  // dem som extra (Codex P2).
+  kostnadsfri_mail_events: [
+    { name: "idx_kostnadsfri_mail_events_slug_created", columns: ["slug", "created_at"] },
+    { name: "idx_kostnadsfri_mail_events_flow_id", columns: ["flow_id"] },
+  ],
   engine_messages: [
     { name: "idx_engine_messages_chat_created", columns: ["chat_id", "created_at"] },
   ],
@@ -523,27 +531,8 @@ async function getTableInfo(name) {
   );
   const indexMeta = new Map();
   for (const r of idxDefRows.rows) {
-    // indexdef är t.ex.:
-    //   CREATE INDEX foo ON public.bar USING btree (col1, col2 DESC)
-    //   CREATE UNIQUE INDEX foo ON public.bar USING btree (col1)
-    //   CREATE UNIQUE INDEX foo ON public.bar USING btree (col1) WHERE (status = 'running')
-    const def = String(r.indexdef);
-    const m = def.match(/\(([^)]+)\)/);
-    if (!m) continue;
-    const cols = m[1]
-      .split(",")
-      .map((c) =>
-        c
-          .trim()
-          .replace(/\s+(DESC|ASC)\s*$/i, "")
-          .replace(/\s+NULLS\s+(FIRST|LAST)\s*$/i, "")
-          .replace(/^"(.+)"$/, "$1"),
-      )
-      .filter(Boolean);
-    const unique = /CREATE\s+UNIQUE\s+INDEX/i.test(def);
-    // A partial index has a trailing WHERE predicate (after the column list).
-    const partial = /\)\s+WHERE\s+/i.test(def);
-    indexMeta.set(r.indexname, { cols, unique, partial });
+    const meta = parseIndexDefinition(r.indexdef);
+    if (meta) indexMeta.set(r.indexname, meta);
   }
 
   const pkRows = await pool.query(
@@ -577,35 +566,7 @@ async function getTableInfo(name) {
   // "missing"-larm när tidigare migrations skapat samma index med
   // alternativt namn (t.ex. `idx_gen_telemetry_chat`).
   const expected = EXPECTED_INDEXES_WITH_COLUMNS[name] || [];
-  const present = new Set(indexes);
-  const missing = [];
-  const aliasedFor = {};
-  for (const e of expected) {
-    if (present.has(e.name)) continue;
-    let coveredBy = null;
-    if (e.columns) {
-      for (const [iname, meta] of indexMeta.entries()) {
-        const icols = meta.cols;
-        if (
-          icols.length === e.columns.length &&
-          icols.every((c, idx) => c === e.columns[idx]) &&
-          // A cover for a UNIQUE/partial expected index must share those
-          // properties — otherwise a plain index would mask a missing partial
-          // unique lock index (Codex P2).
-          (!e.unique || meta.unique) &&
-          (!e.partial || meta.partial)
-        ) {
-          coveredBy = iname;
-          break;
-        }
-      }
-    }
-    if (coveredBy) {
-      aliasedFor[e.name] = coveredBy;
-    } else {
-      missing.push(e.name);
-    }
-  }
+  const { missing, aliasedFor } = findMissingIndexes(expected, indexes, indexMeta);
 
   return {
     name,

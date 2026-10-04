@@ -93,10 +93,61 @@ const registerPageSchema = z.object({
   generation: z.unknown().optional(),
 });
 
+const isoDateTime = z.string().datetime({ offset: true });
+
+/**
+ * Pagination envelope. A consumer must be able to tell a capped partial read
+ * from a complete export: `complete=false` always carries a `nextCursor`,
+ * `complete=true` never does.
+ */
+const registryEnvelopeSchema = z
+  .object({
+    checkedAt: isoDateTime,
+    returned: z.number().int().nonnegative(),
+    limit: z.number().int().positive(),
+    complete: z.boolean(),
+    nextCursor: z.string().regex(/^\d+$/).nullable(),
+    paginationMode: z.enum(["legacy-send-order", "complete-id-order"]).optional(),
+  })
+  .refine((value) => value.complete === (value.nextCursor === null), {
+    message: "complete=false requires nextCursor; complete=true forbids it",
+  });
+
+/** Analytics availability. Unavailable analytics can never claim completeness. */
+const analyticsEnvelopeSchema = z
+  .object({
+    available: z.boolean(),
+    windowDays: z.number().int().positive(),
+    checkedAt: isoDateTime,
+    complete: z.boolean(),
+  })
+  .refine((value) => value.available || !value.complete, {
+    message: "unavailable analytics cannot be complete",
+  });
+
+const generationEnvelopeSchema = z.object({
+  available: z.boolean(),
+  checkedAt: isoDateTime,
+});
+
 const registerResponseSchema = z.object({
   success: z.literal(true),
   pages: z.array(registerPageSchema),
+  registry: registryEnvelopeSchema,
+  analytics: analyticsEnvelopeSchema,
+  generation: generationEnvelopeSchema,
 });
+
+export type KostnadsfriRegisterEnvelopes = Pick<
+  z.infer<typeof registerResponseSchema>,
+  "registry" | "analytics" | "generation"
+>;
+
+/** Validates the whole advertised GET contract, including its metadata envelopes. */
+export function parseKostnadsfriRegisterEnvelopes(value: unknown): KostnadsfriRegisterEnvelopes {
+  const { registry, analytics, generation } = registerResponseSchema.parse(value);
+  return { registry, analytics, generation };
+}
 
 export type ParsedKostnadsfriRegisterPage = Omit<
   z.infer<typeof registerPageSchema>,

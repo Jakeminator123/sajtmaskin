@@ -9,7 +9,7 @@ const state = vi.hoisted(() => ({
   lockedPageExtra: null as unknown,
   lockedPage: { id: 1, sent_at: null, source: null } as Record<string, unknown>,
   pageUpdates: [] as unknown[],
-  statsFields: null as Record<string, SQL> | null,
+  pageUpdateValues: [] as Record<string, unknown>[],
   locks: 0,
 }));
 
@@ -47,10 +47,11 @@ vi.mock("@/lib/db/client", async () => {
                   returning: async () => {
                     const query = new PgDialect().sqlToQuery(clause).sql;
                     state.pageUpdates.push(query);
-                    // Model `WHERE id = $1 AND sent_at IS NULL`.
-                    if (!/"sent_at" is null/.test(query) || state.lockedPage.sent_at !== null) {
+                    // Model `WHERE id = $1 [AND sent_at IS NULL]`.
+                    if (/"sent_at" is null/.test(query) && state.lockedPage.sent_at !== null) {
                       return [];
                     }
+                    state.pageUpdateValues.push(values);
                     state.lockedPage = { ...state.lockedPage, ...values };
                     return [state.lockedPage];
                   },
@@ -75,12 +76,8 @@ vi.mock("@/lib/db/client", async () => {
         }
       },
       insert: insertInto,
-      select: (fields?: Record<string, SQL>) => ({
+      select: () => ({
         from: () => {
-          if (fields && "firstAccepted" in fields) {
-            state.statsFields = fields;
-            return { groupBy: async () => [] };
-          }
           const rows = Promise.resolve([]);
           return Object.assign(rows, {
             where: async (clause: SQL) => {
@@ -98,7 +95,7 @@ import {
   createKostnadsfriPageWithMailEvent,
   getKostnadsfriGenerationBySlug,
   recordKostnadsfriMailEventForSubscribedPage,
-  getKostnadsfriMailEventStats,
+  countFirstAcceptedCohorts,
   isAllowedMailOutcomeTransition,
 } from "./kostnadsfri";
 
@@ -125,7 +122,7 @@ beforeEach(() => {
   state.lockedPageExtra = null;
   state.lockedPage = { id: 1, sent_at: null, source: null };
   state.pageUpdates = [];
-  state.statsFields = null;
+  state.pageUpdateValues = [];
   state.locks = 0;
 });
 
@@ -241,15 +238,72 @@ describe("first-send compatibility fields under the registration lock", () => {
   });
 });
 
-describe("getKostnadsfriMailEventStats A/B denominator", () => {
-  it("counts only each company's earliest accepted first mail", async () => {
-    await getKostnadsfriMailEventStats();
+describe("countFirstAcceptedCohorts", () => {
+  it("assigns each company to the cohort of its preserved source only", () => {
+    expect(
+      countFirstAcceptedCohorts([
+        { source: "render-mail-flow:text", companies: 2 },
+        { source: "render-mail-flow:animated", companies: 1 },
+        { source: "post-scrape", companies: 4 },
+        { source: null, companies: 1 },
+      ]),
+    ).toEqual({ text: 2, animated: 1 });
+  });
+});
 
-    const rendered = new PgDialect().sqlToQuery(state.statsFields!.firstAccepted).sql;
-    expect(rendered).toMatch(/not exists/);
-    expect(rendered).toMatch(/earlier\.slug = "kostnadsfri_mail_events"\."slug"/);
-    expect(rendered).toMatch(
-      /\(earlier\.created_at, earlier\.message_id\) < \("kostnadsfri_mail_events"\."created_at", "kostnadsfri_mail_events"\."message_id"\)/,
+describe("company metadata vs protected cohort fields", () => {
+  const metadata = { contactEmail: "ny@acme.se", extraDataPatch: { profile: { city: "Lund" } } };
+  const sent = {
+    id: 1,
+    sent_at: new Date("2026-10-01T08:00:00.000Z"),
+    source: "render-mail-flow:text",
+  };
+
+  it("applies contact/profile from an accepted follow-up without touching sent_at/source", async () => {
+    state.lockedPage = { ...sent };
+    const result = await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, step: "follow", variant: "animated", pageId: 1, slug: "acme-ab" },
+      { metadata },
     );
+
+    expect(result.status).toBe("created");
+    expect(state.pageUpdateValues).toHaveLength(1);
+    expect(state.pageUpdateValues[0]).toHaveProperty("contact_email", "ny@acme.se");
+    expect(state.pageUpdateValues[0]).toHaveProperty("extra_data");
+    expect(state.pageUpdateValues[0]).not.toHaveProperty("sent_at");
+    expect(state.pageUpdateValues[0]).not.toHaveProperty("source");
+    expect(state.lockedPage).toMatchObject({ sent_at: sent.sent_at, source: "render-mail-flow:text" });
+  });
+
+  it("applies metadata from a later step=first on an already-sent company, cohort kept", async () => {
+    state.lockedPage = { ...sent };
+    await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, variant: "animated", pageId: 1, slug: "acme-ab" },
+      {
+        firstSend: { sentAt: new Date("2026-10-03T08:30:00.000Z"), source: "render-mail-flow:animated" },
+        metadata,
+      },
+    );
+
+    expect(state.pageUpdateValues).toHaveLength(1);
+    expect(state.pageUpdateValues[0]).not.toHaveProperty("sent_at");
+    expect(state.lockedPage).toMatchObject({
+      sent_at: sent.sent_at,
+      source: "render-mail-flow:text",
+      contact_email: "ny@acme.se",
+    });
+  });
+
+  it("changes no metadata after opt-out", async () => {
+    state.lockedPage = { ...sent };
+    state.lockedPageExtra = { unsubscribedAt: "2026-10-02T09:00:00.000Z" };
+    const optedOut = await recordKostnadsfriMailEventForSubscribedPage(
+      { ...mailEvent, messageId: "c".repeat(32), pageId: 1, slug: "acme-ab" },
+      { firstSend: { sentAt: new Date(), source: "render-mail-flow:text" }, metadata },
+    );
+
+    expect(optedOut).toEqual({ status: "unsubscribed" });
+    expect(state.pageUpdateValues).toEqual([]);
+    expect(state.events).toEqual([]);
   });
 });

@@ -289,19 +289,23 @@ export async function POST(request: NextRequest) {
       }
 
       // Locked re-check: an unsubscribe that commits after the lookup above
-      // still stops the receipt. The compatibility fields stay on the first
-      // recorded send: only an accepted `step=first` may fill them, under the
-      // same row lock and only while `sent_at` is still empty. A follow-up or
-      // a later first mail (new flow) never moves the company's A/B cohort.
+      // still stops the receipt. The cohort fields (`sentAt/source`) stay on
+      // the first recorded send: only an accepted `step=first` may fill them,
+      // under the same row lock and only while `sent_at` is still empty.
+      // Contact/profile refresh is separate company metadata: any accepted
+      // send (first or follow) may carry it, under the same lock and opt-out
+      // check. A conflict or opt-out changes nothing.
+      const acceptedSend = mailEvent?.outcome === "accepted" && sentAt;
       const firstSend =
-        mailEvent?.step === "first" && mailEvent.outcome === "accepted" && sentAt
-          ? {
-              sentAt: new Date(sentAt),
-              source: source || DEFAULT_SEND_SOURCE,
-              contactEmail,
-              ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
-            }
+        acceptedSend && mailEvent?.step === "first"
+          ? { sentAt: new Date(sentAt), source: source || DEFAULT_SEND_SOURCE }
           : undefined;
+      const metadata = acceptedSend
+        ? {
+            contactEmail,
+            ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
+          }
+        : undefined;
       const mailReceipt = mailEvent
         ? await recordKostnadsfriMailEventForSubscribedPage(
             {
@@ -320,7 +324,7 @@ export async function POST(request: NextRequest) {
               outcome: mailEvent.outcome,
               source: source || expectedMailSource || DEFAULT_SEND_SOURCE,
             },
-            { firstSend },
+            { firstSend, metadata },
           )
         : null;
       if (mailReceipt?.status === "unsubscribed") {

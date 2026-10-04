@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   normalizeKostnadsfriGeneration,
+  parseKostnadsfriRegisterEnvelopes,
   parseKostnadsfriRegisterResponse,
   resolveKostnadsfriGenerationProjection,
 } from "./mail-register-contract";
@@ -46,7 +47,7 @@ describe("kostnadsfri mail register contract", () => {
 
   it("does not infer an accepted mail or generation from URL correlation fields", () => {
     const pages = parseKostnadsfriRegisterResponse({
-      success: true,
+      ...(fixture as Record<string, unknown>),
       pages: [
         {
           ...(fixture as { pages: Record<string, unknown>[] }).pages[0],
@@ -101,6 +102,64 @@ describe("kostnadsfri mail register contract", () => {
       state: "succeeded",
       completedAt: "2026-10-03T08:42:00.000Z",
       siteId: "site_1",
+    });
+  });
+
+  describe("advertised metadata envelopes", () => {
+    const base = fixture as Record<string, Record<string, unknown>>;
+    const withEnvelope = (key: string, patch: Record<string, unknown> | undefined) => {
+      const copy: Record<string, unknown> = structuredClone(fixture) as Record<string, unknown>;
+      if (patch === undefined) delete copy[key];
+      else copy[key] = { ...base[key], ...patch };
+      return copy;
+    };
+
+    it("validates registry, analytics and generation on the fixture", () => {
+      expect(parseKostnadsfriRegisterEnvelopes(fixture)).toEqual({
+        registry: base.registry,
+        analytics: base.analytics,
+        generation: base.generation,
+      });
+    });
+
+    it("rejects a response that omits any envelope", () => {
+      for (const key of ["registry", "analytics", "generation"]) {
+        expect(() => parseKostnadsfriRegisterResponse(withEnvelope(key, undefined))).toThrow();
+      }
+    });
+
+    it("rejects corrupted pagination metadata", () => {
+      for (const patch of [
+        { complete: false, nextCursor: null },
+        { complete: true, nextCursor: "11" },
+        { complete: "yes" },
+        { nextCursor: "11abc", complete: false },
+        { returned: -1 },
+      ]) {
+        expect(() => parseKostnadsfriRegisterEnvelopes(withEnvelope("registry", patch))).toThrow();
+      }
+    });
+
+    it("accepts a capped partial read with partial-unavailable analytics and generation", () => {
+      const partial = {
+        ...(structuredClone(fixture) as Record<string, unknown>),
+        registry: { ...base.registry, complete: false, nextCursor: "0", paginationMode: "legacy-send-order" },
+        analytics: { ...base.analytics, available: false, complete: false },
+        generation: { ...base.generation, available: false },
+      };
+      const envelopes = parseKostnadsfriRegisterEnvelopes(partial);
+      expect(envelopes.registry).toMatchObject({ complete: false, nextCursor: "0" });
+      expect(envelopes.analytics).toMatchObject({ available: false, complete: false });
+      expect(envelopes.generation.available).toBe(false);
+      // A legacy row without generation still degrades to unknown, row kept.
+      const legacy = parseKostnadsfriRegisterResponse(partial).find((p) => p.slug === "legacy-ab");
+      expect(legacy?.generation.state).toBe("unknown");
+    });
+
+    it("rejects analytics that claims completeness while unavailable", () => {
+      expect(() =>
+        parseKostnadsfriRegisterEnvelopes(withEnvelope("analytics", { available: false, complete: true })),
+      ).toThrow();
     });
   });
 });

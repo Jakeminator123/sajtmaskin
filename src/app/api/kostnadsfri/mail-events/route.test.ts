@@ -97,11 +97,27 @@ describe("GET /api/kostnadsfri/mail-events", () => {
       "2026-13-01T08:31:00.123456Z",
       "2026-10-03T24:00:00.000000Z",
       "2026-10-03T08:60:00.123456Z",
+      "0000-01-01T00:00:00.123456Z",
+      "0000-12-31T23:59:59.999999Z",
     ]) {
       const cursor = Buffer.from(`${time}|${"a".repeat(32)}`).toString("base64url");
       const res = await GET(request(`?cursor=${cursor}`));
       expect(res.status).toBe(400);
     }
     expect(listKostnadsfriMailEventsAfter).not.toHaveBeenCalled();
+  });
+
+  it("still accepts year 0001, a leap day and all six microsecond digits", async () => {
+    for (const time of [
+      "0001-01-01T00:00:00.000001Z",
+      "2028-02-29T23:59:59.999999Z",
+      "2026-10-03T08:31:00.123456Z",
+    ]) {
+      listKostnadsfriMailEventsAfter.mockResolvedValueOnce([]);
+      const cursor = Buffer.from(`${time}|${"a".repeat(32)}`).toString("base64url");
+      const res = await GET(request(`?cursor=${cursor}`));
+      expect(res.status).toBe(200);
+      expect(listKostnadsfriMailEventsAfter).toHaveBeenLastCalledWith(time, "a".repeat(32), 501);
+    }
   });
 });
