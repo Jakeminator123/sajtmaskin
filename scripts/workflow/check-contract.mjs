@@ -10,6 +10,7 @@ import {
   normalize as posixNormalize,
 } from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 import {
@@ -40,14 +41,26 @@ export function evaluateRetiredApiReviewWorkflows(workflows) {
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
-  manualMergeRuleSha256: "880433b4dea601a50865302cfa60f74e6b9c215df6dd119fab971de9051b4475",
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
-  // Required PR-head checks and the workflow file that may publish them.
-  // `review-window` is owned by the trusted default-branch controller, not a
-  // PR-head job, and is filtered out before this map is consulted.
+  // Canonical required PR-head checks and the workflow that may publish them.
+  // GitHubs live ruleset is mergeägare; denna karta hindrar namnspoofing.
   requiredCheckOwners: REQUIRED_CHECK_OWNERS,
-  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
-  manualMergePathPrefixes: [
+  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS)]),
+  dependabotAutoMerge: Object.freeze({
+    allowedFiles: Object.freeze(["package-lock.json", "package.json"]),
+    allowedPackages: Object.freeze([
+      "@radix-ui/*",
+      "ajv",
+      "date-fns",
+      "dotenv",
+      "nanoid",
+      "prettier",
+      "swr",
+      "tailwind-merge",
+      "zustand",
+    ]),
+  }),
+  ownerReviewPathPrefixes: [
     ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
@@ -134,8 +147,7 @@ function json(root, path) {
 }
 
 const TRUSTED_CONTROLLER_ENTRIES = Object.freeze([
-  "scripts/ci/trusted-review-window.mjs",
-  "scripts/ci/merge-ready-freshness.mjs",
+  "scripts/ci/dependabot-automerge.mjs",
 ]);
 
 function normalizeRepoRelative(value) {
@@ -172,7 +184,7 @@ export function collectEsmSpecifiers(source) {
 /**
  * Fail-closed: every import reachable from a CI trust-root entry must be
  * `node:*` or a relative file. Bare package specifiers (ajv, js-yaml, …)
- * break merge-ready-freshness, which runs without `npm install`.
+ * break the trusted Dependabot controller, which runs without `npm install`.
  *
  * @param {Record<string, string | null | undefined>} fileSources
  * @param {readonly string[]} entryRelPaths
@@ -276,15 +288,15 @@ export function evaluateTrustedControllerPermissions(source) {
   }
   const errors = [];
   if (document?.permissions === undefined || document?.permissions === null) {
-    errors.push("trusted controller must declare explicit non-merge permissions");
+    errors.push("trusted controller must declare explicit permissions");
   }
-  const capabilities = ["contents", "actions"];
-  if (grantsWrite(document?.permissions, capabilities)) {
-    errors.push("trusted controller must not grant contents/actions write at workflow level");
+  const expected = { contents: "read", "pull-requests": "read" };
+  if (!isDeepStrictEqual(document?.permissions, expected)) {
+    errors.push("Dependabot controller GITHUB_TOKEN permissions must be exactly contents/pull-requests read");
   }
   for (const [jobName, job] of Object.entries(document?.jobs ?? {})) {
-    if (grantsWrite(job?.permissions, capabilities)) {
-      errors.push(`trusted controller job ${jobName} must not grant contents/actions write`);
+    if (job?.permissions !== undefined) {
+      errors.push(`trusted controller job ${jobName} must not override workflow permissions`);
     }
   }
   return errors;
@@ -334,16 +346,13 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   const coreNames = new Set(
     (policy.requiredChecks ?? [])
       .map((name) => String(name).trim().toLowerCase())
-      .filter((name) => name && name !== "review-window"),
+      .filter(Boolean),
   );
   const reviewPatterns = (policy.review?.qualifyingCheckPatterns ?? [])
     .map((pattern) => String(pattern).trim().toLowerCase())
     .filter(Boolean);
   const canonicalCoreCounts = new Map([...coreNames].map((name) => [name, 0]));
   for (const workflow of workflowSources) {
-    if (/^review-window\.ya?ml$/iu.test(workflow.name)) {
-      errors.push(`${workflow.name} is retired; the default-branch controller owns review-window`);
-    }
     let document;
     try {
       document = yaml.load(workflow.source);
@@ -359,9 +368,6 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
       }
       const identities = new Set([String(jobId).trim().toLowerCase(), publishedName.toLowerCase()]);
       for (const identity of identities) {
-        if (identity === "review-window") {
-          errors.push(`${workflow.name} job ${jobId} may not use reserved identity review-window`);
-        }
         if (coreNames.has(identity)) {
           const owner = ownerWorkflowForRequiredCheck(identity, policy);
           if (workflow.name !== owner) {
@@ -435,20 +441,6 @@ const TRUSTED_MASTER_CREDENTIALS_PRESENT =
   "${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const TRUSTED_SCHEDULE_OR_MASTER_DISPATCH =
   "${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}";
-// Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
-// innan GitHub placerar körningen i cancel-in-progress-gruppen. Annars kan ett
-// no-op-event avbryta den riktiga gate-körningen utan att publicera ett avslut.
-const TRUSTED_REVIEW_GATE_JOB_IF =
-  "github.event_name == 'pull_request_target' && " +
-  "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
-  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' ) || " +
-  "( github.event_name == 'issue_comment' && github.event.action == 'created' && " +
-  "github.event.issue.pull_request != null && " +
-  'contains(fromJSON(\'["OWNER","MEMBER","COLLABORATOR"]\'), github.event.comment.author_association) && ' +
-  "github.event.comment.body == 'review-window:refresh' ) || " +
-  "( github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' )";
-const TRUSTED_REVIEW_GATE_CONCURRENCY =
-  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}";
 // Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
@@ -512,14 +504,16 @@ export function evaluateDossierAcceptanceWorkflow(source) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
   if (
     pullRequest &&
     typeof pullRequest === "object" &&
     !includesEvery(pullRequest.types, requiredTypes)
   ) {
-    errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
+    errors.push("dossier-acceptance must run on new heads and ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("dossier-acceptance must not restart unchanged work on converted_to_draft");
   }
 
   const scope = document?.jobs?.scope;
@@ -582,48 +576,6 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   return errors;
 }
 
-export function evaluateTrustedReviewWindowGate(source) {
-  let document;
-  try {
-    document = yaml.load(source);
-  } catch (error) {
-    return [
-      `merge-ready freshness is not valid YAML: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    ];
-  }
-
-  const gate = document?.jobs?.["trusted-review-window"];
-  const errors = [];
-  if (document?.concurrency !== undefined) {
-    errors.push(
-      "merge-ready freshness must not use workflow-level concurrency across independent controller jobs",
-    );
-  }
-  if (
-    !hasExactStringSet(document?.on?.pull_request_target?.branches, ["preview"]) ||
-    !hasExactStringSet(document?.on?.push?.branches, ["preview"])
-  ) {
-    errors.push("merge-ready freshness must listen only to preview, never master");
-  }
-  if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
-    errors.push(
-      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize, ready_for_review and a trusted gate-only refresh",
-    );
-  }
-  if (!hasExactExpression(gate?.concurrency?.group, TRUSTED_REVIEW_GATE_CONCURRENCY)) {
-    errors.push("trusted review-window concurrency must remain isolated per pull request");
-  }
-  if (gate?.concurrency?.["cancel-in-progress"] !== true) {
-    errors.push("trusted review-window must still cancel stale runs for a newer real gate event");
-  }
-  if (!gate?.steps?.some((step) => step.run === "node scripts/ci/trusted-review-window.mjs gate")) {
-    errors.push("trusted review-window gate job must invoke the default-branch controller");
-  }
-  return errors;
-}
-
 /**
  * CI scoping is allowed only inside the workflow. Required job identities must
  * still finish with success, while missing scope output always selects heavy.
@@ -643,10 +595,12 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     "synchronize",
     "reopened",
     "ready_for_review",
-    "converted_to_draft",
   ];
   if (!includesEvery(pullRequest?.types, requiredTypes)) {
-    errors.push("CI pull_request events must rerun scope when draft readiness changes");
+    errors.push("CI must run on new heads and upgrade deferred checks on ready_for_review");
+  }
+  if (values(pullRequest?.types).includes("converted_to_draft")) {
+    errors.push("CI must not restart unchanged work on converted_to_draft");
   }
 
   if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
@@ -683,6 +637,28 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     )
   ) {
     errors.push("quality-core may defer work only on an explicit successful light scope");
+  }
+  const qualityTests = document?.jobs?.["quality-tests"];
+  const shardCommand = "npm run test:ci -- --shard=${{ matrix.shard }}/4";
+  const shardStep = qualityTests?.steps?.find((step) => step.run === shardCommand);
+  if (
+    !values(qualityTests?.needs).includes("scope") ||
+    !hasExactExpression(qualityTests?.if, qualityCore?.if) ||
+    !hasExactStringSet(qualityTests?.strategy?.matrix?.shard, ["1", "2", "3", "4"]) ||
+    qualityTests?.strategy?.matrix?.include !== undefined ||
+    qualityTests?.strategy?.matrix?.exclude !== undefined ||
+    qualityTests?.strategy?.["fail-fast"] !== false ||
+    qualityTests?.strategy?.["max-parallel"] !== 4 ||
+    qualityTests?.["continue-on-error"] !== undefined ||
+    !shardStep ||
+    shardStep.if !== undefined ||
+    shardStep["continue-on-error"] !== undefined ||
+    packageScripts?.["test:ci"] !== "vitest run"
+  ) {
+    errors.push("quality-tests must run all four blocking native Vitest shards on heavy scope");
+  }
+  if (qualityCore?.steps?.some((step) => step.run === "npm run test:ci")) {
+    errors.push("quality-core must not duplicate the complete sharded test suite");
   }
   const e2eContract = qualityCore?.steps?.find((step) => step.run === "npm run test:e2e:contract");
   if (
@@ -770,12 +746,19 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const qualityNeeds = [
     "scope",
     "quality-core",
+    "quality-tests",
     "quality-contracts",
     "preview-host-guards",
     "dead-code",
   ];
   if (!includesEvery(document?.jobs?.quality?.needs, qualityNeeds)) {
-    errors.push("quality must aggregate scope, core, contracts, preview-host and dead-code");
+    errors.push("quality must aggregate scope, core, all test shards, contracts, preview-host and dead-code");
+  }
+  const aggregate = document?.jobs?.quality?.steps?.find(
+    (step) => step.name === "Aggregate required quality result",
+  );
+  if (!hasExactExpression(aggregate?.env?.TESTS_RESULT, "${{ needs['quality-tests'].result }}")) {
+    errors.push("quality must bind TESTS_RESULT to the complete test matrix");
   }
   if (!hasExactExpression(document?.jobs?.quality?.if, "${{ !cancelled() }}")) {
     errors.push(
@@ -1226,9 +1209,9 @@ export function evaluatePolicyFloors(policy) {
     }
   }
   requireValues(
-    "manualMergePathPrefixes",
-    policy.manualMergePathPrefixes,
-    POLICY_FLOORS.manualMergePathPrefixes,
+    "ownerReviewPathPrefixes",
+    policy.ownerReviewPathPrefixes,
+    POLICY_FLOORS.ownerReviewPathPrefixes,
   );
   if (
     policy.review?.requiredCheckWorkflow?.path !==
@@ -1316,17 +1299,6 @@ export function evaluateCiBranch(policy, env = process.env) {
   return null;
 }
 
-export function manualMergeRuleDigest(source) {
-  // Pin the entire approved trust root; never infer safety from phrase presence.
-  return createHash("sha256").update(source.replace(/\r\n/gu, "\n").trim()).digest("hex");
-}
-
-export function evaluateManualBootstrapRule(source) {
-  return manualMergeRuleDigest(source) === POLICY_FLOORS.manualMergeRuleSha256
-    ? []
-    : ["manual merge policy differs from the approved exact policy fingerprint"];
-}
-
 export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const errors = [];
   const policy = json(root, "config/agent-workflow.json");
@@ -1339,7 +1311,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   errors.push(...evaluatePolicyFloors(policy));
   for (const check of policy.requiredChecks ?? []) {
-    if (check === "review-window") continue;
     if (!policy.requiredCheckOwners?.[check]) {
       errors.push(`required check ${check} missing requiredCheckOwners entry`);
     }
@@ -1360,12 +1331,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (typeof policy.directMaster?.allowed !== "boolean") {
     errors.push("directMaster.allowed must be a boolean");
-  }
-  if (policy.review.maxBotWaitSeconds < policy.review.minHeadAgeSeconds) {
-    errors.push("max bot wait must not be shorter than the current-head review window");
-  }
-  if (policy.review.maxSignoffWaitSeconds < policy.review.maxBotWaitSeconds) {
-    errors.push("max sign-off wait must not be shorter than the bot wait deadline");
   }
   const ciBranchError = evaluateCiBranch(policy, env);
   if (ciBranchError) errors.push(ciBranchError);
@@ -1416,19 +1381,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     );
   }
 
-  const freshness = read(root, ".github/workflows/merge-ready-freshness.yml");
-  errors.push(...evaluateTrustedReviewWindowGate(freshness));
-  if (!freshness.includes("pull_request_target:")) {
-    errors.push("merge-ready freshness must use trusted pull_request_target");
-  }
-  if (!freshness.includes("ref: ${{ github.event.repository.default_branch }}")) {
-    errors.push("merge-ready freshness must checkout trusted default branch");
-  }
-  if (/sender\.login != 'github-actions\[bot\]'/.test(freshness)) {
-    errors.push("merge-ready freshness must not ignore PR AI findings from github-actions[bot]");
-  }
-  const freshnessValidator = read(root, "scripts/ci/merge-ready-freshness.mjs");
-  const trustedReviewWindow = read(root, "scripts/ci/trusted-review-window.mjs");
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))
     .map((name) => ({ name, source: read(root, `.github/workflows/${name}`) }));
@@ -1444,12 +1396,33 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
     if (events.has("pull_request_review") || events.has("pull_request_review_comment")) {
       errors.push(
-        `${workflow.name} must not listen to PR-ref review events; the manual merger must re-read all live review evidence`,
+        `${workflow.name} must not run PR-head code from review events`,
       );
     }
   }
   const dependabotWorkflow =
-    workflowSources.find(({ name }) => name === "dependabot-safe-classify.yml")?.source ?? "";
+    workflowSources.find(({ name }) => name === "dependabot-automerge.yml")?.source ?? "";
+  const dependabotDisarmIndex = dependabotWorkflow.indexOf(
+    "Disarm previous request before validating a new head",
+  );
+  const dependabotValidateIndex = dependabotWorkflow.indexOf(
+    "Validate patch contents without executing PR code",
+  );
+  const dependabotPolicy = json(root, "config/dependabot-automerge.json");
+  if (
+    dependabotPolicy.schemaVersion !== 1 ||
+    dependabotPolicy.baseBranch !== policy.deliveryBranch ||
+    !isDeepStrictEqual(
+      [...(dependabotPolicy.allowedFiles ?? [])].sort(),
+      [...POLICY_FLOORS.dependabotAutoMerge.allowedFiles].sort(),
+    ) ||
+    !isDeepStrictEqual(
+      [...(dependabotPolicy.allowedPackages ?? [])].sort(),
+      [...POLICY_FLOORS.dependabotAutoMerge.allowedPackages].sort(),
+    )
+  ) {
+    errors.push("Dependabot auto-merge policy differs from the reviewed allowlist floor");
+  }
   let dependabotEvents = new Set();
   try {
     dependabotEvents = workflowEvents(yaml.load(dependabotWorkflow));
@@ -1458,116 +1431,51 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (
     !dependabotEvents.has("pull_request_target") ||
+    !dependabotEvents.has("workflow_run") ||
+    dependabotEvents.size !== 2 ||
     dependabotEvents.has("pull_request") ||
-    dependabotWorkflow.includes("actions/checkout") ||
-    dependabotWorkflow.includes("gh pr merge") ||
-    dependabotWorkflow.includes("DEPENDABOT_AUTOMERGE_ENABLED") ||
+    !dependabotWorkflow.includes("ref: ${{ github.event.repository.default_branch }}") ||
+    !dependabotWorkflow.includes("persist-credentials: false") ||
+    !dependabotWorkflow.includes("auto_merge_enabled") ||
+    !dependabotWorkflow.includes("node scripts/ci/dependabot-automerge.mjs") ||
+    !dependabotWorkflow.includes("secrets.DEPENDABOT_AUTOMERGE_TOKEN") ||
+    dependabotWorkflow.includes("secrets.GITHUB_TOKEN") ||
+    !dependabotWorkflow.includes(
+      "DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget.",
+    ) ||
+    !dependabotWorkflow.includes("github.event.action == 'synchronize'") ||
+    !dependabotWorkflow.includes("github.actor != 'dependabot[bot]'") ||
+    !dependabotWorkflow.includes("workflows: [CI]") ||
+    !dependabotWorkflow.includes("queue: max") ||
+    !dependabotWorkflow.includes("cancel-in-progress: false") ||
+    !dependabotWorkflow.includes("github.event.workflow_run.conclusion == 'success'") ||
+    !dependabotWorkflow.includes("listPullRequestsAssociatedWithCommit") ||
+    !dependabotWorkflow.includes("pr.head.sha === expectedHead") ||
+    !dependabotWorkflow.includes('"$current_base" != "$BASE_SHA"') ||
+    dependabotDisarmIndex < 0 ||
+    dependabotValidateIndex < 0 ||
+    dependabotDisarmIndex > dependabotValidateIndex ||
+    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --auto --merge --match-head-commit \"$HEAD_SHA\"") ||
+    !dependabotWorkflow.includes("gh pr merge \"$PR_URL\" --disable-auto") ||
     !dependabotWorkflow.includes("if: always()") ||
-    !dependabotWorkflow.includes("steps.meta.outcome == 'success'") ||
-    !dependabotWorkflow.includes("--force") ||
-    !dependabotWorkflow.includes('--remove-label "dependabot-patch-safe"') ||
+    !dependabotWorkflow.includes("steps.auth.outputs.available == 'true'") ||
+    !dependabotWorkflow.includes("steps.validate.outcome == 'success'") ||
+    dependabotWorkflow.includes("gh label create") ||
+    dependabotWorkflow.includes("gh pr edit") ||
     !dependabotWorkflow.includes("github.event.pull_request.user.login == 'dependabot[bot]'") ||
     !dependabotWorkflow.includes(
       "github.event.pull_request.head.repo.full_name == github.repository",
     )
   ) {
     errors.push(
-      "Dependabot classifier must run default-branch code, never checkout PR-head or merge",
-    );
-  }
-  let privilegedEvents = [];
-  try {
-    privilegedEvents = [...workflowEvents(yaml.load(freshness))];
-  } catch {
-    // Den generella YAML-valideringen ovan rapporterar det exakta parse-felet.
-  }
-  if (
-    privilegedEvents.length !== 4 ||
-    !["pull_request_target", "issue_comment", "push", "workflow_dispatch"].every((event) =>
-      privilegedEvents.includes(event),
-    )
-  ) {
-    errors.push(
-      "write-capable merge-ready workflow may only use default-branch pull_request_target, issue_comment, preview push and gate-only workflow_dispatch events",
-    );
-  }
-  if (
-    !freshnessValidator.includes(
-      'TRUSTED_SIGNOFF_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"])',
-    ) ||
-    !freshnessValidator.includes('type !== "user"') ||
-    !freshnessValidator.includes("export function validateMergeReadySignoff")
-  ) {
-    errors.push("merge-ready sign-off must be human-authored and identity-bound");
-  }
-  if (
-    !freshness.includes("actions: read") ||
-    !freshness.includes("checks: write") ||
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs gate") ||
-    !freshness.includes("review-window:refresh") ||
-    !freshness.includes("GATE_REFRESH") ||
-    !freshness.includes("node scripts/ci/trusted-review-window.mjs invalidate-base") ||
-    !trustedReviewWindow.includes('const CHECK_NAME = "review-window"') ||
-    !trustedReviewWindow.includes(
-      'const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:"',
-    ) ||
-    !trustedReviewWindow.includes("head_sha: headSha") ||
-    !trustedReviewWindow.includes('conclusion: "action_required"') ||
-    !freshnessValidator.includes("validateMergeReadySignoff") ||
-    !trustedReviewWindow.includes("latestInvalidatingFindingEpoch") ||
-    !trustedReviewWindow.includes("validateTrustedPrAiEvidence") ||
-    !trustedReviewWindow.includes("/actions/runs?check_suite_id=") ||
-    !trustedReviewWindow.includes("job.check_run_url") ||
-    !trustedReviewWindow.includes("fullDatabaseId") ||
-    !trustedReviewWindow.includes("updatedAt") ||
-    !trustedReviewWindow.includes('endsWith("[bot]")') ||
-    !trustedReviewWindow.includes("review.updated_at") ||
-    !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
-    !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
-    !trustedReviewWindow.includes('from "../workflow/required-check-owners.mjs"') ||
-    !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
-    !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
-    !trustedReviewWindow.includes(
-      "äldre eller avbruten owned workflow-run ersatt av en senare run på samma head",
-    ) ||
-    !trustedReviewWindow.includes("sameRepoEmptyAssociation") ||
-    !trustedReviewWindow.includes('reason: "gate_refresh"') ||
-    !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
-    !trustedReviewWindow.includes("manualMergeFiles") ||
-    !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
-    !trustedReviewWindow.includes("policy.review.maxSignoffWaitSeconds") ||
-    !trustedReviewWindow.includes("export function shouldRunTrustedGate") ||
-    !trustedReviewWindow.includes("export function isIntegrityGateFailure")
-  ) {
-    errors.push(
-      "trusted default-branch controller must publish the head-bound required review-window",
-    );
-  }
-  if (/\bcheck-contract\.mjs\b/u.test(trustedReviewWindow)) {
-    errors.push(
-      "trusted default-branch controller must not import check-contract; that module pulls npm packages",
+      "Dependabot auto-merge must run trusted default-branch code, validate content and use native auto-merge",
     );
   }
   errors.push(...evaluateTrustedControllerImportGraph(root));
-  if (
-    !trustedReviewWindow.includes("new Set(policy.review.deploymentCheckNames ?? [])") ||
-    !trustedReviewWindow.includes("deploymentPending === 0") ||
-    !trustedReviewWindow.includes("deploymentFailed === 0")
-  ) {
-    errors.push(
-      "trusted review-window must block exact present deployment failures or pending runs",
-    );
-  }
-
-  errors.push(...evaluateTrustedControllerPermissions(freshness));
-  if (
-    freshness.includes("execute-merge:") ||
-    freshness.includes("trusted-review-window.mjs merge") ||
-    trustedReviewWindow.includes("runTrustedMerge") ||
-    /\/pulls\/\$\{[^}]+\}\/merge/u.test(trustedReviewWindow) ||
-    !trustedReviewWindow.includes('["gate", "invalidate-base"].includes(mode)')
-  ) {
-    errors.push("review-window must not merge PRs or dispatch workflows; unsupported modes must fail closed");
+  errors.push(...evaluateTrustedControllerPermissions(dependabotWorkflow));
+  const codeowners = read(root, ".github/CODEOWNERS");
+  if (!codeowners.includes("/config/control-plane/schema-registry.json @Jakeminator123")) {
+    errors.push("CODEOWNERS must cover the owner-reviewed control-plane schema registry");
   }
 
   const ci = read(root, ".github/workflows/ci.yml");
@@ -1588,11 +1496,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${freshness}\n${dossierAcceptance}`;
+  const allWorkflowJobs = `${ci}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
-    // `review-window` is a policy-owned check run published by the trusted
-    // default-branch controller above, not a PR-head workflow job.
-    if (check === "review-window") continue;
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {
       errors.push(`required check has no workflow job: ${check}`);
     }
@@ -1619,9 +1524,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (!/force-push/i.test(gitRule)) errors.push("git.mdc must explicitly forbid force-push");
   const mergeRule = read(root, ".cursor/rules/pr-merge.mdc");
-  errors.push(...evaluateManualBootstrapRule(mergeRule));
   if (!mergeRule.includes("config/agent-workflow.json")) {
-    errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
+    errors.push("pr-merge.mdc must route canonical checks to config/agent-workflow.json");
   }
   const agentEntry = read(root, "AGENTS.md");
   const workflowRule = read(root, ".cursor/rules/workflow.mdc");
@@ -1810,7 +1714,7 @@ function main() {
     return;
   }
   console.log(
-    `[workflow-contract] OK — trunk=${policy.trunk}, review=${policy.review.minHeadAgeSeconds}s, checks=${policy.requiredChecks.join(",")}`,
+    `[workflow-contract] OK — trunk=${policy.trunk}, checks=${policy.requiredChecks.join(",")}`,
   );
 }
 

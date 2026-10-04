@@ -17,7 +17,7 @@
     "directMaster",
     "requiredChecks",
     "requiredCheckOwners",
-    "manualMergePathPrefixes",
+    "ownerReviewPathPrefixes",
     "review",
     "protectedPaths",
     "pathGroups",
@@ -83,7 +83,7 @@
         "pattern": "^[a-z0-9][a-z0-9-]*\\.yml$"
       }
     },
-    "manualMergePathPrefixes": {
+    "ownerReviewPathPrefixes": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
@@ -93,10 +93,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "minHeadAgeSeconds",
-        "botSettleSeconds",
-        "maxBotWaitSeconds",
-        "maxSignoffWaitSeconds",
         "requiredCheckWorkflow",
         "qualifyingCheckPatterns",
         "trustedAccountReviewActors",
@@ -104,10 +100,6 @@
         "deploymentCheckNames"
       ],
       "properties": {
-        "minHeadAgeSeconds": { "type": "integer", "minimum": 420 },
-        "botSettleSeconds": { "type": "integer", "minimum": 60 },
-        "maxBotWaitSeconds": { "type": "integer", "minimum": 420 },
-        "maxSignoffWaitSeconds": { "type": "integer", "minimum": 600, "maximum": 840 },
         "requiredCheckWorkflow": {
           "type": "object",
           "additionalProperties": false,

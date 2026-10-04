@@ -27,6 +27,6 @@ by explicit answers for: original bug fixed, regression proof adequate,
 countertest adequate, protected paths touched, required checks, and residual
 risk. Say "no credible findings" only after checking the full end state. This
 review is the independent bug-review procedure, not an additional model-named
-pass. It does not impersonate CI or review-window. Triage concrete external
+pass. It does not impersonate CI or required GitHub checks. Triage concrete external
 bot findings when present; a missing or quota-limited bot is not a review pass.
 """

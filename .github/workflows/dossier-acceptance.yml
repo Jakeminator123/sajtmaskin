@@ -2,7 +2,7 @@ name: Dossier acceptance
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch: {}
@@ -111,7 +111,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 3
+      # Keep every isolated build, but avoid seven serial batches for 21 dossiers.
+      max-parallel: 6
       matrix:
         dossier: ${{ fromJSON(needs.discover.outputs.dossiers) }}
     steps:

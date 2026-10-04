@@ -18,20 +18,18 @@ och inget coach-/Codex-ping. Befintlig Cursor Bugbot är extern review, inte
 en andra mergecontroller. Cursor-cloudautomationers inställningar ägs i
 Cursor; ett checknamn på GitHub är inte bevis att deras prompt är rätt.
 
-`review-window` kör ingen modell och är inte ett kvitto på oberoende review.
-Den validerar tester, deployment, säkerhet och aktuell head/base. Ett saknat
+GitHubs required checks bevisar verifiering, inte oberoende review. Ett saknat
 modellkvitto är inte en blockerande bugg och ger heller ingen review eller
-mergebehörighet. Författaren och den som godkänner merge måste verifiera
-oberoende review separat, innan det mänskliga SHA-bundna mandatet postas.
+mergebehörighet. Författaren och den som godkänner merge verifierar reviewn i
+PR:ns vanliga reviews, kommentarer och trådar.
 
 ## Historiska kvitton
 
 `scripts/pr-review/` innehåller även en körbar API-runner och dess tester;
 den är inte bara en parserkatalog. Runnern har ingen automatisk eventväg.
 Kvitto-/state-kompatibiliteten behålls för redan publicerad review-data.
-Mergecontrollern läser gamla kvitton som data och binder dem
-till verklig GitHub-identitet, review-ID och exakt head. Inget workflow
-anropar API-runnern eller kvittopubliceraren automatiskt.
+Inget workflow anropar API-runnern eller kvittopubliceraren automatiskt. Gamla
+kvitton är historiska data och ingår inte i dagens mergegrind.
 
 Gamla kontoöverlämningar är historik, inte instruktion att skapa nya.
 Radera inte GitHub-reviewer eller state-kommentarer som städning.

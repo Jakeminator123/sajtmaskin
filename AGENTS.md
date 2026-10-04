@@ -34,7 +34,8 @@ projektion → mental modell → historik. Git är arkivet; inga backupdocs. Pol
 - Före push: `npm run verify:pr -- --plan` + riktat. CI: tung eller light.
 - Branch, commit, push, PR och merge kräver mandat enligt `git.mdc`; force-pusha
   aldrig master eller en delad remote-branch.
-- Merga aldrig utan ett separat uttryckligt mergeuppdrag.
+- Merga bara med uttryckligt eller förhandsvillkorat mandat; kodjobb saknar
+  mergemandat.
 - Behåll worktreet tills PR:n är terminal och fjärrläget verifierat.
 - Svara kort på svenska när användaren gör det; skilj bevis från antagande.
 - Pausa vid dataförlust, security/cross-tenant, oklar owner eller stort scope.

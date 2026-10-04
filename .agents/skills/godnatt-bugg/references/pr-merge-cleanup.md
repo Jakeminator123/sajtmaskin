@@ -37,56 +37,43 @@ Kräv en oberoende readonly-granskare för aktuell diff/head, och triagera även
 GitHub-Bugbot/Codex-fynd när de finns. En quota-/neutral-check är inte review.
 Ingen automatisk betald API-review eller kontofallback ska startas.
 
-`review-window` är CI-/säkerhetsgrind, inte bevis för review. Minimiåldern
-är 7 minuter från den aktuella head-körningens jobbstart och startas om av ny
-head-SHA. Vänta icke-blockerande och gör en
-färsk helhetsavläsning före sign-off/merge.
+GitHubs required checks är verifieringsgrind, inte bevis för review. Ny head
+eller flyttad integrationsbas gör äldre resultat stale enligt rulesetet. Vänta
+icke-blockerande och gör en färsk helhetsavläsning före merge.
 
 Efter ett reviewfynd:
 
 1. Triagera mot faktisk kod och hela branchdiffen.
 2. Fixa P0/P1 eller pausa.
 3. Kör regression/countertest och berörda gates igen.
-4. Commitera/pusha och betrakta tidigare bugggranskning, review-window-bedömning och
-   sign-off som stale.
+4. Commitera/pusha och betrakta tidigare bugggranskning och SHA-känsliga
+   resultat som stale.
 
 Godnatt-bugg tillåter högst tre sådana korrigeringsvarv. Taket är en
 eskaleringsgräns, aldrig tillåtelse att merga kvarvarande fel.
 
-## Sign-off
+## Mandat
 
-När required checks och oberoende review är klara och exakt aktuell head-
-och base-SHA är godkända, posta först repots exakta sign-off-rad.
-`review-window` kan redan vara grön; den väntar inte på labeln:
-
-    merge:ready — head-sha: FULL_HEAD_SHA, base-sha: FULL_BASE_SHA, at: ISO8601_UTC, bugkoll: SOURCE, triage: fixat/loggat/avfärdat, P0/P1: 0
-
-Sätt sedan labeln:
-
-    gh pr edit PR --add-label "merge:ready"
-
-Kontrollera därefter att varken head- eller base-SHA ändrats och invänta att den
-betrodda, head-bundna `review-window` blir grön.
+Merge kräver batchens uttryckliga eller förhandsvillkorade preview-mandat. Ett
+villkorat mandat behöver inte frågas om igen när GitHubs angivna native villkor
+är uppfyllda. Ett vanligt fixuppdrag är inte mergemandat.
 
 ## Full merge-gate
 
 Merga endast när allt är sant:
 
 - PR är ej draft, base är preview och mergeable.
-- Required checks quality, backoffice-tests, schema-drift, build och
-  review-window är gröna.
+- GitHubs required checks är gröna för aktuell head och integrationsbas.
 - Vercel är grön eller saknas enligt reporegeln.
-- Review-window är minst 7 minuter gammalt för aktuell head-SHA.
 - Inga requested changes, blockerande trådar eller öppna P0/P1 finns.
 - Labels do-not-merge, agent:needs-human, risk:4 eller risk:5 saknas eller har
   uttryckligt ägarbeslut enligt regeln.
 - Oberoende bugggranskning och triage gäller exakt head- och live preview-base-SHA.
-- Sign-off och merge:ready gäller exakt oförändrad head- och base-SHA.
 - PR-body och backloggändring beskriver det som faktiskt ska mergeas.
 
-Finalkommandot kräver batchens uttryckliga preview-mandat och en verifierad
-mänsklig mergare enligt `pr-merge.mdc`. Ingen admin-bypass. CI-trust roots kräver
-separat bootstrapbeslut; okända effekter mot delad produktions-DB är stopp.
+Använd GitHubs vanliga mergefunktion enligt `pr-merge.mdc`. Ingen admin-bypass.
+Känsliga ytor kräver ownerbeslut i PR:n; okända effekter mot delad
+produktions-DB är stopp.
 Detta pass promoterar eller mergar aldrig master.
 
 ## Cleanup-handoff

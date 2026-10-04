@@ -20,8 +20,8 @@
  * som återstår; mergegrinden ägs av `.cursor/rules/pr-merge.mdc` och kräver
  * fortfarande gröna checks, review och din uttryckliga bekräftelse.
  *
- * Förvarning: rör diffen en CI-trust root (`manualMergePathPrefixes`) varnar
- * kommandot redan här — 2026-09-08 upptäcktes det först i review-window.
+ * Förvarning: rör diffen en känslig owner-yta (`ownerReviewPathPrefixes`) varnar
+ * kommandot redan här så beslutet kan samlas i den vanliga PR-reviewn.
  *
  * Synk: en squash-release ger master en ny commit som inte finns i preview
  * efteråt. Planering eller skapande av promote-PR synkar **inte** master →
@@ -94,22 +94,22 @@ export function parseRemoteBranchNames(stdout) {
 }
 
 /**
- * Produktionens bootstrap-policy. Läs filen från den frysta master-tippen,
- * inte checkoutens ännu osläppta policy. Produktion mergas alltid manuellt;
- * prefixlistan avgör om ett separat infrastruktur-godkännande också krävs.
+ * Produktionens reviewpolicy. Läs filen från den frysta master-tippen,
+ * inte checkoutens ännu osläppta policy. Prefixlistan markerar ändringar som
+ * behöver ett uttryckligt ownerbeslut i den vanliga PR-reviewn.
  */
-export function manualMergePrefixesFromPolicy(policyJson) {
+export function ownerReviewPrefixesFromPolicy(policyJson) {
   const policy = JSON.parse(String(policyJson ?? ""));
-  const prefixes = policy?.manualMergePathPrefixes;
+  const prefixes = policy?.ownerReviewPathPrefixes ?? policy?.manualMergePathPrefixes;
   if (prefixes === undefined) return [".github/workflows/"];
   if (!Array.isArray(prefixes) || prefixes.some((prefix) => typeof prefix !== "string")) {
-    throw new Error("manualMergePathPrefixes i origin/master-policyn är inte en stränglista");
+    throw new Error("ownerReviewPathPrefixes i origin/master-policyn är inte en stränglista");
   }
   return prefixes;
 }
 
-/** Sökvägar som börjar med något CI-trust-prefix; sorterade och unika. */
-export function findManualMergePaths(paths, prefixes) {
+/** Sökvägar som börjar med något owner-review-prefix; sorterade och unika. */
+export function findOwnerReviewPaths(paths, prefixes) {
   const prefixList = prefixes ?? [];
   return [
     ...new Set(
@@ -200,7 +200,7 @@ export function buildPromoteBody({
   headSha,
   branch,
   date,
-  manualMergePaths = /** @type {string[]} */ ([]),
+  ownerReviewPaths = /** @type {string[]} */ ([]),
 }) {
   const paths = [...new Set(changedPaths)];
   const shown = paths.slice(0, 100);
@@ -214,18 +214,18 @@ export function buildPromoteBody({
         ].join("\n")
       : "- (ingen träddiff)";
 
-  const bootstrap =
-    manualMergePaths.length > 0
+  const ownerReview =
+    ownerReviewPaths.length > 0
       ? [
-          "## Bootstrap-godkännande krävs",
+          "## Ownerbeslut krävs",
           "",
-          "Dessa CI-trust roots kräver dessutom ett separat infrastruktur-godkännande:",
+          "Dessa känsliga ytor kräver riktad oberoende review och ett uttryckligt ownerbeslut:",
           "",
-          ...manualMergePaths.map((path) => `- \`${path}\``),
+          ...ownerReviewPaths.map((path) => `- \`${path}\``),
           "",
-          "Kräver separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt `docs/runbooks/agent-workflow.md`.",
+          "Registrera beslutet som en vanlig GitHub-review eller PR-kommentar; ingen separat bootstrap-grind används.",
           "",
-          "- [ ] Ägaren har uttryckligen godkänt infrastruktur-bootstrapen i chatten",
+          "- [ ] Nödvändigt ownerbeslut är registrerat i PR:n",
           "",
         ]
       : [];
@@ -244,7 +244,7 @@ export function buildPromoteBody({
     "",
     list,
     "",
-    ...bootstrap,
+    ...ownerReview,
     "## Verifiering",
     "",
     `- [ ] Required GitHub-checks gröna på promote-headen (inte bara på del-PR:arna mot \`${STAGING_BRANCH}\`)`,
@@ -260,7 +260,7 @@ export function buildPromoteBody({
     "- Kvarvarande risk:",
     `- Återställning/rollback: revert av promote-commiten på \`${PRODUCTION_BRANCH}\`; \`${STAGING_BRANCH}\` behåller tippen.`,
     "",
-    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Manuell merge kräver uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`. Alla PR-merges utförs manuellt med expected head; använd aldrig auto-merge.`,
+    `> **Produktion:** denna PR går till \`${PRODUCTION_BRANCH}\` / sajtmaskin.se. Manuell merge kräver uttrycklig ägarbekräftelse i chatten, enligt \`.cursor/rules/pr-merge.mdc\`. Master-promotes auto-mergas aldrig.`,
     "",
     "<!-- Skapad av `npm run promote`. -->",
   ].join("\n");
@@ -368,26 +368,26 @@ function main() {
       headSha,
     ]),
   );
-  const prefixes = manualMergePrefixesFromPolicy(
+  const prefixes = ownerReviewPrefixesFromPolicy(
     git(["show", `${baseSha}:config/agent-workflow.json`]),
   );
-  const manualMergePaths = findManualMergePaths(changedPaths, prefixes);
+  const ownerReviewPaths = findOwnerReviewPaths(changedPaths, prefixes);
   const title = buildPromoteTitle(changedPaths, date);
-  const body = buildPromoteBody({ changedPaths, baseSha, headSha, branch, date, manualMergePaths });
+  const body = buildPromoteBody({ changedPaths, baseSha, headSha, branch, date, ownerReviewPaths });
   console.log(
     `[promote] ${new Set(changedPaths).size} ändrade sökvägar från ${STAGING_BRANCH} → ${PRODUCTION_BRANCH}`,
   );
 
-  if (manualMergePaths.length > 0) {
+  if (ownerReviewPaths.length > 0) {
     console.log("");
     console.log(
-      "⚠ Denna promote rör CI-trust roots och kräver dessutom ditt bootstrap-godkännande:",
+      "⚠ Denna promote rör känsliga owner-ytor och kräver riktad review samt ownerbeslut:",
     );
-    for (const path of manualMergePaths) {
+    for (const path of ownerReviewPaths) {
       console.log(`  ${path}`);
     }
     console.log(
-      "Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
+      "Registrera beslutet som GitHub-review eller PR-kommentar innan den manuella master-mergen.",
     );
   }
 
@@ -439,15 +439,15 @@ function main() {
   console.log("   1. Invänta gröna required checks på promote-headen.");
   console.log("   2. Kör en bugkoll på diffen mot produktion och triagera fynden.");
   console.log("   3. Varna för produktion och invänta extra uttrycklig ägarbekräftelse i samma chatt.");
-  console.log("   4. Manuell expected-head-merge till master. Se .cursor/rules/pr-merge.mdc.");
-  if (manualMergePaths.length > 0) {
+  console.log("   4. Manuell GitHub-merge till master. Se .cursor/rules/pr-merge.mdc.");
+  if (ownerReviewPaths.length > 0) {
     console.log(
-      "   5. Separat ägargodkännande i chatten, sedan dokumenterad expected-head-squash-merge enligt docs/runbooks/agent-workflow.md.",
+      "   5. Kontrollera att nödvändigt ownerbeslut finns registrerat i PR:n.",
     );
   }
   console.log("");
   console.log(
-    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna separat PR mot ${STAGING_BRANCH} och begär manuell expected-head MERGE-commit enligt pr-merge.mdc (inte squash eller auto-merge) innan nästa promote.`,
+    `  Efter merge: bered en synkbranch från färsk ${STAGING_BRANCH} som tar in ${PRODUCTION_BRANCH}, öppna separat PR mot ${STAGING_BRANCH} och begär en MERGE-commit enligt pr-merge.mdc (inte squash eller auto-merge) innan nästa promote.`,
   );
 }
 

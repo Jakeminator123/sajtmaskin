@@ -1,55 +1,25 @@
-# PR-merge-grinden
+# PR-merge
 
-Operativ owner är [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
-Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md).
-Checks, tidsgolv och trust roots: [agent-workflow.json](../../config/agent-workflow.json).
+Operativ owner är [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc). GitHubs
+live rulesets äger mergebarhet; `config/agent-workflow.json` äger bara repots
+canonical lokala checknamn och reviewytor.
 
-## Kontroll, review och mandat
+## Arbetsgång
 
-`review-window` observerar required CI, säkerhet, deployment, live head/base
-och proveniens. Den kan bli grön utan ready-label och bevisar inte oberoende
-bugggranskning. Alla konkreta reviewfynd måste triageras. Egen attest ersätter
-inte en separat granskare. Betald automatisk API-review är pensionerad.
+1. Öppna mot `preview` och behåll draft medan arbete eller fynd återstår.
+2. Kör `npm run verify:pr -- --plan` och relevanta riktade lokala kontroller.
+3. Gör PR:n ready. GitHub kör full profil; ny head avbryter stale körning och
+   strict/up-to-date kräver resultat mot aktuell integrationsbas.
+4. Läs required checks, reviews, kommentarer, trådar och deployment på GitHub.
+   Säkerhet, betalning, databas och CI-behörigheter kräver riktad oberoende
+   review och ownerbeslut registrerat i PR:n.
+5. När native villkor och mergemandat är uppfyllda använder en agent
+   `gh pr merge --squash --match-head-commit <granskad head>`. Ett uttryckligt
+   villkorat mandat kan ges i förväg. Använd aldrig admin-bypass.
+6. Bekräfta terminal PR-status och att push-CI samt deployment startade på
+   mergecommiten.
 
-Ready-kommentaren binder sign-off till aktuell head och base och skrivs före
-labeln `merge:ready`. Ny head/base eller senare fynd kräver ny verifiering.
-En gammal label eller grön check är inget mergeuppdrag.
-
-## Manuell merge
-
-GitHub Actions utför inga PR-merges. Efter ett separat uttryckligt
-mergeuppdrag återläser mergaren refs, checks, reviews, inline comments,
-PR-kommentarer och check-run summary/text/annotations. Normal preview-merge
-är squash med `--match-head-commit <40 hex>`, utan `--auto` eller `--admin`.
-Serialisera merges och verifiera PR-status samt CI/deployment på mergecommiten.
-
-Native rulesets och merge methods måste läsas live. GitHub kräver enligt den
-versionerade master-policyn quality, backoffice-tests, schema-drift, build
-och GitGuardian. `review-window` och `dossier-acceptance` är ytterligare
-agentkrav; GitHubs mergeknapp bevisar inte att de är uppfyllda.
-
-Trust-root-ändringar fortsätter ge `review-window: action_required` och
-kräver separat dokumenterad ägarbootstrap och oberoende review. Bootstrap
-ersätter endast denna förväntade spärr, aldrig andra röda/pending checks
-eller blockerande fynd.
-Den snäva regeln i `pr-merge.mdc` omfattar även motsvarande röda
-`trusted-review-window`-orchestrator endast efter verifierad betrodd körning,
-samma PR/head och identisk ensam bootstrap-felorsak. Det är ett check/job-par
-från samma spärr, inte en dispens från andra fel eller native GitHub-skydd.
-Mergeregeln är själv en trust root och hela filen har ett exakt, statiskt
-policyfingeravtryck i verifierarens floor. Hashen bevisar textidentitet, inte
-semantik eller aktuella liveförhållanden; endast radslut och yttre whitespace
-normaliseras. Regeländringar kräver synlig floor-ändring och bootstrap/review.
-
-## Produktion och synk
-
-Master kräver promote-PR, produktionsvarning och en ny uttrycklig bekräftelse.
-Ancestry-synk efter release använder dedikerad preview-PR och manuell
-expected-head merge-commit; squash skulle tappa ancestry. Preview delar
-produktions-DB, men startup, Git-posthooks och CI applicerar inte schema.
-DB-apply kräver ett eget uttryckligt mandat.
-
-Expected head låser head; GitHub har inget atomiskt base-SHA-lås. Läs därför
-base igen omedelbart före merge och verifiera resultatet efteråt. En kodrevert
-återställer inte databasändringar. En misslyckad efterkontroll återkörs;
-en redan terminal PR mergas aldrig igen.
+Den allowlistade Dependabot-patchvägen får aktivera native auto-merge efter
+semantisk innehållsvalidering. GitHub väntar själv på samma ruleset. `master`
+är en separat manuell release med extra produktionsbekräftelse. DB-apply och
+produktionsdata kräver alltid eget mandat.

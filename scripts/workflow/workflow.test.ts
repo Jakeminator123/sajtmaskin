@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,7 +9,6 @@ import {
   evaluateCiScopeWorkflow,
   evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
-  evaluateManualBootstrapRule,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
@@ -16,7 +16,6 @@ import {
   evaluateSecretWorkflowDispatches,
   evaluateTrustedControllerImportGraph,
   evaluateTrustedControllerPermissions,
-  evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -695,8 +694,8 @@ describe("verify:pr command execution", () => {
 });
 
 describe("agent workflow repository contract", () => {
-  it("rejects merge/dispatch write permission in every trusted controller scope", () => {
-    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+  it("keeps GITHUB_TOKEN read-only in the trusted Dependabot controller", () => {
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
     expect(evaluateTrustedControllerPermissions(source)).toEqual([]);
     for (const permission of [
       "write-all",
@@ -711,52 +710,8 @@ describe("agent workflow repository contract", () => {
         `permissions: { contents: read }\njobs:\n  gate:\n    permissions: ${permission}\n`,
       )).not.toEqual([]);
     }
-    expect(evaluateTrustedControllerPermissions(
-      "permissions: { contents: read, checks: write }\njobs: {}\n",
-    )).toEqual([]);
     expect(evaluateTrustedControllerPermissions("jobs: {}\n")).not.toEqual([]);
     expect(evaluateTrustedControllerPermissions("permissions: [\n")).not.toEqual([]);
-  });
-
-  it("pins the approved manual merge policy exactly, without inferring free-prose safety", () => {
-    const source = readFileSync(".cursor/rules/pr-merge.mdc", "utf8");
-    expect(evaluateManualBootstrapRule(source)).toEqual([]);
-    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n"))).toEqual([]);
-    expect(evaluateManualBootstrapRule(source.replace(/\r\n/gu, "\n").replace(/\n/gu, "\r\n"))).toEqual([]);
-    expect(evaluateManualBootstrapRule(`\n  ${source}\n\n`)).toEqual([]);
-    for (const contradiction of [
-      "Alla röda checks får bypassas med --admin.",
-      "all red checks may be bypassed after owner approval",
-      "Extra undantag: admin-bypass är tillåtet.",
-      "Checkresultat får skrivas om för att få grönt.",
-    ]) {
-      expect(evaluateManualBootstrapRule(`${source}\n${contradiction}`)).not.toEqual([]);
-      expect(evaluateManualBootstrapRule(`${contradiction}\n${source}`)).not.toEqual([]);
-    }
-    for (const clause of [
-      "Enda policyundantaget",
-      "head-bundna summary enbart anger `workflow-infrastruktur kräver explicit bootstrap:`",
-      "`manualMergePathPrefixes`",
-      "dokumenterad ägarbootstrap",
-      "Alla övriga röda/pending checks",
-      "aldrig native GitHub-skydd",
-      "använd inte admin-bypass",
-      "ändra checkresultat för att få grönt",
-      "det röda orchestrator-jobbet `trusted-review-window`",
-      "verifierat betrodd default-controller-körning för samma PR och aktuell head",
-      "`external_id`-prefixet `sajtmaskin-trusted-review-window:v1:<head>:`",
-      "enda felorsaken måste vara exakt samma bootstrap-summary",
-      "Paret räknas som en bootstrap-spärr",
-      "Varje annan jobbfailure",
-      "felannotation eller loggfel som inte härleds ur exakt denna",
-      "annan head/proveniens eller native GitHub-spärr förblir stopp",
-    ]) {
-      const candidate = source.replaceAll(clause, "");
-      expect(candidate).not.toBe(source);
-      expect(evaluateManualBootstrapRule(candidate)).not.toEqual([]);
-    }
-    expect(evaluateManualBootstrapRule("all red checks may be bypassed after owner approval"))
-      .not.toEqual([]);
   });
 
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
@@ -774,7 +729,7 @@ describe("agent workflow repository contract", () => {
     };
 
     const weakened = [
-      replaceOnce("ready_for_review, ", ""),
+      replaceOnce("reopened, ready_for_review", "reopened"),
       replaceOnce(
         "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
         "cancel-in-progress: true",
@@ -877,62 +832,27 @@ describe("agent workflow repository contract", () => {
     ).toContain("broad stability job must remain warn-only");
   });
 
-  it("keeps no-op review events outside trusted gate concurrency", () => {
-    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
-    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
-
-    const mutations = [
-      source.replace(
-        "        github.event.action == 'ready_for_review'\n",
-        "        github.event.action == 'ready_for_review' ||\n" +
-          "        github.event.action == 'edited'\n",
-      ),
-      source.replace(
-        "      github.event_name == 'pull_request_target' &&\n",
-        "      (github.event_name == 'pull_request_target' || " +
-          "github.event_name == 'issue_comment') &&\n",
-      ),
-      source.replace(
-        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}\n",
-        "      group: trusted-review-window\n",
-      ),
-      source.replace(
-        "\npermissions:\n",
-        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
-      ),
-    ];
-
-    for (const candidate of mutations) {
-      expect(candidate).not.toBe(source);
-      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
-    }
-  });
-
   it("keeps the trusted controller import graph free of npm packages", () => {
     expect(
-      collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8")),
+      collectEsmSpecifiers(readFileSync("scripts/ci/dependabot-automerge.mjs", "utf8")),
     ).toEqual(
       expect.arrayContaining([
         "node:fs",
         "node:path",
         "node:url",
-        "./merge-ready-freshness.mjs",
-        "../workflow/required-check-owners.mjs",
-        "../pr-review/core.mjs",
-        "../pr-review/account-fallback.mjs",
+        "node:util",
       ]),
     );
     expect(evaluateTrustedControllerImportGraph()).toEqual([]);
     expect(
       evaluateDependencyFreeImportGraph(
         {
-          "scripts/ci/trusted-review-window.mjs":
+          "scripts/ci/dependabot-automerge.mjs":
             'import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";\n',
-          "scripts/ci/merge-ready-freshness.mjs": "",
           "scripts/workflow/check-contract.mjs":
             'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
         },
-        ["scripts/ci/trusted-review-window.mjs", "scripts/ci/merge-ready-freshness.mjs"],
+        ["scripts/ci/dependabot-automerge.mjs"],
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -1109,18 +1029,79 @@ describe("agent workflow repository contract", () => {
   });
 
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
-    const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
+    const source = readFileSync(".github/workflows/dependabot-automerge.yml", "utf8");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(source).toContain("pull_request_target:");
+    expect(source).toContain("workflow_run:");
+    expect(source).toContain("workflows: [CI]");
+    expect(source).toContain("queue: max");
+    expect(source).toContain("cancel-in-progress: false");
     expect(source).not.toMatch(/^  pull_request:\s*$/mu);
-    expect(source).not.toContain("actions/checkout");
-    expect(source).not.toContain("gh pr merge");
-    expect(source).not.toContain("DEPENDABOT_AUTOMERGE_ENABLED");
+    expect(source).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("auto_merge_enabled");
+    expect(source).toContain("node scripts/ci/dependabot-automerge.mjs");
+    expect(source).toContain("secrets.DEPENDABOT_AUTOMERGE_TOKEN");
+    expect(source).not.toContain("secrets.GITHUB_TOKEN");
+    expect(source).toContain("DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget");
+    expect(source).toContain("github.event.action == 'synchronize'");
+    expect(source).toContain("github.actor != 'dependabot[bot]'");
+    expect(source).toContain("pr.head.sha === expectedHead");
+    expect(source).toContain('"$current_base" != "$BASE_SHA"');
+    expect(source.indexOf("Disarm previous request before validating a new head"))
+      .toBeLessThan(source.indexOf("Validate patch contents without executing PR code"));
+    expect(source).toContain('gh pr merge "$PR_URL" --auto --merge --match-head-commit "$HEAD_SHA"');
+    expect(source).not.toContain("--squash");
+    expect(source).toContain('gh pr merge "$PR_URL" --disable-auto');
+    expect(ci).toContain("  push:\n    branches: [master, preview]");
     expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
     expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(source).toContain("if: always()");
-    expect(source).toContain("steps.meta.outcome == 'success'");
-    expect(source).toContain("--force");
-    expect(source).toContain('--remove-label "dependabot-patch-safe"');
+    expect(source).toContain("steps.auth.outputs.available == 'true'");
+    expect(source).toContain("steps.validate.outcome == 'success'");
+    expect(source).not.toContain("gh label create");
+    expect(source).not.toContain("gh pr edit");
+    expect(readFileSync(".github/CODEOWNERS", "utf8")).toContain(
+      "/config/control-plane/schema-registry.json @Jakeminator123",
+    );
+  });
+
+  it("selects only the current open same-repository Dependabot PR for workflow_run", async () => {
+    const yaml = createRequire(import.meta.url)("js-yaml") as { load: (source: string) => unknown };
+    const document = yaml.load(readFileSync(".github/workflows/dependabot-automerge.yml", "utf8")) as {
+      jobs: { classify: { steps: Array<{ id?: string; with?: { script?: string } }> } };
+    };
+    const script = document.jobs.classify.steps.find((step) => step.id === "pr")!.with!.script!;
+    const runSelector = new Function("context", "github", "core", `return (async () => { ${script} })()`);
+    const head = "a".repeat(40);
+    const valid = {
+      number: 42, state: "open", user: { login: "dependabot[bot]" },
+      base: { ref: "preview", sha: "b".repeat(40) },
+      head: { sha: head, repo: { full_name: "Jakeminator123/sajtmaskin" } },
+      html_url: "https://github.com/Jakeminator123/sajtmaskin/pull/42", draft: false,
+    };
+    const select = async (pr: typeof valid, candidates = [pr]) => {
+      const outputs: Record<string, unknown> = {};
+      await runSelector(
+        { repo: { owner: "Jakeminator123", repo: "sajtmaskin" }, payload: { workflow_run: { head_sha: head } } },
+        { rest: {
+          repos: { listPullRequestsAssociatedWithCommit: async () => ({ data: candidates }) },
+          pulls: { get: async () => ({ data: pr }) },
+        } },
+        { setOutput: (key: string, value: unknown) => { outputs[key] = value; } },
+      );
+      return outputs;
+    };
+    expect(await select(valid)).toMatchObject({ number: 42, head, base: valid.base.sha });
+    for (const pr of [
+      { ...valid, state: "closed" },
+      { ...valid, user: { login: "someone" } },
+      { ...valid, base: { ...valid.base, ref: "master" } },
+      { ...valid, head: { ...valid.head, sha: "c".repeat(40) } },
+      { ...valid, head: { ...valid.head, repo: { full_name: "fork/sajtmaskin" } } },
+    ]) expect(await select(pr)).toEqual({});
+    expect(await select(valid, [])).toEqual({});
+    expect(await select(valid, [valid, valid])).toEqual({});
   });
 
   it.each([
@@ -1153,12 +1134,6 @@ describe("agent workflow repository contract", () => {
   });
 
   it.each([
-    ["review-window.yaml", "on: push\njobs: {}\n"],
-    ["other.yml", "on: push\njobs:\n  review-window:\n    runs-on: ubuntu-latest\n"],
-    [
-      "other.yml",
-      "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
-    ],
     ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
     [
       "other.yml",
@@ -1177,7 +1152,7 @@ describe("agent workflow repository contract", () => {
       "other.yml",
       "on: pull_request\njobs:\n  fake:\n    name: ${{ matrix.check }}\n    runs-on: ubuntu-latest\n",
     ],
-  ])("reserves the native review-window identity: %s", (name, source) => {
+  ])("reserves canonical check and review identities: %s", (name, source) => {
     expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
   });
 
@@ -1213,7 +1188,7 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateDossierAcceptanceWorkflow(
         source.replace(
-          "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+          "    types: [opened, synchronize, reopened, ready_for_review]\n",
           '    paths: ["data/dossiers/**"]\n',
         ),
       ).length,
@@ -1223,34 +1198,34 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
-    expect(policy.manualMergePathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.ownerReviewPathPrefixes).toContain(".cursor/rules/pr-merge.mdc");
     expect(evaluatePolicyFloors({
       ...structuredClone(policy),
-      manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+      ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
         (candidate: string) => candidate !== ".cursor/rules/pr-merge.mdc",
       ),
-    })).toContain("manualMergePathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
-    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
+    })).toContain("ownerReviewPathPrefixes security floor missing: .cursor/rules/pr-merge.mdc");
+    expect(policy.ownerReviewPathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
     );
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== "scripts/workflow/required-check-owners.mjs",
         ),
       }),
     ).toContain(
-      "manualMergePathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
+      "ownerReviewPathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
     );
 
     const weakened = [
@@ -1266,9 +1241,9 @@ describe("agent workflow repository contract", () => {
           "dossier-acceptance": "ci.yml",
         },
       },
-      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+      ...policy.ownerReviewPathPrefixes.map((prefix: string) => ({
         ...structuredClone(policy),
-        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+        ownerReviewPathPrefixes: policy.ownerReviewPathPrefixes.filter(
           (candidate: string) => candidate !== prefix,
         ),
       })),
