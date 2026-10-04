@@ -60,7 +60,18 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   inte den senare OpenAI-rättningen. Jakob har nu valt befintlig nyckel.
   Katalogens faktiska SDK har lagts till i den befintliga manifestregeln:
   RED 2/87 → GREEN 87/87 och bred manifest-/kontraktsmatris 205/205.
-  Ny oberoende review, current-head CI/deployment och previewleverans återstår.
+  OpenAI-rättningen publicerades på `7297caea9a78a2b916313477b8c2ca1bff9a038c`:
+  två oberoende delta-/integrationsreviews CLEAN, 13 020 standardtester + DB 126
+  och stabilitet 54 gröna. Full CI tog 9:01, inklusive cirka 5:26 kö; dossier
+  21/21 tog 6:53 och exakt Vercel READY 1:06. Två nya native P1 kom därefter:
+  Cal.com saknade SDK-evidens och explicit tomt dossierurval återvaldes.
+  PR:n är därför fortfarande draft/HOLD, inte previewlevererad. Samlad rättning
+  i samma owners: evidence-only Cal.com-regel, hard/provider-bevarande även för
+  REST-kärnor utan SDK samt authoritative explicit urval före autofix/merge.
+  RED 14/150 → GREEN 152/152; bred matris 577/577 och separat readiness 38/38,
+  docs 49/49, typ/lint/derived/docs/canvas/plan gröna. Överlapp summeras inte.
+  De befintliga canonical foreign-/multiprovider-spärrarna är kvar. Aktuell
+  oberoende delta-/integrationsreview, full CI och previewleverans återstår.
 - D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
@@ -185,13 +196,18 @@ API-/SDK-kod och beroenden är oförändrade; rättningen utökar endast den bef
 manifestregeln så att dess faktiskt levererade SDK ger positivt providerbevis.
 Direkt paketberoende och produktions-AST-import krävs fortfarande; package-only,
 type-only och test-only förblir nekade. En divergent äldre kärna bevaras även
-vid en orelaterad uppföljning. Den lokala rättningen har RED/GREEN och 205/205
-berörda tester, typ/lint och projektioner gröna. Native SDK-fyndet och checklistan
-får inte räknas som avslutade förrän aktuell review och previewleverans är klara.
+vid en orelaterad uppföljning. OpenAI-deltat har två oberoende CLEAN-reviews och
+grön full CI/deployment på 7297. Dess native SDK-fynd är löst med publicerat
+bevis, men checklistan hålls öppen tills även de två senare P1-rättningarna
+är granskade och hela kärnpaketet faktiskt levererats till preview.
 
 TESTER:s elva dokument är säkrade i `251fac2047a9f542b929a01be7a06199f824192c`.
-Jakob har nu bett om separat integration och push; det innebär inte att den
-bredare testreformen har genomförts eller fått eget preview-mergemandat.
+De är normalt integrerade och pushade på `codex/test-control-plan-delivery`
+(`04a3ec33f0eb67425a159c47b3b43921ead04c0d`), exakt elva dokument mot 7297.
+Originalcommitten är orörd. Backupgrenen innehåller ännu omergad dossierhistorik
+och får därför inte normalmergas till färsk preview innan rent dokumentdelta
+har verifierats. Testreformen är inte implementerad eller previewmergad;
+en separat startprompt finns utanför checkouten för faktisk implementation.
 
 ## Avslut
 

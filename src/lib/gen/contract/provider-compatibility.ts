@@ -443,11 +443,27 @@ export function resolveExistingDossierCorePlan(params: {
       projectProviderEvidence: evidence,
     });
     const currentCore = cores.find((core) => core.dossierId === entry.id);
+    const isHardProviderCore =
+      entry.class === "hard" && (entry.providers?.length ?? 0) > 0;
+    const unknownOwnedPathConflict =
+      isHardProviderCore &&
+      !!currentCore &&
+      !currentCore.provenByProviderEvidence &&
+      !currentCore.canonicalProtectedBytes &&
+      hasOwnedPathConflict(
+        { entry, reason: "capability-match", configured: false },
+        params.projectFiles,
+      );
     if (
-      currentCore?.provenByProviderEvidence &&
+      (currentCore?.provenByProviderEvidence ||
+        (isHardProviderCore && currentCore?.canonicalProtectedBytes) ||
+        unknownOwnedPathConflict) &&
       !preservedDossiers.some((dossier) => dossier.id === entry.id)
     ) {
       preservedDossiers.push(entry);
+    }
+    if (unknownOwnedPathConflict) {
+      migrationRequired = true;
     }
     const provenProviders = provenProvidersByCapability.get(capability) ?? new Set<string>();
     for (const core of cores) {

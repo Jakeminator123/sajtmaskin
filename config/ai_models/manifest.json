@@ -643,6 +643,19 @@
       },
       {
         "kind": "integration",
+        "providerKey": "calcom",
+        "dossierCapability": "booking",
+        "packageRoots": [
+          "@calcom/embed-react"
+        ],
+        "provider": "Cal.com",
+        "name": "Cal.com",
+        "envVars": [],
+        "matchPatterns": [],
+        "reason": "Existing project code imports the canonical Cal.com embed package."
+      },
+      {
+        "kind": "integration",
         "providerKey": "mailchimp",
         "dossierCapability": "newsletter-subscribe",
         "provider": "Mailchimp",

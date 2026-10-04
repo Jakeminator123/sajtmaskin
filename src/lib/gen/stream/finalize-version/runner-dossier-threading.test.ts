@@ -13,10 +13,12 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 const {
+  resolveFinalizeDossierContext,
   resolveExistingDossierCoreFromStreamMeta,
   resolveRemovedDossiersFromStreamMeta,
   resolveSelectedDossiersFromStreamMeta,
 } = await import("./runner");
+const { mergeGeneratedProjectFiles } = await import("../finalize-merge");
 
 /**
  * Regressionstest för Wave 6 verbatim-policy:
@@ -45,9 +47,75 @@ describe("resolveSelectedDossiersFromStreamMeta — orchestration → finalize t
     expect(result[0]?.capability).toBe("payments");
   });
 
-  it("faller tillbaka till requestedCapabilities om explicit dossier-id är stale", () => {
+  it("treats an explicitly empty dossier selection as authoritative", () => {
     const result = resolveSelectedDossiersFromStreamMeta({
-      selectedDossierIds: ["dossier-that-does-not-exist"],
+      selectedDossierIds: [],
+      requestedCapabilities: ["booking"],
+      briefSummary: { requestedCapabilities: ["booking"] },
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("does not replay capability defaults for valid unknown or partially known explicit ids", () => {
+    expect(
+      resolveSelectedDossiersFromStreamMeta({
+        selectedDossierIds: ["dossier-that-does-not-exist"],
+        requestedCapabilities: ["auth"],
+      }),
+    ).toEqual([]);
+    expect(
+      resolveSelectedDossiersFromStreamMeta({
+        selectedDossierIds: ["supabase-auth", "dossier-that-does-not-exist"],
+        requestedCapabilities: ["auth", "payments"],
+      }).map((entry) => entry.id),
+    ).toEqual(["supabase-auth"]);
+  });
+
+  it("keeps removed capabilities out of an authoritative explicit selection", () => {
+    expect(
+      resolveSelectedDossiersFromStreamMeta({
+        selectedDossierIds: ["stripe-checkout"],
+        requestedCapabilities: ["payments"],
+        removedCapabilities: ["payments"],
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([null, { id: "clerk-auth" }, ["clerk-auth", 7]])(
+    "fails closed for malformed present selectedDossierIds metadata: %j",
+    (selectedDossierIds) => {
+      expect(() =>
+        resolveSelectedDossiersFromStreamMeta({
+          selectedDossierIds,
+          requestedCapabilities: ["auth"],
+        }),
+      ).toThrow("selectedDossierIds");
+    },
+  );
+
+  it("derives autofix inputs from explicit entries only and preserves absent legacy fallback", () => {
+    expect(
+      resolveFinalizeDossierContext({
+        selectedDossierIds: ["supabase-auth", "dossier-that-does-not-exist"],
+        requestedCapabilities: ["auth", "payments"],
+      }),
+    ).toMatchObject({
+      selectedDossierIds: ["supabase-auth"],
+      requestedCapabilities: ["auth"],
+    });
+    expect(
+      resolveFinalizeDossierContext({
+        selectedDossierIds: [],
+        requestedCapabilities: ["auth"],
+      }),
+    ).toMatchObject({ selectedDossierIds: [], requestedCapabilities: [] });
+    expect(
+      resolveFinalizeDossierContext({ requestedCapabilities: ["auth"] }),
+    ).toMatchObject({ selectedDossierIds: undefined, requestedCapabilities: ["auth"] });
+  });
+
+  it("faller tillbaka till requestedCapabilities när selectedDossierIds saknas", () => {
+    const result = resolveSelectedDossiersFromStreamMeta({
       requestedCapabilities: ["visual-3d"],
     });
     expect(result.length).toBeGreaterThan(0);
@@ -180,5 +248,76 @@ describe("resolveExistingDossierCoreFromStreamMeta", () => {
 
     expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
     expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves divergent existing Clerk bytes without re-selecting Clerk from an explicit empty list", () => {
+    const streamMeta = {
+      selectedDossierIds: [],
+      requestedCapabilities: ["auth"],
+      contractIntegrations: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated follow-up",
+          status: "chosen",
+        },
+      ],
+    };
+    const previousFiles = [
+      {
+        path: "middleware.ts",
+        content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        language: "ts" as const,
+      },
+      {
+        path: "components/auth-buttons.tsx",
+        content: "export const AuthButtons = () => null; // older bytes",
+        language: "tsx" as const,
+      },
+      {
+        path: "components/clerk-provider-shell.tsx",
+        content: "export const ClerkProviderShell = () => null; // older bytes",
+        language: "tsx" as const,
+      },
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+        language: "json" as const,
+      },
+    ];
+    const selectedDossiers = resolveSelectedDossiersFromStreamMeta(streamMeta);
+    const existingCore = resolveExistingDossierCoreFromStreamMeta(streamMeta, previousFiles);
+    const generatedFiles = [
+      {
+        path: "middleware.ts",
+        content: "export const middleware = 'rewritten';",
+        language: "ts" as const,
+      },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return null; }",
+        language: "tsx" as const,
+      },
+    ];
+    const result = mergeGeneratedProjectFiles({
+      chatId: "authoritative-empty-selection",
+      originalFilesJson: JSON.stringify(generatedFiles),
+      generatedFiles,
+      resolvedScaffold: null,
+      previousFiles,
+      selectedDossiers,
+      preservedDossiers: existingCore.preservedDossiers,
+    });
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+
+    expect(selectedDossiers).toEqual([]);
+    expect(existingCore.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(merged.find((file) => file.path === "middleware.ts")?.content).toContain(
+      "older bytes",
+    );
+    expect(merged.filter((file) => file.path === "middleware.ts")).toHaveLength(1);
   });
 });

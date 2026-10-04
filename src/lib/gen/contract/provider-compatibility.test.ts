@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { selectDossiersForRequest } from "../dossiers/select";
 import { resolveDossierFilePath } from "../dossiers/output-path";
-import { getDossierFileContent } from "../dossiers/registry";
+import { getDossierById, getDossierFileContent } from "../dossiers/registry";
 import type { PlanContracts } from "../plan/schema";
 import { detectProjectProviderEvidence } from "./project-provider-evidence";
 import {
@@ -445,6 +445,18 @@ describe("buildDossierIntegrationPlan", () => {
 });
 
 describe("resolveExistingDossierCorePlan", () => {
+  function dossierFiles(id: string, mode: "canonical" | "divergent") {
+    const entry = getDossierById(id);
+    expect(entry).not.toBeNull();
+    return (entry?.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content:
+        mode === "canonical"
+          ? getDossierFileContent(entry!.class, entry!.id, file.path)!
+          : `older project bytes for ${file.path}`,
+    }));
+  }
+
   const olderClerkFiles = [
     {
       path: "middleware.ts",
@@ -510,6 +522,51 @@ describe("resolveExistingDossierCorePlan", () => {
       }),
     );
     expect(result.preservedDossiers.map((dossier) => dossier.id)).toContain("openai-chat");
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves divergent Cal.com core proven by its shipped embed package", () => {
+    const projectFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@calcom/embed-react": "^1" } }),
+      },
+      {
+        path: "components/booking-calendar.tsx",
+        content:
+          'import Cal from "@calcom/embed-react"; export function BookingCalendar() { return <Cal calLink="older/core" />; }',
+      },
+    ];
+    const projectProviderEvidence = detectProjectProviderEvidence(
+      projectFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence,
+    });
+
+    expect(projectProviderEvidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "calcom",
+        dossierCapability: "booking",
+        packageRoot: "@calcom/embed-react",
+      }),
+    );
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([
+      "calcom-booking",
+    ]);
     expect(result.migrationRequired).toBe(false);
   });
 
@@ -646,7 +703,7 @@ describe("resolveExistingDossierCorePlan", () => {
     expect(result.preservedDossiers).toEqual([]);
   });
 
-  it("requires migration for exact canonical Clerk core even when AST evidence is unavailable", () => {
+  it("preserves the existing foreign-provider hold for exact canonical hard core", () => {
     const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
     const canonicalFiles = (clerk.files ?? []).map((file) => ({
       path: resolveDossierFilePath(file.path).outputPath,
@@ -669,5 +726,121 @@ describe("resolveExistingDossierCorePlan", () => {
     });
     expect(result.migrationRequired).toBe(true);
     expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+  });
+
+  it.each(["mailchimp-newsletter", "visitor-counter"])(
+    "preserves canonical REST core without claiming provider evidence: %s",
+    (dossierId) => {
+      const result = resolveExistingDossierCorePlan({
+        contracts: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Unrelated follow-up",
+            status: "chosen",
+          },
+        ],
+        projectFiles: dossierFiles(dossierId, "canonical"),
+        projectProviderEvidence: [],
+      });
+
+      expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+      expect(result.migrationRequired).toBe(false);
+    },
+  );
+
+  it.each(["mailchimp-newsletter", "visitor-counter"])(
+    "holds and preserves divergent REST core whose provider cannot be proven: %s",
+    (dossierId) => {
+      const result = resolveExistingDossierCorePlan({
+        contracts: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Unrelated follow-up",
+            status: "chosen",
+          },
+        ],
+        projectFiles: dossierFiles(dossierId, "divergent"),
+        projectProviderEvidence: [],
+      });
+
+      expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+      expect(result.migrationRequired).toBe(true);
+      expect(result.decisions).toContainEqual(
+        expect.objectContaining({
+          dossierId,
+          disposition: "blocked",
+          reasonCode: "owned-path-conflict",
+        }),
+      );
+    },
+  );
+
+  it("holds divergent REST core even when the current capability contract is unresolved", () => {
+    const dossierId = "mailchimp-newsletter";
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "integration",
+          dossierCapability: "newsletter-subscribe",
+          provider: "Newsletter provider not selected",
+          name: "Newsletter provider not selected",
+          reason: "Provider choice is unresolved",
+          status: "unresolved",
+        },
+      ],
+      projectFiles: dossierFiles(dossierId, "divergent"),
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+    expect(result.migrationRequired).toBe(true);
+  });
+
+  it("does not seed or preserve a REST dossier when only its rewritable UI file exists", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: [
+        {
+          path: "components/newsletter-form.tsx",
+          content: "export function NewsletterForm() { return null; }",
+        },
+      ],
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("does not extend hard-provider preservation fallback to soft verbatim code", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: dossierFiles("local-site-search", "divergent"),
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("lets explicit REST dossier removal win over canonical-byte preservation", () => {
+    const dossierId = "mailchimp-newsletter";
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: dossierFiles(dossierId, "canonical"),
+      projectProviderEvidence: [],
+      removedDossierIds: new Set([dossierId]),
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
   });
 });

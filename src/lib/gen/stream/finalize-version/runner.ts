@@ -97,6 +97,21 @@ function normalizeDossierIds(input: unknown): string[] {
   );
 }
 
+function explicitDossierIdsFromStreamMeta(
+  streamMeta: Record<string, unknown> | null | undefined,
+): string[] | null {
+  if (!streamMeta || !Object.prototype.hasOwnProperty.call(streamMeta, "selectedDossierIds")) {
+    return null;
+  }
+  const raw = streamMeta.selectedDossierIds;
+  if (!Array.isArray(raw) || raw.some((entry) => typeof entry !== "string")) {
+    throw new Error(
+      "[finalize] invalid selectedDossierIds metadata: expected an array of strings",
+    );
+  }
+  return normalizeDossierIds(raw);
+}
+
 function mapSyntaxResultToBusPhase(params: {
   status: string;
   fixerUsed: boolean;
@@ -144,9 +159,9 @@ function resolveRequestedCapabilitiesFromStreamMeta(
  * Wave 6 verbatim-restore: resolve the dossiers selected by orchestration so
  * verbatim-policy can protect Stripe/Clerk-glue from LLM rewrites at merge.
  *
- * Primary path: `selectedDossierIds` from orchestration meta. Legacy fallback:
- * replay the older requested-capabilities metadata so old streams/evals still
- * get best-effort protection.
+ * Primary path: an own `selectedDossierIds` array from orchestration meta is
+ * authoritative, including [] and valid ids that no longer exist. Legacy
+ * fallback replays requested-capabilities only when the property is absent.
  */
 export function resolveSelectedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
@@ -154,15 +169,14 @@ export function resolveSelectedDossiersFromStreamMeta(
   const removed = new Set(
     normalizeCapabilityIds(streamMeta?.removedCapabilities),
   );
-  const explicitDossierIds = normalizeDossierIds(streamMeta?.selectedDossierIds);
-  if (explicitDossierIds.length > 0) {
-    const selected = explicitDossierIds
+  const explicitDossierIds = explicitDossierIdsFromStreamMeta(streamMeta);
+  if (explicitDossierIds !== null) {
+    return explicitDossierIds
       .map((id) => getDossierById(id))
       .filter(
         (entry): entry is DossierEntry =>
           entry !== null && !removed.has(entry.capability.toLowerCase()),
       );
-    if (selected.length > 0) return selected;
   }
 
   const capabilities = resolveRequestedCapabilitiesFromStreamMeta(streamMeta);
@@ -181,6 +195,32 @@ export function resolveSelectedDossiersFromStreamMeta(
     });
     return [];
   }
+}
+
+export function resolveFinalizeDossierContext(
+  streamMeta: Record<string, unknown> | null | undefined,
+): {
+  selectedDossiers: DossierEntry[];
+  requestedCapabilities: string[];
+  selectedDossierIds: string[] | undefined;
+} {
+  const hasExplicitSelection =
+    !!streamMeta && Object.prototype.hasOwnProperty.call(streamMeta, "selectedDossierIds");
+  const selectedDossiers = resolveSelectedDossiersFromStreamMeta(streamMeta);
+  if (hasExplicitSelection) {
+    return {
+      selectedDossiers,
+      requestedCapabilities: Array.from(
+        new Set(selectedDossiers.map((entry) => entry.capability.toLowerCase())),
+      ),
+      selectedDossierIds: selectedDossiers.map((entry) => entry.id),
+    };
+  }
+  return {
+    selectedDossiers,
+    requestedCapabilities: resolveRequestedCapabilitiesFromStreamMeta(streamMeta),
+    selectedDossierIds: undefined,
+  };
 }
 
 export function resolveRemovedDossiersFromStreamMeta(
@@ -257,16 +297,14 @@ export async function finalizeAndSaveVersion(
     willRunQualityGate = false,
     qualityGatePlanned = false,
   } = params;
-  const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
+  // Resolve this once before autofix. A present array (including []) is the
+  // orchestration contract; only snapshots without the key may replay legacy
+  // capabilities. Malformed present metadata throws before any mutation.
+  const dossierContext = resolveFinalizeDossierContext(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
   );
-  // Explicit dossier picks only (no capability-replay fallback): the autofix
-  // dep-backfill uses these to resolve the CHOSEN provider sibling's manifest
-  // instead of re-selecting the capability default (SM-006).
-  const orchestrationSelectedDossierIds = normalizeDossierIds(
-    (orchestrationStreamMeta as Record<string, unknown> | null | undefined)
-      ?.selectedDossierIds,
-  );
+  const requestedCapabilities = dossierContext.requestedCapabilities;
+  const orchestrationSelectedDossierIds = dossierContext.selectedDossierIds;
   // Read the orchestrate-locked variantId off the stream meta so the
   // autofix pre-phase can materialize the variant's first fontPairing
   // into the baseline `app/layout.tsx`. Falls back to null when meta
@@ -362,9 +400,7 @@ export async function finalizeAndSaveVersion(
   // Wave 6 verbatim-restore + Fas 0 telemetri: resolve the dossiers selected
   // by orchestration ONCE, so the exact same set drives both the verbatim
   // merge-policy (fast path) and the telemetry record (`meta.selectedDossierIds`).
-  const selectedDossiers = resolveSelectedDossiersFromStreamMeta(
-    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
-  );
+  const selectedDossiers = dossierContext.selectedDossiers;
   const removedDossiers = resolveRemovedDossiersFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
     previousFiles,

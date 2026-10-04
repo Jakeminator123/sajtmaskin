@@ -345,6 +345,33 @@ describe("assertPromoteAllowed — provider migration context", () => {
     expect(decision).toMatchObject({ allowed: false, indeterminate: true });
   });
 
+  it("holds promotion for divergent REST-backed dossier core without SDK evidence", async () => {
+    const mailchimpFiles = JSON.stringify([
+      {
+        path: "components/newsletter-form.tsx",
+        content: "export function NewsletterForm() { return null; } // older bytes",
+      },
+      {
+        path: "app/api/newsletter-subscribe/route.ts",
+        content: "export const POST = async () => new Response('older bytes');",
+      },
+    ]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: mailchimpFiles,
+        candidateFilesJson: mailchimpFiles,
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      reason: "integration migration requires review before promotion",
+    });
+  });
+
   it("treats one malformed file entry as an unavailable migration decision", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => null, {
       onReadError: "indeterminate",

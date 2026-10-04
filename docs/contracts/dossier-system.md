@@ -316,7 +316,7 @@ Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvV
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
-**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. A proven existing provider core instead uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files; rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
+**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. Existing hard/provider-coupled core uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files. Positive SDK evidence or exact canonical protected bytes support preservation; canonical bytes are not installed/live-provider evidence. An occupied divergent protected core without either proof is also preserved, but requires migration review rather than a guessed replacement. Existing foreign-/multiple-provider holds remain in force, and explicit removal wins before preservation. Rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
 
 ### Canonical file paths and collision policy
 
@@ -556,6 +556,13 @@ provider sibling back to the capability default.
 version has been saved, finalize derives `fileEvidenceDossierIds` and
 `fileEvidenceCapabilities` from that final `files_json`; only this evidence (or
 explicit removal) clears the corresponding pending entries.
+
+An own `selectedDossierIds` array in stream metadata is authoritative, including
+`[]`, unknown ids and partial matches. Finalize subtracts explicit removals and
+uses the same resolved set for autofix dependencies and the actual file merge;
+it never fills the remainder from capability defaults. Only an absent property
+may replay legacy requested capabilities. A present malformed value fails
+closed before autofix or merge, rather than silently changing provider choice.
 
 An exact-file integrations fork + ReleaseGate without codegen is allowed only
 when **no pending dossier remains** and the existing file-derived build spec has

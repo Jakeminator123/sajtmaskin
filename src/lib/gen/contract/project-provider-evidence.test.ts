@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import { getAllDossiers, getDossierFileContent } from "../dossiers/registry";
 import { detectProjectProviderEvidence } from "./project-provider-evidence";
 
 const rules = [
@@ -386,6 +387,55 @@ describe("detectProjectProviderEvidence", () => {
       );
     },
   );
+
+  it("keeps the hard-dossier SDK evidence map aligned with the actual catalog", () => {
+    const expectedEvidence = new Map<string, readonly [string, string, string]>([
+      ["calcom-booking", ["calcom", "booking", "@calcom/embed-react"]],
+      ["clerk-auth", ["clerk", "auth", "@clerk/nextjs"]],
+      ["openai-chat", ["openai", "ai-chat", "@ai-sdk/openai"]],
+      ["postgres-drizzle", ["postgres", "database", "pg"]],
+      ["resend-contact-form", ["resend", "contact-form", "resend"]],
+      ["stripe-checkout", ["stripe", "payments", "stripe"]],
+      ["supabase-auth", ["supabase", "auth", "@supabase/ssr"]],
+      ["vercel-analytics", ["vercel-analytics", "analytics", "@vercel/analytics"]],
+      ["vercel-blob-media", ["vercel-blob", "media-storage", "@vercel/blob"]],
+    ]);
+    const restOnlyDossiers = new Set(["mailchimp-newsletter", "visitor-counter"]);
+    const hardDossiers = getAllDossiers().filter((entry) => entry.class === "hard");
+
+    expect(hardDossiers.map((entry) => entry.id).sort()).toEqual(
+      [...expectedEvidence.keys(), ...restOnlyDossiers].sort(),
+    );
+
+    for (const entry of hardDossiers) {
+      const dependencies = Object.fromEntries(
+        (entry.dependencies ?? []).map((dependency) => [dependency, "1"]),
+      );
+      const files = (entry.files ?? []).map((file) => ({
+        path: file.path,
+        content: getDossierFileContent(entry.class, entry.id, file.path) ?? "",
+      }));
+      const evidence = detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies }) },
+          ...files,
+        ],
+        getPreGenerationContractsConfigFromManifest().providerRules,
+      );
+      const expected = expectedEvidence.get(entry.id);
+      if (!expected) {
+        expect(restOnlyDossiers.has(entry.id)).toBe(true);
+        expect(evidence).not.toContainEqual(
+          expect.objectContaining({ dossierCapability: entry.capability }),
+        );
+        continue;
+      }
+      const [providerKey, dossierCapability, packageRoot] = expected;
+      expect(evidence).toContainEqual(
+        expect.objectContaining({ providerKey, dossierCapability, packageRoot }),
+      );
+    }
+  });
 
   it.each([
     ["package only", []],
