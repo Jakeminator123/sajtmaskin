@@ -511,6 +511,13 @@ export function inferPreGenerationContracts(params: {
       continue;
     }
     if (inherited.status === "unresolved") {
+      const capability = inherited.dossierCapability;
+      if (
+        capability &&
+        negatedRules.some((rule) => capabilityForRule(rule) === capability)
+      ) {
+        continue;
+      }
       legacyCandidates.push({ ...inherited });
       continue;
     }
@@ -532,14 +539,23 @@ export function inferPreGenerationContracts(params: {
         (candidate) => candidate.providerKey === evidence.providerKey && !capabilityForRule(candidate),
       );
       if (rule) {
-        pushIntegration(integrations, {
+        const integration = {
           ...integrationForRule(rule),
           reason: `Existing project dependency and runtime import prove ${rule.name}.`,
-        });
+        };
+        if (!isContractNegated(integration)) {
+          pushIntegration(integrations, integration);
+        }
       }
       continue;
     }
     const capability = evidence.dossierCapability.toLowerCase();
+    const rule = PROVIDER_RULES.find(
+      (candidate) =>
+        candidate.providerKey === evidence.providerKey &&
+        capabilityForRule(candidate) === capability,
+    );
+    if (rule && isContractNegated(integrationForRule(rule))) continue;
     const bucket = evidenceByCapability.get(capability) ?? [];
     bucket.push(evidence);
     evidenceByCapability.set(capability, bucket);

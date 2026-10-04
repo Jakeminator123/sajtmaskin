@@ -572,6 +572,116 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     );
   });
 
+  it.each([
+    [
+      "Do not use Supabase auth",
+      { providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" },
+      "supabase",
+    ],
+    [
+      "Build login, but do not use Clerk",
+      { providerKey: "clerk", dossierCapability: "auth", packageRoot: "@clerk/nextjs" },
+      "clerk",
+    ],
+  ] as const)(
+    "keeps current provider negation ahead of exact project evidence: %s",
+    (prompt, evidence, rejectedProviderKey) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true }),
+        projectProviderEvidence: [evidence],
+      });
+
+      expect(ctx.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "auth",
+          selectionSource: "explicit",
+          status: "unresolved",
+        }),
+      ]);
+      expect(ctx.contracts.integrations[0]).not.toHaveProperty("providerKey");
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: rejectedProviderKey }),
+      );
+    },
+  );
+
+  it("filters current-negated method evidence without dropping the selected provider", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use PostgreSQL, but do not use Prisma",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
+      projectProviderEvidence: [
+        { providerKey: "prisma", kind: "database", packageRoot: "@prisma/client" },
+      ],
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "prisma" }),
+    );
+  });
+
+  it("promotes a technical unresolved choice to a durable explicit rejection before evidence", () => {
+    const technicalUnresolved = [
+      {
+        kind: "auth" as const,
+        dossierCapability: "auth",
+        provider: "auth provider not selected",
+        name: "auth provider not selected",
+        reason: "The project contains runtime proof for multiple providers.",
+        status: "unresolved" as const,
+      },
+    ];
+    const evidence = [
+      { providerKey: "supabase", dossierCapability: "auth", packageRoot: "@supabase/ssr" },
+    ];
+    const rejected = inferPreGenerationContracts({
+      prompt: "Do not use Supabase auth",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: technicalUnresolved,
+      projectProviderEvidence: evidence,
+    });
+    const neutral = inferPreGenerationContracts({
+      prompt: "Make the heading larger",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: rejected.contracts.integrations,
+      projectProviderEvidence: evidence,
+    });
+
+    for (const round of [rejected, neutral]) {
+      expect(round.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "auth",
+          selectionSource: "explicit",
+          status: "unresolved",
+        }),
+      ]);
+      expect(round.contracts.integrations[0]).not.toHaveProperty("providerKey");
+    }
+
+    const replaced = inferPreGenerationContracts({
+      prompt: "Use Clerk auth",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+      inheritedIntegrations: neutral.contracts.integrations,
+      projectProviderEvidence: evidence,
+    });
+    expect(replaced.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey: "clerk",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        status: "chosen",
+      }),
+    ]);
+  });
+
   it("preserves a specifically named legacy Supabase Auth identity", () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Keep the existing login",
