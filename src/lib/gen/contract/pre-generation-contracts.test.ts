@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { inferPreGenerationContracts } from "./pre-generation-contracts";
 import {
   inferCapabilities,
   type InferredCapabilities,
 } from "../capability-inference";
+import { getAllDossiers } from "../dossiers/registry";
 
 const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilities => ({
   needsMotion: false,
@@ -1183,10 +1185,48 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
   );
 
   it.each([
+    ["Do not use Clerk, Auth0", "auth", ["clerk", "auth0"]],
+    ["Använd inte Clerk, Auth0", "auth", ["clerk", "auth0"]],
+    ["Do not use Prisma, Drizzle", "database", ["prisma", "drizzle"]],
+  ] as const)(
+    "keeps a bare comma-list inside the shared negation window: %s",
+    (prompt, capability, forbiddenKeys) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({
+          needsAuth: capability === "auth",
+          needsDatabase: capability === "database",
+        }),
+      });
+      for (const providerKey of forbiddenKeys) {
+        expect(ctx.contracts.integrations).not.toContainEqual(
+          expect.objectContaining({ providerKey }),
+        );
+      }
+    },
+  );
+
+  it.each([
+    ["Do not use Clerk, use Auth0", "auth0"],
+    ["Use Clerk, but do not use Auth0", "clerk"],
+    ["Använd inte Clerk, använd Auth0", "auth0"],
+  ] as const)("preserves a new imperative or adversative positive choice: %s", (prompt, expected) => {
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: expected, status: "chosen" }),
+    );
+  });
+
+  it.each([
     ["Use Upstash as the database", "database", "Upstash"],
     ["Använd Redis som databas", "database", "Redis"],
-    ["Use Resend for newsletter signup", "newsletter", "Resend"],
-    ["Använd Resend för nyhetsbrev", "newsletter", "Resend"],
+    ["Use Resend for newsletter signup", "newsletter-subscribe", "Resend"],
+    ["Använd Resend för nyhetsbrev", "newsletter-subscribe", "Resend"],
   ] as const)(
     "holds a recognized provider with an unsupported purpose unresolved: %s",
     (prompt, capability, label) => {
@@ -1282,6 +1322,139 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     expect(ctx.contracts.integrations).not.toContainEqual(
       expect.objectContaining({ providerKey: "upstash", dossierCapability: undefined }),
     );
+  });
+
+  it("keeps inherited Resend contact-form while a new newsletter purpose stays unresolved", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Resend for newsletter signup",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+      inheritedIntegrations: [
+        {
+          kind: "integration",
+          providerKey: "resend",
+          dossierCapability: "contact-form",
+          selectionSource: "explicit",
+          provider: "Resend",
+          name: "Resend",
+          reason: "Existing contact form.",
+          status: "chosen",
+          envVars: ["RESEND_API_KEY"],
+        },
+      ],
+    });
+
+    expect(ctx.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          dossierCapability: "newsletter-subscribe",
+          status: "unresolved",
+        }),
+        expect.objectContaining({
+          providerKey: "resend",
+          dossierCapability: "contact-form",
+          status: "chosen",
+        }),
+      ]),
+    );
+    expect(ctx.contracts.envVars).toContainEqual(
+      expect.objectContaining({ key: "RESEND_API_KEY", required: false }),
+    );
+  });
+
+  it("keeps distinct same-vendor purposes and switches away from the unsupported source", () => {
+    const dual = inferPreGenerationContracts({
+      prompt: "Use Resend for newsletter signup and Resend for the contact form",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+    });
+    expect(dual.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          dossierCapability: "newsletter-subscribe",
+          status: "unresolved",
+        }),
+        expect.objectContaining({
+          providerKey: "resend",
+          dossierCapability: "contact-form",
+          status: "chosen",
+        }),
+      ]),
+    );
+
+    const switched = inferPreGenerationContracts({
+      prompt: "Switch from Resend newsletter to contact form",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+    });
+    expect(switched.contracts.integrations).toEqual([
+      expect.objectContaining({
+        providerKey: "resend",
+        dossierCapability: "contact-form",
+        status: "chosen",
+      }),
+    ]);
+  });
+
+  it("does not use unresolved purpose metadata to reinterpret chosen legacy providers", () => {
+    const resend = inferPreGenerationContracts({
+      prompt: "Keep the existing integration",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+      inheritedIntegrations: [
+        {
+          kind: "integration",
+          provider: "Resend",
+          name: "Resend",
+          reason: "Legacy provider choice.",
+          status: "chosen",
+        },
+      ],
+    });
+    expect(resend.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "resend",
+        dossierCapability: "contact-form",
+        status: "chosen",
+      }),
+    );
+
+    const upstash = inferPreGenerationContracts({
+      prompt: "Keep the existing integration",
+      buildIntent: "app",
+      capabilities: baseCaps(),
+      inheritedIntegrations: [
+        {
+          kind: "integration",
+          provider: "Upstash",
+          name: "Upstash",
+          reason: "Legacy provider choice.",
+          status: "chosen",
+        },
+      ],
+    });
+    expect(upstash.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "upstash", status: "chosen" }),
+    );
+    expect(upstash.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "database", status: "unresolved" }),
+    );
+  });
+
+  it("keeps every provider-rule capability in the canonical hard dossier catalog", () => {
+    const hardCapabilities = new Set(
+      getAllDossiers()
+        .filter((entry) => entry.class === "hard")
+        .map((entry) => entry.capability),
+    );
+    const configuredCapabilities = getPreGenerationContractsConfigFromManifest()
+      .providerRules
+      .map((rule) => rule.dossierCapability)
+      .filter((capability): capability is string => Boolean(capability));
+
+    expect(
+      configuredCapabilities.filter((capability) => !hardCapabilities.has(capability)),
+    ).toEqual([]);
   });
 
   it.each([

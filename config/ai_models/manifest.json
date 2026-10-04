@@ -606,7 +606,7 @@
       {
         "kind": "integration",
         "providerKey": "resend",
-        "dossierCapability": "newsletter",
+        "dossierCapability": "newsletter-subscribe",
         "provider": "Resend",
         "name": "Resend",
         "envVars": [],

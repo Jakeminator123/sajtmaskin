@@ -189,8 +189,9 @@ function inferDataMode(
  * Infer pre-generation contracts from prompt, brief, and capabilities.
  *
  * **Invariant (preview-first):** `unresolvedDecisions` is always returned empty
- * for the default flow — defaults (SQLite, NextAuth Credentials, Stripe test)
- * are applied automatically. First generation never blocks on missing env.
+ * for the default flow. Registry-aligned provider defaults are applied when no
+ * explicit provider decision exists, while explicit unresolved intent remains
+ * unresolved. First generation never blocks on missing env.
  */
 export function inferPreGenerationContracts(params: {
   prompt: string;
@@ -316,24 +317,11 @@ export function inferPreGenerationContracts(params: {
     if (isSupabasePairRule(rule)) {
       return supabaseDecisions.get(capabilityForRule(rule)!);
     }
-    let positive = false;
-    let negative = false;
-    const sourceClauses = source
-      .split(/[,;!?\n]+/u)
-      .map((clause) => clause.trim())
-      .filter(Boolean);
-    for (const clause of sourceClauses) {
-      const matching = rule.patterns.filter((pattern) => pattern.test(clause));
-      if (matching.length === 0) continue;
-      if (matching.every((pattern) => isTermFullyNegated(clause, pattern))) {
-        negative = true;
-      } else {
-        positive = true;
-      }
-    }
-    if (positive) return "positive";
-    if (negative) return "negative";
-    return undefined;
+    const matching = rule.patterns.filter((pattern) => pattern.test(source));
+    if (matching.length === 0) return undefined;
+    return matching.every((pattern) => isTermFullyNegated(source, pattern))
+      ? "negative"
+      : "positive";
   };
   const promptRuleDecisions = new Map(
     PROVIDER_RULES.map((rule) => [
@@ -349,11 +337,6 @@ export function inferPreGenerationContracts(params: {
   );
   const promptDecisionScopes = new Set(
     PROVIDER_RULES.filter((rule) => promptRuleDecisions.get(rule)).map(ruleScope),
-  );
-  const promptPositiveScopes = new Set(
-    PROVIDER_RULES.filter((rule) => promptRuleDecisions.get(rule) === "positive").map(
-      ruleScope,
-    ),
   );
   const inheritedExplicitScopes = new Set(
     inheritedIntegrations
@@ -375,30 +358,65 @@ export function inferPreGenerationContracts(params: {
     )?.[1];
   const promptSwitchTarget = switchTarget(prompt);
   const briefSwitchTarget = switchTarget(briefCorpus);
+  const capabilityPatternForRule = (rule: ProviderRule): RegExp | null => {
+    const capability = capabilityForRule(rule);
+    if (!capability) return null;
+    const source = capability
+      .split("-")
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("[\\s-]+");
+    return new RegExp(`\\b${source}\\b`, "iu");
+  };
+  const sourceForRule = (rule: ProviderRule): string =>
+    promptDecisionScopes.has(ruleScope(rule)) ? prompt : briefCorpus;
+  const hasPositiveCapabilityMention = (
+    rule: ProviderRule,
+    source: string,
+  ): boolean => {
+    const pattern = capabilityPatternForRule(rule);
+    return Boolean(
+      pattern && pattern.test(source) && !isTermFullyNegated(source, pattern),
+    );
+  };
   const targetRules = matchedPositiveRules.filter((rule) => {
     const target = promptDecisionScopes.has(ruleScope(rule))
       ? promptSwitchTarget
       : briefSwitchTarget;
     return Boolean(
-      target && rule.patterns.some((pattern) => pattern.test(target)),
+      target &&
+        (rule.patterns.some((pattern) => pattern.test(target)) ||
+          hasPositiveCapabilityMention(rule, target)),
     );
   });
   const targetScopes = new Set(targetRules.map(ruleScope));
-  const unresolvedProviderKeys = new Set(
-    matchedPositiveRules
-      .filter((rule) => rule.status === "unresolved" && capabilityForRule(rule))
-      .map((rule) => rule.providerKey),
+  const targetProviderKeys = new Set(targetRules.map((rule) => rule.providerKey));
+  const unresolvedProviderRules = matchedPositiveRules.filter(
+    (rule) => rule.status === "unresolved" && capabilityForRule(rule),
   );
   const positiveRules = matchedPositiveRules.filter((rule) => {
     if (
+      targetProviderKeys.has(rule.providerKey) &&
+      !targetRules.includes(rule)
+    ) {
+      return false;
+    }
+    if (
       rule.status !== "unresolved" &&
-      unresolvedProviderKeys.has(rule.providerKey)
+      unresolvedProviderRules.some(
+        (unresolved) => unresolved.providerKey === rule.providerKey,
+      ) &&
+      !hasPositiveCapabilityMention(rule, sourceForRule(rule))
     ) {
       return false;
     }
     if (targetScopes.has(ruleScope(rule))) return targetRules.includes(rule);
     return true;
   });
+  const promptPositiveScopes = new Set(
+    positiveRules
+      .filter((rule) => promptRuleDecisions.get(rule) === "positive")
+      .map(ruleScope),
+  );
   const negatedRules = PROVIDER_RULES.filter(
     (rule) => decisionForRule(rule) === "negative",
   );
@@ -456,7 +474,7 @@ export function inferPreGenerationContracts(params: {
     );
     const specificMatches = PROVIDER_RULES.filter(
       (rule) =>
-        Boolean(capabilityForRule(rule)) &&
+        rule.status !== "unresolved" &&
         compact(rule.name) !== compact(rule.provider) &&
         compactLabels.has(compact(rule.name)),
     );
@@ -472,7 +490,7 @@ export function inferPreGenerationContracts(params: {
     const directlyMatchedProviderKeys = new Set(
       PROVIDER_RULES.filter(
         (rule) =>
-          Boolean(capabilityForRule(rule)) &&
+          rule.status !== "unresolved" &&
           (compactLabels.has(compact(rule.providerKey)) ||
             compactLabels.has(compact(rule.provider)) ||
             compactLabels.has(compact(rule.name)) ||
@@ -482,7 +500,7 @@ export function inferPreGenerationContracts(params: {
     if (directlyMatchedProviderKeys.size !== 1) return [];
     const matches = PROVIDER_RULES.filter(
       (rule) =>
-        Boolean(capabilityForRule(rule)) &&
+        rule.status !== "unresolved" &&
         directlyMatchedProviderKeys.has(rule.providerKey),
     );
     const unique = new Map(
@@ -686,8 +704,8 @@ export function inferPreGenerationContracts(params: {
 
   for (const legacy of legacyCandidates) {
     const capability = legacy.dossierCapability;
-    if (!capability || capabilityHasContract(capability)) continue;
-    integrations.push(legacy);
+    if (capability && capabilityHasContract(capability)) continue;
+    pushIntegration(integrations, legacy);
     pushEnvVars(envVars, legacy.envVars ?? [], legacy.reason, false);
     applyTopLevelProvider(legacy);
   }

@@ -199,6 +199,29 @@ describe("provider-compatible orchestration", () => {
     expect(base.buildSpec.referenceCategories).toContain("backend");
   });
 
+  it("keeps explicit Resend newsletter intent unresolved on the canonical capability", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Use Resend for newsletter signup", {
+        buildIntent: "website",
+        requestedDossierCapabilities: ["newsletter-subscribe"],
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toEqual([
+      expect.objectContaining({
+        dossierCapability: "newsletter-subscribe",
+        provider: "Resend",
+        status: "unresolved",
+      }),
+    ]);
+    expect(base.preGenerationContracts.contracts.integrations[0]).not.toHaveProperty(
+      "providerKey",
+    );
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+      "mailchimp-newsletter",
+    );
+  });
+
   it.each([
     ["Use Google Analytics 4", "google-analytics"],
     ["Use Google Tag Manager", "gtm"],
