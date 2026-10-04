@@ -87,8 +87,13 @@ mejl (`first` eller `follow`) får uppdatera dem under samma lås och
 avregistreringskontroll, utan att röra `sentAt/source`. En konflikt eller en
 avregistrering ändrar ingenting. A/B-nämnaren `firstAccepted` räknar företag
 med minst ett accepterat första mejl, i den kohort som företagsradens bevarade
-`source` anger, alltså samma fält som adminvyns täljare. Varje företag räknas en
+`source` anger. Varje företag räknas en
 gång oavsett i vilken ordning dess mejl accepterades; alla mejlrader behålls.
+Admin visar generationsantal från det visade företagsregistret separat från
+eventregistrets accepterade förstamejlsföretag. Historik utan mailEvent och
+ett eventuellt kapat företagsregister gör dessa underlag olika; de presenteras
+inte som en konverteringskvot. När analysen är otillgänglig inaktiveras
+besöks-/verifierings-/formulärfilter i stället för att behandla okända tal som noll.
 
 `generation.state` är `unknown`, `not-started`, `in-progress`, `succeeded`
 eller `failed`. `completedAt` finns bara för `succeeded`; `siteId` är projektets

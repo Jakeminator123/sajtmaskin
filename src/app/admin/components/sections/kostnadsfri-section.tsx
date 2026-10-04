@@ -134,11 +134,13 @@ function FilterChip({
   onClick,
   children,
   title,
+  disabled = false,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   title?: string;
+  disabled?: boolean;
 }) {
   return (
     <Button
@@ -146,6 +148,7 @@ function FilterChip({
       variant="outline"
       size="sm"
       title={title}
+      disabled={disabled}
       aria-pressed={active}
       onClick={onClick}
       className={cn(
@@ -322,15 +325,17 @@ export function KostnadsfriSection() {
     return rows.filter((row) => {
       if (!showOtherPaths && row.kind !== "utskick") return false;
       if (todayOnly && !matchesTodayActivity(row)) return false;
-      if (unikaGt0 && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
-      if (!matchesCountFilter(row.stats?.verified ?? 0, verifiedFilter)) return false;
-      if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
+      if (data?.analytics.available) {
+        if (unikaGt0 && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
+        if (!matchesCountFilter(row.stats?.verified ?? 0, verifiedFilter)) return false;
+        if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
+      }
       if (!needle) return true;
       return [row.companyName, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
       );
     });
-  }, [rows, rowFilter, showOtherPaths, todayOnly, unikaGt0, verifiedFilter, startedFilter]);
+  }, [rows, rowFilter, showOtherPaths, todayOnly, unikaGt0, verifiedFilter, startedFilter, data?.analytics.available]);
 
   const recentRows = useMemo(() => {
     if (!data) return [];
@@ -398,6 +403,7 @@ export function KostnadsfriSection() {
           <AlertDescription>
             Utskicksregistret visas fortfarande. Besök, verifieringar och slutförda formulär är
             okända — de ska inte tolkas som noll.
+            Besöksfilter är avstängda tills analysen är tillgänglig igen.
           </AlertDescription>
         </Alert>
       )}
@@ -572,21 +578,13 @@ export function KostnadsfriSection() {
               <StatCard
                 label="Text genererade"
                 value={data.generationStatus.available ? totals.textGenerated : "—"}
-                hint={
-                  data.mailStats.available
-                    ? `av ${textMailStats?.firstAccepted ?? 0} accepterade första mejl`
-                    : "utskicksdata saknas"
-                }
+                hint="visat företagsregister, inklusive historik"
                 icon={Send}
               />
               <StatCard
                 label="Animerat genererade"
                 value={data.generationStatus.available ? totals.animatedGenerated : "—"}
-                hint={
-                  data.mailStats.available
-                    ? `av ${animatedMailStats?.firstAccepted ?? 0} accepterade första mejl`
-                    : "utskicksdata saknas"
-                }
+                hint="visat företagsregister, inklusive historik"
                 icon={Send}
               />
               <StatCard
@@ -608,6 +606,13 @@ export function KostnadsfriSection() {
                 icon={Rocket}
               />
             </div>
+            <p className="text-muted-foreground text-sm">
+              Genereringarna gäller visat företagsregister, inklusive historik utan mailEvent.
+              {data.mailStats.available
+                ? ` Eventregistret har ${textMailStats?.firstAccepted ?? 0} textföretag och ${animatedMailStats?.firstAccepted ?? 0} animerade företag med accepterat första mejl.`
+                : " Eventregistret är inte tillgängligt."}
+              {" "}Underlagen ska inte divideras till en konverteringsgrad.
+            </p>
 
             <SectionCard
               title="Per företag"
@@ -661,29 +666,33 @@ export function KostnadsfriSection() {
                   >
                     Idag
                   </FilterChip>
-                  <FilterChip active={unikaGt0} onClick={() => setUnikaGt0((value) => !value)}>
+                  <FilterChip disabled={!data.analytics.available} active={data.analytics.available && unikaGt0} onClick={() => setUnikaGt0((value) => !value)}>
                     Unika {">"} 0
                   </FilterChip>
                   <FilterChip
-                    active={verifiedFilter === "gt0"}
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && verifiedFilter === "gt0"}
                     onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "gt0"))}
                   >
                     Rätt lösenord {">"} 0
                   </FilterChip>
                   <FilterChip
-                    active={verifiedFilter === "eq0"}
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && verifiedFilter === "eq0"}
                     onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "eq0"))}
                   >
                     Rätt lösenord = 0
                   </FilterChip>
                   <FilterChip
-                    active={startedFilter === "gt0"}
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && startedFilter === "gt0"}
                     onClick={() => setStartedFilter((value) => cycleCountFilter(value, "gt0"))}
                   >
                     Formulär klara {">"} 0
                   </FilterChip>
                   <FilterChip
-                    active={startedFilter === "eq0"}
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && startedFilter === "eq0"}
                     onClick={() => setStartedFilter((value) => cycleCountFilter(value, "eq0"))}
                   >
                     Formulär klara = 0

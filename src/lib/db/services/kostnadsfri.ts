@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   engineGenerationLogs,
@@ -525,10 +525,19 @@ async function recordMailEventWith(
         updated_at: new Date(),
       })
       .where(
-        // Re-check the transition against the row as it is now, so a racing
-        // write can never be moved backwards or sideways.
+        // Re-check the transition and every supplied timestamp on the row as
+        // it is now. A conflicting snapshot must not partially write facts.
         and(
           eq(kostnadsfriMailEvents.message_id, input.messageId),
+          input.smtpAcceptedAt
+            ? or(isNull(kostnadsfriMailEvents.smtp_accepted_at), eq(kostnadsfriMailEvents.smtp_accepted_at, input.smtpAcceptedAt))
+            : undefined,
+          input.deliveredAt
+            ? or(isNull(kostnadsfriMailEvents.delivered_at), eq(kostnadsfriMailEvents.delivered_at, input.deliveredAt))
+            : undefined,
+          input.repliedAt
+            ? or(isNull(kostnadsfriMailEvents.replied_at), eq(kostnadsfriMailEvents.replied_at, input.repliedAt))
+            : undefined,
           inArray(
             kostnadsfriMailEvents.outcome,
             Object.keys(MAIL_OUTCOME_RANK).filter((outcome) =>
@@ -547,7 +556,10 @@ async function recordMailEventWith(
       if (!raced[0]) throw new Error("Mail event disappeared during update");
       return {
         status:
-          raced[0].outcome === input.outcome && mailEventMatches(raced[0], input)
+          raced[0].outcome === input.outcome && mailEventMatches(raced[0], input) &&
+          sameOptionalTime(raced[0].smtp_accepted_at, input.smtpAcceptedAt) &&
+          sameOptionalTime(raced[0].delivered_at, input.deliveredAt) &&
+          sameOptionalTime(raced[0].replied_at, input.repliedAt)
             ? "duplicate"
             : "conflict",
         event: raced[0],

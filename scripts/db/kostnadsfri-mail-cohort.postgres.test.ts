@@ -18,7 +18,9 @@ import { existsSync } from "node:fs";
 
 import { config as loadEnvFile } from "dotenv";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import type { kostnadsfriMailEvents } from "@/lib/db/schema";
 
 import { checkDbEnvTarget, loadDbTargets, resolveConfiguredDbUrl } from "./check-db-env-target.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
@@ -248,6 +250,64 @@ describe.skipIf(!target.url)("kostnadsfri mail cohort mot riktig Postgres", () =
     row = await page(slug("meta"));
     expect(row.contact_email).toBe("first@meta.example");
     expect(row.extra_data.profile).toEqual({ city: "Lund" });
+  });
+
+  it("rejects a stale timestamp update without adding its other supplied facts", async () => {
+    const created = await service.createKostnadsfriPage({
+      slug: slug("timestamp-race"), passwordHash: "hash", companyName: "Timestamp fixture AB",
+    });
+    const input = {
+      ...baseEvent, messageId: messageId(8), pageId: created.id, slug: slug("timestamp-race"),
+      step: "first" as const, variant: "text" as const, source: textSource,
+      smtpAcceptedAt: new Date("2026-10-03T10:00:00.000Z"), outcome: "accepted" as const,
+    };
+    await service.recordKostnadsfriMailEvent(input);
+    const { db } = await import("@/lib/db/client");
+    const originalSelect = db.select.bind(db);
+    let firstSnapshotRead!: () => void;
+    let bothSnapshotsRead!: () => void;
+    let secondMayUpdate!: () => void;
+    const firstRead = new Promise<void>((resolve) => { firstSnapshotRead = resolve; });
+    const bothRead = new Promise<void>((resolve) => { bothSnapshotsRead = resolve; });
+    const secondUpdate = new Promise<void>((resolve) => { secondMayUpdate = resolve; });
+    let reads = 0;
+    // Only delay delivery of genuine SQL SELECT results. No query, result or
+    // UPDATE is mocked: both readers capture null, first UPDATE commits, then
+    // the second proceeds with its real stale snapshot. This also exercises
+    // the low-level writer independently of the route's company row lock.
+    const spy = vi.spyOn(db, "select").mockImplementation((() => ({
+      from: (table: typeof kostnadsfriMailEvents) => ({
+        where: (condition: SQL) => ({
+          limit: async (limit: number) => {
+            const rows = await originalSelect().from(table).where(condition).limit(limit);
+            const read = ++reads;
+            if (read === 1) { firstSnapshotRead(); await bothRead; }
+            if (read === 2) { bothSnapshotsRead(); await secondUpdate; }
+            return rows;
+          },
+        }),
+      }),
+    })) as unknown as typeof db.select);
+    try {
+      const winner = service.recordKostnadsfriMailEvent({
+        ...input, deliveredAt: new Date("2026-10-03T11:00:01.000Z"),
+      }).finally(secondMayUpdate);
+      await firstRead;
+      const loser = service.recordKostnadsfriMailEvent({
+        ...input, deliveredAt: new Date("2026-10-03T11:00:02.000Z"),
+        repliedAt: new Date("2026-10-03T11:00:03.000Z"),
+      });
+      const results = await Promise.all([winner, loser]);
+      expect(results.map((result) => result.status)).toEqual(["updated", "conflict"]);
+      const stored = await pool.query(
+        "select delivered_at, replied_at from kostnadsfri_mail_events where message_id = $1",
+        [input.messageId],
+      );
+      expect(stored.rows[0].delivered_at.toISOString()).toBe("2026-10-03T11:00:01.000Z");
+      expect(stored.rows[0].replied_at).toBeNull();
+    } finally {
+      bothSnapshotsRead(); secondMayUpdate(); spy.mockRestore();
+    }
   });
 
   it("writes no receipt for a deleted page and keeps the messageId reusable", async () => {
