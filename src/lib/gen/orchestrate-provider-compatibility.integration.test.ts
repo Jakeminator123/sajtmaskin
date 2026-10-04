@@ -482,6 +482,104 @@ describe("provider-compatible orchestration", () => {
   });
 
   it.each([
+    ["Switch from Supabase auth to database"],
+    ["Byt från Supabase auth till databas"],
+  ])("reuses Supabase only for an implicit database target: %s", async (prompt) => {
+    const base = await resolveOrchestrationBase(
+      input(prompt, {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        capabilities: { ...none, needsAuth: true, needsDatabase: true, needsPayments: true },
+        requestedDossierCapabilities: ["auth", "database", "payments"],
+        followUpContract: followUpContract(["auth", "database", "payments"], [
+          {
+            kind: "auth",
+            providerKey: "supabase",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase Auth",
+            reason: "Existing auth provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            selectionSource: "explicit",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Independent payment provider.",
+            status: "chosen",
+            envVars: ["STRIPE_SECRET_KEY"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.removedCapabilities).toContain("auth");
+    expect(base.preGenerationContracts.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ providerKey: "supabase", dossierCapability: "database" }),
+        expect.objectContaining({ providerKey: "stripe", dossierCapability: "payments" }),
+      ]),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "auth" }),
+    );
+  });
+
+  it.each([
+    ["Switch from Supabase database to auth"],
+    ["Byt från Supabase databas till auth"],
+  ])("reuses Supabase only for an implicit auth target: %s", async (prompt) => {
+    const base = await resolveOrchestrationBase(
+      input(prompt, {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        capabilities: { ...none, needsAuth: true, needsDatabase: true, needsPayments: true },
+        requestedDossierCapabilities: ["auth", "database", "payments"],
+        followUpContract: followUpContract(["auth", "database", "payments"], [
+          {
+            kind: "database",
+            providerKey: "supabase",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase",
+            reason: "Existing database provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            selectionSource: "explicit",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Independent payment provider.",
+            status: "chosen",
+            envVars: ["STRIPE_SECRET_KEY"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.removedCapabilities).toContain("database");
+    expect(base.preGenerationContracts.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ providerKey: "supabase", dossierCapability: "auth" }),
+        expect.objectContaining({ providerKey: "stripe", dossierCapability: "payments" }),
+      ]),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "database" }),
+    );
+  });
+
+  it.each([
     ["Switch from Upstash analytics to Google Analytics"],
     ["Byt från Upstash analytics till Google Analytics"],
   ])("drops the capabilityless source provider and env on an analytics switch: %s", async (prompt) => {

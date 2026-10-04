@@ -81,8 +81,15 @@ function capabilityForRule(rule: ProviderRule): string | undefined {
 
 type SupabasePairDecision = "positive" | "negative";
 
+const SUPABASE_PATTERN = /\bsupabase\b/iu;
+const AUTH_PURPOSE_PATTERN =
+  /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu;
+const DATABASE_PURPOSE_PATTERN =
+  /\b(?:database|databas|db|storage|lagring)\b/iu;
+
 function getSupabasePairDecisions(
   source: string,
+  options: { allowImplicitProvider?: boolean } = {},
 ): Map<string, SupabasePairDecision> {
   const decisions = new Map<string, SupabasePairDecision>();
   const segments = source
@@ -90,28 +97,37 @@ function getSupabasePairDecisions(
     .map((segment) => segment.trim())
     .filter(Boolean);
   for (const segment of segments) {
-    if (!/\bsupabase\b/iu.test(segment)) continue;
-    const decision: SupabasePairDecision = isTermFullyNegated(
-      segment,
-      /\bsupabase\b/iu,
-    )
-      ? "negative"
-      : "positive";
-    const hasAuthCue =
-      /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(
-        segment,
+    const hasProvider = SUPABASE_PATTERN.test(segment);
+    if (!hasProvider && !options.allowImplicitProvider) continue;
+    const providerDecision: SupabasePairDecision =
+      hasProvider && isTermFullyNegated(segment, SUPABASE_PATTERN)
+        ? "negative"
+        : "positive";
+    const hasAuthCue = AUTH_PURPOSE_PATTERN.test(segment);
+    const hasDatabaseCue = DATABASE_PURPOSE_PATTERN.test(segment);
+    if (hasAuthCue) {
+      decisions.set(
+        "auth",
+        !hasProvider && isTermFullyNegated(segment, AUTH_PURPOSE_PATTERN)
+          ? "negative"
+          : providerDecision,
       );
-    const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(
-      segment,
-    );
-    if (hasAuthCue) decisions.set("auth", decision);
-    if (hasDatabaseCue) decisions.set("database", decision);
+    }
+    if (hasDatabaseCue) {
+      decisions.set(
+        "database",
+        !hasProvider && isTermFullyNegated(segment, DATABASE_PURPOSE_PATTERN)
+          ? "negative"
+          : providerDecision,
+      );
+    }
     if (!hasAuthCue && !hasDatabaseCue) {
-      if (decision === "negative") {
-        decisions.set("auth", decision);
-        decisions.set("database", decision);
+      if (!hasProvider) continue;
+      if (providerDecision === "negative") {
+        decisions.set("auth", providerDecision);
+        decisions.set("database", providerDecision);
       } else {
-        decisions.set("database", decision);
+        decisions.set("database", providerDecision);
       }
     }
   }
@@ -144,7 +160,12 @@ function rulesForSwitchSegment(
   const providerKeys =
     explicitProviderKeys.size > 0 ? explicitProviderKeys : fallbackProviderKeys;
   if (providerKeys.size === 0) return [];
-  const supabasePairDecisions = getSupabasePairDecisions(source);
+  const supabasePairDecisions = getSupabasePairDecisions(source, {
+    allowImplicitProvider:
+      explicitProviderKeys.size === 0 &&
+      fallbackProviderKeys.size === 1 &&
+      fallbackProviderKeys.has("supabase"),
+  });
 
   return PROVIDER_RULES.filter((rule) => {
     if (!providerKeys.has(rule.providerKey)) return false;

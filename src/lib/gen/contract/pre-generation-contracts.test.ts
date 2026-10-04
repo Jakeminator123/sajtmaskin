@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
-import { inferPreGenerationContracts } from "./pre-generation-contracts";
+import {
+  inferPreGenerationContracts,
+  resolveProviderSwitchRemovedCapabilities,
+} from "./pre-generation-contracts";
 import {
   inferCapabilities,
   type InferredCapabilities,
@@ -1613,5 +1616,12 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     expect(ctx.contracts.integrations).not.toContainEqual(
       expect.objectContaining({ providerKey: "upstash" }),
     );
+  });
+
+  it.each([
+    "Switch from Supabase auth to no database",
+    "Byt från Supabase auth till ingen databas",
+  ])("does not fabricate an implicit Supabase target from a negated purpose: %s", (prompt) => {
+    expect(resolveProviderSwitchRemovedCapabilities(prompt)).toEqual([]);
   });
 });
