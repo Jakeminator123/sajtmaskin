@@ -1,0 +1,134 @@
+name: Dependabot native auto-merge
+
+# Endast betrodd default-branch-kod; inga PR-artefakter, caches eller npm install.
+# workflow_run får Actions-secrets även efter Dependabots obetrodda PR-CI.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [requested, completed]
+  pull_request_target:
+    branches: [preview]
+    types: [synchronize, reopened, ready_for_review, converted_to_draft, auto_merge_enabled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch }}
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.actor != 'dependabot[bot]' &&
+       github.event.pull_request.user.login == 'dependabot[bot]' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - name: Select current same-repository Dependabot PR
+        id: pr
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const expectedHead = run?.head_sha || context.payload.pull_request.head.sha;
+            const candidates = run
+              ? (await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  ...context.repo, commit_sha: expectedHead, per_page: 100,
+                })).data
+              : [context.payload.pull_request];
+            const matches = [];
+            for (const candidate of candidates) {
+              const { data: pr } = await github.rest.pulls.get({
+                ...context.repo, pull_number: candidate.number,
+              });
+              if (pr.state === 'open' && pr.user.login === 'dependabot[bot]' &&
+                  pr.base.ref === 'preview' && pr.head.sha === expectedHead &&
+                  pr.head.repo?.full_name === `${context.repo.owner}/${context.repo.repo}`) {
+                matches.push(pr);
+              }
+            }
+            if (matches.length !== 1) return;
+            const pr = matches[0];
+            core.setOutput('number', pr.number);
+            core.setOutput('url', pr.html_url);
+            core.setOutput('head', pr.head.sha);
+            core.setOutput('base', pr.base.sha);
+            core.setOutput('draft', String(pr.draft));
+
+      - name: Require dedicated controller token
+        id: auth
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::DEPENDABOT_AUTOMERGE_TOKEN saknas; controllern skriver inget."
+            exit 1
+          fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Disarm previous request before validating a new head
+        if: >
+          steps.auth.outputs.available == 'true' &&
+          (github.event.action == 'requested' || github.event.action == 'synchronize')
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          auto_merge=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
+          if [ "$auto_merge" = "true" ]; then
+            gh pr merge "$PR_URL" --disable-auto
+          fi
+
+      - name: Checkout trusted default branch
+        if: steps.auth.outputs.available == 'true' && github.event.action != 'requested'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Validate patch contents without executing PR code
+        id: validate
+        if: steps.auth.outputs.available == 'true' && github.event.action != 'requested'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BASE_REF: preview
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+        run: node scripts/ci/dependabot-automerge.mjs
+
+      - name: Reconcile native auto-merge
+        if: always() && steps.auth.outputs.available == 'true' && github.event.action != 'requested'
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          IS_DRAFT: ${{ steps.pr.outputs.draft }}
+          ELIGIBLE: ${{ steps.validate.outcome == 'success' }}
+          CI_OK: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+        run: |
+          current_head=$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')
+          current_base=$(gh pr view "$PR_URL" --json baseRefOid --jq '.baseRefOid')
+          if [ "$current_head" != "$HEAD_SHA" ] || [ "$current_base" != "$BASE_SHA" ]; then
+            echo "Snapshot är stale; aktuell körning äger den nya headen/basen."
+            exit 0
+          fi
+          if [ "$ELIGIBLE" = "true" ] && [ "$IS_DRAFT" != "true" ] && [ "$CI_OK" = "true" ]; then
+            gh pr merge "$PR_URL" --auto --merge --match-head-commit "$HEAD_SHA"
+          else
+            auto_merge=$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')
+            if [ "$auto_merge" = "true" ]; then
+              gh pr merge "$PR_URL" --disable-auto
+            fi
+            echo "Manuell review krävs (eligible=$ELIGIBLE, draft=$IS_DRAFT, ci=$CI_OK)."
+          fi

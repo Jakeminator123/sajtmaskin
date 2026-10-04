@@ -305,7 +305,24 @@
         "danger": "high"
       },
       "mobility": "leave",
-      "notes": "Machine-readable branch, protected-path, verification-profile, required-check and review-window policy consumed by local agent tooling and CI contract checks. Not product runtime."
+      "notes": "Machine-readable branch, protected-path, verification-profile, canonical-check and owner-review policy consumed by local agent tooling and CI contract checks. GitHubs live rulesets own mergeability; not product runtime."
+    },
+    {
+      "id": "dependabot-automerge-policy",
+      "sourceOfTruth": "config/dependabot-automerge.json",
+      "type": "rule",
+      "validator": "workflow:contract",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Explicit npm patch allowlist and file scope for the trusted default-branch controller that may request GitHub native auto-merge."
     },
     {
       "id": "server-auto-brief-policy",

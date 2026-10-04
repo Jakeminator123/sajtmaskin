@@ -20,7 +20,7 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
 7. **Promote before writing:** if the decision is clear and narrow, enter the
    canonical [`pr-workflow`](../pr-workflow/SKILL.md) first. Fetch fresh
    `origin/master`, create the task's own worktree/allowed branch and use its
-   commit→PR→`merge:ready`→review-window→explicit manual merge→cleanup lifecycle.
+   commit→PR→native GitHub checks/review→explicit or conditional mandate→cleanup lifecycle.
    `/818` is never an alternate delivery path. Otherwise list the blockers and
    stop without edits.
 8. **Implement** only inside that PR-workflow worktree.

@@ -16,11 +16,11 @@
     "non_fast_forward": true,
     "pull_request": {
       "required_approving_review_count": 0,
-      "required_review_thread_resolution": false,
+      "required_review_thread_resolution": true,
       "allowed_merge_methods_must_include": ["squash"]
     },
     "required_status_checks": {
-      "strict_required_status_checks_policy": false,
+      "strict_required_status_checks_policy": true,
       "do_not_enforce_on_create": false,
       "required_status_checks_source": "inline",
       "required_status_checks": [
@@ -28,6 +28,7 @@
         { "context": "backoffice-tests" },
         { "context": "schema-drift" },
         { "context": "build" },
+        { "context": "dossier-acceptance" },
         {
           "context": "GitGuardian Security Checks",
           "integration_id": 46505
@@ -36,11 +37,11 @@
     }
   },
   "policyNotes": {
-    "intent": "Owner decision 2026-09-02: keep live Protect master as it is. Do not tighten GitHub (thread resolution, strict/up-to-date, review-window, dossier-acceptance). Extra master-merge confirmation lives in agent rules.",
-    "approval": "Native approval count stays at 0 while the repository has one human owner. Human authorization requires a separate explicit merge request, fresh merge:ready evidence, manual expected-head merge and the extra master confirmation in pr-merge.mdc.",
-    "requiredChecks": "This file lists the checks GitHub actually requires. Agent-grind names in config/agent-workflow.json#requiredChecks (review-window, dossier-acceptance) are not copied here and must not be treated as live ruleset drift.",
+    "intent": "GitHub owns mergeability: required checks are strict against the current integration base and review threads must be resolved. Master remains a separate manual release.",
+    "approval": "Native approval count stays at 0 while the repository has one human owner. Ordinary work still needs relevant GitHub review and an explicit or pre-recorded conditional merge mandate; master always needs a fresh production confirmation.",
+    "requiredChecks": "This file lists GitHubs required checks. config/agent-workflow.json keeps the same locally owned check names; GitGuardian remains an external required check.",
     "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
-    "squash": "allowed_merge_methods must include squash for the normal manual preview delivery and promote paths. Other methods may remain.",
-    "mutation": "This file and its checker are read-only against the live GitHub API. Do not edit the live ruleset to match an older stricter C1 picture."
+    "squash": "allowed_merge_methods must include squash for normal preview delivery and promote paths. Other methods may remain for ancestry sync.",
+    "mutation": "This file is a projection of the intended live ruleset; update the live ruleset and this file together."
   }
 }

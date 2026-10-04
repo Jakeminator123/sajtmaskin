@@ -1,46 +1,24 @@
 # Agentarbete: preview först, produktion separat
 
-Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md).
-Mergekrav: [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
-Värden/checks: [agent-workflow.json](../../config/agent-workflow.json).
+Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Mergekrav:
+[pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
 
-Jobba i den öppna checkouten från färsk `origin/preview`; worktree och
-Scout/Builder/Steward är opt-in. Godnatt har egna isoleringskrav.
-`origin/master` används för produktionspåståenden. `verify:pr --plan` väljer
-preview och visar riktade kontroller. CI kör tung profil eller light-kvitto;
-full lokal verify krävs när verifieringsmotorn ändras.
+Jobba från färsk `origin/preview`. Kör lokal plan och riktade kontroller; GitHub
+Actions äger full verifiering. Safe docs och vanliga drafts får ett explicit
+light-kvitto, medan ready kod, beroenden och osäker klassificering får full
+profil. Draft→ready och ny head startar rätt profil; stale körningar avbryts.
 
-| Syfte | Väg |
-|---|---|
-| Vanlig leverans | Separat mergeuppdrag; manuell squash till preview med expected head |
-| Produktion | Promote-PR till master; extra bekräftelse efter varning, manuell expected-head-merge |
-| CI-trust roots | Separat dokumenterad ägarbootstrap och oberoende review; manuell merge |
-| Ancestry-synk | Dedikerad preview-PR vars head innehåller båda tipsen; separat uppdrag, merge-commit |
+GitHubs live rulesets, required checks, reviews och trådstatus avgör om PR:n är
+mergebar. Relevant oberoende review krävs för kod. Säkerhet, betalning, databas
+och CI-behörigheter kräver riktad review och ett ownerbeslut i PR:n. Ett vanligt
+koduppdrag är inte mergemandat, men ett uttryckligt villkorat mandat behöver
+inte efterfrågas igen när dess native villkor uppfyllts.
 
-Efter varje merge hämtas ny preview och återstående PR:ers refs, diffar,
-checks och review omvärderas. Ready-label, grön CI och externa reviewkvitton
-ger inget mergemandat. Ingen `--auto` eller `--admin` används.
+Native auto-merge används endast för allowlistade Dependabot-patchar som den
+betrodda default-branch-controllern har innehållsvaliderat. Övriga PR:ar använder
+GitHubs vanliga manuella merge. Ingen PR-head-kod får skrivtoken eller
+produktionshemligheter.
 
-`review-window` observerar CI, säkerhet, deployment, proveniens och live refs.
-Den bevisar inte oberoende review. Den skriver checks och tar bort stale labels,
-men utför inga merges eller post-merge-dispatches. Trust-root-filer ger en
-avsiktlig bootstrap-spärr; övriga checks och review gäller även där.
-
-Promote skapar en kortlivad `promote/<datum>`-gren. Använd aldrig preview som
-PR-head mot master, eftersom auto-delete annars kan radera staging.
-Efter squash-release kan preview sakna masters nya commit; synka då via den
-dedikerade merge-commit-vägen i merge-regeln före nästa promote.
-
-Preview delar produktions-DB. Startup, Git-posthooks och CI applicerar inte
-schema, migrationer eller prestandaindex; livekontroller verifierar målidentitet
-och läser. DB-apply kräver separat uttryckligt mandat. En kodrevert återställer
-inte databasändringar.
-
-GitHub rulesets, bypasser och merge methods är externa owners och läses live.
-Repo-policyn ersätter inte native skydd. Expected head skyddar mot head-race,
-men base måste läsas direkt före merge. Undvik parallella mergare och verifiera
-mergecommittens CI/deployment. Misslyckad efterkontroll innebär inte att PR:n
-ska mergas igen. Cursor-dashboardens mergare styrs separat från repot.
-
-Rapportera head/base, verifiering, reviewkälla, berörda följdytor och kvarvarande
-risk. Produktion och DB-apply behåller sina egna uttryckliga mandat.
+Produktion uppdateras via separat promote-PR till `master`, extra varning och ny
+bekräftelse. Preview delar produktions-DB, men merge/CI/deploy applicerar inget
+schema. DB-apply och produktionsdata kräver eget uttryckligt mandat.
