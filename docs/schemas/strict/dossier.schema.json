@@ -122,7 +122,9 @@
           "path": {
             "type": "string",
             "minLength": 3,
-            "description": "Path relative to the dossier directory. Typically under 'components/'."
+            "maxLength": 240,
+            "pattern": "^[^\\\\/][^\\\\\\u0000-\\u001F\\u007F]*$",
+            "description": "Canonical portable path relative to the dossier directory, using forward slashes. Runtime validation additionally rejects traversal, Windows device names and forbidden characters, trailing dot/space aliases, scaffold-reserved outputs and case-folded output collisions. Typically under 'components/'."
           },
           "role": { "type": "string", "enum": ["client", "server", "shared"] },
           "injectionMode": {

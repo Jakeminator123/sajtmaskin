@@ -1,75 +1,185 @@
 /**
- * Dossier path → user-project output path mapping.
+ * Canonical dossier file-path contract.
  *
- * Background (rotorsak — Jakob 2026-05-01):
- *   Dossiers stage all files under a `components/` folder on disk:
- *
- *     data/dossiers/<class>/<id>/components/<rel-path>
- *
- *   Earlier code unconditionally stripped the `components/` prefix at emit
- *   time, putting every file at user-project root. That created a path
- *   mismatch with the import the manifest exposes:
- *
- *     manifest path           : components/three-canvas-shell.tsx
- *     verbatim emit path (was): three-canvas-shell.tsx        ← root
- *     manifest exposes import : @/components/three-canvas-shell
- *     scaffold tsconfig       : "@/*": ["./*"]
- *     resolved import target  : components/three-canvas-shell.tsx
- *
- *   The verbatim file ended up at the wrong location, the import looked at
- *   the right one, and the LLM was forced to bridge the gap by emitting a
- *   second 2-line stub that dropped half the safety contract. Symptom: the
- *   `three-fiber-canvas` ThreeCanvasShell rendered as half-finished file in
- *   user projects, which broke 3D mounts and the inspector.
- *
- * Mapping rules (only apply when the dossier path starts with `components/`):
- *   1. `components/api/<route>/route.ts`        → `app/api/<route>/route.ts`
- *      (Next.js App Router API routes belong under `app/api/`.)
- *   2. `components/middleware.ts`               → `middleware.ts`
- *      `components/instrumentation.ts`          → `instrumentation.ts`
- *      `components/drizzle.config.ts`           → `drizzle.config.ts`
- *      `components/sentry.<env>.config.ts`      → `sentry.<env>.config.ts`
- *      (Root-level convention/config files — Drizzle Kit resolves its config
- *      from the project root, so the postgres-drizzle dossier's config must
- *      land there, mirroring the Sentry configs.)
- *   3. `components/lib/<rel>`                   → `lib/<rel>`
- *      (SDK init helpers — imported via `@/lib/...`.)
- *   4. Everything else                          → keep `components/<rel>`
- *      (UI components — imported via `@/components/...`.)
+ * A manifest path has two identities: its portable path below the dossier
+ * directory and the path written into the generated project. Runtime readers
+ * and materializers go through {@link resolveDossierFilePath}, so validation, prompt
+ * rendering, restoration and acceptance builds cannot drift apart.
  */
 
-const ROOT_LEVEL_FILES = new Set([
-  "middleware.ts",
-  "instrumentation.ts",
-  "drizzle.config.ts",
-]);
+const MIN_PATH_LENGTH = 3;
+const MAX_PATH_LENGTH = 240;
 
+const ROOT_LEVEL_FILES = new Set(["middleware.ts", "instrumentation.ts", "drizzle.config.ts"]);
 const SENTRY_CONFIG_RE = /^sentry\.(client|server|edge)\.config\.ts$/;
 
+const SCAFFOLD_RESERVED_OUTPUT_PATHS = new Set(
+  [
+    "app/layout.tsx",
+    "app/globals.css",
+    "app/loading.tsx",
+    "app/error.tsx",
+    "app/not-found.tsx",
+    "app/template.tsx",
+    "package.json",
+    "tsconfig.json",
+    "next.config.js",
+    "next.config.mjs",
+    "next.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.mjs",
+  ].map((path) => path.toLowerCase()),
+);
+
+const WINDOWS_DEVICE_BASENAME_RE = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+const FORBIDDEN_PORTABLE_CHAR_RE = /[<>:"|?*]/;
+const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
+
+export interface ResolvedDossierFilePath {
+  sourcePath: string;
+  outputPath: string;
+  /** NFC-normalized, case-folded identity for portable collision checks. */
+  outputIdentity: string;
+}
+
+export class DossierFilePathError extends Error {
+  readonly dossierPath: string;
+
+  constructor(dossierPath: string, reason: string) {
+    super(`invalid dossier file path ${JSON.stringify(dossierPath)}: ${reason}`);
+    this.name = "DossierFilePathError";
+    this.dossierPath = dossierPath;
+  }
+}
+
+/** Close case-only and Unicode-composition aliases on Windows and macOS. */
+export function dossierOutputPathIdentity(outputPath: string): string {
+  return outputPath.normalize("NFC").toLowerCase();
+}
+
+function assertPortableRelativePath(path: string): void {
+  if (path.length < MIN_PATH_LENGTH || path.length > MAX_PATH_LENGTH) {
+    throw new DossierFilePathError(
+      path,
+      `must be ${MIN_PATH_LENGTH}..${MAX_PATH_LENGTH} characters`,
+    );
+  }
+  if (path.includes("\\")) {
+    throw new DossierFilePathError(path, "must use forward slashes");
+  }
+  if (CONTROL_CHAR_RE.test(path)) {
+    throw new DossierFilePathError(path, "must not contain control characters");
+  }
+  if (FORBIDDEN_PORTABLE_CHAR_RE.test(path)) {
+    throw new DossierFilePathError(path, 'contains a Windows-forbidden character (< > : " | ? *)');
+  }
+  if (path.startsWith("/") || /^[a-z]:/i.test(path)) {
+    throw new DossierFilePathError(path, "must be relative");
+  }
+
+  const segments = path.split("/");
+  for (const segment of segments) {
+    if (segment.length === 0) {
+      throw new DossierFilePathError(path, "must not contain empty path segments");
+    }
+    if (segment === "." || segment === "..") {
+      throw new DossierFilePathError(path, "must not contain traversal segments");
+    }
+    if (/[. ]$/.test(segment)) {
+      throw new DossierFilePathError(path, "segments must not end in a dot or space");
+    }
+    if (WINDOWS_DEVICE_BASENAME_RE.test(segment)) {
+      throw new DossierFilePathError(
+        path,
+        `uses reserved Windows device name ${JSON.stringify(segment)}`,
+      );
+    }
+  }
+}
+
+function mapValidatedPathToOutput(sourcePath: string): string {
+  if (!sourcePath.startsWith("components/")) return sourcePath;
+  const rest = sourcePath.slice("components/".length);
+  if (rest.startsWith("api/")) return `app/${rest}`;
+  if (ROOT_LEVEL_FILES.has(rest) || SENTRY_CONFIG_RE.test(rest)) return rest;
+  if (rest.startsWith("lib/")) return rest;
+  return sourcePath;
+}
+
 /**
- * Maps a dossier-internal `path` from `manifest.json#files[].path` to the
- * file path that lands in the generated user project.
- *
- * Idempotent: paths that don't start with `components/` are returned
- * unchanged, so it's safe to call multiple times in the pipeline.
+ * Validate and resolve one manifest `files[].path`.
+ * Literal catch-all segments such as `[...slug]` are valid because only a
+ * complete `..` segment denotes traversal.
  */
+export function resolveDossierFilePath(dossierPath: string): ResolvedDossierFilePath {
+  if (typeof dossierPath !== "string") {
+    throw new DossierFilePathError(String(dossierPath), "must be a string");
+  }
+  assertPortableRelativePath(dossierPath);
+  const outputPath = mapValidatedPathToOutput(dossierPath);
+  assertPortableRelativePath(outputPath);
+  const outputIdentity = dossierOutputPathIdentity(outputPath);
+  if (SCAFFOLD_RESERVED_OUTPUT_PATHS.has(outputIdentity)) {
+    throw new DossierFilePathError(
+      dossierPath,
+      `maps to scaffold-reserved output path ${JSON.stringify(outputPath)}`,
+    );
+  }
+  return { sourcePath: dossierPath, outputPath, outputIdentity };
+}
+
+/** Historical projection retained for callers; validation is never bypassed. */
 export function mapDossierPathToOutput(dossierPath: string): string {
-  if (!dossierPath.startsWith("components/")) {
-    return dossierPath;
-  }
-  const rest = dossierPath.slice("components/".length);
+  return resolveDossierFilePath(dossierPath).outputPath;
+}
 
-  if (rest.startsWith("api/")) {
-    return `app/${rest}`;
+export interface DossierOutputPathClaim {
+  dossierId: string;
+  capability: string;
+  sourcePath: string;
+  content: string | null;
+}
+
+export interface DossierOutputPathConflict {
+  outputPath: string;
+  outputIdentity: string;
+  claims: DossierOutputPathClaim[];
+}
+
+/**
+ * Find claims that cannot safely share one portable output identity.
+ * Byte-identical shared helpers are safe only when their actual output path,
+ * including casing and Unicode composition, is also identical.
+ */
+export function findDivergentDossierOutputPathConflicts(
+  claims: readonly DossierOutputPathClaim[],
+): DossierOutputPathConflict[] {
+  const grouped = new Map<
+    string,
+    { outputPath: string; claims: DossierOutputPathClaim[]; outputPaths: Set<string> }
+  >();
+  for (const claim of claims) {
+    const resolved = resolveDossierFilePath(claim.sourcePath);
+    const group = grouped.get(resolved.outputIdentity) ?? {
+      outputPath: resolved.outputPath,
+      claims: [],
+      outputPaths: new Set<string>(),
+    };
+    group.claims.push(claim);
+    group.outputPaths.add(resolved.outputPath);
+    grouped.set(resolved.outputIdentity, group);
   }
 
-  if (ROOT_LEVEL_FILES.has(rest) || SENTRY_CONFIG_RE.test(rest)) {
-    return rest;
+  const conflicts: DossierOutputPathConflict[] = [];
+  for (const [outputIdentity, group] of grouped) {
+    if (group.claims.length < 2) continue;
+    const first = group.claims[0]?.content;
+    const byteIdentical =
+      typeof first === "string" &&
+      group.claims.every((claim) => typeof claim.content === "string" && claim.content === first);
+    if (!byteIdentical || group.outputPaths.size !== 1) {
+      conflicts.push({ outputPath: group.outputPath, outputIdentity, claims: [...group.claims] });
+    }
   }
-
-  if (rest.startsWith("lib/")) {
-    return rest;
-  }
-
-  return dossierPath;
+  return conflicts.sort((a, b) => a.outputIdentity.localeCompare(b.outputIdentity));
 }

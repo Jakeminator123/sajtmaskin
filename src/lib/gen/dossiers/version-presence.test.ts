@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SCAFFOLD_BASELINE_FILE_PATHS } from "../export/project-scaffold";
 import { getAllScaffolds } from "../scaffolds/registry";
+import * as dossierRegistry from "./registry";
+import type { DossierEntry } from "./types";
 import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
@@ -19,6 +21,23 @@ import {
  * declared by exactly one dossier in the pool.
  */
 describe("resolveDossierIdsPresentInVersion", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function syntheticDossier(id: string, path: string): DossierEntry {
+    return {
+      class: "soft",
+      id,
+      label: id,
+      capability: id,
+      codeFidelity: "verbatim",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "Synthetic dossier used for portable presence ownership tests.",
+      files: [{ path, role: "shared" }],
+      lastVerified: "2026-01-01",
+    };
+  }
+
   it("detects openai-chat from its built chat route", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/page.tsx",
@@ -57,6 +76,30 @@ describe("resolveDossierIdsPresentInVersion", () => {
         ...scaffoldPaths,
       ]),
     ).toEqual([]);
+  });
+
+  it("does not treat case aliases as two distinctive dossier declarations", () => {
+    const synthetic = [
+      syntheticDossier("portable-one", "components/Foo.ts"),
+      syntheticDossier("portable-two", "components/foo.ts"),
+    ];
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue(synthetic);
+    expect(resolveDossierIdsPresentInVersion(["components/Foo.ts"])).toEqual([]);
+  });
+
+  it("does not treat a case alias of a scaffold baseline path as distinctive", () => {
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
+      syntheticDossier("baseline-alias", "LIB/UTILS.ts"),
+    ]);
+    expect(resolveDossierIdsPresentInVersion(["LIB/UTILS.ts"])).toEqual([]);
+  });
+
+  it("still requires exact canonical casing for functional file presence", () => {
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
+      syntheticDossier("linux-casing", "components/Foo.ts"),
+    ]);
+    expect(resolveDossierIdsPresentInVersion(["components/foo.ts"])).toEqual([]);
+    expect(resolveDossierIdsPresentInVersion(["components/Foo.ts"])).toEqual(["linux-casing"]);
   });
 
   // Relaxed matching (review round 2, impact 5): the user edited/renamed a

@@ -14,7 +14,11 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import type { DossierEntry } from "./types";
 import { getDossierFileContent } from "./registry";
-import { mapDossierPathToOutput } from "./output-path";
+import {
+  dossierOutputPathIdentity,
+  findDivergentDossierOutputPathConflicts,
+  resolveDossierFilePath,
+} from "./output-path";
 import { devLogAppend } from "@/lib/logging/dev-log";
 
 export interface VerbatimRestoreEvent {
@@ -49,22 +53,79 @@ export function applyDossierVerbatimPolicy(params: {
   chatId?: string | null;
 }): { files: CodeFile[]; restored: VerbatimRestoreEvent[] } {
   const restored: VerbatimRestoreEvent[] = [];
-  const llmByPath = new Map(params.llmFiles.map((f) => [f.path.trim(), f]));
+
+  const canonicalByClaim = new Map<string, string | null>();
+  const selectedClaims = params.selectedDossiers.flatMap((dossier) =>
+    (dossier.files ?? []).map((file) => {
+      const sourcePath = resolveDossierFilePath(file.path).sourcePath;
+      let content: string | null = null;
+      try {
+        content = getDossierFileContent(dossier.class, dossier.id, sourcePath);
+      } catch {
+        content = null;
+      }
+      canonicalByClaim.set(`${dossier.class}\0${dossier.id}\0${sourcePath}`, content);
+      return {
+        dossierId: dossier.id,
+        capability: dossier.capability,
+        sourcePath,
+        content,
+      };
+    }),
+  );
+  const selectedConflicts = findDivergentDossierOutputPathConflicts(selectedClaims);
+  if (selectedConflicts.length > 0) {
+    throw new Error(
+      `[dossiers] selected-output-conflict: ${selectedConflicts
+        .map(
+          (conflict) =>
+            `${conflict.outputPath} <- ${conflict.claims
+              .map((claim) => `${claim.dossierId}:${claim.sourcePath}`)
+              .join(", ")}`,
+        )
+        .join("; ")}`,
+    );
+  }
+
+  const llmByIdentity = new Map<string, CodeFile[]>();
+  for (const file of params.llmFiles) {
+    const normalizedPath = file.path.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+    const identity = dossierOutputPathIdentity(normalizedPath);
+    const matches = llmByIdentity.get(identity) ?? [];
+    matches.push(file);
+    llmByIdentity.set(identity, matches);
+  }
+  const selectedIdentities = new Set(
+    selectedClaims.map((claim) => resolveDossierFilePath(claim.sourcePath).outputIdentity),
+  );
+  const duplicateSelectedLlmIdentities = [...selectedIdentities].filter(
+    (identity) => (llmByIdentity.get(identity)?.length ?? 0) > 1,
+  );
+  if (duplicateSelectedLlmIdentities.length > 0) {
+    throw new Error(
+      `[dossiers] llm-output-alias-conflict: ${duplicateSelectedLlmIdentities
+        .map(
+          (identity) =>
+            `${identity} <- ${llmByIdentity
+              .get(identity)!
+              .map((file) => file.path)
+              .join(", ")}`,
+        )
+        .join("; ")}`,
+    );
+  }
 
   for (const dossier of params.selectedDossiers) {
     for (const file of dossier.files ?? []) {
+      const resolvedPath = resolveDossierFilePath(file.path);
       // Per-file injectionMode takes precedence over dossier-level codeFidelity.
       const effectiveMode = file.injectionMode ?? dossier.codeFidelity;
       const isVerbatim = effectiveMode === "verbatim";
 
       // Safe-default: a malformed entry or unreadable disk must never crash
       // the merge path — treat as "cannot verify/seed" and leave files as-is.
-      let canonical: string | null = null;
-      try {
-        canonical = getDossierFileContent(dossier.class, dossier.id, file.path);
-      } catch {
-        canonical = null;
-      }
+      const canonical =
+        canonicalByClaim.get(`${dossier.class}\0${dossier.id}\0${resolvedPath.sourcePath}`) ?? null;
       if (!canonical) {
         if (isVerbatim) {
           console.warn(
@@ -77,9 +138,9 @@ export function applyDossierVerbatimPolicy(params: {
       // Translate the dossier-internal staging path to the output path the
       // system-prompt told the LLM to emit at (must use the same mapping as
       // `dossiers.ts` — see `output-path.ts` for rotorsaks-historik).
-      const outputPath = mapDossierPathToOutput(file.path);
+      const outputPath = resolvedPath.outputPath;
 
-      const llmFile = llmByPath.get(outputPath);
+      const llmFile = llmByIdentity.get(resolvedPath.outputIdentity)?.[0];
       if (!llmFile) {
         // LLM omitted a dossier-listed file — push it back with canonical
         // content. For rewritable files this is a SEED (the file must exist;
@@ -97,7 +158,7 @@ export function applyDossierVerbatimPolicy(params: {
                   : "txt";
         const restoredFile: CodeFile = { path: outputPath, content: canonical, language };
         params.llmFiles.push(restoredFile);
-        llmByPath.set(outputPath, restoredFile);
+        llmByIdentity.set(resolvedPath.outputIdentity, [restoredFile]);
         restored.push({
           path: outputPath,
           dossierId: dossier.id,
@@ -107,6 +168,10 @@ export function applyDossierVerbatimPolicy(params: {
         });
         continue;
       }
+
+      // A dossier-owned path must use the manifest's canonical spelling on
+      // Linux too. Rewritable controls content, not path identity.
+      llmFile.path = outputPath;
 
       // Rewritable files present in the LLM output are the LLM's to shape —
       // never overwrite (SM-004 seeds absence only).

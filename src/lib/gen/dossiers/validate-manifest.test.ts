@@ -91,6 +91,66 @@ describe("validateDossierManifest — happy path", () => {
   });
 });
 
+describe("validateDossierManifest — canonical file paths", () => {
+  it.each([
+    "../outside.ts",
+    "/absolute.ts",
+    "C:/absolute.ts",
+    "components\\windows.ts",
+    "components/NUL.ts",
+    "components/bad?.ts",
+    "components/trailing./file.ts",
+    "APP/LAYOUT.TSX",
+  ])("rejects unsafe or scaffold-reserved path %s", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
+  it("accepts legitimate app, component and Next.js catch-all paths", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "app/statistik/page.tsx", role: "client" },
+          { path: "components/legal/notice.tsx", role: "client" },
+          { path: "app/docs/[...slug]/page.tsx", role: "server" },
+          { path: "app/docs/[[...optional]]/page.tsx", role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects intra-manifest mapping, case and Unicode aliases", () => {
+    for (const files of [
+      [
+        { path: "components/api/chat/route.ts", role: "server" },
+        { path: "app/api/chat/route.ts", role: "server" },
+      ],
+      [
+        { path: "components/Foo.ts", role: "shared" },
+        { path: "components/foo.ts", role: "shared" },
+      ],
+      [
+        { path: "components/cafe\u0301.ts", role: "shared" },
+        { path: "components/caf\u00e9.ts", role: "shared" },
+      ],
+    ]) {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, files },
+        { expectedId: "example-dossier", class: "soft" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.errors.join("\n")).toContain("collides");
+    }
+  });
+});
+
 describe("validateDossierManifest — mock field (Våg 2)", () => {
   it("accepts a manifest with a valid mock mode", () => {
     for (const mock of ["canned", "seed", "success", "none"] as const) {

@@ -18,7 +18,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { DossierEntry } from "@/lib/gen/dossiers";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { devLogAppend } from "@/lib/logging/dev-log";
-import { mergeGeneratedProjectFiles } from "./finalize-merge";
+import { mergeGeneratedProjectFiles, removeExplicitlyRemovedDossierFiles } from "./finalize-merge";
 
 type CrossFileFix = {
   sourceFile: string;
@@ -69,6 +69,44 @@ vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) => {
     getDossierFileContent: (...args: [string, string, string]) =>
       getDossierFileContent(...args),
   };
+});
+
+describe("removeExplicitlyRemovedDossierFiles portable identities", () => {
+  function dossier(id: string, path: string): DossierEntry {
+    return {
+      id,
+      class: "soft",
+      label: id,
+      capability: id,
+      codeFidelity: "verbatim",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "Synthetic dossier used for portable removal identity tests.",
+      files: [{ path, role: "shared" }],
+      lastVerified: "2026-01-01",
+    };
+  }
+
+  it("does not remove a case alias still owned by an active dossier", () => {
+    const files = [{ path: "components/foo.ts", content: "kept", language: "ts" as const }];
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files,
+        removedDossiers: [dossier("removed", "components/Foo.ts")],
+        selectedDossiers: [dossier("active", "components/foo.ts")],
+      }),
+    ).toEqual({ files, removedPaths: [] });
+  });
+
+  it("matches removal case-insensitively but reports the actual normalized file path", () => {
+    expect(
+      removeExplicitlyRemovedDossierFiles({
+        files: [{ path: "components/foo.ts", content: "removed", language: "ts" }],
+        removedDossiers: [dossier("removed", "components/Foo.ts")],
+        selectedDossiers: [],
+      }),
+    ).toEqual({ files: [], removedPaths: ["components/foo.ts"] });
+  });
 });
 
 function makeScaffold(): ScaffoldManifest {

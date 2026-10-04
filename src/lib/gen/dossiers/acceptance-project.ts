@@ -8,7 +8,7 @@ import {
   parseManifestDependencySpec,
   resolveExportableVersion,
 } from "@/lib/gen/autofix/dep-completer";
-import { mapDossierPathToOutput } from "./output-path";
+import { dossierOutputPathIdentity, resolveDossierFilePath } from "./output-path";
 import { getDossierById, getDossierFileContent } from "./registry";
 import type { DossierEntry } from "./types";
 
@@ -44,15 +44,15 @@ export function buildDossierAcceptanceProject(dossierId: string): DossierAccepta
 
   const byPath = new Map<string, CodeFile>();
   for (const file of landingPageManifest.files) {
-    byPath.set(file.path, asCodeFile(file.path, file.content));
+    byPath.set(dossierOutputPathIdentity(file.path), asCodeFile(file.path, file.content));
   }
   for (const file of dossier.files ?? []) {
     const content = getDossierFileContent(dossier.class, dossier.id, file.path);
     if (content === null) {
       throw new Error(`${dossier.id}: declared file could not be read: ${file.path}`);
     }
-    const outputPath = mapDossierPathToOutput(file.path);
-    byPath.set(outputPath, asCodeFile(outputPath, content));
+    const outputPath = resolveDossierFilePath(file.path).outputPath;
+    byPath.set(dossierOutputPathIdentity(outputPath), asCodeFile(outputPath, content));
   }
 
   const generatedFiles = Array.from(byPath.values());

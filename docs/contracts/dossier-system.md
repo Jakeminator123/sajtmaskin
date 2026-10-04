@@ -318,6 +318,14 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 **Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
 
+### Canonical file paths and collision policy
+
+[`resolveDossierFilePath()`](../../src/lib/gen/dossiers/output-path.ts) owns the portable dossier source path, its mapped generated-project output path and its NFC-normalized, lower-case ownership identity. Manifest validation, registry reads, prompt rendering, restoration and acceptance materialization use this same contract. Paths must be relative and portable; traversal segments, reserved device names, unsafe separators and scaffold-reserved output paths are rejected. Literal Next.js catch-all segments remain valid. The strict schema enforces the path's basic format; the TypeScript validator additionally enforces mapping and cross-file semantics.
+
+Aliases within one manifest are invalid. Dossiers actually selected together cannot claim divergent contents or different literal output paths under one ownership identity; exact-output, byte-identical shared helpers are allowed. Prompt rendering and verbatim restoration reject conflicts before producing a partial prompt or mutating the supplied file list. Multiple generated aliases of a selected dossier path are also rejected before restoration. A single generated alias is restored to the canonical output spelling, without overwriting rewritable content.
+
+Ownership identity is not functional presence evidence: a dossier's server files must still exist at the exact canonical path on Linux. Declaration uniqueness, scaffold ownership and explicit dossier removal use portable identity so case/Unicode aliases cannot falsely identify a provider or evade cleanup. The existing fallback for a single unreadable canonical source remains unchanged; it is not new provider-acceptance evidence.
+
 ## Capability surface ownership (one owner per capability)
 
 A dossier that `exposes` a UI component owns that capability's surface. When a follow-up adds such a dossier to a project whose previous version does **not** contain the exposed component, `renderDossierBlocks` emits `## Capability Surface Ownership` (`src/lib/gen/system-prompt/sections/dossiers.ts`): the dossier's component, its import specifier and its server route are named, and the model must pick **adapt** (point the existing surface at the dossier's route) or **replace** (make the dossier component the owner) — never leave two live.

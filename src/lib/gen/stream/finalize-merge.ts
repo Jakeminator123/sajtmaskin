@@ -8,7 +8,10 @@ import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
-import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
+import {
+  dossierOutputPathIdentity,
+  mapDossierPathToOutput,
+} from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-route-plan";
 import {
@@ -166,6 +169,10 @@ function normalizeDossierPath(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.?\//, "");
 }
 
+function dossierPathOwnershipIdentity(path: string): string {
+  return dossierOutputPathIdentity(normalizeDossierPath(path));
+}
+
 export function removeExplicitlyRemovedDossierFiles(params: {
   files: CodeFile[];
   removedDossiers: readonly DossierEntry[];
@@ -174,7 +181,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   const activePaths = new Set(
     params.selectedDossiers.flatMap((dossier) =>
       (dossier.files ?? []).map((file) =>
-        normalizeDossierPath(mapDossierPathToOutput(file.path)),
+        dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
       ),
     ),
   );
@@ -182,7 +189,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
     params.removedDossiers.flatMap((dossier) =>
       (dossier.files ?? [])
         .map((file) =>
-          normalizeDossierPath(mapDossierPathToOutput(file.path)),
+          dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
         )
         .filter((path) => !activePaths.has(path)),
     ),
@@ -193,7 +200,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   const removedPaths: string[] = [];
   const files = params.files.filter((file) => {
     const path = normalizeDossierPath(file.path);
-    if (!removablePaths.has(path)) return true;
+    if (!removablePaths.has(dossierOutputPathIdentity(path))) return true;
     removedPaths.push(path);
     return false;
   });
