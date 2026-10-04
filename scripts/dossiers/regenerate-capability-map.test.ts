@@ -36,6 +36,8 @@ const TRUTH_VIEW_KEYS = [
   "defaultForCapability",
   "mock",
   "envVars",
+  "configInputs",
+  "providerSetup",
   "fileRoles",
   "dependencies",
   "summarySv",
@@ -98,6 +100,53 @@ describe("capability-map projection: truth view", () => {
         expect(entry.f2Reason).toBe("available");
       }
     }
+  });
+
+  it("projects configuration guidance without turning it into readiness state", () => {
+    const synthetic = {
+      ...dossiers.find((entry) => entry.class === "hard")!,
+      id: "synthetic-guidance",
+      envVars: [
+        {
+          key: "SYNTHETIC_SECRET",
+          required: true,
+          purpose: "Synthetic secret used only to lock the projection contract.",
+          enforcement: "warn-only" as const,
+        },
+      ],
+      configInputs: [
+        {
+          id: "price-id",
+          label: "Price id",
+          target: "component-prop" as const,
+          binding: "priceId",
+          purpose: "Selects which provider price the generated project should use.",
+        },
+      ],
+      providerSetup: [
+        {
+          id: "create-price",
+          title: "Create a price",
+          instruction: "Create the provider price before binding it in project code.",
+          references: {
+            envVarKeys: ["SYNTHETIC_SECRET"],
+            configInputIds: ["price-id"],
+          },
+        },
+      ],
+      verificationStatus: "unverified" as const,
+      lastVerified: "2026-10-04",
+      files: [],
+    };
+    const [projected] = buildDossierTruth([synthetic], new Set());
+
+    expect(projected.configInputs).toEqual(synthetic.configInputs);
+    expect(projected.providerSetup).toEqual(synthetic.providerSetup);
+    expect(projected.buildServerRequirement).toBe(false);
+    expect(projected.verificationStatus).toBe("unverified");
+    expect(projected.lastVerified).toBe("2026-10-04");
+    expect(projected).not.toHaveProperty("configured");
+    expect(projected).not.toHaveProperty("completed");
   });
   it("embeds resolved Swedish labels from dossier-axes on every entry", () => {
     for (const entry of truth) {

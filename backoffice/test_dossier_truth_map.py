@@ -26,6 +26,10 @@ from backoffice.pages.dossiers_lib.truth_map import (
     filter_system_map_rows,
     index_dossiers_by_class_and_id,
 )
+from backoffice.pages.dossiers_lib.ui_system_map import (
+    configuration_guidance_lines,
+    safe_provider_setup_url,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CAPABILITY_MAP_PATH = REPO_ROOT / "data" / "dossiers" / "_index" / "capability-map.json"
@@ -192,6 +196,84 @@ class IndexDossiersByClassAndIdTests(unittest.TestCase):
     def test_unknown_lookup_key_is_a_plain_miss(self) -> None:
         index = index_dossiers_by_class_and_id([{"_class": "hard", "id": "acme"}])
         self.assertIsNone(index.get(("hard", "missing")))
+
+
+class ConfigurationGuidanceLinesTests(unittest.TestCase):
+    def test_formats_code_inputs_and_ordered_provider_steps_without_readiness_claims(self) -> None:
+        manifest = {
+            "configInputs": [
+                {
+                    "id": "price-id",
+                    "label": "Price id",
+                    "target": "component-prop",
+                    "binding": "priceId",
+                    "purpose": "Selects which checkout price is used.",
+                }
+            ],
+            "providerSetup": [
+                {
+                    "id": "create-price",
+                    "title": "Create a price",
+                    "instruction": "Create the price in the provider dashboard.",
+                    "setupUrl": "https://dashboard.stripe.com/products",
+                    "references": {
+                        "envVarKeys": ["STRIPE_SECRET_KEY"],
+                        "configInputIds": ["price-id"],
+                    },
+                }
+            ],
+        }
+
+        inputs, steps = configuration_guidance_lines(manifest)
+        self.assertEqual(
+            inputs,
+            ["`price-id` — Price id (`component-prop`: `priceId`) — Selects which checkout price is used."],
+        )
+        self.assertEqual(
+            steps,
+            [
+                "1. **Create a price** — Create the price in the provider dashboard. "
+                "(env: `STRIPE_SECRET_KEY`; kodvärden: `price-id`)"
+            ],
+        )
+        self.assertNotIn("klar", " ".join(inputs + steps).casefold())
+        self.assertNotIn("required", " ".join(inputs + steps).casefold())
+
+    def test_omitted_guidance_is_empty(self) -> None:
+        self.assertEqual(configuration_guidance_lines({}), ([], []))
+
+    def test_raw_setup_links_require_safe_https_and_stay_out_of_markdown(self) -> None:
+        cases_path = (
+            Path(__file__).resolve().parents[1]
+            / "src/lib/gen/dossiers/__fixtures__/provider-setup-urls.json"
+        )
+        cases = json.loads(cases_path.read_text(encoding="utf-8"))
+        for value in cases["valid"]:
+            self.assertEqual(safe_provider_setup_url(value), value)
+        for value in cases["invalid"]:
+            self.assertIsNone(safe_provider_setup_url(value), value)
+        self.assertEqual(
+            safe_provider_setup_url("https://dashboard.stripe.com/products"),
+            "https://dashboard.stripe.com/products",
+        )
+        for value in (
+            "javascript:alert(1)",
+            "https://",
+            "https://...",
+            "https://example.com/) [other](javascript:alert)",
+            "https://example.com/\nnext",
+            "https://user:secret@example.com/setup",
+            "https://example.com:99999/setup",
+            "https://example.com/" + "a" * 2048,
+            None,
+        ):
+            with self.subTest(value=value):
+                self.assertIsNone(safe_provider_setup_url(value))
+                _, lines = configuration_guidance_lines(
+                    {"providerSetup": [{"title": "Setup", "setupUrl": value}]}
+                )
+                self.assertNotIn("https://", " ".join(lines))
+                self.assertNotIn("javascript:", " ".join(lines))
 
 
 class FilterSystemMapRowsTests(unittest.TestCase):

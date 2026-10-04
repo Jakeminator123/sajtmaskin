@@ -19,6 +19,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import setupUrlCases from "./__fixtures__/provider-setup-urls.json";
 
 import {
   findDuplicateDefaults,
@@ -88,6 +89,214 @@ describe("validateDossierManifest — happy path", () => {
       expect(result.data.capability).toBe("payments");
       expect(result.warnings).toEqual([]);
     }
+  });
+});
+
+describe("validateDossierManifest — project configuration guidance", () => {
+  const configurationMetadata = {
+    envVars: [
+      {
+        key: "EXAMPLE_SECRET_KEY",
+        required: true,
+        purpose: "Authenticates server-side requests to the example provider.",
+      },
+    ],
+    configInputs: [
+      {
+        id: "price-id",
+        label: "Price id",
+        target: "component-prop" as const,
+        binding: "priceId",
+        purpose: "Selects the provider price that the project checkout should purchase.",
+      },
+    ],
+    providerSetup: [
+      {
+        id: "create-price",
+        title: "Create the checkout price",
+        instruction: "Create a price in the provider dashboard and copy its id into the project.",
+        setupUrl: "https://example.com/dashboard/prices",
+        references: {
+          envVarKeys: ["EXAMPLE_SECRET_KEY"],
+          configInputIds: ["price-id"],
+        },
+      },
+    ],
+  };
+
+  it("accepts ordered hard-only guidance that references canonical env and code inputs", () => {
+    const result = validateDossierManifest(
+      { ...VALID_HARD_MANIFEST, ...configurationMetadata },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.data.configInputs?.[0]?.binding).toBe("priceId");
+      expect(result.data.providerSetup?.[0]?.references?.configInputIds).toEqual(["price-id"]);
+    }
+  });
+
+  it("keeps legacy hard manifests valid when both optional guidance fields are omitted", () => {
+    expect(
+      validateDossierManifest(VALID_HARD_MANIFEST, {
+        expectedId: "example-dossier",
+        class: "hard",
+      }).valid,
+    ).toBe(true);
+  });
+
+  it.each(["configInputs", "providerSetup"] as const)(
+    "bounds %s before guidance can expand prompt context",
+    (field) => {
+      const entries = Array.from({ length: 9 }, (_, index) => ({
+        ...configurationMetadata[field][0],
+        id: `entry-${index}`,
+      }));
+      const result = validateDossierManifest(
+        { ...VALID_HARD_MANIFEST, ...configurationMetadata, [field]: entries },
+        { expectedId: "example-dossier", class: "hard" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid)
+        expect(result.errors.join("\n")).toContain("must NOT have more than 8 items");
+    },
+  );
+
+  it.each(["configInputs", "providerSetup"])(
+    "forbids hard-provider metadata %s on soft manifests even when the array is empty",
+    (field) => {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, [field]: [] },
+        { expectedId: "example-dossier", class: "soft" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.errors.join("\n")).toContain("soft manifests must not");
+    },
+  );
+
+  it("rejects duplicate config and provider-step ids", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        configInputs: [
+          configurationMetadata.configInputs[0],
+          { ...configurationMetadata.configInputs[0], label: "Duplicate price id" },
+        ],
+        providerSetup: [
+          configurationMetadata.providerSetup[0],
+          { ...configurationMetadata.providerSetup[0], title: "Duplicate setup step" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.join("\n")).toContain('duplicate configInputs id "price-id"');
+      expect(result.errors.join("\n")).toContain('duplicate providerSetup id "create-price"');
+    }
+  });
+
+  it("rejects setup references that do not exist in envVars or configInputs", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        providerSetup: [
+          {
+            ...configurationMetadata.providerSetup[0],
+            references: {
+              envVarKeys: ["MISSING_KEY"],
+              configInputIds: ["missing-input"],
+            },
+          },
+        ],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.join("\n")).toContain('unknown envVars.key "MISSING_KEY"');
+      expect(result.errors.join("\n")).toContain('unknown configInputs.id "missing-input"');
+    }
+  });
+
+  it.each([
+    "https://",
+    "https://...",
+    "https://example.com/) [other](javascript:alert)",
+    "https://example.com/\nnext",
+    "https://user:secret@example.com/setup",
+    `https://example.com/${"a".repeat(2048)}`,
+  ])("rejects malformed or unsafe provider setup links: %s", (setupUrl) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_HARD_MANIFEST,
+        ...configurationMetadata,
+        providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+      },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it.each(setupUrlCases.valid)("accepts canonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(true);
+  });
+
+  it.each(setupUrlCases.invalid)("rejects noncanonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(false);
+  });
+
+  it.each([
+    {
+      configInputs: [
+        {
+          ...configurationMetadata.configInputs[0],
+          required: true,
+        },
+      ],
+    },
+    {
+      providerSetup: [
+        {
+          ...configurationMetadata.providerSetup[0],
+          completed: true,
+        },
+      ],
+    },
+    {
+      configInputs: [
+        {
+          ...configurationMetadata.configInputs[0],
+          target: "env",
+        },
+      ],
+    },
+  ])("rejects readiness or env ownership fields outside envVars: %j", (override) => {
+    const result = validateDossierManifest(
+      { ...VALID_HARD_MANIFEST, ...configurationMetadata, ...override },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(false);
   });
 });
 

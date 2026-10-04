@@ -107,6 +107,79 @@
       },
       "description": "External provider/runtime configuration (secret or public) needed at runtime. Non-empty arrays are valid only for hard manifests; validateDossierManifest rejects them for soft manifests. Empty array or omitted means no external configuration."
     },
+    "configInputs": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "Optional hard-dossier metadata for non-environment, project-specific code values. These inputs are integration guidance only: env/runtime configuration stays in envVars, and this array does not own requiredness, readiness, acceptance or completion state.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "target", "binding", "purpose"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "label": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "target": { "type": "string", "enum": ["component-prop", "code-config"] },
+          "binding": {
+            "type": "string",
+            "maxLength": 120,
+            "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
+            "description": "The component prop or exported code-config binding that receives this value."
+          },
+          "purpose": { "type": "string", "minLength": 10, "maxLength": 400 }
+        }
+      }
+    },
+    "providerSetup": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "Ordered hard-dossier instructions for provider-side setup. Steps may point at canonical envVars/configInputs, but never represent readiness, acceptance or completion state.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "instruction"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+          "instruction": { "type": "string", "minLength": 10, "maxLength": 800 },
+          "setupUrl": {
+            "type": "string",
+            "format": "https-provider-setup",
+            "maxLength": 2048,
+            "description": "Official provider setup link with a plain ASCII DNS hostname. IP literals, IDN/punycode and encoded host aliases are intentionally unsupported; omit an unknown link.",
+            "pattern": "^https://(?=.{1,253}(?::[0-9]|[/?#]|$))(?:(?![xX][nN]--)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)*(?![xX][nN]--)[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\\u0000-\\u0020\\u007F-\\u009F\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF<>()\\[\\]\"`\\\\]*)?$"
+          },
+          "references": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "envVarKeys": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+              },
+              "configInputIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "dependencies": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },

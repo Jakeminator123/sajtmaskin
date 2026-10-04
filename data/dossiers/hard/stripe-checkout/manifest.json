@@ -26,6 +26,29 @@
       "purpose": "NOT read by this dossier: hosted Checkout redirects from the server route, so no browser Stripe SDK runs and the button works without this key. Only needed if the site later adds Stripe.js/Elements itself. Safe to expose; harmless placeholder OK."
     }
   ],
+  "configInputs": [
+    {
+      "id": "price-id",
+      "label": "One-time Stripe Price",
+      "target": "component-prop",
+      "binding": "priceId",
+      "purpose": "Use the owner's real one-time Stripe Price id, stored once in named project code and passed to CheckoutButton. Never invent a price id; this value is not an env key or readiness evidence."
+    }
+  ],
+  "providerSetup": [
+    {
+      "id": "account-key",
+      "title": "Choose the Stripe account and key",
+      "instruction": "Use the owner's intended test or live Stripe account and store its server secret key in project configuration. Never put it in browser code.",
+      "references": { "envVarKeys": ["STRIPE_SECRET_KEY"] }
+    },
+    {
+      "id": "one-time-price",
+      "title": "Create the one-time Price",
+      "instruction": "The owner creates the product and one-time Price in the same Stripe account, then supplies its real id for the project's checkout button.",
+      "references": { "configInputIds": ["price-id"] }
+    }
+  ],
   "dependencies": ["stripe"],
   "files": [
     {
