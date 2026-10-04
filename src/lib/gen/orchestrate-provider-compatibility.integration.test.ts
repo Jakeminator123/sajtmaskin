@@ -389,6 +389,180 @@ describe("provider-compatible orchestration", () => {
     );
   });
 
+  it("keeps an independent Supabase database contract when auth switches to Clerk", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Switch from Supabase auth to Clerk auth", {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        capabilities: { ...none, needsAuth: true, needsDatabase: true },
+        requestedDossierCapabilities: ["auth", "database"],
+        followUpContract: followUpContract(["auth", "database"], [
+          {
+            kind: "auth",
+            providerKey: "supabase",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase Auth",
+            reason: "Existing auth provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+          {
+            kind: "database",
+            providerKey: "supabase",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase",
+            reason: "Existing database provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.removedCapabilities).not.toContain("database");
+    expect(base.preGenerationContracts.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ providerKey: "clerk", dossierCapability: "auth" }),
+        expect.objectContaining({ providerKey: "supabase", dossierCapability: "database" }),
+      ]),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+    );
+  });
+
+  it("keeps independent Supabase auth when its database switches to Postgres", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Switch from Supabase database to PostgreSQL", {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        capabilities: { ...none, needsAuth: true, needsDatabase: true },
+        requestedDossierCapabilities: ["auth", "database"],
+        followUpContract: followUpContract(["auth", "database"], [
+          {
+            kind: "auth",
+            providerKey: "supabase",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase Auth",
+            reason: "Existing auth provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+          {
+            kind: "database",
+            providerKey: "supabase",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Supabase",
+            name: "Supabase",
+            reason: "Existing database provider.",
+            status: "chosen",
+            envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.removedCapabilities).not.toContain("auth");
+    expect(base.preGenerationContracts.contracts.integrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ providerKey: "supabase", dossierCapability: "auth" }),
+        expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+      ]),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk", dossierCapability: "auth" }),
+    );
+  });
+
+  it.each([
+    ["Switch from Upstash analytics to Google Analytics"],
+    ["Byt från Upstash analytics till Google Analytics"],
+  ])("drops the capabilityless source provider and env on an analytics switch: %s", async (prompt) => {
+    const base = await resolveOrchestrationBase(
+      input(prompt, {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        requestedDossierCapabilities: ["analytics"],
+        followUpContract: followUpContract(["analytics"], [
+          {
+            kind: "integration",
+            providerKey: "upstash",
+            selectionSource: "explicit",
+            provider: "Upstash",
+            name: "Upstash",
+            reason: "Existing analytics provider.",
+            status: "chosen",
+            envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "google-analytics", dossierCapability: "analytics" }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "upstash" }),
+    );
+    expect(base.preGenerationContracts.contracts.envVars).not.toContainEqual(
+      expect.objectContaining({ key: "UPSTASH_REDIS_REST_URL" }),
+    );
+  });
+
+  it("does not emit a current-round Upstash sidecar for a direct Google Analytics target", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Switch from Upstash analytics to Google Analytics", {
+        requestedDossierCapabilities: ["analytics"],
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "google-analytics", dossierCapability: "analytics" }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "upstash" }),
+    );
+    expect(base.preGenerationContracts.contracts.envVars).not.toContainEqual(
+      expect.objectContaining({ key: "UPSTASH_REDIS_REST_URL" }),
+    );
+  });
+
+  it("preserves a neutral inherited Upstash provider when no switch replaces it", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Keep the existing analytics integration", {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        requestedDossierCapabilities: ["analytics"],
+        followUpContract: followUpContract(["analytics"], [
+          {
+            kind: "integration",
+            providerKey: "upstash",
+            selectionSource: "explicit",
+            provider: "Upstash",
+            name: "Upstash",
+            reason: "Existing analytics provider.",
+            status: "chosen",
+            envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "upstash", status: "chosen" }),
+    );
+    expect(base.preGenerationContracts.contracts.envVars).toContainEqual(
+      expect.objectContaining({ key: "UPSTASH_REDIS_REST_URL", required: false }),
+    );
+  });
+
   it.each([
     ["Use Google Analytics 4", "google-analytics"],
     ["Use Google Tag Manager", "gtm"],

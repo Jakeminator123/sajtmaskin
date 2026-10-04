@@ -79,6 +79,45 @@ function capabilityForRule(rule: ProviderRule): string | undefined {
         (rule.kind === "payment" ? "payments" : rule.kind === "auth" ? "auth" : undefined);
 }
 
+type SupabasePairDecision = "positive" | "negative";
+
+function getSupabasePairDecisions(
+  source: string,
+): Map<string, SupabasePairDecision> {
+  const decisions = new Map<string, SupabasePairDecision>();
+  const segments = source
+    .split(/[;,!?.\n]+|\b(?:but|men)\b/iu)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  for (const segment of segments) {
+    if (!/\bsupabase\b/iu.test(segment)) continue;
+    const decision: SupabasePairDecision = isTermFullyNegated(
+      segment,
+      /\bsupabase\b/iu,
+    )
+      ? "negative"
+      : "positive";
+    const hasAuthCue =
+      /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(
+        segment,
+      );
+    const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(
+      segment,
+    );
+    if (hasAuthCue) decisions.set("auth", decision);
+    if (hasDatabaseCue) decisions.set("database", decision);
+    if (!hasAuthCue && !hasDatabaseCue) {
+      if (decision === "negative") {
+        decisions.set("auth", decision);
+        decisions.set("database", decision);
+      } else {
+        decisions.set("database", decision);
+      }
+    }
+  }
+  return decisions;
+}
+
 type ProviderSwitchResolution = {
   sourceRules: ProviderRule[];
   targetRules: ProviderRule[];
@@ -105,9 +144,17 @@ function rulesForSwitchSegment(
   const providerKeys =
     explicitProviderKeys.size > 0 ? explicitProviderKeys : fallbackProviderKeys;
   if (providerKeys.size === 0) return [];
+  const supabasePairDecisions = getSupabasePairDecisions(source);
 
   return PROVIDER_RULES.filter((rule) => {
     if (!providerKeys.has(rule.providerKey)) return false;
+    const capability = capabilityForRule(rule);
+    if (
+      rule.providerKey === "supabase" &&
+      (capability === "auth" || capability === "database")
+    ) {
+      return supabasePairDecisions.get(capability) === "positive";
+    }
     if (rule.purposePatterns.length > 0) {
       return rule.purposePatterns.some((pattern) => positivePatternMatch(pattern, source));
     }
@@ -324,37 +371,6 @@ export function inferPreGenerationContracts(params: {
     envVars,
   };
 
-  type SupabasePairDecision = "positive" | "negative";
-  const getSupabasePairDecisions = (source: string): Map<string, SupabasePairDecision> => {
-    const decisions = new Map<string, SupabasePairDecision>();
-    const segments = source
-      .split(/[;,!?.\n]+|\b(?:but|men)\b/iu)
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-    for (const segment of segments) {
-      if (!/\bsupabase\b/iu.test(segment)) continue;
-      const decision: SupabasePairDecision = isTermFullyNegated(
-        segment,
-        /\bsupabase\b/iu,
-      )
-        ? "negative"
-        : "positive";
-      const hasAuthCue =
-        /\b(?:auth|authentication|login|inloggning|sign[-\s]?in|logga\s+in)\b/iu.test(segment);
-      const hasDatabaseCue = /\b(?:database|databas|db|storage|lagring)\b/iu.test(segment);
-      if (hasAuthCue) decisions.set("auth", decision);
-      if (hasDatabaseCue) decisions.set("database", decision);
-      if (!hasAuthCue && !hasDatabaseCue) {
-        if (decision === "negative") {
-          decisions.set("auth", decision);
-          decisions.set("database", decision);
-        } else {
-          decisions.set("database", decision);
-        }
-      }
-    }
-    return decisions;
-  };
   const promptSupabaseDecisions = getSupabasePairDecisions(prompt);
   const briefSupabaseDecisions = getSupabasePairDecisions(briefCorpus);
   const isSupabasePairRule = (rule: ProviderRule): boolean =>
@@ -473,16 +489,32 @@ export function inferPreGenerationContracts(params: {
   const targetRules = activeSwitchResolution?.targetRules ?? [];
   const targetScopes = new Set(targetRules.map(ruleScope));
   const targetProviderKeys = new Set(targetRules.map((rule) => rule.providerKey));
+  const sourceRules = activeSwitchResolution?.sourceRules ?? [];
   const sourceCapabilities = new Set(
-    (activeSwitchResolution?.sourceRules ?? [])
+    sourceRules
       .map(capabilityForRule)
       .filter((value): value is string => Boolean(value)),
+  );
+  const promptReplacedSourceScopes = new Set(
+    (promptSwitchResolution?.sourceRules ?? [])
+      .filter(
+        (sourceRule) =>
+          !promptSwitchResolution?.targetRules.some(
+            (targetRule) =>
+              targetRule.providerKey === sourceRule.providerKey &&
+              ruleScope(targetRule) === ruleScope(sourceRule),
+          ),
+      )
+      .map(ruleScope),
   );
   const unresolvedProviderRules = positiveCandidates.filter(
     (rule) => rule.status === "unresolved" && capabilityForRule(rule),
   );
   const positiveRules = positiveCandidates.filter((rule) => {
     const capability = capabilityForRule(rule);
+    if (sourceRules.includes(rule) && !targetRules.includes(rule)) {
+      return false;
+    }
     if (capability && sourceCapabilities.has(capability)) {
       return targetRules.includes(rule);
     }
@@ -708,10 +740,12 @@ export function inferPreGenerationContracts(params: {
   for (const inherited of inheritedIntegrations) {
     if (
       promptSwitchResolution &&
-      inherited.dossierCapability &&
-      promptSwitchResolution.removedCapabilities.includes(
-        inherited.dossierCapability,
-      )
+      (Boolean(
+        inherited.dossierCapability &&
+          promptSwitchResolution.removedCapabilities.includes(
+            inherited.dossierCapability,
+          ),
+      ) || promptReplacedSourceScopes.has(contractScope(inherited)))
     ) {
       continue;
     }
