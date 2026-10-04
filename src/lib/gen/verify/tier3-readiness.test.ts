@@ -115,7 +115,10 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       reason: "integration_migration_required",
       retryable: false,
     });
-    expect(getEngineVersionErrorLogsForCategories).not.toHaveBeenCalled();
+    expect(getEngineVersionErrorLogsForCategories).toHaveBeenCalledWith(
+      "ver_1",
+      ["product_postcheck.summary", "product_postcheck.skipped"],
+    );
     expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
   });
 
@@ -252,6 +255,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
   });
 
   it("L7: passed + ofullständig preview-tupel släpper inte", async () => {
+    getVersionFiles.mockRejectedValue(new Error("version storage unavailable"));
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3",
       filesRevision: "rev_f3",
@@ -269,6 +273,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       reason: "preview_not_ready",
       retryable: true,
     });
+    expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
   it("(f) passed + ready L7-preview + env ok → ready", async () => {

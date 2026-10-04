@@ -472,6 +472,35 @@ export async function checkTier3ReadinessForVersion(
     }
   }
 
+  // Product/L6/L7 holds are already conclusive and must not be masked by an
+  // unrelated version-file read failure. Releasing verdicts continue through
+  // the file, migration, build-spec and env gates below before becoming ready.
+  const postcheck = await readProductPostcheckVerdictForVersion(
+    params.productPostcheckVersionId ?? params.parentVersionId ?? params.versionId,
+  );
+  if (!f3MayReleaseOnVerdict(postcheck.verdict)) {
+    const reason = productPostcheckF3GateReason(postcheck.verdict);
+    return {
+      ready: false,
+      ok: false,
+      reason: reason ?? "product_postcheck_pending",
+      verdict: postcheck.verdict,
+      retryable: postcheck.retryable,
+    };
+  }
+
+  if (params.previewIdentity && postcheck.verdict === "passed") {
+    const filesRevision = params.filesRevision?.trim() || "";
+    if (
+      !matchesExactPreviewReadinessTuple(params.previewIdentity, {
+        versionId: params.versionId,
+        filesRevision,
+      })
+    ) {
+      return { ready: false, ok: false, reason: "preview_not_ready", retryable: true };
+    }
+  }
+
   const versionFiles =
     params.preloadedFiles !== undefined
       ? params.preloadedFiles
@@ -499,32 +528,6 @@ export async function checkTier3ReadinessForVersion(
       reason: "integration_migration_required",
       retryable: false,
     };
-  }
-
-  const postcheck = await readProductPostcheckVerdictForVersion(
-    params.productPostcheckVersionId ?? params.parentVersionId ?? params.versionId,
-  );
-  if (!f3MayReleaseOnVerdict(postcheck.verdict)) {
-    const reason = productPostcheckF3GateReason(postcheck.verdict);
-    return {
-      ready: false,
-      ok: false,
-      reason: reason ?? "product_postcheck_pending",
-      verdict: postcheck.verdict,
-      retryable: postcheck.retryable,
-    };
-  }
-
-  if (params.previewIdentity && postcheck.verdict === "passed") {
-    const filesRevision = params.filesRevision?.trim() || "";
-    if (
-      !matchesExactPreviewReadinessTuple(params.previewIdentity, {
-        versionId: params.versionId,
-        filesRevision,
-      })
-    ) {
-      return { ready: false, ok: false, reason: "preview_not_ready", retryable: true };
-    }
   }
 
   const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
