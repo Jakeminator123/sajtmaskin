@@ -5,8 +5,8 @@ WHAT THIS IS (kort svensk forklaring)
 -------------------------------------
 Det har ar ett ordningstest (regression-/sanity-test) som verifierar att de tva
 Supabase-Postgres-databaserna (dev + prod) och den enda Vercel Blob-storen ar i
-forvantat lage. DEV ar en anvand dev/preview-scratch-DB (preview-deployer och
-lokal dev skriver genererade-sajt-rader dit), sa ackumulerade EMPTY-grupp-rader ar
+forvantat lage. DEV ar en anvand development-DB (lokal dev kan skriva dit
+efter verifierat mal); Preview delar for narvarande PROD. EMPTY-grupp-rader ar
 en Advisory (WARN) dar - inte ett hard fel. PROD bar riktig anvandardata, sa dar
 ar EMPTY-radantal informationella (den gamla "prod ar ocksa tom"-forvantan var
 forlegad; samma forlegade "dev ar alltid tom"-forvantan gjorde forut gaten rod pa
@@ -25,7 +25,7 @@ them as informational — see the table classification below):
   - prod -> Vercel env target `production`  (us-east-1)
 
 Table classification:
-  - EMPTY     : generated user sites + byproducts. DEV is a used dev/preview
+  - EMPTY     : generated user sites + byproducts. DEV is a used development
                 scratch DB, so accumulated rows there are an Advisory (WARN,
                 consider a periodic dev reset) — not a hard fail. In PROD these
                 carry live user data, so their row counts are INFORMATIONAL only
@@ -58,14 +58,15 @@ EXIT CODE
 ---------
   0  = no FAIL (all PASS / WARN / SKIP)
   1  = at least one FAIL (regression gate trips)
-WARN and SKIP never fail the gate, so the CI job still passes meaningfully in
-environments without prod creds (those DBs SKIP with a clear warning).
+WARN and SKIP never fail the script, but missing credentials are not proof of
+live DB parity. Trusted main-repo CI rejects missing secrets before this script;
+no-secret PR/fork checks can only validate executable inputs, not live DBs.
 
 USAGE / FLAGS
 -------------
   python scripts/db/pydatabastest.py        Interactive: run all checks, print report.
-                                     May ask at most 1 safe, optional remediation
-                                     prompt (e.g. run `npm run db:init` for dev).
+                                     May ask for explicit dev WRITE/REPAIR:
+                                     `db:init` can UPDATE/DELETE existing data.
   python scripts/db/pydatabastest.py --ci   CI/non-interactive gate. Never prompts,
                                      never pulls creds via the Vercel CLI,
                                      read-only only, exits non-zero on any FAIL.
@@ -163,6 +164,7 @@ PRESERVED_TABLES: Tuple[str, ...] = (
     "pricing_settings",
     "domain_orders",
     "kostnadsfri_pages",
+    "kostnadsfri_mail_events",
     "kostnadsfri_campaign_entitlements",
     "user_integrations",
     "media_library",
@@ -528,7 +530,7 @@ def classify_empty_group(
 
     mode:
       - 'enforce': EMPTY-group must be 0 rows; non-zero/unverified -> FAIL (hard reset DB).
-      - 'warn'   : dev is a used dev/preview scratch DB; accumulated rows are an
+      - 'warn'   : dev is a used development DB; accumulated rows are an
                    Advisory (WARN), not a Blocker. A failed COUNT is still a WARN.
       - 'info'   : prod carries live data; row counts are informational (PASS),
                    only a failed COUNT warns.
@@ -865,7 +867,7 @@ def print_count_table(dev: DbState, prod: DbState) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Optional remediation (interactive only, dev only, non-destructive)
+# Optional write/repair (interactive only, explicit dev decision)
 # --------------------------------------------------------------------------- #
 
 
@@ -877,12 +879,12 @@ def maybe_remediate(dev: DbState, interactive: bool) -> None:
         flush=True,
     )
     try:
-        answer = input("Run `npm run db:init` against the dev DB now? (idempotent, non-destructive) [y/N] ")
+        answer = input("WRITE/REPAIR: `npm run db:init` can UPDATE/DELETE existing dev data. Run it now? [y/N] ")
     except (EOFError, KeyboardInterrupt):
         print("\nSkipping remediation.", flush=True)
         return
     if answer.strip().lower() not in ("y", "yes"):
-        print("Skipping remediation. To fix manually: npm run db:init (with dev POSTGRES_URL).", flush=True)
+        print("Skipping remediation. Any manual dev db:init needs a reviewed WRITE/REPAIR plan and verified dev target.", flush=True)
         return
 
     env = dict(os.environ)
@@ -953,8 +955,8 @@ def main(argv: List[str]) -> int:
         print(f"  (dev creds via {dev_src[0]})", flush=True)
     if prod_src:
         print(f"  (prod creds via {prod_src[0]})", flush=True)
-    # Dev is a used dev/preview scratch DB (preview deployments + local dev write
-    # generated-site rows here), so accumulated EMPTY-group rows are an Advisory
+    # Dev is a used development DB (verified local dev can write generated-site
+    # rows here), so accumulated EMPTY-group rows are an Advisory
     # (WARN), not a Blocker. Prod carries live user-site data → EMPTY rows are
     # informational there. Both still enforce connectivity, schema, no drift,
     # preserved tables and parity.

@@ -10,9 +10,9 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Nya commits ska avbryta en stale PR-körning, men aldrig en master-körning
-  # som kan befinna sig mitt i en prod-migration. En körande master-run avbryts
-  # aldrig; GitHubs vanliga single-pending-beteende behålls för kön.
+  # Nya commits ska avbryta en stale PR-körning. Trusted push/dispatch-körningar
+  # är read-only mot live-DB och får slutföra sina observationskvitton; GitHubs
+  # vanliga single-pending-beteende behålls för kön.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # PR-head kod far aldrig ett skrivtoken. Betrodda check-runs publiceras av den
@@ -656,28 +656,17 @@ jobs:
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run knip:files
 
-  # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid push till master
-  # eller preview — så en migration ALDRIG kan bli deployad utan att köras
-  # (grundorsaken till att add-branded-site-domains.sql saknades i prod:
-  # migrationer körs INTE automatiskt vid Vercel-deploy). Preview använder
-  # samma prod-Postgres som Production (`config/db-targets.json`), så apply
-  # måste ske när koden landar på preview — inte först vid promote.
-  # Idempotent (`IF NOT EXISTS`) + bokför schema_migrations-ledgern, så varje
-  # re-run är en no-op.
+  # Read-only-vakt: PRODUKTIONS-databasen måste ha alla migrations i
+  # schema_migrations-ledgern. CI applicerar aldrig migrationer eller index mot
+  # någon live-databas; en röd gate kräver den explicita operatörsproceduren.
   #
   # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
-  # prod-migrations-applied / db-blob-sync-check) — bara trusted events (push
+  # db-blob-sync-check) — jobbet körs bara på trusted events (push
   # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
-  # prod-creds. Guard-steget SKIP:ar apply tyst om secret:en saknas (fork utan
-  # creds) så jobbet inte blir falskt rött där.
-  #
-  # Gate:as bakom quality, schema-drift, build och Backoffice så prod-schemat
-  # ALDRIG muteras för en trasig merge. Additiv migration parallellt med
-  # Vercels deploy är ofarligt; vill man ha helt race-fritt gate:ar man
-  # deployen bakom detta jobb separat.
-  prod-migrations-apply:
+  # prod-creds. Saknas secret på huvudrepot blir jobbet hårt rött; forks utan
+  # secrets varnar och skippar live-kontrollen.
+  prod-migrations-applied:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: [quality, schema-drift, build, backoffice-tests]
     runs-on: ubuntu-latest
 
     steps:
@@ -695,11 +684,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fork-/no-secret-säkerhet: en fork (annat repo) saknar secret:en och SKIP:ar
-      # apply i stället för att falla rött. MEN på HUVUDREPOT ska en saknad secret
-      # falla HÅRT RÖTT — annars återuppstår exakt den false-green som orsakade den
-      # ursprungliga saknade migrationen (apply skippas tyst + check exit 0 = grönt
-      # utan att prod migrerats). Buggsvärm 2026-07-11: 3 oberoende träffar.
       - name: Detect prod credentials
         id: creds
         env:
@@ -708,125 +692,33 @@ jobs:
           if [ -n "$POSTGRES_URL_PROD" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
-            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-migrationer kan inte auto-appliceras (false-green-risk). Sätt den: gh secret set POSTGRES_URL_PROD"
+            echo "::error::POSTGRES_URL_PROD saknas på huvudrepot — prod-ledgern kan inte verifieras (false-green-risk)."
             exit 1
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::POSTGRES_URL_PROD saknas — hoppar över auto-apply (fork/no-secret)."
+            echo "::warning::POSTGRES_URL_PROD saknas — hoppar över prod-ledgerkontrollen (fork/no-secret)."
           fi
 
-      # Dev/prod-identitetsguard: POSTGRES_URL_PROD MÅSTE peka på prod-Supabase
-      # (config/db-targets.json). Stoppar att prod-migrationer någonsin körs
-      # mot dev-databasen (eller ett okänt projekt) p.g.a. felkonfigurerad
-      # secret. Sanitiserad utskrift — aldrig credentials.
       - name: Verify prod DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-db-env-target.mjs --expect=prod
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
-      # Staging får inte kunna bryta produktionen. Preview och Production läser
-      # SAMMA prod-Postgres, men `master` kan ligga tiotals commits bakom — en
-      # migration som landar på preview träffar alltså den databas den GAMLA
-      # produktionskoden fortfarande läser. Additiv DDL är ofarlig där; allt som
-      # tar bort, byter typ eller byter namn bryter produktionen innan någon har
-      # promoverat. Den automatiska vägen begränsas därför till additivt, och
-      # resten kräver ett medvetet beslut (promote, eller db:migrate:prod med
-      # ägaren närvarande).
-      #
-      # Bara PENDING migrationer granskas — repot har redan applicerad brytande
-      # DDL i ledgern och den ska inte rödfärga varje push. Read-only (SELECT
-      # mot schema_migrations), därför inget DB_ALLOW_PROD_LIKE_WRITE.
-      #
-      # `master` gate:as inte: promoten ÄR det medvetna beslutet, och där byter
-      # kod och schema plats samtidigt.
-      - name: Additive-only gate for preview (prod DB is shared with production)
-        if: ${{ steps.creds.outputs.present == 'true' && github.ref == 'refs/heads/preview' }}
-        run: npm run db:migrate:additive-check
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      - name: Apply pending migrations to production (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npx tsx scripts/db/run-migrations.ts
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_ALLOW_PROD_LIKE_WRITE: "1"
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      # Performance indexes are declared in add-performance-indexes.mjs (not in
-      # the SQL-migration ledger), so before this they only reached prod via the
-      # backoffice "Databashälsa"-button — a new hot-path index could silently
-      # never land in prod. Apply them here too: the script is idempotent
-      # (CREATE INDEX IF NOT EXISTS + dedupe-aware), so every run is a no-op once
-      # the indexes exist. Same prod-write guard (DB_ALLOW_PROD_LIKE_WRITE) as the
-      # migration step above.
-      - name: Apply performance indexes to production (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npm run db:perf-indexes -- --reason "auto:ci-${{ github.ref_name }}-push"
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-          DB_ALLOW_PROD_LIKE_WRITE: "1"
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-  # Verifierar EFTER auto-apply att PRODUKTIONS-databasen har ALLA migrations
-  # applicerade (schema_migrations-ledgern == MIGRATION_ORDER). Read-only mot prod
-  # (bara SELECT). `needs: prod-migrations-apply` gör detta till en post-condition
-  # på apply-jobbet: rött = apply lyckades inte få prod i synk (ska aldrig hända
-  # när apply gått grönt) → kör `npm run db:migrate:prod` manuellt.
-  #
-  # SÄKERHET: prod-secret injiceras ALDRIG på pull_request (samma mönster som
-  # db-blob-sync-check) — jobbet körs bara på trusted events (push
-  # master|preview / manuell dispatch), så PR-kontrollerad kod aldrig ser
-  # prod-creds. Saknas secret (fork) SKIP:ar checken med exit 0.
-  prod-migrations-applied:
-    if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: prod-migrations-apply
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Prod migration-ledger gate (blocking)
+        if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-migrations-applied.mjs
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
-  # Live dev↔prod-synk i två steg (samma trusted-event-modell som apply-jobben
-  # ovan — prod-/dev-secrets injiceras ALDRIG på pull_request):
-  #
-  #   1. Auto-applicera migrationer + perf-index mot DEV-databasen. Prod får
-  #      sina via prod-migrations-apply; utan detta steg fick dev dem först
-  #      när någon råkade köra `npm run dev` lokalt, och databaserna gled
-  #      isär mellan varven.
-  #   2. `db:schema-parity` — jämför de två LEVANDE databaserna objekt för
-  #      objekt (tabeller, kolumner, index, constraints). Rött = verklig
-  #      drift som varken den statiska schema-drift-gaten eller ledger-
-  #      checkarna kan se (t.ex. en kolumn skapad direkt i Supabase-
-  #      dashboarden, eller en apply som bara halvlyckades).
-  #
-  # `needs: prod-migrations-apply` så pariteten alltid mäts EFTER att prod
-  # fått sina migrationer — annars vore varje merge med migration falskt röd.
+  # Read-only dev↔prod-paritet. Jobbet jämför de två levande databaserna men
+  # applicerar aldrig migrationer eller prestandaindex.
   # Körs på preview och master: preview delar prod-DB, så drift måste synas
   # när staging landar, inte först vid promote. Den schemalagda systern
   # (db-schema-parity.yml) fångar drift mellan pushar.
   db-schema-parity:
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    needs: prod-migrations-apply
     runs-on: ubuntu-latest
 
     steps:
@@ -844,7 +736,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Samma false-green-skydd som prod-migrations-apply: på huvudrepot är
+      # Samma false-green-skydd som ledger-vakten: på huvudrepot är
       # saknade secrets ett HÅRT fel; forkar utan secrets SKIP:ar i stället.
       - name: Detect dev + prod credentials
         id: creds
@@ -856,34 +748,25 @@ jobs:
           if [ -n "$POSTGRES_URL_DEV" ] && [ -n "$POSTGRES_URL_PROD" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
-            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — dev-synk + schema-paritet kan inte verifieras (false-green-risk). Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"
+            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — schema-paritet kan inte verifieras (false-green-risk)."
             exit 1
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::DB-secrets saknas — hoppar över dev-synk + schema-paritet (fork/no-secret)."
+            echo "::warning::DB-secrets saknas — hoppar över schema-paritet (fork/no-secret)."
           fi
 
-      # Identitetsguard: POSTGRES_URL_DEV MÅSTE peka på dev-Supabase enligt
-      # config/db-targets.json — migrationssteget nedan skriver dit.
+      # Identitetsguarderna är read-only och körs före paritetskontrollen.
       - name: Verify dev DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
         run: node scripts/db/check-db-env-target.mjs --expect=dev
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
 
-      - name: Apply pending migrations to dev (idempotent)
+      - name: Verify prod DB identity (db-targets guard)
         if: steps.creds.outputs.present == 'true'
-        run: npx tsx scripts/db/run-migrations.ts
+        run: node scripts/db/check-db-env-target.mjs --expect=prod
         env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
-
-      - name: Apply performance indexes to dev (idempotent)
-        if: steps.creds.outputs.present == 'true'
-        run: npm run db:perf-indexes -- --reason "auto:ci-master-push-dev"
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
-          DB_SSL_REJECT_UNAUTHORIZED: "false"
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
       # Själva paritetsgaten. --require: nu MÅSTE båda sidor gå att nå —
       # en tyst skip här vore exakt den false-green gaten finns för att stänga.

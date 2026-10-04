@@ -105,14 +105,12 @@ export function AuditModal({
     }
   }, [isOpen, result, alreadySaved]);
 
-  // Auto-offer build overlay when audit opens
+  // The build CTA is offered in the header and footer, not as an overlay that
+  // auto-covers the report the user just spent credits on. Closing the modal
+  // still resets the overlay so a re-open never starts with it stacked.
   useEffect(() => {
-    if (isOpen && result && onBuildFromAudit) {
-      setShowBuildOverlay(true);
-    } else {
-      setShowBuildOverlay(false);
-    }
-  }, [isOpen, result, onBuildFromAudit]);
+    if (!isOpen) setShowBuildOverlay(false);
+  }, [isOpen]);
 
   // Save audit to user's storage
   const handleSaveAudit = useCallback(async () => {
@@ -333,6 +331,17 @@ export function AuditModal({
       }`
     : null;
 
+  const hasAudience = Boolean(
+    result.customer_segments?.primary_segment ||
+      result.target_audience_analysis?.demographics ||
+      result.target_audience_analysis?.pain_points,
+  );
+  const hasContentStrategy = Boolean(
+    result.content_strategy?.seo_foundation ||
+      result.content_strategy?.key_pages?.length ||
+      result.content_strategy?.conversion_paths?.length,
+  );
+  const quickWins = result.priority_matrix?.quick_wins ?? [];
   const hasScores = result.audit_scores && Object.keys(result.audit_scores).length > 0;
   const hasImprovements = result.improvements && result.improvements.length > 0;
   const hasSecurity = result.security_analysis;
@@ -526,6 +535,80 @@ export function AuditModal({
                   <div className="space-y-6">
                     {hasScores && result.audit_scores && (
                       <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
+                    )}
+
+                    {/* Målgrupp/synlighet/snabba vinster hör till kärnschemat
+                        för Vanlig. Affärs-/marknadsfält genereras bara i
+                        Avancerad och visas bakom hasAdvancedBusiness. */}
+                    {(hasAudience || hasContentStrategy || quickWins.length > 0) && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {hasAudience && (
+                          <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>🎯</span> Målgrupp
+                            </h3>
+                            <div className="space-y-2 text-sm text-foreground/90">
+                              {result.customer_segments?.primary_segment && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.customer_segments.primary_segment)}
+                                </p>
+                              )}
+                              {result.target_audience_analysis?.demographics && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(
+                                    result.target_audience_analysis.demographics,
+                                  )}
+                                </p>
+                              )}
+                              {result.target_audience_analysis?.pain_points && (
+                                <p className="text-muted-foreground wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.target_audience_analysis.pain_points)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {hasContentStrategy && (
+                          <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>🔍</span> Synlighet och innehåll
+                            </h3>
+                            <div className="space-y-2 text-sm text-foreground/90">
+                              {result.content_strategy?.seo_foundation && (
+                                <p className="wrap-break-word whitespace-pre-wrap">
+                                  {sanitizeDisplayText(result.content_strategy.seo_foundation)}
+                                </p>
+                              )}
+                              {result.content_strategy?.key_pages &&
+                                result.content_strategy.key_pages.length > 0 && (
+                                  <p className="text-muted-foreground">
+                                    Nyckelsidor:{" "}
+                                    {result.content_strategy.key_pages.slice(0, 5).join(", ")}
+                                  </p>
+                                )}
+                              {result.content_strategy?.conversion_paths &&
+                                result.content_strategy.conversion_paths.length > 0 && (
+                                  <p className="text-muted-foreground">
+                                    Konvertering:{" "}
+                                    {result.content_strategy.conversion_paths
+                                      .slice(0, 3)
+                                      .join(" · ")}
+                                  </p>
+                                )}
+                            </div>
+                          </div>
+                        )}
+
+                        {quickWins.length > 0 && (
+                          <div className="rounded-xl border border-brand-teal/30 bg-brand-teal/5 p-4 md:col-span-2">
+                            <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-foreground">
+                              <span>⚡</span> Snabba vinster
+                            </h3>
+                            {renderTextList(quickWins)}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Strengths & Issues Grid */}
@@ -869,13 +952,24 @@ export function AuditModal({
             </Tabs>
 
             {/* Footer */}
-            <div className="flex shrink-0 items-center justify-between border-t border-border bg-secondary/40 p-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-secondary/40 p-4">
               <div className="text-xs text-muted-foreground">
                 {result.timestamp && (
                   <span>Analyserad: {new Date(result.timestamp).toLocaleString("sv-SE")}</span>
                 )}
               </div>
               {/* Cost hidden from user - only logged server-side */}
+
+              {/* Build-CTA:n som tidigare la sig som overlay över rapporten. */}
+              {onBuildFromAudit && (
+                <button
+                  onClick={() => setShowBuildOverlay(true)}
+                  className="flex items-center gap-2 rounded-xl border border-brand-teal/40 bg-brand-teal/10 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-brand-teal/20"
+                >
+                  <Hammer className="h-3.5 w-3.5" />
+                  Bygg förbättrad sida från analysen
+                </button>
+              )}
 
               {/* Save error message */}
               {saveError && (

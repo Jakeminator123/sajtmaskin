@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod/v4";
-import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
+import {
+  allocateProjectId,
+  createProject as createAppProject,
+  saveProjectData,
+} from "@/lib/db/services/projects";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
@@ -11,6 +15,9 @@ import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { PLACEHOLDER_API_ROUTE } from "@/lib/gen/export/project-scaffold";
+import { buildPreviewEnvLocalContents } from "@/lib/gen/preview/env-local";
+import { applyPreviewOnlyRulesToFiles } from "@/lib/gen/preview/preview-only-files";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
 import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
@@ -22,7 +29,9 @@ import {
   decodeLocalZipContent,
   extractImportedFilesFromZip,
   findPrimaryImportedFile,
+  hasUsableImportedSource,
 } from "@/lib/import/extract-imported-archive";
+import { validateFilesJson } from "../../../../../../preview-host/src/files-contract.js";
 import { ImportInitError, importErrorJson } from "@/lib/import/github-import-errors";
 import {
   assertPrivateGithubAccess,
@@ -63,8 +72,37 @@ const initChatSchema = z.object({
   lockedFiles: z.array(z.string()).optional(),
 });
 
-function toErrorResponse(error: ImportInitError, attachSessionCookie: (response: Response) => Response) {
+function toErrorResponse(
+  error: ImportInitError,
+  attachSessionCookie: (response: Response) => Response,
+) {
   return attachSessionCookie(NextResponse.json(importErrorJson(error), { status: error.status }));
+}
+
+async function prepareImportedPreviewTransport(
+  files: CodeFile[],
+  appProjectId: string,
+  includeStoredProjectEnvVars: boolean,
+): Promise<{ envLocalContents: string }> {
+  const previewFiles = applyPreviewOnlyRulesToFiles(files);
+  const runtimeFiles = previewFiles.map((file) => ({ name: file.path, content: file.content }));
+  const filesJson = Object.fromEntries(runtimeFiles.map((file) => [file.name, file.content]));
+  if (
+    filesJson["app/api/placeholder/route.ts"] === undefined &&
+    filesJson["app/api/placeholder/route.js"] === undefined
+  ) {
+    filesJson["app/api/placeholder/route.ts"] = PLACEHOLDER_API_ROUTE;
+    runtimeFiles.push({ name: "app/api/placeholder/route.ts", content: PLACEHOLDER_API_ROUTE });
+  }
+  const envLocalContents = await buildPreviewEnvLocalContents({
+    appProjectId,
+    includeStoredProjectEnvVars,
+    generatedEnvLocal: null,
+    scopePlaceholdersToFiles: runtimeFiles,
+  });
+  filesJson[".env.local"] = envLocalContents;
+  validateFilesJson(filesJson, "filesJson");
+  return { envLocalContents };
 }
 
 export async function POST(req: Request) {
@@ -184,8 +222,20 @@ export async function POST(req: Request) {
         return toErrorResponse(
           new ImportInitError({
             message:
-              "Inga stödda textfiler hittades i arkivet. Importen tar just nu bara med kod, config, stil och markdown.",
+              "Inga stödda filer hittades i arkivet. Importen tar med kod, config, stil, markdown samt vanliga bilder och typsnitt.",
             code: "zip_empty",
+            step: "extract",
+            status: 400,
+          }),
+          attachSessionCookie,
+        );
+      }
+      if (!hasUsableImportedSource(importedFiles)) {
+        return toErrorResponse(
+          new ImportInitError({
+            message:
+              "Arkivet innehåller assets men ingen användbar källfil. Lägg till exempelvis HTML, MDX, JavaScript eller TypeScript.",
+            code: "zip_invalid",
             step: "extract",
             status: 400,
           }),
@@ -200,6 +250,34 @@ export async function POST(req: Request) {
           importNormalize.applied.join("; "),
         );
         importedFiles = importNormalize.files;
+      }
+      if (importNormalize.conflicts.length > 0) {
+        console.warn(
+          "[API /engine/chats/init] Imported package.json is an npm ERESOLVE tree; publish will be blocked:",
+          importNormalize.conflicts
+            .map((conflict) => `${conflict.nextRange} + ${conflict.reactRange}`)
+            .join("; "),
+        );
+      }
+      const previewAppProjectId = resolvedProjectId ?? allocateProjectId();
+      let preparedPreviewEnvLocalContents: string;
+      try {
+        ({ envLocalContents: preparedPreviewEnvLocalContents } =
+          await prepareImportedPreviewTransport(
+            importedFiles,
+            previewAppProjectId,
+            resolvedProjectId != null,
+          ));
+      } catch {
+        return toErrorResponse(
+          new ImportInitError({
+            message: "Importerat projekt överskrider preview-hostens filbudget.",
+            code: "zip_too_large",
+            step: "extract",
+            status: 413,
+          }),
+          attachSessionCookie,
+        );
       }
 
       const creditCheck = await prepareCredits(
@@ -223,6 +301,7 @@ export async function POST(req: Request) {
                 : "Imported from ZIP archive",
               user ? undefined : sessionId || undefined,
               user?.id,
+              { preallocatedId: previewAppProjectId },
             );
 
       const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
@@ -267,6 +346,7 @@ export async function POST(req: Request) {
         files: importedFiles.map((file) => ({
           name: file.path,
           content: file.content,
+          language: file.language,
           locked: lockedSet.has(file.path.replace(/^\.?\//, "")),
         })),
         messages: (await chatRepo.getChat(chat.id))?.messages ?? [],
@@ -287,7 +367,8 @@ export async function POST(req: Request) {
         status: "failed",
         runtimeReady: false,
         retryable: true,
-        message: "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
+        message:
+          "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
       };
       let previewUrl: string | null = null;
 
@@ -295,6 +376,7 @@ export async function POST(req: Request) {
         const previewSessionStarted = await startPreviewSession(importedFiles, {
           chatId: chat.id,
           appProjectId: project.id,
+          preparedEnvLocalContents: preparedPreviewEnvLocalContents,
           versionIdForSession: version.id,
           filesRevisionForSession: version.files_revision,
           skipRepair: true,
@@ -322,7 +404,8 @@ export async function POST(req: Request) {
               status: "failed",
               runtimeReady: false,
               retryable: true,
-              message: "Preview startade utan adress. Använd Försök igen i buildern — ingen ny import behövs.",
+              message:
+                "Preview startade utan adress. Använd Försök igen i buildern — ingen ny import behövs.",
             };
           } else {
             const runtimeReady = previewSessionStarted.result.runtimeReady === true;
@@ -361,17 +444,15 @@ export async function POST(req: Request) {
             outcome: "failed",
           });
         } catch (outcomeError) {
-          console.error(
-            "[API /engine/chats/init] Failed to record preview outcome:",
-            outcomeError,
-          );
+          console.error("[API /engine/chats/init] Failed to record preview outcome:", outcomeError);
         }
         previewUrl = null;
         preview = {
           status: "failed",
           runtimeReady: false,
           retryable: true,
-          message: "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
+          message:
+            "Preview kunde inte startas. Använd Försök igen i buildern — ingen ny import behövs.",
         };
       }
 

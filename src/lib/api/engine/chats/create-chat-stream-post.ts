@@ -64,6 +64,7 @@ import {
   resolveAuditHandoffDomain,
 } from "@/lib/builder/audit-handoff";
 import { resolveAuditHandoffForOwner } from "@/lib/builder/audit-handoff-resolve";
+import { resolveKostnadsfriWizardSnapshotForOwner } from "@/lib/kostnadsfri/wizard-snapshot-resolve";
 import { rehostAuditSourceImages } from "@/lib/media/rehost-remote-image";
 import { logRequestKindClassification } from "./request-kind-log";
 import { createCommitCreditsOnce } from "./credits-handler";
@@ -202,6 +203,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           userId: ownerUser?.id ?? null,
           sessionId,
         });
+        const wizardSnapshot = auditPayload
+          ? null
+          : await resolveKostnadsfriWizardSnapshotForOwner({
+              promptHandoffId: parsedMeta.promptHandoffId,
+              userId: ownerUser?.id ?? null,
+              sessionId,
+            });
         const auditHints = auditPayload ? deriveAuditInitHints(auditPayload) : null;
         const auditContext = auditPayload ? buildAuditBriefContext(auditPayload) : undefined;
         const codegenMessage = auditPayload ? buildAuditCodegenPrompt(auditPayload) : message;
@@ -461,6 +469,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                   const copy = { ...(meta as Record<string, unknown>) };
                   delete copy.promptOriginal;
                   delete copy.promptFormatted;
+                  delete copy.wizardSnapshot;
                   copy.promptStrategy = strategyMeta.strategy;
                   copy.promptType = strategyMeta.promptType;
                   copy.promptSource = strategyMeta.promptSource;
@@ -476,6 +485,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                     copy.serverAutoBriefTraceId = serverAutoBriefTrace.traceId;
                     copy.serverAutoBriefPromptHash = serverAutoBriefTrace.promptHash;
                   }
+                  if (wizardSnapshot) copy.wizardSnapshot = wizardSnapshot;
                   return Object.keys(copy).length > 0 ? copy : null;
                 })()
               : {
@@ -496,6 +506,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                         serverAutoBriefPromptHash: serverAutoBriefTrace.promptHash,
                       }
                     : {}),
+                  ...(wizardSnapshot ? { wizardSnapshot } : {}),
                 };
           const metaObj =
             meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;

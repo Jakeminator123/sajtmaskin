@@ -53,8 +53,9 @@ class CatalogUiHelpersTests(unittest.TestCase):
                 "gallery": 278,
                 "site_visible": 262,
                 # 68 sedan tomma mEefgKyVifq togs bort ur registret och dess
-                # två variantciteringar (#1087).
-                "variant_cited": 68,
+                # två variantciteringar (#1087); 64 sedan fyra aldrig valbara
+                # id:n rensades som död konfig (INSP).
+                "variant_cited": 64,
             },
         )
 
@@ -270,14 +271,14 @@ class CuratorAppTests(unittest.TestCase):
         self.assertEqual(metrics["Ryms i preview"], "278")
         self.assertEqual(metrics["Finns i genererad gallerifil"], "278")
         self.assertEqual(metrics["Synliga på sajten"], "262")
-        self.assertEqual(metrics["Citerade av varianter"], "68")
+        self.assertEqual(metrics["Citerade av varianter"], "64")
         self.assertEqual(len(app.multiselect), 1)
         analyze = next(
             button for button in app.button if button.label == "Analysera valda"
         )
         self.assertTrue(analyze.disabled)
 
-    def test_variant_cited_population_offers_all_68_templates(self) -> None:
+    def test_variant_cited_population_offers_all_64_templates(self) -> None:
         from streamlit.testing.v1 import AppTest
 
         app = AppTest.from_function(_render_curator_for_apptest).run(timeout=10)
@@ -287,7 +288,7 @@ class CuratorAppTests(unittest.TestCase):
         population.select("Citerade av varianter")
         app.run(timeout=10)
         self.assertEqual(list(app.exception), [])
-        self.assertEqual(len(app.multiselect[0].options), 68)
+        self.assertEqual(len(app.multiselect[0].options), 64)
         app.multiselect[0].select(app.multiselect[0].options[0])
         app.run(timeout=10)
         analyze = next(

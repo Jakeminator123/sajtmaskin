@@ -248,9 +248,13 @@ async function runVerifyJob(params) {
           pushResult({
             check: "install-peer-fallback",
             passed: true,
+            advisory: true,
+            repairable: false,
             exitCode: 0,
             durationMs: 0,
-            output: `Peer dependency conflict detected; fallback used: ${install.fallbackLogLabel}.`,
+            output:
+              `Peer dependency conflict detected; fallback used: ${install.fallbackLogLabel}. ` +
+              "Preview can start, but this is not a publish-ready install (Vercel npm install has no --legacy-peer-deps).",
           }),
         );
       }

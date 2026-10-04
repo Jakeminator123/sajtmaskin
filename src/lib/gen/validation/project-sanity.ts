@@ -3,6 +3,10 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { isSonnerBoilerplate } from "@/lib/gen/autofix/rules/layout-provider-fixer";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
+import {
+  findPackageTreeConflictsInFiles,
+  formatPackageTreeConflictDetail,
+} from "@/lib/gen/validation/package-tree-compat";
 
 export interface SanityIssue {
   file: string;
@@ -790,7 +794,7 @@ export function runProjectSanityChecks(
         }
       }
 
-      checkKnownBadPeers(deps, issues);
+      checkKnownBadPeers(deps, issues, files, pkgFile.path);
     } catch {
       issues.push(
         createSanityIssue(
@@ -889,6 +893,8 @@ function extractMajor(version: string): number | null {
 function checkKnownBadPeers(
   deps: Record<string, string>,
   issues: SanityIssue[],
+  files: readonly CodeFile[],
+  packageJsonPath: string,
 ): void {
   const reactMajor = deps.react ? extractMajor(deps.react) : null;
 
@@ -923,18 +929,17 @@ function checkKnownBadPeers(
     }
   }
 
-  // next 16+ requires react 19+
-  if (deps.next && reactMajor !== null) {
-    const nextMajor = extractMajor(deps.next);
-    if (nextMajor !== null && nextMajor >= 16 && reactMajor < 19) {
-      issues.push(
-        createSanityIssue(
-          "package.json",
-          "error",
-          `next ${deps.next} requires react >=19 but react is ${deps.react}`,
-          "dependency_install_failure",
-        ),
-      );
-    }
+  // Same range/lockfile-aware owner as import, readiness and publish. Do not
+  // invent a second Next/React major heuristic here.
+  for (const conflict of findPackageTreeConflictsInFiles(files, packageJsonPath)?.conflicts ?? []) {
+    issues.push(
+      createSanityIssue(
+        packageJsonPath,
+        "error",
+        formatPackageTreeConflictDetail(conflict),
+        "dependency_install_failure",
+        `package-tree:${conflict.code}`,
+      ),
+    );
   }
 }

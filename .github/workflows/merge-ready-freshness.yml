@@ -2,13 +2,14 @@ name: merge-ready-freshness
 
 # Betrodd default-branch-controller: publicera den head-bundna required checken
 # `review-window`, validera `merge:ready` och ta bort stale mandat när head,
-# master eller granskningsunderlaget ändras.
+# preview eller granskningsunderlaget ändras. Merge utförs manuellt efter
+# separat uppdrag; workflowen har ingen merge- eller dispatch-behörighet.
 
 on:
   # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
   # skriver labels och får därför aldrig exekvera kod från PR-headen.
   pull_request_target:
-    branches: [master]
+    branches: [preview]
     types:
       [
         opened,
@@ -30,7 +31,7 @@ on:
         type: string
   # pull_request_review och pull_request_review_comment får aldrig läggas här:
   # GitHub kör deras workflow-YAML från PR:ens obetrodda merge-ref. Sen review-
-  # evidens läses live igen av den betrodda merge-kommandovägen nedan.
+  # evidens måste läsas live igen före den manuella mergevägen.
   # Codex-sammanfattningar, GitGuardian och bugbot-summeringar landar som
   # vanliga PR-kommentarer, inte som reviews. Utan den här triggern överlever
   # labeln precis de fynden (granskning 2026-07-29).
@@ -39,7 +40,7 @@ on:
   # En PR:s testade merge-resultat kan bli inaktuellt även utan ny head-commit
   # när dess bas flyttas. Ogiltigförklara därför alla öppna, sign-offade PR:er.
   push:
-    branches: [master]
+    branches: [preview]
 
 permissions:
   actions: read
@@ -108,7 +109,7 @@ jobs:
       issues: write
     # Vercels issue-kommentarer är deploy-brus och filtreras bort. Review- och
     # inline-kommentarer hanteras inte via ett privilegierat PR-ref-event; den
-    # finala merge-kommandovägen läser i stället hela konversationen live.
+    # manuella mergaren läser i stället hela konversationen live.
     if: >
       (
         github.event_name == 'pull_request_target' &&
@@ -169,14 +170,14 @@ jobs:
           esac
 
           # PR-objektets `.base.sha` är historisk och får INTE användas som
-          # aktuell master-tip. Läs base-refens levande SHA via Git refs-API:t
+          # aktuell preview-tip. Läs base-refens levande SHA via Git refs-API:t
           # och bevisa sedan via compare/merge-base att head faktiskt innehåller
           # den. Lookup-/compare-fel lämnas fail-closed som false i payloaden.
           pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
           BASE_REF=$(printf '%s' "$pr_json" | jq -r '.base.ref')
-          if [ "$BASE_REF" != "master" ]; then
-            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte master — no-op."
+          if [ "$BASE_REF" != "preview" ]; then
+            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte preview — no-op."
             exit 0
           fi
           BASE_SHA=""
@@ -259,46 +260,7 @@ jobs:
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body "♻️ \`merge:ready\` borttagen automatiskt: ${REASON}."
           echo "Removed merge:ready on PR #${PR_NUMBER}: ${REASON}"
 
-  execute-merge:
-    if: >
-      github.event_name == 'issue_comment' &&
-      github.event.action == 'created' &&
-      github.event.issue.pull_request != null &&
-      github.event.sender.type == 'User' &&
-      (
-        github.event.comment.author_association == 'OWNER' ||
-        github.event.comment.author_association == 'MEMBER' ||
-        github.event.comment.author_association == 'COLLABORATOR'
-      ) &&
-      startsWith(github.event.comment.body, 'merge:execute')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    concurrency:
-      # Canonical merges serialiseras så att två godkända PR:er inte flyttar
-      # master under varandras slutvalidering.
-      group: trusted-master-merge
-      cancel-in-progress: false
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-      checks: write
-      issues: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Re-read all evidence and execute SHA-bound squash merge
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-        run: node scripts/ci/trusted-review-window.mjs merge
-
-  invalidate-on-master-push:
+  invalidate-on-preview-push:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -313,7 +275,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Block every open PR on exact head after master moves
+      - name: Block every open PR on exact head after preview moves
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

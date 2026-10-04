@@ -37,10 +37,10 @@
   },
   "policyNotes": {
     "intent": "Owner decision 2026-09-02: keep live Protect master as it is. Do not tighten GitHub (thread resolution, strict/up-to-date, review-window, dossier-acceptance). Extra master-merge confirmation lives in agent rules.",
-    "approval": "Native approval count stays at 0 while the repository has one human owner. Human authorization is SHA/base-bound through merge:ready, merge:execute and the extra master confirmation in pr-merge.mdc.",
+    "approval": "Native approval count stays at 0 while the repository has one human owner. Human authorization requires a separate explicit merge request, fresh merge:ready evidence, manual expected-head merge and the extra master confirmation in pr-merge.mdc.",
     "requiredChecks": "This file lists the checks GitHub actually requires. Agent-grind names in config/agent-workflow.json#requiredChecks (review-window, dossier-acceptance) are not copied here and must not be treated as live ruleset drift.",
     "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
-    "squash": "allowed_merge_methods must include squash because merge:execute uses squash. Other methods may remain.",
+    "squash": "allowed_merge_methods must include squash for the normal manual preview delivery and promote paths. Other methods may remain.",
     "mutation": "This file and its checker are read-only against the live GitHub API. Do not edit the live ruleset to match an older stricter C1 picture."
   }
 }

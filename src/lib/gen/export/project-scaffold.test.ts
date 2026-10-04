@@ -33,7 +33,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
     expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
@@ -81,7 +81,7 @@ describe("mergePackageJsonWithBaseline", () => {
       },
     }) as { dependencies: Record<string, string> };
     expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
-    expect(merged.dependencies["@react-three/fiber"]).toBe("9.6.0");
+    expect(merged.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.185.1");
   });
@@ -115,7 +115,7 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
   });
 
@@ -124,9 +124,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { dependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
   });
 
   it("moves a misplaced next out of devDependencies", () => {
@@ -134,9 +134,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { next: "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.dependencies.next).toBe("16.3.8");
     expect(merged.devDependencies.next).toBeUndefined();
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
   });
 });
 
@@ -406,12 +406,12 @@ describe("buildCompleteProject", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0 <23");
-    expect(pkg.dependencies.next).toBe("16.3.1");
+    expect(pkg.dependencies.next).toBe("16.3.8");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.devDependencies.eslint).toBe("9.39.2");
-    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.3.8");
   });
 
   it("ships a canonical use-reduced-motion hook so motion components avoid hand-rolled mounted guards", () => {
@@ -643,8 +643,8 @@ describe("buildCompleteProject", () => {
     };
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.dependencies.next).toBe("16.3.1");
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
+    expect(pkg.dependencies.next).toBe("16.3.8");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(pkg.dependencies.three).toBe("0.185.1");
   });
@@ -659,7 +659,7 @@ describe("buildCompleteProject", () => {
             react: "^19.0.0",
             "react-dom": "^19.0.0",
             three: "0.182.0",
-            "@react-three/fiber": "9.6.0",
+            "@react-three/fiber": "9.7.0",
             "@react-three/drei": "10.7.7",
           },
         }),
@@ -700,7 +700,7 @@ describe("buildCompleteProject", () => {
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
       dependencies: Record<string, string>;
     };
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.6.0");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
     expect(pkg.dependencies.three).toBe("0.185.1");
   });
 
@@ -1036,7 +1036,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
     expect(result.issues.some((i) => i.message.includes("@react-three/fiber"))).toBe(false);
   });
 
-  it("flags next 16 with react 18", () => {
+  it("accepts next 16.2.3 with its supported react 18 peer", () => {
     const files: CodeFile[] = [
       {
         path: "package.json",
@@ -1048,7 +1048,8 @@ describe("runProjectSanityChecks peer heuristics", () => {
       { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
     ];
     const result = runProjectSanityChecks(files);
-    expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(true);
-    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
+    // Published next@16.2.3 peerDependencies include ^18.2.0.
+    expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(false);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(false);
   });
 });

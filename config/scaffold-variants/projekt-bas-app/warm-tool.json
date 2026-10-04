@@ -61,10 +61,6 @@
     "ring": "oklch(0.55 0.12 45)",
     "radius": "0.7rem"
   },
-  "sourceTemplateIds": [
-    "sV0OtrkXM6x",
-    "ov3ApgfOdx5",
-    "Pf7lw1nypu5"
-  ],
+  "sourceTemplateIds": [],
   "default": false
 }

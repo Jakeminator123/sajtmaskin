@@ -102,6 +102,22 @@ beforeEach(async () => {
         res.end(zlib.gzipSync(Buffer.alloc(256 * 1024, 0)));
         return;
       }
+      if (req.url === "/large") {
+        const body = Buffer.alloc(20 * 1024, 0x61);
+        res.writeHead(200, { "content-type": "text/html", "content-length": body.byteLength });
+        res.end(body);
+        return;
+      }
+      if (req.url === "/large-redirect") {
+        const body = Buffer.alloc(20 * 1024, 0x61);
+        res.writeHead(302, {
+          location: "https://exempel.se/",
+          "content-type": "text/html",
+          "content-length": body.byteLength,
+        });
+        res.end(body);
+        return;
+      }
       res.writeHead(200, { "content-type": "image/png" });
       res.end("asset-bytes");
     });
@@ -271,5 +287,32 @@ describe("fetchWithPinnedDns", () => {
     await expect(
       fetchWithPinnedDns(`http://asset.test:${port}/slow`, { timeoutMs: 40 }),
     ).rejects.toThrow(/timed out/);
+  });
+
+  it("headersOnly keeps HTTP 200 when the HTML is larger than the old 2 KiB C2 cap", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/large`, { maxBodyBytes: 2_048 }),
+    ).rejects.toThrow(/exceeded 2048 bytes/);
+
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/large`, {
+      maxBodyBytes: 2_048,
+      headersOnly: true,
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toHaveLength(0);
+    expect(result.headers["content-type"]).toBe("text/html");
+    expect(received).toHaveLength(2);
+  });
+
+  it("headersOnly still returns Location on a 3xx with a large body", async () => {
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/large-redirect`, {
+      maxBodyBytes: 2_048,
+      headersOnly: true,
+    });
+
+    expect(result.status).toBe(302);
+    expect(result.headers.location).toBe("https://exempel.se/");
+    expect(result.body).toHaveLength(0);
   });
 });

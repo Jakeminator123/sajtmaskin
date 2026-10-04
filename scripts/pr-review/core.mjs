@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 export const STATE_VERSION = 1;
 export const MAX_RUNS = 3;
-export const TARGET_BASE_BRANCH = "master";
+export const TARGET_BASE_BRANCH = "preview";
 export const STATE_MARKER_PREFIX = "sajtmaskin-pr-review-state:v1:";
 export const EXHAUSTIVE_MARKER_PREFIX = "sajtmaskin-pr-review-exhaustive:v1:";
 export const FOLLOW_UP_MARKER_PREFIX = "sajtmaskin-pr-review-follow-up:v1:";

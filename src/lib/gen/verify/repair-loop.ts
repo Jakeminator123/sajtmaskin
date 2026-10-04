@@ -182,6 +182,18 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * result would be discarded by the base-bound save anyway.
    */
   shouldAbortSuperseded?: () => Promise<boolean> | boolean;
+  /**
+   * C3: start/end (+ durationMs) for an LLM pass. Caller persists to
+   * `engine_version_error_logs` so an isolate kill still leaves the start row.
+   */
+  onPhaseSignal?: (event: {
+    phase: "llm_pass" | "preview_verify";
+    event: "start" | "end";
+    passIndex?: number;
+    durationMs?: number;
+    startedAt?: string;
+    finishedAt?: string;
+  }) => Promise<void> | void;
 };
 
 type TargetedRepairBundle = {
@@ -189,6 +201,33 @@ type TargetedRepairBundle = {
   requiredFiles: string[];
   mergeBack: (fixerContent: string) => string;
 };
+
+async function withOptionalLlmPhaseSignal<T>(
+  onPhaseSignal: RunRepairLoopParams["onPhaseSignal"],
+  passIndex: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (!onPhaseSignal) return fn();
+  const startedAt = new Date().toISOString();
+  await Promise.resolve(
+    onPhaseSignal({ phase: "llm_pass", event: "start", passIndex, startedAt }),
+  ).catch(() => undefined);
+  const t0 = Date.now();
+  try {
+    return await fn();
+  } finally {
+    await Promise.resolve(
+      onPhaseSignal({
+        phase: "llm_pass",
+        event: "end",
+        passIndex,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        durationMs: Date.now() - t0,
+      }),
+    ).catch(() => undefined);
+  }
+}
 
 function buildImportGraph(content: string): {
   dependsOn: Map<string, Set<string>>;
@@ -934,74 +973,77 @@ export async function runRepairLoop<TPayload = unknown>(
     };
 
     let activeBundle: TargetedRepairBundle | null = targetedBundle;
-    let fixerResult = await runFixerAttempt(
-      errorSummary,
-      originalMaxTokens,
-      params.llmTimeoutMs,
-      activeBundle,
-    );
-
-    const needsTargetedRetry =
-      fixerResult.aborted ||
-      (fixerResult.partial &&
-        !fixerResult.success &&
-        (fixerResult.incompleteFiles.length > 0 || fixerResult.missingFiles.length > 0));
-
-    if (needsTargetedRetry) {
-      if (fixerResult.aborted) {
-        devLogAppend("in-progress", {
-          type: "repair_loop.llm_abort",
-          chatId: params.chatId,
-          pass: pass + 1,
-          attempt: "primary",
-          aborted: true,
-          hasDeterministicProgress,
-          inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
-          inputCharLength: (activeBundle?.contentForFixer ?? content).length,
-          timeoutMs: params.llmTimeoutMs,
-        });
-      }
-      await mergePartialFixerOutput(fixerResult, activeBundle);
-      const retryBundle = buildRetryTargetedBundle(fixerResult);
-      if (retryBundle) {
-        activeBundle = retryBundle;
-      } else if (activeBundle) {
-        // Stale-bundle-skydd (bugbot HIGH, PR #380): pass-startens bundle har
-        // `mergeBack`/`contentForFixer` stängda över PRE-partial-merge-
-        // innehållet. Att behålla den efter `mergePartialFixerOutput` skulle
-        // låta retry-mergen skriva över de accepterade partiella fixarna.
-        // Bygg om SAMMA filurval mot aktuellt `content`; blir bundlen null
-        // (t.ex. alla filer valda) körs retryn på hela aktuella innehållet
-        // utan mergeBack — större prompt, men aldrig stale.
-        activeBundle = buildTargetedRepairBundle({
-          fullContent: content,
-          brokenFiles: activeBundle.requiredFiles,
-          maxFiles: Math.min(
-            params.targetedRepairMaxFiles ?? 16,
-            Math.max(1, activeBundle.requiredFiles.length),
-          ),
-        });
-      }
-      fixerResult = await runFixerAttempt(
-        errorSummary.slice(0, 3),
-        reducedMaxTokens,
-        params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+    const fixerResult = await withOptionalLlmPhaseSignal(params.onPhaseSignal, pass, async () => {
+      let result = await runFixerAttempt(
+        errorSummary,
+        originalMaxTokens,
+        params.llmTimeoutMs,
         activeBundle,
       );
-      if (fixerResult.aborted) {
-        devLogAppend("in-progress", {
-          type: "repair_loop.llm_abort",
-          chatId: params.chatId,
-          pass: pass + 1,
-          attempt: "retry",
-          aborted: true,
-          hasDeterministicProgress,
-          inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
-          inputCharLength: (activeBundle?.contentForFixer ?? content).length,
-          timeoutMs: params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
-        });
+
+      const needsTargetedRetry =
+        result.aborted ||
+        (result.partial &&
+          !result.success &&
+          (result.incompleteFiles.length > 0 || result.missingFiles.length > 0));
+
+      if (needsTargetedRetry) {
+        if (result.aborted) {
+          devLogAppend("in-progress", {
+            type: "repair_loop.llm_abort",
+            chatId: params.chatId,
+            pass: pass + 1,
+            attempt: "primary",
+            aborted: true,
+            hasDeterministicProgress,
+            inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
+            inputCharLength: (activeBundle?.contentForFixer ?? content).length,
+            timeoutMs: params.llmTimeoutMs,
+          });
+        }
+        await mergePartialFixerOutput(result, activeBundle);
+        const retryBundle = buildRetryTargetedBundle(result);
+        if (retryBundle) {
+          activeBundle = retryBundle;
+        } else if (activeBundle) {
+          // Stale-bundle-skydd (bugbot HIGH, PR #380): pass-startens bundle har
+          // `mergeBack`/`contentForFixer` stängda över PRE-partial-merge-
+          // innehållet. Att behålla den efter `mergePartialFixerOutput` skulle
+          // låta retry-mergen skriva över de accepterade partiella fixarna.
+          // Bygg om SAMMA filurval mot aktuellt `content`; blir bundlen null
+          // (t.ex. alla filer valda) körs retryn på hela aktuella innehållet
+          // utan mergeBack — större prompt, men aldrig stale.
+          activeBundle = buildTargetedRepairBundle({
+            fullContent: content,
+            brokenFiles: activeBundle.requiredFiles,
+            maxFiles: Math.min(
+              params.targetedRepairMaxFiles ?? 16,
+              Math.max(1, activeBundle.requiredFiles.length),
+            ),
+          });
+        }
+        result = await runFixerAttempt(
+          errorSummary.slice(0, 3),
+          reducedMaxTokens,
+          params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+          activeBundle,
+        );
+        if (result.aborted) {
+          devLogAppend("in-progress", {
+            type: "repair_loop.llm_abort",
+            chatId: params.chatId,
+            pass: pass + 1,
+            attempt: "retry",
+            aborted: true,
+            hasDeterministicProgress,
+            inputFileCount: (activeBundle?.requiredFiles ?? brokenFiles).length,
+            inputCharLength: (activeBundle?.contentForFixer ?? content).length,
+            timeoutMs: params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+          });
+        }
       }
-    }
+      return result;
+    });
     const timedOut = fixerResult.aborted === true;
     llmPasses += fixerAttemptCount;
 

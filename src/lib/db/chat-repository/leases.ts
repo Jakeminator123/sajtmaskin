@@ -1,3 +1,7 @@
+import {
+  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS,
+  VERSION_LEASE_HEARTBEAT_STALE_SECONDS,
+} from "@/lib/gen/defaults";
 import { db } from "../client";
 import { engineVersionJobs } from "../schema";
 import { and, eq, gt, sql } from "drizzle-orm";
@@ -60,8 +64,13 @@ export async function acquireVersionLease(
       VALUES (${uuid()}, ${versionId}, ${kind}, ${runId}, 'running', ${leaseTtlInterval})
       ON CONFLICT (version_id) WHERE status = 'running'
       DO UPDATE SET run_id = EXCLUDED.run_id, kind = EXCLUDED.kind,
-                    lease_expires_at = EXCLUDED.lease_expires_at, updated_at = now()
+                    lease_expires_at = EXCLUDED.lease_expires_at,
+                    created_at = now(), updated_at = now()
         WHERE engine_version_jobs.lease_expires_at < now()
+           OR (
+             engine_version_jobs.created_at < now() - ${VERIFY_REPAIR_ROUTE_BUDGET_SECONDS} * interval '1 second'
+             AND engine_version_jobs.updated_at < now() - ${VERSION_LEASE_HEARTBEAT_STALE_SECONDS} * interval '1 second'
+           )
       RETURNING run_id
     `);
       const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
@@ -148,6 +157,49 @@ export async function leaseTableExists(): Promise<LeaseTablePresence> {
  * `.catch(() => false)`. A definitive `missing` table returns false
  * (pre-migration: no leases can exist).
  */
+export type VersionLeaseSnapshot = {
+  runId: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  leaseExpiresAt: Date;
+};
+
+/**
+ * The current `running` job for a version, including zombies whose TTL has
+ * not yet elapsed. Isolate-kill leaves such a row behind; callers decide
+ * freshness via `isFreshVersionLease` (isolate budget). Missing table → `null`.
+ * Probe/query errors throw (same fail-closed contract as
+ * {@link hasActiveVersionLease}).
+ */
+export async function getRunningVersionLease(
+  versionId: string,
+): Promise<VersionLeaseSnapshot | null> {
+  try {
+    const rows = await db
+      .select({
+        runId: engineVersionJobs.runId,
+        status: engineVersionJobs.status,
+        createdAt: engineVersionJobs.createdAt,
+        updatedAt: engineVersionJobs.updatedAt,
+        leaseExpiresAt: engineVersionJobs.leaseExpiresAt,
+      })
+      .from(engineVersionJobs)
+      .where(
+        and(eq(engineVersionJobs.versionId, versionId), eq(engineVersionJobs.status, "running")),
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  } catch (err) {
+    const presence = await leaseTableExists();
+    if (presence === "missing") {
+      return null;
+    }
+    console.warn(`[lease] getRunningVersionLease unavailable for ${versionId}:`, err);
+    throw err instanceof Error ? err : new Error("lease query unavailable");
+  }
+}
+
 export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
   try {
     const rows = await db

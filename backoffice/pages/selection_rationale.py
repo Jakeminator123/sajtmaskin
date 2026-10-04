@@ -214,6 +214,19 @@ def _txt(value: Any) -> str:
     return text if text else "—"
 
 
+def _flag(value: Any) -> str:
+    """Tri-state: saknad nyckel är inte samma sak som `false`.
+
+    Äldre dumpar och andra `kind` än `variant-reference` bär inte
+    bild-/block-/utdragsflaggorna alls.
+    """
+    if value is True:
+        return "ja"
+    if value is False:
+        return "nej"
+    return "—"
+
+
 # ---------------------------------------------------------------------------
 # Section renderers
 # ---------------------------------------------------------------------------
@@ -349,7 +362,10 @@ def _render_sources_table(payload: dict[str, Any]) -> None:
     st.caption(
         "En rad per vald källa (variantreferens, UI Recipe, dossier, media). "
         "`reachedPrompt` sätts efter tokenbudgeteringen: vald men prunad källa "
-        "finns kvar med `false`. Inga kodutdrag eller prompttext. "
+        "finns kvar med `false`. För variantreferensen är den en OR mellan bild "
+        "och textblock — kolumnerna `bild`, `block` och `utdrag` visar vilken "
+        "kanal som faktiskt levererade. Ett behållet block utan utdrag betyder "
+        "att posten var avstängd eller tom. Inga kodutdrag eller prompttext. "
         "Samma lista persisteras i `generation_telemetry.meta.sources` när dumpen är av."
     )
     raw = payload.get("sources")
@@ -366,9 +382,10 @@ def _render_sources_table(payload: dict[str, Any]) -> None:
                     "origin": _txt(item.get("origin")),
                     "reason": _txt(item.get("reason")),
                     "authority": _txt(item.get("authority")),
-                    "reachedPrompt": (
-                        "ja" if reached is True else "nej" if reached is False else "—"
-                    ),
+                    "reachedPrompt": _flag(reached),
+                    "bild": _flag(item.get("stillImageSent")),
+                    "block": _flag(item.get("inspirationBlockKept")),
+                    "utdrag": _flag(item.get("addendumTextSent")),
                 }
             )
     if rows:

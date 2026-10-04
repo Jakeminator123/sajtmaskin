@@ -37,7 +37,19 @@ export interface GenerationSource {
   origin: string;
   reason: string;
   authority: GenerationSourceAuthority;
+  /**
+   * For `variant-reference` this is the OR of `inspirationBlockKept` and
+   * `stillImageSent`. Kept as an OR on purpose: the image and text channels
+   * are independent, and narrowing it would make an image-only run look like
+   * the inspiration never arrived.
+   */
   reachedPrompt: boolean;
+  /** `variant-reference` only: still image was in the sent vision payload. */
+  stillImageSent?: boolean;
+  /** `variant-reference` only: the inspiration text block survived budgeting. */
+  inspirationBlockKept?: boolean;
+  /** `variant-reference` only: block survived AND the entry carried excerpts. */
+  addendumTextSent?: boolean;
 }
 
 export interface GenerationInputPackage extends OrchestrationBase {

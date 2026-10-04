@@ -27,6 +27,7 @@ import {
   LANYARD_CONSENT_KEY,
   readStoredCookieConsent,
 } from "@/components/landing-v2/lanyard-consent"
+import { dispatchCookieConsentChange } from "@/lib/ads/fire-google-ads-conversion"
 import {
   readLanyardStaticOnly,
   usePrefersReducedMotion,
@@ -275,6 +276,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
       } catch {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
       }
+      dispatchCookieConsentChange(value)
       setLeaving(true)
       window.setTimeout(onDone, flipMs - 60)
     },

@@ -1,8 +1,12 @@
 import JSZip from "jszip";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createProject = vi.hoisted(() => vi.fn());
+const allocateProjectId = vi.hoisted(() => vi.fn());
 const saveProjectData = vi.hoisted(() => vi.fn());
+const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
+const getProjectData = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
@@ -16,10 +20,14 @@ const startPreviewSession = vi.hoisted(() => vi.fn());
 const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
 const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
 const safeFetch = vi.hoisted(() => vi.fn());
+const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
+  allocateProjectId,
   createProject,
   saveProjectData,
+  getProjectByIdForOwner,
+  getProjectData,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -59,6 +67,10 @@ vi.mock("@/lib/models/selection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
+vi.mock("@/lib/projects/project-env-vars", () => ({
+  getStoredProjectEnvVarMap,
+}));
+
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
@@ -70,11 +82,17 @@ vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
 
 import { POST } from "./route";
 import { MAX_GITHUB_TREE_SEGMENTS } from "@/lib/import/import-init-contract";
+import { PREVIEW_HOST_FILE_BUDGET } from "../../../../../../preview-host/src/files-contract.js";
+import { PLACEHOLDER_API_ROUTE } from "@/lib/gen/export/project-scaffold";
+import { buildPreviewEnvLocalContents } from "@/lib/gen/preview/env-local";
 
 describe("POST /api/engine/chats/init", () => {
   beforeEach(() => {
     createProject.mockReset();
+    allocateProjectId.mockReset();
     saveProjectData.mockReset();
+    getProjectByIdForOwner.mockReset();
+    getProjectData.mockReset();
     createChat.mockReset();
     addMessage.mockReset();
     createDraftVersion.mockReset();
@@ -88,6 +106,7 @@ describe("POST /api/engine/chats/init", () => {
     persistImportedRepoInitialization.mockReset();
     recordImportedRepoPreviewOutcome.mockReset();
     safeFetch.mockReset();
+    getStoredProjectEnvVarMap.mockReset();
 
     getCurrentUser.mockResolvedValue({
       id: "user_import",
@@ -112,6 +131,8 @@ describe("POST /api/engine/chats/init", () => {
       },
     });
     createProject.mockResolvedValue({ id: "proj_import" });
+    allocateProjectId.mockReturnValue("proj_import");
+    getStoredProjectEnvVarMap.mockResolvedValue({});
     createChat.mockResolvedValue({ id: "chat_import" });
     addMessage
       .mockResolvedValueOnce({ id: "msg_user" })
@@ -174,6 +195,9 @@ describe("POST /api/engine/chats/init", () => {
       undefined,
       { editKind: "imported_repo" },
     );
+    const persistedFilesJson = createDraftVersion.mock.calls[0]?.[2] as string;
+    expect(persistedFilesJson).not.toContain(".env.local");
+    expect(persistedFilesJson).not.toContain("NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID");
     expect(persistImportedRepoInitialization).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "chat_import",
@@ -196,8 +220,19 @@ describe("POST /api/engine/chats/init", () => {
         skipProjectScaffold: true,
         chatId: "chat_import",
         appProjectId: "proj_import",
+        preparedEnvLocalContents: expect.stringContaining(
+          "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=proj_import",
+        ),
         versionIdForSession: "ver_import",
       }),
+    );
+    expect(createProject).toHaveBeenCalledWith(
+      expect.any(String),
+      "import",
+      expect.any(String),
+      undefined,
+      "user_import",
+      { preallocatedId: "proj_import" },
     );
     expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
       versionId: "ver_import",
@@ -205,7 +240,262 @@ describe("POST /api/engine/chats/init", () => {
       outcome: "pending",
     });
     expect(saveProjectData).toHaveBeenCalled();
+    const initialProjectSave = saveProjectData.mock.calls.find(
+      ([payload]) => payload.current_code !== undefined,
+    )?.[0];
+    expect(initialProjectSave?.files).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: ".env.local" })]),
+    );
     expect(commitCredits).toHaveBeenCalled();
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("persists importer language and downloads the actual saved projection without inventing binary markers", async () => {
+    const bytes = Buffer.from([137, 80, 78, 71, 0, 255]);
+    const zip = new JSZip();
+    zip.file("repo-root/index.html", "<main>Hej</main>");
+    zip.file("repo-root/public/logo.png", bytes);
+    zip.file("repo-root/README.md", "base64:YWJj");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    const response = await POST(new Request("https://example.com/api/engine/chats/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+    }));
+    expect(response.status).toBe(200);
+    const saved = saveProjectData.mock.calls.find(([payload]) => payload.files !== undefined)?.[0];
+    expect(saved.files).toContainEqual(expect.objectContaining({
+      name: "public/logo.png", content: `base64:${bytes.toString("base64")}`, language: "binary",
+    }));
+    getProjectByIdForOwner.mockResolvedValue({ id: "proj_import", name: "Imported" });
+    getProjectData.mockResolvedValue(saved);
+    const { GET: download } = await import("@/app/api/projects/[id]/download/route");
+    const downloaded = await download(new NextRequest("https://example.com/api/projects/proj_import/download"), {
+      params: Promise.resolve({ id: "proj_import" }),
+    });
+    expect(downloaded.status).toBe(200);
+    expect(getProjectByIdForOwner).toHaveBeenCalledWith("proj_import", { userId: "user_import" });
+    const exported = await JSZip.loadAsync(await downloaded.arrayBuffer());
+    expect(await exported.file("public/logo.png")!.async("nodebuffer")).toEqual(bytes);
+    expect(await exported.file("README.md")!.async("string")).toBe("base64:YWJj");
+  });
+
+  it("prepares and snapshots stored env for an existing project before credits", async () => {
+    resolveAppProjectIdForRequest.mockResolvedValueOnce("proj_existing");
+    getStoredProjectEnvVarMap.mockResolvedValueOnce({ EXISTING_SECRET: "stored-value" });
+    const zip = new JSZip();
+    zip.file("repo-root/index.html", "<main>Hej</main>");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: "proj_existing",
+          source: { type: "zip", content: buffer.toString("base64") },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(allocateProjectId).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+    expect(getStoredProjectEnvVarMap).toHaveBeenCalledWith("proj_existing");
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        appProjectId: "proj_existing",
+        preparedEnvLocalContents: expect.stringContaining("EXISTING_SECRET=stored-value"),
+      }),
+    );
+    expect(JSON.stringify(createDraftVersion.mock.calls[0]?.[2])).not.toContain("stored-value");
+    expect(JSON.stringify(persistImportedRepoInitialization.mock.calls)).not.toContain(
+      "stored-value",
+    );
+    expect(JSON.stringify(saveProjectData.mock.calls)).not.toContain("stored-value");
+  });
+
+  it("rejects an asset-only archive before reserving credits or writing project state", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/public/logo.png", Buffer.from([1, 2, 3]));
+    zip.file("repo-root/public/mark.svg", "<svg />");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "zip_invalid", step: "extract" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+    expect(createChat).not.toHaveBeenCalled();
+  });
+
+  it("rejects a README-only archive before reserving credits", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/README.md", "# Dokumentation");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "zip_invalid", step: "extract" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+  });
+
+  it("uses usable HTML as current_code even when an asset appears first", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/public/logo.png", Buffer.from([1, 2, 3]));
+    zip.file("repo-root/index.html", "<main>Hej</main>");
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalledWith(
+      expect.objectContaining({ current_code: "<main>Hej</main>" }),
+    );
+  });
+
+  it("accounts for runtime-injected files before credits while accepting the exact boundary", async () => {
+    const makeZip = async (fileCount: number) => {
+      const zip = new JSZip();
+      for (let index = 0; index < fileCount; index += 1) {
+        zip.file(`repo-root/src/file-${index}.ts`, `export const value${index} = ${index};`);
+      }
+      return zip.generateAsync({ type: "nodebuffer" });
+    };
+
+    const over = await makeZip(499);
+    const rejected = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: over.toString("base64") } }),
+      }),
+    );
+    expect(rejected.status).toBe(413);
+    expect(await rejected.json()).toMatchObject({ code: "zip_too_large", step: "extract" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+
+    const boundary = await makeZip(498);
+    const accepted = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: boundary.toString("base64") } }),
+      }),
+    );
+    expect(accepted.status).toBe(200);
+    expect(prepareCredits).toHaveBeenCalledOnce();
+    expect(createProject).toHaveBeenCalledOnce();
+  });
+
+  it("revalidates normalized package.json bytes before reserving credits", async () => {
+    const packageShape = {
+      dependencies: { "framer-motion": "12.40.0" },
+      padding: "",
+    };
+    const emptyPackage = JSON.stringify(packageShape);
+    packageShape.padding = "x".repeat(
+      PREVIEW_HOST_FILE_BUDGET.maxFileBytes - Buffer.byteLength(emptyPackage, "utf8"),
+    );
+    const packageJson = JSON.stringify(packageShape);
+    expect(Buffer.byteLength(packageJson, "utf8")).toBe(
+      PREVIEW_HOST_FILE_BUDGET.maxFileBytes,
+    );
+
+    const zip = new JSZip();
+    zip.file("repo-root/index.html", "<main>Hej</main>");
+    zip.file("repo-root/package.json", packageJson);
+    const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ code: "zip_too_large", step: "extract" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
+  });
+
+  it("counts the real injected placeholder and env body at the total-byte boundary", async () => {
+    const placeholderFile = {
+      name: "app/api/placeholder/route.ts",
+      content: PLACEHOLDER_API_ROUTE,
+    };
+    const envLocalContents = await buildPreviewEnvLocalContents({
+      appProjectId: "proj_import",
+      includeStoredProjectEnvVars: false,
+      generatedEnvLocal: null,
+      scopePlaceholdersToFiles: [placeholderFile],
+    });
+    const injectedBytes =
+      Buffer.byteLength(PLACEHOLDER_API_ROUTE, "utf8") +
+      Buffer.byteLength(envLocalContents, "utf8");
+
+    const makeBoundaryZip = async (delta: number) => {
+      let remaining = PREVIEW_HOST_FILE_BUDGET.maxTotalBytes - injectedBytes + delta;
+      const zip = new JSZip();
+      let index = 0;
+      while (remaining > 0) {
+        const bytes = Math.min(remaining, PREVIEW_HOST_FILE_BUDGET.maxFileBytes);
+        zip.file(`repo-root/page-${index}.html`, "a".repeat(bytes));
+        remaining -= bytes;
+        index += 1;
+      }
+      return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    };
+
+    const boundary = await makeBoundaryZip(0);
+    const accepted = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: boundary.toString("base64") } }),
+      }),
+    );
+    expect(accepted.status).toBe(200);
+    expect(prepareCredits).toHaveBeenCalledOnce();
+
+    prepareCredits.mockClear();
+    createProject.mockClear();
+    const over = await makeBoundaryZip(1);
+    const rejected = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: over.toString("base64") } }),
+      }),
+    );
+    expect(rejected.status).toBe(413);
+    expect(await rejected.json()).toMatchObject({ code: "zip_too_large", step: "extract" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(createProject).not.toHaveBeenCalled();
   });
 
   // A#7 (P1): yarn.lock has no recognised extension in TEXT_EXTENSIONS, so it
@@ -240,6 +530,59 @@ describe("POST /api/engine/chats/init", () => {
       expect.stringContaining('"path":"yarn.lock"'),
       undefined,
       { editKind: "imported_repo" },
+    );
+  });
+
+  it("persists imported png/woff2 as canonical binary envelopes for preview", async () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const woff2 = Buffer.concat([Buffer.from("wOF2", "ascii"), Buffer.alloc(16, 3)]);
+    const zip = new JSZip();
+    zip.file(
+      "repo-root/app/page.tsx",
+      'export default function Page() { return <img src="/logo.png" alt="" /> }',
+    );
+    zip.file(
+      "repo-root/app/globals.css",
+      '@font-face { font-family: Site; src: url("/fonts/site.woff2"); }',
+    );
+    zip.file("repo-root/public/logo.png", png);
+    zip.file("repo-root/public/fonts/site.woff2", woff2);
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", content: buffer.toString("base64") },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const persistedFiles = JSON.parse(String(createDraftVersion.mock.calls[0]?.[2])) as Array<{
+      path: string;
+      language: string;
+      content: string;
+    }>;
+    const logo = persistedFiles.find((file) => file.path === "public/logo.png");
+    const font = persistedFiles.find((file) => file.path === "public/fonts/site.woff2");
+    expect(logo).toMatchObject({
+      language: "binary",
+      content: `base64:${png.toString("base64")}`,
+    });
+    expect(font).toMatchObject({
+      language: "binary",
+      content: `base64:${woff2.toString("base64")}`,
+    });
+    expect(startPreviewSession.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "public/logo.png", language: "binary" }),
+        expect.objectContaining({ path: "public/fonts/site.woff2", language: "binary" }),
+      ]),
     );
   });
 
@@ -365,33 +708,39 @@ describe("POST /api/engine/chats/init", () => {
     [403, "Nedladdningen av arkivet är förbjuden.", "zip_forbidden"],
     [404, "Arkivet hittades inte.", "zip_not_found"],
     [429, "Nedladdningen begränsas just nu. Försök igen om en stund.", "zip_rate_limited"],
-  ] as const)("propagates upstream ZIP HTTP %s without calling it SSRF", async (status, error, code) => {
-    safeFetch.mockResolvedValueOnce(new Response("rate limit or token problem", { status }));
+  ] as const)(
+    "propagates upstream ZIP HTTP %s without calling it SSRF",
+    async (status, error, code) => {
+      safeFetch.mockResolvedValueOnce(new Response("rate limit or token problem", { status }));
 
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: { type: "zip", url: "https://example.com/repo.zip" },
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: { type: "zip", url: "https://example.com/repo.zip" },
+          }),
         }),
-      }),
-    );
+      );
 
-    const body = await response.json();
-    expect(response.status).toBe(status);
-    expect(body).toMatchObject({ error, code, step: "download" });
-    expect(JSON.stringify(body).toLowerCase()).not.toContain("bearer");
-    expect(createChat).not.toHaveBeenCalled();
-    expect(safeFetch).toHaveBeenCalledWith(
-      "https://example.com/repo.zip",
-      expect.objectContaining({ maxBodyBytes: 50 * 1024 * 1024 }),
-    );
-  });
+      const body = await response.json();
+      expect(response.status).toBe(status);
+      expect(body).toMatchObject({ error, code, step: "download" });
+      expect(JSON.stringify(body).toLowerCase()).not.toContain("bearer");
+      expect(createChat).not.toHaveBeenCalled();
+      expect(safeFetch).toHaveBeenCalledWith(
+        "https://example.com/repo.zip",
+        expect.objectContaining({ maxBodyBytes: 50 * 1024 * 1024 }),
+      );
+    },
+  );
 
   it("imports a public GitHub repo root using a verified commit SHA", async () => {
     const zip = new JSZip();
-    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return <div>Hej</div>; }");
+    zip.file(
+      "repo-root/src/app/page.tsx",
+      "export default function Page() { return <div>Hej</div>; }",
+    );
     zip.file("repo-root/package.json", '{ "name": "demo" }');
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
 
@@ -421,10 +770,14 @@ describe("POST /api/engine/chats/init", () => {
     });
     expect(safeFetch.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
-        headers: expect.objectContaining({ "User-Agent": expect.stringContaining("Sajtmaskin-Import") }),
+        headers: expect.objectContaining({
+          "User-Agent": expect.stringContaining("Sajtmaskin-Import"),
+        }),
       }),
     );
-    expect(safeFetch.mock.calls[2]?.[0]).toBe("https://github.com/acme/site/archive/abc1234def.zip");
+    expect(safeFetch.mock.calls[2]?.[0]).toBe(
+      "https://github.com/acme/site/archive/abc1234def.zip",
+    );
     expect(createProject).toHaveBeenCalled();
   });
 
@@ -470,7 +823,10 @@ describe("POST /api/engine/chats/init", () => {
   });
 
   it("rejects a long /tree/a/b/c/... GitHub URL before any GitHub request", async () => {
-    const segments = Array.from({ length: MAX_GITHUB_TREE_SEGMENTS + 1 }, (_, index) => `s${index}`);
+    const segments = Array.from(
+      { length: MAX_GITHUB_TREE_SEGMENTS + 1 },
+      (_, index) => `s${index}`,
+    );
     const response = await POST(
       new Request("https://example.com/api/engine/chats/init", {
         method: "POST",
@@ -495,7 +851,10 @@ describe("POST /api/engine/chats/init", () => {
 
   it("imports a public GitHub repo after a stale saved token fails metadata auth", async () => {
     const zip = new JSZip();
-    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return <div>Hej</div>; }");
+    zip.file(
+      "repo-root/src/app/page.tsx",
+      "export default function Page() { return <div>Hej</div>; }",
+    );
     zip.file("repo-root/package.json", '{ "name": "demo" }');
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
     getCurrentUser.mockResolvedValueOnce({
@@ -534,7 +893,9 @@ describe("POST /api/engine/chats/init", () => {
         headers: expect.objectContaining({ Authorization: "Bearer stale-token" }),
       }),
     );
-    expect(safeFetch.mock.calls[3]?.[0]).toBe("https://github.com/acme/site/archive/abc1234def.zip");
+    expect(safeFetch.mock.calls[3]?.[0]).toBe(
+      "https://github.com/acme/site/archive/abc1234def.zip",
+    );
     expect(safeFetch.mock.calls[3]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.not.objectContaining({ Authorization: expect.anything() }),
@@ -571,12 +932,22 @@ describe("POST /api/engine/chats/init", () => {
   });
 
   it.each([
-    ["recordImportedRepoPreviewOutcome", () => recordImportedRepoPreviewOutcome.mockRejectedValueOnce(new Error("outcome write failed"))],
-    ["updateVersionPreviewUrl", () => updateVersionPreviewUrl.mockRejectedValueOnce(new Error("preview url write failed"))],
-    ["saveProjectData", () => {
-      saveProjectData.mockResolvedValueOnce(undefined);
-      saveProjectData.mockRejectedValueOnce(new Error("preview project save failed"));
-    }],
+    [
+      "recordImportedRepoPreviewOutcome",
+      () =>
+        recordImportedRepoPreviewOutcome.mockRejectedValueOnce(new Error("outcome write failed")),
+    ],
+    [
+      "updateVersionPreviewUrl",
+      () => updateVersionPreviewUrl.mockRejectedValueOnce(new Error("preview url write failed")),
+    ],
+    [
+      "saveProjectData",
+      () => {
+        saveProjectData.mockResolvedValueOnce(undefined);
+        saveProjectData.mockRejectedValueOnce(new Error("preview project save failed"));
+      },
+    ],
   ] as const)("returns the saved import when %s throws after persist", async (_name, arrange) => {
     const zip = new JSZip();
     zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");

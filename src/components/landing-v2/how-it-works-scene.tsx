@@ -86,8 +86,8 @@ function Bar({
   )
 }
 
-/* ── 01 · Registrera företaget ─────────────────────────────────────
- * Ett stående "företagskort" (identitet/registrering): rundat kort med
+/* ── 01 · Beskriv företaget ────────────────────────────────────────
+ * Ett stående "företagskort" (identitet): rundat kort med
  * rubrikfält, logotyp-cirkel, text-rader och ett grönt "godkänt"-sigill.
  */
 function CompanyStage() {
@@ -141,8 +141,8 @@ function CompanyStage() {
   )
 }
 
-/* ── 02 · Välj spår och fyll i input ───────────────────────────────
- * Fyra inmatnings-tiles (Fritext / Template / Analyserad / Audit) i 2×2,
+/* ── 02 · Välj hur du vill börja ───────────────────────────────────
+ * Fyra inmatnings-tiles (Beskriv själv / frågor / Template / analys) i 2×2,
  * en aktiv (teal), plus en prompt-rad med blinkande markör.
  */
 function InputStage() {

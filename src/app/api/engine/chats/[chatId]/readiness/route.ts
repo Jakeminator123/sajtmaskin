@@ -29,11 +29,14 @@ import {
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
 import {
+  buildPackageTreePublishBlocker,
   buildReleaseGateBlocker,
   buildTypecheckAdvisoryBlocker,
   withReadinessCategory,
 } from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
+import { resolvePackageTreePublishGate } from "@/lib/deploy/package-tree-publish-gate";
+import { runPreDeployFixPipeline, shouldSkipPreDeployAutoFix } from "@/app/api/v0/deployments/_route/pre-deploy-fix";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
@@ -452,6 +455,25 @@ async function buildEngineReadiness(
       severity: "blocker",
       action: "deploy",
     });
+  }
+
+  // Same pure transformation and server skip policy as the ordinary publish
+  // request. No saved files are modified; receipt identity stays on versionRows.
+  const publishRows = runPreDeployFixPipeline(
+    versionRows.map((file) => ({ name: file.path, content: file.content })),
+    shouldSkipPreDeployAutoFix(),
+  ).files.map((file) => ({ path: file.name, content: file.content }));
+  const packageTreeItem = buildPackageTreePublishBlocker(
+    resolvePackageTreePublishGate({
+      files: versionRows,
+      publishFiles: publishRows,
+      latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(errorLogs),
+      errorLogs,
+      filesRevision: version.files_revision ?? null,
+    }),
+  );
+  if (packageTreeItem) {
+    blockers.push(packageTreeItem);
   }
 
   // F2 (`design`) is a pure visual fidelity stage. Env vars are

@@ -32,6 +32,7 @@ import {
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { resolveLatestGateAdvisoryChecks } from "@/lib/gen/verify/gate-failure-summary";
 import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
+import { resolvePackageTreePublishGate } from "@/lib/deploy/package-tree-publish-gate";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
@@ -371,6 +372,28 @@ export async function POST(req: Request) {
         warnings,
         invalidFiles,
       } = runPreDeployFixPipeline(textFiles, skipPreDeployAutoFix);
+      const packageTreeGate = resolvePackageTreePublishGate({
+        files: fixedFiles.map((file) => ({ path: file.name, content: file.content })),
+        latestGateAdvisoryChecks: resolveLatestGateAdvisoryChecks(versionErrorLogs),
+        errorLogs: versionErrorLogs,
+        filesRevision: engineVersion.files_revision ?? null,
+      });
+      if (!packageTreeGate.allowed) {
+        if (!warnings.includes(packageTreeGate.message)) {
+          warnings.push(packageTreeGate.message);
+        }
+        if (!precheckOnly) {
+          return NextResponse.json(
+            {
+              error: packageTreeGate.message,
+              code: packageTreeGate.code,
+              fixesApplied,
+              preDeployWarnings: warnings,
+            },
+            { status: 409 },
+          );
+        }
+      }
       // Align with the readiness route (`readiness/route.ts`): pass the
       // version's ACTUAL lifecycle stage + selected dossiers so deploy counts
       // env requirements the same way readiness does. Without this, deploy
@@ -414,6 +437,7 @@ export async function POST(req: Request) {
         missingEnvKeys: envRequirements.missingEnvKeys,
         preDeployWarnings: [...warnings, ...placeholderCoveredWarnings],
         invalidFilePaths: invalidFiles,
+        packageTreeAllowed: packageTreeGate.allowed,
       });
       // Structured, per-key warning for the UI (product decision: NEVER a
       // hard block — demo sites with an info sign must stay publishable).
@@ -447,6 +471,7 @@ export async function POST(req: Request) {
           // användaren försöker byta namn.
           projectNameLock,
           brandedPilotGate,
+          packageTreeGate,
           fixesApplied,
           preDeployWarnings: warnings,
           envWarnings,
@@ -816,7 +841,14 @@ export async function POST(req: Request) {
           console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
         }
 
-        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
+        // SEO/image transforms use text-file projections. Reattach persisted
+        // language at the outbound boundary so a binary with a text-shaped
+        // path is not mistaken for source after those projections.
+        const sourceLanguages = new Map(codeFiles.map((file) => [file.path, file.language]));
+        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files.map((file) => ({
+          ...file,
+          language: sourceLanguages.get(file.name),
+        })));
 
         const created = await createVercelDeployment({
           projectName: ensuredProject.name,

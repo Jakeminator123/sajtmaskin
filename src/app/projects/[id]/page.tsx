@@ -32,18 +32,11 @@ import {
   addressKindHelp,
   addressKindLabel,
   publishStateLabel,
-  type SiteStateTone,
+  SITE_STATE_TONE_CLASS,
 } from "@/lib/projects/site-labels";
 import { useAuth } from "@/lib/auth/auth-store";
 import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import { ByodDomainFlow } from "@/components/projects/ByodDomainFlow";
-
-const TONE_CLASS: Record<SiteStateTone, string> = {
-  live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-  progress: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  problem: "bg-red-500/10 text-red-400 border-red-500/30",
-  idle: "bg-gray-800 text-gray-400 border-gray-700",
-};
 
 function Section({
   title,
@@ -251,7 +244,7 @@ export default function ProjectSitePage() {
                 <h1 className="text-3xl font-bold text-white">{project?.name ?? "Din sajt"}</h1>
                 {stateLabel && (
                   <span
-                    className={`mt-2 inline-block border px-2 py-0.5 text-xs ${TONE_CLASS[stateLabel.tone]}`}
+                    className={`mt-2 inline-block border px-2 py-0.5 text-xs ${SITE_STATE_TONE_CLASS[stateLabel.tone]}`}
                   >
                     {stateLabel.label}
                   </span>

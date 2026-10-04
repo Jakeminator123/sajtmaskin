@@ -92,6 +92,12 @@ export type PinnedFetchInit = {
   timeoutMs?: number;
   maxBodyBytes?: number;
   signal?: AbortSignal;
+  /**
+   * Resolve as soon as status + headers are available and discard the body.
+   * HTTPS proof only needs the status line and Location — buffering HTML
+   * would abort a valid 200 once it passed `maxBodyBytes`.
+   */
+  headersOnly?: boolean;
 };
 
 function buildRequestHeaders(
@@ -230,6 +236,17 @@ export async function fetchWithPinnedDns(
       };
 
       function onResponse(response: http.IncomingMessage) {
+        if (init.headersOnly) {
+          settleResolve({
+            status: response.statusCode ?? 502,
+            headers: buildResponseHeaders(response.headers),
+            body: Buffer.alloc(0),
+          });
+          response.destroy();
+          request.destroy();
+          return;
+        }
+
         const chunks: Buffer[] = [];
         let received = 0;
         response.on("data", (chunk: Buffer) => {

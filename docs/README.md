@@ -26,6 +26,7 @@ policies kan äga olika beslut.
 | Vilka rader kräver live-koll i prod?              | [`runbooks/live-verifiering.md`](runbooks/live-verifiering.md)                                                                  |
 | Hur felsöker jag integrationer?                   | [`runbooks/generated-site-integrations.md`](runbooks/generated-site-integrations.md)                                            |
 | Hur driver/felsöker jag OpenClaw-gatewayn?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md)                                                                  |
+| Hur loggar jag in på OpenClaw-dashboarden?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md#dashboard-inloggning) — token + device pairing, inte lösenord     |
 | Varför strejkar lokal generation?                 | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)                                                          |
 | Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
 | Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
@@ -38,8 +39,10 @@ policies kan äga olika beslut.
 | Hur aktiveras varumärkta användar-URL:er?         | [`runbooks/branded-user-urls.md`](runbooks/branded-user-urls.md)                                                                |
 | Var hamnar appens console-loggar?                 | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)                                                                  |
 | Vilka manuella underhållsknappar?                 | [`runbooks/hygiene.md`](runbooks/hygiene.md)                                                                                    |
+| Var bor de publika showcase-exemplen?             | Runtime-owner: [`../src/lib/exempel/showcase-sites.ts`](../src/lib/exempel/showcase-sites.ts). Publik yta: `/exempel`. Live-läge: [`runbooks/showcase-exempel.md`](runbooks/showcase-exempel.md). |
 | Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
 | Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
+| Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
 
 Kanonisk, kort terminologi finns i
 [`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för

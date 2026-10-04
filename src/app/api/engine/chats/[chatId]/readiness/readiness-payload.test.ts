@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPackageTreePublishBlocker,
   buildReleaseGateBlocker,
   buildSeoAdvisoriesFromMeta,
   buildTypecheckAdvisoryBlocker,
   withReadinessCategory,
 } from "./readiness-payload";
+import {
+  DEPLOY_INSTALL_PEER_FALLBACK,
+  DEPLOY_PACKAGE_TREE_ERESOLVE,
+} from "@/lib/deploy/package-tree-publish-gate";
 import {
   resolveDeployReleaseGate,
   resolveDeployTypecheckAdvisoryGate,
@@ -175,5 +180,47 @@ describe("resolveDeployTypecheckAdvisoryGate + buildTypecheckAdvisoryBlocker (F2
       /quality gate|preflight|ReleaseGate|\bF2\b|\bF3\b|\btypecheck\b|\btsc\b|\blint\b|advisory/i,
     );
     expect(item?.title).toContain("typfel");
+  });
+});
+
+describe("buildPackageTreePublishBlocker", () => {
+  it("does not claim a proven install failure for unresolved peer choices", () => {
+    const item = buildPackageTreePublishBlocker({
+      allowed: false,
+      code: DEPLOY_PACKAGE_TREE_ERESOLVE,
+      message: "Supply an in-range lockfile or exact matching pair.",
+      conflict: {
+        code: "next_react_peer_resolution_required",
+        nextRange: "^13.0.0", reactRange: "18.0.0", nextMajor: 13, reactMajor: 18,
+        peers: {}, message: "Unresolved choices", repairOptions: [],
+      },
+    });
+    expect(item?.severity).toBe("blocker");
+    expect(item?.title).toContain("verifieras");
+    expect(item?.title).not.toContain("kan inte installeras");
+  });
+  it("blocks the incident Next/React ERESOLVE tree", () => {
+    const item = buildPackageTreePublishBlocker({
+      allowed: false,
+      code: DEPLOY_PACKAGE_TREE_ERESOLVE,
+      message: "next 14.2.25 and react ^19 is an npm ERESOLVE tree",
+    });
+    expect(item?.id).toBe("package-tree-eresolve-blocks-publish");
+    expect(item?.severity).toBe("blocker");
+    expect(item?.detail).toMatch(/14\.2\.25/);
+  });
+
+  it("blocks a preview that only started after --legacy-peer-deps", () => {
+    const item = buildPackageTreePublishBlocker({
+      allowed: false,
+      code: DEPLOY_INSTALL_PEER_FALLBACK,
+      message: "legacy-peer-deps",
+    });
+    expect(item?.id).toBe("install-peer-fallback-blocks-publish");
+    expect(item?.severity).toBe("blocker");
+  });
+
+  it("is silent when the tree is coherent", () => {
+    expect(buildPackageTreePublishBlocker({ allowed: true })).toBeNull();
   });
 });

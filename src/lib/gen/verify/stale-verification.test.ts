@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
 import {
+  isFreshVersionLease,
   isNonTerminalVerificationState,
   isTimedOutVerificationState,
   reconcileTerminalDbState,
@@ -61,6 +62,78 @@ describe("isTimedOutVerificationState", () => {
     const staleDate = new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 10_000);
     expect(isTimedOutVerificationState("repairing", staleDate)).toBe(true);
     expect(isTimedOutVerificationState("pending", staleDate)).toBe(true);
+  });
+
+  it("clocks a later repair/verify start, not only version.created_at", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-18T15:26:14.000Z"));
+    const createdAt = "2026-09-18T15:06:00.000Z";
+    const repairStartedAt = "2026-09-18T15:10:24.000Z";
+    // created_at + 950s is already past (15:21:50); repair-start + 950s is 15:26:14.
+    expect(isTimedOutVerificationState("repairing", createdAt)).toBe(true);
+    expect(isTimedOutVerificationState("repairing", createdAt, repairStartedAt)).toBe(false);
+
+    vi.setSystemTime(new Date("2026-09-18T15:26:15.000Z"));
+    expect(isTimedOutVerificationState("repairing", createdAt, repairStartedAt)).toBe(true);
+  });
+});
+
+describe("isFreshVersionLease", () => {
+  it("is false for a running unexpired lease older than the isolate budget", () => {
+    const now = Date.parse("2026-09-18T15:26:15.000Z");
+    expect(
+      isFreshVersionLease(
+        {
+          status: "running",
+          createdAt: "2026-09-18T15:10:24.000Z",
+          leaseExpiresAt: "2026-09-18T15:27:00.000Z",
+        },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("is true for a running unexpired lease younger than the isolate budget", () => {
+    const now = Date.parse("2026-09-18T15:12:00.000Z");
+    expect(
+      isFreshVersionLease(
+        {
+          status: "running",
+          createdAt: "2026-09-18T15:10:24.000Z",
+          leaseExpiresAt: "2026-09-18T15:25:24.000Z",
+        },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("is true for a lease older than the isolate budget that still heartbeats", () => {
+    const now = Date.parse("2026-09-18T15:40:00.000Z");
+    expect(
+      isFreshVersionLease(
+        {
+          status: "running",
+          createdAt: "2026-09-18T15:10:24.000Z",
+          updatedAt: "2026-09-18T15:39:50.000Z",
+          leaseExpiresAt: "2026-09-18T15:54:50.000Z",
+        },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the TTL has elapsed even if created_at is recent", () => {
+    const now = Date.parse("2026-09-18T15:12:00.000Z");
+    expect(
+      isFreshVersionLease(
+        {
+          status: "running",
+          createdAt: "2026-09-18T15:10:24.000Z",
+          leaseExpiresAt: "2026-09-18T15:11:00.000Z",
+        },
+        now,
+      ),
+    ).toBe(false);
   });
 });
 

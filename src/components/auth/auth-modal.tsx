@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import type { AuthUser } from "@/lib/auth/auth-store";
 import {
   currentBuilderReturnTo,
   googleOAuthStartHref,
   touchPendingBuilderDraftReturnTo,
 } from "@/lib/builder/pending-builder-draft";
+import { noteGoogleAdsConversion } from "@/lib/ads/fire-google-ads-conversion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Wand2 } from "lucide-react";
@@ -17,9 +19,17 @@ interface AuthModalProps {
   defaultMode?: "login" | "register";
   /** First-party path to resume after Google or e-postverifiering. */
   returnTo?: string;
+  /** Runs only after an inline e-postlogin has updated the auth store. */
+  onSuccess?: (user: AuthUser) => void | Promise<void>;
 }
 
-export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: AuthModalProps) {
+export function AuthModal({
+  isOpen,
+  onClose,
+  defaultMode = "login",
+  returnTo,
+  onSuccess,
+}: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,10 +42,12 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const attemptEpochRef = useRef(0);
 
   const { setUser } = useAuthStore();
 
   useEffect(() => {
+    attemptEpochRef.current += 1;
     if (isOpen) {
       setMode(defaultMode);
       setError(null);
@@ -50,11 +62,27 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
       setPassword("");
       setName("");
       setShowPassword(false);
+      setIsLoading(false);
       setError(null);
       setSuccessMessage(null);
       setShowResendVerification(false);
     }
   }, [isOpen]);
+
+  const handleClose = () => {
+    attemptEpochRef.current += 1;
+    setIsLoading(false);
+    onClose();
+  };
+
+  const handleModeChange = (nextMode: "login" | "register") => {
+    attemptEpochRef.current += 1;
+    setIsLoading(false);
+    setMode(nextMode);
+    setError(null);
+    setSuccessMessage(null);
+    setShowResendVerification(false);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -66,7 +94,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
   const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      handleClose();
       return;
     }
     if (event.key !== "Tab") return;
@@ -91,15 +119,18 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const attemptEpoch = ++attemptEpochRef.current;
+    const attemptMode = mode;
+    const attemptIsActive = () => attemptEpochRef.current === attemptEpoch;
     setError(null);
     setSuccessMessage(null);
     setShowResendVerification(false);
     setIsLoading(true);
 
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const endpoint = attemptMode === "login" ? "/api/auth/login" : "/api/auth/register";
       const body =
-        mode === "login"
+        attemptMode === "login"
           ? { email, password }
           : { email, password, name: name || undefined, returnTo };
 
@@ -110,6 +141,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
       });
 
       const data = await response.json();
+      if (!attemptIsActive()) return;
 
       if (!data.success) {
         setError(
@@ -119,7 +151,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         return;
       }
 
-      if (mode === "register" && data.requiresEmailVerification) {
+      if (attemptMode === "register" && data.requiresEmailVerification) {
+        noteGoogleAdsConversion("account_created");
         if (data.emailVerificationSent === false) {
           setError(
             data.message ||
@@ -137,27 +170,45 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         return;
       }
 
+      if (attemptMode === "register") {
+        noteGoogleAdsConversion("account_created");
+      }
+
       // Update auth store
       if (data.user) {
         setUser(data.user);
       }
 
       // Close modal
+      setIsLoading(false);
       onClose();
 
       // Reset form
       setEmail("");
       setPassword("");
       setName("");
+
+      if (attemptMode === "login" && data.user && onSuccess) {
+        try {
+          void Promise.resolve(onSuccess(data.user)).catch((continuationError) => {
+            console.error("[AuthModal] Post-login continuation failed:", continuationError);
+          });
+        } catch (continuationError) {
+          console.error("[AuthModal] Post-login continuation failed:", continuationError);
+        }
+      }
+      attemptEpochRef.current += 1;
     } catch {
-      setError("Kunde inte ansluta till servern");
+      if (attemptIsActive()) setError("Kunde inte ansluta till servern");
     } finally {
-      setIsLoading(false);
+      if (attemptIsActive()) setIsLoading(false);
     }
   };
 
   const handleResendVerification = async () => {
     if (!email) return;
+    const attemptEpoch = ++attemptEpochRef.current;
+    const attemptIsActive = () => attemptEpochRef.current === attemptEpoch;
     setError(null);
     setSuccessMessage(null);
     setIsLoading(true);
@@ -168,6 +219,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         body: JSON.stringify({ email, returnTo }),
       });
       const data = await response.json();
+      if (!attemptIsActive()) return;
       if (!response.ok || !data.success) {
         setError(data.error || "Kunde inte skicka verifieringsmail");
         return;
@@ -175,13 +227,14 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
       setSuccessMessage(data.message || "Verifieringsmail skickat.");
       setShowResendVerification(false);
     } catch {
-      setError("Kunde inte skicka verifieringsmail");
+      if (attemptIsActive()) setError("Kunde inte skicka verifieringsmail");
     } finally {
-      setIsLoading(false);
+      if (attemptIsActive()) setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
+    attemptEpochRef.current += 1;
     const redirectTarget = returnTo || currentBuilderReturnTo();
     touchPendingBuilderDraftReturnTo(redirectTarget);
     // The path is a route handler that 302s to accounts.google.com, not a Next
@@ -194,7 +247,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={handleClose} />
 
       {/* Modal */}
       <div
@@ -210,7 +263,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
         {/* Close button */}
         <button
           ref={closeButtonRef}
-          onClick={onClose}
+          onClick={handleClose}
           className="border-border/20 bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary absolute top-4 right-4 z-20 rounded-lg border p-1.5 transition-colors"
           aria-label="Stäng inloggning"
         >
@@ -403,8 +456,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
               Har du inget konto?{" "}
               <button
                 onClick={() => {
-                  setMode("register");
-                  setError(null);
+                  handleModeChange("register");
                 }}
                 className="text-primary hover:text-primary/80 font-medium"
               >
@@ -416,8 +468,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", returnTo }: 
               Har du redan ett konto?{" "}
               <button
                 onClick={() => {
-                  setMode("login");
-                  setError(null);
+                  handleModeChange("login");
                 }}
                 className="text-primary hover:text-primary/80 font-medium"
               >

@@ -179,7 +179,6 @@ google-services.json
 .cursor/bugs/*
 !.cursor/bugs/README.md
 .cursor/handoffs/*
-!.cursor/handoffs/README.md
 # Lokal swarm-rapportyta via /automat (audit-only, lokalt per-maskin — du plockar fynd manuellt).
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/swarms/*
@@ -287,10 +286,19 @@ UTLÅTANDE_DEEP_BREEF.txt
 .cursor/openclaw-bridge/
 sajtmaskin.zip
 
+# Retired Agent Bridge private state; never commit old local credentials/mailboxes
+.agent-bridge/config.local.json
+.agent-bridge/latest-response.md
+.agent-bridge/state.json
+.agent-bridge/bridge-body-*.md
+
 
 # --- Template references (input till AI-kuration, dossiers:curate) ---
-# Klonade upstream-repos och GitHub-metadata. Stora filer; läses bara av
-# kuration on demand. Se docs/contracts/dossier-system.md.
+# Kanoniskt hem är numera syskonmappen `_template_refs/dossier-references/`
+# UTANFÖR checkouten (ignorerad på rad ~225 om den ändå hamnar under repot).
+# Raderna nedan är kvar som skydd: klonerna är ~2 GB, och den som av
+# muskelminne klonar tillbaka hit ska inte kunna committa dem.
+# Se docs/contracts/dossier-system.md.
 data/template-references/repos/
 data/template-references/_metadata/
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Databashälsa — visa alla tabeller, indexstatus och kör migrationer säkert.
+"""Databashälsa — read-only diagnos och uttryckligt index-DDL-flöde.
 
 Streamlit-sida med tre delar:
   1. **Hälso-koll** (read-only): kör `scripts/db/db-health-check.mjs` via
@@ -10,13 +10,12 @@ Streamlit-sida med tre delar:
      Audit-logg skrivs till `data/observability/db-perf-indexes-runs.ndjson`.
   3. **Historik**: linjegrafer från snapshot-NDJSON (rader, latens, missing).
 
-Auto-applicering: `npm run dev` triggar `predev` som kör perf-indexes som
-soft-step (failar inte dev-server om migrationen krånglar). I prod körs
-ingenting automatiskt — knappen är den enda triggern.
+Dev-start och CI-push applicerar inte index automatiskt. CLI och knappen är
+uttryckliga skrivvägar; mål, plan och lås-/trafikpåverkan måste granskas.
 
 Designprincip: användaren kan vara icke-teknisk. Vi gör det medvetet
-SVÅRT att råka klicka apply (text-ruta + checkbox). Skriptet är säkert
-även vid "olyckliga" klick (idempotent), men friktionen tvingar reflektion.
+SVÅRT att råka klicka apply (text-ruta + checkbox). Idempotens är inte ett
+säkerhetsbevis: index-DDL kan låsa writes och kräver ett medvetet beslut.
 """
 
 from __future__ import annotations
@@ -120,7 +119,7 @@ def _run_perf_indexes(ctx: BackofficeContext, *, reason: str, dry_run: bool) -> 
     except subprocess.TimeoutExpired:
         return {
             "ok": False,
-            "error": f"Migrationen timade ut efter {_PERF_INDEX_TIMEOUT_S}s.",
+            "error": f"Indexbygget timade ut efter {_PERF_INDEX_TIMEOUT_S}s.",
         }
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"Misslyckades starta node: {exc}"}
@@ -170,12 +169,14 @@ def render(ctx: BackofficeContext) -> None:
             """
 - Listar **alla förväntade tabeller** (definierade i `src/lib/db/schema.ts`).
 - Räknar rader per tabell (estimate via `pg_class.reltuples`, snabb även på stora tabeller).
-- Verifierar att alla **förväntade index** finns. Saknade → "köra `npm run db:perf-indexes`".
+- Verifierar att alla **förväntade index** finns. Saknade → granska `npm run db:perf-indexes:dry`;
+  faktisk apply kräver separat mandat och bedömd lås-/trafikpåverkan.
 - Mäter **anslutnings­latens** + en `SELECT 1`-probe per tabell.
 - Vid behov: spara **snapshots** för historik-grafer (ND-JSON i `data/observability/`).
 
 Om databasen pekar mot din production-snapshot (`.env.vercel.production.pulled`)
-flaggas det med ⚠️. Sidan är read-only så det är säkert, men bra att veta.
+flaggas det med ⚠️. Bara hälsokollen är read-only. Sidans separata APPLY-flöde
+skriver index-DDL och kan blockera writes; verifiera målet före en planerad apply.
             """
         )
 
@@ -253,7 +254,8 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
     if summary.get("total_tables_missing", 0) > 0:
         st.error(
             f"⚠️ **{summary['total_tables_missing']} förväntade tabeller saknas i DB:n.** "
-            "Kör `npm run db:init` för att skapa dem (säker — `CREATE TABLE IF NOT EXISTS`)."
+            "Verifiera målet och ta fram en separat DB-plan. `db:init` är WRITE/REPAIR för dev "
+            "och kan UPDATE/DELETE befintliga data; det är inte en säker standardfix."
         )
     if summary.get("total_table_probe_failures", 0) > 0:
         st.error(
@@ -264,12 +266,12 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
     if missing_indexes:
         st.error(
             f"⚠️ **{len(missing_indexes)} index saknas.** Det här är den vanligaste orsaken till "
-            "långsamma queries. Kör:"
+            "långsamma queries. Granska först planen:"
         )
-        st.code("npm run db:perf-indexes", language="bash")
+        st.code("npm run db:perf-indexes:dry", language="bash")
         st.caption(
-            "Skriptet är idempotent (`CREATE INDEX IF NOT EXISTS`) — säkert att köra om-och-om-igen, "
-            "även mot prod. Skapar bara de index som saknas."
+            "Granska först `npm run db:perf-indexes:dry` och verifiera mål. "
+            "Faktisk apply kräver separat mandat och --reason; index-DDL kan låsa writes även när den är idempotent."
         )
         with st.expander("Vilka index saknas?", expanded=True):
             df = pd.DataFrame(missing_indexes)
@@ -320,7 +322,8 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
     SVÅRT att råka klicka — text-rutan tvingar reflektion, kryss-rutan
     bekräftar att man läst varningen, och targetet visas i klartext.
     Skriptet i sig (`add-performance-indexes.mjs`) är idempotent + dedupe-
-    aware, så även "olyckliga" klick är säkra. Audit-logg skrivs alltid.
+    aware, men non-CONCURRENT index-DDL kan blockera writes. Separat mandat,
+    verifierat mål och granskad plan krävs; kontrollera resultat och audit.
     """
     st.subheader("🔧 Applicera saknade index")
 
@@ -346,28 +349,28 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
 **Vad händer:**
 - Skriptet skapar alla index som backoffice-checken markerat som "saknade" ovan.
 - Skriptet är **idempotent** (`CREATE INDEX IF NOT EXISTS`) — om något redan
-  finns hoppas det över. Du kan trycka den 100 gånger utan skada.
+  finns hoppas det över. Det är en retry-egenskap, inte ett säkerhetsbevis.
 - Det är **dedupe-aware** — om ett index med annat namn redan täcker samma
   kolumner, hoppas det över istället för att skapa en duplikat.
-- Skriptet **ändrar inte data** i tabellerna. Det skapar bara index, vilket
-  Postgres bygger i bakgrunden och gör queries snabbare.
-- En audit-rad skrivs till `data/observability/db-perf-indexes-runs.ndjson`
-  med tidsstämpel, din motivering, och resultatet.
+- Skriptet ändrar DB-struktur med **non-CONCURRENT CREATE INDEX**, vilket
+  kan blockera skrivningar medan indexet byggs. Det är ingen bakgrundsgaranti.
+- Kontrollera resultat och audit i `data/observability/db-perf-indexes-runs.ndjson`.
+  En loggrad är inte i sig ett bevis på lyckad apply.
 
 **Vad kan gå fel:**
-- DB:n är otillgänglig → migrationen failar tyst, audit-logg visar varför.
-- Två agenter försöker skapa samma index samtidigt → en av dem får
-  "already exists" och hoppar över. Inget skadligt händer.
-- Indexet tar längre tid att bygga än 5 minuter → timeout. På små tabeller
-  (< 100k rader) bör det aldrig hända.
+- Anslutningsfel eller SQL-fel → kontrollera resultatet; dölj inte ett misslyckande.
+- Parallella indexbyggen kan konkurrera om lås. Kör inte flera apply samtidigt.
+- Knappens femminuterstimeout kan ge ett ofullständigt resultat. Kontrollera
+  faktisk DB-status före en eventuell omkörning.
 
-**När du ska klicka:**
-- När hälsokollen ovan visar saknade index OCH du noterar att appen är slö.
-- Efter en schema-migration som lagt till nya tabeller.
-- Som rutin efter större deploys.
+**Före apply:**
+- Separat mandat för index-DDL mot det verifierade målet.
+- Granskad dry-run-plan och bedömd lås-/trafikpåverkan.
+- Planerad körning; ett deploy- eller mergeuppdrag räcker inte.
 
 **När du INTE ska klicka:**
 - Om du inte har kollat att DB-pekaren ovan stämmer (`.env.local` POSTGRES_URL).
+- Som rutin efter deploy eller bara för att ett index saknas.
 - Om appen pågår en stor write-burst (t.ex. mass-import). Vänta tills lugnt.
             """
         )
@@ -403,7 +406,7 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
         if st.button(
             "🔍 Dry-run (se exakt vad som skulle göras)",
             disabled=not valid_reason,
-            help="Säker — skapar inga index, bara visar.",
+            help="Read-only plan — visar men skapar inga index.",
             key="perf_idx_dry",
         ):
             with st.spinner("Kör dry-run…"):
@@ -441,7 +444,7 @@ def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | 
                 st.caption("stderr:")
                 st.code(last["stderr_tail"], language="bash")
 
-    # Audit-historik (alla kör — auto-predev + manuella)
+    # Audit-historik: explicita körningar och bevarade äldre auto-kvitton
     audit_rows = _load_perf_audit_log(ctx, max_rows=20)
     if audit_rows:
         with st.expander(f"Audit-logg (sista {len(audit_rows)} körningar)", expanded=False):

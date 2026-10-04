@@ -33,7 +33,7 @@
     {
       "templateId": "1FuIGdkaNxS",
       "sourceArchiveSha256": "7b3dd061d54ccfedfef96e778fb31620860e5e0b435273787cd82f216df57181",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -86,7 +86,7 @@
     {
       "templateId": "4b4SzAt1CLV",
       "sourceArchiveSha256": "ca5e90af8b6d39491b60e04c28a63449d132c612a2a784be436fc7c8ed51593d",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -112,7 +112,7 @@
     {
       "templateId": "6UhtTqtAVaZ",
       "sourceArchiveSha256": "fc0dde974efe90513c207e62db552ebfd919bd49b11dc0cadd8ea0b159d7b3fb",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -152,7 +152,7 @@
     {
       "templateId": "ALfQrxyrJ8b",
       "sourceArchiveSha256": "569df46759055252c7d7c7e3f4c727f5a452a32ef2adc0879f0a051c8dfdb3c0",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -178,7 +178,7 @@
     {
       "templateId": "b3DN1aOd6mQ",
       "sourceArchiveSha256": "6c7f70e76447f36a5b0e6143f56ee277da12f6a87a5729d2f246abb0c37f5e60",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -204,7 +204,7 @@
     {
       "templateId": "b7GDYVxuoGC",
       "sourceArchiveSha256": "0578483719d3c5d06ad60d6d804d27a4e812c81aca49cb725814f268d042c2c9",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -230,7 +230,7 @@
     {
       "templateId": "E2PMKQo5S11",
       "sourceArchiveSha256": "d669a3497d81a8294f0b0e505fb1954758a36fda1704b5c2ce1b4feb6b6f822f",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -263,7 +263,7 @@
     {
       "templateId": "ezmvVsZJxz8",
       "sourceArchiveSha256": "076e9a177173f5a831471d2a209a7be50c489a347034dc72ac1145c6eaaa6b01",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -289,7 +289,7 @@
     {
       "templateId": "FjVZH4DboBv",
       "sourceArchiveSha256": "4098ba677c8795d4a772346f51057a437e5dfab1f6cbb1bbbc1a11983f4bd48e",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -315,7 +315,7 @@
     {
       "templateId": "FlR7JxdFesy",
       "sourceArchiveSha256": "eb883a1130eac330b641c6886dcf10b5e718c92c2e39b0c9aff89f76603d426b",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -348,7 +348,7 @@
     {
       "templateId": "fUqrRFEXLnm",
       "sourceArchiveSha256": "660aa2c54a8c26e4ce82f1f949debd1d6529c10a1045eb59248da3eaa7ef3508",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -374,7 +374,7 @@
     {
       "templateId": "GB2Aln8GBDP",
       "sourceArchiveSha256": "1b423f36242ac2c99c45df954c39b73d4855b1f6f17eb80fb0b59e847173593a",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -400,7 +400,7 @@
     {
       "templateId": "gEmHlupUYoH",
       "sourceArchiveSha256": "e9c584c3a6d9eda12a54814d35e38c5053b6c1fb0c3c9cebe0bdfd5e1a444471",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -426,7 +426,7 @@
     {
       "templateId": "GN3Z2rw5BZz",
       "sourceArchiveSha256": "e075682d1f011132086d61c5989d8bac3d135c98f92f67b2ce4ebcbf8e7341eb",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -446,32 +446,6 @@
           "language": "css",
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n:root {\n  /* The Foodie Wagon - Dark & Gold Street Food Theme */\n  --background: oklch(0.12 0.005 250);\n  --foreground: oklch(0.95 0.01 90);\n  --card: oklch(0.15 0.005 250);\n  --card-foreground: oklch(0.95 0.01 90);\n  --popover: oklch(0.15 0.005 250);\n  --popover-foreground: oklch(0.95 0.01 90);\n  /* Golden Yellow Primary - matches menu headers */\n  --primary: oklch(0.82 0.165 85);\n  --primary-foreground: oklch(0.12 0.005 250);\n  /* Muted charcoal for secondary elements */\n  --secondary: oklch(0.22 0.01 250);\n  --secondary-foreground: oklch(0.9 0.01 90);\n  --muted: oklch(0.22 0.01 250);\n  --muted-foreground: oklch(0.65 0.02 90);\n  /* Warm accent for CTAs */\n  --accent: oklch(0.65 0.2 30);\n  --accent-foreground: oklch(0.98 0.01 90);\n  /* Red for location/action highlights */\n  --destructive: oklch(0.55 0.22 25);\n  --destructive-foreground: oklch(0.98 0.01 90);\n  --border: oklch(0.28 0.01 250);\n  --input: oklch(0.22 0.01 250);\n  --ring: oklch(0.82 0.165 85);\n  --chart-1: oklch(0.82 0.165 85);\n  --chart-2: oklch(0.65 0.2 30);\n  --chart-3: oklch(0.55 0.15 140);\n  --chart-4: oklch(0.7 0.12 200);\n  --chart-5: oklch(0.6 0.18 320);\n  --radius: 0.5rem;\n  --sidebar: oklch(0.\n/* … excerpt truncated … */\n--color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-ring: var(--sidebar-ring);\n}\n\n@layer base {\n  * {\n    @apply border-border outline-ring/50;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}\n\n@keyframes float {\n  0%, 100% {\n    transform: translateY(0px);\n  }\n  50% {\n    transform: translateY(-20px);\n  }\n}\n\n.animate-float {\n  animation: float 6s ease-in-out infinite;\n}\n\n@keyframes truck-bounce {\n  0%, 100% {\n    transform: translateY(0px);\n  }\n  50% {\n    transform: translateY(-8px);\n  }\n}\n\n.animate-truck-bounce {\n  animation: truck-bounce 4s ease-in-out infinite;\n}"
-        }
-      ]
-    },
-    {
-      "templateId": "GzHBHQAiS2F",
-      "sourceArchiveSha256": "cde2f1c83bffdb14129b6f7c4ceeb554b6ff4251050ac2ae59c5f456ddd68312",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import AIAssistantUI from \"../components/AIAssistantUI\"\n\nexport default function Page() {\n  return <AIAssistantUI />\n}"
-        },
-        {
-          "path": "components/AIAssistantUI.jsx",
-          "language": "jsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\"\n\nimport React, { useEffect, useMemo, useRef, useState } from \"react\"\nimport { Calendar, LayoutGrid, MoreHorizontal } from \"lucide-react\"\nimport Sidebar from \"./Sidebar\"\nimport Header from \"./Header\"\nimport ChatPane from \"./ChatPane\"\nimport GhostIconButton from \"./GhostIconButton\"\nimport ThemeToggle from \"./ThemeToggle\"\nimport { INITIAL_CONVERSATIONS, INITIAL_TEMPLATES, INITIAL_FOLDERS } from \"./mockData\"\n\nexport default function AIAssistantUI() {\n  const [theme, setTheme] = useState(() => {\n    const saved = typeof window !== \"undefined\" && localStorage.getItem(\"theme\")\n    if (saved) return saved\n    if (typeof window !== \"undefined\" && window.matchMedia && window.matchMedia(\"(prefers-color-scheme: dark)\").matches)\n      return \"dark\"\n    return \"light\"\n  })\n\n  useEffect(() => {\n    try {\n      if (theme === \"dark\") document.documentElement.classList.add(\"dark\")\n      else document.documentElement.classList.remove(\"dark\")\n      document.documentElement.setAttribute(\"data-theme\", theme)\n      document.documentElement.style.colorScheme = theme\n      localStorage.setItem(\"theme\", theme)\n    } catch {}\n  }, [theme])\n\n  useEffect(() => {\n    try {\n      const media = window.matchMedia && window.matchMedia(\"(prefers-color-scheme: dark)\")\n      if (!media) return\n      const listener = (e) => {\n        const saved = localStorage.getItem(\"theme\")\n        if (!saved) setTheme(e.matches ? \"dark\" : \"light\")\n      }\n      media.addEventListener(\"change\", listener)\n      return () => media.removeEventListener(\"change\", listener)\n    } catch {}\n  }, [])\n\n  const [sidebarOpen, setSidebarOpen] = useState(false)\n  const [collapsed, setCollapsed] = useState(() => {\n    try {\n      const raw = localStorage.getItem(\"sidebar-collapsed\")\n      return raw ? JSON.parse(raw) : { pinned: true, recen\n// … excerpt truncated …\n       templates={templates}\n          setTemplates={setTemplates}\n          onUseTemplate={handleUseTemplate}\n        />\n\n        <main className=\"relative flex min-w-0 flex-1 flex-col\">\n          <Header createNewChat={createNewChat} sidebarCollapsed={sidebarCollapsed} setSidebarOpen={setSidebarOpen} />\n          <ChatPane\n            ref={composerRef}\n            conversation={selected}\n            onSend={(content) => selected && sendMessage(selected.id, content)}\n            onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}\n            onResendMessage={(messageId) => selected && resendMessage(selected.id, messageId)}\n            isThinking={isThinking && thinkingConvId === selected?.id}\n            onPauseThinking={pauseThinking}\n          />\n        </main>\n      </div>\n    </div>\n  )\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@import 'tailwindcss';\n@import 'tw-animate-css';\n\n@custom-variant dark (&:is(.dark *));\n\n:root {\n  --background: oklch(1 0 0);\n  --foreground: oklch(0.145 0 0);\n  --card: oklch(1 0 0);\n  --card-foreground: oklch(0.145 0 0);\n  --popover: oklch(1 0 0);\n  --popover-foreground: oklch(0.145 0 0);\n  --primary: oklch(0.205 0 0);\n  --primary-foreground: oklch(0.985 0 0);\n  --secondary: oklch(0.97 0 0);\n  --secondary-foreground: oklch(0.205 0 0);\n  --muted: oklch(0.97 0 0);\n  --muted-foreground: oklch(0.556 0 0);\n  --accent: oklch(0.97 0 0);\n  --accent-foreground: oklch(0.205 0 0);\n  --destructive: oklch(0.577 0.245 27.325);\n  --destructive-foreground: oklch(0.577 0.245 27.325);\n  --border: oklch(0.922 0 0);\n  --input: oklch(0.922 0 0);\n  --ring: oklch(0.708 0 0);\n  --chart-1: oklch(0.646 0.222 41.116);\n  --chart-2: oklch(0.6 0.118 184.704);\n  --chart-3: oklch(0.398 0.07 227.392);\n  --chart-4: oklch(0.828 0.189 84.429);\n  --chart-5: oklch(0.769 0.188 70.08);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.985 0 0);\n  --sidebar-foreground: oklch(0.145 0 0);\n  --sidebar-primary: oklch(0.205 0 0);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  --sidebar-accent: oklch(0.97 0 0);\n  --sidebar-accent-foreground: oklch(0.205 0 0);\n  --sidebar-border: oklch(0.922 0 0);\n\n/* … excerpt truncated … */\n;\n  --radius-xl: calc(var(--radius) + 4px);\n  --color-sidebar: var(--sidebar);\n  --color-sidebar-foreground: var(--sidebar-foreground);\n  --color-sidebar-primary: var(--sidebar-primary);\n  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-ring: var(--sidebar-ring);\n}\n\n@layer base {\n  * {\n    @apply border-border outline-ring/50;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
         }
       ]
     },
@@ -532,7 +506,7 @@
     {
       "templateId": "JfGEPnqVAVL",
       "sourceArchiveSha256": "e61363557704b9a1cd7fce60cc572b9504b8f032a33b91284b2e7aaee8ca8c6a",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -558,7 +532,7 @@
     {
       "templateId": "JgcWH8Dw9d3",
       "sourceArchiveSha256": "3e627a74513303ec67d79fdf62fedaad26cbb596245e1dc84c2ea98fe56d9b78",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -584,7 +558,7 @@
     {
       "templateId": "jUBqSBJsNrz",
       "sourceArchiveSha256": "ec5b15794bff19bb4ef49f55f503ebdb2b88c8702a5c2a870bf631c6fe8ff5f6",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -637,7 +611,7 @@
     {
       "templateId": "KFyeD1PKXF4",
       "sourceArchiveSha256": "65167f6374236d3fa63bb873e45a36a82caa3e575a97601c8b8246778db855e8",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -663,7 +637,7 @@
     {
       "templateId": "lJXGkoM1koN",
       "sourceArchiveSha256": "522b5833a523de8a86e68ee051f337fcbae1dbb2bb02f9418468835277feda1d",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -689,7 +663,7 @@
     {
       "templateId": "lt2xTPgmFNB",
       "sourceArchiveSha256": "556b426aac44dcb2c287e502072c617f9d556f83b05b83b12103ef685132c7b1",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -715,7 +689,7 @@
     {
       "templateId": "lUo6XTuTJXl",
       "sourceArchiveSha256": "ea6240ce5a957b71388ebf7081677e3daa81626897248d038da606bca89396a9",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -741,7 +715,7 @@
     {
       "templateId": "m23KLm1bn8K",
       "sourceArchiveSha256": "c88ac07000d39ade01347a80d477211cbd1d578061655e7eae89065ecaeac872",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -767,7 +741,7 @@
     {
       "templateId": "mA8N4h1POSv",
       "sourceArchiveSha256": "5d319f52bb0868eda39f73b543e048d0fd0430fc7ed3ce2258649fc1aa56da8c",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -791,35 +765,9 @@
       ]
     },
     {
-      "templateId": "mQB1SyhOpe8",
-      "sourceArchiveSha256": "95b4745318149c7f3a843c263c44e4643141c1291d8a3755a0aa844d35290203",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import Image from \"next/image\"\n\nimport { Button } from \"@/components/ui/button\"\nimport { FeaturedProducts } from \"@/components/featured-products\"\nimport { CategoryGrid } from \"@/components/category-grid\"\nimport { HeroSection } from \"@/components/hero-section\"\n\nexport default async function Home() {\n  return (\n    <div className=\"flex min-h-screen flex-col\">\n      <HeroSection />\n\n      <section className=\"container px-4 py-12 md:py-24\">\n        <div className=\"flex flex-col items-center justify-center space-y-4 text-center\">\n          <div className=\"space-y-2\">\n            <h2 className=\"text-3xl font-bold tracking-tighter sm:text-5xl\">Shop by Category</h2>\n            <p className=\"max-w-[700px] text-muted-foreground md:text-xl/relaxed\">\n              Explore our wide range of products across different categories\n            </p>\n          </div>\n        </div>\n        <CategoryGrid />\n      </section>\n\n      <section className=\"container px-4 py-12 md:py-24 bg-gradient-to-r from-pink-50 to-purple-50 rounded-3xl\">\n        <div className=\"flex flex-col items-center justify-center space-y-4 text-center\">\n          <div className=\"space-y-2\">\n            <h2 className=\"text-3xl font-bold tracking-tighter sm:text-5xl\">Featured Products</h2>\n            <p className=\"max-w-[700px] text-muted-foreground md:text-xl/relaxed\">Discover our most popular items</p>\n          </div>\n        </div>\n        <FeaturedProducts />\n      </section>\n\n      <section className=\"container px-4 py-12 md:py-24\">\n        <div className=\"grid gap-6 lg:grid-cols-2 lg:gap-12 items-center\">\n          <div className=\"space-y-4\">\n            <h2 className=\"text-3xl font-bold tracking-tighter sm:text-5xl\">Join Our Community</h2>\n            <p className=\"max-w-[600px] text-muted-foreground md:text-xl/relaxed\">\n              Subscribe to our newsletter for exclusive deals, new arrivals, and more.\n            </p>\n            <div className=\"flex flex-col sm:flex-row gap-2\">\n              <input\n                type=\"email\"\n                placeholder=\"Enter your email\"\n                className=\"px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400\"\n              />\n              <Button className=\"bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600\">\n                Subscribe\n              </Button>\n            </div>\n          </div>\n          <div className=\"flex justify-center lg:justify-end\">\n            <Image\n              src=\"/placeholder.svg?height=400&width=400\"\n              alt=\"Newsletter illustration\"\n              width={400}\n              height={400}\n              className=\"rounded-xl\"\n            />\n          </div>\n        </div>\n      </section>\n    </div>\n  )\n}"
-        },
-        {
-          "path": "components/featured-products.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\"\n\nimport { useState, useEffect } from \"react\"\nimport Image from \"next/image\"\nimport Link from \"next/link\"\nimport { Heart, ShoppingCart, Eye } from \"lucide-react\"\n\nimport { Button } from \"@/components/ui/button\"\nimport { Badge } from \"@/components/ui/badge\"\nimport { getFeaturedProducts } from \"@/lib/actions\"\nimport { useApp } from \"@/context/preview-context\"\n\ntype Product = {\n  id: string\n  name: string\n  price: number\n  originalPrice?: number | null\n  category: string\n  image: string\n  isNew: boolean\n  isSale: boolean\n  description: string | null\n}\n\nexport function FeaturedProducts() {\n  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)\n  const [products, setProducts] = useState<Product[]>([])\n  const [loading, setLoading] = useState(true)\n  const { openPreview, addToCart } = useApp()\n\n  useEffect(() => {\n    async function loadProducts() {\n      try {\n        const { products } = await getFeaturedProducts()\n        setProducts(products)\n      } catch (error) {\n        console.error(\"Failed to load products:\", error)\n      } finally {\n        setLoading(false)\n      }\n    }\n\n    loadProducts()\n  }, [])\n\n  if (loading) {\n    return (\n      <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12\">\n        {[...Array(4)].map((_, index) => (\n          <div key={index} className=\"bg-white rounded-xl overflow-hidden shadow-sm h-[400px] animate-pulse\">\n            <div className=\"h-[300px] bg-gray-200\"></div>\n            <div className=\"p-4 space-y-3\">\n              <div className=\"h-4 bg-gray-200 rounded w-1/4\"></div>\n              <div className=\"h-5 bg-gray-200 rounded w-3/4\"></div>\n              <div className=\"h-6 bg-gray-200 rounded w-1/3\"></div>\n            </div>\n          </div>\n        ))}\n      </div>\n    )\n  }\n\n  return (\n    <div c\n// … excerpt truncated …\n         e.stopPropagation()\n                  addToCart(product)\n                }}\n              >\n                <ShoppingCart className=\"h-5 w-5\" />\n                <span className=\"sr-only\">Add to cart</span>\n              </Button>\n            </div>\n          </div>\n          <div className=\"p-4\">\n            <div className=\"text-sm text-muted-foreground\">{product.category}</div>\n            <h3 className=\"font-medium mt-1\">{product.name}</h3>\n            <div className=\"mt-2 flex items-center gap-2\">\n              <span className=\"font-bold text-lg\">${product.price.toFixed(2)}</span>\n              {product.originalPrice && (\n                <span className=\"text-muted-foreground line-through text-sm\">${product.originalPrice.toFixed(2)}</span>\n              )}\n            </div>\n          </div>\n        </div>\n      ))}\n    </div>\n  )\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer base {\n  :root {\n    --background: 0 0% 100%;\n    --foreground: 222.2 84% 4.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 222.2 84% 4.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 222.2 84% 4.9%;\n    --primary: 222.2 47.4% 11.2%;\n    --primary-foreground: 210 40% 98%;\n    --secondary: 210 40% 96%;\n    --secondary-foreground: 222.2 47.4% 11.2%;\n    --muted: 210 40% 96%;\n    --muted-foreground: 215.4 16.3% 46.9%;\n    --accent: 210 40% 96%;\n    --accent-foreground: 222.2 47.4% 11.2%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 210 40% 98%;\n    --border: 214.3 31.8% 91.4%;\n    --input: 214.3 31.8% 91.4%;\n    --ring: 222.2 84% 4.9%;\n    --radius: 0.5rem;\n  }\n\n  .dark {\n    --background: 222.2 84% 4.9%;\n    --foreground: 210 40% 98%;\n    --card: 222.2 84% 4.9%;\n    --card-foreground: 210 40% 98%;\n    --popover: 222.2 84% 4.9%;\n    --popover-foreground: 210 40% 98%;\n    --primary: 210 40% 98%;\n    --primary-foreground: 222.2 47.4% 11.2%;\n    --secondary: 217.2 32.6% 17.5%;\n    --secondary-foreground: 210 40% 98%;\n    --muted: 217.2 32.6% 17.5%;\n    --muted-foreground: 215 20.2% 65.1%;\n    --accent: 217.2 32.6% 17.5%;\n    --accent-foreground: 210 40% 98%;\n    -\n/* … excerpt truncated … */\n\n  }\n}\n\n@keyframes fadeIn {\n  to {\n    opacity: 1;\n  }\n}\n\n@keyframes scaleIn {\n  to {\n    opacity: 1;\n    transform: scale(1);\n  }\n}\n\n@keyframes slideInLeft {\n  from {\n    transform: translateX(-100%);\n  }\n  to {\n    transform: translateX(0);\n  }\n}\n\n@keyframes slideInRight {\n  from {\n    transform: translateX(100%);\n  }\n  to {\n    transform: translateX(0);\n  }\n}\n\n@keyframes slideUp {\n  to {\n    opacity: 1;\n    transform: translateY(0);\n  }\n}\n\n@keyframes slideDown {\n  to {\n    opacity: 1;\n    transform: translateY(0);\n  }\n}\n\n@media print {\n  .print\\:hidden {\n    display: none !important;\n  }\n}"
-        }
-      ]
-    },
-    {
       "templateId": "NFhsR5cAXJp",
       "sourceArchiveSha256": "7a50035e1dda28f6e92e1c7092e8bb7efb712a17f63cf4c02d3d9bd80bbbf94e",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -845,7 +793,7 @@
     {
       "templateId": "NjOUgG6VT7X",
       "sourceArchiveSha256": "48d00dd34b540bc725355dff773047a2398b02e437ba770b7a5884c5ffa53fb5",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -871,7 +819,7 @@
     {
       "templateId": "o8uJYnZCaJQ",
       "sourceArchiveSha256": "6a97a9f8742d2bb8d0a8e58dc2fd7f3da1a58cc2ec22937cfd8da96666df7fde",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -900,58 +848,6 @@
       "reviewStatus": "disabled",
       "reviewNotes": "Docs-starter lorem plus stock tokens. Wrong inspiration for playground-mono and blog/tech-minimal.",
       "structuralReferences": []
-    },
-    {
-      "templateId": "oZxBJ6zcOsz",
-      "sourceArchiveSha256": "7595029d8ff2647c872bc6937c0905a491935b320b2acadf3bbd8e7faaaa7004",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import { FormProvider } from \"@/components/form-context\";\nimport { FormRenderer } from \"@/components/form-renderer\";\nimport { checkEnvs, restoreSessionFromServer } from \"@/lib/actions\";\n\nexport default async function Home() {\n  // Pre-load session data on the server\n  let preloadedSession;\n  let hasAllEnvs = false;\n\n  try {\n    const envs = await checkEnvs()\n    hasAllEnvs = envs.allValid\n    preloadedSession = await restoreSessionFromServer();\n  } catch (error) {\n    console.error(\"Error restoring session:\", error);\n    preloadedSession = null;\n  }\n\n  return (\n    <FormProvider initialSessionData={preloadedSession}>\n      <main className=\"relative w-full overflow-clip min-h-svh flex flex-col justify-center bg-background\">\n        <FormRenderer setupCompleted={hasAllEnvs} />\n      </main>\n    </FormProvider>\n  );\n}"
-        },
-        {
-          "path": "components/form-context.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\"\n\nimport { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useCallback } from \"react\";\nimport { STEPS } from \"@/lib/constants\";\nimport { FormStep, FormData as TFormData, SessionData, SupabaseFormSubmission } from \"@/lib/types\";\nimport { createSession, saveFormProgress, submitForm, getSubmissionBySession, clearSession } from \"@/lib/actions\";\n\ninterface FormState {\n  currentStep: number;\n  formData: TFormData;\n  submissionData: SupabaseFormSubmission | null;\n  steps: FormStep[];\n  sessionId: string | null;\n  isLoading: boolean;\n  globalError: string | null;\n  direction: number;\n}\n\ninterface FormContextValue extends FormState {\n  nextStep: () => void;\n  prevStep: () => void;\n  updateField: (fieldName: string, value: string | number) => void;\n  goToStep: (stepIndex: number) => void;\n  isFirstStep: boolean;\n  isLastStep: boolean;\n  isSubmitted: boolean;\n  submitFormData: () => Promise<void>;\n  createSessionAndStart: () => Promise<void>;\n  resetSessionAndState: () => Promise<void>;\n  verifySubmissionAccess: () => Promise<boolean>;\n}\n\ntype FormAction =\n  | { type: \"NEXT_STEP\" }\n  | { type: \"PREV_STEP\" }\n  | { type: \"GO_TO_STEP\"; payload: number }\n  | { type: \"UPDATE_FIELD\"; payload: { fieldName: string; value: string | number } }\n  | { type: \"SET_LOADING\"; payload: boolean }\n  | { type: \"RESTORE_SESSION\"; payload: SessionData }\n  | { type: \"CREATE_SESSION\"; payload: string }\n  | { type: \"SET_SUBMITTED\"; payload: boolean }\n  | { type: \"SET_GLOBAL_ERROR\"; payload: string | null }\n  | { type: \"SET_SUBMISSION_DATA\"; payload: SupabaseFormSubmission }\n  | { type: \"RESET_AND_START_NEW\" };\n\nconst initialState: FormState = {\n  currentStep: -1,\n  formData: {},\n  submissionData: null,\n  steps: STEPS,\n  sessionId: null,\n  isLoading: false,\n  globalError: null,\n  direction:\n// … excerpt truncated …\n: string, value: string | number) =>\n      dispatch({ type: \"UPDATE_FIELD\", payload: { fieldName, value } }),\n    goToStep: (stepIndex: number) => dispatch({ type: \"GO_TO_STEP\", payload: stepIndex }),\n    isFirstStep: state.currentStep === 0,\n    isLastStep: state.currentStep === state.steps.length - 1,\n    isSubmitted: state.submissionData !== null,\n    submitFormData,\n    createSessionAndStart,\n    resetSessionAndState,\n    verifySubmissionAccess,\n  }), [state, submitFormData, createSessionAndStart, resetSessionAndState, verifySubmissionAccess]);\n\n  return <FormContext.Provider value={value}>{children}</FormContext.Provider>;\n}\n\nexport function useForm() {\n  const context = useContext(FormContext);\n  if (context === undefined) {\n    throw new Error(\"useForm must be used within a FormProvider\");\n  }\n  return context;\n}\n\nexport { FormContext };"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n@theme inline {\n  --color-background: var(--background);\n  --color-foreground: var(--foreground);\n  --font-sans: var(--font-geist-sans);\n  --font-mono: var(--font-geist-mono);\n  --color-sidebar-ring: var(--sidebar-ring);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);\n  --color-sidebar-primary: var(--sidebar-primary);\n  --color-sidebar-foreground: var(--sidebar-foreground);\n  --color-sidebar: var(--sidebar);\n  --color-chart-5: var(--chart-5);\n  --color-chart-4: var(--chart-4);\n  --color-chart-3: var(--chart-3);\n  --color-chart-2: var(--chart-2);\n  --color-chart-1: var(--chart-1);\n  --color-ring: var(--ring);\n  --color-input: var(--input);\n  --color-border: var(--border);\n  --color-destructive: var(--destructive);\n  --color-accent-foreground: var(--accent-foreground);\n  --color-accent: var(--accent);\n  --color-muted-foreground: var(--muted-foreground);\n  --color-muted: var(--muted);\n  --color-secondary-foreground: var(--secondary-foreground);\n  --color-secondary: var(--second\n/* … excerpt truncated … */\n, 0) scale(1.1) rotate(504deg);\n  }\n}\n\n@keyframes blob-4 {\n  0% {\n    transform: translate(0, 0) scale(1.05) rotate(0deg);\n  }\n  20% {\n    transform: translate(-100px, -200px) scale(0.75) rotate(-90deg);\n  }\n  35% {\n    transform: translate(300px, 50px) scale(1.35) rotate(180deg);\n  }\n  50% {\n    transform: translate(-250px, 180px) scale(0.65) rotate(-270deg);\n  }\n  65% {\n    transform: translate(160px, -90px) scale(1.25) rotate(360deg);\n  }\n  80% {\n    transform: translate(-80px, 130px) scale(0.9) rotate(-450deg);\n  }\n  100% {\n    transform: translate(0, 0) scale(1.05) rotate(-540deg);\n  }\n}"
-        }
-      ]
-    },
-    {
-      "templateId": "pCMjvDLPVe3",
-      "sourceArchiveSha256": "f1ae6351a5a7d5bceec1a148252b082aa5557dcc6e290ca764be1318d26a3fd1",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "\"use client\"\n\nimport { useState } from \"react\"\n\nexport default function HomePage() {\n  const [isMenuOpen, setIsMenuOpen] = useState(false)\n  const [isShareOpen, setIsShareOpen] = useState(false)\n\n  const handleCopyLink = async () => {\n    try {\n      await navigator.clipboard.writeText(window.location.href)\n    } catch (err) {\n      console.error(\"Failed to copy link:\", err)\n    }\n  }\n\n  return (\n    <div className=\"min-h-screen bg-gray-100 relative overflow-hidden\">\n      {/* Top Navigation */}\n      <div className=\"absolute top-8 left-8 z-20\">\n        <button\n          onClick={() => setIsMenuOpen(!isMenuOpen)}\n          className=\"text-gray-600 text-sm font-medium tracking-wider hover:text-gray-800 transition-colors\"\n        >\n          MENU\n        </button>\n      </div>\n\n      <div className=\"absolute top-8 right-8 z-20\">\n        <button\n          onClick={() => setIsShareOpen(!isShareOpen)}\n          className=\"text-gray-600 text-sm font-medium tracking-wider hover:text-gray-800 transition-colors\"\n        >\n          SHARE\n        </button>\n      </div>\n\n      {isShareOpen && (\n        <div className=\"fixed inset-0 bg-gray-100/95 backdrop-blur-sm z-30 flex items-center justify-center\">\n          <div className=\"max-w-md w-full px-8\">\n            <div className=\"space-y-12\">\n              {/* Close button */}\n              <div className=\"flex justify-between items-center\">\n                <h2 className=\"text-2xl font-bold text-gray-800 tracking-wider\">SHARE</h2>\n                <button onClick={() => setIsShareOpen(false)} className=\"text-gray-600 hover:text-gray-800 text-2xl\">\n                  ✕\n                </button>\n              </div>\n\n              {/* Share Options */}\n              <div className=\"space-y-6\">\n                <button\n                  onClick={() =>\n                    window.open(\n                      `https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`,\n                      \"_blank\",\n                    )\n                  }\n                  className=\"w-full text-left border-b border-gray-300 pb-4 hover:border-gray-400 transition-colors group\"\n                >\n                  <h3 className=\"text-lg font-medium text-gray-800 tracking-wide mb-1 group-hover:text-gray-900\">\n                    Broadcast\n                  </h3>\n                  <p className=\"text-gray-600 text-sm tracking-wide\">→ Twitter</p>\n                </button>\n\n                <button\n                  onClick={() =>\n                    window.open(\n                      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`,\n                      \"_blank\",\n                    )\n                  }\n                  className=\"w-full text-left border-b border-gray-300 pb-4 hover:border-gray-400 transitio\n// … excerpt truncated …\nssName=\"text-gray-600 text-xs font-medium tracking-widest\">PRODUCT</span>\n          </div>\n        </div>\n\n        {/* Dotted Lines */}\n        <div className=\"absolute top-1/4 right-1/4 w-32 h-px border-t border-dashed border-gray-400 rotate-45\"></div>\n        <div className=\"absolute bottom-1/3 left-1/3 w-24 h-px border-t border-dashed border-gray-400 -rotate-12\"></div>\n      </div>\n\n      {/* Bottom Left Text */}\n      <div className=\"absolute bottom-16 left-8\">\n        <div className=\"space-y-2\">\n          <h2 className=\"text-gray-800 text-lg font-medium tracking-wider\">VISUAL SYSTEM</h2>\n          <p className=\"text-gray-600 text-sm tracking-wide\">CREATE VISION</p>\n        </div>\n      </div>\n\n      {/* Bottom Right Navigation */}\n      <div className=\"absolute bottom-16 right-8\">\n        <div className=\"flex items-center gap-2\">\n          <span className=\"text-gray-600 text-sm font-medium tracking-wider\">NEXT</span>\n          <span className=\"text-gray-600 text-lg\">→</span>\n        </div>\n      </div>\n\n      {/* Side Decorative Elements */}\n      <div className=\"absolute left-8 top-1/2 -translate-y-1/2 flex flex-col gap-2\">\n        <div className=\"w-px h-4 bg-gray-400\"></div>\n        <div className=\"w-px h-4 bg-gray-400\"></div>\n        <div className=\"w-px h-4 bg-gray-400\"></div>\n      </div>\n    </div>\n  )\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --font-sans: var(--font-geist-sans);\n    --font-mono: var(--font-geist-mono);\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 9\n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
-        },
-        {
-          "path": "app/layout.tsx",
-          "language": "tsx",
-          "reason": "root-layout",
-          "excerpt": "import type { Metadata } from 'next'\nimport { Geist, Geist_Mono } from 'next/font/google'\nimport { Analytics } from '@vercel/analytics/next'\nimport './globals.css'\n\nconst _geist = Geist({ subsets: [\"latin\"] });\nconst _geistMono = Geist_Mono({ subsets: [\"latin\"] });\n\nexport const metadata: Metadata = {\n  title: 'v0 App',\n  description: 'Created with v0',\n  generator: 'v0.app',\n  icons: {\n    icon: [\n      {\n        url: '/icon-light-32x32.png',\n        media: '(prefers-color-scheme: light)',\n      },\n      {\n        url: '/icon-dark-32x32.png',\n        media: '(prefers-color-scheme: dark)',\n      },\n      {\n        url: '/icon.svg',\n        type: 'image/svg+xml',\n      },\n    ],\n    apple: '/apple-icon.png',\n  },\n}\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className=\"font-sans antialiased\">\n        {children}\n        <Analytics />\n      </body>\n    </html>\n  )\n}"
-        }
-      ]
     },
     {
       "templateId": "Pf7lw1nypu5",
@@ -990,7 +886,7 @@
     {
       "templateId": "QeFZttwuC80",
       "sourceArchiveSha256": "f38bb6c0673b75b73c77e87404010613433f1ca32269dab675d5b57c171fd201",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1016,7 +912,7 @@
     {
       "templateId": "QkihcSMmdWP",
       "sourceArchiveSha256": "a1502fce428e98a13899507e5cfd8b08f3973f9a1c19bb9ea9dd49bedd06402c",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1042,7 +938,7 @@
     {
       "templateId": "R3n0gnvYFbO",
       "sourceArchiveSha256": "e1a48a0b9f714838b6eee2e416beb6ad50a1e3426af962591526f4d380b4f28d",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1068,7 +964,7 @@
     {
       "templateId": "rHTER3Yq6df",
       "sourceArchiveSha256": "3d3612ff018e9c06018a255c1264fbe5a4a00271dbe57f73cc1c7d946cf5d53f",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1182,7 +1078,7 @@
     {
       "templateId": "VEoDcF84vxz",
       "sourceArchiveSha256": "dd539a23ad4039fbd6e82f491dcc9cd401a5583430a3049e0a4e57ffbdea4eed",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1208,7 +1104,7 @@
     {
       "templateId": "Vt3PtqfiHkh",
       "sourceArchiveSha256": "2c2cbfa4fda0985f9b7641d016dbcd8965ab3fb7af335307ee4a553e37ed866b",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1234,7 +1130,7 @@
     {
       "templateId": "VZ9EEGUUq9M",
       "sourceArchiveSha256": "9687ca1f4d25c6b107844fd4b9336611f592638c51cc42e4a48ffe10e406848a",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1260,7 +1156,7 @@
     {
       "templateId": "W0v7PBF5ev4",
       "sourceArchiveSha256": "ed8e99461fe11d8c03c54f851b4650c23b81487afb26ec6663c23978cb512dfe",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1286,7 +1182,7 @@
     {
       "templateId": "WKlyoWxO1ZD",
       "sourceArchiveSha256": "4c0b70d1ad0a3f4279ebeb5b3955d42f8db02359d3dbcf6a825e52aa21093335",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1312,7 +1208,7 @@
     {
       "templateId": "wWvJxkk3ra7",
       "sourceArchiveSha256": "92291ab80472d82b28fdbb3ddfb6737a1f66ff130235916149a83eebb55e6c22",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1338,7 +1234,7 @@
     {
       "templateId": "xAnNep21FiQ",
       "sourceArchiveSha256": "a71703932b23a382af10839f9be1c62ddd5920a01c7639ccbb662db5823ca3df",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1364,7 +1260,7 @@
     {
       "templateId": "XhGK3naSZPB",
       "sourceArchiveSha256": "fcaee6c841fed29d320897c66762d16c924012567fdbe16a2e65f0bbffe662fe",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1444,7 +1340,7 @@
     {
       "templateId": "XQxxv76lK5w",
       "sourceArchiveSha256": "75e9b43d96e7defc5cad97812dd2a3220f09c77421c0ecd00506b4dcf157de7a",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1470,7 +1366,7 @@
     {
       "templateId": "yih2hMiv5q3",
       "sourceArchiveSha256": "3b30b7b473be4dda68429644577c2e3b1ea4cc54c4cb942c6b3b96114db1a2c9",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1496,7 +1392,7 @@
     {
       "templateId": "ZAyrQvYVCUs",
       "sourceArchiveSha256": "93efe5799551f0c975dad00a7379daed8df7dd4a3d0ad026a69b0debdc9a107d",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1522,7 +1418,7 @@
     {
       "templateId": "zdiN8dHwaaT",
       "sourceArchiveSha256": "0dfac31682da43b5d3077bed2ae5285c63e0b5f3299697d005235e58808735d2",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1548,7 +1444,7 @@
     {
       "templateId": "ZIHJBIvfeuW",
       "sourceArchiveSha256": "aa26831b038d6c8f2f52f54aeba067ab7a65c0f5514735982317e6b2ce82ada2",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1574,7 +1470,7 @@
     {
       "templateId": "zjD8UoZcXy9",
       "sourceArchiveSha256": "8d2f2f209dc3b0ec3135f3332245107eb5973cdc4ea495b90b3002a0e6906d94",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1600,7 +1496,7 @@
     {
       "templateId": "zoQPxUaTqvE",
       "sourceArchiveSha256": "faf8f4da3ed63a3ac74313290c0a35a7a2bd1ba2fd2ebddbb4b58a34835cbc1b",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {
@@ -1626,7 +1522,7 @@
     {
       "templateId": "ZZFpa3jFqnO",
       "sourceArchiveSha256": "22c36e4fd9bc10cb68c5523a799a7449c9443b5908b6baabcd345002cc41893f",
-      "extractorSha256": "50724cebbd48eb46a6182f418b67d4a14d117496ab83956e01d77e481af6306e",
+      "extractorSha256": "269134418ba74c9868123540ae788987507312bbe5f6115e529812124f0481e6",
       "reviewStatus": "generated",
       "structuralReferences": [
         {

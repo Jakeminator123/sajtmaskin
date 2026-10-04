@@ -23,18 +23,18 @@ function site(overrides: Partial<ProjectSite> = {}): ProjectSite {
 }
 
 describe("ProjectCardSiteMeta", () => {
-  it("shows publish state, address kind, host and a site-view link", () => {
+  it("shows publish state, address kind and a live host that opens the site", () => {
     render(<ProjectCardSiteMeta projectId="proj_1" site={site()} />);
 
     expect(screen.getByText("Publicerad")).toBeTruthy();
     expect(screen.getByText("Din egen domän")).toBeTruthy();
-    expect(screen.getByText("butik.example")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Visa sajt" }).getAttribute("href")).toBe(
-      "/projects/proj_1",
+    expect(screen.getByRole("link", { name: /butik\.example/i }).getAttribute("href")).toBe(
+      "https://butik.example",
     );
+    expect(screen.queryByRole("link", { name: "Visa sajt" })).toBeNull();
   });
 
-  it("uses the same unpublished copy as the site view", () => {
+  it("does not invent an address for an unpublished site", () => {
     render(
       <ProjectCardSiteMeta
         projectId="proj_2"
@@ -47,14 +47,29 @@ describe("ProjectCardSiteMeta", () => {
     );
 
     expect(screen.getByText("Inte publicerad")).toBeTruthy();
-    expect(screen.getAllByText("Ingen adress än").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "Visa sajt" }).getAttribute("href")).toBe(
-      "/projects/proj_2",
-    );
+    expect(screen.getByText("Ännu inte en publicerad hemsida")).toBeTruthy();
+    expect(screen.queryByText("Ingen adress än")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("renders nothing until an overview is available", () => {
     const { container } = render(<ProjectCardSiteMeta projectId="proj_1" site={null} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("surfaces a failed publish instead of a generic idle state", () => {
+    render(
+      <ProjectCardSiteMeta
+        projectId="proj_3"
+        site={site({
+          projectId: "proj_3",
+          state: "error",
+          address: { liveUrl: "https://butik.example", kind: "custom" },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Publiceringen misslyckades")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /butik\.example/i })).toBeTruthy();
   });
 });

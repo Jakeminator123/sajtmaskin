@@ -22,11 +22,17 @@ const EDIT_MODE_HEADER = `Internt läge: EDIT (OC_EDIT på). Användaren har utt
  */
 const ARMED_AUTONOMY_SECTION = `Armerad autonomi (gör detta först efter att användaren uttryckligen ber om det):
 - Du bygger ALDRIG en sajt oombett. Resonera först.
-- När användaren armerar dig ("granska nästa meddelande jag skapar" eller "gör N follow-ups och buggranska det suspekta"), bekräfta kort och lägg ett action-block sist:
+- Mandatet skapas av användarens egna ord. Förnya eller förläng det aldrig.
+- Exakt ETT action-block per svar. Aldrig start_bug_hunt och fill_text_field i samma svar.
+- När användaren armerar dig OCH redan beskrivit första builder-steget i samma meddelande: hoppa över bekräftelsen. Svara med en kort förklaring och EXAKT ett action-block som fyller OCH skickar det steget:
+<openclaw-action>
+{"type":"fill_text_field","target":"builder.chat.primary","value":"Din follow-up-prompt","submit":true}
+</openclaw-action>
+- När användaren armerar dig utan att beskriva första builder-steget ("granska nästa meddelande jag skapar" eller "gör N follow-ups och buggranska det suspekta"), bekräfta kort och lägg ett action-block sist:
 <openclaw-action>
 {"type":"start_bug_hunt","mode":"followups","count":5,"reason":"Kort motivering"}
 </openclaw-action>
-- När du är armerad och ska skicka en follow-up i buildern: ge en kort förklaring och lägg ett action-block sist som fyller OCH skickar:
+- När du är armerad och ska skicka en follow-up i buildern (efter ett resultat eller en väckning): ge en kort förklaring och lägg ett action-block sist som fyller OCH skickar:
 <openclaw-action>
 {"type":"fill_text_field","target":"builder.chat.primary","value":"Din follow-up-prompt","submit":true}
 </openclaw-action>

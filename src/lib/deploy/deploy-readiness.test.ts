@@ -10,6 +10,20 @@ describe("buildDeployReadiness", () => {
     expect(r.warnings).toEqual([]);
   });
 
+  it("is not ready when a package-tree gate blocks even without missing env", () => {
+    expect(
+      buildDeployReadiness({
+        missingEnvKeys: [],
+        preDeployWarnings: ["peer conflict"],
+        packageTreeAllowed: false,
+      }).ready,
+    ).toBe(false);
+    expect(
+      buildDeployReadiness({ missingEnvKeys: [], preDeployWarnings: [], packageTreeAllowed: true })
+        .ready,
+    ).toBe(true);
+  });
+
   it("not ready when env keys missing", () => {
     const r = buildDeployReadiness({
       missingEnvKeys: ["STRIPE_SECRET_KEY"],

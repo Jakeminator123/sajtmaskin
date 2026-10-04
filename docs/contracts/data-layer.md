@@ -11,15 +11,15 @@
 Den här filen + backoffice-sidorna **Databashälsa** och **Redis-hälsa** är
 skrivna för dig som **inte** är expert på Postgres/Redis. Tre saker att veta:
 
-1. **Inget på dessa sidor förstör data.** Hälso-kollarna är read-only.
-   Den enda mutation som finns är "Applicera index"-knappen, som bara
-   skapar nya **index** (sökregister) — den ändrar inte en enda rad.
-2. **Index är idempotent.** Klicka knappen 100 gånger — Postgres skapar
-   bara det som inte redan finns. Det går inte att råka göra dubbletter.
-3. **Allt loggas.** Varje gång knappen körs (eller `npm run dev`-auto-
-   körningen kör den) sparas en rad i `data/observability/db-perf-indexes-runs.ndjson`
-   med tidsstämpel, vem, varför, och vad som hände. Du kan alltid backa
-   och se vem som gjorde vad.
+1. **Hälsokontrollerna är read-only.** "Applicera index" är däremot en
+   uttrycklig DB-skrivning och ska inte blandas ihop med en kontroll.
+2. **Indexkommandot är idempotent, men det är fortfarande DDL.** Kör alltid
+   `npm run db:perf-indexes:dry` först, verifiera mål-DB och ange en tydlig
+   `--reason` vid apply. Idempotens betyder inte att körningen saknar lock- eller
+   trafikpåverkan.
+3. **Explicita indexkörningar loggas.** Kvittot hamnar i
+   `data/observability/db-perf-indexes-runs.ndjson` med tidsstämpel, orsak och
+   utfall. `npm run dev` kör inte längre indexkommandot automatiskt.
 
 Om något känns konstigt: tryck **inget**, läs den här filen, fråga.
 Det är aldrig brådskande att applicera index — appen funkar utan dem,
@@ -46,21 +46,30 @@ Postgres-protokollet rakt av. Det är därför Supabase-dashboardens räknare
 `scripts/db/db-init.mjs` är källan för faktiska CREATE TABLE-satser. De ska
 hållas i synk; **Databashälsa-sidan i backofficen flaggar drift**.
 
-### Auto-applicering av perf-index
+### Explicita DB-skrivningar
 
-**Lokalt (`npm run dev`):** `predev`-kedjan kör automatiskt
-`scripts/db/add-performance-indexes.mjs --reason auto:predev` som ett
-**soft-step** — om migrationen failar (nätverksproblem, lock, etc.)
-fortsätter dev-servern att starta ändå. Allt loggas i audit-NDJSON.
-Detta speglar mönstret som redan finns för `db:init.mjs`.
+Git-operationer, `npm run dev`, Cursor Cloud-start och CI på push/dispatch får
+inte applicera migrationer eller perf-index. Vercel-deployen kör inte heller
+DB-DDL. CI får fortfarande initiera sin egen kortlivade testdatabas; det är inte
+en skrivning mot en managed dev-/preview-/produktionsdatabas.
 
-**I CI (push till `master` eller `preview`):** `prod-migrations-apply` kör
-`npm run db:perf-indexes` mot prod och `db-schema-parity` kör samma sak
-mot dev — båda idempotenta, så varje re-run är en no-op. Vercel-deployen
-själv kör fortfarande ingen DB-DDL (designval: en oavsiktlig deploy ska
-inte kunna trigga en migration under hög trafik). Manuella vägar finns
-kvar: `npm run db:perf-indexes` från CLI eller "APPLY"-knappen på
-backoffice "Databashälsa"-sidan.
+`preview` och produktion använder samma produktionsmål för Postgres. Det finns
+alltså ingen isolerad preview-databas som gör en automatisk apply riskfri. Efter
+att PR #1516:s säkra runner är integrerad ska produktionsapply ske separat och
+endast med uttryckligt ägarmandat. Apply är inte atomisk med deploy, och en
+kodrevert återställer inte redan genomförda DB-ändringar. Se
+[`db-migrations.md`](../runbooks/db-migrations.md) för aktuell körordning.
+
+De manuella ingångarna har olika scope:
+
+- `npm run db:init` är för en ny, engångs-/throwaway-databas eller uttrycklig
+  setup. Det är **inte** en ofarlig data-no-op: reparationssteg i
+  [`db-init.mjs`](../../scripts/db/db-init.mjs) kan köra `UPDATE` och `DELETE`.
+- `npm run db:ensure` applicerar väntande migrationsfiler på en redan
+  initialiserad och verifierad **DEV**-databas.
+- `npm run db:perf-indexes:dry` visar planen. Faktisk apply körs därefter
+  uttryckligt med verifierat mål och `--reason`, exempelvis
+  `npm run db:perf-indexes -- --reason "manual: <ärende>"`.
 
 **Predev-kedjans struktur (medvetet):**
 
@@ -68,34 +77,32 @@ backoffice "Databashälsa"-sidan.
 predev = preflight:common
       && shadcn:sync:soft         ← failar tyst, dev startar ändå
       && refresh-token            ← hard
-      && db-init.mjs              ← HARD (tabellerna är essentiella)
-      && db:perf-indexes:soft     ← failar tyst (index = optimization)
+      && hooks:install:soft
+      && doctor:soft
 ```
 
-`db-init.mjs` är **hard** med flit: om det failar finns inga tabeller,
-så att fortsätta till perf-indexes vore meningslöst — appen kan ändå
-inte starta. `db:perf-indexes:soft` är "soft" eftersom index är en
-optimering (utan dem fungerar appen, bara långsammare).
+[`predev.mjs`](../../scripts/dev/predev.mjs) gör bara setup och kontroller. De
+tre tidigare DB-posthookarna (`post-merge`, `post-checkout`, `post-rewrite`) är
+pensionerade; en Git-operation är inget migrationsmandat. `pre-push` finns kvar
+för `verify:pr -- --plan`, inte för DB-apply.
 
 ### Lokal schema-vakt (`ensure-schema.mjs`)
 
-`db-init.mjs` applicerar **alla** migrationer i `MIGRATION_ORDER` vid varje
-`npm run dev`, så den lokala DB:n hålls i synk automatiskt — men bara på den
-vägen. Tre sätt att tappa det tyst:
-
-1. `db:init:soft` sväljer ett fel mitt i körningen — WARN-raden rullar bort
-   bakom Next.js-output och dev startar på gammalt schema.
-2. `SKIP_PREDEV=1` eller `node scripts/dev/next-runner.mjs dev` direkt
-   (den dokumenterade snabbvägen) hoppar över migrationerna helt.
-3. Ledger-bokföringen är warn-only, så `db:migrate:check` kan säga BEHIND
-   även efter att SQL:en faktiskt applicerats.
-
-`scripts/db/ensure-schema.mjs` täpper till alla tre:
+`npm run dev` muterar inte databasen. I stället startar
+[`next-runner.mjs`](../../scripts/dev/next-runner.mjs) en read-only vakt som
+rapporterar schema-drift. En varning är en instruktion att stoppa och välja en
+explicit DEV-åtgärd, inte ett automatiskt tillstånd att skriva.
 
 | Läge                             | Vem kör                                 | Beteende                                                                                                                                                        |
 | -------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--check-only --soft --quiet-ok` | `next-runner.mjs` vid varje `dev`-start | Read-only ledger-SELECT i bakgrunden. Helt tyst när allt är rätt, ramad varning som listar saknade migrationer när DB:n ligger efter. Blockerar aldrig starten. |
-| `npm run db:ensure`              | du, manuellt                            | Kollar → applicerar saknade via `npm run db:migrate` → verifierar om. Ett kommando som svar på "min lokala DB har fel schema".                                  |
+| `npm run db:ensure`              | du, manuellt på verifierad DEV          | Kollar → applicerar saknade via `npm run db:migrate` → verifierar om. Används för en redan initialiserad DEV-databas.                                           |
+
+`pretest:postgres` kör samma kontroll med `--check-only --quiet-ok`, men utan
+`--soft`: drift stoppar Postgres-testlanen och triggar aldrig en reparation. En
+helt ny, isolerad testdatabas initieras därför uttryckligt före testen med
+`npm run db:init`; därefter får `npm run test:postgres` bara kontrollera och
+testa den.
 
 Vakten kör **aldrig** DDL själv: den delegerar till `run-migrations.ts`, som
 förblir enda ägaren av apply-loopen och prod-skrivskyddet
@@ -120,7 +127,7 @@ aldrig faktiskt skapas i DB:n.
 **Live-paritet fångas av `db:schema-parity`:** den statiska testen ser
 bara repo-filer — `scripts/db/check-schema-parity.mjs` jämför i stället
 de två LEVANDE databaserna (dev↔prod: tabeller, kolumner, index,
-constraints) och körs i CI vid master-push samt dagligen via cron.
+constraints) read-only.
 Fångar dashboard-DDL och tabeller födda under äldre CREATE TABLE-
 definitioner (`CREATE TABLE IF NOT EXISTS` uppdaterar aldrig en
 befintlig tabell).
@@ -136,9 +143,18 @@ befintlig tabell).
 | `llm_usage`            | Tokenförbrukning per LLM-anrop (skrivs av varje fas, läses av kostnadsrollups) | Index på `chat_id`, `version_id`, `(user_id, created_at)`, `created_at`        |
 | `generation_billings`  | Kostnads- och debiteringssnapshot per version                                  | Unique `version_id`, index på `chat_id`, `(user_id, created_at)`, `created_at` |
 | `deployments`          | SSE-events under deploy (`GET /api/v0/deployments/[id]/events`)                | Index på `chat_id`, `version_id`, `vercel_deployment_id`                       |
+| `kostnadsfri_mail_events` | Ett beständigt kvitto per schemalagt mejl, läst per slug eller komplett cursor | PK `message_id`, index på `(slug, created_at)` och `flow_id`                    |
 
 Långbänk 2026-04-24 lade till de saknade index ovan via
 `scripts/db/add-performance-indexes.mjs` (idempotent — kör om-och-om-igen).
+
+`kostnadsfri_pages.sent_at/source` är en bakåtkompatibel företagsvy, inte
+fullständig mejlhistorik. Första accepterade utskicket kan fylla de fälten;
+uppföljningar skriver en ny rad i `kostnadsfri_mail_events` och får aldrig
+skriva över företagets ursprungliga registerpost. `message_id` är idempotens-
+och korrelationsnyckel, inte leveransbevis eller behörighet. Genereringsstatus
+härleds via den serverägda kedjan
+`kostnadsfri_campaign_entitlements → engine_chats → engine_versions`.
 
 `users.free_generation_available` är den kontoägda engångsentitlementen. Den
 claimas tillsammans med `free_generation_claimed_version_id` under användarens
@@ -342,11 +358,11 @@ Mappade mot Redis-skill-reglerna:
 | ------------------------------ | -------------- | -------------------------------------------------------------------------------------------- |
 | `npm run db:rows`              | CLI            | Snabb rad-överblick utan backoffice                                                          |
 | `npm run db:health`            | CLI            | Samma som backofficen, JSON-svar i terminal                                                  |
-| `npm run db:perf-indexes:dry`  | CLI            | Se vilka index som SKULLE skapas utan att göra det                                           |
-| `npm run db:perf-indexes`      | CLI            | Faktiskt skapa saknade index (idempotent, säkert mot prod)                                   |
-| `npm run db:perf-indexes:soft` | CLI / `predev` | Som ovan men felar tyst (auto-applicering)                                                   |
-| `npm run db:ensure`            | CLI            | Applicera saknade migrationer på den lokala DB:n + verifiera (svaret på "fel schema lokalt") |
-| `npm run db:migrate:check`     | CLI            | Read-only: ligger den lokala DB:n efter? (samma gate CI kör mot prod)                        |
+| `npm run db:perf-indexes:dry`  | CLI            | Read-only plan: se vilka index som skulle skapas                                              |
+| `npm run db:perf-indexes -- --reason "manual: …"` | CLI | Explicit DDL efter dry-run och verifierat mål; idempotens gör inte prod automatiskt säkert   |
+| `npm run db:init`              | CLI            | Explicit setup av ny throwaway-/engångs-DB; kan även köra datamutationer i reparationssteg    |
+| `npm run db:ensure`            | CLI            | Applicera väntande migrationsfiler på en redan initialiserad, verifierad DEV-DB och verifiera om |
+| `npm run db:migrate:check`     | CLI            | Read-only: ligger den lokala DB:n efter?                                                      |
 | `npm run redis:health`         | CLI            | Redis-statusen i JSON                                                                        |
 | `/api/health`                  | HTTP           | Snabb live-check (Redis + features)                                                          |
 | `/api/metrics`                 | HTTP           | Prometheus-expo (renderas i Observability-sidan)                                             |

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CREDIT_ACTION_PRICES } from "@/lib/credits/pricing";
 import { useAuth } from "@/lib/auth/auth-store";
 import { usePublicPricing } from "@/lib/credits/use-public-pricing";
+import { AUDIT_TIER_COPY } from "@/lib/audit/audit-tier";
 import { SiteAuditSection } from "./site-audit-section";
 
 const updateDiamonds = vi.fn();
@@ -83,6 +84,28 @@ async function runBasicAudit() {
   fireEvent.click(screen.getByRole("button", { name: /välj analysnivå/i }));
   fireEvent.click(screen.getByRole("button", { name: /vanlig analys/i }));
 }
+
+describe("SiteAuditSection tier copy", () => {
+  it("shows the honest Vanlig/Avancerad split before charging", () => {
+    render(
+      <SiteAuditSection
+        url="https://example.se"
+        hideUrlInput
+        onAuditComplete={vi.fn()}
+        onRequireAuth={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /välj analysnivå/i }));
+
+    expect(screen.getByText(AUDIT_TIER_COPY.basic.summary)).toBeTruthy();
+    expect(screen.getByText(AUDIT_TIER_COPY.advanced.summary)).toBeTruthy();
+    expect(screen.getByText("Upp till 2 sidor")).toBeTruthy();
+    expect(screen.getByText("Upp till 4 sidor")).toBeTruthy();
+    expect(screen.getByText("Ingen web research")).toBeTruthy();
+    expect(screen.getByText("Web research", { exact: true })).toBeTruthy();
+    expect(screen.queryByText(/Luna|Sol|GPT/i)).toBeNull();
+  });
+});
 
 describe("SiteAuditSection balance after debit", () => {
   it("shows the server remaining balance when the client price is stale", async () => {

@@ -44,10 +44,11 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | F3 build plan | Strukturerad `Tier3BuildSpec` för integrations-codegen. |
 | Mock mode (dossier) | Deklarativt `mock`-fält ("demoläge": `canned`/`seed`/`success`/`visual`/`none`) på hard-dossiers som beskriver hur den visuella ytan fungerar i designläge/preview utan livekonfiguration. |
 | Template (v0-mall) | Färdigt helprojekt i galleriet (`/templates`, builderns Mallar-tab). |
+| Showcase-exempel | Publika rekonstruktioner på `/exempel`. Inte kundcase, inte Preview-ytan och inte bevis för nuvarande codegen. Live-URL:er ägs av `src/lib/exempel/showcase-sites.ts`. Glass bara `glass-showcase-umber`. |
 | Importerat repo-läge | Runtimeläge för kompletta Template-/ZIP-/GitHub-importer; saknar Scaffold och är inte `Scaffold: Av`. |
 | Variant-template-addendum | Intern teknisk term för den SHA-bundna cachen av en v0-template som redan kan vara kandidat via `sourceTemplateIds`. |
 | Källpaket | Samlingen av valbara ingredienser före kodgeneratorn: variantreferens, UI Recipes, dossiers och media. |
-| Template-referens | Klonat upstream-repo under `data/template-references/` — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
+| Template-referens | Klonat upstream-repo under `_template_refs/dossier-references/` (syskonmapp till checkouten, utanför git) — input till **dossier**-kuration (AI-utkast), hör inte till template-galleriet trots namnet. |
 | BuildSpec | Runtime-policy för generationens scope, kvalitet, preview, verifiering och budget. |
 | Dynamic Context | Request-specifik promptdel. |
 | Core Rules | Statiska produktregler i `config/prompt-core/`. |
@@ -90,9 +91,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Internt `@sajtmaskin`-register | Sajtmaskins kuraterade, självbärande shadcn-kompatibla registry-källa. |
 | Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. |
 | Beskriv-flöde | Fritext blir registry-sökfrågor, verkliga Registry Discovery-träffar, LLM-rankning och valbara kandidater; modellen får inte hitta på registry-poster. |
-| Scout (agentroll) | Opt-in: läser och föreslår. Gäller bara när Jakob nämner rollen. |
-| Builder (agentroll) | Opt-in: skriver och lämnar PR. Inte default. |
-| Steward (agentroll) | Opt-in: landar redo PR:er och städar (`tidy`). |
+| Scout (agentroll) | Opt-in via `/scout`: läser och föreslår. |
+| Builder (agentroll) | Opt-in via `/builder`: skriver och lämnar PR. |
+| Steward (agentroll) | Opt-in via `/steward`: landar redo PR:er och städar (`tidy`). |
 
 ## Auktoritetsordning
 
@@ -166,6 +167,8 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | sandbox | `preview_host` när VM:en avses; inte preview-grenen och inte Preview-ytan |
 | template-library | `Scaffold`, `Dossier` eller `Template (v0-mall)` beroende på kontext |
 | mall / template (ospecificerat) | `Template (v0-mall)` för galleriet · `Scaffold` för runtime-startpunkt · `Dossier` för capability-modul · `Template-referens` för dossier-kurationsinput |
+| kundcase (om `/exempel` eller showcase-sajterna) | `Showcase-exempel` — rekonstruktioner, inte verifierade kunder |
+| showcase (ospecificerat) | Precisera: `Showcase-exempel` för `/exempel`, `Template (v0-mall)` för galleriet |
 | shadcn | `shadcn primitive` eller `UI Recipe` |
 | 3D/game | `visual-3d`, `physics-3d` eller `interactive-game` |
 | preview (ospecificerat) | Fråga eller slå upp: `preview-gren`, `Preview-yta`, `preview_host`/`previewUrl`, eller `Vercel deploy-preview` |
@@ -218,7 +221,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 - **Codex repo-agent:** arbetar i repot och läser `AGENTS.md` samt `.codex/`.
 - **GitHub/Vercel-bot:** review- eller deploysignal, inte produktens Verifier.
 - **Sajtmaskins produktmodell:** runtimeval i `config/ai_models/manifest.json`.
-- **Extern coach/LLM:** har bara den kontext användaren uttryckligen ger den.
+- **Extern chatt/LLM:** har bara den kontext användaren uttryckligen ger den.
 
 Dessa modellplan delar inte automatiskt sluggar eller routing.
 

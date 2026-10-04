@@ -1,48 +1,55 @@
-import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import type { ProjectSite } from "@/lib/projects/project-client";
+import { projectCardMode } from "@/lib/projects/project-card-mode";
 import {
   addressKindLabel,
   cardAddressText,
   publishStateLabel,
-  type SiteStateTone,
+  SITE_STATE_TONE_CLASS,
 } from "@/lib/projects/site-labels";
 
-const TONE_CLASS: Record<SiteStateTone, string> = {
-  live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-  progress: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  problem: "bg-red-500/10 text-red-400 border-red-500/30",
-  idle: "bg-gray-800 text-gray-400 border-gray-700",
-};
-
 export function ProjectCardSiteMeta({
-  projectId,
+  projectId: _projectId,
   site,
 }: {
+  /** Kept for the existing card contract; actions live on `ProjectCardActions`. */
   projectId: string;
   site: ProjectSite | null | undefined;
 }) {
   if (!site) return null;
 
+  const mode = projectCardMode(site);
   const state = publishStateLabel(site.state);
-  const address = cardAddressText(site.address);
+  const liveUrl = site.address.liveUrl;
+  const showKind = site.address.kind !== "none";
+  const showAddress = Boolean(liveUrl);
+  const address = showAddress ? cardAddressText(site.address) : null;
 
   return (
     <div className="mt-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`inline-block border px-2 py-0.5 text-xs ${TONE_CLASS[state.tone]}`}>
+        <span className={`inline-block border px-2 py-0.5 text-xs ${SITE_STATE_TONE_CLASS[state.tone]}`}>
           {state.label}
         </span>
-        <span className="text-xs text-gray-500">{addressKindLabel(site.address.kind)}</span>
+        {showKind ? (
+          <span className="text-xs text-gray-500">{addressKindLabel(site.address.kind)}</span>
+        ) : mode === "draft" ? (
+          <span className="text-xs text-gray-500">Ännu inte en publicerad hemsida</span>
+        ) : null}
       </div>
-      <p className="truncate text-xs text-gray-400" title={site.address.liveUrl ?? address}>
-        {address}
-      </p>
-      <Link
-        href={`/projects/${projectId}`}
-        className="inline-flex text-xs text-gray-300 underline-offset-2 hover:text-white hover:underline"
-      >
-        Visa sajt
-      </Link>
+      {showAddress && liveUrl && address ? (
+        <a
+          href={liveUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex max-w-full items-center gap-1 text-xs text-gray-300 hover:text-white"
+          title={liveUrl}
+        >
+          <span className="truncate">{address}</span>
+          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <span className="sr-only">Öppna sajten</span>
+        </a>
+      ) : null}
     </div>
   );
 }

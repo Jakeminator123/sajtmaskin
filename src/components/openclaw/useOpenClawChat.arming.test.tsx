@@ -3,8 +3,56 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useOpenClawChat } from "./useOpenClawChat";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import {
+  hasArmedHandshakeWoken,
+  resetArmedHandshakeWakesForTests,
+} from "@/lib/openclaw/debug/armed-continuation";
+import {
+  OPENCLAW_DISPATCH_HEADER,
+  OPENCLAW_DISPATCH_NOT_STARTED,
+  OPENCLAW_DISPATCH_STARTED,
+} from "@/lib/openclaw/gateway-response";
 
 const ARMING_TEXT = "kör 5 follow-ups och buggranska sajten";
+const PREVIEW_REPRO_PHRASE =
+  "gör 3 follow-ups och buggranska. Första steget: skicka själv en builder-prompt som gör hero-rubriken tydligare. Om det räcker med en liten textändring, föreslå också en snabbändring.";
+const HUNT_ONLY_REPLY = [
+  "Bekräftar mandatet.",
+  "<openclaw-action>",
+  '{"type":"start_bug_hunt","mode":"followups","count":3,"reason":"Tre steg"}',
+  "</openclaw-action>",
+].join("\n");
+const FILL_REPLY = [
+  "Första steget.",
+  "<openclaw-action>",
+  '{"type":"fill_text_field","target":"builder.chat.primary","value":"Gör hero-rubriken tydligare","submit":true}',
+  "</openclaw-action>",
+].join("\n");
+
+function sseBody(...payloads: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const payload of payloads) {
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+      }
+      controller.close();
+    },
+  });
+}
+
+function deltaPayload(content: string): string {
+  return JSON.stringify({
+    choices: [{ index: 0, delta: { content } }],
+  });
+}
+
+function sseResponse(text: string, headers: Record<string, string> = {}): Response {
+  return new Response(sseBody(deltaPayload(text), "[DONE]"), {
+    status: 200,
+    headers: { "content-type": "text/event-stream", ...headers },
+  });
+}
 
 beforeEach(() => {
   // The gateway answer is irrelevant here — the arming decision happens before
@@ -37,6 +85,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetArmedHandshakeWakesForTests();
   act(() => {
     useOpenClawStore.setState({
       editEnabled: false,
@@ -193,5 +242,239 @@ describe("useOpenClawChat — arming consent", () => {
     // Disarming must also drop a pending continuation, or the loop would wake
     // OpenClaw again after the user said stop.
     expect(state.armedContinuation).toBeNull();
+  });
+
+  it("arms three steps from the exact preview-repro phrase", async () => {
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(useOpenClawStore.getState().armedMandate?.mode).toBe("followups");
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
+  it("wakes once after a hunt-only reply so the first builder step can be authored", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(sseResponse(FILL_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    const createdBefore = Date.now();
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const mandate = useOpenClawStore.getState().armedMandate;
+    expect(mandate?.mode).toBe("followups");
+    expect(mandate?.remaining).toBe(3);
+    expect(mandate?.createdAt).toBeGreaterThanOrEqual(createdBefore);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    const secondBody = JSON.parse(String(fetchFn.mock.calls[1]?.[1]?.body)) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const wakeMessage = secondBody.messages.filter((message) => message.role === "user").at(-1);
+    expect(wakeMessage?.content).toContain("[Automatisk väckning]");
+    expect(wakeMessage?.content).toContain("3 steg kvar");
+    expect(useOpenClawStore.getState().messages.some((message) => message.content.includes("Gör hero-rubriken"))).toBe(
+      true,
+    );
+  });
+
+  it("treats an unknown dispatch receipt as settled and does not wake again", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(sseResponse(FILL_REPLY, { [OPENCLAW_DISPATCH_HEADER]: "unknown" }))
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await result.current.send("ok, fortsätt med nästa observation");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+  });
+
+  it("releases a pre-dispatch rejection for a later independent trigger without auto-retry", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(
+        new Response("", {
+          status: 503,
+          headers: { [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_NOT_STARTED },
+        }),
+      )
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(
+        sseResponse(FILL_REPLY, { [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_STARTED }),
+      );
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(false);
+
+    await act(async () => {
+      await result.current.send("ny oberoende granskningstrigger");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(4);
+    expect(useOpenClawStore.getState().armedMandate?.createdAt).toBe(createdAt);
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+  });
+
+  it("releases a wake when fetch throws synchronously before dispatch", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockImplementationOnce(() => {
+        throw new TypeError("fetch setup failed");
+      });
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(false);
+  });
+
+  it("settles an uncertain async fetch failure so a later reply cannot double-wake", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockRejectedValueOnce(new TypeError("connection closed after send"))
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+
+    await act(async () => {
+      await result.current.send("fortsätt granskningen");
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps an explicit started wake settled after a streamed gateway error", async () => {
+    const startedErrorResponse = new Response(
+      sseBody(
+        JSON.stringify({
+          error: {
+            message: "upstream failed after dispatch",
+            type: "upstream_error",
+          },
+        }),
+      ),
+      {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+          [OPENCLAW_DISPATCH_HEADER]: OPENCLAW_DISPATCH_STARTED,
+        },
+      },
+    );
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY))
+      .mockResolvedValueOnce(startedErrorResponse)
+      .mockResolvedValueOnce(sseResponse(HUNT_ONLY_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    const createdAt = useOpenClawStore.getState().armedMandate?.createdAt;
+    expect(createdAt).toBeDefined();
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+
+    await act(async () => {
+      await result.current.send("senare hunt-trigger");
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(hasArmedHandshakeWoken(createdAt!)).toBe(true);
+  });
+
+  it("does not wake after a complete hunt block followed by a gateway error envelope", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(
+      new Response(
+        sseBody(
+          deltaPayload(HUNT_ONLY_REPLY),
+          JSON.stringify({
+            error: {
+              message: "You've reached your Codex subscription usage limit.",
+              type: "rate_limit_error",
+            },
+          }),
+        ),
+        {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+    expect(
+      useOpenClawStore.getState().messages.some((message) =>
+        message.content.includes("[Automatisk väckning]"),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not handshake-wake when the first reply is already a fill", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(sseResponse(FILL_REPLY));
+    vi.stubGlobal("fetch", fetchFn);
+
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(PREVIEW_REPRO_PHRASE);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
   });
 });

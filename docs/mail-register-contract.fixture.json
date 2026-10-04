@@ -1,0 +1,77 @@
+{
+  "success": true,
+  "pages": [
+    {
+      "slug": "textbolaget-ab",
+      "companyName": "Textbolaget AB",
+      "contactEmail": "hej@textbolaget.example",
+      "contactName": "Tess",
+      "status": "active",
+      "sentAt": "2026-10-01T08:00:00.000Z",
+      "source": "render-mail-flow:text",
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "expiresAt": null,
+      "unsubscribedAt": null,
+      "visits": 2,
+      "verified": 1,
+      "started": 1,
+      "generation": {
+        "state": "succeeded",
+        "completedAt": "2026-10-01T08:42:00.000Z",
+        "siteId": "site_text_1"
+      }
+    },
+    {
+      "slug": "animerat-ab",
+      "companyName": "Animerat AB",
+      "contactEmail": "hej@animerat.example",
+      "contactName": "Ani",
+      "status": "active",
+      "sentAt": "2026-10-01T09:00:00.000Z",
+      "source": "render-mail-flow:animated",
+      "createdAt": "2026-09-30T12:05:00.000Z",
+      "expiresAt": null,
+      "unsubscribedAt": null,
+      "visits": 1,
+      "verified": 1,
+      "started": 1,
+      "generation": {
+        "state": "in-progress",
+        "completedAt": null,
+        "siteId": null
+      }
+    },
+    {
+      "slug": "legacy-ab",
+      "companyName": "Legacy AB",
+      "contactEmail": "hej@legacy.example",
+      "contactName": null,
+      "status": "active",
+      "sentAt": "2026-09-01T10:00:00.000Z",
+      "source": "post-scrape",
+      "createdAt": "2026-09-01T09:00:00.000Z",
+      "expiresAt": null,
+      "unsubscribedAt": null,
+      "visits": 4,
+      "verified": 2,
+      "started": 1
+    }
+  ],
+  "registry": {
+    "checkedAt": "2026-10-03T10:00:00.000Z",
+    "returned": 3,
+    "limit": 2000,
+    "complete": true,
+    "nextCursor": null
+  },
+  "analytics": {
+    "available": true,
+    "windowDays": 90,
+    "checkedAt": "2026-10-03T10:00:00.000Z",
+    "complete": true
+  },
+  "generation": {
+    "available": true,
+    "checkedAt": "2026-10-03T10:00:00.000Z"
+  }
+}

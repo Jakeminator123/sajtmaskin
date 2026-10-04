@@ -245,6 +245,16 @@ const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
 const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 let nextRuntimeBootId = 1;
+
+function nextInstallAttemptRevision(session) {
+  const current = Number(session?.installAttemptRevision);
+  if (!Number.isSafeInteger(current) || current < 1) return 1;
+  if (current >= Number.MAX_SAFE_INTEGER) {
+    throw new Error("Preview install-attempt revision exhausted.");
+  }
+  return current + 1;
+}
+
 let beforeIdleLifecycleCheckForTesting = null;
 /** Fires after `stopTrackedRuntime` and before the spawn-time lifecycle adopt. */
 let afterRuntimeStopBeforeSpawnForTesting = null;
@@ -1081,6 +1091,10 @@ async function bootRuntimeForSession(session, options = {}) {
   await updateSessionById(session.sessionId, (stored) => {
     if (!sameSessionLifecycleOrAdoptedPatch(stored, session)) return;
     stored.status = "starting";
+    // mutationRevision identifies file/session mutations, not boots. Runtime
+    // recovery can reinstall the same mutation, so persist a separate monotonic
+    // attempt receipt before clearing the previous install snapshot.
+    stored.installAttemptRevision = nextInstallAttemptRevision(stored);
     // A start request writes `starting` before it queues the boot. Treat that
     // as an explicit retry and give the same version a fresh exit budget.
     // Update requests reset the budget atomically in their route mutation
@@ -1101,6 +1115,10 @@ async function bootRuntimeForSession(session, options = {}) {
     }
     // A new boot must not keep the previous install snapshot on `/status`.
     delete stored.installDiagnostics;
+    delete stored.usedLegacyPeerDeps;
+    delete stored.peerConflictDetected;
+    delete stored.installKind;
+    delete stored.dependencyFingerprint;
     stored.updatedAt = nowIso();
   });
 
@@ -1156,6 +1174,27 @@ async function bootRuntimeForSession(session, options = {}) {
         if (installOutcome && installOutcome.regeneratedLockfile) {
           stored.regeneratedLockfile = installOutcome.regeneratedLockfile;
           stored.lockfileStaleCleared = true;
+        }
+        if (installOutcome && installOutcome.usedFallback && installOutcome.peerConflictDetected) {
+          stored.usedLegacyPeerDeps = true;
+          stored.peerConflictDetected = true;
+          stored.installKind = "fallback";
+        } else if (
+          installOutcome &&
+          (installOutcome.installKind === "strict_pass" ||
+            installOutcome.installKind === "skipped" ||
+            installOutcome.installKind === "fallback")
+        ) {
+          stored.installKind = installOutcome.installKind;
+        } else if (installOutcome && installOutcome.skipped === true) {
+          stored.installKind = "skipped";
+        }
+        if (
+          installOutcome &&
+          typeof installOutcome.dependencyFingerprint === "string" &&
+          /^[a-f0-9]{64}$/i.test(installOutcome.dependencyFingerprint)
+        ) {
+          stored.dependencyFingerprint = installOutcome.dependencyFingerprint.toLowerCase();
         }
       });
 
@@ -1695,6 +1734,7 @@ module.exports = {
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,
   classifyRuntimeBootFailureLoop,
+  nextInstallAttemptRevision,
   RUNTIME_BOOT_FAILURE_LIMIT,
   RUNTIME_BOOT_FAILURE_WINDOW_MS,
   htmlLooksLikeBuildError,

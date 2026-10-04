@@ -1,3 +1,4 @@
+import { omitAdvancedOnlyFields, type AuditSchemaKind } from "@/lib/audit/audit-tier";
 import type { AuditMode, AuditResult } from "@/types/audit";
 
 // Cost calculation (for logging/display only)
@@ -18,12 +19,13 @@ function createFallbackResult(
   },
   url: string,
   auditMode: AuditMode,
+  options?: { schemaKind?: AuditSchemaKind },
 ): Record<string, unknown> {
   const domain = new URL(url).hostname;
   const isJsRendered = websiteContent.wordCount < 50;
   const companyName = websiteContent.title || domain;
 
-  return {
+  const fallback = {
     audit_mode: auditMode,
     company: companyName,
     audit_scores: {
@@ -330,6 +332,58 @@ function createFallbackResult(
       ? "Sidan är JavaScript-renderad och kunde inte analyseras fullt ut"
       : "AI-analysen returnerade inte giltigt resultat",
   };
+
+  if (auditMode === "advanced") {
+    fallback.improvements.push(
+      {
+        item: "Informationsarkitektur för erbjudanden och målgrupper",
+        impact: "high",
+        effort: "medium",
+        why: "En tydlig sidstruktur hjälper olika målgrupper att snabbare hitta rätt erbjudande och nästa steg.",
+        how: "Kartlägg erbjudanden mot målgrupper och sökintentioner, skapa en landningssida per huvudbehov och bind ihop dem med konsekvent navigation och interna länkar.",
+        estimated_time: "2-4 dagar",
+        technologies: ["Information Architecture", "SEO", "UX"],
+        code_example: "",
+        category: "Content",
+      },
+      {
+        item: "Strukturerad data och lokal synlighet",
+        impact: "medium",
+        effort: "low",
+        why: "Maskinläsbar företags- och tjänsteinformation förbättrar sökmotorernas förståelse och kan stärka lokal synlighet.",
+        how: "Lägg Organization eller LocalBusiness samt relevanta Service- och FAQ-scheman i JSON-LD, och håll namn, adress, telefon och öppettider konsekventa mellan sajten och externa profiler.",
+        estimated_time: "1-2 dagar",
+        technologies: ["JSON-LD", "Schema.org", "Local SEO"],
+        code_example: "",
+        category: "Marketing",
+      },
+      {
+        item: "Leadkvalificering och återkoppling i formulärflödet",
+        impact: "high",
+        effort: "medium",
+        why: "Rätt kvalificeringsfrågor och tydlig återkoppling ger bättre leads utan att skapa onödig formulärfriktion.",
+        how: "Behåll få obligatoriska fält, visa villkorade följdfrågor utifrån valt behov och komplettera med bekräftelsesida, svarstid och spårning av start, fel och slutförd konvertering.",
+        estimated_time: "2-3 dagar",
+        technologies: ["Forms", "Analytics", "CRM"],
+        code_example: "",
+        category: "Marketing",
+      },
+      {
+        item: "Innehållsstyrning och löpande kvalitetskontroll",
+        impact: "medium",
+        effort: "medium",
+        why: "Utan tydligt ägarskap tappar priser, bevis, kontaktvägar och erbjudandecopy snabbt aktualitet och trovärdighet.",
+        how: "Tilldela ägare och granskningsintervall per sidtyp, dokumentera publiceringschecklista och följ kvartalsvis upp brutna länkar, inaktuella påståenden, konvertering och organisk trafik.",
+        estimated_time: "1-3 dagar",
+        technologies: ["Content Governance", "Analytics", "QA"],
+        code_example: "",
+        category: "Content",
+      },
+    );
+  }
+
+  const schemaKind = options?.schemaKind ?? (auditMode === "advanced" ? "full" : "core");
+  return schemaKind === "core" ? omitAdvancedOnlyFields(fallback) : fallback;
 }
 
 // Validate audit result structure (lenient - accept partial results)
@@ -424,6 +478,10 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
  */
 function getPricingForModel(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
+  if (m.includes("gpt-5.6-sol")) return { input: 4, output: 20 };
+  if (m.includes("gpt-5.6-terra")) return { input: 2, output: 12 };
+  if (m.includes("gpt-5.6-luna")) return { input: 0.2, output: 1.2 };
+  if (m.includes("gpt-5.5")) return { input: 5, output: 30 };
   if (m.includes("gpt-5.2")) return { input: 1.25, output: 10 };
   if (m.includes("opus")) return { input: 15, output: 75 };
   if (m.includes("sonnet")) return { input: 3, output: 15 };

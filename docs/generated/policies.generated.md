@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:8bf4647576f04d2f -->
+<!-- source-fingerprint: config/env-policy.json sha256:5a1a5b81fdefbe3b -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -31,6 +31,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | ---------------------------------------------------- | ---------------------- | -------------------------------------- | ------------- | ------------ |
 | `ADMIN_CREDENTIALS`                                  | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `ADMIN_EMAILS`                                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `ADMIN_HANDOFF_SECRET`                               | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `AUDIT_WEB_SEARCH`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `AUTH_DEBUG`                                         | `local_only`           | —                                      | Yes           | No           |
 | `BACKOFFICE_PASSWORD`                                | `environment_specific` | `preview`, `production`                | Yes           | No           |
@@ -74,6 +75,10 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_AVATAR_CLIENT_KEY`                      | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_AVATAR_ENABLED`                         | `environment_specific` | `production`, `preview`                | No            | No           |
 | `NEXT_PUBLIC_BASE_URL`                               | `environment_specific` | `preview`, `production`                | No            | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_ACCOUNT_CREATED_LABEL`       | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_BUILDER_START_LABEL`         | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_FIRST_GENERATION_LABEL`      | `optional_runtime`     | `production`                           | Yes           | No           |
+| `NEXT_PUBLIC_GOOGLE_ADS_ID`                          | `optional_runtime`     | `production`                           | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |

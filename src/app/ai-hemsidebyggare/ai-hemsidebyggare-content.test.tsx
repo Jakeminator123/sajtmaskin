@@ -26,7 +26,7 @@ describe("AiHemsidebyggareContent", () => {
     expect(headings).toHaveLength(1);
     expect(headings[0]?.textContent).toBe(entry.plannedH1);
 
-    const ctaLinks = screen.getAllByRole("link", { name: "Testa i byggaren" });
+    const ctaLinks = screen.getAllByRole("link", { name: "Prova med er beskrivning" });
     expect(ctaLinks.length).toBeGreaterThan(0);
     expect(ctaLinks.every((link) => link.getAttribute("href") === SEO_LANDING_CTA_HREF)).toBe(
       true,
@@ -39,6 +39,8 @@ describe("AiHemsidebyggareContent", () => {
     ).toBe(true);
 
     expect(screen.queryByText(/bästa AI-hemsidebyggaren/i)).toBeNull();
+    expect(screen.queryByText(/fylls på när de är klara/i)).toBeNull();
+    expect(screen.queryByText(/syns inte som länkar förrän dess/i)).toBeNull();
 
     const readyRelated = readyRelatedSeoLandingSlugs(entry.relatedSlugs);
     expect(readyRelated).toContain("skapa-hemsida-med-ai");

@@ -4,16 +4,15 @@
  *
  * Varför den finns: Vercel Preview och Production läser SAMMA prod-Postgres
  * (`config/db-targets.json`), men `preview` kan ligga tiotals commits före
- * `master`. När CI applicerar migrationer vid push till `preview` träffar DDL:en
+ * `master`. Vid uttrycklig migrations-apply för `preview` träffar DDL:en
  * därför den databas som den GAMLA produktionskoden fortfarande läser. En
  * additiv migration (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`)
- * är ofarlig där — gammal kod rör inte det nya. En brytande migration är det
+ * behöver fortfarande riskgranskas, bland annat för lås och skrivbeteende. Brytande DDL är
  * inte: tar man bort, byter typ på eller byter namn på något som produktionen
  * läser, går produktionen sönder innan någon har promoverat.
  *
- * Grinden tillåter alltså den automatiska vägen för det vanliga fallet och
- * kräver ett medvetet beslut för resten: promote till `master`, eller
- * `npm run db:migrate:prod` med ägaren närvarande.
+ * Grinden är en läsande riskkontroll inför ett separat apply-mandat, inte en
+ * automatisk CI-skrivväg. Kodpromote är inte atomisk med schema eller deploy.
  *
  * Bara PENDING migrationer granskas. Repot innehåller redan brytande DDL som
  * för länge sedan är applicerad (t.ex. `align-live-schema-parity.sql`); den

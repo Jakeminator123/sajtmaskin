@@ -4,6 +4,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { importedFileContentForExport } from "@/lib/import/extract-imported-archive";
+import { toVercelFilesFromTextFiles } from "@/lib/vercel/vercel-deploy";
+import { buildGitHubExportPlan } from "@/lib/gen/export/github-tree-plan";
 
 import {
   extractV0TemplateArchiveFiles,
@@ -102,6 +105,31 @@ function localSource(overrides: Partial<LocalV0TemplateSource>): LocalV0Template
 }
 
 describe("extractV0TemplateArchiveFiles", () => {
+  it.each(["pdf", "avif", "mp4", "webm", "bmp", "otf", "eot", "wav", "avi", "unknown", "txt"])(
+    "preserves every persisted template binary %s across outbound boundaries",
+    async (extension) => {
+      const path = `public/asset.${extension}`;
+      const bytes = Buffer.from([0, 255, 1, 128]);
+      const source = new JSZip();
+      source.file(`template/${path}`, bytes);
+      source.file("template/public/empty.asset", Buffer.alloc(0));
+      source.file("template/README.md", "base64:YWJj");
+      const files = await extractV0TemplateArchiveFiles(await source.generateAsync({ type: "nodebuffer" }));
+      expect(files.find((file) => file.path === path)?.language).toBe("binary");
+      const before = JSON.stringify(files);
+      const deployed = toVercelFilesFromTextFiles(files.map((file) => ({ name: file.path, content: file.content, language: file.language })));
+      expect(Buffer.from(deployed.find((file) => file.file === path)!.data, "base64")).toEqual(bytes);
+      expect(Buffer.from(deployed.find((file) => file.file === "public/empty.asset")!.data, "base64")).toEqual(Buffer.alloc(0));
+      expect(buildGitHubExportPlan(files).files.find((file) => file.path === path)?.content).toEqual(bytes);
+      const exported = new JSZip();
+      for (const file of files) exported.file(file.path, importedFileContentForExport(file.path, file.content, file.language));
+      const archive = await JSZip.loadAsync(await exported.generateAsync({ type: "nodebuffer" }));
+      expect(await archive.file(path)!.async("nodebuffer")).toEqual(bytes);
+      expect(await archive.file("public/empty.asset")!.async("nodebuffer")).toEqual(Buffer.alloc(0));
+      expect(await archive.file("README.md")!.async("string")).toBe("base64:YWJj");
+      expect(JSON.stringify(files)).toBe(before);
+    },
+  );
   it("normalizes a canonically Base64-serialized PNG without double-encoding it", async () => {
     const zip = new JSZip();
     const canonical = PNG_BYTES.toString("base64");

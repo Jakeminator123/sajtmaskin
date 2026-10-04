@@ -4,6 +4,7 @@ import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
 
 const failVersionVerificationIfUnleased = vi.fn();
 const leaseTableExists = vi.fn();
+const getRunningVersionLease = vi.fn();
 
 // Mock the DB module so importing the settle helper does not require a live
 // connection (`@/lib/db/chat-repository-pg` throws at import time otherwise).
@@ -11,8 +12,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerificationIfUnleased: (...args: unknown[]) =>
     failVersionVerificationIfUnleased(...args),
   leaseTableExists: (...args: unknown[]) => leaseTableExists(...args),
+  getRunningVersionLease: (...args: unknown[]) => getRunningVersionLease(...args),
 }));
 
+import { REPAIR_ABORTED_SUMMARY } from "./repair-abort-copy";
 import { settleStaleVerificationIfNeeded } from "./settle-stale-verification";
 
 type TestVersion = Parameters<typeof settleStaleVerificationIfNeeded>[0];
@@ -41,6 +44,8 @@ function appliedFail(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   failVersionVerificationIfUnleased.mockReset();
   leaseTableExists.mockReset();
+  getRunningVersionLease.mockReset();
+  getRunningVersionLease.mockResolvedValue(null);
 });
 
 describe("settleStaleVerificationIfNeeded", () => {
@@ -410,5 +415,96 @@ describe("settleStaleVerificationIfNeeded", () => {
     );
     expect(res.failed).toBe(true);
     expect(res.version).toBe(failed);
+  });
+
+  it("fails repairing-without-candidate when the isolate died and left no fresh lease (C1)", async () => {
+    leaseTableExists.mockResolvedValue("exists");
+    getRunningVersionLease.mockResolvedValue(null);
+    const failed = makeVersion({
+      verification_state: "failed",
+      verification_summary: REPAIR_ABORTED_SUMMARY,
+    });
+    failVersionVerificationIfUnleased.mockResolvedValue({ applied: true, version: failed });
+    // Version can still be "young" on created_at — deploy-repair started later.
+    const hung = makeVersion({
+      verification_state: "repairing",
+      created_at: new Date().toISOString(),
+      verification_summary: "Server-side repair in progress.",
+    });
+    const res = await settleStaleVerificationIfNeeded(hung);
+    expect(res.failed).toBe(true);
+    expect(res.version.verification_state).toBe("failed");
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "v1",
+      REPAIR_ABORTED_SUMMARY,
+      expect.objectContaining({ verificationState: "repairing" }),
+    );
+  });
+
+  it("fails a repairing row whose running lease is a post-504 zombie (C1)", async () => {
+    leaseTableExists.mockResolvedValue("exists");
+    getRunningVersionLease.mockResolvedValue({
+      runId: "dead-isolate",
+      status: "running",
+      createdAt: new Date("2026-09-18T15:10:24.000Z"),
+      updatedAt: new Date("2026-09-18T15:11:16.000Z"),
+      leaseExpiresAt: new Date("2026-09-18T15:26:16.000Z"),
+    });
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-18T15:26:15.000Z"));
+    try {
+      const res = await settleStaleVerificationIfNeeded(
+        makeVersion({
+          verification_state: "repairing",
+          created_at: "2026-09-18T15:06:00.000Z",
+          verification_summary: "Server-side repair in progress.",
+        }),
+      );
+      expect(res.failed).toBe(true);
+      expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+        "v1",
+        REPAIR_ABORTED_SUMMARY,
+        expect.objectContaining({ verificationState: "repairing" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not fail a repairing row that still holds a fresh lease", async () => {
+    leaseTableExists.mockResolvedValue("exists");
+    getRunningVersionLease.mockResolvedValue({
+      runId: "live",
+      status: "running",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      leaseExpiresAt: new Date(Date.now() + 10 * 60_000),
+    });
+    const hung = makeVersion({
+      verification_state: "repairing",
+      created_at: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 10_000).toISOString(),
+    });
+    const res = await settleStaleVerificationIfNeeded(hung);
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
+  it("does not fail a repairing row whose lease is past isolate age but still heartbeats", async () => {
+    leaseTableExists.mockResolvedValue("exists");
+    getRunningVersionLease.mockResolvedValue({
+      runId: "long-lived",
+      status: "running",
+      createdAt: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 60_000),
+      updatedAt: new Date(),
+      leaseExpiresAt: new Date(Date.now() + 10 * 60_000),
+    });
+    const hung = makeVersion({
+      verification_state: "repairing",
+      created_at: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 10_000).toISOString(),
+    });
+    const res = await settleStaleVerificationIfNeeded(hung);
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 });

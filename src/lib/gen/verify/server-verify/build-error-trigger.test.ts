@@ -10,6 +10,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const failVersionVerification = vi.hoisted(() => vi.fn());
+const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
+const getRunningVersionLease = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const tryServerRepairLoop = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
@@ -23,7 +26,12 @@ const loadServerVerifyF3ReadinessContext = vi.hoisted(() => vi.fn());
 const evaluateServerOwnedF3Readiness = vi.hoisted(() => vi.fn());
 const persistF3ReadinessHold = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/db/chat-repository-pg", () => ({ failVersionVerification }));
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  failVersionVerification,
+  failVersionVerificationIfUnleased,
+  getRunningVersionLease,
+  getVersionById,
+}));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("./repair-execution", () => ({ tryServerRepairLoop }));
 vi.mock("./verify-run", () => ({ triggerServerVerification }));
@@ -81,6 +89,13 @@ beforeEach(() => {
   acquireVerifyLease.mockResolvedValue({ proceed: true, runId: "run-1" });
   releaseVerifyLease.mockResolvedValue(undefined);
   failVersionVerification.mockResolvedValue(undefined);
+  failVersionVerificationIfUnleased.mockResolvedValue(null);
+  getRunningVersionLease.mockResolvedValue(null);
+  getVersionById.mockResolvedValue({
+    id: versionId,
+    verification_state: "failed",
+    files_revision: null,
+  });
   getVersionFilesSnapshot.mockResolvedValue(snapshot(BASE_FILES_JSON));
   triggerServerVerification.mockResolvedValue(undefined);
   loadServerVerifyF3ReadinessContext.mockResolvedValue({
@@ -251,5 +266,58 @@ describe("triggerBuildErrorRepair — env-gaten utan force", () => {
       if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR;
       else process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR = previous;
     }
+  });
+});
+
+describe("triggerBuildErrorRepair — hung repairing without fresh lease (C1/C2)", () => {
+  it("fails the hung row before starting a forced retry", async () => {
+    getVersionById.mockResolvedValue({
+      id: versionId,
+      verification_state: "repairing",
+      files_revision: "rev-1",
+      verification_summary: "Server-side repair in progress.",
+    });
+    getRunningVersionLease.mockResolvedValue({
+      runId: "zombie",
+      status: "running",
+      createdAt: new Date(Date.now() - 16 * 60_000),
+      updatedAt: new Date(Date.now() - 14 * 60_000),
+      leaseExpiresAt: new Date(Date.now() + 60_000),
+    });
+    failVersionVerificationIfUnleased.mockResolvedValue({ applied: true });
+    tryServerRepairLoop.mockResolvedValue({
+      supersededByUserEdit: false,
+      buildOriginated: true,
+    });
+
+    await run();
+
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      versionId,
+      expect.stringContaining("avbröts"),
+      { verificationState: "repairing", filesRevision: "rev-1" },
+    );
+    expect(acquireVerifyLease).toHaveBeenCalledOnce();
+    expect(tryServerRepairLoop).toHaveBeenCalledOnce();
+  });
+
+  it("does not start a silent auto-repair loop after failing the hung row", async () => {
+    getVersionById.mockResolvedValue({
+      id: versionId,
+      verification_state: "repairing",
+      files_revision: null,
+    });
+    getRunningVersionLease.mockResolvedValue(null);
+
+    const outcome = await triggerBuildErrorRepair({
+      chatId,
+      versionId,
+      buildError: { stage: "next-build", message: "boom" },
+    });
+
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+    expect(acquireVerifyLease).not.toHaveBeenCalled();
+    expect(tryServerRepairLoop).not.toHaveBeenCalled();
+    expect(outcome.started).toBe(false);
   });
 });

@@ -63,18 +63,18 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "68bd80192",
-    "commitDate": "2026-09-17",
+    "commit": "f15a136f1",
+    "commitDate": "2026-09-20",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 6,
-    "openP2": 2,
+    "openP1": 7,
+    "openP2": 5,
     "openP3": 1,
     "blocked": 1,
-    "shaky": 2,
+    "shaky": 4,
     "evalExactHitPct": null
   },
   "processes": [
@@ -91,43 +91,43 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 4,
+      "churn": 5,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 4 commits / 14d"
+      "note": "Aktiv: 5 commits / 14d"
     },
     {
       "name": "Codegen core",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 1,
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 3,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "1 commits / 14d"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
     {
       "name": "prompt-core",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 1,
         "P3": 0,
         "other": 0
       },
-      "churn": 0,
+      "churn": 2,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "Inga oppna signaler"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
     {
       "name": "ai_models",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 8,
+      "churn": 11,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -165,9 +165,9 @@ const DATA: CanvasData = {
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
+      "status": "ongoing",
+      "statusLabel": "Pagar",
+      "tone": "info",
       "openBugs": 0,
       "openByPrio": {
         "P0": 0,
@@ -176,20 +176,20 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 4,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "2 commits / 14d"
+      "note": "Aktiv: 4 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 6,
+      "openBugs": 8,
       "openByPrio": {
         "P0": 0,
-        "P1": 4,
-        "P2": 1,
+        "P1": 5,
+        "P2": 2,
         "P3": 1,
         "other": 0
       },
@@ -229,6 +229,18 @@ const DATA: CanvasData = {
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
     {
+      "name": "Codegen core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
+      "name": "prompt-core",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -241,6 +253,12 @@ const DATA: CanvasData = {
       "blocker": true,
       "kind": "blocker",
       "fynd": "`SM-080` Preview-projekt kör i samma filsystem/processidentitet och kan läsa andra projekts filer."
+    },
+    {
+      "prio": "P1",
+      "blocker": true,
+      "kind": "blocker",
+      "fynd": "`SM-092` Resend nekade verifieringsmejlet i prod med 403 «The sajtmaskin.se domain is not verified». Om det g…"
     },
     {
       "prio": "P1",
@@ -283,6 +301,24 @@ const DATA: CanvasData = {
       "blocker": false,
       "kind": "open",
       "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget kan visa ”Läser in templat…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-090` Prod-asserten `missing-separator` slog: systemprompten saknade `SYSTEM_PROMPT_SEPARATOR`, alltså kri…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-093` Flera samtidiga builder-flikar på samma `chatId` kan hålla en version i `pending` genom upprepad `pr…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "kind": "open",
+      "fynd": "`SM-091` Init av importerat arkiv föll med 403 «Archive download forbidden» i prod. Samma klass som den priva…"
     }
   ],
   "topOpenRisksOmitted": 0,

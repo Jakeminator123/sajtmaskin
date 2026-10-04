@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2 } from "lucide-react";
+import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Send, Users, Wand2, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ import {
   classifyKostnadsfriSlug,
   type KostnadsfriSlugKind,
 } from "@/lib/kostnadsfri/analytics-paths";
+import { cn } from "@/lib/utils";
 import type { KostnadsfriAdminPayload, KostnadsfriInvitePayload } from "../types";
 
 const PERIODS = [
@@ -82,6 +83,8 @@ type KostnadsfriRow = {
   contactEmail: string | null;
   sentAt: string | null;
   source: string | null;
+  mailType: KostnadsfriAdminPayload["pages"][number]["mailType"];
+  generation: KostnadsfriAdminPayload["pages"][number]["generation"];
   stats: KostnadsfriAdminPayload["stats"][number] | null;
 };
 
@@ -98,6 +101,70 @@ function formatDate(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime())
     ? "—"
     : date.toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" });
+}
+
+
+type CountFilter = "any" | "gt0" | "eq0";
+
+function isSameLocalDay(iso: string | null | undefined, day: Date = new Date()): boolean {
+  if (!iso) return false;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return false;
+  return (
+    date.getFullYear() === day.getFullYear() &&
+    date.getMonth() === day.getMonth() &&
+    date.getDate() === day.getDate()
+  );
+}
+
+/** Prefer Senast (lastSeen) when present; otherwise fall back to Skickat. */
+function matchesTodayActivity(row: KostnadsfriRow): boolean {
+  if (row.stats?.lastSeen) return isSameLocalDay(row.stats.lastSeen);
+  return isSameLocalDay(row.sentAt);
+}
+
+function matchesCountFilter(value: number, filter: CountFilter): boolean {
+  if (filter === "gt0") return value > 0;
+  if (filter === "eq0") return value === 0;
+  return true;
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+  title,
+  disabled = false,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  title?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      title={title}
+      disabled={disabled}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "h-7 rounded-full px-2.5 text-xs font-medium",
+        active
+          ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200"
+          : "text-muted-foreground",
+      )}
+    >
+      {children}
+    </Button>
+  );
+}
+
+function cycleCountFilter(current: CountFilter, next: "gt0" | "eq0"): CountFilter {
+  return current === next ? "any" : next;
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -199,6 +266,8 @@ export function KostnadsfriSection() {
         contactEmail: page.contactEmail,
         sentAt: page.sentAt,
         source: page.source,
+        mailType: page.mailType,
+        generation: page.generation,
         stats: null,
       });
     }
@@ -216,6 +285,8 @@ export function KostnadsfriSection() {
           contactEmail: null,
           sentAt: null,
           source: null,
+          mailType: "unregistered",
+          generation: { state: "unknown", completedAt: null, siteId: null },
           stats: stat,
         });
       }
@@ -233,16 +304,38 @@ export function KostnadsfriSection() {
 
   const [rowFilter, setRowFilter] = useState("");
   const [showOtherPaths, setShowOtherPaths] = useState(false);
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [unikaGt0, setUnikaGt0] = useState(false);
+  const [verifiedFilter, setVerifiedFilter] = useState<CountFilter>("any");
+  const [startedFilter, setStartedFilter] = useState<CountFilter>("any");
+
+  const hasActiveTableFilters =
+    todayOnly || unikaGt0 || verifiedFilter !== "any" || startedFilter !== "any";
+
+  const clearTableFilters = () => {
+    setTodayOnly(false);
+    setUnikaGt0(false);
+    setVerifiedFilter("any");
+    setStartedFilter("any");
+    setRowFilter("");
+  };
+
   const filteredRows = useMemo(() => {
     const needle = rowFilter.trim().toLowerCase();
     return rows.filter((row) => {
       if (!showOtherPaths && row.kind !== "utskick") return false;
+      if (todayOnly && !matchesTodayActivity(row)) return false;
+      if (data?.analytics.available) {
+        if (unikaGt0 && (row.stats?.uniqueVisitors ?? 0) <= 0) return false;
+        if (!matchesCountFilter(row.stats?.verified ?? 0, verifiedFilter)) return false;
+        if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
+      }
       if (!needle) return true;
       return [row.companyName, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
       );
     });
-  }, [rows, rowFilter, showOtherPaths]);
+  }, [rows, rowFilter, showOtherPaths, todayOnly, unikaGt0, verifiedFilter, startedFilter, data?.analytics.available]);
 
   const recentRows = useMemo(() => {
     if (!data) return [];
@@ -268,10 +361,18 @@ export function KostnadsfriSection() {
       started: inviteStats.reduce((sum, s) => sum + s.started, 0),
       // Sends are lifetime facts on the DB row, not period statistics.
       sent: (data?.pages ?? []).filter((page) => page.sentAt).length,
+      textGenerated: (data?.pages ?? []).filter(
+        (page) => page.mailType === "text" && page.generation.state === "succeeded",
+      ).length,
+      animatedGenerated: (data?.pages ?? []).filter(
+        (page) => page.mailType === "animated" && page.generation.state === "succeeded",
+      ).length,
     };
   }, [data, registeredSlugs]);
 
   const periodLabel = PERIODS.find((p) => p.value === days)?.label.toLowerCase() ?? "";
+  const textMailStats = data?.mailStats.byVariant.find((row) => row.variant === "text");
+  const animatedMailStats = data?.mailStats.byVariant.find((row) => row.variant === "animated");
 
   return (
     <div className="space-y-6">
@@ -292,6 +393,17 @@ export function KostnadsfriSection() {
           <AlertDescription>
             Perioden har fler händelser än servern räknar (5 000). Siffrorna nedan är en undre gräns
             — välj en kortare period för exakta tal.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {data && !data.analytics.available && (
+        <Alert variant="destructive">
+          <AlertTitle>Besöksanalysen är inte tillgänglig</AlertTitle>
+          <AlertDescription>
+            Utskicksregistret visas fortfarande. Besök, verifieringar och slutförda formulär är
+            okända — de ska inte tolkas som noll.
+            Besöksfilter är avstängda tills analysen är tillgänglig igen.
           </AlertDescription>
         </Alert>
       )}
@@ -444,64 +556,157 @@ export function KostnadsfriSection() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              <StatCard label="Utskick" value={totals.sent} hint="totalt" icon={Send} />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+              <StatCard
+                label="Utskick i registret"
+                value={totals.sent}
+                hint="företag, inte enskilda mejl"
+                icon={Send}
+              />
               <StatCard
                 label="Länkar med besök"
-                value={totals.slugs}
+                value={data.analytics.available ? totals.slugs : "—"}
                 hint={`utskick, ${periodLabel}`}
                 icon={Link2}
               />
-              <StatCard label="Besök" value={totals.visits} hint={`utskick, ${periodLabel}`} icon={Eye} />
+              <StatCard
+                label="Enskilda mejl"
+                value={data.mailStats.available ? (data.mailStats.total ?? "—") : "—"}
+                hint="alla eventrader"
+                icon={Mail}
+              />
+              <StatCard
+                label="Text genererade"
+                value={data.generationStatus.available ? totals.textGenerated : "—"}
+                hint="visat företagsregister, inklusive historik"
+                icon={Send}
+              />
+              <StatCard
+                label="Animerat genererade"
+                value={data.generationStatus.available ? totals.animatedGenerated : "—"}
+                hint="visat företagsregister, inklusive historik"
+                icon={Send}
+              />
+              <StatCard
+                label="Besök"
+                value={data.analytics.available ? totals.visits : "—"}
+                hint={`utskick, ${periodLabel}`}
+                icon={Eye}
+              />
               <StatCard
                 label="Rätt lösenord"
-                value={totals.verified}
+                value={data.analytics.available ? totals.verified : "—"}
                 hint={periodLabel}
                 icon={KeyRound}
               />
               <StatCard
                 label="Slutförda formulär"
-                value={totals.started}
+                value={data.analytics.available ? totals.started : "—"}
                 hint={periodLabel}
                 icon={Rocket}
               />
             </div>
+            <p className="text-muted-foreground text-sm">
+              Genereringarna gäller visat företagsregister, inklusive historik utan mailEvent.
+              {data.mailStats.available
+                ? ` Eventregistret har ${textMailStats?.firstAccepted ?? 0} textföretag och ${animatedMailStats?.firstAccepted ?? 0} animerade företag med accepterat första mejl.`
+                : " Eventregistret är inte tillgängligt."}
+              {" "}Underlagen ska inte divideras till en konverteringsgrad.
+            </p>
 
             <SectionCard
               title="Per företag"
               description={`Bara utskick som standard — skräpsluggar och osparade pathar räknas inte i talen ovan. "Skickat" är utskicksdatumet på den sparade raden och påverkas inte av perioden.`}
               icon={Users}
             >
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="max-w-sm flex-1">
-                  <Label htmlFor="kostnadsfri-filter" className="sr-only">
-                    Sök i registret
-                  </Label>
-                  <Input
-                    id="kostnadsfri-filter"
-                    value={rowFilter}
-                    onChange={(event) => setRowFilter(event.target.value)}
-                    placeholder="Sök företag, slug eller e-post"
-                    autoComplete="off"
-                  />
+              <div className="mb-4 space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="max-w-sm flex-1">
+                    <Label htmlFor="kostnadsfri-filter" className="sr-only">
+                      Sök i registret
+                    </Label>
+                    <Input
+                      id="kostnadsfri-filter"
+                      value={rowFilter}
+                      onChange={(event) => setRowFilter(event.target.value)}
+                      placeholder="Sök företag, slug eller e-post"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="kostnadsfri-other-paths"
+                        checked={showOtherPaths}
+                        onCheckedChange={setShowOtherPaths}
+                      />
+                      <Label htmlFor="kostnadsfri-other-paths" className="text-sm">
+                        Visa övriga pathar
+                      </Label>
+                    </div>
+                    {(hasActiveTableFilters || rowFilter.trim()) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                        onClick={clearTableFilters}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Rensa filter
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="kostnadsfri-other-paths"
-                    checked={showOtherPaths}
-                    onCheckedChange={setShowOtherPaths}
-                  />
-                  <Label htmlFor="kostnadsfri-other-paths" className="text-sm">
-                    Visa övriga pathar
-                  </Label>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <FilterChip
+                    active={todayOnly}
+                    onClick={() => setTodayOnly((value) => !value)}
+                    title="Senast idag om raden har aktivitet, annars skickat idag"
+                  >
+                    Idag
+                  </FilterChip>
+                  <FilterChip disabled={!data.analytics.available} active={data.analytics.available && unikaGt0} onClick={() => setUnikaGt0((value) => !value)}>
+                    Unika {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && verifiedFilter === "gt0"}
+                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "gt0"))}
+                  >
+                    Rätt lösenord {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && verifiedFilter === "eq0"}
+                    onClick={() => setVerifiedFilter((value) => cycleCountFilter(value, "eq0"))}
+                  >
+                    Rätt lösenord = 0
+                  </FilterChip>
+                  <FilterChip
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && startedFilter === "gt0"}
+                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "gt0"))}
+                  >
+                    Formulär klara {">"} 0
+                  </FilterChip>
+                  <FilterChip
+                    disabled={!data.analytics.available}
+                    active={data.analytics.available && startedFilter === "eq0"}
+                    onClick={() => setStartedFilter((value) => cycleCountFilter(value, "eq0"))}
+                  >
+                    Formulär klara = 0
+                  </FilterChip>
                 </div>
               </div>
               <DataState
                 isEmpty={filteredRows.length === 0}
-                emptyTitle={rowFilter.trim() ? "Inga träffar" : "Inga länkar ännu"}
+                emptyTitle={
+                  rowFilter.trim() || hasActiveTableFilters ? "Inga träffar" : "Inga länkar ännu"
+                }
                 emptyDescription={
-                  rowFilter.trim()
-                    ? "Ingen rad matchar sökningen. Rensa fältet för att se hela registret."
+                  rowFilter.trim() || hasActiveTableFilters
+                    ? "Ingen rad matchar sökningen eller filtren. Rensa för att se hela registret."
                     : showOtherPaths
                       ? "Ingen kostnadsfri-länk har besökts under perioden och ingen sida är sparad."
                       : "Inget utskick i registret för perioden. Slå på «Visa övriga pathar» för skräp och osparade sluggar."
@@ -514,6 +719,8 @@ export function KostnadsfriSection() {
                       <TableHead>Företag / slug</TableHead>
                       <TableHead>Path</TableHead>
                       <TableHead>Skickat</TableHead>
+                      <TableHead>Mejltyp</TableHead>
+                      <TableHead>Generering</TableHead>
                       <TableHead className="text-right">Besök</TableHead>
                       <TableHead className="text-right">Unika</TableHead>
                       <TableHead className="text-right">Rätt lösenord</TableHead>
@@ -548,17 +755,55 @@ export function KostnadsfriSection() {
                             <p className="text-muted-foreground text-[11px]">{row.source}</p>
                           )}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.visits ?? 0)}
+                        <TableCell>
+                          <StatusBadge tone={row.mailType === "unregistered" ? "off" : "ok"}>
+                            {row.mailType === "text"
+                              ? "Text"
+                              : row.mailType === "animated"
+                                ? "Animerat"
+                                : "Ej registrerad"}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            tone={
+                              row.generation.state === "succeeded"
+                                ? "ok"
+                                : row.generation.state === "failed"
+                                  ? "warn"
+                                  : "off"
+                            }
+                          >
+                            {row.generation.state === "succeeded"
+                              ? "Genererad"
+                              : row.generation.state === "in-progress"
+                                ? "Pågår"
+                                : row.generation.state === "failed"
+                                  ? "Misslyckad"
+                                  : row.generation.state === "not-started"
+                                    ? "Ej startad"
+                                    : "Okänd"}
+                          </StatusBadge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.uniqueVisitors ?? 0)}
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.visits ?? 0) : null,
+                          )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.verified ?? 0)}
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.uniqueVisitors ?? 0) : null,
+                          )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {formatCount(row.stats?.started ?? 0)}
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.verified ?? 0) : null,
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCount(
+                            data.analytics.available ? (row.stats?.started ?? 0) : null,
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {formatTime(row.stats?.lastSeen)}
