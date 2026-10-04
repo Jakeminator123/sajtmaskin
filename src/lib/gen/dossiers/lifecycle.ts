@@ -13,7 +13,7 @@
  * statuses without inventing an ordered selected -> configured -> verified
  * state machine.
  */
-import { mapDossierPathToOutput, normalizeDossierProjectPath } from "./output-path";
+import { normalizeDossierProjectPath, resolveDossierFilePath } from "./output-path";
 import { dossierRequiresF3, type DossierEntry } from "./types";
 
 export type DossierLifecycleOverviewStatus =
@@ -80,6 +80,13 @@ export interface DossierLifecycleResolution {
 
 const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 
+function isLiteralCanonicalProjectPath(path: string): boolean {
+  return (
+    normalizeDossierProjectPath(path) === path &&
+    path.split("/").every((segment) => segment !== "." && segment !== "..")
+  );
+}
+
 /**
  * Match an env key as a standalone identifier. Keys come from manifests but
  * are escaped defensively.
@@ -103,15 +110,15 @@ function resolveServerEvidenceSatisfied(
 ): boolean | null {
   const serverPaths = (entry.files ?? [])
     .filter((file) => file.role === "server")
-    .map((file) => normalizeDossierProjectPath(mapDossierPathToOutput(file.path)));
+    .map((file) => resolveDossierFilePath(file.path).outputPath);
   if (serverPaths.length === 0) return true;
   if (versionFiles === null) return null;
 
   const files = versionFiles.flatMap((file) =>
-    typeof file.path === "string" && file.path.trim().length > 0
+    typeof file.path === "string" && file.path.length > 0
       ? [
           {
-            path: normalizeDossierProjectPath(file.path),
+            path: file.path,
             content: typeof file.content === "string" ? file.content : "",
           },
         ]
@@ -134,6 +141,7 @@ function resolveServerEvidenceSatisfied(
 
   return files.some(
     (file) =>
+      isLiteralCanonicalProjectPath(file.path) &&
       API_ROUTE_PATH_RE.test(file.path) &&
       file.content.includes("process.env") &&
       keyPatterns.some((pattern) => pattern.test(file.content)),

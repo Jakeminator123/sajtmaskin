@@ -61,7 +61,7 @@ import type { DossierEntry, DossierFile, SelectedDossier } from "./types";
 
 /** Mapped output path for a dossier manifest file. */
 function outputPathFor(file: DossierFile): string {
-  return normalizeDossierProjectPath(resolveDossierFilePath(file.path).outputPath);
+  return resolveDossierFilePath(file.path).outputPath;
 }
 
 function outputOwnershipIdentity(path: string): string {
@@ -129,8 +129,8 @@ export function resolveDossierIdsPresentInVersion(
 ): string[] {
   const presentPaths = new Set<string>();
   for (const path of filePaths) {
-    if (typeof path === "string" && path.trim().length > 0) {
-      presentPaths.add(normalizeDossierProjectPath(path));
+    if (typeof path === "string" && path.length > 0) {
+      presentPaths.add(path);
     }
   }
   if (presentPaths.size === 0) return [];

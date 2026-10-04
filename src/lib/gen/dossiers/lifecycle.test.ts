@@ -189,6 +189,33 @@ describe("resolveDossierLifecycle", () => {
     });
   });
 
+  it.each([
+    " app/api/example/route.ts ",
+    "app/api//example/route.ts",
+    "app//api/example/route.ts",
+    "app/api/./example/route.ts",
+    "app/api/../example/route.ts",
+    "./app/api/example/route.ts",
+    "/app/api/example/route.ts",
+    "app\\api\\example\\route.ts",
+  ])("does not accept non-canonical server evidence at %j", (path) => {
+    const result = resolve({
+      configuredBySelection: true,
+      materialized: true,
+      realEnvKeys: new Set(["EXAMPLE_SECRET_KEY"]),
+      requirements: [requirement()],
+      versionFiles: [
+        {
+          path,
+          content: "const key = process.env.EXAMPLE_SECRET_KEY; export { key };",
+        },
+      ],
+    });
+
+    expect(result.overviewStatus).toBe("built-demo");
+    expect(result.serverEvidenceSatisfied).toBe(false);
+  });
+
   it("does not let partial manifest injection fall through to model-built evidence", () => {
     const result = resolve({
       entry: dossier({

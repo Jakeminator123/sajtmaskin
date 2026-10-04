@@ -247,11 +247,11 @@ export function rewriteDossierImportsForRenames(
   for (const file of files) originalFileMap.set(normalizeDossierProjectPath(file.path), file);
 
   const rewritten = files.map((file) => {
-    if (!isGuardablePath(file.path)) return file;
     const originalImporter = normalizeDossierProjectPath(file.path);
+    if (!isGuardablePath(originalImporter)) return file;
     const importerRename = matchRenameExact(originalImporter, normalizedRenames);
     const canonicalImporter = importerRename?.rename.toPath ?? originalImporter;
-    const sourceFile = createTsxSourceFile(file.path, file.content);
+    const sourceFile = createTsxSourceFile(originalImporter, file.content);
     const edits: TextEdit[] = [];
 
     for (const literal of collectModuleStringLiterals(sourceFile)) {
@@ -313,7 +313,7 @@ export function rewriteDossierImportsForRenames(
     }
 
     if (edits.length === 0) return file;
-    if (countParseErrors(file.content, file.path) > 0) {
+    if (countParseErrors(file.content, originalImporter) > 0) {
       throw new Error(`[dossiers] import-rewrite-unsafe: ${file.path} does not parse cleanly`);
     }
     let content = file.content;

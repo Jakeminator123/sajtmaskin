@@ -247,6 +247,22 @@ describe("rewriteDossierImportsForRenames", () => {
     expect(result.files[0]!.content).toContain("from '@/components/new'");
   });
 
+  it.each([
+    "Components/Foo.ts ",
+    ".//Components//Foo.ts",
+    "/Components/Foo.ts",
+    "Components\\Foo.ts",
+  ])("normalizes importer spelling %j before applying the AST guard", (importerPath) => {
+    const result = rewriteDossierImportsForRenames(
+      [
+        file(importerPath, 'import { shared } from "./shared";'),
+        file("Components/shared.ts", "export const shared = true;"),
+      ],
+      [{ fromPath: "Components/Foo.ts", toPath: "components/foo.ts" }],
+    );
+    expect(result.files[0]!.content).toContain('from "../Components/shared"');
+  });
+
   it("escapes the preserved quote delimiter in a canonical module path", () => {
     const result = rewriteDossierImportsForRenames(
       [file("app/page.ts", "import { x } from '@/components/Old';")],

@@ -169,11 +169,31 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(ids).toContain("gallery-lightbox");
   });
 
-  it("normalizes leading ./ and / in file paths", () => {
-    const ids = resolveDossierIdsPresentInVersion([
-      " .//app///api/chat/route.ts ",
+  it("requires the literal canonical output path for functional presence", () => {
+    expect(resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"])).toContain(
+      "openai-chat",
+    );
+  });
+
+  it.each([
+    " app/api/chat/route.ts ",
+    "app//api/chat/route.ts",
+    "./app/api/chat/route.ts",
+    "/app/api/chat/route.ts",
+    "app\\api\\chat\\route.ts",
+    "App/api/chat/route.ts",
+  ])("does not treat non-canonical persisted spelling %j as functional presence", (path) => {
+    expect(resolveDossierIdsPresentInVersion([path])).not.toContain("openai-chat");
+  });
+
+  it("does not treat a Unicode-composition alias as functional presence", () => {
+    vi.spyOn(dossierRegistry, "getAllDossiers").mockReturnValue([
+      syntheticDossier("unicode-path", "components/Caf\u00e9.ts"),
     ]);
-    expect(ids).toContain("openai-chat");
+    expect(resolveDossierIdsPresentInVersion(["components/Cafe\u0301.ts"])).toEqual([]);
+    expect(resolveDossierIdsPresentInVersion(["components/Caf\u00e9.ts"])).toEqual([
+      "unicode-path",
+    ]);
   });
 });
 
@@ -251,6 +271,15 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
       configuredEnvKeys: new Set<string>(),
     });
     expect(selected.map((s) => s.entry.id)).toEqual(["openai-chat"]);
+  });
+
+  it("does not propagate a non-canonical persisted path into selected dossiers", () => {
+    const selected = resolveSelectedDossiersWithVersionPresence({
+      snapshot: null,
+      versionFiles: [{ path: "./app/api/chat/route.ts" }],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(selected).toEqual([]);
   });
 
   // auth-merge regression (2026-07-22): after `supabase-auth`→`auth` the
