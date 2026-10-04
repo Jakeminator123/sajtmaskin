@@ -8,7 +8,11 @@ import {
   parseManifestDependencySpec,
   resolveExportableVersion,
 } from "@/lib/gen/autofix/dep-completer";
-import { mapDossierPathToOutput } from "./output-path";
+import {
+  dossierOutputPathIdentity,
+  dossierOutputPathsHaveFileDirectoryConflict,
+  resolveDossierFilePath,
+} from "./output-path";
 import { getDossierById, getDossierFileContent } from "./registry";
 import type { DossierEntry } from "./types";
 
@@ -21,12 +25,36 @@ function asCodeFile(path: string, content: string): CodeFile {
   return { path, content, language: inferFileLanguage(path) };
 }
 
+function assertAcceptanceOutputCanMaterialize(
+  byPath: ReadonlyMap<string, CodeFile>,
+  outputPath: string,
+  dossierId: string,
+): void {
+  const existingIdentity = byPath.get(dossierOutputPathIdentity(outputPath));
+  if (existingIdentity && existingIdentity.path !== outputPath) {
+    throw new Error(
+      `${dossierId}: acceptance-output-conflict: ${outputPath} aliases ${existingIdentity.path}`,
+    );
+  }
+  for (const existing of byPath.values()) {
+    if (
+      existing.path !== outputPath &&
+      dossierOutputPathsHaveFileDirectoryConflict(existing.path, outputPath)
+    ) {
+      throw new Error(
+        `${dossierId}: acceptance-output-conflict: ${outputPath} has a file/directory conflict with ${existing.path}`,
+      );
+    }
+  }
+}
+
 /**
  * Materialize the same keyless generated-project shape that scheduled dossier
- * acceptance builds use. The dossier wins path collisions over the common
- * landing-page scaffold; export baseline completion then supplies package,
- * tsconfig and framework files exactly as a generated user project receives
- * them.
+ * acceptance builds use. The dossier may replace an exact literal path in the
+ * common landing-page scaffold; portable aliases and file/directory conflicts
+ * are rejected before materialization. Export baseline completion then supplies
+ * package, tsconfig and framework files exactly as a generated user project
+ * receives them.
  *
  * Covers every dossier that SHIPS FILES — hard and soft alike. The former
  * hard-only guard left soft verbatim components without any typecheck against
@@ -44,15 +72,16 @@ export function buildDossierAcceptanceProject(dossierId: string): DossierAccepta
 
   const byPath = new Map<string, CodeFile>();
   for (const file of landingPageManifest.files) {
-    byPath.set(file.path, asCodeFile(file.path, file.content));
+    byPath.set(dossierOutputPathIdentity(file.path), asCodeFile(file.path, file.content));
   }
   for (const file of dossier.files ?? []) {
     const content = getDossierFileContent(dossier.class, dossier.id, file.path);
     if (content === null) {
       throw new Error(`${dossier.id}: declared file could not be read: ${file.path}`);
     }
-    const outputPath = mapDossierPathToOutput(file.path);
-    byPath.set(outputPath, asCodeFile(outputPath, content));
+    const outputPath = resolveDossierFilePath(file.path).outputPath;
+    assertAcceptanceOutputCanMaterialize(byPath, outputPath, dossier.id);
+    byPath.set(dossierOutputPathIdentity(outputPath), asCodeFile(outputPath, content));
   }
 
   const generatedFiles = Array.from(byPath.values());

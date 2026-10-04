@@ -20,7 +20,11 @@ import { join } from "node:path";
 import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
 import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
-import { mapDossierPathToOutput } from "./output-path";
+import {
+  dossierOutputPathIdentity,
+  dossierOutputPathsHaveFileDirectoryConflict,
+  resolveDossierFilePath,
+} from "./output-path";
 import type {
   DossierClass,
   DossierEntry,
@@ -89,7 +93,12 @@ export function validateDossierManifest(
   }
 
   if (typeof raw === "object" && raw !== null) {
-    const manifest = raw as { id?: unknown; providers?: unknown; envVars?: unknown };
+    const manifest = raw as {
+      id?: unknown;
+      providers?: unknown;
+      envVars?: unknown;
+      files?: unknown;
+    };
     const id = manifest.id;
     if (id !== context.expectedId) {
       errors.push(
@@ -110,6 +119,74 @@ export function validateDossierManifest(
         errors.push("soft manifests must not declare non-empty envVars");
       }
     }
+
+    if (Array.isArray(manifest.files)) {
+      const ownersBySourceIdentity = new Map<string, { sourcePath: string; index: number }>();
+      const sourceOwners: Array<{ sourcePath: string; index: number }> = [];
+      const ownersByOutputIdentity = new Map<
+        string,
+        { sourcePath: string; outputPath: string; index: number }
+      >();
+      const resolvedOwners: Array<{ sourcePath: string; outputPath: string; index: number }> = [];
+      for (const [index, file] of manifest.files.entries()) {
+        const path =
+          typeof file === "object" && file !== null ? (file as { path?: unknown }).path : undefined;
+        if (typeof path !== "string") continue;
+        try {
+          const resolved = resolveDossierFilePath(path);
+          const sourceIdentity = dossierOutputPathIdentity(path);
+          const previousSource = ownersBySourceIdentity.get(sourceIdentity);
+          if (previousSource) {
+            errors.push(
+              `/files/${index}/path ${JSON.stringify(path)} collides with files[${previousSource.index}].path ${JSON.stringify(previousSource.sourcePath)} under portable source path identity`,
+            );
+          } else {
+            ownersBySourceIdentity.set(sourceIdentity, { sourcePath: path, index });
+          }
+          for (const previousOwner of sourceOwners) {
+            if (dossierOutputPathsHaveFileDirectoryConflict(previousOwner.sourcePath, path)) {
+              errors.push(
+                `/files/${index}/path ${JSON.stringify(path)} has a portable source path file/directory conflict with files[${previousOwner.index}].path ${JSON.stringify(previousOwner.sourcePath)}`,
+              );
+            }
+          }
+          sourceOwners.push({ sourcePath: path, index });
+          const previous = ownersByOutputIdentity.get(resolved.outputIdentity);
+          if (previous) {
+            errors.push(
+              `/files/${index}/path ${JSON.stringify(path)} maps to ${JSON.stringify(
+                resolved.outputPath,
+              )}, which collides with files[${previous.index}].path ${JSON.stringify(
+                previous.sourcePath,
+              )} under portable case-folded output identity`,
+            );
+          } else {
+            ownersByOutputIdentity.set(resolved.outputIdentity, {
+              sourcePath: path,
+              outputPath: resolved.outputPath,
+              index,
+            });
+          }
+          for (const previousOwner of resolvedOwners) {
+            if (
+              dossierOutputPathsHaveFileDirectoryConflict(
+                previousOwner.outputPath,
+                resolved.outputPath,
+              )
+            ) {
+              errors.push(
+                `/files/${index}/path ${JSON.stringify(path)} has a portable file/directory conflict with files[${previousOwner.index}].path ${JSON.stringify(previousOwner.sourcePath)}`,
+              );
+            }
+          }
+          resolvedOwners.push({ sourcePath: path, outputPath: resolved.outputPath, index });
+        } catch (error) {
+          errors.push(
+            `/files/${index}/path ${error instanceof Error ? error.message : "is invalid"}`,
+          );
+        }
+      }
+    }
   } else {
     errors.push("manifest must be a JSON object");
   }
@@ -117,7 +194,7 @@ export function validateDossierManifest(
   if (errors.length > 0) return { valid: false, errors };
 
   // Cross-check: every `exposes[].import` of shape `@/<path>` must resolve to
-  // a `files[]` entry once `mapDossierPathToOutput` has been applied. Catches
+  // a `files[]` entry once `resolveDossierFilePath` has been applied. Catches
   // the rotorsaks-bug where dossiers shipped with a path/import drift that
   // made verbatim emit at one location while the user-project import looked
   // at another (Jakob 2026-05-01).
@@ -131,7 +208,7 @@ export function validateDossierManifest(
       valid: false,
       errors: exposesMismatches.map(
         (m) =>
-          `exposes[].import "${m.importPath}" does not resolve to any files[].path (after mapDossierPathToOutput) — candidates: ${m.candidates.join(", ") || "(none)"}`,
+          `exposes[].import "${m.importPath}" does not resolve to any files[].path (after resolveDossierFilePath) — candidates: ${m.candidates.join(", ") || "(none)"}`,
       ),
     };
   }
@@ -155,7 +232,7 @@ export interface ExposesImportMismatch {
  * — empty array means the manifest's exposes contract is internally
  * consistent.
  *
- * The mapping must use the same `mapDossierPathToOutput` that the runtime
+ * The mapping must use the same `resolveDossierFilePath` that the runtime
  * uses; otherwise the cross-check would itself drift from the system-prompt
  * + verbatim-policy emit path.
  */
@@ -166,7 +243,7 @@ export function findExposesImportMismatches(
   if (exposes.length === 0) return [];
 
   const outputPaths = files
-    .map((f) => (typeof f?.path === "string" ? mapDossierPathToOutput(f.path) : null))
+    .map((f) => (typeof f?.path === "string" ? resolveDossierFilePath(f.path).outputPath : null))
     .filter((p): p is string => typeof p === "string" && p.length > 0);
 
   const mismatches: ExposesImportMismatch[] = [];
@@ -265,7 +342,7 @@ export function validateDossierImportClosure(
   const issues: ImportClosureIssue[] = [];
   const manifestFiles = manifest.files ?? [];
   // Match both the staged dossier path (components/lib/x.ts) AND the emitted
-  // user-project path (lib/x.ts via mapDossierPathToOutput). Imports in
+  // user-project path (lib/x.ts via resolveDossierFilePath). Imports in
   // dossier code target the EMITTED location (`@/lib/...`), same contract the
   // exposes cross-check above already validates against — without the mapped
   // set, any dossier that imports its own components/lib/ helper would
@@ -273,7 +350,7 @@ export function validateDossierImportClosure(
   const dossierFileSet = new Set(
     manifestFiles.flatMap((f) => [
       normalizeFilePath(f.path),
-      normalizeFilePath(mapDossierPathToOutput(f.path)),
+      normalizeFilePath(resolveDossierFilePath(f.path).outputPath),
     ]),
   );
   const normalizedScaffoldSet = new Set(Array.from(scaffoldFileSet, normalizeFilePath));

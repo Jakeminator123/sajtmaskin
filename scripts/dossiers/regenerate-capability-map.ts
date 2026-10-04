@@ -58,9 +58,12 @@ export const FIXED_SOURCE_PATHS = [
   "src/lib/builder/dossier-axes.ts",
   "src/lib/builder/dossier-groups.ts",
   "src/lib/gen/dossiers/f2-mute.ts",
+  "src/lib/gen/dossiers/output-path.ts",
   "src/lib/gen/dossiers/registry.ts",
   "src/lib/gen/dossiers/types.ts",
   "src/lib/gen/dossiers/validate-manifest.ts",
+  "src/lib/gen/scaffolds/protected-paths.ts",
+  "src/lib/gen/security/path-validator.ts",
 ] as const;
 
 const MOCK_MODE_VALUES = ["canned", "seed", "success", "visual", "none"] as const satisfies readonly DossierMockMode[];

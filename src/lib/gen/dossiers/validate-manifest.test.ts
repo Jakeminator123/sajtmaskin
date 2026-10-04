@@ -91,6 +91,161 @@ describe("validateDossierManifest — happy path", () => {
   });
 });
 
+describe("validateDossierManifest — canonical file paths", () => {
+  it.each([
+    "../outside.ts",
+    "/absolute.ts",
+    "C:/absolute.ts",
+    "components\\windows.ts",
+    "components/NUL.ts",
+    "components/bad?.ts",
+    "components/trailing./file.ts",
+    "components/foo bar.ts",
+    "components/caf\u00e9.ts",
+    "components/\u180efoo.ts",
+    "server/foo.ts",
+    "components/node_modules/x.ts",
+    `components/lib/${"a".repeat(194)}.ts`,
+    "CONIN$",
+    "components/conout$",
+    "CONIN$.txt",
+    "APP/LAYOUT.TSX",
+  ])("rejects unsafe or scaffold-reserved path %s", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
+  it.each([
+    " components/foo.ts",
+    "components/foo.ts ",
+    "components/ nested/foo.ts",
+    "components/nested /foo.ts",
+    "\u00a0components/foo.ts",
+    "components/foo.ts\u00a0",
+    "components/\u00a0nested/foo.ts",
+    "components/nested\u00a0/foo.ts",
+    "\ufeffcomponents/foo.ts",
+    "components/foo.ts\ufeff",
+    "components/\ufeffnested/foo.ts",
+    "components/nested\ufeff/foo.ts",
+    "\u2009components/foo.ts",
+    "components/nested\u3000/foo.ts",
+  ])("rejects a manifest path with segment-boundary whitespace %j", (path) => {
+    const result = validateDossierManifest(
+      { ...VALID_MANIFEST, files: [{ path, role: "shared" }] },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("path");
+  });
+
+  it("accepts legitimate app, component and Next.js catch-all paths", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "app/statistik/page.tsx", role: "client" },
+          { path: "components/legal/notice.tsx", role: "client" },
+          { path: "app/docs/[...slug]/page.tsx", role: "server" },
+          { path: "app/docs/[[...optional]]/page.tsx", role: "server" },
+          { path: "app/(marketing)/page.tsx", role: "client" },
+          { path: "app/@modal/default.tsx", role: "client" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects intra-manifest mapping, case and Unicode aliases", () => {
+    for (const files of [
+      [
+        { path: "components/api/chat/route.ts", role: "server" },
+        { path: "app/api/chat/route.ts", role: "server" },
+      ],
+      [
+        { path: "components/Foo.ts", role: "shared" },
+        { path: "components/foo.ts", role: "shared" },
+      ],
+    ]) {
+      const result = validateDossierManifest(
+        { ...VALID_MANIFEST, files },
+        { expectedId: "example-dossier", class: "soft" },
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.errors.join("\n")).toContain("collides");
+    }
+  });
+
+  it.each([
+    ["components/api/chat/route.ts", "components/api/Chat/route.ts"],
+    ["components/api/chat", "components/api/Chat/route.ts"],
+  ])("rejects portable source-path collision %s and %s before output mapping", (first, second) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: first, role: "server" },
+          { path: second, role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("source path");
+  });
+
+  it("allows source-path prefix siblings without a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/api/chat", role: "server" },
+          { path: "components/api/Chatty/route.ts", role: "server" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it.each([
+    ["components/cache", "components/cache/item.ts"],
+    ["components/Cache", "components/cache/item.ts"],
+  ])("rejects intra-manifest file/directory claims %s and %s", (parent, child) => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: parent, role: "shared" },
+          { path: child, role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join("\n")).toContain("file/directory");
+  });
+
+  it("allows path-prefix siblings that do not share a slash boundary", () => {
+    const result = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        files: [
+          { path: "components/cache", role: "shared" },
+          { path: "components/cache-item/file.ts", role: "shared" },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
 describe("validateDossierManifest — mock field (Våg 2)", () => {
   it("accepts a manifest with a valid mock mode", () => {
     for (const mock of ["canned", "seed", "success", "none"] as const) {

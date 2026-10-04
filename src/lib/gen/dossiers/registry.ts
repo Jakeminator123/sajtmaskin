@@ -12,9 +12,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { hasTraversalSegment } from "@/lib/utils/path-utils";
 import { dossierRequiresF3, type DossierClass, type DossierEntry } from "./types";
 import { validateDossierManifest } from "./validate-manifest";
+import {
+  findDivergentDossierOutputPathConflicts,
+  resolveDossierFilePath,
+  type DossierOutputPathConflict,
+} from "./output-path";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const CLASSES: readonly DossierClass[] = ["hard", "soft"] as const;
@@ -152,6 +156,32 @@ export function getAllDossiers(): DossierEntry[] {
   return out;
 }
 
+/**
+ * Diagnose output identities that dossiers from different capabilities could
+ * claim together. Same-capability siblings are mutually exclusive at
+ * selection time; exact-path byte-identical helpers are safe to share.
+ */
+export function findDossierPoolOutputConflicts(
+  dossiers: readonly DossierEntry[],
+  readFile: (
+    klass: DossierClass,
+    id: string,
+    sourcePath: string,
+  ) => string | null = getDossierFileContent,
+): DossierOutputPathConflict[] {
+  const claims = dossiers.flatMap((dossier) =>
+    (dossier.files ?? []).map((file) => ({
+      dossierId: dossier.id,
+      capability: dossier.capability,
+      sourcePath: file.path,
+      content: readFile(dossier.class, dossier.id, file.path),
+    })),
+  );
+  return findDivergentDossierOutputPathConflicts(claims).filter(
+    (conflict) => new Set(conflict.claims.map((claim) => claim.capability.toLowerCase())).size > 1,
+  );
+}
+
 export type DossierProviderResolutionStatus = "dossierless" | "unique" | "ambiguous";
 
 export interface DossierProviderResolution {
@@ -253,31 +283,28 @@ export function getDossierInstructions(klass: DossierClass, id: string): string 
 }
 
 /**
- * Read a file inside a dossier directory; mtime-cached. Returns null if
- * missing or path-traversal is detected. Used for verbatim file injection.
- *
- * The traversal check uses `path.resolve` so that Windows separators and
- * symlink-style ".." segments are normalized before the prefix comparison.
+ * Read a canonical file inside a dossier directory; mtime-cached. Returns null
+ * if it is missing or violates the shared portable path/output contract.
  */
 export function getDossierFileContent(
   klass: DossierClass,
   id: string,
   relPath: string,
 ): string | null {
-  const norm = relPath.replace(/\\/g, "/");
-  // Segment-based (PR #396 class): a dossier file under a literal catch-all
-  // directory (`files/app/docs/[...slug]/page.tsx`) contains the substring
-  // `..` but is not traversal — the resolve-prefix check below is the
-  // authoritative escape guard.
-  if (hasTraversalSegment(norm) || norm.startsWith("/")) return null;
+  let sourcePath: string;
+  try {
+    sourcePath = resolveDossierFilePath(relPath).sourcePath;
+  } catch {
+    return null;
+  }
   const dir = resolve(ROOT, klass, id);
-  const path = resolve(dir, ...norm.split("/"));
+  const path = resolve(dir, ...sourcePath.split("/"));
   if (path !== dir && !path.startsWith(dir + (process.platform === "win32" ? "\\" : "/"))) {
     return null;
   }
   const mtime = fileMtime(path);
   if (mtime === null) return null;
-  const key = `${klass}/${id}/${norm}`;
+  const key = `${klass}/${id}/${sourcePath}`;
   const cached = _fileCache.get(key);
   if (cached && cached.mtimeMs === mtime) return cached.value;
   let text: string;
@@ -354,14 +381,18 @@ export function clearDossierRegistryCache(): void {
 }
 
 /**
- * Path-traversal helper exposed for tests. Returns true if `relPath`
- * resolves inside the dossier directory; false otherwise.
+ * Shared-path helper exposed for tests. Returns true when `relPath` satisfies
+ * the same portable and reserved-output policy as runtime reads.
  */
 export function isSafeDossierPath(klass: DossierClass, id: string, relPath: string): boolean {
-  const norm = relPath.replace(/\\/g, "/");
-  if (hasTraversalSegment(norm) || norm.startsWith("/")) return false;
+  let sourcePath: string;
+  try {
+    sourcePath = resolveDossierFilePath(relPath).sourcePath;
+  } catch {
+    return false;
+  }
   const dir = resolve(ROOT, klass, id);
-  const path = resolve(dir, ...norm.split("/"));
+  const path = resolve(dir, ...sourcePath.split("/"));
   const rel = path.slice(dir.length);
   return path.startsWith(dir) && (rel === "" || rel.startsWith("\\") || rel.startsWith("/"));
 }

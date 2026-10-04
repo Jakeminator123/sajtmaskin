@@ -7,8 +7,15 @@ import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
-import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
-import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
+import {
+  applyDossierCanonicalPathPolicy,
+  applyDossierVerbatimPolicy,
+} from "@/lib/gen/dossiers/verbatim-policy";
+import {
+  dossierOutputPathIdentity,
+  mapDossierPathToOutput,
+  normalizeDossierProjectPath,
+} from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-route-plan";
 import {
@@ -163,7 +170,11 @@ export interface MergeGeneratedProjectFilesResult {
 }
 
 function normalizeDossierPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.?\//, "");
+  return normalizeDossierProjectPath(path);
+}
+
+function dossierPathOwnershipIdentity(path: string): string {
+  return dossierOutputPathIdentity(normalizeDossierPath(path));
 }
 
 export function removeExplicitlyRemovedDossierFiles(params: {
@@ -174,7 +185,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   const activePaths = new Set(
     params.selectedDossiers.flatMap((dossier) =>
       (dossier.files ?? []).map((file) =>
-        normalizeDossierPath(mapDossierPathToOutput(file.path)),
+        dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
       ),
     ),
   );
@@ -182,7 +193,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
     params.removedDossiers.flatMap((dossier) =>
       (dossier.files ?? [])
         .map((file) =>
-          normalizeDossierPath(mapDossierPathToOutput(file.path)),
+          dossierPathOwnershipIdentity(mapDossierPathToOutput(file.path)),
         )
         .filter((path) => !activePaths.has(path)),
     ),
@@ -193,7 +204,7 @@ export function removeExplicitlyRemovedDossierFiles(params: {
   const removedPaths: string[] = [];
   const files = params.files.filter((file) => {
     const path = normalizeDossierPath(file.path);
-    if (!removablePaths.has(path)) return true;
+    if (!removablePaths.has(dossierOutputPathIdentity(path))) return true;
     removedPaths.push(path);
     return false;
   });
@@ -441,7 +452,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    const canonicalPathResult = applyDossierCanonicalPathPolicy({
+      llmFiles: mergedFiles,
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let finalFiles = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -510,9 +525,26 @@ export function mergeGeneratedProjectFiles({
         fixes: postRemovalCrossFileResult.fixes,
       });
     }
+    const finalDossierResult =
+      removalResult.removedPaths.length > 0
+        ? applyDossierVerbatimPolicy({
+            llmFiles: postRemovalCrossFileResult.files,
+            selectedDossiers: selectedDossiers ?? [],
+          })
+        : { files: postRemovalCrossFileResult.files, restored: [] };
+    const postRemovalVerbatimDrift = finalDossierResult.restored.filter(
+      (event) => event.reason === "verbatim_content_drift",
+    );
+    if (postRemovalVerbatimDrift.length > 0) {
+      throw new Error(
+        `[dossiers] post-removal-verbatim-mutation: cross-file repair mutated canonical bytes for ${postRemovalVerbatimDrift
+          .map((event) => `${event.dossierId}:${event.path}`)
+          .join(", ")}`,
+      );
+    }
 
     return {
-      filesJson: JSON.stringify(postRemovalCrossFileResult.files),
+      filesJson: JSON.stringify(finalDossierResult.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
@@ -634,7 +666,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const crossFileResult = checkCrossFileImports(mergedFiles, selectedDossierIds);
+    const canonicalPathResult = applyDossierCanonicalPathPolicy({
+      llmFiles: mergedFiles,
+      selectedDossiers: selectedDossiers ?? [],
+    });
+    const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
     let afterCrossFile = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
@@ -688,7 +724,11 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
-  const crossFileResult = checkCrossFileImports(generatedFiles, selectedDossierIds);
+  const canonicalPathResult = applyDossierCanonicalPathPolicy({
+    llmFiles: generatedFiles,
+    selectedDossiers: selectedDossiers ?? [],
+  });
+  const crossFileResult = checkCrossFileImports(canonicalPathResult.files, selectedDossierIds);
   let crossFileFiles = crossFileResult.files;
   if (crossFileResult.fixes.length > 0) {
     devLogAppend("in-progress", {
@@ -768,11 +808,10 @@ export function mergeGeneratedProjectFiles({
     selectedDossiers: selectedDossiers ?? [],
     chatId,
   });
-  const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
     filesJson:
-      hasVerbatimRestorations || hasFilteredOriginal || navSyncedFallback.changed
+      verbatimResult4.changed || hasFilteredOriginal || navSyncedFallback.changed
         ? JSON.stringify(verbatimResult4.files)
         : originalFilesJson,
     rejectedShrinks: [],

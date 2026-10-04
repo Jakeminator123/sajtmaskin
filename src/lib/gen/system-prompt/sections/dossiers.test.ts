@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { DossierSelectionResult } from "../../dossiers";
+import {
+  getAllDossiers,
+  getDossierInstructions,
+  type DossierSelectionResult,
+} from "../../dossiers";
 import { renderCapabilityModifyHintBlock, renderDossierBlocks } from "./dossiers";
 
 // Plan 11 / open-question #12: when the follow-up was classified as
@@ -660,5 +664,26 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(() => renderDossierBlocks(selection)).toThrow(
       "verbatim-missing missing-hard-dossier",
     );
+  });
+
+  it("fails before prompt construction for divergent selected output aliases", () => {
+    const authEntries = getAllDossiers()
+      .filter((entry) => ["clerk-auth", "supabase-auth"].includes(entry.id))
+      .map((entry) => ({
+        reason: "capability-match" as const,
+        configured: false,
+        entry: {
+          ...entry,
+          instructions: getDossierInstructions(entry.class, entry.id),
+        },
+      }));
+    expect(authEntries).toHaveLength(2);
+    expect(() =>
+      renderDossierBlocks({
+        poolSize: 2,
+        byCapability: { auth: authEntries.map((selection) => selection.entry.id) },
+        selected: authEntries,
+      }),
+    ).toThrow(/selected-output-conflict.*middleware\.ts/);
   });
 });

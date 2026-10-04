@@ -10,8 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockGetDossierFileContent =
   vi.fn<(klass: string, id: string, relPath: string) => string | null>();
 vi.mock("./registry", () => ({
-  getDossierFileContent: (...args: [string, string, string]) =>
-    mockGetDossierFileContent(...args),
+  getDossierFileContent: (...args: [string, string, string]) => mockGetDossierFileContent(...args),
 }));
 
 const mockDevLogAppend = vi.fn();
@@ -92,6 +91,154 @@ describe("applyDossierVerbatimPolicy", () => {
       expect(restored).toHaveLength(0);
     });
 
+    it("canonicalizes a case-only dossier-owned output alias even when bytes already match", () => {
+      const canonical = "export const value = 1;";
+      mockGetDossierFileContent.mockReturnValue(canonical);
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared" }],
+      });
+      const llmFile = makeFile("components/foo.ts", canonical);
+      const { files, restored } = applyDossierVerbatimPolicy({
+        llmFiles: [llmFile],
+        selectedDossiers: [dossier],
+      });
+      expect(files).toHaveLength(1);
+      expect(files[0]?.path).toBe("components/Foo.ts");
+      expect(files[0]?.content).toBe(canonical);
+      expect(restored).toHaveLength(0);
+    });
+
+    it("canonicalizes a present rewritable alias without replacing its content", () => {
+      mockGetDossierFileContent.mockReturnValue("canonical seed");
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "rewritable" }],
+      });
+      const llmFile = makeFile("components/foo.ts", "LLM-owned content");
+      const { files, restored } = applyDossierVerbatimPolicy({
+        llmFiles: [llmFile],
+        selectedDossiers: [dossier],
+      });
+      expect(files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: "LLM-owned content" }),
+      ]);
+      expect(restored).toEqual([]);
+    });
+
+    it.each([
+      ["rewritable", "/components/Foo.ts"],
+      ["verbatim", "/components/Foo.ts"],
+      ["rewritable", "./components/Foo.ts"],
+      ["rewritable", "components\\Foo.ts"],
+    ] as const)("canonicalizes lone %s project-path spelling %s", (mode, path) => {
+      const canonical = "canonical bytes";
+      const llmContent = mode === "rewritable" ? "LLM-owned content" : canonical;
+      mockGetDossierFileContent.mockReturnValue(canonical);
+      const dossier = makeVerbatimDossier({
+        codeFidelity: mode,
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: mode }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile(path, llmContent)],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: llmContent }),
+      ]);
+    });
+
+    it("rewrites verified imports to a canonicalized dossier target", () => {
+      mockGetDossierFileContent.mockReturnValue("canonical seed");
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [
+          {
+            path: "components/db-config-notice.tsx",
+            role: "client",
+            injectionMode: "rewritable",
+          },
+        ],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [
+          makeFile("components/DB-config-notice.tsx", "LLM-owned notice"),
+          makeFile(
+            "app/page.tsx",
+            'import { Notice } from "@/components/DB-config-notice";\nexport default Notice;',
+          ),
+        ],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files[0]).toEqual(
+        expect.objectContaining({
+          path: "components/db-config-notice.tsx",
+          content: "LLM-owned notice",
+        }),
+      );
+      expect(result.files[1]!.content).toContain('from "@/components/db-config-notice"');
+    });
+
+    it("leaves a lone path alias and its importer untouched when canonical bytes are unavailable", () => {
+      mockGetDossierFileContent.mockReturnValue(null);
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared" }],
+      });
+      const llmFiles = [
+        makeFile("components/foo.ts", "LLM bytes"),
+        makeFile("app/page.tsx", 'import { value } from "@/components/foo";'),
+      ];
+      const before = structuredClone(llmFiles);
+      const result = applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] });
+      expect(result).toEqual({ files: before, restored: [], changed: false });
+      expect(llmFiles).toEqual(before);
+    });
+
+    it("canonicalizes an empty rewritable file path without replacing LLM content", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "rewritable" }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile("components/foo.ts", "LLM-owned content")],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: "LLM-owned content" }),
+      ]);
+      expect(result.restored).toEqual([]);
+      expect(result.changed).toBe(true);
+    });
+
+    it("restores a readable empty verbatim file to zero bytes", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "verbatim" }],
+      });
+      const result = applyDossierVerbatimPolicy({
+        llmFiles: [makeFile("components/Foo.ts", "drift")],
+        selectedDossiers: [dossier],
+      });
+      expect(result.files[0]?.content).toBe("");
+      expect(result.restored).toEqual([
+        expect.objectContaining({ reason: "verbatim_content_drift" }),
+      ]);
+    });
+
+    it("seeds a missing readable empty verbatim file", () => {
+      mockGetDossierFileContent.mockReturnValue("");
+      const dossier = makeVerbatimDossier({
+        files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "verbatim" }],
+      });
+      const result = applyDossierVerbatimPolicy({ llmFiles: [], selectedDossiers: [dossier] });
+      expect(result.files).toEqual([
+        expect.objectContaining({ path: "components/Foo.ts", content: "" }),
+      ]);
+      expect(result.restored).toEqual([
+        expect.objectContaining({ reason: "verbatim_file_missing_in_llm_output" }),
+      ]);
+    });
+
     it("restores a corrupted ThreeCanvasShell wrapper back to the canonical dossier file", () => {
       const canonical = '"use client";\nexport function ThreeCanvasShell() { return null; }\n';
       mockGetDossierFileContent.mockReturnValue(canonical);
@@ -126,7 +273,9 @@ describe("applyDossierVerbatimPolicy", () => {
           reason: "verbatim_content_drift",
         },
       ]);
-      expect(files.find((f) => f.path === "components/three-canvas-shell.tsx")?.content).toBe(canonical);
+      expect(files.find((f) => f.path === "components/three-canvas-shell.tsx")?.content).toBe(
+        canonical,
+      );
     });
   });
 
@@ -367,5 +516,74 @@ describe("applyDossierVerbatimPolicy", () => {
       });
       expect(restored).toHaveLength(0);
     });
+  });
+
+  it("fails before mutation when selected dossiers claim a divergent output alias", () => {
+    mockGetDossierFileContent.mockImplementation((_klass, id) =>
+      id === "first" ? "first bytes" : "second bytes",
+    );
+    const first = makeVerbatimDossier({
+      id: "first",
+      capability: "one",
+      files: [{ path: "components/Foo.ts", role: "shared" }],
+    });
+    const second = makeVerbatimDossier({
+      id: "second",
+      capability: "two",
+      files: [{ path: "components/foo.ts", role: "shared" }],
+    });
+    const llmFiles = [makeFile("app/page.tsx", "unchanged")];
+    expect(() =>
+      applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [first, second] }),
+    ).toThrow("selected-output-conflict");
+    expect(llmFiles).toEqual([makeFile("app/page.tsx", "unchanged")]);
+  });
+
+  it("fails before mutation when LLM output contains duplicate aliases for a selected path", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/Foo.ts", role: "shared" }],
+    });
+    const llmFiles = [
+      makeFile("components/Foo.ts", "first"),
+      makeFile("components/foo.ts", "second"),
+    ];
+    const before = structuredClone(llmFiles);
+    expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
+      "llm-output-alias-conflict",
+    );
+    expect(llmFiles).toEqual(before);
+  });
+
+  it("treats leading-slash and canonical spellings as duplicate aliases before mutation", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/Foo.ts", role: "shared" }],
+    });
+    const llmFiles = [
+      makeFile("components/Foo.ts", "first"),
+      makeFile("/components/Foo.ts", "second"),
+    ];
+    const before = structuredClone(llmFiles);
+    expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
+      "llm-output-alias-conflict",
+    );
+    expect(llmFiles).toEqual(before);
+  });
+
+  it("fails before mutation when an LLM path is a file/directory conflict with a selected path", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/cache", role: "shared" }],
+    });
+    const llmFiles = [
+      makeFile("components/cache", "selected"),
+      makeFile("components/cache/item.ts", "child"),
+    ];
+    const before = structuredClone(llmFiles);
+    expect(() => applyDossierVerbatimPolicy({ llmFiles, selectedDossiers: [dossier] })).toThrow(
+      "llm-output-path-conflict",
+    );
+    expect(llmFiles).toEqual(before);
   });
 });

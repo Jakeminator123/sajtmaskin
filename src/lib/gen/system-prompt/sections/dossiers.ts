@@ -5,7 +5,6 @@
  * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
  */
 
-import { debugLog } from "@/lib/utils/debug";
 import {
   defaultInjectionMode,
   dossierRequiresF3,
@@ -13,12 +12,10 @@ import {
   type DossierEntry,
   type DossierSelectionResult,
 } from "../../dossiers";
-import { mapDossierPathToOutput } from "../../dossiers/output-path";
-
-// Paths that belong to the scaffold and are dangerous to overwrite via a
-// dossier verbatim block (would clobber fonts, providers, metadata). We
-// skip these even if a dossier asks for verbatim — log so we can spot
-// dossier-data that needs fixing.
+import {
+  findDivergentDossierOutputPathConflicts,
+  resolveDossierFilePath,
+} from "../../dossiers/output-path";
 /**
  * Capabilities whose dossiers ship Vercel AI SDK 6 (ai@^6) code. When one is
  * selected we inject an explicit banned-symbols block (see
@@ -48,22 +45,6 @@ function renderAiSdkVersionGuardrail(): string[] {
   ];
 }
 
-const SCAFFOLD_RESERVED_PATHS = new Set([
-  "app/layout.tsx",
-  "app/globals.css",
-  "app/loading.tsx",
-  "app/error.tsx",
-  "app/not-found.tsx",
-  "app/template.tsx",
-  "package.json",
-  "tsconfig.json",
-  "next.config.js",
-  "next.config.mjs",
-  "next.config.ts",
-  "tailwind.config.ts",
-  "postcss.config.mjs",
-]);
-
 interface VerbatimFile {
   dossierId: string;
   dossierLabel: string;
@@ -73,6 +54,29 @@ interface VerbatimFile {
   /** File extension fence language for CodeProject blocks. */
   fence: string;
   content: string;
+}
+
+function assertSelectedOutputPathsDoNotConflict(dossierSel: DossierSelectionResult): void {
+  const conflicts = findDivergentDossierOutputPathConflicts(
+    dossierSel.selected.flatMap((selection) =>
+      (selection.entry.files ?? []).map((file) => ({
+        dossierId: selection.entry.id,
+        capability: selection.entry.capability,
+        sourcePath: file.path,
+        content: getDossierFileContent(selection.entry.class, selection.entry.id, file.path),
+      })),
+    ),
+  );
+  if (conflicts.length === 0) return;
+  const details = conflicts
+    .map(
+      (conflict) =>
+        `${conflict.outputPath} <- ${conflict.claims
+          .map((claim) => `${claim.dossierId}:${claim.sourcePath}`)
+          .join(", ")}`,
+    )
+    .join("; ");
+  throw new Error(`[dossiers] selected-output-conflict: ${details}`);
 }
 
 interface DossierRenderOptions {
@@ -327,7 +331,7 @@ function renderCapabilitySurfaceOwnership(
       if (!projectPath) continue;
       const serverPaths = (entry.files ?? [])
         .filter((file) => file.role === "server")
-        .map((file) => mapDossierPathToOutput(file.path).replace(/\\/g, "/"));
+        .map((file) => resolveDossierFilePath(file.path).outputPath);
       const alreadyPresent = projectPathPresent(previousPaths, projectPath);
       // Soft/UI-only surface already on disk → ownership is noise.
       // Hard dossiers with a server contract must keep emitting a rewire check:
@@ -396,6 +400,7 @@ export function renderDossierBlocks(
   opts: DossierRenderOptions = {},
 ): string[] {
   if (!dossierSel || dossierSel.selected.length === 0) return [];
+  assertSelectedOutputPathsDoNotConflict(dossierSel);
 
   const parts: string[] = [];
 
@@ -486,18 +491,11 @@ export function renderDossierBlocks(
         );
       }
       // Dossier files live under data/dossiers/<id>/components/<path-in-project>.
-      // `mapDossierPathToOutput` translates the staging path to the path the
+      // `resolveDossierFilePath` translates the staging path to the path the
       // user project expects (UI components keep `components/`, API routes
       // move to `app/api/`, middleware/instrumentation/sentry-config land at
       // root). See `dossiers/output-path.ts` for the rotorsaks-historik.
-      const outputPath = mapDossierPathToOutput(file.path);
-      if (SCAFFOLD_RESERVED_PATHS.has(outputPath)) {
-        debugLog(
-          "GEN",
-          `[verbatim-skip] ${sel.entry.id}: refusing to emit verbatim file at scaffold-reserved path '${outputPath}'`,
-        );
-        continue;
-      }
+      const outputPath = resolveDossierFilePath(file.path).outputPath;
       // On follow-up / auto-repair the file is already in the user's
       // project — re-shipping the full CodeProject block wastes ~2-5k
       // chars and tempts the LLM to return it unchanged when its real

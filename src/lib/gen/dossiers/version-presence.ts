@@ -48,21 +48,24 @@
  *  - the F3 empty-generation honesty check in `generation-stream.ts` (don't
  *    claim "no code files" when the parent version already carries them).
  */
-import { isScaffoldBaselinePath } from "../scaffolds/baseline-paths";
+import { getScaffoldBaselinePaths } from "../scaffolds/baseline-paths";
 import { getAllDossiers, getDossierInstructions } from "./registry";
 import { isDossierConfigured } from "./select";
 import { resolveSelectedDossiersFromSnapshot } from "./snapshot-selection";
-import { mapDossierPathToOutput } from "./output-path";
+import {
+  dossierOutputPathIdentity,
+  normalizeDossierProjectPath,
+  resolveDossierFilePath,
+} from "./output-path";
 import type { DossierEntry, DossierFile, SelectedDossier } from "./types";
-
-/** Normalize a project file path for comparison (strip `./` and leading `/`). */
-function normalizeProjectPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
-}
 
 /** Mapped output path for a dossier manifest file. */
 function outputPathFor(file: DossierFile): string {
-  return normalizeProjectPath(mapDossierPathToOutput(file.path));
+  return resolveDossierFilePath(file.path).outputPath;
+}
+
+function outputOwnershipIdentity(path: string): string {
+  return dossierOutputPathIdentity(normalizeDossierProjectPath(path));
 }
 
 /**
@@ -75,9 +78,11 @@ function buildPathDeclarationCounts(pool: DossierEntry[]): Map<string, number> {
   for (const dossier of pool) {
     // Dedupe within one dossier so a manifest that lists the same path twice
     // doesn't inflate the count past "distinctive".
-    const paths = new Set((dossier.files ?? []).map(outputPathFor));
-    for (const path of paths) {
-      counts.set(path, (counts.get(path) ?? 0) + 1);
+    const identities = new Set(
+      (dossier.files ?? []).map((file) => outputOwnershipIdentity(outputPathFor(file))),
+    );
+    for (const identity of identities) {
+      counts.set(identity, (counts.get(identity) ?? 0) + 1);
     }
   }
   return counts;
@@ -91,12 +96,18 @@ function dossierFilesPresent(
 ): boolean {
   const files = entry.files ?? [];
   if (files.length === 0) return false;
-  const mapped = files.map((file) => ({ role: file.role, path: outputPathFor(file) }));
+  const mapped = files.map((file) => {
+    const path = outputPathFor(file);
+    return { role: file.role, path, ownershipIdentity: outputOwnershipIdentity(path) };
+  });
+  const scaffoldBaselineIdentities = new Set(
+    [...getScaffoldBaselinePaths()].map(outputOwnershipIdentity),
+  );
   const hasDistinctivePresentFile = mapped.some(
     (file) =>
       presentPaths.has(file.path) &&
-      (pathDeclarationCounts.get(file.path) ?? 0) === 1 &&
-      !isScaffoldBaselinePath(file.path),
+      (pathDeclarationCounts.get(file.ownershipIdentity) ?? 0) === 1 &&
+      !scaffoldBaselineIdentities.has(file.ownershipIdentity),
   );
   const serverFiles = mapped.filter((file) => file.role === "server");
   if (serverFiles.length > 0) {
@@ -118,8 +129,8 @@ export function resolveDossierIdsPresentInVersion(
 ): string[] {
   const presentPaths = new Set<string>();
   for (const path of filePaths) {
-    if (typeof path === "string" && path.trim().length > 0) {
-      presentPaths.add(normalizeProjectPath(path));
+    if (typeof path === "string" && path.length > 0) {
+      presentPaths.add(path);
     }
   }
   if (presentPaths.size === 0) return [];
