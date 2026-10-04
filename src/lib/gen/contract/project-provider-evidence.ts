@@ -37,14 +37,26 @@ function isRuntimeProviderEvidencePath(path: string): boolean {
   const segments = normalized.split("/");
   if (
     segments.some((segment) =>
-      ["test", "tests", "__tests__", "fixture", "fixtures", "__fixtures__"].includes(
+      [
+        "test",
+        "tests",
+        "__tests__",
+        "__mocks__",
+        "e2e",
+        "test-utils",
+        "fixture",
+        "fixtures",
+        "__fixtures__",
+      ].includes(
         segment,
       ),
     )
   ) {
     return false;
   }
-  return !/(?:^|\/)[^/]+\.(?:test|spec|fixtures?)\.[cm]?[jt]sx?$/u.test(normalized);
+  return !/(?:^|\/)[^/]+\.(?:test|spec|fixtures?|stories)\.[cm]?[jt]sx?$/u.test(
+    normalized,
+  );
 }
 
 function runtimeModuleSpecifiers(file: ProjectFile): Set<string> {

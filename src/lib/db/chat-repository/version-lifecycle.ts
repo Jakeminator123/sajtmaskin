@@ -5,7 +5,10 @@ import {
 import { db } from "../client";
 import { engineVersions } from "../schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { assertPromoteAllowed } from "../promote-guard";
+import {
+  assertPromoteAllowed,
+  normalizeContractIntegrationsToken,
+} from "../promote-guard";
 import type { EngineVersionVerificationState } from "../engine-version-lifecycle";
 import type { Version } from "./types";
 import {
@@ -43,6 +46,10 @@ function lockedCasRow(result: unknown): {
   files_revision?: unknown;
   verificationState?: unknown;
   filesRevision?: unknown;
+  files_json?: unknown;
+  filesJson?: unknown;
+  orchestration_snapshot?: unknown;
+  orchestrationSnapshot?: unknown;
 } | undefined {
   const asRows = (result as { rows?: Array<Record<string, unknown>> } | undefined)?.rows;
   if (Array.isArray(asRows) && asRows[0]) return asRows[0];
@@ -50,6 +57,34 @@ function lockedCasRow(result: unknown): {
     return result[0] as Record<string, unknown>;
   }
   return undefined;
+}
+
+function promotionSnapshot(row: ReturnType<typeof lockedCasRow>): {
+  filesJson: string;
+  orchestrationSnapshot: unknown;
+} | null {
+  const filesJson = row?.files_json ?? row?.filesJson;
+  if (typeof filesJson !== "string") return null;
+  return {
+    filesJson,
+    orchestrationSnapshot: row?.orchestration_snapshot ?? row?.orchestrationSnapshot ?? null,
+  };
+}
+
+function promotionContextCas(snapshot: {
+  filesJson: string;
+  orchestrationSnapshot: unknown;
+}) {
+  return and(
+    sql`${engineVersions.filesJson} = ${snapshot.filesJson}`,
+    sql`COALESCE((
+      SELECT c.orchestration_snapshot->'contractIntegrations'
+      FROM engine_chats c
+      WHERE c.id = ${engineVersions.chatId}
+    ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+      normalizeContractIntegrationsToken(snapshot.orchestrationSnapshot),
+    )} AS jsonb)`,
+  );
 }
 
 function casMatchesLockedRow(
@@ -167,32 +202,57 @@ export async function promoteVersion(
   // must not be able to false-green a `verifier_failed` row into `promoted`.
   // Returning null here never terminal-fails the version; callers treat it as
   // "not promoted" and the flow retries.
-  const guard = await assertPromoteAllowed(versionId, undefined, {
-    onReadError: "indeterminate",
-  });
-  if (!guard.allowed) {
-    console.warn(
-      "indeterminate" in guard && guard.indeterminate
-        ? `[promote-guard] Promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
-        : `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
-    );
-    return null;
-  }
   const promotedAt = new Date();
-  const result = await db
-    .update(engineVersions)
-    .set({
-      releaseState: "promoted",
-      verificationState: "passed",
-      verificationSummary,
-      repairedFilesJson: null,
-      repairAvailableAt: null,
-      promotedAt,
-    })
-    .where(versionWriteWhere(versionId, runId));
-  if ((result.rowCount ?? 0) === 0) {
+  let updated = false;
+  try {
+    updated = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+      );
+      const locked = await tx.execute(sql`
+        SELECT v.files_json,
+          (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = v.chat_id)
+            AS orchestration_snapshot
+        FROM engine_versions v
+        WHERE v.id = ${versionId}
+        FOR UPDATE
+      `);
+      const snapshot = promotionSnapshot(lockedCasRow(locked));
+      if (!snapshot) return false;
+      const guard = await assertPromoteAllowed(versionId, undefined, {
+        onReadError: "indeterminate",
+        migrationContext: {
+          currentFilesJson: snapshot.filesJson,
+          orchestrationSnapshot: snapshot.orchestrationSnapshot,
+        },
+      });
+      if (!guard.allowed) {
+        console.warn(
+          "indeterminate" in guard && guard.indeterminate
+            ? `[promote-guard] Promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
+            : `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
+        );
+        return false;
+      }
+      const result = await tx
+        .update(engineVersions)
+        .set({
+          releaseState: "promoted",
+          verificationState: "passed",
+          verificationSummary,
+          repairedFilesJson: null,
+          repairAvailableAt: null,
+          promotedAt,
+        })
+        .where(and(versionWriteWhere(versionId, runId), promotionContextCas(snapshot)));
+      return (result.rowCount ?? 0) > 0;
+    });
+  } catch (error) {
+    if (isLockTimeoutError(error)) return null;
+    console.warn(`[promote-guard] Promotion context unavailable for ${versionId}.`, error);
     return null;
   }
+  if (!updated) return null;
   return getStoredVersion(versionId);
 }
 
@@ -357,21 +417,6 @@ export async function promoteVersionIfUnleased(
   // Same false-green invariant guard as `promoteVersion`: refuse while the
   // finalize quality-gate telemetry says the version is blocked, and fail
   // closed-but-retryable (null) on a read error. Never promotes a blocked row.
-  const guard = await assertPromoteAllowed(versionId, undefined, {
-    onReadError: "indeterminate",
-  });
-  if (!guard.allowed) {
-    const indeterminate = "indeterminate" in guard && guard.indeterminate === true;
-    console.warn(
-      indeterminate
-        ? `[promote-guard] Reconcile promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
-        : `[promote-guard] Refusing to reconcile-promote version ${versionId}: ${guard.reason}`,
-    );
-    // P1b: an indeterminate read error is retryable (null); an EXPLICIT denial is
-    // a fresher truth than the caller's stale gate log → signal `"guard_denied"`
-    // so the watchdog settles the row terminally instead of spinning forever.
-    return indeterminate ? null : "guard_denied";
-  }
   // Same tri-state as `failVersionVerificationIfUnleased`: `unavailable` no-ops
   // so a probe error cannot promote a row that may still hold a lease.
   const presence = await leaseTableExists();
@@ -383,9 +428,9 @@ export async function promoteVersionIfUnleased(
   }
   const jobsExist = presence === "exists";
   const promotedAt = new Date();
-  let updated: boolean;
+  let outcome: boolean | "guard_denied" | null;
   try {
-    updated = await db.transaction(async (tx) => {
+    outcome = await db.transaction(async (tx) => {
       // Bounded lock wait: a reconcile poll that can't get the row lock quickly
       // no-ops (returns null) and retries on the next poll instead of blocking
       // to statement_timeout (57014).
@@ -396,7 +441,37 @@ export async function promoteVersionIfUnleased(
       // verify/repair that starts in the gap can't slip its lease in after our
       // no-active-lease snapshot — the conditional UPDATE below is a separate
       // statement and re-snapshots after the lock, seeing the committed lease.
-      await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+      const locked = await tx.execute(sql`
+        SELECT verification_state, files_revision, files_json,
+          (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = engine_versions.chat_id)
+            AS orchestration_snapshot
+        FROM engine_versions
+        WHERE id = ${versionId}
+        FOR UPDATE
+      `);
+      const lockedRow = lockedCasRow(locked);
+      const snapshot = promotionSnapshot(lockedRow);
+      if (!snapshot) return null;
+      if (
+        expected &&
+        !casMatchesLockedRow(lockedRow ?? {}, {
+          verificationState: "verifying",
+          filesRevision: expected.filesRevision,
+        })
+      ) {
+        return null;
+      }
+      const guard = await assertPromoteAllowed(versionId, undefined, {
+        onReadError: "indeterminate",
+        migrationContext: {
+          currentFilesJson: snapshot.filesJson,
+          orchestrationSnapshot: snapshot.orchestrationSnapshot,
+        },
+      });
+      if (!guard.allowed) {
+        const indeterminate = "indeterminate" in guard && guard.indeterminate === true;
+        return indeterminate ? null : "guard_denied";
+      }
       const result = await tx
         .update(engineVersions)
         .set({
@@ -423,6 +498,7 @@ export async function promoteVersionIfUnleased(
             expected
               ? filesRevisionCas(expected.filesRevision)
               : undefined,
+            promotionContextCas(snapshot),
             // Only enforce the no-active-lease guard once the table exists; before
             // migration this degrades to the legacy unconditional write.
             jobsExist
@@ -441,9 +517,8 @@ export async function promoteVersionIfUnleased(
     }
     throw err;
   }
-  if (!updated) {
-    return null;
-  }
+  if (outcome === "guard_denied") return outcome;
+  if (!outcome) return null;
   return getStoredVersion(versionId);
 }
 

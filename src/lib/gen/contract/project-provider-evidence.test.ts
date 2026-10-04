@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { detectProjectProviderEvidence } from "./project-provider-evidence";
 
 const rules = [
@@ -278,6 +279,11 @@ describe("detectProjectProviderEvidence", () => {
     "src/__fixtures__/auth.ts",
     "src/auth.fixture.ts",
     "src/auth.fixtures.tsx",
+    "src/auth.stories.tsx",
+    "src/auth.stories.mts",
+    "src/__mocks__/auth.ts",
+    "src/e2e/auth.ts",
+    "src/test-utils/auth.ts",
   ])("does not accept provider imports from non-runtime test or fixture paths: %s", (path) => {
     expect(
       detectProjectProviderEvidence(
@@ -306,5 +312,51 @@ describe("detectProjectProviderEvidence", () => {
         rules,
       ),
     ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it.each([
+    "src/.storybook/auth.ts",
+    "src/mocks/auth.ts",
+    "src/auth.story.tsx",
+  ])("does not broaden non-runtime filtering to unsupported heuristics: %s", (path) => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { "next-auth": "5" } }),
+          },
+          { path, content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it("uses the actual manifest to prove @supabase/ssr as auth evidence only", () => {
+    const evidence = detectProjectProviderEvidence(
+      [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@supabase/ssr": "^0.7.0" } }),
+        },
+        {
+          path: "lib/supabase/server.ts",
+          content: 'import { createServerClient } from "@supabase/ssr";',
+        },
+      ],
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+
+    expect(evidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        packageRoot: "@supabase/ssr",
+      }),
+    );
+    expect(evidence).not.toContainEqual(
+      expect.objectContaining({ providerKey: "supabase", dossierCapability: "database" }),
+    );
   });
 });

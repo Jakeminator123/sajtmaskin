@@ -26,6 +26,11 @@ import {
 } from "./services/generation-telemetry";
 import { shortRevision } from "@/lib/gen/verify/content-revision";
 import { incContentRevisionMismatch } from "@/lib/observability/metrics";
+import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
+import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import type { CodeFile } from "@/lib/gen/parser";
 
 /**
  * Finalize quality-gate results that must block promotion. `preflight_passed`
@@ -109,7 +114,118 @@ export type PromoteGuardOptions = {
    * content the verdict actually describes, never re-stamp the receipt.
    */
   promotedFilesJson?: string | null;
+  migrationContext?: {
+    currentFilesJson: string;
+    candidateFilesJson?: string | null;
+    orchestrationSnapshot: unknown;
+  };
 };
+
+export function parseStoredCodeFiles(value: string): CodeFile[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  if (
+    parsed.some(
+      (entry) =>
+        !entry ||
+        typeof entry !== "object" ||
+        Array.isArray(entry) ||
+        (Object.getPrototypeOf(entry) !== Object.prototype &&
+          Object.getPrototypeOf(entry) !== null) ||
+        typeof (entry as Record<string, unknown>).path !== "string" ||
+        typeof (entry as Record<string, unknown>).content !== "string" ||
+        ("language" in (entry as Record<string, unknown>) &&
+          typeof (entry as Record<string, unknown>).language !== "string"),
+    )
+  ) {
+    return null;
+  }
+  return parsed as CodeFile[];
+}
+
+export function normalizeContractIntegrationsToken(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  return (snapshot as Record<string, unknown>).contractIntegrations ?? null;
+}
+
+function inspectMigrationContext(
+  context: NonNullable<PromoteGuardOptions["migrationContext"]>,
+): PromoteGuardDecision | null {
+  if (
+    context.orchestrationSnapshot !== null &&
+    context.orchestrationSnapshot !== undefined &&
+    (typeof context.orchestrationSnapshot !== "object" ||
+      Array.isArray(context.orchestrationSnapshot))
+  ) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: "orchestration snapshot unavailable for integration migration inspection",
+    };
+  }
+  const snapshot =
+    context.orchestrationSnapshot &&
+    typeof context.orchestrationSnapshot === "object" &&
+    !Array.isArray(context.orchestrationSnapshot)
+      ? (context.orchestrationSnapshot as Record<string, unknown>)
+      : null;
+  const current = parseStoredCodeFiles(context.currentFilesJson);
+  const candidate = parseStoredCodeFiles(
+    context.candidateFilesJson ?? context.currentFilesJson,
+  );
+  if (!current || !candidate) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: "promotion files unavailable for integration migration inspection",
+    };
+  }
+  try {
+    const contracts = readProviderContractsFromSnapshot(snapshot);
+    const rawContracts = normalizeContractIntegrationsToken(snapshot);
+    if (
+      rawContracts !== null &&
+      (!Array.isArray(rawContracts) || rawContracts.length !== contracts.length)
+    ) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        reason: "provider contracts unavailable for integration migration inspection",
+      };
+    }
+    const rules = getPreGenerationContractsConfigFromManifest().providerRules;
+    for (const files of context.candidateFilesJson === context.currentFilesJson
+      ? [current]
+      : [current, candidate]) {
+      const plan = resolveExistingDossierCorePlan({
+        contracts,
+        projectFiles: files,
+        projectProviderEvidence: detectProjectProviderEvidence(files, rules),
+      });
+      if (plan.migrationRequired) {
+        return {
+          allowed: false,
+          indeterminate: true,
+          reason: "integration migration requires review before promotion",
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      allowed: false,
+      indeterminate: true,
+      reason: `integration migration inspection unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+  return null;
+}
 
 function normalizeSignal(raw: string | null | QualityGateSignal): QualityGateSignal {
   if (raw === null || typeof raw === "string") {
@@ -190,6 +306,11 @@ export async function assertPromoteAllowed(
       signal: signal.result,
       reason: `finalize quality gate = ${signal.result}`,
     };
+  }
+
+  if (opts?.migrationContext) {
+    const migrationDecision = inspectMigrationContext(opts.migrationContext);
+    if (migrationDecision) return migrationDecision;
   }
 
   return { allowed: true };

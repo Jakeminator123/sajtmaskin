@@ -260,3 +260,75 @@ describe("assertPromoteAllowed — verdikt för en annan innehållsrevision", ()
     expect((await assertPromoteAllowed("ver-1", async () => null)).allowed).toBe(true);
   });
 });
+
+describe("assertPromoteAllowed — provider migration context", () => {
+  const clerkFiles = JSON.stringify([
+    {
+      path: "package.json",
+      content: JSON.stringify({ dependencies: { "@clerk/nextjs": "latest" } }),
+    },
+    { path: "app/page.tsx", content: 'import { ClerkProvider } from "@clerk/nextjs";' },
+  ]);
+  const auth0Snapshot = {
+    contractIntegrations: [
+      {
+        kind: "auth",
+        providerKey: "auth0",
+        dossierCapability: "auth",
+        provider: "Auth0",
+        name: "Auth0",
+        reason: "Explicit target",
+        status: "chosen",
+        selectionSource: "explicit",
+      },
+    ],
+  };
+
+  it("holds a provider migration even when the candidate deleted the old core", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: clerkFiles,
+        candidateFilesJson: JSON.stringify([{ path: "app/page.tsx", content: "export default null" }]),
+        orchestrationSnapshot: auth0Snapshot,
+      },
+    });
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+  });
+
+  it("treats one malformed file entry as an unavailable migration decision", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: JSON.stringify([
+          { path: "app/page.tsx", content: "ok" },
+          { path: "app/broken.tsx" },
+        ]),
+        orchestrationSnapshot: null,
+      },
+    });
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+  });
+
+  it("keeps no-contract legacy promotion available for valid files", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: JSON.stringify([{ path: "app/page.tsx", content: "ok" }]),
+        orchestrationSnapshot: null,
+      },
+    });
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("keeps a malformed provider-contract snapshot retryable instead of treating it as legacy", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: JSON.stringify([{ path: "app/page.tsx", content: "ok" }]),
+        orchestrationSnapshot: { contractIntegrations: { providerKey: "clerk" } },
+      },
+    });
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+  });
+});

@@ -29,7 +29,12 @@ const acquireWins = vi.hoisted(() => ({ value: true }));
 const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
 // Snapshot returned by fail/promote `SELECT … FOR UPDATE` (L5 CAS classify).
 const lockSnap = vi.hoisted(() => ({
-  value: { verification_state: "verifying", files_revision: null } as Record<string, unknown>,
+  value: {
+    verification_state: "verifying",
+    files_revision: null,
+    files_json: '[{"path":"app/page.tsx","content":"A"}]',
+    orchestration_snapshot: null,
+  } as Record<string, unknown>,
 }));
 
 function renderSql(value: unknown): string {
@@ -104,12 +109,17 @@ vi.mock("@/lib/db/client", () => ({
 // Keep the false-green promote guard out of the way: it has its own test suite.
 vi.mock("./promote-guard", () => ({
   assertPromoteAllowed: vi.fn(async () => ({ allowed: true, reason: null })),
+  normalizeContractIntegrationsToken: (snapshot: unknown) =>
+    snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+      ? ((snapshot as Record<string, unknown>).contractIntegrations ?? null)
+      : null,
 }));
 
 import {
   acceptRepair,
   renewVersionLease,
   failVersionVerificationIfUnleased,
+  promoteVersion,
   promoteVersionIfUnleased,
   acquireVersionLease,
 } from "./chat-repository-pg";
@@ -148,7 +158,12 @@ function resetCaptures() {
   acquireWins.value = true;
   // Default: a base-matching envelope so the promote path runs.
   selectRows.value = [envelopeRow(BASE_A)];
-  lockSnap.value = { verification_state: "verifying", files_revision: null };
+  lockSnap.value = {
+    verification_state: "verifying",
+    files_revision: null,
+    files_json: BASE_A,
+    orchestration_snapshot: null,
+  };
 }
 
 describe("acceptRepair — envelope base-hash guard, atomic promote, missing-table + row-lock (Codex P2 + #260 #5)", () => {
@@ -201,6 +216,26 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(where).toContain("not exists");
     expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
+    expect(where).toContain("files_json");
+    expect(where).toContain("engine_chats");
+    expect(where).toContain("contractintegrations");
+  });
+
+  it("passes locked base, candidate and version-bound snapshot to the migration guard", async () => {
+    mockLeaseTableExists(true);
+    selectRows.value = [{ ...envelopeRow(BASE_A), orchestrationSnapshot: { contractIntegrations: [] } }];
+    await acceptRepair("ver-1");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: {
+          currentFilesJson: BASE_A,
+          candidateFilesJson: REPAIRED_JSON,
+          orchestrationSnapshot: { contractIntegrations: [] },
+        },
+      }),
+    );
   });
 
   it("returns lease_unavailable (not null) when the lease probe cannot be proven", async () => {
@@ -279,6 +314,39 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(where).toContain("repaired_files_json");
     expect(where).not.toContain("engine_version_jobs");
     expect(where).not.toContain("to_regclass");
+  });
+});
+
+describe("promoteVersion — locked files/snapshot migration guard", () => {
+  beforeEach(resetCaptures);
+
+  it("guards inside the transaction and CAS-binds files plus provider contracts", async () => {
+    await promoteVersion("ver-1", "verified");
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: {
+          currentFilesJson: BASE_A,
+          orchestrationSnapshot: null,
+        },
+      }),
+    );
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("files_json");
+    expect(where).toContain("engine_chats");
+    expect(where).toContain("contractintegrations");
+  });
+
+  it("keeps an indeterminate migration guard retryable and performs no update", async () => {
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      reason: "migration inspection unavailable",
+    } as never);
+    await expect(promoteVersion("ver-1")).resolves.toBeNull();
+    expect(txUpdateSet.value).toBeUndefined();
   });
 });
 
@@ -365,7 +433,7 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
 
   it("CAS-binds a non-null files_revision with equality, not IS NULL (L5)", async () => {
     mockLeaseTableExists(true);
-    lockSnap.value = { verification_state: "verifying", files_revision: "rev-a" };
+    lockSnap.value = { ...lockSnap.value, verification_state: "verifying", files_revision: "rev-a" };
     await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
       verificationState: "verifying",
       filesRevision: "rev-a",
@@ -377,7 +445,7 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
 
   it("returns cas_miss with no error log when the row was promoted under the await (L5 a)", async () => {
     mockLeaseTableExists(true);
-    lockSnap.value = { verification_state: "passed", files_revision: "rev-a" };
+    lockSnap.value = { ...lockSnap.value, verification_state: "passed", files_revision: "rev-a" };
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
@@ -393,7 +461,7 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
 
   it("returns cas_miss when files_revision advanced to B under the await (L5 b)", async () => {
     mockLeaseTableExists(true);
-    lockSnap.value = { verification_state: "verifying", files_revision: "rev-b" };
+    lockSnap.value = { ...lockSnap.value, verification_state: "verifying", files_revision: "rev-b" };
     const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
       verificationState: "verifying",
       filesRevision: "rev-a",
@@ -403,7 +471,7 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
 
   it("returns cas_miss when expected NULL revision meets a hashed row (L5 c)", async () => {
     mockLeaseTableExists(true);
-    lockSnap.value = { verification_state: "verifying", files_revision: "hashed" };
+    lockSnap.value = { ...lockSnap.value, verification_state: "verifying", files_revision: "hashed" };
     const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", CAS_VERIFYING_NULL);
     expect(res).toEqual({ applied: false, reason: "cas_miss" });
   });
@@ -440,6 +508,19 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     // `verifying`, so a concurrent client-retry that already failed/passed it
     // makes this a no-op (can't flip a freshly-failed row back to passed).
     expect(where).toContain("verification_state");
+    expect(where).toContain("files_json");
+    expect(where).toContain("engine_chats");
+    expect(where).toContain("contractintegrations");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: {
+          currentFilesJson: BASE_A,
+          orchestrationSnapshot: null,
+        },
+      }),
+    );
   });
 
   it("CAS-binds files_revision when the caller supplies the snapshot (L5)", async () => {
@@ -490,8 +571,8 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     // Explicit denial is a fresher truth than the stale gate log → the caller
     // must settle terminally, so we signal it distinctly from a retryable null.
     expect(res).toBe("guard_denied");
-    // Guard short-circuits BEFORE the transaction — no promote UPDATE is built.
-    expect(transaction).not.toHaveBeenCalled();
+    // Guard runs after the locked files/snapshot read, before UPDATE.
+    expect(transaction).toHaveBeenCalledTimes(1);
     expect(txUpdateSet.value).toBeUndefined();
   });
 
@@ -504,7 +585,7 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     } as never);
     const res = await promoteVersionIfUnleased("ver-1", "reconciled");
     expect(res).toBeNull();
-    expect(transaction).not.toHaveBeenCalled();
+    expect(transaction).toHaveBeenCalledTimes(1);
     expect(txUpdateSet.value).toBeUndefined();
   });
 });

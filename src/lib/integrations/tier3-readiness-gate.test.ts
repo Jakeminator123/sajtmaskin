@@ -12,7 +12,22 @@ const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
+  isStoredCodeFileArray: (value: unknown) =>
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        typeof (entry as { path?: unknown }).path === "string" &&
+        typeof (entry as { content?: unknown }).content === "string" &&
+        (!("language" in entry) || typeof (entry as { language?: unknown }).language === "string"),
+    )
+      ? value
+      : null,
+}));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,

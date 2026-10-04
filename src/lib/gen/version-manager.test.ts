@@ -16,8 +16,10 @@ import {
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import {
+  getVersionFiles,
   mergePackageJsonContent,
   mergeVersionFilesWithWarnings,
+  parseCodeFilesFromFilesJson,
   resolveChatPreferredVersionId,
   resolveFollowUpPreviousBase,
   resolveFollowUpPreviousFiles,
@@ -34,6 +36,43 @@ const file = (path: string, content: string): CodeFile => ({
   path,
   content,
   language: "tsx",
+});
+
+describe("parseCodeFilesFromFilesJson", () => {
+  it("accepts a legacy file without language", () => {
+    expect(
+      parseCodeFilesFromFilesJson(
+        JSON.stringify([{ path: "app/page.tsx", content: "export default null" }]),
+      ),
+    ).toEqual([{ path: "app/page.tsx", content: "export default null" }]);
+  });
+
+  it.each([
+    ["non-array", JSON.stringify({ path: "app/page.tsx", content: "x" })],
+    ["primitive entry", JSON.stringify([{ path: "app/page.tsx", content: "x" }, null])],
+    ["array entry", JSON.stringify([["app/page.tsx", "x"]])],
+    ["missing path", JSON.stringify([{ content: "x" }])],
+    ["non-string content", JSON.stringify([{ path: "app/page.tsx", content: 42 }])],
+    [
+      "non-string language",
+      JSON.stringify([{ path: "app/page.tsx", content: "x", language: 42 }]),
+    ],
+  ])("rejects the entire stored set for a malformed %s", (_case, filesJson) => {
+    expect(parseCodeFilesFromFilesJson(filesJson)).toBeNull();
+  });
+
+  it("makes getVersionFiles unavailable instead of filtering a malformed entry", async () => {
+    getVersionByIdMock.mockResolvedValue({
+      id: "ver_malformed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "valid" },
+        { path: "app/route.ts", content: null },
+      ]),
+    } as never);
+
+    await expect(getVersionFiles("ver_malformed")).resolves.toBeNull();
+  });
 });
 
 describe("mergePackageJsonContent", () => {

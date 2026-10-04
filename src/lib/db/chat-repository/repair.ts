@@ -6,7 +6,10 @@ import {
 import { engineVersions } from "../schema";
 import { and, eq, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
-import { assertPromoteAllowed } from "../promote-guard";
+import {
+  assertPromoteAllowed,
+  normalizeContractIntegrationsToken,
+} from "../promote-guard";
 import { recordRepairPassedQualityGate } from "../services/generation-telemetry";
 import {
   decodeRepairedFilesPayload,
@@ -174,6 +177,11 @@ export async function acceptRepair(
       .select({
         repairedFilesJson: engineVersions.repairedFilesJson,
         filesJson: engineVersions.filesJson,
+        orchestrationSnapshot: sql<unknown>`(
+          SELECT c.orchestration_snapshot
+          FROM engine_chats c
+          WHERE c.id = ${engineVersions.chatId}
+        )`,
       })
       .from(engineVersions)
       .where(eq(engineVersions.id, versionId))
@@ -262,6 +270,11 @@ export async function acceptRepair(
     const guard = await assertPromoteAllowed(versionId, undefined, {
       onReadError: "indeterminate",
       promotedFilesJson: payload.filesJson,
+      migrationContext: {
+        currentFilesJson,
+        candidateFilesJson: payload.filesJson,
+        orchestrationSnapshot: rows[0]?.orchestrationSnapshot,
+      },
     });
     if (!guard.allowed) {
       console.warn(
@@ -296,6 +309,14 @@ export async function acceptRepair(
           // accept timeout), this no-ops instead of promoting it early. This
           // also subsumes the "not cleared" check (a non-empty string != NULL).
           sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+          sql`${engineVersions.filesJson} = ${currentFilesJson}`,
+          sql`COALESCE((
+            SELECT c.orchestration_snapshot->'contractIntegrations'
+            FROM engine_chats c
+            WHERE c.id = ${engineVersions.chatId}
+          ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+            normalizeContractIntegrationsToken(rows[0]?.orchestrationSnapshot),
+          )} AS jsonb)`,
           // Codex P2 (no active lease): atomic guard — the route +
           // maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail. Only
           // reference engine_version_jobs when it exists (see leaseTableExists).

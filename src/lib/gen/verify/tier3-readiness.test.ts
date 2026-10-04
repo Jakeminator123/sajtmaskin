@@ -8,7 +8,22 @@ const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
+  isStoredCodeFileArray: (value: unknown) =>
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        typeof (entry as { path?: unknown }).path === "string" &&
+        typeof (entry as { content?: unknown }).content === "string" &&
+        (!("language" in entry) || typeof (entry as { language?: unknown }).language === "string"),
+    )
+      ? value
+      : null,
+}));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
@@ -332,5 +347,85 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       projectId: null,
     });
     expect(result.ready).toBe(true);
+  });
+
+  it("treats one malformed preloaded file as an unavailable atomic set", async () => {
+    const malformed = [
+      { path: "app/page.tsx", content: "export default null" },
+      { path: "app/route.ts", content: 42 },
+    ] as never;
+
+    await expect(
+      deriveTier3BuildSpecForVersion("ver_malformed", [], { preloadedFiles: malformed }),
+    ).resolves.toBeNull();
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_malformed",
+      preloadedFiles: malformed,
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "version_files_unavailable",
+      retryable: true,
+    });
+    expect(detectIntegrationsFromVersionFiles).not.toHaveBeenCalled();
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("keeps proven Postgres while pending Upstash maps to its canonical analytics dossier", async () => {
+    getStoredProjectEnvVarMap.mockResolvedValue({
+      DATABASE_URL: "postgres://example",
+      UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+      UPSTASH_REDIS_REST_TOKEN: "token",
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_postgres_upstash",
+      orchestrationSnapshot: {
+        contractIntegrations: [
+          {
+            kind: "database",
+            providerKey: "postgres",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Postgres",
+            name: "Postgres",
+            reason: "Explicit database contract",
+            status: "chosen",
+          },
+        ],
+      },
+      pendingApprovedProviderKeys: ["upstash"],
+      preloadedFiles: [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { pg: "^8.0.0" } }),
+          language: "json",
+        },
+        {
+          path: "lib/db.ts",
+          content: 'import { Pool } from "pg"; export const db = new Pool();',
+          language: "ts",
+        },
+      ],
+      projectId: "proj_1",
+    });
+
+    expect(result.ready).toBe(true);
+    expect(result).toMatchObject({
+      spec: {
+        requirements: [
+          expect.objectContaining({
+            key: "upstash",
+            featureRuntimeEnvKeys: expect.arrayContaining([
+              "UPSTASH_REDIS_REST_URL",
+              "UPSTASH_REDIS_REST_TOKEN",
+            ]),
+          }),
+        ],
+      },
+    });
   });
 });

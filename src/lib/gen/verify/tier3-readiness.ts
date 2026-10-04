@@ -10,7 +10,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionFiles, isStoredCodeFileArray } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import { getEngineVersionErrorLogsForCategories } from "@/lib/db/services/version-errors";
 import { getRunningProductPostcheckClaimForVersion } from "@/lib/db/services/product-postcheck-runs";
@@ -89,9 +89,10 @@ export async function deriveTier3BuildSpecForVersion(
     preloadedFiles?: CodeFile[] | null;
   },
 ): Promise<Tier3BuildSpec | null> {
-  const codeFiles = Array.isArray(options?.preloadedFiles)
-    ? options.preloadedFiles
-    : await getVersionFiles(versionId);
+  const codeFiles =
+    options?.preloadedFiles !== undefined
+      ? isStoredCodeFileArray(options.preloadedFiles)
+      : await getVersionFiles(versionId);
   if (!codeFiles || codeFiles.length === 0) {
     return null;
   }
@@ -277,11 +278,26 @@ function resolveCurrentProviderIntentContracts(params: {
   }
   const rules = getPreGenerationContractsConfigFromManifest().providerRules;
   for (const providerKey of dedupeApprovedProviderKeys(params.pendingProviderKeys)) {
-    const rule = rules.find(
-      (candidate) => candidate.providerKey.toLowerCase() === providerKey.toLowerCase(),
+    const backingDossiers = mapProviderKeysToBackingDossierIds([providerKey])
+      .map(getDossierById)
+      .filter((dossier): dossier is NonNullable<typeof dossier> => Boolean(dossier));
+    if (backingDossiers.length > 0) {
+      for (const dossier of backingDossiers) {
+        upsert(dossier.capability, providerKey);
+      }
+      continue;
+    }
+    const matchingRules = rules.filter(
+      (candidate) =>
+        candidate.providerKey.toLowerCase() === providerKey.toLowerCase() &&
+        Boolean(candidate.dossierCapability),
     );
-    if (rule?.dossierCapability) {
-      upsert(rule.dossierCapability, providerKey, rule.kind);
+    const capabilities = new Set(
+      matchingRules.map((rule) => rule.dossierCapability!.toLowerCase()),
+    );
+    if (capabilities.size === 1) {
+      const capability = Array.from(capabilities)[0]!;
+      upsert(capability, providerKey, matchingRules[0]?.kind);
     }
   }
   return Array.from(byCapability.values());
@@ -501,10 +517,11 @@ export async function checkTier3ReadinessForVersion(
     }
   }
 
-  const versionFiles =
+  const rawVersionFiles =
     params.preloadedFiles !== undefined
       ? params.preloadedFiles
       : await getVersionFiles(params.versionId);
+  const versionFiles = isStoredCodeFileArray(rawVersionFiles);
   if (!versionFiles || versionFiles.length === 0) {
     return { ready: false, ok: false, reason: "version_files_unavailable", retryable: true };
   }

@@ -24,11 +24,32 @@ export function parseFilesFromContent(content: string): string {
 /** Parse `versions.files_json` into code files (e.g. preview bootstrap when markdown parse yields nothing). */
 export function parseCodeFilesFromFilesJson(filesJson: string): CodeFile[] | null {
   try {
-    const parsed = JSON.parse(filesJson);
-    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+    return isStoredCodeFileArray(JSON.parse(filesJson));
   } catch {
     return null;
   }
+}
+
+/** Atomic stored-file shape guard: one malformed entry invalidates the snapshot. */
+export function isStoredCodeFileArray(value: unknown): CodeFile[] | null {
+  if (!Array.isArray(value)) return null;
+  if (
+    value.some(
+      (entry) =>
+        !entry ||
+        typeof entry !== "object" ||
+        Array.isArray(entry) ||
+        (Object.getPrototypeOf(entry) !== Object.prototype &&
+          Object.getPrototypeOf(entry) !== null) ||
+        typeof (entry as Record<string, unknown>).path !== "string" ||
+        typeof (entry as Record<string, unknown>).content !== "string" ||
+        ("language" in (entry as Record<string, unknown>) &&
+          typeof (entry as Record<string, unknown>).language !== "string"),
+    )
+  ) {
+    return null;
+  }
+  return value as CodeFile[];
 }
 
 function parseStoredVersionFiles(
@@ -36,8 +57,7 @@ function parseStoredVersionFiles(
   context: { versionId?: string; chatId?: string },
 ): CodeFile[] | null {
   try {
-    const parsed = JSON.parse(filesJson);
-    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+    return isStoredCodeFileArray(JSON.parse(filesJson));
   } catch (error) {
     console.error("[version-manager] Failed to parse stored version files", {
       versionId: context.versionId ?? null,
