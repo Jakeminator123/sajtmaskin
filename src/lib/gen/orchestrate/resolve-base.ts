@@ -33,7 +33,10 @@ import {
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "../capability-dossier-bridge";
 import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "../route-plan";
 import type { PlannedRoute } from "../route-plan";
-import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
+import {
+  inferPreGenerationContracts,
+  resolveProviderSwitchRemovedCapabilities,
+} from "../contract/pre-generation-contracts";
 import { buildDossierIntegrationPlan } from "../contract/provider-compatibility";
 import { detectProjectProviderEvidence } from "../contract/project-provider-evidence";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
@@ -162,8 +165,17 @@ export async function resolveOrchestrationBase(
     resolvedMode === "followUp"
       ? detectCapabilityRemoval(capabilityRemovalPrompt)
       : { removedCapabilities: [], readdedCapabilities: [], matchedKeywords: [] };
-  const removedCapabilities = capabilityRemoval.removedCapabilities;
   const readdedCapabilities = capabilityRemoval.readdedCapabilities;
+  const providerSwitchRemovedCapabilities =
+    resolvedMode === "followUp"
+      ? resolveProviderSwitchRemovedCapabilities(capabilityRemovalPrompt)
+      : [];
+  const removedCapabilities = Array.from(
+    new Set([
+      ...capabilityRemoval.removedCapabilities,
+      ...providerSwitchRemovedCapabilities,
+    ]),
+  ).filter((capability) => !readdedCapabilities.includes(capability));
   const capabilities = suppressRemovedInferredCapabilities(
     inferredCapabilities,
     removedCapabilities,
@@ -622,7 +634,7 @@ export async function resolveOrchestrationBase(
         getPreGenerationContractsConfigFromManifest().providerRules,
       ),
     }),
-    removedCapabilities,
+    capabilityRemoval.removedCapabilities,
   );
   const deriveCurrentBuildSpec = () =>
     inheritQualityTargetFromPriorVersion(

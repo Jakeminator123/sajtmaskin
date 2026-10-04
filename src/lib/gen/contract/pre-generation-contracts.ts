@@ -72,6 +72,83 @@ const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRule
 
 const CONTRACT_DEFAULTS = preGenerationContractsConfig.defaults;
 
+function capabilityForRule(rule: ProviderRule): string | undefined {
+  return rule.methodOnly
+    ? undefined
+    : rule.dossierCapability ??
+        (rule.kind === "payment" ? "payments" : rule.kind === "auth" ? "auth" : undefined);
+}
+
+type ProviderSwitchResolution = {
+  sourceRules: ProviderRule[];
+  targetRules: ProviderRule[];
+  removedCapabilities: string[];
+};
+
+function positivePatternMatch(pattern: RegExp, source: string): boolean {
+  return pattern.test(source) && !isTermFullyNegated(source, pattern);
+}
+
+function providerKeysMentionedIn(source: string): Set<string> {
+  return new Set(
+    PROVIDER_RULES.filter((rule) =>
+      rule.patterns.some((pattern) => positivePatternMatch(pattern, source)),
+    ).map((rule) => rule.providerKey),
+  );
+}
+
+function rulesForSwitchSegment(
+  source: string,
+  fallbackProviderKeys: ReadonlySet<string> = new Set(),
+): ProviderRule[] {
+  const explicitProviderKeys = providerKeysMentionedIn(source);
+  const providerKeys =
+    explicitProviderKeys.size > 0 ? explicitProviderKeys : fallbackProviderKeys;
+  if (providerKeys.size === 0) return [];
+
+  return PROVIDER_RULES.filter((rule) => {
+    if (!providerKeys.has(rule.providerKey)) return false;
+    if (rule.purposePatterns.length > 0) {
+      return rule.purposePatterns.some((pattern) => positivePatternMatch(pattern, source));
+    }
+    return rule.patterns.some((pattern) => positivePatternMatch(pattern, source));
+  });
+}
+
+function resolveProviderSwitch(source: string): ProviderSwitchResolution | null {
+  const match = source.match(
+    /(?:\bfrom\b|\bfrån\b)([\s\S]{1,100}?)\b(?:to|till)\b([\s\S]{1,100})/iu,
+  );
+  if (!match) return null;
+
+  const sourceSegment = match[1]?.trim() ?? "";
+  const targetSegment = match[2]?.trim() ?? "";
+  if (!sourceSegment || !targetSegment) return null;
+
+  const sourceRules = rulesForSwitchSegment(sourceSegment);
+  const sourceProviderKeys = new Set(sourceRules.map((rule) => rule.providerKey));
+  const targetRules = rulesForSwitchSegment(targetSegment, sourceProviderKeys);
+  if (sourceRules.length === 0 || targetRules.length === 0) return null;
+
+  const targetCapabilities = new Set(
+    targetRules.map(capabilityForRule).filter((value): value is string => Boolean(value)),
+  );
+  const removedCapabilities = Array.from(
+    new Set(
+      sourceRules
+        .map(capabilityForRule)
+        .filter(
+          (value): value is string => Boolean(value && !targetCapabilities.has(value)),
+        ),
+    ),
+  );
+  return { sourceRules, targetRules, removedCapabilities };
+}
+
+export function resolveProviderSwitchRemovedCapabilities(source: string): string[] {
+  return resolveProviderSwitch(source)?.removedCapabilities ?? [];
+}
+
 function findProviderRule(
   provider: string,
   kind?: ProviderRule["kind"],
@@ -215,10 +292,21 @@ export function inferPreGenerationContracts(params: {
   } = params;
   const corpus = getPromptCorpus(prompt, brief);
   const briefCorpus = getPromptCorpus("", brief);
+  const promptSwitchResolution = resolveProviderSwitch(prompt);
+  const switchRemovedCapabilities = new Set(
+    promptSwitchResolution?.removedCapabilities ?? [],
+  );
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
-  const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
-  const suppressPayment = visualOnly || hasNegatedPaymentIntent(corpus);
-  const suppressBackend = visualOnly || hasNegatedBackendIntent(corpus);
+  const suppressAuth =
+    visualOnly || hasNegatedAuthIntent(corpus) || switchRemovedCapabilities.has("auth");
+  const suppressPayment =
+    visualOnly ||
+    hasNegatedPaymentIntent(corpus) ||
+    switchRemovedCapabilities.has("payments");
+  const suppressBackend =
+    visualOnly ||
+    hasNegatedBackendIntent(corpus) ||
+    switchRemovedCapabilities.has("database");
   const effectiveCapabilities: InferredCapabilities = {
     ...capabilities,
     needsAuth: suppressAuth ? false : capabilities.needsAuth,
@@ -235,12 +323,6 @@ export function inferPreGenerationContracts(params: {
     integrations,
     envVars,
   };
-
-  const capabilityForRule = (rule: ProviderRule): string | undefined =>
-    rule.methodOnly
-      ? undefined
-      : rule.dossierCapability ??
-        (rule.kind === "payment" ? "payments" : rule.kind === "auth" ? "auth" : undefined);
 
   type SupabasePairDecision = "positive" | "negative";
   const getSupabasePairDecisions = (source: string): Map<string, SupabasePairDecision> => {
@@ -356,12 +438,9 @@ export function inferPreGenerationContracts(params: {
   const matchedPositiveRules = PROVIDER_RULES.filter(
     (rule) => decisionForRule(rule) === "positive",
   );
-  const switchTarget = (source: string): string | undefined =>
-    source.match(
-      /(?:\bfrom\b|\bfrån\b)[\s\S]{0,80}?\b(?:to|till)\b([\s\S]{1,80})/iu,
-    )?.[1];
-  const promptSwitchTarget = switchTarget(prompt);
-  const briefSwitchTarget = switchTarget(briefCorpus);
+  const briefSwitchResolution =
+    promptDecisionScopes.size === 0 ? resolveProviderSwitch(briefCorpus) : null;
+  const activeSwitchResolution = promptSwitchResolution ?? briefSwitchResolution;
   const capabilityPatternForRule = (rule: ProviderRule): RegExp | null => {
     const capability = capabilityForRule(rule);
     if (!capability) return null;
@@ -387,40 +466,26 @@ export function inferPreGenerationContracts(params: {
       (pattern) => pattern.test(source) && !isTermFullyNegated(source, pattern),
     );
   };
-  const targetForRule = (rule: ProviderRule): string | undefined =>
-    promptSwitchTarget ??
-    (promptDecisionScopes.has(ruleScope(rule)) ? undefined : briefSwitchTarget);
-  const switchProviderKeys = new Set(
-    matchedPositiveRules.map((rule) => rule.providerKey),
-  );
-  const targetPurposeRules = PROVIDER_RULES.filter((rule) => {
-    const target = targetForRule(rule);
-    return Boolean(
-      target &&
-        switchProviderKeys.has(rule.providerKey) &&
-        rule.purposePatterns.length > 0 &&
-        hasPositiveCapabilityMention(rule, target),
-    );
-  });
+  const targetPurposeRules = activeSwitchResolution?.targetRules ?? [];
   const positiveCandidates = Array.from(
     new Set([...matchedPositiveRules, ...targetPurposeRules]),
   );
-  const targetRules = positiveCandidates.filter((rule) => {
-    const target = targetForRule(rule);
-    return Boolean(
-      target &&
-        (rule.purposePatterns.length > 0
-          ? hasPositiveCapabilityMention(rule, target)
-          : rule.patterns.some((pattern) => pattern.test(target)) ||
-            hasPositiveCapabilityMention(rule, target)),
-    );
-  });
+  const targetRules = activeSwitchResolution?.targetRules ?? [];
   const targetScopes = new Set(targetRules.map(ruleScope));
   const targetProviderKeys = new Set(targetRules.map((rule) => rule.providerKey));
+  const sourceCapabilities = new Set(
+    (activeSwitchResolution?.sourceRules ?? [])
+      .map(capabilityForRule)
+      .filter((value): value is string => Boolean(value)),
+  );
   const unresolvedProviderRules = positiveCandidates.filter(
     (rule) => rule.status === "unresolved" && capabilityForRule(rule),
   );
   const positiveRules = positiveCandidates.filter((rule) => {
+    const capability = capabilityForRule(rule);
+    if (capability && sourceCapabilities.has(capability)) {
+      return targetRules.includes(rule);
+    }
     if (
       targetProviderKeys.has(rule.providerKey) &&
       !targetRules.includes(rule)
@@ -642,10 +707,11 @@ export function inferPreGenerationContracts(params: {
   const legacyCandidates: PlanIntegrationContract[] = [];
   for (const inherited of inheritedIntegrations) {
     if (
-      promptSwitchTarget &&
-      inherited.providerKey &&
-      targetProviderKeys.has(inherited.providerKey) &&
-      !targetScopes.has(contractScope(inherited))
+      promptSwitchResolution &&
+      inherited.dossierCapability &&
+      promptSwitchResolution.removedCapabilities.includes(
+        inherited.dossierCapability,
+      )
     ) {
       continue;
     }

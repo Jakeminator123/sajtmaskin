@@ -641,6 +641,17 @@
       },
       {
         "kind": "integration",
+        "providerKey": "mailchimp",
+        "dossierCapability": "newsletter-subscribe",
+        "provider": "Mailchimp",
+        "name": "Mailchimp",
+        "envVars": ["MAILCHIMP_API_KEY", "MAILCHIMP_AUDIENCE_ID", "MAILCHIMP_DC"],
+        "matchPatterns": ["\\bmailchimp\\b"],
+        "purposePatterns": ["\\b(?:newsletter(?:\\s+signup)?|nyhetsbrev)\\b"],
+        "reason": "Prompten väljer Mailchimp uttryckligen för nyhetsbrev."
+      },
+      {
+        "kind": "integration",
         "providerKey": "resend",
         "dossierCapability": "newsletter-subscribe",
         "provider": "Resend",
