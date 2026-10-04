@@ -1624,4 +1624,37 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
   ])("does not fabricate an implicit Supabase target from a negated purpose: %s", (prompt) => {
     expect(resolveProviderSwitchRemovedCapabilities(prompt)).toEqual([]);
   });
+
+  it.each([
+    ["Switch from Supabase auth to no database", "auth", "database", "DATABASE_URL"],
+    ["Byt från Supabase auth till ingen databas", "auth", "database", "DATABASE_URL"],
+    ["Switch from Supabase database to no auth", "database", "auth", "CLERK_SECRET_KEY"],
+    ["Byt från Supabase databas till ingen inloggning", "database", "auth", "CLERK_SECRET_KEY"],
+  ] as const)(
+    "keeps the source but never chooses a negated Supabase target: %s",
+    (prompt, sourceCapability, targetCapability, forbiddenEnvKey) => {
+      const ctx = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+      });
+
+      expect(ctx.contracts.integrations).toContainEqual(
+        expect.objectContaining({
+          providerKey: "supabase",
+          dossierCapability: sourceCapability,
+          status: "chosen",
+        }),
+      );
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({
+          dossierCapability: targetCapability,
+          status: "chosen",
+        }),
+      );
+      expect(ctx.contracts.envVars).not.toContainEqual(
+        expect.objectContaining({ key: forbiddenEnvKey }),
+      );
+    },
+  );
 });

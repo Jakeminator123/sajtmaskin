@@ -11,6 +11,7 @@ vi.mock("./data/shadcn-ui-recipes", () => ({
 
 import { resolveOrchestrationBase, type OrchestrationInput } from "./orchestrate";
 import type { InferredCapabilities } from "./capability-inference";
+import type { PlanIntegrationContract } from "./plan/schema";
 
 const none: InferredCapabilities = {
   needsMotion: false,
@@ -72,6 +73,22 @@ function followUpContract(
     qualityTarget: null,
     previewSessionId: null,
     inheritedProviderContracts,
+  };
+}
+
+function supabaseContract(
+  capability: "auth" | "database",
+): PlanIntegrationContract {
+  return {
+    kind: capability,
+    providerKey: "supabase",
+    dossierCapability: capability,
+    selectionSource: "explicit",
+    provider: "Supabase",
+    name: capability === "auth" ? "Supabase Auth" : "Supabase",
+    reason: `Existing ${capability} provider.`,
+    status: "chosen",
+    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
   };
 }
 
@@ -578,6 +595,49 @@ describe("provider-compatible orchestration", () => {
       expect.objectContaining({ dossierCapability: "database" }),
     );
   });
+
+  it.each([
+    ["Switch from Supabase auth to no database", "auth", "database", "postgres-drizzle", "DATABASE_URL"],
+    ["Byt från Supabase auth till ingen databas", "auth", "database", "postgres-drizzle", "DATABASE_URL"],
+    ["Switch from Supabase database to no auth", "database", "auth", "clerk-auth", "CLERK_SECRET_KEY"],
+    ["Byt från Supabase databas till ingen inloggning", "database", "auth", "clerk-auth", "CLERK_SECRET_KEY"],
+  ] as const)(
+    "does not materialize a negated implicit Supabase target: %s",
+    async (prompt, sourceCapability, targetCapability, forbiddenDossierId, forbiddenEnvKey) => {
+      const base = await resolveOrchestrationBase(
+        input(prompt, {
+          generationMode: "followUp",
+          previousFilesCount: 1,
+          capabilities: { ...none, needsAuth: true, needsDatabase: true },
+          requestedDossierCapabilities: ["auth", "database"],
+          followUpContract: followUpContract(
+            ["auth", "database"],
+            [supabaseContract("auth"), supabaseContract("database")],
+          ),
+        }),
+      );
+
+      expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+        expect.objectContaining({
+          providerKey: "supabase",
+          dossierCapability: sourceCapability,
+          status: "chosen",
+        }),
+      );
+      expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({
+          dossierCapability: targetCapability,
+          status: "chosen",
+        }),
+      );
+      expect(base.preGenerationContracts.contracts.envVars).not.toContainEqual(
+        expect.objectContaining({ key: forbiddenEnvKey }),
+      );
+      expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+        forbiddenDossierId,
+      );
+    },
+  );
 
   it.each([
     ["Switch from Upstash analytics to Google Analytics"],

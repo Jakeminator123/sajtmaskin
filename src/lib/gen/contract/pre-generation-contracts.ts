@@ -108,7 +108,7 @@ function getSupabasePairDecisions(
     if (hasAuthCue) {
       decisions.set(
         "auth",
-        !hasProvider && isTermFullyNegated(segment, AUTH_PURPOSE_PATTERN)
+        isTermFullyNegated(segment, AUTH_PURPOSE_PATTERN)
           ? "negative"
           : providerDecision,
       );
@@ -116,7 +116,7 @@ function getSupabasePairDecisions(
     if (hasDatabaseCue) {
       decisions.set(
         "database",
-        !hasProvider && isTermFullyNegated(segment, DATABASE_PURPOSE_PATTERN)
+        isTermFullyNegated(segment, DATABASE_PURPOSE_PATTERN)
           ? "negative"
           : providerDecision,
       );
