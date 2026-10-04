@@ -130,13 +130,39 @@ const generationEnvelopeSchema = z.object({
   checkedAt: isoDateTime,
 });
 
-const registerResponseSchema = z.object({
-  success: z.literal(true),
-  pages: z.array(registerPageSchema),
-  registry: registryEnvelopeSchema,
-  analytics: analyticsEnvelopeSchema,
-  generation: generationEnvelopeSchema,
-});
+const registerResponseSchema = z
+  .object({
+    success: z.literal(true),
+    pages: z.array(registerPageSchema),
+    registry: registryEnvelopeSchema,
+    analytics: analyticsEnvelopeSchema,
+    generation: generationEnvelopeSchema,
+  })
+  .superRefine((response, ctx) => {
+    response.pages.forEach((page, index) => {
+      if (!response.analytics.available) {
+        for (const field of ["visits", "verified", "started"] as const) {
+          if (page[field] !== null) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["pages", index, field],
+              message: "unavailable analytics requires null page metrics",
+            });
+          }
+        }
+      }
+      if (
+        !response.generation.available &&
+        normalizeKostnadsfriGeneration(page.generation).state !== "unknown"
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["pages", index, "generation"],
+          message: "unavailable generation requires an unknown page projection",
+        });
+      }
+    });
+  });
 
 export type KostnadsfriRegisterEnvelopes = Pick<
   z.infer<typeof registerResponseSchema>,

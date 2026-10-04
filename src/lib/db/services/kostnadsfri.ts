@@ -425,8 +425,9 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
     metadata?: KostnadsfriPageMetadataInput;
   } = {},
 ): Promise<
-  | (KostnadsfriMailEventRecord & { page: KostnadsfriPage | null })
+  | (KostnadsfriMailEventRecord & { page: KostnadsfriPage })
   | { status: "unsubscribed" }
+  | { status: "missing-page" }
 > {
   assertDbConfigured();
   return db.transaction(async (tx) => {
@@ -436,11 +437,14 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
       .where(eq(kostnadsfriPages.id, input.pageId))
       .for("update");
     const page = locked[0] ?? null;
-    if (unsubscribedAtFromExtra(page?.extra_data ?? null)) {
+    // The route's earlier lookup may have raced with deletion. Never reserve
+    // the messageId or change metadata for a row the locked re-read cannot find.
+    if (!page) return { status: "missing-page" as const };
+    if (unsubscribedAtFromExtra(page.extra_data)) {
       return { status: "unsubscribed" as const };
     }
     const record = await recordMailEventWith(tx, input);
-    if (record.status === "conflict" || !page) {
+    if (record.status === "conflict") {
       return { ...record, page };
     }
     let current = page;

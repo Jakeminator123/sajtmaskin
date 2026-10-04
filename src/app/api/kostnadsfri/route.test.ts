@@ -298,6 +298,30 @@ describe("POST /api/kostnadsfri", () => {
     });
   });
 
+  it("returns the existing 409 contract when the locked company row disappeared", async () => {
+    getKostnadsfriPageBySlug.mockResolvedValueOnce(pageRow());
+    recordKostnadsfriMailEventForSubscribedPage.mockResolvedValueOnce({ status: "missing-page" });
+    const res = await POST(postRequest({
+      companyName: "Acme AB",
+      mailEvent: {
+        messageId: "a".repeat(32),
+        flowId: "flow_1",
+        step: "follow",
+        variant: "text",
+        sender: "hej@sajtmaskin.se",
+        recipient: "hej@acme.se",
+        scheduledAt: "2026-10-03T08:25:00.000Z",
+        outcome: "scheduled",
+      },
+    }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ success: false, error: 'A page with slug "acme-ab" no longer exists' });
+    expect(markKostnadsfriPageSent).not.toHaveBeenCalled();
+    expect(createKostnadsfriPage).not.toHaveBeenCalled();
+    expect(createKostnadsfriPageWithMailEvent).not.toHaveBeenCalled();
+  });
+
   it("rejects a follow-up after the company has unsubscribed", async () => {
     getKostnadsfriPageBySlug.mockResolvedValueOnce(
       pageRow({

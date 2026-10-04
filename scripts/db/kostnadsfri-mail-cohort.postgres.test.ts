@@ -250,6 +250,39 @@ describe.skipIf(!target.url)("kostnadsfri mail cohort mot riktig Postgres", () =
     expect(row.extra_data.profile).toEqual({ city: "Lund" });
   });
 
+  it("writes no receipt for a deleted page and keeps the messageId reusable", async () => {
+    const created = await service.createKostnadsfriPage({
+      slug: slug("deleted"),
+      passwordHash: "hash",
+      companyName: "Deleted fixture AB",
+    });
+    // Reproduce deletion between the route lookup and the service's locked read.
+    await pool.query("delete from kostnadsfri_pages where id = $1", [created.id]);
+    const input = {
+      ...baseEvent,
+      messageId: messageId(7),
+      pageId: created.id,
+      slug: slug("deleted"),
+      step: "first" as const,
+      variant: "text" as const,
+      smtpAcceptedAt: new Date("2026-10-03T11:00:00.000Z"),
+      outcome: "accepted" as const,
+      source: textSource,
+    };
+    expect(await service.recordKostnadsfriMailEventForSubscribedPage(input)).toEqual({
+      status: "missing-page",
+    });
+    const receipts = await pool.query("select 1 from kostnadsfri_mail_events where message_id = $1", [
+      input.messageId,
+    ]);
+    expect(receipts.rowCount).toBe(0);
+    const retry = await service.createKostnadsfriPageWithMailEvent(
+      { slug: input.slug, passwordHash: "hash", companyName: "Retry fixture AB" },
+      input,
+    );
+    expect(retry.status).toBe("created");
+  });
+
   it("changes no metadata and writes no event after opt-out", async () => {
     const created = await service.createKostnadsfriPage({
       slug: slug("optout"),

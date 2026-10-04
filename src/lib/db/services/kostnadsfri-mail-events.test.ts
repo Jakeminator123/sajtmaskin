@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   events: [] as Record<string, unknown>[],
   entitlementWhere: [] as unknown[],
   lockedPageExtra: null as unknown,
+  lockedPageExists: true,
   lockedPage: { id: 1, sent_at: null, source: null } as Record<string, unknown>,
   pageUpdates: [] as unknown[],
   pageUpdateValues: [] as Record<string, unknown>[],
@@ -63,7 +64,9 @@ vi.mock("@/lib/db/client", async () => {
                 where: () => ({
                   for: async (strength: string) => {
                     if (strength === "update") state.locks += 1;
-                    return [{ ...state.lockedPage, extra_data: state.lockedPageExtra }];
+                    return state.lockedPageExists
+                      ? [{ ...state.lockedPage, extra_data: state.lockedPageExtra }]
+                      : [];
                   },
                 }),
               }),
@@ -120,6 +123,7 @@ beforeEach(() => {
   state.events = [];
   state.entitlementWhere = [];
   state.lockedPageExtra = null;
+  state.lockedPageExists = true;
   state.lockedPage = { id: 1, sent_at: null, source: null };
   state.pageUpdates = [];
   state.pageUpdateValues = [];
@@ -180,6 +184,26 @@ describe("isAllowedMailOutcomeTransition", () => {
 });
 
 describe("recordKostnadsfriMailEventForSubscribedPage (registration vs unsubscribe race)", () => {
+  it.each(["first", "follow"] as const)(
+    "writes nothing for a disappeared page and leaves the %s messageId retryable",
+    async (step) => {
+      state.lockedPageExists = false;
+      const input = { ...mailEvent, step, pageId: 1, slug: "acme-ab" };
+      const result = await recordKostnadsfriMailEventForSubscribedPage(input, {
+        firstSend: { sentAt: new Date(), source: "render-mail-flow:text" },
+        metadata: { contactEmail: "new@acme.se" },
+      });
+
+      expect(result).toEqual({ status: "missing-page" });
+      expect(state.events).toEqual([]);
+      expect(state.pageUpdateValues).toEqual([]);
+      expect(state.locks).toBe(1);
+
+      state.lockedPageExists = true;
+      expect((await recordKostnadsfriMailEventForSubscribedPage(input)).status).toBe("created");
+      expect(state.events).toHaveLength(1);
+    },
+  );
   it("writes no receipt when an unsubscribe committed after the route's unlocked lookup", async () => {
     // The route saw a subscribed company; the locked re-read inside the
     // transaction sees the opt-out that committed in between.
@@ -232,7 +256,7 @@ describe("first-send compatibility fields under the registration lock", () => {
     });
     expect(state.pageUpdates).toHaveLength(1);
     expect(state.pageUpdates[0]).toMatch(/"sent_at" is null/);
-    expect(second.status !== "unsubscribed" && second.page).toMatchObject({
+    expect("page" in second && second.page).toMatchObject({
       source: "render-mail-flow:text",
     });
   });

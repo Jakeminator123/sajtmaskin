@@ -327,6 +327,12 @@ export async function POST(request: NextRequest) {
             { firstSend, metadata },
           )
         : null;
+      if (mailReceipt?.status === "missing-page") {
+        return NextResponse.json(
+          { success: false, error: `A page with slug "${slug}" no longer exists` },
+          { status: 409 },
+        );
+      }
       if (mailReceipt?.status === "unsubscribed") {
         return NextResponse.json(
           { success: false, error: "The company unsubscribed before this mail" },

@@ -143,6 +143,13 @@ describe("kostnadsfri mail register contract", () => {
     it("accepts a capped partial read with partial-unavailable analytics and generation", () => {
       const partial = {
         ...(structuredClone(fixture) as Record<string, unknown>),
+        pages: (fixture as { pages: Record<string, unknown>[] }).pages.map((page) => ({
+          ...page,
+          visits: null,
+          verified: null,
+          started: null,
+          generation: undefined,
+        })),
         registry: { ...base.registry, complete: false, nextCursor: "0", paginationMode: "legacy-send-order" },
         analytics: { ...base.analytics, available: false, complete: false },
         generation: { ...base.generation, available: false },
@@ -154,6 +161,37 @@ describe("kostnadsfri mail register contract", () => {
       // A legacy row without generation still degrades to unknown, row kept.
       const legacy = parseKostnadsfriRegisterResponse(partial).find((p) => p.slug === "legacy-ab");
       expect(legacy?.generation.state).toBe("unknown");
+    });
+
+    it.each(["visits", "verified", "started"])(
+      "rejects numeric %s when analytics is unavailable in both parsers",
+      (field) => {
+        const contradictory = withEnvelope("analytics", { available: false, complete: false });
+        for (const parse of [parseKostnadsfriRegisterResponse, parseKostnadsfriRegisterEnvelopes]) {
+          expect(() => parse(contradictory)).toThrow();
+          const valid = structuredClone(contradictory) as { pages: Record<string, unknown>[] };
+          valid.pages = valid.pages.map((page) => ({ ...page, visits: null, verified: null, started: null }));
+          expect(() => parse(valid)).not.toThrow();
+          valid.pages[0][field] = 0;
+          expect(() => parse(valid)).toThrow();
+        }
+      },
+    );
+
+    it("requires unknown generation while unavailable but keeps legacy fallback", () => {
+      const unavailable = withEnvelope("generation", { available: false }) as {
+        pages: Record<string, unknown>[];
+      };
+      for (const parse of [parseKostnadsfriRegisterResponse, parseKostnadsfriRegisterEnvelopes]) {
+        expect(() => parse(unavailable)).toThrow();
+        const legacy = structuredClone(unavailable);
+        legacy.pages = legacy.pages.map((page) => ({ ...page, generation: undefined }));
+        expect(() => parse(legacy)).not.toThrow();
+        legacy.pages[0].generation = { state: "unknown", completedAt: null, siteId: null };
+        expect(() => parse(legacy)).not.toThrow();
+        legacy.pages[0].generation = { state: "in-progress", completedAt: null, siteId: null };
+        expect(() => parse(legacy)).toThrow();
+      }
     });
 
     it("rejects analytics that claims completeness while unavailable", () => {
