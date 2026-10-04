@@ -427,13 +427,15 @@
   },
   "preGenerationContracts": {
     "defaults": {
-      "fallbackDatabaseProvider": "SQLite",
-      "fallbackAuthProvider": "NextAuth / Auth.js",
+      "fallbackDatabaseProvider": "Postgres / DATABASE_URL",
+      "fallbackAuthProvider": "Clerk",
       "fallbackPaymentProvider": "Stripe"
     },
     "providerRules": [
       {
         "kind": "database",
+        "providerKey": "supabase",
+        "dossierCapability": "database",
         "provider": "Supabase",
         "name": "Supabase",
         "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
@@ -441,7 +443,24 @@
         "reason": "Prompten nämner Supabase eller ett tydligt Supabase-flöde."
       },
       {
+        "kind": "auth",
+        "providerKey": "supabase",
+        "dossierCapability": "auth",
+        "provider": "Supabase",
+        "name": "Supabase Auth",
+        "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+        "matchPatterns": [
+          "\\bsupabase[-\\s]?(?:auth|login|inloggning)\\b",
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in|logga\\s+in)\\b.{0,32}\\bsupabase\\b",
+          "\\bsupabase\\b.{0,24}\\b(?:for|för|till)\\s+(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b",
+          "\\bsupabase\\b[^.!?\\n]{0,48}\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b"
+        ],
+        "reason": "Prompten väljer uttryckligen Supabase för inloggning."
+      },
+      {
         "kind": "database",
+        "providerKey": "prisma",
+        "packageRoots": ["@prisma/client"],
         "provider": "Prisma",
         "name": "Prisma",
         "envVars": ["DATABASE_URL"],
@@ -450,6 +469,8 @@
       },
       {
         "kind": "database",
+        "providerKey": "drizzle",
+        "packageRoots": ["drizzle-orm"],
         "provider": "Drizzle",
         "name": "Drizzle",
         "envVars": ["DATABASE_URL"],
@@ -458,6 +479,9 @@
       },
       {
         "kind": "database",
+        "providerKey": "sqlite",
+        "dossierCapability": "database",
+        "packageRoots": ["better-sqlite3"],
         "provider": "SQLite",
         "name": "SQLite",
         "envVars": ["DATABASE_URL"],
@@ -466,6 +490,9 @@
       },
       {
         "kind": "database",
+        "providerKey": "postgres",
+        "dossierCapability": "database",
+        "packageRoots": ["postgres", "pg", "@neondatabase/serverless"],
         "provider": "Postgres / DATABASE_URL",
         "name": "Postgres",
         "envVars": ["DATABASE_URL"],
@@ -473,7 +500,21 @@
         "reason": "Prompten nämner Postgres eller DATABASE_URL uttryckligen."
       },
       {
+        "kind": "database",
+        "providerKey": "mongodb",
+        "dossierCapability": "database",
+        "packageRoots": ["mongodb", "mongoose"],
+        "provider": "MongoDB",
+        "name": "MongoDB",
+        "envVars": ["MONGODB_URI"],
+        "matchPatterns": ["\\bmongodb\\b", "\\bmongoose\\b"],
+        "reason": "Prompten nämner MongoDB uttryckligen."
+      },
+      {
         "kind": "auth",
+        "providerKey": "clerk",
+        "dossierCapability": "auth",
+        "packageRoots": ["@clerk/nextjs"],
         "provider": "Clerk",
         "name": "Clerk",
         "envVars": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
@@ -482,6 +523,9 @@
       },
       {
         "kind": "auth",
+        "providerKey": "next-auth",
+        "dossierCapability": "auth",
+        "packageRoots": ["next-auth"],
         "provider": "NextAuth / Auth.js",
         "name": "NextAuth / Auth.js",
         "envVars": ["AUTH_SECRET", "NEXTAUTH_URL"],
@@ -490,6 +534,9 @@
       },
       {
         "kind": "auth",
+        "providerKey": "auth0",
+        "dossierCapability": "auth",
+        "packageRoots": ["@auth0/nextjs-auth0"],
         "provider": "Auth0",
         "name": "Auth0",
         "envVars": [
@@ -504,6 +551,9 @@
       },
       {
         "kind": "payment",
+        "providerKey": "stripe",
+        "dossierCapability": "payments",
+        "packageRoots": ["stripe"],
         "provider": "Stripe",
         "name": "Stripe",
         "envVars": ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
@@ -511,7 +561,31 @@
         "reason": "Prompten pekar på checkout eller Stripe."
       },
       {
+        "kind": "payment",
+        "providerKey": "stripe-elements",
+        "methodOnly": true,
+        "packageRoots": ["@stripe/react-stripe-js", "@stripe/stripe-js"],
+        "provider": "Stripe Elements",
+        "name": "Stripe Elements",
+        "envVars": [],
+        "matchPatterns": ["\\bstripe\\s+elements\\b"],
+        "reason": "Prompten eller projektkoden väljer Stripe Elements i stället för hosted Checkout."
+      },
+      {
+        "kind": "payment",
+        "providerKey": "swish",
+        "dossierCapability": "payments",
+        "provider": "Swish",
+        "name": "Swish",
+        "envVars": [],
+        "matchPatterns": ["\\bswish\\b"],
+        "reason": "Prompten nämner Swish uttryckligen; implementationen måste väljas innan F3."
+      },
+      {
         "kind": "integration",
+        "providerKey": "resend",
+        "dossierCapability": "contact-form",
+        "packageRoots": ["resend"],
         "provider": "Resend",
         "name": "Resend",
         "envVars": ["RESEND_API_KEY"],
@@ -520,6 +594,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "openai",
+        "dossierCapability": "ai-chat",
+        "packageRoots": ["openai"],
         "provider": "OpenAI",
         "name": "OpenAI",
         "envVars": ["OPENAI_API_KEY"],
@@ -528,6 +605,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "vercel-blob",
+        "dossierCapability": "media-upload",
+        "packageRoots": ["@vercel/blob"],
         "provider": "Vercel Blob",
         "name": "Vercel Blob",
         "envVars": ["BLOB_READ_WRITE_TOKEN"],
@@ -536,6 +616,8 @@
       },
       {
         "kind": "integration",
+        "providerKey": "upstash",
+        "packageRoots": ["@upstash/redis"],
         "provider": "Upstash",
         "name": "Upstash",
         "envVars": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
@@ -544,6 +626,7 @@
       },
       {
         "kind": "integration",
+        "providerKey": "google-analytics",
         "provider": "Google Analytics 4",
         "name": "Google Analytics 4",
         "envVars": ["NEXT_PUBLIC_GA_ID"],
@@ -552,6 +635,7 @@
       },
       {
         "kind": "integration",
+        "providerKey": "google-tag-manager",
         "provider": "Google Tag Manager",
         "name": "Google Tag Manager",
         "envVars": ["NEXT_PUBLIC_GTM_ID"],
@@ -560,6 +644,7 @@
       },
       {
         "kind": "integration",
+        "providerKey": "plausible",
         "provider": "Plausible",
         "name": "Plausible",
         "envVars": ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
@@ -568,6 +653,8 @@
       },
       {
         "kind": "integration",
+        "providerKey": "posthog",
+        "packageRoots": ["posthog-js"],
         "provider": "PostHog",
         "name": "PostHog",
         "envVars": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
@@ -576,6 +663,9 @@
       },
       {
         "kind": "integration",
+        "providerKey": "vercel-analytics",
+        "dossierCapability": "analytics",
+        "packageRoots": ["@vercel/analytics"],
         "provider": "Vercel Analytics",
         "name": "Besöksstatistik",
         "envVars": [],

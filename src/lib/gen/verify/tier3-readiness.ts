@@ -61,6 +61,7 @@ export function buildContractsFromDetectedIntegrations(
   const integrations: PlanIntegrationContract[] = detected
     .filter((d) => d.key !== "custom-env")
     .map((d): PlanIntegrationContract => ({
+      providerKey: (d.provider ?? d.key).toLowerCase(),
       provider: d.provider ?? d.key,
       name: d.name,
       reason: typeof d.intent === "string" ? d.intent : "detected from generated code",

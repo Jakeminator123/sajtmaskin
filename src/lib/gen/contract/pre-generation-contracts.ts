@@ -12,8 +12,8 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import {
   hasNegatedAuthIntent,
   hasNegatedBackendIntent,
-  hasNegatedIntegrationIntent,
   hasNegatedPaymentIntent,
+  isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
 } from "@/lib/builder/prompt-negation";
 import type { InferredCapabilities } from "../capability-inference";
@@ -22,6 +22,7 @@ import type {
   PlanEnvVarContract,
   PlanIntegrationContract,
 } from "../plan/schema";
+import type { ProjectProviderEvidence } from "./project-provider-evidence";
 
 type ContractDecisionKind = "database" | "auth" | "payment" | "integration" | "env";
 
@@ -35,6 +36,10 @@ export interface PreGenerationContractContext {
 
 type ProviderRule = {
   kind: "database" | "auth" | "payment" | "integration";
+  providerKey: string;
+  dossierCapability?: string;
+  methodOnly?: boolean;
+  packageRoots?: string[];
   provider: string;
   name: string;
   envVars: string[];
@@ -48,6 +53,10 @@ const preGenerationContractsConfig = getPreGenerationContractsConfigFromManifest
 const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRules.map(
   (rule) => ({
     kind: rule.kind,
+    providerKey: rule.providerKey,
+    dossierCapability: rule.dossierCapability,
+    methodOnly: rule.methodOnly,
+    packageRoots: rule.packageRoots,
     provider: rule.provider,
     name: rule.name,
     envVars: rule.envVars,
@@ -123,7 +132,12 @@ function pushEnvVars(target: PlanEnvVarContract[], nextVars: string[], reason: s
 }
 
 function pushIntegration(target: PlanIntegrationContract[], nextIntegration: PlanIntegrationContract): void {
-  const existing = target.find((entry) => entry.provider.toLowerCase() === nextIntegration.provider.toLowerCase());
+  const existing = target.find(
+    (entry) =>
+      entry.provider.toLowerCase() === nextIntegration.provider.toLowerCase() &&
+      entry.dossierCapability?.toLowerCase() ===
+        nextIntegration.dossierCapability?.toLowerCase(),
+  );
   if (existing) return;
   target.push(nextIntegration);
 }
@@ -144,104 +158,6 @@ function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilit
 
 function mentionsMockData(corpus: string): boolean {
   return /\b(mock|mocked|demo data|placeholder data|static data|utan backend|no backend)\b/i.test(corpus);
-}
-
-/**
- * When the prompt implies persistence but no concrete DB was inferred from keywords,
- * default to **SQLite in the repo** (e.g. `file:./dev.db`) instead of blocking on a
- * clarifying modal. Env is non-blocking so preview/VM runtime can use placeholders.
- */
-function applyDefaultSqliteWhenPersistenceNeedsProvider(
-  corpus: string,
-  capabilities: InferredCapabilities,
-  contracts: PlanContracts,
-  integrations: PlanIntegrationContract[],
-  envVars: PlanEnvVarContract[],
-): void {
-  if (!mentionsDataPersistence(corpus, capabilities) || contracts.databaseProvider) {
-    return;
-  }
-  const sqliteRule = findProviderRule(
-    CONTRACT_DEFAULTS.fallbackDatabaseProvider,
-    "database",
-  );
-  if (!sqliteRule) return;
-  contracts.databaseProvider = sqliteRule.provider;
-  pushIntegration(integrations, {
-    provider: sqliteRule.provider,
-    name: sqliteRule.name,
-    reason:
-      "Automatiskt standardval: lokal SQLite i projektet när persistence behövs men ingen databas nämns — undviker blockerande fråga.",
-    status: "chosen",
-    envVars: sqliteRule.envVars,
-  });
-  pushEnvVars(
-    envVars,
-    sqliteRule.envVars,
-    "SQLite: använd t.ex. `file:./dev.db` (Prisma/Drizzle); ingen extern DB krävs för första preview.",
-    false,
-  );
-}
-
-/**
- * When the prompt implies login but no Clerk/NextAuth/Auth0 was inferred, default to
- * **NextAuth/Auth.js with Credentials (lösenord)** — not OAuth consent flows. Env keys are
- * non-blocking; preview uses placeholders from generated-site policy (e.g. AUTH_SECRET).
- */
-function applyDefaultCredentialsAuthWhenNeeded(
-  capabilities: InferredCapabilities,
-  contracts: PlanContracts,
-  integrations: PlanIntegrationContract[],
-  envVars: PlanEnvVarContract[],
-): void {
-  if (!capabilities.needsAuth || contracts.authProvider) {
-    return;
-  }
-  const nextAuthRule = findProviderRule(
-    CONTRACT_DEFAULTS.fallbackAuthProvider,
-    "auth",
-  );
-  if (!nextAuthRule) return;
-  contracts.authProvider = nextAuthRule.provider;
-  pushIntegration(integrations, {
-    provider: nextAuthRule.provider,
-    name: nextAuthRule.name,
-    reason:
-      "Automatiskt standardval: inloggning med **lösenord** (Auth.js Credentials), inga OAuth-appar. Placeholders för AUTH_SECRET/NEXTAUTH_URL i preview.",
-    status: "chosen",
-    envVars: nextAuthRule.envVars,
-  });
-  pushEnvVars(envVars, nextAuthRule.envVars, nextAuthRule.reason, false);
-}
-
-/**
- * Checkout/betalning utan vald provider → Stripe med **test-placeholders** (pk_/sk_test…),
- * ingen blockerande fråga. LLM kan bygga UI mot Stripe test mode.
- */
-function applyDefaultStripePlaceholderWhenPaymentNeeded(
-  capabilities: InferredCapabilities,
-  contracts: PlanContracts,
-  integrations: PlanIntegrationContract[],
-  envVars: PlanEnvVarContract[],
-): void {
-  if (!capabilities.needsPayments || contracts.paymentProvider) {
-    return;
-  }
-  const stripeRule = findProviderRule(
-    CONTRACT_DEFAULTS.fallbackPaymentProvider,
-    "payment",
-  );
-  if (!stripeRule) return;
-  contracts.paymentProvider = stripeRule.provider;
-  pushIntegration(integrations, {
-    provider: stripeRule.provider,
-    name: stripeRule.name,
-    reason:
-      "Automatiskt standardval: Stripe test-nycklar som placeholders — ingen koppling till riktig kassa förrän du byter env.",
-    status: "chosen",
-    envVars: stripeRule.envVars,
-  });
-  pushEnvVars(envVars, stripeRule.envVars, stripeRule.reason, false);
 }
 
 function inferDataMode(
@@ -270,14 +186,22 @@ export function inferPreGenerationContracts(params: {
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   capabilities: InferredCapabilities;
+  inheritedIntegrations?: readonly PlanIntegrationContract[];
+  projectProviderEvidence?: readonly ProjectProviderEvidence[];
 }): PreGenerationContractContext {
-  const { prompt, buildIntent, brief = null, capabilities } = params;
+  const {
+    prompt,
+    buildIntent,
+    brief = null,
+    capabilities,
+    inheritedIntegrations = [],
+    projectProviderEvidence = [],
+  } = params;
   const corpus = getPromptCorpus(prompt, brief);
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
   const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
   const suppressPayment = visualOnly || hasNegatedPaymentIntent(corpus);
   const suppressBackend = visualOnly || hasNegatedBackendIntent(corpus);
-  const suppressIntegration = visualOnly || hasNegatedIntegrationIntent(corpus);
   const effectiveCapabilities: InferredCapabilities = {
     ...capabilities,
     needsAuth: suppressAuth ? false : capabilities.needsAuth,
@@ -295,14 +219,143 @@ export function inferPreGenerationContracts(params: {
     envVars,
   };
 
-  for (const rule of PROVIDER_RULES) {
-    if (rule.kind === "auth" && suppressAuth) continue;
-    if (rule.kind === "payment" && suppressPayment) continue;
-    if (rule.kind === "database" && suppressBackend) continue;
-    if (rule.kind === "integration" && suppressIntegration) continue;
-    if (!rule.patterns.some((pattern) => pattern.test(corpus))) continue;
+  const capabilityForRule = (rule: ProviderRule): string | undefined =>
+    rule.methodOnly
+      ? undefined
+      : rule.dossierCapability ??
+        (rule.kind === "payment" ? "payments" : rule.kind === "auth" ? "auth" : undefined);
 
-    if (rule.kind === "database" && !contracts.databaseProvider) {
+  const matchedPositiveRules = PROVIDER_RULES.filter((rule) =>
+    rule.patterns.some((pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern)),
+  );
+  const switchTarget = corpus.match(
+    /(?:\bfrom\b|\bfrån\b)[\s\S]{0,80}?\b(?:to|till)\b([\s\S]{1,80})/iu,
+  )?.[1];
+  const targetRules = switchTarget
+    ? matchedPositiveRules.filter((rule) =>
+        rule.patterns.some((pattern) => pattern.test(switchTarget)),
+      )
+    : [];
+  const targetCapabilities = new Set(
+    targetRules
+      .map((rule) => capabilityForRule(rule))
+      .filter((capability): capability is string => Boolean(capability)),
+  );
+  const hasSupabaseAuthRule = matchedPositiveRules.some(
+    (rule) => rule.providerKey === "supabase" && rule.dossierCapability === "auth",
+  );
+  const hasExplicitSupabaseDatabaseIntent =
+    /\bsupabase\b[^.!?\n]{0,48}\b(?:database|databas|db|storage|lagring)\b/iu.test(corpus) ||
+    /\b(?:database|databas|db|storage|lagring)\b[^.!?\n]{0,48}\bsupabase\b/iu.test(corpus);
+  const positiveRules = matchedPositiveRules.filter((rule) => {
+    const capability = capabilityForRule(rule);
+    if (capability && targetCapabilities.has(capability)) return targetRules.includes(rule);
+    if (
+      hasSupabaseAuthRule &&
+      !hasExplicitSupabaseDatabaseIntent &&
+      rule.providerKey === "supabase" &&
+      rule.dossierCapability === "database"
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const negatedRules = PROVIDER_RULES.filter((rule) => {
+    const matching = rule.patterns.filter((pattern) => pattern.test(corpus));
+    return matching.length > 0 && matching.every((pattern) => isTermFullyNegated(corpus, pattern));
+  });
+
+  const integrationForRule = (
+    rule: ProviderRule,
+    selectionSource?: NonNullable<PlanIntegrationContract["selectionSource"]>,
+  ): PlanIntegrationContract => ({
+    kind: rule.kind,
+    providerKey: rule.providerKey,
+    dossierCapability: capabilityForRule(rule),
+    ...(selectionSource ? { selectionSource } : {}),
+    provider: rule.provider,
+    name: rule.name,
+    reason: rule.reason,
+    status: rule.status ?? "chosen",
+    envVars: rule.envVars,
+  });
+  const capabilityHasContract = (capability: string): boolean =>
+    integrations.some((entry) => entry.dossierCapability === capability);
+  const applyTopLevelProvider = (integration: PlanIntegrationContract): void => {
+    if (integration.status !== "chosen") return;
+    if (integration.dossierCapability === "database") {
+      contracts.databaseProvider = integration.name || integration.provider;
+    }
+    if (integration.dossierCapability === "auth") {
+      contracts.authProvider = integration.name || integration.provider;
+    }
+    if (integration.dossierCapability === "payments") {
+      contracts.paymentProvider = integration.name || integration.provider;
+    }
+  };
+  const resolveLegacyIntegration = (
+    inherited: PlanIntegrationContract,
+  ): PlanIntegrationContract | null => {
+    if (inherited.status !== "chosen") return null;
+    if (
+      inherited.selectionSource === "legacy-preserved" &&
+      inherited.providerKey &&
+      inherited.dossierCapability
+    ) {
+      return { ...inherited };
+    }
+    if (inherited.selectionSource) return null;
+    if (inherited.providerKey && inherited.dossierCapability) {
+      return { ...inherited, selectionSource: "legacy-preserved" };
+    }
+    const label = `${inherited.provider} ${inherited.name}`.trim();
+    const matches = PROVIDER_RULES.filter(
+      (rule) =>
+        Boolean(capabilityForRule(rule)) &&
+        (rule.providerKey.toLowerCase() === inherited.providerKey?.toLowerCase() ||
+          rule.patterns.some((pattern) => pattern.test(label))),
+    );
+    const unique = new Map(
+      matches.map((rule) => [`${rule.providerKey}:${capabilityForRule(rule)}`, rule]),
+    );
+    if (unique.size !== 1) return null;
+    const [rule] = unique.values();
+    return {
+      ...integrationForRule(rule, "legacy-preserved"),
+      reason: inherited.reason || `Preserved unambiguous legacy choice ${rule.name}.`,
+    };
+  };
+
+  // Current positive choices own their capability and replace inherited state.
+  const currentRules = positiveRules.filter((rule) => !capabilityForRule(rule));
+  const positiveByCapability = new Map<string, ProviderRule[]>();
+  for (const rule of positiveRules) {
+    const capability = capabilityForRule(rule);
+    if (!capability) continue;
+    const bucket = positiveByCapability.get(capability) ?? [];
+    bucket.push(rule);
+    positiveByCapability.set(capability, bucket);
+  }
+  for (const [capability, rules] of positiveByCapability) {
+    const providerKeys = new Set(rules.map((rule) => rule.providerKey));
+    if (providerKeys.size > 1) {
+      integrations.push({
+        dossierCapability: capability,
+        selectionSource: "explicit",
+        provider: `${capability} provider not selected`,
+        name: `${capability} provider not selected`,
+        reason: "The prompt names multiple providers; choose the intended provider.",
+        status: "unresolved",
+      });
+      continue;
+    }
+    currentRules.push(rules[0]);
+  }
+  for (const rule of currentRules) {
+    const capability = capabilityForRule(rule);
+    pushIntegration(integrations, integrationForRule(rule, "explicit"));
+
+    if (rule.kind === "database" && capability === "database" && !contracts.databaseProvider) {
       contracts.databaseProvider = rule.provider;
     }
     if (rule.kind === "auth" && !contracts.authProvider) {
@@ -312,40 +365,142 @@ export function inferPreGenerationContracts(params: {
       contracts.paymentProvider = rule.provider;
     }
 
-    pushIntegration(integrations, {
-      provider: rule.provider,
-      name: rule.name,
-      reason: rule.reason,
-      status: rule.status ?? "chosen",
-      envVars: rule.envVars,
-    });
     // Inferred keyword matches are preview-first: never mark env as blocking — the
     // merged `.env.local` placeholders cover both layers
     // (`40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`).
     pushEnvVars(envVars, rule.envVars, rule.reason, false);
   }
 
-  if (!suppressAuth) {
-    applyDefaultCredentialsAuthWhenNeeded(effectiveCapabilities, contracts, integrations, envVars);
+  // Explicit/unresolved snapshot choices survive neutral follow-ups unless
+  // this round replaced or negated that provider/capability. Older chosen
+  // contracts without provenance are held until after current project proof,
+  // then preserved only when their provider/capability is unambiguous.
+  const legacyCandidates: PlanIntegrationContract[] = [];
+  for (const inherited of inheritedIntegrations) {
+    const legacy = resolveLegacyIntegration(inherited);
+    const normalizedInherited = legacy ?? inherited;
+    const capability = normalizedInherited.dossierCapability;
+    if (capability && capabilityHasContract(capability)) continue;
+    const wasNegated = Boolean(
+      normalizedInherited.providerKey &&
+        negatedRules.some((rule) => rule.providerKey === normalizedInherited.providerKey),
+    );
+    if (wasNegated) {
+      integrations.push({
+        kind: normalizedInherited.kind,
+        dossierCapability: capability,
+        selectionSource: "explicit",
+        provider: `${normalizedInherited.kind ?? capability ?? "Integration"} provider not selected`,
+        name: `${normalizedInherited.kind ?? capability ?? "Integration"} provider not selected`,
+        reason: `${normalizedInherited.provider} was explicitly rejected; choose another provider.`,
+        status: "unresolved",
+      });
+      continue;
+    }
+    if (inherited.selectionSource === "explicit" || inherited.status === "unresolved") {
+      integrations.push({ ...inherited });
+      continue;
+    }
+    if (legacy) legacyCandidates.push(legacy);
   }
 
-  if (!suppressPayment) {
-    applyDefaultStripePlaceholderWhenPaymentNeeded(
-      effectiveCapabilities,
-      contracts,
-      integrations,
-      envVars,
-    );
+  const evidenceByCapability = new Map<string, ProjectProviderEvidence[]>();
+  for (const evidence of projectProviderEvidence) {
+    if (!evidence.dossierCapability) {
+      const rule = PROVIDER_RULES.find(
+        (candidate) => candidate.providerKey === evidence.providerKey && !capabilityForRule(candidate),
+      );
+      if (rule) {
+        integrations.push({
+          ...integrationForRule(rule),
+          reason: `Existing project dependency and runtime import prove ${rule.name}.`,
+        });
+      }
+      continue;
+    }
+    const capability = evidence.dossierCapability.toLowerCase();
+    const bucket = evidenceByCapability.get(capability) ?? [];
+    bucket.push(evidence);
+    evidenceByCapability.set(capability, bucket);
+  }
+  for (const [capability, evidence] of evidenceByCapability) {
+    if (capabilityHasContract(capability)) continue;
+    const providerKeys = Array.from(new Set(evidence.map((item) => item.providerKey)));
+    if (providerKeys.length > 1) {
+      integrations.push({
+        dossierCapability: capability,
+        provider: `${capability} provider not selected`,
+        name: `${capability} provider not selected`,
+        reason: "The project contains runtime proof for multiple providers; choose the intended provider.",
+        status: "unresolved",
+      });
+      continue;
+    }
+    const rule = PROVIDER_RULES.find((candidate) => candidate.providerKey === providerKeys[0]);
+    if (!rule) continue;
+    integrations.push({
+      ...integrationForRule(rule),
+      reason: `Existing project dependency and runtime import prove ${rule.name}.`,
+    });
   }
 
-  if (!suppressBackend) {
-    applyDefaultSqliteWhenPersistenceNeedsProvider(
-      corpus,
-      effectiveCapabilities,
-      contracts,
-      integrations,
-      envVars,
-    );
+  for (const legacy of legacyCandidates) {
+    const capability = legacy.dossierCapability;
+    if (!capability || capabilityHasContract(capability)) continue;
+    integrations.push(legacy);
+    pushEnvVars(envVars, legacy.envVars ?? [], legacy.reason, false);
+    applyTopLevelProvider(legacy);
+  }
+
+  const addDefault = (capability: string, provider: string, kind: ProviderRule["kind"]): void => {
+    if (capabilityHasContract(capability)) return;
+    if (negatedRules.some((rule) => capabilityForRule(rule) === capability)) {
+      integrations.push({
+        kind,
+        dossierCapability: capability,
+        selectionSource: "explicit",
+        provider: `${kind} provider not selected`,
+        name: `${kind} provider not selected`,
+        reason: "The previously proposed provider was rejected; choose an alternative.",
+        status: "unresolved",
+      });
+      return;
+    }
+    const rule = findProviderRule(provider, kind);
+    if (!rule) return;
+    const integration = integrationForRule(rule, "dossier-default");
+    integrations.push(integration);
+    pushEnvVars(envVars, rule.envVars, rule.reason, false);
+    if (kind === "database") contracts.databaseProvider = rule.name;
+    if (kind === "auth") contracts.authProvider = rule.name;
+    if (kind === "payment") contracts.paymentProvider = rule.name;
+  };
+
+  if (
+    (effectiveCapabilities.needsAuth ||
+      (capabilities.needsAuth &&
+        negatedRules.some((rule) => capabilityForRule(rule) === "auth"))) &&
+    (!suppressAuth || negatedRules.some((rule) => capabilityForRule(rule) === "auth"))
+  ) {
+    addDefault("auth", CONTRACT_DEFAULTS.fallbackAuthProvider, "auth");
+  }
+
+  if (
+    (effectiveCapabilities.needsPayments ||
+      (capabilities.needsPayments &&
+        negatedRules.some((rule) => capabilityForRule(rule) === "payments"))) &&
+    (!suppressPayment || negatedRules.some((rule) => capabilityForRule(rule) === "payments"))
+  ) {
+    addDefault("payments", CONTRACT_DEFAULTS.fallbackPaymentProvider, "payment");
+  }
+
+  if (
+    (mentionsDataPersistence(corpus, effectiveCapabilities) ||
+      (capabilities.needsDatabase &&
+        negatedRules.some((rule) => capabilityForRule(rule) === "database"))) &&
+    (!suppressBackend || negatedRules.some((rule) => capabilityForRule(rule) === "database"))
+  ) {
+    addDefault("database", CONTRACT_DEFAULTS.fallbackDatabaseProvider, "database");
   }
 
   // Vague "integration" hints no longer block the stream — codegen stubs or uses placeholders.

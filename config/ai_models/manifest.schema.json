@@ -266,12 +266,16 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["kind", "provider", "name", "envVars", "matchPatterns", "reason"],
+            "required": ["kind", "providerKey", "provider", "name", "envVars", "matchPatterns", "reason"],
             "properties": {
               "kind": {
                 "type": "string",
                 "enum": ["database", "auth", "payment", "integration"]
               },
+              "providerKey": { "type": "string" },
+              "dossierCapability": { "type": "string" },
+              "methodOnly": { "type": "boolean" },
+              "packageRoots": { "type": "array", "items": { "type": "string" } },
               "provider": { "type": "string" },
               "name": { "type": "string" },
               "envVars": { "type": "array", "items": { "type": "string" } },

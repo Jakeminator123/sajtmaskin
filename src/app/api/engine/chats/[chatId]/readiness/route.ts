@@ -45,6 +45,14 @@ import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/v
 import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
+import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { resolveProviderContractDossierPlan } from "@/lib/gen/contract/provider-compatibility";
+import {
+  detectProjectProviderEvidence,
+  projectProviderEvidenceMatchesContract,
+} from "@/lib/gen/contract/project-provider-evidence";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import { integrationRegistryByKey } from "@/lib/integrations/registry";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -611,9 +619,59 @@ async function buildEngineReadiness(
       versionFiles: files,
       configuredEnvKeys: new Set(configuredEnvKeys),
     });
-    hasRealBuildIntegrations = tier3Spec
-      ? pendingDossiers.length > 0 || hasRequiredRealBuildKeys(tier3Spec)
-      : undefined;
+    const pendingProviderContracts = readProviderContractsFromSnapshot(
+      chat.orchestration_snapshot as Record<string, unknown> | null,
+    );
+    const providerEvidence = detectProjectProviderEvidence(
+      files,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    let hasUndeliveredIncompatibleMethod = false;
+    let hasGenericProviderWork = false;
+    for (const contract of pendingProviderContracts) {
+      if (
+        contract.status !== "chosen" ||
+        !contract.providerKey ||
+        !contract.dossierCapability
+      ) {
+        continue;
+      }
+      const plan = resolveProviderContractDossierPlan({
+        contract,
+        contracts: pendingProviderContracts,
+        projectFiles: files,
+        projectProviderEvidence: providerEvidence,
+        configuredEnvKeys: new Set(configuredEnvKeys),
+      });
+      const incompatibleMethods = plan.decisions.filter(
+        (decision) => decision.reasonCode === "method-incompatible" && decision.providerKey,
+      );
+      if (incompatibleMethods.length > 0) {
+        const allMethodsDelivered = incompatibleMethods.every((decision) =>
+          providerEvidence.some(
+            (evidence) =>
+              !evidence.dossierCapability &&
+              evidence.providerKey === decision.providerKey &&
+              (!contract.kind || !evidence.kind || evidence.kind === contract.kind),
+          ),
+        );
+        if (!allMethodsDelivered) hasUndeliveredIncompatibleMethod = true;
+        continue;
+      }
+      if (!integrationRegistryByKey.has(contract.providerKey)) continue;
+      if (
+        plan.dossierSelection.selected.length === 0 &&
+        plan.decisions.some((decision) => decision.disposition === "context-only") &&
+        !projectProviderEvidenceMatchesContract(providerEvidence, contract)
+      ) {
+        hasGenericProviderWork = true;
+      }
+    }
+    hasRealBuildIntegrations = !tier3Spec || hasUndeliveredIncompatibleMethod
+      ? undefined
+      : pendingDossiers.length > 0 ||
+        hasGenericProviderWork ||
+        hasRequiredRealBuildKeys(tier3Spec);
   } catch {
     hasRealBuildIntegrations = undefined;
   }

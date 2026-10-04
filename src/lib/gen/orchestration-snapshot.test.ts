@@ -136,6 +136,58 @@ describe("deferred provider identity (mutedDossierIds)", () => {
 });
 
 describe("sanitizeOrchestrationSnapshotForStorage", () => {
+  it("protects typed provider contracts from the shared key budget", () => {
+    const snapshot = sanitizeOrchestrationSnapshotForStorage({
+      noisy: Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`key${index}`, index])),
+      contractIntegrations: [
+        {
+          kind: "auth",
+          dossierCapability: "auth",
+          selectionSource: "explicit",
+          provider: "Authentication provider not selected",
+          name: "Authentication provider not selected",
+          reason: "Clerk was rejected",
+          status: "unresolved",
+          secretToken: "must-not-survive",
+        },
+      ],
+    });
+    expect(snapshot.contractIntegrations).toEqual([
+      expect.objectContaining({
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        status: "unresolved",
+      }),
+    ]);
+    expect((snapshot.contractIntegrations as object[])[0]).not.toHaveProperty("providerKey");
+    expect((snapshot.contractIntegrations as object[])[0]).not.toHaveProperty("secretToken");
+  });
+
+  it("bounds strings and env arrays inside protected provider contracts", () => {
+    const snapshot = sanitizeOrchestrationSnapshotForStorage({
+      contractIntegrations: [
+        {
+          kind: "integration",
+          providerKey: `provider-${"p".repeat(13_000)}`,
+          dossierCapability: `capability-${"c".repeat(13_000)}`,
+          selectionSource: "explicit",
+          provider: `Provider ${"v".repeat(13_000)}`,
+          name: `Name ${"n".repeat(13_000)}`,
+          reason: `Reason ${"r".repeat(13_000)}`,
+          status: "chosen",
+          envVars: Array.from({ length: 55 }, (_, index) =>
+            `ENV_${index}_${"e".repeat(13_000)}`,
+          ),
+        },
+      ],
+    });
+    const [contract] = snapshot.contractIntegrations as Array<Record<string, unknown>>;
+    for (const field of ["providerKey", "dossierCapability", "provider", "name", "reason"] as const) {
+      expect((contract[field] as string).length).toBeLessThanOrEqual(12_001);
+    }
+    expect(contract.envVars).toHaveLength(40);
+    expect((contract.envVars as string[]).every((value) => value.length <= 12_001)).toBe(true);
+  });
   it("drops sensitive key names", () => {
     const out = sanitizeOrchestrationSnapshotForStorage({
       modelTier: "max",

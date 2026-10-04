@@ -45,6 +45,15 @@ function providerMatchesRemovedCapability(
   return false;
 }
 
+function capabilityForIntegrationKind(
+  kind: PreGenerationContractContext["contracts"]["integrations"][number]["kind"],
+): string | null {
+  if (kind === "database") return "database";
+  if (kind === "auth") return "auth";
+  if (kind === "payment") return "payments";
+  return null;
+}
+
 /**
  * Explicit capability removal must win over raw prompt inference. Otherwise
  * "ta bort Stripe" still sets `needsPayments` from the word Stripe and feeds
@@ -85,8 +94,18 @@ export function filterRemovedCapabilitiesFromContracts(
   // dossier — `subscriptions` is no longer a detectable capability.)
 
   const removedIntegrations = context.contracts.integrations.filter(
-    (integration) =>
-      providerMatchesRemovedCapability(integration.provider, removed),
+    (integration) => {
+      const methodCapability = integration.dossierCapability
+        ? null
+        : capabilityForIntegrationKind(integration.kind);
+      return (
+        (integration.dossierCapability
+          ? removed.has(integration.dossierCapability.toLowerCase())
+          : false) ||
+        (methodCapability ? removed.has(methodCapability) : false) ||
+        providerMatchesRemovedCapability(integration.providerKey ?? integration.provider, removed)
+      );
+    },
   );
   const retainedIntegrations = context.contracts.integrations.filter(
     (integration) => !removedIntegrations.includes(integration),
@@ -106,19 +125,19 @@ export function filterRemovedCapabilitiesFromContracts(
     envVars: context.contracts.envVars.filter(
       (envVar) => !removedOnlyEnvKeys.has(envVar.key),
     ),
-    databaseProvider: providerMatchesRemovedCapability(
+    databaseProvider: removed.has("database") || providerMatchesRemovedCapability(
       context.contracts.databaseProvider,
       removed,
     )
       ? undefined
       : context.contracts.databaseProvider,
-    authProvider: providerMatchesRemovedCapability(
+    authProvider: removed.has("auth") || removed.has("supabase-auth") || providerMatchesRemovedCapability(
       context.contracts.authProvider,
       removed,
     )
       ? undefined
       : context.contracts.authProvider,
-    paymentProvider: providerMatchesRemovedCapability(
+    paymentProvider: removed.has("payments") || providerMatchesRemovedCapability(
       context.contracts.paymentProvider,
       removed,
     )

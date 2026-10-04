@@ -1,6 +1,6 @@
 # Dossier — urvalsflöde och prompt-injection
 
-**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** [`dossier-cheatsheet.md`](dossier-cheatsheet.md). **Uppdaterad:** 2026-08-05.
+**Källtruth:** `src/lib/gen/dossiers/select.ts`, `src/lib/gen/contract/provider-compatibility.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** [`dossier-cheatsheet.md`](dossier-cheatsheet.md). **Uppdaterad:** 2026-10-04.
 
 Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../contracts/dossier-system.md) som beskriver **vad** systemet är.
 
@@ -40,6 +40,17 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
        configured: true|false
                 │
                 ▼
+      Jämför PlanContracts providerKey
+      + dossierCapability mot manifest.providers
+      + projektets AST-/filbevis
+                │
+       ┌────────┼─────────┐
+       ▼        ▼         ▼
+    kompatibel context-  blockerad
+    dossier     only      migration/olöst
+       │        │
+       │        └─ ingen felaktig dossier injiceras
+       ▼
        Ladda instructions.md;
        rendera enligt promptInstructionMode
                 │
@@ -48,6 +59,20 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 ```
 
 **Inga embeddings. Ingen fuzzy matching. Ingen domain-veto. Inga caps.** Det brief säger är det som injiceras.
+
+Providerintention är ett separat, typat kontrakt. Prioritet per capability är
+current explicit → inherited explicit/unresolved → entydigt aktuellt
+projektbevis → entydigt `legacy-preserved` → dossier-default. Ett current explicit val ersätter syskonet; ett
+negativt val utan ersättare blir `unresolved` och kan inte återuppväcka defaulten
+i pending/finalize. Defaultkontrakt för övriga hard-dossiers härleds från den
+valda dossierns kanoniska `providers`, inte en ny parallell tabell.
+`legacy-preserved` används bara för att transportera ett äldre, entydigt valt
+providerkontrakt genom plan- och codegen-vägen; det märks inte om som ett
+användar-explicit val och tvetydiga etiketter gissas inte.
+Kända metodval följer samma request-local beslut: Prisma får inte false-grönt
+byteforkas utan faktisk Prisma-kod, och befintlig Stripe Elements-kod får inte
+överlagras med hosted Checkout. Känd dossierlös provider i generisk F3 betyder
+bara att byggsteget får starta; det är inte en accepted/live-status.
 
 ## Två klasser (path-encoded)
 

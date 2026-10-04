@@ -173,6 +173,10 @@ const postGenerationPassesSchema = z.object({
 
 const contractProviderRuleSchema = z.object({
   kind: z.enum(["database", "auth", "payment", "integration"]),
+  providerKey: z.string(),
+  dossierCapability: z.string().optional(),
+  methodOnly: z.boolean().optional(),
+  packageRoots: z.array(z.string()).optional(),
   provider: z.string(),
   name: z.string(),
   envVars: z.array(z.string()),
