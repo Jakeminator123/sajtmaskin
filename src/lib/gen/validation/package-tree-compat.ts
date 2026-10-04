@@ -12,7 +12,20 @@
  */
 
 import { Range, minVersion, satisfies, subset, valid, validRange } from "semver";
-import { readLockedNextReact } from "./package-tree-lock-selections";
+import { effectivePackageTreeInstaller, readLockedNextReact } from "./package-tree-lock-selections";
+
+function isNativeRegistryTag(rawSpec: string): boolean {
+  const spec = rawSpec.trim();
+  // npm-package-arg routes paths and tar archives before registry tags. Its
+  // registry fallback allows URI-unescaped names that are not SemVer ranges;
+  // alphabetic-first matching rejects valid tags and admits e.g. react.tgz.
+  if (!spec || validRange(spec, true) || spec.startsWith(".") || /\.(?:tgz|tar\.gz|tar)$/i.test(spec)) return false;
+  try {
+    return encodeURIComponent(spec) === spec;
+  } catch {
+    return false;
+  }
+}
 
 export const INSTALL_PEER_FALLBACK_CHECK = "install-peer-fallback" as const;
 
@@ -48,7 +61,7 @@ export type PackageTreeConflict = {
   nextRange: string;
   reactRange: string;
   nextMajor: number;
-  reactMajor: number;
+  reactMajor: number | null;
   peers: PackageTreePeerMap;
   message: string;
   /** Coherent options a human can apply. Never auto-applied. */
@@ -145,18 +158,30 @@ function rangesShareVersion(left: string, right: string): boolean {
 function nextReactEresolve(
   nextRange: string,
   reactRange: string,
-): { code: PackageTreeConflictCode; nextMajor: number; reactMajor: number; reactPeer: string } | null {
-  if (!validRange(nextRange) || !validRange(reactRange)) return null;
+  unsupportedInstallerAlias = false,
+): { code: PackageTreeConflictCode; nextMajor: number; reactMajor: number | null; reactPeer: string } | null {
+  if (!validRange(nextRange) || !minVersion(nextRange)) return null;
+  // This is an installer-spec failure, independent of any Next peer table.
+  // A known numeric Next declaration supplies diagnostics, not a made-up peer.
+  if (unsupportedInstallerAlias) return {
+    code: "next_react_peer_resolution_required",
+    nextMajor: extractDependencyMajor(nextRange)!, reactMajor: null, reactPeer: "",
+  };
   // An unlocked range is safe only if every admitted React choice fits every
   // admitted Next contract. One historical compatible pair is not evidence
   // for the versions npm will select. Distinguish a proven conflict from an
   // ambiguous range requiring an in-range lock or exact matching pair.
   // A broad Next range may resolve to 17+; tags, git specs and newer lines
   // need real install evidence, not a made-up major-version contract.
-  if (!minVersion(nextRange) || !minVersion(reactRange)) return null;
   const fullyKnown = subset(nextRange, ">=2.0.0 <17.0.0");
   const contracts = NEXT_REACT_PEERS.filter((contract) => rangesShareVersion(nextRange, contract.next));
   if (contracts.length === 0) return null;
+  const reactPeer = [...new Set(contracts.map((contract) => contract.react))].join(" || ");
+  const nextMajor = extractDependencyMajor(nextRange)!;
+  // A tarball/tag/git/fork spec has no proven native React version. Do not
+  // guess a major from its URL or treat missing resolution as compatibility.
+  if (!validRange(reactRange)) return { code: "next_react_peer_resolution_required", nextMajor, reactMajor: null, reactPeer };
+  if (!minVersion(reactRange)) return null;
   const reactChoices = new Range(reactRange);
   const withinPeer = (peer: string) => subset(reactRange, peer) || reactChoices.set.every((choice) =>
     // node-semver subset rejects some admitted exact prereleases; validate
@@ -167,15 +192,13 @@ function nextReactEresolve(
   const code = fullyKnown && contracts.every((contract) => !rangesShareVersion(reactRange, contract.react))
     ? "next_react_peer_eresolve"
     : "next_react_peer_resolution_required";
-  const reactPeer = [...new Set(contracts.map((contract) => contract.react))].join(" || ");
-  const nextMajor = extractDependencyMajor(nextRange);
   const reactMajor = extractDependencyMajor(reactRange);
-  if (nextMajor === null || reactMajor === null) return null;
+  if (reactMajor === null) return null;
   return { code, nextMajor, reactMajor, reactPeer };
 }
 
 function repairOptionsForNextReact(params: {
-  reactMajor: number;
+  reactMajor: number | null;
   peers: PackageTreePeerMap;
 }): string[] {
   const reactDomNote = params.peers.reactDom ? ` and react-dom ${params.peers.reactDom}` : "";
@@ -183,23 +206,28 @@ function repairOptionsForNextReact(params: {
     ? ` Keep @types/react (${params.peers.typesReact}) on the same React major.`
     : "";
   return [
-    `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
+    params.reactMajor === null
+      ? "Resolve the React declaration to a verified native version before comparing it with the selected Next release's peer contract."
+      : `Bump Next to a line that peers React ${params.reactMajor}${reactDomNote}.${typesNote}`,
     `Pin Next to one published exact release, then pin React and react-dom to that release's own peer range; do not leave a cross-contract Next range unlocked.${typesNote}`,
     "Leave the imported tree verbatim and do not publish until the tree is coherent.",
   ];
 }
 
-type LockedVersions = { next: string; react: string };
+type LockedVersions = { next: string; react: string; reactSpecifier?: string };
 
 function nativeAliasRange(name: "next" | "react", declaration: string): string {
-  const prefix = `npm:${name}@`;
+  const protocol = declaration.slice(0, 4).toLowerCase();
+  const target = `${name}@`;
   // Other alias targets are not the native package and have no known peer contract here.
-  return declaration.startsWith(prefix) ? declaration.slice(prefix.length) : declaration;
+  return protocol === "npm:" && declaration.slice(4).startsWith(target)
+    ? declaration.slice(4 + target.length) : declaration;
 }
 
 export function detectPackageTreeConflicts(
   pkg: unknown,
   locked?: LockedVersions,
+  installer?: string,
 ): PackageTreeConflict[] {
   const record = asRecord(pkg);
   if (!record) return [];
@@ -208,15 +236,27 @@ export function detectPackageTreeConflicts(
   if (deps.next && deps.react) {
     const nextRange = nativeAliasRange("next", deps.next);
     const reactRange = nativeAliasRange("react", deps.react);
+    const effectiveInstaller = installer ?? effectivePackageTreeInstaller([], "package.json", record);
+    // npm-package-arg case-folds this protocol; pnpm and Yarn do not. Do not
+    // turn npm syntax into fabricated evidence for another/unknown installer.
+    const unsupportedInstallerAlias = effectiveInstaller !== "npm" &&
+      ((nextRange !== deps.next && !deps.next.startsWith("npm:")) ||
+        (reactRange !== deps.react && !deps.react.startsWith("npm:")));
     const useLocked =
+      !unsupportedInstallerAlias &&
       locked &&
       valid(locked.next) &&
       valid(locked.react) &&
       satisfies(locked.next, nextRange) &&
-      satisfies(locked.react, reactRange);
+      (satisfies(locked.react, reactRange) ||
+        // Native registry tags can use a current descriptor-bound selection.
+        // URL/git/file/fork specs cannot establish native React identity from
+        // a version field alone and must not be admitted by this shortcut.
+        (isNativeRegistryTag(reactRange) && locked.reactSpecifier === deps.react));
     const mismatch = nextReactEresolve(
       useLocked ? locked.next : nextRange,
       useLocked ? locked.react : reactRange,
+      unsupportedInstallerAlias,
     );
     if (mismatch) {
       const peers = peerMapFromRanges(deps);
@@ -228,14 +268,22 @@ export function detectPackageTreeConflicts(
         reactMajor: mismatch.reactMajor,
         peers,
         message: mismatch.code === "next_react_peer_resolution_required"
-          ? `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The range admits incompatible choices or Next contracts outside the verified lines; a historical compatible pair is not selection evidence. Supply an in-range lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.`
+          ? unsupportedInstallerAlias
+            ? `Case-variant npm: aliases do not prove supported resolution by the effective ${effectiveInstaller} installer. Use canonical lowercase npm: descriptors for pnpm/Yarn or verify npm installation before publishing.`
+            : `next ${deps.next} and react ${deps.react} do not prove a coherent resolved peer tree. The declarations are unresolved, admit incompatible choices or include Next contracts outside the verified lines; a historical compatible pair is not selection evidence. ` +
+            (!validRange(reactRange) && !isNativeRegistryTag(reactRange)
+              ? "URL/git/file/fork declarations need native package identity evidence, not just a lock version field. Pin an exact native matching pair before publishing."
+              : "Supply an in-range or current native-tag lockfile for the effective package manager with coherent Next/React selections or pin an exact matching pair before publishing.")
           : `next ${deps.next} and react ${deps.react} is an npm ERESOLVE tree` +
           ` (Next ${mismatch.nextMajor} peers React ${mismatch.reactPeer}, not this React selection/range).` +
           ` Preview may start after --legacy-peer-deps; Vercel npm install will not.`,
-        repairOptions: repairOptionsForNextReact({
-          reactMajor: mismatch.reactMajor,
-          peers,
-        }),
+        repairOptions: [
+          ...(unsupportedInstallerAlias ? ["Use canonical lowercase npm: alias descriptors for this installer; do not fabricate a lock selection."] : []),
+          ...repairOptionsForNextReact({
+            reactMajor: mismatch.reactMajor,
+            peers,
+          }),
+        ],
       });
     }
   }
@@ -267,7 +315,7 @@ export function findPackageTreeConflictsInFiles(
   const parsed = parsePackageJsonRecord(pkgFile.content);
   if (!parsed) return null;
   const locked = readLockedNextReact(files, pkgFile.path, parsed, collectDeclaredDependencyRanges(parsed));
-  const conflicts = detectPackageTreeConflicts(parsed, locked);
+  const conflicts = detectPackageTreeConflicts(parsed, locked, effectivePackageTreeInstaller(files, pkgFile.path, parsed));
   if (conflicts.length === 0) return null;
   return { path: pkgFile.path, conflicts };
 }
