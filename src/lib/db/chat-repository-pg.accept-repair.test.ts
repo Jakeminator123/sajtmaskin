@@ -25,6 +25,12 @@ const txUpdateSet = vi.hoisted(() => ({ value: undefined as unknown }));
 const txUpdateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
 const acceptSelectForUpdate = vi.hoisted(() => ({ value: false }));
 const acquireWins = vi.hoisted(() => ({ value: true }));
+const txExecuteFailure = vi.hoisted(() => ({
+  match: "" as string,
+  error: null as Error | null,
+}));
+const txUpdateFailure = vi.hoisted(() => ({ value: null as Error | null }));
+const acceptSelectFailure = vi.hoisted(() => ({ value: null as Error | null }));
 // The row acceptRepair SELECTs FOR UPDATE: { repairedFilesJson, filesJson }.
 const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
 // Snapshot returned by fail/promote `SELECT … FOR UPDATE` (L5 CAS classify).
@@ -54,6 +60,7 @@ const tx = {
           // acceptRepair locks the version row with .for("update").
           p.for = () => {
             acceptSelectForUpdate.value = true;
+            if (acceptSelectFailure.value) return Promise.reject(acceptSelectFailure.value);
             return Promise.resolve(rows);
           };
           return p;
@@ -67,6 +74,7 @@ const tx = {
       return {
         where: (w: unknown) => {
           txUpdateWhere.value = w;
+          if (txUpdateFailure.value) return Promise.reject(txUpdateFailure.value);
           return Promise.resolve({ rowCount: 0 });
         },
       };
@@ -75,6 +83,9 @@ const tx = {
   execute: (sqlObj: unknown) => {
     txExecSqls.value.push(sqlObj);
     const rendered = renderSql(sqlObj);
+    if (txExecuteFailure.error && rendered.includes(txExecuteFailure.match)) {
+      return Promise.reject(txExecuteFailure.error);
+    }
     if (rendered.includes("insert into engine_version_jobs")) {
       return Promise.resolve({ rows: acquireWins.value ? [{ run_id: "run-x" }] : [] });
     }
@@ -156,6 +167,10 @@ function resetCaptures() {
   txUpdateWhere.value = undefined;
   acceptSelectForUpdate.value = false;
   acquireWins.value = true;
+  txExecuteFailure.match = "";
+  txExecuteFailure.error = null;
+  txUpdateFailure.value = null;
+  acceptSelectFailure.value = null;
   // Default: a base-matching envelope so the promote path runs.
   selectRows.value = [envelopeRow(BASE_A)];
   lockSnap.value = {
@@ -164,6 +179,10 @@ function resetCaptures() {
     files_json: BASE_A,
     orchestration_snapshot: null,
   };
+}
+
+function pgError(code: string): Error & { code: string } {
+  return Object.assign(new Error(`postgres ${code}`), { code });
 }
 
 describe("acceptRepair — envelope base-hash guard, atomic promote, missing-table + row-lock (Codex P2 + #260 #5)", () => {
@@ -184,6 +203,32 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     mockLeaseTableExists(true);
     await acceptRepair("ver-1");
     expect(acceptSelectForUpdate.value).toBe(true);
+  });
+
+  it("returns retryable null on a transient locked-context read failure", async () => {
+    mockLeaseTableExists(true);
+    acceptSelectFailure.value = pgError("40001");
+    await expect(acceptRepair("ver-1")).resolves.toBeNull();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns retryable null on the bounded accept lock timeout", async () => {
+    mockLeaseTableExists(true);
+    acceptSelectFailure.value = pgError("55P03");
+    await expect(acceptRepair("ver-1")).resolves.toBeNull();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("does not hide a non-transient locked-context read failure", async () => {
+    mockLeaseTableExists(true);
+    acceptSelectFailure.value = pgError("42501");
+    await expect(acceptRepair("ver-1")).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("does not hide a transient UPDATE failure", async () => {
+    mockLeaseTableExists(true);
+    txUpdateFailure.value = pgError("40001");
+    await expect(acceptRepair("ver-1")).rejects.toMatchObject({ code: "40001" });
   });
 
   /**
@@ -347,6 +392,33 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
     } as never);
     await expect(promoteVersion("ver-1")).resolves.toBeNull();
     expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it.each(["40001", "08006"])(
+    "returns retryable null for transient context read %s",
+    async (code) => {
+      txExecuteFailure.match = "for update";
+      txExecuteFailure.error = pgError(code);
+      await expect(promoteVersion("ver-1")).resolves.toBeNull();
+      expect(txUpdateSet.value).toBeUndefined();
+    },
+  );
+
+  it("returns null for the bounded lock timeout", async () => {
+    txExecuteFailure.match = "for update";
+    txExecuteFailure.error = pgError("55P03");
+    await expect(promoteVersion("ver-1")).resolves.toBeNull();
+  });
+
+  it("does not hide a non-transient context read failure", async () => {
+    txExecuteFailure.match = "for update";
+    txExecuteFailure.error = pgError("42501");
+    await expect(promoteVersion("ver-1")).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("rethrows a transient UPDATE failure for promoteVersionWithRetry", async () => {
+    txUpdateFailure.value = pgError("40001");
+    await expect(promoteVersion("ver-1")).rejects.toMatchObject({ code: "40001" });
   });
 });
 
@@ -546,6 +618,27 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     expect(res).toBeNull();
     expect(transaction).not.toHaveBeenCalled();
     expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns retryable null on a transient locked-context read failure", async () => {
+    mockLeaseTableExists(true);
+    txExecuteFailure.match = "for update";
+    txExecuteFailure.error = pgError("40001");
+    await expect(promoteVersionIfUnleased("ver-1")).resolves.toBeNull();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("does not hide a non-transient locked-context read failure", async () => {
+    mockLeaseTableExists(true);
+    txExecuteFailure.match = "for update";
+    txExecuteFailure.error = pgError("42501");
+    await expect(promoteVersionIfUnleased("ver-1")).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("rethrows transient UPDATE failures", async () => {
+    mockLeaseTableExists(true);
+    txUpdateFailure.value = pgError("40001");
+    await expect(promoteVersionIfUnleased("ver-1")).rejects.toMatchObject({ code: "40001" });
   });
 
   it("degrades to an unconditional promote (no lease table reference) pre-migration — but still guards verifying-state", async () => {

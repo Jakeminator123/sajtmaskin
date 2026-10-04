@@ -12,11 +12,60 @@ vi.mock("./services/generation-telemetry", () => ({
   })),
 }));
 
+const getVersionById = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  getPreferredVersion: vi.fn(),
+  getLatestVersion: vi.fn(),
+  getVersionById,
+  getKnownBrokenImageReplacements: vi.fn(),
+}));
+
 import { assertPromoteAllowed } from "./promote-guard";
 import type { QualityGateSignal } from "./services/generation-telemetry";
+import {
+  getVersionFiles,
+  parseCodeFilesFromFilesJson,
+} from "@/lib/gen/version-manager";
 
 const REVISION_N = "1".repeat(32);
 const REVISION_N_PLUS_1 = "2".repeat(32);
+
+describe("stored code file boundary", () => {
+  it("accepts a legacy file without language", () => {
+    expect(
+      parseCodeFilesFromFilesJson(
+        JSON.stringify([{ path: "app/page.tsx", content: "export default null" }]),
+      ),
+    ).toEqual([{ path: "app/page.tsx", content: "export default null" }]);
+  });
+
+  it.each([
+    ["non-array", JSON.stringify({ path: "app/page.tsx", content: "x" })],
+    ["primitive entry", JSON.stringify([{ path: "app/page.tsx", content: "x" }, null])],
+    ["array entry", JSON.stringify([["app/page.tsx", "x"]])],
+    ["missing path", JSON.stringify([{ content: "x" }])],
+    ["non-string content", JSON.stringify([{ path: "app/page.tsx", content: 42 }])],
+    [
+      "non-string language",
+      JSON.stringify([{ path: "app/page.tsx", content: "x", language: 42 }]),
+    ],
+  ])("rejects the entire stored set for a malformed %s", (_case, filesJson) => {
+    expect(parseCodeFilesFromFilesJson(filesJson)).toBeNull();
+  });
+
+  it("makes getVersionFiles unavailable instead of filtering a malformed entry", async () => {
+    getVersionById.mockResolvedValue({
+      id: "ver_malformed",
+      chat_id: "chat_1",
+      files_json: JSON.stringify([
+        { path: "app/page.tsx", content: "valid" },
+        { path: "app/route.ts", content: null },
+      ]),
+    });
+
+    await expect(getVersionFiles("ver_malformed")).resolves.toBeNull();
+  });
+});
 
 /** Verdikt som beskriver revision N medan innehållet är N+1 — känd mismatch. */
 function staleSignal(result: string | null): QualityGateSignal {
@@ -304,6 +353,21 @@ describe("assertPromoteAllowed — provider migration context", () => {
           { path: "app/page.tsx", content: "ok" },
           { path: "app/broken.tsx" },
         ]),
+        orchestrationSnapshot: null,
+      },
+    });
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+  });
+
+  it.each([
+    ["current", "[]", JSON.stringify([{ path: "app/page.tsx", content: "ok" }])],
+    ["candidate", JSON.stringify([{ path: "app/page.tsx", content: "ok" }]), "[]"],
+  ])("holds an empty %s file set as unavailable", async (_which, currentFilesJson, candidateFilesJson) => {
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson,
+        candidateFilesJson,
         orchestrationSnapshot: null,
       },
     });

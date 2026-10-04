@@ -18,8 +18,15 @@ import {
   type RepairProvenance,
 } from "../repair-files-payload";
 import type { Version, VersionRepairStatus } from "./types";
-import { toRow, getStoredVersion, versionWriteWhere } from "./internal";
+import {
+  toRow,
+  getStoredVersion,
+  isLockTimeoutError,
+  LEASE_LOCK_TIMEOUT_MS,
+  versionWriteWhere,
+} from "./internal";
 import { leaseTableExists, hasActiveVersionLease } from "./leases";
+import { isTransientDbError } from "../transient-error";
 
 /**
  * Outcome of {@link saveRepairedFiles}. Callers MUST distinguish a stale-base
@@ -167,7 +174,12 @@ export async function acceptRepair(
     return "lease_unavailable";
   }
   const jobsExist = presence === "exists";
-  return db.transaction(async (tx) => {
+  let phase: "context_read" | "guard" | "update" = "context_read";
+  try {
+    return await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+    );
     // Codex P2 (serialize with acquireVersionLease): take the version-row lock
     // FIRST (FOR UPDATE). acquireVersionLease locks the same row before inserting
     // its lease, so the two contend; the no-active-lease UPDATE below then runs
@@ -211,6 +223,7 @@ export async function acceptRepair(
       console.warn(
         `[accept-repair] Clearing legacy (no base-hash) pending repair for version ${versionId}; re-run repair.`,
       );
+      phase = "update";
       await tx
         .update(engineVersions)
         .set({
@@ -267,6 +280,7 @@ export async function acceptRepair(
     // current `files_json`. Without it the repair verdict — stamped with the
     // repaired revision by `saveRepairedFiles` — would read as a stale revision
     // against the pre-accept base and wedge every legitimate accept.
+    phase = "guard";
     const guard = await assertPromoteAllowed(versionId, undefined, {
       onReadError: "indeterminate",
       promotedFilesJson: payload.filesJson,
@@ -284,6 +298,7 @@ export async function acceptRepair(
       );
       return null;
     }
+    phase = "update";
     const result = await tx
       .update(engineVersions)
       .set({
@@ -334,7 +349,12 @@ export async function acceptRepair(
       .where(eq(engineVersions.id, versionId))
       .limit(1);
     return toRow(versionRows[0]) as unknown as Version;
-  });
+    });
+  } catch (error) {
+    if (isLockTimeoutError(error)) return null;
+    if (phase === "context_read" && isTransientDbError(error)) return null;
+    throw error;
+  }
 }
 
 type AutoAcceptResult = {

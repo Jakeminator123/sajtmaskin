@@ -30,7 +30,7 @@ import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snaps
 import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
 import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
-import type { CodeFile } from "@/lib/gen/parser";
+import { parseStoredCodeFilesJson } from "@/lib/gen/stored-code-files";
 
 /**
  * Finalize quality-gate results that must block promotion. `preflight_passed`
@@ -121,33 +121,6 @@ export type PromoteGuardOptions = {
   };
 };
 
-export function parseStoredCodeFiles(value: string): CodeFile[] | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(parsed)) return null;
-  if (
-    parsed.some(
-      (entry) =>
-        !entry ||
-        typeof entry !== "object" ||
-        Array.isArray(entry) ||
-        (Object.getPrototypeOf(entry) !== Object.prototype &&
-          Object.getPrototypeOf(entry) !== null) ||
-        typeof (entry as Record<string, unknown>).path !== "string" ||
-        typeof (entry as Record<string, unknown>).content !== "string" ||
-        ("language" in (entry as Record<string, unknown>) &&
-          typeof (entry as Record<string, unknown>).language !== "string"),
-    )
-  ) {
-    return null;
-  }
-  return parsed as CodeFile[];
-}
-
 export function normalizeContractIntegrationsToken(snapshot: unknown): unknown {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
   return (snapshot as Record<string, unknown>).contractIntegrations ?? null;
@@ -174,11 +147,11 @@ function inspectMigrationContext(
     !Array.isArray(context.orchestrationSnapshot)
       ? (context.orchestrationSnapshot as Record<string, unknown>)
       : null;
-  const current = parseStoredCodeFiles(context.currentFilesJson);
-  const candidate = parseStoredCodeFiles(
+  const current = parseStoredCodeFilesJson(context.currentFilesJson);
+  const candidate = parseStoredCodeFilesJson(
     context.candidateFilesJson ?? context.currentFilesJson,
   );
-  if (!current || !candidate) {
+  if (!current?.length || !candidate?.length) {
     return {
       allowed: false,
       indeterminate: true,

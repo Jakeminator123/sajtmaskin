@@ -18,6 +18,9 @@ import {
   versionWriteWhere,
 } from "./internal";
 import { leaseTableExists } from "./leases";
+import { isTransientDbError } from "../transient-error";
+
+type PromotionPhase = "context_read" | "guard" | "update";
 
 /**
  * Snapshot the stale-watchdog (or another unleased writer) already read.
@@ -204,6 +207,7 @@ export async function promoteVersion(
   // "not promoted" and the flow retries.
   const promotedAt = new Date();
   let updated = false;
+  let phase: PromotionPhase = "context_read";
   try {
     updated = await db.transaction(async (tx) => {
       await tx.execute(
@@ -219,6 +223,7 @@ export async function promoteVersion(
       `);
       const snapshot = promotionSnapshot(lockedCasRow(locked));
       if (!snapshot) return false;
+      phase = "guard";
       const guard = await assertPromoteAllowed(versionId, undefined, {
         onReadError: "indeterminate",
         migrationContext: {
@@ -234,6 +239,7 @@ export async function promoteVersion(
         );
         return false;
       }
+      phase = "update";
       const result = await tx
         .update(engineVersions)
         .set({
@@ -249,8 +255,11 @@ export async function promoteVersion(
     });
   } catch (error) {
     if (isLockTimeoutError(error)) return null;
-    console.warn(`[promote-guard] Promotion context unavailable for ${versionId}.`, error);
-    return null;
+    if (phase === "context_read" && isTransientDbError(error)) {
+      console.warn(`[promote-guard] Promotion context unavailable for ${versionId}.`, error);
+      return null;
+    }
+    throw error;
   }
   if (!updated) return null;
   return getStoredVersion(versionId);
@@ -429,6 +438,7 @@ export async function promoteVersionIfUnleased(
   const jobsExist = presence === "exists";
   const promotedAt = new Date();
   let outcome: boolean | "guard_denied" | null;
+  let phase: PromotionPhase = "context_read";
   try {
     outcome = await db.transaction(async (tx) => {
       // Bounded lock wait: a reconcile poll that can't get the row lock quickly
@@ -461,6 +471,7 @@ export async function promoteVersionIfUnleased(
       ) {
         return null;
       }
+      phase = "guard";
       const guard = await assertPromoteAllowed(versionId, undefined, {
         onReadError: "indeterminate",
         migrationContext: {
@@ -472,6 +483,7 @@ export async function promoteVersionIfUnleased(
         const indeterminate = "indeterminate" in guard && guard.indeterminate === true;
         return indeterminate ? null : "guard_denied";
       }
+      phase = "update";
       const result = await tx
         .update(engineVersions)
         .set({
@@ -515,6 +527,7 @@ export async function promoteVersionIfUnleased(
       );
       return null;
     }
+    if (phase === "context_read" && isTransientDbError(err)) return null;
     throw err;
   }
   if (outcome === "guard_denied") return outcome;
