@@ -556,9 +556,45 @@
         "provider": "Firebase",
         "name": "Firebase",
         "envVars": [],
-        "matchPatterns": ["\\bfirebase\\b"],
+        "matchPatterns": [
+          "\\bfirebase\\b[^.!?;\\n]{0,40}\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b",
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b[^.!?;\\n]{0,40}\\bfirebase\\b"
+        ],
+        "purposePatterns": [
+          "\\b(?:auth|authentication|login|inloggning|sign[-\\s]?in)\\b"
+        ],
         "status": "unresolved",
         "reason": "Prompten väljer Firebase för auth, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "database",
+        "providerKey": "firebase",
+        "dossierCapability": "database",
+        "provider": "Firebase",
+        "name": "Firebase",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bfirebase\\b[^.!?;\\n]{0,40}\\b(?:database|databas(?:en)?)\\b",
+          "\\b(?:database|databas(?:en)?)\\b[^.!?;\\n]{0,40}\\bfirebase\\b"
+        ],
+        "purposePatterns": ["\\b(?:database|databas(?:en)?)\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firebase som databas, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "database",
+        "providerKey": "firebase",
+        "dossierCapability": "database",
+        "provider": "Firestore",
+        "name": "Firestore",
+        "envVars": [],
+        "matchPatterns": [
+          "\\bfirestore\\b[^.!?;\\n]{0,40}\\b(?:database|databas(?:en)?)\\b",
+          "\\b(?:database|databas(?:en)?)\\b[^.!?;\\n]{0,40}\\bfirestore\\b"
+        ],
+        "purposePatterns": ["\\b(?:database|databas(?:en)?)\\b"],
+        "status": "unresolved",
+        "reason": "Prompten väljer Firestore som databas, men någon levererbar implementation är ännu inte vald."
       },
       {
         "kind": "payment",
@@ -614,6 +650,7 @@
           "\\bresend\\b[^.!?;\\n]{0,48}\\bfor\\s+(?:the\\s+)?newsletter(?:\\s+signup)?\\b",
           "\\bresend\\b[^.!?;\\n]{0,48}\\bför\\s+(?:ett\\s+)?nyhetsbrev\\b"
         ],
+        "purposePatterns": ["\\b(?:newsletter(?:\\s+signup)?|nyhetsbrev)\\b"],
         "status": "unresolved",
         "reason": "Prompten väljer Resend för nyhetsbrev, men den katalogiserade Resend-integrationen är ett kontaktformulär och ingen nyhetsbrevsimplementation är vald."
       },
@@ -626,6 +663,9 @@
         "name": "Resend",
         "envVars": ["RESEND_API_KEY"],
         "matchPatterns": ["\\bresend\\b"],
+        "purposePatterns": [
+          "\\b(?:contact[-\\s]?form|kontaktform(?:ulär)?)\\b"
+        ],
         "reason": "Prompten nämner Resend uttryckligen."
       },
       {

@@ -44,6 +44,7 @@ type ProviderRule = {
   name: string;
   envVars: string[];
   patterns: RegExp[];
+  purposePatterns: RegExp[];
   status?: "chosen" | "unresolved" | "optional";
   reason: string;
 };
@@ -61,6 +62,9 @@ const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRule
     name: rule.name,
     envVars: rule.envVars,
     patterns: rule.matchPatterns.map((pattern) => new RegExp(pattern, "i")),
+    purposePatterns: (rule.purposePatterns ?? []).map(
+      (pattern) => new RegExp(pattern, "i"),
+    ),
     status: rule.status,
     reason: rule.reason,
   }),
@@ -373,27 +377,50 @@ export function inferPreGenerationContracts(params: {
     rule: ProviderRule,
     source: string,
   ): boolean => {
-    const pattern = capabilityPatternForRule(rule);
-    return Boolean(
-      pattern && pattern.test(source) && !isTermFullyNegated(source, pattern),
+    const patterns =
+      rule.purposePatterns.length > 0
+        ? rule.purposePatterns
+        : [capabilityPatternForRule(rule)].filter(
+            (pattern): pattern is RegExp => Boolean(pattern),
+          );
+    return patterns.some(
+      (pattern) => pattern.test(source) && !isTermFullyNegated(source, pattern),
     );
   };
-  const targetRules = matchedPositiveRules.filter((rule) => {
-    const target = promptDecisionScopes.has(ruleScope(rule))
-      ? promptSwitchTarget
-      : briefSwitchTarget;
+  const targetForRule = (rule: ProviderRule): string | undefined =>
+    promptSwitchTarget ??
+    (promptDecisionScopes.has(ruleScope(rule)) ? undefined : briefSwitchTarget);
+  const switchProviderKeys = new Set(
+    matchedPositiveRules.map((rule) => rule.providerKey),
+  );
+  const targetPurposeRules = PROVIDER_RULES.filter((rule) => {
+    const target = targetForRule(rule);
     return Boolean(
       target &&
-        (rule.patterns.some((pattern) => pattern.test(target)) ||
-          hasPositiveCapabilityMention(rule, target)),
+        switchProviderKeys.has(rule.providerKey) &&
+        rule.purposePatterns.length > 0 &&
+        hasPositiveCapabilityMention(rule, target),
+    );
+  });
+  const positiveCandidates = Array.from(
+    new Set([...matchedPositiveRules, ...targetPurposeRules]),
+  );
+  const targetRules = positiveCandidates.filter((rule) => {
+    const target = targetForRule(rule);
+    return Boolean(
+      target &&
+        (rule.purposePatterns.length > 0
+          ? hasPositiveCapabilityMention(rule, target)
+          : rule.patterns.some((pattern) => pattern.test(target)) ||
+            hasPositiveCapabilityMention(rule, target)),
     );
   });
   const targetScopes = new Set(targetRules.map(ruleScope));
   const targetProviderKeys = new Set(targetRules.map((rule) => rule.providerKey));
-  const unresolvedProviderRules = matchedPositiveRules.filter(
+  const unresolvedProviderRules = positiveCandidates.filter(
     (rule) => rule.status === "unresolved" && capabilityForRule(rule),
   );
-  const positiveRules = matchedPositiveRules.filter((rule) => {
+  const positiveRules = positiveCandidates.filter((rule) => {
     if (
       targetProviderKeys.has(rule.providerKey) &&
       !targetRules.includes(rule)
@@ -614,6 +641,14 @@ export function inferPreGenerationContracts(params: {
   // then preserved only when their provider/capability is unambiguous.
   const legacyCandidates: PlanIntegrationContract[] = [];
   for (const inherited of inheritedIntegrations) {
+    if (
+      promptSwitchTarget &&
+      inherited.providerKey &&
+      targetProviderKeys.has(inherited.providerKey) &&
+      !targetScopes.has(contractScope(inherited))
+    ) {
+      continue;
+    }
     if (promptPositiveScopes.has(contractScope(inherited))) continue;
     if (inherited.selectionSource === "explicit") {
       const capability = inherited.dossierCapability;

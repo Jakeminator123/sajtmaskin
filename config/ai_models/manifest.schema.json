@@ -280,6 +280,7 @@
               "name": { "type": "string" },
               "envVars": { "type": "array", "items": { "type": "string" } },
               "matchPatterns": { "type": "array", "items": { "type": "string" } },
+              "purposePatterns": { "type": "array", "items": { "type": "string" } },
               "status": { "type": "string", "enum": ["chosen", "unresolved", "optional"] },
               "reason": { "type": "string" }
             }

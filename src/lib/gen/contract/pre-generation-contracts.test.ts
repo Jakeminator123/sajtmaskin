@@ -1363,37 +1363,172 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
   });
 
   it("keeps distinct same-vendor purposes and switches away from the unsupported source", () => {
-    const dual = inferPreGenerationContracts({
-      prompt: "Use Resend for newsletter signup and Resend for the contact form",
-      buildIntent: "website",
-      capabilities: baseCaps({ needsForms: true }),
-    });
-    expect(dual.contracts.integrations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          dossierCapability: "newsletter-subscribe",
-          status: "unresolved",
-        }),
+    for (const prompt of [
+      "Use Resend for newsletter signup and Resend for the contact form",
+      "Använd Resend för nyhetsbrev och Resend för kontaktformulär",
+    ]) {
+      const dual = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "website",
+        capabilities: baseCaps({ needsForms: true }),
+      });
+      expect(dual.contracts.integrations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            dossierCapability: "newsletter-subscribe",
+            status: "unresolved",
+          }),
+          expect.objectContaining({
+            providerKey: "resend",
+            dossierCapability: "contact-form",
+            status: "chosen",
+          }),
+        ]),
+      );
+    }
+
+    for (const prompt of [
+      "Switch from Resend newsletter to contact form",
+      "Byt från Resend nyhetsbrev till kontaktformulär",
+    ]) {
+      const switched = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "website",
+        capabilities: baseCaps({ needsForms: true }),
+      });
+      expect(switched.contracts.integrations).toEqual([
         expect.objectContaining({
           providerKey: "resend",
           dossierCapability: "contact-form",
           status: "chosen",
         }),
-      ]),
-    );
+      ]);
+    }
+  });
 
-    const switched = inferPreGenerationContracts({
-      prompt: "Switch from Resend newsletter to contact form",
-      buildIntent: "website",
-      capabilities: baseCaps({ needsForms: true }),
+  it("switches from Resend contact form to newsletter without retaining contact env", () => {
+    for (const prompt of [
+      "Switch from Resend contact form to newsletter signup",
+      "Byt från Resend kontaktformulär till nyhetsbrev",
+    ]) {
+      const switched = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "website",
+        capabilities: baseCaps({ needsForms: true }),
+        inheritedIntegrations: [
+          {
+            kind: "integration",
+            providerKey: "resend",
+            dossierCapability: "contact-form",
+            selectionSource: "explicit",
+            provider: "Resend",
+            name: "Resend",
+            reason: "Existing contact form.",
+            status: "chosen",
+            envVars: ["RESEND_API_KEY"],
+          },
+        ],
+      });
+      expect(switched.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "newsletter-subscribe",
+          status: "unresolved",
+        }),
+      ]);
+      expect(switched.contracts.integrations[0]).not.toHaveProperty("providerKey");
+      expect(switched.contracts.envVars).not.toContainEqual(
+        expect.objectContaining({ key: "RESEND_API_KEY" }),
+      );
+    }
+  });
+
+  it("does not infer a Resend contact sidecar from negated or stale contact purpose", () => {
+    for (const params of [
+      {
+        prompt: "Use Resend for newsletter signup, not a contact form",
+        brief: null,
+      },
+      {
+        prompt: "Use Resend for newsletter signup",
+        brief: { mustHave: ["Use Resend for the contact form"] },
+      },
+    ]) {
+      const ctx = inferPreGenerationContracts({
+        ...params,
+        buildIntent: "website",
+        capabilities: baseCaps({ needsForms: true }),
+      });
+      expect(ctx.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "newsletter-subscribe",
+          status: "unresolved",
+        }),
+      ]);
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ dossierCapability: "contact-form" }),
+      );
+    }
+  });
+
+  it.each([
+    ["Use Firebase as the database", "Firebase"],
+    ["Use Firestore for the database", "Firestore"],
+    ["Använd Firebase som databas", "Firebase"],
+    ["Använd Firestore för databasen", "Firestore"],
+  ] as const)("keeps explicit unsupported Firebase database intent unresolved: %s", (prompt, label) => {
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true }),
     });
-    expect(switched.contracts.integrations).toEqual([
+    expect(ctx.contracts.integrations).toEqual([
       expect.objectContaining({
-        providerKey: "resend",
-        dossierCapability: "contact-form",
-        status: "chosen",
+        dossierCapability: "database",
+        provider: label,
+        status: "unresolved",
       }),
     ]);
+    expect(ctx.contracts.integrations[0]).not.toHaveProperty("providerKey");
+    expect(ctx.contracts.integrations[0].envVars ?? []).toEqual([]);
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "auth" }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "postgres" }),
+    );
+    expect(ctx.contracts.databaseProvider).toBeUndefined();
+    expect(ctx.contracts.envVars).toEqual([]);
+  });
+
+  it("requires an auth purpose before treating Firebase as auth", () => {
+    const bare = inferPreGenerationContracts({
+      prompt: "Use Firebase",
+      buildIntent: "app",
+      capabilities: baseCaps(),
+    });
+    expect(bare.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "auth" }),
+    );
+
+    for (const prompt of [
+      "Use Firebase for login",
+      "Build authentication with Firebase",
+      "Använd Firebase för inloggning",
+      "Bygg inloggning med Firebase",
+    ]) {
+      const auth = inferPreGenerationContracts({
+        prompt,
+        buildIntent: "app",
+        capabilities: baseCaps({ needsAuth: true }),
+      });
+      expect(auth.contracts.integrations).toEqual([
+        expect.objectContaining({
+          dossierCapability: "auth",
+          provider: "Firebase",
+          status: "unresolved",
+        }),
+      ]);
+    }
   });
 
   it("does not use unresolved purpose metadata to reinterpret chosen legacy providers", () => {
