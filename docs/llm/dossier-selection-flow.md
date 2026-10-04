@@ -128,7 +128,7 @@ Renderingen styrs av manifestets `promptInstructionMode`:
 | Läge | Vad codegen-prompten får |
 |---|---|
 | `compact` eller utelämnat (default) | Manifest-härledd sammanfattning av capability, mock, env, dependencies och exports; brödtexten i `instructions.md` injiceras inte. |
-| `selected-sections` | De avgränsade H1-sektionerna **When to use**, **How to integrate** och **Avoid**; kodblock tas bort. Varje sektion kapas för sig vid `SELECTED_SECTION_CHAR_CAP` (480) — **inte** en delad budget — så «Avoid» inte svälts av en lång tidigare rubrik (Codex #254 P2). Bland kopplade (hard) körs läget bara av `postgres-drizzle` och `supabase-auth`; flera soft-dossiers kör det också. |
+| `selected-sections` | De avgränsade H1-sektionerna **When to use**, **How to integrate** och **Avoid**; kodblock tas bort. Varje sektion kapas för sig vid `SELECTED_SECTION_CHAR_CAP` (480) — **inte** en delad budget — så «Avoid» inte svälts av en lång tidigare rubrik (Codex #254 P2). För katalogens kopplade dossiers är detta normalpolicyn; `openai-chat` behåller defaultläget `compact`. Den aktuella inventeringen ägs av respektive canonical manifest, inte av antal i denna dokumentation. |
 | `full` | Hela `instructions.md`; används bara när manifestet uttryckligen väljer det eller för det äldre beyond-dossier-3D-undantaget. |
 
 Författarkontraktet kräver H1-rubrikerna **When to use** och **How to
@@ -157,7 +157,7 @@ SAJTMASKIN_DOSSIER_PIPELINE=false  # av (explicit opt-out)
 SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i alla miljöer)
 ```
 
-**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer — pipelinen är aktiv överallt. För att stänga av den i en specifik miljö, sätt den till `false` eller `0`.
+Kodens default och opt-out-kontrakt ägs av `src/lib/config.ts`. Aktuella deployvärden är driftstate och ska verifieras via env-audit, inte bevaras som ett odaterat sanningspåstående här. För att stänga av pipelinen i en specifik miljö, sätt värdet till `false` eller `0`.
 
 Hela `## Available Dossiers`-blocket försvinner från system-prompten. Inget annat påverkas. Sätt `false` om dossier-pool blir ohälsosam (t.ex. många unconfigured-dossiers spam:ar prompten).
 

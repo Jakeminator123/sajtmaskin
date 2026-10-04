@@ -108,7 +108,11 @@ export function describeF3SuccessTitle(
 ): string {
   const parts: string[] = [];
   if (counts && counts.builtLive > 0) {
-    parts.push(`${counts.builtLive} ${describeDossierStatus("built-live", "design").label}`);
+    const configuredLabel =
+      counts.builtLive === 1
+        ? describeDossierStatus("built-live", "design").label
+        : "Konfigurerade";
+    parts.push(`${counts.builtLive} ${configuredLabel}`);
   }
   if (counts && counts.builtDemo > 0) {
     parts.push(`${counts.builtDemo} ${describeDossierStatus("built-demo", "design").label}`);

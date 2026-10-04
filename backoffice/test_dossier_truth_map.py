@@ -29,6 +29,7 @@ from backoffice.pages.dossiers_lib.truth_map import (
 from backoffice.pages.dossiers_lib.ui_system_map import (
     configuration_guidance_lines,
     safe_provider_setup_url,
+    verification_date_label,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -109,6 +110,22 @@ PROJECTION = {
         },
     ],
 }
+
+
+class VerificationDateLabelTests(unittest.TestCase):
+    def test_accepted_and_legacy_rows_use_verification_wording(self) -> None:
+        self.assertEqual(verification_date_label("accepted"), "Senast verifierad")
+        self.assertEqual(verification_date_label(None), "Senast verifierad")
+
+    def test_unverified_or_unknown_rows_never_claim_verification(self) -> None:
+        self.assertEqual(
+            verification_date_label("unverified"),
+            "Katalogdatum (ej acceptansbevis)",
+        )
+        self.assertEqual(
+            verification_date_label("future-status"),
+            "Katalogdatum (ej acceptansbevis)",
+        )
 
 
 class BuildSystemMapRowsTests(unittest.TestCase):
