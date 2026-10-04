@@ -243,6 +243,15 @@ class ConfigurationGuidanceLinesTests(unittest.TestCase):
         self.assertEqual(configuration_guidance_lines({}), ([], []))
 
     def test_raw_setup_links_require_safe_https_and_stay_out_of_markdown(self) -> None:
+        cases_path = (
+            Path(__file__).resolve().parents[1]
+            / "src/lib/gen/dossiers/__fixtures__/provider-setup-urls.json"
+        )
+        cases = json.loads(cases_path.read_text(encoding="utf-8"))
+        for value in cases["valid"]:
+            self.assertEqual(safe_provider_setup_url(value), value)
+        for value in cases["invalid"]:
+            self.assertIsNone(safe_provider_setup_url(value), value)
         self.assertEqual(
             safe_provider_setup_url("https://dashboard.stripe.com/products"),
             "https://dashboard.stripe.com/products",

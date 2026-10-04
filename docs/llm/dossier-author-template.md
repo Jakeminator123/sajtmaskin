@@ -49,6 +49,11 @@ env key. Explain its owning component/module in `purpose`. Provider steps may
 reference existing `envVars.key` and `configInputs.id`; unknown references and
 duplicate ids are rejected by the same runtime/Backoffice validator.
 
+Provider setup links must be exact official HTTPS URLs confirmed by the source.
+Their dedicated schema contract accepts plain ASCII DNS hosts, not IP literals,
+IDN/punycode or encoded hostname aliases; omit unknown links and placeholders.
+Backoffice reads this same pattern before displaying a safe link button.
+
 These fields are consumed by the generation prompt and Backoffice, but are not
 completion, readiness or acceptance evidence. Do not invent Price ids or other
 provider values. Do not put credentials in examples. Omitted fields preserve

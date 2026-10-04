@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -31,14 +32,22 @@ def _manifest_uri_format_is_valid(value: object) -> bool:
 
 
 def _provider_setup_url_format_is_valid(value: object) -> bool:
-    """Mirror the dossier runtime's dedicated HTTPS setup-link contract."""
+    """HTTPS parsing plus the canonical dossier setup-link pattern (also UI)."""
     if not isinstance(value, str):
         return True
-    if len(value) > 2048 or any(
-        ord(char) <= 32 or char.isspace() or char in '<>()[]"`\\' for char in value
-    ):
-        return False
     try:
+        schema = read_json(
+            Path(__file__).resolve().parents[2]
+            / "docs/schemas/strict/dossier.schema.json"
+        )
+        field = schema["properties"]["providerSetup"]["items"]["properties"]["setupUrl"]
+        pattern = field["pattern"]
+        if (
+            len(value) > field["maxLength"]
+            or not isinstance(pattern, str)
+            or re.fullmatch(pattern, value) is None
+        ):
+            return False
         parsed = urlparse(value)
         _ = parsed.port
         return bool(
@@ -48,7 +57,7 @@ def _provider_setup_url_format_is_valid(value: object) -> bool:
             and not parsed.username
             and not parsed.password
         )
-    except ValueError:
+    except (OSError, ValueError, KeyError, TypeError, re.error):
         return False
 
 

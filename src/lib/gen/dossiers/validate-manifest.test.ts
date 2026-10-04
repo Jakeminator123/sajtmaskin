@@ -19,6 +19,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import setupUrlCases from "./__fixtures__/provider-setup-urls.json";
 
 import {
   findDuplicateDefaults,
@@ -237,6 +238,32 @@ describe("validateDossierManifest — project configuration guidance", () => {
       { expectedId: "example-dossier", class: "hard" },
     );
     expect(result.valid).toBe(false);
+  });
+
+  it.each(setupUrlCases.valid)("accepts canonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(true);
+  });
+
+  it.each(setupUrlCases.invalid)("rejects noncanonical provider DNS URL: %s", (setupUrl) => {
+    expect(
+      validateDossierManifest(
+        {
+          ...VALID_HARD_MANIFEST,
+          ...configurationMetadata,
+          providerSetup: [{ ...configurationMetadata.providerSetup[0], setupUrl }],
+        },
+        { expectedId: "example-dossier", class: "hard" },
+      ).valid,
+    ).toBe(false);
   });
 
   it.each([

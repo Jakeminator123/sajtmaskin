@@ -950,12 +950,11 @@ class ManifestClassValidationTests(unittest.TestCase):
                 "lastVerified": "2026-08-05",
             }
             path.write_text(json.dumps(original), encoding="utf-8")
-            for setup_url in (
-                "https://user:secret@example.com/setup",
-                "https://example.com:99999/setup",
-                "https://",
-                "https://...",
-            ):
+            cases_path = (
+                Path(__file__).resolve().parents[1]
+                / "src/lib/gen/dossiers/__fixtures__/provider-setup-urls.json"
+            )
+            for setup_url in json.loads(cases_path.read_text(encoding="utf-8"))["invalid"]:
                 with (
                     self.subTest(setup_url=setup_url),
                     mock.patch.object(dossiers_page, "REPO_ROOT", repo_root),

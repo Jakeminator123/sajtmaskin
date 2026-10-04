@@ -155,7 +155,8 @@
             "type": "string",
             "format": "https-provider-setup",
             "maxLength": 2048,
-            "pattern": "^https://[^\\s<>()\\[\\]\"`\\\\]+$"
+            "description": "Official provider setup link with a plain ASCII DNS hostname. IP literals, IDN/punycode and encoded host aliases are intentionally unsupported; omit an unknown link.",
+            "pattern": "^https://(?=.{1,253}(?::[0-9]|[/?#]|$))(?:(?![xX][nN]--)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)*(?![xX][nN]--)[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\\u0000-\\u0020\\u007F-\\u009F\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF<>()\\[\\]\"`\\\\]*)?$"
           },
           "references": {
             "type": "object",
