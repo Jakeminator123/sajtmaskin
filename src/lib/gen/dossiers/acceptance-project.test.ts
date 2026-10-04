@@ -151,6 +151,15 @@ describe("keyless dossier acceptance project", () => {
     expect(generated.dependencies?.ai).not.toMatch(/^\^?7(?:\.|$)/);
   });
 
+  it("materializes Clerk route policy beside the verbatim root middleware", () => {
+    const project = buildDossierAcceptanceProject("clerk-auth");
+    const middleware = project.files.find((file) => file.path === "middleware.ts");
+    const policy = project.files.find((file) => file.path === "lib/clerk/protected-routes.ts");
+
+    expect(middleware?.content).toContain('from "./lib/clerk/protected-routes"');
+    expect(policy?.content).toContain("export const protectedRoutes");
+  });
+
   it("keeps the MapLibre v6 worker URL before map construction", () => {
     const project = buildDossierAcceptanceProject("maplibre-map");
     const mapDisplay = project.files.find((file) => file.path === "components/map-display.tsx");

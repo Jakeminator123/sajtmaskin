@@ -51,6 +51,11 @@
       "injectionMode": "verbatim"
     },
     {
+      "path": "components/lib/clerk/protected-routes.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
       "path": "components/middleware.ts",
       "role": "server",
       "injectionMode": "verbatim"
@@ -68,6 +73,7 @@
       "import": "@/components/auth-buttons"
     }
   ],
+  "promptInstructionMode": "selected-sections",
   "lastVerified": "2026-04-21",
   "sourceRepoUrl": "https://github.com/clerk/javascript"
 }

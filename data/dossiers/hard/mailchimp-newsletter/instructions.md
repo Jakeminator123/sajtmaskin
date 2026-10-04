@@ -1,51 +1,10 @@
 # When to use
 
-Use this dossier when the brief declares the `newsletter-subscribe` capability — the site needs an email-capture form wired to a real list. Triggers (Swedish + English): `newsletter`, `nyhetsbrev`, `prenumerera`, `subscribe`, `email signup`, `mailing list`, `epostlista`, `Mailchimp`, `Substack-style email capture`.
-
-Best fit:
-
-- A footer CTA on a marketing site ("Få våra tips i mejlen") that drops the address into a Mailchimp audience.
-- A blog post end-card prompting the reader to subscribe before they leave.
-- A coming-soon / waitlist landing where the entire hero is the signup form.
-
-Do not use for:
-
-- Transactional email (use the `resend-contact-form` dossier or a dedicated transactional dossier).
-- A double-opt-in flow that needs a custom confirmation page (Mailchimp owns the confirmation email; if the brief asks for a custom one, reach for the `resend-contact-form` dossier and roll a small subscribe table yourself).
-- SMS / push notifications.
+Use for real email capture into a Mailchimp audience.
 
 # How to integrate
 
-The dossier ships a client `<NewsletterForm />` and a server `route.ts` at `/api/newsletter-subscribe`. Drop them in unchanged unless explicitly overridden:
-
-1. Copy `components/newsletter-form.tsx` to `components/newsletter-form.tsx`. Restyle freely — change copy, swap layout from inline to stacked, add a checkbox for marketing consent. Keep the four UX states (`idle` / `submitting` / `success` / `error`).
-2. Copy `components/api/newsletter-subscribe/route.ts` to `app/api/newsletter-subscribe/route.ts`. Do NOT paraphrase — the MD5-of-lowercased-email subscriber-id pattern and the PUT-vs-POST upsert flow are how Mailchimp distinguishes "new" from "already-subscribed".
-3. Mount `<NewsletterForm />` wherever the CTA belongs:
-
-```tsx
-import { NewsletterForm } from "@/components/newsletter-form";
-
-export function FooterCta() {
-  return (
-    <section className="border-t bg-muted/30 px-6 py-12">
-      <div className="mx-auto max-w-xl text-center">
-        <h2 className="text-2xl font-semibold">Få våra tips i mejlen</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ett mejl varannan vecka. Säg upp när du vill.
-        </p>
-        <NewsletterForm
-          className="mt-6"
-          placeholder="din@epost.se"
-          submitLabel="Prenumerera"
-          successMessage="Tack! Kolla inkorgen för bekräftelsen."
-        />
-      </div>
-    </section>
-  );
-}
-```
-
-See "Mock/demo mode" below for how the route behaves without a real key.
+Restyle the form; keep the server route's lowercase-email MD5 upsert contract.
 
 # Mock/demo mode
 
@@ -67,11 +26,7 @@ Real signup runs only once a genuine key + audience id are set. Keep both branch
 
 # Avoid
 
-- Do not put `MAILCHIMP_API_KEY` in a `NEXT_PUBLIC_*` variable. The key grants full audience-management access — keep it server-side.
-- Do not POST directly from the client to `https://us21.api.mailchimp.com/...` — CORS will block it AND you'd leak the key. Always go through the route handler.
-- Do not invent a "GDPR consent" checkbox without copy. If the brief is EU-facing, ship a real consent line ("Genom att prenumerera godkänner du vår integritetspolicy") with a link to the privacy page.
-- Do not rely on Mailchimp's hosted `<script>` embed (`mc-embedded-subscribe-form`). The embed loads jQuery, fights Next.js hydration, and has been the source of repeated reports of double-fire on mobile.
-- Do not log the subscriber email server-side. The route's debug log redacts it for a reason.
+Never expose the API key or bypass the server route from the browser.
 
 # Verification
 
