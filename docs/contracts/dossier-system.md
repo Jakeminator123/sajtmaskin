@@ -469,8 +469,9 @@ context-only i stället för att installera en konkurrerande betalmetod.
 Existerande projektkod räknas som positivt providerbevis bara när ett direkt
 `package.json`-beroende sammanfaller med en parse-ren runtime-import/export,
 global `require()` eller dynamisk import. Type-only-importer, kommentarer,
-strängar, lokalt skuggad `require`, trasig syntax, test-/spec-/fixturematerial
-och bara paketdeklaration är
+strängar, lokalt skuggad `require`, trasig syntax, test-/spec-/fixturematerial,
+`.stories`-filer och segmenten `__mocks__`, `e2e` och `test-utils` samt bara
+paketdeklaration är
 okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
 blir valet olöst i stället för manifestordningsstyrt. Explicit providerbyte
 tolkar riktningen även i `instead of`/`istället för`/`i stället för`; en separat
@@ -480,6 +481,12 @@ en borttagen Supabase-databas får inte återkomma via ett tvetydigt provider-hi
 medan ett självständigt auth-kontrakt och dess capability/dossier bevaras.
 Ingen ny separat godkännandeledger införs.
 
+Lagrade filposter valideras atomiskt av `stored-code-files.ts` före inspektion:
+en feltypad post gör hela underlaget otillgängligt, inte en filtrerad och
+skenbart konfliktfri delmängd. Ett pending provider-id får capability från
+sin exakta backing dossier först; utan backing används bara en entydig
+providerregel. Flera kandidater väljs inte genom manifestordning.
+
 På filnivå blir en divergent befintlig kärna `context-only` när exakt
 manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att
 den redan tillhör samma provider. Befintliga bytes bevaras utan kataloguppgradering
@@ -488,9 +495,16 @@ uppföljning inte nämner bevaras. En obevisad upptagen server-/verbatim-yta
 blockerar; en byte-exakt kanonisk del får kompletteras med saknade filer och
 rewritable UI förblir adapterbar. Bevisad annan provider eller flera providers
 för samma capability ger migrationsspärr, aldrig automatisk source-radering.
-Det gäller även dossierlösa mål. Readiness/Tier3 prövar spärren före cached
-green och stale-verification-promotion; oläsbara eller tomma versionsfiler
-är otillgängligt bevis, inte ett bevis på att ingen migration behövs.
+Det gäller även dossierlösa mål. En redan känd Product Postcheck-/L6-hold
+behåller sitt precisa besked utan en extra filläsning som kan maskera det.
+Ett frisläppande verdict går däremot alltid vidare genom fil-, migrations-
+och env-grindarna. Promotion, repair-acceptance inklusive timeout-autoaccept
+och stale-green-återhämtning använder samma migrationsspärr vid den faktiska
+statusövergången. Den låsta nuvarande filytan och eventuell repair-kandidat
+prövas; UPDATE binds dessutom till samma fil- och providerkontraktsunderlag.
+Oläsbara eller tomma versionsfiler är otillgängligt bevis, inte ett bevis på
+att ingen migration behövs. Migrationshold och transienta kontextläsfel är
+retrybara; verkliga skriv-/schemafel får inte döljas som vanliga väntetillstånd.
 Bedömningen återhärleds från tidigare filer och befintliga kontrakt varje
 runda; ingen ny beständig installationsledger. Explicit borttagning fortsätter
 vinna, medan faktiskt delade aktiva claims skyddas. Detta är

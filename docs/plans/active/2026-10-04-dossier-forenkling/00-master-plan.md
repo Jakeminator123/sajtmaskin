@@ -28,8 +28,34 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   4:37; dossier 21/21 på 11:06 inklusive 5:04 kö (aktivt 6:02). Postmerge
   kod-CI grön på 3:54; Vercel READY på rätt preview-SHA/alias på 1:52.
   De 13 kända DB-paritetsraderna kvarstår. En sen automatisk review publicerade
-  fem nya verifierade fel efter merge; lokal rättning är fryst på
-  `1537de6aecc85305376d36ddcf3202e64cab1230`, inväntar aktuell review/CI/leverans.
+  fem verifierade regressioner efter merge samt ett auto-delete-förslag som
+  avvisats enligt migrationspolicyn. Efterrättningen hör till PR #1551 och
+  räknas inte som levererad innan den når preview.
+- PR #1551 är draft/HOLD. Första publicerade head
+  `f88f7c4bb41999a2ab58a7fa8ef370961259f790` fick röd quality: sex fail-fast-
+  ordningsassertions i shard 4. CI tog 3:43; övriga tre shards, DB 126,
+  stabilitet 54 och övriga körda jobb var gröna. Dossier 21/21 tog 6:02 och
+  Vercel var READY på exakt f88 på 1:57. Detta är inte slutkandidatens kvitto.
+  Ordningen är lokalt rättad på `3a2692bfbb2501f86c18c071f690fde24a19ca5a`:
+  fokus 32/32 och separat konsumentmatris 150/150.
+  Native review på f88 publicerade fem ytterligare fynd: non-runtime-
+  konventioner som providerbevis, repair-autoaccept före migrationsspärren,
+  saknat katalogbundet SDK-bevis, manifestordningsstyrd pending-capability och
+  malformed lagrade filposter. Den avgränsade icke-OpenAI-rättningen är lokalt
+  fryst på `125a709f00f074667e926083c2ea251f73d6612e`: fokus 6 filer 161/161,
+  bred F3/route-matris 8 filer 243/243 och manifest/kontrakt 3 upptäckta filer
+  169/169. Matrisernas överlapp ska inte summeras som unik täckning. Typecheck,
+  scoped lint, derived/docs/canvas, diffcheck och plan är gröna; totalt 40
+  PR-paths. Efterföljande oberoende review hittade en exception-taxonomi som
+  maskerade riktiga writefel och dubblerad filvalidering; root hittade också
+  att tomt promotion-underlag måste vara unavailable. Samlad RED 6 → GREEN:
+  kärna 90/90, fokus 174/174 och bred integration 243/243. Rättningen är fryst
+  på `92db7f3c7ac89cd6c67cfddbe4a4efcf9baec45f`, med en enda ren filvalidator
+  och alla nya storage-tester bevarade genom flytt. Totalen är fortsatt 40
+  paths. Två oberoende delta-/integrationsreviews är CLEAN på exakt 92db7f3
+  inom icke-OpenAI-deltat. Rootens dokumentuppföljning har 49/49 tester och
+  grön docs-/PR-plan. Ny full current-head CI och previewleverans återstår.
+  OpenAI-delen av SDK-fyndet är fortfarande HOLD vid Jakobs nyckelval.
 - D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
@@ -77,7 +103,7 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   terminaldelta RED 7/188; fokus GREEN 258/258 och bred matris 581/581.
   En stale Swish-chosen dubblettrad ersattes av starkare unresolved-/fullflödestest;
   inga övriga täckningsfall togs bort. Type/lint/derived/docs/canvas/plan är gröna,
-  32 ownerklassificerade PR-paths. Punkten hålls öppen tills de
+  Detta tidigare checkpoint hade 32 ownerklassificerade PR-paths. Punkten hålls öppen tills de
   levererats; same-capability auto-delete ska inte införas, migrationsspärr
   enligt ownerpolicy är lösningen.
 - [ ] Skilj skyddad återanvändbar kärna från projektanpassning med befintlig
@@ -86,7 +112,12 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   Bevarandeskyddet är lokalt fryst: samlad RED 6/104 → GREEN 104/104,
   tomma versionsfiler RED 1/38 → GREEN 38/38, full riktad matris 363/363 och
   docs 49/49. Runtime-commit `9a7f968bc9939c995b875e5569f7b869dbd6ff01`;
-  normal preview-synk ändrade inga bytes. Full PR-verifiering återstår.
+  normal preview-synk ändrade inga bytes. Den första fulla PR-verifieringen
+  hittade följdfynden ovan; aktuell slutverifiering och previewleverans återstår.
+  Katalog-/instruktionsetappen är säkrad separat på
+  `39bf80b9b0f3f7f1c467b79246d51a1caa6e5818` med lokal bounded review CLEAN.
+  Den ska synkas med faktiskt levererad preview efter #1551, inte blandas in
+  i bevarandets review-/CI-kvitto.
 - [ ] Rensa motsägelsefull och föråldrad hard-vägledning. Användningsgräns,
   integration och `Avoid` ska faktiskt nå modellen i enhetlig, begränsad form;
   behåll 480-teckenskyddet och knappen Bygg integrationer.
@@ -145,7 +176,9 @@ och ska påminnas om i sluthandoff när checklistan faktiskt är avslutad.
 
 OpenAI-specifikt API-arbete inväntar Jakobs svar om befintlig eller ny nyckel.
 Enbart säker förekomstkontroll är gjord; ingen hemlighet har visats, använts
-eller ändrats och inga liveanrop planeras. Befintlig OpenAI-kod är oförändrad;
+eller ändrats och inga liveanrop planeras. Nativefyndet om katalogbundet SDK-bevis
+har en icke-OpenAI-del som kan rättas offline; OpenAI-delen får inte räknas som
+löst på grund av den rättningen. Befintlig OpenAI-kod är oförändrad;
 baseline/keyless CI och övrigt dossierarbete fortsätter. Checklistan får inte
 stängas som helt klar medan denna del fortfarande är pausad.
 
