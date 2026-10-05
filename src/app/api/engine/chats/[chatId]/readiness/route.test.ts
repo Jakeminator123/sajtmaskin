@@ -860,6 +860,34 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(emit).not.toHaveBeenCalled();
   });
 
+  it("does not pass a typed migration hold through the stale watchdog as a promoted version", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    promoteVersionIfUnleased.mockResolvedValue("integration_migration_required");
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBeNull();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it("holds a proven Clerk to Auth0 migration before stale-green reconciliation", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
@@ -963,6 +991,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
       null,
       undefined,
     );
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(true);
   });
 
   it("does not reconcile or promote when version files are unreadable", async () => {

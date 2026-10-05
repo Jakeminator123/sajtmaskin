@@ -60,7 +60,12 @@ import {
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      code?: "integration_migration_required";
+      retryable?: false;
+    };
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:version-status", () => handleGET(req, ctx));
@@ -110,6 +115,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       return cachedLogs ?? [];
     };
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
+    let reconcileMigrationRequired = false;
     if (busStuck) {
       // Fetch the error logs at most once, shared by both watchdog resolvers
       // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
@@ -148,6 +154,10 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
             RECONCILED_PROMOTE_SUMMARY,
             { filesRevision: filesRevisionForReconcile },
           );
+          if (promoted === "integration_migration_required") {
+            reconcileMigrationRequired = true;
+            return null;
+          }
           // Bugbot medium (#518): mirror the quality-gate route — an advisory
           // (typecheck-only) promotion is NOT solid-green, so emit
           // `version.degraded` after the reconcile-promote takes, else this poll
@@ -179,6 +189,19 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         },
       });
       dbVersion = settled.version;
+    }
+
+    if (reconcileMigrationRequired) {
+      return NextResponse.json<VersionStatusApiResponse>(
+        {
+          ok: false,
+          error:
+            "Versionen innehåller ett providerbyte som måste granskas innan den kan markeras klar.",
+          code: "integration_migration_required",
+          retryable: false,
+        },
+        { status: 409 },
+      );
     }
 
     // Bugbot medium (#518, 6th iteration): the settle above may have JUST

@@ -256,15 +256,32 @@ export async function triggerServerVerification(params: {
     // For the advisory case, ATTEMPT the promotion before emitting the outcome
     // so the bus signal reflects reality. `promoteVersion` is lease-conditioned:
     // a no-op (null) means a takeover/lease-loss or a guard/DB refusal.
-    const advisoryPromoted = advisoryPromote
-      ? Boolean(
-          await promoteVersion(
-            versionId,
-            "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
-            runId,
-          ).catch(() => null),
-        )
-      : false;
+    const persistPromotionMigrationHold = async () => {
+      await persistF3ReadinessHold({
+        chatId,
+        versionId,
+        filesRevision,
+        result: {
+          ready: false,
+          ok: false,
+          reason: "integration_migration_required",
+          retryable: false,
+        },
+        at: "before_promotion",
+      });
+    };
+    const advisoryPromotion = advisoryPromote
+      ? await promoteVersion(
+          versionId,
+          "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+          runId,
+        ).catch(() => null)
+      : null;
+    if (advisoryPromotion === "integration_migration_required") {
+      await persistPromotionMigrationHold();
+      return;
+    }
+    const advisoryPromoted = advisoryPromotion !== null;
 
     // Advisory promote that did NOT take (lease takeover / guard / transient DB
     // write). Emit NO terminal bus event: a terminal bus `failed` is sticky in
@@ -289,10 +306,6 @@ export async function triggerServerVerification(params: {
       ]).catch(() => null);
       return;
     }
-
-    // Green for the outcome bus signal / summary log when the VM gate passed OR
-    // the advisory promotion actually took.
-    const outcomeIsGreen = passed || advisoryPromoted;
 
     // L1: F3 before_promotion must run BEFORE the passed bus + green
     // `preflight:quality-gate` log. Otherwise UI (`reconcileTerminalDbState`)
@@ -331,6 +344,63 @@ export async function triggerServerVerification(params: {
         return;
       }
     }
+
+    if (passed && diagnosticOnly) {
+      // Diagnostics-only mode: even a passing gate must NOT publish a green
+      // outcome before promotion, because verifier blockers still disallow
+      // promotion regardless of build/typecheck status.
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "info",
+          category: "server-verify:diagnostic",
+          message:
+            "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
+          meta: { serverOwned: true, diagnosticOnly: true },
+        },
+      ]).catch(() => null);
+      await failVersionVerification(
+        versionId,
+        "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
+        runId,
+      ).catch(() => null);
+      return;
+    }
+
+    let normalPromoted = false;
+    if (passed && !advisoryPromoted) {
+      const promotion = await promoteVersion(
+        versionId,
+        lintAdvisories.length > 0
+          ? "Automatic server verification passed with lint warnings (advisory)."
+          : "Automatic server verification passed.",
+        runId,
+      ).catch(() => null);
+      if (promotion === "integration_migration_required") {
+        await persistPromotionMigrationHold();
+        return;
+      }
+      if (promotion === null) {
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId,
+            level: "info",
+            category: "preflight:quality-gate",
+            message:
+              "Server verify passed, but promotion was not applied (lease/guard/DB); terminal status remains authoritative in DB/watchdog.",
+            meta: { serverOwned: true, promoted: false },
+          },
+        ]).catch(() => null);
+        return;
+      }
+      normalPromoted = true;
+    }
+
+    // Green only after a real promotion took. A passing gate is evidence for
+    // promotion, not itself a published terminal success.
+    const outcomeIsGreen = advisoryPromoted || normalPromoted;
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
@@ -409,43 +479,7 @@ export async function triggerServerVerification(params: {
     }
 
     if (passed) {
-      if (diagnosticOnly) {
-        // Diagnostics-only mode: even a passing gate must NOT promote,
-        // because verifier-blocking findings (which the caller
-        // explicitly knew about when picking diagnosticOnly) still
-        // disallow promotion regardless of build/typecheck status.
-        await createEngineVersionErrorLogs([
-          {
-            chatId,
-            versionId,
-            level: "info",
-            category: "server-verify:diagnostic",
-            message:
-              "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
-            meta: { serverOwned: true, diagnosticOnly: true },
-          },
-        ]).catch(() => null);
-        // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
-        // Since runner.ts no longer pre-commits `failed` for verifier-only
-        // blocking, server-verify is the authority that must set terminal
-        // state. A verifier-LLM/real-build mismatch (verifier flagged, tsc
-        // passed) still disallows promotion, so resolve to `failed` with a
-        // summary that distinguishes this case from a real build failure.
-        await failVersionVerification(
-          versionId,
-          "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
-          runId,
-        ).catch(() => null);
-        return;
-      }
-      const promoted = await promoteVersion(
-        versionId,
-        lintAdvisories.length > 0
-          ? "Automatic server verification passed with lint warnings (advisory)."
-          : "Automatic server verification passed.",
-        runId,
-      ).catch(() => null);
-      if (promoted && lintAdvisories.length > 0) {
+      if (normalPromoted && lintAdvisories.length > 0) {
         try {
           emitBusEvent({
             t: "version.degraded",

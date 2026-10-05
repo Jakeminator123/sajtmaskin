@@ -287,6 +287,23 @@ export function mergePersistedOrchestrationSnapshots(
     merged.removedCapabilities = Array.from(unioned).filter(
       (capability) => !readded.has(capability),
     );
+    if (
+      "removedDossierIds" in base ||
+      "removedDossierIds" in next ||
+      readded.size > 0
+    ) {
+      const unionedIds = new Set([
+        ...normalizeCapabilityList(base.removedDossierIds),
+        ...normalizeCapabilityList(next.removedDossierIds),
+      ]);
+      merged.removedDossierIds = Array.from(unionedIds).filter((dossierId) => {
+        const capability = getDossierById(dossierId)?.capability.trim().toLowerCase();
+        // Unknown historical ids are retained here so the strict promotion
+        // reader can hold them for review. Only a known id whose canonical
+        // capability was explicitly re-added is safe to clear.
+        return !capability || !readded.has(capability);
+      });
+    }
   }
   // Deferred integrations (spår 01 steg 3) accumulate the same way, for the
   // same reason: the mute is round-scoped, so a plain "gör rubriken större"
@@ -376,7 +393,10 @@ export function readPromotionRemovalScopeFromSnapshot(
   const readStrict = (key: "removedCapabilities" | "removedDossierIds") => {
     if (!Object.prototype.hasOwnProperty.call(record, key)) return [];
     const value = record[key];
-    if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    if (
+      !Array.isArray(value) ||
+      value.some((entry) => typeof entry !== "string" || entry.trim().length === 0)
+    ) {
       return null;
     }
     return Array.from(
@@ -390,6 +410,13 @@ export function readPromotionRemovalScopeFromSnapshot(
   const removedCapabilities = readStrict("removedCapabilities");
   const removedDossierIds = readStrict("removedDossierIds");
   if (!removedCapabilities || !removedDossierIds) return null;
+  const removedCapabilitySet = new Set(removedCapabilities);
+  for (const dossierId of removedDossierIds) {
+    const dossier = getDossierById(dossierId);
+    if (!dossier || !removedCapabilitySet.has(dossier.capability.trim().toLowerCase())) {
+      return null;
+    }
+  }
   return { removedCapabilities, removedDossierIds };
 }
 

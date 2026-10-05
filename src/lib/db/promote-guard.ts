@@ -187,6 +187,25 @@ function removalResidualReason(params: {
   return null;
 }
 
+function providersByCapability(
+  evidence: ReturnType<typeof detectProjectProviderEvidence>,
+  removedCapabilities: ReadonlySet<string>,
+): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  for (const item of evidence) {
+    const capability = item.dossierCapability?.trim().toLowerCase();
+    if (!capability || removedCapabilities.has(capability)) continue;
+    const providers = result.get(capability) ?? new Set<string>();
+    providers.add(item.providerKey.trim().toLowerCase());
+    result.set(capability, providers);
+  }
+  return result;
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
 function inspectMigrationContext(
   context: NonNullable<PromoteGuardOptions["migrationContext"]>,
 ): PromoteGuardDecision | null {
@@ -257,22 +276,74 @@ function inspectMigrationContext(
         reason: `integration removal requires review before promotion: ${residual}`,
       };
     }
-    for (const files of context.candidateFilesJson === context.currentFilesJson
-      ? [current]
-      : [current, candidate]) {
-      const plan = resolveExistingDossierCorePlan({
-        contracts,
-        projectFiles: files,
-        projectProviderEvidence: detectProjectProviderEvidence(files, rules),
-        removedCapabilities,
-        removedDossierIds,
-      });
+    const currentEvidence = detectProjectProviderEvidence(current, rules);
+    const candidateEvidence = detectProjectProviderEvidence(candidate, rules);
+    const currentPlan = resolveExistingDossierCorePlan({
+      contracts,
+      projectFiles: current,
+      projectProviderEvidence: currentEvidence,
+      removedCapabilities,
+      removedDossierIds,
+    });
+    const candidatePlan =
+      context.candidateFilesJson === context.currentFilesJson
+        ? currentPlan
+        : resolveExistingDossierCorePlan({
+            contracts,
+            projectFiles: candidate,
+            projectProviderEvidence: candidateEvidence,
+            removedCapabilities,
+            removedDossierIds,
+          });
+    for (const plan of currentPlan === candidatePlan ? [currentPlan] : [currentPlan, candidatePlan]) {
       if (plan.migrationRequired) {
         return {
           allowed: false,
           indeterminate: true,
           code: "integration_migration_required",
           reason: "integration migration requires review before promotion",
+        };
+      }
+    }
+
+    if (currentPlan !== candidatePlan) {
+      // A restore scopes out newer chat intent, but it does not authorize a
+      // repair to replace or erase provider code. Compare only positive,
+      // package+runtime evidence and the existing protected-core authority.
+      // Explicit removal sets are already applied to both sides above.
+      const currentProviders = providersByCapability(currentEvidence, removedCapabilities);
+      const candidateProviders = providersByCapability(candidateEvidence, removedCapabilities);
+      for (const capability of new Set([
+        ...currentProviders.keys(),
+        ...candidateProviders.keys(),
+      ])) {
+        if (
+          !sameStringSet(
+            currentProviders.get(capability) ?? new Set<string>(),
+            candidateProviders.get(capability) ?? new Set<string>(),
+          )
+        ) {
+          return {
+            allowed: false,
+            indeterminate: true,
+            code: "integration_migration_required",
+            reason: `provider evidence changed for ${capability} during repair`,
+          };
+        }
+      }
+
+      const candidatePreservedIds = new Set(
+        candidatePlan.preservedDossiers.map((entry) => entry.id.toLowerCase()),
+      );
+      const removedProtectedCore = currentPlan.preservedDossiers.find(
+        (entry) => !candidatePreservedIds.has(entry.id.toLowerCase()),
+      );
+      if (removedProtectedCore) {
+        return {
+          allowed: false,
+          indeterminate: true,
+          code: "integration_migration_required",
+          reason: `protected integration core ${removedProtectedCore.id} changed or disappeared during repair`,
         };
       }
     }

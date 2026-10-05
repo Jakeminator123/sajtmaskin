@@ -360,6 +360,7 @@ async function buildEngineReadiness(
     }
     return isHeadVersion;
   };
+  let reconcileMigrationRequired = false;
   if (!integrationMigrationRequired && !integrationCoreInspectionUnavailable) {
     const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
       resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
@@ -378,6 +379,10 @@ async function buildEngineReadiness(
           RECONCILED_PROMOTE_SUMMARY,
           { filesRevision: filesRevisionForReconcile },
         );
+        if (promoted === "integration_migration_required") {
+          reconcileMigrationRequired = true;
+          return null;
+        }
         // Bugbot medium (#518): mirror the quality-gate route — an advisory
         // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
         // after the reconcile-promote takes, else the builder would read a false
@@ -412,7 +417,7 @@ async function buildEngineReadiness(
 
   const blockers: ChatReadinessItem[] = [];
   const warnings: ChatReadinessItem[] = [];
-  if (integrationMigrationRequired) {
+  if (integrationMigrationRequired || reconcileMigrationRequired) {
     blockers.push({
       id: "integration-migration-required",
       title: "Providerbytet behöver göras uttryckligen.",
@@ -655,16 +660,24 @@ async function buildEngineReadiness(
   // som i själva verket felar. Bara en härledd spec får uttala sig.
   let hasRealBuildIntegrations: boolean | undefined;
   try {
-    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
+    // F3/finalize intentionally retains the latest chat-level provider plan
+    // even for a restored file revision. Immediate publish/env compatibility
+    // above stays restore-scoped; cost forecasting must mirror the later F3
+    // execution rather than promise a free deterministic release.
+    const f3SelectedDossiers = resolveSelectedDossiersWithVersionPresence({
+      snapshot: chat.orchestration_snapshot,
+      versionFiles: files,
+    });
+    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, f3SelectedDossiers, {
       preloadedFiles: files,
     });
     const pendingDossiers = resolvePendingIntegrationDossiers({
-      snapshot: scopedOrchestrationSnapshot as Record<string, unknown> | null,
+      snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
       versionFiles: files,
       configuredEnvKeys: new Set(configuredEnvKeys),
     });
     const pendingProviderContracts = readProviderContractsFromSnapshot(
-      scopedOrchestrationSnapshot as Record<string, unknown> | null,
+      chat.orchestration_snapshot as Record<string, unknown> | null,
     );
     const providerEvidence = detectProjectProviderEvidence(
       files,

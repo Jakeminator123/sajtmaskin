@@ -58,6 +58,27 @@ describe("readPromotionRemovalScopeFromSnapshot", () => {
   ])("fails closed for present malformed tombstones: %j", (snapshot) => {
     expect(readPromotionRemovalScopeFromSnapshot(snapshot)).toBeNull();
   });
+
+  it.each([
+    { removedCapabilities: ["payments"], removedDossierIds: [""] },
+    { removedCapabilities: [], removedDossierIds: ["stripe-checkout"] },
+    { removedCapabilities: ["database"], removedDossierIds: ["supabase-auth"] },
+    { removedCapabilities: ["payments"], removedDossierIds: ["legacy-unknown"] },
+  ])("fails closed for orphaned or mismatched dossier tombstones: %j", (snapshot) => {
+    expect(readPromotionRemovalScopeFromSnapshot(snapshot)).toBeNull();
+  });
+
+  it("accepts a known dossier tombstone only with its matching capability", () => {
+    expect(
+      readPromotionRemovalScopeFromSnapshot({
+        removedCapabilities: ["payments"],
+        removedDossierIds: ["stripe-checkout"],
+      }),
+    ).toEqual({
+      removedCapabilities: ["payments"],
+      removedDossierIds: ["stripe-checkout"],
+    });
+  });
 });
 
 describe("deferred integrations (mutedCapabilities)", () => {
@@ -162,6 +183,38 @@ describe("deferred provider identity (mutedDossierIds)", () => {
     });
 
     expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["supabase-auth"]);
+  });
+});
+
+describe("durable removal tombstones across re-addition", () => {
+  it("clears a known dossier tombstone when its capability is explicitly re-added even if the partial round omits ID fields", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      {
+        removedCapabilities: ["payments", "auth"],
+        removedDossierIds: ["stripe-checkout", "clerk-auth", "legacy-unknown"],
+      },
+      { readdedCapabilities: ["payments"] },
+    );
+
+    expect(merged.removedCapabilities).toEqual(["auth"]);
+    expect(merged.removedDossierIds).toEqual(["clerk-auth", "legacy-unknown"]);
+  });
+
+  it("preserves neutral and independent removals without laundering unknown legacy IDs", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      {
+        removedCapabilities: ["payments", "auth"],
+        removedDossierIds: ["stripe-checkout", "clerk-auth", "legacy-unknown"],
+      },
+      { requestedCapabilities: ["booking"] },
+    );
+
+    expect(merged.removedCapabilities).toEqual(["payments", "auth"]);
+    expect(merged.removedDossierIds).toEqual([
+      "stripe-checkout",
+      "clerk-auth",
+      "legacy-unknown",
+    ]);
   });
 });
 

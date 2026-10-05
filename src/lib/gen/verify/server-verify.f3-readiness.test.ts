@@ -387,6 +387,66 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
     );
   });
 
+  it("normal passed path turns a typed migration hold into a non-green pending outcome", async () => {
+    promoteVersion.mockResolvedValue("integration_migration_required");
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.verifier.done",
+        outcome: "pending",
+        reason: "integration_migration_required",
+      }),
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).not.toHaveBeenCalled();
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "server-verify:f3-readiness",
+          meta: expect.objectContaining({
+            reason: "integration_migration_required",
+            retryable: false,
+            retryPending: false,
+            at: "before_promotion",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("advisory path does not treat a typed migration hold as a successful promotion", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: projectFiles,
+      filesJson,
+      lifecycleStage: "design",
+      filesRevision: "rev_f2",
+      parentVersionId: null,
+      verificationState: "pending",
+    });
+    runQualityGateOnExportable.mockResolvedValue(gateFailTypecheck());
+    qualityGateAllPassed.mockReturnValue(false);
+    promoteVersion.mockResolvedValue("integration_migration_required");
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.verifier.done",
+        outcome: "pending",
+        reason: "integration_migration_required",
+      }),
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
   it("before_promotion-hold: ingen passed-buss, ingen grön gatelogg, pending istället för promotion", async () => {
     checkTier3ReadinessForVersion
       .mockResolvedValueOnce({

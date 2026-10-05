@@ -490,6 +490,20 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
     expect(txUpdateSet.value).toBeUndefined();
   });
 
+  it("returns a typed migration hold and performs no update", async () => {
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "provider migration requires review",
+    } as never);
+
+    await expect(promoteVersion("ver-1")).resolves.toBe(
+      "integration_migration_required",
+    );
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
   it("scopes a restore away from latest contracts while CAS-binding edit_kind", async () => {
     lockSnap.value = {
       ...lockSnap.value,
@@ -815,6 +829,21 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     const res = await promoteVersionIfUnleased("ver-1", "reconciled");
     expect(res).toBeNull();
     expect(transaction).toHaveBeenCalledTimes(1);
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns a typed migration hold instead of a truthy version", async () => {
+    mockLeaseTableExists(true);
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "provider migration requires review",
+    } as never);
+
+    const res = await promoteVersionIfUnleased("ver-1", "reconciled");
+
+    expect(res).toBe("integration_migration_required");
     expect(txUpdateSet.value).toBeUndefined();
   });
 });

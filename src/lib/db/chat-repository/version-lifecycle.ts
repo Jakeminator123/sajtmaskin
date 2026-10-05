@@ -21,6 +21,8 @@ import { leaseTableExists } from "./leases";
 import { isTransientDbError } from "../transient-error";
 
 type PromotionPhase = "context_read" | "guard" | "update";
+export type PromotionMigrationHold = "integration_migration_required";
+export type PromoteVersionResult = Version | PromotionMigrationHold | null;
 
 /**
  * Snapshot the stale-watchdog (or another unleased writer) already read.
@@ -210,7 +212,7 @@ export async function promoteVersion(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
   runId?: string,
-): Promise<Version | null> {
+): Promise<PromoteVersionResult> {
   // False-green invariant guard: refuse `promoted` while the finalize quality
   // gate (telemetry) says the verifier/preflight blocked this version. Every
   // promote path consults `assertPromoteAllowed`: this function (quality-gate
@@ -223,10 +225,10 @@ export async function promoteVersion(
   // Returning null here never terminal-fails the version; callers treat it as
   // "not promoted" and the flow retries.
   const promotedAt = new Date();
-  let updated = false;
+  let outcome: boolean | PromotionMigrationHold = false;
   let phase: PromotionPhase = "context_read";
   try {
-    updated = await db.transaction(async (tx) => {
+    outcome = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
       );
@@ -254,7 +256,11 @@ export async function promoteVersion(
             ? `[promote-guard] Promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
             : `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
         );
-        return false;
+        return "indeterminate" in guard &&
+          guard.indeterminate === true &&
+          guard.code === "integration_migration_required"
+          ? "integration_migration_required"
+          : false;
       }
       phase = "update";
       const result = await tx
@@ -278,7 +284,8 @@ export async function promoteVersion(
     }
     throw error;
   }
-  if (!updated) return null;
+  if (outcome === "integration_migration_required") return outcome;
+  if (!outcome) return null;
   return getStoredVersion(versionId);
 }
 
@@ -439,7 +446,7 @@ export async function promoteVersionIfUnleased(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
   expected?: { filesRevision: string | null },
-): Promise<Version | "guard_denied" | null> {
+): Promise<Version | "guard_denied" | PromotionMigrationHold | null> {
   // Same false-green invariant guard as `promoteVersion`: refuse while the
   // finalize quality-gate telemetry says the version is blocked, and fail
   // closed-but-retryable (null) on a read error. Never promotes a blocked row.
@@ -454,7 +461,7 @@ export async function promoteVersionIfUnleased(
   }
   const jobsExist = presence === "exists";
   const promotedAt = new Date();
-  let outcome: boolean | "guard_denied" | null;
+  let outcome: boolean | "guard_denied" | PromotionMigrationHold | null;
   let phase: PromotionPhase = "context_read";
   try {
     outcome = await db.transaction(async (tx) => {
@@ -498,6 +505,13 @@ export async function promoteVersionIfUnleased(
       });
       if (!guard.allowed) {
         const indeterminate = "indeterminate" in guard && guard.indeterminate === true;
+        if (
+          indeterminate &&
+          "code" in guard &&
+          guard.code === "integration_migration_required"
+        ) {
+          return "integration_migration_required";
+        }
         return indeterminate ? null : "guard_denied";
       }
       phase = "update";
@@ -547,7 +561,9 @@ export async function promoteVersionIfUnleased(
     if (phase === "context_read" && isTransientDbError(err)) return null;
     throw err;
   }
-  if (outcome === "guard_denied") return outcome;
+  if (outcome === "guard_denied" || outcome === "integration_migration_required") {
+    return outcome;
+  }
   if (!outcome) return null;
   return getStoredVersion(versionId);
 }

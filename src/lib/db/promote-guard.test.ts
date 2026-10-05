@@ -357,6 +357,100 @@ describe("assertPromoteAllowed — provider migration context", () => {
     expect(decision).toEqual({ allowed: true });
   });
 
+  it("holds a restore repair that actually changes Clerk to Auth0", async () => {
+    const auth0Files = JSON.stringify([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@auth0/nextjs-auth0": "latest" } }),
+      },
+      {
+        path: "lib/auth0.ts",
+        content: 'import { Auth0Client } from "@auth0/nextjs-auth0/server"; export const auth0 = new Auth0Client();',
+      },
+    ]);
+    const decision = await assertPromoteAllowed("ver-restore", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: clerkFiles,
+        candidateFilesJson: auth0Files,
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
+  it("allows a same-provider restore repair", async () => {
+    const repairedClerk = JSON.stringify([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "latest" } }),
+      },
+      {
+        path: "app/page.tsx",
+        content: 'import { ClerkProvider } from "@clerk/nextjs"; export default ClerkProvider;',
+      },
+    ]);
+    const decision = await assertPromoteAllowed("ver-restore", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: clerkFiles,
+        candidateFilesJson: repairedClerk,
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("holds disappearance of proven provider code without an explicit removal", async () => {
+    const cleanCandidate = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+    const decision = await assertPromoteAllowed("ver-restore", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: clerkFiles,
+        candidateFilesJson: cleanCandidate,
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
+  it("holds disappearance of protected REST core without inventing SDK proof", async () => {
+    const mailchimpCore = JSON.stringify([
+      { path: "components/newsletter-form.tsx", content: "older form" },
+      { path: "app/api/newsletter-subscribe/route.ts", content: "older route" },
+    ]);
+    const cleanCandidate = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+    const decision = await assertPromoteAllowed("ver-restore", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: mailchimpCore,
+        candidateFilesJson: cleanCandidate,
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
   it("holds a provider migration even when the candidate deleted the old core", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => null, {
       onReadError: "indeterminate",
@@ -507,7 +601,10 @@ describe("assertPromoteAllowed — provider migration context", () => {
       migrationContext: {
         currentFilesJson: mailchimpFiles,
         candidateFilesJson: mailchimpFiles,
-        orchestrationSnapshot: { removedDossierIds: ["mailchimp-newsletter"] },
+        orchestrationSnapshot: {
+          removedCapabilities: ["newsletter-subscribe"],
+          removedDossierIds: ["mailchimp-newsletter"],
+        },
       },
     });
 
@@ -531,7 +628,10 @@ describe("assertPromoteAllowed — provider migration context", () => {
       migrationContext: {
         currentFilesJson: mailchimpFiles,
         candidateFilesJson: cleanCandidate,
-        orchestrationSnapshot: { removedDossierIds: ["mailchimp-newsletter"] },
+        orchestrationSnapshot: {
+          removedCapabilities: ["newsletter-subscribe"],
+          removedDossierIds: ["mailchimp-newsletter"],
+        },
       },
     });
 
@@ -586,6 +686,21 @@ describe("assertPromoteAllowed — provider migration context", () => {
         currentFilesJson: files,
         candidateFilesJson: files,
         orchestrationSnapshot: { removedCapabilities: null },
+      },
+    });
+
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+    expect(decision).not.toHaveProperty("code");
+  });
+
+  it("treats an orphan dossier tombstone as unavailable metadata, not a migration claim", async () => {
+    const files = JSON.stringify([{ path: "app/page.tsx", content: "export default null" }]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: files,
+        candidateFilesJson: files,
+        orchestrationSnapshot: { removedDossierIds: ["stripe-checkout"] },
       },
     });
 
