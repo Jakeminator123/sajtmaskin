@@ -18,6 +18,9 @@ const IN_CONTRACT_EXAMPLES = [
   "src/lib/gen/dossiers/acceptance-project.ts",
   "src/lib/gen/export/project-scaffold.ts",
   "src/lib/gen/scaffolds/landing-page/files/app/page.tsx",
+  "src/lib/gen/scaffolds/ecommerce/files/app/product/[id]/page.tsx",
+  "src/lib/gen/scaffolds/dashboard/files/app/users/page.tsx",
+  "src/lib/gen/scaffolds/blog/files/app/blog/[slug]/page.tsx",
   "src/lib/gen/scaffolds/load-scaffold-files.ts",
   "src/lib/gen/autofix/dep-completer.ts",
   "src/components/ui/button.tsx",
@@ -32,7 +35,7 @@ const OUT_OF_CONTRACT_EXAMPLES = [
   "README.md",
   "docs/contracts/dossier-system.md",
   "config/scaffold-variants/landing-page/default.json",
-  "src/lib/gen/scaffolds/ecommerce/files/app/page.tsx",
+  "src/lib/gen/scaffolds/auth-pages/files/app/page.tsx",
   "src/lib/gen/scaffolds/baseline-paths.ts",
   "src/app/builder/page.tsx",
   "config/agent-workflow.json",
@@ -47,6 +50,9 @@ describe("dossier acceptance path contract", () => {
       "src/lib/gen/dossiers/**",
       "src/lib/gen/export/**",
       "src/lib/gen/scaffolds/landing-page/**",
+      "src/lib/gen/scaffolds/ecommerce/**",
+      "src/lib/gen/scaffolds/dashboard/**",
+      "src/lib/gen/scaffolds/blog/**",
       "src/lib/gen/scaffolds/load-scaffold-files.ts",
       "src/lib/gen/autofix/dep-completer.ts",
       "src/lib/gen/data/shadcn-components.ts",
@@ -152,6 +158,16 @@ describe("dossier acceptance scope", () => {
 });
 
 describe("dossier acceptance workflow contract", () => {
+  it("keeps one discovered dossier id per job and at most six builds in parallel", () => {
+    expect(workflow).toContain(
+      'run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"',
+    );
+    expect(workflow).toContain(
+      "dossier: ${{ fromJSON(needs.discover.outputs.dossiers) }}",
+    );
+    expect(workflow).toContain("max-parallel: 6");
+  });
+
   it("runs on every pull request and keeps weekly/manual coverage", () => {
     const start = workflow.indexOf("  pull_request:");
     const end = workflow.indexOf("  schedule:", start);

@@ -34,5 +34,5 @@ for (const file of project.files) {
 }
 
 console.log(
-  `Materialized ${project.dossier.class}/${project.dossier.id}: ${project.files.length} files, keyless output ${outputRoot}`,
+  `Materialized ${project.dossier.class}/${project.dossier.id} on scaffold ${project.scaffoldId}: ${project.files.length} files, keyless output ${outputRoot}`,
 );

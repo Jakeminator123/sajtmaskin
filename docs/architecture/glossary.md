@@ -207,7 +207,8 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | `hasRealBuildIntegrations` som "har externa integrationer" | Kostnadssignal: `true` = «Bygg integrationer» tar LLM-vägen (planerad dossier saknas i versionen, eller integrationen har ett verkligt buildkrav). |
 | `previewPending` som previewstatus | `/preview-status` äger previewstatusen. |
 | `canPin` som versionsegenskap | Legacy v0-fält. Own-engine-versioner har `canPin: false` och pin-försök svarar 409 |
-| `self-contained` som "fungerar utan externa tjänster" | «Inget separat integrationsbygge krävs». |
+| `self-contained` som "fungerar utan externa tjänster" | **Ingår direkt** — inget separat integrationsbygge krävs; ordet är inte live- eller providerbevis. |
+| `built-live` som liveacceptans | **Konfigurerad** — den deklarerade projekt-/kodevidensen är uppfylld; ett externt provideranrop är inte liveverifierat. |
 | `filesRevision` som versionsidentitet | `versionId` = radens identitet, `filesRevision` = innehållets. |
 | Stewart / stewart | `Steward` (agentroll) |
 | Herde / mergare / merge-agent | `Steward` (agentroll) |

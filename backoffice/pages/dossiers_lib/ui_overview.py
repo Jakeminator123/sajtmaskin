@@ -116,7 +116,8 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "Kodtrohet": d.get("codeFidelity"),
             "Komplexitet": d.get("complexity"),
             "Nycklar": len(d.get("envVars") or []),
-            "Senast verifierad": d.get("lastVerified"),
+            "Verifiering": d.get("verificationStatus") or "accepted",
+            "Katalogdatum": d.get("lastVerified"),
             # Bara för sortering/gruppering — visas inte som egen kolumn.
             "_class": d["_class"],
             "_enforcement": _summarize_enforcement(d),
@@ -131,8 +132,9 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
         "**Kräver integrationsbygge** = den riktiga integrationen byggs i ett eget "
         "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
         "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
-        "klart redan i designläget. Leverantörssyskon = flera byggblock under "
-        "samma funktion."
+        "tillgängligt utan ett separat integrationsbygge. Leverantörssyskon = flera "
+        "byggblock under samma funktion. **Katalogdatum** är acceptansdatum bara för "
+        "`accepted`; för `unverified` är det import-/kureringsdatum, inte acceptansbevis."
     )
 
     groups = _load_group_view()

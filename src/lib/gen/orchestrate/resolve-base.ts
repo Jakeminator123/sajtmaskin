@@ -769,9 +769,8 @@ export async function resolveOrchestrationBase(
       // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
       // the user explicitly APPROVED, and (c) integrations with real FILE
       // EVIDENCE in the parent/base version (already built — safe to keep). The
-      // allowed set is dependency-expanded via the same helper as selection
-      // (`DEPENDENT_CAPABILITIES` is empty since 2026-08-06; the expansion
-      // also alias-normalizes and dedupes overlapping picks). Speculative
+      // allowed set is alias-normalized and deduped via the same compatibility
+      // helper as selection; no implicit companion capabilities are added.
       // brief/floor capabilities with no evidence, ask, or approval are
       // dropped. F2/design rounds are untouched (can-only-grow stays). See
       // docs/architecture/llm-pipeline.md.
