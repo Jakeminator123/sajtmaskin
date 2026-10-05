@@ -40,8 +40,12 @@ mergarna: #1553 `dpl_GX7x8Pe5LLDwzVMEcQxpNW87YVSV`, #1562
 post-CI `37267139493`: standardchecks gröna, endast samma 13 kända
 DB-paritetsavvikelser som på tidigare bas; postdeployment
 `dpl_6GjdgDJVnrGZwegrsiDE1KQqNMku` READY/`aliasError=null`.
-Postmergebevis efter #1562 följs separat av samordnaren; före-merge-deployment
-på `1110d65f` är inte i sig ett postmergekvitto för `cca962c6`.
+Efter #1562 verifierade samordnaren post-CI `37268476396` på `cca962c6`:
+alla fyra shards, quality, Backoffice, schema, contracts och build gröna;
+enda avvikelsen är samma 13 DB-paritetsrader, utan diff mot `c4f4b188`.
+Separat exact-postdeployment `dpl_AVG1EFPcVxK2zvGdYniW2QwVtujG` är
+READY/`aliasError=null`. Detta är postmergebeviset; före-merge-deployment
+på `1110d65f` används inte som ersättning för det.
 
 Ingen masterpromotion, delad DB-apply, env-/providerändring eller ny
 CI-urvalsminskning ingick. Originalplanens tio filer och aktiva indexrad
