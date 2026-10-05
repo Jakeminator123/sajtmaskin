@@ -8,7 +8,9 @@ export type AuthSubmission =
 export type AuthResult = { ok: boolean; message: string };
 
 export interface AuthAdapter {
-  submit(input: AuthSubmission): Promise<AuthResult>;
+  // Respect cancellation. A timeout does not prove a server action failed;
+  // the provider owns status reconciliation and retry/idempotency guarantees.
+  submit(input: AuthSubmission, signal: AbortSignal): Promise<AuthResult>;
 }
 
 /** Connect a real provider or server action here. Server validation and

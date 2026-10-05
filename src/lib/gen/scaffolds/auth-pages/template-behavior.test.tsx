@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 import LoginPage from "./files/app/login/page";
 import SignupPage from "./files/app/signup/page";
 import ForgotPasswordPage from "./files/app/forgot-password/page";
@@ -11,8 +12,28 @@ import { collectRequiredUiComponents } from "../../export/project-scaffold-ui-re
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 afterEach(cleanup);
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("auth scaffold pages", () => {
+  it.each([
+    ["login", LoginPage],
+    ["signup", SignupPage],
+    ["recovery", ForgotPasswordPage],
+  ] as const)(
+    "%s disables the SSR form before hydration, including without JavaScript",
+    (_mode, Page) => {
+      const html = renderToStaticMarkup(<Page />);
+      const document = new DOMParser().parseFromString(html, "text/html");
+      expect(document.querySelector("fieldset")?.disabled).toBe(true);
+      expect(document.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(
+        true,
+      );
+      expect(document.querySelector("noscript")?.textContent).toMatch(/JavaScript/);
+    },
+  );
   it.each([
     ["login", LoginPage],
     ["signup", SignupPage],
@@ -61,6 +82,38 @@ function fillLogin(container: HTMLElement) {
 }
 
 describe("auth submission boundary", () => {
+  it("aborts a stalled request, permits retry and ignores a late successful response", async () => {
+    vi.useFakeTimers();
+    let finish!: (result: AuthResult) => void;
+    const submit = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<AuthResult>((resolve) => {
+            finish = resolve;
+          }),
+      )
+      .mockResolvedValue({ ok: false, message: "Retry declined by provider." });
+    const { container } = render(<AuthForm intent="login" adapter={{ submit }} />);
+    const form = fillLogin(container);
+    fireEvent.submit(form);
+    const signal = submit.mock.calls[0][1] as AbortSignal | undefined;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(signal?.aborted).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/svarade inte i tid/);
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => finish({ ok: true, message: "Late success must not be shown." }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/svarade inte i tid/);
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert").textContent).toBe("Retry declined by provider.");
+  });
+
   it("rejects missing or malformed fields without calling a provider", () => {
     const submit = vi.fn();
     const { container } = render(<AuthForm intent="login" adapter={{ submit }} />);
@@ -98,12 +151,15 @@ describe("auth submission boundary", () => {
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toBe("Provider confirmed registration."),
     );
-    expect(submit).toHaveBeenCalledWith({
-      intent: "signup",
-      name: "Person",
-      email: "person@example.com",
-      password: "unchanged-password",
-    });
+    expect(submit).toHaveBeenCalledWith(
+      {
+        intent: "signup",
+        name: "Person",
+        email: "person@example.com",
+        password: "unchanged-password",
+      },
+      expect.any(AbortSignal),
+    );
   });
 
   it("holds one request pending, blocks same-tick duplicates, and permits retry after failure", async () => {
@@ -159,7 +215,10 @@ describe("auth submission boundary", () => {
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toBe("Provider accepted recovery request."),
     );
-    expect(submit).toHaveBeenCalledWith({ intent: "reset-password", email: "person@example.com" });
+    expect(submit).toHaveBeenCalledWith(
+      { intent: "reset-password", email: "person@example.com" },
+      expect.any(AbortSignal),
+    );
     expect(container.querySelector('[type="password"]')).toBeNull();
   });
 
@@ -167,12 +226,15 @@ describe("auth submission boundary", () => {
     "the default %s adapter never creates local credentials",
     async (intent) => {
       const storage = vi.spyOn(Storage.prototype, "setItem");
-      const result = await authAdapter.submit({
-        intent,
-        email: "person@example.com",
-        password: "secret",
-        name: "Person",
-      } as AuthSubmission);
+      const result = await authAdapter.submit(
+        {
+          intent,
+          email: "person@example.com",
+          password: "secret",
+          name: "Person",
+        } as AuthSubmission,
+        new AbortController().signal,
+      );
       expect(result.ok).toBe(false);
       expect(result.message).toMatch(/inte ansluten/);
       expect(storage).not.toHaveBeenCalled();

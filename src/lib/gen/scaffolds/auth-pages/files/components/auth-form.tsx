@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import {
   authAdapter,
   type AuthAdapter,
   type AuthIntent,
+  type AuthResult,
   type AuthSubmission,
 } from "../lib/auth-adapter";
 
@@ -19,6 +20,11 @@ const submitLabels: Record<AuthIntent, string> = {
   "reset-password": "Skicka återställningslänk",
 };
 const mismatchMessage = "Lösenorden matchar inte.";
+const timeoutMessage =
+  "Tjänsten svarade inte i tid. Kontrollera statusen hos tjänsten innan du försöker igen.";
+const subscribeToHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 
 export function AuthForm({
   intent,
@@ -27,6 +33,8 @@ export function AuthForm({
   intent: AuthIntent;
   adapter?: AuthAdapter;
 }) {
+  // Keep native POST disabled until our submit handler is hydrated.
+  const hydrated = useSyncExternalStore(subscribeToHydration, clientReady, serverReady);
   // A synchronous lock also covers two submits before React commits pending.
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
@@ -35,7 +43,7 @@ export function AuthForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current) return;
+    if (!hydrated || inFlight.current) return;
     const form = event.currentTarget;
     setError(null);
     setStatus(null);
@@ -62,14 +70,28 @@ export function AuthForm({
           : { intent, email, password };
     inFlight.current = true;
     setPending(true);
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await adapter.submit(input);
+      const timedOut = new Promise<AuthResult>((resolve) => {
+        timeout = setTimeout(() => {
+          resolve({ ok: false, message: timeoutMessage });
+          controller.abort();
+        }, 30_000);
+      });
+      // A provider that ignores abort must not hold the form or update it late.
+      const result = await Promise.race([adapter.submit(input, controller.signal), timedOut]);
       if (result.ok) setStatus(result.message);
       else setError(result.message);
     } catch {
       // Provider exceptions may contain credentials or internal details.
-      setError("Det gick inte att kontakta autentiseringstjänsten. Försök igen.");
+      setError(
+        controller.signal.aborted
+          ? timeoutMessage
+          : "Det gick inte att kontakta autentiseringstjänsten. Försök igen.",
+      );
     } finally {
+      clearTimeout(timeout);
       inFlight.current = false;
       setPending(false);
     }
@@ -77,7 +99,8 @@ export function AuthForm({
 
   return (
     <form method="post" onSubmit={handleSubmit} aria-busy={pending}>
-      <fieldset disabled={pending} className="min-w-0 space-y-4">
+      <noscript>Aktivera JavaScript för formulärförhandsvisningen.</noscript>
+      <fieldset disabled={!hydrated || pending} className="min-w-0 space-y-4">
         <CardContent className="space-y-4">
           {intent === "signup" ? (
             <div className="space-y-2">
@@ -150,7 +173,7 @@ export function AuthForm({
           ) : null}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
+          <Button type="submit" size="lg" className="w-full" disabled={!hydrated || pending}>
             {pending ? "Skickar…" : submitLabels[intent]}
           </Button>
           {intent === "login" ? (
