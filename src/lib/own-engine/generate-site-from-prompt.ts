@@ -274,6 +274,9 @@ export async function generateOwnEngineSiteFromPrompt(
       selectedDossierIds:
         orchestrationBase.dossierSelection?.selected.map((s) => s.entry.id) ?? [],
       requestedCapabilities: orchestrationBase.dossierRequestedCapabilities ?? [],
+      contractIntegrations: orchestrationBase.preGenerationContracts.contracts.integrations,
+      removedCapabilities: orchestrationBase.removedCapabilities ?? [],
+      removedDossierIds: orchestrationBase.removedDossierIds ?? [],
       sources: finalizedOrchestration.sources,
     },
   });

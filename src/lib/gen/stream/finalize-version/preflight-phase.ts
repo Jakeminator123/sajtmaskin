@@ -37,6 +37,10 @@ import {
 } from "@/lib/gen/preview/project-env-file";
 import { mergeGeneratedProjectFiles } from "../finalize-merge";
 import {
+  assertPreservedDossierVerbatimFiles,
+  capturePreservedDossierVerbatimSnapshot,
+} from "@/lib/gen/dossiers/verbatim-policy";
+import {
   runFinalizePreflight,
   type FinalizePreflightIssue,
 } from "../finalize-preflight";
@@ -131,6 +135,8 @@ export async function runPreflightPhase(params: {
    * Om tom: verbatim-policy körs men hittar inga dossiers att skydda.
    */
   selectedDossiers?: DossierEntry[];
+  /** Existing proven dossiers whose previous verbatim bytes stay frozen. */
+  preservedDossiers?: DossierEntry[];
   /** Dossiers explicitly removed by this follow-up. */
   removedDossiers?: DossierEntry[];
   repairLedger?: RepairLedger;
@@ -157,6 +163,7 @@ export async function runPreflightPhase(params: {
     previousSelectedDossierEnvKeys,
     onProgress,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     repairLedger,
     repairScopeId,
@@ -183,6 +190,7 @@ export async function runPreflightPhase(params: {
     resolvedScaffold,
     previousFiles,
     selectedDossiers,
+    preservedDossiers,
     removedDossiers,
     routePlan,
   });
@@ -295,6 +303,14 @@ export async function runPreflightPhase(params: {
     // being stubbed (prod chat 4d6b5546: imported template's 1.3 MB texture).
     previousFiles,
   });
+  const preservedVerbatim = capturePreservedDossierVerbatimSnapshot({
+    previousFiles: previousFiles ?? [],
+    preservedDossiers: preservedDossiers ?? [],
+  });
+  assertPreservedDossierVerbatimFiles({
+    files: JSON.parse(preflightResult.filesJson) as CodeFile[],
+    snapshot: preservedVerbatim,
+  });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
   // hard preflight error so the version is marked verification-blocked
@@ -399,6 +415,7 @@ export async function runPreflightPhase(params: {
         resolvedScaffold,
         previousFiles,
         selectedDossiers,
+        preservedDossiers,
         removedDossiers,
         routePlan,
       });
@@ -423,6 +440,10 @@ export async function runPreflightPhase(params: {
         importedRepoMode,
         projectEnvLocalOptions,
         previousFiles,
+      });
+      assertPreservedDossierVerbatimFiles({
+        files: JSON.parse(preflightResult.filesJson) as CodeFile[],
+        snapshot: preservedVerbatim,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair
@@ -518,6 +539,11 @@ export async function runPreflightPhase(params: {
       });
     }
   }
+
+  assertPreservedDossierVerbatimFiles({
+    files: JSON.parse(filesJson) as CodeFile[],
+    snapshot: preservedVerbatim,
+  });
 
   const stepTelemetry = createFinalizeStepTelemetry(
     parseMergePreflightStartedAt,

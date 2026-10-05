@@ -18,7 +18,13 @@ vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: (...args: unknown[]) => mockDevLogAppend(...args),
 }));
 
-import { applyDossierVerbatimPolicy } from "./verbatim-policy";
+import {
+  applyDossierVerbatimPolicy,
+  assertCompatibleDossierOutputClaims,
+  assertPreservedDossierVerbatimFiles,
+  capturePreservedDossierVerbatimSnapshot,
+  restorePreservedDossierVerbatimFiles,
+} from "./verbatim-policy";
 import type { DossierEntry } from "./types";
 import type { CodeFile } from "@/lib/gen/parser";
 
@@ -585,5 +591,131 @@ describe("applyDossierVerbatimPolicy", () => {
       "llm-output-path-conflict",
     );
     expect(llmFiles).toEqual(before);
+  });
+});
+
+describe("request-local previous verbatim preservation", () => {
+  it("captures readable empty verbatim bytes without seeding a missing rewritable file", () => {
+    const dossier = makeVerbatimDossier({
+      files: [
+        { path: "components/middleware.ts", role: "server", injectionMode: "verbatim" },
+        { path: "components/lib/clerk/config.ts", role: "shared", injectionMode: "rewritable" },
+      ],
+    });
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: [makeFile("middleware.ts", "")],
+      preservedDossiers: [dossier],
+    });
+    expect([...snapshot.byIdentity.values()]).toEqual([
+      expect.objectContaining({ path: "middleware.ts", content: "" }),
+    ]);
+    expect(
+      restorePreservedDossierVerbatimFiles({ files: [], snapshot }).files,
+    ).toEqual([expect.objectContaining({ path: "middleware.ts", content: "" })]);
+    expect([...snapshot.byIdentity.values()].some((file) => file.path.includes("config"))).toBe(
+      false,
+    );
+  });
+
+  it("fails closed for a portable alias instead of treating it as exact presence", () => {
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/middleware.ts", role: "server", injectionMode: "verbatim" }],
+    });
+    expect(() =>
+      capturePreservedDossierVerbatimSnapshot({
+        previousFiles: [makeFile("Middleware.ts", "older bytes")],
+        preservedDossiers: [dossier],
+      }),
+    ).toThrow("preserved-output-alias-conflict");
+  });
+
+  it("allows rewritable changes but detects later drift of captured verbatim bytes", () => {
+    const dossier = makeVerbatimDossier({
+      files: [
+        { path: "components/middleware.ts", role: "server", injectionMode: "verbatim" },
+        { path: "components/lib/clerk/config.ts", role: "shared", injectionMode: "rewritable" },
+      ],
+    });
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: [
+        makeFile("middleware.ts", "older bytes"),
+        makeFile("lib/clerk/config.ts", "older config"),
+      ],
+      preservedDossiers: [dossier],
+    });
+    expect(() =>
+      assertPreservedDossierVerbatimFiles({
+        files: [
+          makeFile("middleware.ts", "fixer drift"),
+          makeFile("lib/clerk/config.ts", "new config"),
+        ],
+        snapshot,
+      }),
+    ).toThrow("preserved-verbatim-mutation");
+  });
+
+  it("rejects selected versus preserved file-directory claims before mutation", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const preserved = makeVerbatimDossier({
+      id: "preserved",
+      files: [{ path: "components/cache/item.ts", role: "shared", injectionMode: "verbatim" }],
+    });
+    const selected = makeVerbatimDossier({
+      id: "selected",
+      files: [{ path: "components/cache", role: "shared", injectionMode: "rewritable" }],
+    });
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: [makeFile("components/cache/item.ts", "older bytes")],
+      preservedDossiers: [preserved],
+    });
+    expect(() =>
+      assertCompatibleDossierOutputClaims({
+        files: [],
+        selectedDossiers: [selected],
+        preservedVerbatim: snapshot,
+      }),
+    ).toThrow("active-output-conflict");
+  });
+
+  it("does not reserve an alias for a missing rewritable catalog file", () => {
+    mockGetDossierFileContent.mockReturnValue("canonical");
+    const dossier = makeVerbatimDossier({
+      files: [{ path: "components/Foo.ts", role: "shared", injectionMode: "rewritable" }],
+    });
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: [],
+      preservedDossiers: [dossier],
+    });
+    expect(snapshot.claims).toEqual([]);
+    expect(() =>
+      assertCompatibleDossierOutputClaims({
+        files: [makeFile("components/foo.ts", "project bytes")],
+        selectedDossiers: [],
+        preservedVerbatim: snapshot,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects selected canonical bytes that collide with divergent captured previous bytes", () => {
+    mockGetDossierFileContent.mockReturnValue("new canonical bytes");
+    const preserved = makeVerbatimDossier({
+      id: "preserved",
+      files: [{ path: "components/shared.ts", role: "shared", injectionMode: "verbatim" }],
+    });
+    const selected = makeVerbatimDossier({
+      id: "selected",
+      files: [{ path: "components/shared.ts", role: "shared", injectionMode: "verbatim" }],
+    });
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles: [makeFile("components/shared.ts", "older actual bytes")],
+      preservedDossiers: [preserved],
+    });
+    expect(() =>
+      assertCompatibleDossierOutputClaims({
+        files: [makeFile("components/shared.ts", "older actual bytes")],
+        selectedDossiers: [selected],
+        preservedVerbatim: snapshot,
+      }),
+    ).toThrow("active-output-conflict");
   });
 });

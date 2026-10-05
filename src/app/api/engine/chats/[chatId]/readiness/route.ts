@@ -46,7 +46,11 @@ import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
-import { resolveProviderContractDossierPlan } from "@/lib/gen/contract/provider-compatibility";
+import { scopePromotionSnapshotForVersion } from "@/lib/db/promote-guard";
+import {
+  resolveExistingDossierCorePlan,
+  resolveProviderContractDossierPlan,
+} from "@/lib/gen/contract/provider-compatibility";
 import {
   detectProjectProviderEvidence,
   projectProviderEvidenceMatchesContract,
@@ -63,6 +67,7 @@ import {
   RECONCILED_PROMOTE_SUMMARY,
   settleStaleVerificationIfNeeded,
 } from "@/lib/gen/verify/settle-stale-verification";
+import { isCurrentIntegrationMigrationHold } from "@/lib/gen/verify/stale-verification";
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
@@ -312,11 +317,29 @@ async function buildEngineReadiness(
     ]).catch(() => null);
   }
 
+  const scopedOrchestrationSnapshot = scopePromotionSnapshotForVersion(
+    chat.orchestration_snapshot,
+    version.edit_kind,
+  );
+
   const [versionFiles, projectEnv, errorLogs] = await Promise.all([
     getVersionFiles(version.id),
     resolveProjectEnv(chat.project_id ?? null),
     getEngineVersionErrorLogs(version.id),
   ]);
+  const integrationCoreInspectionUnavailable = !versionFiles || versionFiles.length === 0;
+  const integrationMigrationRequired = versionFiles
+    ? resolveExistingDossierCorePlan({
+        contracts: readProviderContractsFromSnapshot(
+          scopedOrchestrationSnapshot as Record<string, unknown> | null,
+        ),
+        projectFiles: versionFiles,
+        projectProviderEvidence: detectProjectProviderEvidence(
+          versionFiles,
+          getPreGenerationContractsConfigFromManifest().providerRules,
+        ),
+      }).migrationRequired
+    : false;
 
   // Lease-safe stale-verification watchdog (shared with /version-status). Fails
   // a version stuck past the route budget ONLY when no job holds an active
@@ -338,56 +361,104 @@ async function buildEngineReadiness(
     }
     return isHeadVersion;
   };
-  const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
-    resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
-    // BB#299: don't false-red a stale row whose latest gate verdict is green.
-    resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
-    // Bugbot medium (#518): the green reconciliation only applies to the chat
-    // head; a non-head (superseded) stale row falls through to terminal-fail.
-    resolveIsHeadVersion,
-    // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
-    // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
-    // instead of leaving it in limbo — never promotes while a verify/repair job
-    // holds the lease and re-runs checks.
-    promoteReconciledVersion: async () => {
-      const promoted = await promoteVersionIfUnleased(
-        versionIdForReconcile,
-        RECONCILED_PROMOTE_SUMMARY,
-        { filesRevision: filesRevisionForReconcile },
-      );
-      // Bugbot medium (#518): mirror the quality-gate route — an advisory
-      // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
-      // after the reconcile-promote takes, else the builder would read a false
-      // green `done`. Only a real promoted Version emits (never `"guard_denied"`
-      // / `null`). A clean pass emits nothing. Best-effort telemetry.
-      const advisoryChecks =
-        promoted && promoted !== "guard_denied"
-          ? resolveLatestGateAdvisoryChecks(errorLogs)
-          : [];
-      if (advisoryChecks.length > 0) {
-        const lintAdvisory = advisoryChecks.includes("lint");
-        try {
-          emitBusEvent({
-            t: "version.degraded",
-            versionId: versionIdForReconcile,
-            chatId: chat.id,
-            kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
-            message: lintAdvisory
-              ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
-              : "Designläge: versionen promotades med typecheck-varningar (advisory).",
-            meta: { advisoryChecks },
-          });
-        } catch {
-          // Telemetry only — never block readiness on a bus failure.
+  let reconcileMigrationRequired = false;
+  const durableMigrationHold = isCurrentIntegrationMigrationHold(version);
+  if (
+    !durableMigrationHold &&
+    !integrationMigrationRequired &&
+    !integrationCoreInspectionUnavailable
+  ) {
+    const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
+      resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
+      // BB#299: don't false-red a stale row whose latest gate verdict is green.
+      resolveLatestGateGreen: () => isLatestGateVerdictGreen(errorLogs),
+      // Bugbot medium (#518): the green reconciliation only applies to the chat
+      // head; a non-head (superseded) stale row falls through to terminal-fail.
+      resolveIsHeadVersion,
+      // Codex P1 (#518): recover a proven-green stale HEAD row to a terminal
+      // promoted state via the guarded, LEASE-SAFE promote (bugbot high #518)
+      // instead of leaving it in limbo — never promotes while a verify/repair job
+      // holds the lease and re-runs checks.
+      promoteReconciledVersion: async () => {
+        const promoted = await promoteVersionIfUnleased(
+          versionIdForReconcile,
+          RECONCILED_PROMOTE_SUMMARY,
+          { filesRevision: filesRevisionForReconcile },
+        );
+        if (promoted === "integration_migration_required") {
+          reconcileMigrationRequired = true;
+          return promoted;
         }
-      }
-      return promoted;
-    },
-  });
-  version = settledVersion;
+        // Bugbot medium (#518): mirror the quality-gate route — an advisory
+        // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
+        // after the reconcile-promote takes, else the builder would read a false
+        // green `done`. Only a real promoted Version emits (never `"guard_denied"`
+        // / `null`). A clean pass emits nothing. Best-effort telemetry.
+        const advisoryChecks =
+          promoted && promoted !== "guard_denied"
+            ? resolveLatestGateAdvisoryChecks(errorLogs)
+            : [];
+        if (advisoryChecks.length > 0) {
+          const lintAdvisory = advisoryChecks.includes("lint");
+          try {
+            emitBusEvent({
+              t: "version.degraded",
+              versionId: versionIdForReconcile,
+              chatId: chat.id,
+              kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
+              message: lintAdvisory
+                ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
+                : "Designläge: versionen promotades med typecheck-varningar (advisory).",
+              meta: { advisoryChecks },
+            });
+          } catch {
+            // Telemetry only — never block readiness on a bus failure.
+          }
+        }
+        return promoted;
+      },
+    });
+    version = settledVersion;
+  }
+
+  if (reconcileMigrationRequired) {
+    const refreshed = await getEngineVersionForChatByIdForRequest(
+      request,
+      chatId,
+      versionIdForReconcile,
+    ).catch(() => null);
+    if (refreshed && isCurrentIntegrationMigrationHold(refreshed.version)) {
+      version = refreshed.version;
+    }
+  }
 
   const blockers: ChatReadinessItem[] = [];
   const warnings: ChatReadinessItem[] = [];
+  if (
+    durableMigrationHold ||
+    isCurrentIntegrationMigrationHold(version) ||
+    integrationMigrationRequired ||
+    reconcileMigrationRequired
+  ) {
+    blockers.push({
+      id: "integration-migration-required",
+      title: "Providerbytet behöver göras uttryckligen.",
+      detail:
+        "Versionen innehåller redan kärnkod för en annan provider. Migrera den integrationen innan versionen kan markeras klar.",
+      severity: "blocker",
+      action: "versions",
+    });
+  }
+  if (integrationCoreInspectionUnavailable) {
+    blockers.push({
+      id: "version-files-unavailable",
+      title: "Versionsfilerna kunde inte läsas.",
+      detail:
+        "Readiness kan inte avgöra om befintlig integrationskod är kompatibel. Försök igen innan versionen markeras klar.",
+      severity: "blocker",
+      action: "versions",
+    });
+  }
   if (wasAutoAccepted) {
     // Surface the (previously silent) auto-accept so the user can tell that the
     // active version changed without an explicit "Acceptera fix" click.
@@ -501,7 +572,7 @@ async function buildEngineReadiness(
   // manifest enforcement here even after F2-mute dropped its capability from
   // the snapshot floor. `files` was already loaded once above.
   const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
-    snapshot: chat.orchestration_snapshot,
+    snapshot: scopedOrchestrationSnapshot,
     versionFiles: files,
   });
 
@@ -611,7 +682,15 @@ async function buildEngineReadiness(
   // som i själva verket felar. Bara en härledd spec får uttala sig.
   let hasRealBuildIntegrations: boolean | undefined;
   try {
-    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
+    // F3/finalize intentionally retains the latest chat-level provider plan
+    // even for a restored file revision. Immediate publish/env compatibility
+    // above stays restore-scoped; cost forecasting must mirror the later F3
+    // execution rather than promise a free deterministic release.
+    const f3SelectedDossiers = resolveSelectedDossiersWithVersionPresence({
+      snapshot: chat.orchestration_snapshot,
+      versionFiles: files,
+    });
+    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, f3SelectedDossiers, {
       preloadedFiles: files,
     });
     const pendingDossiers = resolvePendingIntegrationDossiers({

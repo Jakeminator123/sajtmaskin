@@ -8,7 +8,7 @@ import { engineChats, engineMessages, engineVersions } from "../schema";
 import { and, eq, desc, sql } from "drizzle-orm";
 import type { Message, Version } from "./types";
 import { uuid, toRow, loadVersionById } from "./internal";
-import { promoteVersion } from "./version-lifecycle";
+import { promoteVersion, type PromoteVersionResult } from "./version-lifecycle";
 
 const MAX_VERSION_INSERT_RETRIES = 3;
 
@@ -290,7 +290,7 @@ export async function createAndPromoteDraftVersion(
   filesJson: string,
   verificationSummary: string | null = "Automatic verification passed.",
   previewUrl?: string,
-): Promise<Version | null> {
+): Promise<PromoteVersionResult> {
   const version = await createDraftVersion(chatId, messageId, filesJson, previewUrl);
   return promoteVersion(version.id, verificationSummary);
 }

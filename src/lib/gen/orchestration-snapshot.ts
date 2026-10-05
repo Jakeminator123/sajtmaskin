@@ -287,6 +287,23 @@ export function mergePersistedOrchestrationSnapshots(
     merged.removedCapabilities = Array.from(unioned).filter(
       (capability) => !readded.has(capability),
     );
+    if (
+      "removedDossierIds" in base ||
+      "removedDossierIds" in next ||
+      readded.size > 0
+    ) {
+      const unionedIds = new Set([
+        ...normalizeCapabilityList(base.removedDossierIds),
+        ...normalizeCapabilityList(next.removedDossierIds),
+      ]);
+      merged.removedDossierIds = Array.from(unionedIds).filter((dossierId) => {
+        const capability = getDossierById(dossierId)?.capability.trim().toLowerCase();
+        // Unknown historical ids are retained here so the strict promotion
+        // reader can hold them for review. Only a known id whose canonical
+        // capability was explicitly re-added is safe to clear.
+        return !capability || !readded.has(capability);
+      });
+    }
   }
   // Deferred integrations (spår 01 steg 3) accumulate the same way, for the
   // same reason: the mute is round-scoped, so a plain "gör rubriken större"
@@ -353,6 +370,55 @@ export function mergePersistedOrchestrationSnapshots(
 export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
 export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 export const REMOVED_CAPABILITIES_SNAPSHOT_KEY = "removedCapabilities";
+
+export type PromotionRemovalScope = {
+  removedCapabilities: string[];
+  removedDossierIds: string[];
+};
+
+/**
+ * Strict promotion-boundary reader for durable removal tombstones. Older
+ * snapshots legitimately omit both keys, but a PRESENT malformed key may not
+ * be downgraded to an empty removal set: that would let a stale integration
+ * pass the final promotion guard.
+ */
+export function readPromotionRemovalScopeFromSnapshot(
+  snapshot: unknown,
+): PromotionRemovalScope | null {
+  if (snapshot === null || snapshot === undefined) {
+    return { removedCapabilities: [], removedDossierIds: [] };
+  }
+  if (typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const record = snapshot as Record<string, unknown>;
+  const readStrict = (key: "removedCapabilities" | "removedDossierIds") => {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) return [];
+    const value = record[key];
+    if (
+      !Array.isArray(value) ||
+      value.some((entry) => typeof entry !== "string" || entry.trim().length === 0)
+    ) {
+      return null;
+    }
+    return Array.from(
+      new Set(
+        value
+          .map((entry) => (entry as string).trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+  };
+  const removedCapabilities = readStrict("removedCapabilities");
+  const removedDossierIds = readStrict("removedDossierIds");
+  if (!removedCapabilities || !removedDossierIds) return null;
+  const removedCapabilitySet = new Set(removedCapabilities);
+  for (const dossierId of removedDossierIds) {
+    const dossier = getDossierById(dossierId);
+    if (!dossier || !removedCapabilitySet.has(dossier.capability.trim().toLowerCase())) {
+      return null;
+    }
+  }
+  return { removedCapabilities, removedDossierIds };
+}
 
 /**
  * Durable capability-removal tombstone on the chat snapshot.
@@ -449,7 +515,11 @@ export function readF3ApprovedFromSnapshot(snapshot: Record<string, unknown> | n
   const removedSet = new Set(removed);
   return {
     capabilities: capabilities.filter((capability) => !removedSet.has(capability)),
-    providers: filterProvidersForRemovedCapabilities(providers, removed),
+    providers: filterProvidersForRemovedCapabilities(
+      providers,
+      removed,
+      readProviderContractsFromSnapshot(snapshot),
+    ),
   };
 }
 
