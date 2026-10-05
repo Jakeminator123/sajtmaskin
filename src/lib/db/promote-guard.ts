@@ -193,7 +193,9 @@ function providersByCapability(
 ): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   for (const item of evidence) {
-    const capability = item.dossierCapability?.trim().toLowerCase();
+    const capability =
+      item.dossierCapability?.trim().toLowerCase() ??
+      capabilityForIntegrationKind(item.kind);
     if (!capability || removedCapabilities.has(capability)) continue;
     const providers = result.get(capability) ?? new Set<string>();
     providers.add(item.providerKey.trim().toLowerCase());
@@ -317,12 +319,21 @@ function inspectMigrationContext(
         ...currentProviders.keys(),
         ...candidateProviders.keys(),
       ])) {
-        if (
-          !sameStringSet(
-            currentProviders.get(capability) ?? new Set<string>(),
-            candidateProviders.get(capability) ?? new Set<string>(),
-          )
-        ) {
+        const current = currentProviders.get(capability) ?? new Set<string>();
+        const candidate = candidateProviders.get(capability) ?? new Set<string>();
+        if (candidate.size > 1) {
+          return {
+            allowed: false,
+            indeterminate: true,
+            code: "integration_migration_required",
+            reason: `multiple provider implementations are present for ${capability} during repair`,
+          };
+        }
+        // Adding the first positive package+runtime proof is evidence recovery,
+        // not a provider migration. Once a provider is positively proven,
+        // replacing or erasing it remains a migration hold.
+        if (current.size === 0) continue;
+        if (!sameStringSet(current, candidate)) {
           return {
             allowed: false,
             indeterminate: true,

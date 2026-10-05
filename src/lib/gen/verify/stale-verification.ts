@@ -32,6 +32,46 @@ import { isKnownRevisionMismatch, shortRevision } from "./content-revision";
  */
 const NON_TERMINAL_VERIFICATION_STATES = new Set(["pending", "verifying", "repairing"]);
 
+export const INTEGRATION_MIGRATION_REQUIRED_CODE = "integration_migration_required";
+export const INTEGRATION_MIGRATION_HOLD_MESSAGE =
+  "Providerbytet kräver ett uttryckligt migrationsbeslut innan versionen kan publiceras.";
+
+export function buildIntegrationMigrationHoldSummary(filesRevision: string | null): string {
+  return `${INTEGRATION_MIGRATION_REQUIRED_CODE}:${filesRevision ?? "null"}`;
+}
+
+export function isCurrentIntegrationMigrationHold(row: {
+  release_state?: string | null;
+  verification_state?: string | null;
+  verification_summary?: string | null;
+  files_revision?: string | null;
+}): boolean {
+  return (
+    row.release_state === "draft" &&
+    row.verification_state === "pending" &&
+    row.verification_summary === buildIntegrationMigrationHoldSummary(row.files_revision ?? null)
+  );
+}
+
+export function applyCurrentIntegrationMigrationHold(
+  status: VersionStatus,
+  row: Parameters<typeof isCurrentIntegrationMigrationHold>[0],
+): VersionStatus {
+  if (!isCurrentIntegrationMigrationHold(row)) return status;
+  return {
+    ...status,
+    phase: "blocked",
+    done: false,
+    verificationBlocked: true,
+    verifierOutcome: "pending",
+    lastBuildError: {
+      stage: "promotion",
+      message: INTEGRATION_MIGRATION_HOLD_MESSAGE,
+      failureCode: INTEGRATION_MIGRATION_REQUIRED_CODE,
+    },
+  };
+}
+
 export function isNonTerminalVerificationState(
   verificationState: string | null | undefined,
 ): boolean {

@@ -27,6 +27,7 @@ import {
 } from "./internal";
 import { leaseTableExists, hasActiveVersionLease } from "./leases";
 import { isTransientDbError } from "../transient-error";
+import { buildIntegrationMigrationHoldSummary } from "@/lib/gen/verify/stale-verification";
 
 /**
  * Outcome of {@link saveRepairedFiles}. Callers MUST distinguish a stale-base
@@ -196,6 +197,8 @@ export async function acceptRepair(
         repairedFilesJson: engineVersions.repairedFilesJson,
         filesJson: engineVersions.filesJson,
         editKind: engineVersions.editKind,
+        verificationState: engineVersions.verificationState,
+        filesRevision: engineVersions.filesRevision,
         orchestrationSnapshot: sql<unknown>`(
           SELECT c.orchestration_snapshot
           FROM engine_chats c
@@ -313,7 +316,45 @@ export async function acceptRepair(
         guard.indeterminate &&
         guard.code === "integration_migration_required"
       ) {
-        return "integration_migration_required";
+        phase = "update";
+        const verificationState = rows[0]?.verificationState;
+        const filesRevision = rows[0]?.filesRevision ?? null;
+        if (typeof verificationState !== "string") return null;
+        const held = await tx
+          .update(engineVersions)
+          .set({
+            releaseState: "draft" as EngineVersionReleaseState,
+            verificationState: "pending" as EngineVersionVerificationState,
+            verificationSummary: buildIntegrationMigrationHoldSummary(filesRevision),
+            promotedAt: null,
+          })
+          .where(
+            and(
+              eq(engineVersions.id, versionId),
+              eq(engineVersions.verificationState, verificationState),
+              filesRevision == null
+                ? sql`${engineVersions.filesRevision} IS NULL`
+                : eq(engineVersions.filesRevision, filesRevision),
+              sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+              sql`${engineVersions.filesJson} = ${currentFilesJson}`,
+              sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${editKind}`,
+              editKind === "restore"
+                ? undefined
+                : sql`COALESCE((
+                    SELECT c.orchestration_snapshot
+                    FROM engine_chats c
+                    WHERE c.id = ${engineVersions.chatId}
+                  ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+                    orchestrationSnapshot,
+                  )} AS jsonb)`,
+              jobsExist
+                ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+                : undefined,
+            ),
+          );
+        return (held.rowCount ?? 0) > 0
+          ? "integration_migration_required"
+          : null;
       }
       return null;
     }

@@ -30,6 +30,7 @@ const txExecuteFailure = vi.hoisted(() => ({
   error: null as Error | null,
 }));
 const txUpdateFailure = vi.hoisted(() => ({ value: null as Error | null }));
+const txUpdateRowCount = vi.hoisted(() => ({ value: 0 }));
 const acceptSelectFailure = vi.hoisted(() => ({ value: null as Error | null }));
 // The row acceptRepair SELECTs FOR UPDATE: { repairedFilesJson, filesJson }.
 const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
@@ -81,7 +82,7 @@ const tx = {
         where: (w: unknown) => {
           txUpdateWhere.value = w;
           if (txUpdateFailure.value) return Promise.reject(txUpdateFailure.value);
-          return Promise.resolve({ rowCount: 0 });
+          return Promise.resolve({ rowCount: txUpdateRowCount.value });
         },
       };
     },
@@ -148,6 +149,7 @@ import {
   maybeAutoAcceptTimedOutRepair,
   acquireVersionLease,
 } from "./chat-repository-pg";
+import { holdVersionForIntegrationMigration } from "./chat-repository/version-lifecycle";
 import { assertPromoteAllowed } from "./promote-guard";
 import { encodeRepairedFilesEnvelope } from "./repair-files-payload";
 
@@ -163,6 +165,9 @@ function envelopeRow(filesJson: string) {
     }),
     filesJson,
     editKind: null,
+    verificationState: "repair_available",
+    filesRevision: "rev-a",
+    orchestrationSnapshot: null,
   };
 }
 
@@ -185,6 +190,7 @@ function resetCaptures() {
   txExecuteFailure.match = "";
   txExecuteFailure.error = null;
   txUpdateFailure.value = null;
+  txUpdateRowCount.value = 0;
   acceptSelectFailure.value = null;
   // Default: a base-matching envelope so the promote path runs.
   selectRows.value = [envelopeRow(BASE_A)];
@@ -316,7 +322,7 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(params).toContain(JSON.stringify(snapshot));
   });
 
-  it("returns a typed migration denial and leaves the pending repair untouched", async () => {
+  it("persists a typed migration denial while leaving the pending repair payload untouched", async () => {
     mockLeaseTableExists(true);
     vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
       allowed: false,
@@ -325,10 +331,18 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
       reason: "integration migration requires review before promotion",
     } as never);
 
+    txUpdateRowCount.value = 1;
     await expect(acceptRepair("ver-1")).resolves.toBe(
       "integration_migration_required",
     );
-    expect(txUpdateSet.value).toBeUndefined();
+    expect(txUpdateSet.value).toMatchObject({
+      releaseState: "draft",
+      verificationState: "pending",
+      promotedAt: null,
+    });
+    expect(txUpdateSet.value).not.toHaveProperty("repairedFilesJson");
+    expect(txUpdateSet.value).not.toHaveProperty("repairAvailableAt");
+    expect(renderSql(txUpdateWhere.value)).toContain("repaired_files_json");
   });
 
   it("scopes a restore away from the latest chat contracts and binds edit_kind", async () => {
@@ -453,6 +467,57 @@ describe("maybeAutoAcceptTimedOutRepair — migration denial", () => {
       version,
       wasAutoAccepted: false,
     });
+    expect(txUpdateSet.value).toEqual(
+      expect.objectContaining({
+        releaseState: "draft",
+        verificationState: "pending",
+        verificationSummary: "integration_migration_required:rev-a",
+        promotedAt: null,
+      }),
+    );
+    const holdSet = txUpdateSet.value as Record<string, unknown>;
+    expect(holdSet.repairedFilesJson).toBeUndefined();
+    expect(holdSet.repairAvailableAt).toBeUndefined();
+  });
+});
+
+describe("holdVersionForIntegrationMigration — locked CAS", () => {
+  beforeEach(resetCaptures);
+
+  it("returns true only after a state/revision/lease-bound hold write", async () => {
+    lockSnap.value = { verification_state: "repairing", files_revision: "rev-a" };
+    txUpdateRowCount.value = 1;
+
+    await expect(
+      holdVersionForIntegrationMigration(
+        "ver-1",
+        { verificationState: "repairing", filesRevision: "rev-a" },
+        "run-x",
+      ),
+    ).resolves.toBe(true);
+
+    expect(txUpdateSet.value).toMatchObject({
+      releaseState: "draft",
+      verificationState: "pending",
+      verificationSummary: "integration_migration_required:rev-a",
+      promotedAt: null,
+    });
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("verification_state");
+    expect(where).toContain("files_revision");
+    expect(where).toContain("engine_version_jobs");
+  });
+
+  it("returns false without UPDATE when the locked revision changed", async () => {
+    lockSnap.value = { verification_state: "repairing", files_revision: "rev-b" };
+
+    await expect(
+      holdVersionForIntegrationMigration(
+        "ver-1",
+        { verificationState: "repairing", filesRevision: "rev-a" },
+        "run-x",
+      ),
+    ).resolves.toBe(false);
     expect(txUpdateSet.value).toBeUndefined();
   });
 });
@@ -490,7 +555,7 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
     expect(txUpdateSet.value).toBeUndefined();
   });
 
-  it("returns a typed migration hold and performs no update", async () => {
+  it("returns a typed migration hold only after the revision-bound hold update applies", async () => {
     vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
       allowed: false,
       indeterminate: true,
@@ -498,10 +563,30 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
       reason: "provider migration requires review",
     } as never);
 
+    txUpdateRowCount.value = 1;
     await expect(promoteVersion("ver-1")).resolves.toBe(
       "integration_migration_required",
     );
-    expect(txUpdateSet.value).toBeUndefined();
+    expect(txUpdateSet.value).toMatchObject({
+      releaseState: "draft",
+      verificationState: "pending",
+      promotedAt: null,
+    });
+    expect(String((txUpdateSet.value as Record<string, unknown>).verificationSummary)).toContain(
+      "integration_migration_required",
+    );
+    expect(txUpdateSet.value).not.toHaveProperty("repairedFilesJson");
+  });
+
+  it("returns ordinary null when the migration-hold CAS update misses", async () => {
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "provider migration requires review",
+    } as never);
+    txUpdateRowCount.value = 0;
+    await expect(promoteVersion("ver-1")).resolves.toBeNull();
   });
 
   it("scopes a restore away from latest contracts while CAS-binding edit_kind", async () => {
@@ -832,7 +917,7 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     expect(txUpdateSet.value).toBeUndefined();
   });
 
-  it("returns a typed migration hold instead of a truthy version", async () => {
+  it("returns a typed migration hold instead of a truthy version after a lease-safe hold write", async () => {
     mockLeaseTableExists(true);
     vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
       allowed: false,
@@ -841,10 +926,31 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
       reason: "provider migration requires review",
     } as never);
 
+    txUpdateRowCount.value = 1;
     const res = await promoteVersionIfUnleased("ver-1", "reconciled");
 
     expect(res).toBe("integration_migration_required");
-    expect(txUpdateSet.value).toBeUndefined();
+    expect(txUpdateSet.value).toMatchObject({
+      releaseState: "draft",
+      verificationState: "pending",
+      promotedAt: null,
+    });
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("not exists");
+    expect(where).toContain("verification_state");
+    expect(where).toContain("files_revision");
+  });
+
+  it("returns ordinary null when the unleased hold loses its CAS or lease race", async () => {
+    mockLeaseTableExists(true);
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "provider migration requires review",
+    } as never);
+    txUpdateRowCount.value = 0;
+    await expect(promoteVersionIfUnleased("ver-1", "reconciled")).resolves.toBeNull();
   });
 });
 

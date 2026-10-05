@@ -657,6 +657,48 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     });
   });
 
+  it("projects a durable migration hold over stale done history without exposing the marker as user copy", async () => {
+    const revision = "a".repeat(32);
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_hold",
+        created_at: "2026-10-05T00:00:00Z",
+        version_number: 3,
+        message_id: "msg_1",
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: `integration_migration_required:${revision}`,
+        files_revision: revision,
+        promoted_at: null,
+      },
+    ]);
+    readAll.mockReturnValue([
+      {
+        t: "version.done",
+        id: "done",
+        ts: "2026-10-05T00:00:01Z",
+        runId: "root",
+        versionId: "ver_hold",
+        chatId: "chat_1",
+      },
+    ]);
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+    expect(json.versions[0].busStatus).toMatchObject({
+      phase: "blocked",
+      done: false,
+      verificationBlocked: true,
+      lastBuildError: { failureCode: "integration_migration_required" },
+    });
+    expect(json.versions[0].verificationSummary).not.toContain(
+      "integration_migration_required:",
+    );
+  });
+
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByV0ChatIdForRequest.mockResolvedValue(null);

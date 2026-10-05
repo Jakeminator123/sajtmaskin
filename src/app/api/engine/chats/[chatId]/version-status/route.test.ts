@@ -153,6 +153,36 @@ describe("GET version-status (engine)", () => {
     expect(body.status?.degradations).toEqual([]);
   });
 
+  it.each([[[]], [[{ t: "version.done", id: "done", ts: "2026-10-05T00:00:00Z", runId: "root", versionId: "v1", chatId: "chat_1" }]]])(
+    "projects a revision-bound migration hold over cold or stale done bus history",
+    async (events) => {
+      const revision = "a".repeat(32);
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        version: {
+          id: "v1",
+          release_state: "draft",
+          verification_state: "pending",
+          verification_summary: `integration_migration_required:${revision}`,
+          files_revision: revision,
+        },
+      });
+      readAll.mockReturnValue(events);
+      const res = await GET(
+        new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.status).toMatchObject({
+        phase: "blocked",
+        done: false,
+        verificationBlocked: true,
+        lastBuildError: { failureCode: "integration_migration_required" },
+      });
+      expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
+    },
+  );
+
   it("surfaces degradations from the projection", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({ version: { id: "v1" } });
     readAll.mockReturnValue([
@@ -576,7 +606,7 @@ describe("GET version-status (engine)", () => {
     );
 
     const result = await capturedOpts?.promoteReconciledVersion?.();
-    expect(result).toBeNull();
+    expect(result).toBe("integration_migration_required");
     expect(emit).not.toHaveBeenCalled();
   });
 

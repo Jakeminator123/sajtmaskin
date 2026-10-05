@@ -19,6 +19,7 @@ import {
 } from "./internal";
 import { leaseTableExists } from "./leases";
 import { isTransientDbError } from "../transient-error";
+import { buildIntegrationMigrationHoldSummary } from "@/lib/gen/verify/stale-verification";
 
 type PromotionPhase = "context_read" | "guard" | "update";
 export type PromotionMigrationHold = "integration_migration_required";
@@ -71,6 +72,8 @@ function promotionSnapshot(row: ReturnType<typeof lockedCasRow>): {
   orchestrationSnapshot: unknown;
   scopedOrchestrationSnapshot: unknown;
   editKind: string | null;
+  verificationState: EngineVersionVerificationState;
+  filesRevision: string | null;
 } | null {
   const filesJson = row?.files_json ?? row?.filesJson;
   if (typeof filesJson !== "string") return null;
@@ -78,6 +81,10 @@ function promotionSnapshot(row: ReturnType<typeof lockedCasRow>): {
   const editKind = typeof rawEditKind === "string" ? rawEditKind : null;
   const orchestrationSnapshot =
     row?.orchestration_snapshot ?? row?.orchestrationSnapshot ?? null;
+  const rawVerificationState = row?.verification_state ?? row?.verificationState;
+  if (typeof rawVerificationState !== "string") return null;
+  const rawFilesRevision = row?.files_revision ?? row?.filesRevision;
+  const filesRevision = typeof rawFilesRevision === "string" ? rawFilesRevision : null;
   return {
     filesJson,
     orchestrationSnapshot,
@@ -86,7 +93,28 @@ function promotionSnapshot(row: ReturnType<typeof lockedCasRow>): {
       editKind,
     ),
     editKind,
+    verificationState: rawVerificationState as EngineVersionVerificationState,
+    filesRevision,
   };
+}
+
+function integrationMigrationHoldSet(filesRevision: string | null) {
+  return {
+    releaseState: "draft" as const,
+    verificationState: "pending" as const,
+    verificationSummary: buildIntegrationMigrationHoldSummary(filesRevision),
+    promotedAt: null,
+  };
+}
+
+function integrationMigrationHoldCas(snapshot: {
+  verificationState: EngineVersionVerificationState;
+  filesRevision: string | null;
+}) {
+  return and(
+    eq(engineVersions.verificationState, snapshot.verificationState),
+    filesRevisionCas(snapshot.filesRevision),
+  );
 }
 
 function promotionContextCas(snapshot: {
@@ -186,6 +214,51 @@ export async function resetVersionVerificationToPending(
   return getStoredVersion(versionId);
 }
 
+/**
+ * Persist the deterministic provider-migration hold without clearing a pending
+ * repair envelope. The hold is revision/state-bound and, when `runId` is
+ * supplied, keeps the normal lease ownership predicate.
+ */
+export async function holdVersionForIntegrationMigration(
+  versionId: string,
+  expected: WatchdogCasExpected,
+  runId?: string,
+): Promise<boolean> {
+  let phase: PromotionPhase = "context_read";
+  try {
+    const applied = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+      );
+      const locked = await tx.execute(sql`
+        SELECT verification_state, files_revision
+        FROM engine_versions
+        WHERE id = ${versionId}
+        FOR UPDATE
+      `);
+      const row = lockedCasRow(locked);
+      if (!row || !casMatchesLockedRow(row, expected)) return false;
+      phase = "update";
+      const result = await tx
+        .update(engineVersions)
+        .set(integrationMigrationHoldSet(expected.filesRevision))
+        .where(
+          and(
+            versionWriteWhere(versionId, runId),
+            eq(engineVersions.verificationState, expected.verificationState),
+            filesRevisionCas(expected.filesRevision),
+          ),
+        );
+      return (result.rowCount ?? 0) > 0;
+    });
+    return applied;
+  } catch (error) {
+    if (isLockTimeoutError(error)) return false;
+    if (phase === "context_read" && isTransientDbError(error)) return false;
+    throw error;
+  }
+}
+
 export async function markVersionRepairing(
   versionId: string,
   verificationSummary: string | null = "Server-side repair in progress.",
@@ -233,7 +306,7 @@ export async function promoteVersion(
         sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
       );
       const locked = await tx.execute(sql`
-        SELECT v.files_json, v.edit_kind,
+        SELECT v.files_json, v.edit_kind, v.verification_state, v.files_revision,
           (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = v.chat_id)
             AS orchestration_snapshot
         FROM engine_versions v
@@ -256,11 +329,27 @@ export async function promoteVersion(
             ? `[promote-guard] Promote signal unavailable for version ${versionId} (retryable): ${guard.reason}`
             : `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
         );
-        return "indeterminate" in guard &&
+        if (
+          "indeterminate" in guard &&
           guard.indeterminate === true &&
           guard.code === "integration_migration_required"
-          ? "integration_migration_required"
-          : false;
+        ) {
+          phase = "update";
+          const held = await tx
+            .update(engineVersions)
+            .set(integrationMigrationHoldSet(snapshot.filesRevision))
+            .where(
+              and(
+                versionWriteWhere(versionId, runId),
+                integrationMigrationHoldCas(snapshot),
+                promotionContextCas(snapshot),
+              ),
+            );
+          return (held.rowCount ?? 0) > 0
+            ? "integration_migration_required"
+            : false;
+        }
+        return false;
       }
       phase = "update";
       const result = await tx
@@ -510,7 +599,23 @@ export async function promoteVersionIfUnleased(
           "code" in guard &&
           guard.code === "integration_migration_required"
         ) {
-          return "integration_migration_required";
+          phase = "update";
+          const held = await tx
+            .update(engineVersions)
+            .set(integrationMigrationHoldSet(snapshot.filesRevision))
+            .where(
+              and(
+                eq(engineVersions.id, versionId),
+                integrationMigrationHoldCas(snapshot),
+                promotionContextCas(snapshot),
+                jobsExist
+                  ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+                  : undefined,
+              ),
+            );
+          return (held.rowCount ?? 0) > 0
+            ? "integration_migration_required"
+            : null;
         }
         return indeterminate ? null : "guard_denied";
       }

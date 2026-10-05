@@ -6,6 +6,7 @@ import {
   resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
+import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import {
   fullProjectProtectedDroppedPaths,
@@ -185,13 +186,26 @@ export async function triggerServerVerification(params: {
         projectId: f3ReadinessContext.projectId,
       });
       if (!readiness.ready) {
-        await persistF3ReadinessHold({
-          chatId,
-          versionId,
-          filesRevision,
-          result: readiness,
-          at: "before_first_gate",
-        });
+        const migrationHold =
+          readiness.reason === "integration_migration_required"
+            ? await holdVersionForIntegrationMigration(
+                versionId,
+                {
+                  verificationState: snapshot.verificationState ?? "pending",
+                  filesRevision,
+                },
+                runId,
+              )
+            : null;
+        if (readiness.reason !== "integration_migration_required" || migrationHold) {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: readiness,
+            at: "before_first_gate",
+          });
+        }
         return;
       }
     }
@@ -329,18 +343,35 @@ export async function triggerServerVerification(params: {
         projectId: f3ReadinessContext.projectId,
       });
       if (!readiness.ready) {
-        await persistF3ReadinessHold({
-          chatId,
-          versionId,
-          filesRevision,
-          result: readiness,
-          at: "before_promotion",
-        });
-        await resetVersionVerificationToPending(
-          versionId,
-          `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
-          runId,
-        ).catch(() => null);
+        if (readiness.reason === "integration_migration_required") {
+          const held = await holdVersionForIntegrationMigration(
+            versionId,
+            { verificationState: "verifying", filesRevision },
+            runId,
+          );
+          if (held) {
+            await persistF3ReadinessHold({
+              chatId,
+              versionId,
+              filesRevision,
+              result: readiness,
+              at: "before_promotion",
+            });
+          }
+        } else {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: readiness,
+            at: "before_promotion",
+          });
+          await resetVersionVerificationToPending(
+            versionId,
+            `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
+            runId,
+          ).catch(() => null);
+        }
         return;
       }
     }
@@ -688,6 +719,7 @@ export async function triggerServerVerification(params: {
       versionId,
       codeFiles,
       baseFilesJson,
+      baseFilesRevision: filesRevision,
       previewPolicy,
       failedOutputs,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
@@ -720,6 +752,7 @@ export async function triggerServerVerification(params: {
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
+    if (repairOutcome.integrationMigrationHoldApplied) return;
   } catch (err) {
     console.error("[server-verify] Error:", err);
     // #260 Codex P2 / Bugbot (no fail of B from a stale repair): staleBaseNoOp

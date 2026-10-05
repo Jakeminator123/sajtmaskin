@@ -329,6 +329,14 @@ Absent legacy removal fields mean no removals; present malformed fields are
 unavailable evidence, not an empty set. Capability identity remains exact:
 Supabase authentication is not Supabase database access.
 
+Provider comparison uses exact dossier capability, falling back to the existing
+integration-kind capability for positively detected non-dossier methods.
+Adding the first positive dependency/runtime proof is evidence recovery, not
+a provider migration. Replacing or erasing an already proven provider, or
+introducing multiple candidate providers for one capability, remains a hold.
+Core-preservation and explicit-removal guards still apply independently;
+canonical protected bytes never become installed/live-provider proof.
+
 Normal promotion and repair compare-and-set bind the exact files, `edit_kind`
 and full chat orchestration snapshot, including removal fields. An immutable
 `edit_kind="restore"` instead scopes immediate readiness/promotion to that
@@ -344,6 +352,21 @@ and `retryable: false`; it must not report "no pending repair" or add
 `Retry-After`. Timeout autoaccept keeps the original version and does not accept
 the repair. Lease unavailability remains retryable HTTP 503; genuine write,
 schema and security errors are not converted into a migration hold.
+
+A deterministic hold must be authorized under the same locked row, lease and
+compare-and-set authority as its inspected decision. A lease/CAS miss stays a
+retryable no-op, not a non-retryable migration result. Applied holds persist
+draft/pending with a current-revision marker in the existing verification
+summary and leave repair payload/availability untouched. No new lifecycle
+state or installation ledger is introduced. The stale watchdog must not fail
+an active current-revision hold by age alone.
+
+Both status and version history project the durable hold as the existing
+blocked status, overriding an empty or older terminal bus. The status read is
+HTTP 200 with a typed blocked reason, never fabricated done/failed; quality-gate
+and manual repair keep their actionable HTTP 409 contract. Client polling and
+resume stop only for that explicit non-retryable hold. Ordinary blocked states,
+transient failures and busy leases keep their existing retry behavior.
 
 ### Canonical file paths and collision policy
 

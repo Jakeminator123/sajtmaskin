@@ -24,6 +24,9 @@ import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 import {
+  applyCurrentIntegrationMigrationHold,
+  INTEGRATION_MIGRATION_HOLD_MESSAGE,
+  isCurrentIntegrationMigrationHold,
   reconcileTerminalDbState,
   type ContentRevisionContext,
 } from "@/lib/gen/verify/stale-verification";
@@ -233,7 +236,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           previewPending: false,
           releaseState: v.release_state,
           verificationState: v.verification_state,
-          verificationSummary: v.verification_summary,
+          verificationSummary: isCurrentIntegrationMigrationHold(v)
+            ? INTEGRATION_MIGRATION_HOLD_MESSAGE
+            : v.verification_summary,
           hasPendingRepair:
             typeof v.repaired_files_json === "string" &&
             v.repaired_files_json.trim().length > 0,
@@ -285,7 +290,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               incContentRevisionMismatch("versions_list", { verdict: staleSignalResult });
             }
             const terminal = reconciled.phase === "done" || reconciled.phase === "failed";
-            return productPostcheckReadFailed && terminal
+            const withPostcheck = productPostcheckReadFailed && terminal
               ? applyProductPostcheckLogReadFailureToVersionStatus(reconciled)
               : terminal
                 ? applyProductPostcheckReportToVersionStatus(
@@ -294,6 +299,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                   eventsByVersion.get(v.id) ?? [],
                 )
                 : reconciled;
+            return applyCurrentIntegrationMigrationHold(withPostcheck, v);
           })(),
           canPin: false,
       };

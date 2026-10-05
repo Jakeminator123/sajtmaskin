@@ -884,7 +884,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     const result = await capturedOpts?.promoteReconciledVersion?.();
-    expect(result).toBeNull();
+    expect(result).toBe("integration_migration_required");
     expect(emit).not.toHaveBeenCalled();
   });
 

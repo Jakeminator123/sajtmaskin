@@ -19,6 +19,7 @@ const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
+const holdVersionForIntegrationMigration = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const runQualityGateOnExportable = vi.hoisted(() => vi.fn());
 const qualityGateAllPassed = vi.hoisted(() => vi.fn());
@@ -51,6 +52,9 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getLatestVersion,
   getChat,
   markVersionSupersededByRepair,
+}));
+vi.mock("@/lib/db/chat-repository/version-lifecycle", () => ({
+  holdVersionForIntegrationMigration,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -179,6 +183,10 @@ beforeEach(() => {
     orchestration_snapshot: null,
   });
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
+  holdVersionForIntegrationMigration.mockReset().mockResolvedValue({
+    id: versionId,
+    verification_state: "pending",
+  });
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,
     filesJson,
@@ -345,6 +353,52 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
     expect(promoteVersion).not.toHaveBeenCalled();
   });
 
+  it("after_repair migration hold is durable and never falls through to terminal failure", async () => {
+    const fixedContent = serializeCodeProject([
+      { ...pageFile, content: "export default function Page(){return <main/>}" },
+    ]);
+    runQualityGateOnExportable.mockResolvedValue(gateFailTypecheck());
+    qualityGateAllPassed.mockReturnValue(false);
+    shouldPromoteAfterRepair.mockResolvedValue({
+      promote: true,
+      results: gatePass().results,
+      verifyLaneDurationMs: 5,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({ ready: true, ok: true, spec: { requirements: [] } })
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "integration_migration_required",
+        retryable: false,
+      });
+    runRepairLoop.mockImplementation(async (params: {
+      onAttemptPromotion: (
+        content: string,
+        method: "deterministic" | "llm",
+      ) => Promise<{ promoted: boolean }>;
+    }) => {
+      const attempt = await params.onAttemptPromotion(fixedContent, "deterministic");
+      return { promoted: attempt.promoted, method: "deterministic", llmPasses: 0 };
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({ filesRevision: "rev_f3" }),
+      "run-l1",
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "passed" }),
+    );
+  });
+
   it("(e-pass) readiness före första gaten och omedelbart före promotion", async () => {
     await triggerServerVerification({ chatId, versionId });
 
@@ -416,6 +470,28 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
           }),
         }),
       ]),
+    );
+  });
+
+  it("before_first_gate persists a revision-bound migration hold before any green or failure", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      verdict: "blocked",
+      retryable: false,
+    });
+    await triggerServerVerification({ chatId, versionId });
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({ verificationState: "pending", filesRevision: "rev_f3" }),
+      "run-l1",
+    );
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "passed" }),
     );
   });
 

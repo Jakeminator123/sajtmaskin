@@ -29,6 +29,8 @@ import {
   getVersionFiles,
   parseCodeFilesFromFilesJson,
 } from "@/lib/gen/version-manager";
+import { getDossierById, getDossierFileContent } from "@/lib/gen/dossiers/registry";
+import { resolveDossierFilePath } from "@/lib/gen/dossiers/output-path";
 
 const REVISION_N = "1".repeat(32);
 const REVISION_N_PLUS_1 = "2".repeat(32);
@@ -336,6 +338,14 @@ describe("assertPromoteAllowed — provider migration context", () => {
     ],
   };
 
+  const canonicalDossierFiles = (dossierId: string) => {
+    const dossier = getDossierById(dossierId)!;
+    return (dossier.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content: getDossierFileContent(dossier.class, dossier.id, file.path)!,
+    }));
+  };
+
   it("scopes the latest chat snapshot away only for an explicit restore version", () => {
     expect(scopePromotionSnapshotForVersion(auth0Snapshot, "restore")).toBeNull();
     expect(scopePromotionSnapshotForVersion(auth0Snapshot, null)).toBe(auth0Snapshot);
@@ -405,6 +415,114 @@ describe("assertPromoteAllowed — provider migration context", () => {
     });
 
     expect(decision).toEqual({ allowed: true });
+  });
+
+  it("allows a repair to add the missing Clerk SDK proof to byte-exact canonical Clerk core", async () => {
+    const currentFiles = canonicalDossierFiles("clerk-auth");
+    const candidateFiles = [
+      ...currentFiles,
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "latest" } }),
+      },
+      {
+        path: "app/provider.tsx",
+        content: 'import { ClerkProvider } from "@clerk/nextjs"; export { ClerkProvider };',
+      },
+    ];
+
+    const decision = await assertPromoteAllowed("ver-recovery", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: JSON.stringify(currentFiles),
+        candidateFilesJson: JSON.stringify(candidateFiles),
+        orchestrationSnapshot: null,
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("allows first positive provider evidence but holds multiple candidate providers", async () => {
+    const empty = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+    const prisma = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { "@prisma/client": "latest" } }) },
+      { path: "lib/db.ts", content: 'import { PrismaClient } from "@prisma/client"; export const db = new PrismaClient();' },
+    ]);
+    const prismaAndDrizzle = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { "@prisma/client": "latest", "drizzle-orm": "latest" } }) },
+      { path: "lib/db.ts", content: 'import { PrismaClient } from "@prisma/client"; import { sql } from "drizzle-orm"; export { PrismaClient, sql };' },
+    ]);
+
+    await expect(
+      assertPromoteAllowed("ver-first", async () => null, {
+        onReadError: "indeterminate",
+        migrationContext: {
+          currentFilesJson: empty,
+          candidateFilesJson: prisma,
+          orchestrationSnapshot: null,
+        },
+      }),
+    ).resolves.toEqual({ allowed: true });
+
+    await expect(
+      assertPromoteAllowed("ver-multiple", async () => null, {
+        onReadError: "indeterminate",
+        migrationContext: {
+          currentFilesJson: empty,
+          candidateFilesJson: prismaAndDrizzle,
+          orchestrationSnapshot: null,
+        },
+      }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
+  it("compares method evidence by integration kind and holds replacement or erasure", async () => {
+    const prisma = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { "@prisma/client": "latest" } }) },
+      { path: "lib/db.ts", content: 'import { PrismaClient } from "@prisma/client"; export const db = new PrismaClient();' },
+    ]);
+    const drizzle = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { "drizzle-orm": "latest" } }) },
+      { path: "lib/db.ts", content: 'import { sql } from "drizzle-orm"; export { sql };' },
+    ]);
+    const none = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+
+    for (const candidateFilesJson of [drizzle, none]) {
+      await expect(
+        assertPromoteAllowed("ver-method", async () => null, {
+          onReadError: "indeterminate",
+          migrationContext: {
+            currentFilesJson: prisma,
+            candidateFilesJson,
+            orchestrationSnapshot: null,
+          },
+        }),
+      ).resolves.toMatchObject({
+        allowed: false,
+        indeterminate: true,
+        code: "integration_migration_required",
+      });
+    }
+
+    await expect(
+      assertPromoteAllowed("ver-method-same", async () => null, {
+        onReadError: "indeterminate",
+        migrationContext: {
+          currentFilesJson: prisma,
+          candidateFilesJson: prisma,
+          orchestrationSnapshot: null,
+        },
+      }),
+    ).resolves.toEqual({ allowed: true });
   });
 
   it("holds disappearance of proven provider code without an explicit removal", async () => {

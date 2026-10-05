@@ -41,6 +41,8 @@ import {
 } from "@/lib/gen/verify/gate-failure-summary";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
+  applyCurrentIntegrationMigrationHold,
+  isCurrentIntegrationMigrationHold,
   reconcileTerminalDbState,
   type ContentRevisionContext,
 } from "@/lib/gen/verify/stale-verification";
@@ -116,7 +118,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     };
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
     let reconcileMigrationRequired = false;
-    if (busStuck) {
+    if (busStuck && !isCurrentIntegrationMigrationHold(dbVersion)) {
       // Fetch the error logs at most once, shared by both watchdog resolvers
       // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
       // single DB read even when the row is actually stale.
@@ -156,7 +158,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
           );
           if (promoted === "integration_migration_required") {
             reconcileMigrationRequired = true;
-            return null;
+            return promoted;
           }
           // Bugbot medium (#518): mirror the quality-gate route — an advisory
           // (typecheck-only) promotion is NOT solid-green, so emit
@@ -192,16 +194,14 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     }
 
     if (reconcileMigrationRequired) {
-      return NextResponse.json<VersionStatusApiResponse>(
-        {
-          ok: false,
-          error:
-            "Versionen innehåller ett providerbyte som måste granskas innan den kan markeras klar.",
-          code: "integration_migration_required",
-          retryable: false,
-        },
-        { status: 409 },
-      );
+      const refreshed = await getEngineVersionForChatByIdForRequest(
+        req,
+        chatId,
+        dbVersion.id,
+      ).catch(() => null);
+      if (refreshed && isCurrentIntegrationMigrationHold(refreshed.version)) {
+        dbVersion = refreshed.version;
+      }
     }
 
     // Bugbot medium (#518, 6th iteration): the settle above may have JUST
@@ -267,7 +267,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     const productPostcheckLogs = mayRenderTerminal
       ? await loadLogs().catch(() => null)
       : null;
-    const status = productPostcheckLogs
+    const projectedStatus = productPostcheckLogs
       ? applyProductPostcheckReportToVersionStatus(
           reconciledStatus,
           productPostcheckLogs,
@@ -276,6 +276,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       : mayRenderTerminal
         ? applyProductPostcheckLogReadFailureToVersionStatus(reconciledStatus)
         : reconciledStatus;
+    const status = applyCurrentIntegrationMigrationHold(projectedStatus, dbVersion);
     // Räkna mismatchen först när slutfasen faktiskt är terminal — en spinner
     // är ingen claim, och räknaren ska mäta degraderade terminal-claims.
     if (staleSignalResult !== null && (status.phase === "done" || status.phase === "failed")) {

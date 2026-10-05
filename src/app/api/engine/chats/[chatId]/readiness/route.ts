@@ -67,6 +67,7 @@ import {
   RECONCILED_PROMOTE_SUMMARY,
   settleStaleVerificationIfNeeded,
 } from "@/lib/gen/verify/settle-stale-verification";
+import { isCurrentIntegrationMigrationHold } from "@/lib/gen/verify/stale-verification";
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
@@ -361,7 +362,12 @@ async function buildEngineReadiness(
     return isHeadVersion;
   };
   let reconcileMigrationRequired = false;
-  if (!integrationMigrationRequired && !integrationCoreInspectionUnavailable) {
+  const durableMigrationHold = isCurrentIntegrationMigrationHold(version);
+  if (
+    !durableMigrationHold &&
+    !integrationMigrationRequired &&
+    !integrationCoreInspectionUnavailable
+  ) {
     const { version: settledVersion } = await settleStaleVerificationIfNeeded(version, {
       resolveFailureSummary: () => resolveGateFailureSummaryFromLogs(errorLogs),
       // BB#299: don't false-red a stale row whose latest gate verdict is green.
@@ -381,7 +387,7 @@ async function buildEngineReadiness(
         );
         if (promoted === "integration_migration_required") {
           reconcileMigrationRequired = true;
-          return null;
+          return promoted;
         }
         // Bugbot medium (#518): mirror the quality-gate route — an advisory
         // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
@@ -415,9 +421,25 @@ async function buildEngineReadiness(
     version = settledVersion;
   }
 
+  if (reconcileMigrationRequired) {
+    const refreshed = await getEngineVersionForChatByIdForRequest(
+      request,
+      chatId,
+      versionIdForReconcile,
+    ).catch(() => null);
+    if (refreshed && isCurrentIntegrationMigrationHold(refreshed.version)) {
+      version = refreshed.version;
+    }
+  }
+
   const blockers: ChatReadinessItem[] = [];
   const warnings: ChatReadinessItem[] = [];
-  if (integrationMigrationRequired || reconcileMigrationRequired) {
+  if (
+    durableMigrationHold ||
+    isCurrentIntegrationMigrationHold(version) ||
+    integrationMigrationRequired ||
+    reconcileMigrationRequired
+  ) {
     blockers.push({
       id: "integration-migration-required",
       title: "Providerbytet behöver göras uttryckligen.",
