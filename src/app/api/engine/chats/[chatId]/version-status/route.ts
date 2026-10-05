@@ -41,6 +41,9 @@ import {
 } from "@/lib/gen/verify/gate-failure-summary";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
+  applyCurrentIntegrationMigrationHold,
+  buildIntegrationMigrationHoldSummary,
+  isCurrentIntegrationMigrationHold,
   reconcileTerminalDbState,
   type ContentRevisionContext,
 } from "@/lib/gen/verify/stale-verification";
@@ -60,7 +63,12 @@ import {
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      code?: "integration_migration_required";
+      retryable?: false;
+    };
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:version-status", () => handleGET(req, ctx));
@@ -110,7 +118,8 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       return cachedLogs ?? [];
     };
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
-    if (busStuck) {
+    let reconcileMigrationRequired = false;
+    if (busStuck && !isCurrentIntegrationMigrationHold(dbVersion)) {
       // Fetch the error logs at most once, shared by both watchdog resolvers
       // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
       // single DB read even when the row is actually stale.
@@ -148,6 +157,10 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
             RECONCILED_PROMOTE_SUMMARY,
             { filesRevision: filesRevisionForReconcile },
           );
+          if (promoted === "integration_migration_required") {
+            reconcileMigrationRequired = true;
+            return promoted;
+          }
           // Bugbot medium (#518): mirror the quality-gate route — an advisory
           // (typecheck-only) promotion is NOT solid-green, so emit
           // `version.degraded` after the reconcile-promote takes, else this poll
@@ -179,6 +192,32 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         },
       });
       dbVersion = settled.version;
+    }
+
+    if (reconcileMigrationRequired) {
+      const refreshed = await getEngineVersionForChatByIdForRequest(
+        req,
+        chatId,
+        dbVersion.id,
+      ).catch(() => null);
+      if (refreshed) {
+        // A successful post-commit read is authoritative even when it has the
+        // same revision and a newer non-hold terminal state.
+        dbVersion = refreshed.version;
+      } else {
+        // The typed sentinel proves the hold write took for this exact old
+        // revision. When tenant readback is unavailable, render that known
+        // blocked state instead of leaving the same request spinning.
+        dbVersion = {
+          ...dbVersion,
+          release_state: "draft",
+          verification_state: "pending",
+          verification_summary: buildIntegrationMigrationHoldSummary(
+            dbVersion.files_revision ?? null,
+          ),
+          promoted_at: null,
+        };
+      }
     }
 
     // Bugbot medium (#518, 6th iteration): the settle above may have JUST
@@ -244,7 +283,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     const productPostcheckLogs = mayRenderTerminal
       ? await loadLogs().catch(() => null)
       : null;
-    const status = productPostcheckLogs
+    const projectedStatus = productPostcheckLogs
       ? applyProductPostcheckReportToVersionStatus(
           reconciledStatus,
           productPostcheckLogs,
@@ -253,6 +292,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       : mayRenderTerminal
         ? applyProductPostcheckLogReadFailureToVersionStatus(reconciledStatus)
         : reconciledStatus;
+    const status = applyCurrentIntegrationMigrationHold(projectedStatus, dbVersion);
     // Räkna mismatchen först när slutfasen faktiskt är terminal — en spinner
     // är ingen claim, och räknaren ska mäta degraderade terminal-claims.
     if (staleSignalResult !== null && (status.phase === "done" || status.phase === "failed")) {

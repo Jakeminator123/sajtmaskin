@@ -100,6 +100,26 @@ describe("POST /accept-repair — lease fail-closed (L4)", () => {
     expect(acceptRepair).toHaveBeenCalledTimes(1);
   });
 
+  it("returns an actionable non-retryable 409 when provider migration blocks the repair", async () => {
+    hasActiveVersionLease.mockResolvedValue(false);
+    acceptRepair.mockResolvedValue("integration_migration_required");
+
+    const res = await POST(req({ versionId: "ver-1" }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body).toMatchObject({
+      code: "integration_migration_required",
+      hasPendingRepair: true,
+      retryable: false,
+    });
+    expect(body.error).toContain("integration");
+    expect(res.headers.get("Retry-After")).toBeNull();
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+  });
+
   it("returns 409 version_busy without accepting when a live lease is held", async () => {
     hasActiveVersionLease.mockResolvedValue(true);
 

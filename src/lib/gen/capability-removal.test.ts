@@ -243,6 +243,37 @@ it("removes stale F3 provider approvals for removed capabilities", () => {
       ["subscriptions"],
     ),
   ).toEqual(["stripe", "paddle", "supabase"]);
+
+  const supabaseContracts: PreGenerationContractContext["contracts"]["integrations"] = [
+    {
+      kind: "database",
+      providerKey: "supabase",
+      dossierCapability: "database",
+      provider: "Supabase",
+      name: "Supabase",
+      reason: "Approved database provider.",
+      status: "chosen",
+    },
+    {
+      kind: "auth",
+      providerKey: "supabase",
+      dossierCapability: "auth",
+      provider: "Supabase",
+      name: "Supabase Auth",
+      reason: "Independent active auth provider.",
+      status: "chosen",
+    },
+  ];
+  expect(
+    filterProvidersForRemovedCapabilities(["supabase"], ["database"], supabaseContracts),
+  ).toEqual([]);
+  expect(
+    filterProvidersForRemovedCapabilities(
+      ["supabase"],
+      ["database"],
+      supabaseContracts.filter((contract) => contract.dossierCapability === "auth"),
+    ),
+  ).toEqual(["supabase"]);
 });
 
 it("builds a removal instruction from the exact removed dossier files", () => {

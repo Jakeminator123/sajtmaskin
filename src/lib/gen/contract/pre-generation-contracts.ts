@@ -184,13 +184,21 @@ function rulesForSwitchSegment(
 }
 
 function resolveProviderSwitch(source: string): ProviderSwitchResolution | null {
-  const match = source.match(
+  const fromToMatch = source.match(
     /(?:\bfrom\b|\bfrån\b)([\s\S]{1,100}?)\b(?:to|till)\b([\s\S]{1,100})/iu,
   );
-  if (!match) return null;
-
-  const sourceSegment = match[1]?.trim() ?? "";
-  const targetSegment = match[2]?.trim() ?? "";
+  const insteadOfMatch = fromToMatch
+    ? null
+    : source.match(
+        /([\s\S]{1,100}?)\b(?:instead\s+of|i\s+stället\s+för|istället\s+för)\b([^;.!?\n]{1,100})/iu,
+      );
+  const rawSourceSegment =
+    (fromToMatch ? fromToMatch[1] : insteadOfMatch?.[2])?.trim() ?? "";
+  const sourceSegment = insteadOfMatch
+    ? (rawSourceSegment.split(/\b(?:and\s+keep|och\s+behåll)\b/iu)[0]?.trim() ?? "")
+    : rawSourceSegment;
+  const targetSegment =
+    (fromToMatch ? fromToMatch[2] : insteadOfMatch?.[1])?.trim() ?? "";
   if (!sourceSegment || !targetSegment) return null;
 
   const sourceRules = rulesForSwitchSegment(sourceSegment);
@@ -442,7 +450,12 @@ export function inferPreGenerationContracts(params: {
     }
     const matching = rule.patterns.filter((pattern) => pattern.test(source));
     if (matching.length === 0) return undefined;
-    return matching.every((pattern) => isTermFullyNegated(source, pattern))
+    const matchingPurposes = rule.purposePatterns.filter((pattern) => pattern.test(source));
+    const providerIsNegated = matching.every((pattern) => isTermFullyNegated(source, pattern));
+    const purposeIsNegated =
+      matchingPurposes.length > 0 &&
+      matchingPurposes.every((pattern) => isTermFullyNegated(source, pattern));
+    return providerIsNegated || purposeIsNegated
       ? "negative"
       : "positive";
   };

@@ -96,7 +96,6 @@ describe("provider-compatible orchestration", () => {
   it.each([
     ["Use MongoDB, not Postgres", "database", "mongodb", "postgres-drizzle", { needsDatabase: true }],
     ["Use Auth0, not Clerk", "auth", "auth0", "clerk-auth", { needsAuth: true }],
-    ["Use Swish, not Stripe", "payments", "swish", "stripe-checkout", { needsPayments: true }],
   ])("never injects the wrong dossier for %s", async (prompt, capability, providerKey, wrongId, flags) => {
     const base = await resolveOrchestrationBase(
       input(prompt, {
@@ -108,6 +107,28 @@ describe("provider-compatible orchestration", () => {
       expect.objectContaining({ providerKey, dossierCapability: capability }),
     );
     expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(wrongId);
+  });
+
+  it("keeps Swish unresolved and never injects Stripe", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Use Swish, not Stripe", {
+        capabilities: { ...none, needsPayments: true },
+        requestedDossierCapabilities: ["payments"],
+      }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        provider: "Swish",
+        dossierCapability: "payments",
+        status: "unresolved",
+      }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "swish" }),
+    );
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+      "stripe-checkout",
+    );
   });
 
   it("keeps generic defaults and dossiers on the same provider", async () => {
@@ -758,5 +779,121 @@ describe("provider-compatible orchestration", () => {
     expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).toEqual([
       "vercel-blob-media",
     ]);
+  });
+
+  it("keeps Resend contact-form work without reintroducing a negated newsletter purpose", async () => {
+    const base = await resolveOrchestrationBase(
+      input("Use Resend for the contact form, not for newsletter signup", {
+        requestedDossierCapabilities: ["contact-form"],
+        capabilities: { ...none, needsForms: true },
+      }),
+    );
+
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "resend",
+        dossierCapability: "contact-form",
+        status: "chosen",
+      }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({
+        provider: "Resend",
+        dossierCapability: "newsletter-subscribe",
+      }),
+    );
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).toEqual([
+      "resend-contact-form",
+    ]);
+  });
+
+  it("removes a durable Supabase database approval without dropping independent auth", async () => {
+    const inherited = [supabaseContract("database"), supabaseContract("auth")];
+    const followUp = followUpContract(["database", "auth"], inherited);
+    followUp.f3ApprovedCapabilities = ["database", "auth"];
+    followUp.f3ApprovedProviders = ["supabase", "supabase-auth"];
+
+    const base = await resolveOrchestrationBase(
+      input("Switch from Supabase database to Supabase auth", {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        requestedDossierCapabilities: ["database", "auth"],
+        dossierProviderHints: ["supabase", "supabase-auth"],
+        capabilities: { ...none, needsDatabase: true, needsAuth: true },
+        followUpContract: followUp,
+      }),
+    );
+
+    expect(base.removedCapabilities).toContain("database");
+    expect(base.f3ApprovedCapabilities).toEqual(["auth"]);
+    expect(base.f3ApprovedProviders).toEqual(["supabase-auth"]);
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "database" }),
+    );
+    expect(base.dossierRequestedCapabilities).toEqual(["auth"]);
+    // The exact dossier approval remains durable for pending/finalize even if
+    // this orchestration pass keeps the existing auth contract context-only.
+    expect(base.f3ApprovedProviders).toContain("supabase-auth");
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+      "postgres-drizzle",
+    );
+  });
+
+  it.each([
+    "Use Auth0 instead of Clerk and keep PostgreSQL for the database",
+    "Använd Auth0 i stället för Clerk och behåll PostgreSQL för databasen",
+  ])("keeps independent database work outside a directed auth switch: %s", async (prompt) => {
+    const base = await resolveOrchestrationBase(
+      input(prompt, {
+        generationMode: "followUp",
+        previousFilesCount: 1,
+        requestedDossierCapabilities: ["auth", "database"],
+        capabilities: { ...none, needsAuth: true, needsDatabase: true },
+        followUpContract: followUpContract(["auth", "database"], [
+          {
+            kind: "auth",
+            providerKey: "clerk",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Clerk",
+            name: "Clerk",
+            reason: "Existing auth provider.",
+            status: "chosen",
+          },
+          {
+            kind: "database",
+            providerKey: "postgres",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Postgres",
+            name: "Postgres",
+            reason: "Independent database provider.",
+            status: "chosen",
+            envVars: ["DATABASE_URL"],
+          },
+        ]),
+      }),
+    );
+
+    expect(base.removedCapabilities).not.toContain("database");
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "auth0", dossierCapability: "auth" }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+    );
+    expect(base.preGenerationContracts.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+    expect(base.dossierSelection?.selected.map((selected) => selected.entry.id)).not.toContain(
+      "clerk-auth",
+    );
   });
 });

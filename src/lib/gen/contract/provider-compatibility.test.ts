@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { selectDossiersForRequest } from "../dossiers/select";
 import { resolveDossierFilePath } from "../dossiers/output-path";
-import { getDossierFileContent } from "../dossiers/registry";
+import { getDossierById, getDossierFileContent } from "../dossiers/registry";
 import type { PlanContracts } from "../plan/schema";
-import { buildDossierIntegrationPlan } from "./provider-compatibility";
+import { detectProjectProviderEvidence } from "./project-provider-evidence";
+import {
+  buildDossierIntegrationPlan,
+  resolveExistingDossierCorePlan,
+} from "./provider-compatibility";
 
 function contracts(
   integration: PlanContracts["integrations"][number],
@@ -312,6 +317,92 @@ describe("buildDossierIntegrationPlan", () => {
     });
   });
 
+  it("keeps proven older Clerk core as context instead of replacing it from the catalog", () => {
+    const selection = selectDossiersForRequest({ requestedCapabilities: ["auth"] });
+    const plan = buildDossierIntegrationPlan({
+      contracts: contracts({
+        kind: "auth",
+        providerKey: "clerk",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        provider: "Clerk",
+        name: "Clerk",
+        reason: "Explicit provider contract",
+        status: "chosen",
+      }),
+      dossierSelection: selection,
+      projectFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        },
+        { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+        { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+        },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(plan.dossierSelection.selected).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      disposition: "context-only",
+      reasonCode: "existing-provider-core",
+    });
+  });
+
+  it("requires an explicit migration when proven Clerk core meets a Supabase auth choice", () => {
+    const selection = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Use Supabase auth",
+    });
+    expect(selection.selected[0]?.entry.id).toBe("supabase-auth");
+    const plan = buildDossierIntegrationPlan({
+      contracts: contracts({
+        kind: "auth",
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        selectionSource: "explicit",
+        provider: "Supabase",
+        name: "Supabase",
+        reason: "Explicit provider contract",
+        status: "chosen",
+      }),
+      dossierSelection: selection,
+      projectFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+        },
+        { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+        { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(plan.dossierSelection.selected).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      disposition: "blocked",
+      reasonCode: "owned-path-conflict",
+    });
+  });
+
   it("does not let a Drizzle-owned path outrank an explicit Prisma method", () => {
     const plan = buildDossierIntegrationPlan({
       contracts: {
@@ -350,5 +441,406 @@ describe("buildDossierIntegrationPlan", () => {
       reasonCode: "method-incompatible",
       providerKey: "prisma",
     });
+  });
+});
+
+describe("resolveExistingDossierCorePlan", () => {
+  function dossierFiles(id: string, mode: "canonical" | "divergent") {
+    const entry = getDossierById(id);
+    expect(entry).not.toBeNull();
+    return (entry?.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content:
+        mode === "canonical"
+          ? getDossierFileContent(entry!.class, entry!.id, file.path)!
+          : `older project bytes for ${file.path}`,
+    }));
+  }
+
+  const olderClerkFiles = [
+    {
+      path: "middleware.ts",
+      content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+    },
+    { path: "components/auth-buttons.tsx", content: "older auth buttons" },
+    { path: "components/clerk-provider-shell.tsx", content: "older provider shell" },
+    {
+      path: "package.json",
+      content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+    },
+  ];
+  const clerkEvidence = [
+    {
+      kind: "auth" as const,
+      providerKey: "clerk",
+      dossierCapability: "auth",
+      packageRoot: "@clerk/nextjs",
+    },
+  ];
+
+  it("preserves divergent OpenAI dossier core proven by its shipped SDK package", () => {
+    const projectFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@ai-sdk/openai": "^3" } }),
+      },
+      {
+        path: "app/api/chat/route.ts",
+        content:
+          'import { openai } from "@ai-sdk/openai"; export const POST = () => openai("gpt"); // older divergent bytes',
+      },
+      {
+        path: "components/chat-panel.tsx",
+        content: "export function ChatPanel() { return null; } // older divergent bytes",
+      },
+    ];
+    const projectProviderEvidence = detectProjectProviderEvidence(
+      projectFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence,
+    });
+
+    expect(projectProviderEvidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "openai",
+        dossierCapability: "ai-chat",
+        packageRoot: "@ai-sdk/openai",
+      }),
+    );
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toContain("openai-chat");
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves divergent Cal.com core proven by its shipped embed package", () => {
+    const projectFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@calcom/embed-react": "^1" } }),
+      },
+      {
+        path: "components/booking-calendar.tsx",
+        content:
+          'import Cal from "@calcom/embed-react"; export function BookingCalendar() { return <Cal calLink="older/core" />; }',
+      },
+    ];
+    const projectProviderEvidence = detectProjectProviderEvidence(
+      projectFiles,
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence,
+    });
+
+    expect(projectProviderEvidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "calcom",
+        dossierCapability: "booking",
+        packageRoot: "@calcom/embed-react",
+      }),
+    );
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([
+      "calcom-booking",
+    ]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves proven old Clerk during an unrelated Stripe-only follow-up", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Current payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles: olderClerkFiles,
+      projectProviderEvidence: clerkEvidence,
+    });
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("preserves proven canonical Clerk during an unrelated Stripe-only follow-up", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const canonicalFiles = (clerk.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content: getDossierFileContent(clerk.class, clerk.id, file.path)!,
+    }));
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Current payment follow-up",
+          status: "chosen",
+        },
+      ],
+      projectFiles: canonicalFiles,
+      projectProviderEvidence: clerkEvidence,
+    });
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("holds actual dossierless Auth0 evidence when the current target is Clerk", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          provider: "Clerk",
+          name: "Clerk",
+          reason: "Current auth target",
+          status: "chosen",
+        },
+      ],
+      projectFiles: [
+        {
+          path: "lib/auth0.ts",
+          content: 'import { Auth0Client } from "@auth0/nextjs-auth0/server";',
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@auth0/nextjs-auth0": "^4" } }),
+        },
+      ],
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "auth0",
+          dossierCapability: "auth",
+          packageRoot: "@auth0/nextjs-auth0",
+        },
+      ],
+    });
+    expect(result.migrationRequired).toBe(true);
+  });
+
+  it("holds and preserves multiple proven existing auth providers without a current auth target", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const supabase = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Supabase auth",
+    }).selected[0]!.entry;
+    const paths = new Set<string>();
+    const projectFiles = [...(clerk.files ?? []), ...(supabase.files ?? [])].flatMap((file) => {
+      const path = resolveDossierFilePath(file.path).outputPath;
+      if (paths.has(path)) return [];
+      paths.add(path);
+      return [{ path, content: `older bytes for ${path}` }];
+    });
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "payment",
+          providerKey: "stripe",
+          dossierCapability: "payments",
+          provider: "Stripe",
+          name: "Stripe",
+          reason: "Unrelated current target",
+          status: "chosen",
+        },
+      ],
+      projectFiles,
+      projectProviderEvidence: [
+        ...clerkEvidence,
+        {
+          kind: "auth",
+          providerKey: "supabase",
+          dossierCapability: "auth",
+          packageRoot: "@supabase/ssr",
+        },
+      ],
+    });
+    expect(result.migrationRequired).toBe(true);
+    expect(result.preservedDossiers.map((dossier) => dossier.id).sort()).toEqual([
+      "clerk-auth",
+      "supabase-auth",
+    ]);
+  });
+
+  it("lets explicit removal win over preservation", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: olderClerkFiles,
+      projectProviderEvidence: clerkEvidence,
+      removedDossierIds: new Set(["clerk-auth"]),
+    });
+    expect(result.preservedDossiers).toEqual([]);
+  });
+
+  it("preserves the existing foreign-provider hold for exact canonical hard core", () => {
+    const clerk = selectDossiersForRequest({ requestedCapabilities: ["auth"] }).selected[0]!.entry;
+    const canonicalFiles = (clerk.files ?? []).map((file) => ({
+      path: resolveDossierFilePath(file.path).outputPath,
+      content: getDossierFileContent(clerk.class, clerk.id, file.path)!,
+    }));
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "auth",
+          providerKey: "auth0",
+          dossierCapability: "auth",
+          provider: "Auth0",
+          name: "Auth0",
+          reason: "Current provider intent",
+          status: "chosen",
+        },
+      ],
+      projectFiles: canonicalFiles,
+      projectProviderEvidence: [],
+    });
+    expect(result.migrationRequired).toBe(true);
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+  });
+
+  it.each(["mailchimp-newsletter", "visitor-counter"])(
+    "preserves canonical REST core without claiming provider evidence: %s",
+    (dossierId) => {
+      const result = resolveExistingDossierCorePlan({
+        contracts: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Unrelated follow-up",
+            status: "chosen",
+          },
+        ],
+        projectFiles: dossierFiles(dossierId, "canonical"),
+        projectProviderEvidence: [],
+      });
+
+      expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+      expect(result.migrationRequired).toBe(false);
+    },
+  );
+
+  it.each(["mailchimp-newsletter", "visitor-counter"])(
+    "holds and preserves divergent REST core whose provider cannot be proven: %s",
+    (dossierId) => {
+      const result = resolveExistingDossierCorePlan({
+        contracts: [
+          {
+            kind: "payment",
+            providerKey: "stripe",
+            dossierCapability: "payments",
+            provider: "Stripe",
+            name: "Stripe",
+            reason: "Unrelated follow-up",
+            status: "chosen",
+          },
+        ],
+        projectFiles: dossierFiles(dossierId, "divergent"),
+        projectProviderEvidence: [],
+      });
+
+      expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+      expect(result.migrationRequired).toBe(true);
+      expect(result.decisions).toContainEqual(
+        expect.objectContaining({
+          dossierId,
+          disposition: "blocked",
+          reasonCode: "owned-path-conflict",
+        }),
+      );
+    },
+  );
+
+  it("holds divergent REST core even when the current capability contract is unresolved", () => {
+    const dossierId = "mailchimp-newsletter";
+    const result = resolveExistingDossierCorePlan({
+      contracts: [
+        {
+          kind: "integration",
+          dossierCapability: "newsletter-subscribe",
+          provider: "Newsletter provider not selected",
+          name: "Newsletter provider not selected",
+          reason: "Provider choice is unresolved",
+          status: "unresolved",
+        },
+      ],
+      projectFiles: dossierFiles(dossierId, "divergent"),
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers.map((dossier) => dossier.id)).toEqual([dossierId]);
+    expect(result.migrationRequired).toBe(true);
+  });
+
+  it("does not seed or preserve a REST dossier when only its rewritable UI file exists", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: [
+        {
+          path: "components/newsletter-form.tsx",
+          content: "export function NewsletterForm() { return null; }",
+        },
+      ],
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("does not extend hard-provider preservation fallback to soft verbatim code", () => {
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: dossierFiles("local-site-search", "divergent"),
+      projectProviderEvidence: [],
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
+  });
+
+  it("lets explicit REST dossier removal win over canonical-byte preservation", () => {
+    const dossierId = "mailchimp-newsletter";
+    const result = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: dossierFiles(dossierId, "canonical"),
+      projectProviderEvidence: [],
+      removedDossierIds: new Set([dossierId]),
+    });
+
+    expect(result.preservedDossiers).toEqual([]);
+    expect(result.migrationRequired).toBe(false);
   });
 });

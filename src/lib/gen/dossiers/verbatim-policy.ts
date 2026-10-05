@@ -34,6 +34,212 @@ export interface VerbatimRestoreEvent {
     | "rewritable_file_missing_seeded";
 }
 
+export type PreservedDossierVerbatimFile = {
+  path: string;
+  content: string;
+  language: CodeFile["language"];
+  dossierIds: string[];
+};
+
+export type PreservedDossierVerbatimSnapshot = {
+  byIdentity: ReadonlyMap<string, PreservedDossierVerbatimFile>;
+  dossierIds: readonly string[];
+  claims: ReadonlyArray<{
+    path: string;
+    identity: string;
+    dossierId: string;
+    sourcePath: string;
+    content: string | null;
+  }>;
+};
+
+function filesByPortableIdentity(files: readonly CodeFile[]): Map<string, CodeFile[]> {
+  const byIdentity = new Map<string, CodeFile[]>();
+  for (const file of files) {
+    const identity = dossierOutputPathIdentity(normalizeDossierProjectPath(file.path));
+    const matches = byIdentity.get(identity) ?? [];
+    matches.push(file);
+    byIdentity.set(identity, matches);
+  }
+  return byIdentity;
+}
+
+/**
+ * Capture only verbatim files that actually existed at their exact Linux path
+ * in the previous version. Rewritable or missing catalog files are not seeded.
+ */
+export function capturePreservedDossierVerbatimSnapshot(params: {
+  previousFiles: readonly CodeFile[];
+  preservedDossiers: readonly DossierEntry[];
+}): PreservedDossierVerbatimSnapshot {
+  const previousByIdentity = filesByPortableIdentity(params.previousFiles);
+  const byIdentity = new Map<string, PreservedDossierVerbatimFile>();
+  const claims: Array<PreservedDossierVerbatimSnapshot["claims"][number]> = [];
+  for (const dossier of params.preservedDossiers) {
+    for (const file of projectDossierIntegration(dossier).files) {
+      if (file.injectionMode !== "verbatim") continue;
+      const matches = previousByIdentity.get(file.outputIdentity) ?? [];
+      if (matches.length === 0) continue;
+      if (matches.length !== 1 || matches[0]!.path !== file.outputPath) {
+        throw new Error(
+          `[dossiers] preserved-output-alias-conflict: ${file.outputPath} <- ${matches
+            .map((match) => match.path)
+            .join(", ")}`,
+        );
+      }
+      const previous = matches[0]!;
+      claims.push({
+        path: file.outputPath,
+        identity: file.outputIdentity,
+        dossierId: dossier.id,
+        sourcePath: file.sourcePath,
+        content: previous.content,
+      });
+      const existing = byIdentity.get(file.outputIdentity);
+      if (existing) {
+        if (existing.content !== previous.content || existing.path !== previous.path) {
+          throw new Error(
+            `[dossiers] preserved-output-conflict: ${file.outputPath} <- ${existing.dossierIds.join(", ")}, ${dossier.id}`,
+          );
+        }
+        if (!existing.dossierIds.includes(dossier.id)) existing.dossierIds.push(dossier.id);
+        continue;
+      }
+      byIdentity.set(file.outputIdentity, {
+        path: file.outputPath,
+        content: previous.content,
+        language: previous.language,
+        dossierIds: [dossier.id],
+      });
+    }
+  }
+  return { byIdentity, dossierIds: params.preservedDossiers.map((dossier) => dossier.id), claims };
+}
+
+/** Validate selected + preserved ownership before any file list is mutated. */
+export function assertCompatibleDossierOutputClaims(params: {
+  files: readonly CodeFile[];
+  selectedDossiers: readonly DossierEntry[];
+  preservedVerbatim: PreservedDossierVerbatimSnapshot;
+}): void {
+  const selected = prepareSelectedDossiers(params.selectedDossiers).selectedClaims;
+  const combined = [
+    ...selected,
+    ...params.preservedVerbatim.claims.map((claim) => ({
+      dossierId: claim.dossierId,
+      capability: "preserved",
+      sourcePath: claim.sourcePath,
+      content: claim.content,
+    })),
+  ];
+  const conflicts = findDivergentDossierOutputPathConflicts(combined);
+  if (conflicts.length > 0) {
+    throw new Error(
+      `[dossiers] active-output-conflict: ${conflicts
+        .map((conflict) => conflict.outputPath)
+        .join(", ")}`,
+    );
+  }
+  const claimPaths = [
+    ...params.selectedDossiers.flatMap((dossier) =>
+      projectDossierIntegration(dossier).files.map((file) => file.outputPath),
+    ),
+    ...params.preservedVerbatim.claims.map((claim) => claim.path),
+  ];
+  for (let index = 0; index < claimPaths.length; index += 1) {
+    for (let other = index + 1; other < claimPaths.length; other += 1) {
+      if (dossierOutputPathsHaveFileDirectoryConflict(claimPaths[index]!, claimPaths[other]!)) {
+        throw new Error(
+          `[dossiers] active-output-path-conflict: ${claimPaths[index]} conflicts with ${claimPaths[other]}`,
+        );
+      }
+    }
+  }
+  for (const claim of params.preservedVerbatim.claims) {
+    const aliases = params.files.filter(
+      (file) =>
+        dossierOutputPathIdentity(normalizeDossierProjectPath(file.path)) === claim.identity,
+    );
+    if (aliases.some((file) => file.path !== claim.path) || aliases.length > 1) {
+      throw new Error(
+        `[dossiers] preserved-output-alias-conflict: ${claim.path} <- ${aliases
+          .map((file) => file.path)
+          .join(", ")}`,
+      );
+    }
+    for (const file of params.files) {
+      if (file.path === claim.path) continue;
+      if (dossierOutputPathsHaveFileDirectoryConflict(claim.path, file.path)) {
+        throw new Error(
+          `[dossiers] preserved-output-path-conflict: ${claim.path} conflicts with ${file.path}`,
+        );
+      }
+    }
+  }
+}
+
+/** Restore captured previous bytes before cross-file checks run. */
+export function restorePreservedDossierVerbatimFiles(params: {
+  files: readonly CodeFile[];
+  snapshot: PreservedDossierVerbatimSnapshot;
+}): { files: CodeFile[]; changed: boolean } {
+  const byIdentity = filesByPortableIdentity(params.files);
+  for (const [identity, expected] of params.snapshot.byIdentity) {
+    const matches = byIdentity.get(identity) ?? [];
+    if (matches.length > 1 || (matches[0] && matches[0].path !== expected.path)) {
+      throw new Error(
+        `[dossiers] preserved-output-alias-conflict: ${expected.path} <- ${matches
+          .map((match) => match.path)
+          .join(", ")}`,
+      );
+    }
+  }
+  let changed = false;
+  const files = params.files.map((file) => {
+    const identity = dossierOutputPathIdentity(normalizeDossierProjectPath(file.path));
+    const expected = params.snapshot.byIdentity.get(identity);
+    if (!expected) return file;
+    if (
+      file.path === expected.path &&
+      file.content === expected.content &&
+      file.language === expected.language
+    ) {
+      return file;
+    }
+    changed = true;
+    return { ...file, path: expected.path, content: expected.content, language: expected.language };
+  });
+  const present = new Set(
+    files.map((file) => dossierOutputPathIdentity(normalizeDossierProjectPath(file.path))),
+  );
+  for (const [identity, expected] of params.snapshot.byIdentity) {
+    if (present.has(identity)) continue;
+    files.push({ path: expected.path, content: expected.content, language: expected.language });
+    changed = true;
+  }
+  return { files, changed };
+}
+
+/** Fixers may not mutate, remove or alias request-local preserved core bytes. */
+export function assertPreservedDossierVerbatimFiles(params: {
+  files: readonly CodeFile[];
+  snapshot: PreservedDossierVerbatimSnapshot;
+}): void {
+  const actual = filesByPortableIdentity(params.files);
+  for (const [identity, expected] of params.snapshot.byIdentity) {
+    const matches = actual.get(identity) ?? [];
+    if (
+      matches.length !== 1 ||
+      matches[0]!.path !== expected.path ||
+      matches[0]!.content !== expected.content
+    ) {
+      throw new Error(
+        `[dossiers] preserved-verbatim-mutation: ${expected.dossierIds.join("+")}:${expected.path}`,
+      );
+    }
+  }
+}
+
 interface PreparedSelectedDossiers {
   canonicalByClaim: Map<string, string | null>;
   selectedClaims: Array<{
@@ -180,6 +386,7 @@ export function applyDossierCanonicalPathPolicy(params: {
 export function applyDossierVerbatimPolicy(params: {
   llmFiles: CodeFile[];
   selectedDossiers: DossierEntry[];
+  preservedVerbatim?: PreservedDossierVerbatimSnapshot;
   chatId?: string | null;
 }): { files: CodeFile[]; restored: VerbatimRestoreEvent[]; changed: boolean } {
   const restored: VerbatimRestoreEvent[] = [];
@@ -201,6 +408,7 @@ export function applyDossierVerbatimPolicy(params: {
   for (const dossier of params.selectedDossiers) {
     for (const file of projectDossierIntegration(dossier).files) {
       const resolvedPath = file;
+      if (params.preservedVerbatim?.byIdentity.has(resolvedPath.outputIdentity)) continue;
       // Per-file injectionMode takes precedence over dossier-level codeFidelity.
       const effectiveMode = file.injectionMode;
       const isVerbatim = effectiveMode === "verbatim";
