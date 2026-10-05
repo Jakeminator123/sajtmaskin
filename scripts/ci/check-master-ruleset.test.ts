@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import {
   REQUIRED_CHECKS_SOURCE,
   evaluateMasterRuleset,
@@ -216,14 +217,18 @@ describe("Protect master ruleset drift", () => {
   });
 
   it("does not run on pull_request so PR CI cannot go red from GitHub UI drift", () => {
-    const source = readFileSync(
-      resolve(".github/workflows/master-ruleset-drift.yml"),
-      "utf8",
-    ).replace(/\r\n/g, "\n");
+    const workflow = parse(readFileSync(
+      resolve(".github/workflows/master-ruleset-drift.yml"), "utf8",
+    )) as {
+      on?: {
+        push?: { branches?: string[] };
+        schedule?: Array<{ cron?: string }>;
+      };
+    };
+    const triggers = workflow.on ?? {};
 
-    expect(source).toMatch(/\n  push:\n    branches: \[master\]\n/);
-    expect(source).toMatch(/\n  schedule:\n    - cron: "17 5 \* \* \*"\n/);
-    expect(source).toMatch(/\n  workflow_dispatch:\n/);
-    expect(source).not.toMatch(/\n  pull_request:/);
+    expect(Object.keys(triggers).sort()).toEqual(["push", "schedule", "workflow_dispatch"]);
+    expect(triggers.push).toEqual({ branches: ["master"] });
+    expect(triggers.schedule).toEqual([{ cron: "17 5 * * *" }]);
   });
 });
