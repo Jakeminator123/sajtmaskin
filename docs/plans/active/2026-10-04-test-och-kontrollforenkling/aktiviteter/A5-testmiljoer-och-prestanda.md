@@ -4,6 +4,11 @@ Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
 Status: Pågår. Beroende: A2; baslinje från A0.
 
+De två implementerade paketen nedan är levererade via #1553 på faktisk
+preview `c4f4b188`. Ursprungliga lokala mätbaser är daterat delunderlag;
+[A7](A7-slutverifiering-och-overlamning.md) äger aktuellt leveranskvitto.
+Nästa docstestpaket är endast mätt read-only och inte implementerat.
+
 ## Aktuellt paket — Node-miljöpilot
 
 Ensam skrivare: Codex `e1e8`, bas `ff2ac650`, head `9d71cd34`, arbetsdiff.
@@ -65,6 +70,37 @@ och användes därför inte som hookkvitto. Oberoende `a5_hook_review`
 (`gpt-5.6-sol`, xhigh) gav CLEAN och körde egna smala CLI-/22-testprov.
 Beslutslogiken och meddelandena är oförändrade. Full workflowprofil krävs
 alltjämt på det samlade slutpaketet; hooken klassas inte som docs/light.
+
+## Nästa miljökandidat — mätt, inte implementerad
+
+Exakt scope: `scripts/docs/check-active-doc-links.test.ts` och
+`scripts/docs/check-terminology-contract.test.ts`, två filer och 21 fall.
+Read-only importgranskning fann Node-builtins och relativa `.mjs`-owners,
+inga DOM-/React-/browserberoenden eller implicit Vitest-globalanvändning.
+`contract-docs-core.test.ts` lämnas utanför: dynamiska dossier-/scaffold-/env-
+imports och cwd-/worker-specialfall kräver annan avgränsning.
+
+På head `1110d65f579b6f3d19b2c7e6b9348769d7167fea` kördes tre alternerande
+jsdom/Node-par med CLI-miljöoverride och högst fyra workers. Alla sex gav
+exakt samma 21 fil-/fullName-/statusidentiteter, 21 PASS och inga skip/failures.
+Ingen testannotation, assertion, config, setup eller CI-urval ändrades.
+
+| Miljö | Wall, tre körningar (sekunder) | Median |
+| --- | --- | --- |
+| jsdom | 2,236; 2,208; 2,303 | 2,236 |
+| Node | 0,876; 0,835; 0,845 | 0,845 |
+
+Wall mäts från JSON-rapportens start till sista filens slut, inte npm-start
+eller hela CI. Medianens skillnad är 1,391 sekunder för just paret; den får
+inte generaliseras till fullsviten. Rapporter: `.tmp/a5-docs-{jsdom,node}-{1..3}.json`.
+Gemensam setup med Testing Library laddas fortfarande även i Node.
+
+Befintliga negativa fixtures kördes oförändrat: saknade aktiva länkar,
+unstaged raderad spårad fil, borttagen workflowrouter och verkligt EACCES,
+samt malformed/duplicerade/motstridiga termregler och otillåten aktiv prosa.
+En eventuell implementation behöver en no-override-körning av slutliga
+per-fil-annotationer och oberoende review. Den är HOLD i denna doc-onlyleverans;
+tidigare fjortonfilspaketets vinst används inte som ersättningsbevis.
 
 ## Uppdrag
 

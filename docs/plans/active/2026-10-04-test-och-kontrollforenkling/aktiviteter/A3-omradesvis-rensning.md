@@ -4,6 +4,12 @@ Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
 Status: Pågår. Beroende: A2. Arbetssätt: återkommande små områdespaket.
 
+Leveransstatus 2026-10-05: systemprompt-, Backoffice- och promptpaketen nedan
+är levererade via #1553 på preview `c4f4b188`. Ruleset- och publika
+auditpaketen är levererade via #1562 på `cca962c6`. Ursprungliga lokala
+provbaser nedan bevaras som bevisunderlag; [A7](A7-slutverifiering-och-overlamning.md)
+äger de aktuella head-/merge-/CI-kvittona. Hela beståndet är inte genomgånget.
+
 ## Uppdrag
 
 Gå igenom återstående bestånd från A0 med A1:s kriterier och A2:s erfarenhet.
@@ -39,7 +45,8 @@ ha skrivstatus samtidigt.
 | Backoffice: registrerade sidor och synliga generationsrubriker | `backoffice/test_pages_import_smoke.py`; `backoffice/test_generation_history.py` | Verifierad lokalt; Codex `e1e8` | Bas `ff2ac650`, head `9d71cd34`, arbetsdiff | TA BORT tre historiska modulplats-/filfrånvarolås och source-literal-ban. PAGE_SPECS-importsmoke och riktiga dataframe-/statuskontroller kvar. 32→29 riktade Python PASS; ruff, discovery 1079/1079 och diffcheck gröna. Oberoende review CLEAN. |
 | Prompt: verklig komposition ska bevara core och request-kontext | `src/lib/gen/static-core-visual-design.test.ts` | Verifierad lokalt; Codex `e1e8` | Bas `ff2ac650`, head `9d71cd34`, arbetsdiff | SKRIV OM egen string-assembly till produktions-compose via riktig Node/tsx. Alla fyra guardblock kvar. 6/6 pass; 17/17 ihop med checker; ESLint/diffcheck gröna; oberoende review CLEAN. |
 | F3: retry ska läsa samma committade status som knappen | `src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx` och dess test | Levererad separat via #1558; inte ett nytt #1553-delta | Lokal `0423cd419`, faktisk preview `59a12080` | Fyra RED före runtimefix, 75 riktade PASS efter; oberoende CLEAN. Senaste readiness/busy-status och explicit parent bevaras. Historiskt CI-förlopp är inte säkert orsaksfastställt. |
-| Publik audit: modellseparation i faktisk kandidatkedja | `src/lib/audit/public-analys.test.ts`; `src/lib/audit/audit-tier.test.ts` | Verifierad separat lokalt; inte i #1553 | Bas `59a12080`, commit `340724bd1` | SLÅ IHOP duplicerade modellås; unik kostnadsgrind flyttad till `resolveAuditRun`. Två verkliga felinjektioner går från falskt grönt till rött; normal körning 54 PASS, typecheck/lint och oberoende review CLEAN. Väntar på separat integrationsbeslut. |
+| Publik audit: modellseparation i faktisk kandidatkedja | `src/lib/audit/public-analys.test.ts`; `src/lib/audit/audit-tier.test.ts` | Levererad via #1562; inte i #1553 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | SLÅ IHOP duplicerade modellås; unik kostnadsgrind flyttad till `resolveAuditRun`. Två verkliga felinjektioner går från falskt grönt till rött; ursprungligt 54-PASS-kvitto återanvänt med blobidentitet. Färsk integration 220 PASS/8 filer, två oberoende CLEAN och native CI gröna; A7 äger leveranskvittot. |
+| Ruleset: oberoende policyowner och semantiska workflowtriggers | `scripts/ci/check-master-ruleset.mjs`; `scripts/ci/check-master-ruleset.test.ts` | Levererad via #1562 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | TA BORT död policyinläsning, SKRIV OM YAML-syntaxlås. Verklig CLI med stubbat nät svarar korrekt på legitim policyoberoende körning och ruleset-drift. Ruleset-spec, workflows och permissions är orörda. |
 
 ### Systemprompt — felbevis och avgränsning
 
@@ -93,9 +100,9 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 | Pengar, auth, tenant, SSRF, migrationsledger, externa kontrakt | BEHÅLL säkerhets- och beteendeprov. Ingen DB/provideroperation eller ändrad kostnads-/routingpolicy. | Befintliga runtimeowners; riktad semantisk genomgång krävs före ytterligare ändring. |
 | Builder/UI, preview, export/publicering | Huvudsakligen BEHÅLL verkliga tillstånds-/säkerhetsprov. Aktiva legacy-callers och möjlig extern `/api/download`-konsument gör radering obevisad. | Codex fortsätter bara efter exakt scope/kontraktsbevis; ingen routeavveckling beställd. |
 | Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS äger intent/rootselection och deras riktade tester. A4 saknar fortfarande isolerad körmiljö/providergräns. |
-| Public analys | Ett tvåfilspaket `340724bd1` är lokalt CLEAN. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Paketet ingår inte i #1553. Övriga prompt-, metadata- och klientkontroller är oförändrade. |
+| Public analys | Tvåfilspaketet är levererat via #1562. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Övriga prompt-, metadata- och klientkontroller är oförändrade. Ingen generell prispolicy infördes. |
 | Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är rättade separat lokalt på head `f74e8b281`; registry/projektionsavvikelser återstår. | Tvåfilspaketet finns endast på `codex/test-control-ruleset-isolation`, inte i PR #1553. Ingen live ruleset-ändring har gjorts. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562; registry/projektionsavvikelser återstår. | Ingen live ruleset-ändring. Nästa registrykandidat är endast read-only bedömd och HOLD enligt beviskraven nedan. |
 
 Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
 test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
@@ -105,7 +112,8 @@ exakt driftmeddelande. Allt provades offline med stubbat GitHub-svar, inga
 filmutationer av verklig policy. 125 riktade tester, typecheck, lint,
 workflowkontrakt och discovery gröna; oberoende slutreview CLEAN med egen
 9/9-körning. Policy, ruleset-spec, permissions och workflows är orörda.
-Paketet är lokalt säkrat men ännu inte publicerat eller levererat.
+Detta ursprungliga paket är nu integrerat med identiska blobbar och levererat
+via #1562; det var aldrig del av #1553.
 
 Ruleset-uppföljningen på `f74e8b281` ersätter source-regex med YAML-parsning:
 ekvivalent citerad/inline branchsyntax accepteras, medan ett otillåtet citerat
@@ -119,6 +127,32 @@ av avsiktligt uppdaterade canonical defaults och deras ägartester gav gammalt
 sidolås rött, nytt paket grönt. Ingen faktisk modell-/providerändring gjordes.
 Grinden skyddar separation från produktens aktuella primary, inte en ny generell
 pris-/allowlist-policy för alla andra modeller eller alias.
+
+### Nästa registrykandidat — HOLD, inte ändrad
+
+Read-only scope: `src/lib/control-plane/registry.test.ts`. Det hårdkodade
+sidantalet 37 är en rensningskandidat: historiska committen `578fdaa94` lade
+till en legitim fristående Curator-sida och tvingade en ren bump 36 → 37.
+Faktiska `PAGE_SPECS`-membershipkontroller och CLI-ownern ska behållas.
+Historiken ensam bevisar inte att all completeness-/parserbevakning ersatts.
+
+Beslutsregistrets fem rubrik-/historiklås är en **SKRIV OM**-kandidat, inte ren
+radering. De fångar även ett tomt register indirekt; den generiska radloopen
+och fristående fixturetesterna passerar annars när `decisionRows=[]`.
+Ett ersättningspaket måste kontrollera faktisk icke-tom radinventering och
+fortsatt validera varje verklig beslutsrad. Inga tester eller owners ändrades.
+
+Följande acceptansmatris är ett krav på framtida prov, inte redan körda resultat:
+
+| Kontrollerad förändring | Kvitto som krävs före implementation/leverans |
+| --- | --- |
+| Legitim ny kanonisk sida eller namnbyte på beslutsområde med giltig ownerlänk | Gammalt onödigt lås RED, ersättningen PASS. |
+| Registry-surface saknar motsvarande `PAGE_SPECS` | Fortsatt RED i faktiskt registrytest och `check-registry`-CLI; inte bara en loop över en kopierad fixture. |
+| Faktiskt beslutsindex saknar beslutsrader | RED på explicit inventeringsskydd. |
+| Faktisk daterad beslutsrad har fel cellantal, tom/ogiltigt formaterad repo-relativ ownerlänk eller plan-/backlog-owner | Fortsatt RED genom den verkliga radvalideringen; relevanta fil-/länkguards måste också bestå. |
+
+Nästa mottagare är samordnaren. Ingen ny implementations-PR för dessa kandidater
+ingår i statusleveransen; A3:s hela bestånd är fortsatt ofullständigt bedömt.
 
 ## Checklista per paket
 

@@ -19,13 +19,19 @@ Bedöm både själva kontrollen och det aktuella krav som den är tänkt att sky
 
 ## Mandat och start
 
-Jakob beställde lokalt genomförande 2026-10-05. Arbete pågår på
-`codex/test-control-relevance` i separat tilldelad checkout `e1e8`; aktiviteternas
-status skiljer verifierade delpaket från kvarvarande arbete. Jakobs senare
-fortsättnings-/leveransmandat verifierades i samordningschatten
+Jakob beställde lokalt genomförande 2026-10-05. Arbete pågår i
+separat tilldelad checkout `e1e8`; aktiviteternas status skiljer levererade
+delpaket från kvarvarande arbete. #1553 är mergad till preview `c4f4b188`
+och fyrfilspaketet #1562 till `cca962c6`. Aktuell branch
+`codex/test-control-status` samlar endast planstatus, inte fler teständringar,
+och är normalsynkad med faktisk preview `8267a10e` efter SCHAFFOLDS #1563.
+Jakobs senare fortsättnings-/leveransmandat verifierades i samordningschatten
 `Dokumentera Master-promotion` 2026-10-05. Detta steg omfattar scoped commit,
-push och separat draft-PR mot `preview`; samordnaren ansvarar för mergeordning
+push och separat PR mot `preview`; samordnaren ansvarar för mergeordning
 och aktuella leveransvillkor. Ingen mastermerge eller extra DB-/provideråtgärd ingår.
+Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
+A3:s återstående bestånd, A4:s riktiga flödesharness, A5:s nästa miljöpaket och
+A6b:s slutliga optimering är inte färdiga; hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
 driva aktiviteterna inom uppdraget; varje rutinmässig delpunkt behöver inte ett
