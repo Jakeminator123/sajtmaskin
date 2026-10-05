@@ -156,7 +156,6 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
   it.each([
     ["Use MongoDB for persistence, not Postgres", "database", "mongodb", "MongoDB"],
     ["Use Auth0, not Clerk", "auth", "auth0", "Auth0"],
-    ["Use Swish, not Stripe", "payments", "swish", "Swish"],
   ])("keeps explicit unsupported providers out of dossier defaults: %s", (prompt, capability, providerKey, provider) => {
     const ctx = inferPreGenerationContracts({
       prompt,
@@ -270,17 +269,27 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
   });
 
   it.each([
-    ["Switch from Stripe to Swish", "swish"],
-    ["Byt från Swish till Stripe", "stripe"],
-  ])("uses the directional provider-switch target in %s", (prompt, providerKey) => {
+    ["Switch from Stripe to Swish", "Swish", undefined, "unresolved"],
+    ["Byt från Swish till Stripe", "Stripe", "stripe", "chosen"],
+  ] as const)("uses the directional provider-switch target in %s", (prompt, provider, providerKey, status) => {
     const ctx = inferPreGenerationContracts({
       prompt,
       buildIntent: "app",
       capabilities: baseCaps({ needsPayments: true }),
     });
     expect(ctx.contracts.integrations).toContainEqual(
-      expect.objectContaining({ providerKey, dossierCapability: "payments" }),
+      expect.objectContaining({
+        provider,
+        ...(providerKey ? { providerKey } : {}),
+        dossierCapability: "payments",
+        status,
+      }),
     );
+    if (!providerKey) {
+      expect(ctx.contracts.integrations).not.toContainEqual(
+        expect.objectContaining({ providerKey: "swish" }),
+      );
+    }
     expect(ctx.contracts.integrations.filter((entry) => entry.dossierCapability === "payments"))
       .toHaveLength(1);
   });
@@ -1657,4 +1666,134 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
       );
     },
   );
+
+  it("keeps Swish explicitly unresolved until a build contract exists", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Swish payments",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsPayments: true }),
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        dossierCapability: "payments",
+        provider: "Swish",
+        status: "unresolved",
+      }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "swish" }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "stripe" }),
+    );
+  });
+
+  it.each([
+    ["Use Auth0 instead of Clerk", "auth0"],
+    ["Använd Auth0 istället för Clerk", "auth0"],
+  ] as const)("treats instead-of as a bounded directed provider switch: %s", (prompt, target) => {
+    const ctx = inferPreGenerationContracts({
+      prompt: `${prompt}; keep PostgreSQL for the database`,
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: target,
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk", dossierCapability: "auth" }),
+    );
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({ providerKey: "postgres", dossierCapability: "database" }),
+    );
+  });
+
+  it.each([
+    "Use Auth0 instead of Clerk and keep PostgreSQL for the database",
+    "Använd Auth0 i stället för Clerk och behåll PostgreSQL för databasen",
+  ])("keeps an independent database outside an instead-of auth source clause: %s", (prompt) => {
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "app",
+      capabilities: baseCaps({ needsAuth: true, needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "auth0",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "postgres",
+        dossierCapability: "database",
+        status: "chosen",
+      }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ providerKey: "clerk" }),
+    );
+  });
+
+  it("evaluates purpose negation at the Resend newsletter clause", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Resend for the contact form, not for newsletter signup",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "resend",
+        dossierCapability: "contact-form",
+        status: "chosen",
+      }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ dossierCapability: "newsletter-subscribe" }),
+    );
+  });
+
+  it("preserves an independent existing Mailchimp newsletter while excluding Resend newsletter", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Use Resend for the contact form, not for newsletter signup",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsForms: true }),
+      inheritedIntegrations: [
+        {
+          kind: "integration",
+          providerKey: "mailchimp",
+          dossierCapability: "newsletter-subscribe",
+          selectionSource: "explicit",
+          provider: "mailchimp",
+          name: "Mailchimp",
+          reason: "Existing independent newsletter provider.",
+          status: "chosen",
+          envVars: ["MAILCHIMP_API_KEY"],
+        },
+      ],
+    });
+
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({
+        providerKey: "mailchimp",
+        dossierCapability: "newsletter-subscribe",
+        status: "chosen",
+      }),
+    );
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({
+        provider: "Resend",
+        dossierCapability: "newsletter-subscribe",
+      }),
+    );
+  });
 });

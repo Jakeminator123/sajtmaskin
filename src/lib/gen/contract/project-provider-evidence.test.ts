@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
+import { getAllDossiers, getDossierFileContent } from "../dossiers/registry";
 import { detectProjectProviderEvidence } from "./project-provider-evidence";
 
 const rules = [
@@ -266,5 +268,199 @@ describe("detectProjectProviderEvidence", () => {
         rules,
       ),
     ).toEqual([]);
+  });
+
+  it.each([
+    "src/auth.test.ts",
+    "src/auth.spec.tsx",
+    "src/__tests__/auth.ts",
+    "test/auth.ts",
+    "tests/auth.ts",
+    "src/fixtures/auth.ts",
+    "src/__fixtures__/auth.ts",
+    "src/auth.fixture.ts",
+    "src/auth.fixtures.tsx",
+    "src/auth.stories.tsx",
+    "src/auth.stories.mts",
+    "src/__mocks__/auth.ts",
+    "src/e2e/auth.ts",
+    "src/test-utils/auth.ts",
+  ])("does not accept provider imports from non-runtime test or fixture paths: %s", (path) => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ devDependencies: { "next-auth": "5" } }),
+          },
+          { path, content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([]);
+  });
+
+  it("still accepts the same declared provider import from production source", () => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { "next-auth": "5" } }),
+          },
+          { path: "src/auth.ts", content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it.each([
+    "src/.storybook/auth.ts",
+    "src/mocks/auth.ts",
+    "src/auth.story.tsx",
+  ])("does not broaden non-runtime filtering to unsupported heuristics: %s", (path) => {
+    expect(
+      detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { "next-auth": "5" } }),
+          },
+          { path, content: 'import NextAuth from "next-auth";' },
+        ],
+        rules,
+      ),
+    ).toEqual([expect.objectContaining({ providerKey: "next-auth" })]);
+  });
+
+  it("uses the actual manifest to prove @supabase/ssr as auth evidence only", () => {
+    const evidence = detectProjectProviderEvidence(
+      [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@supabase/ssr": "^0.7.0" } }),
+        },
+        {
+          path: "lib/supabase/server.ts",
+          content: 'import { createServerClient } from "@supabase/ssr";',
+        },
+      ],
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+
+    expect(evidence).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        packageRoot: "@supabase/ssr",
+      }),
+    );
+    expect(evidence).not.toContainEqual(
+      expect.objectContaining({ providerKey: "supabase", dossierCapability: "database" }),
+    );
+  });
+
+  it.each(["@ai-sdk/openai", "openai"])(
+    "uses the actual manifest to prove %s as OpenAI ai-chat evidence",
+    (packageRoot) => {
+      const evidence = detectProjectProviderEvidence(
+        [
+          {
+            path: "package.json",
+            content: JSON.stringify({ dependencies: { [packageRoot]: "1" } }),
+          },
+          {
+            path: "app/api/chat/route.ts",
+            content: `import { openai } from "${packageRoot}"; export const model = openai;`,
+          },
+        ],
+        getPreGenerationContractsConfigFromManifest().providerRules,
+      );
+
+      expect(evidence).toContainEqual(
+        expect.objectContaining({
+          providerKey: "openai",
+          dossierCapability: "ai-chat",
+          packageRoot,
+        }),
+      );
+    },
+  );
+
+  it("keeps the hard-dossier SDK evidence map aligned with the actual catalog", () => {
+    const expectedEvidence = new Map<string, readonly [string, string, string]>([
+      ["calcom-booking", ["calcom", "booking", "@calcom/embed-react"]],
+      ["clerk-auth", ["clerk", "auth", "@clerk/nextjs"]],
+      ["openai-chat", ["openai", "ai-chat", "@ai-sdk/openai"]],
+      ["postgres-drizzle", ["postgres", "database", "pg"]],
+      ["resend-contact-form", ["resend", "contact-form", "resend"]],
+      ["stripe-checkout", ["stripe", "payments", "stripe"]],
+      ["supabase-auth", ["supabase", "auth", "@supabase/ssr"]],
+      ["vercel-analytics", ["vercel-analytics", "analytics", "@vercel/analytics"]],
+      ["vercel-blob-media", ["vercel-blob", "media-storage", "@vercel/blob"]],
+    ]);
+    const restOnlyDossiers = new Set(["mailchimp-newsletter", "visitor-counter"]);
+    const hardDossiers = getAllDossiers().filter((entry) => entry.class === "hard");
+
+    expect(hardDossiers.map((entry) => entry.id).sort()).toEqual(
+      [...expectedEvidence.keys(), ...restOnlyDossiers].sort(),
+    );
+
+    for (const entry of hardDossiers) {
+      const dependencies = Object.fromEntries(
+        (entry.dependencies ?? []).map((dependency) => [dependency, "1"]),
+      );
+      const files = (entry.files ?? []).map((file) => ({
+        path: file.path,
+        content: getDossierFileContent(entry.class, entry.id, file.path) ?? "",
+      }));
+      const evidence = detectProjectProviderEvidence(
+        [
+          { path: "package.json", content: JSON.stringify({ dependencies }) },
+          ...files,
+        ],
+        getPreGenerationContractsConfigFromManifest().providerRules,
+      );
+      const expected = expectedEvidence.get(entry.id);
+      if (!expected) {
+        expect(restOnlyDossiers.has(entry.id)).toBe(true);
+        expect(evidence).not.toContainEqual(
+          expect.objectContaining({ dossierCapability: entry.capability }),
+        );
+        continue;
+      }
+      const [providerKey, dossierCapability, packageRoot] = expected;
+      expect(evidence).toContainEqual(
+        expect.objectContaining({ providerKey, dossierCapability, packageRoot }),
+      );
+    }
+  });
+
+  it.each([
+    ["package only", []],
+    [
+      "type-only import",
+      [{ path: "app/api/chat/route.ts", content: 'import type { OpenAIProvider } from "@ai-sdk/openai";' }],
+    ],
+    [
+      "test-only import",
+      [{ path: "app/api/chat/route.test.ts", content: 'import { openai } from "@ai-sdk/openai";' }],
+    ],
+  ])("does not accept @ai-sdk/openai from %s", (_name, extraFiles) => {
+    const evidence = detectProjectProviderEvidence(
+      [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@ai-sdk/openai": "1" } }),
+        },
+        ...extraFiles,
+      ],
+      getPreGenerationContractsConfigFromManifest().providerRules,
+    );
+
+    expect(evidence).not.toContainEqual(
+      expect.objectContaining({ providerKey: "openai", dossierCapability: "ai-chat" }),
+    );
   });
 });

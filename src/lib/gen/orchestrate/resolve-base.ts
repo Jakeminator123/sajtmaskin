@@ -213,6 +213,7 @@ export async function resolveOrchestrationBase(
       ]),
     ),
     removedCapabilities,
+    input.followUpContract?.inheritedProviderContracts ?? [],
   );
   const capabilityRemovalHint = buildCapabilityRemovalHint(
     removedCapabilities,
@@ -622,6 +623,10 @@ export async function resolveOrchestrationBase(
   // (The third `retainedCapabilities` argument left 2026-08-06 with the
   // parked paddle-billing dossier — it only fed the subscriptions→payments
   // residue-sweep, which is gone.)
+  const projectProviderEvidence = detectProjectProviderEvidence(
+    input.previousFiles ?? [],
+    getPreGenerationContractsConfigFromManifest().providerRules,
+  );
   const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
     inferPreGenerationContracts({
       prompt: input.contractsPrompt ?? prompt,
@@ -629,10 +634,7 @@ export async function resolveOrchestrationBase(
       brief,
       capabilities,
       inheritedIntegrations: input.followUpContract?.inheritedProviderContracts,
-      projectProviderEvidence: detectProjectProviderEvidence(
-        input.previousFiles ?? [],
-        getPreGenerationContractsConfigFromManifest().providerRules,
-      ),
+      projectProviderEvidence,
     }),
     capabilityRemoval.removedCapabilities,
   );
@@ -767,9 +769,8 @@ export async function resolveOrchestrationBase(
       // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
       // the user explicitly APPROVED, and (c) integrations with real FILE
       // EVIDENCE in the parent/base version (already built — safe to keep). The
-      // allowed set is dependency-expanded via the same helper as selection
-      // (`DEPENDENT_CAPABILITIES` is empty since 2026-08-06; the expansion
-      // also alias-normalizes and dedupes overlapping picks). Speculative
+      // allowed set is alias-normalized and deduped via the same compatibility
+      // helper as selection; no implicit companion capabilities are added.
       // brief/floor capabilities with no evidence, ask, or approval are
       // dropped. F2/design rounds are untouched (can-only-grow stays). See
       // docs/architecture/llm-pipeline.md.
@@ -861,6 +862,7 @@ export async function resolveOrchestrationBase(
         contracts: preGenerationContracts.contracts,
         dossierSelection,
         projectFiles: input.previousFiles ?? [],
+        projectProviderEvidence,
       });
       contractsChangedAfterBuildSpec =
         integrationPlan.contracts.integrations.length !==

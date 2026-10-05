@@ -9,6 +9,7 @@ import {
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
+  readPromotionRemovalScopeFromSnapshot,
   readRemovedCapabilitiesFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
@@ -27,6 +28,56 @@ describe("readRemovedCapabilitiesFromSnapshot", () => {
     expect(readRemovedCapabilitiesFromSnapshot(null)).toEqual([]);
     expect(readRemovedCapabilitiesFromSnapshot({})).toEqual([]);
     expect(readRemovedCapabilitiesFromSnapshot({ removedCapabilities: "payments" })).toEqual([]);
+  });
+});
+
+describe("readPromotionRemovalScopeFromSnapshot", () => {
+  it("treats absent legacy tombstones as empty and normalizes valid arrays", () => {
+    expect(readPromotionRemovalScopeFromSnapshot(null)).toEqual({
+      removedCapabilities: [],
+      removedDossierIds: [],
+    });
+    expect(
+      readPromotionRemovalScopeFromSnapshot({
+        removedCapabilities: [" Payments ", "payments", "AUTH"],
+        removedDossierIds: [" stripe-checkout ", "stripe-checkout"],
+      }),
+    ).toEqual({
+      removedCapabilities: ["payments", "auth"],
+      removedDossierIds: ["stripe-checkout"],
+    });
+  });
+
+  it.each([
+    { removedCapabilities: null },
+    { removedCapabilities: "payments" },
+    { removedCapabilities: ["payments", null] },
+    { removedDossierIds: null },
+    { removedDossierIds: {} },
+    { removedDossierIds: ["stripe-checkout", 1] },
+  ])("fails closed for present malformed tombstones: %j", (snapshot) => {
+    expect(readPromotionRemovalScopeFromSnapshot(snapshot)).toBeNull();
+  });
+
+  it.each([
+    { removedCapabilities: ["payments"], removedDossierIds: [""] },
+    { removedCapabilities: [], removedDossierIds: ["stripe-checkout"] },
+    { removedCapabilities: ["database"], removedDossierIds: ["supabase-auth"] },
+    { removedCapabilities: ["payments"], removedDossierIds: ["legacy-unknown"] },
+  ])("fails closed for orphaned or mismatched dossier tombstones: %j", (snapshot) => {
+    expect(readPromotionRemovalScopeFromSnapshot(snapshot)).toBeNull();
+  });
+
+  it("accepts a known dossier tombstone only with its matching capability", () => {
+    expect(
+      readPromotionRemovalScopeFromSnapshot({
+        removedCapabilities: ["payments"],
+        removedDossierIds: ["stripe-checkout"],
+      }),
+    ).toEqual({
+      removedCapabilities: ["payments"],
+      removedDossierIds: ["stripe-checkout"],
+    });
   });
 });
 
@@ -132,6 +183,38 @@ describe("deferred provider identity (mutedDossierIds)", () => {
     });
 
     expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["supabase-auth"]);
+  });
+});
+
+describe("durable removal tombstones across re-addition", () => {
+  it("clears a known dossier tombstone when its capability is explicitly re-added even if the partial round omits ID fields", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      {
+        removedCapabilities: ["payments", "auth"],
+        removedDossierIds: ["stripe-checkout", "clerk-auth", "legacy-unknown"],
+      },
+      { readdedCapabilities: ["payments"] },
+    );
+
+    expect(merged.removedCapabilities).toEqual(["auth"]);
+    expect(merged.removedDossierIds).toEqual(["clerk-auth", "legacy-unknown"]);
+  });
+
+  it("preserves neutral and independent removals without laundering unknown legacy IDs", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      {
+        removedCapabilities: ["payments", "auth"],
+        removedDossierIds: ["stripe-checkout", "clerk-auth", "legacy-unknown"],
+      },
+      { requestedCapabilities: ["booking"] },
+    );
+
+    expect(merged.removedCapabilities).toEqual(["payments", "auth"]);
+    expect(merged.removedDossierIds).toEqual([
+      "stripe-checkout",
+      "clerk-auth",
+      "legacy-unknown",
+    ]);
   });
 });
 
@@ -713,6 +796,55 @@ describe("capability-removal durability (resurrection regression)", () => {
     expect(contract.f3ApprovedCapabilities).toEqual(["auth"]);
     expect(contract.f3ApprovedProviders).toEqual(["clerk"]);
     expect(contract.capabilities).toEqual([]);
+  });
+
+  it("drops a removed Supabase database approval while preserving independent auth scope", () => {
+    const snapshot = {
+      removedCapabilities: ["database"],
+      f3ApprovedCapabilities: ["database", "auth"],
+      f3ApprovedProviders: ["supabase", "supabase-auth"],
+      contractIntegrations: [
+        {
+          kind: "database",
+          providerKey: "supabase",
+          dossierCapability: "database",
+          provider: "Supabase",
+          name: "Supabase",
+          reason: "Approved database provider.",
+          status: "chosen",
+        },
+        {
+          kind: "auth",
+          providerKey: "supabase",
+          dossierCapability: "auth",
+          provider: "Supabase",
+          name: "Supabase Auth",
+          reason: "Independent active auth provider.",
+          status: "chosen",
+        },
+      ],
+    };
+
+    expect(readF3ApprovedFromSnapshot(snapshot)).toEqual({
+      capabilities: ["auth"],
+      providers: ["supabase-auth"],
+    });
+    expect(
+      buildFollowUpContract({
+        snapshot,
+        persistedScaffoldId: null,
+        persistedVariantId: null,
+        existingRoutePaths: [],
+        existingShellRoutePaths: [],
+        priorQualityTarget: null,
+      }).inheritedProviderContracts,
+    ).toContainEqual(
+      expect.objectContaining({
+        providerKey: "supabase",
+        dossierCapability: "auth",
+        status: "chosen",
+      }),
+    );
   });
 
   it("restores a removed capability only after an explicit re-add signal", () => {

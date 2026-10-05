@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import type { F3BuilderStatus } from "@/lib/builder/f3-status";
@@ -336,31 +336,22 @@ export function PreviewPanelF3Trigger({
     void runF3Flow(versionId);
   }, [runF3Flow, versionId]);
 
-  // Re-run the finalize flow when the Dossiers popover asks for a rebuild
-  // (after the user fills the previously-missing keys). A ref keeps the
-  // listener stable while always calling the latest `handleClick`.
-  const handleClickRef = useRef(handleClick);
+  // Requirements retries must see the same committed readiness/busy state as
+  // the button, including before passive effects run after a status change.
+  const onRebuildRequested = useEffectEvent((event: Event) => {
+    const detail = (
+      event as CustomEvent<{ versionId?: unknown }>
+    ).detail;
+    const targetVersionId =
+      typeof detail?.versionId === "string" && detail.versionId.trim()
+        ? detail.versionId
+        : null;
+    void runF3Flow(targetVersionId);
+  });
   useEffect(() => {
-    handleClickRef.current = handleClick;
-  }, [handleClick]);
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{ versionId?: unknown }>
-      ).detail;
-      const targetVersionId =
-        typeof detail?.versionId === "string" && detail.versionId.trim()
-          ? detail.versionId
-          : null;
-      if (targetVersionId) {
-        void runF3Flow(targetVersionId);
-      } else {
-        void handleClickRef.current();
-      }
-    };
-    window.addEventListener(F3_REBUILD_REQUEST_EVENT, handler);
-    return () => window.removeEventListener(F3_REBUILD_REQUEST_EVENT, handler);
-  }, [runF3Flow]);
+    window.addEventListener(F3_REBUILD_REQUEST_EVENT, onRebuildRequested);
+    return () => window.removeEventListener(F3_REBUILD_REQUEST_EVENT, onRebuildRequested);
+  }, []);
 
   // Block the click if we don't yet have a concrete versionId — otherwise
   // the request body becomes `{}` and the server can't anchor the F3 step

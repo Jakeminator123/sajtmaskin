@@ -6,7 +6,7 @@
  */
 import { normalizeRoutePath } from "../route-plan";
 import {
-  expandDependentCapabilities,
+  normalizeDossierCapabilityIds,
   getF2MutedIntegrationCapabilities,
   normalizeCapabilityId,
 } from "../dossiers";
@@ -438,8 +438,10 @@ export function enforceFollowUpCapabilityFloor(
  *   - `fileEvidenceCapabilities`: integrations with ACTUAL files in the
  *     parent/base version (already built — safe to keep so they still wire up).
  *
- * The allowed set is dependency-expanded (via {@link expandDependentCapabilities};
- * the map is empty since 2026-08-06 but the helper still alias-normalizes).
+ * The allowed set is alias-normalized and deduped through
+ * {@link normalizeDossierCapabilityIds}, the same helper used by
+ * prompt filtering and selection. It does not reopen the historic brief set
+ * or add implicit companion capabilities.
  * Any capability NOT in the allowed set —
  * a speculative brief/floor entry with no ask, approval, or file evidence — is
  * dropped. Candidates are alias-normalized before the comparison
@@ -455,7 +457,7 @@ export function scopeF3DossierCapabilities(params: {
   explicitCapabilities: string[];
   fileEvidenceCapabilities: string[];
 }): { capabilities: string[]; dropped: string[] } {
-  const authoritativeCapabilities = expandDependentCapabilities(
+  const authoritativeCapabilities = normalizeDossierCapabilityIds(
     normalizeCapabilityList([
       ...params.explicitCapabilities,
       ...params.fileEvidenceCapabilities,

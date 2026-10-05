@@ -37,11 +37,6 @@ export interface ResolveDossierLifecycleInput {
   /** Prompt-only signal from canonical dossier selection. */
   configuredBySelection: boolean;
   /**
-   * Exact manifest presence from the same `versionFiles`; null means no
-   * readable version files exist.
-   */
-  materialized: boolean | null;
-  /**
    * Exact F2-deferred identity. The canonical pending resolver guarantees that
    * this is false once exact materialization is present.
    */
@@ -63,7 +58,6 @@ export interface DossierLifecycleResolution {
   overviewStatus: DossierLifecycleOverviewStatus;
   requiresF3: boolean;
   pending: boolean;
-  materialized: boolean | null;
   configured: boolean;
   /** Reporting heuristic; null means the version could not be inspected. */
   detected: boolean | null;
@@ -221,7 +215,6 @@ export function resolveDossierLifecycle(
     overviewStatus,
     requiresF3,
     pending: input.pending,
-    materialized: input.materialized,
     configured: input.configuredBySelection,
     detected: input.requirements === null ? null : matchedRequirement !== undefined,
     matchedRequirementKey: matchedRequirement?.key ?? null,

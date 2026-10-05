@@ -1,27 +1,10 @@
 # When to use
 
-Use this dossier when the brief declares the `contact-form` capability — the site needs a working contact form that delivers messages somewhere (email inbox in this case).
-
-Best fit:
-
-- A "Contact us" page on a marketing site.
-- A footer-form on a portfolio.
-- A simple support-request form for a small SaaS.
-
-Do not use it for:
-
-- Booking or scheduling forms (different shape — date/time fields, calendar integration). Pair with a calendar dossier instead.
-- Lead-capture forms that should sync to a CRM (HubSpot, Pipedrive). Use a CRM-targeted dossier when one exists.
-- Heavy multi-step forms (use a wizard pattern + Zod validation instead — this dossier is single-step).
+Use for a real contact form delivered through Resend.
 
 # How to integrate
 
-1. Mount `<ContactForm />` on the contact route (typically `app/contact/page.tsx` or `app/(marketing)/contact/page.tsx`).
-2. Wrap it in a section with sensible padding and a heading; the component itself does not own the surrounding layout.
-3. Pass an optional `subjectPrefix` prop if you want server-side categorisation (e.g. `subjectPrefix="Hotel inquiry"` so the inbox sees `Hotel inquiry: <user subject>`).
-4. The form POSTs to `/api/contact` (`action="/api/contact"` + `fetch("/api/contact")` in `onSubmit`). Keep the HTML `action` (and `data-integration-endpoint="/api/contact"`) even though submit is handled in JS — product postcheck treats a form without action/fetch/demo-marking as `fake_form`. Do not put `data-demo-only` on this integration form; demo degradation is the route's `{ demo: true }` response, not a fake surface.
-
-There are two degradation paths (see "Mock/demo mode" below): no real key → a demo success; a real key with missing addresses → the calm `IntegrationConfigNotice`. All three files (`contact-form.tsx`, `integration-config-notice.tsx`, the route) are **verbatim** so both contracts are emitted deterministically; adapt visuals by wrapping `ContactForm` (props: `subjectPrefix`, `className`) in your own component.
+Restyle the view, copy, and styles; keep `name`, `email`, and `message` in the server payload.
 
 # Mock/demo mode
 
@@ -43,12 +26,7 @@ Real delivery happens only once a genuine `re_...` key and both addresses are se
 
 # Avoid
 
-- Do not call the Resend SDK directly from the client — the API key would leak.
-- Do not paraphrase `components/api/contact/route.ts`. The Resend SDK init pattern, body validation order, and the demo-success / `email-not-configured` guard must stay byte-exact.
-- Do not surface a raw error string or the HTTP status code to the visitor — on `email-not-configured` render the `IntegrationConfigNotice` and disable the submit button instead.
-- Do not store form submissions in a database without telling the user (privacy). Email-only delivery is the default contract.
-- Do not auto-fill the message with marketing copy. Always start empty.
-- Do not hide the contact email entirely when the form is unconfigured — give the user a fallback way to reach you.
+Never expose `RESEND_API_KEY` or rewrite the server route and email contract.
 
 # Verification
 

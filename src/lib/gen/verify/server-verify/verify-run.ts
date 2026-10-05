@@ -6,7 +6,9 @@ import {
   resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
+import { holdVersionForIntegrationMigration } from "@/lib/db/chat-repository/version-lifecycle";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import {
   fullProjectProtectedDroppedPaths,
   missingProtectedPathsPersistBlock,
@@ -15,6 +17,10 @@ import {
 } from "@/lib/gen/scaffolds/protected-paths";
 import { runDeterministicRepairPrepass } from "../repair-loop";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
+import {
+  isCurrentIntegrationMigrationHold,
+  isNonTerminalVerificationState,
+} from "../stale-verification";
 import {
   buildExportableProject,
   chatUsesVerbatimRepo,
@@ -60,6 +66,49 @@ import {
   type ServerVerifyF3ReadinessContext,
 } from "./f3-readiness";
 
+const REVERIFY_CURRENT_CONTEXT = Symbol("reverify-current-context");
+
+type VersionFilesSnapshot = NonNullable<Awaited<ReturnType<typeof getVersionFilesSnapshot>>>;
+
+function snapshotIsTerminalOrMigrationHeld(snapshot: VersionFilesSnapshot): boolean {
+  return (
+    isCurrentIntegrationMigrationHold({
+      release_state: snapshot.releaseState,
+      verification_state: snapshot.verificationState,
+      verification_summary: snapshot.verificationSummary,
+      files_revision: snapshot.filesRevision,
+    }) || !isNonTerminalVerificationState(snapshot.verificationState)
+  );
+}
+
+async function settleExhaustedContextRetry(params: {
+  versionId: string;
+  runId: string;
+  snapshot: VersionFilesSnapshot;
+  preserveRepairPayload: boolean;
+}): Promise<void> {
+  const { versionId, runId, snapshot, preserveRepairPayload } = params;
+  if (snapshot.verificationState !== "verifying" && snapshot.verificationState !== "repairing") {
+    return;
+  }
+  await resetVersionVerificationToPending(
+    versionId,
+    "Provider decision context changed during verification; retry the current version.",
+    runId,
+    {
+      expected: {
+        filesJson: snapshot.filesJson,
+        filesRevision: snapshot.filesRevision,
+        editKind: snapshot.editKind,
+        verificationState: snapshot.verificationState,
+        releaseState: "draft",
+        verificationSummary: snapshot.verificationSummary,
+      },
+      preserveRepairPayload,
+    },
+  );
+}
+
 /**
  * Fire-and-forget server-side verification + capped repair loop.
  * Called from generation stream after finalize. Does NOT block the SSE response.
@@ -94,6 +143,8 @@ export async function triggerServerVerification(params: {
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
+  /** Internal bound: at most one fresh re-entry after a decision-context CAS miss. */
+  contextRetryUsed?: boolean;
 }): Promise<void> {
   const {
     chatId,
@@ -101,6 +152,7 @@ export async function triggerServerVerification(params: {
     onRepairAvailable,
     diagnosticOnly = false,
     forceBuildCheck = false,
+    contextRetryUsed = false,
     repairLedger,
     repairScopeId,
   } = params;
@@ -117,7 +169,8 @@ export async function triggerServerVerification(params: {
   const runId = lease.runId;
   // #260 Codex P2 (stale-base re-verify): set when the repair no-op'd because a
   // concurrent user edit advanced files_json past the repaired-from snapshot.
-  let supersededByUserEdit = false;
+  let reverifyCurrent = false;
+  let reverifyFromContextCasMiss = false;
   // #260 Codex P2 (build-origin false-green): carry the abandoned repair's
   // build-origin into the post-supersede re-verify so B's gate keeps `build`.
   let reverifyForceBuildCheck = false;
@@ -142,12 +195,12 @@ export async function triggerServerVerification(params: {
       ]).catch(() => null);
       return;
     }
-    const snapshot = await getVersionFilesSnapshot(versionId);
+    let snapshot = await getVersionFilesSnapshot(versionId);
     if (!snapshot || snapshot.files.length === 0) return;
-    const codeFiles = snapshot.files;
+    let codeFiles = snapshot.files;
     // #260 / P2 #5: carry the exact files_json the repair will be based on so a
     // concurrent user edit can't be silently overwritten by saveRepairedFiles.
-    const baseFilesJson = snapshot.filesJson;
+    let baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
     // F2/F3 policy derived from the version lifecycle. Threaded into BOTH the
     // initial verify gate (below) AND the repair loop so an F3/integrations
@@ -155,36 +208,94 @@ export async function triggerServerVerification(params: {
     // + lint) and is never green-lit on the F2/design (typecheck-only) lane
     // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
     // branch is ever reached).
-    const previewPolicy = snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
-    const filesRevision = resolveSnapshotFilesRevision({
+    let previewPolicy: BuildSpecPreviewPolicy =
+      snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    let actualFilesRevision = snapshot.filesRevision;
+    let filesRevision = resolveSnapshotFilesRevision({
       filesRevision: snapshot.filesRevision,
       filesJson: baseFilesJson,
     });
-    const parentVersionId = snapshot.parentVersionId ?? null;
+    let parentVersionId = snapshot.parentVersionId ?? null;
     let f3ReadinessContext: ServerVerifyF3ReadinessContext | null = null;
     if (previewPolicy === "fidelity3") {
-      const loaded = await loadServerVerifyF3ReadinessContext(chatId);
-      if ("error" in loaded) {
-        await persistF3ReadinessHold({
+      const maxContextAttempts = contextRetryUsed ? 1 : 2;
+      for (let contextAttempt = 0; contextAttempt < maxContextAttempts; contextAttempt += 1) {
+        const loaded = await loadServerVerifyF3ReadinessContext(chatId);
+        if ("error" in loaded) {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: { ready: false, ok: false, reason: "readiness_unavailable", retryable: true },
+            at: "before_first_gate",
+          });
+          return;
+        }
+        f3ReadinessContext = loaded;
+        const readiness = await evaluateServerOwnedF3Readiness({
           chatId,
           versionId,
+          parentVersionId,
           filesRevision,
-          result: { ready: false, ok: false, reason: "readiness_unavailable", retryable: true },
-          at: "before_first_gate",
+          preloadedFiles: codeFiles,
+          orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+          projectId: f3ReadinessContext.projectId,
         });
-        return;
-      }
-      f3ReadinessContext = loaded;
-      const readiness = await evaluateServerOwnedF3Readiness({
-        chatId,
-        versionId,
-        parentVersionId,
-        filesRevision,
-        preloadedFiles: codeFiles,
-        orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
-        projectId: f3ReadinessContext.projectId,
-      });
-      if (!readiness.ready) {
+        if (readiness.ready) break;
+        if (readiness.reason === "integration_migration_required") {
+          const migrationHold = await holdVersionForIntegrationMigration(
+            versionId,
+            {
+              verificationState: snapshot.verificationState ?? "pending",
+              filesRevision: actualFilesRevision,
+              filesJson: baseFilesJson,
+              editKind: snapshot.editKind,
+              orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+            },
+            runId,
+          );
+          if (migrationHold === "cas_miss" && contextAttempt + 1 >= maxContextAttempts) {
+            await settleExhaustedContextRetry({
+              versionId,
+              runId,
+              snapshot,
+              preserveRepairPayload: snapshot.verificationState === "repairing",
+            });
+            return;
+          }
+          if (migrationHold === "cas_miss") {
+            const refreshed = await getVersionFilesSnapshot(versionId).catch(() => null);
+            if (!refreshed || refreshed.files.length === 0) return;
+            if (snapshotIsTerminalOrMigrationHeld(refreshed)) return;
+            snapshot = refreshed;
+            codeFiles = refreshed.files;
+            baseFilesJson = refreshed.filesJson;
+            baseFilesJsonForRecovery = baseFilesJson;
+            previewPolicy =
+              refreshed.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+            actualFilesRevision = refreshed.filesRevision;
+            filesRevision = resolveSnapshotFilesRevision({
+              filesRevision: refreshed.filesRevision,
+              filesJson: refreshed.filesJson,
+            });
+            parentVersionId = refreshed.parentVersionId ?? null;
+            if (previewPolicy !== "fidelity3") {
+              f3ReadinessContext = null;
+              break;
+            }
+            continue;
+          }
+          if (migrationHold === "applied") {
+            await persistF3ReadinessHold({
+              chatId,
+              versionId,
+              filesRevision,
+              result: readiness,
+              at: "before_first_gate",
+            });
+          }
+          return;
+        }
         await persistF3ReadinessHold({
           chatId,
           versionId,
@@ -256,15 +367,32 @@ export async function triggerServerVerification(params: {
     // For the advisory case, ATTEMPT the promotion before emitting the outcome
     // so the bus signal reflects reality. `promoteVersion` is lease-conditioned:
     // a no-op (null) means a takeover/lease-loss or a guard/DB refusal.
-    const advisoryPromoted = advisoryPromote
-      ? Boolean(
-          await promoteVersion(
-            versionId,
-            "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
-            runId,
-          ).catch(() => null),
-        )
-      : false;
+    const persistPromotionMigrationHold = async () => {
+      await persistF3ReadinessHold({
+        chatId,
+        versionId,
+        filesRevision,
+        result: {
+          ready: false,
+          ok: false,
+          reason: "integration_migration_required",
+          retryable: false,
+        },
+        at: "before_promotion",
+      });
+    };
+    const advisoryPromotion = advisoryPromote
+      ? await promoteVersion(
+          versionId,
+          "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+          runId,
+        ).catch(() => null)
+      : null;
+    if (advisoryPromotion === "integration_migration_required") {
+      await persistPromotionMigrationHold();
+      return;
+    }
+    const advisoryPromoted = advisoryPromotion !== null;
 
     // Advisory promote that did NOT take (lease takeover / guard / transient DB
     // write). Emit NO terminal bus event: a terminal bus `failed` is sticky in
@@ -290,10 +418,6 @@ export async function triggerServerVerification(params: {
       return;
     }
 
-    // Green for the outcome bus signal / summary log when the VM gate passed OR
-    // the advisory promotion actually took.
-    const outcomeIsGreen = passed || advisoryPromoted;
-
     // L1: F3 before_promotion must run BEFORE the passed bus + green
     // `preflight:quality-gate` log. Otherwise UI (`reconcileTerminalDbState`)
     // treats bus `done` as klar, and the stale watchdog
@@ -316,21 +440,118 @@ export async function triggerServerVerification(params: {
         projectId: f3ReadinessContext.projectId,
       });
       if (!readiness.ready) {
-        await persistF3ReadinessHold({
-          chatId,
-          versionId,
-          filesRevision,
-          result: readiness,
-          at: "before_promotion",
-        });
-        await resetVersionVerificationToPending(
-          versionId,
-          `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
-          runId,
-        ).catch(() => null);
+        if (readiness.reason === "integration_migration_required") {
+          const held = await holdVersionForIntegrationMigration(
+            versionId,
+            {
+              verificationState: "verifying",
+              filesRevision: actualFilesRevision,
+              filesJson: baseFilesJson,
+              editKind: snapshot.editKind,
+              orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+            },
+            runId,
+          );
+          if (held === "applied") {
+            await persistF3ReadinessHold({
+              chatId,
+              versionId,
+              filesRevision,
+              result: readiness,
+              at: "before_promotion",
+            });
+          } else if (held === "cas_miss") {
+            const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+            if (!current || current.files.length === 0 || snapshotIsTerminalOrMigrationHeld(current)) {
+              return;
+            }
+            if (contextRetryUsed) {
+              await settleExhaustedContextRetry({
+                versionId,
+                runId,
+                snapshot: current,
+                preserveRepairPayload: current.verificationState === "repairing",
+              });
+            } else if (isNonTerminalVerificationState(current.verificationState)) {
+              reverifyCurrent = true;
+              reverifyFromContextCasMiss = true;
+              throw REVERIFY_CURRENT_CONTEXT;
+            }
+          }
+        } else {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: readiness,
+            at: "before_promotion",
+          });
+          await resetVersionVerificationToPending(
+            versionId,
+            `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
+            runId,
+          ).catch(() => null);
+        }
         return;
       }
     }
+
+    if (passed && diagnosticOnly) {
+      // Diagnostics-only mode: even a passing gate must NOT publish a green
+      // outcome before promotion, because verifier blockers still disallow
+      // promotion regardless of build/typecheck status.
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "info",
+          category: "server-verify:diagnostic",
+          message:
+            "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
+          meta: { serverOwned: true, diagnosticOnly: true },
+        },
+      ]).catch(() => null);
+      await failVersionVerification(
+        versionId,
+        "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
+        runId,
+      ).catch(() => null);
+      return;
+    }
+
+    let normalPromoted = false;
+    if (passed && !advisoryPromoted) {
+      const promotion = await promoteVersion(
+        versionId,
+        lintAdvisories.length > 0
+          ? "Automatic server verification passed with lint warnings (advisory)."
+          : "Automatic server verification passed.",
+        runId,
+      ).catch(() => null);
+      if (promotion === "integration_migration_required") {
+        await persistPromotionMigrationHold();
+        return;
+      }
+      if (promotion === null) {
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId,
+            level: "info",
+            category: "preflight:quality-gate",
+            message:
+              "Server verify passed, but promotion was not applied (lease/guard/DB); terminal status remains authoritative in DB/watchdog.",
+            meta: { serverOwned: true, promoted: false },
+          },
+        ]).catch(() => null);
+        return;
+      }
+      normalPromoted = true;
+    }
+
+    // Green only after a real promotion took. A passing gate is evidence for
+    // promotion, not itself a published terminal success.
+    const outcomeIsGreen = advisoryPromoted || normalPromoted;
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
@@ -409,43 +630,7 @@ export async function triggerServerVerification(params: {
     }
 
     if (passed) {
-      if (diagnosticOnly) {
-        // Diagnostics-only mode: even a passing gate must NOT promote,
-        // because verifier-blocking findings (which the caller
-        // explicitly knew about when picking diagnosticOnly) still
-        // disallow promotion regardless of build/typecheck status.
-        await createEngineVersionErrorLogs([
-          {
-            chatId,
-            versionId,
-            level: "info",
-            category: "server-verify:diagnostic",
-            message:
-              "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
-            meta: { serverOwned: true, diagnosticOnly: true },
-          },
-        ]).catch(() => null);
-        // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
-        // Since runner.ts no longer pre-commits `failed` for verifier-only
-        // blocking, server-verify is the authority that must set terminal
-        // state. A verifier-LLM/real-build mismatch (verifier flagged, tsc
-        // passed) still disallows promotion, so resolve to `failed` with a
-        // summary that distinguishes this case from a real build failure.
-        await failVersionVerification(
-          versionId,
-          "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
-          runId,
-        ).catch(() => null);
-        return;
-      }
-      const promoted = await promoteVersion(
-        versionId,
-        lintAdvisories.length > 0
-          ? "Automatic server verification passed with lint warnings (advisory)."
-          : "Automatic server verification passed.",
-        runId,
-      ).catch(() => null);
-      if (promoted && lintAdvisories.length > 0) {
+      if (normalPromoted && lintAdvisories.length > 0) {
         try {
           emitBusEvent({
             t: "version.degraded",
@@ -654,6 +839,8 @@ export async function triggerServerVerification(params: {
       versionId,
       codeFiles,
       baseFilesJson,
+      baseFilesRevision: actualFilesRevision,
+      baseEditKind: snapshot.editKind,
       previewPolicy,
       failedOutputs,
       verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
@@ -675,6 +862,7 @@ export async function triggerServerVerification(params: {
       }),
       repairLedger,
       repairScopeId,
+      contextRetryUsed,
       f3Readiness:
         previewPolicy === "fidelity3" && f3ReadinessContext
           ? {
@@ -684,32 +872,39 @@ export async function triggerServerVerification(params: {
             }
           : null,
     });
-    supersededByUserEdit = repairOutcome.supersededByUserEdit;
+    reverifyCurrent = repairOutcome.reverifyCurrent;
+    reverifyFromContextCasMiss = repairOutcome.contextCasMiss;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
+    if (repairOutcome.integrationMigrationHoldApplied) return;
   } catch (err) {
-    console.error("[server-verify] Error:", err);
-    // #260 Codex P2 / Bugbot (no fail of B from a stale repair): staleBaseNoOp
-    // lives inside tryServerRepairLoop and is lost when it throws, so the outer
-    // catch must re-check here. If a concurrent user edit advanced files_json
-    // past the snapshot this run was based on, do NOT finalize the newer edit B
-    // as failed from the abandoned repair(A) — re-verify B instead (build kept in
-    // the gate, conservatively, since the crash hid which checks were failing).
-    let staleAfterError = false;
-    if (baseFilesJsonForRecovery !== null) {
-      const current = await getVersionFilesSnapshot(versionId).catch(() => null);
-      if (current && current.filesJson !== baseFilesJsonForRecovery) {
-        staleAfterError = true;
-      }
-    }
-    if (staleAfterError) {
-      supersededByUserEdit = true;
-      reverifyForceBuildCheck = true;
+    if (err === REVERIFY_CURRENT_CONTEXT) {
+      // A fresh nonterminal row exists; the bounded re-entry below runs after
+      // this lease is released. No fail/green signal belongs to the old context.
     } else {
-      await failVersionVerification(
-        versionId,
-        "Server verification could not complete.",
-        runId,
-      ).catch(() => null);
+      console.error("[server-verify] Error:", err);
+      // #260 Codex P2 / Bugbot (no fail of B from a stale repair): staleBaseNoOp
+      // lives inside tryServerRepairLoop and is lost when it throws, so the outer
+      // catch must re-check here. If a concurrent user edit advanced files_json
+      // past the snapshot this run was based on, do NOT finalize the newer edit B
+      // as failed from the abandoned repair(A) — re-verify B instead (build kept in
+      // the gate, conservatively, since the crash hid which checks were failing).
+      let staleAfterError = false;
+      if (baseFilesJsonForRecovery !== null) {
+        const current = await getVersionFilesSnapshot(versionId).catch(() => null);
+        if (current && current.filesJson !== baseFilesJsonForRecovery) {
+          staleAfterError = true;
+        }
+      }
+      if (staleAfterError) {
+        reverifyCurrent = true;
+        reverifyForceBuildCheck = true;
+      } else {
+        await failVersionVerification(
+          versionId,
+          "Server verification could not complete.",
+          runId,
+        ).catch(() => null);
+      }
     }
   } finally {
     await releaseVerifyLease(versionId, runId);
@@ -722,7 +917,7 @@ export async function triggerServerVerification(params: {
   // reaches a terminal state on its OWN merits (passed / repair_available /
   // failed-because-B-fails), never failed from the abandoned stale repair(A).
   // Recursion is naturally bounded by user edits (one re-verify per edit).
-  if (supersededByUserEdit) {
+  if (reverifyCurrent && (!reverifyFromContextCasMiss || !contextRetryUsed)) {
     await triggerServerVerification({
       chatId,
       versionId,
@@ -734,6 +929,7 @@ export async function triggerServerVerification(params: {
       // blocked (contentHash differs), while an identical re-attempt dedupes.
       repairLedger,
       repairScopeId,
+      contextRetryUsed: contextRetryUsed || reverifyFromContextCasMiss,
     });
   }
 }

@@ -187,6 +187,7 @@ type ResumableVersionRow = {
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   previewUrl?: string | null;
+  busStatus?: unknown;
 };
 
 export type ResumablePendingVersion = {
@@ -252,6 +253,16 @@ function resolveResumeCandidate(versions: unknown, nowMs: number): ResumeCandida
   // Legacy/mapped rows have no releaseState at all — never touch those.
   if (latest.releaseState !== "draft") return none;
   if (latest.verificationState !== "pending") return none;
+  const busStatus = isRecord(latest.busStatus) ? latest.busStatus : null;
+  const lastBuildError = busStatus && isRecord(busStatus.lastBuildError)
+    ? busStatus.lastBuildError
+    : null;
+  if (
+    busStatus?.phase === "blocked" &&
+    lastBuildError?.failureCode === "integration_migration_required"
+  ) {
+    return none;
+  }
   // F3 rows are server-verify-owned (watchdog settles them); missing stage
   // defaults to design, matching `resolveEngineVersionLifecycleStage`.
   if (latest.lifecycleStage === "integrations") return none;
@@ -838,6 +849,9 @@ export function useResumePendingVerification(params: {
           designAdvisory?: boolean;
           promoteError?: boolean;
           promotionBlocked?: boolean;
+          code?: string;
+          retryable?: boolean;
+          error?: string;
         } | null;
         await Promise.resolve(mutateVersions?.());
         // Both status surfaces, normal-lane parity: `/versions` (history) via
@@ -849,7 +863,17 @@ export function useResumePendingVerification(params: {
           // 409 (stale lease from the killed tab) and 5xx (verify lane
           // briefly down/unconfigured) are retryable holds — self-schedule
           // so a stable SWR versions identity still retries. 404 is terminal.
-          if (res.status === 404) consumeAllAttempts();
+          if (
+            data?.code === "integration_migration_required" &&
+            data.retryable === false
+          ) {
+            consumeAllAttempts();
+            toast.message("Providerbyte kräver ett uttryckligt beslut", {
+              description:
+                data.error ??
+                "Välj hur integrationen ska migreras innan verifieringen återupptas.",
+            });
+          } else if (res.status === 404) consumeAllAttempts();
           else scheduleRetry();
           return;
         }

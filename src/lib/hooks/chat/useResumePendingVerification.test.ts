@@ -175,6 +175,27 @@ describe("findResumablePendingVersion", () => {
     }
   });
 
+  it("does not resume a durable integration migration hold after reload", () => {
+    expect(
+      findResumablePendingVersion(
+        [
+          pendingRow({
+            busStatus: {
+              phase: "blocked",
+              verificationBlocked: true,
+              lastBuildError: {
+                stage: "promotion",
+                message: "Providerbyte kräver beslut.",
+                failureCode: "integration_migration_required",
+              },
+            },
+          }),
+        ],
+        NOW,
+      ),
+    ).toBeNull();
+  });
+
   it("returns null on empty/invalid input", () => {
     expect(findResumablePendingVersion([], NOW)).toBeNull();
     expect(findResumablePendingVersion(null, NOW)).toBeNull();
@@ -1309,6 +1330,36 @@ describe("useResumePendingVerification", () => {
       await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
     });
     expect(callsTo("/quality-gate")).toHaveLength(2);
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it("does not retry a non-retryable integration migration quality-gate hold", async () => {
+    vi.useFakeTimers();
+    const versions = [pendingRow()];
+    mockRoutes({
+      qualityGate: {
+        ok: false,
+        status: 409,
+        body: {
+          code: "integration_migration_required",
+          retryable: false,
+          error: "Providerbyte kräver ett uttryckligt beslut.",
+        },
+      },
+    });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({ chatId: "chat_1", versions, isStreaming: false }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+    await act(async () => vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS * 3));
+    expect(callsTo("/quality-gate")).toHaveLength(1);
     unmount();
     vi.useRealTimers();
   });

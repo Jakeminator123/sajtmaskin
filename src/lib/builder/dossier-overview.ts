@@ -28,9 +28,9 @@ import type { DossierLifecycleOverviewStatus } from "@/lib/gen/dossiers/lifecycl
  *   the block lacks server-side file evidence in the version (manifest
  *   server file or an API route referencing its env keys) — filled keys
  *   alone never make a client-side mock "live".
- * - `built-live` — code is in the version, every build/feature-runtime key
- *   has a stored real value, AND the server side is evidenced in the
- *   version's files.
+ * - `built-live` — the overview's declared code/key evidence is satisfied.
+ *   This reporting status is shown as "Konfigurerad" and is never evidence
+ *   that an external provider request has succeeded.
  */
 export type DossierStatus = DossierLifecycleOverviewStatus;
 
@@ -175,18 +175,19 @@ export function describeDossierStatus(
   switch (status) {
     case "self-contained":
       return {
-        label: "Klar",
+        label: "Ingår direkt",
         tone: "neutral",
         hint:
           dossierClass === "hard"
             ? "Providerkopplingen kräver inget separat integrationsbygge. Konfiguration och livebeteende avgörs separat."
-            : "Fungerar direkt — ingen deklarerad integrationsprovider eller hemlig nyckel behövs.",
+            : "Byggblocket kräver inget separat integrationsbygge. Publicerad funktion verifieras separat.",
       };
     case "built-live":
       return {
-        label: "Live",
+        label: "Konfigurerad",
         tone: "success",
-        hint: "Funktionen använder den externa tjänsten och kör på riktigt.",
+        hint:
+          "Projektets deklarerade integrationskrav har påvisats. Ett externt provideranrop är inte liveverifierat.",
       };
     case "built-demo":
       return {
@@ -211,7 +212,7 @@ export function describeDossierStatus(
         hint:
           lifecycleStage === "integrations"
             ? "Funktionen blev inte färdig i integrationsbygget. Kör \u201dBygg integrationer\u201d igen."
-            : "Ytan kan visas som demo. Kör \u201dBygg integrationer\u201d för riktig funktion.",
+            : "Ytan kan visas som demo. Kör \u201dBygg integrationer\u201d för integrationskod; livekonfiguration verifieras separat.",
       };
   }
 }

@@ -28,8 +28,7 @@ data/dossiers/
 
 Every `hard` manifest must declare a non-empty `providers` array; `soft`
 manifests must omit it. The values are canonical provider identities such as
-`stripe`, `openai` or `postgres`. (Composite multi-provider dossiers left the
-live pool with etapp 4 — `rag-chat` owned both `openai` and `postgres`.)
+`stripe`, `openai` or `postgres`.
 
 The ownership hierarchy is strict:
 
@@ -65,112 +64,26 @@ Aktuell capability→grupp-vy:
 
 | #   | Grupp-id       | Svensk label        | Capabilities                                                                 |
 | --- | -------------- | ------------------- | ---------------------------------------------------------------------------- |
-| 1   | `data-content` | Data & innehåll     | `database` (`cms` lämnade 2026-09-02 med parkerade sanity-cms)               |
+| 1   | `data-content` | Data & innehåll     | `database`                                                                   |
 | 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
-| 3   | `commerce`     | Betalning & handel  | `payments` (`subscriptions` lämnade 2026-08-06 med parkerade paddle-billing) |
+| 3   | `commerce`     | Betalning & handel  | `payments`                                                                   |
 | 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`, `booking`                            |
-| 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
+| 5   | `ai`           | AI                  | `ai-chat`                                                                    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
-| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage` (vercel-blob-media, 2026-09-02) |
+| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage`                              |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `physics-2d`, `scroll-story`, `spatial-canvas`, `interactive-game`, `dashboard-charts` |
-| 9   | `ops`          | Drift & mätning     | `analytics` (visitor-counter default sedan 2026-09-02, vercel-analytics syskon) |
+| 9   | `ops`          | Drift & mätning     | `analytics`                                                                  |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
-
-> **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
-> (utfasade soft-dossiers 2026-07-22 — rena innehållssektioner och
-> CSS-effekter som codegen-LLM:en skriver bättre frihand: cta/faq/pricing/
-> testimonials/feature-grid/logo-cloud/stats-counter/stepper/marquee/parallax
-> ×2; träd borttaget 2026-08-10, finns i git-historik). `command-search` döptes om till `command-palette`, `supabase-auth`
-> slogs ihop med `auth` (en capability, två leverantörsdossiers), och två nya
-> nyckelfria capabilities tillkom: `map-display` (maplibre-map — MapLibre +
-> OpenFreeMap) och `site-search` (local-site-search — MiniSearch).
-> Legacy-id:n normaliseras via `CAPABILITY_ALIASES` i `select.ts`
-> (`supabase-auth` → `auth` med dossier-pin, `command-search` →
-> `command-palette`) så gamla snapshots fortsätter selektera rätt.
->
-> **Nedbantning 2026-08-06 (ägarens fria-händer-uppdrag 2026-08-05):** sju
-> hard-dossiers parkerades 2026-08-06 (träd borttaget 2026-08-10; git-historik):
-> etapp 1 `sentry-error-tracking`, `plausible-analytics`,
-> `fal-image-generation`, `ably-realtime`; etapp 2 `paddle-billing`; etapp 3
-> `neon-postgres`, `mongodb-atlas` — noll prod-selektioner sedan telemetristart
-> och inga lastbärande kodreferenser. Capabilities `error-tracking`,
-> `image-generation`, `realtime` och `subscriptions` lämnade därmed grupper,
-> brief-prompt, follow-up-vokabulär och undantagslistan; `analytics` kvarstår
-> med `vercel-analytics` som ensam provider, `database` med
-> `postgres-drizzle` som ensam provider. Ops-gruppens label smalnade från
-> "Realtid & drift" till "Drift & mätning". En gammal snapshot med ett utfasat
-> capability-id eller parkerat dossier-id selekterar tyst ingenting; ett
-> F3-godkännande av providern (`mongodb`/`neon` m.fl.) går den generiska
-> vägen (`providerKeysWithoutBackingDossier`).
->
-> **Småföretagar-översyn 2026-09-02 (ägarbeslut):** `sanity-cms` parkerades
-> (träd borttaget; git-historik) — den levererade bara frontend-glue utan
-> Studio eller innehållsmodeller, vilket en sajtägare utan utvecklare inte kan
-> använda. Capability `cms` lämnade grupper, brief-prompt, follow-up-vokabulär
-> och negationstermer; `contentful` m.fl. går den generiska providervägen.
-> Samtidigt tillkom `vercel-blob-media` under den nya capability
-> `media-storage` (grupp `media`): sajtägarens egna tunga media (MP4, större
-> bildsamlingar) serveras från en Vercel Blob-store i stället för repot, med
-> `mock: seed` (medskickad `seedMedia` + `<MediaConfigNotice />`) och utan
-> publik upload-route. `next-sanity` ligger kvar som frihandspin i
-> `dep-completer.ts` (samma behandling som `@paddle/paddle-node-sdk`).
-> `analytics` fick en ägarsynlig default: sajter deployas i Sajtmaskins
-> Vercel-team, så Vercel Analytics-siffrorna når aldrig sajtägaren. Nya
-> `visitor-counter` (providers `upstash`, `mock: seed`) skeppar
-> `<VisitBeacon />` för root-layouten, `/api/visits` (page views + besök per
-> lokal dag i Upstash Redis via ren REST) och en standardiserad
-> `/statistik`-sida med `<VisitorStats />`; utan lagring tickar en in-memory
-> demoserie med ärlig notis. `vercel-analytics` kvarstår som explicit syskon
-> (`relevanceKeywords` "vercel analytics"/"speed insights"). Eftersom
-> defaulten har serverfiler härleds `analytics` nu till F3 av kontraktet;
-> policy-residualen i `f2-mute.ts` behålls för det klient-only-syskonet.
-> `resolvePendingIntegrationDossiers` fick samtidigt en dubbelmonteringsspärr:
-> en klient-only dossier vars provider designrundan redan skrivit in
-> (`@vercel/analytics`) installeras inte en andra gång i F3.
->
-> **Mjuk våg 1 2026-09-02 (ägarbeslut efter extern review):** två nya soft-
-> dossiers under `interactive`, båda explicit-ask-only (mood-ord som "cool",
-> "premium", "cinematic" väljer dem aldrig). `scroll-story-orchestrator`
-> (capability `scroll-story`, framer-motion) ger scrollytelling med fastnålade
-> scener på desktop och linjär dokumentordning på mobil/reduced motion — all
-> kapiteltext finns alltid i DOM, ingen scroll-hijack; `needsParallax` snävades
-> samtidigt så `scroll-driven`/`pinned section` ensamt inte längre räknas som
-> parallax. `matter-physics-2d` (capability `physics-2d`, matter-js) driver
-> riktiga DOM-element med 2D-fysik i en avgränsad scen och faller tillbaka på
-> ett statiskt grid vid reduced motion; en ny inferensflagga `needsPhysics2D`
-> tar över fysikverben från `needsPhysics` när prompten är explicit 2D/Matter
-> utan 3D-stack-token, så WebGL-stacken aldrig dras in. `matter-js` stubbas i
-> repots tester (`tests/stubs/matter-js.ts`). Hårda kandidater
-> (Redis/QStash/Algolia) är medvetet inte med i dessa vågor.
->
-> **Mjuk våg 2 2026-09-02:** `xyflow-spatial-canvas` (capability
-> `spatial-canvas`, `@xyflow/react` v12) — panorerbar/zoombar arbetsyta med
-> kort-noder, relationer, minimap, fit-view och detaljpanel utan att lämna
-> ytan; state i minnet med ärlig "sparas inte"-notis i redigerbart läge,
-> embedded-läge stjäl aldrig sidscroll. Samtidigt snävades 3D-detektionen:
-> bara `canvas`/`scene` är inte längre en 3D-signal (`NEEDS_3D_PATTERNS`,
-> `explicitlyRequests3D`, vokabulären `visual-3d`) — 3D kräver ett 3D-token
-> eller en sammansättning (`3d-canvas`, `webgl canvas`). `@xyflow/react`
-> stubbas i repots tester (`tests/stubs/xyflow-react.tsx`). Två kandidater
-> från samma review parkerades medvetet: **shared-view-transitions** — Next
-> 16.3.1 exponerar `viewTransition` bara i de experimentella
-> app-page-runtimes (ingen flagga i `config-schema`), så Reacts
-> `<ViewTransition>` kräver canary och den nakna `document.startViewTransition`
-> är skör mot App Routers asynkrona commits; omprövas när baseline har stabilt
-> stöd. **kinetic-type-engine** — en rubrikanimation är frihandsjobb; blir
-> dossier först om ett återkommande behov av den gemensamma säkra kärnan
-> (Intl.Segmenter, aria-hidden-span, reduced motion) bevisas.
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
 runtime läser alltid den _valda_ dossierns eget `mock`-fält — väljs en
 icke-default provider via `relevanceKeywords` (t.ex. "logga in med supabase" →
-`supabase-auth`) används den dossierns mock-läge. Därför kräver kontraktet
-(ägarbeslut 2026-07-12, skärpning av det ursprungliga capability-beslutet B3)
-att **varje** hard-dossier under en icke-undantagen capability deklarerar ett
+`supabase-auth`) används den dossierns mock-läge. Därför kräver kontraktet att
+**varje** hard-dossier under en icke-undantagen capability deklarerar ett
 riktigt mock-läge — inte bara defaulten.
 
-**CI-invariant (tvingande sedan 2026-07-12; per-dossier sedan samma dag):**
+**CI-invariant:**
 **varje hard-dossier** i en icke-undantagen capability ska ha `mock ≠ none`,
 och varje hard-capability ska ha exakt en upplösbar default-dossier — annars
 måste capabilityn stå på undantagslistan nedan. Kontrollen är CI-blockerande
@@ -189,20 +102,13 @@ metadata-invariant — beteendegarantin (monterar utan krasch, känner igen
 placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
 är ett acceptanskriterium som ägs av detta kontrakt och bevisas med tester
 (t.ex. `dossier-config-fallback.test.tsx`), inte bara med manifest-fält.
-(Ursprung: grandmaster-planen för dossier-grupper och fallback-kontrakt,
-etapp 7 — planfilen är trimmad, full text i git-historik.)
-
 **Undantagslistan** (`MOCKLESS_CAPABILITY_EXCEPTIONS` i samma fil) — capabilities
 där `mock: none` är legitimt eftersom det inte finns någon användarsynlig yta
-alls att visa demo på. Skärpt 2026-07-22 (ägarbeslut: varje användarsynlig
-kategori ska ha en demo-fallback): `payments` och `auth` (samt sedermera
-parkerade `subscriptions` och `realtime`) lämnade listan och deklarerar nu
-`mock: "visual"` — den
-interaktiva ytan renderas fullt ut och handlingen öppnar en ärlig
-demo-notis/modal i stället för att utföra den riktiga operationen (aldrig
-fejkade sessioner, debiteringar eller transport). `error-tracking` lämnade
-listan 2026-08-06 av det motsatta skälet: dess enda dossier parkerades, så
-det finns ingen hard-dossier kvar för undantaget att gälla.
+alls att visa demo på. Varje användarsynlig kategori ska i stället ha en
+demo-fallback. `payments` och `auth` deklarerar därför `mock: "visual"`: den
+interaktiva ytan renderas fullt ut och handlingen öppnar en ärlig demo-notis/
+modal i stället för att utföra den riktiga operationen, utan fejkade sessioner,
+debiteringar eller transport.
 
 | Capability  | Varför undantagen                                                                                                                              |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -255,7 +161,6 @@ Detta är **inte** en ordnad state machine. Följande bevis förblir separata:
 | Bevis                     | Betydelse                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pending`                 | Exakt dossier-id är uppskjutet från F2 och saknar ännu leveransbevis.                                                                      |
-| `materialized`            | Exakt manifestbaserad filnärvaro från `resolveDossierIdsPresentInVersion`; `null` betyder att ingen läsbar version/fillista finns.         |
 | `configured`              | Alla `required`-nycklar har riktiga projektvärden. Detta är fortfarande bara selectionens promptsignal.                                    |
 | `detected`                | En filhärledd Tier3-requirement överlappar dossierns env-yta; `null` betyder att specen inte kunde härledas.                               |
 | `serverEvidenceSatisfied` | Alla manifest-serverfiler finns, en modellbyggd API-route bevisar kopplingen, **eller** dossiern saknar en server-yta som behöver bevisas. |
@@ -267,15 +172,21 @@ riktiga build-/feature-runtime-värden och serverfilbevis `built-demo` kontra
 `built-live`.
 
 `overviewStatus` är endast panelens reporting-projektion. Modellbyggd kod kan
-ge `built-live` utan exakt `materialized` dossieridentitet; statusen får därför
+ge `built-live` utan exakt manifestbaserad dossieridentitet; statusen får därför
 aldrig återanvändas som readiness-, deploy-, installations- eller
 versionsverifieringsbevis.
+Exakt filnärvaro ägs fortsatt av `resolveDossierIdsPresentInVersion` och används
+uppströms av pending-/modellbyggd-logiken; den skickas inte genom
+`resolveDossierLifecycle()` som ett oanvänt echo-fält. Produkt-UI visar
+`self-contained` som **Ingår direkt** och `built-live` som **Konfigurerad** —
+inget av orden är ett kvitto på ett lyckat externt provideranrop.
 
 Versionsverifiering hör **inte** till denna per-dossierprojektion. RenderGate/
 ReleaseGate och revisionsmatchning kvitterar hela versionssnapshoten; att
 projicera det som `verified: boolean` på varje dossier skulle skapa falsk
-precision. Katalogfältet `lastVerified` är i sin tur kurationsbevis och ska inte
-blandas ihop med ett versionskvitto.
+precision. Katalogfältet `lastVerified` är acceptansdatum när `verificationStatus` är
+`accepted`. För `unverified` är samma obligatoriska datum endast import-/
+kureringsdatum och ska aldrig visas som acceptans- eller versionskvitto.
 
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
@@ -300,12 +211,12 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 | `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`                                                                       |
 | `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `vercel-blob-media`, `visitor-counter`                          |
 | `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
-| `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`                                    |
+| `visual`                       | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`                                    |
 | `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                                 | `vercel-analytics`                                                                  |
 
-Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en _riktig_ primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
+`mock` beskriver fallbackbeteende, inte ett env-värde. F2:s deterministiska mock-seed är **preview-only**: den persisteras aldrig till `projectEnvVars` och når aldrig deploy. Själva fallbackkoden följer däremot med dossiern och kan fortsatt visa demo/setup i F3 eller en publicerad sajt när enforcement tillåter och riktig konfiguration saknas. Kataloggodkända placeholders kan hålla build/preview körbar men är aldrig livebevis eller riktig providerkonfiguration. En dossier som fått en _riktig_ primärnyckel men saknar en riktig sekundärkonfiguration tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men saknad/placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config. Export/deploy strippar den pipeline-ägda `.env.local`; riktiga `projectEnvVars` hanteras separat av runtime/deploy.
 
-**Alla hard-dossiers har ett explicit `mock`-läge utom analytics-undantaget.** Endast `vercel-analytics` utelämnar fältet → `none`; det är korrekt eftersom den saknar egna env-nycklar (`envVars: []` — komponenten self-disablar helt utan visuell yta att mocka) och capability `analytics` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`). Aktuell katalog: [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md).
+**Alla hard-dossiers har ett explicit `mock`-läge utom analytics-undantaget.** Endast `vercel-analytics` utelämnar fältet → `none`; det är korrekt eftersom den saknar egna env-nycklar (`envVars: []` — komponenten self-disablar helt utan visuell yta att mocka) och capability `analytics` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`). Aktuell katalog: [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 
@@ -316,7 +227,73 @@ Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvV
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
-**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
+**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. Existing hard/provider-coupled core uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files. Positive SDK evidence or exact canonical protected bytes support preservation; canonical bytes are not installed/live-provider evidence. An occupied divergent protected core without either proof is also preserved, but requires migration review rather than a guessed replacement. Existing foreign-/multiple-provider holds remain in force, and explicit removal wins before preservation. Rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
+
+### Version promotion, restore and repair
+
+The migration guard must run before promotion and repair acceptance, even when
+cached quality evidence is green. Explicit removal is evaluated against the
+candidate files: canonical dossier presence and direct dependency plus production
+AST evidence must not still prove a removed capability. The current pre-repair
+files may contain that removed integration when the candidate has removed it.
+Absent legacy removal fields mean no removals; present malformed fields are
+unavailable evidence, not an empty set. Capability identity remains exact:
+Supabase authentication is not Supabase database access.
+
+Provider comparison uses exact dossier capability, falling back to the existing
+integration-kind capability for positively detected non-dossier methods.
+Adding the first positive dependency/runtime proof is evidence recovery, not
+a provider migration. Replacing or erasing an already proven provider, or
+introducing multiple candidate providers for one capability, remains a hold.
+Core-preservation and explicit-removal guards still apply independently;
+canonical protected bytes never become installed/live-provider proof.
+
+Normal promotion and repair compare-and-set bind the exact files, `edit_kind`
+and full chat orchestration snapshot, including removal fields. An immutable
+`edit_kind="restore"` instead scopes immediate readiness/promotion to that
+version's actual files, not a later chat provider choice; its CAS still binds
+the files and edit kind. Conflicting actual provider cores remain a hold.
+Restore does not rewind the chat's provider plan or approval/removal history.
+Later F3/follow-up retains the current conversation's explicit choices; a
+provider change needs an explicit migration decision, not silent replacement.
+
+An inspected migration/removal hold returns `integration_migration_required`.
+Manual repair acceptance reports HTTP 409 with that code, pending repair intact
+and `retryable: false`; it must not report "no pending repair" or add
+`Retry-After`. Timeout autoaccept does not accept the held repair. A successful
+fresh read is authoritative, even at the same file revision. Only a proven
+typed hold may use an exact blocked projection when readback is unavailable;
+an ordinary no-op with unavailable readback keeps the original row unchanged.
+Lease unavailability remains retryable HTTP 503; genuine write,
+schema and security errors are not converted into a migration hold.
+
+A deterministic hold must be authorized under the same locked row, lease and
+compare-and-set authority as its inspected decision, including the exact
+files, edit provenance and applicable raw chat context. A lease/CAS miss stays
+a retryable no-op, not a non-retryable migration result. Applied holds persist
+draft/pending with a current-revision marker in the existing verification
+summary and leave repair payload/availability untouched. No new lifecycle
+state or installation ledger is introduced. The stale watchdog must not fail
+an active current-revision hold by age alone.
+
+An applied hold or decision-context no-op stops the old repair loop immediately,
+without another paid repair pass or a stale failure/clear. Context retry is
+bounded and requires an authoritative current, nonterminal, unheld version.
+An exhausted retry may settle a still-current verifying/repairing row to
+retryable pending only under its exact row-state/files/summary CAS and lease;
+existing repair payload and availability must remain untouched. Terminal,
+held or newly changed rows are no-ops. After a proven settlement write,
+optional readback failure must not turn pending into verifier failure;
+write/schema/security errors retain their error contract. Manual deploy repair maps the stopped
+hold through the existing readiness-unavailable outcome, not an ordinary
+failed-repair result.
+
+Both status and version history project the durable hold as the existing
+blocked status, overriding an empty or older terminal bus. The status read is
+HTTP 200 with a typed blocked reason, never fabricated done/failed; quality-gate
+and manual repair keep their actionable HTTP 409 contract. Client polling and
+resume stop only for that explicit non-retryable hold. Ordinary blocked states,
+transient failures and busy leases keep their existing retry behavior.
 
 ### Canonical file paths and collision policy
 
@@ -324,7 +301,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 Aliases and file-versus-directory ancestor conflicts within one manifest are invalid in both source paths and mapped outputs. Source checks are per dossier root, not across physically separate dossier directories, and do not impose a global case restriction. Dossiers actually selected together cannot claim divergent contents, different literal output paths under one ownership identity, or conflicting file/directory ancestors; exact-output, byte-identical shared helpers are allowed. Prompt rendering and verbatim restoration reject conflicts before producing a partial prompt or mutating the supplied file list. Acceptance materialization permits a dossier to overlay an exact literal scaffold path, but rejects different spellings under the same portable identity and file/directory conflicts with the scaffold or already-materialized files before inserting them. The same generated-project path normalizer identifies leading-slash, separator and `./` aliases without resolving traversal. Multiple generated aliases of a selected dossier path are rejected before restoration. A single generated alias is restored to the canonical output spelling, without overwriting rewritable content.
 
-Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Final verbatim restoration still restores canonical source bytes after the import-repair passes. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
+Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Selected installations retain canonical restoration; preserved previous cores are asserted without post-fixer restoration. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
 
 Ownership identity is not functional presence evidence: a dossier's server files must still exist at the exact canonical path on Linux. Persisted version paths are compared literally, without trimming or normalizing separators, prefixes, case or Unicode composition. Lifecycle server evidence uses the same literal comparison; its alternative model-built API-route heuristic also rejects noncanonical path spellings and dot/traversal segments. Declaration uniqueness, scaffold ownership and explicit dossier removal use portable identity so case/Unicode aliases cannot falsely identify a provider or evade cleanup. A readable zero-byte source is valid: its path is canonicalized, an omitted file is seeded, and verbatim drift is restored to zero bytes; present rewritable content is still preserved. The existing fallback for a single unreadable canonical source (`null`, not an empty string) remains unchanged; it is not new provider-acceptance evidence.
 
@@ -333,8 +310,6 @@ Ownership identity is not functional presence evidence: a dossier's server files
 A dossier that `exposes` a UI component owns that capability's surface. When a follow-up adds such a dossier to a project whose previous version does **not** contain the exposed component, `renderDossierBlocks` emits `## Capability Surface Ownership` (`src/lib/gen/system-prompt/sections/dossiers.ts`): the dossier's component, its import specifier and its server route are named, and the model must pick **adapt** (point the existing surface at the dossier's route) or **replace** (make the dossier component the owner) — never leave two live.
 
 The block is emit-time prevention, which is the part the pipeline can guarantee: follow-up merge (`mergeVersionFilesWithWarnings`) carries previous files forward, and the only deterministic deletion path is `removeExplicitlyRemovedDossierFiles`, which drops dossier-owned paths for dossiers the user explicitly removed. So the contract tells the model to stop _calling_ the competing endpoint rather than to delete it, and `runProjectSanityChecks` flags any component still pointing at an API path no route handler serves (Advisory).
-
-Incident this closes: chat `747636c8` (2026-07-13) built its own `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts` in F2, then added the `openai-chat` dossier for the same `ai-chat` capability. Nothing declared ownership, the page ended up with two chat implementations, and the hand-rolled one carried the `TS2345` that failed the F3 ReleaseGate.
 
 ## Manifest schema (7 common required + class rule)
 
@@ -437,9 +412,9 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 `selectDossiersForRequest(opts)` lives in `src/lib/gen/dossiers/select.ts`:
 
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`). When the caller COMPUTED the list (the F3 capability-scope in orchestrate passes `disableBriefFallback: true`), an empty list is authoritative — the brief fallback never resurrects speculative capabilities in F3.
-2. Normalize legacy aliases (`CAPABILITY_ALIASES`): `supabase-auth` → `auth` (with a dossier PIN on the `supabase-auth` dossier so the legacy id keeps meaning "Supabase specifically") and `command-search` → `command-palette` — old snapshots/briefs keep resolving. Then expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — the table is EMPTY since 2026-08-06 (the only entry ever needed, `subscriptions` ⇒ `auth` pinned to `supabase-auth`, left with the parked paddle-billing dossier); the mechanism stays for a future dossier whose F3 surface genuinely cannot work alone, never as a convenience bundle. The former ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4 (those dossiers parked). The former supabase-auth/auth dedup is obsolete since the capability merge — one capability selects exactly one dossier, so two colliding root middlewares can no longer be picked. The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
+2. Normalize and dedupe capability ids through `normalizeDossierCapabilityIds`. Legacy aliases remain: `supabase-auth` → `auth` (with a dossier PIN on `supabase-auth`, so the persisted id still means “Supabase specifically”) and `command-search` → `command-palette`. The helper does not inject implicit companion capabilities. It runs in both selection and `filterDossierCapabilitiesForPrompt`, keeping prompt and selection in lockstep.
 3. For each capability, find dossiers via `getDossiersByCapability(cap)`.
-4. If multiple match: a dependency/alias PIN wins first (reason `dependency-pin`); otherwise an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "logga in med supabase" → `supabase-auth` even though `clerk-auth` is the `auth` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
+4. If multiple match: a legacy alias PIN wins first (the persisted reason remains `dependency-pin` for compatibility); otherwise an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "logga in med supabase" → `supabase-auth` even though `clerk-auth` is the `auth` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
 5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
 6. Eagerly load `instructions.md` for selected dossiers.
 
@@ -469,13 +444,49 @@ context-only i stället för att installera en konkurrerande betalmetod.
 Existerande projektkod räknas som positivt providerbevis bara när ett direkt
 `package.json`-beroende sammanfaller med en parse-ren runtime-import/export,
 global `require()` eller dynamisk import. Type-only-importer, kommentarer,
-strängar, lokalt skuggad `require`, trasig syntax och bara paketdeklaration är
+strängar, lokalt skuggad `require`, trasig syntax, test-/spec-/fixturematerial,
+`.stories`-filer och segmenten `__mocks__`, `e2e` och `test-utils` samt bara
+paketdeklaration är
 okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
-blir valet olöst i stället för manifestordningsstyrt.
+blir valet olöst i stället för manifestordningsstyrt. Explicit providerbyte
+tolkar riktningen även i `instead of`/`istället för`/`i stället för`; en separat
+`and keep`/`och behåll`-instruktion ingår inte i källans borttagning.
+Durabla F3-godkännanden filtreras mot befintliga provider-/capability-kontrakt:
+en borttagen Supabase-databas får inte återkomma via ett tvetydigt provider-hint,
+medan ett självständigt auth-kontrakt och dess capability/dossier bevaras.
+Ingen ny separat godkännandeledger införs.
 
-På filnivå blockerar en divergent befintlig server- eller verbatim-yta innan
-injektion. En byte-exakt del av dossierns kanoniska kärna får däremot kompletteras
-med saknade filer, och rewritable UI förblir adapterbar. Detta är
+Lagrade filposter valideras atomiskt av `stored-code-files.ts` före inspektion:
+en feltypad post gör hela underlaget otillgängligt, inte en filtrerad och
+skenbart konfliktfri delmängd. Ett pending provider-id får capability från
+sin exakta backing dossier först; utan backing används bara en entydig
+providerregel. Flera kandidater väljs inte genom manifestordning.
+
+Providerreglerna måste omfatta det SDK som katalogens kod faktiskt importerar,
+inte bara providerns ursprungliga paket. Samma krav på direkt paketberoende
+och positiv produktions-AST-import gäller varje deklarerad paketrot.
+
+På filnivå blir en divergent befintlig kärna `context-only` när exakt
+manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att
+den redan tillhör samma provider. Befintliga bytes bevaras utan kataloguppgradering
+eller nya hjälpfiler. Även bevisade äldre kärnor under en capability som dagens
+uppföljning inte nämner bevaras. En obevisad upptagen server-/verbatim-yta
+blockerar; en byte-exakt kanonisk del får kompletteras med saknade filer och
+rewritable UI förblir adapterbar. Bevisad annan provider eller flera providers
+för samma capability ger migrationsspärr, aldrig automatisk source-radering.
+Det gäller även dossierlösa mål. En redan känd Product Postcheck-/L6-hold
+behåller sitt precisa besked utan en extra filläsning som kan maskera det.
+Ett frisläppande verdict går däremot alltid vidare genom fil-, migrations-
+och env-grindarna. Promotion, repair-acceptance inklusive timeout-autoaccept
+och stale-green-återhämtning använder samma migrationsspärr vid den faktiska
+statusövergången. Den låsta nuvarande filytan och eventuell repair-kandidat
+prövas; UPDATE binds dessutom till samma fil- och providerkontraktsunderlag.
+Oläsbara eller tomma versionsfiler är otillgängligt bevis, inte ett bevis på
+att ingen migration behövs. Migrationshold och transienta kontextläsfel är
+retrybara; verkliga skriv-/schemafel får inte döljas som vanliga väntetillstånd.
+Bedömningen återhärleds från tidigare filer och befintliga kontrakt varje
+runda; ingen ny beständig installationsledger. Explicit borttagning fortsätter
+vinna, medan faktiskt delade aktiva claims skyddas. Detta är
 kompatibilitets-/migrationsskydd, inte live provideracceptans. Känd dossierlös
 MongoDB/Auth0 kan starta den befintliga generiska F3/LLM-vägen, men det är ett
 startvillkor — inte bevis på full-stack-funktion eller liveacceptans. Bedömningen
@@ -493,9 +504,7 @@ distinctive, non-shared file; client-only dossiers need one distinctive file).
 A **baseline path is never distinctive.** The scaffold fills in `lib/utils.ts`,
 `app/layout.tsx` and the rest of `SCAFFOLD_FILES` for every project regardless of
 selection, so a manifest that declares one of them would make its dossier look
-built in every single site. That is not hypothetical: `dashboard-charts` declared
-`components/lib/utils.ts`, which maps to the baseline `lib/utils.ts`, and reported
-as connected in sites without a single chart (F2, 2026-07-25). The baseline set is
+built in every single site. The baseline set is
 derived from `SCAFFOLD_FILES` plus every scaffold manifest's files in
 `src/lib/gen/scaffolds/baseline-paths.ts` — derived, not hand-listed, so a new
 scaffold cannot reopen the hole. Locked by `version-presence.test.ts`.
@@ -521,29 +530,34 @@ version has been saved, finalize derives `fileEvidenceDossierIds` and
 `fileEvidenceCapabilities` from that final `files_json`; only this evidence (or
 explicit removal) clears the corresponding pending entries.
 
+An own `selectedDossierIds` array in stream metadata is authoritative, including
+`[]`, unknown ids and partial matches. Finalize subtracts explicit removals and
+uses the same resolved set for autofix dependencies and the actual file merge;
+it never fills the remainder from capability defaults. Only an absent property
+may replay older persisted requested capabilities. A present malformed value fails
+closed before autofix or merge, rather than silently changing provider choice.
+
 An exact-file integrations fork + ReleaseGate without codegen is allowed only
 when **no pending dossier remains** and the existing file-derived build spec has
 no reason to run a general LLM build. An APPROVE-continuation remains exempted
-from the deterministic backstop in three legacy/interactive cases:
+from the deterministic backstop in three cases:
 
 1. **Uniquely dossier-backed provider, DOSSIER-ID granularity:** an approved
    provider maps via explicit `manifest.providers` to exactly one dossier whose
    files are not present in the parent (`resolveDossierIdsPresentInVersion`).
    Capability granularity is deliberately not used — a present sibling
    (`clerk-auth` under `auth`) must not satisfy an approved exact sibling id
-   (`supabase-auth`). Legacy approval values that already contain an exact
+   (`supabase-auth`). Persisted approval values that already contain an exact
    dossier id (for example `stripe-checkout`) remain accepted as explicit
-   identities. Note: after etapp 3, `mongodb` is dossierless and takes the
-   generic path (case 2).
+   identities. `mongodb` is dossierless and takes the generic path (case 2).
 2. **Dossierless or ambiguous / forced-generic provider:** a known provider with
    zero manifest matches (`posthog`, `google-analytics`) or forced-generic keys
    (`openai`, `supabase` via `FORCED_GENERIC_PROVIDER_KEYS` — intent-ambiguity
    even when registry-unique after parkings) is reported by
    `providerKeysWithoutBackingDossier` and goes through the GENERIC LLM path.
    It must never pick an arbitrary dossier sibling or take a deterministic
-   exact-file fork that would ship the wrong/zero code. (`postgres` injects
-   `postgres-drizzle` deterministically since etapp 4 — rag-chat was the only
-   other claimant.)
+   exact-file fork that would ship the wrong/zero code. `postgres` injects
+   `postgres-drizzle` deterministically.
 3. **Durable snapshot capability**: a persisted `f3ApprovedCapabilities` entry
    (no provider identity to sharpen with) lacking file presence, compared at
    capability level.
@@ -598,7 +612,7 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 
 ### AI-assisted from a template-reference repo
 
-1. Clone the upstream repo into `_template_refs/dossier-references/repos/<reference-id>/` (or pick one already there from the legacy auto-pipeline). That folder is a **sibling of the checkout**, not part of it: the clones are ~2 GB and each carries its own `tsconfig.json`, which made the editor's TypeScript server start an inferred project per clone. Never clone them back under `data/`.
+1. Clone the upstream repo into `_template_refs/dossier-references/repos/<reference-id>/` (or pick one already there). That folder is a **sibling of the checkout**, not part of it: the clones are ~2 GB and each carries its own `tsconfig.json`, which made the editor's TypeScript server start an inferred project per clone. Never clone them back under `data/`.
 2. Run:
    ```bash
    npm run dossiers:curate -- --reference=<reference-id> --class=hard --id=<dossier-id>
@@ -607,7 +621,7 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 4. Review the draft in the backoffice Dossiers page (Redigera tab) and fix anything wrong before relying on it.
 5. Complete the acceptance checklist below. Only then bump `lastVerified` and remove the `notes` field.
 
-The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
+The script is intentionally one-at-a-time.
 
 ### Configuration guidance and the internal integration projection
 
@@ -624,7 +638,7 @@ is an internal, request-local projection used by prompt composition and dossier
 restoration. Paths, per-file fidelity, F3 requirements and guidance references
 come from existing canonical owners. It is not a persistent dossier model or
 a new generation/readiness phase. The shared prompt renderer surfaces guidance
-also when legacy instruction text is unavailable; omitted metadata adds no
+also when older instruction text is unavailable; omitted metadata adds no
 empty prompt section. Guidance must not change configured, lifecycle or
 `lastVerified` semantics.
 
@@ -636,7 +650,7 @@ when a dossier is stale, has an invalid date, or claims a future verification.
 It also fails every dossier marked `verificationStatus: "unverified"`, even if
 its imported source date is recent. The dedicated scheduled maintenance
 workflow runs this as a blocking evidence check; ordinary schema validation
-does not pretend the current legacy backlog is accepted.
+does not pretend the current unverified backlog is accepted.
 Provider-coupled (`hard`) dossiers expire sooner than provider-free (`soft`)
 dossiers because provider APIs, SDKs and webhook contracts drift faster.
 
@@ -662,13 +676,12 @@ skipped). Every pull request runs a path-scope job against the materialization
 contract (`scripts/dossiers/acceptance-paths.mjs`). Hits install, typecheck and
 production-build the matrix; misses skip the matrix and still publish the
 required `dossier-acceptance` aggregate as green. The same workflow materializes
-the exact dossier files on the common generated-project scaffold, merges the
-canonical export baseline and manifest dependency ranges, then runs `tsc --noEmit`
+the exact dossier files on the selected existing acceptance scaffold
+(`landing-page` by default; `ecommerce` for Stripe, `dashboard` for Postgres,
+and `blog` for Mailchimp), merges the canonical export baseline and manifest
+dependency ranges, then runs `tsc --noEmit`
 and a production build with only the pipeline's harmless preview placeholders.
-Soft coverage was added 2026-08-06 after `maplibre-map`'s verbatim component
-rotted unnoticed under the former hard-only matrix (maplibre-gl v6 dropped its
-default export; prod chat 3a6c5472 shipped a broken map and lost an F3 build
-on it). The same workflow checks every
+The same workflow checks every
 resolved dependency range against npm and runs the evidence/freshness gate.
 
 This is build acceptance, not proof that Clerk login, Stripe checkout or a
@@ -727,11 +740,11 @@ in [`src/lib/gen/dossiers/validate-manifest.ts`](../../src/lib/gen/dossiers/vali
   check covers every manifest package even when there are zero explicit
   `apiVersion` literals, so "0 pins checked" is no longer the only drift signal.
   Verification evidence/freshness is a separate blocking maintenance
-  lane because explicit legacy-unverified dossiers must stay visible as debt,
+  lane because explicitly unverified dossiers must stay visible as debt,
   never be laundered into a green manifest-validation result.
 - **Curation** — `dossiers:curate` validates the AI draft with the same function.
 
-**Module-level SDK-init rule (B5-standard, 2026-07-03):** dossier code must not
+**Module-level SDK-init rule:** dossier code must not
 construct env-dependent SDK clients at module scope (`const stripe = new
 Stripe(process.env.KEY ?? "")`) — the constructor throws at import time when the
 key is missing, which makes the handler's env guard (503 `*-not-configured`)
@@ -772,8 +785,8 @@ pool through `getAllDossiers()`, so runtime guarantees remain tied to manifests
 rather than to a derived file. The capability-map owns only its generated shape
 and serves Backoffice/tooling as a CI-fresh projection.
 
-Since etapp 5 (2026-07-12) the generated file also carries a top-level
-**`groups`** field: `{ "<group-id>": { "label": "<svensk label>", "capabilities":
+The generated file also carries a top-level **`groups`** field:
+`{ "<group-id>": { "label": "<svensk label>", "capabilities":
 ["..."] } }`, in `DOSSIER_GROUP_ORDER` order, built by
 [`regenerate-capability-map.ts`](../../scripts/dossiers/regenerate-capability-map.ts)
 from `resolveDossierGroup`/`DOSSIER_GROUP_ORDER` (`dossier-groups.ts` stays the
@@ -800,10 +813,9 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/dossiers/registry.ts`                                                                                         | Disk reader + mtime cache                                                                                                                                                                                                                                                                                                       |
 | `src/lib/gen/dossiers/select.ts`                                                                                           | Deterministic capability-driven selection                                                                                                                                                                                                                                                                                       |
 | `src/lib/gen/dossiers/version-presence.ts`                                                                                 | Canonical "which dossiers are IN this version" resolver (server files + ≥1 distinctive file; se § Version-presence union) + `resolveSelectedDossiersWithVersionPresence` — the snapshot ∪ presence union shared by panel, readiness, finalize-design, F3-gate and deploy.                                                       |
-| `src/lib/gen/dossiers/lifecycle.ts`                                                                                        | Pure evidence/status projection for the builder overview; preserves independent pending/materialized/configured/detected/server-evidence axes and the existing five UI statuses.                                                                                                                                                |
+| `src/lib/gen/dossiers/lifecycle.ts`                                                                                        | Pure evidence/status projection for the builder overview; preserves independent pending/configured/detected/server-evidence axes and the existing five internal statuses. Exact manifest presence stays upstream in `version-presence.ts`, not as a lifecycle echo.                                                                 |
 | `src/lib/gen/dossiers/types.ts`                                                                                            | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult`                                                                                                                                                                                                                                                                     |
 | `src/lib/gen/system-prompt/`                                                                                               | Renders the three dossier blocks into the system prompt                                                                                                                                                                                                                                                                         |
 | `scripts/dossiers/curate-from-reference.ts`                                                                                | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call                                                            |
 | `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`.                                                                                                                       |
 | `backoffice/pages/dossiers.py`                                                                                             | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet                                                                                                                                                             |
-| Old 96-dossier v1 pool, 16-script pipeline, scaffold-recommendations, embeddings                                           | Gitignored local archive (`/archive/` in `.gitignore`), not guaranteed present on every checkout. Legacy-import material (prospects, normalization reports, drafts) lives outside the repo — see the archived handoff `docs/plans/avklarat/2026-07-08-dossier-legacy-import.md` for the remaining curated-promotion follow-ups. |
