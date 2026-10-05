@@ -28,7 +28,7 @@ function payload(): KostnadsfriAdminPayload {
     pages: ["Historik AB", "Nytt AB"].map((companyName, index) => ({
       slug: index ? "nytt-ab" : "historik-ab",
       companyName,
-      industry: null,
+      industry: index ? "IT – AI/Data" : null,
       website: null,
       contactEmail: null,
       contactName: null,
@@ -76,6 +76,21 @@ describe("KostnadsfriSection data-quality regressions", () => {
     expect(
       screen.getByText(/Genereringarna gäller visat företagsregister, inklusive historik/),
     ).toBeTruthy();
+  });
+
+  it("shows industry, marks missing values and includes industry in register search", () => {
+    render(<KostnadsfriSection />);
+    const table = within(screen.getAllByRole("table")[0]);
+    expect(table.getByRole("columnheader", { name: "Bransch" })).toBeTruthy();
+    expect(table.getByText("IT – AI/Data")).toBeTruthy();
+    expect(table.getByText("Ej angiven")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Sök i registret"), {
+      target: { value: "ai/data" },
+    });
+
+    expect(table.getByText("Nytt AB")).toBeTruthy();
+    expect(table.queryByText("Historik AB")).toBeNull();
   });
 
   it.each([

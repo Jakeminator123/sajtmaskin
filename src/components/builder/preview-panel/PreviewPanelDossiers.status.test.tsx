@@ -491,7 +491,7 @@ describe("PreviewPanelDossiers status", () => {
   // Lucka 1 (ägarbeslut 2026-08-11): the generic "Miljövariabler sparade"
   // toast (`useBuilderVmPreview.ts`) is gone — the receipt now lives inline,
   // in the same row the key was typed into, and says what actually happened
-  // to the byggblock (not just "saved"). Status word ("Byggd — live") comes
+  // to the byggblock (not just "saved"). Statusordet kommer
   // straight from `describeDossierStatus`; "Previewn" is the glossary term.
   it("lucka 3: reports counts via onCountsChange on every fetch instead of a separate consumer fetch", async () => {
     stubFetch({

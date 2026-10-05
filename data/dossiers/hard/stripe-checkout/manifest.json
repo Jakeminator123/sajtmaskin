@@ -79,6 +79,7 @@
       "import": "@/components/integration-config-notice"
     }
   ],
+  "promptInstructionMode": "selected-sections",
   "lastVerified": "2026-04-20",
   "sourceRepoUrl": "https://github.com/stripe-samples/checkout-one-time-payments"
 }

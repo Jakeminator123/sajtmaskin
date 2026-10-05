@@ -116,7 +116,7 @@ describe("scopeF3DossierCapabilities", () => {
     expect(result.dropped).toEqual(["payments", "analytics"]);
   });
 
-  it("does not invent companion capabilities when DEPENDENT_CAPABILITIES is empty", () => {
+  it("does not invent companion capabilities", () => {
     // Empty table since 2026-08-06 (subscriptions ⇒ auth left with parked
     // paddle-billing). File evidence of payments must NOT pull auth along.
     const result = scopeF3DossierCapabilities({
@@ -421,10 +421,10 @@ describe("filterDossierCapabilitiesForPrompt (auth after the 2026-07-22 merge)",
   });
 });
 
-describe("filterDossierCapabilitiesForPrompt (empty DEPENDENT_CAPABILITIES)", () => {
-  // Table empty since 2026-08-06; expandDependentCapabilities still alias-
-  // normalizes + dedupes overlapping AI chat surfaces.
-  it("does not expand payments with auth (no-op table)", () => {
+describe("filterDossierCapabilitiesForPrompt (no implicit companions)", () => {
+  // The shared helper alias-normalizes and dedupes without inventing another
+  // provider capability.
+  it("does not add auth to payments", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["payments"],
       prompt: "lägg till stripe-checkout",
@@ -449,8 +449,8 @@ describe("filterDossierCapabilitiesForPrompt (empty DEPENDENT_CAPABILITIES)", ()
       previewPolicy: "fidelity3",
     });
     expect(result).toContain("ai-chat");
-    // Stale parked id is not stripped by expandDependentCapabilities, but
-    // selects nothing downstream.
+    // A stale parked id is preserved by normalization but selects nothing
+    // downstream.
     expect(result).toContain("ai-tool-calling");
   });
 });

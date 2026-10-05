@@ -47,7 +47,7 @@ import {
 
 const createSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
-  industry: z.string().optional(),
+  industry: z.string().trim().optional(),
   website: z.string().optional(),
   contactEmail: z.string().email().optional(),
   contactName: z.string().optional(),
@@ -292,7 +292,7 @@ export async function POST(request: NextRequest) {
       // still stops the receipt. The cohort fields (`sentAt/source`) stay on
       // the first recorded send: only an accepted `step=first` may fill them,
       // under the same row lock and only while `sent_at` is still empty.
-      // Contact/profile refresh is separate company metadata: any accepted
+      // Industry/contact/profile refresh is separate company metadata: any accepted
       // send (first or follow) may carry it, under the same lock and opt-out
       // check. A conflict or opt-out changes nothing.
       const acceptedSend = mailEvent?.outcome === "accepted" && sentAt;
@@ -302,6 +302,7 @@ export async function POST(request: NextRequest) {
           : undefined;
       const metadata = acceptedSend
         ? {
+            industry,
             contactEmail,
             ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
           }
@@ -353,6 +354,7 @@ export async function POST(request: NextRequest) {
           ? await markKostnadsfriPageSent(slug, {
               sentAt: new Date(sentAt),
               source: source || DEFAULT_SEND_SOURCE,
+              industry,
               contactEmail,
               ...(companyProfile ? { extraDataPatch: { profile: companyProfile } } : {}),
             })

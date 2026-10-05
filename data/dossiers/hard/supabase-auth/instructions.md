@@ -1,21 +1,10 @@
 # When to use
 
-- Provider sibling under the shared `auth` capability. Selected when the user EXPLICITLY names Supabase for login/auth (manifest `relevanceKeywords`). A generic "login / inloggning / auth" ask picks the capability default (clerk-auth), not this dossier.
-- Fit: Next.js App Router apps needing cookie-based sessions, SSR auth state, middleware session refresh, and server-side user checks.
-- Appropriate for dashboards, member areas, app shells, and protected route groups.
-- Supports email/password, magic link, and OAuth flows configured in Supabase.
+Use when the brief explicitly selects Supabase Auth.
 
 # How to integrate
 
-- Install `@supabase/ssr`.
-- Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the Supabase project API settings.
-- Emit `components/middleware.ts` at the project ROOT as `middleware.ts`; it delegates to `updateSupabaseSession` for session refresh.
-- Emit the Supabase helpers under `lib/supabase/` and import them as `@/lib/supabase/server`, `@/lib/supabase/client`, `@/lib/supabase/middleware`, `@/lib/supabase/config`.
-- In Server Components, Route Handlers and Server Actions, call `createSupabaseServerClient()` then `supabase.auth.getUser()` for protected data.
-- In client components, call `createSupabaseBrowserClient()` for sign-in, sign-up, OAuth start and sign-out actions.
-- Author the login/signup UI yourself — this dossier ships no form. Use `createSupabaseBrowserClient()` for the submit handlers and keep the copy in the site's language.
-- The provider side is the owner's job, not code: enable email/password, magic link or the OAuth providers in the Supabase dashboard, and add the site origin plus the emitted callback URL (`/api/auth/callback`) to the redirect allowlist. Use that same path in `redirectTo`.
-- Graceful degradation: before rendering auth UI or calling a factory, check `isSupabaseAuthConfigured()`. When it is `false`, render the shipped `<SupabaseAuthNotice />` (or an equivalent calm notice naming the two `NEXT_PUBLIC_SUPABASE_*` env vars) instead of calling the client — the factories throw `supabase-auth-not-configured` if called unconfigured, and the middleware already passes through so the site never crashes.
+Keep middleware and callback bytes; use server `getUser()` for protected decisions.
 
 # Mock/demo mode
 
@@ -37,14 +26,7 @@
 
 # Avoid
 
-- Do not use this as the default generic auth dossier; it is Supabase-Auth-intent only.
-- Do not include Stripe, pricing, navbar, toast, theme, or template layout files.
-- Do not require GitHub-specific env vars unless the generated app explicitly adds GitHub OAuth.
-- Do not rely on `getSession()` alone for protected SSR decisions; use `getUser()`.
-- Do not store Supabase access tokens manually in localStorage when using SSR cookies.
-- Do not allow absolute or cross-origin OAuth callback redirects from `next`; only same-origin relative paths that start with `/` are allowed (`sanitizeNextPath` falls back to `/`).
-- Do not construct a Supabase client at module scope — always go through the lazy factories so a missing key degrades instead of crashing at import time.
-- Do not revert the cookie adapter to the deprecated `get`/`set`/`remove` shape; use the modern `getAll`/`setAll` contract.
+Do not use `getSession()` alone, expose service keys, or invent provider setup.
 
 # Verification
 
