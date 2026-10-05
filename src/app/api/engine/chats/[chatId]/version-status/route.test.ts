@@ -610,6 +610,84 @@ describe("GET version-status (engine)", () => {
     expect(emit).not.toHaveBeenCalled();
   });
 
+  it("projects the applied migration hold when the same-request tenant readback is unavailable", async () => {
+    const old = {
+      id: "v1",
+      verification_state: "verifying",
+      release_state: "draft",
+      files_revision: "rev-a",
+      lifecycle_stage: "integrations",
+    };
+    getEngineVersionForChatByIdForRequest
+      .mockResolvedValueOnce({ version: old })
+      .mockResolvedValueOnce(null);
+    readAll.mockReturnValue(spinningBus);
+    promoteVersionIfUnleased.mockResolvedValue("integration_migration_required");
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (
+        version: unknown,
+        opts: { promoteReconciledVersion?: () => Promise<unknown> },
+      ) => {
+        await opts.promoteReconciledVersion?.();
+        return { version, failed: false };
+      },
+    );
+
+    const response = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = await response.json();
+
+    expect(body.status).toMatchObject({
+      phase: "blocked",
+      done: false,
+      verificationBlocked: true,
+      lastBuildError: { failureCode: "integration_migration_required" },
+    });
+  });
+
+  it("lets a successful fresh read win over the old sentinel even at the same files revision", async () => {
+    const old = {
+      id: "v1",
+      verification_state: "verifying",
+      release_state: "draft",
+      files_revision: "rev-a",
+      lifecycle_stage: "integrations",
+    };
+    const current = {
+      ...old,
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary: "Automatic verification passed.",
+    };
+    getEngineVersionForChatByIdForRequest
+      .mockResolvedValueOnce({ version: old })
+      .mockResolvedValueOnce({ version: current });
+    readAll.mockReturnValue(spinningBus);
+    promoteVersionIfUnleased.mockResolvedValue("integration_migration_required");
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (
+        version: unknown,
+        opts: { promoteReconciledVersion?: () => Promise<unknown> },
+      ) => {
+        await opts.promoteReconciledVersion?.();
+        return { version, failed: false };
+      },
+    );
+
+    const response = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = await response.json();
+
+    expect(body.status.phase).toBe("done");
+    expect(body.status.lastBuildError?.failureCode).not.toBe(
+      "integration_migration_required",
+    );
+  });
+
   it("never touches the DB when the bus already settled (F2 design-preview skip → done)", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1", verification_state: "pending", lifecycle_stage: "design" },

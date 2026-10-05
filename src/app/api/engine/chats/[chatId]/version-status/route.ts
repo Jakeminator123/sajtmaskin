@@ -42,6 +42,7 @@ import {
 import type { VersionErrorLog } from "@/lib/db/services/shared";
 import {
   applyCurrentIntegrationMigrationHold,
+  buildIntegrationMigrationHoldSummary,
   isCurrentIntegrationMigrationHold,
   reconcileTerminalDbState,
   type ContentRevisionContext,
@@ -199,8 +200,23 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         chatId,
         dbVersion.id,
       ).catch(() => null);
-      if (refreshed && isCurrentIntegrationMigrationHold(refreshed.version)) {
+      if (refreshed) {
+        // A successful post-commit read is authoritative even when it has the
+        // same revision and a newer non-hold terminal state.
         dbVersion = refreshed.version;
+      } else {
+        // The typed sentinel proves the hold write took for this exact old
+        // revision. When tenant readback is unavailable, render that known
+        // blocked state instead of leaving the same request spinning.
+        dbVersion = {
+          ...dbVersion,
+          release_state: "draft",
+          verification_state: "pending",
+          verification_summary: buildIntegrationMigrationHoldSummary(
+            dbVersion.files_revision ?? null,
+          ),
+          promoted_at: null,
+        };
       }
     }
 

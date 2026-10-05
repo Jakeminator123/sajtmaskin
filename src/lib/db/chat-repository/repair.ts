@@ -168,6 +168,12 @@ export type AcceptRepairResult =
 export async function acceptRepair(
   versionId: string,
   verificationSummary: string | null = "Server repair accepted.",
+  expected?: {
+    filesJson: string;
+    filesRevision: string | null;
+    editKind: string | null;
+    repairedFilesJson: string;
+  },
 ): Promise<AcceptRepairResult> {
   // Resolve lease-table presence ONCE, out of band. We must NOT name
   // engine_version_jobs inside the UPDATE when it is absent — Postgres
@@ -211,6 +217,17 @@ export async function acceptRepair(
       .for("update");
     const repairedFilesJson = rows[0]?.repairedFilesJson;
     if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
+      return null;
+    }
+    if (
+      expected &&
+      (rows[0]?.filesJson !== expected.filesJson ||
+        (rows[0]?.filesRevision ?? null) !== expected.filesRevision ||
+        (rows[0]?.editKind ?? null) !== expected.editKind ||
+        repairedFilesJson !== expected.repairedFilesJson)
+    ) {
+      // Auto-accept callers may have observed an older repair row. Never use a
+      // hold produced for a newer locked row to normalize that stale object.
       return null;
     }
     // #260 / Codex P2 #5 (repair-vs-user-edit clobber): the pending repair is
@@ -462,15 +479,48 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
     );
     return { version, wasAutoAccepted: false };
   }
+  const expected =
+    typeof version.files_json === "string" && typeof version.repaired_files_json === "string"
+      ? {
+          filesJson: version.files_json,
+          filesRevision: version.files_revision ?? null,
+          editKind: version.edit_kind ?? null,
+          repairedFilesJson: version.repaired_files_json,
+        }
+      : undefined;
   const accepted = await acceptRepair(
     version.id,
     "Server repair auto-accepted after timeout.",
+    expected,
   );
+  if (accepted === "integration_migration_required") {
+    const current = await getStoredVersion(version.id).catch(() => null);
+    if (current) return { version: current, wasAutoAccepted: false };
+    // The optional expected snapshot above makes the caller's row an exact
+    // witness for the locked hold decision. If readback is unavailable, expose
+    // a safe blocked projection without discarding the pending repair envelope.
+    return {
+      version: {
+        ...version,
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: buildIntegrationMigrationHoldSummary(
+          version.files_revision ?? null,
+        ),
+        promoted_at: null,
+      },
+      wasAutoAccepted: false,
+    };
+  }
   if (
     !accepted ||
-    accepted === "lease_unavailable" ||
-    accepted === "integration_migration_required"
+    accepted === "lease_unavailable"
   ) {
+    if (!accepted && expected) {
+      const current = await getStoredVersion(version.id).catch(() => null);
+      if (current) return { version: current, wasAutoAccepted: false };
+      return { version, wasAutoAccepted: false };
+    }
     return { version, wasAutoAccepted: false };
   }
   return { version: accepted, wasAutoAccepted: true };

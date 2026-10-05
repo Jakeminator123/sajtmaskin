@@ -127,8 +127,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       if (latestVersion) {
         const { version: normalizedLatestVersion, wasAutoAccepted } =
           await maybeAutoAcceptTimedOutRepair(latestVersion);
+        // The helper also normalizes a durably applied migration hold. That
+        // row is authoritative even though no repair was accepted.
+        engineVersions = [normalizedLatestVersion, ...engineVersions.slice(1)];
         if (wasAutoAccepted) {
-          engineVersions = [normalizedLatestVersion, ...engineVersions.slice(1)];
           await createEngineVersionErrorLogs([
             {
               chatId: engineChat.id,

@@ -15,7 +15,9 @@ ta bort bevisat döda lager och motsägelsefull vägledning.
 
 Jakob har gett förhandsvillkorat mandat att skapa/pusha PR:er och merga
 dossierleveransen till preview efter aktuell oberoende review, required checks
-och exakt deployment. Scaffolds väntar. Ingen masterpromotion, ZIP-bulkimport,
+och exakt deployment. Jakob har därefter tillåtit parallell scaffoldimplementation
+i redan separat checkout för icke-överlappande owners; gemensam route-/finalize-
+integration väntar på frigiven faktisk dossierbas. Ingen masterpromotion, ZIP-bulkimport,
 installationsledger, ny agent-/LLM-fas, extern tjänst, beroendeuppgradering,
 live-provideroperation eller DB-/env-/credentialändring ingår.
 
@@ -39,19 +41,31 @@ Dess historiska CI var 13 039 standardtester + 126 isolerade DB-tester +
 Grön CI upphäver inte tre senare native fynd: restore mot senare chatintent,
 missvisande repair-hold och missad explicit removal.
 
-Ny lokal rättningsbatch utgår från `b2ced5349dd3854b04cc4d14bc2d14f7de2256d4`.
-Två oberoende reviews på den föräldern gav HOLD för provider-evidence recovery,
-kind-only metodbyte, holdens DB/lease/CAS-/status-/klientlivscykel och en
-feltypad promotionwrapper. Samlad rättning är implementerad men väntar på
-aktuell delta-/integrationsreview. Ownertriage begränsar core-PR:n till
-60 befintliga paths, inklusive nödvändiga status-, watchdog-, klient- och
-after-repair-följdägare; ingen ny endpoint, tabell eller lifecycle-fas.
+Den aktuella lokala rättningsbatchen utgår från
+`40a53cbebe1d3e5c15ddcce58a372332b554b3a2`. Två oberoende reviews gav HOLD
+för holdens beslutskontext/CAS och repairloopens saknade terminalutfall;
+versions-/autoacceptkonsumenterna behövde också följa en tillämpad hold.
+Samlad rättning finns i 15 runtime-/testfiler. Nästa oberoende delta-/
+integrationsreview gav fyra konkreta följdfynd, nu samlade före rättning:
+fresh terminal-/holdstatus måste stoppa CAS-retry, förbrukad retry måste lämna
+ett ärligt retrybart tillstånd utan att rensa repairpayload, manuell deploy
+måste mappa after-repair-hold, och vanlig acceptRepair-no-op får inte
+fabricera pending när återläsning saknas. En ensam worker har rättat denna
+batch och återlämnat skrivleasen; root fryser nu kandidat och följdokument
+inför ny oberoende delta-/integrationsreview.
+Ownertriage begränsar core-PR:n till 64 befintliga paths, inklusive nödvändiga
+status-, watchdog-, klient- och after-repair-följdägare; ingen ny endpoint,
+tabell eller lifecycle-fas. Misstanken om rå restore-snapshot i F3 avfärdades:
+den enda aktuella restoreproducenten skapar designversioner. Ingen hypotetisk
+F3-ändring läggs till; den befintliga restore-/promotionsemantiken bevaras.
 
-Aktuella delbevis: beteende-RED 17 fel/250 pass i nio filer, därefter samma
-fokus GREEN 305/305; bred berörd matris 397/397. Överlapp summeras inte.
-Separat `npm run typecheck -- --incremental false`, scoped lint, diffcheck
-och PR-plan avslutades med uttrycklig exitkod 0. Ett äldre typkontrollskvitto
-utan loggad exitkod har återtagits. Tom output är inte verifiering.
+Aktuella delbevis: samlad beteende-RED gav 7 fel/89 pass i tre filer; samma
+acceptances är GREEN 97/97. Slutligt fokus är 162/162 i sex filer och bred
+berörd matris 334/334 i 14 filer. Överlapp summeras inte. Workers fresh
+nonincremental typecheck, scoped lint, diffcheck och PR-plan avslutades med
+uttrycklig exitkod 0. Root har kontrollerat runtimehasharna; egen färsk
+nonincremental typkontroll avslutades också exit 0. Följddokumentkontroller
+körs före freeze. Tom output är inte verifiering.
 Ny head kräver fortfarande aktuell review, full CI och deployment.
 
 ## Checklista och klarkriterier
@@ -97,7 +111,8 @@ Ny head kräver fortfarande aktuell review, full CI och deployment.
 - [ ] Städa endast eget terminalt arbete efter `tidy`/FRI; skydda främmande
   worktrees/branches/stashes. Lämna huvudcheckouten på preview.
 - [ ] Stäng planen först när alla punkter har bevis eller uttryckligt
-  ändringsbeslut. Påminn därefter om nästa separata scaffolduppdrag.
+  ändringsbeslut. Överlämna faktisk slutbas och frigivna gemensamma owners till
+  det nu parallellt påbörjade, separata scaffolduppdraget.
 
 ## Stabil semantik och bevisgränser
 
@@ -132,8 +147,13 @@ Rent dokumentdelta är pushat på `codex/test-control-plan-only`:
 Backup `codex/test-control-plan-delivery@04a3ec33f` innehåller även omergad
 dossierhistorik och får inte helmergas till färsk preview. Nya TESTER har
 integrerat det rena deltat på `9d71cd34f` i egen e1e8-worktree och äger
-planstatus. Test-/workflowreformen är faktiskt under implementation, inte
-bara en skriven plan och inte ännu previewlevererad. Ingen stash eller förlust.
+planstatus. Ett faktiskt implementerat test-/workflowpaket har oberoende CLEAN
+review och full lokal verifiering: 21 gröna kontroller, 12 954 standardtester
+med 26 skips, 700 Backoffice-tester och 1 079/1 079 upptäckta testfiler.
+Jakobs senare samlade fortsättnings-/leveransmandat är verifierat i TESTER,
+som nu publicerar det befintliga paketet som separat draft-PR. Det är inte
+enbart en plan och inte ännu previewlevererat.
+Hela testreformen är inte avslutad. Ingen stash eller förlust.
 
 ZIP:ens baseline, paketförslag och livepreview är olika underlag.
 `import-klart/` är ett historiskt overlay, inte en full checkout.
@@ -144,7 +164,13 @@ automatiskt som dossierpayload.
 Återstående tid kan inte anges som ett verifieringslöfte: core-review/CI,
 katalog, flödesrensning och terminal handoff återstår. Tidigare 3–6 timmar
 aktivt arbete var en preliminär uppskattning, inte completionbevis.
-Scaffolds är nästa separat samordnade uppdrag efter dossierterminalen.
+SCHAFFOLDS har efter Jakobs nya instruktion påbörjat ett separat auth-formpaket
+i sin befintliga 5996-checkout på `codex/scaffold-auth-forms`. Det ändrar
+auth-pages-mallarnas formulär och ärliga oanslutna adapter, inte dossierägare,
+package-/CI-/workflowpolicy eller liveauth. Gemensam route-delivery/finalize
+och andra överlappande owners väntar på uttrycklig överlämning av faktisk bas.
+Root samordnar också den separat granskade PR #1552 efter dossierleveransen;
+den använder befintlig industrykolumn och saknar migration/backfill.
 
 Vid avslut uppdateras avklarat-indexet och denna genomförandeplan tas bort
 enligt dokumentationslivscykeln. Stabil semantik hör i dossierkontraktet.

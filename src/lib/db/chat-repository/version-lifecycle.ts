@@ -37,6 +37,27 @@ export type WatchdogCasExpected = {
   filesRevision: string | null;
 };
 
+export type IntegrationMigrationHoldExpected = WatchdogCasExpected & {
+  filesJson: string;
+  editKind: string | null;
+  orchestrationSnapshot: unknown;
+};
+
+export type IntegrationMigrationHoldResult = "applied" | "cas_miss" | null;
+
+type VerificationPendingResetExpected = {
+  filesJson: string;
+  filesRevision: string | null;
+  editKind: string | null;
+  verificationState: "verifying" | "repairing";
+  releaseState: "draft";
+  verificationSummary: string | null;
+};
+
+type VerificationPendingResetOptions =
+  | { expected: VerificationPendingResetExpected; preserveRepairPayload?: false }
+  | { expected: VerificationPendingResetExpected; preserveRepairPayload: true };
+
 export type UnleasedWriteResult =
   | { applied: true; version: Version }
   | { applied: false; reason: "cas_miss" };
@@ -155,6 +176,31 @@ function casMatchesLockedRow(
   return revision === expected.filesRevision;
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+function holdContextMatches(
+  snapshot: ReturnType<typeof promotionSnapshot>,
+  expected: IntegrationMigrationHoldExpected,
+): boolean {
+  if (!snapshot || !casMatchesLockedRow(snapshot, expected)) return false;
+  if (snapshot.filesJson !== expected.filesJson || snapshot.editKind !== expected.editKind) {
+    return false;
+  }
+  return (
+    expected.editKind === "restore" ||
+    stableJson(snapshot.orchestrationSnapshot) === stableJson(expected.orchestrationSnapshot)
+  );
+}
+
 export async function markVersionVerifying(
   versionId: string,
   verificationSummary: string | null = "Automatic verification in progress.",
@@ -196,18 +242,36 @@ export async function resetVersionVerificationToPending(
   versionId: string,
   verificationSummary: string | null = "Automatic verification could not run (verify lane unavailable). Retry shortly.",
   runId?: string,
+  options?: VerificationPendingResetOptions,
 ): Promise<Version | null> {
+  const set = {
+    releaseState: "draft" as const,
+    verificationState: "pending" as const,
+    verificationSummary,
+    ...(options?.preserveRepairPayload
+      ? {}
+      : { repairedFilesJson: null, repairAvailableAt: null }),
+    promotedAt: null,
+  };
+  const expected = options?.expected;
   const result = await db
     .update(engineVersions)
-    .set({
-      releaseState: "draft",
-      verificationState: "pending",
-      verificationSummary,
-      repairedFilesJson: null,
-      repairAvailableAt: null,
-      promotedAt: null,
-    })
-    .where(versionWriteWhere(versionId, runId));
+    .set(set)
+    .where(
+      and(
+        versionWriteWhere(versionId, runId),
+        expected ? sql`${engineVersions.filesJson} = ${expected.filesJson}` : undefined,
+        expected ? filesRevisionCas(expected.filesRevision) : undefined,
+        expected
+          ? sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${expected.editKind}`
+          : undefined,
+        expected ? eq(engineVersions.verificationState, expected.verificationState) : undefined,
+        expected ? eq(engineVersions.releaseState, expected.releaseState) : undefined,
+        expected
+          ? sql`${engineVersions.verificationSummary} IS NOT DISTINCT FROM ${expected.verificationSummary}`
+          : undefined,
+      ),
+    );
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
@@ -221,23 +285,26 @@ export async function resetVersionVerificationToPending(
  */
 export async function holdVersionForIntegrationMigration(
   versionId: string,
-  expected: WatchdogCasExpected,
+  expected: IntegrationMigrationHoldExpected,
   runId?: string,
-): Promise<boolean> {
+): Promise<IntegrationMigrationHoldResult> {
   let phase: PromotionPhase = "context_read";
   try {
-    const applied = await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
       );
       const locked = await tx.execute(sql`
-        SELECT verification_state, files_revision
-        FROM engine_versions
-        WHERE id = ${versionId}
+        SELECT v.files_json, v.edit_kind, v.verification_state, v.files_revision,
+          (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = v.chat_id)
+            AS orchestration_snapshot
+        FROM engine_versions v
+        WHERE v.id = ${versionId}
         FOR UPDATE
       `);
-      const row = lockedCasRow(locked);
-      if (!row || !casMatchesLockedRow(row, expected)) return false;
+      const snapshot = promotionSnapshot(lockedCasRow(locked));
+      if (!snapshot) return null;
+      if (!holdContextMatches(snapshot, expected)) return "cas_miss";
       phase = "update";
       const result = await tx
         .update(engineVersions)
@@ -245,16 +312,31 @@ export async function holdVersionForIntegrationMigration(
         .where(
           and(
             versionWriteWhere(versionId, runId),
-            eq(engineVersions.verificationState, expected.verificationState),
-            filesRevisionCas(expected.filesRevision),
+            integrationMigrationHoldCas(expected),
+            promotionContextCas(expected),
           ),
         );
-      return (result.rowCount ?? 0) > 0;
+      if ((result.rowCount ?? 0) > 0) return "applied";
+
+      // A zero-row write can be either a lease/runId loss or a decision-context
+      // race (notably the unlocked chat snapshot). Re-read the exact context
+      // while retaining the version-row lock and classify only the latter as a
+      // caller-actionable CAS miss.
+      phase = "context_read";
+      const currentLocked = await tx.execute(sql`
+        SELECT v.files_json, v.edit_kind, v.verification_state, v.files_revision,
+          (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = v.chat_id)
+            AS orchestration_snapshot
+        FROM engine_versions v
+        WHERE v.id = ${versionId}
+        FOR UPDATE
+      `);
+      const current = promotionSnapshot(lockedCasRow(currentLocked));
+      return current && !holdContextMatches(current, expected) ? "cas_miss" : null;
     });
-    return applied;
   } catch (error) {
-    if (isLockTimeoutError(error)) return false;
-    if (phase === "context_read" && isTransientDbError(error)) return false;
+    if (isLockTimeoutError(error)) return null;
+    if (phase === "context_read" && isTransientDbError(error)) return null;
     throw error;
   }
 }

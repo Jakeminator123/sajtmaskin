@@ -699,6 +699,55 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     );
   });
 
+  it("uses a normalized auto-accept hold row even when no repair was accepted", async () => {
+    const revision = "b".repeat(32);
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_hold",
+        created_at: "2026-10-05T00:00:00Z",
+        version_number: 4,
+        message_id: "msg_2",
+        release_state: "draft",
+        verification_state: "repair_available",
+        verification_summary: "Repair available.",
+        files_revision: revision,
+        promoted_at: null,
+      },
+    ]);
+    maybeAutoAcceptTimedOutRepair.mockResolvedValue({
+      version: {
+        id: "ver_hold",
+        created_at: "2026-10-05T00:00:00Z",
+        version_number: 4,
+        message_id: "msg_2",
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: `integration_migration_required:${revision}`,
+        files_revision: revision,
+        promoted_at: null,
+      },
+      wasAutoAccepted: false,
+    });
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(json.versions[0].busStatus).toMatchObject({
+      phase: "blocked",
+      verificationBlocked: true,
+      lastBuildError: { failureCode: "integration_migration_required" },
+    });
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "server-repair:auto-accepted" }),
+      ]),
+    );
+  });
+
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByV0ChatIdForRequest.mockResolvedValue(null);

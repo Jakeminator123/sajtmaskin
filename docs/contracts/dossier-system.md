@@ -349,17 +349,31 @@ provider change needs an explicit migration decision, not silent replacement.
 An inspected migration/removal hold returns `integration_migration_required`.
 Manual repair acceptance reports HTTP 409 with that code, pending repair intact
 and `retryable: false`; it must not report "no pending repair" or add
-`Retry-After`. Timeout autoaccept keeps the original version and does not accept
-the repair. Lease unavailability remains retryable HTTP 503; genuine write,
+`Retry-After`. Timeout autoaccept does not accept the held repair. A successful
+fresh read is authoritative, even at the same file revision. Only a proven
+typed hold may use an exact blocked projection when readback is unavailable;
+an ordinary no-op with unavailable readback keeps the original row unchanged.
+Lease unavailability remains retryable HTTP 503; genuine write,
 schema and security errors are not converted into a migration hold.
 
 A deterministic hold must be authorized under the same locked row, lease and
-compare-and-set authority as its inspected decision. A lease/CAS miss stays a
-retryable no-op, not a non-retryable migration result. Applied holds persist
+compare-and-set authority as its inspected decision, including the exact
+files, edit provenance and applicable raw chat context. A lease/CAS miss stays
+a retryable no-op, not a non-retryable migration result. Applied holds persist
 draft/pending with a current-revision marker in the existing verification
 summary and leave repair payload/availability untouched. No new lifecycle
 state or installation ledger is introduced. The stale watchdog must not fail
 an active current-revision hold by age alone.
+
+An applied hold or decision-context no-op stops the old repair loop immediately,
+without another paid repair pass or a stale failure/clear. Context retry is
+bounded and requires an authoritative current, nonterminal, unheld version.
+An exhausted retry may settle a still-current verifying/repairing row to
+retryable pending only under its exact row-state/files/summary CAS and lease;
+existing repair payload and availability must remain untouched. Terminal,
+held or newly changed rows are no-ops. Manual deploy repair maps the stopped
+hold through the existing readiness-unavailable outcome, not an ordinary
+failed-repair result.
 
 Both status and version history project the durable hold as the existing
 blocked status, overriding an empty or older terminal bus. The status read is

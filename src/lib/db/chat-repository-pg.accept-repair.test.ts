@@ -19,7 +19,10 @@ import { PgDialect } from "drizzle-orm/pg-core";
 
 const execute = vi.hoisted(() => vi.fn()); // db.execute -> leaseTableExists probe
 const transaction = vi.hoisted(() => vi.fn());
+const dbUpdateSet = vi.hoisted(() => ({ value: undefined as unknown }));
 const dbUpdateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
+const dbUpdateRowCount = vi.hoisted(() => ({ value: 0 }));
+const dbUpdateFailure = vi.hoisted(() => ({ value: null as Error | null }));
 const txExecSqls = vi.hoisted(() => ({ value: [] as unknown[] }));
 const txUpdateSet = vi.hoisted(() => ({ value: undefined as unknown }));
 const txUpdateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
@@ -31,6 +34,11 @@ const txExecuteFailure = vi.hoisted(() => ({
 }));
 const txUpdateFailure = vi.hoisted(() => ({ value: null as Error | null }));
 const txUpdateRowCount = vi.hoisted(() => ({ value: 0 }));
+const dbSelectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
+const dbSelectSequence = vi.hoisted(() => ({
+  value: [] as Array<Array<Record<string, unknown>>>,
+}));
+const lockSnapSequence = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
 const acceptSelectFailure = vi.hoisted(() => ({ value: null as Error | null }));
 // The row acceptRepair SELECTs FOR UPDATE: { repairedFilesJson, filesJson }.
 const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
@@ -98,7 +106,7 @@ const tx = {
     }
     // FOR UPDATE row lock (or any other probe). L5 reads CAS columns here.
     if (rendered.includes("for update") && rendered.includes("engine_versions")) {
-      return Promise.resolve({ rows: [lockSnap.value] });
+      return Promise.resolve({ rows: [lockSnapSequence.value.shift() ?? lockSnap.value] });
     }
     return Promise.resolve({ rows: [{}] });
   },
@@ -110,7 +118,9 @@ vi.mock("@/lib/db/client", () => ({
     execute,
     select: () => ({
       from: () => ({
-        where: () => ({ limit: () => Promise.resolve([]) }),
+        where: () => ({
+          limit: () => Promise.resolve(dbSelectSequence.value.shift() ?? dbSelectRows.value),
+        }),
       }),
     }),
     transaction: (cb: (t: typeof tx) => unknown) => {
@@ -119,12 +129,16 @@ vi.mock("@/lib/db/client", () => ({
     },
     // renewVersionLease uses db.update(...).set(...).where(...)
     update: () => ({
-      set: () => ({
+      set: (s: unknown) => {
+        dbUpdateSet.value = s;
+        return {
         where: (w: unknown) => {
           dbUpdateWhere.value = w;
-          return Promise.resolve({ rowCount: 0 });
+          if (dbUpdateFailure.value) return Promise.reject(dbUpdateFailure.value);
+          return Promise.resolve({ rowCount: dbUpdateRowCount.value });
         },
-      }),
+        };
+      },
     }),
   },
 }));
@@ -149,7 +163,10 @@ import {
   maybeAutoAcceptTimedOutRepair,
   acquireVersionLease,
 } from "./chat-repository-pg";
-import { holdVersionForIntegrationMigration } from "./chat-repository/version-lifecycle";
+import {
+  holdVersionForIntegrationMigration,
+  resetVersionVerificationToPending,
+} from "./chat-repository/version-lifecycle";
 import { assertPromoteAllowed } from "./promote-guard";
 import { encodeRepairedFilesEnvelope } from "./repair-files-payload";
 
@@ -191,6 +208,12 @@ function resetCaptures() {
   txExecuteFailure.error = null;
   txUpdateFailure.value = null;
   txUpdateRowCount.value = 0;
+  dbUpdateSet.value = undefined;
+  dbUpdateRowCount.value = 0;
+  dbUpdateFailure.value = null;
+  dbSelectRows.value = [];
+  dbSelectSequence.value = [];
+  lockSnapSequence.value = [];
   acceptSelectFailure.value = null;
   // Default: a base-matching envelope so the promote path runs.
   selectRows.value = [envelopeRow(BASE_A)];
@@ -202,6 +225,77 @@ function resetCaptures() {
     edit_kind: null,
   };
 }
+
+describe("resetVersionVerificationToPending — guarded settlement", () => {
+  beforeEach(resetCaptures);
+
+  const expected = {
+    filesJson: BASE_A,
+    filesRevision: "rev-a",
+    editKind: null,
+    verificationState: "repairing" as const,
+    releaseState: "draft" as const,
+    verificationSummary: "Repairing current provider context.",
+  };
+
+  it("preserves the pending repair envelope and binds every observed field", async () => {
+    dbUpdateRowCount.value = 1;
+    dbSelectRows.value = [{ id: "ver-1" }];
+
+    await resetVersionVerificationToPending(
+      "ver-1",
+      "Provider decision context changed; retry verification.",
+      "run-x",
+      { expected, preserveRepairPayload: true },
+    );
+
+    expect(dbUpdateSet.value).toEqual(expect.objectContaining({
+      releaseState: "draft",
+      verificationState: "pending",
+      verificationSummary: "Provider decision context changed; retry verification.",
+    }));
+    const set = dbUpdateSet.value as Record<string, unknown>;
+    expect(set.repairedFilesJson).toBeUndefined();
+    expect(set.repairAvailableAt).toBeUndefined();
+    const where = renderSql(dbUpdateWhere.value);
+    expect(where).toContain("files_json");
+    expect(where).toContain("files_revision");
+    expect(where).toContain("edit_kind");
+    expect(where).toContain("verification_state");
+    expect(where).toContain("release_state");
+    expect(where).toContain("verification_summary");
+    expect(where).toContain("engine_version_jobs");
+  });
+
+  it("keeps the legacy reset contract clearing repair payload by default", async () => {
+    await resetVersionVerificationToPending("ver-1", "retry", "run-x");
+
+    expect(dbUpdateSet.value).toEqual(expect.objectContaining({
+      repairedFilesJson: null,
+      repairAvailableAt: null,
+    }));
+  });
+
+  it("returns null on a guarded CAS or lease miss without claiming success", async () => {
+    dbUpdateRowCount.value = 0;
+    await expect(
+      resetVersionVerificationToPending("ver-1", "retry", "run-x", {
+        expected,
+        preserveRepairPayload: true,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not mask guarded reset write errors", async () => {
+    dbUpdateFailure.value = new Error("permission denied");
+    await expect(
+      resetVersionVerificationToPending("ver-1", "retry", "run-x", {
+        expected,
+        preserveRepairPayload: true,
+      }),
+    ).rejects.toThrow("permission denied");
+  });
+});
 
 function pgError(code: string): Error & { code: string } {
   return Object.assign(new Error(`postgres ${code}`), { code });
@@ -449,8 +543,9 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
 describe("maybeAutoAcceptTimedOutRepair — migration denial", () => {
   beforeEach(resetCaptures);
 
-  it("keeps the original version when the shared accept path reports a migration hold", async () => {
+  it("returns the freshly persisted hold row when the shared accept path applies it", async () => {
     mockLeaseTableExists(true);
+    txUpdateRowCount.value = 1;
     vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
       allowed: false,
       indeterminate: true,
@@ -462,9 +557,26 @@ describe("maybeAutoAcceptTimedOutRepair — migration denial", () => {
       verification_state: "repair_available",
       repair_available_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
     } as unknown as Parameters<typeof maybeAutoAcceptTimedOutRepair>[0];
+    dbSelectSequence.value = [
+      [],
+      [{
+        id: "ver-1",
+        verificationState: "pending",
+        verificationSummary: "integration_migration_required:rev-a",
+        filesRevision: "rev-a",
+        releaseState: "draft",
+        repairedFilesJson: "still-present",
+        repairAvailableAt: new Date("2026-10-05T10:00:00.000Z"),
+      }],
+    ];
 
     await expect(maybeAutoAcceptTimedOutRepair(version)).resolves.toEqual({
-      version,
+      version: expect.objectContaining({
+        id: "ver-1",
+        verification_state: "pending",
+        verification_summary: "integration_migration_required:rev-a",
+        repaired_files_json: "still-present",
+      }),
       wasAutoAccepted: false,
     });
     expect(txUpdateSet.value).toEqual(
@@ -479,22 +591,99 @@ describe("maybeAutoAcceptTimedOutRepair — migration denial", () => {
     expect(holdSet.repairedFilesJson).toBeUndefined();
     expect(holdSet.repairAvailableAt).toBeUndefined();
   });
+
+  it("keeps the original repair action when a stale auto-accept no-ops and readback is unavailable", async () => {
+    mockLeaseTableExists(true);
+    const pendingRepair = envelopeRow(BASE_A).repairedFilesJson as string;
+    const version = {
+      id: "ver-1",
+      verification_state: "repair_available",
+      repair_available_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      files_json: BASE_A,
+      files_revision: "rev-a",
+      edit_kind: null,
+      repaired_files_json: pendingRepair,
+    } as unknown as Parameters<typeof maybeAutoAcceptTimedOutRepair>[0];
+    selectRows.value = [
+      {
+        ...envelopeRow(BASE_A.replace("A", "B")),
+        filesRevision: "rev-b",
+        editKind: null,
+      },
+    ];
+    dbSelectSequence.value = [[], []];
+
+    const result = await maybeAutoAcceptTimedOutRepair(version);
+
+    expect(result).toEqual({
+      version,
+      wasAutoAccepted: false,
+    });
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns a newer authoritative row after a stale auto-accept no-op", async () => {
+    mockLeaseTableExists(true);
+    const pendingRepair = envelopeRow(BASE_A).repairedFilesJson as string;
+    const version = {
+      id: "ver-1",
+      verification_state: "repair_available",
+      repair_available_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      files_json: BASE_A,
+      files_revision: "rev-a",
+      edit_kind: null,
+      repaired_files_json: pendingRepair,
+    } as unknown as Parameters<typeof maybeAutoAcceptTimedOutRepair>[0];
+    selectRows.value = [{
+      ...envelopeRow(BASE_A.replace("A", "B")),
+      filesRevision: "rev-b",
+      editKind: null,
+    }];
+    dbSelectSequence.value = [[], [{
+      id: "ver-1",
+      verificationState: "passed",
+      releaseState: "promoted",
+      filesRevision: "rev-b",
+    }]];
+
+    await expect(maybeAutoAcceptTimedOutRepair(version)).resolves.toEqual({
+      version: expect.objectContaining({
+        id: "ver-1",
+        verification_state: "passed",
+        release_state: "promoted",
+        files_revision: "rev-b",
+      }),
+      wasAutoAccepted: false,
+    });
+  });
 });
 
 describe("holdVersionForIntegrationMigration — locked CAS", () => {
   beforeEach(resetCaptures);
 
-  it("returns true only after a state/revision/lease-bound hold write", async () => {
-    lockSnap.value = { verification_state: "repairing", files_revision: "rev-a" };
+  it("returns applied only after a full decision-context and lease-bound hold write", async () => {
+    lockSnap.value = {
+      verification_state: "repairing",
+      files_revision: "rev-a",
+      files_json: BASE_A,
+      edit_kind: null,
+      orchestration_snapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+    };
     txUpdateRowCount.value = 1;
 
     await expect(
       holdVersionForIntegrationMigration(
         "ver-1",
-        { verificationState: "repairing", filesRevision: "rev-a" },
+        {
+          verificationState: "repairing",
+          filesRevision: "rev-a",
+          filesJson: BASE_A,
+          editKind: null,
+          orchestrationSnapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+        },
         "run-x",
       ),
-    ).resolves.toBe(true);
+    ).resolves.toBe("applied");
 
     expect(txUpdateSet.value).toMatchObject({
       releaseState: "draft",
@@ -505,20 +694,92 @@ describe("holdVersionForIntegrationMigration — locked CAS", () => {
     const where = renderSql(txUpdateWhere.value);
     expect(where).toContain("verification_state");
     expect(where).toContain("files_revision");
+    expect(where).toContain("files_json");
+    expect(where).toContain("edit_kind");
+    expect(where).toContain("orchestration_snapshot");
     expect(where).toContain("engine_version_jobs");
   });
 
-  it("returns false without UPDATE when the locked revision changed", async () => {
-    lockSnap.value = { verification_state: "repairing", files_revision: "rev-b" };
+  it("returns cas_miss without UPDATE when the locked full decision context changed", async () => {
+    lockSnap.value = {
+      verification_state: "repairing",
+      files_revision: "rev-a",
+      files_json: BASE_A.replace("A", "B"),
+      edit_kind: null,
+      orchestration_snapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+    };
 
     await expect(
       holdVersionForIntegrationMigration(
         "ver-1",
-        { verificationState: "repairing", filesRevision: "rev-a" },
+        {
+          verificationState: "repairing",
+          filesRevision: "rev-a",
+          filesJson: BASE_A,
+          editKind: null,
+          orchestrationSnapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+        },
         "run-x",
       ),
-    ).resolves.toBe(false);
+    ).resolves.toBe("cas_miss");
     expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("re-reads context after UPDATE 0 and classifies a chat-plan TOCTOU as cas_miss", async () => {
+    const expected = {
+      verification_state: "repairing",
+      files_revision: "rev-a",
+      files_json: BASE_A,
+      edit_kind: null,
+      orchestration_snapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+    };
+    lockSnapSequence.value = [
+      expected,
+      {
+        ...expected,
+        orchestration_snapshot: { contractIntegrations: [{ providerKey: "auth0" }] },
+      },
+    ];
+    txUpdateRowCount.value = 0;
+
+    await expect(
+      holdVersionForIntegrationMigration(
+        "ver-1",
+        {
+          verificationState: "repairing",
+          filesRevision: "rev-a",
+          filesJson: BASE_A,
+          editKind: null,
+          orchestrationSnapshot: expected.orchestration_snapshot,
+        },
+        "run-x",
+      ),
+    ).resolves.toBe("cas_miss");
+  });
+
+  it("returns null when UPDATE 0 is only a lease/runId miss with matching context", async () => {
+    lockSnap.value = {
+      verification_state: "repairing",
+      files_revision: "rev-a",
+      files_json: BASE_A,
+      edit_kind: null,
+      orchestration_snapshot: null,
+    };
+    txUpdateRowCount.value = 0;
+
+    await expect(
+      holdVersionForIntegrationMigration(
+        "ver-1",
+        {
+          verificationState: "repairing",
+          filesRevision: "rev-a",
+          filesJson: BASE_A,
+          editKind: null,
+          orchestrationSnapshot: null,
+        },
+        "run-x",
+      ),
+    ).resolves.toBeNull();
   });
 });
 
