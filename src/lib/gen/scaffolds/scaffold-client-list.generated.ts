@@ -18,7 +18,7 @@ export type ScaffoldClientListEntry = {
 export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<ScaffoldClientListEntry> = [
   { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme.", allowedBuildIntents: ["website", "template"] },
   { id: "landing-page", label: "Landing Page", description: "Polished one-page or multi-section layout for local businesses, service companies, and product launches.", allowedBuildIntents: ["website", "template"] },
-  { id: "saas-landing", label: "SaaS Landing", description: "Product-led marketing starter with feature narrative, dashboard preview, pricing, FAQ, and conversion-ready sections.", allowedBuildIntents: ["website", "template"] },
+  { id: "saas-landing", label: "SaaS Landing", description: "Product-led marketing starter with labelled sample metrics, example pricing and FAQ. Signup, billing and product integrations require a real connection.", allowedBuildIntents: ["website", "template"] },
   { id: "portfolio", label: "Portfolio", description: "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.", allowedBuildIntents: ["website", "template"] },
   { id: "blog", label: "Blog", description: "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.", allowedBuildIntents: ["website", "template"] },
   { id: "dashboard", label: "Dashboard", description: "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.", allowedBuildIntents: ["app"] },
