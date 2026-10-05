@@ -351,7 +351,23 @@ request-specifika komponenter och blocks kommer separat i `## UI Recipes`.
 
 ### Embedding-driven variant pick
 
-`pickScaffoldVariantAsync()` embeddar prompten via OpenAI och cosine-söker mot
+Sync- och async-matchern delar ett explicit förval före keyword- och embeddingval:
+en enda positiv kommandomening med exakt variant-id eller label inom den redan
+valda scaffolden, exempelvis `Använd variant "hero-fullbleed-bg".` eller
+`Choose style variant "Full-bleed Hero".`. `Variant: hero-fullbleed-bg` och
+`Stilvariant: hero-fullbleed-bg` accepteras också; skiftläge ignoreras. Kvittot får
+`source: "explicit"` och null för score, runner-up och margin. Ett explicit val
+läser inget embeddingartefakt och anropar ingen embeddingprovider.
+
+Negation, beskrivande omnämnanden, flera variantomnämnanden och okända eller
+andra scaffolds identiteter ger inget explicit val. Då gäller befintlig
+keyword-/embedding-/hash-fallback; detta är inte en global negativ vetopolicy.
+Byggval och accepterad follow-up-lock behåller sina befintliga prioriteter.
+Finalizern läser endast kanonisk `rawPrompt` för explicita kommandon, aldrig
+brief eller wrappertext. Saknad raw-prompt och legacy-contextens fallback ger
+inget explicit val. Direkta matcheranrop utan `rawPrompt` använder sin `prompt`.
+
+Utan explicit förval embeddar `pickScaffoldVariantAsync()` prompten via OpenAI och cosine-söker mot
 precomputed variant-embeddings. **Source of truth:** Vercel Blob
 (`embeddings/variant-embeddings.json`). Lokal fil under
 `config/scaffold-variants/_index/` är bara cache. Public URL finns i

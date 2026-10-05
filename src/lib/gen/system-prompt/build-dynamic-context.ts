@@ -193,6 +193,9 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
     resolvedVariant ??
     pickScaffoldVariant({
       prompt: fallbackVariantPrompt,
+      // Legacy/snapshot fallback has no canonical raw request. Preserve its
+      // keyword pick, but never promote brief/wrapped text to an explicit pin.
+      rawPrompt: "",
       scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
       styleKeywords,
       toneKeywords,

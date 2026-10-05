@@ -247,6 +247,50 @@ export function pickScaffoldVariant(input: PickScaffoldVariantInput): ScaffoldVa
   return pickScaffoldVariantWithReceipt(input).variant;
 }
 
+/**
+ * One positive command sentence, scoped to the already selected scaffold.
+ * Exact id/label only; multiple cues, questions, prose, negation and unknown
+ * identities do not pin anything. This is not a negative-veto policy: an
+ * unrecognized directive leaves the existing keyword/embedding fallback alone.
+ */
+function explicitVariantFromPrompt(
+  source: string,
+  variants: readonly ScaffoldVariant[],
+): ScaffoldVariant | null {
+  const cues = [...source.matchAll(
+    /(?<![\p{L}\p{N}_])(?:stilvariant(?:en)?|style\s+variant|variant(?:en)?)(?![\p{L}\p{N}_])\s*[:=]?\s*/giu,
+  )];
+  if (cues.length !== 1) return null;
+  const cue = cues[0]!;
+  const before = source.slice(0, cue.index);
+  if ((before.match(/```|~~~/g)?.length ?? 0) % 2 !== 0) return null;
+  const prefix = before.split(/[.!?;\r\n]/).at(-1)!.trim();
+  // Standalone "Variant: …" or an imperative. An unrestricted substring
+  // search would pin quoted/descriptive/negated mentions as user commands.
+  if (
+    prefix &&
+    !/^(?:(?:please|vänligen)\s+)?(?:använd|välj|use|choose|select)(?:\s+(?:den|the))?$/iu.test(prefix)
+  ) return null;
+  const rest = source.slice(cue.index! + cue[0].length);
+  const end = rest.search(/[.!?;\r\n]/);
+  if (end >= 0 && rest[end] === "?") return null;
+  let identity = (end < 0 ? rest : rest.slice(0, end)).trim();
+  for (const [open, close] of [
+    ["\"", "\""], ["'", "'"], ["`", "`"], ["“", "”"], ["‘", "’"],
+  ]) {
+    if (identity.startsWith(open!) && identity.endsWith(close!)) {
+      identity = identity.slice(1, -1).trim();
+      break;
+    }
+  }
+  const normalize = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+  const requested = normalize(identity);
+  const matches = variants.filter((variant) =>
+    normalize(variant.id) === requested || normalize(variant.label) === requested,
+  );
+  return matches.length === 1 ? matches[0]! : null;
+}
+
 export function pickScaffoldVariantWithReceipt(input: PickScaffoldVariantInput): {
   variant: ScaffoldVariant | null;
   selection: VariantSelection;
@@ -254,6 +298,11 @@ export function pickScaffoldVariantWithReceipt(input: PickScaffoldVariantInput):
   const variants = getVariantsForScaffold(input.scaffoldId);
   if (variants.length === 0) {
     return { variant: null, selection: matcherReceipt("hash", null, null, null) };
+  }
+
+  const explicit = explicitVariantFromPrompt(input.rawPrompt ?? input.prompt, variants);
+  if (explicit) {
+    return { variant: explicit, selection: matcherReceipt("explicit", explicit, null, null) };
   }
 
   const promptLower = input.prompt.toLowerCase();
@@ -394,6 +443,11 @@ export async function pickScaffoldVariantAsyncWithReceipt(
 ): Promise<{ variant: ScaffoldVariant | null; selection: VariantSelection }> {
   const variants = getVariantsForScaffold(input.scaffoldId);
   if (variants.length === 0) return pickScaffoldVariantWithReceipt(input);
+
+  const explicit = explicitVariantFromPrompt(input.rawPrompt ?? input.prompt, variants);
+  if (explicit) {
+    return { variant: explicit, selection: matcherReceipt("explicit", explicit, null, null) };
+  }
 
   const embeddingsFile = await loadVariantEmbeddings();
   if (!embeddingsFile) return pickScaffoldVariantWithReceipt(input);
