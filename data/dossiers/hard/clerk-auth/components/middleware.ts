@@ -1,14 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import { protectedRoutes } from "./lib/clerk/protected-routes";
 
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/app(.*)",
-  "/medlem(.*)",
-  "/account(.*)",
-  "/api/protected(.*)",
-]);
+const isProtectedRoute = createRouteMatcher(protectedRoutes);
 
 /**
  * A real Clerk publishable key is `pk_(test|live)_<base64>` where the base64

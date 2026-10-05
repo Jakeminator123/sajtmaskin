@@ -38,6 +38,7 @@
       "import": "@/components/analytics-providers"
     }
   ],
+  "promptInstructionMode": "selected-sections",
   "lastVerified": "2026-04-21",
   "sourceRepoUrl": "https://github.com/vercel/analytics"
 }

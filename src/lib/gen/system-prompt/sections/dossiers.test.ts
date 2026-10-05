@@ -558,6 +558,87 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).not.toContain("key instructions");
   });
 
+  const HARD_SELECTED_SECTION_MARKERS: Record<string, [string, string, string]> = {
+    "calcom-booking": ["appointment", "`<BookingCalendar />`", "full URLs"],
+    "clerk-auth": ["real accounts", "`protectedRoutes`", "`auth.protect()`"],
+    "mailchimp-newsletter": ["email capture", "MD5", "server route"],
+    "postgres-drizzle": ["relational data", "`getDb()`", "Prisma"],
+    "resend-contact-form": ["contact form", "`name`, `email`, and `message`", "server payload"],
+    "stripe-checkout": ["one-time payment", "`<CheckoutButton />`", "subscription"],
+    "supabase-auth": ["Supabase Auth", "`getUser()`", "`getSession()`"],
+    "vercel-analytics": ["Vercel dashboard", "`<AnalyticsProviders />`", "multiple"],
+    "vercel-blob-media": ["owner media", "`<MediaGallery />`", "unauthenticated upload"],
+    "visitor-counter": ["owner-visible", "`<VisitBeacon />`", "personal data"],
+  };
+
+  it.each(Object.entries(HARD_SELECTED_SECTION_MARKERS))(
+    "renders all three concise instruction sections for %s",
+    (id, markers) => {
+      const entry = getAllDossiers().find((candidate) => candidate.id === id)!;
+      expect(entry.promptInstructionMode).toBe("selected-sections");
+      const selection: DossierSelectionResult = {
+        poolSize: 1,
+        byCapability: { [entry.capability]: [entry.id] },
+        selected: [
+          {
+            reason: "capability-match",
+            configured: false,
+            entry: {
+              ...entry,
+              instructions: getDossierInstructions(entry.class, entry.id),
+            },
+          },
+        ],
+      };
+      const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+      const start = text.indexOf(`### ${entry.label} (\`${entry.id}\`) — key instructions`);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const tail = text.slice(start);
+      const nextH2 = tail.indexOf("\n## ");
+      const instructionBlock = nextH2 >= 0 ? tail.slice(0, nextH2) : tail;
+
+      expect(instructionBlock).toContain("#### When to use");
+      expect(instructionBlock).toContain("#### How to integrate");
+      expect(instructionBlock).toContain("#### Avoid");
+      for (const marker of markers) expect(instructionBlock).toContain(marker);
+      expect(instructionBlock.length).toBeLessThan(480);
+    },
+  );
+
+  it("keeps OpenAI on its existing compact instruction mode", () => {
+    const entry = getAllDossiers().find((candidate) => candidate.id === "openai-chat")!;
+    expect(entry.promptInstructionMode).toBeUndefined();
+    const selection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { [entry.capability]: [entry.id] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: false,
+          entry: {
+            ...entry,
+            instructions: getDossierInstructions(entry.class, entry.id),
+          },
+        },
+      ],
+    };
+    const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+    expect(text).toContain("AI-chatt — OpenAI (`openai-chat`) — compact instructions");
+    expect(text).not.toContain("AI-chatt — OpenAI (`openai-chat`) — key instructions");
+  });
+
+  it("emits Clerk security core verbatim but not its rewritable route policy", () => {
+    const entry = getAllDossiers().find((candidate) => candidate.id === "clerk-auth")!;
+    const selection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { [entry.capability]: [entry.id] },
+      selected: [{ reason: "capability-match", configured: false, entry }],
+    };
+    const text = renderDossierBlocks(selection, { generationMode: "init" }).join("\n");
+    expect(text).toContain('file="middleware.ts"');
+    expect(text).not.toContain('file="lib/clerk/protected-routes.ts"');
+  });
+
   it("never truncates inside a code fence and still reaches Avoid (Codex #254 P2)", () => {
     const fenceHeavy = [
       "# When to use",

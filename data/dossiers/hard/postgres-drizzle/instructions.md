@@ -1,28 +1,10 @@
 # When to use
 
-- Use when the generated app needs persistent relational data in PostgreSQL.
-- Use for server-side database access from Server Components, Server Actions, route handlers, or server utilities.
-- Use when the app should manage schema and migrations with Drizzle Kit.
-- Prefer this as the default database layer for dashboards, app shells, ecommerce, and SaaS-style apps.
+Use for persistent relational data in PostgreSQL.
 
 # How to integrate
 
-- Install `drizzle-orm`, `pg`, `@types/pg`, `server-only`, and `drizzle-kit`.
-- Add `DATABASE_URL` from the Postgres provider.
-- Emit dossier files to their project outputs (source → output):
-  - `components/lib/db/index.ts` → `lib/db/index.ts`
-  - `components/lib/db/schema.ts` → `lib/db/schema.ts`
-  - `components/lib/db/seed-data.ts` → `lib/db/seed-data.ts`
-  - `components/drizzle.config.ts` → `drizzle.config.ts` (project root)
-  - `components/db-config-notice.tsx` → `components/db-config-notice.tsx`
-  - `components/api/health/db/route.ts` → `app/api/health/db/route.ts`
-- Replace the starter `items` schema table AND the matching `seedData` rows with tables/rows required by the app domain.
-- Access the database ONLY through `getDb()` / `getPool()` from `@/lib/db` — never construct a Pool or Drizzle client yourself, and never at module level.
-- SEED FALLBACK CONTRACT (required — this is the dossier's `mock: seed` mode): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getDb()`. Not configured (missing OR a `preview`/`placeholder` stub URL) → render `seedData` from `@/lib/db/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`, so the DB view looks alive in an F2/preview without a real database.
-- API routes that need the database must return a 503 JSON response with a short configuration message when `isDbConfigured()` is false (same pattern as `/api/health/db`) — never let a missing env var throw.
-- Add scripts such as `db:generate`, `db:migrate`, `db:push`, and `db:studio` for Drizzle Kit.
-- Use `@/lib/db` only from server code.
-- Keep the `/api/health/db` route if the app or platform needs a database connectivity probe.
+Use `getDb()`/`getPool()` and seed fallback; if Prisma is explicit, do not add Drizzle.
 
 # UX rules
 
@@ -35,20 +17,15 @@
 
 # Avoid
 
-- Do not import the DB client into client components.
-- Do not expose `DATABASE_URL` or database credentials to the browser.
-- Do not construct a Postgres pool at module level or per request — always go through `getPool()`.
-- Do not skip the `isDbConfigured()` branch: an unconfigured database must show seed data, not a crash or a raw error.
-- Do not treat `db:push` as the production migration strategy for mature apps.
-- Do not keep the starter `items` schema or the generic seed rows if they do not match the app.
-- Do not hardcode provider-specific SSL behavior without checking local development.
+Run migrations, queries, or writes only in an authorized test environment; never expose `DATABASE_URL`.
 
 # Verification
 
+- Perform every migration, query, and write check below only in an authorized test environment.
 - Start the app WITHOUT `DATABASE_URL`: pages must render seed data with the config notice, and `/api/health/db` must answer 503 — no crash, no raw DB error.
-- Confirm `DATABASE_URL` is present in the target environment for real data.
+- Confirm `DATABASE_URL` points to the authorized test database before real-data checks.
 - Run migration generation with Drizzle Kit.
-- Apply migrations to the target database.
+- Apply migrations to that authorized test database.
 - Start the app and request `/api/health/db` — expect `{ "ok": true }`.
 - Verify a real server-side read from a table.
 - Verify a real server-side write through a route handler or server action.

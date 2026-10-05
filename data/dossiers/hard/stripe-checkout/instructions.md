@@ -1,45 +1,21 @@
 # When to use
 
-Use this dossier when the brief declares the `payments` capability and the site needs to accept money for products or one-off services. ONE-TIME payments only (`mode: "payment"`): recurring billing/subscriptions have no capability since 2026-08-06 — never wire this checkout as a subscription surface.
-
-Best fit:
-
-- A landing page with a "Buy now" / "Get started" CTA that should lead to a paid checkout.
-- A SaaS pricing page where each tier needs its own checkout flow.
-- A simple product or service shop that does not need a full ecommerce backend.
-
-Do not use it for:
-
-- Free signup flows (use the `auth` capability instead).
-- In-app purchases on iOS/Android (different SDK).
-- Marketplaces with split payments (needs Stripe Connect — separate dossier).
+Use for a one-time payment through hosted Stripe Checkout.
 
 # How to integrate
 
-1. Place `CheckoutButton` on the page where the user should pay (pricing card CTA, hero CTA, etc.).
-2. Pass the owner-supplied `priceId` and a `label`. The manifest's `price-id` config input describes this component value, not an env key or readiness proof. Store it once in named project config. Until the owner supplies a real one-time Price, use a clearly empty value (e.g. `const STRIPE_PRICE_IDS = { pro: "" }`) and explain what is missing; never invent a `price_…` id or claim that the payment is ready.
-3. The button POSTs to `/api/checkout-session`, which creates a Stripe Checkout Session and returns a redirect URL.
-4. Stripe handles the actual payment UI, then redirects the user back to `success_url` (default: `/payment-success`) or `cancel_url` (default: `/`).
-
-If `STRIPE_SECRET_KEY` is missing in `process.env` — or holds a placeholder value like the F2 preview stub `sk_test_placeholder_preview_not_real` (the guard requires an `sk_/rk_` prefix and rejects anything containing "placeholder") — the dossier is selected but **unconfigured** and runs in **demo mode** (`mock: visual`). The `/api/checkout-session` route returns HTTP 503 with `{ error: "payments-not-configured" }` (the Stripe client is instantiated lazily AFTER the env guard, so the missing-key path can never crash the route). The bundled `CheckoutButton` gates on that explicit error code — NOT on the HTTP status alone, so a platform/proxy 503 still takes the normal retryable error path — and opens an honest demo modal ("Demoläge — ingen riktig betalning") containing the shared `IntegrationConfigNotice` (env key name + Stripe setup link). The pay button stays fully clickable so the visitor SEES the payment surface; no money ever moves in demo mode, and once a real key is stored the same button switches to real Stripe Checkout without code changes. The page still builds. All three files (`checkout-button.tsx`, `integration-config-notice.tsx`, the route) are **verbatim** so this fallback contract is emitted deterministically; adapt visuals by wrapping `CheckoutButton` (props: `label`, `className`) in your own component.
+Mount `<CheckoutButton />` with the owner's real one-time Price and a `Buy now` label.
 
 # UX rules
 
-- Show clear pricing next to the button (currency + interval, e.g. `$29 / month`).
-- Use action-oriented labels: `Choose Pro`, `Buy now`, `Subscribe`. Never just `Submit`.
+- Show the exact one-time amount and currency next to the button.
+- Use action-oriented labels such as `Buy now` or `Choose`; never use a recurring CTA or interval.
 - Show a loading spinner while the API call is in flight.
 - After successful payment, the success page should confirm what the user got and what happens next (email receipt, account access, etc.).
 
 # Avoid
 
-- Do not collect card details directly — always redirect to Stripe Checkout.
-- Do not call the API route from a Server Component; it requires a client click handler.
-- Do not paraphrase `components/api/checkout-session/route.ts`. The Stripe SDK init pattern, the `mode` field handling, and the `payments-not-configured` 503 body must stay byte-exact.
-- Do not surface a raw error string or the HTTP status code to the visitor — on `payments-not-configured` the button opens the demo modal with the `IntegrationConfigNotice`; never replace it with a raw error or a dead disabled button.
-- Do not fake a successful payment in demo mode — the demo modal must say clearly that no money moves.
-- Do not put the secret key in any `NEXT_PUBLIC_*` variable.
-- Do not import `@stripe/stripe-js`, `loadStripe` or Stripe Elements. This dossier is hosted-Checkout only; the browser SDK is not a dependency and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is unused here.
-- Do not present a fabricated `price_…` id as working configuration. A wrong id fails at the Stripe API, which the visitor sees as a generic payment error.
+Never invent price IDs, collect card details, or present this as a subscription.
 
 # Verification
 

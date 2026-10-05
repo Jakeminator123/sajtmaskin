@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resolveExistingDossierCorePlan } from "../contract/provider-compatibility";
 import { SCAFFOLD_BASELINE_FILE_PATHS } from "../export/project-scaffold";
 import { getAllScaffolds } from "../scaffolds/registry";
 import * as dossierRegistry from "./registry";
 import type { DossierEntry } from "./types";
+import {
+  capturePreservedDossierVerbatimSnapshot,
+  restorePreservedDossierVerbatimFiles,
+} from "./verbatim-policy";
 import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
@@ -121,6 +126,60 @@ describe("resolveDossierIdsPresentInVersion", () => {
   it("matches openai-chat from its chat route alone after etapp 4", () => {
     const ids = resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"]);
     expect(ids).toContain("openai-chat");
+  });
+
+  it("does not treat Clerk route-policy configuration alone as functional presence", () => {
+    expect(resolveDossierIdsPresentInVersion(["lib/clerk/protected-routes.ts"])).not.toContain(
+      "clerk-auth",
+    );
+  });
+
+  it("preserves the older three-file Clerk core without seeding the new route-policy helper", () => {
+    const previousFiles = [
+      {
+        path: "middleware.ts",
+        content: "older Clerk middleware bytes",
+        language: "ts" as const,
+      },
+      {
+        path: "components/auth-buttons.tsx",
+        content: "older Clerk auth button bytes",
+        language: "tsx" as const,
+      },
+      {
+        path: "components/clerk-provider-shell.tsx",
+        content: "older Clerk provider shell bytes",
+        language: "tsx" as const,
+      },
+    ];
+    const corePlan = resolveExistingDossierCorePlan({
+      contracts: [],
+      projectFiles: previousFiles,
+      projectProviderEvidence: [
+        {
+          kind: "auth",
+          providerKey: "clerk",
+          dossierCapability: "auth",
+          packageRoot: "@clerk/nextjs",
+        },
+      ],
+    });
+
+    expect(corePlan.preservedDossiers.map((dossier) => dossier.id)).toEqual(["clerk-auth"]);
+
+    const snapshot = capturePreservedDossierVerbatimSnapshot({
+      previousFiles,
+      preservedDossiers: corePlan.preservedDossiers,
+    });
+    const restored = restorePreservedDossierVerbatimFiles({
+      files: previousFiles.map((file) => ({ ...file, content: `generated ${file.path}` })),
+      snapshot,
+    });
+
+    expect(restored.files).toEqual(previousFiles);
+    expect(restored.files.some((file) => file.path === "lib/clerk/protected-routes.ts")).toBe(
+      false,
+    );
   });
 
   it("does NOT match a dossier from a shared helper file alone", () => {

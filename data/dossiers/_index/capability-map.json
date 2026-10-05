@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-10-04T16:40:13.644Z",
+  "generatedAt": "2026-10-04T18:23:25.927Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -224,7 +224,8 @@
       "providerSetup": [],
       "fileRoles": {
         "client": 2,
-        "server": 1
+        "server": 1,
+        "shared": 1
       },
       "dependencies": [
         "@clerk/nextjs"
@@ -1315,14 +1316,14 @@
   },
   "sourceFiles": {
     "data/dossiers/hard/calcom-booking/manifest.json": "cbf3d4f3abd3e5721617954ed3d3c5b0c04ca14b8cfe027e3ca03979cbd1b790",
-    "data/dossiers/hard/clerk-auth/manifest.json": "8d8a761c949e58077f0dc82e04bcb736ccf3e8965d8e5eeba1291e368d586640",
-    "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
+    "data/dossiers/hard/clerk-auth/manifest.json": "1d448c843f260c0d973e0d1d44b7384a2350ff4cd8c682089b88ef390eff5a27",
+    "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8e8d1f80f4060bca0622604e450092a8a5bb38d75585468941c06442f70d3c6e",
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
     "data/dossiers/hard/postgres-drizzle/manifest.json": "1a2892030be6e1dd503c7b28788795de23fb32be36c47746a717f35f589a9a15",
-    "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
-    "data/dossiers/hard/stripe-checkout/manifest.json": "f8600e208ddae07bf773014c68f6e5dc2e15c1d94611b159e569a94f24e39f6c",
+    "data/dossiers/hard/resend-contact-form/manifest.json": "ade0ddce15d400c5458c49c495f0dd5bc3a8ba479add38485a982e968ef6133c",
+    "data/dossiers/hard/stripe-checkout/manifest.json": "160f9b93eddd811722d62da30d1afec746511edaecf2ab35350efa6d1509f944",
     "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
-    "data/dossiers/hard/vercel-analytics/manifest.json": "47282cd6d357af5c673dd35ede318f49294eb7cc843e4adbbf333dfd0799e369",
+    "data/dossiers/hard/vercel-analytics/manifest.json": "f94eaa5d3dc8bdb9ea55d094b7dc97afa555efae9c5593c3f9b19532da45017c",
     "data/dossiers/hard/vercel-blob-media/manifest.json": "d6862608011b45e2676f3f45b55e1c49269971fd2e3d651d8eb567c401f7c83d",
     "data/dossiers/hard/visitor-counter/manifest.json": "91407c60034e2947355332eb0a711d3cb214bd979a9cd640690853c48bf26913",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
