@@ -331,13 +331,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // so Deep Brief can reuse the fast keyword hint. finalizeOrchestrationPrompts
         // may re-pick against the finished brief unless Byggval Stil or a follow-up
         // lock is present.
-        // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
-        // hints align with resolveOrchestrationBase. Template imports never send
-        // scaffoldMode off via this path (they use importedRepoMode instead).
+        // Scaffold: Av → thin baseline for website/app, null for template,
+        // matching resolveOrchestrationBase before variants or hints are picked.
         const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
         const preMatchScaffoldRaw = scaffoldModeIsOff
-          ? getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
-          : parsedMeta.scaffoldId
+          ? metaBuildIntent === "template" ? null : getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
+          : parsedMeta.scaffoldMode === "manual" && parsedMeta.scaffoldId
             ? getScaffoldById(parsedMeta.scaffoldId)
             : matchScaffold(message, metaBuildIntent);
         // Same intent guard orchestration applies (`resolve-base`). Without it an

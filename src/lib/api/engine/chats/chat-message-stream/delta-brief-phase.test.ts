@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 
 import { runClearRedesignDeltaBriefPhase } from "./delta-brief-phase";
-import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
+import { parseChatRequestMeta, type ParsedChatRequestMeta } from "../parse-chat-request-meta";
 
 // Delta-brief LLM pass: return a deterministic brief so the phase reaches the
 // write-back branch without any network/model dependency.
@@ -16,12 +16,10 @@ vi.mock("@/lib/builder/site-brief-generation", () => ({
 
 // Scaffold pre-match surface. The import-lane contract under test is that
 // NONE of these run in imported-repo mode.
-vi.mock("@/lib/gen/scaffolds/matcher", () => ({
-  matchScaffold: vi.fn(() => ({ id: "landing-scaffold", label: "Landing" })),
-}));
-vi.mock("@/lib/gen/scaffolds/registry", () => ({
-  getScaffoldById: vi.fn(() => ({ id: "landing-scaffold", label: "Landing" })),
-}));
+vi.mock("@/lib/gen/scaffolds/matcher", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/scaffolds/matcher")>();
+  return { ...actual, matchScaffold: vi.fn(actual.matchScaffold) };
+});
 vi.mock("@/lib/gen/scaffold-variants", () => ({
   pickScaffoldVariant: vi.fn(() => ({
     id: "variant-a",
@@ -53,7 +51,7 @@ function engineChatFixture(overrides: Partial<ChatWithMessages> = {}): ChatWithM
 }
 
 function parsedMetaFixture(): ParsedChatRequestMeta {
-  return { brief: null } as unknown as ParsedChatRequestMeta;
+  return parseChatRequestMeta({ buildMethod: "freeform" });
 }
 
 function basePhaseParams(overrides: Record<string, unknown> = {}) {
@@ -85,6 +83,57 @@ beforeEach(() => {
 });
 
 describe("runClearRedesignDeltaBriefPhase — imported repo mode", () => {
+  it.each([
+    ["audit", { buildMethod: "audit" }, "landing-page"],
+    ["kostnadsfri", { buildMethod: "kostnadsfri" }, "landing-page"],
+    ["category", { buildMethod: "category" }, "landing-page"],
+    ["explicit website", { buildIntentExplicit: true }, "landing-page"],
+    ["implicit freeform", {}, "dashboard"],
+    ["template off", { buildIntent: "template", scaffoldMode: "off" }, null],
+    ["category off", { buildMethod: "category", scaffoldMode: "off" }, null],
+    ["website off", { scaffoldMode: "off" }, "projekt-bas-app"],
+    ["app off", { buildIntent: "app", scaffoldMode: "off" }, "projekt-bas-app"],
+    ["manual dashboard", { scaffoldMode: "manual", scaffoldId: "dashboard" }, "dashboard"],
+  ] as const)(
+    "%s reaches the actual delta-brief with intent-safe hints",
+    async (_label, selection, expected) => {
+      const parsedMeta = parseChatRequestMeta({
+        buildMethod: "freeform",
+        buildIntent: "website",
+        scaffoldMode: "auto",
+        ...selection,
+      });
+      const message =
+        parsedMeta.scaffoldMode === "manual"
+          ? "Bygg om hela sajten till en landing page med hero och call to action"
+          : "Bygg om hela projektet till en dashboard med analytics, charts, metrics, kpi och reports";
+      await runClearRedesignDeltaBriefPhase(
+        basePhaseParams({
+          parsedMeta,
+          message,
+          followUpIntentMessage: message,
+          metaBuildIntent: parsedMeta.buildIntent,
+          metaScaffoldMode: parsedMeta.scaffoldMode,
+          metaScaffoldId: parsedMeta.scaffoldId,
+        }),
+      );
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+      if (expected) {
+        expect(pickScaffoldVariant).toHaveBeenCalledExactlyOnceWith({
+          prompt: message,
+          scaffoldId: expected,
+        });
+        expect(vi.mocked(tryGenerateServerAutoBrief).mock.calls[0][0].variantHints).toBe(
+          "VARIANT HINTS",
+        );
+      } else {
+        expect(pickScaffoldVariant).not.toHaveBeenCalled();
+        expect(vi.mocked(tryGenerateServerAutoBrief).mock.calls[0][0].variantHints).toBeUndefined();
+      }
+      expect(parsedMeta.brief).toEqual({ projectTitle: "Fixture" });
+    },
+  );
+
   it("skips scaffold/variant pre-match entirely but still generates the delta-brief", async () => {
     const params = basePhaseParams({ importedRepoMode: true });
     const result = await runClearRedesignDeltaBriefPhase(
@@ -101,9 +150,9 @@ describe("runClearRedesignDeltaBriefPhase — imported repo mode", () => {
     });
     expect(result.brief).toEqual({ projectTitle: "Fixture" });
     // Write-back contract (5-4/F1) still holds for imported repos.
-    expect(
-      (params.parsedMeta as unknown as { brief: unknown }).brief,
-    ).toEqual({ projectTitle: "Fixture" });
+    expect((params.parsedMeta as unknown as { brief: unknown }).brief).toEqual({
+      projectTitle: "Fixture",
+    });
   });
 
   it("normal mode without persisted scaffold keeps the keyword pre-match + variant hints", async () => {
