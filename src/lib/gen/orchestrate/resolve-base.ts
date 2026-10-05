@@ -4,7 +4,11 @@
  * from `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
-import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
+import {
+  resolveBuildIntentForMethod,
+  resolveBuildIntentWithScaffold,
+  type BuildIntent,
+} from "@/lib/builder/build-intent";
 import { buildScaffoldQueryContext } from "./scaffold-query-context";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
@@ -102,7 +106,7 @@ export async function resolveOrchestrationBase(
     prompt,
     routePlanPrompt,
     buildSpecPrompt,
-    buildIntent,
+    buildIntent: requestedBuildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
     brief: inputBrief = null,
@@ -122,6 +126,7 @@ export async function resolveOrchestrationBase(
   // via the auto-match + updateChatScaffoldId path).
   const importedRepoMode = input.importedRepoMode === true;
   const effectiveScaffoldMode = importedRepoMode ? "off" : scaffoldMode;
+  const buildIntent = resolveBuildIntentForMethod(input.buildMethod, requestedBuildIntent);
 
   let resolvedScaffold: ScaffoldManifest | null = null;
   let scaffoldSelection: ScaffoldSelectionMeta = {
@@ -280,7 +285,7 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (effectiveScaffoldMode === "off") {
-    resolvedScaffold = getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
+    resolvedScaffold = buildIntent === "template" ? null : getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
     scaffoldSelection = {
       ...scaffoldSelection,
       selectedScaffold: resolvedScaffold?.id ?? null,
@@ -415,17 +420,19 @@ export async function resolveOrchestrationBase(
   });
   const intentPromotionBlockedForFollowUp =
     intentPromotionDecision.blockedForFollowUp;
-  const intentPromoted = intentPromotionDecision.promoted;
-  // Intentional Byggval exception documented in the glossary: a manually
-  // pinned app scaffold wins over a conflicting website target. Production
-  // callers already normalize this pair via `resolveBuildIntentWithScaffold`,
-  // but keep the orchestration boundary honest for direct/manipulated input.
+  const promotionCandidate = intentPromotionDecision.promoted ? "app" : buildIntent;
+  // Manual app selection has the existing Byggval exception, but entry-method
+  // precedence must survive both manual and implicit auto promotion. Production
+  // callers normalize before brief/prematch; direct calls use the same owner here.
+  const effectiveBuildIntent = resolveBuildIntentWithScaffold(
+    input.buildMethod,
+    promotionCandidate,
+    effectiveScaffoldMode,
+    resolvedScaffold?.id,
+  );
+  const intentPromoted = intentPromotionDecision.promoted && effectiveBuildIntent === "app";
   const intentPromotedByManualScaffold =
-    buildIntent === "website" &&
-    scaffoldMode === "manual" &&
-    isAppScaffold(resolvedScaffold?.id);
-  const effectiveBuildIntent: BuildIntent =
-    intentPromoted || intentPromotedByManualScaffold ? "app" : buildIntent;
+    !intentPromoted && buildIntent === "website" && effectiveBuildIntent === "app";
 
   // Final server-side truth: manual ids, persisted ids, follow-up freeze and
   // auto selection all converge here, after website→app promotion has resolved

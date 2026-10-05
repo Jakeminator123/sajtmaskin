@@ -47,6 +47,29 @@ const noCapabilities: InferredCapabilities = {
  * begrepp medan testerna hela tiden handlat om klampningen nedan.
  */
 describe("resolveOrchestrationBase scaffold/intent clamping", () => {
+  it.each([
+    ["category", "template"],
+    ["audit", "website"],
+    ["kostnadsfri", "website"],
+  ] as const)(
+    "keeps %s method override at the final orchestration boundary",
+    async (buildMethod, expected) => {
+      const base = await resolveOrchestrationBase({
+        ...{ buildMethod },
+        prompt: "Bygg en dashboard för teamet",
+        buildIntent: "app",
+        scaffoldMode: "manual",
+        scaffoldId: "dashboard",
+        generationMode: "init",
+        embeddingScaffoldMatch: false,
+        capabilities: noCapabilities,
+      });
+      expect(base.buildSpec.buildIntent).toBe(expected);
+      expect(base.resolvedScaffold?.allowedBuildIntents).toContain(expected);
+      expect(base.resolvedScaffold?.id).not.toBe("dashboard");
+    },
+  );
+
   beforeEach(() => {
     mockedSearchScaffoldsWithDiagnostics.mockReset();
   });

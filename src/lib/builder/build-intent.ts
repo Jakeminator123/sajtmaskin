@@ -15,7 +15,7 @@ const TEMPLATE_ENTRY_MODES = new Set<LandingEntryMode>(["template", "kategori", 
 export const DEFAULT_BUILD_INTENT: BuildIntent = "website";
 
 export function normalizeBuildIntent(raw?: string | null): BuildIntent {
-  const value = String(raw || "").toLowerCase();
+  const value = String(raw || "").trim().toLowerCase();
   if (value === "template" || value === "website" || value === "app") {
     return value;
   }
@@ -23,7 +23,7 @@ export function normalizeBuildIntent(raw?: string | null): BuildIntent {
 }
 
 export function normalizeBuildMethod(raw?: string | null): BuildMethod | null {
-  const value = String(raw || "").toLowerCase();
+  const value = String(raw || "").trim().toLowerCase();
   if (value === "wizard" || value === "category" || value === "audit" || value === "freeform" || value === "kostnadsfri") {
     return value;
   }

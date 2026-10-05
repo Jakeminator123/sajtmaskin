@@ -109,6 +109,15 @@ gamla repo-cache-/template-library-mappen.
 
 ### STEG 1 — Prompt-bearbetning (`prompt-orchestration.ts`)
 
+Request-meta normaliseras före promptbearbetning, prematch och Deep Brief via
+`parse-chat-request-meta.ts` och den befintliga ägaren `build-intent.ts`:
+`category` → `template`, `audit`/`kostnadsfri` → `website`; annars kan ett manuellt
+`dashboard`/`app-shell`-val promovera `website` till `app`. Samma effektiva intent
+går till planläge och codegen. Metodöverstyrning och manuellt/explicit intent
+klampar även prematchens scaffold; implicit Auto-promotion har kvar sin befintliga
+signal-/follow-up-grind. Orkestreringsgränsen tillämpar samma metodregel även på
+direkta anrop.
+
 Klassificerar `PromptType` och väljer `PromptStrategy` (`direct` / `summarize` / `phase_plan_build_refine` / `preserved`). Output: budgeterad `finalMessage`. Scope: bara prompttext, ingen scaffold-logik.
 
 ### STEG 2 — Deep Brief (`site-brief-generation.ts`)
@@ -119,7 +128,7 @@ Strukturerat objekt: projectTitle, brandName, oneSentencePitch, pages[], visualD
 
 ```
 scaffoldMode?
-├─ "off"     → projekt-bas-app (fritext/init; importerade repo:n förblir scaffold-lösa)
+├─ "off"     → projekt-bas-app för website/app-init; template-init → null
 ├─ "manual"  → getScaffoldById(scaffoldId)
 ├─ persisted → getScaffoldById(persistedScaffoldId)  [follow-up]
 └─ "auto"    → matchScaffoldAuto(prompt, buildIntent, options)
@@ -130,7 +139,10 @@ scaffoldMode?
 
 `projekt-bas-app` är den tionde registrerade scaffolden men är uttryckligen
 utesluten ur Auto-matchning. Den används bara som tunn bas för `off` i
-fritext/init, medan importerade repo-flöden fortfarande kör utan scaffold.
+website/app-init, utan att påtvinga app-intent eller app-shell. Template + off
+förblir scaffold-löst; importerade repo-flöden kör alltid utan scaffold även om
+request/lagrad metadata innehåller ett gammalt scaffoldval. Vanlig follow-up
+behåller däremot en redan etablerad scaffold enligt befintlig freeze.
 
 | Meta-fält                 | Värden                                                                             |
 | ------------------------- | ---------------------------------------------------------------------------------- |

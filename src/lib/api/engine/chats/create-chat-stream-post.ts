@@ -72,8 +72,7 @@ import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { bindKostnadsfriCampaignInitialChat } from "@/lib/db/services/kostnadsfri-campaign";
-import type { BuildIntent } from "@/lib/builder/build-intent";
-import { isAppScaffold } from "@/lib/builder/build-intent";
+import { resolveBuildIntentForMethod } from "@/lib/builder/build-intent";
 import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import {
@@ -340,14 +339,20 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           ? getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
           : parsedMeta.scaffoldId
             ? getScaffoldById(parsedMeta.scaffoldId)
-            : matchScaffold(message, metaBuildIntent as BuildIntent | null);
+            : matchScaffold(message, metaBuildIntent);
         // Same intent guard orchestration applies (`resolve-base`). Without it an
         // explicit Hemsida choice could still let app vocabulary steer the Deep
         // Brief toward `dashboard`, while orchestration rejects that scaffold and
         // generates against the website default — brief and codegen would describe
         // different projects.
-        const preMatchScaffold = parsedMeta.buildIntentExplicit
-          ? scaffoldForExplicitIntent(preMatchScaffoldRaw, metaBuildIntent as BuildIntent | null)
+        // Fixed entry-method intent and manual selection also bind prematch.
+        // Query the existing method owner instead of copying its method list.
+        const methodFixesIntent =
+          resolveBuildIntentForMethod(metaBuildMethod, "website") ===
+          resolveBuildIntentForMethod(metaBuildMethod, "app");
+        const preMatchScaffold =
+          parsedMeta.buildIntentExplicit || methodFixesIntent || parsedMeta.scaffoldMode === "manual"
+          ? scaffoldForExplicitIntent(preMatchScaffoldRaw, metaBuildIntent)
           : preMatchScaffoldRaw;
         const preMatchVariant = preMatchScaffold
           ? // An explicit Byggval style pins the variant here too, so the Deep
@@ -614,30 +619,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedThinking,
           );
           const planModel = plannerSettings.modelId;
-          let engineIntent: BuildIntent =
-            metaBuildIntent === "template" ||
-            metaBuildIntent === "website" ||
-            metaBuildIntent === "app"
-              ? (metaBuildIntent as BuildIntent)
-              : "website";
-          // A manually pinned app scaffold outranks even an explicit Byggval
-          // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
-          //
-          // Byggval cannot produce that pair itself — it drops a site type that
-          // contradicts the target — so reaching here means the builder header's
-          // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
-          // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
-          // intent instead would run an app-only scaffold under a website intent:
-          // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
-          // Flipping the intent is the self-consistent read of two contradicting
-          // surfaces; which one SHOULD win is a product decision, not a fix here.
-          if (
-            engineIntent === "website" &&
-            parsedMeta.scaffoldMode === "manual" &&
-            isAppScaffold(parsedMeta.scaffoldId)
-          ) {
-            engineIntent = "app";
-          }
+          const engineIntent = metaBuildIntent;
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
@@ -657,6 +639,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
             requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
             buildIntent: engineIntent,
+            buildMethod: metaBuildMethod,
             scaffoldMode: parsedMeta.scaffoldMode,
             scaffoldId: parsedMeta.scaffoldId,
             // Byggval (init controls): spegla huvudflödet så plan-läge får
@@ -828,30 +811,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         // ── Own Engine Path ───────────────────────────────────────────────
         {
-          let engineIntent: BuildIntent =
-            metaBuildIntent === "template" ||
-            metaBuildIntent === "website" ||
-            metaBuildIntent === "app"
-              ? (metaBuildIntent as BuildIntent)
-              : "website";
-          // A manually pinned app scaffold outranks even an explicit Byggval
-          // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
-          //
-          // Byggval cannot produce that pair itself — it drops a site type that
-          // contradicts the target — so reaching here means the builder header's
-          // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
-          // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
-          // intent instead would run an app-only scaffold under a website intent:
-          // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
-          // Flipping the intent is the self-consistent read of two contradicting
-          // surfaces; which one SHOULD win is a product decision, not a fix here.
-          if (
-            engineIntent === "website" &&
-            parsedMeta.scaffoldMode === "manual" &&
-            isAppScaffold(parsedMeta.scaffoldId)
-          ) {
-            engineIntent = "app";
-          }
+          const engineIntent = metaBuildIntent;
           const metaScaffoldMode = parsedMeta.scaffoldMode;
           const metaScaffoldId = parsedMeta.scaffoldId;
           const metaThemeColors = parsedMeta.themeColors;
@@ -906,6 +866,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
             requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
             buildIntent: engineIntent,
+            buildMethod: metaBuildMethod,
             scaffoldMode: metaScaffoldMode,
             scaffoldId: metaScaffoldId,
             // Byggval (init controls): structured hints — page count wins over
