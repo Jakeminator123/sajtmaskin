@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Lokalt delpaket verifierat; slutleveransen blockerad av kvarvarande A3/A4/A6b.
+Status: Två delpaket levererade till preview; hela A7 öppen för kvarvarande A3/A4/A5/A6b.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
@@ -15,8 +15,40 @@ bas `origin/preview` `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c`, med arbetsdiff.
 Detta fullkvitto avser arbetsdiffen före publicering. Jakobs senare direkta
 leveransmandat i samordningschatten är verifierat och paketet publicerades i
 [PR #1553](https://github.com/Jakeminator123/sajtmaskin/pull/1553).
-PR:n binder aktuell publicerad head och bas till kodkvittot. Merge/deployment
-för den aktuella integrationsheaden är inte bevisade här.
+Aktuell head, bas, merge och separat deploymentkvitto finns nedan. Det
+ursprungliga lokala fullkvittot ska inte förväxlas med ett senare CI-resultat.
+
+### Faktisk previewleverans 2026-10-05
+
+| Paket | Granskad head / bas | Faktisk merge och identitet | Native verifiering |
+| --- | --- | --- | --- |
+| [#1553](https://github.com/Jakeminator123/sajtmaskin/pull/1553) — samlat discovery-/pilot-/miljöpaket | `d1bd214ec0dc523690cd17b43a441ca144f02ea5` / `e37e4d83a32be2bdaf9207ff8b2c3328c35a8ae3` | 05:17:43 UTC, `c4f4b18817b802399434986960e0a3e0086eb014`; träd `874c0195f19f3135d6ac75c890333bd4fb693ca7` identiskt med granskad head | CI [37266630324](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37266630324) SUCCESS, 4:45; dossier [37266630354](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37266630354) 21/21 byggen, 5:59. Två oberoende CLEAN och native gates gröna. |
+| [#1562](https://github.com/Jakeminator123/sajtmaskin/pull/1562) — endast fyra ruleset-/auditpaths | `1110d65f579b6f3d19b2c7e6b9348769d7167fea` / `c4f4b18817b802399434986960e0a3e0086eb014` | 05:35:35 UTC, `cca962c693f90b83d41b3cd46cba3e2275df180b`; träd `ecaac2546cf06dc083b11e69a063537ff96645c5` identiskt med granskad head | Ready-CI [37268024330](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37268024330) SUCCESS, 3:51, alla fyra shards och sex required checks gröna. Dossier [37268024323](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37268024323) gav explicit light-kvitto, inte 21 acceptancebyggen. |
+
+#1562 integrerade normalt originalcommitterna `94ac4c3` → `f74e8b2` →
+`340724b`. Alla fyra payloadblobbar var identiska med de tidigare granskade
+paketen. Färsk lokal integration: 8 filer/220 PASS med högst fyra workers,
+typecheck, fyrfilslint, checker-syntax, workflowkontrakt, discovery 1080/1080
+och normal verify-plan gröna. Oberoende `a5_hook_review` (`gpt-5.6-sol`, xhigh)
+granskade exakt head/bas och faktiska callers: CLEAN, utan egen testomkörning.
+Samordnarens separata `industry_pr_review` gav också CLEAN. Det lokala
+författarkvittot och de två reviewpassen är olika bevis.
+
+Samordnaren verifierade exact-head Vercel READY/`aliasError=null` före båda
+mergarna: #1553 `dpl_GX7x8Pe5LLDwzVMEcQxpNW87YVSV`, #1562
+`dpl_46XHvCKThyyN2sJ43D3UgvHXiLfn`. Efter #1553 verifierade samordnaren
+post-CI `37267139493`: standardchecks gröna, endast samma 13 kända
+DB-paritetsavvikelser som på tidigare bas; postdeployment
+`dpl_6GjdgDJVnrGZwegrsiDE1KQqNMku` READY/`aliasError=null`.
+Postmergebevis efter #1562 följs separat av samordnaren; före-merge-deployment
+på `1110d65f` är inte i sig ett postmergekvitto för `cca962c6`.
+
+Ingen masterpromotion, delad DB-apply, env-/providerändring eller ny
+CI-urvalsminskning ingick. Originalplanens tio filer och aktiva indexrad
+bevaras. Aktuell doc-onlybranch `codex/test-control-status` uppdaterar endast
+befintlig status; nya A3-/A5-kandidater är HOLD, A4:s riktiga isolerade harness
+saknas och A6b/A7:s slutchecklistor är öppna. Push/PR inväntar samordnarens
+terminala SCHAFFOLDS-bas eller uttryckliga hållbeslut för slutlig integration.
 
 Full `verify:pr -- --keep-going` med `VITEST_MAX_WORKERS=4` gav exit 0 på det
 frysta kodpaketet 2026-10-05. Samtliga 21 valda kontroller blev gröna:
@@ -44,8 +76,9 @@ samspel, owners, faktisk CLI och CI-/required-wiring på slutdeltat.
 Discovery bevisar avsiktlig runner-tilldelning, inte att varje test var körd,
 oskippad eller blockerande. Den valda lokala profilen innehåller inte
 preview-host-körningen; en faktisk PR med workflowdiff väljer däremot
-`run_preview_host=true`. Native CI, Linux, browser, isolerad DB och externa
-providers har inte fått ett nytt grönt leveranskvitto genom denna review.
+`run_preview_host=true`. Denna lokala review ger inte ensam nya kvitton för
+native CI, Linux, browser, isolerad DB eller externa providers. Senare native
+CI redovisas separat ovan; browser-/DB-/providerflödena i A4 är obevisade.
 
 ### Aktuell bassynk
 
@@ -61,7 +94,7 @@ befintliga planpaths. Alla 34 filhashar, inklusive avsiktlig testfilradering,
 matchar det tidigare fulltestade och CLEAN-granskade paketet exakt; fingerprinten
 ovan är oförändrad. Basens dossier-, F3- och industrykod är inte nya PR-deltan.
 F3-fixen är redan levererad via #1558. Separata lokala audit `340724bd1` och
-ruleset `f74e8b281` ingår inte i #1553.
+ruleset `f74e8b281` ingår inte i #1553; de är därefter levererade via #1562.
 
 Riktad integration efter synk: 33 testfiler, 756 PASS och 26 plattformsskippar
 med högst fyra workers. Alla ändrade Vitest-filer samt provider-/server-verify,
@@ -137,9 +170,11 @@ checks eller CI-shards har avvecklats.
 
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
-aktuella native checks/reviews. Fortsatt A3/A4 väntar på reserverade owners
-och en godkänd isolerad DB-/providerharness; A6b får inte påbörjas innan
-beroendena är uppfyllda. Planpaketet stannar aktivt.
+aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
+och samordnad skrivreservation; A5:s nästa tvåfilspaket är bara miljömätt.
+A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
+väntar på beroendena; same-head-eventdedup är separat read-only underlag,
+inte en genomförd workflowändring. Planpaketet stannar aktivt.
 
 ## Slutkvitto för hela planen
 
