@@ -32,40 +32,32 @@ Nya produktbeslut, osäker radering eller oväntade owners kräver ny triage.
 | Gemensam dossierkärna, #1548 | `65e28f6097c756c9c78a54a22ae5533b81040848` | Granskad head `b765e2f38185bca51f96b861abb7217d1321cd1d`; kod-CI och deployment verifierade. |
 | Gemensam integrationsvy, #1549 | `db86c053abdad696718eafad839137b8d37831d5` | Prompt-/monteringskonsumenter levererade, full CI och deployment verifierade. |
 | Projektkompatibilitet, #1550 | `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c` | Full CI/deployment verifierade; fem sena rättningar återstår att leverera via #1551. Same-capability auto-delete avvisas enligt migrationspolicyn. |
+| Befintlig providerkärna och följdgrindar, #1551 | `84e0061a91af91cfafd02bf914af14b8fc9af6a9` | Exakt samma träd som två gånger oberoende granskad `3cc098f2`. Sex required checks, fyra fulla testshards, 21 keyless dossierbyggen och exakt Vercel-deployment gröna. Push-CI startad. |
 
-Aktuell preview är sista raden. PR #1551 är **draft/HOLD**, inte levererad.
-Publicerad head är `04729010c74c4337192a444fb11b81b693988ac6`.
-Dess historiska CI var 13 039 standardtester + 126 isolerade DB-tester +
-54 stabilitetstester på 10:14 (5:46 kö till fulla jobb, 4:27 aktivt);
-21/21 dossierbyggen på 6:53 och exact-head Vercel READY på 1:57.
-Grön CI upphäver inte tre senare native fynd: restore mot senare chatintent,
-missvisande repair-hold och missad explicit removal.
+Aktuell dossierbas är sista raden. #1551 är mergad, inte draft/HOLD.
+De tre sena native fynden är rättade och lösta med publicerat bevis.
+Beslutskontext-CAS, terminal repair-stop, atomisk fresh status, begränsad retry
+och preserve-settlement använder befintliga owners. En tillämpad guarded reset
+förblir auktoritativ även om optional readback fallerar; write-/schemafel och
+legacy defaultkontrakt behåller felvägarna. Normal autoaccept fabricerar inte
+pending. Restore bedöms enligt faktisk designversion-lineage utan att spola
+tillbaka senare chatintent. Ingen ny endpoint, tabell eller lifecycle-fas.
 
-Den aktuella lokala rättningsbatchen utgår från
-`4a785c86659268208701ec58bc4c21e4af021e2c`. Beslutskontext-CAS, terminal
-repair-stop, atomisk fresh status, begränsad retry, preserve-settlement och
-status-/autoaccept-/deploykonsumenter är samlat implementerade i befintliga
-owners. Konsumentreview är CLEAN. CAS-/retryreviewens readback-P1 är nu rättat:
-en bevisat tillämpad, opted-in pending-reset gör inte fail/clear när dess
-optional readback fallerar. Write-/schemafel och legacy defaultkontrakt
-behåller sina tidigare felvägar. Worker har återlämnat skrivleasen;
-nästa exakt freeze får aktuell delta-/integrationsreview. Oförändrade
-verifierade bevis återanvänds endast bytebundet.
-Ownertriage begränsar core-PR:n till 64 befintliga paths, inklusive nödvändiga
-status-, watchdog-, klient- och after-repair-följdägare; ingen ny endpoint,
-tabell eller lifecycle-fas. Misstanken om rå restore-snapshot i F3 avfärdades:
-den enda aktuella restoreproducenten skapar designversioner. Ingen hypotetisk
-F3-ändring läggs till; den befintliga restore-/promotionsemantiken bevaras.
+Core-headens aktuella CI var 5:08 totalt (fyra gröna shards); alla 21 dossierbyggen
+6:46 med högst sex parallella. Vercel READY är bundet till exakt `3cc098f2`,
+utan aliasfel. Tidigare lokal readback RED 1 fel/82 pass → GREEN 83/83,
+fresh nonincremental typecheck och riktade följdkontroller var gröna.
+Oförändrad tidigare 334/334-matris återanvändes bytebundet; överlapp summeras inte.
 
-Aktuella delbevis: readback-RED gav 1 fel/82 pass i två filer; exakt samma
-acceptances är GREEN 83/83. Föregående 14-filers matris 334/334 och fokus
-162/162 återanvänds för oförändrade blobbar, inte som ny helomkörning efter
-readback-rättningen. Överlapp summeras inte. Workers fresh nonincremental
-typecheck, scoped lint, diffcheck och PR-plan avslutades med uttrycklig exitkod 0.
-Root har återbundit de tre runtime-/testhasharna och avslutat egen fresh
-nonincremental typecheck, derived/docs/länkar/terminologi/historik/canvas/plan
-med exit 0. Tom output är inte verifiering.
-Ny head kräver fortfarande aktuell review, full CI och deployment.
+Katalogens granskade 25-pathdelta från `ccff1074` är nu separat applicerat med
+andra parenten som bas på faktisk `84e0061a`, inte genom gammal mergehistorik.
+Samtliga 23 befintliga basblobbar var identiska och två tillägg saknades;
+ingen runtimekonflikt. Katalogens 25 resultatblobbar behåller tidigare bevis.
+Färsk fokus: fem filer, 128/128; 23 dossiervalidatorer, capability-map,
+generated docs, scoped ESLint, docs/länkar/canvas och fresh typecheck gröna.
+Canvas regenererades mekaniskt från denna faktiska bas; churnetiketter är
+automatiska historikprojektioner, inte bevis att hela uppdraget är färdigt.
+Current-head review/CI/deployment och katalogmerge återstår.
 
 ## Checklista och klarkriterier
 
@@ -75,7 +67,7 @@ Ny head kräver fortfarande aktuell review, full CI och deployment.
   presence och konfigurationsstatus har olika semantik.
 - [x] Implementera och leverera den gemensamma interna integrationsvyn via #1549,
   inklusive träffade prompt-/monteringskonsumenter och båda motorvägar.
-- [ ] Leverera projektgränser och bevarande av tidigare faktisk providerkärna.
+- [x] Leverera projektgränser och bevarande av tidigare faktisk providerkärna.
   #1551 ska rätta de sena #1550-fynden och passera samlad integration:
   kompatibelt projekt, annan provider, ostödd metod, fil-/middlewarekonflikt,
   okända förutsättningar, explicit removal/readd, restore och repair.
@@ -161,8 +153,8 @@ Slutlistan beräknas från faktisk kumulativ leverans/ownerclosure, inte från
 en enskild PR:s filantal. Scaffold-/viewer-/TESTER-förslag importeras inte
 automatiskt som dossierpayload.
 
-Återstående tid kan inte anges som ett verifieringslöfte: core-review/CI,
-katalog, flödesrensning och terminal handoff återstår. Tidigare 3–6 timmar
+Återstående tid kan inte anges som ett verifieringslöfte: katalogleverans,
+flödesrensning och terminal handoff återstår. Tidigare 3–6 timmar
 aktivt arbete var en preliminär uppskattning, inte completionbevis.
 SCHAFFOLDS har efter Jakobs nya instruktion påbörjat ett separat auth-formpaket
 i sin befintliga 5996-checkout på `codex/scaffold-auth-forms`. Det ändrar
