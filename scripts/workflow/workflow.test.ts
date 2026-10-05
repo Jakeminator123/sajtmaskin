@@ -435,6 +435,23 @@ describe("agent workflow impact", () => {
     }
   });
 
+  it("routes an unknown path through every separately owned test harness", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["new-zone/value.custom"] });
+
+    expect(impact.unclassifiedFiles).toEqual(["new-zone/value.custom"]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "test:discovery:check",
+        "test:ci",
+        "backoffice:test",
+        "db:blob-sync-unit",
+        "observability:test",
+        "preview-host:verify",
+        "test:e2e:contract",
+      ]),
+    );
+  });
+
   it("keeps ordinary documentation changes on the docs-only plan", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     expect(impact.commands).toEqual(
@@ -735,6 +752,10 @@ describe("agent workflow repository contract", () => {
         "cancel-in-progress: true",
       ),
       replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce(
+        "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
+        "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",
+      ),
       replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
       replaceOnce(
         "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",

@@ -81,7 +81,7 @@ export const POLICY_FLOORS = Object.freeze({
     deploymentCheckNames: ["Vercel"],
   },
   verificationProfiles: {
-    always: ["workflow:contract"],
+    always: ["workflow:contract", "test:discovery:check"],
     docs: ["docs:check", "docs:links", "docs:test"],
     controlPlane: ["control-plane:check"],
     agent: ["check:agent-context"],
@@ -445,6 +445,7 @@ const TRUSTED_SCHEDULE_OR_MASTER_DISPATCH =
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
   "workflow:contract",
+  "test:discovery:check",
   "docs:check",
   "docs:links",
   "docs:test",
@@ -457,6 +458,7 @@ const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
   "scripts/db/**/*.py",
 ]);
 const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
+const TEST_DISCOVERY_SCRIPT = "node scripts/workflow/test-discovery.mjs";
 // Explicit allowlist: every current `*.stability.test.*` is deterministic
 // (no network/DB/wall-clock). A new file must be added here — there is no
 // silent warn-only path — so C2 cannot regress by exclusion.
@@ -618,8 +620,17 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const scope = document?.jobs?.scope;
   if (
     !scope ||
-    !scope.outputs?.run_heavy ||
-    !scope.outputs?.safe_docs_only ||
+    !hasExactExpression(scope.outputs?.run_heavy, "${{ steps.classify.outputs.run_heavy }}") ||
+    !hasExactExpression(
+      scope.outputs?.safe_docs_only,
+      "${{ steps.classify.outputs.safe_docs_only }}",
+    ) ||
+    !hasExactExpression(
+      scope.outputs?.run_preview_host,
+      "${{ steps.classify.outputs.run_preview_host }}",
+    ) ||
+    !hasExactExpression(scope.outputs?.high_risk, "${{ steps.classify.outputs.high_risk }}") ||
+    !hasExactExpression(scope.outputs?.reason, "${{ steps.classify.outputs.reason }}") ||
     !scope.steps?.some((step) => step.run === "node scripts/workflow/ci-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PR_ACTION, "${{ github.event.action }}"),
@@ -670,6 +681,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   }
   if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
     errors.push("test:e2e:contract must retain its exact Playwright discovery command");
+  }
+  if (packageScripts?.["test:discovery:check"] !== TEST_DISCOVERY_SCRIPT) {
+    errors.push("test:discovery:check must execute the canonical discovery guard");
   }
 
   const blockingStability = qualityCore?.steps?.find(
@@ -757,13 +771,49 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const aggregate = document?.jobs?.quality?.steps?.find(
     (step) => step.name === "Aggregate required quality result",
   );
-  if (!hasExactExpression(aggregate?.env?.TESTS_RESULT, "${{ needs['quality-tests'].result }}")) {
-    errors.push("quality must bind TESTS_RESULT to the complete test matrix");
+  const aggregateBindings = {
+    SCOPE_RESULT: "${{ needs.scope.result }}",
+    RUN_HEAVY: "${{ needs.scope.outputs.run_heavy }}",
+    CORE_RESULT: "${{ needs['quality-core'].result }}",
+    TESTS_RESULT: "${{ needs['quality-tests'].result }}",
+    CONTRACTS_RESULT: "${{ needs['quality-contracts'].result }}",
+    PREVIEW_HOST_RESULT: "${{ needs['preview-host-guards'].result }}",
+    DEAD_CODE_RESULT: "${{ needs['dead-code'].result }}",
+  };
+  for (const [name, expression] of Object.entries(aggregateBindings)) {
+    if (!hasExactExpression(aggregate?.env?.[name], expression)) {
+      errors.push(`quality must bind ${name} to ${expression}`);
+    }
   }
   if (!hasExactExpression(document?.jobs?.quality?.if, "${{ !cancelled() }}")) {
     errors.push(
       "quality must publish after failed/skipped dependencies without surviving cancellation",
     );
+  }
+
+  const previewHost = document?.jobs?.["preview-host-guards"];
+  const previewHostFallback =
+    "${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}";
+  if (
+    !values(previewHost?.needs).includes("scope") ||
+    !hasExactExpression(previewHost?.if, "${{ !cancelled() }}") ||
+    !hasExactExpression(previewHost?.env?.RUN_PREVIEW_HOST, previewHostFallback)
+  ) {
+    errors.push("preview-host must consume the shared fail-closed CI scope");
+  }
+  const previewHostReceipt = previewHost?.steps?.find(
+    (step) => step.name === "Report skipped preview-host scope",
+  );
+  if (!hasExactExpression(previewHostReceipt?.if, "${{ env.RUN_PREVIEW_HOST == 'false' }}")) {
+    errors.push("preview-host must publish an explicit successful skip receipt");
+  }
+  const unguardedPreviewHost = (previewHost?.steps ?? []).filter(
+    (step) =>
+      step.name !== "Report skipped preview-host scope" &&
+      !hasExactExpression(step.if, "${{ env.RUN_PREVIEW_HOST == 'true' }}"),
+  );
+  if (unguardedPreviewHost.length > 0) {
+    errors.push("preview-host has test or setup steps outside the shared scope guard");
   }
 
   const deadCode = document?.jobs?.["dead-code"];

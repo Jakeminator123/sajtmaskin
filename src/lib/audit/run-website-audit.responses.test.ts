@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APIConnectionError, APIUserAbortError } from "openai";
-import { resolveAuditRun } from "@/lib/audit/audit-tier";
+import { AUDIT_ADVANCED_ONLY_FIELDS, resolveAuditRun } from "@/lib/audit/audit-tier";
 
 const responsesCreate = vi.hoisted(() => vi.fn());
 const openAIConstructor = vi.hoisted(() => vi.fn());
@@ -28,13 +28,6 @@ vi.mock("@/lib/config", () => ({
   FEATURES: { useResponsesApi: true },
   SECRETS: { openaiApiKey: "test-key" },
 }));
-vi.mock("@/lib/audit-prompts", () => ({
-  buildAuditPrompt: () => [{ role: "user", content: [{ text: "Audit this site" }] }],
-  buildPublicAnalysPrompt: () => [{ role: "user", content: [{ text: "Audit this site" }] }],
-  extractFirstJsonObject: vi.fn(),
-  parseJsonWithRepair: vi.fn(),
-}));
-
 const { runWebsiteAudit } = await import("./run-website-audit");
 
 const websiteContent = {
@@ -106,6 +99,57 @@ beforeEach(() => {
 });
 
 describe("runWebsiteAudit Responses fallback", () => {
+  it.each([
+    { promptKind: "product", auditMode: "basic" },
+    { promptKind: "product", auditMode: "advanced" },
+    { promptKind: "public", auditMode: "basic" },
+    { promptKind: "public", auditMode: "advanced" },
+  ] as const)("applies the resolved $promptKind/$auditMode tier through the real pipeline", async (input) => {
+    const tier = resolveAuditRun(input);
+    const advancedFields = {
+      business_profile: { industry: "Design" },
+      market_context: { primary_geography: "Sweden" },
+      customer_segments: { primary_segment: "Small businesses" },
+      competitive_landscape: { positioning: "Local specialist" },
+      competitor_insights: { industry_standards: "Accessible websites" },
+    };
+    responsesCreate.mockResolvedValueOnce(successfulResponse({
+      outputText: JSON.stringify({ company: "Example", ...advancedFields }),
+    }));
+
+    const result = await runWebsiteAudit({
+      ...input,
+      normalizedUrl: "https://example.com/",
+      requestId: "tier-behavior",
+      requestStartTime: Date.now(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected a successful audit");
+    expect(scrapeWebsite).toHaveBeenCalledWith("https://example.com/", { maxPages: tier.maxPages });
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    const request = responsesCreate.mock.calls[0][0];
+    expect(request.model).toBe(tier.modelCandidates[0].replace(/^openai\//, ""));
+    expect(request.text.format.schema).toEqual(tier.schema);
+    expect(request.tools).toEqual(tier.allowWebSearch
+      ? [{ type: "web_search_preview", search_context_size: "low" }]
+      : undefined);
+    expect(request.input[0].content).toContain(websiteContent.description);
+    expect(result.result.audit_mode).toBe(tier.mode);
+    expect(result.result.company).toBe("Example");
+    for (const field of AUDIT_ADVANCED_ONLY_FIELDS) {
+      if (tier.schemaKind === "core") expect(result.result).not.toHaveProperty(field);
+      else expect(result.result[field]).toEqual(advancedFields[field]);
+    }
+    const costLine = vi.mocked(console.info).mock.calls
+      .map(([message]) => String(message))
+      .find((message) => message.includes("Audit cost summary:"));
+    expect(costLine).toContain(`mode=${tier.mode}`);
+    expect(costLine).toContain(`pages=${tier.maxPages}`);
+    expect(costLine).toContain(`web_search=${tier.allowWebSearch}`);
+    expect(costLine).toContain(`model=${result.usedModel}`);
+  });
+
   it("uses SDK retries zero and the manifest primary model with a bounded request timeout", async () => {
     const result = await runPublic();
     const candidates = resolveAuditRun({
