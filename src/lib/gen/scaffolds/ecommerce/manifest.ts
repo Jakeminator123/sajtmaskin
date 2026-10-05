@@ -5,12 +5,12 @@ export const ecommerceManifest: ScaffoldManifest = {
   id: "ecommerce",
   label: "E-handel",
   description:
-    "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.",
+    "Demo storefront with one product catalog, category and detail pages, and a persistent local cart. Payment, inventory, shipping and server checkout require integration.",
   siteKind: "commerce",
   complexity: "advanced",
   structureProfile: "commerce-storefront",
   contentProfile: "product-catalog",
-  features: ["product-grid", "cart", "checkout", "product-detail"],
+  features: ["product-grid", "cart", "product-detail"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "ecommerce",
@@ -28,8 +28,10 @@ export const ecommerceManifest: ScaffoldManifest = {
   ],
   promptHints: [
     "Use this scaffold for online stores, product catalogs, and webshops.",
-    "This scaffold includes a product list, category pages, product detail pages, and a client-side cart drawer.",
-    "Adapt product categories, imagery, and pricing to the user's niche. Replace all placeholder names.",
+    "Use lib/product-catalog.ts as the single sample catalog for lists, detail pages and cart totals; prices are integer minor units in SEK.",
+    "Keep the shared CartProvider in the layout. Local cart actions, quantities, removal and validated localStorage work without a provider; /cart and the drawer share CartContents.",
+    "Adapt sample categories, imagery and pricing to the user's niche. Label demo data until replaced with verified content; never invent customer ratings, bestsellers or delivery guarantees.",
+    "Payment, inventory, shipping and server-authoritative prices are NOT connected. Keep checkout disabled and do not claim order/payment success until real provider confirmation.",
   ],
   qualityChecklist: [
     "Store name replaces [Butiksnamn] everywhere — header, hero badge, footer, metadata.",
@@ -38,12 +40,14 @@ export const ecommerceManifest: ScaffoldManifest = {
     "Hero section communicates the store's unique selling proposition, not generic copy.",
     "Navigation includes relevant links for the store type (not generic Hem/Produkter).",
     "Color scheme adapted from neutral to match the product category's visual identity.",
+    "Adding a product updates the shared empty-by-default demo cart; quantity/remove/totals persist between reloads when storage is available.",
+    "Reject malformed or unknown stored cart rows and derive names/prices from the catalog, never client-stored prices.",
+    "Checkout remains visibly unconnected, and sample copy never promises payment, stock or delivery.",
   ],
   research: {
     upgradeTargets: [
-      "Persist cart state in localStorage and keep quantity changes between reloads.",
       "Add faceted filtering (price range, tags) with URL-based state in category pages.",
-      "Add a checkout flow with address, delivery method, and payment summary steps.",
+      "Connect real server validation and payment/shipping providers before enabling checkout; local demo totals are not checkout authority.",
       "Show related products and recently viewed items on product pages.",
       "Generate structured data (JSON-LD Product + BreadcrumbList) for category and product pages.",
     ],
@@ -59,13 +63,9 @@ export const ecommerceManifest: ScaffoldManifest = {
   // deliveryGroups since neither has a static parent page
   // (app/product/[id]/page.tsx exists without app/product/page.tsx).
   //
-  // Known drift (kept visible on purpose — see the route-contract gate in
-  // scaffold-manifest-validation.test.ts):
-  //  - SM-043: /cart below has neither a starter file (CartDrawer replaced
-  //    the page) nor a link, and #977 removed it from the plan defaults. The
-  //    entry documents the open owner question; remove it (or reintroduce a
-  //    real page + link) once the owner picks a direction. Do not add a file
-  //    just to silence the gate.
+  // SM-043 owner decision 2026-10-05: preserve declared /cart with a real
+  // demo page + navSurface link, sharing CartContents/state with the drawer.
+  // This does not promote /cart to a required route or alter plan defaults.
   routeContract: {
     requiredRoutes: [
       {
