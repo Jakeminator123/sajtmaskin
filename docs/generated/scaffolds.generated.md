@@ -12,11 +12,11 @@ Canonical owner: scaffold manifests registered by the runtime scaffold registry.
 
 | ID                | Label           | Site kind   | Complexity | Build intents                | Features                                             | Runtime files |
 | ----------------- | --------------- | ----------- | ---------- | ---------------------------- | ---------------------------------------------------- | ------------- |
-| `app-shell`       | App Shell       | `app`       | `medium`   | `app`                        | `auth`, `sidebar-layout`, `settings`, `dash-widgets` | 9             |
+| `app-shell`       | App Shell       | `app`       | `medium`   | `app`                        | `sidebar-layout`, `settings`, `dash-widgets`         | 9             |
 | `auth-pages`      | Auth Pages      | `app`       | `simple`   | `website`, `app`, `template` | `login`, `signup`, `password-reset`                  | 7             |
 | `base-nextjs`     | Base Next.js    | `marketing` | `simple`   | `website`, `template`        | `routing-basics`, `seo-metadata`, `component-ready`  | 4             |
 | `blog`            | Blog            | `editorial` | `medium`   | `website`, `template`        | `article-list`, `taxonomy`, `author-bio`             | 9             |
-| `dashboard`       | Dashboard       | `app`       | `advanced` | `app`                        | `auth`, `navigation-shell`, `tables`, `charts`       | 9             |
+| `dashboard`       | Dashboard       | `app`       | `advanced` | `app`                        | `navigation-shell`, `tables`, `charts`               | 9             |
 | `ecommerce`       | E-handel        | `commerce`  | `advanced` | `website`, `template`        | `product-grid`, `cart`, `checkout`, `product-detail` | 12            |
 | `landing-page`    | Landing Page    | `marketing` | `medium`   | `website`, `template`        | `hero`, `trust-signals`, `cta`                       | 7             |
 | `portfolio`       | Portfolio       | `editorial` | `medium`   | `website`, `template`        | `gallery`, `project-cases`, `contact-cta`            | 6             |

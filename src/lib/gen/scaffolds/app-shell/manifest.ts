@@ -5,12 +5,12 @@ export const appShellManifest: ScaffoldManifest = {
   id: "app-shell",
   label: "App Shell",
   description:
-    "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.",
+    "Demo operational app shell with sidebar, sample workspace summaries, queues, and tasks. Authentication, live data, notifications, and settings persistence require integration.",
   siteKind: "app",
   complexity: "medium",
   structureProfile: "application-shell",
   contentProfile: "workspace-tools",
-  features: ["auth", "sidebar-layout", "settings", "dash-widgets"],
+  features: ["sidebar-layout", "settings", "dash-widgets"],
   allowedBuildIntents: ["app"],
   tags: [
     "app-shell",
@@ -31,11 +31,14 @@ export const appShellManifest: ScaffoldManifest = {
     "Keep the sidebar + main workspace pattern, but prioritize queues, tasks, and action states over analytics storytelling.",
     "Use actionable tables, statuses, and task cards that map to real product workflows.",
     "Preserve the shell structure while adapting entities, labels, and actions to the user's domain.",
+    "Sample KPIs, queues, users, activity, and provider status must be visibly labelled as demo until connected. Preserve facts provided by the brief or verified sources; never invent live results or trust claims.",
+    "Authentication, settings persistence, notifications, billing, and provider actions are not connected. Keep unavailable actions disabled and visibly explain the boundary until a real integration exists.",
   ],
   qualityChecklist: [
     "Navigation shell, app density, and workspace feel should stay more prominent than marketing content.",
     "Primary panels, tables, and summaries should map to the user's real product/workflow.",
     "Account, billing, settings, or workspace affordances should feel layerable without breaking the shell.",
+    "Keep the shared demo label on secondary routes. Sample identity is not a session, and editable settings fields do not imply saved preferences or connected notification providers.",
   ],
   research: {
     upgradeTargets: [
