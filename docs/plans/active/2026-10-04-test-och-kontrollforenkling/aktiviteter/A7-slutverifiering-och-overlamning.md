@@ -51,8 +51,38 @@ Ingen masterpromotion, delad DB-apply, env-/providerändring eller ny
 CI-urvalsminskning ingick. Originalplanens tio filer och aktiva indexrad
 bevaras. Aktuell doc-onlybranch `codex/test-control-status` uppdaterar endast
 befintlig status; nya A3-/A5-kandidater är HOLD, A4:s riktiga isolerade harness
-saknas och A6b/A7:s slutchecklistor är öppna. Push/PR inväntar samordnarens
-terminala SCHAFFOLDS-bas eller uttryckliga hållbeslut för slutlig integration.
+saknas och A6b/A7:s slutchecklistor är öppna. Samordnaren har frigivit
+docs-publicering efter faktisk SCHAFFOLDS-merge och lokal kontroll/review.
+
+### Slutlig dokumentationsbas efter SCHAFFOLDS
+
+[SCHAFFOLDS #1563](https://github.com/Jakeminator123/sajtmaskin/pull/1563)
+mergades 2026-10-05 06:26:11 UTC till
+`8267a10eb0954102eaef2afe74f356913fe74cdf`. Trädet
+`66b87e953ad87436707f713589774b1944e9c7fc` är identiskt med granskad head
+`d5a344a4bce05ff8e31c5b7d499356c194981bf2`. Samordnaren redovisade två CLEAN,
+sex gröna required checks och ready-CI
+[37271926372](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37271926372)
+SUCCESS med fyra shards, 5:11. Dossier
+[37271926406](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37271926406)
+var legitim light med hoppad byggmatris, inte ett nytt 21/21-byggkvitto.
+Exact-head deployment `dpl_2KP6Aei2Mw92aiFrh5dwbLn2N4iC` var enligt
+samordnaren READY/`aliasError=null`. Postmerge-CI/deployment för `8267a10e`
+följs av samordnaren och är ännu inte färdigbevisade i denna status.
+
+En normal basmerge `3fdff50d158658c532baaec5dc2b784406ebf8ac` tog in
+`8267a10e` utan konflikt. Direkt efter mergen var alla sju docs identiska med
+tidigare CLEAN-granskade `1a395cfe`; därefter ändrades bara masterplanens,
+genomförandeguidens och denna aktivitets status för den nya basen. Övriga fyra
+docs återanvänder identiska blobbar. SCHAFFOLDS runtime ligger i basen och är
+inte ett nytt TESTER-delta. Dess unit-/stabilitetsprov ersätter inte A4:s
+okörda isolerade browser-/persistens-/providerflöden. Aktuell granskning och
+native checks styr dokumentations-PR:ns leverans; samordnaren äger merge.
+
+Efter bassynken gav normal verify-plan och dess sju dokumentkontroller exit 0:
+fyra testfiler/49 PASS med högst fyra workers, discovery 1083/1083, genererade
+docs, länkar, planhistorik, termkontrakt och workflowkontrakt gröna. Det är ett
+aktuellt dokumentationskvitto, inte en ny full runtime- eller A4-körning.
 
 Full `verify:pr -- --keep-going` med `VITEST_MAX_WORKERS=4` gav exit 0 på det
 frysta kodpaketet 2026-10-05. Samtliga 21 valda kontroller blev gröna:

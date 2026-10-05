@@ -23,9 +23,9 @@ Jakob beställde lokalt genomförande 2026-10-05. Arbete pågår i
 separat tilldelad checkout `e1e8`; aktiviteternas status skiljer levererade
 delpaket från kvarvarande arbete. #1553 är mergad till preview `c4f4b188`
 och fyrfilspaketet #1562 till `cca962c6`. Aktuell branch
-`codex/test-control-status` samlar endast planstatus, inte fler teständringar.
-Jakobs senare
-fortsättnings-/leveransmandat verifierades i samordningschatten
+`codex/test-control-status` samlar endast planstatus, inte fler teständringar,
+och är normalsynkad med faktisk preview `8267a10e` efter SCHAFFOLDS #1563.
+Jakobs senare fortsättnings-/leveransmandat verifierades i samordningschatten
 `Dokumentera Master-promotion` 2026-10-05. Detta steg omfattar scoped commit,
 push och separat draft-PR mot `preview`; samordnaren ansvarar för mergeordning
 och aktuella leveransvillkor. Ingen mastermerge eller extra DB-/provideråtgärd ingår.
