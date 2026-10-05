@@ -2,8 +2,28 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Ej startad. Beroende: A1 och verifierad A6a.
+Status: Verifierad lokalt 2026-10-05. Beroende: A1 och verifierad A6a.
 Arbetssätt: ett avgränsat skrivpaket.
+
+Pilot: slå ihop tier-filens två källtexttester med verkliga
+`runWebsiteAudit`-prov i responses-testfilen. Behåll alla befintliga
+retry-/tidsbudget-/kostnads-/providerfelprov; komplettera tierns scrape depth,
+schema, web-search, avancerade resultatfält och observerad kostnadslogg.
+Intern promptbyggare ska köras på riktigt. Temporära runtimeprov är
+samordnade; slutdiffen får ingen runtimeändring. Bas `ff2ac650`, head
+`9d71cd34`; runtimeoriginal `d60342da939d56942516275a8b088d48b99c56c9`,
+rå SHA256 `9928E10F2B2C9063CD96CDB89160FB28712DD1E32C6484A967E35E660B21F3BC`
+(23 515 bytes).
+
+Resultat: den gamla tvåfallsfilen är borttagen och fyra tierfall ligger i
+befintlig responsesfil. Legitima omordnade objektfält gav gamla testet rött
+men nya filens 41 tester gröna. Felaktigt `maxPages: 99` gav fyra relevanta
+fel. Runtimeblob, råhash och bytes återställdes exakt efter båda proven.
+Hela auditgruppen: 7 filer, 92 tester, exit 0. Discovery: 1 078/1 078,
+exit 0; riktad lint, typecheck och diff-check: exit 0. Oberoende review CLEAN.
+Nettot är en färre testfil och två fler beteendefall, inte en påstådd
+prestandavinst. Nästa paket använder samma metod: verklig owner, externa
+gränser som fixtures och observerbar felrespons.
 
 ## Uppdrag och kandidater
 

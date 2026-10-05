@@ -21,6 +21,7 @@ describe("CI scope decision", () => {
       runHeavy: false,
       safeDocsOnly: true,
       highRisk: false,
+      runPreviewHost: false,
       reason: "safe-docs-only",
     });
   });
@@ -151,9 +152,16 @@ describe("CI scope decision", () => {
   it("fails an unknown repository area into full CI", () => {
     const result = decide(["new-zone/value.custom"], { isDraft: true });
 
-    expect(result).toMatchObject({ runHeavy: true, highRisk: true });
+    expect(result).toMatchObject({ runHeavy: true, highRisk: true, runPreviewHost: true });
     expect(result.highRiskReasons).toContain("unclassified");
   });
+
+  it.each(["preview-host/server.mjs", ".github/workflows/ci.yml", ".node-version"])(
+    "runs preview-host guards for direct or shared owner %s",
+    (path) => {
+      expect(decide([path], { isDraft: true }).runPreviewHost).toBe(true);
+    },
+  );
 
   it("defers classified ownerless runtime while a PR is a draft", () => {
     const impact = collectImpact({
@@ -310,6 +318,7 @@ describe("CI scope decision", () => {
       runHeavy: true,
       safeDocsOnly: false,
       highRisk: true,
+      runPreviewHost: true,
       reason: "classification-error",
     });
     expect(result.classificationError).toContain("missing its destination");

@@ -103,7 +103,22 @@ describe("complete native test sharding contract", () => {
     ["      - name: Test shard (blocking)", "      - name: Test shard (blocking)\n        continue-on-error: true"],
     ["  quality-tests:\n", "  quality-tests:\n    continue-on-error: true\n"],
     ["quality-core, quality-tests, quality-contracts", "quality-core, quality-contracts"],
+    ["SCOPE_RESULT: ${{ needs.scope.result }}", "SCOPE_RESULT: success"],
+    ["RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}", "RUN_HEAVY: true"],
+    ["CORE_RESULT: ${{ needs['quality-core'].result }}", "CORE_RESULT: success"],
     ["TESTS_RESULT: ${{ needs['quality-tests'].result }}", "TESTS_RESULT: success"],
+    ["CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}", "CONTRACTS_RESULT: success"],
+    ["PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}", "PREVIEW_HOST_RESULT: success"],
+    ["DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}", "DEAD_CODE_RESULT: success"],
+    [
+      "run_preview_host: ${{ steps.classify.outputs.run_preview_host }}",
+      "run_preview_host: ${{ steps.classify.outputs.safe_docs_only }}",
+    ],
+    [
+      "RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}",
+      "RUN_PREVIEW_HOST: false",
+    ],
+    ["run: npm run test:discovery:check", "run: echo discovery-skipped"],
     ["types: [opened, synchronize, reopened, ready_for_review]", "types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]"],
   ])("rejects incomplete or nonblocking sharding: %s", (before, after) => {
     const changed = source.replace(before, after);
@@ -113,6 +128,8 @@ describe("complete native test sharding contract", () => {
 
   it("does not let a filtered package script replace the full suite", () => {
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:ci": "vitest run src/components" }))
+      .not.toEqual([]);
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:discovery:check": "echo skipped" }))
       .not.toEqual([]);
   });
 

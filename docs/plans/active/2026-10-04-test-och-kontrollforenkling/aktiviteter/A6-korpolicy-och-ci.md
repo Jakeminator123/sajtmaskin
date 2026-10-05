@@ -2,12 +2,12 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Ej startad. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
+Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 
-| Del                         | Status     | Ansvarig / exakta paths | Bas/head, arbetsdiff vid behov och verifieringsbevis |
-| --------------------------- | ---------- | ----------------------- | ---------------------------------------------------- |
-| A6a — tidigt säkerhetsskydd | Ej startad | Ej tilldelat            | Ej verifierat                                        |
-| A6b — sen optimering        | Ej startad | Ej tilldelat            | Ej verifierat                                        |
+| Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
+| --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
+| A6b — sen optimering        | Ej startad | Ej tilldelat                                                                              | Ej verifierat                                                                                                                                                                                  |
 
 ## Uppdrag
 
@@ -40,6 +40,23 @@ inte ett nytt handunderhållet register över alla tester.
       Dokumentera aktuell kod/diff och bevis i delstatusen ovan.
 - [ ] Lämna ett körbart säkerhetsskydd till A2–A5 så att förändrad discovery
       kan kontrolleras vid varje berört paket.
+
+A6a:s negativa bevis: tillfälliga `scripts/dev/orphan.test.mjs` och
+`new-zone/orphan_test.py` gav CLI exit 1 med exakt path. Okänd path valde alla
+icke-dokumentprofiler, inklusive Python, Playwright och preview-host. Ett
+temporärt Git-repo bevisar staged/unstaged delete och rename; utan den nya
+deleted-subtraktionen blir kontrollen röd. Nya och omdöpta filer utan runner
+är fortfarande röda. Efter återställning är discovery-ownerblobben
+`4e95417d46ec2d8f5b781c4ff53c49465225061d`, testblobben
+`f24702ae6ca2c8543f17a07192cd57b839e4e62b` och riktat/discovery/lint grönt.
+Vid A6a:s handoff var övriga nio ownerblobbar identiska med fullkörningen;
+senare A3 ändrar endast den separat granskade preflight-invocationen i package.
+Den första
+oberoende granskningen och sista tvåfilsdeltat är CLEAN; oberoende omkörning
+av discoverytesten gav 20/20 godkända med oförändrade blobbar.
+Samlad fullverifiering av detta delpaket är därefter grön med oförändrad
+kodfingerprint; aktuellt kvitto och bevisgränser finns i
+[A7](A7-slutverifiering-och-overlamning.md). Det avslutar inte A6b eller hela planen.
 
 A6a är verifierad först när bortfall och okända paths ger avsett fail-safe-
 utfall. Om dagens motor redan visar detta behövs ingen kodändring; aktuellt

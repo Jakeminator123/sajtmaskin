@@ -33,6 +33,8 @@
  *     only fail open, never wedge the shell.
  */
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { writeHookResponse } from "./hook-io.mjs";
 
@@ -214,13 +216,15 @@ function shellPlatform() {
   return override && override.trim() ? override.trim() : process.platform;
 }
 
-let response = { permission: "allow" };
-try {
-  const raw = readFileSync(0, "utf8").trim();
-  const input = raw ? JSON.parse(raw) : {};
-  response = decide(String(input.command ?? ""));
-} catch {
-  response = { permission: "allow" };
-}
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  let response = { permission: "allow" };
+  try {
+    const raw = readFileSync(0, "utf8").trim();
+    const input = raw ? JSON.parse(raw) : {};
+    response = decide(String(input.command ?? ""));
+  } catch {
+    response = { permission: "allow" };
+  }
 
-writeHookResponse(response);
+  writeHookResponse(response);
+}

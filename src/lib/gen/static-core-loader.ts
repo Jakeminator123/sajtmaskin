@@ -21,12 +21,12 @@ import { hasTraversalSegment, toPosixPath } from "@/lib/utils/path-utils";
 
 const PROJECT_ROOT = join(/* turbopackIgnore: true */ process.cwd());
 
-function getCoreManifestPath(): string {
-  return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config", "codegen-core-manifest.json");
+function getCoreManifestPath(root: string): string {
+  return join(/* turbopackIgnore: true */ root, "config", "codegen-core-manifest.json");
 }
 
-function getConfigDir(): string {
-  return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config");
+function getConfigDir(root: string): string {
+  return join(/* turbopackIgnore: true */ root, "config");
 }
 
 type ManifestJson = {
@@ -37,20 +37,20 @@ type ManifestJson = {
 type Cache = { key: string; content: string } | null;
 let cache: Cache = null;
 
-function safeConfigFragmentPath(rel: string): string | null {
+function safeConfigFragmentPath(rel: string, root: string): string | null {
   const normalized = rel.replace(/\\/g, "/").trim();
   // Segment-based (PR #396 class) så ett fragmentnamn som bara INNEHÅLLER
   // `..` inte avvisas i onödan; äkta `..`-segment stoppas fortfarande.
   if (!normalized || hasTraversalSegment(normalized) || normalized.startsWith("/")) {
     return null;
   }
-  return join(getConfigDir(), /* turbopackIgnore: true */ ...normalized.split("/"));
+  return join(getConfigDir(root), /* turbopackIgnore: true */ ...normalized.split("/"));
 }
 
-function manifestCacheKey(manifestPath: string, fragmentRels: string[]): string {
-  const parts: string[] = [String(statSync(/* turbopackIgnore: true */ manifestPath).mtimeMs)];
+function manifestCacheKey(manifestPath: string, fragmentRels: string[], root: string): string {
+  const parts: string[] = [manifestPath, String(statSync(/* turbopackIgnore: true */ manifestPath).mtimeMs)];
   for (const rel of fragmentRels) {
-    const fp = safeConfigFragmentPath(rel);
+    const fp = safeConfigFragmentPath(rel, root);
     if (fp === null) {
       parts.push("missing");
       continue;
@@ -64,7 +64,7 @@ function manifestCacheKey(manifestPath: string, fragmentRels: string[]): string 
   return parts.join("|");
 }
 
-function tryLoadFromManifestFile(manifestPath: string): string | null {
+function tryLoadFromManifestFile(manifestPath: string, root: string): string | null {
   if (!existsSync(/* turbopackIgnore: true */ manifestPath)) return null;
 
   let parsed: ManifestJson;
@@ -83,14 +83,14 @@ function tryLoadFromManifestFile(manifestPath: string): string | null {
   const sep =
     typeof parsed.fragmentSeparator === "string" ? parsed.fragmentSeparator : "\n\n";
 
-  const key = manifestCacheKey(manifestPath, fragmentRels);
+  const key = manifestCacheKey(manifestPath, fragmentRels, root);
   if (cache && cache.key === key) {
     return cache.content;
   }
 
   const chunks: string[] = [];
   for (const rel of fragmentRels) {
-    const fp = safeConfigFragmentPath(rel);
+    const fp = safeConfigFragmentPath(rel, root);
     if (fp === null) {
       throw new Error(`[sajtmaskin] Invalid fragment path in manifest: ${rel}`);
     }
@@ -112,13 +112,14 @@ function tryLoadFromManifestFile(manifestPath: string): string | null {
   return text;
 }
 
-export function getStaticCoreFromWorkspace(): string {
-  const fromCore = tryLoadFromManifestFile(getCoreManifestPath());
+/** Explicit roots let offline validation use the same loader on isolated fixtures. */
+export function getStaticCoreFromWorkspace(root: string = PROJECT_ROOT): string {
+  const fromCore = tryLoadFromManifestFile(getCoreManifestPath(root), root);
   if (fromCore !== null) {
     return fromCore;
   }
 
   throw new Error(
-    `[sajtmaskin] Missing core prompt. Expected config/codegen-core-manifest.json with fragments under config/prompt-core/. Tried: ${toPosixPath(getCoreManifestPath())}`,
+    `[sajtmaskin] Missing core prompt. Expected config/codegen-core-manifest.json with fragments under config/prompt-core/. Tried: ${toPosixPath(getCoreManifestPath(root))}`,
   );
 }

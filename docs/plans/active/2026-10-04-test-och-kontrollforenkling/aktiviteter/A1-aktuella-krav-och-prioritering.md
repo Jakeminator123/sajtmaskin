@@ -2,7 +2,25 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Ej startad. Beroende: A0. Arbetssätt: utredning och arbetsfördelning.
+Status: Verifierad 2026-10-05. Beroende: A0. Arbetssätt: utredning och arbetsfördelning.
+
+## Resultat och vald pilot
+
+Pengar/krediter, auth, projekt-/tenantisolering, SSRF, migrationsledger och
+externa webhook-/providerkontrakt är reserverade skydd. Starka beteende- och
+Postgresbevis behålls; syntaxlås i dessa ytor ändras först efter likvärdigt
+runtimebevis. Migrationsledger och D-ID-release är `UTRED/HOLD`, inte
+rensningsmål.
+
+Kandidatdispositionen är: audit-tier `SLÅ IHOP/SKRIV OM`, static-core-visual
+design `SKRIV OM`, shadcn snapshot `SKRIV OM/SLÅ IHOP` efter scaffoldhandoff,
+public analys `SLÅ IHOP/delvis TA BORT`, style-choice variants `BEHÅLL`, och
+systemprompt-checkern `SKRIV OM` mot den verkliga loadern.
+
+Vald konfliktfri A2-pilot är audit-tier: flytta relevant `maxPages`, schema-
+och web-search-bevis till `run-website-audit.responses.test.ts` som kör den
+verkliga orkestreringen och ta därefter bort källtextlåset i
+`run-website-audit.tier.test.ts`. Piloten startar först efter verifierad A6a.
 
 ## Uppdrag
 

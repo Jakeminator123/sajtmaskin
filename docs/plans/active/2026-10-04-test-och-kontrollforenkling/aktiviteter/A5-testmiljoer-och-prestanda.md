@@ -2,7 +2,69 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Ej startad. Beroende: A2; baslinje från A0.
+Status: Pågår. Beroende: A2; baslinje från A0.
+
+## Aktuellt paket — Node-miljöpilot
+
+Ensam skrivare: Codex `e1e8`, bas `ff2ac650`, head `9d71cd34`, arbetsdiff.
+Avgränsad kandidat: `scripts/dev/` med testfilerna
+`assert-git-checkout-unchanged.test.ts`, `check-agent-context-budget.test.ts`,
+`check-bug-backlog.test.ts`, `check-term-coverage.test.ts`,
+`check-v0-chat-boundary.test.ts`, `clean-scratch.test.ts`,
+`codex-shell-environment.test.ts`, `db-startup-policy.test.ts`, `doctor.test.ts`,
+`ensure-backoffice-python.test.ts`, `heredoc-guard.test.ts`,
+`install-git-hooks.test.ts`, `mcp-secret-read-guard.test.ts`, `tidy.test.ts`.
+Read-only granskning hittade inga DOM-/Reactberoenden i dessa Node-/verktygstester.
+Fyra omväxlande jämförelsepar kördes med fyra workers. Alla åtta körningar gav
+14 filer, 178 pass och samma tre Windows-/POSIX-skip; samtliga testidentiteter
+och statusar jämfördes exakt i JSON-rapporterna, inte bara antalet.
+
+| Miljö | Wall, fyra körningar (sekunder) | Median |
+| --- | --- | --- |
+| jsdom | 21,209; 21,038; 20,181; 21,181 | 21,109 |
+| Node | 18,352; 18,284; 18,262; 18,382 | 18,318 |
+
+Wall räknas från rapportens start till sista filens slut. Lokal medianvinst
+2,791 sekunder (cirka 13 %), inte ett löfte om hela CI. Sista parets Vitest-
+summering gav environment-aggregat 21,80 s → 0,002 s, setup 4,43 → 4,06 s,
+transform 0,560 → 0,498 s; dessa parallella delmått ska inte adderas till wall.
+Fjärde Node-körningen använde de verkliga per-fil-annotationerna utan CLI-
+environmentoverride. Endast en miljökommentar per fil tillagd; alla assertions,
+Vitest-config, global setup och CI-urval är orörda. Discovery 1079/1079 och
+diffcheck passerade. Befintliga realfault-fixtures för temp-Git-mutation,
+ref-läckage, non-fast-forward, hemlighetsläsning och v0-boundary kördes oförändrat.
+Paketstatus: **Verifierad lokalt**. Oberoende read-only review av `a0_discovery`
+gav CLEAN; kodkropparna är identiska med HEAD efter att miljökommentaren tagits
+bort. Slutkörning utan override gav 178 pass/3 skip, exit 0. Rapporterna finns
+tillfälligt i `.tmp/a5-{jsdom,node}-{1..4}.json`; inga nya permanenta körprofiler.
+Tre POSIX-fall behöver alltjämt Linux-CI; detta kvitto ersätter inte den.
+
+## Aktuellt paket — heredoc testharness
+
+Status: Verifierad lokalt. Exakta paths: `.cursor/hooks/heredoc-guard.mjs` och
+`scripts/dev/heredoc-guard.test.ts`. Samma implementerare, bas och head som ovan.
+Hooken är ett avsiktligt UX-skydd och behålls. Endast direktstart isoleras så
+att befintlig `decide()` kan importeras utan stdin/stdout-sidoeffekter. Alla
+beslutscase bevaras; verkliga CLI-kontrakt för deny, allow, plattform och trasig
+input ska kvarstå. Ingen matcher, registrering, regel, permissions- eller
+säkerhetspolicy ändras.
+
+Samtliga 17 tidigare testfall och 31 `ask()`-anrop är kvar. Totalt 33 processer
+blev sju: fyra CLI-/plattformskombinationer, två trasiga inputprov och ett
+file-URL-importprov utan stdin/stdout. Tre dedikerade före/efterkörningar gav
+17/17 respektive 22/22 pass. JSON-wall: före 2,707/2,714/2,665 s, efter
+1,266/1,214/1,201 s; medianvinst 1,493 s (cirka 55 % i denna fil). Själva
+testfilens exekveringsmedian sjönk från 1,926 till 0,414 s. Ingen extra vinst
+på hela CI:s kritiska väg påstås eftersom längre parallella filer kan dominera.
+
+Kontrollerat fel i main-guardens matchning gav exakt fyra CLI-failures;
+återställd hookblob `d374995d8376bd44bb408082de45d284f6837713` gav 22/22 pass.
+`hooks:install` var redan aktuell, `node --check`, explicit ESLint `--no-ignore`,
+typecheck och discovery 1079/1079 gav exit 0. Vanligt lint ignorerar `.cursor`
+och användes därför inte som hookkvitto. Oberoende `a5_hook_review`
+(`gpt-5.6-sol`, xhigh) gav CLEAN och körde egna smala CLI-/22-testprov.
+Beslutslogiken och meddelandena är oförändrade. Full workflowprofil krävs
+alltjämt på det samlade slutpaketet; hooken klassas inte som docs/light.
 
 ## Uppdrag
 

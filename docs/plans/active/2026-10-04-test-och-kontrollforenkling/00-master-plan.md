@@ -19,8 +19,13 @@ Bedöm både själva kontrollen och det aktuella krav som den är tänkt att sky
 
 ## Mandat och start
 
-Den nuvarande beställningen gäller detta planpaket. Genomförandet har inte
-startat. Planen överför inget mandat från andra initiativ.
+Jakob beställde lokalt genomförande 2026-10-05. Arbete pågår på
+`codex/test-control-relevance` i separat tilldelad checkout `e1e8`; aktiviteternas
+status skiljer verifierade delpaket från kvarvarande arbete. Jakobs senare
+fortsättnings-/leveransmandat verifierades i samordningschatten
+`Dokumentera Master-promotion` 2026-10-05. Detta steg omfattar scoped commit,
+push och separat draft-PR mot `preview`; samordnaren ansvarar för mergeordning
+och aktuella leveransvillkor. Ingen mastermerge eller extra DB-/provideråtgärd ingår.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
 driva aktiviteterna inom uppdraget; varje rutinmässig delpunkt behöver inte ett

@@ -2,7 +2,24 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Ej startad. Beroende: A1; integreras efter A2.
+Status: Blockerad för implementation. Beroende: A1; integreras efter A2.
+
+## Verifierat hinder och nästa owner
+
+Read-only genomgång av `a1_highrisk`: befintlig deploy-smoke-discovery och
+frivilliga skips bevisar inte skapa/spara/reload. Checkouten saknar isolerad
+Postgres-harness och deterministisk providergräns för hela generationsflödet;
+delad DB eller live provider får inte användas som genväg. En seedad version
+skulle endast bevisa CRUD, inte generation eller senare uppföljning.
+
+Chatten **Dokumentera Master-promotion** äger parallellt dossierkärnans
+quality-gate, server-verify, verify-run, F3-readiness och borttagning/ersättning.
+Även `useVersionStatus`, `useResumePendingVerification`, versionslistans
+API-route och `settle-stale-verification` med tester är reserverade dit.
+Nästa steg: invänta levererad core-preview och slutligt lease/CAS-kontrakt;
+reservera därefter en isolerad flödesharness med uttryckliga körkrav. Inga
+scenarier nedan är markerade som körda. Detta blockerar A6b:s slutliga
+urvalsminskning, men inte fristående A3-/A5-paket.
 
 ## Uppdrag
 

@@ -30,6 +30,7 @@ export const HIGH_RISK_GROUPS = Object.freeze([
 // matcha filändelsen som dokumentation.
 export const SAFE_DOCS_COMMANDS = Object.freeze([
   "workflow:contract",
+  "test:discovery:check",
   "docs:check",
   "docs:links",
   "docs:test",
@@ -103,6 +104,13 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
   }
 
   const highRisk = highRiskReasons.length > 0;
+  const runPreviewHost =
+    event !== "pull_request" ||
+    files.length === 0 ||
+    nonEmpty(impact?.unclassifiedFiles) ||
+    nonEmpty(impact?.groups?.previewHost) ||
+    nonEmpty(impact?.groups?.ci) ||
+    nonEmpty(impact?.groups?.dependencies);
   const safeDocsBlockers = collectSafeDocsBlockers({ impact, files, docs, highRisk });
   const safeDocsOnly =
     event === "pull_request" && files.length > 0 && safeDocsBlockers.length === 0;
@@ -134,6 +142,7 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
     runHeavy,
     safeDocsOnly,
     highRisk,
+    runPreviewHost,
     reason,
     files,
     highRiskReasons,
@@ -191,6 +200,7 @@ export function resolveCiScope({
       runHeavy: true,
       safeDocsOnly: false,
       highRisk: true,
+      runPreviewHost: true,
       reason: `trusted-${event || "unknown"}-full`,
       files: [],
       highRiskReasons: ["trusted-event"],
@@ -214,6 +224,7 @@ export function resolveCiScope({
       runHeavy: true,
       safeDocsOnly: false,
       highRisk: true,
+      runPreviewHost: true,
       reason: "classification-error",
       files: [],
       highRiskReasons: ["classification-error"],
@@ -249,6 +260,7 @@ function main() {
   if (outputPath) {
     writeOutput(outputPath, "run_heavy", decision.runHeavy);
     writeOutput(outputPath, "safe_docs_only", decision.safeDocsOnly);
+    writeOutput(outputPath, "run_preview_host", decision.runPreviewHost);
     writeOutput(outputPath, "high_risk", decision.highRisk);
     writeOutput(outputPath, "reason", decision.reason);
   }

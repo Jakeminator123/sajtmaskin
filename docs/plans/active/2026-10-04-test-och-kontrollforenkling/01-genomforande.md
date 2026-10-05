@@ -55,9 +55,9 @@ För den enda aktiva skrivreservationen används tabellen nedan. Samordnaren
 fyller i den före tilldelning och frigör den efter handoff. Tidigare paket och
 deras bevis finns i respektive aktivitet, inte i en växande reservationslogg.
 
-| Aktivitet/paket | Ensam skrivande agent | Reserverade exakta paths | Underlag: bas/head och eventuell arbetsdiff | Status |
-| --------------- | --------------------- | ------------------------ | ------------------------------------------- | ------ |
-| Ingen           | Ingen                 | Inga                     | Ej tilldelat                                | Ledig  |
+| Aktivitet/paket                          | Ensam skrivande agent | Reserverade exakta paths                                                                                                                                                                                                                      | Underlag: bas/head och eventuell arbetsdiff                                                             | Status                   |
+| ---------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Samlat lokalt delpaket — publicering | Codex i `e1e8` | Ingen aktiv kodskrivning; befintlig diff fryst och verifierad. Endast planstatus och scoped publicering. | Bas `ff2ac650`; branch `codex/test-control-relevance`; verifierad arbetsdiff på head `9d71cd34`; avgränsade A2/A3/A5-paket och integration granskade | Full verifiering grön, 21 kontroller exit 0; Jakobs senare publiceringsmandat verifierat. Separat draft-PR förbereds. A3/A4/A6b/A7:s slutleverans är inte klar |
 
 Varje aktivitetsfil har `Ej startad`, `Pågår`, `Blockerad` eller `Verifierad`.
 Samordnaren fyller i ansvarig/paket, bas/head och senaste kontroll när arbetet
