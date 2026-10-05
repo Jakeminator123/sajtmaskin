@@ -948,7 +948,15 @@ describe("runProductPostcheck browser-startpunkt", () => {
       versionId: "v1",
     });
 
-    expect(detectAndPruneChromiumCoreDumpsMock).toHaveBeenCalledWith("product-postcheck");
+    expect(detectAndPruneChromiumCoreDumpsMock).toHaveBeenCalledWith(
+      "product-postcheck",
+      expect.objectContaining({
+        captureRunId: expect.any(String),
+        chatId: "chat_1",
+        versionId: "v1",
+        phase: "dump_detection",
+      }),
+    );
     expect(result.skipped).toBe(false);
     expect(result.productBlocked).toBe(false);
     expect(result.warnings).toEqual(
@@ -960,6 +968,103 @@ describe("runProductPostcheck browser-startpunkt", () => {
       ]),
     );
     expect(result.warningCount).toBe(result.warnings.length);
+  });
+
+  it("loggar close-fel med körnings-ID men fortsätter hela städningen utan att blockera produkten", async () => {
+    const desktop = fakePage([
+      liveBootProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    mobile.close.mockRejectedValueOnce(new Error("mobile context close failed"));
+    const browserClose = vi.fn(async () => {});
+    let nextPage = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => [desktop, mobile][nextPage++]),
+      close: browserClose,
+    });
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "http://127.0.0.1:3000/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+        verificationRunId: "verify-1",
+      });
+      expect(result.skipped).toBe(false);
+      expect(result.productBlocked).toBe(false);
+      expect(desktop.close).toHaveBeenCalledOnce();
+      expect(browserClose).toHaveBeenCalledOnce();
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "close_error",
+          message: "mobile context close failed",
+          captureRunId: expect.any(String),
+          verificationRunId: "verify-1",
+          chatId: "chat_1",
+          versionId: "v1",
+        }),
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("synliggör browserfrånkoppling vid mobile.close även när Playwright inte kastar", async () => {
+    const desktop = fakePage([
+      liveBootProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    let connected = true;
+    let disconnected!: () => void;
+    mobile.close.mockImplementationOnce(async () => {
+      connected = false;
+      disconnected();
+    });
+    let nextPage = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => [desktop, mobile][nextPage++]),
+      close: vi.fn(async () => {}),
+      isConnected: () => connected,
+      version: () => "149.0.7827.0",
+      on: vi.fn((_event: string, listener: () => void) => {
+        disconnected = listener;
+      }),
+    });
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "http://127.0.0.1:3000/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+      expect(result.productBlocked).toBe(false);
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "browser_disconnected",
+          expectedDuringBrowserClose: false,
+          browserConnected: false,
+          browserVersion: "149.0.7827.0",
+        }),
+      );
+      expect(log).toHaveBeenCalledWith(
+        "[product-postcheck] capture lifecycle",
+        expect.objectContaining({
+          phase: "mobile.close",
+          event: "after_close",
+          browserConnected: false,
+        }),
+      );
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("lägger SSRF-grinden på båda viewporterna", async () => {

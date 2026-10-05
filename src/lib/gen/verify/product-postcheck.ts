@@ -1,4 +1,5 @@
 import type { Browser, Page, Response as PlaywrightResponse } from "playwright-core";
+import { randomUUID } from "node:crypto";
 import { load } from "cheerio";
 import {
   applyCaptureRequestGate,
@@ -1370,6 +1371,7 @@ export async function runProductPostcheck(params: {
   previewUrl: string;
   chatId: string;
   versionId: string;
+  verificationRunId?: string | null;
   timeoutMs?: number;
   captureEnabled?: boolean;
   captureUserId?: string;
@@ -1393,6 +1395,24 @@ export async function runProductPostcheck(params: {
   let browser: Browser | null = null;
   let page: Page | null = null;
   let mobilePage: Page | null = null;
+  const captureDiagnostics = {
+    captureRunId: randomUUID(),
+    verificationRunId: params.verificationRunId ?? null,
+    chatId: params.chatId,
+    versionId: params.versionId,
+  };
+  let capturePhase = "launch";
+  const logCaptureLifecycle = (event: string, extra: Record<string, unknown> = {}) => {
+    console.info("[product-postcheck] capture lifecycle", {
+      ...captureDiagnostics,
+      phase: capturePhase,
+      event,
+      browserConnected: browser?.isConnected?.() ?? null,
+      browserVersion: browser?.version?.() ?? null,
+      nodeVersion: process.version,
+      ...extra,
+    });
+  };
   // Uncaught runtime exceptions captured across BOTH viewports. Hoisted to
   // function scope so the catch below can still surface a render-fatal crash
   // that was captured before a later phase (mobile nav / menu probe) threw —
@@ -1423,6 +1443,7 @@ export async function runProductPostcheck(params: {
   };
 
   const attachRuntimeListeners = (target: Page, viewport: "desktop" | "mobile") => {
+    target.on("crash", () => logCaptureLifecycle("page_crash", { viewport }));
     // Listeners MUST be registered before page.goto — a post-nav listener
     // misses everything that fired during navigation/boot.
     target.on("pageerror", (error) => {
@@ -1470,6 +1491,11 @@ export async function runProductPostcheck(params: {
     // kört i produktion och rapporterade tyst grönt. Exakt den fällan som
     // `@/lib/capture/browser` skapades för att stänga.
     browser = await launchCaptureBrowser();
+    browser.on?.("disconnected", () => logCaptureLifecycle("browser_disconnected", {
+      expectedDuringBrowserClose: capturePhase === "browser.close",
+    }));
+    logCaptureLifecycle("launched");
+    capturePhase = "desktop_check";
     page = await browser.newPage({
       viewport: { width: 1280, height: 900 },
       userAgent:
@@ -1762,12 +1788,16 @@ export async function runProductPostcheck(params: {
     if (captureEnabled) {
       // Start page, before the crawl walks desktop off the homepage.
       const captureStartedAt = Date.now();
+      capturePhase = "desktop_screenshot";
+      logCaptureLifecycle("before_screenshot");
       desktopJpeg = await capturePostcheckJpeg(page, {
         attempts: 2,
         viewport: "desktop",
         versionId: params.versionId,
         chatId: params.chatId,
       });
+      logCaptureLifecycle("after_screenshot", { captured: Boolean(desktopJpeg) });
+      capturePhase = "desktop_check";
       if (!desktopJpeg) {
         console.warn("[product-postcheck] desktop screenshot missing after retry", {
           versionId: params.versionId,
@@ -1833,6 +1863,7 @@ export async function runProductPostcheck(params: {
     // Reset route label for the mobile start-page pass.
     currentRoute = pathnameOf(previewUrl);
 
+    capturePhase = "mobile_check";
     mobilePage = await browser.newPage({
       viewport: { width: 375, height: 667 },
       serviceWorkers: "block",
@@ -1857,12 +1888,16 @@ export async function runProductPostcheck(params: {
       .evaluate(captureHydrationCtaLabelsInBrowser)
       .catch(() => []);
     if (captureEnabled) {
+      capturePhase = "mobile_screenshot";
+      logCaptureLifecycle("before_screenshot");
       mobileJpeg = await capturePostcheckJpeg(mobilePage, {
         attempts: 1,
         viewport: "mobile",
         versionId: params.versionId,
         chatId: params.chatId,
       });
+      logCaptureLifecycle("after_screenshot", { captured: Boolean(mobileJpeg) });
+      capturePhase = "mobile_check";
     }
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
@@ -1927,6 +1962,8 @@ export async function runProductPostcheck(params: {
         ),
       );
     }
+    capturePhase = "persist_screenshots";
+    logCaptureLifecycle("before_persist");
     const screenshots = shouldPersistPostcheckScreenshots({
       captureEnabled,
       liveReviewAllowed: params.liveReviewAllowed === true,
@@ -1942,6 +1979,10 @@ export async function runProductPostcheck(params: {
           mobile: mobileJpeg,
         }).catch(() => null)
       : null;
+    logCaptureLifecycle("after_persist", {
+      desktopSaved: Boolean(screenshots?.desktopUrl),
+      mobileSaved: Boolean(screenshots?.mobileUrl),
+    });
     if (screenshots && !screenshots.desktopUrl) {
       console.warn("[product-postcheck] desktopUrl missing from persisted screenshots", {
         versionId: params.versionId,
@@ -2033,10 +2074,30 @@ export async function runProductPostcheck(params: {
     console.warn("[product-postcheck] skipped:", err);
     return settle(skippedResult(reason, Date.now() - startedAt, previewUrl, routesChecked));
   } finally {
-    await mobilePage?.close().catch(() => {});
-    await page?.close().catch(() => {});
-    await browser?.close().catch(() => {});
-    const dump = detectAndPruneChromiumCoreDumps("product-postcheck");
+    // Playwright can swallow TargetClosed during an owned Page.close(), so a
+    // resolved close is not proof of a healthy native exit. Log connectivity
+    // before/after each step and keep cleanup advisory even when close throws.
+    for (const [phase, target] of [
+      ["mobile.close", mobilePage], ["desktop.close", page], ["browser.close", browser],
+    ] as const) {
+      if (!target) continue;
+      capturePhase = phase;
+      logCaptureLifecycle("before_close");
+      try {
+        await target.close();
+        logCaptureLifecycle("after_close");
+      } catch (error) {
+        logCaptureLifecycle("close_error", {
+          message: (error instanceof Error ? error.message : String(error)).split("\n")[0].slice(0, 200),
+        });
+      }
+    }
+    capturePhase = "dump_detection";
+    const dump = detectAndPruneChromiumCoreDumps("product-postcheck", {
+      ...captureDiagnostics,
+      browserVersion: browser?.version?.() ?? null,
+      phase: capturePhase,
+    });
     if (dump.count > 0 && settled && !settled.skipped) {
       settled.warnings.push(
         warning(
