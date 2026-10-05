@@ -38,6 +38,8 @@ ha skrivstatus samtidigt.
 | Systemprompt: kontroll och runtime ska godkänna samma core | `src/lib/gen/static-core-loader.ts`; `scripts/dev/check-systemprompt.mjs`; `scripts/dev/check-systemprompt.test.ts`; `package.json` | Verifierad lokalt; Codex `e1e8` | Bas `ff2ac650`, head `9d71cd34`, arbetsdiff | SKRIV OM/SLÅ IHOP: separat loader/fallbacklogik borttagen. Riktig loader används via `node --import tsx`. 21 riktade tester, faktisk preflight, lint, typecheck och discovery 1079/1079 gröna; oberoende review CLEAN. |
 | Backoffice: registrerade sidor och synliga generationsrubriker | `backoffice/test_pages_import_smoke.py`; `backoffice/test_generation_history.py` | Verifierad lokalt; Codex `e1e8` | Bas `ff2ac650`, head `9d71cd34`, arbetsdiff | TA BORT tre historiska modulplats-/filfrånvarolås och source-literal-ban. PAGE_SPECS-importsmoke och riktiga dataframe-/statuskontroller kvar. 32→29 riktade Python PASS; ruff, discovery 1079/1079 och diffcheck gröna. Oberoende review CLEAN. |
 | Prompt: verklig komposition ska bevara core och request-kontext | `src/lib/gen/static-core-visual-design.test.ts` | Verifierad lokalt; Codex `e1e8` | Bas `ff2ac650`, head `9d71cd34`, arbetsdiff | SKRIV OM egen string-assembly till produktions-compose via riktig Node/tsx. Alla fyra guardblock kvar. 6/6 pass; 17/17 ihop med checker; ESLint/diffcheck gröna; oberoende review CLEAN. |
+| F3: retry ska läsa samma committade status som knappen | `src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx` och dess test | Levererad separat via #1558; inte ett nytt #1553-delta | Lokal `0423cd419`, faktisk preview `59a12080` | Fyra RED före runtimefix, 75 riktade PASS efter; oberoende CLEAN. Senaste readiness/busy-status och explicit parent bevaras. Historiskt CI-förlopp är inte säkert orsaksfastställt. |
+| Publik audit: modellseparation i faktisk kandidatkedja | `src/lib/audit/public-analys.test.ts`; `src/lib/audit/audit-tier.test.ts` | Verifierad separat lokalt; inte i #1553 | Bas `59a12080`, commit `340724bd1` | SLÅ IHOP duplicerade modellås; unik kostnadsgrind flyttad till `resolveAuditRun`. Två verkliga felinjektioner går från falskt grönt till rött; normal körning 54 PASS, typecheck/lint och oberoende review CLEAN. Väntar på separat integrationsbeslut. |
 
 ### Systemprompt — felbevis och avgränsning
 
@@ -90,10 +92,10 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 | --- | --- | --- |
 | Pengar, auth, tenant, SSRF, migrationsledger, externa kontrakt | BEHÅLL säkerhets- och beteendeprov. Ingen DB/provideroperation eller ändrad kostnads-/routingpolicy. | Befintliga runtimeowners; riktad semantisk genomgång krävs före ytterligare ändring. |
 | Builder/UI, preview, export/publicering | Huvudsakligen BEHÅLL verkliga tillstånds-/säkerhetsprov. Aktiva legacy-callers och möjlig extern `/api/download`-konsument gör radering obevisad. | Codex fortsätter bara efter exakt scope/kontraktsbevis; ingen routeavveckling beställd. |
-| Dossiers, scaffolds, remove/replace, versionsstatus | UTRED/HOLD för skrivning. Duplicerade scaffold-versionpins och shadcn-snapshot är kandidater, inte beslutade borttagningar. | Dokumentera Master-promotion samordnar SCHAFFOLDS och levererar actual core-preview före överlappande paket/A4. |
-| Public analys | BEHÅLL tills separat paket får full ersättningsbevisning. No-Sol i publik fallback har unik kostnadstäckning; modellnamn är inte automatiskt inaktuella. | Befintlig audit-/modellowner; ingen större public-analys-rensning i detta paket. |
+| Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS äger intent/rootselection och deras riktade tester. A4 saknar fortfarande isolerad körmiljö/providergräns. |
+| Public analys | Ett tvåfilspaket `340724bd1` är lokalt CLEAN. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Paketet ingår inte i #1553. Övriga prompt-, metadata- och klientkontroller är oförändrade. |
 | Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing är rättad i separat lokal commit `94ac4c3fd`; registry/projektionsavvikelser återstår. | Tvåfilspaketet finns endast på `codex/test-control-ruleset-isolation`, inte i PR #1553. Inga nya checks införs på felaktig premiss. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är rättade separat lokalt på head `f74e8b281`; registry/projektionsavvikelser återstår. | Tvåfilspaketet finns endast på `codex/test-control-ruleset-isolation`, inte i PR #1553. Ingen live ruleset-ändring har gjorts. |
 
 Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
 test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
@@ -104,6 +106,19 @@ filmutationer av verklig policy. 125 riktade tester, typecheck, lint,
 workflowkontrakt och discovery gröna; oberoende slutreview CLEAN med egen
 9/9-körning. Policy, ruleset-spec, permissions och workflows är orörda.
 Paketet är lokalt säkrat men ännu inte publicerat eller levererat.
+
+Ruleset-uppföljningen på `f74e8b281` ersätter source-regex med YAML-parsning:
+ekvivalent citerad/inline branchsyntax accepteras, medan ett otillåtet citerat
+`pull_request`-event ger rött. Nio riktade tester, typecheck/lint och exakt-head
+review är gröna. Detta ändrar inte GitHubs regler eller det deklarerade kontraktet.
+
+Auditpaketets felprov injicerade produktens primary i den publika kedjans svans
+respektive ersatte hela publikkedjan med produktkedjan. Gamla 17 tester förblev
+gröna; nya paketet gav ett relevant fel per injektion. En isolerad simulation
+av avsiktligt uppdaterade canonical defaults och deras ägartester gav gammalt
+sidolås rött, nytt paket grönt. Ingen faktisk modell-/providerändring gjordes.
+Grinden skyddar separation från produktens aktuella primary, inte en ny generell
+pris-/allowlist-policy för alla andra modeller eller alias.
 
 ## Checklista per paket
 

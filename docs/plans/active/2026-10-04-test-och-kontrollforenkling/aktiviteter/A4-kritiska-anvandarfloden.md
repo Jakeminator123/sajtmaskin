@@ -12,14 +12,27 @@ Postgres-harness och deterministisk providergräns för hela generationsflödet;
 delad DB eller live provider får inte användas som genväg. En seedad version
 skulle endast bevisa CRUD, inte generation eller senare uppföljning.
 
-Chatten **Dokumentera Master-promotion** äger parallellt dossierkärnans
-quality-gate, server-verify, verify-run, F3-readiness och borttagning/ersättning.
-Även `useVersionStatus`, `useResumePendingVerification`, versionslistans
-API-route och `settle-stale-verification` med tester är reserverade dit.
-Nästa steg: invänta levererad core-preview och slutligt lease/CAS-kontrakt;
-reservera därefter en isolerad flödesharness med uttryckliga körkrav. Inga
-scenarier nedan är markerade som körda. Detta blockerar A6b:s slutliga
-urvalsminskning, men inte fristående A3-/A5-paket.
+Dossier-/shared-runtime-reservationen frigavs efter #1558 på faktisk preview
+`59a12080`, som ingår i integrationsbasen `e37e4d83`. Read-only deltarevalidering
+visar att ingen isolerad Postgres, deterministisk providergräns eller lokal
+Playwright-appsetup tillkom. Reservationhindret är borta, miljö-/harnesshindret
+kvarstår. Inga scenarier nedan är markerade som körda. Det blockerar A6b:s
+slutliga urvalsminskning, men inte fristående A3-/A5-paket.
+
+Minsta nästa paket är en isolerad `project-persistence`-harness med riktig
+Next/browser/Postgres och faktiska edit/save/reload-routes. Saknad eller otillåten
+testdatabas ska ge hårdfel, aldrig skip. Seedad chat/version bevisar bara
+persistens; generation, follow-up och remove/replace kräver dessutom en
+deterministisk extern providergräns och relevant preview-runtime. Detta är
+avgränsat nästa arbete, inte en byggd eller körd harness.
+
+SCHAFFOLDS äger nu `src/lib/builder/build-intent.ts`,
+`src/lib/api/engine/chats/create-chat-stream-post.ts`, `parse-chat-request-meta.ts`,
+`chat-message-stream/{plan-mode-turn,codegen-turn}.ts`,
+`follow-up-orchestration-input.ts` samt `src/lib/gen/orchestrate/{resolve-base,types}.ts`
+och deras riktade tester/följdytor. De förkortade chat-pathsen hör till samma
+`src/lib/api/engine/chats/`-katalog. TESTER skriver inte i dessa owners utan ny
+samordning. Provider/restore/promotion/preservation-kontrakten ändras inte här.
 
 ## Uppdrag
 

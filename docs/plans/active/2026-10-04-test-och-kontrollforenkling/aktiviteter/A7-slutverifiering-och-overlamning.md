@@ -49,19 +49,32 @@ providers har inte fått ett nytt grönt leveranskvitto genom denna review.
 
 ### Aktuell bassynk
 
-PR #1553 normalsynkades 2026-10-05 med faktiskt levererad core i preview
-`84e0061a91af91cfafd02bf914af14b8fc9af6a9`, via konfliktfri merge
-`129f7a7c556b12ea7c6e512af531ed7dcc9b9b89`. De 34 kodpathernas fingerprint
-är fortfarande identisk med det tidigare fulltestade och CLEAN-granskade
-paketet. Den nya basens dossierkod är inte ett nytt TESTER-delta.
+PR #1553 normalsynkades 2026-10-05 en gång efter den avslutade dossier- och
+industryleveransen, mot faktisk preview
+`e37e4d83a32be2bdaf9207ff8b2c3328c35a8ae3`, via merge
+`8d5408b12cd26bd3ec2356e95dc11758bc8df919`. Enda konflikt var planindexet:
+testreformens aktiva rad bevarades, dossierplanens levererade/raderade rad
+återinfördes inte. Ingen runtimekonflikt löstes.
 
-Riktad integration efter synk: 24 testfiler, 533 PASS och 26 plattformsskippar;
-alla ändrade Vitest-filer samt provider-kompatibilitet och server-verify/F3
-ingår. Plan, typecheck, workflowkontrakt, discovery 1 079/1 079, docs och
-diffcheck är gröna. Tidigare fullprofil återanvänds endast för identiska
-kodbytes; aktuella native CI-/deploymentresultat måste avse PR:ns nya head.
-Separat lokal ruleset-commit `94ac4c3fd` är inte inkluderad i PR #1553.
-Planens A3 är fortfarande ofullständig, A4 blockerad och A6b inte genomförd.
+Diffen mot basen är fortfarande 45 paths: 34 kod-/test-/configpaths och 11
+befintliga planpaths. Alla 34 filhashar, inklusive avsiktlig testfilradering,
+matchar det tidigare fulltestade och CLEAN-granskade paketet exakt; fingerprinten
+ovan är oförändrad. Basens dossier-, F3- och industrykod är inte nya PR-deltan.
+F3-fixen är redan levererad via #1558. Separata lokala audit `340724bd1` och
+ruleset `f74e8b281` ingår inte i #1553.
+
+Riktad integration efter synk: 33 testfiler, 756 PASS och 26 plattformsskippar
+med högst fyra workers. Alla ändrade Vitest-filer samt provider-/server-verify,
+F3, dossier-/promptintegration och industry-route/UI ingår. Tre berörda
+Backoffice-moduler gav 80 Python PASS. Typecheck och faktisk discovery
+1 080/1 080 är gröna. Logg: `.tmp/test-control-e37-integration.log`.
+Detta är ett integrationskvitto, inte en ny fullsuite eller ett A4-flödesbevis.
+
+Tidigare fullprofil återanvänds endast för identiska kodbytes. Aktuell review,
+native CI och deployment måste avse PR:ns nya publicerade head och aktuella
+bas; äldre gröna PR-resultat är inte ett nytt mergekvitto. Samordnaren äger
+merge. Planens A3 är fortfarande ofullständig, A4 harnessblockerad och A6b
+endast read-only kartlagd. Hela A7/slutchecklistan är inte färdig.
 
 ## Uppdrag
 

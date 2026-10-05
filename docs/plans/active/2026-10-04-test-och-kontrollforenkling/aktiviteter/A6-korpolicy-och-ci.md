@@ -7,7 +7,7 @@ Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 | Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
 | --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
-| A6b — sen optimering        | Ej startad | Ej tilldelat                                                                              | Ej verifierat                                                                                                                                                                                  |
+| A6b — sen optimering | Read-only kartlagd; ingen implementation | Codex `e1e8`; inga nya skrivpaths | Kandidater nedan. Ingen urvalsminskning eller ändring av required/native gates genomförd. |
 
 ## Uppdrag
 
@@ -63,6 +63,32 @@ utfall. Om dagens motor redan visar detta behövs ingen kodändring; aktuellt
 negativt bevis krävs ändå. Mottagare: [A2](A2-pilot-och-kanda-lasningar.md).
 
 ## Sen optimeringsdel A6b
+
+### Verifierade kandidater, inte genomförda ändringar
+
+- `route-timeouts:check` körs både i heavy `preflight:common` och i contracts.
+  Bevara preflight/Vercel-paritet; en eventuell dedup måste fortfarande ge rött
+  vid drift i heavy, explicit light och scope-fallback.
+- Tre workflow-/scope-testfiler körs både riktat i contracts och i heavy
+  standardsviten. Runtimekontrollen `workflow:contract` är inte en dublett av
+  sina tester och ska inte tas bort. Light behöver fortsatt riktade testbevis.
+- Scaffoldtesterna är HOLD: `scaffolds:validate` blandar riktiga validatorer och
+  materialisering med tester. Hela kommandot får inte tas bort som en dublett.
+
+Separat ready-event-kandidat: #1552 körde heavy CI
+[37265086119](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37265086119)
+från 2026-10-05 04:48:17 UTC, alla fyra shards startade 04:48:49. Ready-eventet
+04:51:40 startade en ny heavy CI
+[37265307749](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37265307749)
+04:51:41 på exakt samma head `2863d78204791a0720f718139ccf37db36a12bcc`.
+Den första körningens shards avbröts 04:51:50–57; run-status uppdaterades
+04:51:58. Ny körning startade alltså efter 3:24 redan förbrukad walltid,
+inte efter en kodändring. Run-API och PR-timeline lästes read-only.
+
+Detta är event-/körningsdedup, inte minskat testurval eller A4:s providerhinder.
+En eventuell rättning måste behålla full profil, securitychecks, aktuell
+integrationsbas och native leveransgrindar. Inga workflows ändras för denna
+observation och ingen manuell cancel/omkörning gjordes.
 
 Starta efter A3, A4 och A5. Följande checklista gäller slutlig policy och
 optimering; säkerhetsdelen måste fortsätta fungera.

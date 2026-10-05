@@ -100,10 +100,11 @@ A6 har två separata grindar: säkerhetsdelen före piloten, optimeringen sist.
 
 ## Angränsande aktiva initiativ
 
-- [Dossier-förenkling](../2026-10-04-dossier-forenkling/00-master-plan.md)
-  äger den pågående dossierleveransen och dess kompatibilitetsbevis. Inventera
-  dessa tester, men reservera inga överlappande skrivpaths förrän samordnaren
-  kontrollerat aktuell status. Det initiativets PR-/mergemandat gäller inte här.
+- Dossier-förenklingen är levererad via #1551, #1555 och #1558; terminalstatus
+  finns i [avklarat-indexet](../../avklarat/README.md) och stabil semantik i
+  [dossierkontraktet](../../../contracts/dossier-system.md). Runtimeowners
+  frigavs efter verifierad preview `59a12080`. SCHAFFOLDS aktuella
+  intent-/scaffoldreservation består; samordna den innan överlappande arbete.
 - [Källkvitto, Quality Bar och addenda](../2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)
   äger sina produktbeslut. Samordna förändringar i källkvitto, designråd,
   varianter och addenda; starta inte om redan levererade delar.
