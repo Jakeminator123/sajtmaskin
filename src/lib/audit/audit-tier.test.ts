@@ -36,6 +36,7 @@ describe("resolveAuditRun", () => {
     expect(run.mode).toBe("advanced");
     expect(run.primaryModel).toBe(AUDIT_STRUCTURED_DEFAULT_MODEL);
     expect(run.primaryModel).toBe("openai/gpt-5.6-sol");
+    expect(run.modelCandidates[0]).toBe(run.primaryModel);
     expect(run.maxPages).toBe(4);
     expect(run.allowWebSearch).toBe(true);
     expect(run.schemaKind).toBe("full");
@@ -52,6 +53,9 @@ describe("resolveAuditRun", () => {
     expect(run.mode).toBe("basic");
     expect(run.promptKind).toBe("public");
     expect(run.primaryModel).toBe("openai/gpt-5.6-luna");
+    expect(run.primaryModel).toBe(AUDIT_PUBLIC_STRUCTURED_DEFAULT_MODEL);
+    expect(run.modelCandidates[0]).toBe(run.primaryModel);
+    expect(run.modelCandidates).not.toContain(AUDIT_STRUCTURED_DEFAULT_MODEL);
     expect(run.maxPages).toBe(4);
     expect(run.allowWebSearch).toBe(false);
     expect(run.schemaKind).toBe("full");
