@@ -67,8 +67,14 @@ SUCCESS med fyra shards, 5:11. Dossier
 [37271926406](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37271926406)
 var legitim light med hoppad byggmatris, inte ett nytt 21/21-byggkvitto.
 Exact-head deployment `dpl_2KP6Aei2Mw92aiFrh5dwbLn2N4iC` var enligt
-samordnaren READY/`aliasError=null`. Postmerge-CI/deployment för `8267a10e`
-följs av samordnaren och är ännu inte färdigbevisade i denna status.
+samordnaren READY/`aliasError=null`. Även separat postdeployment på
+`8267a10e`, `dpl_p98bbQTnYNbjT3ftWTAykHwdbni4`, är enligt samordnaren
+READY/`aliasError=null`. Post-CI `37272405597` är completed/failure endast
+på `db-schema-parity`; alla fyra shards, quality-core/contracts/aggregate,
+schema, Backoffice, build, preview-host, stability och prod-migrations-applied
+är SUCCESS. Samordnaren jämförde båda avslutade failed-loggarna för
+`37268476396` och `37272405597`: 13 basrader, 13 postrader, 0 skillnader.
+Den befintliga DB-paritetsskulden består; total post-CI påstås inte vara grön.
 
 En normal basmerge `3fdff50d158658c532baaec5dc2b784406ebf8ac` tog in
 `8267a10e` utan konflikt. Direkt efter mergen var alla sju docs identiska med
