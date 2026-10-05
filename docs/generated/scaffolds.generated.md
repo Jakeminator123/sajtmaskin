@@ -13,7 +13,7 @@ Canonical owner: scaffold manifests registered by the runtime scaffold registry.
 | ID                | Label           | Site kind   | Complexity | Build intents                | Features                                             | Runtime files |
 | ----------------- | --------------- | ----------- | ---------- | ---------------------------- | ---------------------------------------------------- | ------------- |
 | `app-shell`       | App Shell       | `app`       | `medium`   | `app`                        | `auth`, `sidebar-layout`, `settings`, `dash-widgets` | 9             |
-| `auth-pages`      | Auth Pages      | `app`       | `simple`   | `website`, `app`, `template` | `login`, `signup`, `password-reset`                  | 7             |
+| `auth-pages`      | Auth Pages      | `app`       | `simple`   | `website`, `app`, `template` | `login`, `signup`, `password-reset`                  | 9             |
 | `base-nextjs`     | Base Next.js    | `marketing` | `simple`   | `website`, `template`        | `routing-basics`, `seo-metadata`, `component-ready`  | 4             |
 | `blog`            | Blog            | `editorial` | `medium`   | `website`, `template`        | `article-list`, `taxonomy`, `author-bio`             | 9             |
 | `dashboard`       | Dashboard       | `app`       | `advanced` | `app`                        | `auth`, `navigation-shell`, `tables`, `charts`       | 9             |
