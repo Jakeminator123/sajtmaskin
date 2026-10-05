@@ -198,7 +198,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | Briefing-lagret som «halvfärdigt» / `promptAssist` som toppnyckel | Funktionen är komplett. Manifestets enda toppnyckel för lagret är `briefing`. |
 | Polish / Skriv om / Förbättra / prompt rewrite | Död väg (borttagen 2026-04-21). Inte samma sak som `Prompt-assist` (2026-08-19): den rättar utkastet i rutan och behåller naturligt språk. |
 | `deploy-assistant` som aktiv fas | Konfigurerad i `phaseRouting` och ModelTraceOverlay; ingen runtime-anropare |
-| `Scaffold: Av` / scaffold off | `ScaffoldMode: "off"` → `projekt-bas-app` i vanlig own-engine-init; **inte** scaffold-löst Importerat repo-läge |
+| `Scaffold: Av` / scaffold off | `ScaffoldMode: "off"` → `projekt-bas-app` för website/app-init; template-init förblir scaffold-löst. **Inte** Importerat repo-läge, som alltid saknar scaffold. |
 | syntetisk scaffold | Undvik som nulägesbegrepp. `projekt-bas-app` är en riktig registrerad Scaffold; variant-template inspiration är ett separat inspirationslager |
 | addendum (ospecificerat) | `Källpaket` för samlingen av valbara ingredienser; `Variant-template-addendum` när `config/variant-template-addenda.json` avses |
 | variant template / template snapshot | Precisera till `sourceTemplateIds`, `Variant-template inspiration` eller `Template (v0-mall)` beroende på om kandidatpool, inspiration eller helprojekt avses |

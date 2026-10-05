@@ -2,24 +2,29 @@
  * Delta-brief phase for clear-redesign follow-ups. Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
+import { resolveBuildIntentForMethod } from "@/lib/builder/build-intent";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { OPENCLAW } from "@/lib/config";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import {
+  buildFollowUpContract,
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
 } from "@/lib/gen/orchestration-snapshot";
+import {
+  enforceFollowUpScaffoldFreeze,
+  resolveFollowUpFrozenBuildIntent,
+} from "@/lib/gen/orchestrate/follow-up-freeze";
 import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
 import {
   buildVariantHintsForBrief,
   formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
-import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
+import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_OFF_BASELINE_ID, type ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import {
   isOpenClawPreparedPromptStructured,
   OPENCLAW_PREPARED_PROMPT_SOURCE,
@@ -111,7 +116,6 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     requestPromptSource,
     metaScaffoldMode,
     metaScaffoldId,
-    metaBuildIntent,
     metaPromptAssistModel,
     resolvedModelTier,
     resolvedImageGenerations,
@@ -156,11 +160,44 @@ export async function runClearRedesignDeltaBriefPhase(params: {
       scaffoldMode: metaScaffoldMode,
       scaffoldId: metaScaffoldId,
     });
-    const deltaPreMatchScaffold = importedRepoMode
+    const buildIntent = parsedMeta.buildIntent;
+    const deltaContract = buildFollowUpContract({
+      snapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
+      persistedScaffoldId: persistedScaffoldIdForDelta,
+    });
+    const deltaPreMatchScaffoldRaw = importedRepoMode
       ? null
-      : persistedScaffoldIdForDelta && !deltaIgnoreScaffold
-        ? getScaffoldById(persistedScaffoldIdForDelta)
-        : matchScaffold(followUpIntentMessage, (metaBuildIntent as BuildIntent | null));
+      : metaScaffoldMode === "manual" && metaScaffoldId
+        ? getScaffoldById(metaScaffoldId)
+        : persistedScaffoldIdForDelta && !deltaIgnoreScaffold
+          ? getScaffoldById(persistedScaffoldIdForDelta)
+          : metaScaffoldMode === "off"
+            ? buildIntent === "template" ? null : getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
+            : matchScaffold(followUpIntentMessage, buildIntent);
+    const methodFixesIntent =
+      resolveBuildIntentForMethod(parsedMeta.buildMethod, "website") ===
+      resolveBuildIntentForMethod(parsedMeta.buildMethod, "app");
+    const deltaFreeze = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: deltaIgnoreScaffold,
+      contractScaffoldId: importedRepoMode ? null : deltaContract.scaffoldId,
+      resolvedScaffoldId: deltaPreMatchScaffoldRaw?.id ?? null,
+    });
+    const frozenScaffold = deltaFreeze.clamped && deltaFreeze.scaffoldId
+      ? getScaffoldById(deltaFreeze.scaffoldId) ?? deltaPreMatchScaffoldRaw
+      : deltaPreMatchScaffoldRaw;
+    const frozenBuildIntent = resolveFollowUpFrozenBuildIntent({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: deltaIgnoreScaffold,
+      contractScaffoldId: importedRepoMode ? null : deltaContract.scaffoldId,
+      resolvedScaffoldId: frozenScaffold?.id ?? null,
+      contractBuildIntent: deltaContract.buildIntent,
+      allowedBuildIntents: frozenScaffold?.allowedBuildIntents ?? [],
+    });
+    const deltaPreMatchScaffold =
+      frozenBuildIntent || parsedMeta.buildIntentExplicit || methodFixesIntent || metaScaffoldMode === "manual"
+        ? scaffoldForExplicitIntent(frozenScaffold, frozenBuildIntent ?? buildIntent)
+        : frozenScaffold;
     // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
     // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
     const deltaPreMatchVariant = deltaPreMatchScaffold
