@@ -14,10 +14,13 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // The preview host sets this public routing prefix to /{chatId}.
+  // Do not let two chats on the same origin share a local cart namespace.
+  const storageScope = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "/";
   return (
     <html lang="sv" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
-        <CartProvider>
+        <CartProvider storageScope={storageScope}>
           <SiteHeader />
           <main className="min-h-[80vh]">{children}</main>
           <SiteFooter />

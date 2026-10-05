@@ -59,7 +59,9 @@ export function CartContents() {
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span aria-label={`Antal ${product.name}`}>{item.quantity}</span>
+                <span role="status" aria-label={`Antal ${product.name}: ${item.quantity}`}>
+                  {item.quantity}
+                </span>
                 <Button
                   type="button"
                   variant="outline"
@@ -80,7 +82,9 @@ export function CartContents() {
       })}
       <div className="flex justify-between border-t pt-4">
         <span>Demototal</span>
-        <span aria-label="Demototal">{formatPrice(cart.priceMinor)}</span>
+        <span role="status" aria-label={`Demototal: ${formatPrice(cart.priceMinor)}`}>
+          {formatPrice(cart.priceMinor)}
+        </span>
       </div>
       <Button type="button" className="w-full" disabled>
         Till kassan (inte ansluten)

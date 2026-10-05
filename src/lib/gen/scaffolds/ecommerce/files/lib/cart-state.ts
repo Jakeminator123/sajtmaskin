@@ -6,6 +6,12 @@ export const MAX_QUANTITY = 99;
 // Leave that unrelated legacy data untouched; v2 starts empty and stores only ids/quantities.
 export const CART_STORAGE_KEY = "sajtmaskin-demo-cart:v2";
 
+export function cartStorageKey(storageScope: string) {
+  // localStorage already isolates origins. The public Next basePath isolates
+  // preview chats mounted at /{chatId}; root deployments use their own origin.
+  return `${CART_STORAGE_KEY}:${encodeURIComponent(storageScope.trim() || "/")}`;
+}
+
 export function readCartStorage(raw: string | null): CartItem[] {
   if (!raw) return [];
   try {

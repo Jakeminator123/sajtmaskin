@@ -12,7 +12,7 @@ import { CartProvider } from "./files/components/cart-provider";
 import { AddToCart } from "./files/components/add-to-cart";
 import { CartContents } from "./files/components/cart-contents";
 import {
-  CART_STORAGE_KEY,
+  cartStorageKey,
   MAX_QUANTITY,
   cartTotals,
   changeCartQuantity,
@@ -23,6 +23,8 @@ import { ecommerceManifest } from "./manifest";
 import { buildCompleteProject } from "../../export/project-scaffold";
 import { collectRequiredUiComponents } from "../../export/project-scaffold-ui-reader";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+
+const ROOT_STORAGE_KEY = cartStorageKey("/");
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
@@ -60,6 +62,70 @@ describe("ecommerce demo boundary", () => {
 });
 
 describe("shared local demo cart", () => {
+  it("keeps same-origin preview chats isolated while preserving each chat's own cart", () => {
+    const first = render(
+      <CartProvider storageScope="/chat-a">
+        <AddToCart productId="1" />
+        <CartContents />
+      </CartProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
+    first.unmount();
+    const second = render(
+      <CartProvider storageScope="/chat-b">
+        <AddToCart productId="2" />
+        <CartContents />
+      </CartProvider>,
+    );
+    expect(screen.getByText("Varukorgen är tom.")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
+    second.unmount();
+    render(
+      <CartProvider storageScope="/chat-a">
+        <CartContents />
+      </CartProvider>,
+    );
+    expect(screen.getByText("[Produktnamn 1]")).toBeDefined();
+    expect(screen.queryByText("[Produktnamn 2]")).toBeNull();
+  });
+
+  it("exposes the current quantity to assistive technology after a change", () => {
+    demoRender(
+      <>
+        <AddToCart productId="1" />
+        <CartContents />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Öka antal/ }));
+    expect(screen.getByRole("status", { name: "Antal [Produktnamn 1]: 2" }).textContent).toBe("2");
+    expect(
+      screen.getByRole("status", {
+        name: `Demototal: ${formatPrice(findProduct("1")!.priceMinor * 2)}`,
+      }).textContent,
+    ).toBe(formatPrice(findProduct("1")!.priceMinor * 2));
+  });
+
+  it("an in-place scope change cannot persist the previous chat's rows into the next", () => {
+    const view = render(
+      <CartProvider storageScope="/chat-a">
+        <AddToCart productId="1" />
+        <CartContents />
+      </CartProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
+    view.rerender(
+      <CartProvider storageScope="/chat-b">
+        <CartContents />
+      </CartProvider>,
+    );
+    expect(screen.getByText("Varukorgen är tom.")).toBeDefined();
+    expect(localStorage.getItem(cartStorageKey("/chat-b"))).toBe("[]");
+    expect(JSON.parse(localStorage.getItem(cartStorageKey("/chat-a"))!)).toEqual([
+      { id: "1", quantity: 1 },
+    ]);
+  });
+
   it("add, quantity, totals, remove and remount all use the same catalog/state", () => {
     const view = demoRender(
       <>
@@ -68,23 +134,23 @@ describe("shared local demo cart", () => {
       </>,
     );
     fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
-    expect(screen.getByLabelText("Demototal").textContent).toBe(
+    expect(screen.getByLabelText(/^Demototal:/).textContent).toBe(
       formatPrice(findProduct("1")!.priceMinor),
     );
     fireEvent.click(screen.getByRole("button", { name: /Öka antal/ }));
-    expect(screen.getByLabelText("Antal [Produktnamn 1]").textContent).toBe("2");
-    expect(screen.getByLabelText("Demototal").textContent).toBe(
+    expect(screen.getByLabelText(/Antal \[Produktnamn 1\]:/).textContent).toBe("2");
+    expect(screen.getByLabelText(/^Demototal:/).textContent).toBe(
       formatPrice(findProduct("1")!.priceMinor * 2),
     );
-    expect(JSON.parse(localStorage.getItem(CART_STORAGE_KEY)!)).toEqual([{ id: "1", quantity: 2 }]);
+    expect(JSON.parse(localStorage.getItem(ROOT_STORAGE_KEY)!)).toEqual([{ id: "1", quantity: 2 }]);
     view.unmount();
     demoRender(<CartPage />);
-    expect(screen.getByLabelText("Antal [Produktnamn 1]").textContent).toBe("2");
+    expect(screen.getByLabelText(/Antal \[Produktnamn 1\]:/).textContent).toBe("2");
     fireEvent.click(screen.getByRole("button", { name: /Minska antal/ }));
-    expect(screen.getByLabelText("Antal [Produktnamn 1]").textContent).toBe("1");
+    expect(screen.getByLabelText(/Antal \[Produktnamn 1\]:/).textContent).toBe("1");
     fireEvent.click(screen.getByRole("button", { name: /Ta bort/ }));
     expect(screen.getByText("Varukorgen är tom.")).toBeDefined();
-    expect(localStorage.getItem(CART_STORAGE_KEY)).toBe("[]");
+    expect(localStorage.getItem(ROOT_STORAGE_KEY)).toBe("[]");
   });
 
   it("shares listing add actions with the drawer without nested interactive links", () => {
@@ -98,7 +164,7 @@ describe("shared local demo cart", () => {
     expect(add.closest("a")).toBeNull();
     fireEvent.click(add);
     fireEvent.click(screen.getByRole("button", { name: "Öppna varukorg (1)" }));
-    expect(within(screen.getByRole("dialog")).getByLabelText("Demototal").textContent).toBe(
+    expect(within(screen.getByRole("dialog")).getByLabelText(/^Demototal:/).textContent).toBe(
       formatPrice(findProduct("2")!.priceMinor),
     );
     expect(container.querySelectorAll('a[href^="/product/"]')).toHaveLength(6);
@@ -118,7 +184,7 @@ describe("shared local demo cart", () => {
       </>,
     );
     fireEvent.click(screen.getByRole("button", { name: /Lägg i varukorgen/ }));
-    expect(screen.getByLabelText("Antal [Produktnamn 1]").textContent).toBe("1");
+    expect(screen.getByLabelText(/Antal \[Produktnamn 1\]:/).textContent).toBe("1");
     expect(
       screen
         .getAllByRole("status")
@@ -128,12 +194,12 @@ describe("shared local demo cart", () => {
 
   it("uses catalog prices despite forged browser-stored names/prices", () => {
     localStorage.setItem(
-      CART_STORAGE_KEY,
+      ROOT_STORAGE_KEY,
       JSON.stringify([{ id: "1", quantity: 2, name: "FORGED", priceMinor: -999 }]),
     );
     const { container } = demoRender(<CartContents />);
     expect(container.textContent).not.toContain("FORGED");
-    expect(screen.getByLabelText("Demototal").textContent).toBe(
+    expect(screen.getByLabelText(/^Demototal:/).textContent).toBe(
       formatPrice(findProduct("1")!.priceMinor * 2),
     );
   });
@@ -154,7 +220,7 @@ describe("shared local demo cart", () => {
   });
 
   it("caps quantity and removes a row when decreasing to zero", () => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify([{ id: "1", quantity: MAX_QUANTITY }]));
+    localStorage.setItem(ROOT_STORAGE_KEY, JSON.stringify([{ id: "1", quantity: MAX_QUANTITY }]));
     demoRender(
       <>
         <AddToCart productId="1" />
@@ -249,7 +315,10 @@ describe("catalog routes and materialization", () => {
       "app/cart/page.tsx",
     ])
       expect(byPath.has(path)).toBe(true);
-    expect(byPath.get("app/layout.tsx")).toContain("<CartProvider>");
+    expect(byPath.get("app/layout.tsx")).toContain("<CartProvider storageScope={storageScope}>");
+    expect(byPath.get("app/layout.tsx")).toContain(
+      'process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "/"',
+    );
     expect(byPath.get("components/site-header.tsx")).toContain('href: "/cart"');
     for (const component of ["button", "badge", "card", "sheet"])
       expect(byPath.has(`components/ui/${component}.tsx`)).toBe(true);
