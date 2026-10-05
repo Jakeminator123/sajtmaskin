@@ -31,8 +31,8 @@ Nya produktbeslut, osäker radering eller oväntade owners kräver ny triage.
 |---|---|---|
 | Gemensam dossierkärna, #1548 | `65e28f6097c756c9c78a54a22ae5533b81040848` | Granskad head `b765e2f38185bca51f96b861abb7217d1321cd1d`; kod-CI och deployment verifierade. |
 | Gemensam integrationsvy, #1549 | `db86c053abdad696718eafad839137b8d37831d5` | Prompt-/monteringskonsumenter levererade, full CI och deployment verifierade. |
-| Projektkompatibilitet, #1550 | `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c` | Full CI/deployment verifierade; fem sena rättningar återstår att leverera via #1551. Same-capability auto-delete avvisas enligt migrationspolicyn. |
-| Befintlig providerkärna och följdgrindar, #1551 | `84e0061a91af91cfafd02bf914af14b8fc9af6a9` | Exakt samma träd som två gånger oberoende granskad `3cc098f2`. Sex required checks, fyra fulla testshards, 21 keyless dossierbyggen och exakt Vercel-deployment gröna. Push-CI startad. |
+| Projektkompatibilitet, #1550 | `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c` | Full CI/deployment verifierade; fem sena rättningar levererades via #1551. Same-capability auto-delete avvisas enligt migrationspolicyn. |
+| Befintlig providerkärna och följdgrindar, #1551 | `84e0061a91af91cfafd02bf914af14b8fc9af6a9` | Exakt samma träd som två gånger oberoende granskad `3cc098f2`. Sex required checks, fyra fulla testshards, 21 keyless dossierbyggen och exakt Vercel-deployment gröna. Push-CI:s kodkontroller passerade; endast samma kända DB-paritet är röd. |
 | Katalogkärna och instruktioner, #1555 | `9cd0c3afaf38218cf7fce632dd99cf71f226fc15` | Granskad head `c733ae0f4dac460c5f7002450769f9b46f130677`. Sex required checks, fyra gröna testshards på 4:05, 21/21 dossierbyggen på 6:03 och exakt Vercel-deployment READY. |
 
 Aktuell dossierbas är sista raden. #1551 och #1555 är mergade, inte draft/HOLD.
@@ -61,10 +61,13 @@ typecheck var gröna. Current-head review, sex required checks, fyra testshards,
 bevis att hela uppdraget är färdigt.
 
 Postmerge push-CI på `9cd0c3af` är inte helt grön: tre testshards passerade,
-men en UI-regression kring F3-triggerns parent-version är under separat triage.
-DB-pariteten visar samtidigt samma 13 kända rader. Ingen blind omkörning eller
-genväg räknas som bevis; Stage4 väntar fortsatt på aktuell review, CI och
-deployment innan leverans.
+men F3-triggerns parent-version-test missade sitt finalize-anrop. TESTER har
+bevisat en kontraktslucka vid commitgränsen: enabled DOM kan möta föregående
+passiva eventlisteners blockerade state. Det historiska CI-förloppets exakta
+orsak är inte spårad. En minimal tvåfilsrättning med RED/GREEN integreras i
+Stage4; inga timeouts, sleeps eller assertions försvagas. DB-pariteten visar
+samtidigt samma 13 kända rader. Stage4 väntar fortsatt på aktuell review, CI
+och deployment innan leverans.
 
 ## Checklista och klarkriterier
 
@@ -149,9 +152,11 @@ planstatus. Ett faktiskt implementerat test-/workflowpaket har oberoende CLEAN
 review och full lokal verifiering: 21 gröna kontroller, 12 954 standardtester
 med 26 skips, 700 Backoffice-tester och 1 079/1 079 upptäckta testfiler.
 Jakobs senare samlade fortsättnings-/leveransmandat är verifierat i TESTER.
-Det befintliga paketet är publicerat som separat draft-PR #1553 på
-`e49988eb3d9b6e5401316c0f19184489546db778`; local/remote matchar och e1e8 är
-ren. Det är inte enbart en plan och inte ännu previewlevererat.
+Det befintliga paketet är publicerat som separat ready-PR #1553 på
+`cdf5c5751d152742c4db7d3fe04beb1d48487327`, synkat mot providerkärnebasen.
+Dess kodblobbar är oförändrade och current-head CI/deployment verifierade.
+Slutlig synk mot faktisk Stage4-preview återstår; inga testreformfiler ingår
+i dossierpaketet. Det är inte enbart en plan och inte ännu previewlevererat.
 Hela testreformen är inte avslutad. Ingen stash eller förlust.
 
 ZIP:ens baseline, paketförslag och livepreview är olika underlag.
@@ -160,14 +165,16 @@ Slutlistan beräknas från faktisk kumulativ leverans/ownerclosure, inte från
 en enskild PR:s filantal. Scaffold-/viewer-/TESTER-förslag importeras inte
 automatiskt som dossierpayload.
 
-Återstående tid kan inte anges som ett verifieringslöfte: katalogleverans,
-flödesrensning och terminal handoff återstår. Tidigare 3–6 timmar
+Återstående tid kan inte anges som ett verifieringslöfte: flödesrensning,
+aktuell F3-rättning och terminal handoff återstår. Tidigare 3–6 timmar
 aktivt arbete var en preliminär uppskattning, inte completionbevis.
-SCHAFFOLDS har efter Jakobs nya instruktion påbörjat ett separat auth-formpaket
-i sin befintliga 5996-checkout på `codex/scaffold-auth-forms`. Det ändrar
-auth-pages-mallarnas formulär och ärliga oanslutna adapter, inte dossierägare,
-package-/CI-/workflowpolicy eller liveauth. Gemensam route-delivery/finalize
-och andra överlappande owners väntar på uttrycklig överlämning av faktisk bas.
+SCHAFFOLDS arbetar efter Jakobs nya instruktion parallellt i sin befintliga
+5996-checkout. Auth-former och en ärlig lokal ecommerce-demokorg är publicerade
+som separata granskade draft-PR:er #1554 och #1557. Inga dossierägare,
+package-/CI-/workflowpolicy eller liveproviders ändras. Scaffoldkontraktets
+obligatoriska embedding-refresh är en separat ännu ej utförd liveoperation;
+dessa PR:er är därför inte mergeklara. Gemensam route-delivery/finalize och
+andra överlappande owners väntar på överlämning av faktisk dossierbas.
 Root samordnar också den separat granskade PR #1552 efter dossierleveransen;
 den använder befintlig industrykolumn och saknar migration/backfill.
 

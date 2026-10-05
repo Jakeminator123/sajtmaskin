@@ -676,8 +676,10 @@ skipped). Every pull request runs a path-scope job against the materialization
 contract (`scripts/dossiers/acceptance-paths.mjs`). Hits install, typecheck and
 production-build the matrix; misses skip the matrix and still publish the
 required `dossier-acceptance` aggregate as green. The same workflow materializes
-the exact dossier files on the common generated-project scaffold, merges the
-canonical export baseline and manifest dependency ranges, then runs `tsc --noEmit`
+the exact dossier files on the selected existing acceptance scaffold
+(`landing-page` by default; `ecommerce` for Stripe, `dashboard` for Postgres,
+and `blog` for Mailchimp), merges the canonical export baseline and manifest
+dependency ranges, then runs `tsc --noEmit`
 and a production build with only the pipeline's harmless preview placeholders.
 The same workflow checks every
 resolved dependency range against npm and runs the evidence/freshness gate.
