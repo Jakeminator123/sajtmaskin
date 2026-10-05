@@ -10,7 +10,6 @@ Aktuell katalog: [`docs/generated/capabilities.generated.md`](../generated/capab
 | Urval + prompt-injection | [`dossier-selection-flow.md`](dossier-selection-flow.md) |
 | Skriva ny dossier | [`dossier-author-template.md`](dossier-author-template.md) |
 | Axlar / design–integration / mock | [`dossier-system.md` § Tre oberoende axlar](../contracts/dossier-system.md#tre-oberoende-axlar-läs-denna-innan-du-drar-en-slutsats-om-en-dossier) |
-| Pågående förenkling | [`aktiv dossierplan`](../plans/active/2026-10-04-dossier-forenkling/00-master-plan.md) |
 
 ## Tre axlar (kort)
 
