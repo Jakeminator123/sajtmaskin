@@ -46,6 +46,7 @@ import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { scopePromotionSnapshotForVersion } from "@/lib/db/promote-guard";
 import {
   resolveExistingDossierCorePlan,
   resolveProviderContractDossierPlan,
@@ -315,6 +316,11 @@ async function buildEngineReadiness(
     ]).catch(() => null);
   }
 
+  const scopedOrchestrationSnapshot = scopePromotionSnapshotForVersion(
+    chat.orchestration_snapshot,
+    version.edit_kind,
+  );
+
   const [versionFiles, projectEnv, errorLogs] = await Promise.all([
     getVersionFiles(version.id),
     resolveProjectEnv(chat.project_id ?? null),
@@ -324,7 +330,7 @@ async function buildEngineReadiness(
   const integrationMigrationRequired = versionFiles
     ? resolveExistingDossierCorePlan({
         contracts: readProviderContractsFromSnapshot(
-          chat.orchestration_snapshot as Record<string, unknown> | null,
+          scopedOrchestrationSnapshot as Record<string, unknown> | null,
         ),
         projectFiles: versionFiles,
         projectProviderEvidence: detectProjectProviderEvidence(
@@ -539,7 +545,7 @@ async function buildEngineReadiness(
   // manifest enforcement here even after F2-mute dropped its capability from
   // the snapshot floor. `files` was already loaded once above.
   const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
-    snapshot: chat.orchestration_snapshot,
+    snapshot: scopedOrchestrationSnapshot,
     versionFiles: files,
   });
 
@@ -653,12 +659,12 @@ async function buildEngineReadiness(
       preloadedFiles: files,
     });
     const pendingDossiers = resolvePendingIntegrationDossiers({
-      snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+      snapshot: scopedOrchestrationSnapshot as Record<string, unknown> | null,
       versionFiles: files,
       configuredEnvKeys: new Set(configuredEnvKeys),
     });
     const pendingProviderContracts = readProviderContractsFromSnapshot(
-      chat.orchestration_snapshot as Record<string, unknown> | null,
+      scopedOrchestrationSnapshot as Record<string, unknown> | null,
     );
     const providerEvidence = detectProjectProviderEvidence(
       files,

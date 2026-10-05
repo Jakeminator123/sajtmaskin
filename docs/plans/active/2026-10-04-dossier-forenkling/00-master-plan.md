@@ -31,47 +31,20 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
   fem verifierade regressioner efter merge samt ett auto-delete-förslag som
   avvisats enligt migrationspolicyn. Efterrättningen hör till PR #1551 och
   räknas inte som levererad innan den når preview.
-- PR #1551 är draft/HOLD. Första publicerade head
-  `f88f7c4bb41999a2ab58a7fa8ef370961259f790` fick röd quality: sex fail-fast-
-  ordningsassertions i shard 4. CI tog 3:43; övriga tre shards, DB 126,
-  stabilitet 54 och övriga körda jobb var gröna. Dossier 21/21 tog 6:02 och
-  Vercel var READY på exakt f88 på 1:57. Detta är inte slutkandidatens kvitto.
-  Ordningen är lokalt rättad på `3a2692bfbb2501f86c18c071f690fde24a19ca5a`:
-  fokus 32/32 och separat konsumentmatris 150/150.
-  Native review på f88 publicerade fem ytterligare fynd: non-runtime-
-  konventioner som providerbevis, repair-autoaccept före migrationsspärren,
-  saknat katalogbundet SDK-bevis, manifestordningsstyrd pending-capability och
-  malformed lagrade filposter. Den avgränsade icke-OpenAI-rättningen är lokalt
-  fryst på `125a709f00f074667e926083c2ea251f73d6612e`: fokus 6 filer 161/161,
-  bred F3/route-matris 8 filer 243/243 och manifest/kontrakt 3 upptäckta filer
-  169/169. Matrisernas överlapp ska inte summeras som unik täckning. Typecheck,
-  scoped lint, derived/docs/canvas, diffcheck och plan är gröna; totalt 40
-  PR-paths. Efterföljande oberoende review hittade en exception-taxonomi som
-  maskerade riktiga writefel och dubblerad filvalidering; root hittade också
-  att tomt promotion-underlag måste vara unavailable. Samlad RED 6 → GREEN:
-  kärna 90/90, fokus 174/174 och bred integration 243/243. Rättningen är fryst
-  på `92db7f3c7ac89cd6c67cfddbe4a4efcf9baec45f`, med en enda ren filvalidator
-  och alla nya storage-tester bevarade genom flytt. Totalen är fortsatt 40
-  paths. Två oberoende delta-/integrationsreviews är CLEAN på exakt 92db7f3
-  inom icke-OpenAI-deltat. Rootens dokumentuppföljning har 49/49 tester och
-  grön docs-/PR-plan. Dokumenthead `84c478445ad69eba00812698fda0bec6e988dcb8`
-  fick full CI grön: 13 014 standardtester, DB 126 och stabilitet 54 på 3:40;
-  dossier 21/21 på 5:57 och exakt Vercel READY på 2:19. Dessa kvitton gäller
-  inte den senare OpenAI-rättningen. Jakob har nu valt befintlig nyckel.
-  Katalogens faktiska SDK har lagts till i den befintliga manifestregeln:
-  RED 2/87 → GREEN 87/87 och bred manifest-/kontraktsmatris 205/205.
-  OpenAI-rättningen publicerades på `7297caea9a78a2b916313477b8c2ca1bff9a038c`:
-  två oberoende delta-/integrationsreviews CLEAN, 13 020 standardtester + DB 126
-  och stabilitet 54 gröna. Full CI tog 9:01, inklusive cirka 5:26 kö; dossier
-  21/21 tog 6:53 och exakt Vercel READY 1:06. Två nya native P1 kom därefter:
-  Cal.com saknade SDK-evidens och explicit tomt dossierurval återvaldes.
-  PR:n är därför fortfarande draft/HOLD, inte previewlevererad. Samlad rättning
-  i samma owners: evidence-only Cal.com-regel, hard/provider-bevarande även för
-  REST-kärnor utan SDK samt authoritative explicit urval före autofix/merge.
-  RED 14/150 → GREEN 152/152; bred matris 577/577 och separat readiness 38/38,
-  docs 49/49, typ/lint/derived/docs/canvas/plan gröna. Överlapp summeras inte.
-  De befintliga canonical foreign-/multiprovider-spärrarna är kvar. Aktuell
-  oberoende delta-/integrationsreview, full CI och previewleverans återstår.
+- PR #1551 inväntar aktuell rättningsreview, full CI och previewleverans.
+  Den publicerade föräldrakandidaten `04729010c74c4337192a444fb11b81b693988ac6`
+  hade grön CI: 13 039 standardtester + 126 DB + 54 stabilitet på 10:14
+  (5:46 kö till fulla jobb, 4:27 aktivt); dossier 21/21 på 6:53 och exakt
+  Vercel READY på 1:57. Sju tidigare native fynd är resolved med publicerat
+  bevis. Tre senare fynd bekräftades trots grönt CI: restore mot senare
+  chatintent, missvisande repair-hold och ignorerade removal-tombstones.
+  En samlad rättningsrunda i befintliga owners har RED 18/199 → GREEN 203/203.
+  Breddmatriserna är 180/180, 101/101 och 149/149; överlapp summeras inte.
+  Typecheck, scoped lint, docs/canvas och PR-plan är gröna. Totalen är 42
+  paths, efter uttryckligt avgränsat tillägg av befintlig accept-repair-route
+  och dess test; ingen ny route eller persistensmodell. Förälderns CI/reviews
+  är historiska delkvitton, inte slutheadens GO. Tidigare iterationsdetaljer
+  finns i Git/PR-historiken, inte som en parallell aktiv statusmodell.
 - D2/D3 i PR #1549 levererades på `db86c053abdad696718eafad839137b8d37831d5`.
   PR-verifieringen var 12 703/12 703 standardtester + 126 DB + 54 stabilitet
   på 4:45; dossier 21/21 på 6:16. Postmerge kod-CI var grön på 4:05 och Vercel
@@ -89,7 +62,8 @@ required checks och deployment är gröna. Ingen masterpromotion eller DB-åtgä
 - Dela leveransen i avgränsade PR:er efter ownerberoenden. Ny integrationsbas
   fryses och ändringsdelta granskas; oförändrade blobkvitton återanvänds.
 - Nya arkitektur-/produktbeslut, osäker radering eller oväntad diff över cirka
-  40 filer är stoppunkt, inte skäl att tänja ett delsteg.
+  40 filer är stoppunkt. Core-rättningen är efter triage avgränsad till 42;
+  ytterligare ägarytor är inte implicit godkända.
 
 ## Checklista och konkreta klarkriterier
 
@@ -198,16 +172,32 @@ Direkt paketberoende och produktions-AST-import krävs fortfarande; package-only
 type-only och test-only förblir nekade. En divergent äldre kärna bevaras även
 vid en orelaterad uppföljning. OpenAI-deltat har två oberoende CLEAN-reviews och
 grön full CI/deployment på 7297. Dess native SDK-fynd är löst med publicerat
-bevis, men checklistan hålls öppen tills även de två senare P1-rättningarna
-är granskade och hela kärnpaketet faktiskt levererats till preview.
+bevis. Cal.com-/explicit-urvalsrättningen är också publicerad och granskad.
+Checklistan hålls öppen tills den senaste restore/repair/removal-rättningen
+har aktuell oberoende review, full CI och faktisk previewleverans.
+
+Restore återställer versionskod och env-nyckelreferenser, inte automatiskt
+chattens senare explicita providerplan. Omedelbar verify/publish bedömer den
+återställda versionens faktiska kod och binds atomiskt till filer/edit_kind.
+Nytt F3/follow-up behåller samtalets uttryckliga val; providerbyte kräver ett
+medvetet migrationsbeslut. Ingen global snapshot-rewind eller gissad lineage.
+Normal promotion/repair binder hela snapshoten inklusive removal-metadata.
+Repair-hold är ett ärligt integration_migration_required-utfall: manuellt 409
+med pending payload kvar, automatiskt no-op; lease-503 och riktiga writefel
+behåller sina separata kontrakt.
 
 TESTER:s elva dokument är säkrade i `251fac2047a9f542b929a01be7a06199f824192c`.
 De är normalt integrerade och pushade på `codex/test-control-plan-delivery`
 (`04a3ec33f0eb67425a159c47b3b43921ead04c0d`), exakt elva dokument mot 7297.
 Originalcommitten är orörd. Backupgrenen innehåller ännu omergad dossierhistorik
-och får därför inte normalmergas till färsk preview innan rent dokumentdelta
-har verifierats. Testreformen är inte implementerad eller previewmergad;
-en separat startprompt finns utanför checkouten för faktisk implementation.
+och får därför inte normalmergas till färsk preview. Rent dokumentdelta är
+separat pushat på `codex/test-control-plan-only`:
+`729aa67a098031c0afc8be3b89437285b62259cc`, exakt elva blobbar identiska med
+originalet från preview ff2. Nya chatten TESTER har normalt integrerat detta
+på `9d71cd34f` i egen e1e8-worktree/codex/test-control-relevance och övertagit
+planstatus. A0/A1/A6a-inventering och discovery/omissions-/fallbackskydd är
+under faktisk implementation på separat avtalade workflowpaths, inte ännu
+previewlevererad reform. Ingen stash, förlust eller dubbelimport.
 
 ## Avslut
 

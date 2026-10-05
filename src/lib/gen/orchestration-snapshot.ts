@@ -354,6 +354,45 @@ export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
 export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 export const REMOVED_CAPABILITIES_SNAPSHOT_KEY = "removedCapabilities";
 
+export type PromotionRemovalScope = {
+  removedCapabilities: string[];
+  removedDossierIds: string[];
+};
+
+/**
+ * Strict promotion-boundary reader for durable removal tombstones. Older
+ * snapshots legitimately omit both keys, but a PRESENT malformed key may not
+ * be downgraded to an empty removal set: that would let a stale integration
+ * pass the final promotion guard.
+ */
+export function readPromotionRemovalScopeFromSnapshot(
+  snapshot: unknown,
+): PromotionRemovalScope | null {
+  if (snapshot === null || snapshot === undefined) {
+    return { removedCapabilities: [], removedDossierIds: [] };
+  }
+  if (typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const record = snapshot as Record<string, unknown>;
+  const readStrict = (key: "removedCapabilities" | "removedDossierIds") => {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) return [];
+    const value = record[key];
+    if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+      return null;
+    }
+    return Array.from(
+      new Set(
+        value
+          .map((entry) => (entry as string).trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+  };
+  const removedCapabilities = readStrict("removedCapabilities");
+  const removedDossierIds = readStrict("removedDossierIds");
+  if (!removedCapabilities || !removedDossierIds) return null;
+  return { removedCapabilities, removedDossierIds };
+}
+
 /**
  * Durable capability-removal tombstone on the chat snapshot.
  * Same source `buildFollowUpContract` / muted-capability readers use.

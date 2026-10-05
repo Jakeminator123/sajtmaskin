@@ -20,7 +20,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getKnownBrokenImageReplacements: vi.fn(),
 }));
 
-import { assertPromoteAllowed } from "./promote-guard";
+import {
+  assertPromoteAllowed,
+  scopePromotionSnapshotForVersion,
+} from "./promote-guard";
 import type { QualityGateSignal } from "./services/generation-telemetry";
 import {
   getVersionFiles,
@@ -333,6 +336,27 @@ describe("assertPromoteAllowed — provider migration context", () => {
     ],
   };
 
+  it("scopes the latest chat snapshot away only for an explicit restore version", () => {
+    expect(scopePromotionSnapshotForVersion(auth0Snapshot, "restore")).toBeNull();
+    expect(scopePromotionSnapshotForVersion(auth0Snapshot, null)).toBe(auth0Snapshot);
+    expect(scopePromotionSnapshotForVersion(auth0Snapshot, "manual")).toBe(auth0Snapshot);
+  });
+
+  it("allows restored Clerk bytes despite a newer Auth0 chat contract", async () => {
+    const decision = await assertPromoteAllowed("ver-restore", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: clerkFiles,
+        orchestrationSnapshot: scopePromotionSnapshotForVersion(
+          auth0Snapshot,
+          "restore",
+        ),
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
   it("holds a provider migration even when the candidate deleted the old core", async () => {
     const decision = await assertPromoteAllowed("ver-1", async () => null, {
       onReadError: "indeterminate",
@@ -421,5 +445,151 @@ describe("assertPromoteAllowed — provider migration context", () => {
       },
     });
     expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+  });
+
+  it("allows a repair that removes the current Stripe implementation under a payments tombstone", async () => {
+    const stripeFiles = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { stripe: "latest" } }) },
+      { path: "app/api/checkout/route.ts", content: 'import Stripe from "stripe"; export const POST = () => Stripe;' },
+    ]);
+    const cleanCandidate = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: stripeFiles,
+        candidateFilesJson: cleanCandidate,
+        orchestrationSnapshot: { removedCapabilities: ["payments"] },
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("holds a candidate that still contains provider evidence for a removed capability", async () => {
+    const stripeFiles = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { stripe: "latest" } }) },
+      { path: "app/api/checkout/route.ts", content: 'import Stripe from "stripe"; export const POST = () => Stripe;' },
+    ]);
+
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: stripeFiles,
+        candidateFilesJson: stripeFiles,
+        orchestrationSnapshot: { removedCapabilities: ["payments"] },
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
+  it("holds REST-backed canonical dossier residue by exact removed dossier id", async () => {
+    const mailchimpFiles = JSON.stringify([
+      {
+        path: "components/newsletter-form.tsx",
+        content: "export function NewsletterForm() { return null; }",
+      },
+      {
+        path: "app/api/newsletter-subscribe/route.ts",
+        content: "export const POST = async () => new Response('ok');",
+      },
+    ]);
+
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: mailchimpFiles,
+        candidateFilesJson: mailchimpFiles,
+        orchestrationSnapshot: { removedDossierIds: ["mailchimp-newsletter"] },
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+    });
+  });
+
+  it("allows a repair after REST-backed dossier files are fully removed", async () => {
+    const mailchimpFiles = JSON.stringify([
+      { path: "components/newsletter-form.tsx", content: "older form" },
+      { path: "app/api/newsletter-subscribe/route.ts", content: "older route" },
+    ]);
+    const cleanCandidate = JSON.stringify([
+      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+    ]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: mailchimpFiles,
+        candidateFilesJson: cleanCandidate,
+        orchestrationSnapshot: { removedDossierIds: ["mailchimp-newsletter"] },
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("does not treat Supabase auth evidence as database residue", async () => {
+    const supabaseAuthFiles = JSON.stringify([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@supabase/ssr": "latest" } }),
+      },
+      {
+        path: "lib/supabase/server.ts",
+        content: 'import { createServerClient } from "@supabase/ssr"; export { createServerClient };',
+      },
+    ]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: supabaseAuthFiles,
+        candidateFilesJson: supabaseAuthFiles,
+        orchestrationSnapshot: { removedCapabilities: ["database"] },
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("does not count package-only or type-only imports as residual provider proof", async () => {
+    const typeOnlyStripe = JSON.stringify([
+      { path: "package.json", content: JSON.stringify({ dependencies: { stripe: "latest" } }) },
+      { path: "lib/types.ts", content: 'import type Stripe from "stripe"; export type S = Stripe;' },
+    ]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: typeOnlyStripe,
+        candidateFilesJson: typeOnlyStripe,
+        orchestrationSnapshot: { removedCapabilities: ["payments"] },
+      },
+    });
+
+    expect(decision).toEqual({ allowed: true });
+  });
+
+  it("fails closed when a removal tombstone is present but malformed", async () => {
+    const files = JSON.stringify([{ path: "app/page.tsx", content: "export default null" }]);
+    const decision = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+      migrationContext: {
+        currentFilesJson: files,
+        candidateFilesJson: files,
+        orchestrationSnapshot: { removedCapabilities: null },
+      },
+    });
+
+    expect(decision).toMatchObject({ allowed: false, indeterminate: true });
+    expect(decision).not.toHaveProperty("code");
   });
 });

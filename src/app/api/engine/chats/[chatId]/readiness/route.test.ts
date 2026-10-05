@@ -912,6 +912,59 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(json.readiness?.canDeploy).toBe(false);
   });
 
+  it("uses actual restored Clerk files instead of the newer Auth0 chat snapshot", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        requestedCapabilities: ["auth"],
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "auth0",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Auth0",
+            name: "Auth0",
+            reason: "Newer chat decision",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_restore",
+      chat_id: "chat_1",
+      edit_kind: "restore",
+      lifecycle_stage: "integrations",
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary: null,
+      files_revision: "rev_restore",
+    });
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "middleware.ts",
+        content: 'import { clerkMiddleware } from "@clerk/nextjs/server";',
+      },
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.blockers.map((blocker) => blocker.id)).not.toContain(
+      "integration-migration-required",
+    );
+    expect(resolveSelectedDossiersFromSnapshot).toHaveBeenCalledWith(
+      null,
+      undefined,
+    );
+  });
+
   it("does not reconcile or promote when version files are unreadable", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",

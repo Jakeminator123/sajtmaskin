@@ -8,7 +8,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 import {
   assertPromoteAllowed,
-  normalizeContractIntegrationsToken,
+  scopePromotionSnapshotForVersion,
 } from "../promote-guard";
 import { recordRepairPassedQualityGate } from "../services/generation-telemetry";
 import {
@@ -155,8 +155,14 @@ export async function getRepairStatus(versionId: string): Promise<VersionRepairS
  * Outcome of {@link acceptRepair}. `lease_unavailable` is distinct from
  * `null`: the caller could not prove lease-table presence, so HTTP routes
  * must retry (503) instead of treating it as "no pending repair" (409).
+ * `integration_migration_required` is a non-retryable, user-actionable hold;
+ * the pending envelope stays intact for a later explicit migration decision.
  */
-export type AcceptRepairResult = Version | null | "lease_unavailable";
+export type AcceptRepairResult =
+  | Version
+  | null
+  | "lease_unavailable"
+  | "integration_migration_required";
 
 export async function acceptRepair(
   versionId: string,
@@ -189,6 +195,7 @@ export async function acceptRepair(
       .select({
         repairedFilesJson: engineVersions.repairedFilesJson,
         filesJson: engineVersions.filesJson,
+        editKind: engineVersions.editKind,
         orchestrationSnapshot: sql<unknown>`(
           SELECT c.orchestration_snapshot
           FROM engine_chats c
@@ -281,13 +288,18 @@ export async function acceptRepair(
     // repaired revision by `saveRepairedFiles` — would read as a stale revision
     // against the pre-accept base and wedge every legitimate accept.
     phase = "guard";
+    const editKind = typeof rows[0]?.editKind === "string" ? rows[0].editKind : null;
+    const orchestrationSnapshot = rows[0]?.orchestrationSnapshot ?? null;
     const guard = await assertPromoteAllowed(versionId, undefined, {
       onReadError: "indeterminate",
       promotedFilesJson: payload.filesJson,
       migrationContext: {
         currentFilesJson,
         candidateFilesJson: payload.filesJson,
-        orchestrationSnapshot: rows[0]?.orchestrationSnapshot,
+        orchestrationSnapshot: scopePromotionSnapshotForVersion(
+          orchestrationSnapshot,
+          editKind,
+        ),
       },
     });
     if (!guard.allowed) {
@@ -296,6 +308,13 @@ export async function acceptRepair(
           ? `[promote-guard] Repair-accept signal unavailable for version ${versionId} (retryable): ${guard.reason}`
           : `[promote-guard] Refusing to accept repair for version ${versionId}: ${guard.reason}`,
       );
+      if (
+        "indeterminate" in guard &&
+        guard.indeterminate &&
+        guard.code === "integration_migration_required"
+      ) {
+        return "integration_migration_required";
+      }
       return null;
     }
     phase = "update";
@@ -325,13 +344,16 @@ export async function acceptRepair(
           // also subsumes the "not cleared" check (a non-empty string != NULL).
           sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
           sql`${engineVersions.filesJson} = ${currentFilesJson}`,
-          sql`COALESCE((
-            SELECT c.orchestration_snapshot->'contractIntegrations'
-            FROM engine_chats c
-            WHERE c.id = ${engineVersions.chatId}
-          ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
-            normalizeContractIntegrationsToken(rows[0]?.orchestrationSnapshot),
-          )} AS jsonb)`,
+          sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${editKind}`,
+          editKind === "restore"
+            ? undefined
+            : sql`COALESCE((
+                SELECT c.orchestration_snapshot
+                FROM engine_chats c
+                WHERE c.id = ${engineVersions.chatId}
+              ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+                orchestrationSnapshot,
+              )} AS jsonb)`,
           // Codex P2 (no active lease): atomic guard — the route +
           // maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail. Only
           // reference engine_version_jobs when it exists (see leaseTableExists).
@@ -403,7 +425,11 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
     version.id,
     "Server repair auto-accepted after timeout.",
   );
-  if (!accepted || accepted === "lease_unavailable") {
+  if (
+    !accepted ||
+    accepted === "lease_unavailable" ||
+    accepted === "integration_migration_required"
+  ) {
     return { version, wasAutoAccepted: false };
   }
   return { version: accepted, wasAutoAccepted: true };

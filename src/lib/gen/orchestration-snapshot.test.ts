@@ -9,6 +9,7 @@ import {
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
+  readPromotionRemovalScopeFromSnapshot,
   readRemovedCapabilitiesFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
@@ -27,6 +28,35 @@ describe("readRemovedCapabilitiesFromSnapshot", () => {
     expect(readRemovedCapabilitiesFromSnapshot(null)).toEqual([]);
     expect(readRemovedCapabilitiesFromSnapshot({})).toEqual([]);
     expect(readRemovedCapabilitiesFromSnapshot({ removedCapabilities: "payments" })).toEqual([]);
+  });
+});
+
+describe("readPromotionRemovalScopeFromSnapshot", () => {
+  it("treats absent legacy tombstones as empty and normalizes valid arrays", () => {
+    expect(readPromotionRemovalScopeFromSnapshot(null)).toEqual({
+      removedCapabilities: [],
+      removedDossierIds: [],
+    });
+    expect(
+      readPromotionRemovalScopeFromSnapshot({
+        removedCapabilities: [" Payments ", "payments", "AUTH"],
+        removedDossierIds: [" stripe-checkout ", "stripe-checkout"],
+      }),
+    ).toEqual({
+      removedCapabilities: ["payments", "auth"],
+      removedDossierIds: ["stripe-checkout"],
+    });
+  });
+
+  it.each([
+    { removedCapabilities: null },
+    { removedCapabilities: "payments" },
+    { removedCapabilities: ["payments", null] },
+    { removedDossierIds: null },
+    { removedDossierIds: {} },
+    { removedDossierIds: ["stripe-checkout", 1] },
+  ])("fails closed for present malformed tombstones: %j", (snapshot) => {
+    expect(readPromotionRemovalScopeFromSnapshot(snapshot)).toBeNull();
   });
 });
 

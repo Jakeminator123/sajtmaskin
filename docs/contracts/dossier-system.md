@@ -318,6 +318,33 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 **Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. Existing hard/provider-coupled core uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files. Positive SDK evidence or exact canonical protected bytes support preservation; canonical bytes are not installed/live-provider evidence. An occupied divergent protected core without either proof is also preserved, but requires migration review rather than a guessed replacement. Existing foreign-/multiple-provider holds remain in force, and explicit removal wins before preservation. Rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
 
+### Version promotion, restore and repair
+
+The migration guard must run before promotion and repair acceptance, even when
+cached quality evidence is green. Explicit removal is evaluated against the
+candidate files: canonical dossier presence and direct dependency plus production
+AST evidence must not still prove a removed capability. The current pre-repair
+files may contain that removed integration when the candidate has removed it.
+Absent legacy removal fields mean no removals; present malformed fields are
+unavailable evidence, not an empty set. Capability identity remains exact:
+Supabase authentication is not Supabase database access.
+
+Normal promotion and repair compare-and-set bind the exact files, `edit_kind`
+and full chat orchestration snapshot, including removal fields. An immutable
+`edit_kind="restore"` instead scopes immediate readiness/promotion to that
+version's actual files, not a later chat provider choice; its CAS still binds
+the files and edit kind. Conflicting actual provider cores remain a hold.
+Restore does not rewind the chat's provider plan or approval/removal history.
+Later F3/follow-up retains the current conversation's explicit choices; a
+provider change needs an explicit migration decision, not silent replacement.
+
+An inspected migration/removal hold returns `integration_migration_required`.
+Manual repair acceptance reports HTTP 409 with that code, pending repair intact
+and `retryable: false`; it must not report "no pending repair" or add
+`Retry-After`. Timeout autoaccept keeps the original version and does not accept
+the repair. Lease unavailability remains retryable HTTP 503; genuine write,
+schema and security errors are not converted into a migration hold.
+
 ### Canonical file paths and collision policy
 
 [`resolveDossierFilePath()`](../../src/lib/gen/dossiers/output-path.ts) owns the portable dossier source path, its mapped generated-project output path and its NFC-normalized, lower-case ownership identity. Manifest validation, registry reads, prompt rendering, restoration and acceptance materialization use this same contract. Paths must be relative and portable; traversal segments, reserved device names, unsafe separators and scaffold-reserved output paths are rejected. Every manifest path segment must already equal its JavaScript `trim()` result: leading or trailing whitespace, including NBSP and BOM/FEFF, is rejected before mapping rather than silently trimmed. After mapping, the output must pass the existing [`validateFilePath()`](../../src/lib/gen/security/path-validator.ts) owner: at most 200 characters, an allowed root and supported ASCII path characters, without blocked segments. Internal spaces and Unicode names are therefore rejected rather than admitted and silently sanitized by the parser. This does not change the general generated-project parser or its security policy. Accepted source and output paths are stable under the generated-project normalizer, so reconciliation cannot lose canonical ownership and seed duplicate files. Reservation includes the canonical [`SCAFFOLD_PROTECTED_PATHS`](../../src/lib/gen/scaffolds/protected-paths.ts) owner and rejects both exact aliases and file/directory ancestors or descendants of a reserved file. Exact `CONIN$` and `CONOUT$` are also reserved [Windows console device names](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea#consoles); unlike the standard DOS device names, that rule does not classify their extension variants as console devices. Literal Next.js catch-all segments, route groups and parallel-route slots remain valid. The strict schema enforces the path's basic format; the TypeScript validator additionally enforces mapping and cross-file semantics. Capability-map freshness fingerprints both the dossier path owner and the reused generated-project path validator.

@@ -7,7 +7,7 @@ import { engineVersions } from "../schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   assertPromoteAllowed,
-  normalizeContractIntegrationsToken,
+  scopePromotionSnapshotForVersion,
 } from "../promote-guard";
 import type { EngineVersionVerificationState } from "../engine-version-lifecycle";
 import type { Version } from "./types";
@@ -53,6 +53,8 @@ function lockedCasRow(result: unknown): {
   filesJson?: unknown;
   orchestration_snapshot?: unknown;
   orchestrationSnapshot?: unknown;
+  edit_kind?: unknown;
+  editKind?: unknown;
 } | undefined {
   const asRows = (result as { rows?: Array<Record<string, unknown>> } | undefined)?.rows;
   if (Array.isArray(asRows) && asRows[0]) return asRows[0];
@@ -65,28 +67,43 @@ function lockedCasRow(result: unknown): {
 function promotionSnapshot(row: ReturnType<typeof lockedCasRow>): {
   filesJson: string;
   orchestrationSnapshot: unknown;
+  scopedOrchestrationSnapshot: unknown;
+  editKind: string | null;
 } | null {
   const filesJson = row?.files_json ?? row?.filesJson;
   if (typeof filesJson !== "string") return null;
+  const rawEditKind = row?.edit_kind ?? row?.editKind;
+  const editKind = typeof rawEditKind === "string" ? rawEditKind : null;
+  const orchestrationSnapshot =
+    row?.orchestration_snapshot ?? row?.orchestrationSnapshot ?? null;
   return {
     filesJson,
-    orchestrationSnapshot: row?.orchestration_snapshot ?? row?.orchestrationSnapshot ?? null,
+    orchestrationSnapshot,
+    scopedOrchestrationSnapshot: scopePromotionSnapshotForVersion(
+      orchestrationSnapshot,
+      editKind,
+    ),
+    editKind,
   };
 }
 
 function promotionContextCas(snapshot: {
   filesJson: string;
   orchestrationSnapshot: unknown;
+  editKind: string | null;
 }) {
   return and(
     sql`${engineVersions.filesJson} = ${snapshot.filesJson}`,
-    sql`COALESCE((
-      SELECT c.orchestration_snapshot->'contractIntegrations'
-      FROM engine_chats c
-      WHERE c.id = ${engineVersions.chatId}
-    ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
-      normalizeContractIntegrationsToken(snapshot.orchestrationSnapshot),
-    )} AS jsonb)`,
+    sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${snapshot.editKind}`,
+    snapshot.editKind === "restore"
+      ? undefined
+      : sql`COALESCE((
+          SELECT c.orchestration_snapshot
+          FROM engine_chats c
+          WHERE c.id = ${engineVersions.chatId}
+        ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+          snapshot.orchestrationSnapshot ?? null,
+        )} AS jsonb)`,
   );
 }
 
@@ -214,7 +231,7 @@ export async function promoteVersion(
         sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
       );
       const locked = await tx.execute(sql`
-        SELECT v.files_json,
+        SELECT v.files_json, v.edit_kind,
           (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = v.chat_id)
             AS orchestration_snapshot
         FROM engine_versions v
@@ -228,7 +245,7 @@ export async function promoteVersion(
         onReadError: "indeterminate",
         migrationContext: {
           currentFilesJson: snapshot.filesJson,
-          orchestrationSnapshot: snapshot.orchestrationSnapshot,
+          orchestrationSnapshot: snapshot.scopedOrchestrationSnapshot,
         },
       });
       if (!guard.allowed) {
@@ -452,7 +469,7 @@ export async function promoteVersionIfUnleased(
       // no-active-lease snapshot — the conditional UPDATE below is a separate
       // statement and re-snapshots after the lock, seeing the committed lease.
       const locked = await tx.execute(sql`
-        SELECT verification_state, files_revision, files_json,
+        SELECT verification_state, files_revision, files_json, edit_kind,
           (SELECT c.orchestration_snapshot FROM engine_chats c WHERE c.id = engine_versions.chat_id)
             AS orchestration_snapshot
         FROM engine_versions
@@ -476,7 +493,7 @@ export async function promoteVersionIfUnleased(
         onReadError: "indeterminate",
         migrationContext: {
           currentFilesJson: snapshot.filesJson,
-          orchestrationSnapshot: snapshot.orchestrationSnapshot,
+          orchestrationSnapshot: snapshot.scopedOrchestrationSnapshot,
         },
       });
       if (!guard.allowed) {

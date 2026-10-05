@@ -40,12 +40,18 @@ const lockSnap = vi.hoisted(() => ({
     files_revision: null,
     files_json: '[{"path":"app/page.tsx","content":"A"}]',
     orchestration_snapshot: null,
+    edit_kind: null,
   } as Record<string, unknown>,
 }));
 
 function renderSql(value: unknown): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new PgDialect().sqlToQuery(value as any).sql.toLowerCase();
+}
+
+function renderParams(value: unknown): unknown[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new PgDialect().sqlToQuery(value as any).params;
 }
 
 const tx = {
@@ -101,6 +107,11 @@ vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
     execute,
+    select: () => ({
+      from: () => ({
+        where: () => ({ limit: () => Promise.resolve([]) }),
+      }),
+    }),
     transaction: (cb: (t: typeof tx) => unknown) => {
       transaction();
       return cb(tx);
@@ -120,6 +131,8 @@ vi.mock("@/lib/db/client", () => ({
 // Keep the false-green promote guard out of the way: it has its own test suite.
 vi.mock("./promote-guard", () => ({
   assertPromoteAllowed: vi.fn(async () => ({ allowed: true, reason: null })),
+  scopePromotionSnapshotForVersion: (snapshot: unknown, editKind: unknown) =>
+    editKind === "restore" ? null : snapshot,
   normalizeContractIntegrationsToken: (snapshot: unknown) =>
     snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
       ? ((snapshot as Record<string, unknown>).contractIntegrations ?? null)
@@ -132,6 +145,7 @@ import {
   failVersionVerificationIfUnleased,
   promoteVersion,
   promoteVersionIfUnleased,
+  maybeAutoAcceptTimedOutRepair,
   acquireVersionLease,
 } from "./chat-repository-pg";
 import { assertPromoteAllowed } from "./promote-guard";
@@ -148,6 +162,7 @@ function envelopeRow(filesJson: string) {
       baseFilesJson: filesJson,
     }),
     filesJson,
+    editKind: null,
   };
 }
 
@@ -178,6 +193,7 @@ function resetCaptures() {
     files_revision: null,
     files_json: BASE_A,
     orchestration_snapshot: null,
+    edit_kind: null,
   };
 }
 
@@ -263,7 +279,8 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(where).toContain("lease_expires_at");
     expect(where).toContain("files_json");
     expect(where).toContain("engine_chats");
-    expect(where).toContain("contractintegrations");
+    expect(where).toContain("orchestration_snapshot");
+    expect(where).toContain("edit_kind");
   });
 
   it("passes locked base, candidate and version-bound snapshot to the migration guard", async () => {
@@ -281,6 +298,59 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
         },
       }),
     );
+  });
+
+  it("CAS-binds the complete removal snapshot, including both tombstone fields", async () => {
+    mockLeaseTableExists(true);
+    const snapshot = {
+      contractIntegrations: [],
+      removedCapabilities: ["payments"],
+      removedDossierIds: ["stripe-checkout"],
+    };
+    selectRows.value = [
+      { ...envelopeRow(BASE_A), orchestrationSnapshot: snapshot },
+    ];
+    await acceptRepair("ver-1");
+
+    const params = renderParams(txUpdateWhere.value).map((value) => String(value));
+    expect(params).toContain(JSON.stringify(snapshot));
+  });
+
+  it("returns a typed migration denial and leaves the pending repair untouched", async () => {
+    mockLeaseTableExists(true);
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "integration migration requires review before promotion",
+    } as never);
+
+    await expect(acceptRepair("ver-1")).resolves.toBe(
+      "integration_migration_required",
+    );
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("scopes a restore away from the latest chat contracts and binds edit_kind", async () => {
+    mockLeaseTableExists(true);
+    selectRows.value = [
+      {
+        ...envelopeRow(BASE_A),
+        editKind: "restore",
+        orchestrationSnapshot: { contractIntegrations: [{ providerKey: "auth0" }] },
+      },
+    ];
+    await acceptRepair("ver-1");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: expect.objectContaining({ orchestrationSnapshot: null }),
+      }),
+    );
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("edit_kind");
+    expect(where).not.toContain("orchestration_snapshot");
   });
 
   it("returns lease_unavailable (not null) when the lease probe cannot be proven", async () => {
@@ -362,6 +432,31 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
   });
 });
 
+describe("maybeAutoAcceptTimedOutRepair — migration denial", () => {
+  beforeEach(resetCaptures);
+
+  it("keeps the original version when the shared accept path reports a migration hold", async () => {
+    mockLeaseTableExists(true);
+    vi.mocked(assertPromoteAllowed).mockResolvedValueOnce({
+      allowed: false,
+      indeterminate: true,
+      code: "integration_migration_required",
+      reason: "integration migration requires review before promotion",
+    } as never);
+    const version = {
+      id: "ver-1",
+      verification_state: "repair_available",
+      repair_available_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    } as unknown as Parameters<typeof maybeAutoAcceptTimedOutRepair>[0];
+
+    await expect(maybeAutoAcceptTimedOutRepair(version)).resolves.toEqual({
+      version,
+      wasAutoAccepted: false,
+    });
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+});
+
 describe("promoteVersion — locked files/snapshot migration guard", () => {
   beforeEach(resetCaptures);
 
@@ -381,7 +476,8 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
     const where = renderSql(txUpdateWhere.value);
     expect(where).toContain("files_json");
     expect(where).toContain("engine_chats");
-    expect(where).toContain("contractintegrations");
+    expect(where).toContain("orchestration_snapshot");
+    expect(where).toContain("edit_kind");
   });
 
   it("keeps an indeterminate migration guard retryable and performs no update", async () => {
@@ -392,6 +488,25 @@ describe("promoteVersion — locked files/snapshot migration guard", () => {
     } as never);
     await expect(promoteVersion("ver-1")).resolves.toBeNull();
     expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("scopes a restore away from latest contracts while CAS-binding edit_kind", async () => {
+    lockSnap.value = {
+      ...lockSnap.value,
+      edit_kind: "restore",
+      orchestration_snapshot: { contractIntegrations: [{ providerKey: "auth0" }] },
+    };
+    await promoteVersion("ver-1", "verified");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: expect.objectContaining({ orchestrationSnapshot: null }),
+      }),
+    );
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("edit_kind");
+    expect(where).not.toContain("orchestration_snapshot");
   });
 
   it.each(["40001", "08006"])(
@@ -556,6 +671,26 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
   // additionally runs the SAME false-green promote-guard as promoteVersion.
   beforeEach(resetCaptures);
 
+  it("scopes a restore away from latest contracts while keeping edit_kind in the CAS", async () => {
+    mockLeaseTableExists(true);
+    lockSnap.value = {
+      ...lockSnap.value,
+      edit_kind: "restore",
+      orchestration_snapshot: { contractIntegrations: [{ providerKey: "auth0" }] },
+    };
+    await promoteVersionIfUnleased("ver-1", "reconciled");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        migrationContext: expect.objectContaining({ orchestrationSnapshot: null }),
+      }),
+    );
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("edit_kind");
+    expect(where).not.toContain("orchestration_snapshot");
+  });
+
   it("promotes to passed/promoted, locks the row (FOR UPDATE), and enforces no-active-lease when the table exists", async () => {
     mockLeaseTableExists(true);
     const res = await promoteVersionIfUnleased("ver-1", "reconciled");
@@ -582,7 +717,8 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     expect(where).toContain("verification_state");
     expect(where).toContain("files_json");
     expect(where).toContain("engine_chats");
-    expect(where).toContain("contractintegrations");
+    expect(where).toContain("orchestration_snapshot");
+    expect(where).toContain("edit_kind");
     expect(assertPromoteAllowed).toHaveBeenCalledWith(
       "ver-1",
       undefined,

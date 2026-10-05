@@ -45,7 +45,7 @@ function providerMatchesRemovedCapability(
   return false;
 }
 
-function capabilityForIntegrationKind(
+export function capabilityForIntegrationKind(
   kind: PreGenerationContractContext["contracts"]["integrations"][number]["kind"],
 ): string | null {
   if (kind === "database") return "database";

@@ -26,11 +26,16 @@ import {
 } from "./services/generation-telemetry";
 import { shortRevision } from "@/lib/gen/verify/content-revision";
 import { incContentRevisionMismatch } from "@/lib/observability/metrics";
-import { readProviderContractsFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  readPromotionRemovalScopeFromSnapshot,
+  readProviderContractsFromSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
 import { detectProjectProviderEvidence } from "@/lib/gen/contract/project-provider-evidence";
 import { resolveExistingDossierCorePlan } from "@/lib/gen/contract/provider-compatibility";
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import { parseStoredCodeFilesJson } from "@/lib/gen/stored-code-files";
+import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
+import { capabilityForIntegrationKind } from "@/lib/gen/capability-removal";
 
 /**
  * Finalize quality-gate results that must block promotion. `preflight_passed`
@@ -80,6 +85,8 @@ export type PromoteGuardDecision =
        */
       staleSignal?: string | null;
       staleSignalBlocking?: boolean;
+      /** Stable denial code for an inspected integration/removal hold. */
+      code?: "integration_migration_required";
     };
 
 /**
@@ -126,6 +133,60 @@ export function normalizeContractIntegrationsToken(snapshot: unknown): unknown {
   return (snapshot as Record<string, unknown>).contractIntegrations ?? null;
 }
 
+/** A restored version is evaluated against its immutable files, not later chat intent. */
+export function scopePromotionSnapshotForVersion(
+  snapshot: unknown,
+  editKind: unknown,
+): unknown {
+  return editKind === "restore" ? null : snapshot;
+}
+
+function removalResidualReason(params: {
+  candidate: NonNullable<ReturnType<typeof parseStoredCodeFilesJson>>;
+  removedCapabilities: ReadonlySet<string>;
+  removedDossierIds: ReadonlySet<string>;
+  rules: ReturnType<typeof getPreGenerationContractsConfigFromManifest>["providerRules"];
+}): string | null {
+  const present = resolveDossiersPresentInVersion(params.candidate);
+  for (const selected of present) {
+    if (params.removedDossierIds.has(selected.entry.id.toLowerCase())) {
+      return `removed dossier ${selected.entry.id} remains in candidate files`;
+    }
+    if (params.removedCapabilities.has(selected.entry.capability.toLowerCase())) {
+      return `removed capability ${selected.entry.capability} remains in candidate files`;
+    }
+  }
+
+  const evidence = detectProjectProviderEvidence(params.candidate, params.rules);
+  for (const item of evidence) {
+    const exactCapability =
+      item.dossierCapability?.toLowerCase() ?? capabilityForIntegrationKind(item.kind);
+    if (exactCapability) {
+      if (params.removedCapabilities.has(exactCapability)) {
+        return `provider ${item.providerKey} still proves removed capability ${exactCapability}`;
+      }
+      continue;
+    }
+    const possibleCapabilities = new Set(
+      params.rules
+        .filter(
+          (rule) =>
+            rule.providerKey.toLowerCase() === item.providerKey.toLowerCase() &&
+            typeof rule.dossierCapability === "string",
+        )
+        .map((rule) => rule.dossierCapability!.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const overlapping = [...possibleCapabilities].filter((capability) =>
+      params.removedCapabilities.has(capability),
+    );
+    if (overlapping.length > 0) {
+      return `provider ${item.providerKey} ambiguously overlaps removed capability ${overlapping.join(", ")}`;
+    }
+  }
+  return null;
+}
+
 function inspectMigrationContext(
   context: NonNullable<PromoteGuardOptions["migrationContext"]>,
 ): PromoteGuardDecision | null {
@@ -159,6 +220,16 @@ function inspectMigrationContext(
     };
   }
   try {
+    const removalScope = readPromotionRemovalScopeFromSnapshot(snapshot);
+    if (!removalScope) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        reason: "removal metadata unavailable for integration migration inspection",
+      };
+    }
+    const removedCapabilities = new Set(removalScope.removedCapabilities);
+    const removedDossierIds = new Set(removalScope.removedDossierIds);
     const contracts = readProviderContractsFromSnapshot(snapshot);
     const rawContracts = normalizeContractIntegrationsToken(snapshot);
     if (
@@ -172,6 +243,20 @@ function inspectMigrationContext(
       };
     }
     const rules = getPreGenerationContractsConfigFromManifest().providerRules;
+    const residual = removalResidualReason({
+      candidate,
+      removedCapabilities,
+      removedDossierIds,
+      rules,
+    });
+    if (residual) {
+      return {
+        allowed: false,
+        indeterminate: true,
+        code: "integration_migration_required",
+        reason: `integration removal requires review before promotion: ${residual}`,
+      };
+    }
     for (const files of context.candidateFilesJson === context.currentFilesJson
       ? [current]
       : [current, candidate]) {
@@ -179,11 +264,14 @@ function inspectMigrationContext(
         contracts,
         projectFiles: files,
         projectProviderEvidence: detectProjectProviderEvidence(files, rules),
+        removedCapabilities,
+        removedDossierIds,
       });
       if (plan.migrationRequired) {
         return {
           allowed: false,
           indeterminate: true,
+          code: "integration_migration_required",
           reason: "integration migration requires review before promotion",
         };
       }
