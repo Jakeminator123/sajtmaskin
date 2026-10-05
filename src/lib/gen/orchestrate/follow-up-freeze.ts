@@ -12,6 +12,7 @@ import {
 } from "../dossiers";
 import type { BuildSpec } from "../build-spec";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 
 // ── Område 5 / 5-3: follow-up freeze-enforcement ──────────────────────────
 // `FollowUpContract` is the *active* source of the frozen scaffold / variant /
@@ -64,6 +65,25 @@ export function enforceFollowUpScaffoldFreeze(
     return { scaffoldId: resolvedScaffoldId, clamped: false };
   }
   return { scaffoldId: contractScaffoldId, clamped: true };
+}
+
+/** Preserve only a verified, compatible prior intent on an actually frozen scaffold. */
+export function resolveFollowUpFrozenBuildIntent(
+  input: FollowUpScaffoldFreezeInput & {
+    contractBuildIntent?: BuildIntent | null;
+    allowedBuildIntents: readonly BuildIntent[];
+  },
+): BuildIntent | null {
+  const priorIntent = input.contractBuildIntent;
+  if (
+    input.resolvedMode !== "followUp" ||
+    input.ignorePersistedScaffoldForMatch ||
+    !input.contractScaffoldId ||
+    input.resolvedScaffoldId !== input.contractScaffoldId ||
+    (priorIntent !== "template" && priorIntent !== "website" && priorIntent !== "app") ||
+    !input.allowedBuildIntents.includes(priorIntent)
+  ) return null;
+  return priorIntent;
 }
 
 export interface FollowUpVariantFreezeInput {

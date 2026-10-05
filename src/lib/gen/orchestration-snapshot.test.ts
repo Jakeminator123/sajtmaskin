@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   buildFollowUpBriefFromSnapshot,
   buildFollowUpContract,
@@ -14,6 +15,20 @@ import {
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
+
+describe("follow-up contract prior build intent", () => {
+  it.each([
+    [{ buildIntent: "website", buildSpec: { buildIntent: "app" } }, "website"],
+    [{ buildSpec: { buildIntent: "app" } }, "app"],
+    [{ buildIntent: "invalid", buildSpec: { buildIntent: "template" } }, "template"],
+    [{ buildIntent: "WEBSITE" }, null],
+    [{ buildIntent: true }, null],
+    [{}, null],
+    [null, null],
+  ] as const)("projects only a recorded valid enum from %j", (snapshot, expected) => {
+    expect(buildFollowUpContract({ snapshot }).buildIntent).toBe(expected);
+  });
+});
 
 describe("readRemovedCapabilitiesFromSnapshot", () => {
   it("reads the durable tombstone and lowercases", () => {

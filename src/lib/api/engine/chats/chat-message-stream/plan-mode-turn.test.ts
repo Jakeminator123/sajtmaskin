@@ -45,16 +45,17 @@ import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { createPlanModePipelineStream } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { formatSSEEvent } from "@/lib/streaming";
-import {
-  PLAN_MODE_TURN_ENTRY_EVENT,
-  PLAN_MODE_TURN_EXIT_EVENT,
-} from "./plan-mode-trace";
+import { PLAN_MODE_TURN_ENTRY_EVENT, PLAN_MODE_TURN_EXIT_EVENT } from "./plan-mode-trace";
 import { runPlanModeTurn } from "./plan-mode-turn";
+import { buildFollowUpOrchestrationInput } from "../follow-up-orchestration-input";
+import { parseChatRequestMeta } from "../parse-chat-request-meta";
 
 const CHAT_ID = "chat_plan_1";
 
 /** Fejkad planner-pipeline: samma SSE-format som den riktiga strömmen. */
-function pipelineStream(events: Array<{ event: string; data: unknown }>): ReadableStream<Uint8Array> {
+function pipelineStream(
+  events: Array<{ event: string; data: unknown }>,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -76,6 +77,8 @@ function turnParams(): Parameters<typeof runPlanModeTurn>[0] {
     metaBuildIntent: "website",
     metaScaffoldMode: "auto",
     parsedMeta: {
+      buildIntent: "website",
+      buildMethod: "freeform",
       scaffoldMode: "auto",
       scaffoldId: null,
       appProjectId: "app_1",
@@ -109,9 +112,7 @@ function turnParams(): Parameters<typeof runPlanModeTurn>[0] {
 }
 
 /** Kör turen till slut — strömmen persisterar först när den är helt läst. */
-async function runTurn(
-  events: Array<{ event: string; data: unknown }>,
-): Promise<string> {
+async function runTurn(events: Array<{ event: string; data: unknown }>): Promise<string> {
   vi.mocked(createPlanModePipelineStream).mockReturnValue(
     pipelineStream(events) as unknown as ReturnType<typeof createPlanModePipelineStream>,
   );
@@ -127,9 +128,7 @@ function traceRow(event: string): Record<string, unknown> | undefined {
 }
 
 function assistantMessageCall(): unknown[] | undefined {
-  return vi
-    .mocked(chatRepo.addMessage)
-    .mock.calls.find((call) => call[1] === "assistant");
+  return vi.mocked(chatRepo.addMessage).mock.calls.find((call) => call[1] === "assistant");
 }
 
 /** `clearAllMocks` nollar bara anropslistorna — implementationer läcker annars. */
@@ -146,6 +145,33 @@ function resetTurnMocks(): void {
 
 describe("runPlanModeTurn — persistering av planner-svaret", () => {
   beforeEach(resetTurnMocks);
+
+  it.each([
+    ["freeform", "app"],
+    ["audit", "website"],
+    ["kostnadsfri", "website"],
+    ["category", "template"],
+  ])("forwards effective %s/%s without a late manual promotion", async (method, intent) => {
+    const params = turnParams();
+    params.parsedMeta = parseChatRequestMeta({
+      buildMethod: method,
+      buildIntent: "website",
+      scaffoldMode: "manual",
+      scaffoldId: "dashboard",
+    });
+    params.metaBuildIntent = params.parsedMeta.buildIntent;
+    vi.mocked(createPlanModePipelineStream).mockReturnValue(
+      pipelineStream([{ event: "done", data: {} }]) as unknown as ReturnType<
+        typeof createPlanModePipelineStream
+      >,
+    );
+    const response = await runPlanModeTurn(params);
+    await response.text();
+    expect(vi.mocked(buildFollowUpOrchestrationInput).mock.calls[0][0]).toMatchObject({
+      buildIntent: intent,
+      parsedMeta: { buildMethod: method, buildIntent: intent },
+    });
+  });
 
   it("persisterar planner-prosan när utdatan INTE är en plan", async () => {
     const body = await runTurn([
@@ -219,9 +245,7 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
   it("persisterar felet i stället för en plansummering när strömmen fallerar", async () => {
     await runTurn([{ event: "error", data: { message: "planner timeout" } }]);
 
-    expect(assistantMessageCall()?.[2]).toBe(
-      "Planeringen kunde inte slutföras: planner timeout",
-    );
+    expect(assistantMessageCall()?.[2]).toBe("Planeringen kunde inte slutföras: planner timeout");
     expect(traceRow(PLAN_MODE_TURN_EXIT_EVENT)?.meta).toMatchObject({
       outcome: "planner_error_persisted",
       upstreamError: "planner timeout",

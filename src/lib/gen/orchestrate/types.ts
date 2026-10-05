@@ -2,7 +2,7 @@
  * Public orchestration types — moved verbatim from `src/lib/gen/orchestrate.ts`
  * (structural split, no behavior change).
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
@@ -77,6 +77,8 @@ export interface OrchestrationInput {
    */
   scaffoldMatchPrompt?: string;
   buildIntent: BuildIntent;
+  /** Existing entry-method precedence must survive the final intent/scaffold clamp. */
+  buildMethod?: BuildMethod | null;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
   /**

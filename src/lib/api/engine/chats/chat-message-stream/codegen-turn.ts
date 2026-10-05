@@ -4,8 +4,6 @@
  * pipeline/generation stream. Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
-import { isAppScaffold } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
@@ -165,17 +163,7 @@ export async function runCodegenTurn(params: {
   } = params;
   const promptForLlm = optimizedMessage;
 
-  let engineIntent: BuildIntent =
-    metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-      ? (metaBuildIntent as BuildIntent)
-      : "website";
-  if (
-    engineIntent === "website" &&
-    parsedMeta.scaffoldMode === "manual" &&
-    isAppScaffold(parsedMeta.scaffoldId)
-  ) {
-    engineIntent = "app";
-  }
+  const engineIntent = parsedMeta.buildIntent;
   const trimmedSystem = typeof system === "string" ? system.trim() : "";
   const snapshotRecord =
     engineChat.orchestration_snapshot && typeof engineChat.orchestration_snapshot === "object"
