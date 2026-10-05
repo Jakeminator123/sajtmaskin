@@ -93,6 +93,10 @@ function emptyEnvRequirements() {
   };
 }
 
+function minimalReadableVersionFiles() {
+  return [{ path: "app/page.tsx", content: "export default function Page() { return null; }" }];
+}
+
 type ReadinessBody = {
   success?: boolean;
   readiness?: {
@@ -119,7 +123,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
     promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
-    getVersionFiles.mockResolvedValue([]);
+    getVersionFiles.mockResolvedValue(minimalReadableVersionFiles());
     resolveProjectEnv.mockResolvedValue({
       source: "none",
       projectId: null,
@@ -855,6 +859,186 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(result).toBe("guard_denied");
     expect(emit).not.toHaveBeenCalled();
   });
+
+  it("does not pass a typed migration hold through the stale watchdog as a promoted version", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+    });
+    promoteVersionIfUnleased.mockResolvedValue("integration_migration_required");
+    let capturedOpts:
+      | { promoteReconciledVersion?: () => Promise<unknown> }
+      | undefined;
+    settleStaleVerificationIfNeeded.mockImplementation(
+      async (v: unknown, opts: typeof capturedOpts) => {
+        capturedOpts = opts;
+        return { version: v };
+      },
+    );
+
+    const { req, ctx } = readinessRequest();
+    await GET(req, ctx);
+
+    const result = await capturedOpts?.promoteReconciledVersion?.();
+    expect(result).toBe("integration_migration_required");
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("holds a proven Clerk to Auth0 migration before stale-green reconciliation", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "auth0",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Auth0",
+            name: "Auth0",
+            reason: "Current provider intent",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+      files_revision: "rev_1",
+    });
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "middleware.ts",
+        content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+      },
+      { path: "components/auth-buttons.tsx", content: "older buttons" },
+      { path: "components/clerk-provider-shell.tsx", content: "older shell" },
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
+    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
+    expect(json.readiness?.blockers.map((blocker) => blocker.id)).toContain(
+      "integration-migration-required",
+    );
+    expect(json.readiness?.canDeploy).toBe(false);
+  });
+
+  it("uses actual restored Clerk files instead of the newer Auth0 chat snapshot", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      orchestration_snapshot: {
+        requestedCapabilities: ["auth"],
+        contractIntegrations: [
+          {
+            kind: "auth",
+            providerKey: "auth0",
+            dossierCapability: "auth",
+            selectionSource: "explicit",
+            provider: "Auth0",
+            name: "Auth0",
+            reason: "Newer chat decision",
+            status: "chosen",
+          },
+        ],
+      },
+    });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_restore",
+      chat_id: "chat_1",
+      edit_kind: "restore",
+      lifecycle_stage: "integrations",
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary: null,
+      files_revision: "rev_restore",
+    });
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "middleware.ts",
+        content: 'import { clerkMiddleware } from "@clerk/nextjs/server";',
+      },
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.blockers.map((blocker) => blocker.id)).not.toContain(
+      "integration-migration-required",
+    );
+    expect(resolveSelectedDossiersFromSnapshot).toHaveBeenCalledWith(
+      null,
+      undefined,
+    );
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(true);
+  });
+
+  it("does not reconcile or promote when version files are unreadable", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+      files_revision: "rev_1",
+    });
+    getVersionFiles.mockResolvedValue(null);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
+    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
+    expect(json.readiness?.blockers.map((blocker) => blocker.id)).toContain(
+      "version-files-unavailable",
+    );
+    expect(json.readiness?.canDeploy).toBe(false);
+  });
+
+  it("does not reconcile or promote when the version has no readable files", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+      verification_summary: null,
+      files_revision: "rev_1",
+    });
+    getVersionFiles.mockResolvedValue([]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(settleStaleVerificationIfNeeded).not.toHaveBeenCalled();
+    expect(promoteVersionIfUnleased).not.toHaveBeenCalled();
+    expect(json.readiness?.blockers.map((blocker) => blocker.id)).toContain(
+      "version-files-unavailable",
+    );
+    expect(json.readiness?.canDeploy).toBe(false);
+  });
 });
 
 describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
@@ -867,7 +1051,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
     promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
-    getVersionFiles.mockResolvedValue([]);
+    getVersionFiles.mockResolvedValue(minimalReadableVersionFiles());
     resolveProjectEnv.mockResolvedValue({
       source: "none",
       projectId: null,
@@ -1066,7 +1250,7 @@ describe("GET readiness — late preview:client-error warnings (SM-050)", () => 
     }));
     settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
     promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
-    getVersionFiles.mockResolvedValue([]);
+    getVersionFiles.mockResolvedValue(minimalReadableVersionFiles());
     resolveProjectEnv.mockResolvedValue({
       source: "none",
       projectId: null,

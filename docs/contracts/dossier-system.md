@@ -316,7 +316,73 @@ Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvV
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
-**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
+**Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge in [`verbatim-policy.ts`](../../src/lib/gen/dossiers/verbatim-policy.ts), called from `finalize-merge.ts`. Selected installations use canonical source bytes. Existing hard/provider-coupled core uses a request-local snapshot of its actual previous, exact-path effective-verbatim files, including readable empty files. Positive SDK evidence or exact canonical protected bytes support preservation; canonical bytes are not installed/live-provider evidence. An occupied divergent protected core without either proof is also preserved, but requires migration review rather than a guessed replacement. Existing foreign-/multiple-provider holds remain in force, and explicit removal wins before preservation. Rewritable and missing files are not captured or seeded. Selected and preserved output claims are checked together before mutation. Previous bytes are restored before the first cross-file checker and asserted after fixers, repair passes and preflight; preserved drift fails closed instead of being hidden by a later restore. On follow-ups, already-present verbatim files render as pointers under `## Dossier Verbatim Files Already in Project`.
+
+### Version promotion, restore and repair
+
+The migration guard must run before promotion and repair acceptance, even when
+cached quality evidence is green. Explicit removal is evaluated against the
+candidate files: canonical dossier presence and direct dependency plus production
+AST evidence must not still prove a removed capability. The current pre-repair
+files may contain that removed integration when the candidate has removed it.
+Absent legacy removal fields mean no removals; present malformed fields are
+unavailable evidence, not an empty set. Capability identity remains exact:
+Supabase authentication is not Supabase database access.
+
+Provider comparison uses exact dossier capability, falling back to the existing
+integration-kind capability for positively detected non-dossier methods.
+Adding the first positive dependency/runtime proof is evidence recovery, not
+a provider migration. Replacing or erasing an already proven provider, or
+introducing multiple candidate providers for one capability, remains a hold.
+Core-preservation and explicit-removal guards still apply independently;
+canonical protected bytes never become installed/live-provider proof.
+
+Normal promotion and repair compare-and-set bind the exact files, `edit_kind`
+and full chat orchestration snapshot, including removal fields. An immutable
+`edit_kind="restore"` instead scopes immediate readiness/promotion to that
+version's actual files, not a later chat provider choice; its CAS still binds
+the files and edit kind. Conflicting actual provider cores remain a hold.
+Restore does not rewind the chat's provider plan or approval/removal history.
+Later F3/follow-up retains the current conversation's explicit choices; a
+provider change needs an explicit migration decision, not silent replacement.
+
+An inspected migration/removal hold returns `integration_migration_required`.
+Manual repair acceptance reports HTTP 409 with that code, pending repair intact
+and `retryable: false`; it must not report "no pending repair" or add
+`Retry-After`. Timeout autoaccept does not accept the held repair. A successful
+fresh read is authoritative, even at the same file revision. Only a proven
+typed hold may use an exact blocked projection when readback is unavailable;
+an ordinary no-op with unavailable readback keeps the original row unchanged.
+Lease unavailability remains retryable HTTP 503; genuine write,
+schema and security errors are not converted into a migration hold.
+
+A deterministic hold must be authorized under the same locked row, lease and
+compare-and-set authority as its inspected decision, including the exact
+files, edit provenance and applicable raw chat context. A lease/CAS miss stays
+a retryable no-op, not a non-retryable migration result. Applied holds persist
+draft/pending with a current-revision marker in the existing verification
+summary and leave repair payload/availability untouched. No new lifecycle
+state or installation ledger is introduced. The stale watchdog must not fail
+an active current-revision hold by age alone.
+
+An applied hold or decision-context no-op stops the old repair loop immediately,
+without another paid repair pass or a stale failure/clear. Context retry is
+bounded and requires an authoritative current, nonterminal, unheld version.
+An exhausted retry may settle a still-current verifying/repairing row to
+retryable pending only under its exact row-state/files/summary CAS and lease;
+existing repair payload and availability must remain untouched. Terminal,
+held or newly changed rows are no-ops. After a proven settlement write,
+optional readback failure must not turn pending into verifier failure;
+write/schema/security errors retain their error contract. Manual deploy repair maps the stopped
+hold through the existing readiness-unavailable outcome, not an ordinary
+failed-repair result.
+
+Both status and version history project the durable hold as the existing
+blocked status, overriding an empty or older terminal bus. The status read is
+HTTP 200 with a typed blocked reason, never fabricated done/failed; quality-gate
+and manual repair keep their actionable HTTP 409 contract. Client polling and
+resume stop only for that explicit non-retryable hold. Ordinary blocked states,
+transient failures and busy leases keep their existing retry behavior.
 
 ### Canonical file paths and collision policy
 
@@ -324,7 +390,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 Aliases and file-versus-directory ancestor conflicts within one manifest are invalid in both source paths and mapped outputs. Source checks are per dossier root, not across physically separate dossier directories, and do not impose a global case restriction. Dossiers actually selected together cannot claim divergent contents, different literal output paths under one ownership identity, or conflicting file/directory ancestors; exact-output, byte-identical shared helpers are allowed. Prompt rendering and verbatim restoration reject conflicts before producing a partial prompt or mutating the supplied file list. Acceptance materialization permits a dossier to overlay an exact literal scaffold path, but rejects different spellings under the same portable identity and file/directory conflicts with the scaffold or already-materialized files before inserting them. The same generated-project path normalizer identifies leading-slash, separator and `./` aliases without resolving traversal. Multiple generated aliases of a selected dossier path are rejected before restoration. A single generated alias is restored to the canonical output spelling, without overwriting rewritable content.
 
-Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Final verbatim restoration still restores canonical source bytes after the import-repair passes. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
+Before cross-file import repair, dossier-owned renames update only AST-verified local module-specifier literals, including string-literal `declare module` augmentations. The importer path is normalized before extension gating, parser selection and parse validation, so accepted spelling repairs cannot skip their imports. Existing exact module resolution takes precedence over portable alias matching; package imports and augmentations, wildcard declarations, ordinary strings and comments are untouched. Relative imports and local augmentations also preserve their target when the importing file moves. Ambiguous targets or unsafe rewrites fail before mutation. Selected installations retain canonical restoration; preserved previous cores are asserted without post-fixer restoration. If the post-removal import pass would mutate readable verbatim code, finalization fails closed instead of shipping a rewritten integration or silently restoring a dangling canonical import.
 
 Ownership identity is not functional presence evidence: a dossier's server files must still exist at the exact canonical path on Linux. Persisted version paths are compared literally, without trimming or normalizing separators, prefixes, case or Unicode composition. Lifecycle server evidence uses the same literal comparison; its alternative model-built API-route heuristic also rejects noncanonical path spellings and dot/traversal segments. Declaration uniqueness, scaffold ownership and explicit dossier removal use portable identity so case/Unicode aliases cannot falsely identify a provider or evade cleanup. A readable zero-byte source is valid: its path is canonicalized, an omitted file is seeded, and verbatim drift is restored to zero bytes; present rewritable content is still preserved. The existing fallback for a single unreadable canonical source (`null`, not an empty string) remains unchanged; it is not new provider-acceptance evidence.
 
@@ -469,13 +535,49 @@ context-only i stället för att installera en konkurrerande betalmetod.
 Existerande projektkod räknas som positivt providerbevis bara när ett direkt
 `package.json`-beroende sammanfaller med en parse-ren runtime-import/export,
 global `require()` eller dynamisk import. Type-only-importer, kommentarer,
-strängar, lokalt skuggad `require`, trasig syntax och bara paketdeklaration är
+strängar, lokalt skuggad `require`, trasig syntax, test-/spec-/fixturematerial,
+`.stories`-filer och segmenten `__mocks__`, `e2e` och `test-utils` samt bara
+paketdeklaration är
 okänt — aldrig acceptansbevis. Om flera providers bevisas för samma capability
-blir valet olöst i stället för manifestordningsstyrt.
+blir valet olöst i stället för manifestordningsstyrt. Explicit providerbyte
+tolkar riktningen även i `instead of`/`istället för`/`i stället för`; en separat
+`and keep`/`och behåll`-instruktion ingår inte i källans borttagning.
+Durabla F3-godkännanden filtreras mot befintliga provider-/capability-kontrakt:
+en borttagen Supabase-databas får inte återkomma via ett tvetydigt provider-hint,
+medan ett självständigt auth-kontrakt och dess capability/dossier bevaras.
+Ingen ny separat godkännandeledger införs.
 
-På filnivå blockerar en divergent befintlig server- eller verbatim-yta innan
-injektion. En byte-exakt del av dossierns kanoniska kärna får däremot kompletteras
-med saknade filer, och rewritable UI förblir adapterbar. Detta är
+Lagrade filposter valideras atomiskt av `stored-code-files.ts` före inspektion:
+en feltypad post gör hela underlaget otillgängligt, inte en filtrerad och
+skenbart konfliktfri delmängd. Ett pending provider-id får capability från
+sin exakta backing dossier först; utan backing används bara en entydig
+providerregel. Flera kandidater väljs inte genom manifestordning.
+
+Providerreglerna måste omfatta det SDK som katalogens kod faktiskt importerar,
+inte bara providerns ursprungliga paket. Samma krav på direkt paketberoende
+och positiv produktions-AST-import gäller varje deklarerad paketrot.
+
+På filnivå blir en divergent befintlig kärna `context-only` när exakt
+manifestbaserad filnärvaro och positiva provider-/capability-bevis visar att
+den redan tillhör samma provider. Befintliga bytes bevaras utan kataloguppgradering
+eller nya hjälpfiler. Även bevisade äldre kärnor under en capability som dagens
+uppföljning inte nämner bevaras. En obevisad upptagen server-/verbatim-yta
+blockerar; en byte-exakt kanonisk del får kompletteras med saknade filer och
+rewritable UI förblir adapterbar. Bevisad annan provider eller flera providers
+för samma capability ger migrationsspärr, aldrig automatisk source-radering.
+Det gäller även dossierlösa mål. En redan känd Product Postcheck-/L6-hold
+behåller sitt precisa besked utan en extra filläsning som kan maskera det.
+Ett frisläppande verdict går däremot alltid vidare genom fil-, migrations-
+och env-grindarna. Promotion, repair-acceptance inklusive timeout-autoaccept
+och stale-green-återhämtning använder samma migrationsspärr vid den faktiska
+statusövergången. Den låsta nuvarande filytan och eventuell repair-kandidat
+prövas; UPDATE binds dessutom till samma fil- och providerkontraktsunderlag.
+Oläsbara eller tomma versionsfiler är otillgängligt bevis, inte ett bevis på
+att ingen migration behövs. Migrationshold och transienta kontextläsfel är
+retrybara; verkliga skriv-/schemafel får inte döljas som vanliga väntetillstånd.
+Bedömningen återhärleds från tidigare filer och befintliga kontrakt varje
+runda; ingen ny beständig installationsledger. Explicit borttagning fortsätter
+vinna, medan faktiskt delade aktiva claims skyddas. Detta är
 kompatibilitets-/migrationsskydd, inte live provideracceptans. Känd dossierlös
 MongoDB/Auth0 kan starta den befintliga generiska F3/LLM-vägen, men det är ett
 startvillkor — inte bevis på full-stack-funktion eller liveacceptans. Bedömningen
@@ -520,6 +622,13 @@ provider sibling back to the capability default.
 version has been saved, finalize derives `fileEvidenceDossierIds` and
 `fileEvidenceCapabilities` from that final `files_json`; only this evidence (or
 explicit removal) clears the corresponding pending entries.
+
+An own `selectedDossierIds` array in stream metadata is authoritative, including
+`[]`, unknown ids and partial matches. Finalize subtracts explicit removals and
+uses the same resolved set for autofix dependencies and the actual file merge;
+it never fills the remainder from capability defaults. Only an absent property
+may replay legacy requested capabilities. A present malformed value fails
+closed before autofix or merge, rather than silently changing provider choice.
 
 An exact-file integrations fork + ReleaseGate without codegen is allowed only
 when **no pending dossier remains** and the existing file-derived build spec has

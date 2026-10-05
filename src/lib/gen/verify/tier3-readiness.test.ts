@@ -8,7 +8,22 @@ const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
+  isStoredCodeFileArray: (value: unknown) =>
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        typeof (entry as { path?: unknown }).path === "string" &&
+        typeof (entry as { content?: unknown }).content === "string" &&
+        (!("language" in entry) || typeof (entry as { language?: unknown }).language === "string"),
+    )
+      ? value
+      : null,
+}));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
@@ -79,6 +94,49 @@ beforeEach(() => {
 });
 
 describe("checkTier3ReadinessForVersion (L1)", () => {
+  it("holds a proven Clerk to Auth0 migration before a cached passed postcheck can release", async () => {
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["auth0"],
+      preloadedFiles: [
+        {
+          path: "middleware.ts",
+          content: 'import { clerkMiddleware } from "@clerk/nextjs/server"; // older bytes',
+          language: "ts",
+        },
+        {
+          path: "components/auth-buttons.tsx",
+          content: "export function AuthButtons(){ return null; }",
+          language: "tsx",
+        },
+        {
+          path: "components/clerk-provider-shell.tsx",
+          content: "export function ClerkProviderShell(){ return null; }",
+          language: "tsx",
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { "@clerk/nextjs": "^6.0.0" } }),
+          language: "json",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+    expect(getEngineVersionErrorLogsForCategories).toHaveBeenCalledWith(
+      "ver_1",
+      ["product_postcheck.summary", "product_postcheck.skipped"],
+    );
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
   it("projects file-detected Auth0 into a Tier3 build requirement", async () => {
     detectIntegrationsFromVersionFiles.mockReturnValue([
       {
@@ -212,6 +270,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
   });
 
   it("L7: passed + ofullständig preview-tupel släpper inte", async () => {
+    getVersionFiles.mockRejectedValue(new Error("version storage unavailable"));
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3",
       filesRevision: "rev_f3",
@@ -229,6 +288,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       reason: "preview_not_ready",
       retryable: true,
     });
+    expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
   it("(f) passed + ready L7-preview + env ok → ready", async () => {
@@ -287,5 +347,85 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       projectId: null,
     });
     expect(result.ready).toBe(true);
+  });
+
+  it("treats one malformed preloaded file as an unavailable atomic set", async () => {
+    const malformed = [
+      { path: "app/page.tsx", content: "export default null" },
+      { path: "app/route.ts", content: 42 },
+    ] as never;
+
+    await expect(
+      deriveTier3BuildSpecForVersion("ver_malformed", [], { preloadedFiles: malformed }),
+    ).resolves.toBeNull();
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_malformed",
+      preloadedFiles: malformed,
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "version_files_unavailable",
+      retryable: true,
+    });
+    expect(detectIntegrationsFromVersionFiles).not.toHaveBeenCalled();
+    expect(getStoredProjectEnvVarMap).not.toHaveBeenCalled();
+  });
+
+  it("keeps proven Postgres while pending Upstash maps to its canonical analytics dossier", async () => {
+    getStoredProjectEnvVarMap.mockResolvedValue({
+      DATABASE_URL: "postgres://example",
+      UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+      UPSTASH_REDIS_REST_TOKEN: "token",
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_postgres_upstash",
+      orchestrationSnapshot: {
+        contractIntegrations: [
+          {
+            kind: "database",
+            providerKey: "postgres",
+            dossierCapability: "database",
+            selectionSource: "explicit",
+            provider: "Postgres",
+            name: "Postgres",
+            reason: "Explicit database contract",
+            status: "chosen",
+          },
+        ],
+      },
+      pendingApprovedProviderKeys: ["upstash"],
+      preloadedFiles: [
+        {
+          path: "package.json",
+          content: JSON.stringify({ dependencies: { pg: "^8.0.0" } }),
+          language: "json",
+        },
+        {
+          path: "lib/db.ts",
+          content: 'import { Pool } from "pg"; export const db = new Pool();',
+          language: "ts",
+        },
+      ],
+      projectId: "proj_1",
+    });
+
+    expect(result.ready).toBe(true);
+    expect(result).toMatchObject({
+      spec: {
+        requirements: [
+          expect.objectContaining({
+            key: "upstash",
+            featureRuntimeEnvKeys: expect.arrayContaining([
+              "UPSTASH_REDIS_REST_URL",
+              "UPSTASH_REDIS_REST_TOKEN",
+            ]),
+          }),
+        ],
+      },
+    });
   });
 });

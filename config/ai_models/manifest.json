@@ -446,6 +446,7 @@
         "kind": "auth",
         "providerKey": "supabase",
         "dossierCapability": "auth",
+        "packageRoots": ["@supabase/ssr"],
         "provider": "Supabase",
         "name": "Supabase Auth",
         "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
@@ -626,6 +627,7 @@
         "name": "Swish",
         "envVars": [],
         "matchPatterns": ["\\bswish\\b"],
+        "status": "unresolved",
         "reason": "Prompten nämner Swish uttryckligen; implementationen måste väljas innan F3."
       },
       {
@@ -638,6 +640,19 @@
         "matchPatterns": ["\\bpaypal\\b"],
         "status": "unresolved",
         "reason": "Prompten väljer PayPal för betalning, men någon levererbar implementation är ännu inte vald."
+      },
+      {
+        "kind": "integration",
+        "providerKey": "calcom",
+        "dossierCapability": "booking",
+        "packageRoots": [
+          "@calcom/embed-react"
+        ],
+        "provider": "Cal.com",
+        "name": "Cal.com",
+        "envVars": [],
+        "matchPatterns": [],
+        "reason": "Existing project code imports the canonical Cal.com embed package."
       },
       {
         "kind": "integration",
@@ -683,7 +698,7 @@
         "kind": "integration",
         "providerKey": "openai",
         "dossierCapability": "ai-chat",
-        "packageRoots": ["openai"],
+        "packageRoots": ["openai", "@ai-sdk/openai"],
         "provider": "OpenAI",
         "name": "OpenAI",
         "envVars": ["OPENAI_API_KEY"],

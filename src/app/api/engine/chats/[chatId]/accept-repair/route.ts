@@ -84,6 +84,18 @@ export async function POST(
     if (accepted === "lease_unavailable") {
       return leaseUnavailableResponse();
     }
+    if (accepted === "integration_migration_required") {
+      return NextResponse.json(
+        {
+          error:
+            "Reparationen ändrar eller tar bort en befintlig integration. Granska providerbytet och kör verifieringen igen.",
+          code: "integration_migration_required",
+          hasPendingRepair: true,
+          retryable: false,
+        },
+        { status: 409 },
+      );
+    }
     if (!accepted) {
       return NextResponse.json(
         { error: "No pending server repair found for this version." },

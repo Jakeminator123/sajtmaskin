@@ -6,7 +6,10 @@ import {
 import { engineVersions } from "../schema";
 import { and, eq, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
-import { assertPromoteAllowed } from "../promote-guard";
+import {
+  assertPromoteAllowed,
+  scopePromotionSnapshotForVersion,
+} from "../promote-guard";
 import { recordRepairPassedQualityGate } from "../services/generation-telemetry";
 import {
   decodeRepairedFilesPayload,
@@ -15,8 +18,16 @@ import {
   type RepairProvenance,
 } from "../repair-files-payload";
 import type { Version, VersionRepairStatus } from "./types";
-import { toRow, getStoredVersion, versionWriteWhere } from "./internal";
+import {
+  toRow,
+  getStoredVersion,
+  isLockTimeoutError,
+  LEASE_LOCK_TIMEOUT_MS,
+  versionWriteWhere,
+} from "./internal";
 import { leaseTableExists, hasActiveVersionLease } from "./leases";
+import { isTransientDbError } from "../transient-error";
+import { buildIntegrationMigrationHoldSummary } from "@/lib/gen/verify/stale-verification";
 
 /**
  * Outcome of {@link saveRepairedFiles}. Callers MUST distinguish a stale-base
@@ -145,12 +156,24 @@ export async function getRepairStatus(versionId: string): Promise<VersionRepairS
  * Outcome of {@link acceptRepair}. `lease_unavailable` is distinct from
  * `null`: the caller could not prove lease-table presence, so HTTP routes
  * must retry (503) instead of treating it as "no pending repair" (409).
+ * `integration_migration_required` is a non-retryable, user-actionable hold;
+ * the pending envelope stays intact for a later explicit migration decision.
  */
-export type AcceptRepairResult = Version | null | "lease_unavailable";
+export type AcceptRepairResult =
+  | Version
+  | null
+  | "lease_unavailable"
+  | "integration_migration_required";
 
 export async function acceptRepair(
   versionId: string,
   verificationSummary: string | null = "Server repair accepted.",
+  expected?: {
+    filesJson: string;
+    filesRevision: string | null;
+    editKind: string | null;
+    repairedFilesJson: string;
+  },
 ): Promise<AcceptRepairResult> {
   // Resolve lease-table presence ONCE, out of band. We must NOT name
   // engine_version_jobs inside the UPDATE when it is absent — Postgres
@@ -164,7 +187,12 @@ export async function acceptRepair(
     return "lease_unavailable";
   }
   const jobsExist = presence === "exists";
-  return db.transaction(async (tx) => {
+  let phase: "context_read" | "guard" | "update" = "context_read";
+  try {
+    return await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`,
+    );
     // Codex P2 (serialize with acquireVersionLease): take the version-row lock
     // FIRST (FOR UPDATE). acquireVersionLease locks the same row before inserting
     // its lease, so the two contend; the no-active-lease UPDATE below then runs
@@ -174,6 +202,14 @@ export async function acceptRepair(
       .select({
         repairedFilesJson: engineVersions.repairedFilesJson,
         filesJson: engineVersions.filesJson,
+        editKind: engineVersions.editKind,
+        verificationState: engineVersions.verificationState,
+        filesRevision: engineVersions.filesRevision,
+        orchestrationSnapshot: sql<unknown>`(
+          SELECT c.orchestration_snapshot
+          FROM engine_chats c
+          WHERE c.id = ${engineVersions.chatId}
+        )`,
       })
       .from(engineVersions)
       .where(eq(engineVersions.id, versionId))
@@ -181,6 +217,17 @@ export async function acceptRepair(
       .for("update");
     const repairedFilesJson = rows[0]?.repairedFilesJson;
     if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
+      return null;
+    }
+    if (
+      expected &&
+      (rows[0]?.filesJson !== expected.filesJson ||
+        (rows[0]?.filesRevision ?? null) !== expected.filesRevision ||
+        (rows[0]?.editKind ?? null) !== expected.editKind ||
+        repairedFilesJson !== expected.repairedFilesJson)
+    ) {
+      // Auto-accept callers may have observed an older repair row. Never use a
+      // hold produced for a newer locked row to normalize that stale object.
       return null;
     }
     // #260 / Codex P2 #5 (repair-vs-user-edit clobber): the pending repair is
@@ -203,6 +250,7 @@ export async function acceptRepair(
       console.warn(
         `[accept-repair] Clearing legacy (no base-hash) pending repair for version ${versionId}; re-run repair.`,
       );
+      phase = "update";
       await tx
         .update(engineVersions)
         .set({
@@ -259,9 +307,20 @@ export async function acceptRepair(
     // current `files_json`. Without it the repair verdict — stamped with the
     // repaired revision by `saveRepairedFiles` — would read as a stale revision
     // against the pre-accept base and wedge every legitimate accept.
+    phase = "guard";
+    const editKind = typeof rows[0]?.editKind === "string" ? rows[0].editKind : null;
+    const orchestrationSnapshot = rows[0]?.orchestrationSnapshot ?? null;
     const guard = await assertPromoteAllowed(versionId, undefined, {
       onReadError: "indeterminate",
       promotedFilesJson: payload.filesJson,
+      migrationContext: {
+        currentFilesJson,
+        candidateFilesJson: payload.filesJson,
+        orchestrationSnapshot: scopePromotionSnapshotForVersion(
+          orchestrationSnapshot,
+          editKind,
+        ),
+      },
     });
     if (!guard.allowed) {
       console.warn(
@@ -269,8 +328,54 @@ export async function acceptRepair(
           ? `[promote-guard] Repair-accept signal unavailable for version ${versionId} (retryable): ${guard.reason}`
           : `[promote-guard] Refusing to accept repair for version ${versionId}: ${guard.reason}`,
       );
+      if (
+        "indeterminate" in guard &&
+        guard.indeterminate &&
+        guard.code === "integration_migration_required"
+      ) {
+        phase = "update";
+        const verificationState = rows[0]?.verificationState;
+        const filesRevision = rows[0]?.filesRevision ?? null;
+        if (typeof verificationState !== "string") return null;
+        const held = await tx
+          .update(engineVersions)
+          .set({
+            releaseState: "draft" as EngineVersionReleaseState,
+            verificationState: "pending" as EngineVersionVerificationState,
+            verificationSummary: buildIntegrationMigrationHoldSummary(filesRevision),
+            promotedAt: null,
+          })
+          .where(
+            and(
+              eq(engineVersions.id, versionId),
+              eq(engineVersions.verificationState, verificationState),
+              filesRevision == null
+                ? sql`${engineVersions.filesRevision} IS NULL`
+                : eq(engineVersions.filesRevision, filesRevision),
+              sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+              sql`${engineVersions.filesJson} = ${currentFilesJson}`,
+              sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${editKind}`,
+              editKind === "restore"
+                ? undefined
+                : sql`COALESCE((
+                    SELECT c.orchestration_snapshot
+                    FROM engine_chats c
+                    WHERE c.id = ${engineVersions.chatId}
+                  ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+                    orchestrationSnapshot,
+                  )} AS jsonb)`,
+              jobsExist
+                ? sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`
+                : undefined,
+            ),
+          );
+        return (held.rowCount ?? 0) > 0
+          ? "integration_migration_required"
+          : null;
+      }
       return null;
     }
+    phase = "update";
     const result = await tx
       .update(engineVersions)
       .set({
@@ -296,6 +401,17 @@ export async function acceptRepair(
           // accept timeout), this no-ops instead of promoting it early. This
           // also subsumes the "not cleared" check (a non-empty string != NULL).
           sql`${engineVersions.repairedFilesJson} = ${repairedFilesJson}`,
+          sql`${engineVersions.filesJson} = ${currentFilesJson}`,
+          sql`${engineVersions.editKind} IS NOT DISTINCT FROM ${editKind}`,
+          editKind === "restore"
+            ? undefined
+            : sql`COALESCE((
+                SELECT c.orchestration_snapshot
+                FROM engine_chats c
+                WHERE c.id = ${engineVersions.chatId}
+              ), 'null'::jsonb) IS NOT DISTINCT FROM CAST(${JSON.stringify(
+                orchestrationSnapshot,
+              )} AS jsonb)`,
           // Codex P2 (no active lease): atomic guard — the route +
           // maybeAutoAcceptTimedOutRepair pre-checks are only a fast-fail. Only
           // reference engine_version_jobs when it exists (see leaseTableExists).
@@ -313,7 +429,12 @@ export async function acceptRepair(
       .where(eq(engineVersions.id, versionId))
       .limit(1);
     return toRow(versionRows[0]) as unknown as Version;
-  });
+    });
+  } catch (error) {
+    if (isLockTimeoutError(error)) return null;
+    if (phase === "context_read" && isTransientDbError(error)) return null;
+    throw error;
+  }
 }
 
 type AutoAcceptResult = {
@@ -358,11 +479,48 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
     );
     return { version, wasAutoAccepted: false };
   }
+  const expected =
+    typeof version.files_json === "string" && typeof version.repaired_files_json === "string"
+      ? {
+          filesJson: version.files_json,
+          filesRevision: version.files_revision ?? null,
+          editKind: version.edit_kind ?? null,
+          repairedFilesJson: version.repaired_files_json,
+        }
+      : undefined;
   const accepted = await acceptRepair(
     version.id,
     "Server repair auto-accepted after timeout.",
+    expected,
   );
-  if (!accepted || accepted === "lease_unavailable") {
+  if (accepted === "integration_migration_required") {
+    const current = await getStoredVersion(version.id).catch(() => null);
+    if (current) return { version: current, wasAutoAccepted: false };
+    // The optional expected snapshot above makes the caller's row an exact
+    // witness for the locked hold decision. If readback is unavailable, expose
+    // a safe blocked projection without discarding the pending repair envelope.
+    return {
+      version: {
+        ...version,
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: buildIntegrationMigrationHoldSummary(
+          version.files_revision ?? null,
+        ),
+        promoted_at: null,
+      },
+      wasAutoAccepted: false,
+    };
+  }
+  if (
+    !accepted ||
+    accepted === "lease_unavailable"
+  ) {
+    if (!accepted && expected) {
+      const current = await getStoredVersion(version.id).catch(() => null);
+      if (current) return { version: current, wasAutoAccepted: false };
+      return { version, wasAutoAccepted: false };
+    }
     return { version, wasAutoAccepted: false };
   }
   return { version: accepted, wasAutoAccepted: true };

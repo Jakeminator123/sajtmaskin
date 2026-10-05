@@ -18,7 +18,9 @@ const renewVersionLease = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
+const holdVersionForIntegrationMigration = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const runQualityGateOnExportable = vi.hoisted(() => vi.fn());
 const qualityGateAllPassed = vi.hoisted(() => vi.fn());
@@ -50,7 +52,11 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   getChat,
+  getVersionById,
   markVersionSupersededByRepair,
+}));
+vi.mock("@/lib/db/chat-repository/version-lifecycle", () => ({
+  holdVersionForIntegrationMigration,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -178,7 +184,14 @@ beforeEach(() => {
     project_id: "proj_1",
     orchestration_snapshot: null,
   });
+  getVersionById.mockReset().mockResolvedValue({
+    id: versionId,
+    verification_state: "verifying",
+    verification_summary: null,
+    release_state: "draft",
+  });
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
+  holdVersionForIntegrationMigration.mockReset().mockResolvedValue("applied");
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,
     filesJson,
@@ -186,6 +199,7 @@ beforeEach(() => {
     filesRevision: "rev_f3",
     parentVersionId: "ver_f2",
     verificationState: "pending",
+    editKind: null,
   });
   runQualityGateOnExportable.mockReset().mockResolvedValue(gatePass());
   qualityGateAllPassed.mockReset().mockReturnValue(true);
@@ -326,10 +340,16 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
       onAttemptPromotion: (
         content: string,
         method: "deterministic" | "llm",
-      ) => Promise<{ promoted: boolean }>;
+      ) => Promise<{ promoted: boolean; stop?: true }>;
     }) => {
       const attempt = await params.onAttemptPromotion(fixedContent, "deterministic");
-      return { promoted: attempt.promoted, method: "deterministic", llmPasses: 0 };
+      expect(attempt).toMatchObject({ promoted: false, stop: true });
+      return {
+        promoted: attempt.promoted,
+        stopped: attempt.stop === true,
+        method: "deterministic",
+        llmPasses: 0,
+      };
     });
 
     await triggerServerVerification({ chatId, versionId });
@@ -343,6 +363,142 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
       runRepairLoop.mock.invocationCallOrder[0],
     );
     expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("after_repair migration hold is durable and never falls through to terminal failure", async () => {
+    const fixedContent = serializeCodeProject([
+      { ...pageFile, content: "export default function Page(){return <main/>}" },
+    ]);
+    runQualityGateOnExportable.mockResolvedValue(gateFailTypecheck());
+    qualityGateAllPassed.mockReturnValue(false);
+    shouldPromoteAfterRepair.mockResolvedValue({
+      promote: true,
+      results: gatePass().results,
+      verifyLaneDurationMs: 5,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({ ready: true, ok: true, spec: { requirements: [] } })
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "integration_migration_required",
+        retryable: false,
+      });
+    runRepairLoop.mockImplementation(async (params: {
+      onAttemptPromotion: (
+        content: string,
+        method: "deterministic" | "llm",
+      ) => Promise<{ promoted: boolean; stop?: true }>;
+    }) => {
+      const attempt = await params.onAttemptPromotion(fixedContent, "deterministic");
+      expect(attempt).toMatchObject({ promoted: false, stop: true });
+      return {
+        promoted: attempt.promoted,
+        stopped: attempt.stop === true,
+        method: "deterministic",
+        llmPasses: 0,
+      };
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({
+        filesRevision: "rev_f3",
+        filesJson,
+        editKind: null,
+        orchestrationSnapshot: null,
+      }),
+      "run-l1",
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "passed" }),
+    );
+  });
+
+  it("settles an exhausted after-repair context retry while preserving the repair payload", async () => {
+    const fixedContent = serializeCodeProject([
+      { ...pageFile, content: "export default function Page(){return <main/>}" },
+    ]);
+    runQualityGateOnExportable.mockResolvedValue(gateFailTypecheck());
+    qualityGateAllPassed.mockReturnValue(false);
+    shouldPromoteAfterRepair.mockResolvedValue({
+      promote: true,
+      results: gatePass().results,
+      verifyLaneDurationMs: 5,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({ ready: true, ok: true, spec: { requirements: [] } })
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "integration_migration_required",
+        retryable: false,
+      });
+    holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        verificationSummary: null,
+        releaseState: "draft",
+        editKind: null,
+      })
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "repairing",
+        verificationSummary: "Server-side repair in progress.",
+        releaseState: "draft",
+        editKind: null,
+      });
+    runRepairLoop.mockImplementation(async (params: {
+      onAttemptPromotion: (
+        content: string,
+        method: "deterministic" | "llm",
+      ) => Promise<{ promoted: boolean; stop?: true }>;
+    }) => {
+      const attempt = await params.onAttemptPromotion(fixedContent, "deterministic");
+      return {
+        promoted: attempt.promoted,
+        stopped: attempt.stop === true,
+        method: "deterministic",
+        llmPasses: 0,
+      };
+    });
+
+    await triggerServerVerification({ chatId, versionId, contextRetryUsed: true });
+
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      versionId,
+      expect.stringContaining("changed after repair"),
+      "run-l1",
+      {
+        expected: expect.objectContaining({
+          verificationState: "repairing",
+          verificationSummary: "Server-side repair in progress.",
+        }),
+        preserveRepairPayload: true,
+      },
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(acquireVersionLease).toHaveBeenCalledTimes(1);
   });
 
   it("(e-pass) readiness före första gaten och omedelbart före promotion", async () => {
@@ -385,6 +541,309 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
         filesRevision: "rev_f3",
       }),
     );
+  });
+
+  it("normal passed path turns a typed migration hold into a non-green pending outcome", async () => {
+    promoteVersion.mockResolvedValue("integration_migration_required");
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.verifier.done",
+        outcome: "pending",
+        reason: "integration_migration_required",
+      }),
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).not.toHaveBeenCalled();
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "server-verify:f3-readiness",
+          meta: expect.objectContaining({
+            reason: "integration_migration_required",
+            retryable: false,
+            retryPending: false,
+            at: "before_promotion",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("before_first_gate persists a revision-bound migration hold before any green or failure", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      verdict: "blocked",
+      retryable: false,
+    });
+    await triggerServerVerification({ chatId, versionId });
+    expect(holdVersionForIntegrationMigration).toHaveBeenCalledWith(
+      versionId,
+      expect.objectContaining({
+        verificationState: "pending",
+        filesRevision: "rev_f3",
+        filesJson,
+        editKind: null,
+        orchestrationSnapshot: null,
+      }),
+      "run-l1",
+    );
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "passed" }),
+    );
+  });
+
+  it("re-evaluates a before-first-gate decision once after a full-context CAS miss", async () => {
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "integration_migration_required",
+        retryable: false,
+      })
+      .mockResolvedValue({ ready: true, ok: true, spec: { requirements: [] } });
+    holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        editKind: null,
+      })
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        editKind: null,
+      });
+    getChat
+      .mockResolvedValueOnce({
+        id: chatId,
+        project_id: "proj_1",
+        orchestration_snapshot: { contractIntegrations: [{ providerKey: "clerk" }] },
+      })
+      .mockResolvedValueOnce({
+        id: chatId,
+        project_id: "proj_1",
+        orchestration_snapshot: { contractIntegrations: [{ providerKey: "auth0" }] },
+      });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(2);
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(3);
+    expect(runQualityGateOnExportable).toHaveBeenCalledTimes(1);
+    expect(promoteVersion).toHaveBeenCalledTimes(1);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("does not recurse or fail when a CAS-miss fresh read is unavailable", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValueOnce({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+    holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        editKind: null,
+      })
+      .mockResolvedValueOnce(null);
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(2);
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(1);
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("stops on a fresh terminal snapshot after a before-first context CAS miss", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+    holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        verificationSummary: null,
+        releaseState: "draft",
+        editKind: null,
+      })
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "passed",
+        verificationSummary: "Already promoted by the current row.",
+        releaseState: "promoted",
+        editKind: null,
+      });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(1);
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).not.toHaveBeenCalled();
+  });
+
+  it("settles an exhausted before-first context retry with a full-row CAS", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "integration_migration_required",
+      retryable: false,
+    });
+    holdVersionForIntegrationMigration.mockResolvedValue("cas_miss");
+    const current = {
+      files: projectFiles,
+      filesJson,
+      lifecycleStage: "integrations" as const,
+      filesRevision: "rev_f3",
+      parentVersionId: "ver_f2",
+      verificationState: "verifying" as const,
+      verificationSummary: "Verifying current provider context.",
+      releaseState: "draft" as const,
+      editKind: null,
+    };
+    getVersionFilesSnapshot.mockResolvedValue(current);
+
+    await triggerServerVerification({ chatId, versionId, contextRetryUsed: true });
+
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(1);
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      versionId,
+      expect.stringContaining("decision context changed"),
+      "run-l1",
+      {
+        expected: expect.objectContaining({
+          filesJson,
+          verificationState: "verifying",
+          filesRevision: "rev_f3",
+          editKind: null,
+          releaseState: "draft",
+          verificationSummary: "Verifying current provider context.",
+        }),
+        preserveRepairPayload: false,
+      },
+    );
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("settles an exhausted before-promotion context retry without another re-entry", async () => {
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({ ready: true, ok: true, spec: { requirements: [] } })
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "integration_migration_required",
+        retryable: false,
+      });
+    holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    resetVersionVerificationToPending.mockResolvedValueOnce(null);
+    getVersionFilesSnapshot
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "pending",
+        verificationSummary: null,
+        releaseState: "draft",
+        editKind: null,
+      })
+      .mockResolvedValueOnce({
+        files: projectFiles,
+        filesJson,
+        lifecycleStage: "integrations",
+        filesRevision: "rev_f3",
+        parentVersionId: "ver_f2",
+        verificationState: "verifying",
+        verificationSummary: "Automatic verification in progress.",
+        releaseState: "draft",
+        editKind: null,
+      });
+
+    await triggerServerVerification({ chatId, versionId, contextRetryUsed: true });
+
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      versionId,
+      expect.stringContaining("decision context changed"),
+      "run-l1",
+      expect.objectContaining({
+        expected: expect.objectContaining({ verificationState: "verifying" }),
+      }),
+    );
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(acquireVersionLease).toHaveBeenCalledTimes(1);
+  });
+
+  it("advisory path does not treat a typed migration hold as a successful promotion", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: projectFiles,
+      filesJson,
+      lifecycleStage: "design",
+      filesRevision: "rev_f2",
+      parentVersionId: null,
+      verificationState: "pending",
+    });
+    runQualityGateOnExportable.mockResolvedValue(gateFailTypecheck());
+    qualityGateAllPassed.mockReturnValue(false);
+    promoteVersion.mockResolvedValue("integration_migration_required");
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.verifier.done",
+        outcome: "pending",
+        reason: "integration_migration_required",
+      }),
+    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it("before_promotion-hold: ingen passed-buss, ingen grön gatelogg, pending istället för promotion", async () => {
