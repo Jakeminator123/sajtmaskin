@@ -4,6 +4,10 @@ Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
 Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 
+A6a är levererad via #1553 på preview `c4f4b188`; ursprungliga lokala
+provbaser nedan är återanvänt sakbevis. [A7](A7-slutverifiering-och-overlamning.md)
+binder dem till aktuell previewleverans. A6b förblir enbart read-only kartlagd.
+
 | Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
 | --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
@@ -89,6 +93,18 @@ Detta är event-/körningsdedup, inte minskat testurval eller A4:s providerhinde
 En eventuell rättning måste behålla full profil, securitychecks, aktuell
 integrationsbas och native leveransgrindar. Inga workflows ändras för denna
 observation och ingen manuell cancel/omkörning gjordes.
+
+Ytterligare same-head-observation från #1562: draft-CI
+[37267686013](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37267686013)
+körde 05:24:58–05:28:41 UTC den 2026-10-05 och blev SUCCESS. Ready-eventets CI
+[37268024330](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37268024330)
+körde 05:29:34–05:33:25 på exakt samma head
+`1110d65f579b6f3d19b2c7e6b9348769d7167fea`, också SUCCESS. Här avbröts inte
+första körningen; båda fulla test-/byggprofilerna kördes. Ready-körningens
+aktuella checks användes för leverans, inte det äldre gröna draftkvittot.
+Detta är mätunderlag, ingen ny väntetids-/readyregel eller genomförd optimering.
+Framtida dedup måste bevara full täckning, securitychecks, aktuell bas och
+native gates; den får inte göra A4:s obevisade flöden gröna.
 
 Starta efter A3, A4 och A5. Följande checklista gäller slutlig policy och
 optimering; säkerhetsdelen måste fortsätta fungera.
