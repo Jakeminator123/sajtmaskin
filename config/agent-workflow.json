@@ -159,7 +159,7 @@
     "e2e": ["e2e/**", "playwright*.config.ts"]
   },
   "verificationProfiles": {
-    "always": ["workflow:contract"],
+    "always": ["workflow:contract", "test:discovery:check"],
     "docs": [
       "docs:check",
       "docs:links",

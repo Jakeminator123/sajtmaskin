@@ -32,6 +32,7 @@ jobs:
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
+      run_preview_host: ${{ steps.classify.outputs.run_preview_host }}
       high_risk: ${{ steps.classify.outputs.high_risk }}
       reason: ${{ steps.classify.outputs.reason }}
 
@@ -276,6 +277,10 @@ jobs:
       - name: Validate agent workflow contract
         if: ${{ !cancelled() }}
         run: npm run workflow:contract
+
+      - name: Verify every test file has an intentional runner (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run test:discovery:check
 
       # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
       # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
@@ -601,43 +606,38 @@ jobs:
   # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
   # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
   preview-host-guards:
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    env:
+      RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
     steps:
+      - name: Report skipped preview-host scope
+        if: ${{ env.RUN_PREVIEW_HOST == 'false' }}
+        run: echo "No preview-host, shared-config or unknown paths changed; skipping install and tests."
+
       - name: Checkout
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Detect preview-host-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            preview_host:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - 'preview-host/**'
-
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: Install preview-host dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm ci --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
-
-      - name: Skip preview-host guards (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.preview_host != 'true' }}
-        run: echo "No preview-host files changed; skipping install and tests."
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger

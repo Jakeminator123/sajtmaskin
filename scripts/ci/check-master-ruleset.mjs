@@ -7,7 +7,6 @@ export const DEFAULT_SPEC_PATH = resolve(
   ROOT,
   ".github/rulesets/protect-master.expected.json",
 );
-export const DEFAULT_POLICY_PATH = resolve(ROOT, "config/agent-workflow.json");
 export const REQUIRED_CHECKS_SOURCE = "inline";
 
 function stableStrings(values) {
@@ -75,7 +74,7 @@ function evaluateSpecIntegrity(spec) {
   return issues;
 }
 
-export function evaluateMasterRuleset(live, spec, _policy) {
+export function evaluateMasterRuleset(live, spec) {
   const specIssues = evaluateSpecIntegrity(spec);
   if (specIssues.length > 0) return specIssues;
 
@@ -156,10 +155,6 @@ export async function loadExpectedSpec(path = DEFAULT_SPEC_PATH) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-export async function loadWorkflowPolicy(path = DEFAULT_POLICY_PATH) {
-  return JSON.parse(await readFile(path, "utf8"));
-}
-
 async function fetchLiveRuleset(spec) {
   const repository = process.env.GITHUB_REPOSITORY || spec.repository;
   if (repository !== spec.repository) {
@@ -186,9 +181,8 @@ async function fetchLiveRuleset(spec) {
 
 async function main() {
   const spec = await loadExpectedSpec();
-  const policy = await loadWorkflowPolicy();
   const live = await fetchLiveRuleset(spec);
-  const issues = evaluateMasterRuleset(live, spec, policy);
+  const issues = evaluateMasterRuleset(live, spec);
 
   if (issues.length === 0) {
     console.log(
