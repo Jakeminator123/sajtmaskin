@@ -334,7 +334,6 @@ async function buildDossierOverview(
     const lifecycle = resolveDossierLifecycle({
       entry,
       configuredBySelection: selected.configured,
-      materialized: versionFiles === null ? null : presentDossierIds.has(entry.id),
       pending: pendingDossierIds.has(entry.id),
       realEnvKeys,
       requirements: lifecycleRequirements,

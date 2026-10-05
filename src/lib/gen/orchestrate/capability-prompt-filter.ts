@@ -5,7 +5,7 @@
  */
 import { explicitlyRequests3D } from "../capability-inference";
 import {
-  expandDependentCapabilities,
+  normalizeDossierCapabilityIds,
   getF2MutedIntegrationCapabilities,
   normalizeCapabilityId,
 } from "../dossiers";
@@ -98,16 +98,8 @@ export function filterDossierCapabilitiesForPromptWithMutes(params: {
   if (result.includes("physics-3d") && !result.includes("visual-3d")) {
     result = result.filter((capability) => capability !== "physics-3d");
   }
-  // Dependent-capability expansion (same helper as selectDossiersForRequest —
-  // prompt and selection stay in lockstep). `DEPENDENT_CAPABILITIES` is empty
-  // since 2026-08-06 (the only entry, `subscriptions` ⇒ auth-pin, left with
-  // the parked paddle-billing dossier), but the helper still alias-normalizes
-  // legacy ids (`supabase-auth` → `auth`, `command-search` →
-  // `command-palette`) so stale snapshots keep resolving. The former
-  // ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4. The money-flow
-  // dedup subscriptions/payments left with paddle parking — `subscriptions`
-  // is no longer a capability, so a recurring ask flows as ordinary
-  // content/`payments`.
-  result = expandDependentCapabilities(result);
+  // Shared alias-normalization + order-preserving dedupe keeps prompt and
+  // selection in lockstep. It does not add implicit companion capabilities.
+  result = normalizeDossierCapabilityIds(result);
   return { capabilities: result, mutedCapabilities };
 }

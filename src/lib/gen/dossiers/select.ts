@@ -78,7 +78,7 @@ export interface SelectDossiersOptions {
  * capability, two provider dossiers — clerk-auth default, supabase-auth via
  * keyword/pin), and `command-search` renamed to `command-palette`.
  */
-export const CAPABILITY_ALIASES: Readonly<Record<string, string>> = {
+const CAPABILITY_ALIASES: Readonly<Record<string, string>> = {
   "supabase-auth": "auth",
   "command-search": "command-palette",
 };
@@ -93,34 +93,10 @@ const ALIAS_DOSSIER_PINS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Dependent capabilities: selecting the KEY capability only produces a working
- * feature if the VALUE capabilities ship alongside it. Applied by BOTH
- * selection (`selectDossiersForRequest`) and the prompt-capability filter
- * (`filterDossierCapabilitiesForPrompt` in orchestrate.ts) so every selection
- * path — init, follow-up, snapshot re-selection, dep-completer — pulls the
- * full stack.
- *
- * EMPTY since 2026-08-06: the only entry ever needed was `subscriptions` ⇒
- * `auth` pinned to supabase-auth (paddle-billing's customer portal), and it
- * left with the parked paddle-billing dossier (2026-08-06; träd borttaget
- * 2026-08-10 — git-historik). The mechanism stays because
- * dossiers must remain self-sufficient in F2 — add an entry here only when a
- * dossier's F3 surface genuinely cannot work without a companion capability,
- * never as a convenience bundle.
+ * Alias-normalizes and dedupes capability ids while preserving input order.
+ * Dossiers do not inject implicit companion capabilities.
  */
-const DEPENDENT_CAPABILITIES: Record<
-  string,
-  readonly { capability: string; pinDossierId?: string }[]
-> = {};
-
-/**
- * Returns `capabilities` plus any dependent capabilities (deduped, input order
- * preserved, dependencies appended), with overlapping picks resolved.
- * Callers should alias-normalize first (`normalizeCapabilityId`); this
- * function also normalizes defensively so raw callers with legacy ids get the
- * same result.
- */
-export function expandDependentCapabilities(capabilities: string[]): string[] {
+export function normalizeDossierCapabilityIds(capabilities: string[]): string[] {
   const normalized: string[] = [];
   const seen = new Set<string>();
   for (const cap of capabilities.map(normalizeCapabilityId)) {
@@ -128,19 +104,7 @@ export function expandDependentCapabilities(capabilities: string[]): string[] {
     seen.add(cap);
     normalized.push(cap);
   }
-  const out = [...normalized];
-  for (const cap of normalized) {
-    for (const dep of DEPENDENT_CAPABILITIES[cap] ?? []) {
-      if (!seen.has(dep.capability)) {
-        seen.add(dep.capability);
-        out.push(dep.capability);
-      }
-    }
-  }
-  // Alias-normalization + empty DEPENDENT_CAPABILITIES expansion only.
-  // The former ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4
-  // (ai-tool-calling-chat / rag-chat parked 2026-08-06).
-  return out;
+  return normalized;
 }
 
 /** Normalize a capability id through the legacy alias map (lowercased). */
@@ -150,11 +114,9 @@ export function normalizeCapabilityId(capability: string): string {
 }
 
 /**
- * Dossier pins for the given (already alias-normalized) capability set:
- * capability → dossier id that MUST win selection. Sources: legacy alias pins
- * (`supabase-auth` → auth pinned to the Supabase dossier) and dependency pins
- * (from `DEPENDENT_CAPABILITIES`, currently empty). Later sources never
- * overwrite an earlier pin for the same capability.
+ * Legacy-alias dossier pins for the given capability set. A persisted
+ * `supabase-auth` capability still means the Supabase dossier specifically,
+ * even though the current capability id is `auth`.
  */
 function resolveDossierPins(rawCapabilities: string[]): Map<string, string> {
   const pins = new Map<string, string>();
@@ -164,13 +126,6 @@ function resolveDossierPins(rawCapabilities: string[]): Map<string, string> {
     if (pin) {
       const normalized = normalizeCapabilityId(cap);
       if (!pins.has(normalized)) pins.set(normalized, pin);
-    }
-  }
-  for (const raw of rawCapabilities.map(normalizeCapabilityId)) {
-    for (const dep of DEPENDENT_CAPABILITIES[raw] ?? []) {
-      if (dep.pinDossierId && !pins.has(dep.capability)) {
-        pins.set(dep.capability, dep.pinDossierId);
-      }
     }
   }
   return pins;
@@ -388,7 +343,7 @@ export function selectDossiersForRequest(
   const all = getAllDossiers();
   const rawCapabilities = normalizeCapabilities(opts);
   const pins = resolveDossierPins(rawCapabilities);
-  const capabilities = expandDependentCapabilities(rawCapabilities);
+  const capabilities = normalizeDossierCapabilityIds(rawCapabilities);
   const promptText =
     typeof opts.promptText === "string" && opts.promptText.trim().length > 0
       ? opts.promptText

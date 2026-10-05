@@ -78,14 +78,19 @@ describe("describeEnvKeyValueState", () => {
 });
 
 describe("describeDossierStatus", () => {
-  it("never claims live for built-demo (the demo fallback is running)", () => {
+  it("uses human labels without claiming provider live acceptance", () => {
     const demo = describeDossierStatus("built-demo", "design");
     expect(demo.label).toBe("Demo");
     expect(demo.tone).toBe("warning");
 
-    const live = describeDossierStatus("built-live", "integrations");
-    expect(live.label).toBe("Live");
-    expect(live.tone).toBe("success");
+    const configured = describeDossierStatus("built-live", "integrations");
+    expect(configured.label).toBe("Konfigurerad");
+    expect(configured.hint).toContain("inte liveverifierat");
+    expect(configured.tone).toBe("success");
+
+    const included = describeDossierStatus("self-contained", "design", "soft");
+    expect(included.label).toBe("Ingår direkt");
+    expect(included.hint).toContain("verifieras separat");
   });
 
   it("labels a build-key-blocked dossier as blocked in both stages", () => {
