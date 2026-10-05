@@ -95,20 +95,20 @@ vi.mock("@/lib/gen/scaffolds/scaffold-search", () => ({
 // the pipeline calls (composeEngineSystemPrompt, buildDynamicContext)
 // rather than trying to mock the require target. Test only asserts
 // pipeline wiring, not prompt content.
-vi.mock("@/lib/gen/system-prompt", () => ({
+vi.mock("@/lib/gen/system-prompt", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/gen/system-prompt")>(),
   SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
   composeEngineSystemPrompt: (dynamic: string) => `STATIC_CORE_STUB\n\n---\n\n${dynamic}`,
-  buildDynamicContext: () => ({
-    text: "DYNAMIC_CONTEXT_STUB",
-    pruning: {
-      budgetTokens: 30000,
-      usedTokens: 10,
-      droppedBlockKeys: [],
-      keptBlockKeys: ["build_intent_website"],
-    },
-    blocks: [],
-  }),
   getSystemPromptLengths: () => ({ total: 100, static: 50, dynamic: 50 }),
+}));
+
+// Keep real orchestration/finalizer/materializer, but no Blob/provider work.
+vi.mock("@/lib/gen/embeddings/embeddings-storage", () => ({
+  loadEmbeddingsArtifact: vi.fn(async () => null),
+}));
+vi.mock("@/lib/gen/scaffold-variants", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/gen/scaffold-variants")>(),
+  resolveVariantTemplateInspiration: vi.fn(async () => null),
 }));
 
 import { generateOwnEngineSiteFromPrompt } from "./generate-site-from-prompt";
@@ -243,6 +243,26 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
     vi.clearAllMocks();
     setupMocks();
   });
+
+  it("MCP raw directive reaches real materialization, snapshot and telemetry", async () => {
+    const result = await generateOwnEngineSiteFromPrompt({
+      prompt: "professional b2b consulting corporate enterprise.\nUse variant hero-fullbleed-bg.",
+      projectId: "proj_explicit", buildIntent: "website",
+      scaffoldMode: "manual", scaffoldId: "landing-page",
+    });
+    const receipt = {
+      source: "explicit", score: null, runnerUpScore: null, margin: null,
+      hintId: null, finalId: "hero-fullbleed-bg", changedFromHint: false,
+    };
+    expect(updateChatOrchestrationSnapshotMock.mock.calls[0]?.[1]).toMatchObject({
+      variantId: "hero-fullbleed-bg", variantSelection: receipt,
+    });
+    expect(createGenerationTelemetryRecordMock.mock.calls[0]?.[0]).toMatchObject({
+      variantId: "hero-fullbleed-bg", meta: { variantSelection: receipt },
+    });
+    expect(result.files.find((file) => file.path === "app/layout.tsx")?.content)
+      .toContain("Space_Grotesk");
+  }, 30_000);
 
   it("generates a site for 'Bygg en hemsida för en advokatbyrå'", async () => {
     const result = await generateOwnEngineSiteFromPrompt({

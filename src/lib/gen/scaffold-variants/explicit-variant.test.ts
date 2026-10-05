@@ -6,9 +6,46 @@ import * as embeddingsStorage from "../embeddings/embeddings-storage";
 
 const variants = getScaffoldIds().flatMap(getVariantsForScaffold);
 const opponent = "professional b2b consulting corporate enterprise agency business services";
+const multilineNegative = [
+  "Do not use\nvariant hero-fullbleed-bg.",
+  "Använd inte\nvariant hero-fullbleed-bg.",
+  "Vi diskuterar:\nVariant: hero-fullbleed-bg.",
+  "Välj aldrig\nstilvariant hero-fullbleed-bg.",
+  "Don't use\nvariant hero-fullbleed-bg.",
+  "Avoid\nvariant hero-fullbleed-bg.",
+  "Utan\nvariant hero-fullbleed-bg.",
+  "We are discussing:\nVariant: hero-fullbleed-bg.",
+];
 afterEach(() => vi.restoreAllMocks());
 
 describe("explicit positive variant directives — actual registry identities", () => {
+  it.each(multilineNegative)("sync preserves negative/descriptive multiline context: %s", (rawPrompt) => {
+    expect(pickScaffoldVariantWithReceipt({
+      prompt: opponent, rawPrompt, scaffoldId: "landing-page",
+    }).selection.source).not.toBe("explicit");
+  });
+
+  it.each(multilineNegative)("async preserves negative/descriptive multiline context: %s", async (rawPrompt) => {
+    vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue(null);
+    expect((await pickScaffoldVariantAsyncWithReceipt({
+      prompt: opponent, rawPrompt, scaffoldId: "landing-page", queryVector: [1, 0],
+    })).selection.source).not.toBe("explicit");
+  });
+
+  it.each([
+    "Use\nvariant hero-fullbleed-bg.",
+    "Välj\nstilvariant hero-fullbleed-bg.",
+    "Bygg en sida.\nVariant: hero-fullbleed-bg.",
+    "Build a website.\r\nStyle variant: Full-bleed Hero.",
+  ])("sync/async keep unambiguous positive multiline commands: %s", async (rawPrompt) => {
+    const input = { prompt: opponent, rawPrompt, scaffoldId: "landing-page" as const };
+    const load = vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue(null);
+    expect(pickScaffoldVariantWithReceipt(input).selection)
+      .toMatchObject({ source: "explicit", finalId: "hero-fullbleed-bg" });
+    expect((await pickScaffoldVariantAsyncWithReceipt(input)).selection)
+      .toMatchObject({ source: "explicit", finalId: "hero-fullbleed-bg" });
+    expect(load).not.toHaveBeenCalled();
+  });
   it("covers the complete current pool without silently dropping identities", () => {
     expect(variants).toHaveLength(41);
     expect(new Set(variants.map((variant) => `${variant.scaffoldId}/${variant.id}`)).size).toBe(41);
