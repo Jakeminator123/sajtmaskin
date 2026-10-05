@@ -42,30 +42,29 @@ Grön CI upphäver inte tre senare native fynd: restore mot senare chatintent,
 missvisande repair-hold och missad explicit removal.
 
 Den aktuella lokala rättningsbatchen utgår från
-`40a53cbebe1d3e5c15ddcce58a372332b554b3a2`. Två oberoende reviews gav HOLD
-för holdens beslutskontext/CAS och repairloopens saknade terminalutfall;
-versions-/autoacceptkonsumenterna behövde också följa en tillämpad hold.
-Samlad rättning finns i 15 runtime-/testfiler. Nästa oberoende delta-/
-integrationsreview gav fyra konkreta följdfynd, nu samlade före rättning:
-fresh terminal-/holdstatus måste stoppa CAS-retry, förbrukad retry måste lämna
-ett ärligt retrybart tillstånd utan att rensa repairpayload, manuell deploy
-måste mappa after-repair-hold, och vanlig acceptRepair-no-op får inte
-fabricera pending när återläsning saknas. En ensam worker har rättat denna
-batch och återlämnat skrivleasen; root fryser nu kandidat och följdokument
-inför ny oberoende delta-/integrationsreview.
+`4a785c86659268208701ec58bc4c21e4af021e2c`. Beslutskontext-CAS, terminal
+repair-stop, atomisk fresh status, begränsad retry, preserve-settlement och
+status-/autoaccept-/deploykonsumenter är samlat implementerade i befintliga
+owners. Konsumentreview är CLEAN. CAS-/retryreviewens readback-P1 är nu rättat:
+en bevisat tillämpad, opted-in pending-reset gör inte fail/clear när dess
+optional readback fallerar. Write-/schemafel och legacy defaultkontrakt
+behåller sina tidigare felvägar. Worker har återlämnat skrivleasen;
+nästa exakt freeze får aktuell delta-/integrationsreview. Oförändrade
+verifierade bevis återanvänds endast bytebundet.
 Ownertriage begränsar core-PR:n till 64 befintliga paths, inklusive nödvändiga
 status-, watchdog-, klient- och after-repair-följdägare; ingen ny endpoint,
 tabell eller lifecycle-fas. Misstanken om rå restore-snapshot i F3 avfärdades:
 den enda aktuella restoreproducenten skapar designversioner. Ingen hypotetisk
 F3-ändring läggs till; den befintliga restore-/promotionsemantiken bevaras.
 
-Aktuella delbevis: samlad beteende-RED gav 7 fel/89 pass i tre filer; samma
-acceptances är GREEN 97/97. Slutligt fokus är 162/162 i sex filer och bred
-berörd matris 334/334 i 14 filer. Överlapp summeras inte. Workers fresh
-nonincremental typecheck, scoped lint, diffcheck och PR-plan avslutades med
-uttrycklig exitkod 0. Root har kontrollerat runtimehasharna; egen färsk
-nonincremental typkontroll avslutades också exit 0. Följddokumentkontroller
-körs före freeze. Tom output är inte verifiering.
+Aktuella delbevis: readback-RED gav 1 fel/82 pass i två filer; exakt samma
+acceptances är GREEN 83/83. Föregående 14-filers matris 334/334 och fokus
+162/162 återanvänds för oförändrade blobbar, inte som ny helomkörning efter
+readback-rättningen. Överlapp summeras inte. Workers fresh nonincremental
+typecheck, scoped lint, diffcheck och PR-plan avslutades med uttrycklig exitkod 0.
+Root har återbundit de tre runtime-/testhasharna och avslutat egen fresh
+nonincremental typecheck, derived/docs/länkar/terminologi/historik/canvas/plan
+med exit 0. Tom output är inte verifiering.
 Ny head kräver fortfarande aktuell review, full CI och deployment.
 
 ## Checklista och klarkriterier
@@ -150,9 +149,10 @@ integrerat det rena deltat på `9d71cd34f` i egen e1e8-worktree och äger
 planstatus. Ett faktiskt implementerat test-/workflowpaket har oberoende CLEAN
 review och full lokal verifiering: 21 gröna kontroller, 12 954 standardtester
 med 26 skips, 700 Backoffice-tester och 1 079/1 079 upptäckta testfiler.
-Jakobs senare samlade fortsättnings-/leveransmandat är verifierat i TESTER,
-som nu publicerar det befintliga paketet som separat draft-PR. Det är inte
-enbart en plan och inte ännu previewlevererat.
+Jakobs senare samlade fortsättnings-/leveransmandat är verifierat i TESTER.
+Det befintliga paketet är publicerat som separat draft-PR #1553 på
+`e49988eb3d9b6e5401316c0f19184489546db778`; local/remote matchar och e1e8 är
+ren. Det är inte enbart en plan och inte ännu previewlevererat.
 Hela testreformen är inte avslutad. Ingen stash eller förlust.
 
 ZIP:ens baseline, paketförslag och livepreview är olika underlag.

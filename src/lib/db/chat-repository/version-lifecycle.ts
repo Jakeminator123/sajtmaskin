@@ -275,6 +275,14 @@ export async function resetVersionVerificationToPending(
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
+  if (expected) {
+    // The guarded UPDATE is the mutation proof. Its callers do not consume the
+    // projection, so an optional post-success readback outage must not turn the
+    // already-CASed pending row into a verifier failure (or clear preserved
+    // repair data through a later failure path). UPDATE/schema errors above
+    // still reject; legacy callers retain their historical readback contract.
+    return getStoredVersion(versionId).catch(() => null);
+  }
   return getStoredVersion(versionId);
 }
 

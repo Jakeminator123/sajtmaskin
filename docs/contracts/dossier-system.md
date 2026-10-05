@@ -371,7 +371,9 @@ bounded and requires an authoritative current, nonterminal, unheld version.
 An exhausted retry may settle a still-current verifying/repairing row to
 retryable pending only under its exact row-state/files/summary CAS and lease;
 existing repair payload and availability must remain untouched. Terminal,
-held or newly changed rows are no-ops. Manual deploy repair maps the stopped
+held or newly changed rows are no-ops. After a proven settlement write,
+optional readback failure must not turn pending into verifier failure;
+write/schema/security errors retain their error contract. Manual deploy repair maps the stopped
 hold through the existing readiness-unavailable outcome, not an ordinary
 failed-repair result.
 

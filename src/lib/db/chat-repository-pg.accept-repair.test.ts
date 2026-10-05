@@ -35,6 +35,7 @@ const txExecuteFailure = vi.hoisted(() => ({
 const txUpdateFailure = vi.hoisted(() => ({ value: null as Error | null }));
 const txUpdateRowCount = vi.hoisted(() => ({ value: 0 }));
 const dbSelectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
+const dbSelectFailure = vi.hoisted(() => ({ value: null as Error | null }));
 const dbSelectSequence = vi.hoisted(() => ({
   value: [] as Array<Array<Record<string, unknown>>>,
 }));
@@ -119,7 +120,10 @@ vi.mock("@/lib/db/client", () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: () => Promise.resolve(dbSelectSequence.value.shift() ?? dbSelectRows.value),
+          limit: () =>
+            dbSelectFailure.value
+              ? Promise.reject(dbSelectFailure.value)
+              : Promise.resolve(dbSelectSequence.value.shift() ?? dbSelectRows.value),
         }),
       }),
     }),
@@ -212,6 +216,7 @@ function resetCaptures() {
   dbUpdateRowCount.value = 0;
   dbUpdateFailure.value = null;
   dbSelectRows.value = [];
+  dbSelectFailure.value = null;
   dbSelectSequence.value = [];
   lockSnapSequence.value = [];
   acceptSelectFailure.value = null;
@@ -294,6 +299,31 @@ describe("resetVersionVerificationToPending — guarded settlement", () => {
         preserveRepairPayload: true,
       }),
     ).rejects.toThrow("permission denied");
+  });
+
+  it("keeps an applied guarded reset authoritative when optional readback is unavailable", async () => {
+    dbUpdateRowCount.value = 1;
+    dbSelectFailure.value = new Error("readback unavailable");
+
+    await expect(
+      resetVersionVerificationToPending("ver-1", "retry", "run-x", {
+        expected,
+        preserveRepairPayload: true,
+      }),
+    ).resolves.toBeNull();
+
+    const set = dbUpdateSet.value as Record<string, unknown>;
+    expect(set.repairedFilesJson).toBeUndefined();
+    expect(set.repairAvailableAt).toBeUndefined();
+  });
+
+  it("preserves the legacy reset readback contract", async () => {
+    dbUpdateRowCount.value = 1;
+    dbSelectFailure.value = new Error("legacy readback unavailable");
+
+    await expect(
+      resetVersionVerificationToPending("ver-1", "retry", "run-x"),
+    ).rejects.toThrow("legacy readback unavailable");
   });
 });
 

@@ -778,6 +778,7 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
         retryable: false,
       });
     holdVersionForIntegrationMigration.mockResolvedValueOnce("cas_miss");
+    resetVersionVerificationToPending.mockResolvedValueOnce(null);
     getVersionFilesSnapshot
       .mockResolvedValueOnce({
         files: projectFiles,
