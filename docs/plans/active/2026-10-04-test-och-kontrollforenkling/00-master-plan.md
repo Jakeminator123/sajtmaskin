@@ -27,7 +27,7 @@ och fyrfilspaketet #1562 till `cca962c6`. Aktuell branch
 och är normalsynkad med faktisk preview `8267a10e` efter SCHAFFOLDS #1563.
 Jakobs senare fortsättnings-/leveransmandat verifierades i samordningschatten
 `Dokumentera Master-promotion` 2026-10-05. Detta steg omfattar scoped commit,
-push och separat draft-PR mot `preview`; samordnaren ansvarar för mergeordning
+push och separat PR mot `preview`; samordnaren ansvarar för mergeordning
 och aktuella leveransvillkor. Ingen mastermerge eller extra DB-/provideråtgärd ingår.
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
 A3:s återstående bestånd, A4:s riktiga flödesharness, A5:s nästa miljöpaket och
