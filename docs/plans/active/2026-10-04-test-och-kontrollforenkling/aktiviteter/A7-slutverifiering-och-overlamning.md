@@ -9,13 +9,14 @@ Beroende: A3–A6.
 
 Verifierade lokala paket: A6a discovery/fallback, A2 audit-orkestrering,
 A3 systemprompt/checker + Backoffice-testhygien + verklig promptkomposition,
-A5 fjorton Node-testmiljöer + effektivare heredoc-testharness. Branch
+A5 fjorton Node-testmiljöer + effektivare heredoc-testharness. Fullkörningens underlag: branch
 `codex/test-control-relevance`, head `9d71cd34f7a8e47d840afb18a5c61da329ac09d4`,
 bas `origin/preview` `ff2ac650cc2d3ef37ccd1dcb3e286a0f39c6775c`, med arbetsdiff.
-Detta kvitto avser arbetsdiffen före publicering. Jakobs senare direkta
-leveransmandat i samordningschatten är verifierat; separat scoped commit,
-push och draft-PR mot `preview` förbereds. PR:n binder publicerad head och
-aktuell bas till detta kodkvitto. Merge/deployment är inte bevisade här.
+Detta fullkvitto avser arbetsdiffen före publicering. Jakobs senare direkta
+leveransmandat i samordningschatten är verifierat och paketet publicerades i
+[PR #1553](https://github.com/Jakeminator123/sajtmaskin/pull/1553).
+PR:n binder aktuell publicerad head och bas till kodkvittot. Merge/deployment
+för den aktuella integrationsheaden är inte bevisade här.
 
 Full `verify:pr -- --keep-going` med `VITEST_MAX_WORKERS=4` gav exit 0 på det
 frysta kodpaketet 2026-10-05. Samtliga 21 valda kontroller blev gröna:
@@ -45,6 +46,22 @@ oskippad eller blockerande. Den valda lokala profilen innehåller inte
 preview-host-körningen; en faktisk PR med workflowdiff väljer däremot
 `run_preview_host=true`. Native CI, Linux, browser, isolerad DB och externa
 providers har inte fått ett nytt grönt leveranskvitto genom denna review.
+
+### Aktuell bassynk
+
+PR #1553 normalsynkades 2026-10-05 med faktiskt levererad core i preview
+`84e0061a91af91cfafd02bf914af14b8fc9af6a9`, via konfliktfri merge
+`129f7a7c556b12ea7c6e512af531ed7dcc9b9b89`. De 34 kodpathernas fingerprint
+är fortfarande identisk med det tidigare fulltestade och CLEAN-granskade
+paketet. Den nya basens dossierkod är inte ett nytt TESTER-delta.
+
+Riktad integration efter synk: 24 testfiler, 533 PASS och 26 plattformsskippar;
+alla ändrade Vitest-filer samt provider-kompatibilitet och server-verify/F3
+ingår. Plan, typecheck, workflowkontrakt, discovery 1 079/1 079, docs och
+diffcheck är gröna. Tidigare fullprofil återanvänds endast för identiska
+kodbytes; aktuella native CI-/deploymentresultat måste avse PR:ns nya head.
+Separat lokal ruleset-commit `94ac4c3fd` är inte inkluderad i PR #1553.
+Planens A3 är fortfarande ofullständig, A4 blockerad och A6b inte genomförd.
 
 ## Uppdrag
 

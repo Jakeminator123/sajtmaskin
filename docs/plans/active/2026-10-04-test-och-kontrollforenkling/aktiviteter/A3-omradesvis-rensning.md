@@ -93,7 +93,17 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 | Dossiers, scaffolds, remove/replace, versionsstatus | UTRED/HOLD för skrivning. Duplicerade scaffold-versionpins och shadcn-snapshot är kandidater, inte beslutade borttagningar. | Dokumentera Master-promotion samordnar SCHAFFOLDS och levererar actual core-preview före överlappande paket/A4. |
 | Public analys | BEHÅLL tills separat paket får full ersättningsbevisning. No-Sol i publik fallback har unik kostnadstäckning; modellnamn är inte automatiskt inaktuella. | Befintlig audit-/modellowner; ingen större public-analys-rensning i detta paket. |
 | Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och registry/projektionsavvikelser återstår i separata paket. | Codex reserverar exakta owners före nästa ändring; inga nya checks införs på felaktig premiss. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing är rättad i separat lokal commit `94ac4c3fd`; registry/projektionsavvikelser återstår. | Tvåfilspaketet finns endast på `codex/test-control-ruleset-isolation`, inte i PR #1553. Inga nya checks införs på felaktig premiss. |
+
+Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
+test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
+läsa irrelevant agentpolicy. Efter rensning ger saknad/ogiltig/orelaterad
+policy inte fel; verklig borttagen `non_fast_forward` ger fortsatt exit 1 och
+exakt driftmeddelande. Allt provades offline med stubbat GitHub-svar, inga
+filmutationer av verklig policy. 125 riktade tester, typecheck, lint,
+workflowkontrakt och discovery gröna; oberoende slutreview CLEAN med egen
+9/9-körning. Policy, ruleset-spec, permissions och workflows är orörda.
+Paketet är lokalt säkrat men ännu inte publicerat eller levererat.
 
 ## Checklista per paket
 
