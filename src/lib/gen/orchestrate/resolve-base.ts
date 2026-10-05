@@ -74,6 +74,7 @@ import {
   enforceFollowUpCapabilityFloor,
   enforceFollowUpRouteFreeze,
   enforceFollowUpScaffoldFreeze,
+  resolveFollowUpFrozenBuildIntent,
   scopeF3DossierCapabilities,
 } from "./follow-up-freeze";
 import type { OrchestrationBase, OrchestrationInput } from "./types";
@@ -424,7 +425,15 @@ export async function resolveOrchestrationBase(
   // Manual app selection has the existing Byggval exception, but entry-method
   // precedence must survive both manual and implicit auto promotion. Production
   // callers normalize before brief/prematch; direct calls use the same owner here.
-  const effectiveBuildIntent = resolveBuildIntentWithScaffold(
+  const frozenBuildIntent = resolveFollowUpFrozenBuildIntent({
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractScaffoldId: importedRepoMode ? null : input.followUpContract?.scaffoldId ?? null,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+    contractBuildIntent: input.followUpContract?.buildIntent,
+    allowedBuildIntents: resolvedScaffold?.allowedBuildIntents ?? [],
+  });
+  const effectiveBuildIntent = frozenBuildIntent ?? resolveBuildIntentWithScaffold(
     input.buildMethod,
     promotionCandidate,
     effectiveScaffoldMode,

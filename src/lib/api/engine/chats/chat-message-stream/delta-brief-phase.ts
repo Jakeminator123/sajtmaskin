@@ -9,9 +9,14 @@ import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import {
+  buildFollowUpContract,
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
 } from "@/lib/gen/orchestration-snapshot";
+import {
+  enforceFollowUpScaffoldFreeze,
+  resolveFollowUpFrozenBuildIntent,
+} from "@/lib/gen/orchestrate/follow-up-freeze";
 import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
 import {
   buildVariantHintsForBrief,
@@ -156,6 +161,10 @@ export async function runClearRedesignDeltaBriefPhase(params: {
       scaffoldId: metaScaffoldId,
     });
     const buildIntent = parsedMeta.buildIntent;
+    const deltaContract = buildFollowUpContract({
+      snapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
+      persistedScaffoldId: persistedScaffoldIdForDelta,
+    });
     const deltaPreMatchScaffoldRaw = importedRepoMode
       ? null
       : metaScaffoldMode === "manual" && metaScaffoldId
@@ -168,10 +177,27 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     const methodFixesIntent =
       resolveBuildIntentForMethod(parsedMeta.buildMethod, "website") ===
       resolveBuildIntentForMethod(parsedMeta.buildMethod, "app");
+    const deltaFreeze = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: deltaIgnoreScaffold,
+      contractScaffoldId: importedRepoMode ? null : deltaContract.scaffoldId,
+      resolvedScaffoldId: deltaPreMatchScaffoldRaw?.id ?? null,
+    });
+    const frozenScaffold = deltaFreeze.clamped && deltaFreeze.scaffoldId
+      ? getScaffoldById(deltaFreeze.scaffoldId) ?? deltaPreMatchScaffoldRaw
+      : deltaPreMatchScaffoldRaw;
+    const frozenBuildIntent = resolveFollowUpFrozenBuildIntent({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: deltaIgnoreScaffold,
+      contractScaffoldId: importedRepoMode ? null : deltaContract.scaffoldId,
+      resolvedScaffoldId: frozenScaffold?.id ?? null,
+      contractBuildIntent: deltaContract.buildIntent,
+      allowedBuildIntents: frozenScaffold?.allowedBuildIntents ?? [],
+    });
     const deltaPreMatchScaffold =
-      parsedMeta.buildIntentExplicit || methodFixesIntent || metaScaffoldMode === "manual"
-        ? scaffoldForExplicitIntent(deltaPreMatchScaffoldRaw, buildIntent)
-        : deltaPreMatchScaffoldRaw;
+      frozenBuildIntent || parsedMeta.buildIntentExplicit || methodFixesIntent || metaScaffoldMode === "manual"
+        ? scaffoldForExplicitIntent(frozenScaffold, frozenBuildIntent ?? buildIntent)
+        : frozenScaffold;
     // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
     // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
     const deltaPreMatchVariant = deltaPreMatchScaffold

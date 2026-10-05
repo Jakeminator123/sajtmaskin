@@ -4,6 +4,7 @@
  * signals without duplicating the full optimized prompt.
  */
 import type { BuildSpecQualityTarget } from "./build-spec";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import { filterProvidersForRemovedCapabilities } from "./capability-removal";
 import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
@@ -740,6 +741,8 @@ export interface FollowUpContract {
   snapshotBrief: Record<string, unknown> | null;
   /** Frozen scaffold id carried across the follow-up (persisted id, else snapshot). */
   scaffoldId: string | null;
+  /** Prior accepted intent, when recorded; missing legacy metadata is not inferred. */
+  buildIntent?: BuildIntent | null;
   /** Frozen scaffold variant id carried across the follow-up (persisted id, else snapshot). */
   variantId: string | null;
   /** Frozen routes from the base version (existing route + deferred-shell paths). */
@@ -819,6 +822,15 @@ function resolveContractQualityTarget(
  */
 export function buildFollowUpContract(input: BuildFollowUpContractInput): FollowUpContract {
   const { snapshot } = input;
+  const snapshotBuildSpec = snapshot?.buildSpec;
+  const priorBuildIntent = [
+    snapshot?.buildIntent,
+    snapshotBuildSpec && typeof snapshotBuildSpec === "object"
+      ? (snapshotBuildSpec as Record<string, unknown>).buildIntent
+      : null,
+  ].find((value): value is BuildIntent =>
+    value === "template" || value === "website" || value === "app",
+  ) ?? null;
   const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
   // Capability floor source (BUG-SWARM rank 4): prefer the snapshot's top-level
   // `requestedCapabilities` — the merged floor orchestrate persisted from
@@ -867,6 +879,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
     snapshotBrief,
     scaffoldId:
       nonEmptyString(input.persistedScaffoldId) ?? readSnapshotString(snapshot, "scaffoldId"),
+    buildIntent: priorBuildIntent,
     variantId:
       nonEmptyString(input.persistedVariantId) ?? readSnapshotString(snapshot, "variantId"),
     // Defensive copies: never hand out a shared array reference, so future

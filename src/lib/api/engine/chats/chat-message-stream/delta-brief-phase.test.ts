@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
+import { buildFollowUpContract } from "@/lib/gen/orchestration-snapshot";
+import { resolveOrchestrationBase } from "@/lib/gen/orchestrate/resolve-base";
+import { shouldIgnorePersistedScaffoldForMatch } from "@/lib/providers/own-engine/follow-up-clarification";
 
 import { runClearRedesignDeltaBriefPhase } from "./delta-brief-phase";
 import { parseChatRequestMeta, type ParsedChatRequestMeta } from "../parse-chat-request-meta";
@@ -12,6 +15,10 @@ vi.mock("@/lib/builder/site-brief-generation", () => ({
     brief: { projectTitle: "Fixture" },
     modelUsed: "fixture-model",
   })),
+}));
+
+vi.mock("@/lib/gen/data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
 }));
 
 // Scaffold pre-match surface. The import-lane contract under test is that
@@ -83,6 +90,111 @@ beforeEach(() => {
 });
 
 describe("runClearRedesignDeltaBriefPhase — imported repo mode", () => {
+  it.each([
+    ["persisted landing", "landing-page", null, "app-shell"],
+    ["snapshot-only landing", null, { scaffoldId: "landing-page" }, "app-shell"],
+    ["accepted website landing", "landing-page", { buildIntent: "website" }, "landing-page"],
+    ["accepted snapshot-only website", null, { scaffoldId: "landing-page", buildIntent: "website" }, "landing-page"],
+    ["multi-intent website", "auth-pages", { buildIntent: "website" }, "auth-pages"],
+    ["multi-intent app", "auth-pages", { buildIntent: "app" }, "auth-pages"],
+    ["invalid prior intent", "landing-page", { buildIntent: "invalid" }, "app-shell"],
+    ["incompatible prior intent", "landing-page", { buildIntent: "app" }, "app-shell"],
+    ["matching persisted dashboard", "dashboard", null, "dashboard"],
+    ["no frozen scaffold", null, null, "dashboard"],
+  ] as const)(
+    "%s sends the same manual-redesign scaffold to the brief and final resolver",
+    async (_label, persistedScaffoldId, snapshot, expected) => {
+      const parsedMeta = parseChatRequestMeta({
+        buildMethod: "freeform",
+        buildIntent: "website",
+        scaffoldMode: "manual",
+        scaffoldId: "dashboard",
+      });
+      const message = "Bygg om hela sajten till en landing page med hero och call to action";
+      const engineChat = engineChatFixture({
+        scaffold_id: persistedScaffoldId,
+        orchestration_snapshot: snapshot,
+      });
+      await runClearRedesignDeltaBriefPhase(
+        basePhaseParams({
+          engineChat,
+          parsedMeta,
+          message,
+          followUpIntentMessage: message,
+          metaBuildIntent: parsedMeta.buildIntent,
+          metaScaffoldMode: parsedMeta.scaffoldMode,
+          metaScaffoldId: parsedMeta.scaffoldId,
+        }),
+      );
+      const briefScaffoldId = vi.mocked(pickScaffoldVariant).mock.calls[0]?.[0].scaffoldId;
+      const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-redesign",
+        message,
+        scaffoldMode: parsedMeta.scaffoldMode,
+        scaffoldId: parsedMeta.scaffoldId,
+      });
+      const base = await resolveOrchestrationBase({
+        prompt: message,
+        buildMethod: parsedMeta.buildMethod,
+        buildIntent: parsedMeta.buildIntent,
+        buildIntentExplicit: parsedMeta.buildIntentExplicit,
+        scaffoldMode: parsedMeta.scaffoldMode,
+        scaffoldId: parsedMeta.scaffoldId,
+        persistedScaffoldId,
+        generationMode: "followUp",
+        previousFilesCount: 12,
+        ignorePersistedScaffoldForMatch,
+        followUpIntent: "clear-redesign",
+        followUpContract: buildFollowUpContract({ snapshot, persistedScaffoldId }),
+        embeddingScaffoldMatch: false,
+      });
+      expect(ignorePersistedScaffoldForMatch).toBe(false);
+      expect(base.resolvedScaffold?.id).toBe(expected);
+      expect(briefScaffoldId).toBe(base.resolvedScaffold?.id);
+      expect(parsedMeta.brief).toEqual({ projectTitle: "Fixture" });
+    },
+  );
+
+  it("neutral manual follow-up retains the final freeze and never creates a delta-brief", async () => {
+    const parsedMeta = parseChatRequestMeta({
+      buildMethod: "freeform",
+      buildIntent: "website",
+      scaffoldMode: "manual",
+      scaffoldId: "dashboard",
+    });
+    const message = "Justera färgen";
+    await runClearRedesignDeltaBriefPhase(
+      basePhaseParams({
+        engineChat: engineChatFixture({ scaffold_id: "landing-page", orchestration_snapshot: { buildIntent: "website" } }),
+        followUpIntent: "neutral",
+        followUpIntentMessage: message,
+        message,
+        parsedMeta,
+        metaScaffoldMode: parsedMeta.scaffoldMode,
+        metaScaffoldId: parsedMeta.scaffoldId,
+      }),
+    );
+    const base = await resolveOrchestrationBase({
+      prompt: message,
+      buildMethod: parsedMeta.buildMethod,
+      buildIntent: parsedMeta.buildIntent,
+      scaffoldMode: parsedMeta.scaffoldMode,
+      scaffoldId: parsedMeta.scaffoldId,
+      persistedScaffoldId: "landing-page",
+      generationMode: "followUp",
+      previousFilesCount: 12,
+      ignorePersistedScaffoldForMatch: false,
+      followUpIntent: "neutral",
+      followUpContract: buildFollowUpContract({ snapshot: { buildIntent: "website" }, persistedScaffoldId: "landing-page" }),
+      embeddingScaffoldMatch: false,
+    });
+    expect(base.resolvedScaffold?.id).toBe("landing-page");
+    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+    expect(pickScaffoldVariant).not.toHaveBeenCalled();
+    expect(parsedMeta.brief).toBeNull();
+  });
+
   it.each([
     ["audit", { buildMethod: "audit" }, "landing-page"],
     ["kostnadsfri", { buildMethod: "kostnadsfri" }, "landing-page"],

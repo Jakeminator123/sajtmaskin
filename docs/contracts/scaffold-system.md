@@ -144,6 +144,13 @@ förblir scaffold-löst; importerade repo-flöden kör alltid utan scaffold äve
 request/lagrad metadata innehåller ett gammalt scaffoldval. Vanlig follow-up
 behåller däremot en redan etablerad scaffold enligt befintlig freeze.
 
+Delta-brief och slutbygge använder samma follow-up-freezeägare. Med aktivt
+scaffoldlås bevaras också snapshotens registrerade build-intent, men bara när
+det är en giltig enum som stöds av den faktiskt frysta scaffolden. Saknad eller
+inkompatibel legacy-metadata gissas inte. Manuellt val frigör inte låset;
+befintlig unlock-signal gäller fortsatt. Importerade projekt återaktiverar
+aldrig en scaffold genom denna metadata.
+
 | Meta-fält                 | Värden                                                                             |
 | ------------------------- | ---------------------------------------------------------------------------------- |
 | `selectionMethod`         | `off` / `manual` / `persisted` / `keyword` / `embedding` / `agreement` / `default` |
