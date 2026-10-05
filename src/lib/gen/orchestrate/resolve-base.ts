@@ -930,6 +930,7 @@ export async function resolveOrchestrationBase(
         ? Math.min(scaffoldBudgetChars, 10_000)
         : scaffoldBudgetChars;
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
+      generationMode: resolvedMode,
       maxChars: promptScaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,
