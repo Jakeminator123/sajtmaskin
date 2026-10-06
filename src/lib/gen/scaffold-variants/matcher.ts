@@ -264,9 +264,12 @@ function explicitVariantFromPrompt(
   const cue = cues[0]!;
   const before = source.slice(0, cue.index);
   if ((before.match(/```|~~~/g)?.length ?? 0) % 2 !== 0) return null;
-  // A newline is whitespace inside a command, not a sentence boundary:
-  // "Do not use\nvariant …" must retain its negative prefix.
-  const prefix = before.split(/[.!?;]/).at(-1)!.trim();
+  // Newlines alone are whitespace inside a command, not sentence boundaries.
+  // A preceding sentence must end before a new command line; dots inside
+  // t.ex./e.g., ellipses or list numbers must not discard its context.
+  const prefix = before.split(
+    /[!?;][ \t]*[\r\n]+|(?<![\p{L}\p{N}_.])\p{L}{2,}\.(?!\.)[ \t]*[\r\n]+/u,
+  ).at(-1)!.trim();
   // Standalone "Variant: …" or an imperative. An unrestricted substring
   // search would pin quoted/descriptive/negated mentions as user commands.
   if (

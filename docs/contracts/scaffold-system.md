@@ -355,7 +355,10 @@ Sync- och async-matchern delar ett explicit förval före keyword- och embedding
 en enda positiv kommandomening med exakt variant-id eller label inom den redan
 valda scaffolden, exempelvis `Använd variant "hero-fullbleed-bg".` eller
 `Choose style variant "Full-bleed Hero".`. `Variant: hero-fullbleed-bg` och
-`Stilvariant: hero-fullbleed-bg` accepteras också; skiftläge ignoreras. Kvittot får
+`Stilvariant: hero-fullbleed-bg` accepteras också; skiftläge ignoreras. Kommandot
+börjar prompten eller följer en avslutad mening och radbrytning; en radbrytning
+inne i `Use\nvariant …` kapar inte föregående kontext. Punkter i exempelvis
+`t.ex.`, `e.g.`, `...` och listnummer är inte meningsgränser. Kvittot får
 `source: "explicit"` och null för score, runner-up och margin. Ett explicit val
 läser inget embeddingartefakt och anropar ingen embeddingprovider.
 

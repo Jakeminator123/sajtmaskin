@@ -16,9 +16,45 @@ const multilineNegative = [
   "Utan\nvariant hero-fullbleed-bg.",
   "We are discussing:\nVariant: hero-fullbleed-bg.",
 ];
+const punctuationNegative = [
+  "Använd inte t.ex. variant hero-fullbleed-bg.",
+  "Använd inte t.ex. Variant: hero-fullbleed-bg.",
+  "Do not use e.g. variant hero-fullbleed-bg.",
+  "Do not use... variant hero-fullbleed-bg.",
+  "Do not use... Variant: hero-fullbleed-bg.",
+  "Vi diskuterar alternativen:\n1. Variant: hero-fullbleed-bg.",
+  "Använd inte t.ex.\nVariant: hero-fullbleed-bg.",
+  "Do not use...\nVariant: hero-fullbleed-bg.",
+  "Vi diskuterar alternativen:\n1.\nVariant: hero-fullbleed-bg.",
+  "Do not use etc. Variant: hero-fullbleed-bg.",
+];
 afterEach(() => vi.restoreAllMocks());
 
 describe("explicit positive variant directives — actual registry identities", () => {
+  it.each(punctuationNegative)("sync preserves punctuation context and keyword fallback: %s", (rawPrompt) => {
+    const input = { prompt: opponent, scaffoldId: "landing-page" as const };
+    const fallback = pickScaffoldVariantWithReceipt({ ...input, rawPrompt: "" });
+    expect(fallback.selection.source).toBe("keyword");
+    expect(pickScaffoldVariantWithReceipt({ ...input, rawPrompt })).toEqual(fallback);
+  });
+
+  it.each(punctuationNegative)("async preserves punctuation context and embedding fallback: %s", async (rawPrompt) => {
+    const landingVariants = getVariantsForScaffold("landing-page");
+    const load = vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue({
+      _meta: { model: "test", dimensions: 2, generated: "2026-10-05", count: landingVariants.length },
+      embeddings: landingVariants.map((variant) => ({
+        id: variant.id,
+        scaffoldId: variant.scaffoldId,
+        embedding: variant.id === "corporate-grid" ? [1, 0] : [0, 1],
+      })),
+    });
+    const result = await pickScaffoldVariantAsyncWithReceipt({
+      prompt: opponent, rawPrompt, scaffoldId: "landing-page", queryVector: [1, 0],
+    });
+    expect(result.selection).toMatchObject({ source: "embedding", finalId: "corporate-grid" });
+    expect(load).toHaveBeenCalled();
+  });
+
   it.each(multilineNegative)("sync preserves negative/descriptive multiline context: %s", (rawPrompt) => {
     expect(pickScaffoldVariantWithReceipt({
       prompt: opponent, rawPrompt, scaffoldId: "landing-page",
@@ -37,6 +73,7 @@ describe("explicit positive variant directives — actual registry identities", 
     "Välj\nstilvariant hero-fullbleed-bg.",
     "Bygg en sida.\nVariant: hero-fullbleed-bg.",
     "Build a website.\r\nStyle variant: Full-bleed Hero.",
+    "Build a website!\nVariant: hero-fullbleed-bg.",
   ])("sync/async keep unambiguous positive multiline commands: %s", async (rawPrompt) => {
     const input = { prompt: opponent, rawPrompt, scaffoldId: "landing-page" as const };
     const load = vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue(null);
