@@ -12,6 +12,9 @@ import { getIndexableSeoLandingRelPaths } from "@/lib/seo-landing-pages/registry
  *   och sätt `status: "ready"` först när sidan har unikt indexerbart innehåll.
  *   Sitemap hämtar de sidorna automatiskt — lägg inte placeholders här.
  *
+ * `/blogg` utelämnas tills riktiga inlägg finns. Ta då bort sidans noindex
+ * och återställ sitemap-posten i samma ändring.
+ *
  * Auth-gatingade eller noindex-ytor (`/buy-credits`, `/analys`, `/builder`, …)
  * hör inte här. `lastModified` utelämnas medvetet — körningstid är inte ett
  * ändringsdatum.
@@ -23,7 +26,6 @@ export const STATIC_SITEMAP_REL_PATHS = [
   "/faq",
   "/om",
   "/exempel",
-  "/blogg",
   "/terms",
   "/privacy",
 ] as const;
