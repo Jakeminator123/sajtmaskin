@@ -24,10 +24,10 @@ Jakob beställde genomförande 2026-10-05 och återupptog restarbetet
 mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
 planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
 Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
-i `sajtmaskin-tester-restarbete`, branch `codex/test-registry-cleanup`, från
-preview `4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk. Två A5-docstesters
+i `sajtmaskin-tester-restarbete`, branch `codex/project-persistence-e2e`, från
+preview `f68d1837e80585f67d4fc70bad317fc0450c6353`. Två A5-docstesters
 Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
-utan smalare testurval. Aktuellt A3-paket tar bort registrytestets historiska
+utan smalare testurval. A3-paketet #1576 tog bort registrytestets historiska
 sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
 Faktisk medlemskap-/radvalidering och befintlig länkvalidator bevaras.
 Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
@@ -35,10 +35,11 @@ samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
 eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
 A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
-optimering är inte färdiga. Registry-paketets kontrollerade felprov är körda;
-oberoende kodreview är CLEAN på `2b3ea77d` mot `eba1c590`, medan slutlig
-integrationsreview och native leverans återstår. A4:s smala disposabla CI-harness
-är godkänd för separat implementation efter A3, utan lokal installation eller delad DB.
+optimering är inte färdiga. Registry-paketet är levererat med oberoende CLEAN,
+full native CI och exakt deployment. A4:s godkända smala disposabla CI-harness
+implementeras utan lokal installation, authändring eller delad DB. Verklig grön
+browser-/DB-runtime och oberoende isoleringsreview återstår. A3:s ändliga
+restlista finns i dess befintliga områdesmatris; inget nytt testregister införs.
 Hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
@@ -117,8 +118,8 @@ A6 har två separata grindar: säkerhetsdelen före piloten, optimeringen sist.
 - Dossier-förenklingen är levererad via #1551, #1555 och #1558; terminalstatus
   finns i [avklarat-indexet](../../avklarat/README.md) och stabil semantik i
   [dossierkontraktet](../../../contracts/dossier-system.md). Runtimeowners
-  frigavs efter verifierad preview `59a12080`. SCHAFFOLDS aktuella
-  intent-/scaffoldreservation består; samordna den innan överlappande arbete.
+  frigavs efter verifierad preview `59a12080`. SCHAFFOLDS intent-/scaffoldarbete
+  är levererat via #1575; TESTER:s aktuella paket ändrar inte dess produktowners.
 - [Källkvitto, Quality Bar och addenda](../2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)
   äger sina produktbeslut. Samordna förändringar i källkvitto, designråd,
   varianter och addenda; starta inte om redan levererade delar.

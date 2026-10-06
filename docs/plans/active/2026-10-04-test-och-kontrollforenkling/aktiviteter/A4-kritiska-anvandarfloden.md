@@ -2,30 +2,31 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Smal persistensharness godkänd; implementation och körbevis återstår.
-Beroende: A1; separat paket efter aktuell A3-leverans.
+Status: Smal persistensharness implementeras; isoleringsreview och körbevis återstår.
+Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
 
-Read-only genomgång av `a1_highrisk`: befintlig deploy-smoke-discovery och
-frivilliga skips bevisar inte skapa/spara/reload. Checkouten saknar isolerad
+Read-only genomgång av `a1_highrisk` 2026-10-05: befintlig deploy-smoke-discovery och
+frivilliga skips bevisade inte skapa/spara/reload. Checkouten saknade isolerad
 Postgres-harness och deterministisk providergräns för hela generationsflödet;
 delad DB eller live provider får inte användas som genväg. En seedad version
 skulle endast bevisa CRUD, inte generation eller senare uppföljning.
 
 Dossier-/shared-runtime-reservationen frigavs efter #1558 på faktisk preview
 `59a12080`, som ingår i integrationsbasen `e37e4d83`. Read-only deltarevalidering
-visar att ingen isolerad Postgres, deterministisk providergräns eller lokal
-Playwright-appsetup tillkom. Reservationhindret är borta, miljö-/harnesshindret
-kvarstår. Inga scenarier nedan är markerade som körda. Det blockerar A6b:s
+visade att ingen isolerad Postgres, deterministisk providergräns eller lokal
+Playwright-appsetup hade tillkommit. Reservationhindret är borta; den smala
+persistensharnessen nedan är nu kodad men inte körbevisad. Inga hela scenarier
+nedan är markerade som körda. Det blockerar A6b:s
 slutliga urvalsminskning, men inte fristående A3-/A5-paket.
 
-Minsta nästa paket är en isolerad `project-persistence`-harness med riktig
+Det aktuella paketet är en isolerad `project-persistence`-harness med riktig
 Next/browser/Postgres och faktiska edit/save/reload-routes. Saknad eller otillåten
 testdatabas ska ge hårdfel, aldrig skip. Seedad chat/version bevisar bara
 persistens; generation, follow-up och remove/replace kräver dessutom en
 deterministisk extern providergräns och relevant preview-runtime. Detta är
-avgränsat nästa arbete, inte en byggd eller körd harness.
+avgränsat arbete; lokal kod/discovery är inte en faktiskt körd harness.
 
 Samordnaren godkände 2026-10-06 en smal CI-implementation: tillfällig
 GitHub Actions-runner med egen Postgres-container, verifierat exakt container-ID,
@@ -37,13 +38,36 @@ Fyra fulla shards, befintliga säkerhetskontroller och GitHub-permissions bestå
 Oberoende granskning av isoleringsgränsen och faktisk grön runtime krävs;
 discovery, mocks och denna förberedelse räknas inte som flödesbevis.
 
-SCHAFFOLDS äger nu `src/lib/builder/build-intent.ts`,
+Aktuell implementation finns i `scripts/e2e/`,
+`playwright.project-persistence.config.ts` och `e2e/project-persistence.spec.ts`.
+`test:e2e:project-persistence:list` gör bara discovery; verklig körning via
+`test:e2e:project-persistence` vägrar utanför GitHub-hosted Linux-CI.
+Ett separat heavy/fallback-jobb använder låsta npm-/Playwrightberoenden och
+digestpinnad Postgres 16. Bara paket-/browser-/imagehämtning sker före
+isoleringen. App, db:init, seed, browser och cleanup körs i samma verifierade
+loopback-namespace. Ingen ny GitHub-behörighet, delad DB eller authseam.
+Webpack-dev använder Nexts lokala fontfallback; produktionsbygget är oförändrat.
+
+Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
+skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit
+Spara projekt måste spara faktiskt hämtade filer, och reload måste läsa samma
+värden. En annan session nekas både läsning, fil-PATCH och projektsparning med
+oförändrade DB-snapshots. Cleanup stänger app/browser, väntar ut appens DB-
+anslutningar och raderar bara egna fixture-/sessionrader och exakt egen container.
+
+Efter detta paket återstår explicit: riktig skapa/generation, uppföljning efter
+reload, remove/replace med äldre brief/snapshot och representativt fel/avbrott.
+Dessa kräver fortfarande en deterministisk extern providergräns och relevant
+preview-runtime; persistensprovet får inte markera dem eller hela A4 klara.
+
+SCHAFFOLDS levererade owners omfattar `src/lib/builder/build-intent.ts`,
 `src/lib/api/engine/chats/create-chat-stream-post.ts`, `parse-chat-request-meta.ts`,
 `chat-message-stream/{plan-mode-turn,codegen-turn}.ts`,
 `follow-up-orchestration-input.ts` samt `src/lib/gen/orchestrate/{resolve-base,types}.ts`
 och deras riktade tester/följdytor. De förkortade chat-pathsen hör till samma
-`src/lib/api/engine/chats/`-katalog. TESTER skriver inte i dessa owners utan ny
-samordning. Provider/restore/promotion/preservation-kontrakten ändras inte här.
+`src/lib/api/engine/chats/`-katalog. Leveransen är terminal via #1575 och chatten
+arkiverad enligt samordnaren; TESTER ändrar ändå inte dessa produktowners inom
+persistenspaketet. Provider/restore/promotion/preservation-kontrakten består.
 
 ## Uppdrag
 

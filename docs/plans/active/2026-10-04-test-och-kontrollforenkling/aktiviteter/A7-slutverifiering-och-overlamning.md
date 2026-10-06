@@ -2,14 +2,14 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574 levererade; A3 fortsätter, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574/#1576 levererade; A4 pågår, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
-`codex/test-registry-cleanup`, från preview
-`4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk.
+`codex/project-persistence-e2e`, från preview
+`f68d1837e80585f67d4fc70bad317fc0450c6353`.
 `e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
@@ -18,10 +18,40 @@ Baslinje och återställd kontroll ger 40 PASS; med två befintliga länk-/termt
 verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
 är återställda. Oberoende `gpt-5.6-sol`/xhigh-review är CLEAN på
 `2b3ea77d` mot `eba1c590`; testblob och ownerfiler är identiska efter
-synk till `4659f3bf`. Slutlig integrationsreview och native leverans återstår.
-A4:s smala disposabla CI-harness är godkänd som separat nästa paket.
-Inget faktiskt browser-/DB-flöde
-är bevisat och A6b/A7:s slutliga urvals-/acceptansgrindar är fortsatt öppna.
+synk till `4659f3bf`. Slutlig integrationsreview gav CLEAN på `5eab11c8`.
+A4:s smala disposabla CI-harness är lokalt implementerad som separat paket.
+Riktat: tre filer/80 PASS och 28 explicita Windows-skip av Linux/Bash-aggregatet,
+högst fyra workers. Typecheck, ESLint och workflowkontrakt är gröna; Playwright
+listar ett prov utan runtime. Miljöproven avvisar fel DB-adress/queryoverride,
+container/namespace, nätinterface, privilegier, dotenv och direkt start utan
+isolering. Ingen faktisk browser-/DB-körning är ännu bevisad. Oberoende review
+och full `verify:pr` återstår; ordinarie färskbasgrind stoppar nu på den senare
+Blob-leveransen #1577. Samordnaren anger en samlad slutbas efter dependencyjobbet.
+Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
+
+### Levererat registry-paket — #1576
+
+[#1576](https://github.com/Jakeminator123/sajtmaskin/pull/1576) mergades
+2026-10-06 10:14:46 UTC till `f68d1837e80585f67d4fc70bad317fc0450c6353`.
+Trädet `316a7af5` är identiskt med granskad source-head `5eab11c8`.
+Färsk riktad integration gav 61 PASS/3 filer, discovery 1089/1089 och gröna
+doc-/workflowkontrakt. CI [37447473368](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37447473368)
+SUCCESS, 4:51 inklusive setup/kö; fyra fulla shards och alla sex required gröna.
+Dossier [37447473353](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37447473353)
+SUCCESS light, inte 21 byggen. Exakt PR-deployment
+`dpl_mdbPvHQ8uwf19pHrDYUtxXAq6Wsn` READY, aliasError null; noll olösta trådar.
+Samordnarens terminala postkvitto: push-CI `37448494222`, 4:50, kodjobb PASS;
+bara samma 13 DEV/PROD-paritetsrader, noll delta mot #1575. Total post-CI är
+inte grön. Exakt merge-deployment `dpl_2khE9AX4kTWsxeEZ34X7PS2Rftfb` READY,
+aliasError null. Ingen masterpromotion eller live-DB-åtgärd.
+
+Ändlig slutgräns: disponera A3:s tre kandidatfamiljer och BEHÅLL-grupper,
+bevisa A4:s uttryckliga återstående flöden och besluta A6b:s namngivna överlapp.
+A5:s tre levererade miljö-/harnessoptimeringar återöppnas inte utan ny uppmätt
+flaskhals. A7 samlar därefter aktuell discovery, negativa felbevis, oberoende
+slutreview och terminal leverans. Före/efter använder jämförbara befintliga
+native körningar med kö/setup/critical-path separerade; inga extra CI-reruns
+bara för statistik och ingen generell procentvinst härleds från små deltester.
 
 ### Levererat A5/A6b-delpaket — #1574
 

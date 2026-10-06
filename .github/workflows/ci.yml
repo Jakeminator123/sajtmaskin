@@ -332,8 +332,38 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run canvas:check
 
+  # Real UI/API/DB persistence, with no shared DB or provider credentials.
+  # Only setup may download packages/images. Runtime joins its own network-none
+  # Postgres namespace after dropping privileges; no host-network fallback.
+  quality-project-persistence:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Prepare locked browser and disposable database image
+        run: |
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          IMAGE=$(node --input-type=module -e 'import { POSTGRES_IMAGE } from "./scripts/e2e/project-persistence-env.mjs"; console.log(POSTGRES_IMAGE)')
+          docker pull "$IMAGE"
+      - name: Real isolated project persistence (blocking)
+        run: npm run test:e2e:project-persistence
+
   quality:
-    needs: [scope, quality-core, quality-tests, quality-contracts, preview-host-guards, dead-code]
+    needs: [scope, quality-core, quality-tests, quality-contracts, quality-project-persistence, preview-host-guards, dead-code]
     # Kör efter failed/skipped dependencies för att publicera grinden, men låt
     # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.
     if: ${{ !cancelled() }}
@@ -345,6 +375,7 @@ jobs:
           RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}
           CORE_RESULT: ${{ needs['quality-core'].result }}
           TESTS_RESULT: ${{ needs['quality-tests'].result }}
+          PERSISTENCE_RESULT: ${{ needs['quality-project-persistence'].result }}
           CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}
           PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}
           DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}
@@ -358,8 +389,8 @@ jobs:
             echo "::error::scope=${SCOPE_RESULT}/${RUN_HEAVY}, quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
             exit 1
           fi
-          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ]; }; then
-            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
+          if [ "$EXPECT_HEAVY" = "true" ] && { [ "$CORE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$PERSISTENCE_RESULT" != "success" ]; }; then
+            echo "::error::Full CI kravdes men quality-core=${CORE_RESULT}, quality-tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT} (scope=${SCOPE_RESULT}/${RUN_HEAVY})"
             exit 1
           fi
           if [ "$EXPECT_HEAVY" = "false" ] && [ "$CORE_RESULT" != "skipped" ] && [ "$CORE_RESULT" != "success" ]; then
@@ -370,7 +401,11 @@ jobs:
             echo "::error::Latt CI tillat men quality-tests fick ovantat resultat ${TESTS_RESULT}"
             exit 1
           fi
-          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT})"
+          if [ "$EXPECT_HEAVY" = "false" ] && [ "$PERSISTENCE_RESULT" != "skipped" ] && [ "$PERSISTENCE_RESULT" != "success" ]; then
+            echo "::error::Latt CI tillat men project-persistence fick ovantat resultat ${PERSISTENCE_RESULT}"
+            exit 1
+          fi
+          echo "✓ quality aggregate green (heavy=${EXPECT_HEAVY}, core=${CORE_RESULT}, tests=${TESTS_RESULT}, persistence=${PERSISTENCE_RESULT})"
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för

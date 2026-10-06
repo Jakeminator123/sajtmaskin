@@ -18,6 +18,8 @@ const packageJson = {
     "test:stability": "vitest run -c vitest.stability.config.ts",
     "test:postgres": "vitest run -c vitest.postgres.config.ts",
     "test:e2e:contract": "playwright test -c playwright.deploy-smoke.config.ts --list",
+    "test:e2e:project-persistence:list": "playwright test -c playwright.project-persistence.config.ts --list",
+    "test:e2e:project-persistence": "node scripts/e2e/run-project-persistence.mjs",
     "backoffice:test": 'python -m unittest discover -s backoffice -p "test_*.py" -t .',
     "observability:test":
       'python -m unittest discover -s scripts/observability -p "test_*.py" -t scripts/observability',
@@ -79,7 +81,7 @@ describe("test discovery coverage", () => {
   it("derives distinct Vitest and Playwright configs from the existing package owner", () => {
     expect(deriveDiscoveryCommands(packageJson)).toEqual({
       vitestConfigs: ["", "vitest.postgres.config.ts", "vitest.stability.config.ts"],
-      playwrightConfigs: ["playwright.deploy-smoke.config.ts"],
+      playwrightConfigs: ["playwright.deploy-smoke.config.ts", "playwright.project-persistence.config.ts"],
     });
   });
 

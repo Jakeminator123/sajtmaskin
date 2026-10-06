@@ -2,7 +2,8 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Pågår. Beroende: A2. Arbetssätt: återkommande små områdespaket.
+Status: Registry levererad via #1576; tre ändliga kandidatfamiljer återstår.
+Beroende: A2. Ingen obestämd massrensning eller PR per gammalt test.
 
 Leveransstatus 2026-10-05: systemprompt-, Backoffice- och promptpaketen nedan
 är levererade via #1553 på preview `c4f4b188`. Ruleset- och publika
@@ -92,6 +93,21 @@ Oberoende `a1_pilot` bekräftade faktisk funktion och oförändrade guardblock.
 
 ## Bedömda grupper och verkligt kvarstående arbete
 
+### Ändlig restlista efter #1576
+
+| Kvarvarande punkt | Kod eller disposition | Acceptans / gräns |
+| --- | --- | --- |
+| `project-scaffold.test.ts` + `project-scaffold-baseline-parity.test.ts` i `src/lib/gen/export/` | Kandidat: slå ihop dubbla numeriska versionsfacit. | Avsiktlig ownerhöjning passerar; verklig baseline/plattform/KNOWN_PACKAGES/fallback-drift, force-pin och 3D-gating skyddas. Inga runtimeversioner ändras för testets skull. |
+| `src/lib/gen/data/shadcn-recipe-search.snapshot.test.ts` | Kandidat: semantik i stället för kompletta resultatlistor. | Relevant kandidat, sökbar typ, fallback vid tomt/otillgängligt index, community-reservation/backfill består. Legitima index-/ordningsändringar får inte kräva snapshotuppdatering. |
+| `backoffice/test_template_curator_catalog.py` + `backoffice/test_template_curator_ui.py` | Kandidat: ersätt produktkatalogens literal 64 med faktisk inventeringsparitet. | Giltig katalogökning passerar; saknad/korrupt/icke-valbar post ger fel. SHA-256-längder och självbyggda fixtureantal är inte rensningsmål. Dessa är inte Blob-token-agentens testpaths. |
+| Pengar/auth/tenant/SSRF/ledger/release och aktiva builder/export/download-kontrakt | BEHÅLL efter begränsad ägargranskning; ingen ny rensnings-PR utan bevisad ersättning. | Obligatoriska säkerhets-/beteendelanes består. Ledger/D-ID-residualer stannar hos sina befintliga owners och ger inget DB-/providermandat. |
+| Style-choice-par, fixturebaserade scaffold/backupantal, backup/CAS/redaction och levererat kontrollplan/rulesets | BEHÅLL efter ägargranskning. | Aktiva beteendefacit skiljs från historiska produktantal; inga produktfunktioner avvecklas. |
+
+De tre kandidatfamiljerna kan samlas i ett avgränsat testpaket efter faktiska
+fel-/likvärdighetsprov. Övriga grupper avslutas med motiverad disposition och
+ownerbevis i denna matris, inte nya register eller en full ny PR per test.
+Scaffold-/dossierproduktkod är separat levererad; återöppna den inte här.
+
 Detta är paketdisposition, inte ett påstående om slutförd semantisk revision
 av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 
@@ -99,10 +115,10 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 | --- | --- | --- |
 | Pengar, auth, tenant, SSRF, migrationsledger, externa kontrakt | BEHÅLL säkerhets- och beteendeprov. Ingen DB/provideroperation eller ändrad kostnads-/routingpolicy. | Befintliga runtimeowners; riktad semantisk genomgång krävs före ytterligare ändring. |
 | Builder/UI, preview, export/publicering | Huvudsakligen BEHÅLL verkliga tillstånds-/säkerhetsprov. Aktiva legacy-callers och möjlig extern `/api/download`-konsument gör radering obevisad. | Codex fortsätter bara efter exakt scope/kontraktsbevis; ingen routeavveckling beställd. |
-| Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS äger intent/rootselection och deras riktade tester. A4 saknar fortfarande isolerad körmiljö/providergräns. |
+| Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS produktleverans är terminal via #1575. A4:s smala persistensmiljö är ännu inte körbevisad; full generation/providergräns återstår. |
 | Public analys | Tvåfilspaketet är levererat via #1562. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Övriga prompt-, metadata- och klientkontroller är oförändrade. Ingen generell prispolicy infördes. |
-| Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562. Registrytestets sidantal/rubrikhistorik ersatt enligt paketet nedan; inga registryowners ändrade. | Ingen live ruleset-ändring. Registry-paketets felprov är körda; aktuell review/leverans och återstående bestånd är öppna. |
+| Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Produktkatalogens literal 64 återstår som kandidat; självbyggda fixtureantal behålls. | Den ändliga kandidatlistan ovan äger nästa steg; ingen total Backoffice-radering beställd. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562. Registrytestets sidantal/rubrikhistorik ersatt enligt paketet nedan; inga registryowners ändrade. | Ingen live ruleset-ändring. Registry-paketets felprov, review och leverans via #1576 är verifierade; detta öppnas inte om utan nytt felbevis. |
 
 Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
 test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
@@ -128,7 +144,7 @@ sidolås rött, nytt paket grönt. Ingen faktisk modell-/providerändring gjorde
 Grinden skyddar separation från produktens aktuella primary, inte en ny generell
 pris-/allowlist-policy för alla andra modeller eller alias.
 
-### Registry-paket 2026-10-06 — implementerat, leverans återstår
+### Registry-paket 2026-10-06 — levererat via #1576
 
 Kodscope: endast `src/lib/control-plane/registry.test.ts`, ursprungsbas `eba1c590`,
 branch `codex/test-registry-cleanup`. TA BORT historiskt sidantal 37:
@@ -157,8 +173,9 @@ befintliga länk-/termtestfiler gav 3 filer/61 PASS med högst fyra workers.
 Lokalt tillfälligt underlag: `.tmp/a3-registry-proof-20261006.json`.
 Oberoende `a5_a6_rest_review` (`gpt-5.6-sol`/xhigh) gav CLEAN på
 `2b3ea77d` mot `eba1c590`. Normal synk till `4659f3bf` bevarar exakt
-testblob och ownerfiler; bounded integrationsreview och native leverans
-återstår. Detta stänger inte hela A3.
+testblob och ownerfiler. Slutlig integrationsreview gav CLEAN på `5eab11c8`
+mot `4659f3bf`; #1576 är mergad till `f68d1837` med identiskt träd och grön
+full CI/exakt deployment. A7 äger terminalkvittot. Detta stänger inte hela A3.
 
 ## Checklista per paket
 
