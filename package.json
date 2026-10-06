@@ -178,7 +178,7 @@
     "embeddings:ensure": "node --import tsx scripts/embeddings/ensure-embeddings.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.95",
+    "@ai-sdk/anthropic": "^3.0.127",
     "@ai-sdk/openai": "^3.0.104",
     "@base-ui/react": "^1.8.0",
     "@d-id/client-sdk": "^1.2.10",
