@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Draft #1580; bootstrap verifierad, bevisat browserimportfel lämnat till produktowner.
+Status: Draft #1580; bootstrap verifierad, produktfix #1581 integrerad, nytt flödesprov återstår.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -74,6 +74,14 @@ Egen fixture/cascade/session och container-cleanup passerade även detta försö
 Testet kräver nu HTTP 200 vid första navigation och reload, begränsar enskilda
 UI-actions till 15 sekunder och försöker all cleanup utan att maskera grundfelet.
 Ny native körning samlas med faktisk produktfix; ingen persistensacceptans ännu.
+
+Produktfixen är nu levererad separat via #1581 på preview `30b941c5` och normalt
+integrerad i TESTER genom `f083b896`. Serverns enrichment ligger i egen modul;
+båda verkliga klientingångarna browserbundlas utan tree-shaking. Produktkoden
+är identisk med den levererade basen, harnesskoden med granskad `1af6fe76`.
+Färsk integration: fyra filer/83 PASS, 28 explicita OS-skip, E2E/config-typkontroll,
+workflowkontrakt och discovery 1 095/1 095 PASS. Detta rättar ett verkligt fel
+som harnessen hittade; endast ny native körning kan bevisa edit/save/reload.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

@@ -27,8 +27,8 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   följd av övriga kritiska flöden, A6b-slutbeslut och A7-slutacceptans i
   `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
   Checkout: `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
-  Branch `codex/project-persistence-e2e`, draft #1580 med publicerad `17edcbeee`,
-  normalsynkad till `e113a7e2` genom `f9d0235a`. Faktiskt browser-/DB-flöde
+  Branch `codex/project-persistence-e2e`, draft #1580 med publicerad `8e9fd8db`,
+  normalsynkad till `30b941c5` genom `f083b896`. Faktiskt browser-/DB-flöde
   återstår. Oberoende isolerings-/CI-review är CLEAN på publicerad head efter rättad
   skip/false-green-lucka. Full lokal körning gav 21/22 gröna kontroller;
   Backoffice hade 702 PASS men Git-vakten stoppade samtidiga externa ref-/
@@ -41,10 +41,16 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   och ny native körning av rättningen krävs. Inget persistensflöde påstås grönt.
   Bootstraprättningen `8e9fd8db` är nu CLEAN-granskad och verifierad i native CI.
   Körningen `37454396038` nådde verklig app/browser men `/builder` gav 500 av
-  en befintlig `node:path`-klientimport. Root äger separat produktfix; TESTER
-  ändrar endast harnessfailfast/cleanup och inväntar faktisk fix före nytt flödesprov.
+  en befintlig `node:path`-klientimport. Root levererade produktfixen via #1581
+  på `30b941c5`; TESTER har integrerat den med granskad harnessfailfast/cleanup
+  från `1af6fe76`. Färsk integration ger 83 PASS/28 OS-skip och discovery
+  1 095/1 095; nytt native flödesprov krävs fortfarande.
   Övriga valda CI-jobb samt egen fixture-/containercleanup passerade.
   Ingen lokal systeminstallation, authändring eller delad DB används.
+  Separat A3-WIP ligger lokalt i `codex/test-catalog-contracts` på `1d61637a`:
+  exakt fem testpaths, 96 TS/31 Python PASS och verifierade versionsmutationer.
+  Shadcn-/curatormutationer, full Backoffice och slutlig review återstår.
+  Ingen push eller leverans av det paketet har gjorts.
   Terminala lokala refs `codex/test-control-rest` och `codex/test-registry-cleanup`
   är borttagna efter leverans; PR-headrefs och mergad preview bevarar koden.
 - **SCHAFFOLDS:** #1563, #1565, #1571 och den samlade familjeleveransen #1575

@@ -9,7 +9,7 @@ Beroende: A3–A6.
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
 `codex/project-persistence-e2e`, från preview
-`e113a7e273df22d4518f6949829b9cacae2af06e` efter normal basmerge `f9d0235a`.
+`30b941c5eb4bb02cbee7788408806db94ff36ada` efter normal basmerge `f083b896`.
 `e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
@@ -75,6 +75,21 @@ uppmätta webpack-felet och ännu obevisat standard-Turbopack-/produktionsfel.
 Samordnaren äger separat produktfix; TESTER:s nya delta är bara HTTP-failfast,
 avgränsad actiontimeout och cleanup som bevarar grundfelet. Inget flöde är klart.
 Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
+
+#1581 har nu levererat den separata produktfixen på `30b941c5`. TESTER:s normala
+integration `f083b896` bevarar exakt basens sex produkt-/testblobbar samt samtliga
+A4-blobbar från CLEAN-granskad failfast-head `1af6fe76`. Färsk integration gav
+83 PASS/28 explicita OS-skip i fyra filer, inklusive båda riktiga browseringångarna;
+separat E2E/config-typkontroll, workflowkontrakt och discovery 1 095/1 095 PASS.
+Lås-/beroendeträdet är oförändrat; ingen ny installation eller helsuite behövdes
+för samma bytes. Ny native runtime och aktuell integrationsreview återstår.
+
+A3:s fem testpaths är separat lokalt säkrade på `codex/test-catalog-contracts`,
+head `1d61637a`, utan push. 96 riktade TS- och 31 Pythonprov, typkontroll och
+scoped lint PASS. Koordinerad Next/ESLint-ägarmutation gav gamla 12 RED/nya
+73 PASS; sex riktiga version-/forcepin-/paritetsfel gav fortsatt RED. Alla
+produktmutationer är återställda. Shadcn-/curatormutationer, full Backoffice,
+discovery, docs och slutlig review återstår; paketet är WIP och inte del av #1580.
 
 ### Två aktuella jämförbara PR-CI-observationer
 
