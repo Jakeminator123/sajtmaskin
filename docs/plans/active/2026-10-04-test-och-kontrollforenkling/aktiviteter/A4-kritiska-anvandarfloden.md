@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Smal persistensharness lokalt kodad och CLEAN-granskad; native körbevis återstår.
+Status: Smal persistensharness i draft #1580; första native bootstrapfel rättas, flödesbevis återstår.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -50,6 +50,16 @@ Webpack-dev använder Nexts lokala fontfallback; produktionsbygget är oföränd
 Launcher läser även Playwrights JSON-rapport i sin egen nya tempkatalog: minst
 ett faktiskt passerat prov och inga skip/fixme, flaky, unexpected eller
 förväntade fel krävs. Exit 0 eller en listad/skippad testfil räcker inte.
+
+Första native körningen i [#1580](https://github.com/Jakeminator123/sajtmaskin/pull/1580)
+valde faktiskt heavy även som draft. Jobb `112236218072` verifierade namespace,
+loopback, borttagna capabilities/no_new_privs och otillgänglig Docker-socket,
+men db-init föll före app/browser: rollen `postgres` saknades eftersom containerns
+inituser är `persistence_test`. Egen container städades bort. Testbootstrapen
+skapar nu endast den nödvändiga `postgres`-principalen med NOLOGIN och utan
+superuser/createdb/createrole/replication/bypassrls, läser tillbaka och kräver
+exakt dessa spärrar innan befintlig db-init körs. Ingen produkt-/RLS-/authkod
+ändras. Ny native körning krävs; första försöket är inget persistensbevis.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

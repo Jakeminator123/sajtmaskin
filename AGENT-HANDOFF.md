@@ -27,14 +27,18 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   följd av övriga kritiska flöden, A6b-slutbeslut och A7-slutacceptans i
   `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
   Checkout: `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
-  Branch `codex/project-persistence-e2e`, A4-kodhead `89bf4bb8`, normalsynkad
-  till `410d933c` genom `23bf8b50`. Kod finns lokalt; faktisk browser-/DB-körning
-  återstår. Oberoende isolerings-/CI-review är CLEAN på kodheaden efter rättad
+  Branch `codex/project-persistence-e2e`, draft #1580 med publicerad `17edcbeee`,
+  normalsynkad till `e113a7e2` genom `f9d0235a`. Faktiskt browser-/DB-flöde
+  återstår. Oberoende isolerings-/CI-review är CLEAN på publicerad head efter rättad
   skip/false-green-lucka. Full lokal körning gav 21/22 gröna kontroller;
   Backoffice hade 702 PASS men Git-vakten stoppade samtidiga externa ref-/
   checkoutändringar. Riktad omkörning gav 702 PASS/exit 0 med oförändrad vakt.
   Aktuell integrationsreview är CLEAN på `23bf8b50` mot `410d933c`; alla nio
   A4-kod-/workflow-/testblobbar samt basens lock-/SEO-blobbar är exakt bevarade.
+  Första native persistensjobbet körde verkligen och föll före app/browser på
+  saknad `postgres`-roll. Isolering och egen container-cleanup verifierades.
+  Endast disposable bootstrap får NOLOGIN-kompatibilitetsroll; riktad review
+  och ny native körning av rättningen krävs. Inget persistensflöde påstås grönt.
   Ingen lokal systeminstallation, authändring eller delad DB används.
   Terminala lokala refs `codex/test-control-rest` och `codex/test-registry-cleanup`
   är borttagna efter leverans; PR-headrefs och mergad preview bevarar koden.
@@ -55,7 +59,8 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   bransch; ingen migration eller backfill. Chatten är arkiverad.
 - **SEO:** #1556 är mergad på `410d933c`; fem SEO-/testpaths, inga DB- eller
   testharnessowners. Samordnaren verifierade CLEAN, full PR-CI 3:55 och
-  renderad metadata på exakt preview-deployment. Separat postkvitto återstår.
+  renderad metadata på exakt preview-deployment. Post-CI 4:14 har bara samma
+  13 paritetsrader/noll delta; exakt merge-deployment är READY.
 
 ## ZIP och ordlista
 
@@ -84,7 +89,8 @@ inte ombyggda.
    installationsskript. Samordnaren verifierade oberoende CLEAN, full PR-CI
    3:48, 21/21 dossierbyggen 6:08 och exakt READY-deployment. Post-CI 4:08 har
    bara samma 13 paritetsrader, noll delta, och exakt merge-deployment är READY.
-   Ny separat type-only #1579 är inte levererad vid denna snapshot.
+   Type-only #1579 är därefter mergad på `e113a7e2` (Maps 3.66.5); samordnaren
+   verifierade CLEAN, full CI 3:38, 21/21 dossierbyggen 5:40 och exakt READY.
    Ingen av dessa fem ingår i automerge-allowlisten. Första tillåtna botmergen är
    fortfarande obevisad; utvidga inte allowlisten för att skapa ett kvitto.
 3. Scaffold-ID:n är oförändrade och valt ID hydrateras till deployad registry

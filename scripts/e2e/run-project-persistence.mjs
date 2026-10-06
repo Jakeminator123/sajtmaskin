@@ -246,7 +246,19 @@ async function inside() {
         await delay(500);
       }
     }
+    // POSTGRES_USER gives this fresh container only our fixture login. Existing
+    // migrations/RLS name `postgres`; provide that compatibility principal
+    // without another login or any role-management/superuser privileges.
     // This writes ONLY the verified, fresh disposable container, never a supplied DB.
+    await pool.query(
+      "CREATE ROLE postgres NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS",
+    );
+    const compatibilityRole = await pool.query(
+      "SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname='postgres'",
+    );
+    assert.equal(compatibilityRole.rowCount, 1);
+    assert(Object.values(compatibilityRole.rows[0]).every((value) => value === false));
+    console.info("[project-persistence] disposable postgres NOLOGIN compatibility role verified");
     await run(process.execPath, ["scripts/db/db-init.mjs"], process.env);
     const client = await pool.connect();
     try {

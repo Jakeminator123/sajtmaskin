@@ -9,7 +9,7 @@ Beroende: A3–A6.
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
 `codex/project-persistence-e2e`, från preview
-`410d933c9b5f8ac3f1e56dc76bf3c46326c930ba` efter normal basmerge `23bf8b50`.
+`e113a7e273df22d4518f6949829b9cacae2af06e` efter normal basmerge `f9d0235a`.
 `e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
@@ -49,11 +49,20 @@ Nu är #1578:s dependencyunion och #1556:s SEO normalt integrerade. Färsk
 och SEO) gav 95 PASS/28 Windows-skip; faktisk Bash-matris 16/16 och verkligt
 skipped-only-Playwright gav åter avsett RED i rapportvakten. Oberoende
 `gpt-5.6-sol`/xhigh gav CLEAN på merge-head `23bf8b5095f6b35766a4618c12b63b800f4f2fa4`
-mot basen ovan. Alla nio A4-kod-/workflow-/testblobbar är identiska med `89bf4bb8`;
+mot dåvarande bas `410d933c`. Alla nio A4-kod-/workflow-/testblobbar var identiska med `89bf4bb8`;
 basens lockfil och fem SEO-blobbar är exakt bevarade. Färsk typecheck, ESLint,
 workflowkontrakt och docs/länkar är gröna; discovery 1 094/1 094 samt
 Playwright-listning av ett prov är gröna, inte runtime. Slutdoc-attest och
-faktisk browser-/DB-runtime återstår.
+faktisk browser-/DB-runtime återstod vid publiceringen. Slutdoc-head `17edcbeee`
+fick separat CLEAN och publicerades i draft
+[#1580](https://github.com/Jakeminator123/sajtmaskin/pull/1580).
+
+Native CI [37453698640](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37453698640)
+valde heavy och körde verkligen persistensjobbet. Det föll korrekt före
+app/browser på saknad `postgres`-roll; isolerings- och egen container-cleanup
+verifierades. Se A4 för den smala NOLOGIN-bootstraprättningen. Normal synk av
+#1579 tar bara in Maps-typen 3.66.4 → 3.66.5 och dess lockmetadata. Ny riktad
+kontroll, oberoende deltareview och faktisk ny native körning krävs.
 Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
 
 ### Två aktuella jämförbara PR-CI-observationer

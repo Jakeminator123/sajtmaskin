@@ -25,7 +25,7 @@ mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
 planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
 Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
 i `sajtmaskin-tester-restarbete`, branch `codex/project-persistence-e2e`, från
-preview `410d933c9b5f8ac3f1e56dc76bf3c46326c930ba`. Två A5-docstesters
+preview `e113a7e273df22d4518f6949829b9cacae2af06e`. Två A5-docstesters
 Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
 utan smalare testurval. A3-paketet #1576 tog bort registrytestets historiska
 sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
@@ -41,7 +41,8 @@ full native CI och exakt deployment. A4:s godkända smala disposabla CI-harness
 Oberoende review är CLEAN efter rättad skip/false-green-lucka och bassynk.
 Full lokal kontroll hade 21/22 PASS; Backoffices Git-vakt stoppade samtidiga
 externa refs och gav därefter grönt i samordnad omkörning. Verklig grön
-browser-/DB-runtime återstår. A3:s ändliga
+browser-/DB-runtime återstår: draft #1580:s första riktiga körning fann ett
+avgränsat testbootstrapfel som nu rättas, utan produkt-/authändring. A3:s ändliga
 restlista finns i dess befintliga områdesmatris; inget nytt testregister införs.
 Hela planen förblir aktiv.
 
