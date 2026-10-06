@@ -31,7 +31,7 @@ async function openEditor(page: Page) {
 
 test("real file edit + Save project survives reload; another guest cannot read or overwrite it", async ({
   browser,
-}) => {
+}, testInfo) => {
   const fixture: Fixture = JSON.parse(process.env.A4_FIXTURE!);
   const isolatedDatabase = databaseConfig(process.env.A4_POSTGRES_URL);
   const pool = new Pool(isolatedDatabase);
@@ -101,12 +101,45 @@ test("real file edit + Save project survives reload; another guest cannot read o
   const loaded = new Map<string, Response>();
   let navigationGeneration = 0;
   const requestGeneration = new WeakMap<Request, number>();
-  const assertBuilderLoaded = async () => {
+  const diagnosticStartedAt = Date.now();
+  const apiRequests = new WeakMap<Request, { id: number; atMs: number; generation: number }>();
+  const apiTimeline: Array<Record<string, string | number>> = [];
+  let nextRequestId = 0;
+  const recordApiEvent = (
+    event: "start" | "response" | "failed",
+    request: Request,
+    status?: number,
+  ) => {
+    const url = new URL(request.url());
+    if (url.origin !== BASE_URL || !url.pathname.startsWith("/api/")) return;
+    const atMs = Date.now() - diagnosticStartedAt;
+    if (event === "start") {
+      apiRequests.set(request, { id: ++nextRequestId, atMs, generation: navigationGeneration });
+    }
+    const start = apiRequests.get(request);
+    if (!start || apiTimeline.length >= 80) return;
+    apiTimeline.push({
+      event,
+      requestId: start.id,
+      generation: start.generation,
+      method: request.method(),
+      path: redact(url.pathname).slice(0, 300),
+      atMs,
+      ...(event === "start" ? {} : { durationMs: atMs - start.atMs }),
+      ...(status === undefined ? {} : { status }),
+    });
+  };
+  const assertBuilderLoaded = async (initialStartup = false) => {
+    const readinessStartedAt = Date.now();
     // Observe the app's own GETs, not APIRequestContext calls that bypass hydration.
-    // Listeners are armed before navigation; the existing expect timeout applies
-    // after navigation, so compiling the initial document cannot consume it.
+    // Cold webpack/client/API startup uses the existing navigation budget.
+    // Reload and all ordinary actions keep the configured 15-second limit.
+    // This proves functionality, not a 15-second cold-start performance SLA.
     await expect
-      .poll(() => [...loaded.keys()].sort(), "Builder hydration GETs")
+      .poll(() => [...loaded.keys()].sort(), {
+        message: "Builder hydration GETs",
+        ...(initialStartup ? { timeout: testInfo.project.use.navigationTimeout } : {}),
+      })
       .toEqual([...loadPaths].sort());
     for (const path of loadPaths) {
       expect(loaded.get(path)!.status(), `Builder hydration GET ${path}`).toBe(200);
@@ -126,6 +159,19 @@ test("real file edit + Save project survives reload; another guest cannot read o
       id: fixture.versionId,
       versionId: fixture.versionId,
     });
+    if (initialStartup) {
+      console.info("[project-persistence] initial hydration ready", {
+        budgetMs: testInfo.project.use.navigationTimeout,
+        waitMs: Date.now() - readinessStartedAt,
+        generation: navigationGeneration,
+        apiTimeline: apiTimeline.filter(
+          (event) =>
+            event.generation === navigationGeneration &&
+            event.method === "GET" &&
+            loadPaths.includes(String(event.path)),
+        ),
+      });
+    }
     return project;
   };
   let primaryFailure = false;
@@ -136,6 +182,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       if (message.type() === "error") recordFailure(`console: ${message.text()}`);
     });
     page.on("requestfailed", (request) => {
+      recordApiEvent("failed", request);
       const path = new URL(request.url()).pathname;
       recordFailure(`${request.method()} ${path}: ${request.failure()?.errorText}`);
     });
@@ -144,6 +191,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
         navigationGeneration += 1;
         loaded.clear();
       }
+      recordApiEvent("start", request);
       const url = new URL(request.url());
       if (
         navigationGeneration > 0 &&
@@ -155,6 +203,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       }
     });
     page.on("response", (response) => {
+      recordApiEvent("response", response.request(), response.status());
       const url = new URL(response.url());
       // File save can leave a versions refetch in flight across reload. Only
       // requests STARTED in this navigation may prove this navigation hydrated.
@@ -173,7 +222,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       { waitUntil: "domcontentloaded" },
     );
     expect(navigation?.status(), "Builder must render before editing").toBe(200);
-    await assertBuilderLoaded();
+    await assertBuilderLoaded(true);
     const { pane, editor } = await openEditor(page);
     const original = fixture.files.find((file) => file.path === "app/page.tsx")!.content;
     const changed = original.replace("A4_INITIAL_MARKER", "A4_SAVED_MARKER");
@@ -316,6 +365,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       path: page ? new URL(page.url(), BASE_URL).pathname : null,
       browserFailures,
       unexpectedMutations,
+      apiTimeline,
       hydrationResponses: [...loaded].map(([path, response]) => [path, response.status()]),
       visibleText: redact(visibleText).slice(0, 8_000),
     });

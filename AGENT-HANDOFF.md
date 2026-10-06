@@ -25,9 +25,13 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
   komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
   bas till `codex/project-persistence-e2e` för befintlig draft #1580.
-  Senaste persistenskörningen `37462490014` var röd före edit/save/reload;
-  navigationbunden hydreringskontroll och avgränsad feldiagnostik är kodade,
-  men nytt grönt browser-/DB-prov återstår. Generation/follow-up/remove-replace
+  Senaste persistenskörningen `37491869699` på `fb113f8c5` var röd före
+  edit/save/reload: initiala hydreringssvar saknades inom 15 sekunder.
+  Samordnaren godkände separat initial startupbudget på högst 120 sekunder,
+  oförändrade svar-/ID-/generationskrav och 15 sekunder för actions/save samt
+  hydrering efter reload.
+  Rotorsak och nytt grönt browser-/DB-prov är ännu obevisade; PR:n åter draft.
+  Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
   är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.

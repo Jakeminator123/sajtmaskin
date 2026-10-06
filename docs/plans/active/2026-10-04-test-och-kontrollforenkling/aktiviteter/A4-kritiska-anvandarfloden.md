@@ -114,8 +114,37 @@ på `c33daca3`. Riktig Kod-/registry-meny och delad hook gav fyra RED före
 rättningen och fem GREEN efter; samordnaren verifierade CLEAN och PR-CI 3:47.
 TESTER normalsynkar båda leveranserna utan egna produktändringar. Diagnostikens
 kodhead `f50448eb` är oförändrad; slutlig integrationsreview och ett samlat
-native persistensprov ska nu köras. PR:n lämnas draft tills review är klar;
+native persistensprov planerades. PR:n lämnades draft tills review var klar;
 ingen tidigare röd körning eller komponentregression räknas som E2E-acceptans.
+
+Samlad CLEAN-granskad head `fb113f8c5` kördes därefter i native
+`37491869699`, jobb `112366598012`. `/builder` gav 200 efter 22,8 sekunders
+kall kompilering, men inga av de tre hydreringssvaren nådde browserobservatören
+inom de följande 15 sekunderna. Ingen pageerror observerades; tomma chat-/
+previewtexter kan redan vara serverrenderade och är inget hydreringsbevis.
+API-kompilering fortsatte vid stoppet. Endast persistence/quality föll;
+fixture-/session-/containercleanup passerade. PR:n är åter draft.
+
+Källgranskning bekräftade giltig direkt-URL med project+chatId, omedelbara
+projekt-/chatt-ID:n och ingen authgrind framför de tre GET-anropen. Den vanliga
+projektkortslänken använder bara project och gör först en latest-chat-lookup;
+detta ytterligare ingångsflöde ingår inte i det aktuella persistensprovet.
+Ingen specifik produktdefekt eller kallstart-rotorsak är ännu körbevisad.
+
+Samordnaren godkände därför en korrigerad testfasbudget, inte en produktfix:
+initial klient-/API-readiness får använda konfigurationens befintliga
+120-sekunders navigationsbudget; actions/save och hydrering efter reload behåller 15 sekunder och
+testets totalgräns 240 sekunder. Samma tre faktiska GET, HTTP 200, fixture-ID:n
+och requestens navigationsgeneration krävs. Ingen extra warmup, retry, sleep,
+skip eller API-bypass. Det är funktionsbevis, inte ett 15-sekunders kallstart-SLA.
+En begränsad path-only tidslinje redovisar requeststart/svar och initial readiness
+även vid PASS; feldiagnostiken visar även påbörjade men obesvarade anrop.
+Inga querysträngar, headers, kroppar eller hemligheter loggas. Om nästa prov
+fortfarande inte hydreras ska det förbli rött; ny native acceptans återstår.
+Offlineprov av specens faktiska callbacks verifierade fasbudgetarna, tidslinjens
+navigationsbindning/begränsning och att första HTTP-fel/felaktigt fixture-ID
+fortfarande fäller. Borttagen generationsvakt accepterade ett gammalt svar och
+gav avsett mutationsfynd. Detta är harnessbevis, inte browser-/DB-acceptans.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

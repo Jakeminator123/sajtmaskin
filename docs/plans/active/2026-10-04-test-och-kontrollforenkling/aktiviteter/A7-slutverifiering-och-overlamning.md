@@ -28,8 +28,13 @@ TESTER:s separata #1580 är åter DRAFT. Native run
 dossier `37462489767` gav 21/21 PASS på 6:55 och exakt deployment READY.
 Det statiska code-only-felet i `BuilderPreviewTools` är separat levererat via
 #1583 på `e9354344`, med oberoende CLEAN, PR-CI 3:47 och exakt READY-deployment
-enligt samordnaren. A4 normalsynkar denna bas med oförändrad hydreringskod
-från `f50448eb`; aktuell integrationsreview och nytt native flödesprov återstår.
+enligt samordnaren. A4 normalsynkade denna bas med oförändrad hydreringskod
+från `f50448eb`; sluthead `fb113f8c5` fick oberoende CLEAN men native
+`37491869699` föll därefter på saknade hydreringssvar inom initiala 15 sekunder.
+Endast persistence/quality var röda; egen cleanup passerade. A4 beskriver den
+godkända uppdelningen mellan högst 120 sekunders initial startup och oförändrad
+15-sekunders action-/reload-readinessbudget. Nästa native funktionsbevis återstår;
+kallstart inom 15 sekunder är inte ett etablerat produktkrav eller ett anspråk.
 Hydration, edit/save/tenant och senare generation/follow-up/remove/replace är
 inte bevisade. A4, A6b och hela A7 förblir öppna.
 
