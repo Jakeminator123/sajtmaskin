@@ -104,10 +104,35 @@ av #1571 gav aktuell head `f3af5be3` CLEAN och native CI SUCCESS; #1574
 Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
 tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 
-### Återstående kandidater, inte genomförda ändringar
+### Lokalt WIP — ytterligare likvärdighetsbevis, inte levererat
 
-- Scaffoldtesterna är HOLD: `scaffolds:validate` blandar riktiga validatorer och
-  materialisering med tester. Hela kommandot får inte tas bort som en dublett.
+Samordnaren tillät 2026-10-06 förberedelse på separat lokal branch
+`codex/ci-duplicate-execution` från A4-head `4cbb4c00`. Publicering kräver först
+faktisk A4-merge och ny integrationskontroll. A4:s senaste körning föll före
+fill/PATCH; därför sparas detta som WIP utan fullverifiering eller slutreview.
+
+- Heavy/fallback behåller riktig `scaffolds:client-list:check`; materialisering
+  ligger kvar i varje relevant test-runner, och samma fem scaffoldtestfiler
+  ingår i alla fyra fulla shardars samlade urval. Explicit light behåller hela
+  `scaffolds:validate`. Paketkommandot är oförändrat.
+- Det gamla rådgivande stability-jobbet upprepar sex redan blockerande tester
+  och schema-drift. Det tas bort i arbetsdeltat; den separata `check:terms`-
+  prosaskanningen flyttas till contracts med `continue-on-error: true`.
+  Blockerande stability, schema-jobb och lokalt `test:stability` består.
+- Befintlig discovery jämför faktisk stability-config-discovery med den
+  befintliga granskade blockerande listan. Scaffoldfiler härleds ur befintligt
+  paketkommando och måste finnas i faktisk standard-discovery. Ingen ny
+  manuell testlista eller extra listkörning tillkommer.
+- Sju nya fall var RED före ändringen; riktat därefter 199 PASS/28 explicita
+  Windows-undantag för Bash. Tre verkliga discovery-mutationer gav CLI exit 1:
+  exkluderad stability-fil, exkluderad scaffoldfil, ny ogranskad stability-fil.
+  Alla mutationer återställda; discovery 1 096/1 096, workflow och scoped lint
+  PASS. Detta är inte full lokal/native CI-acceptans eller uppmätt tidsvinst.
+
+Den sjunde filen med namnet `finalize-followup-files-stability.test.ts` har
+bindestreck, inte lane-suffixet `.stability.test.ts`, och behålls oförändrad
+i standardsviten. Required checks, Postgres/browsergates och fyra fulla shards
+ändras inte. Full `verify:pr`, oberoende review och faktisk leverans återstår.
 
 Separat ready-event-kandidat: #1552 körde heavy CI
 [37265086119](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37265086119)

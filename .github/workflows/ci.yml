@@ -170,9 +170,8 @@ jobs:
 
       # Deterministic stability contracts (C2): every current `*.stability.test.*`
       # file is hermetic (no network/DB/wall-clock). Hard-gate them here so a
-      # regression reddens the required `quality` check. The broad `stability`
-      # job stays `continue-on-error` for the glossary check and future flaky
-      # additions that must be classified before they can block.
+      # regression reddens the required `quality` check. Discovery requires
+      # the real stability-config file set to equal this reviewed blocking set.
       - name: Deterministic stability contracts (blocking)
         # Run even if test:ci failed so a contract regression is never masked/skipped.
         if: ${{ !cancelled() }}
@@ -257,8 +256,14 @@ jobs:
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run scaffolds:validate
+
+      # Heavy/fallback already materializes embeddings in every test runner and
+      # runs all scaffold tests in the four full shards. Keep the real validator.
+      - name: Validate scaffold client list (heavy/fallback)
+        if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}
+        run: npm run scaffolds:client-list:check
 
       - name: Validate dossier manifests
         if: ${{ !cancelled() }}
@@ -309,6 +314,13 @@ jobs:
       - name: Verify terminology ownership
         if: ${{ !cancelled() }}
         run: npm run check:terms:contract
+
+      # Preserve the separate advisory prose scan after removing duplicate
+      # stability execution. No second checkout/install or path filter needed.
+      - name: Ordlista-check (warn-only, grandmaster C2)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm run check:terms
 
       - name: Verify agent context budget
         if: ${{ !cancelled() }}
@@ -523,8 +535,7 @@ jobs:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. På full profil
   # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge.
-  # Deterministiska `*.stability.test.*` blockerar via quality-core ovan; jobbet
-  # `stability` nedan förblir warn-only.
+  # Deterministiska `*.stability.test.*` blockerar separat via quality-core ovan.
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
@@ -557,78 +568,6 @@ jobs:
       - name: Schema-drift gate (blocking)
         if: ${{ env.RUN_HEAVY == 'true' }}
         run: npm run db:schema-drift
-
-  # Warn-only stabilitets-lane (grandmaster S1). Avsiktligt icke-blockerande:
-  # continue-on-error gör att ett rött stabilitets-resultat aldrig blockerar
-  # merge medan lanen stabiliseras. S4:s db:schema-drift-gate körs blockerande i det
-  # separata schema-drift-jobbet ovan; här ligger den bredare (flaky) vitest-lanen
-  # warn-only. Detta är platsen där C2 (ordlista-check) lägger sitt CI-steg.
-  # Icke-required: trigger-nivå-paths skulle skippa hela jobbet (OK här).
-  # Jobben delar dock `on:` med required quality/build/schema-drift, så ett
-  # workflow-nivå-paths skulle tysta även dem. Skip här är bara tidsvinst —
-  # inte en grind.
-  stability:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Detect stability-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            stability:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - '**/*.stability.test.ts'
-              - '**/*.stability.test.tsx'
-              - 'vitest.stability.config.ts'
-              - 'vitest.config.ts'
-              - 'src/lib/logging/**'
-              - 'src/lib/gen/**'
-              - 'src/lib/builder/**'
-              - 'src/lib/db/**'
-              - 'scripts/db/**'
-            terms:
-              - 'scripts/dev/check-term-coverage.mjs'
-              - 'scripts/docs/**'
-              - 'docs/architecture/glossary.md'
-              - 'config/naming-dictionary.json'
-              - 'docs/**/*.md'
-              - 'docs/**/*.mdx'
-
-      - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' || steps.filter.outputs.terms == 'true' }}
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm ci
-
-      - name: Stability lane (warn-only)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
-        run: npm run test:stability
-
-      # Grandmaster C2: light ordlista-check. Warn-first by design - the script always
-      # exits 0 and this whole job is continue-on-error, so it never blocks push/PR/merge.
-      # if: !cancelled() so it still runs even if an earlier step (the flaky stability
-      # lane) failed - step-level gating defaults to success(), which job-level
-      # continue-on-error does NOT override. Skips only on an actual run cancellation.
-      - name: Ordlista-check (warn-only, grandmaster C2)
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.terms == 'true') }}
-        run: npm run check:terms
-
-      - name: Skip stability tests (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.stability != 'true' }}
-        run: echo "No stability-related files changed; skipping install and tests."
 
   # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
   # Node-paket med egen `package.json` och spårad lockfile; `npm ci` gör grinden

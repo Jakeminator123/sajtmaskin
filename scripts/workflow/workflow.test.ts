@@ -845,12 +845,12 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateCiScopeWorkflow(
         replaceOnce(
-          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
-          "  stability:\n    runs-on: ubuntu-latest\n",
+          "        continue-on-error: true\n        run: npm run check:terms",
+          "        run: npm run check:terms",
         ),
         packageScripts,
       ),
-    ).toContain("broad stability job must remain warn-only");
+    ).toContain("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
   });
 
   it("keeps the trusted controller import graph free of npm packages", () => {

@@ -128,6 +128,13 @@ describe("single blocking owner for repeated quality checks", () => {
     const targetedRoutes = scheduled("quality-contracts", routeCheck, result, heavy);
     expect([fullSuite, targetedTests]).toEqual([!light, light]);
     expect([preflight, targetedRoutes]).toEqual([!light, light]);
+    expect([
+      scheduled("quality-contracts", "npm run scaffolds:validate", result, heavy),
+      scheduled("quality-contracts", "npm run scaffolds:client-list:check", result, heavy),
+    ]).toEqual([light, !light]);
+    if (!light) {
+      expect(scheduled("quality-tests", "npm run embeddings:ensure", result, heavy)).toBe(true);
+    }
     // The runtime validator is not a duplicate of its tests: always retain it.
     expect(scheduled("quality-contracts", "npm run workflow:contract", result, heavy)).toBe(true);
   });
@@ -135,9 +142,21 @@ describe("single blocking owner for repeated quality checks", () => {
   it("does not keep targeted work alive after cancellation", () => {
     expect(scheduled("quality-contracts", scopeTests, "success", "false", true)).toBe(false);
     expect(scheduled("quality-contracts", routeCheck, "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", "npm run scaffolds:validate", "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", "npm run scaffolds:client-list:check", "success", "true", true)).toBe(false);
   });
 
-  it.each([scopeTests, routeCheck])("rejects missing, skipped or nonblocking light coverage: %s", (command) => {
+  it("removes only duplicate stability work and preserves advisory terminology", () => {
+    expect(workflow.jobs.stability).toBeUndefined();
+    const terms = workflow.jobs["quality-contracts"].steps!
+      .filter((step) => step.run === "npm run check:terms");
+    expect(terms).toHaveLength(1);
+    expect(terms[0]["continue-on-error"]).toBe(true);
+    expect(scheduled("quality-contracts", "npm run check:terms", "success", "false")).toBe(true);
+    expect(scheduled("quality-contracts", "npm run check:terms", "failure", "false")).toBe(true);
+  });
+
+  it.each([scopeTests, routeCheck, "npm run scaffolds:validate", "npm run scaffolds:client-list:check"])("rejects missing, skipped or nonblocking coverage: %s", (command) => {
     for (const change of ["remove", "skip", "allow-failure", "duplicate"]) {
       const changed = structuredClone(workflow);
       const job = changed.jobs["quality-contracts"];
@@ -148,6 +167,38 @@ describe("single blocking owner for repeated quality checks", () => {
       if (change === "duplicate") job.steps!.push({ ...step });
       expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
     }
+  });
+
+  it("keeps the advisory scan nonblocking, present and unconditional except cancellation", () => {
+    for (const change of ["remove", "skip", "blocking", "duplicate"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs["quality-contracts"];
+      const step = job.steps!.find((candidate) => candidate.run === "npm run check:terms")!;
+      if (change === "remove") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "blocking") delete step["continue-on-error"];
+      if (change === "duplicate") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it.each(["quality-core", "quality-tests"])("retains blocking materialization in %s", (jobName) => {
+    for (const change of ["remove", "skip", "allow-failure", "duplicate", "after-tests"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs[jobName];
+      const step = job.steps!.find((candidate) => candidate.run === "npm run embeddings:ensure")!;
+      if (change === "remove" || change === "after-tests") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "allow-failure") step["continue-on-error"] = true;
+      if (change === "duplicate" || change === "after-tests") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it("rejects reintroducing the broad duplicate under any job name", () => {
+    const changed = structuredClone(workflow);
+    changed.jobs.duplicate = { steps: [{ name: "duplicate", run: "npm run test:stability" }] };
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
   });
 
   it("rejects loss of the heavy preflight or its Vercel route check", () => {
