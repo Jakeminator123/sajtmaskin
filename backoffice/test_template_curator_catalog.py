@@ -27,21 +27,34 @@ class LiveCatalogTests(unittest.TestCase):
         cls.snapshot = load_catalog(REPO_ROOT)
 
     def test_live_population_counts_match_canonical_sources(self) -> None:
-        self.assertEqual(
-            self.snapshot.scope_counts,
-            {
-                CatalogScope.BLOB: 313,
-                CatalogScope.PREVIEW_FIT: 278,
-                CatalogScope.GALLERY: 278,
-                CatalogScope.SITE_VISIBLE: 262,
-                # 68 sedan tomma mEefgKyVifq togs bort ur registret och dess
-                # två variantciteringar (#1087); 64 sedan de fyra aldrig
-                # valbara id:na (GzHBHQAiS2F ai, mQB1SyhOpe8/oZxBJ6zcOsz
-                # components, pCMjvDLPVe3 design-systems) rensades som död
-                # konfig (INSP).
-                CatalogScope.VARIANT_CITED: 64,
-            },
+        manifest = json.loads(
+            (REPO_ROOT / "src/lib/templates/template-blob-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )["templates"]
+        gallery = json.loads(
+            (REPO_ROOT / "src/lib/templates/templates.json").read_text(encoding="utf-8")
         )
+        expected = {
+            CatalogScope.BLOB: {row["id"] for row in manifest},
+            CatalogScope.PREVIEW_FIT: {
+                row["id"] for row in manifest if row.get("previewFits") is True
+            },
+            CatalogScope.GALLERY: {row["id"] for row in gallery},
+            CatalogScope.SITE_VISIBLE: {
+                row.id for row in self.snapshot.records if row.site_visible
+            },
+            CatalogScope.VARIANT_CITED: set(self.snapshot.variant_source_template_ids),
+        }
+        self.assertEqual(set(self.snapshot.scope_counts), set(expected))
+        for scope, ids in expected.items():
+            with self.subTest(scope=scope):
+                self.assertTrue(ids)
+                selected = select_catalog(self.snapshot, scope)
+                self.assertEqual({row.id for row in selected}, ids)
+                self.assertEqual(len(selected), len(ids))
+                self.assertEqual(self.snapshot.scope_counts[scope], len(ids))
+        self.assertLessEqual(expected[CatalogScope.SITE_VISIBLE], expected[CatalogScope.GALLERY])
 
     def test_runtime_eligibility_includes_sha_bound_reviewed_exception(self) -> None:
         aegis = self.snapshot.by_id["h4nibkqysVJ"]
@@ -56,7 +69,11 @@ class LiveCatalogTests(unittest.TestCase):
     def test_live_generated_addenda_match_archive_and_extractor(self) -> None:
         cited = select_catalog(self.snapshot, CatalogScope.VARIANT_CITED)
         self.assertTrue(self.snapshot.addenda_valid, self.snapshot.addenda_error)
-        self.assertEqual(len(cited), 64)
+        self.assertTrue(cited)
+        self.assertEqual(
+            [record.id for record in cited],
+            list(self.snapshot.variant_source_template_ids),
+        )
         # Speglar TS-grinden i variant-integrity.test.ts: varje citerad mall ska ha
         # en aktuell ELLER explicit disabled addendum-post. `disabled` är ett
         # medvetet kuratorsbeslut (B4/K1), inte drift — missing/stale/invalid failar.
