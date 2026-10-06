@@ -17,8 +17,21 @@ Riktat gav 224 PASS/23 befintliga Windows-skip, workflowkontrakt och verify-plan
 är gröna. De nya testerna gav först nio kontrollerade RED på ursprunglig CI:
 sex dubbelkörningar och tre saknade validatorgarantier. Faktisk route-drift
 gav exit 1 både direkt och genom preflight; manifestet är återställt.
-Full lokal verifiering, oberoende review och nya native CI-/deploymentbevis
-är ännu inte klara. A3:s inventeringsskydd och A4:s isolerade harness är
+Full lokal `verify:pr -- --keep-going` gav exit 0 på `aaca25e6414cb0e7d9f385757f4edac04e7db58b`:
+alla 19 valda kontroller gröna, standardsvit 1 006 filer/13 312 PASS/26
+befintliga skip (717,78 sekunder, `VITEST_MAX_WORKERS=4`) och Backoffice
+702 PASS (65,081 sekunder). Discovery gav 1 084/1 084 tilldelningar.
+Oberoende readonly `a5_a6_rest_review`, verifierad faktisk modell
+`gpt-5.6-sol`/xhigh, gav CLEAN på exakt denna head mot `f9c5acea`.
+Granskaren körde workflowkontrakt och statiska kontroller, inte en extra fullsvit.
+
+Normal merge `1deafbacd7823583129789ef8dd30f1070ae9ede` tog därefter in
+preview `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`. Basdeltat är enbart
+`AGENT-HANDOFF.md`; alla fem kod-/testblobbar är identiska med fullkvitto
+och CLEAN-review. Endast planstatus uppdateras efter bassynken och får ett
+avgränsat aktuellt dokument-/integrationskvitto före publicering. Nya native
+CI-/deploymentbevis återstår; Windows-skip är inte lokalt körda Linuxfall.
+A3:s inventeringsskydd och A4:s isolerade harness är
 separat restarbete; varken discovery eller mockar gör dessa flöden körda.
 
 ### Redan levererade paket och deras ursprungliga lokala bevis
@@ -226,7 +239,8 @@ checks eller CI-shards har avvecklats.
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
 aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
-och samordnad skrivreservation; A5:s nästa tvåfilspaket är bara miljömätt.
+och samordnad skrivreservation; A5:s tvåfilspaket är nu lokalt verifierat
+och kodgranskat, med native leveranskvitto fortfarande öppet.
 A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
 väntar på beroendena; same-head-eventdedup är separat read-only underlag,
 inte en genomförd workflowändring. Planpaketet stannar aktivt.

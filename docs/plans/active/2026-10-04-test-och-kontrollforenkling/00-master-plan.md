@@ -25,7 +25,9 @@ mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
 planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
 Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
 i `sajtmaskin-tester-restarbete`, branch `codex/test-control-rest`, från
-färsk preview `f9c5acea6bcab47223607d5b3c20b64c4db88381`.
+färsk preview `f9c5acea6bcab47223607d5b3c20b64c4db88381`. Normal basmerge
+`1deafbac` tog därefter in `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`;
+basdeltat är endast samordnarens `AGENT-HANDOFF.md`.
 Första fortsättningspaketet omfattar två A5-docstesters Node-miljö och A6b:s
 dubblerade workflowtest-/route-timeoutkörning, utan smalare testurval.
 Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
@@ -33,7 +35,8 @@ samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
 eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
 A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
-optimering är inte färdiga; A5/A6b:s nya delpaket verifieras separat.
+optimering är inte färdiga; A5/A6b:s nya delpaket har grön full lokal
+verifiering och oberoende kodreview. Aktuella native leveransgrindar återstår.
 Hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och

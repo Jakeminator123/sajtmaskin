@@ -86,7 +86,10 @@ förlorad heavy-preflight eller prebuild/route-kedja. Kontrollerad manifestdrift
 gav verklig CLI exit 1 både direkt (light) och via preflight (heavy/fallback);
 manifestet återställdes och ingår inte i diffen. Riktat: 224 PASS, 23 befintliga
 Windows-/Linux-undantag; faktisk shell-aggregate körs fortfarande i Linux-CI.
-Full lokal verifiering och oberoende review återstår för delpaketet.
+Full lokal verifiering gav exit 0 (19 kontroller, 13 312 PASS/26 skip och
+702 Python PASS). Oberoende kodreview gav CLEAN på `aaca25e6`; normal
+docs-only basmerge till `c6c5e1ce` ändrade inga kodblobbar. Aktuell
+docs-deltareview och native leveransgrindar redovisas separat i A7/PR.
 Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
 tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 
