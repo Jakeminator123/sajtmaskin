@@ -21,10 +21,12 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   förteckning, inte en omskriven ZIP eller ett fristående byggbart paket.
 - Bransch-agenten: #1552 mergad (`e37e4d83`), source-head `2863d782` har samma
   träd. Chatten är arkiverad. Ingen migration/backfill; tomma värden raderar inte bransch.
-- TESTER: #1553, #1562, #1564 mergade. Originalets elva plandokument bevarade.
+- TESTER: #1553, #1562, #1564 och #1574 mergade. Originalplanen är bevarad.
   Testreformen är DELLEVERERAD, inte färdig. Fortsättning i egen checkout
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`, branch
-  `codex/test-control-rest`: först A5-testmiljö och A6b-bevisad dubbelkörning.
+  `codex/test-registry-cleanup`, integrationsbas `4659f3bf`: nu A3:s avgränsade
+  registrytest-rensning. A4:s smala disposabla CI-harness är godkänd som separat
+  nästa implementation; inga installationer eller DB-/browserflödesbevis ännu.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
   mergade. #1554/#1557/#1560/#1561 är bevarade familje-drafts, ersatta av samlad
   source-only-kandidat [#1575](https://github.com/Jakeminator123/sajtmaskin/pull/1575).

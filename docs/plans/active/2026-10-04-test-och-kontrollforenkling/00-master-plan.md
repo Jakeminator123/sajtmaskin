@@ -24,22 +24,21 @@ Jakob beställde genomförande 2026-10-05 och återupptog restarbetet
 mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
 planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
 Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
-i `sajtmaskin-tester-restarbete`, branch `codex/test-control-rest`, från
-färsk preview `f9c5acea6bcab47223607d5b3c20b64c4db88381`. Normal basmerge
-`1deafbac` tog därefter in `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`;
-basdeltat är endast samordnarens `AGENT-HANDOFF.md`.
-Efter scaffold-variantens #1571 integrerades aktuell preview
-`30291b80fbaec32e7913a2b3de3e3901b7f9b179` via normal merge `7b9414a8`.
-TESTERs fem kodblobbar är oförändrade; riktad integration gav 724 PASS/23 skip.
-Första fortsättningspaketet omfattar två A5-docstesters Node-miljö och A6b:s
-dubblerade workflowtest-/route-timeoutkörning, utan smalare testurval.
+i `sajtmaskin-tester-restarbete`, branch `codex/test-registry-cleanup`, från
+preview `4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk. Två A5-docstesters
+Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
+utan smalare testurval. Aktuellt A3-paket tar bort registrytestets historiska
+sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
+Faktisk medlemskap-/radvalidering och befintlig länkvalidator bevaras.
 Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
 samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
 eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
 A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
-optimering är inte färdiga; A5/A6b:s nya delpaket har grön full lokal
-verifiering och oberoende kodreview. Aktuella native leveransgrindar återstår.
+optimering är inte färdiga. Registry-paketets kontrollerade felprov är körda;
+oberoende kodreview är CLEAN på `2b3ea77d` mot `eba1c590`, medan slutlig
+integrationsreview och native leverans återstår. A4:s smala disposabla CI-harness
+är godkänd för separat implementation efter A3, utan lokal installation eller delad DB.
 Hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
