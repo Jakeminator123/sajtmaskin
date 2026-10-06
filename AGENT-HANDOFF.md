@@ -23,12 +23,10 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   `codex/test-control-rest`: först A5-testmiljö och A6b-bevisad dubbelkörning.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
   mergade. #1554/#1557/#1560/#1561 är pushade familje-drafts, inte mergade.
-- Variantarbete: [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571),
-  bevarad historisk head `850053e81240d12c60cb2e49dcc64d12d87cef4d` på
-  `codex/scaffold-explicit-variant`. Ursprunglig kod + exakta avbrutna teständringar
-  är committade. Bevarandekvittot är 370 PASS/17 RED, no-cache TypeScript grön.
-  SCHAFFOLDS äger rättningarna i 5996. Den rättade kandidaten har gröna riktade
-  tester och typkontroll och genomgår oberoende review; kontrollera PR:ns aktuella head.
+- Variantarbete: [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571)
+  är mergad 2026-10-06 till `30291b80fbaec32e7913a2b3de3e3901b7f9b179`.
+  Mergeträdet är identiskt med granskad head `c3b5024a50f010e7d792304c8b9d79c32683e20c`.
+  Variantfixen ska inte göras om; de fyra scaffold-familjerna återstår separat.
 - BUGG-TMP: [#1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572) är READY,
   inte mergad. Historisk bevarad head är `e79dce40939d02c0c87f038ae4bf7f4d665b5178`
   på `codex/chromium-teardown-diagnostics`; kod och undersökningsdokument finns kvar.
@@ -37,10 +35,9 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 
 ## Nästa steg — behåll ordningen
 
-1. Slutför variantens samlade P1-runda: radbruten negation/beskrivning;
-   faktisk råprompt och variantkvitto genom MCP/nonstream; råprompt i eval-runner.
-   WIP MCP-mocks och preliminärt fontassert måste också färdigställas.
-   Därefter oberoende delta/integrationsreview, full CI och exakt deployment.
+1. Variantens samlade P1-runda är levererad via #1571 på `30291b80`.
+   Fortsätt de fyra familje-PR:erna #1554/#1557/#1560/#1561 från denna bas;
+   de är ännu inte mergade och har separat granskning och indexberoende nedan.
 2. Fyra scaffold-familjer kräver en samlad granskad indexkälla. Blob-indexet
    är gemensamt och kan påverka produktion; separat uttryckligt godkännande för
    live refresh saknas. Behåll befintlig OpenAI-nyckel, rotera eller visa den inte.

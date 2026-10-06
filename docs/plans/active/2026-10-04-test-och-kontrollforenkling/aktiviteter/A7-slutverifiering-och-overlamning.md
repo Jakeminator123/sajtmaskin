@@ -34,6 +34,18 @@ CI-/deploymentbevis återstår; Windows-skip är inte lokalt körda Linuxfall.
 A3:s inventeringsskydd och A4:s isolerade harness är
 separat restarbete; varken discovery eller mockar gör dessa flöden körda.
 
+PR [#1574](https://github.com/Jakeminator123/sajtmaskin/pull/1574) publicerades
+på `e95128f2` efter CLEAN även för docs-deltat. Därefter levererades scaffold-
+variantfixen #1571 och aktuell preview `30291b80fbaec32e7913a2b3de3e3901b7f9b179`
+togs in genom normal merge `7b9414a89b26a0d746571654a17effb161ec99fe`.
+Åter alla fem TESTER-kodblobbar identiska. Riktad integration av de sex
+tidigare testfilerna och variantfixens fem testfiler gav 11 filer/724 PASS/23
+befintliga Windows-skip, 14,60 sekunder med fyra workers. Det är inte en ny
+fullsvit eller A4-körning. Aktuell delta-/integrationsreview och native checks
+måste knytas till den nya publicerade headen, inte återanvändas från `e95128f2`.
+Samordnaren överlät endast variantstatus och next-step 1 i `AGENT-HANDOFF.md`
+till denna PR; ZIP-final och övriga statusrader är inte ändrade av TESTER.
+
 ### Redan levererade paket och deras ursprungliga lokala bevis
 
 Verifierade lokala paket: A6a discovery/fallback, A2 audit-orkestrering,

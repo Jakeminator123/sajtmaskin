@@ -28,6 +28,9 @@ i `sajtmaskin-tester-restarbete`, branch `codex/test-control-rest`, från
 färsk preview `f9c5acea6bcab47223607d5b3c20b64c4db88381`. Normal basmerge
 `1deafbac` tog därefter in `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`;
 basdeltat är endast samordnarens `AGENT-HANDOFF.md`.
+Efter scaffold-variantens #1571 integrerades aktuell preview
+`30291b80fbaec32e7913a2b3de3e3901b7f9b179` via normal merge `7b9414a8`.
+TESTERs fem kodblobbar är oförändrade; riktad integration gav 724 PASS/23 skip.
 Första fortsättningspaketet omfattar två A5-docstesters Node-miljö och A6b:s
 dubblerade workflowtest-/route-timeoutkörning, utan smalare testurval.
 Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
