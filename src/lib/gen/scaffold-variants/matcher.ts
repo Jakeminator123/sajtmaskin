@@ -264,7 +264,9 @@ function explicitVariantFromPrompt(
   const cue = cues[0]!;
   const before = source.slice(0, cue.index);
   if ((before.match(/```|~~~/g)?.length ?? 0) % 2 !== 0) return null;
-  const prefix = before.split(/[.!?;\r\n]/).at(-1)!.trim();
+  // A newline is whitespace inside a command, not a sentence boundary:
+  // "Do not use\nvariant …" must retain its negative prefix.
+  const prefix = before.split(/[.!?;]/).at(-1)!.trim();
   // Standalone "Variant: …" or an imperative. An unrestricted substring
   // search would pin quoted/descriptive/negated mentions as user commands.
   if (

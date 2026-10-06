@@ -38,6 +38,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createDraftVersion: vi.fn(),
   getChat: vi.fn(),
   deleteEngineMessage: vi.fn(),
+  getKnownBrokenImageReplacements: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
@@ -57,6 +58,16 @@ vi.mock("@/lib/gen/prompt-dump", () => ({
 
 vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession: startPreviewSessionMock,
+}));
+
+// A verifier may request repair for this deliberately small stream fixture.
+// Exercise the gate, but never let the offline test reach a live LLM provider.
+vi.mock("@/lib/gen/autofix/llm-fixer", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/gen/autofix/llm-fixer")>(),
+  runLlmFixer: vi.fn(async (content: string) => ({
+    fixedContent: content, fixedFiles: [], missingFiles: [], incompleteFiles: [],
+    success: false, partial: false, durationMs: 0,
+  })),
 }));
 
 vi.mock("@/lib/logging/dev-log", () => ({
@@ -92,9 +103,8 @@ vi.mock("@/lib/gen/scaffolds/scaffold-search", () => ({
 // system-prompt.ts uses `require("./static-core-loader")` (CJS) to keep
 // `node:fs` out of Turbopack's static analysis. Vitest's ESM transformer
 // can't resolve that dynamic require, so we stub the heavy entry points
-// the pipeline calls (composeEngineSystemPrompt, buildDynamicContext)
-// rather than trying to mock the require target. Test only asserts
-// pipeline wiring, not prompt content.
+// for static-core composition only. Dynamic context and the actual variant
+// finalizer stay real so this also tests the MCP raw-prompt boundary.
 vi.mock("@/lib/gen/system-prompt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/gen/system-prompt")>(),
   SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
@@ -103,7 +113,8 @@ vi.mock("@/lib/gen/system-prompt", async (importOriginal) => ({
 }));
 
 // Keep real orchestration/finalizer/materializer, but no Blob/provider work.
-vi.mock("@/lib/gen/embeddings/embeddings-storage", () => ({
+vi.mock("@/lib/gen/embeddings/embeddings-storage", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/gen/embeddings/embeddings-storage")>(),
   loadEmbeddingsArtifact: vi.fn(async () => null),
 }));
 vi.mock("@/lib/gen/scaffold-variants", async (importOriginal) => ({
@@ -112,6 +123,7 @@ vi.mock("@/lib/gen/scaffold-variants", async (importOriginal) => ({
 }));
 
 import { generateOwnEngineSiteFromPrompt } from "./generate-site-from-prompt";
+import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 
 const LLM_CONTENT = [
   "```tsx file=\"app/page.tsx\"",
@@ -245,6 +257,12 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
   });
 
   it("MCP raw directive reaches real materialization, snapshot and telemetry", async () => {
+    // The real font materializer is intentionally conservative: it operates
+    // on a layout present in the generated stream, not a later scaffold merge.
+    const layout = getScaffoldById("landing-page")!.files.find((file) => file.path === "app/layout.tsx")!;
+    createGenerationPipelineMock.mockReturnValue(sseStream(buildSSEPayload(
+      `${LLM_CONTENT}\n\`\`\`tsx file="app/layout.tsx"\n${layout.content}\n\`\`\``,
+    )));
     const result = await generateOwnEngineSiteFromPrompt({
       prompt: "professional b2b consulting corporate enterprise.\nUse variant hero-fullbleed-bg.",
       projectId: "proj_explicit", buildIntent: "website",
@@ -260,8 +278,10 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
     expect(createGenerationTelemetryRecordMock.mock.calls[0]?.[0]).toMatchObject({
       variantId: "hero-fullbleed-bg", meta: { variantSelection: receipt },
     });
-    expect(result.files.find((file) => file.path === "app/layout.tsx")?.content)
-      .toContain("Space_Grotesk");
+    const materializedLayout = result.files.find((file) => file.path === "app/layout.tsx")?.content;
+    expect(materializedLayout).toContain('import { Cormorant_Garamond, Inter } from "next/font/google"');
+    expect(materializedLayout).toContain("--font-display");
+    expect(materializedLayout).toContain("--font-sans");
   }, 30_000);
 
   it("generates a site for 'Bygg en hemsida för en advokatbyrå'", async () => {
