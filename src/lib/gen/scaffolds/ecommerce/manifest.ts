@@ -56,7 +56,7 @@ export const ecommerceManifest: ScaffoldManifest = {
   // planning-helpers): only /products was guaranteed by the plan.
   //
   // SM-048 (owner decision 2026-08-14): the route plan decides which of
-  // these route files are materialized. /categories and /om are declared
+  // these route files are materialized. /categories is declared
   // (page file exists, never planned by default) so the plan filter in
   // finalize-merge owns them — this also resolved their SM-042 gate drift.
   // The dynamic detail templates ride on their listing route via
@@ -66,6 +66,8 @@ export const ecommerceManifest: ScaffoldManifest = {
   // SM-043 owner decision 2026-10-05: preserve declared /cart with a real
   // demo page + navSurface link, sharing CartContents/state with the drawer.
   // This does not promote /cart to a required route or alter plan defaults.
+  // Keep four level-1/2 baseline pages: the old /om stub is the #om section
+  // on home. Explicitly requested /om is still owned by the route plan/LLM.
   routeContract: {
     requiredRoutes: [
       {
@@ -75,7 +77,7 @@ export const ecommerceManifest: ScaffoldManifest = {
       },
     ],
     optionalRoutes: [],
-    declaredRoutePaths: ["/cart", "/categories", "/om"],
+    declaredRoutePaths: ["/cart", "/categories"],
     dynamicRoutePatterns: ["/category/[slug]", "/product/[id]"],
     deliveryGroups: [
       ["/products", "/product/[id]"],
@@ -83,7 +85,7 @@ export const ecommerceManifest: ScaffoldManifest = {
     ],
   },
   // Header + footer: both are SHARED files that keep static route links.
-  // After SM-048 the plan can drop /products, /categories, /om; nav-sync
+  // After SM-048 the plan can drop /products, /categories, /cart; nav-sync
   // must filter both surfaces (SM-055). Other scaffolds' footers use `#`
   // placeholders, so they stay off this list.
   navSurface: ["components/site-header.tsx", "components/site-footer.tsx"],

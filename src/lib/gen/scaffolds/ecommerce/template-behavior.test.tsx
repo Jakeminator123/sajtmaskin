@@ -23,6 +23,9 @@ import { ecommerceManifest } from "./manifest";
 import { buildCompleteProject } from "../../export/project-scaffold";
 import { collectRequiredUiComponents } from "../../export/project-scaffold-ui-reader";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import { buildRoutePlan } from "../../route-plan";
+import { resolveScaffoldRouteDelivery } from "../route-delivery";
+import { syncNavItemsFromRoutePlan } from "../sync-nav-from-route-plan";
 
 const ROOT_STORAGE_KEY = cartStorageKey("/");
 
@@ -35,6 +38,55 @@ function demoRender(children: ReactNode) {
 afterEach(cleanup);
 
 describe("ecommerce demo boundary", () => {
+  it("keeps the store presentation on an addressable home section, not a fifth baseline page", () => {
+    const { container } = demoRender(<Home />);
+    const section = container.querySelector("#om");
+    expect(section?.textContent).toContain("Kort butikspresentation");
+    expect(ecommerceManifest.files.some((file) => file.path === "app/om/page.tsx")).toBe(false);
+    expect(ecommerceManifest.routeContract?.declaredRoutePaths).not.toContain("/om");
+  });
+
+  it("default route delivery leaves no category-page links on the retained home page", () => {
+    const plan = buildRoutePlan({
+      buildIntent: "website", prompt: "Skapa en webbshop för våra produkter.",
+      resolvedScaffold: ecommerceManifest,
+    });
+    const delivery = resolveScaffoldRouteDelivery(ecommerceManifest.routeContract, plan)!;
+    const delivered = ecommerceManifest.files.filter((file) => !delivery.classifyDrop(file.path));
+    const files = syncNavItemsFromRoutePlan({
+      files: delivered.map((file) => ({ ...file, language: inferFileLanguage(file.path) })),
+      routePlan: plan, scaffold: ecommerceManifest,
+    }).files;
+    const byPath = new Map(files.map((file) => [file.path, file.content]));
+    expect(byPath.has("app/products/page.tsx")).toBe(true);
+    expect(byPath.has("app/product/[id]/page.tsx")).toBe(true);
+    expect(byPath.has("app/categories/page.tsx")).toBe(false);
+    expect(byPath.has("app/category/[slug]/page.tsx")).toBe(false);
+    expect(byPath.get("app/page.tsx")).toContain('href="#kategorier"');
+    expect(byPath.get("app/page.tsx")).not.toContain('href="/categories"');
+    expect(byPath.get("app/page.tsx")).not.toContain('href={`/category/');
+    for (const path of ["components/site-header.tsx", "components/site-footer.tsx"])
+      expect(byPath.get(path)).toContain('href: "/#om"');
+  });
+
+  it("an explicit category-page brief still delivers category templates and their navigation", () => {
+    const plan = buildRoutePlan({
+      buildIntent: "website", prompt: "Build the supplied category-page brief.",
+      brief: { pages: [{ path: "/categories", name: "Categories", purpose: "Product categories" }] },
+      resolvedScaffold: ecommerceManifest,
+    });
+    expect(plan.routes.some((route) => route.path === "/categories")).toBe(true);
+    const delivery = resolveScaffoldRouteDelivery(ecommerceManifest.routeContract, plan)!;
+    expect(delivery.classifyDrop("app/categories/page.tsx")).toBeNull();
+    expect(delivery.classifyDrop("app/category/[slug]/page.tsx")).toBeNull();
+    const files = syncNavItemsFromRoutePlan({
+      files: ecommerceManifest.files.map((file) => ({ ...file, language: inferFileLanguage(file.path) })),
+      routePlan: plan, scaffold: ecommerceManifest,
+    }).files;
+    for (const path of ["components/site-header.tsx", "components/site-footer.tsx"])
+      expect(files.find((file) => file.path === path)?.content).toContain('href: "/categories"');
+  });
+
   it("starts with an empty cart rather than invented purchases", () => {
     demoRender(<CartDrawer />);
     expect(screen.getByRole("button", { name: "Öppna varukorg (0)" })).toBeDefined();

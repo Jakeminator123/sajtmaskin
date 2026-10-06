@@ -8,7 +8,7 @@ const footerLinks = {
     { label: "Kategori 2", href: "/category/category-2" },
   ],
   Info: [
-    { label: "Om oss", href: "/om" },
+    { label: "Om oss", href: "/#om" },
     { label: "Produkter", href: "/products" },
     { label: "Kategorier", href: "/categories" },
     { label: "Hem", href: "/" },

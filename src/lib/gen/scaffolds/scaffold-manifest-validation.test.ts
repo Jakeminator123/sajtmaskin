@@ -607,7 +607,7 @@ function sortViolations(violations: RouteContractViolation[]): RouteContractViol
  *
  * SM-042 (resolved 2026-08-14 with SM-048): the owner picked direction (1),
  * "make the nav mirror the plan". The formerly drifting routes (/pipeline,
- * /tasks, /forgot-password, /users, /categories, /om) are now declared in
+ * /tasks, /forgot-password, /users, /categories) are now declared in
  * their contracts, the route-plan file filter in `finalize-merge.ts` drops
  * their files when the plan omits them, and `syncNavItemsFromRoutePlan`
  * rewrites each scaffold's `navSurface` to match the plan.
@@ -616,6 +616,8 @@ function sortViolations(violations: RouteContractViolation[]): RouteContractViol
  * local demo page and navSurface link, sharing state/controls with the drawer.
  * The plan still owns delivery; /cart is not a new required/default route.
  * Its exception is removed together with that implementation, not suppressed.
+ * The former ecommerce /om stub is now a home section (#om) so /cart fits
+ * the unchanged four-page baseline budget; explicit /om remains plannable.
  */
 const KNOWN_ROUTE_CONTRACT_VIOLATIONS: RouteContractViolation[] = sortViolations([]);
 

@@ -11,7 +11,7 @@ const navItems = [
   { label: "Produkter", href: "/products" },
   { label: "Demokorg", href: "/cart" },
   { label: "Kategorier", href: "/categories" },
-  { label: "Om oss", href: "/om" },
+  { label: "Om oss", href: "/#om" },
 ];
 
 export function SiteHeader() {

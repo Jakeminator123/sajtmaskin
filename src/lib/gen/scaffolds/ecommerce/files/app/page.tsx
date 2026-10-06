@@ -28,7 +28,7 @@ export default function Home() {
             </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/categories">Kategorier</Link>
+            <Link href="#kategorier">Kategorier</Link>
           </Button>
         </div>
       </section>
@@ -36,7 +36,7 @@ export default function Home() {
         <h2 className="mb-8 text-2xl font-semibold tracking-tight">Exempelkategorier</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((category) => (
-            <Link key={category.slug} href={`/category/${category.slug}`} className="group">
+            <div key={category.slug}>
               <Card className="overflow-hidden">
                 <div className="relative aspect-3/2 overflow-hidden">
                   <Image src={category.image} alt={category.name} fill className="object-cover" />
@@ -45,7 +45,7 @@ export default function Home() {
                   <p className="font-medium">{category.name}</p>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
       </section>
@@ -56,6 +56,12 @@ export default function Home() {
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
+      </section>
+      <section id="om" aria-labelledby="om-heading" className="mx-auto max-w-3xl px-6 py-16">
+        <h2 id="om-heading" className="text-2xl font-semibold tracking-tight">Om oss</h2>
+        <p className="mt-4 leading-relaxed text-muted-foreground">
+          [Kort butikspresentation — ersätt med er historia, värderingar och kontaktuppgifter.]
+        </p>
       </section>
     </div>
   );
