@@ -20,31 +20,34 @@ Bedöm både själva kontrollen och det aktuella krav som den är tänkt att sky
 ## Mandat och start
 
 Jakob beställde genomförande 2026-10-05 och återupptog restarbetet
-2026-10-06 i samordningschatten `Dokumentera Master-promotion`. #1553 är
-mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
-planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
-Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
-i `sajtmaskin-tester-restarbete`, branch `codex/project-persistence-e2e`, från
-preview `e113a7e273df22d4518f6949829b9cacae2af06e`. Två A5-docstesters
-Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
-utan smalare testurval. A3-paketet #1576 tog bort registrytestets historiska
-sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
-Faktisk medlemskap-/radvalidering och befintlig länkvalidator bevaras.
-Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
-samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
-eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
-Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
-A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
-optimering är inte färdiga. Registry-paketet är levererat med oberoende CLEAN,
-full native CI och exakt deployment. A4:s godkända smala disposabla CI-harness
-är lokalt implementerad utan lokal installation, authändring eller delad DB.
-Oberoende review är CLEAN efter rättad skip/false-green-lucka och bassynk.
-Full lokal kontroll hade 21/22 PASS; Backoffices Git-vakt stoppade samtidiga
-externa refs och gav därefter grönt i samordnad omkörning. Verklig grön
-browser-/DB-runtime återstår: draft #1580:s första riktiga körning fann ett
-avgränsat testbootstrapfel som nu rättas, utan produkt-/authändring. A3:s ändliga
-restlista finns i dess befintliga områdesmatris; inget nytt testregister införs.
-Hela planen förblir aktiv.
+2026-10-06 i samordningschatten `Dokumentera Master-promotion`. #1553, #1562,
+#1564, #1574 och registry-paketet #1576 är mergade; de återlevereras inte.
+
+Aktuellt A3-katalogpaket ersätter historiska versionslistor och katalogantal
+med jämförelser mot kanoniska owners och oberoende projektioner. Source
+`21fa810e` mot `e113a7e2` är oberoende CLEAN efter att två P2-täckningsfynd
+rättats. Normal integration `de87533e` mot preview `30b941c5` innehåller exakt
+fem testpaths; deras test- och lockblobbar är identiska med sourcepaketet och
+författarens `verify:pr -- --plan` är grön. Oberoende avgränsad
+integrationsreview är CLEAN med identiska berörda produktowners, fixtures och
+fem testblobbar. Färsk discovery är 1 093/1 093 PASS; docslänkar,
+historikstatus och plan är gröna. Paketet är nu levererat via #1582 på
+`c33daca3`: slutreview CLEAN, native CI 4:13, 21/21 dossierbyggen 5:55 och
+exakt READY-deployment enligt samordnaren. A3:s områdesvisa bevisgränser består.
+
+TESTER arbetar separat med A4. PR #1580 är åter DRAFT efter triage. Native run
+`37462490014` avslutades på 5:07 med endast persistence och quality FAIL;
+dossier `37462489767` var 21/21 PASS på 6:55 och exakt deployment READY.
+`BuilderPreviewTools` yttre grind gömde Kod vid tom preview trots code-only-stöd.
+Separat produktfix #1583 är levererad på `e9354344`; TESTER normalsynkar den
+med hydreringsdiagnostiken från `f50448eb` för ett nytt samlat native prov.
+Hydration samt edit/save/tenant och senare generation/follow-up/remove/replace
+är ännu inte körbevisade. A6b och A7 är också öppna. Mandatet omfattar scoped
+implementation, commit, push och PR mot
+`preview`; samordnaren äger mergeordningen. Ingen mastermerge eller extra
+DB-/provideråtgärd ingår. Leveransbevis och begränsningar finns i
+[A7](aktiviteter/A7-slutverifiering-och-overlamning.md). Hela planen förblir
+aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
 driva aktiviteterna inom uppdraget; varje rutinmässig delpunkt behöver inte ett
@@ -119,11 +122,10 @@ A6 har två separata grindar: säkerhetsdelen före piloten, optimeringen sist.
 
 ## Angränsande aktiva initiativ
 
-- Dossier-förenklingen är levererad via #1551, #1555 och #1558; terminalstatus
+- Dossier-förenklingen är terminalt levererad; status
   finns i [avklarat-indexet](../../avklarat/README.md) och stabil semantik i
-  [dossierkontraktet](../../../contracts/dossier-system.md). Runtimeowners
-  frigavs efter verifierad preview `59a12080`. SCHAFFOLDS intent-/scaffoldarbete
-  är levererat via #1575; TESTER:s aktuella paket ändrar inte dess produktowners.
+  [dossierkontraktet](../../../contracts/dossier-system.md). Scaffoldarbetet är
+  också levererat; gemensamma live-indexåtgärder ingår inte i testplanen.
 - [Källkvitto, Quality Bar och addenda](../2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)
   äger sina produktbeslut. Samordna förändringar i källkvitto, designråd,
   varianter och addenda; starta inte om redan levererade delar.

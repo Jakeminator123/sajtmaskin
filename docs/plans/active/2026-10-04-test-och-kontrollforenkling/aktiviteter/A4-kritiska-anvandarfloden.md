@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Draft #1580; /builder 200 verifierad, code-only UI-fynd hos produktägaren, inget grönt persistensprov.
+Status: Draft #1580; produktfixarna #1581/#1583 levererade, nytt grönt persistensprov återstår.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -106,7 +106,16 @@ Oberoende ownergranskning bekräftade korrekt Kod/Kodvy-selector. Den yttre
 minimal produktfix och komponentregression; TESTER seedar ingen falsk
 preview-URL och manipulerar inget React-state. Eventuellt ytterligare
 hydreringsfel är obevisat. Ny native körning samlas efter levererad fix och
-granskad integration, inte som blind omkörning. PR:n förblir draft under fyndet.
+granskad integration, inte som blind omkörning.
+
+Produktägaren levererade code-only-rättningen separat via #1583 på faktisk
+preview `e935434495e6ce888a10933097b869fb5c61071e`, efter katalogpaketet #1582
+på `c33daca3`. Riktig Kod-/registry-meny och delad hook gav fyra RED före
+rättningen och fem GREEN efter; samordnaren verifierade CLEAN och PR-CI 3:47.
+TESTER normalsynkar båda leveranserna utan egna produktändringar. Diagnostikens
+kodhead `f50448eb` är oförändrad; slutlig integrationsreview och ett samlat
+native persistensprov ska nu köras. PR:n lämnas draft tills review är klar;
+ingen tidigare röd körning eller komponentregression räknas som E2E-acceptans.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

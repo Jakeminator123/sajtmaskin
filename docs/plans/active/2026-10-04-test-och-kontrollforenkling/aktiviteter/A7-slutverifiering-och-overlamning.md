@@ -2,134 +2,43 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574/#1576 levererade; A4 pågår, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574/#1576/#1582 levererade; A4 pågår, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
 
-TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
-`codex/project-persistence-e2e`, från preview
-`30b941c5eb4bb02cbee7788408806db94ff36ada` efter normal basmerge `f083b896`.
-`e1e8` är avvecklad.
-A3:s registry-paket ändrar bara ett test och befintlig planstatus:
-historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
-Baslinje och återställd kontroll ger 40 PASS; med två befintliga länk-/termtester
-61 PASS. Två onödiga fel för avsiktlig sida/områdesnamn försvinner, medan nio
-verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
-är återställda. Oberoende `gpt-5.6-sol`/xhigh-review är CLEAN på
-`2b3ea77d` mot `eba1c590`; testblob och ownerfiler är identiska efter
-synk till `4659f3bf`. Slutlig integrationsreview gav CLEAN på `5eab11c8`.
-A4:s smala disposabla CI-harness är lokalt implementerad som separat paket.
-Riktat efter reviewrättning: tre filer/81 PASS och 28 explicita Windows-skip av Linux/Bash-aggregatet,
-högst fyra workers. Typecheck, ESLint och workflowkontrakt är gröna; Playwright
-listar ett prov utan runtime. Miljöproven avvisar fel DB-adress/queryoverride,
-container/namespace, nätinterface, privilegier, dotenv och direkt start utan
-isolering. Den verkliga quality-shellen gav dessutom 16/16 via installerad
-Git-for-Windows Bash: två positiva och 14 negativa failure/cancelled/missing/
-skipfall. Detta är aggregatbevis, inte Linux-isolering eller browser/DB.
-Oberoende `gpt-5.6-sol`/xhigh granskade `9f1d22c6` mot `f68d1837` och fann ett
-P2: Playwright exit 0 kunde maskera en helt skippad körning. Rättningen kräver
-JSON-bevis på faktiskt passed och noll skip/flaky/unexpected/expected-fail.
-Ett verkligt offline-Playwrightprov gav exit 0 med 0 expected/1 skipped;
-launcherns nya rapportvakt gav avsett RED. Ingen browser eller DB startades.
-Normal merge av #1577 bevarade dess fyra kod-/testblobbar exakt. Oberoende
-deltareview är CLEAN på `89bf4bb8` mot `72de69a8`. Full lokal `verify:pr` på
-den snapshoten körde alla 22 valda kontroller på 947,10 sekunder: 21 PASS,
-men `backoffice:test` gav exit 1 från Git-vakten trots 702 Python PASS på
-56,041 sekunder. Reflog visar samtidiga externa preview-/Dependabot-checkout-
-och refändringar 12:55:19/12:55:41 CEST under wrapperns 12:54:46–12:55:42.
-Egen HEAD/index/worktree var oförändrade. Vakten förblir fail-closed; totalen
-är RED och ska inte i efterhand betecknas som ett helgrönt fullkvitto.
-Standardsviten gav 1 014 filer/13 848 PASS/31 explicita skip på 671,99 sekunder
-med fyra workers. Lokal logg: `.tmp/a4-full-verify-20261006.log`.
-Nu är #1578:s dependencyunion och #1556:s SEO normalt integrerade. Färsk
-`npm ci` gav exit 0. Backoffice-omkörning i samordnat Git-tyst fönster gav
-702 PASS på 58,814 sekunder och exit 0 med oförändrad vakt. Det är ett separat
-återställningskvitto, inte en ny fullsuite. Fem riktade filer (A4/CI/discovery
-och SEO) gav 95 PASS/28 Windows-skip; faktisk Bash-matris 16/16 och verkligt
-skipped-only-Playwright gav åter avsett RED i rapportvakten. Oberoende
-`gpt-5.6-sol`/xhigh gav CLEAN på merge-head `23bf8b5095f6b35766a4618c12b63b800f4f2fa4`
-mot dåvarande bas `410d933c`. Alla nio A4-kod-/workflow-/testblobbar var identiska med `89bf4bb8`;
-basens lockfil och fem SEO-blobbar är exakt bevarade. Färsk typecheck, ESLint,
-workflowkontrakt och docs/länkar är gröna; discovery 1 094/1 094 samt
-Playwright-listning av ett prov är gröna, inte runtime. Slutdoc-attest och
-faktisk browser-/DB-runtime återstod vid publiceringen. Slutdoc-head `17edcbeee`
-fick separat CLEAN och publicerades i draft
-[#1580](https://github.com/Jakeminator123/sajtmaskin/pull/1580).
+Registry-paketet är levererat via #1576 på `f68d1837`. Aktuellt A3-paket har
+source `21fa810e` mot `e113a7e2`, oberoende CLEAN efter två rättade P2-fynd.
+Integrationshead `de87533e` mot preview `30b941c5` ändrar exakt fem testpaths;
+test- och lockblobbarna är identiska med sourcepaketet och författarens
+`verify:pr -- --plan` är grön. Riktat sourcebevis: 102 TypeScript PASS i fyra
+filer, 31 Python PASS och hela Backoffice 702 PASS/56,104 sekunder. Fjorton
+verkliga felmutationer gav RED; tre legitima katalog-/versionsförändringar som
+de gamla låsen stoppade passerar nu. Oberoende avgränsad integrationsreview är
+CLEAN med identiska berörda owners, fixtures och testblobbar. A3 äger full
+disposition och bevisgräns.
 
-Native CI [37453698640](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37453698640)
-valde heavy och körde verkligen persistensjobbet. Det föll korrekt före
-app/browser på saknad `postgres`-roll; isolerings- och egen container-cleanup
-verifierades. Se A4 för den smala NOLOGIN-bootstraprättningen. Normal synk av
-#1579 tar bara in Maps-typen 3.66.4 → 3.66.5 och dess lockmetadata. Ny riktad
-kontroll, oberoende deltareview och faktisk ny native körning krävs.
+Färsk discovery 1 093/1 093, docslänkar, historikstatus och plan är PASS på
+integrationsbasen. Slutlig CLEAN och leverans via #1582 är nu verifierade av
+samordnaren: preview `c33daca3`, PR-CI 4:13, 21/21 dossierbyggen 5:55 och exakt
+READY-deployment. Post-CI 3:43 har bara samma 13 DB-paritetsrader, noll delta;
+hela post-CI är därför inte grön. Exakt merge-deployment är READY.
+TESTER:s separata #1580 är åter DRAFT. Native run
+`37462490014` slutade efter 5:07 med endast persistence och quality FAIL;
+dossier `37462489767` gav 21/21 PASS på 6:55 och exakt deployment READY.
+Det statiska code-only-felet i `BuilderPreviewTools` är separat levererat via
+#1583 på `e9354344`, med oberoende CLEAN, PR-CI 3:47 och exakt READY-deployment
+enligt samordnaren. A4 normalsynkar denna bas med oförändrad hydreringskod
+från `f50448eb`; aktuell integrationsreview och nytt native flödesprov återstår.
+Hydration, edit/save/tenant och senare generation/follow-up/remove/replace är
+inte bevisade. A4, A6b och hela A7 förblir öppna.
 
-Bootstraphead `8e9fd8db` fick oberoende `gpt-5.6-sol`/xhigh CLEAN mot
-`e113a7e2`, färsk npm ci, 81 PASS/28 Windows-skip samt grön typecheck/lint.
-CI [37454396038](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37454396038)
-verifierade bootstrap/db-init och app/browser-start men persistensjobbet föll
-på `/builder` 500 från en befintlig `node:path`-klientimport. Övriga valda jobb,
-inklusive fyra shards och build, passerade; required quality blev korrekt RED.
-Fixture-/containercleanup passerade. A4 beskriver skillnaden mellan det
-uppmätta webpack-felet och ännu obevisat standard-Turbopack-/produktionsfel.
-Samordnaren äger separat produktfix; TESTER:s nya delta är bara HTTP-failfast,
-avgränsad actiontimeout och cleanup som bevarar grundfelet. Inget flöde är klart.
-Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
-
-#1581 har nu levererat den separata produktfixen på `30b941c5`. TESTER:s normala
-integration `f083b896` bevarar exakt basens sex produkt-/testblobbar samt samtliga
-A4-blobbar från CLEAN-granskad failfast-head `1af6fe76`. Färsk integration gav
-83 PASS/28 explicita OS-skip i fyra filer, inklusive båda riktiga browseringångarna;
-separat E2E/config-typkontroll, workflowkontrakt och discovery 1 095/1 095 PASS.
-Lås-/beroendeträdet är oförändrat; ingen ny installation eller helsuite behövdes
-för samma bytes. Ny native runtime och aktuell integrationsreview återstår.
-
-A3:s fem testpaths är separat lokalt säkrade på `codex/test-catalog-contracts`,
-head `1d61637a`, utan push. 96 riktade TS- och 31 Pythonprov, typkontroll och
-scoped lint PASS. Koordinerad Next/ESLint-ägarmutation gav gamla 12 RED/nya
-73 PASS; sex riktiga version-/forcepin-/paritetsfel gav fortsatt RED. Alla
-produktmutationer är återställda. Shadcn-/curatormutationer, full Backoffice,
-discovery, docs och slutlig review återstår; paketet är WIP och inte del av #1580.
-
-### Två aktuella jämförbara PR-CI-observationer
-
-Run-/job-API lästes 2026-10-06; båda körde heavy med fyra fulla shards.
-Sekunderna nedan är verklig walltid, inte summan av parallella jobb.
-
-| PR / CI-run | Total | Quality-core | npm / typkontroll / lint i core | Långsammaste shard-test | Scope klar → core start |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| #1574 / `37444432723` | 273 s | 236 s | 30 / 58 / 91 s | 147 s | 4 s |
-| #1576 / `37447473368` | 291 s | 223 s | 28 / 53 / 93 s | 143 s | 38 s |
-
-Core låg på kritisk väg i båda. Produktionsbyggsteget var 78 respektive
-101 sekunder och kördes parallellt. Skillnaden är inte ett kausalt före/efter-
-bevis för en teständring: kodbas, runner/setup och dispatch skiljer. Dossier-
-acceptans och Vercel-deployment ingår inte i dessa CI-totaler. Inga nya körningar
-startades för mätningen; inget generellt procentpåstående görs.
-
-### Levererat registry-paket — #1576
-
-[#1576](https://github.com/Jakeminator123/sajtmaskin/pull/1576) mergades
-2026-10-06 10:14:46 UTC till `f68d1837e80585f67d4fc70bad317fc0450c6353`.
-Trädet `316a7af5` är identiskt med granskad source-head `5eab11c8`.
-Färsk riktad integration gav 61 PASS/3 filer, discovery 1089/1089 och gröna
-doc-/workflowkontrakt. CI [37447473368](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37447473368)
-SUCCESS, 4:51 inklusive setup/kö; fyra fulla shards och alla sex required gröna.
-Dossier [37447473353](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37447473353)
-SUCCESS light, inte 21 byggen. Exakt PR-deployment
-`dpl_mdbPvHQ8uwf19pHrDYUtxXAq6Wsn` READY, aliasError null; noll olösta trådar.
-Samordnarens terminala postkvitto: push-CI `37448494222`, 4:50, kodjobb PASS;
-bara samma 13 DEV/PROD-paritetsrader, noll delta mot #1575. Total post-CI är
-inte grön. Exakt merge-deployment `dpl_2khE9AX4kTWsxeEZ34X7PS2Rftfb` READY,
-aliasError null. Ingen masterpromotion eller live-DB-åtgärd.
-
-Ändlig slutgräns: disponera A3:s tre kandidatfamiljer och BEHÅLL-grupper,
-bevisa A4:s uttryckliga återstående flöden och besluta A6b:s namngivna överlapp.
-A5:s tre levererade miljö-/harnessoptimeringar återöppnas inte utan ny uppmätt
-flaskhals. A7 samlar därefter aktuell discovery, negativa felbevis, oberoende
-slutreview och terminal leverans. Före/efter använder jämförbara befintliga
-native körningar med kö/setup/critical-path separerade; inga extra CI-reruns
-bara för statistik och ingen generell procentvinst härleds från små deltester.
+A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
+702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat
+samordnad omkörning gav 702 PASS/exit 0 med oförändrad vakt. Senare riktade
+kontroller och oberoende CLEAN återanvänds bara för identiska blobbar; A4 äger
+bootstrap-, isolerings-, runtimefel- och diagnostikbevisen. Ingen ny helsuite
+körs enbart för att upprepa oförändrad kod eller tidigare levererade paket.
 
 ### Levererat A5/A6b-delpaket — #1574
 
@@ -278,7 +187,7 @@ preview-host-körningen; en faktisk PR med workflowdiff väljer däremot
 native CI, Linux, browser, isolerad DB eller externa providers. Senare native
 CI redovisas separat ovan; browser-/DB-/providerflödena i A4 är obevisade.
 
-### Aktuell bassynk
+### Historisk bassynk för #1553 — 2026-10-05
 
 PR #1553 normalsynkades 2026-10-05 en gång efter den avslutade dossier- och
 industryleveransen, mot faktisk preview
@@ -304,9 +213,9 @@ Detta är ett integrationskvitto, inte en ny fullsuite eller ett A4-flödesbevis
 Tidigare fullprofil återanvänds endast för identiska kodbytes. Aktuell review,
 native CI och deployment måste avse PR:ns nya publicerade head och aktuella
 bas; äldre gröna PR-resultat är inte ett nytt mergekvitto. Samordnaren äger
-merge. Planens A3 är fortfarande ofullständig; A4 har integrerat produktfixen
-men inväntar nytt native flödesbevis. A6b:s slutliga urval är fortfarande bara
-read-only kartlagt. Hela A7/slutchecklistan är inte färdig.
+merge. Vid denna historiska synk var A3 ofullständig, A4 harnessblockerad och
+A6b endast read-only kartlagd. Aktuell status finns överst i dokumentet;
+detta integrationskvitto stänger inte hela A7/slutchecklistan.
 
 ## Uppdrag
 
@@ -368,13 +277,12 @@ motsvarande förbättring av full CI, kötid eller deployment. Inga obligatorisk
 checks eller CI-shards har avvecklats.
 
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
-Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
-aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
-och samordnad skrivreservation; A5:s tvåfilspaket är levererat via #1574.
-A4 kräver nytt native flödesbevis för den isolerade DB-harnessen och en
-deterministisk providergräns för återstående flöden. A6b:s slutliga urvalsminskning
-väntar på beroendena; same-head-eventdedup är separat read-only underlag,
-inte en genomförd workflowändring. Planpaketet stannar aktivt.
+Samordnaren har levererat A3-katalogpaketet och äger fortsatt native checks och
+merge för nästa paket. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
+skrivreservation. TESTER äger #1580:s felutredning och får inte redovisa ett
+browser-/persistensflöde som godkänt innan edit/save/tenant faktiskt körts.
+A4:s senare generation/follow-up/remove/replace, A6b och A7 återstår.
+Planpaketet stannar aktivt.
 
 ## Slutkvitto för hela planen
 
