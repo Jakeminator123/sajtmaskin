@@ -77,6 +77,7 @@ export function runtimeEnvironment({
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_APP_URL: BASE_URL,
     PLAYWRIGHT_BROWSERS_PATH: "0",
+    PLAYWRIGHT_JSON_OUTPUT_FILE: `${home}/project-persistence-report.json`,
     // Only the launcher owns this one query parameter; the input is query-free.
     POSTGRES_URL: `postgresql://${db.user}:${db.password}@${db.host}:${db.port}/${db.database}?sslmode=disable`,
     A4_POSTGRES_URL: dbUrl,
@@ -90,6 +91,36 @@ export function assertNoDotenv(root) {
   assert(
     !readdirSync(root).some((name) => name === ".env" || name.startsWith(".env.")),
     "Refusing checkout with root dotenv files",
+  );
+}
+
+export function assertPassingPlaywrightReport(report) {
+  const collectTests = (suites) => {
+    assert(Array.isArray(suites), "Missing Playwright suites");
+    return suites.flatMap((suite) => [
+      ...(suite.specs ?? []).flatMap((spec) => spec.tests ?? []),
+      ...collectTests(suite.suites ?? []),
+    ]);
+  };
+  const tests = collectTests(report?.suites);
+  assert(Array.isArray(report.errors) && report.errors.length === 0, "Playwright reported errors");
+  assert(
+    tests.length > 0 &&
+      report.stats?.expected === tests.length &&
+      report.stats.skipped === 0 &&
+      report.stats.unexpected === 0 &&
+      report.stats.flaky === 0,
+    "Persistence requires executed passing tests, with no skipped, unexpected or flaky results",
+  );
+  assert(
+    tests.every(
+      (test) =>
+        test.expectedStatus === "passed" &&
+        test.status === "expected" &&
+        test.results?.length > 0 &&
+        test.results.every((result) => result.status === "passed"),
+    ),
+    "Persistence tests must actually pass, not be skipped or expected to fail",
   );
 }
 

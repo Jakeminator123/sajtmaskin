@@ -9,7 +9,7 @@ Beroende: A3–A6.
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
 `codex/project-persistence-e2e`, från preview
-`f68d1837e80585f67d4fc70bad317fc0450c6353`.
+`72de69a87faea791303a34d0c897c965c580a6cc` efter normal basmerge `c0ebf130`.
 `e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
@@ -20,14 +20,38 @@ verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
 `2b3ea77d` mot `eba1c590`; testblob och ownerfiler är identiska efter
 synk till `4659f3bf`. Slutlig integrationsreview gav CLEAN på `5eab11c8`.
 A4:s smala disposabla CI-harness är lokalt implementerad som separat paket.
-Riktat: tre filer/80 PASS och 28 explicita Windows-skip av Linux/Bash-aggregatet,
+Riktat efter reviewrättning: tre filer/81 PASS och 28 explicita Windows-skip av Linux/Bash-aggregatet,
 högst fyra workers. Typecheck, ESLint och workflowkontrakt är gröna; Playwright
 listar ett prov utan runtime. Miljöproven avvisar fel DB-adress/queryoverride,
 container/namespace, nätinterface, privilegier, dotenv och direkt start utan
-isolering. Ingen faktisk browser-/DB-körning är ännu bevisad. Oberoende review
-och full `verify:pr` återstår; ordinarie färskbasgrind stoppar nu på den senare
-Blob-leveransen #1577. Samordnaren anger en samlad slutbas efter dependencyjobbet.
-Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
+isolering. Den verkliga quality-shellen gav dessutom 16/16 via installerad
+Git-for-Windows Bash: två positiva och 14 negativa failure/cancelled/missing/
+skipfall. Detta är aggregatbevis, inte Linux-isolering eller browser/DB.
+Oberoende `gpt-5.6-sol`/xhigh granskade `9f1d22c6` mot `f68d1837` och fann ett
+P2: Playwright exit 0 kunde maskera en helt skippad körning. Rättningen kräver
+JSON-bevis på faktiskt passed och noll skip/flaky/unexpected/expected-fail.
+Ett verkligt offline-Playwrightprov gav exit 0 med 0 expected/1 skipped;
+launcherns nya rapportvakt gav avsett RED. Ingen browser eller DB startades.
+Normal merge av #1577 bevarade dess fyra kod-/testblobbar exakt. Aktuell
+deltareview/full `verify:pr` och faktisk browser-/DB-runtime återstår.
+Kommande dependencyintegration är inte en separat väntgrind. Inga nya urval
+eller slutliga A6b/A7-grindar har godkänts.
+
+### Två aktuella jämförbara PR-CI-observationer
+
+Run-/job-API lästes 2026-10-06; båda körde heavy med fyra fulla shards.
+Sekunderna nedan är verklig walltid, inte summan av parallella jobb.
+
+| PR / CI-run | Total | Quality-core | npm / typkontroll / lint i core | Långsammaste shard-test | Scope klar → core start |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| #1574 / `37444432723` | 273 s | 236 s | 30 / 58 / 91 s | 147 s | 4 s |
+| #1576 / `37447473368` | 291 s | 223 s | 28 / 53 / 93 s | 143 s | 38 s |
+
+Core låg på kritisk väg i båda. Produktionsbyggsteget var 78 respektive
+101 sekunder och kördes parallellt. Skillnaden är inte ett kausalt före/efter-
+bevis för en teständring: kodbas, runner/setup och dispatch skiljer. Dossier-
+acceptans och Vercel-deployment ingår inte i dessa CI-totaler. Inga nya körningar
+startades för mätningen; inget generellt procentpåstående görs.
 
 ### Levererat registry-paket — #1576
 

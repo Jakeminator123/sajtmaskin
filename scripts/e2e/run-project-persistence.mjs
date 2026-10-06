@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import {
   assertNoDotenv,
   assertOwnedContainer,
+  assertPassingPlaywrightReport,
   assertRuntimeIsolation,
   BASE_URL,
   databaseConfig,
@@ -306,6 +307,12 @@ async function inside() {
         "playwright.project-persistence.config.ts",
       ],
       process.env,
+    );
+    assertPassingPlaywrightReport(
+      JSON.parse(readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, "utf8")),
+    );
+    console.info(
+      "[project-persistence] real executed Playwright results verified; no skipped tests",
     );
   } finally {
     try {

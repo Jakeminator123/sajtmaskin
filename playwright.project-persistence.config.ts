@@ -17,5 +17,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  reporter: "list",
+  // The launcher supplies a fresh output path in its own private temporary dir.
+  // Discovery has no path and must not write an execution report.
+  reporter: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [["list"], ["json"]] : "list",
 });

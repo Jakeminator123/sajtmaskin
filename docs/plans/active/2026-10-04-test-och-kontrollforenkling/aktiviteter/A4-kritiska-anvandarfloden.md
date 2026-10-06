@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Smal persistensharness implementeras; isoleringsreview och körbevis återstår.
+Status: Smal persistensharness lokalt kodad; reviewrättning, integration och körbevis pågår.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -47,6 +47,9 @@ digestpinnad Postgres 16. Bara paket-/browser-/imagehämtning sker före
 isoleringen. App, db:init, seed, browser och cleanup körs i samma verifierade
 loopback-namespace. Ingen ny GitHub-behörighet, delad DB eller authseam.
 Webpack-dev använder Nexts lokala fontfallback; produktionsbygget är oförändrat.
+Launcher läser även Playwrights JSON-rapport i sin egen nya tempkatalog: minst
+ett faktiskt passerat prov och inga skip/fixme, flaky, unexpected eller
+förväntade fel krävs. Exit 0 eller en listad/skippad testfil räcker inte.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

@@ -9,6 +9,7 @@ import {
   assertIsolationState,
   assertNoDotenv,
   assertOwnedContainer,
+  assertPassingPlaywrightReport,
   databaseConfig,
   DB_NAME,
   DB_USER,
@@ -53,6 +54,7 @@ describe("disposable project persistence boundaries", () => {
         "NODE_ENV",
         "PATH",
         "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_JSON_OUTPUT_FILE",
         "POSTGRES_URL",
         "TMPDIR",
       ].sort(),
@@ -148,6 +150,57 @@ describe("disposable project persistence boundaries", () => {
     const result = repairGeneratedFiles(FIXTURE_FILES);
     expect(result.fixes).toEqual([]);
     expect(result.files).toEqual(FIXTURE_FILES);
+  });
+
+  it("requires actual passing results, not Playwright's successful skipped-only exit", () => {
+    const passingTest = {
+      expectedStatus: "passed",
+      status: "expected",
+      results: [{ status: "passed" }],
+    };
+    const report = {
+      errors: [],
+      stats: { expected: 1, skipped: 0, unexpected: 0, flaky: 0 },
+      suites: [{ specs: [{ tests: [passingTest] }] }],
+    };
+    expect(() => assertPassingPlaywrightReport(report)).not.toThrow();
+    expect(() =>
+      assertPassingPlaywrightReport({ ...report, suites: [{ specs: [], suites: report.suites }] }),
+    ).not.toThrow();
+    const wrong = [
+      undefined,
+      { ...report, suites: [] },
+      { ...report, errors: [{ message: "global teardown failed" }] },
+      ...["skipped", "unexpected", "flaky"].map((field) => ({
+        ...report,
+        stats: { ...report.stats, [field]: 1 },
+      })),
+      {
+        ...report,
+        stats: { expected: 0, skipped: 1, unexpected: 0, flaky: 0 },
+        suites: [
+          {
+            specs: [
+              {
+                tests: [
+                  {
+                    expectedStatus: "skipped",
+                    status: "skipped",
+                    results: [{ status: "skipped" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      ...[
+        { ...passingTest, results: [] },
+        { ...passingTest, results: [{ status: "failed" }] },
+        { ...passingTest, expectedStatus: "failed", results: [{ status: "failed" }] },
+      ].map((test) => ({ ...report, suites: [{ specs: [{ tests: [test] }] }] })),
+    ];
+    for (const mutation of wrong) expect(() => assertPassingPlaywrightReport(mutation)).toThrow();
   });
 
   it.each([{ args: [] }, { args: ["--inside"] }])(
