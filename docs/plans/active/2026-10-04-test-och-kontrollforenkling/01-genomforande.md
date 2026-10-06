@@ -60,6 +60,9 @@ deras bevis finns i respektive aktivitet, inte i en växande reservationslogg.
 | A5 docsmiljö + A6b avgränsad dubbelkörning | Codex i `sajtmaskin-tester-restarbete` | `scripts/docs/check-active-doc-links.test.ts`, `scripts/docs/check-terminology-contract.test.ts`, `.github/workflows/ci.yml`, `scripts/workflow/check-contract.mjs`, `scripts/workflow/ci-quality.test.ts` samt befintligt aktivt planindex, masterplan, genomförande och A5/A6/A7. Samordnaren har även överlåtit enbart variantstatus/next-step 1 i `AGENT-HANDOFF.md`. | PR #1574, branch `codex/test-control-rest`, kodkvitto `aaca25e6` mot `f9c5acea`; normal merge `7b9414a8` integrerar aktuell bas `30291b80fbaec32e7913a2b3de3e3901b7f9b179`. #1553/#1562/#1564 är redan levererade. | Full lokal verifiering exit 0, 13 312 PASS/26 skip och 702 Python PASS; oberoende kodreview CLEAN. Fem kodblobbar oförändrade efter bassynk; riktad integration 724 PASS/23 skip. Aktuell docs-/integrationsreview och native CI återstår. A3/A4 separata paket. Ingen gen/scaffold-owner ändras i PR-deltat. Samordnaren äger merge; A7 är öppen. |
 
 Varje aktivitetsfil har `Ej startad`, `Pågår`, `Blockerad` eller `Verifierad`.
+Samordnaren har dessutom överlåtit Dossiers-/next-step 5-raderna i
+`AGENT-HANDOFF.md` för sitt verifierade FINAL-ZIP-kvitto, utan andra handoffändringar.
+
 Samordnaren fyller i ansvarig/paket, bas/head och senaste kontroll när arbetet
 börjar. A3:s paketmatris bevarar den aktuella områdesstatusen vid flera
 överlämningar; A6 har separat status för sin tidiga och sena del.

@@ -43,8 +43,13 @@ tidigare testfilerna och variantfixens fem testfiler gav 11 filer/724 PASS/23
 befintliga Windows-skip, 14,60 sekunder med fyra workers. Det är inte en ny
 fullsvit eller A4-körning. Aktuell delta-/integrationsreview och native checks
 måste knytas till den nya publicerade headen, inte återanvändas från `e95128f2`.
-Samordnaren överlät endast variantstatus och next-step 1 i `AGENT-HANDOFF.md`
-till denna PR; ZIP-final och övriga statusrader är inte ändrade av TESTER.
+Typecheck, workflowkontrakt, discovery 1 085/1 085, docs:check/links/test
+(49 PASS), planhistorik och termkontrakt är därefter gröna. Bounded readonly
+review gav CLEAN på `dc4f687c` mot `30291b80`; endast efterföljande
+dokumentationsdelta behöver ny granskning före den samlade pushen.
+Samordnaren överlät variantstatus/next-step 1 samt därefter sitt verifierade
+FINAL-ZIP-kvitto/Dossiers/next-step 5 i `AGENT-HANDOFF.md`. Förteckningens
+SHA-256 kontrollerades lokalt; original-ZIP och övriga statusrader ändras inte.
 
 ### Redan levererade paket och deras ursprungliga lokala bevis
 

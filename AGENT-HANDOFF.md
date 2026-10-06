@@ -13,8 +13,12 @@ tidigare accepterade DEV/PROD-avvikelser; preview delar produktionsdatabas.
 Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår.
 
 - Dossiers: #1548–#1551, #1555, #1558, #1559 mergade; kärna, katalog, förenklat flöde,
-  F3-kontroll och dokumentstädning. Extern ZIP-förteckning behöver ännu uppdateras
-  mot slutlig scaffold-integrerad kod. Original-ZIP är orörd.
+  F3-kontroll och dokumentstädning. Extern ZIP-förteckning är FINAL från faktisk
+  mergad `30291b80`, oberoende CLEAN enligt samordnaren 2026-10-06:
+  `C:/Users/jakem/Documents/Sajtmaskin-arkiv/dossier-zip-reconcile-FINAL-30291b80.txt`.
+  SHA-256 `BA2189376400D4B3BBFBBA86FD3DC84F609F777919A314C31F7B15432DBF9470`,
+  276 payloadpaths/369 klassificerade rader. Original-ZIP är orörd; detta är en
+  förteckning, inte en omskriven ZIP eller ett fristående byggbart paket.
 - Bransch-agenten: #1552 mergad (`e37e4d83`), source-head `2863d782` har samma
   träd. Chatten är arkiverad. Ingen migration/backfill; tomma värden raderar inte bransch.
 - TESTER: #1553, #1562, #1564 mergade. Originalets elva plandokument bevarade.
@@ -47,7 +51,8 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 4. BUGG-TMP har oberoende review och grön CI på `955238cc`, men beslut om
    minsta säkra Vercel-previewprov av resursåtgång/samtidighet återstår före merge.
    Linuxkvitto är inte liveacceptans; delad DB/Blob får inte användas som testfixture.
-5. Uppdatera slutlig ZIP-fillista/ordlista och externa startprompter. Den äldre
+5. Slutlig ZIP-fillista är verifierad enligt kvittot ovan. Samordnaren uppdaterar
+   externa startprompter separat. Den äldre
    `dossier-zip-reconcile-FINAL-b427c1a8.txt` är en HISTORISK snapshot, inte
    instruktion att skriva över nyare scaffold-/dossier-konsumenter.
 6. Granska och leverera de lämpliga dependency-PR:erna #1566–#1570. De hade
