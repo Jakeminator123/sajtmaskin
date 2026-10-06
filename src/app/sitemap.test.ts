@@ -20,10 +20,9 @@ const PRIVATE_SITEMAP_REL_PATHS = [
 ] as const;
 
 describe("marketing sitemap", () => {
-  it("includes core marketing, blog, and legal routes once", () => {
+  it("includes core marketing and legal routes once", () => {
     expect(STATIC_SITEMAP_REL_PATHS).toEqual(
       expect.arrayContaining([
-        "/blogg",
         "/om",
         "/exempel",
         "/faq",
@@ -35,6 +34,11 @@ describe("marketing sitemap", () => {
     );
     expect(STATIC_SITEMAP_REL_PATHS[0]).toBe("");
     expect(new Set(STATIC_SITEMAP_REL_PATHS).size).toBe(STATIC_SITEMAP_REL_PATHS.length);
+  });
+
+  it("omits the unpublished blog until it has indexable content", () => {
+    expect(STATIC_SITEMAP_REL_PATHS).not.toContain("/blogg");
+    expect(sitemap().map((entry) => entry.url)).not.toContain(publicCanonicalPath("/blogg"));
   });
 
   it("lists only ready SEO landing pages on the canonical origin", () => {
