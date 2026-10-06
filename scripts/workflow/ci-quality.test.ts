@@ -21,6 +21,7 @@ const success = {
   RUN_HEAVY: "true",
   CORE_RESULT: "success",
   TESTS_RESULT: "success",
+  PERSISTENCE_RESULT: "success",
   CONTRACTS_RESULT: "success",
   PREVIEW_HOST_RESULT: "success",
   DEAD_CODE_RESULT: "success",
@@ -59,8 +60,16 @@ describe.skipIf(process.platform === "win32")("required quality aggregate", () =
   );
 
   it("accepts skipped runtime jobs only after an explicit successful light decision", () => {
-    expect(run({ RUN_HEAVY: "false", CORE_RESULT: "skipped", TESTS_RESULT: "skipped" })).toBe(0);
+    expect(run({ RUN_HEAVY: "false", CORE_RESULT: "skipped", TESTS_RESULT: "skipped", PERSISTENCE_RESULT: "skipped" })).toBe(0);
   });
+
+  it.each(["failure", "cancelled", "skipped", "", "unknown"])(
+    "blocks missing/failed real persistence on heavy and fallback: %s", (PERSISTENCE_RESULT) => {
+      expect(run({ PERSISTENCE_RESULT })).toBe(1);
+      expect(run({ SCOPE_RESULT: "failure", RUN_HEAVY: "false", PERSISTENCE_RESULT })).toBe(1);
+      if (PERSISTENCE_RESULT !== "skipped") expect(run({ RUN_HEAVY: "false", PERSISTENCE_RESULT })).toBe(1);
+    },
+  );
 
   it.each(["failure", "cancelled", "", "unknown"])(
     "does not hide a failed shard matrix under light scope: %s",
@@ -172,6 +181,11 @@ describe("complete native test sharding contract", () => {
     ["RUN_HEAVY: ${{ needs.scope.outputs.run_heavy }}", "RUN_HEAVY: true"],
     ["CORE_RESULT: ${{ needs['quality-core'].result }}", "CORE_RESULT: success"],
     ["TESTS_RESULT: ${{ needs['quality-tests'].result }}", "TESTS_RESULT: success"],
+    ["PERSISTENCE_RESULT: ${{ needs['quality-project-persistence'].result }}", "PERSISTENCE_RESULT: success"],
+    ["quality-contracts, quality-project-persistence, preview-host", "quality-contracts, preview-host"],
+    ["run: npm run test:e2e:project-persistence\n", "run: npm run test:e2e:project-persistence:list\n"],
+    ["      - name: Real isolated project persistence (blocking)", "      - name: Real isolated project persistence (blocking)\n        continue-on-error: true"],
+    ["  quality-project-persistence:\n", "  quality-project-persistence:\n    continue-on-error: true\n"],
     ["CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}", "CONTRACTS_RESULT: success"],
     ["PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}", "PREVIEW_HOST_RESULT: success"],
     ["DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}", "DEAD_CODE_RESULT: success"],
@@ -195,6 +209,8 @@ describe("complete native test sharding contract", () => {
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:ci": "vitest run src/components" }))
       .not.toEqual([]);
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:discovery:check": "echo skipped" }))
+      .not.toEqual([]);
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:e2e:project-persistence": "playwright test --list" }))
       .not.toEqual([]);
   });
 

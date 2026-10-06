@@ -19,17 +19,26 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   dossierbyggen 6:17 är gröna. Exakt merge-deployment är READY; post-CI 3:41
   har endast samma 13 paritetsrader (noll delta). #1570 behöver fortfarande
   verifiering av själva dependency-uppgraderingen i den samlade kandidaten nedan.
-- **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. A3:s aktuella
-  femfils katalogpaket är integrerat på `de87533e` mot preview `30b941c5`;
-  source-review är CLEAN efter två rättade P2-fynd och riktade författarbevis är
-  gröna. Avgränsad integrationsreview är också CLEAN; färsk discovery är
-  1 093/1 093 PASS. Slutlig docsreview, native CI och merge återstår. #1580 är åter DRAFT. Run
-  `37462490014` är röd endast i persistence/quality; dossier 21/21 och exakt
-  deployment är gröna. `BuilderPreviewTools` gömmer Kod när `previewUrl` är
-  null trots code-only-stöd; smal produktfix förbereds. Hydration,
-  edit/save/tenant och senare generation/follow-up/remove-replace är inte
-  bevisade. Testreformen är fortsatt **dellevererad**;
-  A3, A4, A6b och A7 förblir öppna. TESTER:s checkout är
+- **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. A3:s femfils
+  katalogpaket är levererat via #1582 på `c33daca3`: oberoende CLEAN, native CI
+  4:13, 21/21 dossierbyggen 5:55 och exakt READY-deployment enligt samordnaren.
+  A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
+  komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
+  bas till `codex/project-persistence-e2e` för befintlig draft #1580.
+  Senaste persistenskörningen `37498317797` på `dbf86fa2` passerade riktig
+  edit/PATCH/SQL, Spara projekt/SQL och reload med ändrat editorinnehåll.
+  Session B:s två GET gav 404, men negativ PATCH stoppades av proxy-CSRF
+  (saknad Origin) med 403 före tenantgrinden. Negativ POST och slutlig DB-
+  oföränderlighet är därför obevisade; cleanup PASS. Minimal harnessrättning
+  ger bara dessa två mutationsrequests vanlig first-party Origin och kräver
+  exakta routeägda 404-bodies. Riktig Playwright-transport/proxy reproducerar
+  felet och visar att främmande Origin fortsatt nekas. Ingen produkt-, auth-,
+  CSRF- eller budgetändring. #1580 är draft inför ny native acceptans.
+  A6b-WIP finns endast lokalt på `codex/ci-duplicate-execution`/`99e70c5b`,
+  oberoende CLEAN men inte fullverifierat eller levererat.
+  Generation/follow-up/remove-replace
+  är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
+  är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
 - **SCHAFFOLDS:** #1563, #1565, #1571 och den samlade familjeleveransen #1575
   är mergade. #1575 innehåller ärliga okopplade auth-/app-/marketingdemos och

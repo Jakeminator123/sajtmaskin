@@ -4,10 +4,10 @@ Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
 Status: Pågår. Beroende: A2. Arbetssätt: återkommande små områdespaket.
 
-Leveransstatus 2026-10-05: systemprompt-, Backoffice- och promptpaketen nedan
+Leveransstatus 2026-10-06: systemprompt-, Backoffice- och promptpaketen nedan
 är levererade via #1553 på preview `c4f4b188`. Ruleset- och publika
 auditpaketen är levererade via #1562 på `cca962c6`; registry-paketet är
-levererat via #1576 på `f68d1837`. Ursprungliga lokala
+levererat via #1576 på `f68d1837` och katalogpaketet via #1582 på `c33daca3`. Ursprungliga lokala
 provbaser nedan bevaras som bevisunderlag; [A7](A7-slutverifiering-och-overlamning.md)
 äger de aktuella head-/merge-/CI-kvittona. Hela beståndet är inte genomgånget.
 
@@ -48,7 +48,7 @@ ha skrivstatus samtidigt.
 | F3: retry ska läsa samma committade status som knappen | `src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx` och dess test | Levererad separat via #1558; inte ett nytt #1553-delta | Lokal `0423cd419`, faktisk preview `59a12080` | Fyra RED före runtimefix, 75 riktade PASS efter; oberoende CLEAN. Senaste readiness/busy-status och explicit parent bevaras. Historiskt CI-förlopp är inte säkert orsaksfastställt. |
 | Publik audit: modellseparation i faktisk kandidatkedja | `src/lib/audit/public-analys.test.ts`; `src/lib/audit/audit-tier.test.ts` | Levererad via #1562; inte i #1553 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | SLÅ IHOP duplicerade modellås; unik kostnadsgrind flyttad till `resolveAuditRun`. Två verkliga felinjektioner går från falskt grönt till rött; ursprungligt 54-PASS-kvitto återanvänt med blobidentitet. Färsk integration 220 PASS/8 filer, två oberoende CLEAN och native CI gröna; A7 äger leveranskvittot. |
 | Ruleset: oberoende policyowner och semantiska workflowtriggers | `scripts/ci/check-master-ruleset.mjs`; `scripts/ci/check-master-ruleset.test.ts` | Levererad via #1562 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | TA BORT död policyinläsning, SKRIV OM YAML-syntaxlås. Verklig CLI med stubbat nät svarar korrekt på legitim policyoberoende körning och ruleset-drift. Ruleset-spec, workflows och permissions är orörda. |
-| Katalogkontrakt: versioner, shadcn-sök och curatorpopulation | Fem testpaths i `backoffice/` och `src/lib/gen/`; inga produktowners | Integrerad lokalt; root levererar | Source `21fa810e`/bas `e113a7e2`; integration `de87533e`/bas `30b941c5` | SKRIV OM historiska versionslistor och counts till kanoniska owners + oberoende projektioner. Två P2-reviewfynd rättade; source- och avgränsad integrationsreview CLEAN. 102 TS/4 filer och 31 Python PASS; full Backoffice 702 PASS. Färsk discovery 1 093/1 093 PASS. Slutlig docsreview, native CI och merge återstår. |
+| Katalogkontrakt: versioner, shadcn-sök och curatorpopulation | Fem testpaths i `backoffice/` och `src/lib/gen/`; inga produktowners | Levererat via #1582 av samordnaren | Source `21fa810e`/bas `e113a7e2`; reviewed head `4253f6e2`/bas `30b941c5`; faktisk merge `c33daca3` | SKRIV OM historiska versionslistor och counts till kanoniska owners + oberoende projektioner. Två P2-reviewfynd rättade; source-, integrations- och slutreview CLEAN. 102 TS/4 filer och 31 Python PASS; full Backoffice 702 PASS. PR-CI 4:13, 21/21 dossierbyggen 5:55 och exakt READY-deployment. A7 äger terminalt postkvitto. |
 
 ### Systemprompt — felbevis och avgränsning
 
@@ -164,7 +164,7 @@ Oberoende `a5_a6_rest_review` (`gpt-5.6-sol`/xhigh) gav CLEAN på
 `2b3ea77d` mot `eba1c590`. Paketet är mergat via #1576 på `f68d1837`.
 Det stänger inte hela A3.
 
-### Katalogkontrakt 2026-10-06 — integrerat, leveransgrindar återstår
+### Katalogkontrakt 2026-10-06 — levererat via #1582
 
 Scope är exakt fem testfiler:
 
@@ -201,8 +201,10 @@ Författarkvittot är 102 TypeScript PASS i fyra filer och 31 Python PASS. Hela
 Backoffice gav 702 PASS på 56,104 sekunder, exit 0, med samordnad oförändrad
 Git-vakt. Typecheck, lint och discovery 1 092/1 092 var gröna på sourcebasen
 `e113a7e2`. På integrationen `de87533e`/`30b941c5` är färsk discovery
-1 093/1 093, docslänkar, historikstatus och plan PASS. Slutlig docsreview,
-native CI och merge återstår. Ingen produkt-, dependency-,
+1 093/1 093, docslänkar, historikstatus och plan PASS. Slutlig docsreview är
+CLEAN på `4253f6e2`; paketet är mergat via #1582 på `c33daca3` med PR-CI 4:13,
+21/21 dossierbyggen 5:55 och exakt READY-deployment enligt samordnaren.
+Ingen produkt-, dependency-,
 runtime- eller CI-policy ändras, och paketet stänger inte hela A3.
 
 ## Checklista per paket

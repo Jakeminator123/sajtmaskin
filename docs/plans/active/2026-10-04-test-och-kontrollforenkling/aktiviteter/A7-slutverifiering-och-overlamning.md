@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574/#1576 levererade; A3 fortsätter, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574/#1576/#1582 levererade; A4 pågår, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
@@ -19,14 +19,57 @@ CLEAN med identiska berörda owners, fixtures och testblobbar. A3 äger full
 disposition och bevisgräns.
 
 Färsk discovery 1 093/1 093, docslänkar, historikstatus och plan är PASS på
-integrationsbasen. Slutlig docsreview, native CI och merge återstår.
+integrationsbasen. Slutlig CLEAN och leverans via #1582 är nu verifierade av
+samordnaren: preview `c33daca3`, PR-CI 4:13, 21/21 dossierbyggen 5:55 och exakt
+READY-deployment. Post-CI 3:43 har bara samma 13 DB-paritetsrader, noll delta;
+hela post-CI är därför inte grön. Exakt merge-deployment är READY.
 TESTER:s separata #1580 är åter DRAFT. Native run
 `37462490014` slutade efter 5:07 med endast persistence och quality FAIL;
 dossier `37462489767` gav 21/21 PASS på 6:55 och exakt deployment READY.
-Statiskt produktfel: `BuilderPreviewTools` yttre grind gömmer Kod när
-`previewUrl` är null trots code-only-stöd. En separat smal produktfix förbereds.
-Hydration, edit/save/tenant och senare generation/follow-up/remove/replace är
-inte bevisade. A4, A6b och hela A7 förblir öppna.
+Det statiska code-only-felet i `BuilderPreviewTools` är separat levererat via
+#1583 på `e9354344`, med oberoende CLEAN, PR-CI 3:47 och exakt READY-deployment
+enligt samordnaren. A4 normalsynkade denna bas med oförändrad hydreringskod
+från `f50448eb`; sluthead `fb113f8c5` fick oberoende CLEAN men native
+`37491869699` föll därefter på saknade hydreringssvar inom initiala 15 sekunder.
+Endast persistence/quality var röda; egen cleanup passerade. A4 beskriver den
+godkända uppdelningen mellan högst 120 sekunders initial startup och oförändrad
+15-sekunders action-/reload-readinessbudget. Native `37493732112` på `a37af8d0`
+passerade initial hydration efter 20,924 sekunder (tre GET/200/rätt fixture-ID)
+och öppnade faktisk Kod/Kodvy/editor. Testets breda textarea-selector matchade
+sedan både Hero-ingress och råkod: stopp före fill/PATCH, inte produktfel.
+Övriga kodjobb och egen cleanup passerade. Minimal owner-scopad harnessrättning
+har verkligt komponent-DOM-/Chromiumbevis, inklusive negativa saknad/dubbel/
+fel-innehållsfall; ingen produktmarkup eller innehållsfiltrering ändras.
+Selectorhead `4cbb4c00` kördes sedan i `37495373171`: metadata PASS efter
+27,979 sekunder, men filknappen saknades efter Kod/Kodvy-klick; första files-
+svaren kom efter stoppet. Färdigrenderad kodvy eller UI-reset är inte bevisade.
+Samlad ownergranskning godkände en delad initial 120-deadline för metadata/files
+och explicit 120-budget endast för första kalla save-POST; rena actions,
+PATCH, varm files-GET och reload-readiness behåller 15 sekunder, total 240.
+Faktiska callbacks avvisar första felstatus/requestfel, fel version/innehåll
+och gamla navigation-/actionsvar. Inga produktändringar eller latency-SLA-anspråk.
+Övrig kod-CI PASS 5:07, dossier 21/21 PASS 6:48, egen cleanup PASS och exakt
+READY-deployment enligt samordnaren. Edit/save/reload/tenant och senare
+generation/follow-up/remove/replace är fortfarande obevisade. A4, A6b och hela
+A7 förblir öppna; A6b-förberedelsen `3e73ef43` är separat lokal WIP utan fullkvitto.
+
+Nästa native `37498317797` på `dbf86fa2` passerade edit/PATCH/SQL,
+Spara projekt/SQL och reload med ändrat editorinnehåll. Två negativa GET
+gav 404; negativ PATCH gav CSRF-403 före tenantgrinden eftersom testets
+cookie-request saknade Origin. Negativ POST och sista DB-snapshot återstår.
+Cleanup PASS. Riktig Playwright-transport/proxy reproducerar saknad-Origin-
+felet och behåller nekad främmande Origin. Endast negativa PATCH/POST får
+vanlig first-party Origin; exakt routeägd 404-body och oförändrad DB krävs.
+Ingen produkt-, auth-, CSRF- eller budgetändring. Ny native acceptans återstår.
+A6b-WIP `99e70c5b` har nu oberoende CLEAN och 201 riktade PASS/28 Windows-
+Bashundantag men är fortsatt opublicerat och saknar full integrationsverifiering.
+
+A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
+702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat
+samordnad omkörning gav 702 PASS/exit 0 med oförändrad vakt. Senare riktade
+kontroller och oberoende CLEAN återanvänds bara för identiska blobbar; A4 äger
+bootstrap-, isolerings-, runtimefel- och diagnostikbevisen. Ingen ny helsuite
+körs enbart för att upprepa oförändrad kod eller tidigare levererade paket.
 
 ### Levererat A5/A6b-delpaket — #1574
 
@@ -265,8 +308,8 @@ motsvarande förbättring av full CI, kötid eller deployment. Inga obligatorisk
 checks eller CI-shards har avvecklats.
 
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
-Samordnaren ansvarar för A3-katalogpaketets aktuella review, native checks och
-merge. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
+Samordnaren har levererat A3-katalogpaketet och äger fortsatt native checks och
+merge för nästa paket. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
 skrivreservation. TESTER äger #1580:s felutredning och får inte redovisa ett
 browser-/persistensflöde som godkänt innan edit/save/tenant faktiskt körts.
 A4:s senare generation/follow-up/remove/replace, A6b och A7 återstår.

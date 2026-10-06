@@ -31,16 +31,18 @@ fem testpaths; deras test- och lockblobbar är identiska med sourcepaketet och
 författarens `verify:pr -- --plan` är grön. Oberoende avgränsad
 integrationsreview är CLEAN med identiska berörda produktowners, fixtures och
 fem testblobbar. Färsk discovery är 1 093/1 093 PASS; docslänkar,
-historikstatus och plan är gröna. Slutlig docsreview, native CI och merge
-återstår. A3 är därför fortfarande pågående.
+historikstatus och plan är gröna. Paketet är nu levererat via #1582 på
+`c33daca3`: slutreview CLEAN, native CI 4:13, 21/21 dossierbyggen 5:55 och
+exakt READY-deployment enligt samordnaren. A3:s områdesvisa bevisgränser består.
 
 TESTER arbetar separat med A4. PR #1580 är åter DRAFT efter triage. Native run
 `37462490014` avslutades på 5:07 med endast persistence och quality FAIL;
 dossier `37462489767` var 21/21 PASS på 6:55 och exakt deployment READY.
-`BuilderPreviewTools` yttre grind gömmer Kod när `previewUrl` är null trots att
-`canShowCode` och filvyn stöder code-only. En separat smal produktfix förbereds;
-hydration samt edit/save/tenant och senare generation/follow-up/remove/replace
-är inte bevisade. A6b och A7 är också öppna. Mandatet omfattar scoped
+`BuilderPreviewTools` yttre grind gömde Kod vid tom preview trots code-only-stöd.
+Separat produktfix #1583 är levererad på `e9354344`; TESTER normalsynkar den
+med hydreringsdiagnostiken från `f50448eb` för ett nytt samlat native prov.
+Hydration samt edit/save/tenant och senare generation/follow-up/remove/replace
+är ännu inte körbevisade. A6b och A7 är också öppna. Mandatet omfattar scoped
 implementation, commit, push och PR mot
 `preview`; samordnaren äger mergeordningen. Ingen mastermerge eller extra
 DB-/provideråtgärd ingår. Leveransbevis och begränsningar finns i

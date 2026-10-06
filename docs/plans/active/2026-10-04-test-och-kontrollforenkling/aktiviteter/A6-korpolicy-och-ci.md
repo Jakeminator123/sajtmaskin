@@ -70,6 +70,15 @@ negativt bevis krävs ändå. Mottagare: [A2](A2-pilot-och-kanda-lasningar.md).
 
 ## Sen optimeringsdel A6b
 
+Återstående avslut är ändligt: avgör scaffoldtesternas verkliga dubbelkörning,
+warn-only-stabilityns överlapp och observerad same-head/ready-eventdedup; behåll
+dem där likvärdigt skydd eller säker besparing inte kan visas. Koppla A4:s
+verkliga runtime till befintligt quality-aggregate och bevisa att failure,
+cancelled, missing och otillåten skip blir rött. Bekräfta sedan aktuell
+GitHub-policy och en begriplig lokal/PR/leveranskörning. Oförändrade fyra fulla
+shards är ett giltigt slutbeslut; smalare urval är inte ett självändamål.
+Discovery/orphan/fallback och tidigare säkerhets-/DB-gates förblir obligatoriska.
+
 ### Aktuellt delpaket — dubblerade quality-kontroller
 
 - `route-timeouts:check` behålls i oförändrad `preflight:common` för heavy och

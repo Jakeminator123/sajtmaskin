@@ -686,6 +686,25 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("test:discovery:check must execute the canonical discovery guard");
   }
 
+  const persistence = document?.jobs?.["quality-project-persistence"];
+  const persistenceRun = persistence?.steps?.find((step) => step.run === "npm run test:e2e:project-persistence");
+  if (
+    !values(persistence?.needs).includes("scope") ||
+    !hasExactExpression(persistence?.if, qualityCore?.if) ||
+    persistence?.["runs-on"] !== "ubuntu-24.04" ||
+    persistence?.["continue-on-error"] !== undefined ||
+    persistence?.services !== undefined ||
+    persistence?.permissions !== undefined ||
+    JSON.stringify(persistence ?? {}).includes("secrets.") ||
+    !persistenceRun || persistenceRun.if !== undefined ||
+    persistenceRun["continue-on-error"] !== undefined ||
+    !persistence?.steps?.some((step) => step.run === "npm ci") ||
+    packageScripts?.["test:e2e:project-persistence"] !== "node scripts/e2e/run-project-persistence.mjs" ||
+    packageScripts?.["test:e2e:project-persistence:list"] !== "playwright test -c playwright.project-persistence.config.ts --list"
+  ) {
+    errors.push("heavy project-persistence must run the real isolated CI launcher, without shared services, secrets or permission changes");
+  }
+
   const blockingStability = qualityCore?.steps?.find(
     (step) => step.run === "npm run test:stability:blocking",
   );
@@ -792,11 +811,12 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     "quality-core",
     "quality-tests",
     "quality-contracts",
+    "quality-project-persistence",
     "preview-host-guards",
     "dead-code",
   ];
   if (!includesEvery(document?.jobs?.quality?.needs, qualityNeeds)) {
-    errors.push("quality must aggregate scope, core, all test shards, contracts, preview-host and dead-code");
+    errors.push("quality must aggregate scope, core, all test shards, contracts, project-persistence, preview-host and dead-code");
   }
   const aggregate = document?.jobs?.quality?.steps?.find(
     (step) => step.name === "Aggregate required quality result",
@@ -806,6 +826,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     RUN_HEAVY: "${{ needs.scope.outputs.run_heavy }}",
     CORE_RESULT: "${{ needs['quality-core'].result }}",
     TESTS_RESULT: "${{ needs['quality-tests'].result }}",
+    PERSISTENCE_RESULT: "${{ needs['quality-project-persistence'].result }}",
     CONTRACTS_RESULT: "${{ needs['quality-contracts'].result }}",
     PREVIEW_HOST_RESULT: "${{ needs['preview-host-guards'].result }}",
     DEAD_CODE_RESULT: "${{ needs['dead-code'].result }}",
