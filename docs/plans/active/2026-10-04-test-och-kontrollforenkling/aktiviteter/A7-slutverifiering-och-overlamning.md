@@ -371,7 +371,8 @@ Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
 aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
 och samordnad skrivreservation; A5:s tvåfilspaket är levererat via #1574.
-A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
+A4 kräver nytt native flödesbevis för den isolerade DB-harnessen och en
+deterministisk providergräns för återstående flöden. A6b:s slutliga urvalsminskning
 väntar på beroendena; same-head-eventdedup är separat read-only underlag,
 inte en genomförd workflowändring. Planpaketet stannar aktivt.
 
