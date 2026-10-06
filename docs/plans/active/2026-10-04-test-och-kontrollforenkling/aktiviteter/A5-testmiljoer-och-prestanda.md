@@ -7,8 +7,8 @@ Status: Pågår. Beroende: A2; baslinje från A0.
 De två implementerade paketen nedan är levererade via #1553 på faktisk
 preview `c4f4b188`. Ursprungliga lokala mätbaser är daterat delunderlag;
 [A7](A7-slutverifiering-och-overlamning.md) äger aktuellt leveranskvitto.
-Docstestpaketet nedan är implementerat och lokalt verifierat 2026-10-06;
-native leveranskvitto återstår.
+Docstestpaketet nedan är levererat via #1574 på preview `eba1c590`
+2026-10-06; aktuellt native kvitto och bevisgränser finns i A7.
 
 ## Levererat paket 2026-10-05 — Node-miljöpilot
 

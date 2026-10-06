@@ -2,7 +2,8 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Blockerad för implementation. Beroende: A1; integreras efter A2.
+Status: Smal persistensharness godkänd; implementation och körbevis återstår.
+Beroende: A1; separat paket efter aktuell A3-leverans.
 
 ## Verifierat hinder och nästa owner
 
@@ -25,6 +26,16 @@ testdatabas ska ge hårdfel, aldrig skip. Seedad chat/version bevisar bara
 persistens; generation, follow-up och remove/replace kräver dessutom en
 deterministisk extern providergräns och relevant preview-runtime. Detta är
 avgränsat nästa arbete, inte en byggd eller körd harness.
+
+Samordnaren godkände 2026-10-06 en smal CI-implementation: tillfällig
+GitHub Actions-runner med egen Postgres-container, verifierat exakt container-ID,
+`network none` utan fallback och app/browser i samma nät-namespace med
+privilegier borttagna. Positiv env-allowlist, inga dotenv-filer/hemligheter,
+ingen delad DB eller lokal systeminstallation. Verklig fil-PATCH, Spara projekt,
+reload och negativt cross-session-prov ska köras utan authändring.
+Fyra fulla shards, befintliga säkerhetskontroller och GitHub-permissions består.
+Oberoende granskning av isoleringsgränsen och faktisk grön runtime krävs;
+discovery, mocks och denna förberedelse räknas inte som flödesbevis.
 
 SCHAFFOLDS äger nu `src/lib/builder/build-intent.ts`,
 `src/lib/api/engine/chats/create-chat-stream-post.ts`, `parse-chat-request-meta.ts`,
