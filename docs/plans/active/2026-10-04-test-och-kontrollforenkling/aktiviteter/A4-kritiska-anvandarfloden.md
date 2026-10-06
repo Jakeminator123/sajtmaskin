@@ -167,6 +167,76 @@ förankrade i sina verkliga owners; råeditorn saknar befintlig semantisk label.
 Reload skapar om samma locator-kedja. Save/reload/tenant måste fortfarande
 bevisas i nästa native körning.
 
+På selectorhead `4cbb4c00` föll native `37495373171`, jobb `112378834825`,
+tidigare: metadata-readiness PASS efter 27,979 sekunder, Kod/Kodvy-klick utförda,
+men filknappen saknades inom 15 sekunder. Färdigrenderad kodvy och den nya
+editorselectorn nåddes inte bevisligen. Två files-requests hade startat; servern
+loggade deras HTTP 200 först efter browserfelet, med 12,6 respektive 2,8 sekunder.
+Loggarna korrelerar inte säkert enskilda request-ID:n och serverlatensrader.
+Sidtexten visade ännu preview-empty; varken UI-reset eller pending RSC/transition
+är bevisad orsak. Endast persistence/quality föll, cleanup PASS; övrig kod-CI
+PASS 5:07, dossier 21/21 PASS 6:48 och exakt READY-deployment enligt samordnaren.
+
+Samordnaren och oberoende ownerreview godkände därför en samlad fasrättning:
+
+- Metadata och första naturliga files-GET delar **en** 120-sekundersdeadline
+  efter DCL. Varje del använder återstående tid; uttömd budget fäller direkt,
+  aldrig `timeout: 0`. Naturliga files-callers finns även före kodvy, så detta
+  är appdatabevis, inte påstående om vilken hook som committat.
+- Efter databeviset behåller Kod/Kodvy, filknapp, redigera och fill 15 sekunder.
+  Riktig UI-konsumtion och strikt råeditor med separat exakt innehåll krävs.
+- PATCH använder redan GET-kompilerade `/files` och behåller 15 sekunder.
+  Projektsparningens varma files-GET behåller 15 sekunder; endast första POST
+  på den separata kalla `/projects/:id/save` använder befintlig 120-budget.
+- Reload-navigation behåller 120 sekunder, metadata/files/UI 15 sekunder och
+  hela provet 240 sekunder. Ingen ny warmup, retry, skip eller API-bypass.
+
+Observatörerna armeras före navigation och sparactions. Första matchande
+path/method-utfall per navigation/fas bevaras, även HTTP-fel eller requestfel;
+status/version/innehåll används aldrig för att välja bort ett rött svar.
+Files kräver rätt request- och response-version samt exakt filnamn/innehåll.
+Save-fasens request-ID-golv avvisar ett tidigare påbörjat post-PATCH-refetch;
+en gammal navigation får inte bevisa reload. POST-body och faktisk DB kvarstår.
+Offlinekörning av specens faktiska helpers/listeners visar delad budget,
+uttömning, första felutfall, fel version/innehåll/saknad/extra fil och gammalt
+navigation-/actionsvar RED. Borttagna generations- respektive actiongolv släpper
+igenom gammalt svar, som avsett mutationsfynd. Detta är harness-/callbackbevis;
+ny native edit/save/reload/tenant-acceptans återstår.
+
+Deltareview på `4c224209` fann att responsbudgetarna startade parallellt med
+klicket och därför förbrukades av föregående UI-/GET-fas. Korrigeringen armerar
+fortfarande observatörens golv före klick, men väntar sekventiellt på klick,
+varm PATCH/GET och därefter kall POST. Svar under klick bevaras redan i kartan.
+Ett prov av den faktiska fasordningen visar separata starttider och att ett
+felaktigt varmt GET stoppar före POST-väntan; tidigare parallell ordning ger
+avsett rött budgetprov. Detta är avgränsad harnessverifiering, inte runtime.
+
+Native `37498317797`, jobb `112388947521`, på `dbf86fa2` nådde nu faktisk
+edit/PATCH med exakt payload, response och SQL revision/verification-reset,
+Spara projekt med GET/POST/SQL samt reload med ny navigation och ändrat
+editorinnehåll. Initial metadata tog 26,944 sekunder; första files var klara
+med 75,146 sekunder kvar av den delade budgeten. `unexpectedMutations` var tom.
+Session B:s två negativa GET gav 404, men PATCH gav 403 före förväntad 404;
+negativ POST och slutlig oförändrad DB-snapshot nåddes inte. Cleanup PASS.
+
+Orsaken reproducerades med faktisk Playwright-cookie-transport och riktig
+proxy: cookie utan Origin ger 403 `origin_not_allowed` före tenantkontrollen.
+Exakt `Origin: BASE_URL` släpps vidare med samma session B-cookie; främmande
+Origin ger fortfarande 403. Launchern äger redan `NEXT_PUBLIC_APP_URL=BASE_URL`.
+Minsta harnessrättning sätter Origin endast på negativa PATCH/POST och kräver
+fortsatt exakt routeägd 404-body: `Version not found for chat` respektive
+`Project not found`. Ingen CSRF-/authpolicy, produktkod eller budget ändras.
+Transport-/proxybeviset är inte tenant-/DB-acceptans; ny native körning krävs.
+
+Samordnarens separat läsande capture-audit fann ingen befintlig full-Next-
+transportseam: gate och browserlaunch skapas internt, och DNS/private/pinned-
+fetch-/redirectskydd består. Fortsatta create/generation/preview/persistence/
+follow-up/remove-replace-prov får avgränsas från capture/promotion endast om
+normala produktflödet tillåter ärlig verifiering utan capture-pass. Ingen
+`passed`/`promoted` får fabriceras. Om happy-pathen kräver capture behövs separat
+owner-/arkitekturbeslut; ingen generell allow-private-env eller publik IP-alias
+i det loopback-isolerade nätet införs. Detta blockerar inte seedad persistens.
+
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit
 Spara projekt måste spara faktiskt hämtade filer, och reload måste läsa samma

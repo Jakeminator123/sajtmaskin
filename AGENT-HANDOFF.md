@@ -25,15 +25,17 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
   komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
   bas till `codex/project-persistence-e2e` för befintlig draft #1580.
-  Senaste persistenskörningen `37493732112` på `a37af8d0` passerade initial
-  hydration efter 20,924 sekunder: tre verkliga GET/200/rätt fixture-ID.
-  Kod/Kodvy och filens redigeringsläge öppnades, men testets för breda
-  textarea-selector fann både Hero-ingress och kodfält före fill/PATCH.
-  Minsta harnessrättning väljer kodägarens direkta fält, behåller strictness
-  och separat exact-innehållskrav. Verklig komponent-DOM i Chromium verifierar
-  rätt fält samt negativa saknad/dubbel/fel-innehållsfall. Ingen produktändring.
-  Save/reload/tenant är fortfarande obevisade; PR:n åter draft. Initial
-  startupbudget är högst 120 sekunder; actions/reload behåller 15 sekunder.
+  Senaste persistenskörningen `37498317797` på `dbf86fa2` passerade riktig
+  edit/PATCH/SQL, Spara projekt/SQL och reload med ändrat editorinnehåll.
+  Session B:s två GET gav 404, men negativ PATCH stoppades av proxy-CSRF
+  (saknad Origin) med 403 före tenantgrinden. Negativ POST och slutlig DB-
+  oföränderlighet är därför obevisade; cleanup PASS. Minimal harnessrättning
+  ger bara dessa två mutationsrequests vanlig first-party Origin och kräver
+  exakta routeägda 404-bodies. Riktig Playwright-transport/proxy reproducerar
+  felet och visar att främmande Origin fortsatt nekas. Ingen produkt-, auth-,
+  CSRF- eller budgetändring. #1580 är draft inför ny native acceptans.
+  A6b-WIP finns endast lokalt på `codex/ci-duplicate-execution`/`99e70c5b`,
+  oberoende CLEAN men inte fullverifierat eller levererat.
   Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
   är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:
