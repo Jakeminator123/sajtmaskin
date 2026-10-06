@@ -1,15 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { parse } from "yaml";
+import { runInNewContext } from "node:vm";
+import { parse, stringify } from "yaml";
 import { describe, expect, it } from "vitest";
 
 import { evaluateCiScopeWorkflow, evaluateDossierAcceptanceWorkflow } from "./check-contract.mjs";
 
 const source = readFileSync(".github/workflows/ci.yml", "utf8");
 const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-const workflow = parse(source) as {
-  jobs: Record<string, { steps?: Array<{ name: string; run: string }> }>;
-};
+type WorkflowStep = { name: string; run: string; if?: string; "continue-on-error"?: boolean };
+type WorkflowJob = { if?: string; steps?: WorkflowStep[]; "continue-on-error"?: boolean };
+const workflow = parse(source) as { jobs: Record<string, WorkflowJob> };
 const aggregate = workflow.jobs.quality.steps?.find(
   (step) => step.name === "Aggregate required quality result",
 )?.run;
@@ -85,6 +86,70 @@ describe.skipIf(process.platform === "win32")("required quality aggregate", () =
       expect(run({ [name]: "failure" })).toBe(1);
     },
   );
+});
+
+describe("single blocking owner for repeated quality checks", () => {
+  const scopeTests = "npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts";
+  const routeCheck = "npm run route-timeouts:check";
+
+  // These workflow conditions use only boolean operators and string comparisons,
+  // which have the same semantics in JS for these producer values. Evaluate the
+  // committed expression, not a reimplemented heavy/light decision function.
+  function scheduled(jobName: string, command: string, result: string, heavy: string, cancelled = false) {
+    const job = workflow.jobs[jobName];
+    const context = { needs: { scope: { result, outputs: { run_heavy: heavy } } }, cancelled: () => cancelled };
+    const enabled = (condition?: string) => condition === undefined || runInNewContext(
+      condition.replace(/^\$\{\{\s*|\s*\}\}$/gu, ""), context, { timeout: 100 },
+    );
+    return enabled(job.if) && job.steps?.some((step) => step.run === command && enabled(step.if));
+  }
+
+  it.each([
+    ["heavy", "success", "true", false],
+    ["explicit light", "success", "false", true],
+    ["failed scope", "failure", "false", false],
+    ["skipped scope", "skipped", "false", false],
+    ["missing scope", "", "false", false],
+    ["missing output", "success", "", false],
+    ["invalid output", "success", "unknown", false],
+  ])("retains exactly one quality owner on %s", (_label, result, heavy, light) => {
+    const fullSuite = scheduled("quality-tests", "npm run test:ci -- --shard=${{ matrix.shard }}/4", result, heavy);
+    const targetedTests = scheduled("quality-contracts", scopeTests, result, heavy);
+    const preflight = scheduled("quality-core", "npm run preflight:common", result, heavy);
+    const targetedRoutes = scheduled("quality-contracts", routeCheck, result, heavy);
+    expect([fullSuite, targetedTests]).toEqual([!light, light]);
+    expect([preflight, targetedRoutes]).toEqual([!light, light]);
+    // The runtime validator is not a duplicate of its tests: always retain it.
+    expect(scheduled("quality-contracts", "npm run workflow:contract", result, heavy)).toBe(true);
+  });
+
+  it("does not keep targeted work alive after cancellation", () => {
+    expect(scheduled("quality-contracts", scopeTests, "success", "false", true)).toBe(false);
+    expect(scheduled("quality-contracts", routeCheck, "success", "false", true)).toBe(false);
+  });
+
+  it.each([scopeTests, routeCheck])("rejects missing, skipped or nonblocking light coverage: %s", (command) => {
+    for (const change of ["remove", "skip", "allow-failure", "duplicate"]) {
+      const changed = structuredClone(workflow);
+      const job = changed.jobs["quality-contracts"];
+      const step = job.steps!.find((candidate) => candidate.run === command)!;
+      if (change === "remove") job.steps = job.steps!.filter((candidate) => candidate !== step);
+      if (change === "skip") step.if = "${{ false }}";
+      if (change === "allow-failure") step["continue-on-error"] = true;
+      if (change === "duplicate") job.steps!.push({ ...step });
+      expect(evaluateCiScopeWorkflow(stringify(changed), scripts), change).not.toEqual([]);
+    }
+  });
+
+  it("rejects loss of the heavy preflight or its Vercel route check", () => {
+    const changed = structuredClone(workflow);
+    changed.jobs["quality-core"].steps = changed.jobs["quality-core"].steps!
+      .filter((step) => step.run !== "npm run preflight:common");
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
+    for (const name of ["preflight:common", "prebuild", "route-timeouts:check"]) {
+      expect(evaluateCiScopeWorkflow(source, { ...scripts, [name]: "echo skipped" }), name).not.toEqual([]);
+    }
+  });
 });
 
 describe("complete native test sharding contract", () => {

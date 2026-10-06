@@ -2,10 +2,26 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Två delpaket levererade till preview; hela A7 öppen för kvarvarande A3/A4/A5/A6b.
+Status: #1553/#1562 samt planstatus #1564 levererade; fortsättning pågår, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
+
+2026-10-06 återupptogs TESTER i egen `sajtmaskin-tester-restarbete`, branch
+`codex/test-control-rest`, bas `f9c5acea6bcab47223607d5b3c20b64c4db88381`.
+`e1e8` är avvecklad och återanvänds inte. #1564 är redan mergad till
+`04b246abeb8c7e045d20041c0518267b1400db10`; dess statusbranch är avslutad.
+Första nya paketet ändrar endast två docstesters miljö och dubbelkörning av
+workflowtester/route-timeouts i quality-lanes, plus originalplanens status.
+Riktat gav 224 PASS/23 befintliga Windows-skip, workflowkontrakt och verify-plan
+är gröna. De nya testerna gav först nio kontrollerade RED på ursprunglig CI:
+sex dubbelkörningar och tre saknade validatorgarantier. Faktisk route-drift
+gav exit 1 både direkt och genom preflight; manifestet är återställt.
+Full lokal verifiering, oberoende review och nya native CI-/deploymentbevis
+är ännu inte klara. A3:s inventeringsskydd och A4:s isolerade harness är
+separat restarbete; varken discovery eller mockar gör dessa flöden körda.
+
+### Redan levererade paket och deras ursprungliga lokala bevis
 
 Verifierade lokala paket: A6a discovery/fallback, A2 audit-orkestrering,
 A3 systemprompt/checker + Backoffice-testhygien + verklig promptkomposition,
@@ -49,10 +65,9 @@ på `1110d65f` används inte som ersättning för det.
 
 Ingen masterpromotion, delad DB-apply, env-/providerändring eller ny
 CI-urvalsminskning ingick. Originalplanens tio filer och aktiva indexrad
-bevaras. Aktuell doc-onlybranch `codex/test-control-status` uppdaterar endast
-befintlig status; nya A3-/A5-kandidater är HOLD, A4:s riktiga isolerade harness
-saknas och A6b/A7:s slutchecklistor är öppna. Samordnaren har frigivit
-docs-publicering efter faktisk SCHAFFOLDS-merge och lokal kontroll/review.
+bevarades genom planstatus #1564. Den tidigare doc-onlybranchen
+`codex/test-control-status` är avslutad; aktuell fortsättning anges ovan.
+A4:s riktiga isolerade harness saknas och A6b/A7:s slutchecklistor är öppna.
 
 ### Slutlig dokumentationsbas efter SCHAFFOLDS
 

@@ -19,19 +19,22 @@ Bedöm både själva kontrollen och det aktuella krav som den är tänkt att sky
 
 ## Mandat och start
 
-Jakob beställde lokalt genomförande 2026-10-05. Arbete pågår i
-separat tilldelad checkout `e1e8`; aktiviteternas status skiljer levererade
-delpaket från kvarvarande arbete. #1553 är mergad till preview `c4f4b188`
-och fyrfilspaketet #1562 till `cca962c6`. Aktuell branch
-`codex/test-control-status` samlar endast planstatus, inte fler teständringar,
-och är normalsynkad med faktisk preview `8267a10e` efter SCHAFFOLDS #1563.
-Jakobs senare fortsättnings-/leveransmandat verifierades i samordningschatten
-`Dokumentera Master-promotion` 2026-10-05. Detta steg omfattar scoped commit,
-push och separat PR mot `preview`; samordnaren ansvarar för mergeordning
-och aktuella leveransvillkor. Ingen mastermerge eller extra DB-/provideråtgärd ingår.
+Jakob beställde genomförande 2026-10-05 och återupptog restarbetet
+2026-10-06 i samordningschatten `Dokumentera Master-promotion`. #1553 är
+mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
+planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
+Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
+i `sajtmaskin-tester-restarbete`, branch `codex/test-control-rest`, från
+färsk preview `f9c5acea6bcab47223607d5b3c20b64c4db88381`.
+Första fortsättningspaketet omfattar två A5-docstesters Node-miljö och A6b:s
+dubblerade workflowtest-/route-timeoutkörning, utan smalare testurval.
+Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
+samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
+eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
-A3:s återstående bestånd, A4:s riktiga flödesharness, A5:s nästa miljöpaket och
-A6b:s slutliga optimering är inte färdiga; hela planen förblir aktiv.
+A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
+optimering är inte färdiga; A5/A6b:s nya delpaket verifieras separat.
+Hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
 driva aktiviteterna inom uppdraget; varje rutinmässig delpunkt behöver inte ett
