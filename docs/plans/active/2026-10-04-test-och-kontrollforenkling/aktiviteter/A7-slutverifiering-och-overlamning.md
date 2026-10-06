@@ -9,14 +9,18 @@ Beroende: A3–A6.
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
 `codex/test-registry-cleanup`, från preview
-`eba1c590cf6f4a68b086525002ad4a3cd2def766`. `e1e8` är avvecklad.
+`4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk.
+`e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
 Baslinje och återställd kontroll ger 40 PASS; med två befintliga länk-/termtester
 61 PASS. Två onödiga fel för avsiktlig sida/områdesnamn försvinner, medan nio
 verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
-är återställda. Aktuell oberoende review och native leverans återstår.
-A4:s disposabla CI-miljö utreds bara läsande. Inget faktiskt browser-/DB-flöde
+är återställda. Oberoende `gpt-5.6-sol`/xhigh-review är CLEAN på
+`2b3ea77d` mot `eba1c590`; testblob och ownerfiler är identiska efter
+synk till `4659f3bf`. Slutlig integrationsreview och native leverans återstår.
+A4:s smala disposabla CI-harness är godkänd som separat nästa paket.
+Inget faktiskt browser-/DB-flöde
 är bevisat och A6b/A7:s slutliga urvals-/acceptansgrindar är fortsatt öppna.
 
 ### Levererat A5/A6b-delpaket — #1574

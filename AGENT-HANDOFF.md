@@ -24,9 +24,9 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 - TESTER: #1553, #1562, #1564 och #1574 mergade. Originalplanen är bevarad.
   Testreformen är DELLEVERERAD, inte färdig. Fortsättning i egen checkout
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`, branch
-  `codex/test-registry-cleanup`, bas `eba1c590`: nu A3:s avgränsade
-  registrytest-rensning. A4:s disposabla CI-miljö utreds läsande; inga lokala
-  installationer eller verkliga DB-/browserflödesbevis ännu.
+  `codex/test-registry-cleanup`, integrationsbas `4659f3bf`: nu A3:s avgränsade
+  registrytest-rensning. A4:s smala disposabla CI-harness är godkänd som separat
+  nästa implementation; inga installationer eller DB-/browserflödesbevis ännu.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
   mergade. #1554/#1557/#1560/#1561 är bevarade familje-drafts, ersatta av samlad
   source-only-kandidat [#1575](https://github.com/Jakeminator123/sajtmaskin/pull/1575).

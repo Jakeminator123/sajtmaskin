@@ -25,7 +25,7 @@ mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
 planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
 Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
 i `sajtmaskin-tester-restarbete`, branch `codex/test-registry-cleanup`, från
-preview `eba1c590cf6f4a68b086525002ad4a3cd2def766`. Två A5-docstesters
+preview `4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk. Två A5-docstesters
 Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
 utan smalare testurval. Aktuellt A3-paket tar bort registrytestets historiska
 sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
@@ -36,8 +36,9 @@ eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skri
 Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
 A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
 optimering är inte färdiga. Registry-paketets kontrollerade felprov är körda;
-egen aktuell review och native leverans återstår. A4:s möjliga disposabla
-CI-miljö utreds läsande, utan lokal installation eller delad DB.
+oberoende kodreview är CLEAN på `2b3ea77d` mot `eba1c590`, medan slutlig
+integrationsreview och native leverans återstår. A4:s smala disposabla CI-harness
+är godkänd för separat implementation efter A3, utan lokal installation eller delad DB.
 Hela planen förblir aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och

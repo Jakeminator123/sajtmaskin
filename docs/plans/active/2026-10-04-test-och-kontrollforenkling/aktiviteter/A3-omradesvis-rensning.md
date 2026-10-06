@@ -130,7 +130,7 @@ pris-/allowlist-policy för alla andra modeller eller alias.
 
 ### Registry-paket 2026-10-06 — implementerat, leverans återstår
 
-Scope: endast `src/lib/control-plane/registry.test.ts`, bas `eba1c590`,
+Kodscope: endast `src/lib/control-plane/registry.test.ts`, ursprungsbas `eba1c590`,
 branch `codex/test-registry-cleanup`. TA BORT historiskt sidantal 37:
 commit `578fdaa94` visade tidigare ren 36 → 37-bump för legitim Curator-sida.
 SKRIV OM fem rubrik-/historiklås till explicit `decisionRows.length > 0`.
@@ -155,7 +155,10 @@ Efter varje prov återställdes ownerraden; till sist verifierades tom gitdiff
 för `PAGE_SPECS`, policyregistry och beslutsindex. Återställd kontroll med två
 befintliga länk-/termtestfiler gav 3 filer/61 PASS med högst fyra workers.
 Lokalt tillfälligt underlag: `.tmp/a3-registry-proof-20261006.json`.
-Oberoende review och native leverans återstår. Detta stänger inte hela A3.
+Oberoende `a5_a6_rest_review` (`gpt-5.6-sol`/xhigh) gav CLEAN på
+`2b3ea77d` mot `eba1c590`. Normal synk till `4659f3bf` bevarar exakt
+testblob och ownerfiler; bounded integrationsreview och native leverans
+återstår. Detta stänger inte hela A3.
 
 ## Checklista per paket
 
