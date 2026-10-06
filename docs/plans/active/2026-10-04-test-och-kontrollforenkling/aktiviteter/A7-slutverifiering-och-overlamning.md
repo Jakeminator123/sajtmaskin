@@ -2,26 +2,31 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574 levererade; A3 fortsätter, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574/#1576 levererade; A3 fortsätter, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
 
-TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
-`codex/test-registry-cleanup`, från preview
-`4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk.
-`e1e8` är avvecklad.
-A3:s registry-paket ändrar bara ett test och befintlig planstatus:
-historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
-Baslinje och återställd kontroll ger 40 PASS; med två befintliga länk-/termtester
-61 PASS. Två onödiga fel för avsiktlig sida/områdesnamn försvinner, medan nio
-verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
-är återställda. Oberoende `gpt-5.6-sol`/xhigh-review är CLEAN på
-`2b3ea77d` mot `eba1c590`; testblob och ownerfiler är identiska efter
-synk till `4659f3bf`. Slutlig integrationsreview och native leverans återstår.
-A4:s smala disposabla CI-harness är godkänd som separat nästa paket.
-Inget faktiskt browser-/DB-flöde
-är bevisat och A6b/A7:s slutliga urvals-/acceptansgrindar är fortsatt öppna.
+Registry-paketet är levererat via #1576 på `f68d1837`. Aktuellt A3-paket har
+source `21fa810e` mot `e113a7e2`, oberoende CLEAN efter två rättade P2-fynd.
+Integrationshead `de87533e` mot preview `30b941c5` ändrar exakt fem testpaths;
+test- och lockblobbarna är identiska med sourcepaketet och författarens
+`verify:pr -- --plan` är grön. Riktat sourcebevis: 102 TypeScript PASS i fyra
+filer, 31 Python PASS och hela Backoffice 702 PASS/56,104 sekunder. Fjorton
+verkliga felmutationer gav RED; tre legitima katalog-/versionsförändringar som
+de gamla låsen stoppade passerar nu. Oberoende avgränsad integrationsreview är
+CLEAN med identiska berörda owners, fixtures och testblobbar. A3 äger full
+disposition och bevisgräns.
+
+Färsk discovery 1 093/1 093, docslänkar, historikstatus och plan är PASS på
+integrationsbasen. Slutlig docsreview, native CI och merge återstår.
+TESTER:s separata #1580 är åter DRAFT. Native run
+`37462490014` slutade efter 5:07 med endast persistence och quality FAIL;
+dossier `37462489767` gav 21/21 PASS på 6:55 och exakt deployment READY.
+Statiskt produktfel: `BuilderPreviewTools` yttre grind gömmer Kod när
+`previewUrl` är null trots code-only-stöd. En separat smal produktfix förbereds.
+Hydration, edit/save/tenant och senare generation/follow-up/remove/replace är
+inte bevisade. A4, A6b och hela A7 förblir öppna.
 
 ### Levererat A5/A6b-delpaket — #1574
 
@@ -170,7 +175,7 @@ preview-host-körningen; en faktisk PR med workflowdiff väljer däremot
 native CI, Linux, browser, isolerad DB eller externa providers. Senare native
 CI redovisas separat ovan; browser-/DB-/providerflödena i A4 är obevisade.
 
-### Aktuell bassynk
+### Historisk bassynk för #1553 — 2026-10-05
 
 PR #1553 normalsynkades 2026-10-05 en gång efter den avslutade dossier- och
 industryleveransen, mot faktisk preview
@@ -196,8 +201,9 @@ Detta är ett integrationskvitto, inte en ny fullsuite eller ett A4-flödesbevis
 Tidigare fullprofil återanvänds endast för identiska kodbytes. Aktuell review,
 native CI och deployment måste avse PR:ns nya publicerade head och aktuella
 bas; äldre gröna PR-resultat är inte ett nytt mergekvitto. Samordnaren äger
-merge. Planens A3 är fortfarande ofullständig, A4 harnessblockerad och A6b
-endast read-only kartlagd. Hela A7/slutchecklistan är inte färdig.
+merge. Vid denna historiska synk var A3 ofullständig, A4 harnessblockerad och
+A6b endast read-only kartlagd. Aktuell status finns överst i dokumentet;
+detta integrationskvitto stänger inte hela A7/slutchecklistan.
 
 ## Uppdrag
 
@@ -259,12 +265,12 @@ motsvarande förbättring av full CI, kötid eller deployment. Inga obligatorisk
 checks eller CI-shards har avvecklats.
 
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
-Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
-aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
-och samordnad skrivreservation; A5:s tvåfilspaket är levererat via #1574.
-A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
-väntar på beroendena; same-head-eventdedup är separat read-only underlag,
-inte en genomförd workflowändring. Planpaketet stannar aktivt.
+Samordnaren ansvarar för A3-katalogpaketets aktuella review, native checks och
+merge. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
+skrivreservation. TESTER äger #1580:s felutredning och får inte redovisa ett
+browser-/persistensflöde som godkänt innan edit/save/tenant faktiskt körts.
+A4:s senare generation/follow-up/remove/replace, A6b och A7 återstår.
+Planpaketet stannar aktivt.
 
 ## Slutkvitto för hela planen
 

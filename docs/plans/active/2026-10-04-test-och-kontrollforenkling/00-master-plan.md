@@ -20,26 +20,32 @@ Bedöm både själva kontrollen och det aktuella krav som den är tänkt att sky
 ## Mandat och start
 
 Jakob beställde genomförande 2026-10-05 och återupptog restarbetet
-2026-10-06 i samordningschatten `Dokumentera Master-promotion`. #1553 är
-mergad till preview `c4f4b188`, fyrfilspaketet #1562 till `cca962c6` och
-planstatus #1564 till `04b246ab`. Dessa paket återlevereras inte.
-Den tidigare checkouten `e1e8` är avvecklad. Ensam TESTER-skrivare arbetar nu
-i `sajtmaskin-tester-restarbete`, branch `codex/test-registry-cleanup`, från
-preview `4659f3bf8e4f103096b4ee71aed93eb2c845a6d7` efter en normal bassynk. Två A5-docstesters
-Node-miljö och A6b:s avgränsade dubbelkörning är nu levererade via #1574,
-utan smalare testurval. Aktuellt A3-paket tar bort registrytestets historiska
-sidantal och ersätter rubriklås med explicit icke-tom beslutsinventering.
-Faktisk medlemskap-/radvalidering och befintlig länkvalidator bevaras.
-Mandatet omfattar scoped implementation, commit, push och PR mot `preview`;
-samordnaren eller utsedd merge-agent äger mergeordningen. Ingen mastermerge
-eller extra DB-/provideråtgärd ingår. Andra agenters checkouter är inte skrivytor.
-Leveransbevis och begränsningar finns i [A7](aktiviteter/A7-slutverifiering-och-overlamning.md).
-A3:s återstående bestånd, A4:s riktiga flödesharness och A6b:s slutliga
-optimering är inte färdiga. Registry-paketets kontrollerade felprov är körda;
-oberoende kodreview är CLEAN på `2b3ea77d` mot `eba1c590`, medan slutlig
-integrationsreview och native leverans återstår. A4:s smala disposabla CI-harness
-är godkänd för separat implementation efter A3, utan lokal installation eller delad DB.
-Hela planen förblir aktiv.
+2026-10-06 i samordningschatten `Dokumentera Master-promotion`. #1553, #1562,
+#1564, #1574 och registry-paketet #1576 är mergade; de återlevereras inte.
+
+Aktuellt A3-katalogpaket ersätter historiska versionslistor och katalogantal
+med jämförelser mot kanoniska owners och oberoende projektioner. Source
+`21fa810e` mot `e113a7e2` är oberoende CLEAN efter att två P2-täckningsfynd
+rättats. Normal integration `de87533e` mot preview `30b941c5` innehåller exakt
+fem testpaths; deras test- och lockblobbar är identiska med sourcepaketet och
+författarens `verify:pr -- --plan` är grön. Oberoende avgränsad
+integrationsreview är CLEAN med identiska berörda produktowners, fixtures och
+fem testblobbar. Färsk discovery är 1 093/1 093 PASS; docslänkar,
+historikstatus och plan är gröna. Slutlig docsreview, native CI och merge
+återstår. A3 är därför fortfarande pågående.
+
+TESTER arbetar separat med A4. PR #1580 är åter DRAFT efter triage. Native run
+`37462490014` avslutades på 5:07 med endast persistence och quality FAIL;
+dossier `37462489767` var 21/21 PASS på 6:55 och exakt deployment READY.
+`BuilderPreviewTools` yttre grind gömmer Kod när `previewUrl` är null trots att
+`canShowCode` och filvyn stöder code-only. En separat smal produktfix förbereds;
+hydration samt edit/save/tenant och senare generation/follow-up/remove/replace
+är inte bevisade. A6b och A7 är också öppna. Mandatet omfattar scoped
+implementation, commit, push och PR mot
+`preview`; samordnaren äger mergeordningen. Ingen mastermerge eller extra
+DB-/provideråtgärd ingår. Leveransbevis och begränsningar finns i
+[A7](aktiviteter/A7-slutverifiering-och-overlamning.md). Hela planen förblir
+aktiv.
 
 När Jakob tilldelar en agent att genomföra planen kan den agenten fördela och
 driva aktiviteterna inom uppdraget; varje rutinmässig delpunkt behöver inte ett
@@ -114,11 +120,10 @@ A6 har två separata grindar: säkerhetsdelen före piloten, optimeringen sist.
 
 ## Angränsande aktiva initiativ
 
-- Dossier-förenklingen är levererad via #1551, #1555 och #1558; terminalstatus
+- Dossier-förenklingen är terminalt levererad; status
   finns i [avklarat-indexet](../../avklarat/README.md) och stabil semantik i
-  [dossierkontraktet](../../../contracts/dossier-system.md). Runtimeowners
-  frigavs efter verifierad preview `59a12080`. SCHAFFOLDS aktuella
-  intent-/scaffoldreservation består; samordna den innan överlappande arbete.
+  [dossierkontraktet](../../../contracts/dossier-system.md). Scaffoldarbetet är
+  också levererat; gemensamma live-indexåtgärder ingår inte i testplanen.
 - [Källkvitto, Quality Bar och addenda](../2026-09-17-inspiration-kvitto-och-komposition/00-master-plan.md)
   äger sina produktbeslut. Samordna förändringar i källkvitto, designråd,
   varianter och addenda; starta inte om redan levererade delar.
