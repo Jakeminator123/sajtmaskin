@@ -358,7 +358,8 @@ valda scaffolden, exempelvis `Använd variant "hero-fullbleed-bg".` eller
 `Stilvariant: hero-fullbleed-bg` accepteras också; skiftläge ignoreras. Kommandot
 börjar prompten eller följer en avslutad mening och radbrytning; en radbrytning
 inne i `Use\nvariant …` kapar inte föregående kontext. Punkter i exempelvis
-`t.ex.`, `e.g.`, `...` och listnummer är inte meningsgränser. Kvittot får
+`t.ex.`, `e.g.`, `...` och listnummer är inte meningsgränser; semikolon behåller
+också föregående satskontext. Kvittot får
 `source: "explicit"` och null för score, runner-up och margin. Ett explicit val
 läser inget embeddingartefakt och anropar ingen embeddingprovider.
 

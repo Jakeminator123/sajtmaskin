@@ -268,7 +268,7 @@ function explicitVariantFromPrompt(
   // A preceding sentence must end before a new command line; dots inside
   // t.ex./e.g., ellipses or list numbers must not discard its context.
   const prefix = before.split(
-    /[!?;][ \t]*[\r\n]+|(?<![\p{L}\p{N}_.])\p{L}{2,}\.(?!\.)[ \t]*[\r\n]+/u,
+    /[!?][ \t]*[\r\n]+|(?<![\p{L}\p{N}_.])\p{L}{2,}\.(?!\.)[ \t]*[\r\n]+/u,
   ).at(-1)!.trim();
   // Standalone "Variant: …" or an imperative. An unrestricted substring
   // search would pin quoted/descriptive/negated mentions as user commands.

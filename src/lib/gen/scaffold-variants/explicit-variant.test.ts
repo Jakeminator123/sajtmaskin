@@ -27,6 +27,8 @@ const punctuationNegative = [
   "Do not use...\nVariant: hero-fullbleed-bg.",
   "Vi diskuterar alternativen:\n1.\nVariant: hero-fullbleed-bg.",
   "Do not use etc. Variant: hero-fullbleed-bg.",
+  "Do not use the following;\nVariant: hero-fullbleed-bg.",
+  "Vi diskuterar följande;\nVariant: hero-fullbleed-bg.",
 ];
 afterEach(() => vi.restoreAllMocks());
 
