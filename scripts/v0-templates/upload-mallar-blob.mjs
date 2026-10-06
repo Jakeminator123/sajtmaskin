@@ -67,6 +67,7 @@ import { config as loadDotenv } from "dotenv";
 const ROOT = process.cwd();
 loadDotenv({ path: resolve(ROOT, ".env.local"), override: false });
 loadDotenv({ path: resolve(ROOT, ".env"), override: false });
+const blobReadWriteToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
 
 const DEFAULT_SOURCE = "../mallar";
 const DEFAULT_BLOB_PREFIX = "v0-templates";
@@ -474,7 +475,7 @@ async function uploadStillImage(templateId, absolutePath, buffer) {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: IMAGE_CONTENT_TYPES[ext] || "application/octet-stream",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
+    token: blobReadWriteToken,
   });
   return { url: blob.url };
 }
@@ -703,7 +704,7 @@ async function uploadZip(appCategory, templateId, buffer) {
     addRandomSuffix: false,
     allowOverwrite: overwrite,
     contentType: "application/zip",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
+    token: blobReadWriteToken,
   });
   return { url: blob.url };
 }
@@ -755,7 +756,7 @@ async function main() {
   if (writeCatalog && dryRun) {
     throw new Error("--write-catalog requires --upload (needs real Blob URLs in the catalog).");
   }
-  if (!dryRun && !process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!dryRun && !blobReadWriteToken) {
     throw new Error("BLOB_READ_WRITE_TOKEN is not set — cannot upload to Vercel Blob.");
   }
 

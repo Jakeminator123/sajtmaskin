@@ -40,7 +40,7 @@ export async function listMedia(options: ListMediaOptions = {}): Promise<ListMed
   if (!isMediaStorageConfigured()) {
     return { items: seedMedia, demo: true };
   }
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 60), 1), 200);
   const prefix = `${MEDIA_PREFIX}${normalizeFolder(options.folder)}`;
   const result = await list({ prefix, limit, token });
@@ -92,7 +92,7 @@ export async function uploadMedia(
   if (!isMediaStorageConfigured()) {
     throw new MediaStorageNotConfiguredError();
   }
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   const safeName = options.filename
     .split(/[\\/]/)
     .pop()!
