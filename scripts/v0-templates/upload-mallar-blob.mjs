@@ -474,6 +474,7 @@ async function uploadStillImage(templateId, absolutePath, buffer) {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: IMAGE_CONTENT_TYPES[ext] || "application/octet-stream",
+    token: process.env.BLOB_READ_WRITE_TOKEN,
   });
   return { url: blob.url };
 }
@@ -702,6 +703,7 @@ async function uploadZip(appCategory, templateId, buffer) {
     addRandomSuffix: false,
     allowOverwrite: overwrite,
     contentType: "application/zip",
+    token: process.env.BLOB_READ_WRITE_TOKEN,
   });
   return { url: blob.url };
 }
