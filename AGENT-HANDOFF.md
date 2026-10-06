@@ -17,8 +17,8 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   relevant även utan root-uppgraderingen. Ingen nyckel, env eller provider ändras.
   Oberoende kod-/integrationsreview är CLEAN, full PR-CI 4:20 och alla 21
   dossierbyggen 6:17 är gröna. Exakt merge-deployment är READY; post-CI 3:41
-  har endast samma 13 paritetsrader (noll delta). #1570 behöver fortfarande
-  verifiering av själva dependency-uppgraderingen i den samlade kandidaten nedan.
+  har endast samma 13 paritetsrader (noll delta). #1570:s dependency-uppgradering
+  är också verifierad och levererad i den samlade ersättningen #1578 nedan.
 - **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. A3:s femfils
   katalogpaket är levererat via #1582 på `c33daca3`: oberoende CLEAN, native CI
   4:13, 21/21 dossierbyggen 5:55 och exakt READY-deployment enligt samordnaren.
@@ -78,15 +78,14 @@ inte ombyggda.
    Granskad source-head och mergeträdet är identiska; full PR-CI 4:51,
    sex required checks och exakt deployment är gröna. Post-CI 4:50 har endast
    oförändrad paritet; exakt merge-deployment är READY.
-2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 återanvänds i en
-   samlad kandidat på `codex/dependency-compat-integration`, från `72de69a8`.
-   Normalmerge av alla fem sourcecommits ger exakt fem manifeständringar och
-   35 ändrade locknoder (1 162 totalt), oberoende integrationsreview CLEAN på
-   kodhead `68b04e34`. Inga extra uppgraderingar eller nya installationsskript.
-   npm ci, 62 körda riktade tester (23 OS-villkorade skips), full typecheck,
-   baselinekontroller, dossiers 23/23, docslinks, plan och diffcheck är gröna.
-   Aktuell native CI/deployment krävs före merge; original-PR:erna stängs
-   först när ersättningen är terminal. Ingen av
+2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 är ersatta av
+   mergade #1578 på `21a325ae`, source `8314788`, identiskt träd `163ad675`.
+   Fem manifeständringar och 35 ändrade locknoder (1 162 totalt), inga extra
+   uppgraderingar eller installationsskript. Oberoende review, lokala
+   kontroller, native kod-/dossierchecks och exakt deployment passerade.
+   Post-CI `37452117087` har endast samma 13 paritetsrader, delta 0.
+   De fem original-PR:erna är stängda av boten, enligt samordnarens slutkvitto.
+   Ingen av
    dessa fem ingår i automerge-allowlisten. Första verkliga tillåtna botmergen är
    fortfarande obevisad; utvidga inte allowlisten för att skapa ett kvitto.
 3. Scaffold-ID:n är oförändrade och valt ID hydrateras till deployad registry
