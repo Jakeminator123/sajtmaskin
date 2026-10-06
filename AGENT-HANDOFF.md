@@ -25,15 +25,17 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
   komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
   bas till `codex/project-persistence-e2e` för befintlig draft #1580.
-  Senaste persistenskörningen `37493732112` på `a37af8d0` passerade initial
-  hydration efter 20,924 sekunder: tre verkliga GET/200/rätt fixture-ID.
-  Kod/Kodvy och filens redigeringsläge öppnades, men testets för breda
-  textarea-selector fann både Hero-ingress och kodfält före fill/PATCH.
-  Minsta harnessrättning väljer kodägarens direkta fält, behåller strictness
-  och separat exact-innehållskrav. Verklig komponent-DOM i Chromium verifierar
-  rätt fält samt negativa saknad/dubbel/fel-innehållsfall. Ingen produktändring.
-  Save/reload/tenant är fortfarande obevisade; PR:n åter draft. Initial
-  startupbudget är högst 120 sekunder; actions/reload behåller 15 sekunder.
+  Senaste persistenskörningen `37495373171` på `4cbb4c00` passerade metadata-
+  hydration efter 27,979 sekunder men filknappen blev inte tillgänglig inom
+  15 sekunder efter Kod/Kodvy-klick. Första files-svaren loggades efter stoppet;
+  färdigrenderad kodvy, ny editorselector och fill/PATCH nåddes inte bevisligen.
+  Samlad ownergranskning godkände delad initial 120-sekundersdeadline för
+  metadata och naturlig files-readiness samt 120 sekunder endast för första
+  kalla save-POST. Rena actions, PATCH, varm files-GET och reload-readiness
+  behåller 15 sekunder; totalgränsen är 240 sekunder. Första felutfall bevaras,
+  navigation och action-start avgränsar svaren. Ingen produktändring eller
+  bevisad UI-reset. Save/reload/tenant återstår; #1580 är draft. A6b-WIP finns
+  endast lokalt på `codex/ci-duplicate-execution`/`3e73ef43`, inte levererat.
   Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
   är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:

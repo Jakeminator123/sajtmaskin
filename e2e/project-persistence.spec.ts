@@ -20,7 +20,10 @@ type Fixture = {
 // This hook runs before the test's browser fixture is requested.
 test.beforeAll(() => assertRuntimeIsolation(process.cwd()));
 
-async function openEditor(page: Page) {
+async function openEditor(page: Page, assertFilesReady: () => Promise<void>) {
+  // Natural app data may arrive before the code-view hook runs. Prove the
+  // data first, then require the real view/file/editor through ordinary actions.
+  await assertFilesReady();
   await page.getByRole("button", { name: "Kod", exact: true }).click();
   await page.getByRole("menuitem", { name: "Kodvy", exact: true }).click();
   await page.getByRole("button", { name: "page.tsx", exact: true }).click();
@@ -102,13 +105,26 @@ test("real file edit + Save project survives reload; another guest cannot read o
     if (browserFailures.length < 20) browserFailures.push(redact(message).slice(0, 2_000));
   };
   const loadPaths = [projectPath, chatPath, versionsPath];
-  const loaded = new Map<string, Response>();
+  const responseKey = (method: string, path: string) => `${method} ${path}`;
+  const observedKeys = [
+    ...[...loadPaths, filePath].map((path) => responseKey("GET", path)),
+    responseKey("PATCH", filePath),
+    responseKey("POST", savePath),
+  ];
+  const outcomes = new Map<string, Response | Error>();
+  const responseFloors = new Map<string, number>();
   let navigationGeneration = 0;
   const requestGeneration = new WeakMap<Request, number>();
   const diagnosticStartedAt = Date.now();
   const apiRequests = new WeakMap<Request, { id: number; atMs: number; generation: number }>();
   const apiTimeline: Array<Record<string, string | number>> = [];
   let nextRequestId = 0;
+  let initialReadyBy = 0;
+  const remainingStartup = () => {
+    const remaining = initialReadyBy - Date.now();
+    expect(remaining, "Shared initial app-data deadline exhausted").toBeGreaterThan(0);
+    return remaining; // Never pass timeout: 0 (unbounded in Playwright).
+  };
   const recordApiEvent = (
     event: "start" | "response" | "failed",
     request: Request,
@@ -133,36 +149,55 @@ test("real file edit + Save project survives reload; another guest cannot read o
       ...(status === undefined ? {} : { status }),
     });
   };
+  const recordOutcome = (request: Request, outcome: Response | Error) => {
+    const key = responseKey(request.method(), new URL(request.url()).pathname);
+    const start = apiRequests.get(request);
+    if (
+      requestGeneration.get(request) === navigationGeneration &&
+      start && start.id > (responseFloors.get(key) ?? 0) && !outcomes.has(key)
+    ) {
+      outcomes.set(key, outcome);
+    }
+  };
+  const waitForAppResponse = async (method: string, path: string, timeout?: number) => {
+    const key = responseKey(method, path);
+    await expect.poll(() => outcomes.has(key), {
+      message: `App response ${key}`,
+      ...(timeout === undefined ? {} : { timeout }),
+    }).toBe(true);
+    const outcome = outcomes.get(key)!;
+    if (outcome instanceof Error) throw outcome;
+    expect(outcome.status(), key).toBe(200);
+    return outcome;
+  };
+  const beginActionResponse = (method: string, path: string) => {
+    const key = responseKey(method, path);
+    // An earlier post-PATCH refetch cannot stand in for Save project's GET.
+    responseFloors.set(key, nextRequestId);
+    outcomes.delete(key);
+  };
   const assertBuilderLoaded = async (initialStartup = false) => {
     const readinessStartedAt = Date.now();
     // Observe the app's own GETs, not APIRequestContext calls that bypass hydration.
-    // Cold webpack/client/API startup uses the existing navigation budget.
-    // Reload and all ordinary actions keep the configured 15-second limit.
+    // Metadata and first files share ONE existing navigation-sized deadline.
+    // Reload and ordinary actions keep the configured 15-second limit.
     // This proves functionality, not a 15-second cold-start performance SLA.
-    await expect
-      .poll(() => [...loaded.keys()].sort(), {
-        message: "Builder hydration GETs",
-        ...(initialStartup ? { timeout: testInfo.project.use.navigationTimeout } : {}),
-      })
-      .toEqual([...loadPaths].sort());
-    for (const path of loadPaths) {
-      expect(loaded.get(path)!.status(), `Builder hydration GET ${path}`).toBe(200);
-    }
-    const [project, chat, versions] = await Promise.all(
-      loadPaths.map((path) => loaded.get(path)!.json()),
-    );
-    expect(project).toMatchObject({ success: true, project: { id: fixture.projectId } });
-    expect(chat).toMatchObject({
-      id: fixture.chatId,
-      chatId: fixture.chatId,
-      projectId: fixture.projectId,
-      latestVersion: { id: fixture.versionId, versionId: fixture.versionId },
-    });
-    expect(versions.versions).toHaveLength(1);
-    expect(versions.versions[0]).toMatchObject({
-      id: fixture.versionId,
-      versionId: fixture.versionId,
-    });
+    const [project] = await Promise.all(loadPaths.map(async (path) => {
+      const response = await waitForAppResponse("GET", path, initialStartup ? remainingStartup() : undefined);
+      const body = await response.json();
+      if (path === projectPath) {
+        expect(body).toMatchObject({ success: true, project: { id: fixture.projectId } });
+      } else if (path === chatPath) {
+        expect(body).toMatchObject({
+          id: fixture.chatId, chatId: fixture.chatId, projectId: fixture.projectId,
+          latestVersion: { id: fixture.versionId, versionId: fixture.versionId },
+        });
+      } else {
+        expect(body.versions).toHaveLength(1);
+        expect(body.versions[0]).toMatchObject({ id: fixture.versionId, versionId: fixture.versionId });
+      }
+      return body;
+    }));
     if (initialStartup) {
       console.info("[project-persistence] initial hydration ready", {
         budgetMs: testInfo.project.use.navigationTimeout,
@@ -178,6 +213,23 @@ test("real file edit + Save project survives reload; another guest cannot read o
     }
     return project;
   };
+  const assertFileResponse = async (response: Response, expected: Array<{ name: string; content: string }>) => {
+    expect(new URL(response.request().url()).searchParams.get("versionId")).toBe(fixture.versionId);
+    const body = await response.json();
+    expect(body.versionId).toBe(fixture.versionId);
+    expect(body.files.map((file: { name: string; content: string }) => ({ name: file.name, content: file.content }))
+      .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
+      .toEqual([...expected].sort((a, b) => a.name.localeCompare(b.name)));
+  };
+  const assertFilesLoaded = async (expected: Array<{ name: string; content: string }>, initialStartup = false) => {
+    const response = await waitForAppResponse("GET", filePath, initialStartup ? remainingStartup() : undefined);
+    await assertFileResponse(response, expected);
+    if (initialStartup) {
+      console.info("[project-persistence] initial files ready", {
+        remainingBudgetMs: remainingStartup(), generation: navigationGeneration,
+      });
+    }
+  };
   let primaryFailure = false;
   try {
     page = await context.newPage();
@@ -189,34 +241,29 @@ test("real file edit + Save project survives reload; another guest cannot read o
       recordApiEvent("failed", request);
       const path = new URL(request.url()).pathname;
       recordFailure(`${request.method()} ${path}: ${request.failure()?.errorText}`);
+      recordOutcome(request, new Error(`App request failed: ${request.method()} ${path}`));
     });
     page.on("request", (request) => {
       if (request.isNavigationRequest() && request.frame() === page!.mainFrame()) {
         navigationGeneration += 1;
-        loaded.clear();
+        outcomes.clear();
+        responseFloors.clear();
       }
       recordApiEvent("start", request);
       const url = new URL(request.url());
       if (
         navigationGeneration > 0 &&
         url.origin === BASE_URL &&
-        request.method() === "GET" &&
-        loadPaths.includes(url.pathname)
+        observedKeys.includes(responseKey(request.method(), url.pathname))
       ) {
         requestGeneration.set(request, navigationGeneration);
       }
     });
     page.on("response", (response) => {
       recordApiEvent("response", response.request(), response.status());
-      const url = new URL(response.url());
       // File save can leave a versions refetch in flight across reload. Only
       // requests STARTED in this navigation may prove this navigation hydrated.
-      if (
-        requestGeneration.get(response.request()) === navigationGeneration &&
-        !loaded.has(url.pathname)
-      ) {
-        loaded.set(url.pathname, response);
-      }
+      recordOutcome(response.request(), response);
     });
     expect(await data()).toEqual([]);
     const before = await version();
@@ -226,19 +273,21 @@ test("real file edit + Save project survives reload; another guest cannot read o
       { waitUntil: "domcontentloaded" },
     );
     expect(navigation?.status(), "Builder must render before editing").toBe(200);
+    initialReadyBy = Date.now() + testInfo.project.use.navigationTimeout!;
     await assertBuilderLoaded(true);
-    const { pane, editor } = await openEditor(page);
+    const { pane, editor } = await openEditor(page, () => assertFilesLoaded(
+      fixture.files.map((file) => ({ name: file.path, content: file.content })), true,
+    ));
     const original = fixture.files.find((file) => file.path === "app/page.tsx")!.content;
     const changed = original.replace("A4_INITIAL_MARKER", "A4_SAVED_MARKER");
     expect(changed).not.toBe(original);
     await expect(editor).toHaveValue(original);
     await editor.fill(changed);
-    const patched = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === filePath && response.request().method() === "PATCH",
-    );
-    await pane.getByRole("button", { name: "Spara fil", exact: true }).click();
-    const patchResponse = await patched;
+    beginActionResponse("PATCH", filePath);
+    const [patchResponse] = await Promise.all([
+      waitForAppResponse("PATCH", filePath),
+      pane.getByRole("button", { name: "Spara fil", exact: true }).click(),
+    ]);
     expect(patchResponse.status()).toBe(200);
     expect(patchResponse.request().postDataJSON()).toEqual({
       versionId: fixture.versionId,
@@ -276,21 +325,17 @@ test("real file edit + Save project survives reload; another guest cannot read o
     await page
       .getByRole("button", { name: "Mer — spara, inställningar, import och export", exact: true })
       .click();
-    const fetched = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === filePath && response.request().method() === "GET",
-    );
-    const saved = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === savePath && response.request().method() === "POST",
-    );
-    await page.getByRole("menuitem", { name: "Spara projekt", exact: true }).click();
-    const fetchedResponse = await fetched;
+    beginActionResponse("GET", filePath);
+    beginActionResponse("POST", savePath);
+    const [fetchedResponse, savedResponse] = await Promise.all([
+      waitForAppResponse("GET", filePath),
+      // Only this first POST introduces a cold route; the files GET and every
+      // UI action remain at 15s. The test's hard 240s ceiling is unchanged.
+      waitForAppResponse("POST", savePath, testInfo.project.use.navigationTimeout),
+      page.getByRole("menuitem", { name: "Spara projekt", exact: true }).click(),
+    ]);
     expect(fetchedResponse.status()).toBe(200);
-    expect((await fetchedResponse.json()).files).toEqual(
-      expect.arrayContaining(expectedFiles.map((file) => expect.objectContaining(file))),
-    );
-    const savedResponse = await saved;
+    await assertFileResponse(fetchedResponse, expectedFiles);
     expect(savedResponse.status()).toBe(200);
     expect(await savedResponse.json()).toEqual({ success: true });
     const savedBody = savedResponse.request().postDataJSON();
@@ -328,7 +373,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       files: savedBody.files,
       messages: savedBody.messages,
     });
-    await expect((await openEditor(page)).editor).toHaveValue(changed);
+    await expect((await openEditor(page, () => assertFilesLoaded(expectedFiles))).editor).toHaveValue(changed);
     expect(
       unexpectedMutations,
       "Unexpected generation, preview, provider or mutation route",
@@ -370,7 +415,7 @@ test("real file edit + Save project survives reload; another guest cannot read o
       browserFailures,
       unexpectedMutations,
       apiTimeline,
-      hydrationResponses: [...loaded].map(([path, response]) => [path, response.status()]),
+      appResponses: [...outcomes].map(([key, outcome]) => [key, outcome instanceof Error ? "request failed" : outcome.status()]),
       visibleText: redact(visibleText).slice(0, 8_000),
     });
     throw error;

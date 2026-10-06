@@ -40,8 +40,18 @@ sedan både Hero-ingress och råkod: stopp före fill/PATCH, inte produktfel.
 Övriga kodjobb och egen cleanup passerade. Minimal owner-scopad harnessrättning
 har verkligt komponent-DOM-/Chromiumbevis, inklusive negativa saknad/dubbel/
 fel-innehållsfall; ingen produktmarkup eller innehållsfiltrering ändras.
-Edit/save/reload/tenant och senare generation/follow-up/remove/replace är
-fortfarande obevisade. A4, A6b och hela A7 förblir öppna.
+Selectorhead `4cbb4c00` kördes sedan i `37495373171`: metadata PASS efter
+27,979 sekunder, men filknappen saknades efter Kod/Kodvy-klick; första files-
+svaren kom efter stoppet. Färdigrenderad kodvy eller UI-reset är inte bevisade.
+Samlad ownergranskning godkände en delad initial 120-deadline för metadata/files
+och explicit 120-budget endast för första kalla save-POST; rena actions,
+PATCH, varm files-GET och reload-readiness behåller 15 sekunder, total 240.
+Faktiska callbacks avvisar första felstatus/requestfel, fel version/innehåll
+och gamla navigation-/actionsvar. Inga produktändringar eller latency-SLA-anspråk.
+Övrig kod-CI PASS 5:07, dossier 21/21 PASS 6:48, egen cleanup PASS och exakt
+READY-deployment enligt samordnaren. Edit/save/reload/tenant och senare
+generation/follow-up/remove/replace är fortfarande obevisade. A4, A6b och hela
+A7 förblir öppna; A6b-förberedelsen `3e73ef43` är separat lokal WIP utan fullkvitto.
 
 A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
 702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat
