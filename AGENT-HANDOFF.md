@@ -26,7 +26,12 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`, branch
   `codex/test-control-rest`: först A5-testmiljö och A6b-bevisad dubbelkörning.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
-  mergade. #1554/#1557/#1560/#1561 är pushade familje-drafts, inte mergade.
+  mergade. #1554/#1557/#1560/#1561 är bevarade familje-drafts, ersatta av samlad
+  source-only-kandidat [#1575](https://github.com/Jakeminator123/sajtmaskin/pull/1575).
+  Två kod-CLEAN-reviews, grön full CI, 21/21 keyless dossierbyggen och exakt READY-
+  deployment finns på tidigare head `6c4e3035`; kandidaten synkas nu en gång till
+  #1572-basen `0fb45366` och kräver headbunden integrationsreview/CI/deployment.
+  Familjerna är inte mergade. Samordnaren äger merge; originalrefs/fixtures behålls.
 - Variantarbete: [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571)
   är mergad 2026-10-06 till `30291b80fbaec32e7913a2b3de3e3901b7f9b179`.
   Mergeträdet är identiskt med granskad head `c3b5024a50f010e7d792304c8b9d79c32683e20c`.
@@ -44,11 +49,18 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 ## Nästa steg — behåll ordningen
 
 1. Variantens samlade P1-runda är levererad via #1571 på `30291b80`.
-   Fortsätt de fyra familje-PR:erna #1554/#1557/#1560/#1561 från denna bas;
-   de är ännu inte mergade och har separat granskning och indexberoende nedan.
-2. Fyra scaffold-familjer kräver en samlad granskad indexkälla. Blob-indexet
-   är gemensamt och kan påverka produktion; separat uttryckligt godkännande för
-   live refresh saknas. Behåll befintlig OpenAI-nyckel, rotera eller visa den inte.
+   Slutför #1575:s samlade synk/bounded review mot `0fb45366`, markera READY
+   när kod/review är fryst och verifiera full native CI/exakt deployment.
+   Samordnaren mergar. Stäng inte de fyra originaldrafts förrän ersättningen är
+   terminal och deras proof/refs/fixtures bevarade.
+2. Source-only-leverans av #1575 är godkänd med normala review/CI/deploymentvillkor;
+   indexrefresh är inte en extra correctness-mergegate. Alla tio scaffold-ID:n
+   är oförändrade och valt ID hydrateras till deployad registry/nya filer.
+   Sex indexinputs är ändrade: landing-page, saas-landing, dashboard, auth-pages,
+   ecommerce, app-shell. Stale vektorer kan påverka fuzzy ranking/override;
+   förbättrad ranking eller full liveacceptans är inte bevisad. Shared Blob/API-
+   refresh saknar separat godkännande. Cache saknar normal TTL/inputhash-enforcement,
+   CLI-invalidation är processlokal. Behåll OpenAI-nyckeln, rotera eller visa den inte.
 3. TESTER-rest A3/A4/A5/A6b/A7 finns i
    `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
    A4 kräver isolerad DB/browser/providergräns; ingen delad-DB-genväg.
