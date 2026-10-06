@@ -21,8 +21,9 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-3">
         <div className="space-y-4">
           <p className="text-lg font-bold tracking-tight">[Butiksnamn]</p>
-          <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Din destination för [produkttyp]. Snabb leverans, trygga betalningar och personlig service.
+          <p className="text-muted-foreground max-w-sm text-sm leading-7">
+            Demokatalog för [produkttyp]. Lokal demokorg; betalning, frakt och lager är inte
+            anslutna.
           </p>
         </div>
         {Object.entries(footerLinks).map(([title, items]) => (
@@ -30,7 +31,11 @@ export function SiteFooter() {
             <p className="text-sm font-medium">{title}</p>
             <div className="space-y-2">
               {items.map((link) => (
-                <Link key={link.href} href={link.href} className="block text-sm text-muted-foreground transition-colors hover:text-foreground">
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-muted-foreground hover:text-foreground block text-sm transition-colors"
+                >
                   {link.label}
                 </Link>
               ))}
@@ -38,7 +43,7 @@ export function SiteFooter() {
           </div>
         ))}
       </div>
-      <div className="mx-auto mt-10 max-w-6xl border-t pt-6 text-center text-xs text-muted-foreground">
+      <div className="text-muted-foreground mx-auto mt-10 max-w-6xl border-t pt-6 text-center text-xs">
         &copy; 2026 [Butiksnamn]. Alla rättigheter förbehållna.
       </div>
     </footer>
