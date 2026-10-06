@@ -182,7 +182,7 @@ jobs:
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
       # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
       # den tunga profilen fångar det före merge.
-      # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
+      # Äger route-timeouts:check i heavy/fallback; light kör den i contracts.
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
@@ -282,10 +282,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:discovery:check
 
-      # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
-      # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
+      # Heavy/fallback kör dessa i hela test:ci via alla fyra shards. Endast
+      # ett lyckat, uttryckligt lightbeslut använder den riktade körningen.
       - name: Validate workflow and CI scope decisions
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts
 
       - name: Verify generated contract docs
@@ -319,7 +319,8 @@ jobs:
         run: npm run compat:v0-chat-boundary:check
 
       - name: Verify route maxDuration ↔ manifest sync
-        if: ${{ !cancelled() }}
+        # Heavy/fallback täcks av quality-core:s oförändrade preflight:common.
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run route-timeouts:check
 
       # Dessa är repo-/arbetsflödeskontrakt, inte produktionsbyggets ansvar.

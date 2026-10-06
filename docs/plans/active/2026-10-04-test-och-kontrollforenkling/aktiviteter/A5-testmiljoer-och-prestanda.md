@@ -7,9 +7,10 @@ Status: Pågår. Beroende: A2; baslinje från A0.
 De två implementerade paketen nedan är levererade via #1553 på faktisk
 preview `c4f4b188`. Ursprungliga lokala mätbaser är daterat delunderlag;
 [A7](A7-slutverifiering-och-overlamning.md) äger aktuellt leveranskvitto.
-Nästa docstestpaket är endast mätt read-only och inte implementerat.
+Docstestpaketet nedan är implementerat och lokalt verifierat 2026-10-06;
+native leveranskvitto återstår.
 
-## Aktuellt paket — Node-miljöpilot
+## Levererat paket 2026-10-05 — Node-miljöpilot
 
 Ensam skrivare: Codex `e1e8`, bas `ff2ac650`, head `9d71cd34`, arbetsdiff.
 Avgränsad kandidat: `scripts/dev/` med testfilerna
@@ -44,7 +45,7 @@ bort. Slutkörning utan override gav 178 pass/3 skip, exit 0. Rapporterna finns
 tillfälligt i `.tmp/a5-{jsdom,node}-{1..4}.json`; inga nya permanenta körprofiler.
 Tre POSIX-fall behöver alltjämt Linux-CI; detta kvitto ersätter inte den.
 
-## Aktuellt paket — heredoc testharness
+## Levererat paket 2026-10-05 — heredoc testharness
 
 Status: Verifierad lokalt. Exakta paths: `.cursor/hooks/heredoc-guard.mjs` och
 `scripts/dev/heredoc-guard.test.ts`. Samma implementerare, bas och head som ovan.
@@ -71,7 +72,7 @@ och användes därför inte som hookkvitto. Oberoende `a5_hook_review`
 Beslutslogiken och meddelandena är oförändrade. Full workflowprofil krävs
 alltjämt på det samlade slutpaketet; hooken klassas inte som docs/light.
 
-## Nästa miljökandidat — mätt, inte implementerad
+## Aktuellt paket — två docstester i Node
 
 Exakt scope: `scripts/docs/check-active-doc-links.test.ts` och
 `scripts/docs/check-terminology-contract.test.ts`, två filer och 21 fall.
@@ -98,9 +99,13 @@ Gemensam setup med Testing Library laddas fortfarande även i Node.
 Befintliga negativa fixtures kördes oförändrat: saknade aktiva länkar,
 unstaged raderad spårad fil, borttagen workflowrouter och verkligt EACCES,
 samt malformed/duplicerade/motstridiga termregler och otillåten aktiv prosa.
-En eventuell implementation behöver en no-override-körning av slutliga
-per-fil-annotationer och oberoende review. Den är HOLD i denna doc-onlyleverans;
-tidigare fjortonfilspaketets vinst används inte som ersättningsbevis.
+Fortsättning 2026-10-06: de två testkropparna var exakt identiska mellan
+mätbasen `1110d65f` och färsk preview `f9c5acea`. Endast respektive
+`@vitest-environment node`-kommentar läggs nu till. Ny baslinje gav 21 PASS;
+de verkliga annotationerna kördes sedan utan miljöoverride och gav samma
+21 PASS, inga skip. Assertions, config, global setup och urval är oförändrade.
+De äldre alternerande mätningarna ovan återanvänds som avgränsat prestandabevis,
+inte som en ny CI-tidsmätning. Oberoende review och leveranskvitto hör till A7.
 
 ## Uppdrag
 
