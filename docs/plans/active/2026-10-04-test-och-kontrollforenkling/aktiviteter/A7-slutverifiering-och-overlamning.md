@@ -33,10 +33,15 @@ från `f50448eb`; sluthead `fb113f8c5` fick oberoende CLEAN men native
 `37491869699` föll därefter på saknade hydreringssvar inom initiala 15 sekunder.
 Endast persistence/quality var röda; egen cleanup passerade. A4 beskriver den
 godkända uppdelningen mellan högst 120 sekunders initial startup och oförändrad
-15-sekunders action-/reload-readinessbudget. Nästa native funktionsbevis återstår;
-kallstart inom 15 sekunder är inte ett etablerat produktkrav eller ett anspråk.
-Hydration, edit/save/tenant och senare generation/follow-up/remove/replace är
-inte bevisade. A4, A6b och hela A7 förblir öppna.
+15-sekunders action-/reload-readinessbudget. Native `37493732112` på `a37af8d0`
+passerade initial hydration efter 20,924 sekunder (tre GET/200/rätt fixture-ID)
+och öppnade faktisk Kod/Kodvy/editor. Testets breda textarea-selector matchade
+sedan både Hero-ingress och råkod: stopp före fill/PATCH, inte produktfel.
+Övriga kodjobb och egen cleanup passerade. Minimal owner-scopad harnessrättning
+har verkligt komponent-DOM-/Chromiumbevis, inklusive negativa saknad/dubbel/
+fel-innehållsfall; ingen produktmarkup eller innehållsfiltrering ändras.
+Edit/save/reload/tenant och senare generation/follow-up/remove/replace är
+fortfarande obevisade. A4, A6b och hela A7 förblir öppna.
 
 A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
 702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat

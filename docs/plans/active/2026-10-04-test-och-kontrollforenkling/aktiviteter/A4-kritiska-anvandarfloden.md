@@ -83,7 +83,7 @@ Färsk integration: fyra filer/83 PASS, 28 explicita OS-skip, E2E/config-typkont
 workflowkontrakt och discovery 1 095/1 095 PASS. Detta rättar ett verkligt fel
 som harnessen hittade; endast ny native körning kan bevisa edit/save/reload.
 
-Senaste ready-körningen `37462490014` på `bb3e4519` nådde `/builder` med
+Den tredje native körningen `37462490014` på `bb3e4519` nådde `/builder` med
 HTTP 200 men hittade inte Kod-knappen inom ordinarie 15 sekunder. Ingen
 edit/save/reload-acceptans nåddes. Övriga CI-jobb passerade; egen fixture-/
 session-/containercleanup verifierades. Skärmbild/trace skapades på runnern
@@ -145,6 +145,27 @@ Offlineprov av specens faktiska callbacks verifierade fasbudgetarna, tidslinjens
 navigationsbindning/begränsning och att första HTTP-fel/felaktigt fixture-ID
 fortfarande fäller. Borttagen generationsvakt accepterade ett gammalt svar och
 gav avsett mutationsfynd. Detta är harnessbevis, inte browser-/DB-acceptans.
+
+Native `37493732112`, jobb `112373648829`, på `a37af8d0` passerade sedan
+initial readiness efter 20,924 sekunder: alla tre verkliga GET gav HTTP 200
+och rätt fixture-ID. Kod/Kodvy och den riktiga filens redigeringsläge öppnades.
+Det observerade utfallet stöder separat kallstartsbudget, men inte snabbare
+uppstart eller något nytt produktfixanspråk. Nästa stopp var ett testfel före
+fill/PATCH: den breda textarea-väljaren matchade både Hero-ingress och råkod.
+Övriga kodjobb passerade; egen fixture-/session-/containercleanup verifierades.
+
+Den minimala rättningen begränsar väljaren till kodpanelsägarens direkta
+editor-wrapper och dess textarea. Ingen produktmarkup, fixture, timeout,
+`.first()`/nth eller innehållsbaserad filtrering ändras; exakt originalkod
+kontrolleras fortfarande separat. Verkliga `PreviewPanelCode` och hela
+`PreviewPanelCodeSectionEditors` renderades med Hero kvar: gammal väljare gav
+två träffar, ny en. Samma selector i Chromium ändrade endast råkoden; Hero
+förblev orörd. Saknat/dubblerat kodfält och fel kodinnehåll gav avsedda fel.
+Detta är komponent-DOM-/selectorbevis, inte hydrerad app/API/DB-acceptans.
+Oberoende locatoraudit fann fil-/projektknappar, panel och toast korrekt
+förankrade i sina verkliga owners; råeditorn saknar befintlig semantisk label.
+Reload skapar om samma locator-kedja. Save/reload/tenant måste fortfarande
+bevisas i nästa native körning.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

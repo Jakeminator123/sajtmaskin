@@ -25,12 +25,15 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
   komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
   bas till `codex/project-persistence-e2e` för befintlig draft #1580.
-  Senaste persistenskörningen `37491869699` på `fb113f8c5` var röd före
-  edit/save/reload: initiala hydreringssvar saknades inom 15 sekunder.
-  Samordnaren godkände separat initial startupbudget på högst 120 sekunder,
-  oförändrade svar-/ID-/generationskrav och 15 sekunder för actions/save samt
-  hydrering efter reload.
-  Rotorsak och nytt grönt browser-/DB-prov är ännu obevisade; PR:n åter draft.
+  Senaste persistenskörningen `37493732112` på `a37af8d0` passerade initial
+  hydration efter 20,924 sekunder: tre verkliga GET/200/rätt fixture-ID.
+  Kod/Kodvy och filens redigeringsläge öppnades, men testets för breda
+  textarea-selector fann både Hero-ingress och kodfält före fill/PATCH.
+  Minsta harnessrättning väljer kodägarens direkta fält, behåller strictness
+  och separat exact-innehållskrav. Verklig komponent-DOM i Chromium verifierar
+  rätt fält samt negativa saknad/dubbel/fel-innehållsfall. Ingen produktändring.
+  Save/reload/tenant är fortfarande obevisade; PR:n åter draft. Initial
+  startupbudget är högst 120 sekunder; actions/reload behåller 15 sekunder.
   Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
   är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:

@@ -26,7 +26,11 @@ async function openEditor(page: Page) {
   await page.getByRole("button", { name: "page.tsx", exact: true }).click();
   const pane = page.getByText("app/page.tsx", { exact: true }).locator("xpath=../..");
   await pane.getByRole("button", { name: "Redigera fil", exact: true }).click();
-  return { pane, editor: pane.locator('textarea[data-slot="textarea"]') };
+  // PreviewPanelCode owns the header and its direct editor sections. The raw
+  // CodeSectionEditorsCodeView textarea is one wrapper deep; Hero/other form
+  // fields are nested within their sections. Keep strictness and assert the
+  // code value separately, so missing/duplicate/wrong-content editors fail.
+  return { pane, editor: pane.locator(':scope > div > textarea[data-slot="textarea"]') };
 }
 
 test("real file edit + Save project survives reload; another guest cannot read or overwrite it", async ({
