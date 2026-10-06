@@ -304,8 +304,9 @@ Detta är ett integrationskvitto, inte en ny fullsuite eller ett A4-flödesbevis
 Tidigare fullprofil återanvänds endast för identiska kodbytes. Aktuell review,
 native CI och deployment måste avse PR:ns nya publicerade head och aktuella
 bas; äldre gröna PR-resultat är inte ett nytt mergekvitto. Samordnaren äger
-merge. Planens A3 är fortfarande ofullständig, A4 harnessblockerad och A6b
-endast read-only kartlagd. Hela A7/slutchecklistan är inte färdig.
+merge. Planens A3 är fortfarande ofullständig; A4 har integrerat produktfixen
+men inväntar nytt native flödesbevis. A6b:s slutliga urval är fortfarande bara
+read-only kartlagt. Hela A7/slutchecklistan är inte färdig.
 
 ## Uppdrag
 
