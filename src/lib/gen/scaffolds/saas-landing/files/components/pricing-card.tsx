@@ -19,28 +19,42 @@ export function PricingCard({
   featured = false,
 }: PricingCardProps) {
   return (
-    <Card className={featured ? "rounded-[1.6rem] border-primary/35 bg-card shadow-lg shadow-primary/10" : "rounded-[1.6rem] border bg-card/80"}>
+    <Card
+      className={
+        featured
+          ? "border-primary/35 bg-card shadow-primary/10 rounded-[1.6rem] shadow-lg"
+          : "bg-card/80 rounded-[1.6rem] border"
+      }
+    >
       <CardHeader className="space-y-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">{name}</CardTitle>
-          {featured && <Badge className="rounded-full">Populärast</Badge>}
+          {featured && <Badge className="rounded-full">Exempelplan</Badge>}
         </div>
         <div>
+          <p className="text-muted-foreground text-sm">
+            Exempelpris — erbjudande och funktioner behöver verifieras.
+          </p>
           <p className="text-4xl font-semibold tracking-tight">{price}</p>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">{description}</p>
+          <p className="text-muted-foreground mt-2 text-sm leading-7">{description}</p>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {features.map((feature) => (
           <div key={feature} className="flex items-center gap-3 text-sm">
-            <Check className="h-4 w-4 text-primary" />
+            <Check className="text-primary h-4 w-4" />
             <span>{feature}</span>
           </div>
         ))}
       </CardContent>
       <CardFooter>
-        <Button className="w-full rounded-full" variant={featured ? "default" : "outline"}>
-          Välj plan
+        <Button
+          type="button"
+          className="w-full rounded-full"
+          variant={featured ? "default" : "outline"}
+          disabled
+        >
+          Planval (inte anslutet)
         </Button>
       </CardFooter>
     </Card>
