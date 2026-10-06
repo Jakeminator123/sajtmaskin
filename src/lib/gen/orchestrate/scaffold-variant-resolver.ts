@@ -30,6 +30,7 @@ export async function resolveScaffoldVariant(
    * model only as a Swedish copy directive, so they never touched the scorer.
    */
   extraToneKeywords?: string[],
+  rawPrompt?: string,
 ): Promise<ScaffoldVariant | null> {
   return (
     await resolveScaffoldVariantWithReceipt(
@@ -40,6 +41,7 @@ export async function resolveScaffoldVariant(
       sessionSeed,
       extraStyleKeywords,
       extraToneKeywords,
+      rawPrompt,
     )
   ).variant;
 }
@@ -52,6 +54,7 @@ export async function resolveScaffoldVariantWithReceipt(
   sessionSeed?: string,
   extraStyleKeywords?: string[],
   extraToneKeywords?: string[],
+  rawPrompt?: string,
 ): Promise<{ variant: ScaffoldVariant | null; selection: VariantSelection }> {
   const briefStyleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection
@@ -103,6 +106,7 @@ export async function resolveScaffoldVariantWithReceipt(
 
   return pickScaffoldVariantAsyncWithReceipt({
     prompt,
+    rawPrompt,
     scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
     styleKeywords,
     toneKeywords,
