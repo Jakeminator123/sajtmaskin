@@ -12,7 +12,7 @@ Kodjobb och exakt Vercel-deployment är gröna. DB-pariteten visar samma 13
 tidigare accepterade DEV/PROD-avvikelser; preview delar produktionsdatabas.
 Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår.
 
-- Dossiers: #1551, #1555, #1558, #1559 mergade; kärna, katalog, förenklat flöde,
+- Dossiers: #1548–#1551, #1555, #1558, #1559 mergade; kärna, katalog, förenklat flöde,
   F3-kontroll och dokumentstädning. Extern ZIP-förteckning behöver ännu uppdateras
   mot slutlig scaffold-integrerad kod. Original-ZIP är orörd.
 - Bransch-agenten: #1552 mergad (`e37e4d83`), source-head `2863d782` har samma
