@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Smal persistensharness i draft #1580; första native bootstrapfel rättas, flödesbevis återstår.
+Status: Draft #1580; bootstrap verifierad, bevisat browserimportfel lämnat till produktowner.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -60,6 +60,20 @@ skapar nu endast den nödvändiga `postgres`-principalen med NOLOGIN och utan
 superuser/createdb/createrole/replication/bypassrls, läser tillbaka och kräver
 exakt dessa spärrar innan befintlig db-init körs. Ingen produkt-/RLS-/authkod
 ändras. Ny native körning krävs; första försöket är inget persistensbevis.
+
+Andra native körningen `37454396038` på `8e9fd8db` verifierade bootstrapen,
+db-init/RLS och verklig app/browser-start. `/builder` svarade därefter 500:
+klientens `prompt-builder`/`stream-handlers-done` importerar rena hjälpfunktioner
+ur `plan/review`, som även importerar `template-inspiration` och `node:path`.
+Installerad browserbundling utan tree-shaking reproducerade samma importfel
+för båda klientingångarna; rena `plan/schema` gav PASS. Det bevisar inte fel
+i standard-Turbopack eller produktion: den körda harnessen använder webpack-dev.
+Samordnaren äger separat minimal produktfix. TESTER ändrar inte produktimporter,
+lägger inte in polyfill/mock och byter inte bundler för att dölja felet.
+Egen fixture/cascade/session och container-cleanup passerade även detta försök.
+Testet kräver nu HTTP 200 vid första navigation och reload, begränsar enskilda
+UI-actions till 15 sekunder och försöker all cleanup utan att maskera grundfelet.
+Ny native körning samlas med faktisk produktfix; ingen persistensacceptans ännu.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit

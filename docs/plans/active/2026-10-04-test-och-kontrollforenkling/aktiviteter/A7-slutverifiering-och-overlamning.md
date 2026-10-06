@@ -63,6 +63,17 @@ app/browser på saknad `postgres`-roll; isolerings- och egen container-cleanup
 verifierades. Se A4 för den smala NOLOGIN-bootstraprättningen. Normal synk av
 #1579 tar bara in Maps-typen 3.66.4 → 3.66.5 och dess lockmetadata. Ny riktad
 kontroll, oberoende deltareview och faktisk ny native körning krävs.
+
+Bootstraphead `8e9fd8db` fick oberoende `gpt-5.6-sol`/xhigh CLEAN mot
+`e113a7e2`, färsk npm ci, 81 PASS/28 Windows-skip samt grön typecheck/lint.
+CI [37454396038](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37454396038)
+verifierade bootstrap/db-init och app/browser-start men persistensjobbet föll
+på `/builder` 500 från en befintlig `node:path`-klientimport. Övriga valda jobb,
+inklusive fyra shards och build, passerade; required quality blev korrekt RED.
+Fixture-/containercleanup passerade. A4 beskriver skillnaden mellan det
+uppmätta webpack-felet och ännu obevisat standard-Turbopack-/produktionsfel.
+Samordnaren äger separat produktfix; TESTER:s nya delta är bara HTTP-failfast,
+avgränsad actiontimeout och cleanup som bevarar grundfelet. Inget flöde är klart.
 Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
 
 ### Två aktuella jämförbara PR-CI-observationer

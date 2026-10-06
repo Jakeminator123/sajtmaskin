@@ -81,12 +81,17 @@ test("real file edit + Save project survives reload; another guest cannot read o
         [fixture.projectId],
       )
     ).rows;
+  let primaryFailure = false;
   try {
     expect(await data()).toEqual([]);
     const before = await version();
     expect(JSON.parse(before.files_json)).toEqual(fixture.files);
     const page = await context.newPage();
-    await page.goto(`/builder?project=${fixture.projectId}&chatId=${fixture.chatId}`);
+    const navigation = await page.goto(
+      `/builder?project=${fixture.projectId}&chatId=${fixture.chatId}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    expect(navigation?.status(), "Builder must render before editing").toBe(200);
     const { pane, editor } = await openEditor(page);
     const original = fixture.files.find((file) => file.path === "app/page.tsx")!.content;
     const changed = original.replace("A4_INITIAL_MARKER", "A4_SAVED_MARKER");
@@ -184,7 +189,8 @@ test("real file edit + Save project survives reload; another guest cannot read o
       (response) =>
         new URL(response.url()).pathname === projectPath && response.request().method() === "GET",
     );
-    await page.reload();
+    const reloadNavigation = await page.reload({ waitUntil: "domcontentloaded" });
+    expect(reloadNavigation?.status(), "Builder must render after reload").toBe(200);
     const reloadResponse = await reloaded;
     expect(reloadResponse.status()).toBe(200);
     expect((await reloadResponse.json()).data).toMatchObject({
@@ -221,9 +227,19 @@ test("real file edit + Save project survives reload; another guest cannot read o
     expect({ version: await version(), data: await data(), files: await fileRows() }).toEqual(
       snapshot,
     );
+  } catch (error) {
+    primaryFailure = true;
+    throw error;
   } finally {
-    await context.close();
-    await other.close();
-    await pool.end();
+    // A timed-out browser can already be gone. Attempt every cleanup without
+    // replacing the original HTTP/assertion failure with a context-close error.
+    const cleanup = await Promise.allSettled([context.close(), other.close(), pool.end()]);
+    const failures = cleanup.flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : [],
+    );
+    if (failures.length > 0) {
+      if (!primaryFailure) throw new AggregateError(failures, "Persistence test cleanup failed");
+      console.error("[project-persistence] cleanup also failed", failures);
+    }
   }
 });

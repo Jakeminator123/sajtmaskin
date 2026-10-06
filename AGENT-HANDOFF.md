@@ -39,6 +39,11 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   saknad `postgres`-roll. Isolering och egen container-cleanup verifierades.
   Endast disposable bootstrap får NOLOGIN-kompatibilitetsroll; riktad review
   och ny native körning av rättningen krävs. Inget persistensflöde påstås grönt.
+  Bootstraprättningen `8e9fd8db` är nu CLEAN-granskad och verifierad i native CI.
+  Körningen `37454396038` nådde verklig app/browser men `/builder` gav 500 av
+  en befintlig `node:path`-klientimport. Root äger separat produktfix; TESTER
+  ändrar endast harnessfailfast/cleanup och inväntar faktisk fix före nytt flödesprov.
+  Övriga valda CI-jobb samt egen fixture-/containercleanup passerade.
   Ingen lokal systeminstallation, authändring eller delad DB används.
   Terminala lokala refs `codex/test-control-rest` och `codex/test-registry-cleanup`
   är borttagna efter leverans; PR-headrefs och mergad preview bevarar koden.
