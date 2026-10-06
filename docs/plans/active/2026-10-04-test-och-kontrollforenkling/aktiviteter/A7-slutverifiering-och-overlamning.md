@@ -9,7 +9,7 @@ Beroende: A3–A6.
 
 TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
 `codex/project-persistence-e2e`, från preview
-`72de69a87faea791303a34d0c897c965c580a6cc` efter normal basmerge `c0ebf130`.
+`410d933c9b5f8ac3f1e56dc76bf3c46326c930ba` efter normal basmerge `23bf8b50`.
 `e1e8` är avvecklad.
 A3:s registry-paket ändrar bara ett test och befintlig planstatus:
 historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
@@ -32,10 +32,29 @@ P2: Playwright exit 0 kunde maskera en helt skippad körning. Rättningen kräve
 JSON-bevis på faktiskt passed och noll skip/flaky/unexpected/expected-fail.
 Ett verkligt offline-Playwrightprov gav exit 0 med 0 expected/1 skipped;
 launcherns nya rapportvakt gav avsett RED. Ingen browser eller DB startades.
-Normal merge av #1577 bevarade dess fyra kod-/testblobbar exakt. Aktuell
-deltareview/full `verify:pr` och faktisk browser-/DB-runtime återstår.
-Kommande dependencyintegration är inte en separat väntgrind. Inga nya urval
-eller slutliga A6b/A7-grindar har godkänts.
+Normal merge av #1577 bevarade dess fyra kod-/testblobbar exakt. Oberoende
+deltareview är CLEAN på `89bf4bb8` mot `72de69a8`. Full lokal `verify:pr` på
+den snapshoten körde alla 22 valda kontroller på 947,10 sekunder: 21 PASS,
+men `backoffice:test` gav exit 1 från Git-vakten trots 702 Python PASS på
+56,041 sekunder. Reflog visar samtidiga externa preview-/Dependabot-checkout-
+och refändringar 12:55:19/12:55:41 CEST under wrapperns 12:54:46–12:55:42.
+Egen HEAD/index/worktree var oförändrade. Vakten förblir fail-closed; totalen
+är RED och ska inte i efterhand betecknas som ett helgrönt fullkvitto.
+Standardsviten gav 1 014 filer/13 848 PASS/31 explicita skip på 671,99 sekunder
+med fyra workers. Lokal logg: `.tmp/a4-full-verify-20261006.log`.
+Nu är #1578:s dependencyunion och #1556:s SEO normalt integrerade. Färsk
+`npm ci` gav exit 0. Backoffice-omkörning i samordnat Git-tyst fönster gav
+702 PASS på 58,814 sekunder och exit 0 med oförändrad vakt. Det är ett separat
+återställningskvitto, inte en ny fullsuite. Fem riktade filer (A4/CI/discovery
+och SEO) gav 95 PASS/28 Windows-skip; faktisk Bash-matris 16/16 och verkligt
+skipped-only-Playwright gav åter avsett RED i rapportvakten. Oberoende
+`gpt-5.6-sol`/xhigh gav CLEAN på merge-head `23bf8b5095f6b35766a4618c12b63b800f4f2fa4`
+mot basen ovan. Alla nio A4-kod-/workflow-/testblobbar är identiska med `89bf4bb8`;
+basens lockfil och fem SEO-blobbar är exakt bevarade. Färsk typecheck, ESLint,
+workflowkontrakt och docs/länkar är gröna; discovery 1 094/1 094 samt
+Playwright-listning av ett prov är gröna, inte runtime. Slutdoc-attest och
+faktisk browser-/DB-runtime återstår.
+Inga nya urval eller slutliga A6b/A7-grindar har godkänts.
 
 ### Två aktuella jämförbara PR-CI-observationer
 

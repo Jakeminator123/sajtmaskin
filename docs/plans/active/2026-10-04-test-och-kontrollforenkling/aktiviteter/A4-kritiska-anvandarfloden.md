@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Smal persistensharness lokalt kodad; reviewrättning, integration och körbevis pågår.
+Status: Smal persistensharness lokalt kodad och CLEAN-granskad; native körbevis återstår.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner

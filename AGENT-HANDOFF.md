@@ -17,8 +17,8 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   relevant även utan root-uppgraderingen. Ingen nyckel, env eller provider ändras.
   Oberoende kod-/integrationsreview är CLEAN, full PR-CI 4:20 och alla 21
   dossierbyggen 6:17 är gröna. Exakt merge-deployment är READY; post-CI 3:41
-  har endast samma 13 paritetsrader (noll delta). #1570 behöver fortfarande
-  verifiering av själva dependency-uppgraderingen i den samlade kandidaten nedan.
+  har endast samma 13 paritetsrader (noll delta). Dependency-uppgraderingen
+  #1570 är därefter levererad genom den samlade #1578 nedan.
 - **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. Originalets elva
   plandokument finns kvar. #1574 tar bort bevisad dubbelkörning utan att minska
   det fulla CI-urvalet; #1576 tar bort historiska antal/rubriklås men bevarar
@@ -27,10 +27,14 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   följd av övriga kritiska flöden, A6b-slutbeslut och A7-slutacceptans i
   `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
   Checkout: `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
-  Branch `codex/project-persistence-e2e`, A4-kodhead `9f1d22c6`, synkad till
-  `72de69a8`. Kod finns lokalt; faktisk browser-/DB-körning återstår. Oberoende
-  isolerings-/CI-review fann en nu rättad skip/false-green-lucka; deltareview och
-  full verifiering krävs fortfarande före publicering.
+  Branch `codex/project-persistence-e2e`, A4-kodhead `89bf4bb8`, normalsynkad
+  till `410d933c` genom `23bf8b50`. Kod finns lokalt; faktisk browser-/DB-körning
+  återstår. Oberoende isolerings-/CI-review är CLEAN på kodheaden efter rättad
+  skip/false-green-lucka. Full lokal körning gav 21/22 gröna kontroller;
+  Backoffice hade 702 PASS men Git-vakten stoppade samtidiga externa ref-/
+  checkoutändringar. Riktad omkörning gav 702 PASS/exit 0 med oförändrad vakt.
+  Aktuell integrationsreview är CLEAN på `23bf8b50` mot `410d933c`; alla nio
+  A4-kod-/workflow-/testblobbar samt basens lock-/SEO-blobbar är exakt bevarade.
   Ingen lokal systeminstallation, authändring eller delad DB används.
   Terminala lokala refs `codex/test-control-rest` och `codex/test-registry-cleanup`
   är borttagna efter leverans; PR-headrefs och mergad preview bevarar koden.
@@ -49,6 +53,9 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   verklig `/tmp`-budget återstår. `SM-072` är inte stängd. Chatten är arkiverad.
 - **Bransch:** #1552 är mergad (`e37e4d83`). Tomma värden raderar inte tidigare
   bransch; ingen migration eller backfill. Chatten är arkiverad.
+- **SEO:** #1556 är mergad på `410d933c`; fem SEO-/testpaths, inga DB- eller
+  testharnessowners. Samordnaren verifierade CLEAN, full PR-CI 3:55 och
+  renderad metadata på exakt preview-deployment. Separat postkvitto återstår.
 
 ## ZIP och ordlista
 
@@ -71,16 +78,14 @@ inte ombyggda.
    Granskad source-head och mergeträdet är identiska; full PR-CI 4:51,
    sex required checks och exakt deployment är gröna. Post-CI 4:50 har endast
    oförändrad paritet; exakt merge-deployment är READY.
-2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 återanvänds i en
-   samlad kandidat på `codex/dependency-compat-integration`, från `72de69a8`.
-   Normalmerge av alla fem sourcecommits ger exakt fem manifeständringar och
-   35 ändrade locknoder (1 162 totalt), oberoende integrationsreview CLEAN på
-   kodhead `68b04e34`. Inga extra uppgraderingar eller nya installationsskript.
-   npm ci, 62 körda riktade tester (23 OS-villkorade skips), full typecheck,
-   baselinekontroller, dossiers 23/23, docslinks, plan och diffcheck är gröna.
-   Aktuell native CI/deployment krävs före merge; original-PR:erna stängs
-   först när ersättningen är terminal. Ingen av
-   dessa fem ingår i automerge-allowlisten. Första verkliga tillåtna botmergen är
+2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 är levererade via
+   #1578 på `21a325ae`, source `8314788c`. Exakt fem manifeständringar och
+   35 ändrade locknoder (1 162 totalt); inga extra uppgraderingar eller nya
+   installationsskript. Samordnaren verifierade oberoende CLEAN, full PR-CI
+   3:48, 21/21 dossierbyggen 6:08 och exakt READY-deployment. Post-CI 4:08 har
+   bara samma 13 paritetsrader, noll delta, och exakt merge-deployment är READY.
+   Ny separat type-only #1579 är inte levererad vid denna snapshot.
+   Ingen av dessa fem ingår i automerge-allowlisten. Första tillåtna botmergen är
    fortfarande obevisad; utvidga inte allowlisten för att skapa ett kvitto.
 3. Scaffold-ID:n är oförändrade och valt ID hydrateras till deployad registry
    och aktuella filer. Source-only-leveransen är därför klar. Sex ändrade
@@ -88,7 +93,7 @@ inte ombyggda.
    saas-landing, dashboard, auth-pages, ecommerce och app-shell. Förbättrad
    ranking är inte bevisad. Shared Blob-/API-refresh kräver separat beslut;
    cache saknar normal TTL/inputhash-enforcement och CLI-invalidation är lokal.
-4. Preview delar produktionsdatabas. Post-CI till och med #1577 visar samma
+4. Preview delar produktionsdatabas. Post-CI till och med #1578 visar samma
    13 accepterade DEV/PROD-paritetsavvikelser, verifierat noll delta mellan dem.
    Dessa körningar är röda på paritet, inte helgröna. Ingen DB-apply,
    masterpromotion, envändring eller live-provideracceptans ingår. Behåll
