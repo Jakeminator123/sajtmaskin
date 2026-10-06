@@ -6,14 +6,15 @@ Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 
 A6a är levererad via #1553 på preview `c4f4b188`; ursprungliga lokala
 provbaser nedan är återanvänt sakbevis. [A7](A7-slutverifiering-och-overlamning.md)
-binder dem till aktuell previewleverans. Ett avgränsat A6b-deduppaket
-är levererat via #1574 på preview `eba1c590` 2026-10-06; slutlig
-urvalsoptimering är fortfarande öppen.
+binder dem till aktuell previewleverans. A6b:s avgränsade deduppaket är
+levererade via #1574 på `eba1c590` och #1584 på `e56c556a` 2026-10-06.
+Scaffold-/stabilitydubbelarbete är borttaget; ready-event och fyra fulla
+shards är avsiktligt behållna. Slutlig koppling till bredare A4 återstår.
 
 | Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
 | --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
-| A6b — sen optimering | Avgränsad dedup levererad via #1574; slutlig körpolicy öppen | Codex `sajtmaskin-tester-restarbete`; `.github/workflows/ci.yml`, `scripts/workflow/check-contract.mjs`, `scripts/workflow/ci-quality.test.ts` | Granskad head `f3af5be3`, bas `30291b80`, merge `eba1c590`. Heavy/fallback behåller alla fyra shards och preflight; light behåller riktade kontroller. Ingen ändring av required/native gates. |
+| A6b — sen optimering | Dedup levererad via #1574/#1584; bredare A4-beroende slutkontroll öppen | Codex `sajtmaskin-tester-restarbete`; CI, workflow-/discoveryowners och Vitest-kommentarer | Senaste granskad head `d497d380`, bas `6432e5eb`, merge `e56c556a`. Heavy/fallback behåller fyra fulla shards och blockerande skydd; light behåller riktade kontroller. Aktuellt native kvitto nedan. |
 
 ## Uppdrag
 
@@ -70,12 +71,13 @@ negativt bevis krävs ändå. Mottagare: [A2](A2-pilot-och-kanda-lasningar.md).
 
 ## Sen optimeringsdel A6b
 
-Återstående avslut är ändligt: avgör scaffoldtesternas verkliga dubbelkörning,
-warn-only-stabilityns överlapp och observerad same-head/ready-eventdedup; behåll
-dem där likvärdigt skydd eller säker besparing inte kan visas. Koppla A4:s
-verkliga runtime till befintligt quality-aggregate och bevisa att failure,
-cancelled, missing och otillåten skip blir rött. Bekräfta sedan aktuell
-GitHub-policy och en begriplig lokal/PR/leveranskörning. Oförändrade fyra fulla
+Bedömningen omfattar scaffoldtesternas dubbelkörning, warn-only-stabilityns
+överlapp och same-head/ready-eventdedup. #1574/#1584 tar bort bevisade
+dubbelkörningar men behåller ready-eventet. #1580 kopplar det seedade
+persistensprovet till quality-aggregate med skydd mot failure, cancelled,
+missing och otillåten skip. GitHub-policy och lokal/PR/leveranskörning är
+kontrollerade nedan; bredare A4-flöden behöver senare samma ärliga koppling.
+Oförändrade fyra fulla
 shards är ett giltigt slutbeslut; smalare urval är inte ett självändamål.
 Discovery/orphan/fallback och tidigare säkerhets-/DB-gates förblir obligatoriska.
 
@@ -104,21 +106,21 @@ av #1571 gav aktuell head `f3af5be3` CLEAN och native CI SUCCESS; #1574
 Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
 tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 
-### Aktuellt deduppaket — fulltestat, native leverans återstår
+### Levererat deduppaket — #1584
 
-Förberedelsen på `codex/ci-duplicate-execution` är nu normalt integrerad med
+Paketet på `codex/ci-duplicate-execution` integrerades normalt med
 faktisk #1580-preview `6432e5eb` via `e18f1f549`. Squashkonflikter löstes med
 levererade A4-spec/statusblobbar; inga gamla A4-orakel följde med. Hela
-A4-harness/config/package/lock är exakt preview. Endast följande A6-delta och
-befintlig statusdokumentation avviker; inget test tas ur fulla sviten.
+A4-harness/config/package/lock var exakt preview. Deltat bestod endast av
+följande A6-ändringar och befintlig statusdokumentation; inget test togs ur fulla sviten.
 
 - Heavy/fallback behåller riktig `scaffolds:client-list:check`; materialisering
   ligger kvar i varje relevant test-runner, och samma fem scaffoldtestfiler
   ingår i alla fyra fulla shardars samlade urval. Explicit light behåller hela
   `scaffolds:validate`. Paketkommandot är oförändrat.
 - Det gamla rådgivande stability-jobbet upprepar sex blockerande tester och
-  schema-drift. Det tas bort; den unika rådgivande `check:terms`-prosaskanningen
-  flyttas till contracts med `continue-on-error: true`. Blockerande stability,
+  schema-drift. Det togs bort; den unika rådgivande `check:terms`-prosaskanningen
+  flyttades till contracts med `continue-on-error: true`. Blockerande stability,
   schema-jobb och lokalt `test:stability` består.
 - Befintlig discovery jämför faktisk stability-discovery med den redan
   granskade blockerande listan. Scaffoldfiler härleds ur befintligt
@@ -139,12 +141,31 @@ exit 0 och **22/22 kontroller PASS**, Volta Node 22.23.1 och stödd
 55,922 sekunder med oförändrad Git-yta; docs 49 PASS och scaffolds 57 PASS.
 Befintlig knip-konfigurationshint är rådgivande. E2E-listning är inte runtime.
 
-Alla åtta A6-kod/config-blobbar är identiska efter normal integration;
-skillnaden mot fullkörningen är levererad A4-spec och tre statusdokument.
-Färsk E2E/config-typkontroll och berörda kontraktsprov är PASS (222 PASS/28
-Windows-Bashundantag); discovery 1 096/1 096 PASS. Färsk plan och oberoende
-integrationsreview krävs före push. Aktuell native CI och exakt
-deployment krävs därefter före merge; fullkvittot ersätter inte dessa.
+Alla åtta A6-kod/config-blobbar var identiska genom integrationen till
+granskad source `d497d380`; A4-harness/config/package/lock var exakt basen.
+Färsk E2E/config-typkontroll, 222 riktade PASS/28 Windows-Bashundantag,
+discovery 1 096/1 096 och docs 49 PASS kompletterade fullkvittot.
+Oberoende source-/integrationsreview och separat native slutattest gav CLEAN.
+
+[#1584](https://github.com/Jakeminator123/sajtmaskin/pull/1584) mergades
+2026-10-06 17:27:16 UTC till `e56c556adfb5f69d56d14a3b7d2954ef6e31f176`.
+Source och merge har samma träd `99744dca80449f12159884c00f394faad46a9550`.
+PR-CI [37502490332](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37502490332)
+PASS 3:54: fyra shards med 1 017 filer/13 918 Linux-PASS, blockerande stability
+62 PASS exakt en gång, isolerad DB-lane 126 PASS och verklig persistens
+1/1 PASS utan skip. Heavy körde client-list men inte dubbla scaffoldtester;
+discovery band samma fem filer till standardsviten. Advisory terms bevarades.
+Dossier [37502490426](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37502490426)
+gav korrekt light-kvitto, inte nya acceptancebyggen. Sex required checks,
+reviewtrådar och exakt PR-deployment kontrollerades av samordnaren före merge.
+
+Post-CI [37503667830](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37503667830)
+avslutades 17:31:40 UTC, 4:21. Alla kodjobb, quality och ett nytt genomfört
+persistensprov PASS. Endast DB-parity är RED: samordnaren jämförde de faktiska
+raderna i jobb `112406757325` mot `112395839278`, 13/13 och delta 0.
+Hela post-CI är alltså inte grön. Exakt merge-deployment
+`dpl_5K6JRgxBUh8U5Di877PSHp4YMAWP` är READY på `e56c556a`, utan aliasfel.
+Ingen masterpromotion eller DB-/provideråtgärd ingick.
 
 Den sjunde filen `finalize-followup-files-stability.test.ts` har bindestreck,
 inte lane-suffixet `.stability.test.ts`, och ligger oförändrad i standardsviten.
@@ -154,8 +175,11 @@ shards ändras inte.
 Samordnarens jämförbara native underlag: tidigare stability-jobb 48–56 sekunder,
 varav dubblerade tester 5–6; contracts scaffoldvalidering 4–6 sekunder.
 Quality-core 222–223 sekunder dominerade contracts 62–88, med varierande kötid.
-Deltat tar bort verifierat dubbelarbete/runnerkostnad, men motsvarande
-besparing på hela PR:ns kritiska walltid är ännu inte visad.
+Efteråt saknas det separata stability-jobbet; heavy client-list tog 1 sekund
+och blockerande stability 4 sekunder. Den nya PR-körningens kritiska väg var
+shard 4. Deltat tar bort verifierat dubbelarbete/runnerkostnad; totalen 3:54
+bevisar inte motsvarande generell walltidsvinst eftersom kö, runner och tidigare
+persistensstatus skiljer sig. Inga extra tunga mätkörningar startades.
 
 ### Körpolicy och avsiktligt behållen ready-trigger
 
