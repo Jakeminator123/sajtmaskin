@@ -23,16 +23,17 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   `codex/test-control-rest`: först A5-testmiljö och A6b-bevisad dubbelkörning.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
   mergade. #1554/#1557/#1560/#1561 är pushade familje-drafts, inte mergade.
-- Variantarbete: draft [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571),
-  local=remote `850053e81240d12c60cb2e49dcc64d12d87cef4d` på
+- Variantarbete: [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571),
+  bevarad historisk head `850053e81240d12c60cb2e49dcc64d12d87cef4d` på
   `codex/scaffold-explicit-variant`. Ursprunglig kod + exakta avbrutna teständringar
   är committade. Bevarandekvittot är 370 PASS/17 RED, no-cache TypeScript grön.
-  SCHAFFOLDS äger nu rättningarna i 5996; kontrollera ny head före beslut.
-- BUGG-TMP: Chromium-kandidaten är committad och pushad som draft
-  [#1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572), local=remote
-  `e79dce40939d02c0c87f038ae4bf7f4d665b5178` på
-  `codex/chromium-teardown-diagnostics`. Åtta filer och undersökningsdokument
-  bevarade; 289 riktade tester gröna. INGEN READY/MERGE.
+  SCHAFFOLDS äger rättningarna i 5996. Den rättade kandidaten har gröna riktade
+  tester och typkontroll och genomgår oberoende review; kontrollera PR:ns aktuella head.
+- BUGG-TMP: [#1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572) är READY,
+  inte mergad. Historisk bevarad head är `e79dce40939d02c0c87f038ae4bf7f4d665b5178`
+  på `codex/chromium-teardown-diagnostics`; kod och undersökningsdokument finns kvar.
+  Review av den senare kandidaten är CLEAN, runtimeblobbarna är oförändrade och
+  289 riktade tester är gröna. Aktuell CI och Vercel-livebevis måste bedömas separat.
 
 ## Nästa steg — behåll ordningen
 
@@ -46,8 +47,9 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 3. TESTER-rest A3/A4/A5/A6b/A7 finns i
    `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
    A4 kräver isolerad DB/browser/providergräns; ingen delad-DB-genväg.
-4. BUGG-TMP behöver oberoende review/CI och verkligt Vercel-previewprov av
-   resursåtgång/samtidighet före merge; Linuxkvitto är inte liveacceptans.
+4. BUGG-TMP har oberoende review men behöver aktuellt CI-kvitto och beslut om
+   minsta säkra Vercel-previewprov av resursåtgång/samtidighet före merge.
+   Linuxkvitto är inte liveacceptans; delad DB/Blob får inte användas som testfixture.
 5. Uppdatera slutlig ZIP-fillista/ordlista och externa startprompter. Den äldre
    `dossier-zip-reconcile-FINAL-b427c1a8.txt` är en HISTORISK snapshot, inte
    instruktion att skriva över nyare scaffold-/dossier-konsumenter.
@@ -58,7 +60,7 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 
 ## Säkring och ansvar
 
-GitHub: färdiga leveranser finns i preview; ofärdigt arbete ligger i drafts.
+GitHub: färdiga leveranser finns i preview; ofärdigt arbete ligger i egna PR:er.
 Flyttkopieringen till `C:/Users/jakem/Documents/Sajtmaskin-agent-transfer-2026-10-05/`
 avbröts. Där finns endast en partiell arkivkopia; Git-bundle, slutmanifest och
 färdigverifierad flyttbackup saknas. Använd den inte som enda återställningskälla.
