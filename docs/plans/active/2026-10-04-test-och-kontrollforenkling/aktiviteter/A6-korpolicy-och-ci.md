@@ -109,7 +109,7 @@ tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 Samordnaren tillät 2026-10-06 förberedelse på separat lokal branch
 `codex/ci-duplicate-execution` från A4-head `4cbb4c00`. Publicering kräver först
 faktisk A4-merge och ny integrationskontroll. A4:s senaste körning föll före
-fill/PATCH; därför sparas detta som WIP utan fullverifiering eller slutreview.
+fill/PATCH; därför sparas detta som WIP utan fullverifiering eller leverans.
 
 - Heavy/fallback behåller riktig `scaffolds:client-list:check`; materialisering
   ligger kvar i varje relevant test-runner, och samma fem scaffoldtestfiler
@@ -123,11 +123,25 @@ fill/PATCH; därför sparas detta som WIP utan fullverifiering eller slutreview.
   befintliga granskade blockerande listan. Scaffoldfiler härleds ur befintligt
   paketkommando och måste finnas i faktisk standard-discovery. Ingen ny
   manuell testlista eller extra listkörning tillkommer.
-- Sju nya fall var RED före ändringen; riktat därefter 199 PASS/28 explicita
+- Sju nya fall var RED före ändringen; riktat efter reviewrättning 201 PASS/28 explicita
   Windows-undantag för Bash. Tre verkliga discovery-mutationer gav CLI exit 1:
   exkluderad stability-fil, exkluderad scaffoldfil, ny ogranskad stability-fil.
   Alla mutationer återställda; discovery 1 096/1 096, workflow och scoped lint
   PASS. Detta är inte full lokal/native CI-acceptans eller uppmätt tidsvinst.
+
+Oberoende review på WIP `3e73ef43` fann en P2 i single-owner-vakten: en andra
+blockerande stability-step accepterades. Två negativa prov reproducerade detta
+i samma respektive annat jobb. Validatorn räknar nu globala blockerande owners
+och kräver exakt en, i `quality-core`; båda dubletterna ger rött. Alla riktade
+workflow-/discoverytester passerar efter rättningen. Ny exakt-head-review och
+full integrationsverifiering återstår.
+
+Samordnarens native tidsunderlag från A4-körningarna `37493732112` och
+`37495373171`: gamla stability-jobbet tog 48–56 sekunder, varav själva
+dubblerade testerna 5–6 sekunder; contracts scaffoldvalidering tog 4–6 sekunder.
+Quality-core tog 222–223 sekunder jämfört med contracts 62–88 sekunder, med
+varierande kö-/starttid. Deltat minskar därför verifierat dubbelarbete och
+runnerkostnad, men samma besparing i hela PR:ns kritiska walltid är inte visad.
 
 Den sjunde filen med namnet `finalize-followup-files-stability.test.ts` har
 bindestreck, inte lane-suffixet `.stability.test.ts`, och behålls oförändrad

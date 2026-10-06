@@ -835,7 +835,7 @@ describe("agent workflow repository contract", () => {
         replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
         packageScripts,
       ),
-    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    ).toContain("heavy quality-core must be the single blocking owner of deterministic stability contracts");
     expect(
       evaluateCiScopeWorkflow(source, {
         ...packageScripts,

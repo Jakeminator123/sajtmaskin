@@ -201,6 +201,15 @@ describe("single blocking owner for repeated quality checks", () => {
     expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
   });
 
+  it.each(["same job", "another job"])("rejects a duplicate blocking stability owner in %s", (where) => {
+    const changed = structuredClone(workflow);
+    const steps = changed.jobs["quality-core"].steps!;
+    const blocking = steps.find((step) => step.run === "npm run test:stability:blocking")!;
+    if (where === "same job") steps.push({ ...blocking });
+    else changed.jobs.duplicate = { steps: [{ ...blocking }] };
+    expect(evaluateCiScopeWorkflow(stringify(changed), scripts)).not.toEqual([]);
+  });
+
   it("rejects loss of the heavy preflight or its Vercel route check", () => {
     const changed = structuredClone(workflow);
     changed.jobs["quality-core"].steps = changed.jobs["quality-core"].steps!

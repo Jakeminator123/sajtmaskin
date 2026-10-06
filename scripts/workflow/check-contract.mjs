@@ -705,15 +705,20 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("heavy project-persistence must run the real isolated CI launcher, without shared services, secrets or permission changes");
   }
 
-  const blockingStability = qualityCore?.steps?.find(
-    (step) => step.run === "npm run test:stability:blocking",
+  const blockingStabilityOwners = Object.entries(document?.jobs ?? {}).flatMap(
+    ([jobName, job]) => (job?.steps ?? [])
+      .filter((step) => step.run === "npm run test:stability:blocking")
+      .map((step) => ({ jobName, step })),
   );
+  const blockingStability = blockingStabilityOwners[0]?.step;
   if (
+    blockingStabilityOwners.length !== 1 ||
+    blockingStabilityOwners[0]?.jobName !== "quality-core" ||
     !blockingStability ||
     Object.hasOwn(blockingStability, "continue-on-error") ||
     !hasExactExpression(blockingStability.if, "${{ !cancelled() }}")
   ) {
-    errors.push("heavy quality-core must block on deterministic stability contracts");
+    errors.push("heavy quality-core must be the single blocking owner of deterministic stability contracts");
   }
   if (packageScripts?.["test:stability:blocking"] !== BLOCKING_STABILITY_SCRIPT) {
     errors.push("test:stability:blocking must run the explicit deterministic stability subset");
