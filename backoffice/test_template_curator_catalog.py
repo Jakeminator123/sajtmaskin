@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,17 +36,33 @@ class LiveCatalogTests(unittest.TestCase):
         gallery = json.loads(
             (REPO_ROOT / "src/lib/templates/templates.json").read_text(encoding="utf-8")
         )
+        # Read the actual TypeScript owner, independently of the Python loader's
+        # source parser; do not add another regex parser or historical ID list.
+        exclusions = json.loads(subprocess.run(
+            [
+                "node", "--import", "tsx", "-e",
+                "const { EXCLUDED_TEMPLATE_IDS } = require('./src/lib/templates/template-data.ts');"
+                "process.stdout.write(JSON.stringify([...EXCLUDED_TEMPLATE_IDS]));",
+            ],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True, timeout=15,
+        ).stdout)
+        cited_ids = {
+            template_id.strip()
+            for path in (REPO_ROOT / "config/scaffold-variants").glob("*/*.json")
+            if not path.parent.name.startswith("_")
+            for template_id in json.loads(path.read_text(encoding="utf-8")).get("sourceTemplateIds", [])
+            if isinstance(template_id, str) and template_id.strip()
+        }
         expected = {
             CatalogScope.BLOB: {row["id"] for row in manifest},
             CatalogScope.PREVIEW_FIT: {
                 row["id"] for row in manifest if row.get("previewFits") is True
             },
             CatalogScope.GALLERY: {row["id"] for row in gallery},
-            CatalogScope.SITE_VISIBLE: {
-                row.id for row in self.snapshot.records if row.site_visible
-            },
-            CatalogScope.VARIANT_CITED: set(self.snapshot.variant_source_template_ids),
+            CatalogScope.SITE_VISIBLE: {row["id"] for row in gallery} - set(exclusions),
+            CatalogScope.VARIANT_CITED: cited_ids,
         }
+        self.assertEqual(set(self.snapshot.variant_source_template_ids), cited_ids)
         self.assertEqual(set(self.snapshot.scope_counts), set(expected))
         for scope, ids in expected.items():
             with self.subTest(scope=scope):
