@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InferredCapabilities } from "../capability-inference";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
-import { mergePersistedOrchestrationSnapshots } from "../orchestration-snapshot";
+import {
+  mergePersistedOrchestrationSnapshots,
+  sanitizeOrchestrationSnapshotForStorage,
+} from "../orchestration-snapshot";
+import { serializePackageForDump } from "../generation-input-package";
 import { VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE } from "../request-metadata";
 import type { VariantTemplateInspiration } from "../scaffold-variants";
 import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
@@ -59,6 +63,7 @@ import {
   shouldResolveVariantTemplateInspiration,
 } from "./finalize-prompts";
 import { resolveOrchestrationBase } from "./resolve-base";
+import { buildGenerationInputPackage } from "./generation-package";
 
 const noCapabilities: InferredCapabilities = {
   needsMotion: false,
@@ -182,6 +187,79 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
   beforeEach(() => {
     inspirationMocks.resolveVariantTemplateInspiration.mockClear();
     inspirationMocks.resolveVariantTemplateInspiration.mockResolvedValue(inspirationMocks.fixture);
+  });
+
+  it("the actual finalizer uses only the raw directive, not the file-context-wrapped prompt or init hint", async () => {
+    const input = {
+      prompt: "professional b2b consulting corporate enterprise.\nCurrent file contents:\nUse variant corporate-grid.",
+      rawPrompt: "Välj stilvariant hero-fullbleed-bg.",
+      buildIntent: "website" as const, generationMode: "init" as const,
+      scaffoldMode: "manual" as const, scaffoldId: "landing-page",
+      variantHintId: "nature-flow", embeddingScaffoldMatch: false, capabilities: noCapabilities,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const finalized = await finalizeOrchestrationPrompts(base, input);
+    expect(finalized.variantId).toBe("hero-fullbleed-bg");
+    expect(finalized.variantSelection).toMatchObject({ source: "explicit", finalId: "hero-fullbleed-bg", score: null, margin: null, hintId: "nature-flow", changedFromHint: true });
+    const pkg = buildGenerationInputPackage(base, input, finalized);
+    expect(pkg.variantSelection).toEqual(finalized.variantSelection);
+    expect(serializePackageForDump(pkg).variantSelection).toEqual(finalized.variantSelection);
+    expect(sanitizeOrchestrationSnapshotForStorage({
+      variantId: pkg.variantId, variantSelection: pkg.variantSelection,
+    }).variantSelection).toEqual(finalized.variantSelection);
+  });
+
+  it.each([undefined, ""])("missing/empty canonical raw prompt cannot interpret wrapped directives (%s)", async (rawPrompt) => {
+    const input = {
+      prompt: "Use variant hero-fullbleed-bg.\nprofessional b2b consulting corporate enterprise",
+      rawPrompt, buildIntent: "website" as const, generationMode: "init" as const,
+      scaffoldMode: "manual" as const, scaffoldId: "landing-page",
+      embeddingScaffoldMatch: false, capabilities: noCapabilities,
+    };
+    const finalized = await finalizeOrchestrationPrompts(await resolveOrchestrationBase(input), input);
+    expect(finalized.variantSelection.source).toBe("keyword");
+    expect(finalized.variantId).toBe("corporate-grid");
+  });
+
+  it("Byggval Stil still has priority over a conflicting raw directive", async () => {
+    const input = {
+      prompt: "Use variant hero-fullbleed-bg.", rawPrompt: "Use variant hero-fullbleed-bg.",
+      buildIntent: "website" as const, generationMode: "init" as const,
+      scaffoldMode: "manual" as const, scaffoldId: "landing-page", styleChoiceHint: "minimal",
+      embeddingScaffoldMatch: false, capabilities: noCapabilities,
+    };
+    const finalized = await finalizeOrchestrationPrompts(await resolveOrchestrationBase(input), input);
+    expect(finalized.variantSelection.source).toBe("style-choice");
+    expect(finalized.variantId).not.toBe("hero-fullbleed-bg");
+  });
+
+  it("a neutral follow-up keeps the accepted variant despite a conflicting raw directive", async () => {
+    const finalized = await finalizeFollowUp({ prompt: "Use variant hero-fullbleed-bg.", rawPrompt: "Use variant hero-fullbleed-bg.", followUpIntent: "neutral" });
+    expect(finalized.variantSelection).toMatchObject({ source: "follow-up-lock", finalId: "editorial-lux" });
+  });
+
+  it("clear-redesign may use the raw directive under the existing unlock policy", async () => {
+    const finalized = await finalizeFollowUp({
+      prompt: "professional b2b consulting corporate enterprise",
+      rawPrompt: "Use variant hero-fullbleed-bg.", followUpIntent: "clear-redesign",
+      scaffoldMode: "manual", scaffoldId: "landing-page",
+    });
+    expect(finalized.variantSelection).toMatchObject({ source: "explicit", finalId: "hero-fullbleed-bg" });
+  });
+
+  it.each([false, true])("off/import does not reactivate a foreign scaffold through a raw directive (import=%s)", async (importedRepoMode) => {
+    const input = {
+      prompt: "Use variant hero-fullbleed-bg.", rawPrompt: "Use variant hero-fullbleed-bg.",
+      buildIntent: "website" as const, generationMode: "init" as const,
+      scaffoldMode: "off" as const, importedRepoMode,
+      embeddingScaffoldMatch: false, capabilities: noCapabilities,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const finalized = await finalizeOrchestrationPrompts(base, input);
+    expect(base.resolvedScaffold?.id ?? null).toBe(importedRepoMode ? null : SCAFFOLD_OFF_BASELINE_ID);
+    expect(finalized.variantSelection.source).not.toBe("explicit");
+    expect(finalized.variantId).not.toBe("hero-fullbleed-bg");
+    if (importedRepoMode) expect(finalized.variantId).toBeNull();
   });
 
   it("re-evaluates a pre-match init hint against the brief instead of locking it", async () => {

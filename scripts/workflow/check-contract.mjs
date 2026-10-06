@@ -710,6 +710,36 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   ) {
     errors.push("quality-contracts must run after every non-cancelled scope result");
   }
+  // Heavy/fallback owns these checks through the complete suite and preflight.
+  // The complementary light lane must remain blocking, never silently omitted.
+  const lightOnly =
+    "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}";
+  for (const command of [
+    "npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts",
+    "npm run route-timeouts:check",
+  ]) {
+    const steps = qualityContracts?.steps?.filter((step) => step.run === command) ?? [];
+    if (
+      steps.length !== 1 ||
+      !hasExactExpression(steps[0].if, lightOnly) ||
+      steps[0]["continue-on-error"] !== undefined ||
+      qualityContracts?.["continue-on-error"] !== undefined
+    ) {
+      errors.push(`quality-contracts must run exactly one blocking light-only ${command}`);
+    }
+  }
+  const preflight = qualityCore?.steps?.filter((step) => step.run === "npm run preflight:common") ?? [];
+  if (
+    preflight.length !== 1 ||
+    !hasExactExpression(preflight[0].if, "${{ !cancelled() }}") ||
+    preflight[0]["continue-on-error"] !== undefined ||
+    qualityCore?.["continue-on-error"] !== undefined ||
+    !String(packageScripts?.["preflight:common"] ?? "").split(/\s*&&\s*/u).includes("npm run route-timeouts:check") ||
+    !String(packageScripts?.prebuild ?? "").split(/\s*&&\s*/u).includes("npm run preflight:common") ||
+    packageScripts?.["route-timeouts:check"] !== "node scripts/ai-models/sync-route-timeouts.mjs --check"
+  ) {
+    errors.push("heavy quality-core and Vercel prebuild must retain the blocking preflight route check");
+  }
   if (
     SAFE_DOCS_COMMANDS.length !== SAFE_DOCS_COMMAND_FLOOR.length ||
     !SAFE_DOCS_COMMAND_FLOOR.every((command) => SAFE_DOCS_COMMANDS.includes(command))

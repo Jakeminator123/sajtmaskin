@@ -6,12 +6,13 @@ Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 
 A6a är levererad via #1553 på preview `c4f4b188`; ursprungliga lokala
 provbaser nedan är återanvänt sakbevis. [A7](A7-slutverifiering-och-overlamning.md)
-binder dem till aktuell previewleverans. A6b förblir enbart read-only kartlagd.
+binder dem till aktuell previewleverans. Ett avgränsat A6b-deduppaket
+implementeras 2026-10-06; slutlig urvalsoptimering är fortfarande öppen.
 
 | Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
 | --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
-| A6b — sen optimering | Read-only kartlagd; ingen implementation | Codex `e1e8`; inga nya skrivpaths | Kandidater nedan. Ingen urvalsminskning eller ändring av required/native gates genomförd. |
+| A6b — sen optimering | Pågår: avgränsad dedup, inte slutlig körpolicy | Codex `sajtmaskin-tester-restarbete`; `.github/workflows/ci.yml`, `scripts/workflow/check-contract.mjs`, `scripts/workflow/ci-quality.test.ts` | Bas `f9c5acea`, branch `codex/test-control-rest`. Heavy/fallback behåller alla fyra shards och preflight; light behåller riktade kontroller. Ingen ändring av required/native gates. |
 
 ## Uppdrag
 
@@ -68,14 +69,32 @@ negativt bevis krävs ändå. Mottagare: [A2](A2-pilot-och-kanda-lasningar.md).
 
 ## Sen optimeringsdel A6b
 
-### Verifierade kandidater, inte genomförda ändringar
+### Aktuellt delpaket — dubblerade quality-kontroller
 
-- `route-timeouts:check` körs både i heavy `preflight:common` och i contracts.
-  Bevara preflight/Vercel-paritet; en eventuell dedup måste fortfarande ge rött
-  vid drift i heavy, explicit light och scope-fallback.
-- Tre workflow-/scope-testfiler körs både riktat i contracts och i heavy
-  standardsviten. Runtimekontrollen `workflow:contract` är inte en dublett av
-  sina tester och ska inte tas bort. Light behöver fortsatt riktade testbevis.
+- `route-timeouts:check` behålls i oförändrad `preflight:common` för heavy och
+  fail-closed fallback. Den separata contracts-körningen sker endast efter
+  ett lyckat, uttryckligt lightbeslut. Vercels prebuild behåller samma preflight.
+- De tre workflow-/scope-testfilerna körs i hela heavy/fallback-sviten via
+  fyra shards, och riktat i contracts endast för explicit light.
+  `workflow:contract` körs fortfarande alltid; den är inte en dublett av testerna.
+
+Faktiska YAML-villkor prövades för heavy, light, failed/skipped/saknat scope
+och tomt/ogiltigt resultat. Varje profil behåller en quality-owner för varje
+skydd. Före ändringen var sex dubbleringsfall röda; därefter gröna. Validatorn
+avvisar borttagen, skippad, icke-blockerande eller dubblerad lightkontroll samt
+förlorad heavy-preflight eller prebuild/route-kedja. Kontrollerad manifestdrift
+gav verklig CLI exit 1 både direkt (light) och via preflight (heavy/fallback);
+manifestet återställdes och ingår inte i diffen. Riktat: 224 PASS, 23 befintliga
+Windows-/Linux-undantag; faktisk shell-aggregate körs fortfarande i Linux-CI.
+Full lokal verifiering gav exit 0 (19 kontroller, 13 312 PASS/26 skip och
+702 Python PASS). Oberoende kodreview gav CLEAN på `aaca25e6`; normal
+docs-only basmerge till `c6c5e1ce` ändrade inga kodblobbar. Aktuell
+docs-deltareview och native leveransgrindar redovisas separat i A7/PR.
+Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
+tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
+
+### Återstående kandidater, inte genomförda ändringar
+
 - Scaffoldtesterna är HOLD: `scaffolds:validate` blandar riktiga validatorer och
   materialisering med tester. Hela kommandot får inte tas bort som en dublett.
 

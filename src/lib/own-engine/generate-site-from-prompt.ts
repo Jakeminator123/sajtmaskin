@@ -117,6 +117,7 @@ export async function generateOwnEngineSiteFromPrompt(
   );
   const orchestrationInput = {
     prompt,
+    rawPrompt: prompt,
     buildIntent,
     scaffoldMode,
     scaffoldId: params.scaffoldId ?? null,
@@ -266,6 +267,8 @@ export async function generateOwnEngineSiteFromPrompt(
       thinking,
       imageGenerations,
       scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+      variantId: finalizedOrchestration.variantId,
+      variantSelection: finalizedOrchestration.variantSelection,
       buildSpec: orchestrationBase.buildSpec,
       // B05: carry the dossier selection so resolveSelectedDossiersFromStreamMeta
       // can rebuild it in finalize. Without this the MCP/non-stream path passed

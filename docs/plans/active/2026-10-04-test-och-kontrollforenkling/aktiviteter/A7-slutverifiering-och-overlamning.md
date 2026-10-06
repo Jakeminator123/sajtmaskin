@@ -2,10 +2,56 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Två delpaket levererade till preview; hela A7 öppen för kvarvarande A3/A4/A5/A6b.
+Status: #1553/#1562 samt planstatus #1564 levererade; fortsättning pågår, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
+
+2026-10-06 återupptogs TESTER i egen `sajtmaskin-tester-restarbete`, branch
+`codex/test-control-rest`, bas `f9c5acea6bcab47223607d5b3c20b64c4db88381`.
+`e1e8` är avvecklad och återanvänds inte. #1564 är redan mergad till
+`04b246abeb8c7e045d20041c0518267b1400db10`; dess statusbranch är avslutad.
+Första nya paketet ändrar endast två docstesters miljö och dubbelkörning av
+workflowtester/route-timeouts i quality-lanes, plus originalplanens status.
+Riktat gav 224 PASS/23 befintliga Windows-skip, workflowkontrakt och verify-plan
+är gröna. De nya testerna gav först nio kontrollerade RED på ursprunglig CI:
+sex dubbelkörningar och tre saknade validatorgarantier. Faktisk route-drift
+gav exit 1 både direkt och genom preflight; manifestet är återställt.
+Full lokal `verify:pr -- --keep-going` gav exit 0 på `aaca25e6414cb0e7d9f385757f4edac04e7db58b`:
+alla 19 valda kontroller gröna, standardsvit 1 006 filer/13 312 PASS/26
+befintliga skip (717,78 sekunder, `VITEST_MAX_WORKERS=4`) och Backoffice
+702 PASS (65,081 sekunder). Discovery gav 1 084/1 084 tilldelningar.
+Oberoende readonly `a5_a6_rest_review`, verifierad faktisk modell
+`gpt-5.6-sol`/xhigh, gav CLEAN på exakt denna head mot `f9c5acea`.
+Granskaren körde workflowkontrakt och statiska kontroller, inte en extra fullsvit.
+
+Normal merge `1deafbacd7823583129789ef8dd30f1070ae9ede` tog därefter in
+preview `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`. Basdeltat är enbart
+`AGENT-HANDOFF.md`; alla fem kod-/testblobbar är identiska med fullkvitto
+och CLEAN-review. Endast planstatus uppdateras efter bassynken och får ett
+avgränsat aktuellt dokument-/integrationskvitto före publicering. Nya native
+CI-/deploymentbevis återstår; Windows-skip är inte lokalt körda Linuxfall.
+A3:s inventeringsskydd och A4:s isolerade harness är
+separat restarbete; varken discovery eller mockar gör dessa flöden körda.
+
+PR [#1574](https://github.com/Jakeminator123/sajtmaskin/pull/1574) publicerades
+på `e95128f2` efter CLEAN även för docs-deltat. Därefter levererades scaffold-
+variantfixen #1571 och aktuell preview `30291b80fbaec32e7913a2b3de3e3901b7f9b179`
+togs in genom normal merge `7b9414a89b26a0d746571654a17effb161ec99fe`.
+Åter alla fem TESTER-kodblobbar identiska. Riktad integration av de sex
+tidigare testfilerna och variantfixens fem testfiler gav 11 filer/724 PASS/23
+befintliga Windows-skip, 14,60 sekunder med fyra workers. Det är inte en ny
+fullsvit eller A4-körning. Aktuell delta-/integrationsreview och native checks
+måste knytas till den nya publicerade headen, inte återanvändas från `e95128f2`.
+Typecheck, workflowkontrakt, discovery 1 085/1 085, docs:check/links/test
+(49 PASS), planhistorik och termkontrakt är därefter gröna. Bounded readonly
+review gav CLEAN på `dc4f687c` mot `30291b80`; endast efterföljande
+dokumentationsdelta behöver ny granskning före den samlade pushen.
+Samordnaren överlät variantstatus/next-step 1 samt därefter sitt verifierade
+FINAL-ZIP-kvitto/Dossiers/next-step 5 i `AGENT-HANDOFF.md`. Förteckningens
+SHA-256 kontrollerades lokalt; original-ZIP och övriga statusrader ändras inte.
+
+### Redan levererade paket och deras ursprungliga lokala bevis
 
 Verifierade lokala paket: A6a discovery/fallback, A2 audit-orkestrering,
 A3 systemprompt/checker + Backoffice-testhygien + verklig promptkomposition,
@@ -49,10 +95,9 @@ på `1110d65f` används inte som ersättning för det.
 
 Ingen masterpromotion, delad DB-apply, env-/providerändring eller ny
 CI-urvalsminskning ingick. Originalplanens tio filer och aktiva indexrad
-bevaras. Aktuell doc-onlybranch `codex/test-control-status` uppdaterar endast
-befintlig status; nya A3-/A5-kandidater är HOLD, A4:s riktiga isolerade harness
-saknas och A6b/A7:s slutchecklistor är öppna. Samordnaren har frigivit
-docs-publicering efter faktisk SCHAFFOLDS-merge och lokal kontroll/review.
+bevarades genom planstatus #1564. Den tidigare doc-onlybranchen
+`codex/test-control-status` är avslutad; aktuell fortsättning anges ovan.
+A4:s riktiga isolerade harness saknas och A6b/A7:s slutchecklistor är öppna.
 
 ### Slutlig dokumentationsbas efter SCHAFFOLDS
 
@@ -211,7 +256,8 @@ checks eller CI-shards har avvecklats.
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
 aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
-och samordnad skrivreservation; A5:s nästa tvåfilspaket är bara miljömätt.
+och samordnad skrivreservation; A5:s tvåfilspaket är nu lokalt verifierat
+och kodgranskat, med native leveranskvitto fortfarande öppet.
 A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
 väntar på beroendena; same-head-eventdedup är separat read-only underlag,
 inte en genomförd workflowändring. Planpaketet stannar aktivt.
