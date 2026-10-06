@@ -69,8 +69,10 @@ inte ombyggda.
    Normalmerge av alla fem sourcecommits ger exakt fem manifeständringar och
    35 ändrade locknoder (1 162 totalt), oberoende integrationsreview CLEAN på
    kodhead `68b04e34`. Inga extra uppgraderingar eller nya installationsskript.
-   Riktad verifiering och aktuell native CI/deployment krävs fortfarande före
-   merge; original-PR:erna stängs först när ersättningen är terminal. Ingen av
+   npm ci, 62 körda riktade tester (23 OS-villkorade skips), full typecheck,
+   baselinekontroller, dossiers 23/23, docslinks, plan och diffcheck är gröna.
+   Aktuell native CI/deployment krävs före merge; original-PR:erna stängs
+   först när ersättningen är terminal. Ingen av
    dessa fem ingår i automerge-allowlisten. Första verkliga tillåtna botmergen är
    fortfarande obevisad; utvidga inte allowlisten för att skapa ett kvitto.
 3. Scaffold-ID:n är oförändrade och valt ID hydrateras till deployad registry
