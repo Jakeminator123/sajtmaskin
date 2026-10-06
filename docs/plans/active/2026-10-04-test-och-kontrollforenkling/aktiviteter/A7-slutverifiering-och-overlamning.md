@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574/#1576/#1580/#1582 levererade; bredare A4 och hela A7 öppna.
+Status: #1553/#1562/#1564/#1574/#1576/#1580/#1582/#1584 levererade; bredare A3/A4/A5 och hela A7 öppna.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
@@ -32,15 +32,20 @@ på merge-SHA gav alla kodjobb och ett nytt persistensprov PASS. Endast samma
 Merge-deployment `dpl_Dw6MLXrZ8v3HJTqNfGVoGiFSAXvg` är READY utan aliasfel.
 Ingen masterpromotion eller verklig provideracceptans påstås.
 
-A6:s ytterligare deduppaket är ännu inte levererat. Full lokal verifiering på
-`99e70c5b` gav 22/22 PASS: 1 017 standardfiler, 13 887 PASS/31 befintliga
-skip på 616,58 sekunder med fyra workers, Backoffice 702 PASS/55,922 sekunder
-och oförändrad Git-yta. Docs 49 PASS och scaffolds 57 PASS. Normal integration
-`e18f1f549` på faktisk #1580 ändrar bara tre gamla statusdokument och den
-nya levererade E2E-specen jämfört med detta fullkvitto; alla A6-kodblobbar är
-identiska. Färsk riktad integration gav 222 PASS/28 Windows-Bashundantag,
-E2E/config-typkontroll och discovery PASS. Oberoende review och native leverans
-krävs fortfarande. [A6](A6-korpolicy-och-ci.md) äger kvarvarande disposition.
+A6:s ytterligare deduppaket [#1584](https://github.com/Jakeminator123/sajtmaskin/pull/1584)
+är levererat på `e56c556adfb5f69d56d14a3b7d2954ef6e31f176`, source `d497d380`
+och bas `6432e5eb`, med identiska source-/mergeträd. Full lokal verifiering på
+`99e70c5b` gav 22/22 PASS; samtliga åtta A6-kodblobbar var identiska på source.
+Färsk integration och oberoende source-/nativegranskning gav PASS/CLEAN.
+PR-CI [37502490332](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37502490332)
+PASS 3:54, fyra fulla shards, blockerande stability exakt en gång och verklig
+persistens 1/1 utan skip. Dossier gav korrekt light, inte nya byggen.
+Post-CI [37503667830](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37503667830)
+tog 4:21: alla kodjobb/persistens/quality PASS, bara samma 13 DB-paritetsrader
+RED (verifierat delta 0). Exakt merge-deployment
+`dpl_5K6JRgxBUh8U5Di877PSHp4YMAWP` READY utan aliasfel enligt samordnaren.
+[A6](A6-korpolicy-och-ci.md) äger detaljer, negativa bevis, tidsbegränsningar
+och beslutet att behålla ready-event och fyra fulla shards.
 
 Skapa/generation, senare follow-up, remove/replace och representativt avbrott
 är fortfarande okörda. Capture/promotion kräver separat säker ownergräns om
@@ -288,7 +293,7 @@ Samordnaren har levererat A3-katalogpaketet och äger fortsatt native checks och
 merge för nästa paket. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
 skrivreservation. #1580:s seedade edit/save/reload/tenant är nu faktiskt
 körbevisat och levererat; se aktuellt kvitto överst. A4:s senare generation/
-follow-up/remove/replace, återstående A6b-leverans och hela A7 återstår.
+follow-up/remove/replace, A4-beroende A6b-slutkontroll och hela A7 återstår.
 Planpaketet stannar aktivt.
 
 ## Slutkvitto för hela planen

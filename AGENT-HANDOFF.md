@@ -30,16 +30,20 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   PASS, oberoende source/runtime CLEAN. PR-CI 4:31 och dossier 21/21 PASS 7:14.
   Post-CI gav alla kodjobb inklusive nytt persistensprov PASS, endast samma
   13 DB-paritetsrader RED (delta 0); exakt merge-deployment READY utan aliasfel.
-  A6b-dedup på `codex/ci-duplicate-execution` är ännu inte levererat, normalt
-  integrerad med levererad bas via `e18f1f549`. Fullt 22/22 PASS på `99e70c5b`:
-  standard 13 887 PASS/31 skip, Backoffice 702 PASS med Git-vakt, fyra workers.
-  A6-kodblobbarna är identiska efter integration; färskt riktat 222 PASS/28
-  Windows-Bashundantag. Oberoende integrationsreview/native leverans återstår.
-  Endast verkliga dubbelkörningar tas bort; ready-event,
-  fyra fulla shards och samtliga skydd behålls. A4/A6/A7 äger konsoliderad status.
+  A6b-dedup #1584 är levererat på `e56c556a`, source `d497d380`, identiskt
+  source-/mergeträd. Fullt lokalt 22/22 PASS återanvändes för identiska A6-
+  kodblobbar; färsk integration och oberoende source/native CLEAN kompletterade.
+  PR-CI 3:54 med fyra fulla shards, blockerande stability exakt en gång och
+  verkligt persistensprov PASS; dossier korrekt light, inte nya byggen.
+  Post-CI `37503667830` tog 4:21: alla kodjobb PASS, bara samma 13 DB-rader RED,
+  delta 0. Exakt `e56c556a`-deployment READY utan aliasfel enligt samordnaren.
+  Dubbelarbete är borttaget; ready-event, fyra fulla shards och samtliga skydd
+  behålls. A4/A6/A7 äger konsoliderad status och bevisgränser.
   Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
-  är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:
+  är fortfarande **dellevererad**: bredare A3/A4/A5 samt A4-beroende A6b och A7
+  är öppna. Aktuell docs-only-branch: `codex/test-control-delivery-status`.
+  Ensam TESTER-skrivare:
   `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
 - **SCHAFFOLDS:** #1563, #1565, #1571 och den samlade familjeleveransen #1575
   är mergade. #1575 innehåller ärliga okopplade auth-/app-/marketingdemos och
