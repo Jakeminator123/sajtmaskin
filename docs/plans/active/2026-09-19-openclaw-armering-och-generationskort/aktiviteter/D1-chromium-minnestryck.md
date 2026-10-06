@@ -2,10 +2,12 @@
 
 ## Status
 
-**Kandidatfix oberoende kodgranskad 2026-10-06; deployment finns på Vercel,
-men live capture-/resursacceptans saknas och fixen är inte släppt i produktion.**
+**Oberoende kod-/metodgranskad kandidat för avgränsad preview-leverans
+2026-10-06; deployment finns på Vercel men live capture-/resursacceptans
+saknas. Fixen är inte släppt i produktion.**
 Känd residual av `SM-072`. Tidigare status var «Parkerat, inte löst».
 Beställ ingen ny generell prune-fix — `#1234` och `#1318` finns redan.
+Samordningens preview-disposition nedan ersätter inte Vercel-/produktionsacceptans.
 
 ## Ny utredning 2026-10-05
 
@@ -72,7 +74,7 @@ route-timeouts:check och diffcheck. Args-regressionen visade först RED mot
 oförändrad kod (1/37 fel), därefter GREEN. verify:pr -- --plan väljer full
 runtimeprofil för CI; en full build/CI-körning har inte utförts här.
 
-Återstående acceptans: motsvarande Vercel-preview med upprepade postcheckar,
+Återstående full Vercel-acceptans: motsvarande preview med upprepade postcheckar,
 mobil/desktop, samtidiga miniatyrer, WebGL och mätning av processminne och
 `/tmp`. Fler browserprocesser kan ändra resursåtgången. Ingen merge eller
 produktionspromotion ingår i denna verifiering. Det befintliga in-process-
@@ -95,7 +97,7 @@ offlineprovet. Ingen DB-, env-, provider- eller produktionsåtgärd ingår.
 `node_modules/` och `tsconfig.tsbuildinfo` är enbart återbildningsbara lokala
 beroenden/cache; underlaget och det körbara reprot finns i Git-filerna.
 
-## Fortsättning 2026-10-06 — review och avgränsad liveacceptans
+## Fortsättning 2026-10-06 — review, lokalt resurskvitto och preview-disposition
 
 [PR #1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572), kodhead
 `e79dce40939d02c0c87f038ae4bf7f4d665b5178` mot preview `f9c5acea6`, fick
@@ -127,12 +129,66 @@ nyckelfri fixture utan att ändra testets gränser:
 | --- | --- |
 | Product-postcheck | Tar DB-claim och startar live-review-session före capture; slutför claim och kan persistera bilder/rapport. Saknar read-only/dry-run-kontrakt. |
 | Projektminiatyr | Sparar Blob och `app_projects.thumbnail_path`, kan radera tidigare bild. Inte ett DB-/provider-readonly-prov. |
-| Inspector-capture | Kräver appinloggning och aktuell Tier-2-tuple/allowlist. Returnerar bild utan egen DB-persistens, men ingen isolerad testfixture eller autentiserad kandidat-session har etablerats. |
+| Inspector-capture | Kräver appinloggning och aktuell Tier-2-tuple/allowlist. Returnerar bild utan egen DB-persistens, men rate limit kan skriva Redis och ingen isolerad testfixture eller autentiserad kandidat-session har etablerats. Ger inte postcheckens två-context-/native-teardown-kvitto. |
 | Inspector-element-map | Avvisar serverless innan browserstart; kan därför inte bevisa Vercel-capture. |
 
-### Konkret prov innan liveacceptans
+### Lokalt owner-/mutex-/resurskvitto
 
-Det säkra nästa provet kräver en uttryckligt godkänd isolerad Vercel-testyta
+[Mätningen och dess begränsningar](https://github.com/Jakeminator123/sajtmaskin/pull/1572#issuecomment-6013487216)
+är bundna till PR-head `955238ccf618fe64d0f8aa16cc62dbec0b808536`.
+Alla nio kopierade owner-/import-/konfig-/lockfiler matchade detta head;
+den verkliga `launchCaptureBrowser`-ownern och mutexen användes, inte en
+kopierad launch-implementation. Runtime-/test-/reproblobbarna var identiska
+med kodhead `e79dce4`. Ingen live-route eller kundgeneration kördes.
+
+WSL Linux, Node 22.22.0 (engines-kompatibel, inte Volta-pinen 22.23.1),
+låsta Sparticuz 149.0.0/Playwright-core 1.61.1 och browser 149.0.7827.0:
+
+| Kontroll | Lokalt utfall |
+| --- | --- |
+| Faktiska gränser | Dedikerad cgroup: 4 GiB `memory.max`, 2 CPU-bandbredd, 256 PID:ar; egen ext4-TMPDIR. |
+| Capture/WebGL | En kall och två varma seriella körningar plus två samtidigt köade jobb: två isolerade desktop-/mobilkontexter per browser, 10 icke-tomma JPEG och 10 korrekta WebGL2-pixlar. |
+| Native teardown/mutex | 5/5 exit 0, signal null; max en native browserrot. Kö-B startade efter A:s native exit och avslutade close. Inga spawn-/closefel eller watchdogs. |
+| Städning | Inga profiler eller Chromiumprocesser kvar. Alla scope-PID:ar kontrollerades, även omföräldrade barn; endast Node och två före capture identifierade esbuild-supportprocesser återstod. |
+| Minne | Hela scopets topp 739.24 MiB inklusive page-cache/extraktion. Summerad familje-RSS 824.09 MiB, Chromium-RSS 492.55 MiB och Node-RSS 314.54 MiB; RSS kan dubbelräkna delade sidor. |
+| Egna temporärfiler | Allokerad topp 213.25 MiB, efter varje close stabilt 208.66 MiB; ingen ackumulation genom de varma/köade jobben. Kvarvarande filer är förenliga med extraktionscache, inte observerad profilläcka. |
+| Mätgränser | 164 observationer med 50 ms intervall, tre sampling-race/missar, fyra null-PSS-samples; komplett PSS-topp okänd. OOMräknare 0, CPU strypt i 24 perioder; 8.283 s är lokal observation, inte Vercel-latens. |
+
+Oberoende readonly metod-/rådata-/blobgranskning fann **0 nya metodfynd**.
+De tre tidigare labbuppstarterna failade stängt före capture och bevarades
+separat; de räknas inte som genomförda browser-/resursprov. Harness och rådata
+är lokala gitignored artefakter, inte en ny runtime eller diagnostikroute.
+
+Detta bevisar owner, in-process-mutex och normal native teardown i det
+lokala provet, **inte** faktisk Vercel-kernel/Fluid, cross-isolate-last,
+kundlast eller hela postcheckens DB-kedja. Ext4 hade ingen 525 MiB-gräns;
+egna filallokeringar är inte ett kapacitetskvitto för incidentvolymen.
+`ulimit -c 0` stängde av core dumps: native exit/signal, inte avsaknad av
+dumpfiler, är avslutsbeviset. Projektets lästa inställningar anger Node
+22.x, Fluid/elastic concurrency och minnestyp `performance`, men fastställer
+inte capture-routens faktiskt deployade allocation/deadline. Build-maskinens
+minne är inte function-minne.
+
+### Samordningens avgränsade preview-disposition
+
+Efter det nya, faktiskt uppmätta och oberoende granskade underlaget bedömde
+samordningen 2026-10-06 att **den smala flaggmitigeringen och diagnostiken
+kan behandlas som kandidat för preview-leverans utan en ny Vercel-resurs
+först**. Beslutet bygger på native exit, verklig owner/mutex, inga oväntade
+processöverlevare/OOM och uppmätt minne/temporärdata; det är inte en
+borttagen testgrind för att få grönt.
+
+Slutlig preview-merge kräver fortfarande normal bassynkning, blobbundet
+aktuellt integrations-/dokumentreview samt full required CI och exakt
+headbundet deployment-kvitto. Samordningen äger mergebeslutet. Detta är
+inte Vercel-/produktionsacceptans eller fastställd incidentrotorsak:
+`SM-072`, live-/resursresidualen och backloggraden förblir öppna; master
+är orörd. Nya liveanrop, DB/provider/env/indexändringar eller en ny
+testdeployment ingår inte i denna disposition.
+
+### Kvarvarande prov för full liveacceptans
+
+Det säkra fulla liveprovet kräver en uttryckligt godkänd isolerad Vercel-testyta
 som kör **den gemensamma launch-ownern**, utan DB/Redis/Blob/LLM-nycklar eller
 kund-URL:er. Testytan finns inte i denna kandidat; ingen ny offentlig
 diagnostikroute eller providerkonfiguration har lagts till som genväg.
@@ -156,7 +212,9 @@ DB-readonly-mandat. Linux-reprot ovan är fortfarande bara lokal native-evidens.
 
 Fortsättningsmandatet tillåter ready-status när kod/review är färdiga så att
 GitHub kan köra aktuell required CI. Ready är inte liveacceptans eller
-mergemandat: samordningen äger mergebeslutet och denna specifika live-HOLD.
+mergemandat. Den avgränsade preview-dispositionen ovan ersätter det tidigare
+kravet på nytt isolerat Vercel-prov före preview-kandidatur, inte kravet på
+korrekt CI/review eller den kvarvarande live-/produktionsacceptansen.
 `SM-072` och hela buggraden ska fortfarande inte markeras lösta.
 
 ## Vad som observerades
@@ -183,8 +241,12 @@ Den ursprungliga `SM-072`-skadan — 513 → 31 → 23 MB, nästa start dör, sa
 visas som «Degraderad» — inträffade inte.
 
 De ~208 MB som försvann var **inte** den första dumpen; den prunades före andra
-starten. Det är annan `/tmp`-läcka, troligen Playwright-profiler eller
-Sparticuz-extraktion. Exakt vad är inte fastställt.
+starten. Det är annan `/tmp`-förbrukning, möjligen profiler eller
+Sparticuz-extraktion; en läcka är inte fastställd. Det nya lokala provet
+behöll cirka 208.66 MiB stabilt efter rena closes, utan profiler eller
+ackumulation. Det är förenligt med extraktionscache men klassificerar inte
+den äldre Vercel-invocationens filer; exakt vad som tog utrymmet där är
+fortfarande okänt.
 
 ## Förhållande till de andra spåren
 

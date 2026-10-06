@@ -32,10 +32,14 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   Mergeträdet är identiskt med granskad head `c3b5024a50f010e7d792304c8b9d79c32683e20c`.
   Variantfixen ska inte göras om; de fyra scaffold-familjerna återstår separat.
 - BUGG-TMP: [#1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572) är READY,
-  inte mergad. Historisk bevarad head är `e79dce40939d02c0c87f038ae4bf7f4d665b5178`
-  på `codex/chromium-teardown-diagnostics`; kod och undersökningsdokument finns kvar.
-  Review av den senare kandidaten är CLEAN, runtimeblobbarna är oförändrade och
-  289 riktade tester är gröna. CI är grön på `955238cc`; Vercel-livebevis återstår.
+  inte mergad. Samordningen har bedömt den smala flaggmitigeringen och diagnostiken
+  som previewkandidat efter oberoende lokalt owner-/mutex-/resurskvitto: fem rena
+  native avslut, tio bilder/WebGL-pixlar, inga oväntade processöverlevare/OOM.
+  Runtime-/test-/reproblobbarna är oförändrade från kodhead `e79dce409`, och
+  289 riktade tester samt CI på tidigare head `955238cc` är gröna. Kandidaten
+  synkas samlat till #1574-basen `eba1c590` och får ny headbunden review/CI/deployment
+  före eventuellt mergebeslut. Vercel-live-/resursacceptans och `SM-072` är öppna;
+  ingen fastställd produktionsrotorsak eller masterpromotion ingår.
 
 ## Nästa steg — behåll ordningen
 
@@ -48,9 +52,12 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 3. TESTER-rest A3/A4/A5/A6b/A7 finns i
    `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
    A4 kräver isolerad DB/browser/providergräns; ingen delad-DB-genväg.
-4. BUGG-TMP har oberoende review och grön CI på `955238cc`, men beslut om
-   minsta säkra Vercel-previewprov av resursåtgång/samtidighet återstår före merge.
-   Linuxkvitto är inte liveacceptans; delad DB/Blob får inte användas som testfixture.
+4. BUGG-TMP:s samordnade preview-mitigering behöver aktuell bassynk, blobbundet
+   integrations-/docreview och full native CI/exakt deployment på nya headen.
+   Ny Vercel-resurs krävs inte före denna smala previewkandidatur. Linuxkvittot
+   är inte liveacceptans: routespecifik allocation/deadline, cross-isolate-last
+   och verklig `/tmp`-budget kvarstår. Delad DB/Blob är inte testfixture, ingen
+   ny liveåtgärd är beviljad och hela `SM-072` får inte stängas.
 5. Slutlig ZIP-fillista är verifierad enligt kvittot ovan. Samordnaren uppdaterar
    externa startprompter separat. Den äldre
    `dossier-zip-reconcile-FINAL-b427c1a8.txt` är en HISTORISK snapshot, inte
