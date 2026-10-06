@@ -1,32 +1,12 @@
 /**
- * Fas 4 regression evidence: candidate sets for six typical prompt classes,
- * search-driven (new) vs legacy hardcoded, computed against a pinned snapshot
- * of the official registry index
- * (`__fixtures__/shadcn-registry-index.snapshot.json`, fetched 2026-07-22)
- * and the repo's real community config (`components.json` +
- * `config/community-registries.json`).
- *
- * This is the eval-compensation gate from the plan
- * (2026-07-22-shadcn-registry-beskriv-komposition.md, Fas 4): the search path
- * must produce candidates at least as relevant as the legacy lists. Notable
- * deltas, reviewed 2026-07-22:
- * - auth: legacy pinned `login-03`/`login-04`/`input-form`; search resolves
- *   `login-01`/`login-02` (equivalent login blocks) and drops `input-form`,
- *   which NO LONGER EXISTS in the live index (legacy fetches it → 404 → dead
- *   candidate slot).
- * - dashboard: same top block (`dashboard-01`) + same data-table/chart
- *   coverage; `sidebar-01` replaces `sidebar-07` (both real sidebar blocks).
- * - community plans for section prompts are byte-identical to the legacy
- *   per-section picks (same seeded pool + same DJB seed string).
- *
- * If the pinned index fixture is refreshed, re-review the lists below for
- * relevance parity — do not blind-update.
+ * Relevance contracts against the pinned offline registry index. Index updates
+ * may change chosen items, but not requested concepts, eligible types, priority,
+ * deterministic selection or configured community boundaries.
+ * Actual resolver fallback/reservation/backfill: shadcn-ui-recipes.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { buildLegacyCandidates } from "./shadcn-ui-recipes";
 import {
   buildCommunitySearchPlans,
   buildOfficialSearchCandidates,
@@ -36,6 +16,7 @@ import {
 } from "./shadcn-recipe-search";
 import type { RegistryIndexItem } from "@/lib/shadcn/registry-service";
 import type { InferredCapabilities } from "../capability-inference";
+import { buildLegacyCandidates } from "./shadcn-ui-recipes";
 
 function caps(overrides: Partial<InferredCapabilities> = {}): InferredCapabilities {
   return {
@@ -63,197 +44,144 @@ function caps(overrides: Partial<InferredCapabilities> = {}): InferredCapabiliti
 
 const fixture = JSON.parse(
   readFileSync(
-    join(
-      process.cwd(),
-      "src/lib/gen/data/__fixtures__/shadcn-registry-index.snapshot.json",
-    ),
+    join(process.cwd(), "src/lib/gen/data/__fixtures__/shadcn-registry-index.snapshot.json"),
     "utf-8",
   ),
 ) as { items: RegistryIndexItem[] };
 
-interface Scenario {
-  id: string;
-  prompt: string;
-  capabilities: InferredCapabilities;
-  expectedLegacy: string[];
-  expectedSearch: string[];
-  expectedCommunityPlans: string[];
-}
-
-const SCENARIOS: Scenario[] = [
+const SCENARIOS = [
   {
     id: "auth",
     prompt: "bygg en inloggningssida för medlemmar",
     capabilities: caps({ needsAuth: true, needsForms: true }),
-    expectedLegacy: ["login-03", "login-04", "form", "signup-01", "input-form", "field"],
-    expectedSearch: [
-      "login-01",
-      "login-02",
-      "form",
-      "signup-01",
-      "input",
-      "card-with-form",
-      "signup-02",
-      "button-group-input",
-      "field",
-      "field-checkbox",
-    ],
-    expectedCommunityPlans: [],
+    concepts: [/login/, /signup/, /form/, /input/, /field/],
+    first: /^login(?:-|$)/,
+    communitySection: null,
   },
   {
     id: "dashboard",
     prompt: "bygg en dashboard med statistik och tabeller för försäljning",
     capabilities: caps({ needsAppShell: true, needsCharts: true, needsDataUI: true }),
-    expectedLegacy: [
-      "dashboard-01",
-      "data-table-demo",
-      "chart-area-interactive",
-      "sidebar-07",
-      "chart-bar-default",
-      "table",
-    ],
-    expectedSearch: [
-      "dashboard-01",
-      "sidebar-01",
-      "data-table-demo",
-      "chart-area-interactive",
-      "sidebar",
-      "chart-area-axes",
-      "chart-bar-active",
-      "table",
-      "chart-bar-default",
-    ],
-    // Identical to the legacy per-section picks (stats section, same DJB seed).
-    expectedCommunityPlans: ["@shadcnblocks/stats1", "@tailark-oss/mist-stats-3"],
+    concepts: [/dashboard/, /sidebar/, /data-table/, /chart-area/, /chart-bar/, /table/],
+    first: /^dashboard(?:-|$)/,
+    communitySection: "stats",
   },
   {
     id: "pricing",
     prompt: "en landningssida med pricing i tre paket",
     capabilities: caps(),
-    expectedLegacy: ["card", "tabs"],
-    expectedSearch: ["card", "card-demo", "tabs", "tabs-demo"],
-    // Identical to the legacy per-section picks (pricing section, same DJB seed).
-    expectedCommunityPlans: [
-      "@shadcnblocks/pricing3",
-      "@tailark-oss/mist-pricing-1",
-      "@sajtmaskin/pricing-section",
-    ],
+    concepts: [/card/, /tabs/],
+    first: /^card(?:-|$)/,
+    communitySection: "pricing",
   },
   {
     id: "charts",
     prompt: "visa försäljningsdata i interaktiva diagram",
     capabilities: caps({ needsCharts: true }),
-    expectedLegacy: ["chart-area-interactive", "chart-bar-default"],
-    expectedSearch: [
-      "chart-area-interactive",
-      "chart-area-axes",
-      "chart-bar-active",
-      "chart-bar-default",
-    ],
-    expectedCommunityPlans: [],
+    concepts: [/chart-area/, /chart-bar/],
+    first: /^chart-area(?:-|$)/,
+    communitySection: null,
   },
   {
     id: "ecommerce",
     prompt: "en webbshop med produktgalleri och kassa",
     capabilities: caps({ needsEcommerce: true, needsCarousel: true, needsPayments: true }),
-    expectedLegacy: [
-      "dialog",
-      "form",
-      "card",
-      "carousel-demo",
-      "sheet",
-      "drawer",
-      "input-group",
-    ],
-    expectedSearch: [
-      "dialog",
-      "alert-dialog",
-      "form",
-      "card",
-      "card-with-form",
-      "card-demo",
-      "carousel",
-      "sheet",
-      "carousel-api",
-      "drawer",
-      "sheet-demo",
-      "drawer-demo",
-      "input-group",
-      "button-group-input",
-    ],
-    expectedCommunityPlans: [],
+    concepts: [/dialog/, /form/, /card/, /carousel/, /sheet/, /drawer/, /input-group/],
+    first: /^dialog(?:-|$)/,
+    communitySection: null,
   },
   {
     id: "forms",
     prompt: "kontaktformulär med bokningskalender",
     capabilities: caps({ needsForms: true, needsCalendar: true }),
-    expectedLegacy: ["date-picker-demo", "form", "input-form", "calendar", "field"],
-    expectedSearch: [
-      "date-picker-demo",
-      "form",
-      "date-picker-with-presets",
-      "input",
-      "card-with-form",
-      "calendar",
-      "button-group-input",
-      "field",
-      "calendar-demo",
-      "field-checkbox",
-    ],
-    // Identical to the legacy per-section picks (contact section, same DJB seed).
-    expectedCommunityPlans: ["@shadcnblocks/contact1", "@tailark-oss/mist-contact-1"],
+    concepts: [/date-picker/, /form/, /calendar/, /input/, /field/],
+    first: /^date-picker(?:-|$)/,
+    communitySection: "contact",
   },
 ];
 
-describe("Fas 4 candidate snapshot: search-driven vs legacy (pinned index)", () => {
+describe("recipe relevance and boundaries against the offline index", () => {
   for (const scenario of SCENARIOS) {
     describe(scenario.id, () => {
-      it("legacy candidates are unchanged (fallback contract)", () => {
-        const legacy = buildLegacyCandidates(scenario.capabilities, scenario.prompt);
-        expect(legacy.map((candidate) => candidate.name)).toEqual(
-          scenario.expectedLegacy,
+      it("preserves the requested concepts when search falls back to legacy candidates", () => {
+        const candidates = buildLegacyCandidates(scenario.capabilities, scenario.prompt);
+        const names = candidates.map((candidate) => candidate.name);
+        expect(names.length).toBeGreaterThan(0);
+        expect(new Set(names).size).toBe(names.length);
+        expect(names[0]).toMatch(scenario.first);
+        for (const concept of scenario.concepts) {
+          expect(
+            names.some((name) => concept.test(name)),
+            "missing fallback " + concept,
+          ).toBe(true);
+        }
+        expect(candidates.map((candidate) => candidate.priority)).toEqual(
+          candidates.map((candidate) => candidate.priority).sort((a, b) => b - a),
         );
+        expect(buildLegacyCandidates(scenario.capabilities, scenario.prompt)).toEqual(candidates);
       });
 
-      it("search candidates match the reviewed snapshot", () => {
+      it("selects real eligible items covering the requested concepts in priority order", () => {
         const intents = buildRecipeSearchIntents(scenario.capabilities, scenario.prompt);
         const search = buildOfficialSearchCandidates(fixture.items, intents);
-        expect(search.map((candidate) => candidate.name)).toEqual(
-          scenario.expectedSearch,
+        const names = search.map((candidate) => candidate.name);
+        expect(search.length).toBeGreaterThan(0);
+        expect(search.length).toBeLessThanOrEqual(intents.length * 2);
+        expect(new Set(names).size).toBe(names.length);
+        expect(names[0]).toMatch(scenario.first);
+        for (const concept of scenario.concepts) {
+          expect(
+            names.some((name) => concept.test(name)),
+            "missing " + concept,
+          ).toBe(true);
+        }
+        for (const candidate of search) {
+          const item = fixture.items.find((entry) => entry.name === candidate.name);
+          expect(item, candidate.name + " missing from index").toBeDefined();
+          expect(["registry:ui", "registry:block", "registry:example"]).toContain(item?.type);
+          expect(Number.isFinite(candidate.priority)).toBe(true);
+        }
+        expect(search.map((candidate) => candidate.priority)).toEqual(
+          search.map((candidate) => candidate.priority).sort((a, b) => b - a),
         );
+        expect(buildOfficialSearchCandidates(fixture.items, intents)).toEqual(search);
       });
 
-      it("community plans match the reviewed snapshot", () => {
+      it("selects deterministic community items only from configured relevant pools", () => {
         const intents = buildRecipeSearchIntents(scenario.capabilities, scenario.prompt);
-        const plans = buildCommunitySearchPlans(
-          loadDescribeCommunityRegistries(),
-          intents,
-          scenario.prompt,
-          loadCommunitySeedEntries(),
-        );
-        expect(plans.map((plan) => `${plan.namespace}/${plan.itemName}`)).toEqual(
-          scenario.expectedCommunityPlans,
+        const registries = loadDescribeCommunityRegistries();
+        const seeds = loadCommunitySeedEntries();
+        const plans = buildCommunitySearchPlans(registries, intents, scenario.prompt, seeds);
+        if (scenario.communitySection === null) {
+          expect(plans).toEqual([]);
+        } else {
+          const section = scenario.communitySection;
+          const eligible = registries.filter((registry) =>
+            seeds.some(
+              (seed) =>
+                seed.namespace === registry.namespace && seed.sectionMappings?.[section]?.length,
+            ),
+          );
+          expect(eligible.length).toBeGreaterThan(0);
+          expect(new Set(plans.map((plan) => plan.namespace))).toEqual(
+            new Set(eligible.map((registry) => registry.namespace)),
+          );
+          for (const registry of eligible) {
+            const seed = seeds.find((entry) => entry.namespace === registry.namespace)!;
+            const selected = plans.filter((plan) => plan.namespace === registry.namespace);
+            expect(selected.length).toBeLessThanOrEqual(Math.max(1, seed.maxPerGeneration ?? 1));
+            expect(new Set(selected.map((plan) => plan.itemName)).size).toBe(selected.length);
+            for (const plan of selected) {
+              expect(plan.urlTemplate).toBe(registry.urlTemplate);
+              expect(seed.sectionMappings![section]).toContain(plan.itemName);
+              expect(registry.itemNames).toContain(plan.itemName);
+            }
+          }
+        }
+        expect(buildCommunitySearchPlans(registries, intents, scenario.prompt, seeds)).toEqual(
+          plans,
         );
       });
     });
   }
-
-  it("every search-selected official candidate exists in the pinned index", () => {
-    const validNames = new Set(fixture.items.map((item) => item.name));
-    for (const scenario of SCENARIOS) {
-      for (const name of scenario.expectedSearch) {
-        expect(validNames.has(name), `${name} missing from index`).toBe(true);
-      }
-    }
-  });
-
-  it("legacy list contains dead upstream candidates that search eliminates (input-form)", () => {
-    const validNames = new Set(fixture.items.map((item) => item.name));
-    // Documents WHY search-driven wins: the legacy hardcoded name drifted out
-    // of the live registry and burned a candidate slot on a guaranteed 404.
-    expect(validNames.has("input-form")).toBe(false);
-    expect(
-      SCENARIOS.find((scenario) => scenario.id === "auth")?.expectedLegacy,
-    ).toContain("input-form");
-  });
 });

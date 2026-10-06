@@ -6,7 +6,8 @@ Status: Pågår. Beroende: A2. Arbetssätt: återkommande små områdespaket.
 
 Leveransstatus 2026-10-05: systemprompt-, Backoffice- och promptpaketen nedan
 är levererade via #1553 på preview `c4f4b188`. Ruleset- och publika
-auditpaketen är levererade via #1562 på `cca962c6`. Ursprungliga lokala
+auditpaketen är levererade via #1562 på `cca962c6`; registry-paketet är
+levererat via #1576 på `f68d1837`. Ursprungliga lokala
 provbaser nedan bevaras som bevisunderlag; [A7](A7-slutverifiering-och-overlamning.md)
 äger de aktuella head-/merge-/CI-kvittona. Hela beståndet är inte genomgånget.
 
@@ -47,6 +48,7 @@ ha skrivstatus samtidigt.
 | F3: retry ska läsa samma committade status som knappen | `src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx` och dess test | Levererad separat via #1558; inte ett nytt #1553-delta | Lokal `0423cd419`, faktisk preview `59a12080` | Fyra RED före runtimefix, 75 riktade PASS efter; oberoende CLEAN. Senaste readiness/busy-status och explicit parent bevaras. Historiskt CI-förlopp är inte säkert orsaksfastställt. |
 | Publik audit: modellseparation i faktisk kandidatkedja | `src/lib/audit/public-analys.test.ts`; `src/lib/audit/audit-tier.test.ts` | Levererad via #1562; inte i #1553 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | SLÅ IHOP duplicerade modellås; unik kostnadsgrind flyttad till `resolveAuditRun`. Två verkliga felinjektioner går från falskt grönt till rött; ursprungligt 54-PASS-kvitto återanvänt med blobidentitet. Färsk integration 220 PASS/8 filer, två oberoende CLEAN och native CI gröna; A7 äger leveranskvittot. |
 | Ruleset: oberoende policyowner och semantiska workflowtriggers | `scripts/ci/check-master-ruleset.mjs`; `scripts/ci/check-master-ruleset.test.ts` | Levererad via #1562 | Bas `c4f4b188`, granskad head `1110d65f`, faktisk preview `cca962c6` | TA BORT död policyinläsning, SKRIV OM YAML-syntaxlås. Verklig CLI med stubbat nät svarar korrekt på legitim policyoberoende körning och ruleset-drift. Ruleset-spec, workflows och permissions är orörda. |
+| Katalogkontrakt: versioner, shadcn-sök och curatorpopulation | Fem testpaths i `backoffice/` och `src/lib/gen/`; inga produktowners | Integrerad lokalt; root levererar | Source `21fa810e`/bas `e113a7e2`; integration `de87533e`/bas `30b941c5` | SKRIV OM historiska versionslistor och counts till kanoniska owners + oberoende projektioner. Två P2-reviewfynd rättade; source- och avgränsad integrationsreview CLEAN. 102 TS/4 filer och 31 Python PASS; full Backoffice 702 PASS. Färsk discovery 1 093/1 093 PASS. Slutlig docsreview, native CI och merge återstår. |
 
 ### Systemprompt — felbevis och avgränsning
 
@@ -97,12 +99,15 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 
 | Grupp | Disposition och bevisgräns | Nästa owner/steg |
 | --- | --- | --- |
-| Pengar, auth, tenant, SSRF, migrationsledger, externa kontrakt | BEHÅLL säkerhets- och beteendeprov. Ingen DB/provideroperation eller ändrad kostnads-/routingpolicy. | Befintliga runtimeowners; riktad semantisk genomgång krävs före ytterligare ändring. |
-| Builder/UI, preview, export/publicering | Huvudsakligen BEHÅLL verkliga tillstånds-/säkerhetsprov. Aktiva legacy-callers och möjlig extern `/api/download`-konsument gör radering obevisad. | Codex fortsätter bara efter exakt scope/kontraktsbevis; ingen routeavveckling beställd. |
-| Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS äger intent/rootselection och deras riktade tester. A4 saknar fortfarande isolerad körmiljö/providergräns. |
+| Pengar och generationstillträde | BEHÅLL durable admission, fresh access, debit/refund/retry och riktiga Postgresprov med `REQUIRE_POSTGRES_TESTS=1`. Targetless-charge-policy har oklar owner och får inte prunas. | Befintliga runtimeowners; riktad semantisk genomgång krävs före ändring. |
+| Auth, tenant och SSRF | BEHÅLL cookieprecedens, felaktiga dubletter, guest-claim och negativa routefall. Mappad IPv6, NAT64, Teredo, link-local, DNS-redirect och pinned transport är skilda SSRF-felklasser. | Befintliga auth-/nätowners; inga skydd slås ihop utan gemensamt felbevis. |
+| Migrationsledger | BEHÅLL filnamn, read-only-CI och rollkontrakt. Checksum, pending-only och advisory-lock är dokumenterad skuld; inget DB-mandat finns här. | DB-/migrationsowner. |
+| Builder/UI, export och publicering | BEHÅLL downloadownership, env-redaction, binärdata och GitHub user-files. Backup-CAS, atomic replace, rollback och redaction skyddar olika risker. `/api/download` saknar intern caller men extern owner är oklar: behåll auth/tenant/ZIP. | Ingen routeavveckling utan caller-/produktägarbevis. |
+| Lokala fixtureantal | Style-choice har 33 parameterfall som representerar 9 scaffoldbeteenden. En operation, en snapshot, `MAX_BACKUPS`, fyra filer och två routes är lokala scenario-/fixturekontrakt, inte globala produktantal. | Behåll beteendeskydd; ersätt bara historiska globala katalog-/versionslås. |
+| Dossiers, scaffolds, remove/replace, versionsstatus | Terminala dossier-/scaffoldowners återöppnas inte. Katalogpaketet ersätter historiska versions-/antalslås men bevarar faktisk paritet, force-pins, fallback, membership och addenda/UI. | A4 måste fortfarande bevisa isolerad persistens och senare generation/follow-up/remove/replace. |
 | Public analys | Tvåfilspaketet är levererat via #1562. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Övriga prompt-, metadata- och klientkontroller är oförändrade. Ingen generell prispolicy infördes. |
-| Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562. Registrytestets sidantal/rubrikhistorik ersatt enligt paketet nedan; inga registryowners ändrade. | Ingen live ruleset-ändring. Registry-paketets felprov är körda; aktuell review/leverans och återstående bestånd är öppna. |
+| Backoffice, curator, observability, Python | Curatorns historiska 64-count ersätts av rawmanifest/gallery/TS-exclusion/raw variant-JSON som oberoende oracle. Curator-SSRF/zipbomb/publish, backup/CAS och observability-redaction bevaras. | Aktuellt katalogpaket; ingen produktkod eller total Backoffice-radering. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562. Registrytestets sidantal/rubrikhistorik ersatt enligt paketet nedan; inga registryowners ändrade. | Ingen live ruleset-ändring. Registry-paketet är levererat via #1576; inget mandat till generell rensning av återstående skydd. |
 
 Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
 test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
@@ -128,7 +133,7 @@ sidolås rött, nytt paket grönt. Ingen faktisk modell-/providerändring gjorde
 Grinden skyddar separation från produktens aktuella primary, inte en ny generell
 pris-/allowlist-policy för alla andra modeller eller alias.
 
-### Registry-paket 2026-10-06 — implementerat, leverans återstår
+### Registry-paket 2026-10-06 — levererat via #1576
 
 Kodscope: endast `src/lib/control-plane/registry.test.ts`, ursprungsbas `eba1c590`,
 branch `codex/test-registry-cleanup`. TA BORT historiskt sidantal 37:
@@ -156,9 +161,49 @@ för `PAGE_SPECS`, policyregistry och beslutsindex. Återställd kontroll med tv
 befintliga länk-/termtestfiler gav 3 filer/61 PASS med högst fyra workers.
 Lokalt tillfälligt underlag: `.tmp/a3-registry-proof-20261006.json`.
 Oberoende `a5_a6_rest_review` (`gpt-5.6-sol`/xhigh) gav CLEAN på
-`2b3ea77d` mot `eba1c590`. Normal synk till `4659f3bf` bevarar exakt
-testblob och ownerfiler; bounded integrationsreview och native leverans
-återstår. Detta stänger inte hela A3.
+`2b3ea77d` mot `eba1c590`. Paketet är mergat via #1576 på `f68d1837`.
+Det stänger inte hela A3.
+
+### Katalogkontrakt 2026-10-06 — integrerat, leveransgrindar återstår
+
+Scope är exakt fem testfiler:
+
+- `backoffice/test_template_curator_catalog.py`
+- `backoffice/test_template_curator_ui.py`
+- `src/lib/gen/data/shadcn-recipe-search.snapshot.test.ts`
+- `src/lib/gen/export/project-scaffold-baseline-parity.test.ts`
+- `src/lib/gen/export/project-scaffold.test.ts`
+
+Source `21fa810e096a9486ffa58000bb114ec4f1469c37` mot `e113a7e2` är
+oberoende CLEAN efter att båda P2-täckningsfynden rättats. Normal integration
+`de87533efd314949e7b42437870c10c0ea136a3c` mot preview `30b941c5` har
+identiska fem test- och lockblobbar. Författarens `verify:pr -- --plan` är
+grön. Oberoende avgränsad integrationsreview är CLEAN; berörda produktowners,
+fixtures och fem testblobbar är identiska med tidigare granskad source.
+#1581:s separata produktfix (`client` → `node:path`) är redan mergad i
+basen med full CI/deployment och ingår inte i A3-deltat.
+
+Tre giltiga förändringsprov fällde de gamla låsen men passerar de nya:
+
+- samordnad Next/`eslint-config-next` 16.3.8 → 16.4.0 i source-fixture:
+  12 gamla RED,
+- en giltig ny shadcn-indexpost: 1 gammal RED,
+- curatorpopulation 64 → 65: 5 gamla RED.
+
+Fjorton verkliga felmutationer gav RED och återställdes: sex för
+version/force-pin/paritet, tre för shadcn-fallback/intent/typ och fem för
+curator-membership/addenda/UI. Sex legacy-fallbackscenarier samt rangordning,
+unikhet, typ och medlemskap bevaras. Curatorns rawmanifest, gallery,
+TypeScript-exclusion och raw variant-JSON är oberoende oracle. Lokalt bevis:
+`C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete/.tmp/a3-catalog-contracts-proof-20261006.json`.
+
+Författarkvittot är 102 TypeScript PASS i fyra filer och 31 Python PASS. Hela
+Backoffice gav 702 PASS på 56,104 sekunder, exit 0, med samordnad oförändrad
+Git-vakt. Typecheck, lint och discovery 1 092/1 092 var gröna på sourcebasen
+`e113a7e2`. På integrationen `de87533e`/`30b941c5` är färsk discovery
+1 093/1 093, docslänkar, historikstatus och plan PASS. Slutlig docsreview,
+native CI och merge återstår. Ingen produkt-, dependency-,
+runtime- eller CI-policy ändras, och paketet stänger inte hela A3.
 
 ## Checklista per paket
 
