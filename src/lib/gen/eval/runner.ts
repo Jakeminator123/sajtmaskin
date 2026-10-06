@@ -729,6 +729,7 @@ async function evaluatePrompt(
   );
   const generationInput = await prepareGenerationContext({
     prompt: evalPrompt.prompt,
+    rawPrompt: evalPrompt.prompt,
     buildIntent: evalPrompt.intent,
     scaffoldMode: "auto",
     embeddingScaffoldMatch: false,

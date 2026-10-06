@@ -143,6 +143,9 @@ export async function finalizeOrchestrationPrompts(
           // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
           input.styleKeywordsHint,
           input.toneKeywordsHint,
+          // Explicit variant commands must come from the canonical raw request,
+          // never previous-file context or brief text embedded in `prompt`.
+          input.rawPrompt ?? "",
         );
   let resolvedVariant =
     styleChoiceVariant ?? persistedVariant ?? matched?.variant ?? hintedVariant ?? null;
