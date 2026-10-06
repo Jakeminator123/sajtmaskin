@@ -2,8 +2,9 @@
 
 ## Status
 
-**Kandidatfix lokalt verifierad 2026-10-05; inte verifierad eller släppt i
-Vercel.** Känd residual av `SM-072`. Tidigare status var «Parkerat, inte löst».
+**Kandidatfix oberoende kodgranskad 2026-10-06; deployment finns på Vercel,
+men live capture-/resursacceptans saknas och fixen är inte släppt i produktion.**
+Känd residual av `SM-072`. Tidigare status var «Parkerat, inte löst».
 Beställ ingen ny generell prune-fix — `#1234` och `#1318` finns redan.
 
 ## Ny utredning 2026-10-05
@@ -86,12 +87,77 @@ Samma 289 riktade tester, typecheck, riktad ESLint, docs:check och docs:links
 passerade på denna bas. Runtime- och reprofilerna är oförändrade från den
 lokalt verifierade kandidaten ovan.
 
-PR:n ska behållas som **draft** tills oberoende review och Vercel-preview-
-acceptansen ovan är klara. Detta sparuppdrag ger inget mergemandat.
+Sparuppdraget lämnade PR:n som **draft** i väntan på oberoende review och
+Vercel-preview-acceptans. Det gav inget mergemandat. Fortsättningsuppdragets
+aktuella grindar och kvarvarande livebegränsning finns nedan.
 `BUG-SWARM-BACKLOG.md` är inte ändrad och `SM-072` ska inte markeras löst av
 offlineprovet. Ingen DB-, env-, provider- eller produktionsåtgärd ingår.
 `node_modules/` och `tsconfig.tsbuildinfo` är enbart återbildningsbara lokala
 beroenden/cache; underlaget och det körbara reprot finns i Git-filerna.
+
+## Fortsättning 2026-10-06 — review och avgränsad liveacceptans
+
+[PR #1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572), kodhead
+`e79dce40939d02c0c87f038ae4bf7f4d665b5178` mot preview `f9c5acea6`, fick
+oberoende readonly review av alla åtta filer och relevanta capture-callers:
+**0 verifierbara buggar/false-greens/kontraktsbrott**. Granskaren körde även
+182/182 tester i tre berörda testfiler, Node 22.23.1, högst fyra workers.
+Ingen runtime-/test-/reprofilsändring behövdes efter review.
+
+GitHub CI [37313656050](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37313656050)
+på samma kodhead körde full runtimeprofil: `quality` anger `heavy=true`, alla
+fyra testshards, typecheck/lint, build, Backoffice och schema-drift är gröna.
+Dossier-acceptansens matris hoppades korrekt över med
+`matrix=false reason=out-of-contract files=8 matched=0`; det är inte ett
+live capture-kvitto eller bevis för att dossierbyggen kördes.
+
+Vercel-deployment `dpl_5aKKDbVMCq7TQ6zkDkzdjngzLY5m` är `READY`, metadata
+binder exakt samma kodhead och projektet deklarerar Node `22.x`.
+Ett direkt GET mot dess immutabla host
+`sajtmaskin-1cyl6vt1o-jakeminator123s-projects.vercel.app` gav HTTP 302 till
+`vercel.com` (SSO-skydd), inte ett svar från capture-runtimen. Deploymentens
+runtime-loggurval från 2026-10-05 13:02:34 UTC gav inga request-rader.
+Ingen auth-bypass, kundgeneration eller capture-invocation skapades.
+
+Den önskade kedjan är verifieringsroute → serverless Chromium → desktop/mobil
+→ bilder → nedstängning. Befintliga vägar kan inte användas som godtycklig
+nyckelfri fixture utan att ändra testets gränser:
+
+| Väg | Konkret begränsning före/efter browserstart |
+| --- | --- |
+| Product-postcheck | Tar DB-claim och startar live-review-session före capture; slutför claim och kan persistera bilder/rapport. Saknar read-only/dry-run-kontrakt. |
+| Projektminiatyr | Sparar Blob och `app_projects.thumbnail_path`, kan radera tidigare bild. Inte ett DB-/provider-readonly-prov. |
+| Inspector-capture | Kräver appinloggning och aktuell Tier-2-tuple/allowlist. Returnerar bild utan egen DB-persistens, men ingen isolerad testfixture eller autentiserad kandidat-session har etablerats. |
+| Inspector-element-map | Avvisar serverless innan browserstart; kan därför inte bevisa Vercel-capture. |
+
+### Konkret prov innan liveacceptans
+
+Det säkra nästa provet kräver en uttryckligt godkänd isolerad Vercel-testyta
+som kör **den gemensamma launch-ownern**, utan DB/Redis/Blob/LLM-nycklar eller
+kund-URL:er. Testytan finns inte i denna kandidat; ingen ny offentlig
+diagnostikroute eller providerkonfiguration har lagts till som genväg.
+Den ska ta en fast inbäddad HTML-fixture, inte en URL från anroparen, och
+använda testägd temporärkatalog med städning endast av egna filer/processer.
+
+| Prov | Körning och kvitto |
+| --- | --- |
+| Desktop/mobil | Fem seriella körningar med separata 1280×900/375×667-kontexter, två icke-tomma JPEG-bilder och mobile.close → desktop.close → browser.close. |
+| Samtidighet | Två samtidigt köade capture-jobb genom samma launch-owner; kontrollera mutexordning, framdrift och städning. Separata Vercel-invocations redovisas separat, inte som bevis för ett globalt lås. |
+| WebGL | Tre körningar med canvas/WebGL2, `readPixels` av känd färg och ingen GL-error; normal teardown efter båda bilderna. |
+| Resurser | Mät Node och testägd Chromium-processfamiljs topp-RSS/processantal samt verkligt ledigt `/tmp` före launch, efter bilder och efter close. `stat.size` får inte användas som RAM-/diskförbrukning. |
+| Native avslut | Bind invocation/capture-ID, browser-/Node-version, faser, close-fel, native exit/signal och dumpmetadata. Normal exit 0, ingen signal/dump och ingen kvarlevande testprocess krävs; HTTP 200 eller Playwright-disconnect räcker inte. |
+
+Observerade resursvärden måste jämföras med testdeploymentens faktiskt
+konfigurerade minne/deadline; de är inte kända från projektets Node-pin.
+Detta verifierar launch-/capture-/teardown-ownern i Vercel, **inte** hela
+postcheckens DB-attestation/live-review-kedja. Den kedjan behöver i sin tur
+en isolerad datafixture innan någon write-route kan kallas inom nuvarande
+DB-readonly-mandat. Linux-reprot ovan är fortfarande bara lokal native-evidens.
+
+Fortsättningsmandatet tillåter ready-status när kod/review är färdiga så att
+GitHub kan köra aktuell required CI. Ready är inte liveacceptans eller
+mergemandat: samordningen äger mergebeslutet och denna specifika live-HOLD.
+`SM-072` och hela buggraden ska fortfarande inte markeras lösta.
 
 ## Vad som observerades
 
