@@ -67,7 +67,7 @@ validatorns korsregler och runtimekod äger den fulla semantiken.
   projicerar samma filvägar/kodtrohet och konfigurationsvägledning för prompt
   och filåterställning. Ingen ny agent, lagrad owner eller pipelinefas.
 
-Instruktioner och fortsatt katalogarbete följer den aktiva planen ovan.
+Instruktioner och katalogförvaltning följer dossierkontraktet och författarmallen ovan.
 ”Bygg integrationer” och 480-teckengränsen per vald instruktionssektion behålls.
 
 ## Verifiera generering
