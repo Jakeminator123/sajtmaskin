@@ -592,6 +592,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       previewUrl: resolvedPreviewUrl,
       chatId,
       versionId,
+      verificationRunId,
       timeoutMs: postcheckTimeoutMs,
       captureEnabled: liveReviewSession.captureEnabled,
       captureUserId: usageOwnerId ?? undefined,
