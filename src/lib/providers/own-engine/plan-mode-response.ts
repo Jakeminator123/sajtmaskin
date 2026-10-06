@@ -4,7 +4,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
 import { parsePlanResponse } from "@/lib/gen/plan/prompt";
-import { enrichPlanArtifactForReview } from "@/lib/gen/plan/review";
+import { enrichPlanArtifactForReview } from "@/lib/gen/plan/review-enrichment";
 import {
   createPlanModeStream,
   type PlanModeResolvedContext,
