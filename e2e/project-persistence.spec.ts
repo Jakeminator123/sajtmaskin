@@ -284,10 +284,10 @@ test("real file edit + Save project survives reload; another guest cannot read o
     await expect(editor).toHaveValue(original);
     await editor.fill(changed);
     beginActionResponse("PATCH", filePath);
-    const [patchResponse] = await Promise.all([
-      waitForAppResponse("PATCH", filePath),
-      pane.getByRole("button", { name: "Spara fil", exact: true }).click(),
-    ]);
+    await pane.getByRole("button", { name: "Spara fil", exact: true }).click();
+    // Responses arriving during the click are already retained by the observer.
+    // Start the separate response budget only after the UI action completes.
+    const patchResponse = await waitForAppResponse("PATCH", filePath);
     expect(patchResponse.status()).toBe(200);
     expect(patchResponse.request().postDataJSON()).toEqual({
       versionId: fixture.versionId,
@@ -327,15 +327,14 @@ test("real file edit + Save project survives reload; another guest cannot read o
       .click();
     beginActionResponse("GET", filePath);
     beginActionResponse("POST", savePath);
-    const [fetchedResponse, savedResponse] = await Promise.all([
-      waitForAppResponse("GET", filePath),
-      // Only this first POST introduces a cold route; the files GET and every
-      // UI action remain at 15s. The test's hard 240s ceiling is unchanged.
-      waitForAppResponse("POST", savePath, testInfo.project.use.navigationTimeout),
-      page.getByRole("menuitem", { name: "Spara projekt", exact: true }).click(),
-    ]);
+    await page.getByRole("menuitem", { name: "Spara projekt", exact: true }).click();
+    const fetchedResponse = await waitForAppResponse("GET", filePath);
     expect(fetchedResponse.status()).toBe(200);
     await assertFileResponse(fetchedResponse, expectedFiles);
+    // Only this first POST introduces a cold route. Its response budget starts
+    // after the click and warm GET; neither consumes this separate 120s budget.
+    // Every UI action and the GET stay at 15s; the total ceiling stays at 240s.
+    const savedResponse = await waitForAppResponse("POST", savePath, testInfo.project.use.navigationTimeout);
     expect(savedResponse.status()).toBe(200);
     expect(await savedResponse.json()).toEqual({ success: true });
     const savedBody = savedResponse.request().postDataJSON();

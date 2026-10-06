@@ -203,6 +203,14 @@ navigation-/actionsvar RED. Borttagna generations- respektive actiongolv släppe
 igenom gammalt svar, som avsett mutationsfynd. Detta är harness-/callbackbevis;
 ny native edit/save/reload/tenant-acceptans återstår.
 
+Deltareview på `4c224209` fann att responsbudgetarna startade parallellt med
+klicket och därför förbrukades av föregående UI-/GET-fas. Korrigeringen armerar
+fortfarande observatörens golv före klick, men väntar sekventiellt på klick,
+varm PATCH/GET och därefter kall POST. Svar under klick bevaras redan i kartan.
+Ett prov av den faktiska fasordningen visar separata starttider och att ett
+felaktigt varmt GET stoppar före POST-väntan; tidigare parallell ordning ger
+avsett rött budgetprov. Detta är avgränsad harnessverifiering, inte runtime.
+
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit
 Spara projekt måste spara faktiskt hämtade filer, och reload måste läsa samma
