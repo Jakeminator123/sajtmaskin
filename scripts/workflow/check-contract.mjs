@@ -705,21 +705,28 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     errors.push("heavy project-persistence must run the real isolated CI launcher, without shared services, secrets or permission changes");
   }
 
-  const blockingStability = qualityCore?.steps?.find(
-    (step) => step.run === "npm run test:stability:blocking",
+  const blockingStabilityOwners = Object.entries(document?.jobs ?? {}).flatMap(
+    ([jobName, job]) => (job?.steps ?? [])
+      .filter((step) => step.run === "npm run test:stability:blocking")
+      .map((step) => ({ jobName, step })),
   );
+  const blockingStability = blockingStabilityOwners[0]?.step;
   if (
+    blockingStabilityOwners.length !== 1 ||
+    blockingStabilityOwners[0]?.jobName !== "quality-core" ||
     !blockingStability ||
     Object.hasOwn(blockingStability, "continue-on-error") ||
     !hasExactExpression(blockingStability.if, "${{ !cancelled() }}")
   ) {
-    errors.push("heavy quality-core must block on deterministic stability contracts");
+    errors.push("heavy quality-core must be the single blocking owner of deterministic stability contracts");
   }
   if (packageScripts?.["test:stability:blocking"] !== BLOCKING_STABILITY_SCRIPT) {
     errors.push("test:stability:blocking must run the explicit deterministic stability subset");
   }
-  if (document?.jobs?.stability?.["continue-on-error"] !== true) {
-    errors.push("broad stability job must remain warn-only");
+  if (document?.jobs?.stability !== undefined || Object.values(document?.jobs ?? {}).some(
+    (job) => job?.steps?.some((step) => step.run === "npm run test:stability"),
+  )) {
+    errors.push("CI must not duplicate the fully covered blocking stability lane");
   }
 
   const qualityContracts = document?.jobs?.["quality-contracts"];
@@ -736,6 +743,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   for (const command of [
     "npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts",
     "npm run route-timeouts:check",
+    "npm run scaffolds:validate",
   ]) {
     const steps = qualityContracts?.steps?.filter((step) => step.run === command) ?? [];
     if (
@@ -746,6 +754,42 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     ) {
       errors.push(`quality-contracts must run exactly one blocking light-only ${command}`);
     }
+  }
+  const heavyOnly =
+    "${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}";
+  const scaffoldChecks = qualityContracts?.steps?.filter(
+    (step) => step.run === "npm run scaffolds:client-list:check",
+  ) ?? [];
+  if (
+    scaffoldChecks.length !== 1 || !hasExactExpression(scaffoldChecks[0].if, heavyOnly) ||
+    scaffoldChecks[0]["continue-on-error"] !== undefined ||
+    packageScripts?.["scaffolds:client-list:check"] !== "node --import tsx scripts/scaffolds/generate-client-list.ts --check"
+  ) {
+    errors.push("heavy/fallback contracts must retain exactly one blocking scaffold client-list validator");
+  }
+  for (const jobName of ["quality-core", "quality-tests"]) {
+    const jobSteps = document?.jobs?.[jobName]?.steps ?? [];
+    const steps = jobSteps.filter(
+      (step) => step.run === "npm run embeddings:ensure",
+    );
+    const consumerIndex = jobSteps.findIndex((step) => step.run === (
+      jobName === "quality-core" ? "npm run typecheck" : "npm run test:ci -- --shard=${{ matrix.shard }}/4"
+    ));
+    if (
+      steps.length !== 1 || steps[0].if !== undefined || steps[0]["continue-on-error"] !== undefined ||
+      consumerIndex < 0 || jobSteps.indexOf(steps[0]) >= consumerIndex
+    ) {
+      errors.push(`${jobName} must retain blocking embeddings materialization before tests`);
+    }
+  }
+  const advisoryTerms = qualityContracts?.steps?.filter(
+    (step) => step.run === "npm run check:terms",
+  ) ?? [];
+  if (
+    advisoryTerms.length !== 1 || !hasExactExpression(advisoryTerms[0].if, "${{ !cancelled() }}") ||
+    advisoryTerms[0]["continue-on-error"] !== true
+  ) {
+    errors.push("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
   }
   const preflight = qualityCore?.steps?.filter((step) => step.run === "npm run preflight:common") ?? [];
   if (

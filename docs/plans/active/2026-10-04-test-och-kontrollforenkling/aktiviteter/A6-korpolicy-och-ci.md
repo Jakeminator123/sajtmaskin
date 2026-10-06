@@ -104,37 +104,91 @@ av #1571 gav aktuell head `f3af5be3` CLEAN och native CI SUCCESS; #1574
 Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
 tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 
-### Återstående kandidater, inte genomförda ändringar
+### Aktuellt deduppaket — fulltestat, native leverans återstår
 
-- Scaffoldtesterna är HOLD: `scaffolds:validate` blandar riktiga validatorer och
-  materialisering med tester. Hela kommandot får inte tas bort som en dublett.
+Förberedelsen på `codex/ci-duplicate-execution` är nu normalt integrerad med
+faktisk #1580-preview `6432e5eb` via `e18f1f549`. Squashkonflikter löstes med
+levererade A4-spec/statusblobbar; inga gamla A4-orakel följde med. Hela
+A4-harness/config/package/lock är exakt preview. Endast följande A6-delta och
+befintlig statusdokumentation avviker; inget test tas ur fulla sviten.
 
-Separat ready-event-kandidat: #1552 körde heavy CI
-[37265086119](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37265086119)
-från 2026-10-05 04:48:17 UTC, alla fyra shards startade 04:48:49. Ready-eventet
-04:51:40 startade en ny heavy CI
-[37265307749](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37265307749)
-04:51:41 på exakt samma head `2863d78204791a0720f718139ccf37db36a12bcc`.
-Den första körningens shards avbröts 04:51:50–57; run-status uppdaterades
-04:51:58. Ny körning startade alltså efter 3:24 redan förbrukad walltid,
-inte efter en kodändring. Run-API och PR-timeline lästes read-only.
+- Heavy/fallback behåller riktig `scaffolds:client-list:check`; materialisering
+  ligger kvar i varje relevant test-runner, och samma fem scaffoldtestfiler
+  ingår i alla fyra fulla shardars samlade urval. Explicit light behåller hela
+  `scaffolds:validate`. Paketkommandot är oförändrat.
+- Det gamla rådgivande stability-jobbet upprepar sex blockerande tester och
+  schema-drift. Det tas bort; den unika rådgivande `check:terms`-prosaskanningen
+  flyttas till contracts med `continue-on-error: true`. Blockerande stability,
+  schema-jobb och lokalt `test:stability` består.
+- Befintlig discovery jämför faktisk stability-discovery med den redan
+  granskade blockerande listan. Scaffoldfiler härleds ur befintligt
+  paketkommando och måste finnas i riktig standard-discovery. Ingen ny
+  manuell fillista eller extra listkörning.
+- Sju dubbleringsfall gav RED före ändringen. Tre verkliga discovery-
+  mutationer gav CLI exit 1: exkluderad stability-fil, exkluderad scaffoldfil
+  och ny ogranskad stability-fil. Alla återställdes.
+- Oberoende review fann en P2 i single-owner-vakten. Same-job/other-job
+  dubletter reproducerades; validatorn kräver nu exakt en global blockerande
+  stability-owner i quality-core. Rättningen `99e70c5b` är oberoende CLEAN.
+  Riktat 201 PASS/28 explicita Windows-Bashundantag; discovery 1 096/1 096.
 
-Detta är event-/körningsdedup, inte minskat testurval eller A4:s providerhinder.
-En eventuell rättning måste behålla full profil, securitychecks, aktuell
-integrationsbas och native leveransgrindar. Inga workflows ändras för denna
-observation och ingen manuell cancel/omkörning gjordes.
+Full `verify:pr -- --full --no-fetch --keep-going` på ren `99e70c5b` gav
+exit 0 och **22/22 kontroller PASS**, Volta Node 22.23.1 och stödd
+`VITEST_MAX_WORKERS=4`, utan urvals-/skipändring. Standard: 1 017 filer,
+13 887 PASS/31 befintliga skip, 616,58 sekunder. Backoffice: 702 PASS,
+55,922 sekunder med oförändrad Git-yta; docs 49 PASS och scaffolds 57 PASS.
+Befintlig knip-konfigurationshint är rådgivande. E2E-listning är inte runtime.
 
-Ytterligare same-head-observation från #1562: draft-CI
-[37267686013](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37267686013)
-körde 05:24:58–05:28:41 UTC den 2026-10-05 och blev SUCCESS. Ready-eventets CI
-[37268024330](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37268024330)
-körde 05:29:34–05:33:25 på exakt samma head
-`1110d65f579b6f3d19b2c7e6b9348769d7167fea`, också SUCCESS. Här avbröts inte
-första körningen; båda fulla test-/byggprofilerna kördes. Ready-körningens
-aktuella checks användes för leverans, inte det äldre gröna draftkvittot.
-Detta är mätunderlag, ingen ny väntetids-/readyregel eller genomförd optimering.
-Framtida dedup måste bevara full täckning, securitychecks, aktuell bas och
-native gates; den får inte göra A4:s obevisade flöden gröna.
+Alla åtta A6-kod/config-blobbar är identiska efter normal integration;
+skillnaden mot fullkörningen är levererad A4-spec och tre statusdokument.
+Färsk E2E/config-typkontroll och berörda kontraktsprov är PASS (222 PASS/28
+Windows-Bashundantag); discovery 1 096/1 096 PASS. Färsk plan och oberoende
+integrationsreview krävs före push. Aktuell native CI och exakt
+deployment krävs därefter före merge; fullkvittot ersätter inte dessa.
+
+Den sjunde filen `finalize-followup-files-stability.test.ts` har bindestreck,
+inte lane-suffixet `.stability.test.ts`, och ligger oförändrad i standardsviten.
+Required checks, Postgres-/browsergates, fail-closed fallback och fyra fulla
+shards ändras inte.
+
+Samordnarens jämförbara native underlag: tidigare stability-jobb 48–56 sekunder,
+varav dubblerade tester 5–6; contracts scaffoldvalidering 4–6 sekunder.
+Quality-core 222–223 sekunder dominerade contracts 62–88, med varierande kötid.
+Deltat tar bort verifierat dubbelarbete/runnerkostnad, men motsvarande
+besparing på hela PR:ns kritiska walltid är ännu inte visad.
+
+### Körpolicy och avsiktligt behållen ready-trigger
+
+Same-head/ready-kandidaten är bedömd och **behålls**. Historiska dubbelkörningar
+i #1552/#1562 är dokumenterade i Git/PR, inte en levererad eventdedup.
+`ci-scope.mjs` uppgraderar möjliga draft-low-risk-ändringar till full heavy när
+PR:n blir ready. Att ta bort ready-eventet kan lämna ett gammalt lätt grönt
+kvitto. Befintlig concurrency avbryter bara pågående körningar; den återanvänder
+inte avslutade resultat. Samma head bevisar inte samma bas/merge-ref/profil.
+Dossier-owner kräver också ready. Ingen befintlig säker återanvändningsgräns
+är visad, så ready-event och fyra fulla shards bevaras. Fullbordad dubblering
+är kvarvarande optimeringsskuld, inte skäl att försvaga grinden.
+
+- Under utveckling: relevanta ägartester och `verify:pr -- --plan`; discovery
+  och negativa bevis vid runner-/urvalsändring.
+- Inför kod-PR: centrala impactprofilen; delade/okända eller CI-motorändringar
+  kräver full verifiering. Lokal workerbegränsning ändrar inte täckningen.
+- Inför leverans: färsk previewbas, oberoende review, aktuella native required
+  checks, verkligt persistenceprov i heavy/fallback samt exakt deployment.
+  Discovery, advisory, skip och faktiskt genomförda prov redovisas separat.
+  Ingen återanvändning enbart på gammal grön head.
+
+GitHub lästes read-only 2026-10-06: active rulesets `22102710` (preview) och
+`17926309` (master) kräver `quality`, `backoffice-tests`, `schema-drift`,
+`build`, `dossier-acceptance` och GitGuardian (integration 46505).
+Strict current-base checks och lösta reviewtrådar krävs; approving-count är 0.
+Admin-role 5 har bypass, men den används inte. Klassiska protection-API:ts
+404 betyder här rulesetbaserad policy, inte oskyddad branch. Ingen policy
+ändras. Oförändrade 13 DB-paritetsavvikelser är separat skuld, inte grön CI.
+
+Bredare A4-generation/follow-up/remove-replace är fortfarande öppna.
+Det här deduppaketet får inte användas som ersättningsbevis för dessa flöden
+eller för att stänga hela A7.
 
 Starta efter A3, A4 och A5. Följande checklista gäller slutlig policy och
 optimering; säkerhetsdelen måste fortsätta fungera.

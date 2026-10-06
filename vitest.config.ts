@@ -6,8 +6,9 @@ const IS_CI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true"
 const IS_LOCAL_PR = !IS_CI && process.env.npm_lifecycle_event === "test:pr";
 /**
  * Stabilitets-lane-filer (grandmaster S1): `*.stability.test.ts(x)` körs av
- * `vitest.stability.config.ts` via `test:stability` (warn-only-jobb) och
- * `test:stability:blocking` (deterministisk subset i quality-core). De
+ * `vitest.stability.config.ts` via lokal `test:stability` och
+ * `test:stability:blocking` (granskad mängd i quality-core). Discovery kräver
+ * att faktisk lane-discovery motsvarar hela den blockerande mängden. De
  * exkluderas från standard-sviten här så att ett oklassificerat/flaky case
  * inte kan smyga in i `test:ci`.
  */

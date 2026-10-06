@@ -17,25 +17,26 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   relevant även utan root-uppgraderingen. Ingen nyckel, env eller provider ändras.
   Oberoende kod-/integrationsreview är CLEAN, full PR-CI 4:20 och alla 21
   dossierbyggen 6:17 är gröna. Exakt merge-deployment är READY; post-CI 3:41
-  har endast samma 13 paritetsrader (noll delta). #1570 behöver fortfarande
-  verifiering av själva dependency-uppgraderingen i den samlade kandidaten nedan.
+  har endast samma 13 paritetsrader (noll delta). #1570:s dependency-uppgradering
+  är också verifierad och levererad i den samlade ersättningen #1578 nedan.
 - **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. A3:s femfils
   katalogpaket är levererat via #1582 på `c33daca3`: oberoende CLEAN, native CI
   4:13, 21/21 dossierbyggen 5:55 och exakt READY-deployment enligt samordnaren.
   A4:s Kod-knappsfynd är separat rättat via #1583 på `e9354344`, med riktig
-  komponent-/menyregression och grön PR-CI. TESTER normalsynkar denna faktiska
-  bas till `codex/project-persistence-e2e` för befintlig draft #1580.
-  Senaste persistenskörningen `37498317797` på `dbf86fa2` passerade riktig
-  edit/PATCH/SQL, Spara projekt/SQL och reload med ändrat editorinnehåll.
-  Session B:s två GET gav 404, men negativ PATCH stoppades av proxy-CSRF
-  (saknad Origin) med 403 före tenantgrinden. Negativ POST och slutlig DB-
-  oföränderlighet är därför obevisade; cleanup PASS. Minimal harnessrättning
-  ger bara dessa två mutationsrequests vanlig first-party Origin och kräver
-  exakta routeägda 404-bodies. Riktig Playwright-transport/proxy reproducerar
-  felet och visar att främmande Origin fortsatt nekas. Ingen produkt-, auth-,
-  CSRF- eller budgetändring. #1580 är draft inför ny native acceptans.
-  A6b-WIP finns endast lokalt på `codex/ci-duplicate-execution`/`99e70c5b`,
-  oberoende CLEAN men inte fullverifierat eller levererat.
+  komponent-/menyregression och grön PR-CI. Produktfixarna ingår i levererad A4-bas.
+  #1580 är nu levererat på `6432e5eb`: riktig edit/PATCH/SQL, Save/SQL,
+  reload/exakt editor, annan sessions två GET/två writes nekade med exakta
+  404-svar och oförändrad slutlig DB. 1/1 executed utan skips/retries, cleanup
+  PASS, oberoende source/runtime CLEAN. PR-CI 4:31 och dossier 21/21 PASS 7:14.
+  Post-CI gav alla kodjobb inklusive nytt persistensprov PASS, endast samma
+  13 DB-paritetsrader RED (delta 0); exakt merge-deployment READY utan aliasfel.
+  A6b-dedup på `codex/ci-duplicate-execution` är ännu inte levererat, normalt
+  integrerad med levererad bas via `e18f1f549`. Fullt 22/22 PASS på `99e70c5b`:
+  standard 13 887 PASS/31 skip, Backoffice 702 PASS med Git-vakt, fyra workers.
+  A6-kodblobbarna är identiska efter integration; färskt riktat 222 PASS/28
+  Windows-Bashundantag. Oberoende integrationsreview/native leverans återstår.
+  Endast verkliga dubbelkörningar tas bort; ready-event,
+  fyra fulla shards och samtliga skydd behålls. A4/A6/A7 äger konsoliderad status.
   Generation/follow-up/remove-replace
   är separat, okörd rest; ingen SSRF-/DB-/providerpolicy ändras. Testreformen
   är fortfarande **dellevererad**, A6b och A7 öppna. Ensam TESTER-skrivare:
@@ -77,15 +78,14 @@ inte ombyggda.
    Granskad source-head och mergeträdet är identiska; full PR-CI 4:51,
    sex required checks och exakt deployment är gröna. Post-CI 4:50 har endast
    oförändrad paritet; exakt merge-deployment är READY.
-2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 återanvänds i en
-   samlad kandidat på `codex/dependency-compat-integration`, från `72de69a8`.
-   Normalmerge av alla fem sourcecommits ger exakt fem manifeständringar och
-   35 ändrade locknoder (1 162 totalt), oberoende integrationsreview CLEAN på
-   kodhead `68b04e34`. Inga extra uppgraderingar eller nya installationsskript.
-   npm ci, 62 körda riktade tester (23 OS-villkorade skips), full typecheck,
-   baselinekontroller, dossiers 23/23, docslinks, plan och diffcheck är gröna.
-   Aktuell native CI/deployment krävs före merge; original-PR:erna stängs
-   först när ersättningen är terminal. Ingen av
+2. Dependency-PR:erna #1566, #1569, #1568, #1567 och #1570 är ersatta av
+   mergade #1578 på `21a325ae`, source `8314788`, identiskt träd `163ad675`.
+   Fem manifeständringar och 35 ändrade locknoder (1 162 totalt), inga extra
+   uppgraderingar eller installationsskript. Oberoende review, lokala
+   kontroller, native kod-/dossierchecks och exakt deployment passerade.
+   Post-CI `37452117087` har endast samma 13 paritetsrader, delta 0.
+   De fem original-PR:erna är stängda av boten, enligt samordnarens slutkvitto.
+   Ingen av
    dessa fem ingår i automerge-allowlisten. Första verkliga tillåtna botmergen är
    fortfarande obevisad; utvidga inte allowlisten för att skapa ett kvitto.
 3. Scaffold-ID:n är oförändrade och valt ID hydrateras till deployad registry

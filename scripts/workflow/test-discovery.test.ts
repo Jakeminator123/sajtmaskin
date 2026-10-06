@@ -8,9 +8,55 @@ import {
   collectTestCandidates,
   deriveDiscoveryCommands,
   evaluateTestDiscovery,
+  evaluateCiLaneCoverage,
   splitCommandSegments,
   trackedAndUntrackedFiles,
 } from "./test-discovery.mjs";
+import { BLOCKING_STABILITY_TESTS } from "./check-contract.mjs";
+
+describe("actual lane equivalence before removing duplicate CI work", () => {
+  const scaffold = "src/scaffold.test.ts";
+  const script = `npm run scaffolds:client-list:check && npm run embeddings:ensure && npx vitest run ${scaffold}`;
+  const filesByConfig: Record<string, string[]> = {
+    "": [scaffold],
+    "vitest.stability.config.ts": [...BLOCKING_STABILITY_TESTS],
+  };
+  const check = (files = filesByConfig, command = script) => evaluateCiLaneCoverage({
+    filesByConfig: files, packageJson: { scripts: { "scaffolds:validate": command } },
+  });
+
+  it("accepts the same discovered blocking set regardless of ordering", () => {
+    expect(check()).toEqual([]);
+    expect(check({ ...filesByConfig, "vitest.stability.config.ts": [...BLOCKING_STABILITY_TESTS].reverse() })).toEqual([]);
+  });
+
+  it.each(["missing config", "excluded file", "new unreviewed file", "duplicate file"])(
+    "fails closed for actual stability discovery drift: %s", (change) => {
+      const files = structuredClone(filesByConfig);
+      const lane = files["vitest.stability.config.ts"];
+      if (change === "missing config") delete files["vitest.stability.config.ts"];
+      if (change === "excluded file") lane.pop();
+      if (change === "new unreviewed file") lane.push("src/new.stability.test.ts");
+      if (change === "duplicate file") lane[0] = lane[1];
+      expect(check(files)).toContain("actual stability discovery must equal the reviewed blocking file set");
+    },
+  );
+
+  it("rejects scaffold files excluded from standard discovery even if another lane lists them", () => {
+    expect(check({ ...filesByConfig, "": [], "other.config.ts": [scaffold] }))
+      .toContain(`scaffold test missing from full standard discovery: ${scaffold}`);
+  });
+
+  it.each([
+    "", "echo skipped", script.replace(" && ", " || "),
+    script.replace("npm run embeddings:ensure && ", ""),
+    script.replace(scaffold, ""), `${script} --passWithNoTests`,
+    `${script} --exclude ${scaffold}`, `${script} ${scaffold}`,
+    `${script} || true`, script.replace("npx vitest run", "npx vitest list"),
+  ])("rejects unsafe changes to the existing scaffold command: %s", (changed) => {
+    expect(check(filesByConfig, changed)).not.toEqual([]);
+  });
+});
 
 const packageJson = {
   scripts: {

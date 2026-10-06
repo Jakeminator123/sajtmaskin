@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { pathMatchesPattern } from "./path-impact.mjs";
+import { BLOCKING_STABILITY_TESTS } from "./check-contract.mjs";
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -309,6 +310,45 @@ export async function trackedAndUntrackedFiles(root) {
   return listed.stdout.split("\0").filter((file) => file && !deletedPaths.has(file));
 }
 
+// Use the actual config discovery already collected below. A source glob or
+// filename count is not proof that the surviving CI commands cover the lane.
+export function evaluateCiLaneCoverage({ filesByConfig, packageJson }) {
+  const errors = [];
+  const stability = filesByConfig["vitest.stability.config.ts"];
+  if (
+    !Array.isArray(stability) || stability.length !== BLOCKING_STABILITY_TESTS.length ||
+    new Set(stability).size !== stability.length ||
+    !BLOCKING_STABILITY_TESTS.every((file) => stability.includes(file))
+  ) {
+    errors.push("actual stability discovery must equal the reviewed blocking file set");
+  }
+  // The existing package script remains the owner of scaffold test paths; do
+  // not add a second hand-maintained list. Accept only the existing fail-closed
+  // command shape, without flags/filters/operators that could hide omissions.
+  const script = String(packageJson?.scripts?.["scaffolds:validate"] ?? "");
+  const segments = splitCommandSegments(script);
+  const tokens = commandTokens(segments[2] ?? "");
+  const targets = tokens.slice(3);
+  const expected = [
+    "npm run scaffolds:client-list:check",
+    "npm run embeddings:ensure",
+    `npx vitest run ${targets.join(" ")}`,
+  ].join(" && ");
+  if (
+    script !== expected || segments.length !== 3 || targets.length === 0 ||
+    new Set(targets).size !== targets.length ||
+    !targets.every((file) => /^src\/[\w./-]+\.(?:test|spec)\.[jt]sx?$/u.test(file))
+  ) {
+    errors.push("scaffolds:validate must retain client-list, embeddings and explicit standard test files");
+  } else {
+    const standard = new Set(filesByConfig[""] ?? []);
+    for (const file of targets) {
+      if (!standard.has(file)) errors.push(`scaffold test missing from full standard discovery: ${file}`);
+    }
+  }
+  return errors;
+}
+
 export async function checkTestDiscovery(root = REPO_ROOT) {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const previewPackageJson = JSON.parse(
@@ -320,6 +360,13 @@ export async function checkTestDiscovery(root = REPO_ROOT) {
     ...commands.vitestConfigs.map((config) => listVitestFiles(config, root)),
     ...commands.playwrightConfigs.map((config) => listPlaywrightFiles(config, root)),
   ]);
+  const laneErrors = evaluateCiLaneCoverage({
+    filesByConfig: Object.fromEntries(
+      commands.vitestConfigs.map((config, index) => [config, discoveryGroups[index]]),
+    ),
+    packageJson,
+  });
+  if (laneErrors.length > 0) throw new Error(laneErrors.join("; "));
   const result = evaluateTestDiscovery({
     files,
     discoveredFiles: discoveryGroups.flat(),

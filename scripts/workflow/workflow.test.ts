@@ -835,7 +835,7 @@ describe("agent workflow repository contract", () => {
         replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
         packageScripts,
       ),
-    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    ).toContain("heavy quality-core must be the single blocking owner of deterministic stability contracts");
     expect(
       evaluateCiScopeWorkflow(source, {
         ...packageScripts,
@@ -845,12 +845,12 @@ describe("agent workflow repository contract", () => {
     expect(
       evaluateCiScopeWorkflow(
         replaceOnce(
-          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
-          "  stability:\n    runs-on: ubuntu-latest\n",
+          "        continue-on-error: true\n        run: npm run check:terms",
+          "        run: npm run check:terms",
         ),
         packageScripts,
       ),
-    ).toContain("broad stability job must remain warn-only");
+    ).toContain("quality-contracts must preserve exactly one nonblocking advisory terminology scan");
   });
 
   it("keeps the trusted controller import graph free of npm packages", () => {
