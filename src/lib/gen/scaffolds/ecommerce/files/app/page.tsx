@@ -4,101 +4,64 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-
-const categories = [
-  { name: "[Kategori 1]", slug: "category-1", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop" },
-  { name: "[Kategori 2]", slug: "category-2", image: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=600&h=400&fit=crop" },
-  { name: "[Kategori 3]", slug: "category-3", image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=400&fit=crop" },
-];
-
-const featuredProducts = [
-  { id: "1", name: "[Produktnamn 1]", price: "[Pris]", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop", badge: "Nyhet" },
-  { id: "2", name: "[Produktnamn 2]", price: "[Pris]", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop" },
-  { id: "3", name: "[Produktnamn 3]", price: "[Pris]", image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&h=500&fit=crop" },
-  { id: "4", name: "[Produktnamn 4]", price: "[Pris]", image: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=500&h=500&fit=crop", badge: "Populär" },
-];
+import { ProductCard } from "../components/product-card";
+import { categories, products } from "../lib/product-catalog";
 
 export default function Home() {
   return (
     <div className="flex flex-col">
-      {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center gap-6 bg-muted/40 px-6 py-24 text-center sm:py-32">
-        <Badge variant="outline" className="rounded-full px-4 py-1 text-sm">Välkommen till [Butiksnamn]</Badge>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          Upptäck vårt sortiment
+      <section className="bg-muted/40 flex flex-col items-center justify-center gap-6 px-6 py-24 text-center sm:py-32">
+        <Badge variant="outline" className="rounded-full px-4 py-1 text-sm">
+          [Butiksnamn] — demokatalog
+        </Badge>
+        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
+          Upptäck vårt exempelutbud
         </h1>
-        <p className="max-w-xl text-lg text-muted-foreground">
-          Handla enkelt online. Snabb leverans och trygga betalningar.
+        <p className="text-muted-foreground max-w-xl text-lg">
+          Prova en lokal demokorg. Betalning, frakt och lager är inte anslutna.
         </p>
         <div className="flex gap-3">
-          <Button asChild size="lg" className="rounded-full">
+          <Button asChild size="lg">
             <Link href="/products">
-              Handla nu <ArrowRight className="ml-2 h-4 w-4" />
+              Visa produkter
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="rounded-full">
-            <Link href="/categories">Kategorier</Link>
+          <Button asChild size="lg" variant="outline">
+            <Link href="#kategorier">Kategorier</Link>
           </Button>
         </div>
       </section>
-
-      {/* Categories */}
       <section id="kategorier" className="mx-auto max-w-6xl px-6 py-16">
-        <h2 className="mb-8 text-2xl font-semibold tracking-tight">Kategorier</h2>
+        <h2 className="mb-8 text-2xl font-semibold tracking-tight">Exempelkategorier</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
-            <Link key={cat.slug} href={`/category/${cat.slug}`} className="group">
-              <Card className="overflow-hidden transition-shadow hover:shadow-lg">
+          {categories.map((category) => (
+            <div key={category.slug}>
+              <Card className="overflow-hidden">
                 <div className="relative aspect-3/2 overflow-hidden">
-                  <Image
-                    src={cat.image}
-                    alt={cat.name}
-                    fill
-                    className="object-cover transition-transform group-hover:scale-105"
-                  />
+                  <Image src={category.image} alt={category.name} fill className="object-cover" />
                 </div>
                 <CardContent className="p-4">
-                  <p className="font-medium">{cat.name}</p>
+                  <p className="font-medium">{category.name}</p>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
       </section>
-
-      {/* Featured Products */}
       <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="mb-8 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight">Utvalda produkter</h2>
-          <Button asChild variant="ghost" className="text-sm">
-            <Link href="/products">
-              Visa alla <ArrowRight className="ml-1 h-3 w-3" />
-            </Link>
-          </Button>
-        </div>
+        <h2 className="mb-8 text-2xl font-semibold tracking-tight">Utvalda exempelprodukter</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredProducts.map((product) => (
-            <Link key={product.id} href={`/product/${product.id}`} className="group">
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                <div className="relative aspect-square overflow-hidden bg-muted">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    className="object-cover transition-transform group-hover:scale-105"
-                  />
-                  {product.badge && (
-                    <Badge className="absolute left-3 top-3 rounded-full">{product.badge}</Badge>
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <p className="font-medium">{product.name}</p>
-                  <p className="text-sm text-muted-foreground">{product.price}</p>
-                </CardContent>
-              </Card>
-            </Link>
+          {products.slice(0, 4).map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
+      </section>
+      <section id="om" aria-labelledby="om-heading" className="mx-auto max-w-3xl px-6 py-16">
+        <h2 id="om-heading" className="text-2xl font-semibold tracking-tight">Om oss</h2>
+        <p className="mt-4 leading-relaxed text-muted-foreground">
+          [Kort butikspresentation — ersätt med er historia, värderingar och kontaktuppgifter.]
+        </p>
       </section>
     </div>
   );

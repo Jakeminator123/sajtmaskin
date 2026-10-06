@@ -412,6 +412,7 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      verificationRunId: "run_test",
       // Budgeten räknas av från routens väggklocka, så en exakt siffra här är
       // en tidsbomb: assertionen höll bara så länge hela routen hann köra på
       // under en millisekund. Lås intervallet i stället för millisekunden.

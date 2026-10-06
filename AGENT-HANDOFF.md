@@ -28,31 +28,50 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   registrytest-rensning. A4:s disposabla CI-miljö utreds läsande; inga lokala
   installationer eller verkliga DB-/browserflödesbevis ännu.
 - SCHAFFOLDS: #1563 (effektiv intent) och #1565 (ruttanpassat promptinventarium)
-  mergade. #1554/#1557/#1560/#1561 är pushade familje-drafts, inte mergade.
+  mergade. #1554/#1557/#1560/#1561 är bevarade familje-drafts, ersatta av samlad
+  source-only-kandidat [#1575](https://github.com/Jakeminator123/sajtmaskin/pull/1575).
+  Två kod-CLEAN-reviews, grön full CI, 21/21 keyless dossierbyggen och exakt READY-
+  deployment finns på tidigare head `6c4e3035`; kandidaten synkas nu en gång till
+  #1572-basen `0fb45366` och kräver headbunden integrationsreview/CI/deployment.
+  Familjerna är inte mergade. Samordnaren äger merge; originalrefs/fixtures behålls.
 - Variantarbete: [#1571](https://github.com/Jakeminator123/sajtmaskin/pull/1571)
   är mergad 2026-10-06 till `30291b80fbaec32e7913a2b3de3e3901b7f9b179`.
   Mergeträdet är identiskt med granskad head `c3b5024a50f010e7d792304c8b9d79c32683e20c`.
   Variantfixen ska inte göras om; de fyra scaffold-familjerna återstår separat.
 - BUGG-TMP: [#1572](https://github.com/Jakeminator123/sajtmaskin/pull/1572) är READY,
-  inte mergad. Historisk bevarad head är `e79dce40939d02c0c87f038ae4bf7f4d665b5178`
-  på `codex/chromium-teardown-diagnostics`; kod och undersökningsdokument finns kvar.
-  Review av den senare kandidaten är CLEAN, runtimeblobbarna är oförändrade och
-  289 riktade tester är gröna. CI är grön på `955238cc`; Vercel-livebevis återstår.
+  inte mergad. Samordningen har bedömt den smala flaggmitigeringen och diagnostiken
+  som previewkandidat efter oberoende lokalt owner-/mutex-/resurskvitto: fem rena
+  native avslut, tio bilder/WebGL-pixlar, inga oväntade processöverlevare/OOM.
+  Runtime-/test-/reproblobbarna är oförändrade från kodhead `e79dce409`, och
+  289 riktade tester samt CI på tidigare head `955238cc` är gröna. Kandidaten
+  synkas samlat till #1574-basen `eba1c590` och får ny headbunden review/CI/deployment
+  före eventuellt mergebeslut. Vercel-live-/resursacceptans och `SM-072` är öppna;
+  ingen fastställd produktionsrotorsak eller masterpromotion ingår.
 
 ## Nästa steg — behåll ordningen
 
 1. Variantens samlade P1-runda är levererad via #1571 på `30291b80`.
-   Fortsätt de fyra familje-PR:erna #1554/#1557/#1560/#1561 från denna bas;
-   de är ännu inte mergade och har separat granskning och indexberoende nedan.
-2. Fyra scaffold-familjer kräver en samlad granskad indexkälla. Blob-indexet
-   är gemensamt och kan påverka produktion; separat uttryckligt godkännande för
-   live refresh saknas. Behåll befintlig OpenAI-nyckel, rotera eller visa den inte.
+   Slutför #1575:s samlade synk/bounded review mot `0fb45366`, markera READY
+   när kod/review är fryst och verifiera full native CI/exakt deployment.
+   Samordnaren mergar. Stäng inte de fyra originaldrafts förrän ersättningen är
+   terminal och deras proof/refs/fixtures bevarade.
+2. Source-only-leverans av #1575 är godkänd med normala review/CI/deploymentvillkor;
+   indexrefresh är inte en extra correctness-mergegate. Alla tio scaffold-ID:n
+   är oförändrade och valt ID hydrateras till deployad registry/nya filer.
+   Sex indexinputs är ändrade: landing-page, saas-landing, dashboard, auth-pages,
+   ecommerce, app-shell. Stale vektorer kan påverka fuzzy ranking/override;
+   förbättrad ranking eller full liveacceptans är inte bevisad. Shared Blob/API-
+   refresh saknar separat godkännande. Cache saknar normal TTL/inputhash-enforcement,
+   CLI-invalidation är processlokal. Behåll OpenAI-nyckeln, rotera eller visa den inte.
 3. TESTER-rest A3/A4/A5/A6b/A7 finns i
    `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
    A4 kräver isolerad DB/browser/providergräns; ingen delad-DB-genväg.
-4. BUGG-TMP har oberoende review och grön CI på `955238cc`, men beslut om
-   minsta säkra Vercel-previewprov av resursåtgång/samtidighet återstår före merge.
-   Linuxkvitto är inte liveacceptans; delad DB/Blob får inte användas som testfixture.
+4. BUGG-TMP:s samordnade preview-mitigering behöver aktuell bassynk, blobbundet
+   integrations-/docreview och full native CI/exakt deployment på nya headen.
+   Ny Vercel-resurs krävs inte före denna smala previewkandidatur. Linuxkvittot
+   är inte liveacceptans: routespecifik allocation/deadline, cross-isolate-last
+   och verklig `/tmp`-budget kvarstår. Delad DB/Blob är inte testfixture, ingen
+   ny liveåtgärd är beviljad och hela `SM-072` får inte stängas.
 5. Slutlig ZIP-fillista är verifierad enligt kvittot ovan. Samordnaren uppdaterar
    externa startprompter separat. Den äldre
    `dossier-zip-reconcile-FINAL-b427c1a8.txt` är en HISTORISK snapshot, inte
