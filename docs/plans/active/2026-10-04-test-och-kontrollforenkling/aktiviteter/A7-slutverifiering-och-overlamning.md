@@ -53,6 +53,17 @@ READY-deployment enligt samordnaren. Edit/save/reload/tenant och senare
 generation/follow-up/remove/replace är fortfarande obevisade. A4, A6b och hela
 A7 förblir öppna; A6b-förberedelsen `3e73ef43` är separat lokal WIP utan fullkvitto.
 
+Nästa native `37498317797` på `dbf86fa2` passerade edit/PATCH/SQL,
+Spara projekt/SQL och reload med ändrat editorinnehåll. Två negativa GET
+gav 404; negativ PATCH gav CSRF-403 före tenantgrinden eftersom testets
+cookie-request saknade Origin. Negativ POST och sista DB-snapshot återstår.
+Cleanup PASS. Riktig Playwright-transport/proxy reproducerar saknad-Origin-
+felet och behåller nekad främmande Origin. Endast negativa PATCH/POST får
+vanlig first-party Origin; exakt routeägd 404-body och oförändrad DB krävs.
+Ingen produkt-, auth-, CSRF- eller budgetändring. Ny native acceptans återstår.
+A6b-WIP `99e70c5b` har nu oberoende CLEAN och 201 riktade PASS/28 Windows-
+Bashundantag men är fortsatt opublicerat och saknar full integrationsverifiering.
+
 A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
 702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat
 samordnad omkörning gav 702 PASS/exit 0 med oförändrad vakt. Senare riktade

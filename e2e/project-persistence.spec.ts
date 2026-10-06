@@ -384,18 +384,23 @@ test("real file edit + Save project survives reload; another guest cannot read o
     expect((await other.request.get(`${filePath}?versionId=${fixture.versionId}`)).status()).toBe(
       404,
     );
-    expect(
-      (
-        await other.request.patch(filePath, {
-          data: {
-            versionId: fixture.versionId,
-            fileName: "app/page.tsx",
-            content: "unauthorized overwrite",
-          },
-        })
-      ).status(),
-    ).toBe(404);
-    const denied = await other.request.post(savePath, { data: savedBody });
+    // Cookie-based mutations need ordinary first-party CSRF provenance, or
+    // proxy's 403 would stop before the tenant guard this test must exercise.
+    // Session B stays unchanged; Origin grants no project/version ownership.
+    const deniedPatch = await other.request.patch(filePath, {
+      headers: { Origin: BASE_URL },
+      data: {
+        versionId: fixture.versionId,
+        fileName: "app/page.tsx",
+        content: "unauthorized overwrite",
+      },
+    });
+    expect(deniedPatch.status()).toBe(404);
+    expect(await deniedPatch.json()).toEqual({ error: "Version not found for chat" });
+    const denied = await other.request.post(savePath, {
+      headers: { Origin: BASE_URL },
+      data: savedBody,
+    });
     expect(denied.status()).toBe(404);
     expect(await denied.json()).toEqual({ success: false, error: "Project not found" });
     expect({ version: await version(), data: await data(), files: await fileRows() }).toEqual(

@@ -211,6 +211,32 @@ Ett prov av den faktiska fasordningen visar separata starttider och att ett
 felaktigt varmt GET stoppar före POST-väntan; tidigare parallell ordning ger
 avsett rött budgetprov. Detta är avgränsad harnessverifiering, inte runtime.
 
+Native `37498317797`, jobb `112388947521`, på `dbf86fa2` nådde nu faktisk
+edit/PATCH med exakt payload, response och SQL revision/verification-reset,
+Spara projekt med GET/POST/SQL samt reload med ny navigation och ändrat
+editorinnehåll. Initial metadata tog 26,944 sekunder; första files var klara
+med 75,146 sekunder kvar av den delade budgeten. `unexpectedMutations` var tom.
+Session B:s två negativa GET gav 404, men PATCH gav 403 före förväntad 404;
+negativ POST och slutlig oförändrad DB-snapshot nåddes inte. Cleanup PASS.
+
+Orsaken reproducerades med faktisk Playwright-cookie-transport och riktig
+proxy: cookie utan Origin ger 403 `origin_not_allowed` före tenantkontrollen.
+Exakt `Origin: BASE_URL` släpps vidare med samma session B-cookie; främmande
+Origin ger fortfarande 403. Launchern äger redan `NEXT_PUBLIC_APP_URL=BASE_URL`.
+Minsta harnessrättning sätter Origin endast på negativa PATCH/POST och kräver
+fortsatt exakt routeägd 404-body: `Version not found for chat` respektive
+`Project not found`. Ingen CSRF-/authpolicy, produktkod eller budget ändras.
+Transport-/proxybeviset är inte tenant-/DB-acceptans; ny native körning krävs.
+
+Samordnarens separat läsande capture-audit fann ingen befintlig full-Next-
+transportseam: gate och browserlaunch skapas internt, och DNS/private/pinned-
+fetch-/redirectskydd består. Fortsatta create/generation/preview/persistence/
+follow-up/remove-replace-prov får avgränsas från capture/promotion endast om
+normala produktflödet tillåter ärlig verifiering utan capture-pass. Ingen
+`passed`/`promoted` får fabriceras. Om happy-pathen kräver capture behövs separat
+owner-/arkitekturbeslut; ingen generell allow-private-env eller publik IP-alias
+i det loopback-isolerade nätet införs. Detta blockerar inte seedad persistens.
+
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit
 Spara projekt måste spara faktiskt hämtade filer, och reload måste läsa samma
