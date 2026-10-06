@@ -33,7 +33,7 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
   inte mergad. Historisk bevarad head är `e79dce40939d02c0c87f038ae4bf7f4d665b5178`
   på `codex/chromium-teardown-diagnostics`; kod och undersökningsdokument finns kvar.
   Review av den senare kandidaten är CLEAN, runtimeblobbarna är oförändrade och
-  289 riktade tester är gröna. Aktuell CI och Vercel-livebevis måste bedömas separat.
+  289 riktade tester är gröna. CI är grön på `955238cc`; Vercel-livebevis återstår.
 
 ## Nästa steg — behåll ordningen
 
@@ -47,8 +47,8 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 3. TESTER-rest A3/A4/A5/A6b/A7 finns i
    `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
    A4 kräver isolerad DB/browser/providergräns; ingen delad-DB-genväg.
-4. BUGG-TMP har oberoende review men behöver aktuellt CI-kvitto och beslut om
-   minsta säkra Vercel-previewprov av resursåtgång/samtidighet före merge.
+4. BUGG-TMP har oberoende review och grön CI på `955238cc`, men beslut om
+   minsta säkra Vercel-previewprov av resursåtgång/samtidighet återstår före merge.
    Linuxkvitto är inte liveacceptans; delad DB/Blob får inte användas som testfixture.
 5. Uppdatera slutlig ZIP-fillista/ordlista och externa startprompter. Den äldre
    `dossier-zip-reconcile-FINAL-b427c1a8.txt` är en HISTORISK snapshot, inte
@@ -60,7 +60,9 @@ Ingen masterpromotion, DB-apply, envändring eller live-provideracceptans ingår
 
 ## Säkring och ansvar
 
-GitHub: färdiga leveranser finns i preview; ofärdigt arbete ligger i egna PR:er.
+GitHub: färdiga leveranser finns i preview och säkrade baslinjer i egna PR:er.
+Pågående rättningar finns även lokalt i de namngivna worktreen tills de pushats;
+en befintlig PR bevisar inte att författarens senaste arbete är fjärrsäkrat.
 Flyttkopieringen till `C:/Users/jakem/Documents/Sajtmaskin-agent-transfer-2026-10-05/`
 avbröts. Där finns endast en partiell arkivkopia; Git-bundle, slutmanifest och
 färdigverifierad flyttbackup saknas. Använd den inte som enda återställningskälla.
