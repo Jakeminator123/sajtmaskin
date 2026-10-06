@@ -9,6 +9,14 @@ import { buildExportableProject } from "./build-exportable-project";
 import { runProjectSanityChecks } from "../validation/project-sanity";
 import type { CodeFile } from "../parser";
 import { PIPELINE_ENV_LOCAL_MARKER } from "../preview/env-local";
+import { KNOWN_PACKAGES } from "../autofix/dep-completer";
+
+// Compare stale model input with the unmodified baseline. Independent platform /
+// source-template parity is owned by project-scaffold-baseline-parity.test.ts.
+const baseline = mergePackageJsonWithBaseline({}, { dependencies: {} }) as {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+};
 
 describe("mergePackageJsonWithBaseline", () => {
   it("fills scripts and devDependencies when the model omits them", () => {
@@ -33,10 +41,10 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("16.3.8");
-    expect(merged.dependencies.react).toBe("19.2.4");
-    expect(merged.dependencies["react-dom"]).toBe("19.2.4");
-    expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
+    for (const name of ["next", "react", "react-dom", "lucide-react"]) {
+      expect(baseline.dependencies[name]).toBeTruthy();
+      expect(merged.dependencies[name]).toBe(baseline.dependencies[name]);
+    }
   });
 
   it("lets the model override individual script names", () => {
@@ -80,10 +88,11 @@ describe("mergePackageJsonWithBaseline", () => {
         "@react-three/drei": "^10",
       },
     }) as { dependencies: Record<string, string> };
-    expect(merged.dependencies["lucide-react"]).toBe("0.577.0");
-    expect(merged.dependencies["@react-three/fiber"]).toBe("9.8.1");
-    expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(merged.dependencies.three).toBe("0.185.1");
+    expect(merged.dependencies["lucide-react"]).toBe(baseline.dependencies["lucide-react"]);
+    for (const name of ["@react-three/fiber", "@react-three/drei", "three"]) {
+      expect(KNOWN_PACKAGES[name]).toBeTruthy();
+      expect(merged.dependencies[name]).toBe(KNOWN_PACKAGES[name]);
+    }
   });
 
   it.each([
@@ -105,7 +114,7 @@ describe("mergePackageJsonWithBaseline", () => {
       },
     ) as { dependencies: Record<string, string> };
 
-    expect(merged.dependencies["radix-ui"]).toBe("1.6.7");
+    expect(merged.dependencies["radix-ui"]).toBe(baseline.dependencies["radix-ui"]);
     expect(merged.dependencies["model-only-package"]).toBe("2.3.4");
     expect(merged.dependencies["detected-only-package"]).toBe("^5.6.7");
   });
@@ -115,7 +124,7 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
+    expect(merged.devDependencies["eslint-config-next"]).toBe(baseline.devDependencies["eslint-config-next"]);
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
   });
 
@@ -124,9 +133,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { dependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
+    expect(merged.devDependencies["eslint-config-next"]).toBe(baseline.devDependencies["eslint-config-next"]);
     expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
-    expect(merged.dependencies.next).toBe("16.3.8");
+    expect(merged.dependencies.next).toBe(baseline.dependencies.next);
   });
 
   it("moves a misplaced next out of devDependencies", () => {
@@ -134,9 +143,9 @@ describe("mergePackageJsonWithBaseline", () => {
       { devDependencies: { next: "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    expect(merged.dependencies.next).toBe("16.3.8");
+    expect(merged.dependencies.next).toBe(baseline.dependencies.next);
     expect(merged.devDependencies.next).toBeUndefined();
-    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.8");
+    expect(merged.devDependencies["eslint-config-next"]).toBe(baseline.devDependencies["eslint-config-next"]);
   });
 });
 
@@ -393,7 +402,7 @@ describe("buildCompleteProject", () => {
     expect(envFiles[0]!.content).toBe(custom);
   });
 
-  it("baseline package.json ships current safe Next/React versions", () => {
+  it("materializes the baseline runtime, tooling, Node range and lint command", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
       { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
@@ -406,12 +415,14 @@ describe("buildCompleteProject", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0 <23");
-    expect(pkg.dependencies.next).toBe("16.3.8");
-    expect(pkg.dependencies.react).toBe("19.2.4");
-    expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
+    for (const name of ["next", "react", "react-dom"]) {
+      expect(pkg.dependencies[name]).toBe(baseline.dependencies[name]);
+    }
     expect(pkg.scripts.lint).toBe("eslint .");
-    expect(pkg.devDependencies.eslint).toBe("9.39.2");
-    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.3.8");
+    for (const name of ["eslint", "eslint-config-next"]) {
+      expect(baseline.devDependencies[name]).toBeTruthy();
+      expect(pkg.devDependencies[name]).toBe(baseline.devDependencies[name]);
+    }
   });
 
   it("ships a canonical use-reduced-motion hook so motion components avoid hand-rolled mounted guards", () => {
@@ -641,12 +652,12 @@ describe("buildCompleteProject", () => {
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
       dependencies: Record<string, string>;
     };
-    expect(pkg.dependencies.react).toBe("19.2.4");
-    expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.dependencies.next).toBe("16.3.8");
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
-    expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
-    expect(pkg.dependencies.three).toBe("0.185.1");
+    for (const name of ["react", "react-dom", "next"]) {
+      expect(pkg.dependencies[name]).toBe(baseline.dependencies[name]);
+    }
+    for (const name of ["@react-three/fiber", "@react-three/drei", "three"]) {
+      expect(pkg.dependencies[name]).toBe(KNOWN_PACKAGES[name]);
+    }
   });
 
   it("prunes the 3D stack from package.json when no file imports it (capability false-positive bloat)", () => {
@@ -700,8 +711,8 @@ describe("buildCompleteProject", () => {
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
       dependencies: Record<string, string>;
     };
-    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.8.1");
-    expect(pkg.dependencies.three).toBe("0.185.1");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe(KNOWN_PACKAGES["@react-three/fiber"]);
+    expect(pkg.dependencies.three).toBe(KNOWN_PACKAGES.three);
   });
 
   it("detects scoped @radix-ui imports via dep-completer in buildCompleteProject", () => {

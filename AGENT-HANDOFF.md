@@ -19,14 +19,18 @@ före nästa åtgärd. Ta bort denna tillfälliga fil efter avslutad överlämni
   dossierbyggen 6:17 är gröna. Exakt merge-deployment är READY; post-CI 3:41
   har endast samma 13 paritetsrader (noll delta). #1570 behöver fortfarande
   verifiering av själva dependency-uppgraderingen i den samlade kandidaten nedan.
-- **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. Originalets elva
-  plandokument finns kvar. #1574 tar bort bevisad dubbelkörning utan att minska
-  det fulla CI-urvalet; #1576 tar bort historiska antal/rubriklås men bevarar
-  registry-/parser-/länkskydd. Testreformen är fortfarande **dellevererad**.
-  Fortsättning: återstående A3-kandidater, riktig isolerad A4-persistensharness
-  följd av övriga kritiska flöden, A6b-slutbeslut och A7-slutacceptans i
-  `docs/plans/active/2026-10-04-test-och-kontrollforenkling/`.
-  Checkout: `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
+- **TESTER:** #1553, #1562, #1564, #1574 och #1576 är mergade. A3:s aktuella
+  femfils katalogpaket är integrerat på `de87533e` mot preview `30b941c5`;
+  source-review är CLEAN efter två rättade P2-fynd och riktade författarbevis är
+  gröna. Avgränsad integrationsreview är också CLEAN; färsk discovery är
+  1 093/1 093 PASS. Slutlig docsreview, native CI och merge återstår. #1580 är åter DRAFT. Run
+  `37462490014` är röd endast i persistence/quality; dossier 21/21 och exakt
+  deployment är gröna. `BuilderPreviewTools` gömmer Kod när `previewUrl` är
+  null trots code-only-stöd; smal produktfix förbereds. Hydration,
+  edit/save/tenant och senare generation/follow-up/remove-replace är inte
+  bevisade. Testreformen är fortsatt **dellevererad**;
+  A3, A4, A6b och A7 förblir öppna. TESTER:s checkout är
+  `C:/Users/jakem/dev/projects/sajtmaskin-tester-restarbete`.
 - **SCHAFFOLDS:** #1563, #1565, #1571 och den samlade familjeleveransen #1575
   är mergade. #1575 innehåller ärliga okopplade auth-/app-/marketingdemos och
   en gemensam produktkatalog med lokal kundvagn. Alla 21 keyless dossierbyggen
