@@ -2,74 +2,50 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562/#1564/#1574/#1576/#1582 levererade; A4 pågår, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574/#1576/#1580/#1582 levererade; bredare A4 och hela A7 öppna.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
 
-Registry-paketet är levererat via #1576 på `f68d1837`. Aktuellt A3-paket har
-source `21fa810e` mot `e113a7e2`, oberoende CLEAN efter två rättade P2-fynd.
-Integrationshead `de87533e` mot preview `30b941c5` ändrar exakt fem testpaths;
-test- och lockblobbarna är identiska med sourcepaketet och författarens
-`verify:pr -- --plan` är grön. Riktat sourcebevis: 102 TypeScript PASS i fyra
-filer, 31 Python PASS och hela Backoffice 702 PASS/56,104 sekunder. Fjorton
-verkliga felmutationer gav RED; tre legitima katalog-/versionsförändringar som
-de gamla låsen stoppade passerar nu. Oberoende avgränsad integrationsreview är
-CLEAN med identiska berörda owners, fixtures och testblobbar. A3 äger full
-disposition och bevisgräns.
+Registry-paketet #1576 och A3-katalogpaketet #1582 är levererade.
+A3 omfattar fem testpaths, 102 TypeScript-/31 riktade Python-PASS och
+Backoffice 702 PASS; fjorton riktiga felmutationer gav RED medan tre legitima
+katalog-/versionsförändringar passerar. Oberoende source-/integrationsreview
+CLEAN. Preview `c33daca3`, PR-CI 4:13, dossier 21/21 PASS 5:55 och exakt
+READY-deployment. A3 äger full disposition; inga högriskskydd togs bort.
 
-Färsk discovery 1 093/1 093, docslänkar, historikstatus och plan är PASS på
-integrationsbasen. Slutlig CLEAN och leverans via #1582 är nu verifierade av
-samordnaren: preview `c33daca3`, PR-CI 4:13, 21/21 dossierbyggen 5:55 och exakt
-READY-deployment. Post-CI 3:43 har bara samma 13 DB-paritetsrader, noll delta;
-hela post-CI är därför inte grön. Exakt merge-deployment är READY.
-TESTER:s separata #1580 är åter DRAFT. Native run
-`37462490014` slutade efter 5:07 med endast persistence och quality FAIL;
-dossier `37462489767` gav 21/21 PASS på 6:55 och exakt deployment READY.
-Det statiska code-only-felet i `BuilderPreviewTools` är separat levererat via
-#1583 på `e9354344`, med oberoende CLEAN, PR-CI 3:47 och exakt READY-deployment
-enligt samordnaren. A4 normalsynkade denna bas med oförändrad hydreringskod
-från `f50448eb`; sluthead `fb113f8c5` fick oberoende CLEAN men native
-`37491869699` föll därefter på saknade hydreringssvar inom initiala 15 sekunder.
-Endast persistence/quality var röda; egen cleanup passerade. A4 beskriver den
-godkända uppdelningen mellan högst 120 sekunders initial startup och oförändrad
-15-sekunders action-/reload-readinessbudget. Native `37493732112` på `a37af8d0`
-passerade initial hydration efter 20,924 sekunder (tre GET/200/rätt fixture-ID)
-och öppnade faktisk Kod/Kodvy/editor. Testets breda textarea-selector matchade
-sedan både Hero-ingress och råkod: stopp före fill/PATCH, inte produktfel.
-Övriga kodjobb och egen cleanup passerade. Minimal owner-scopad harnessrättning
-har verkligt komponent-DOM-/Chromiumbevis, inklusive negativa saknad/dubbel/
-fel-innehållsfall; ingen produktmarkup eller innehållsfiltrering ändras.
-Selectorhead `4cbb4c00` kördes sedan i `37495373171`: metadata PASS efter
-27,979 sekunder, men filknappen saknades efter Kod/Kodvy-klick; första files-
-svaren kom efter stoppet. Färdigrenderad kodvy eller UI-reset är inte bevisade.
-Samlad ownergranskning godkände en delad initial 120-deadline för metadata/files
-och explicit 120-budget endast för första kalla save-POST; rena actions,
-PATCH, varm files-GET och reload-readiness behåller 15 sekunder, total 240.
-Faktiska callbacks avvisar första felstatus/requestfel, fel version/innehåll
-och gamla navigation-/actionsvar. Inga produktändringar eller latency-SLA-anspråk.
-Övrig kod-CI PASS 5:07, dossier 21/21 PASS 6:48, egen cleanup PASS och exakt
-READY-deployment enligt samordnaren. Edit/save/reload/tenant och senare
-generation/follow-up/remove/replace är fortfarande obevisade. A4, A6b och hela
-A7 förblir öppna; A6b-förberedelsen `3e73ef43` är separat lokal WIP utan fullkvitto.
+A4:s seedade persistenspaket #1580 är levererat på
+`6432e5eb2be2f97e1e6fcb906fb67e94c7759c57`, source `ce399a8a`.
+Oberoende source-/runtimegranskning CLEAN, PR-CI
+[37499402654](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37499402654)
+PASS 4:31, dossier 21/21 PASS 7:14 och exakt READY-deployment.
+Riktiga Next/Chromium/Postgres gav 1/1 genomfört prov utan skip/retry:
+edit/PATCH/SQL, Save/SQL, reload/exakt editor, annan sessions två GET och två
+skrivningar nekade med exakta 404-bodies samt oförändrad slutlig DB-snapshot.
+Cleanup PASS. [A4](A4-kritiska-anvandarfloden.md) äger kontrakt och körkrav;
+historiska felsökningar ligger i PR/Git, inte parallella aktuella statusblock.
 
-Nästa native `37498317797` på `dbf86fa2` passerade edit/PATCH/SQL,
-Spara projekt/SQL och reload med ändrat editorinnehåll. Två negativa GET
-gav 404; negativ PATCH gav CSRF-403 före tenantgrinden eftersom testets
-cookie-request saknade Origin. Negativ POST och sista DB-snapshot återstår.
-Cleanup PASS. Riktig Playwright-transport/proxy reproducerar saknad-Origin-
-felet och behåller nekad främmande Origin. Endast negativa PATCH/POST får
-vanlig first-party Origin; exakt routeägd 404-body och oförändrad DB krävs.
-Ingen produkt-, auth-, CSRF- eller budgetändring. Ny native acceptans återstår.
-A6b-WIP `99e70c5b` har nu oberoende CLEAN och 201 riktade PASS/28 Windows-
-Bashundantag men är fortsatt opublicerat och saknar full integrationsverifiering.
+Post-CI
+[37500465209](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37500465209)
+på merge-SHA gav alla kodjobb och ett nytt persistensprov PASS. Endast samma
+13 DB-paritetsrader är RED, delta 0; hela post-CI är inte grön.
+Merge-deployment `dpl_Dw6MLXrZ8v3HJTqNfGVoGiFSAXvg` är READY utan aliasfel.
+Ingen masterpromotion eller verklig provideracceptans påstås.
 
-A4:s äldre fulla lokalprov gav 21/22 PASS, inte helgrönt: Backoffice hade
-702 PASS men Git-vakten fångade samtidiga externa refändringar. En separat
-samordnad omkörning gav 702 PASS/exit 0 med oförändrad vakt. Senare riktade
-kontroller och oberoende CLEAN återanvänds bara för identiska blobbar; A4 äger
-bootstrap-, isolerings-, runtimefel- och diagnostikbevisen. Ingen ny helsuite
-körs enbart för att upprepa oförändrad kod eller tidigare levererade paket.
+A6:s ytterligare deduppaket är ännu inte levererat. Full lokal verifiering på
+`99e70c5b` gav 22/22 PASS: 1 017 standardfiler, 13 887 PASS/31 befintliga
+skip på 616,58 sekunder med fyra workers, Backoffice 702 PASS/55,922 sekunder
+och oförändrad Git-yta. Docs 49 PASS och scaffolds 57 PASS. Normal integration
+`e18f1f549` på faktisk #1580 ändrar bara tre gamla statusdokument och den
+nya levererade E2E-specen jämfört med detta fullkvitto; alla A6-kodblobbar är
+identiska. Färsk riktad integration gav 222 PASS/28 Windows-Bashundantag,
+E2E/config-typkontroll och discovery PASS. Oberoende review och native leverans
+krävs fortfarande. [A6](A6-korpolicy-och-ci.md) äger kvarvarande disposition.
+
+Skapa/generation, senare follow-up, remove/replace och representativt avbrott
+är fortfarande okörda. Capture/promotion kräver separat säker ownergräns om
+normala flödet inte kan verifieras ärligt utan capture-pass. Därför är bredare
+A4 och hela A7 öppna; inga äldre snapshotkontroller tas bort mot obevisad ersättning.
 
 ### Levererat A5/A6b-delpaket — #1574
 
@@ -179,9 +155,9 @@ En normal basmerge `3fdff50d158658c532baaec5dc2b784406ebf8ac` tog in
 tidigare CLEAN-granskade `1a395cfe`; därefter ändrades bara masterplanens,
 genomförandeguidens och denna aktivitets status för den nya basen. Övriga fyra
 docs återanvänder identiska blobbar. SCHAFFOLDS runtime ligger i basen och är
-inte ett nytt TESTER-delta. Dess unit-/stabilitetsprov ersätter inte A4:s
-okörda isolerade browser-/persistens-/providerflöden. Aktuell granskning och
-native checks styr dokumentations-PR:ns leverans; samordnaren äger merge.
+inte ett nytt TESTER-delta. Vid denna äldre handoff var A4:s isolerade
+browser-/persistens-/providerflöden okörda; deras dåvarande lucka täcktes inte
+av unit-/stabilitetsprov. Aktuell leveransstatus finns överst i dokumentet.
 
 Efter bassynken gav normal verify-plan och dess sju dokumentkontroller exit 0:
 fyra testfiler/49 PASS med högst fyra workers, discovery 1083/1083, genererade
@@ -310,9 +286,9 @@ checks eller CI-shards har avvecklats.
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Samordnaren har levererat A3-katalogpaketet och äger fortsatt native checks och
 merge för nästa paket. Fortsatt A3 kräver områdesvis krav-/felbevis och samordnad
-skrivreservation. TESTER äger #1580:s felutredning och får inte redovisa ett
-browser-/persistensflöde som godkänt innan edit/save/tenant faktiskt körts.
-A4:s senare generation/follow-up/remove/replace, A6b och A7 återstår.
+skrivreservation. #1580:s seedade edit/save/reload/tenant är nu faktiskt
+körbevisat och levererat; se aktuellt kvitto överst. A4:s senare generation/
+follow-up/remove/replace, återstående A6b-leverans och hela A7 återstår.
 Planpaketet stannar aktivt.
 
 ## Slutkvitto för hela planen
