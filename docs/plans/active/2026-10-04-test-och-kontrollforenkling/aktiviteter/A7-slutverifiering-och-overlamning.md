@@ -2,54 +2,55 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: #1553/#1562 samt planstatus #1564 levererade; fortsättning pågår, hela A7 öppen.
+Status: #1553/#1562/#1564/#1574 levererade; A3 fortsätter, hela A7 öppen.
 Beroende: A3–A6.
 
 ## Aktuell avgränsning
 
-2026-10-06 återupptogs TESTER i egen `sajtmaskin-tester-restarbete`, branch
-`codex/test-control-rest`, bas `f9c5acea6bcab47223607d5b3c20b64c4db88381`.
-`e1e8` är avvecklad och återanvänds inte. #1564 är redan mergad till
-`04b246abeb8c7e045d20041c0518267b1400db10`; dess statusbranch är avslutad.
-Första nya paketet ändrar endast två docstesters miljö och dubbelkörning av
-workflowtester/route-timeouts i quality-lanes, plus originalplanens status.
-Riktat gav 224 PASS/23 befintliga Windows-skip, workflowkontrakt och verify-plan
-är gröna. De nya testerna gav först nio kontrollerade RED på ursprunglig CI:
-sex dubbelkörningar och tre saknade validatorgarantier. Faktisk route-drift
-gav exit 1 både direkt och genom preflight; manifestet är återställt.
-Full lokal `verify:pr -- --keep-going` gav exit 0 på `aaca25e6414cb0e7d9f385757f4edac04e7db58b`:
-alla 19 valda kontroller gröna, standardsvit 1 006 filer/13 312 PASS/26
-befintliga skip (717,78 sekunder, `VITEST_MAX_WORKERS=4`) och Backoffice
-702 PASS (65,081 sekunder). Discovery gav 1 084/1 084 tilldelningar.
-Oberoende readonly `a5_a6_rest_review`, verifierad faktisk modell
-`gpt-5.6-sol`/xhigh, gav CLEAN på exakt denna head mot `f9c5acea`.
-Granskaren körde workflowkontrakt och statiska kontroller, inte en extra fullsvit.
+TESTER arbetar i `sajtmaskin-tester-restarbete`, branch
+`codex/test-registry-cleanup`, från preview
+`eba1c590cf6f4a68b086525002ad4a3cd2def766`. `e1e8` är avvecklad.
+A3:s registry-paket ändrar bara ett test och befintlig planstatus:
+historiskt sidantal/rubriker bort, explicit icke-tom beslutsinventering in.
+Baslinje och återställd kontroll ger 40 PASS; med två befintliga länk-/termtester
+61 PASS. Två onödiga fel för avsiktlig sida/områdesnamn försvinner, medan nio
+verkliga fel-/länkfall ger avsett resultat enligt A3. Alla owner-mutationer
+är återställda. Aktuell oberoende review och native leverans återstår.
+A4:s disposabla CI-miljö utreds bara läsande. Inget faktiskt browser-/DB-flöde
+är bevisat och A6b/A7:s slutliga urvals-/acceptansgrindar är fortsatt öppna.
 
-Normal merge `1deafbacd7823583129789ef8dd30f1070ae9ede` tog därefter in
-preview `c6c5e1cecc6522dc0495ed957d08a3a89e753ba5`. Basdeltat är enbart
-`AGENT-HANDOFF.md`; alla fem kod-/testblobbar är identiska med fullkvitto
-och CLEAN-review. Endast planstatus uppdateras efter bassynken och får ett
-avgränsat aktuellt dokument-/integrationskvitto före publicering. Nya native
-CI-/deploymentbevis återstår; Windows-skip är inte lokalt körda Linuxfall.
-A3:s inventeringsskydd och A4:s isolerade harness är
-separat restarbete; varken discovery eller mockar gör dessa flöden körda.
+### Levererat A5/A6b-delpaket — #1574
 
-PR [#1574](https://github.com/Jakeminator123/sajtmaskin/pull/1574) publicerades
-på `e95128f2` efter CLEAN även för docs-deltat. Därefter levererades scaffold-
-variantfixen #1571 och aktuell preview `30291b80fbaec32e7913a2b3de3e3901b7f9b179`
-togs in genom normal merge `7b9414a89b26a0d746571654a17effb161ec99fe`.
-Åter alla fem TESTER-kodblobbar identiska. Riktad integration av de sex
-tidigare testfilerna och variantfixens fem testfiler gav 11 filer/724 PASS/23
-befintliga Windows-skip, 14,60 sekunder med fyra workers. Det är inte en ny
-fullsvit eller A4-körning. Aktuell delta-/integrationsreview och native checks
-måste knytas till den nya publicerade headen, inte återanvändas från `e95128f2`.
-Typecheck, workflowkontrakt, discovery 1 085/1 085, docs:check/links/test
-(49 PASS), planhistorik och termkontrakt är därefter gröna. Bounded readonly
-review gav CLEAN på `dc4f687c` mot `30291b80`; endast efterföljande
-dokumentationsdelta behöver ny granskning före den samlade pushen.
-Samordnaren överlät variantstatus/next-step 1 samt därefter sitt verifierade
-FINAL-ZIP-kvitto/Dossiers/next-step 5 i `AGENT-HANDOFF.md`. Förteckningens
-SHA-256 kontrollerades lokalt; original-ZIP och övriga statusrader ändras inte.
+[#1574](https://github.com/Jakeminator123/sajtmaskin/pull/1574) mergades
+2026-10-06 09:45:10 UTC till `eba1c590cf6f4a68b086525002ad4a3cd2def766`.
+Trädet är exakt identiskt med granskad head
+`f3af5be36bf80885e27e41503e8f28b3c3ce3b86`, bas `30291b80`.
+Oberoende `a5_a6_rest_review`, faktisk `gpt-5.6-sol`/xhigh, gav CLEAN
+på varje kod-/integrationsdelta, utan dubblerad full lokal testkörning.
+
+Full lokal `verify:pr -- --keep-going` på `aaca25e6` gav alla 19 kontroller
+gröna: 1 006 filer/13 312 PASS/26 befintliga skip, 717,78 sekunder med fyra
+workers, samt Backoffice 702 PASS. Fem kodblobbar var identiska genom
+bassynkarna. Färsk integration efter #1571 gav 11 filer/724 PASS/23 Windows-
+skip; typecheck, discovery 1 085/1 085 och docs 49 PASS var gröna.
+Nio kontrollerade RED på gammal CI samt verklig route-manifestdrift som
+gav exit 1 både direkt och i preflight dokumenteras i A6; allt återställt.
+
+Native CI [37444432723](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37444432723)
+är SUCCESS på `f3af5be3`, 4:33 enligt samordnaren. Alla fyra shards och
+heavy-preflight kördes; dubblerade targeted-steg hoppades över medan
+workflowkontraktet fortfarande kördes. Dossier
+[37444433301](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37444433301)
+gav light-kvitto, inte acceptancebyggen. Samordnaren verifierade sex required
+checks, noll trådar och exakt PR-head deployment READY utan aliasfel före merge.
+
+Samordnarens postkvitto: CI
+[37445127687](https://github.com/Jakeminator123/sajtmaskin/actions/runs/37445127687)
+klar på merge-SHA, 4:23; kodjobb/shards/build/quality gröna, endast samma 13
+DEV/PROD-paritetsrader och noll delta mot basens `37443817794`.
+Total post-CI är därför inte grön. Exakt merge-deployment
+`dpl_DLQ8e5sch6dqAkK6fhPQr3oefS12` READY/`aliasError=null`.
+Ingen masterpromotion, DB-apply, extern provideracceptans eller A4-körning ingick.
 
 ### Redan levererade paket och deras ursprungliga lokala bevis
 
@@ -256,8 +257,7 @@ checks eller CI-shards har avvecklats.
 Nästa mottagare är Jakob och samordnaren `Dokumentera Master-promotion`.
 Publiceringsmandatet är verifierat; samordnaren ansvarar för mergeordning och
 aktuella native checks/reviews. Fortsatt A3 kräver områdesvis krav-/felbevis
-och samordnad skrivreservation; A5:s tvåfilspaket är nu lokalt verifierat
-och kodgranskat, med native leveranskvitto fortfarande öppet.
+och samordnad skrivreservation; A5:s tvåfilspaket är levererat via #1574.
 A4 kräver riktig isolerad DB-/providerharness. A6b:s slutliga urvalsminskning
 väntar på beroendena; same-head-eventdedup är separat read-only underlag,
 inte en genomförd workflowändring. Planpaketet stannar aktivt.

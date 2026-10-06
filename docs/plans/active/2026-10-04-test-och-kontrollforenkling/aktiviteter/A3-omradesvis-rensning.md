@@ -102,7 +102,7 @@ av varje testfil. Discovery omfattar hela beståndet; A3 är fortfarande öppen.
 | Dossiers, scaffolds, remove/replace, versionsstatus | Dossierreservation frigiven på `59a12080`; ingen generell radering beslutad. Duplicerade scaffold-versionpins och shadcn-snapshot är fortsatt kandidater. | SCHAFFOLDS äger intent/rootselection och deras riktade tester. A4 saknar fortfarande isolerad körmiljö/providergräns. |
 | Public analys | Tvåfilspaketet är levererat via #1562. No-Sol-skyddet kontrollerar verklig publikkedja; exakta Sol/Luna-beslut kvar hos audit-tier/manifest-parity. | Övriga prompt-, metadata- och klientkontroller är oförändrade. Ingen generell prispolicy infördes. |
 | Backoffice, curator, observability, Python | Tre bevisade historiklås bort; curator-SSRF/zipbomb/publish, backup/CAS och observability-redaktion bevaras. Katalog-/scaffoldberoende antalslås återstår. | Dossier-/scaffoldhandoff för överlapp; ingen total Backoffice-radering beställd. |
-| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562; registry/projektionsavvikelser återstår. | Ingen live ruleset-ändring. Nästa registrykandidat är endast read-only bedömd och HOLD enligt beviskraven nedan. |
+| Kontrollplanet, rulesets, agentregler | BEHÅLL GitHub-rulesets självständighet från lokal agentpolicy; ownerhistorik motbevisade ny paritetsgrind. Död `_policy`-plumbing och workflowtestets syntaxlås är levererade via #1562. Registrytestets sidantal/rubrikhistorik ersatt enligt paketet nedan; inga registryowners ändrade. | Ingen live ruleset-ändring. Registry-paketets felprov är körda; aktuell review/leverans och återstående bestånd är öppna. |
 
 Separat ruleset-paket: endast `scripts/ci/check-master-ruleset.mjs` och dess
 test ändrades från bas `e49988eb3`. Faktisk CLI gav först RED när den försökte
@@ -128,31 +128,34 @@ sidolås rött, nytt paket grönt. Ingen faktisk modell-/providerändring gjorde
 Grinden skyddar separation från produktens aktuella primary, inte en ny generell
 pris-/allowlist-policy för alla andra modeller eller alias.
 
-### Nästa registrykandidat — HOLD, inte ändrad
+### Registry-paket 2026-10-06 — implementerat, leverans återstår
 
-Read-only scope: `src/lib/control-plane/registry.test.ts`. Det hårdkodade
-sidantalet 37 är en rensningskandidat: historiska committen `578fdaa94` lade
-till en legitim fristående Curator-sida och tvingade en ren bump 36 → 37.
-Faktiska `PAGE_SPECS`-membershipkontroller och CLI-ownern ska behållas.
-Historiken ensam bevisar inte att all completeness-/parserbevakning ersatts.
+Scope: endast `src/lib/control-plane/registry.test.ts`, bas `eba1c590`,
+branch `codex/test-registry-cleanup`. TA BORT historiskt sidantal 37:
+commit `578fdaa94` visade tidigare ren 36 → 37-bump för legitim Curator-sida.
+SKRIV OM fem rubrik-/historiklås till explicit `decisionRows.length > 0`.
+Faktisk `PAGE_SPECS`-membership, alla 64 daterade beslutsraders validering,
+negativa fixtures och befintliga CLI-/länkowners är oförändrade.
 
-Beslutsregistrets fem rubrik-/historiklås är en **SKRIV OM**-kandidat, inte ren
-radering. De fångar även ett tomt register indirekt; den generiska radloopen
-och fristående fixturetesterna passerar annars när `decisionRows=[]`.
-Ett ersättningspaket måste kontrollera faktisk icke-tom radinventering och
-fortsatt validera varje verklig beslutsrad. Inga tester eller owners ändrades.
+Kontrollerade mutationer gjordes i den verkliga checkoutens ownerfiler, inte
+bara i kopierade parserfixtures. Baseline 40 PASS. Extra giltig `PageSpec`
+och namnbyte på beslutsområde gav gammalt test 2 RED/38 PASS, nytt test
+40 PASS och verklig `control-plane:check` grön med 38 sidor.
 
-Följande acceptansmatris är ett krav på framtida prov, inte redan körda resultat:
-
-| Kontrollerad förändring | Kvitto som krävs före implementation/leverans |
+| Kontrollerat verkligt fel | Utfall med ersättningen |
 | --- | --- |
-| Legitim ny kanonisk sida eller namnbyte på beslutsområde med giltig ownerlänk | Gammalt onödigt lås RED, ersättningen PASS. |
-| Registry-surface saknar motsvarande `PAGE_SPECS` | Fortsatt RED i faktiskt registrytest och `check-registry`-CLI; inte bara en loop över en kopierad fixture. |
-| Faktiskt beslutsindex saknar beslutsrader | RED på explicit inventeringsskydd. |
-| Faktisk daterad beslutsrad har fel cellantal, tom/ogiltigt formaterad repo-relativ ownerlänk eller plan-/backlog-owner | Fortsatt RED genom den verkliga radvalideringen; relevanta fil-/länkguards måste också bestå. |
+| Registry-surface saknas i `PAGE_SPECS` | Registrytest RED och faktisk CLI exit 1. |
+| Alla daterade beslutsrader saknas | Explicit inventeringsskydd RED. |
+| Oescapead pipe/fel cellantal i faktisk rad | Radvalidering RED. |
+| Tom owner, godtycklig prosa eller `Samma` | Varje separat mutation ger radvalidering RED. |
+| Planowner eller backlogowner | Båda separata mutationerna ger radvalidering RED. |
+| Korrekt formaterad ownerlänk till saknad fil | Registrytest PASS men befintlig `docs:links` exit 1; inget nytt länkparserlager. |
 
-Nästa mottagare är samordnaren. Ingen ny implementations-PR för dessa kandidater
-ingår i statusleveransen; A3:s hela bestånd är fortsatt ofullständigt bedömt.
+Efter varje prov återställdes ownerraden; till sist verifierades tom gitdiff
+för `PAGE_SPECS`, policyregistry och beslutsindex. Återställd kontroll med två
+befintliga länk-/termtestfiler gav 3 filer/61 PASS med högst fyra workers.
+Lokalt tillfälligt underlag: `.tmp/a3-registry-proof-20261006.json`.
+Oberoende review och native leverans återstår. Detta stänger inte hela A3.
 
 ## Checklista per paket
 

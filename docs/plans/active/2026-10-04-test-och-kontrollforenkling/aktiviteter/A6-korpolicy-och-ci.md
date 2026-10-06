@@ -7,12 +7,13 @@ Status: Pågår. Två delar: A6a efter A1; A6b efter A3, A4 och A5.
 A6a är levererad via #1553 på preview `c4f4b188`; ursprungliga lokala
 provbaser nedan är återanvänt sakbevis. [A7](A7-slutverifiering-och-overlamning.md)
 binder dem till aktuell previewleverans. Ett avgränsat A6b-deduppaket
-implementeras 2026-10-06; slutlig urvalsoptimering är fortfarande öppen.
+är levererat via #1574 på preview `eba1c590` 2026-10-06; slutlig
+urvalsoptimering är fortfarande öppen.
 
 | Del                         | Status     | Ansvarig / exakta paths                                                                   | Bas/head, arbetsdiff vid behov och verifieringsbevis                                                                                                                                           |
 | --------------------------- | ---------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A6a — tidigt säkerhetsskydd | Verifierad lokalt | Codex `e1e8`; 11 workflow-/discoverypaths | Bas `ff2ac650`; planintegration `9d71cd34`; arbetsdiff. Senaste samlade `verify:pr` exit 0 2026-10-05 efter delete/rename-fix och A2/A3/A5: 21 kontroller, 1 001 testfiler, 12 954 godkända tester, 26 skippar och 700 godkända Pythonprov. Discovery 1 079/1 079; oberoende del- och integrationsreview CLEAN. |
-| A6b — sen optimering | Pågår: avgränsad dedup, inte slutlig körpolicy | Codex `sajtmaskin-tester-restarbete`; `.github/workflows/ci.yml`, `scripts/workflow/check-contract.mjs`, `scripts/workflow/ci-quality.test.ts` | Bas `f9c5acea`, branch `codex/test-control-rest`. Heavy/fallback behåller alla fyra shards och preflight; light behåller riktade kontroller. Ingen ändring av required/native gates. |
+| A6b — sen optimering | Avgränsad dedup levererad via #1574; slutlig körpolicy öppen | Codex `sajtmaskin-tester-restarbete`; `.github/workflows/ci.yml`, `scripts/workflow/check-contract.mjs`, `scripts/workflow/ci-quality.test.ts` | Granskad head `f3af5be3`, bas `30291b80`, merge `eba1c590`. Heavy/fallback behåller alla fyra shards och preflight; light behåller riktade kontroller. Ingen ändring av required/native gates. |
 
 ## Uppdrag
 
@@ -88,8 +89,9 @@ manifestet återställdes och ingår inte i diffen. Riktat: 224 PASS, 23 befintl
 Windows-/Linux-undantag; faktisk shell-aggregate körs fortfarande i Linux-CI.
 Full lokal verifiering gav exit 0 (19 kontroller, 13 312 PASS/26 skip och
 702 Python PASS). Oberoende kodreview gav CLEAN på `aaca25e6`; normal
-docs-only basmerge till `c6c5e1ce` ändrade inga kodblobbar. Aktuell
-docs-deltareview och native leveransgrindar redovisas separat i A7/PR.
+docs-only basmerge till `c6c5e1ce` ändrade inga kodblobbar. Efter integration
+av #1571 gav aktuell head `f3af5be3` CLEAN och native CI SUCCESS; #1574
+är mergad på `eba1c590`. Leveransgrindar och bevisgränser finns i A7/PR.
 Build-jobbets egen prebuild är nödvändig parity i dess isolerade runner och
 tas inte bort. Ingen hel-CI-tidsvinst påstås före ett aktuellt CI-kvitto.
 
