@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request, type Response } from "@playwright/test";
 import { Pool } from "pg";
 import {
   assertRuntimeIsolation,
@@ -33,12 +33,15 @@ test("real file edit + Save project survives reload; another guest cannot read o
   browser,
 }) => {
   const fixture: Fixture = JSON.parse(process.env.A4_FIXTURE!);
-  const pool = new Pool(databaseConfig(process.env.A4_POSTGRES_URL));
+  const isolatedDatabase = databaseConfig(process.env.A4_POSTGRES_URL);
+  const pool = new Pool(isolatedDatabase);
   const context = await browser.newContext({ baseURL: BASE_URL });
   const other = await browser.newContext({ baseURL: BASE_URL });
   const unexpectedMutations: string[] = [];
-  const filePath = `/api/engine/chats/${fixture.chatId}/files`;
+  const chatPath = `/api/engine/chats/${fixture.chatId}`;
+  const filePath = `${chatPath}/files`;
   const projectPath = `/api/projects/${fixture.projectId}`;
+  const versionsPath = `${chatPath}/versions`;
   const savePath = `${projectPath}/save`;
   await context.addCookies([
     { name: "sajtmaskin_session", value: fixture.sessionA, url: BASE_URL },
@@ -81,17 +84,96 @@ test("real file edit + Save project survives reload; another guest cannot read o
         [fixture.projectId],
       )
     ).rows;
+  let page: Page | undefined;
+  // HTTP 200 alone does not prove the client hydrated. Keep bounded, failure-only
+  // diagnostics in the CI log: the isolated fixture has no real user/provider data.
+  // Do not log cookies, request headers/bodies or the generated database URL.
+  const browserFailures: string[] = [];
+  const redact = (message: string) =>
+    [isolatedDatabase.password, fixture.sessionA, fixture.sessionB].reduce(
+      (value, secret) => value.replaceAll(secret, "[disposable credential]"),
+      message,
+    );
+  const recordFailure = (message: string) => {
+    if (browserFailures.length < 20) browserFailures.push(redact(message).slice(0, 2_000));
+  };
+  const loadPaths = [projectPath, chatPath, versionsPath];
+  const loaded = new Map<string, Response>();
+  let navigationGeneration = 0;
+  const requestGeneration = new WeakMap<Request, number>();
+  const assertBuilderLoaded = async () => {
+    // Observe the app's own GETs, not APIRequestContext calls that bypass hydration.
+    // Listeners are armed before navigation; the existing expect timeout applies
+    // after navigation, so compiling the initial document cannot consume it.
+    await expect
+      .poll(() => [...loaded.keys()].sort(), "Builder hydration GETs")
+      .toEqual([...loadPaths].sort());
+    for (const path of loadPaths) {
+      expect(loaded.get(path)!.status(), `Builder hydration GET ${path}`).toBe(200);
+    }
+    const [project, chat, versions] = await Promise.all(
+      loadPaths.map((path) => loaded.get(path)!.json()),
+    );
+    expect(project).toMatchObject({ success: true, project: { id: fixture.projectId } });
+    expect(chat).toMatchObject({
+      id: fixture.chatId,
+      chatId: fixture.chatId,
+      projectId: fixture.projectId,
+      latestVersion: { id: fixture.versionId, versionId: fixture.versionId },
+    });
+    expect(versions.versions).toHaveLength(1);
+    expect(versions.versions[0]).toMatchObject({
+      id: fixture.versionId,
+      versionId: fixture.versionId,
+    });
+    return project;
+  };
   let primaryFailure = false;
   try {
+    page = await context.newPage();
+    page.on("pageerror", (error) => recordFailure(`pageerror: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") recordFailure(`console: ${message.text()}`);
+    });
+    page.on("requestfailed", (request) => {
+      const path = new URL(request.url()).pathname;
+      recordFailure(`${request.method()} ${path}: ${request.failure()?.errorText}`);
+    });
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.frame() === page!.mainFrame()) {
+        navigationGeneration += 1;
+        loaded.clear();
+      }
+      const url = new URL(request.url());
+      if (
+        navigationGeneration > 0 &&
+        url.origin === BASE_URL &&
+        request.method() === "GET" &&
+        loadPaths.includes(url.pathname)
+      ) {
+        requestGeneration.set(request, navigationGeneration);
+      }
+    });
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      // File save can leave a versions refetch in flight across reload. Only
+      // requests STARTED in this navigation may prove this navigation hydrated.
+      if (
+        requestGeneration.get(response.request()) === navigationGeneration &&
+        !loaded.has(url.pathname)
+      ) {
+        loaded.set(url.pathname, response);
+      }
+    });
     expect(await data()).toEqual([]);
     const before = await version();
     expect(JSON.parse(before.files_json)).toEqual(fixture.files);
-    const page = await context.newPage();
     const navigation = await page.goto(
       `/builder?project=${fixture.projectId}&chatId=${fixture.chatId}`,
       { waitUntil: "domcontentloaded" },
     );
     expect(navigation?.status(), "Builder must render before editing").toBe(200);
+    await assertBuilderLoaded();
     const { pane, editor } = await openEditor(page);
     const original = fixture.files.find((file) => file.path === "app/page.tsx")!.content;
     const changed = original.replace("A4_INITIAL_MARKER", "A4_SAVED_MARKER");
@@ -185,15 +267,10 @@ test("real file edit + Save project survives reload; another guest cannot read o
       expectedFiles.map((file) => ({ path: file.name, size_bytes: file.content.length })),
     );
 
-    const reloaded = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === projectPath && response.request().method() === "GET",
-    );
     const reloadNavigation = await page.reload({ waitUntil: "domcontentloaded" });
     expect(reloadNavigation?.status(), "Builder must render after reload").toBe(200);
-    const reloadResponse = await reloaded;
-    expect(reloadResponse.status()).toBe(200);
-    expect((await reloadResponse.json()).data).toMatchObject({
+    const reloaded = await assertBuilderLoaded();
+    expect(reloaded.data).toMatchObject({
       chat_id: fixture.chatId,
       files: savedBody.files,
       messages: savedBody.messages,
@@ -229,6 +306,19 @@ test("real file edit + Save project survives reload; another guest cannot read o
     );
   } catch (error) {
     primaryFailure = true;
+    const visibleText = page
+      ? await page
+          .locator("body")
+          .innerText({ timeout: 1_000 })
+          .catch(() => "[page unavailable]")
+      : "[page was not created]";
+    console.error("[project-persistence] browser failure", {
+      path: page ? new URL(page.url(), BASE_URL).pathname : null,
+      browserFailures,
+      unexpectedMutations,
+      hydrationResponses: [...loaded].map(([path, response]) => [path, response.status()]),
+      visibleText: redact(visibleText).slice(0, 8_000),
+    });
     throw error;
   } finally {
     // A timed-out browser can already be gone. Attempt every cleanup without

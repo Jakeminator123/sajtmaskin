@@ -2,7 +2,7 @@
 
 Styrdokument: [masterplan](../00-master-plan.md) och
 [genomförande](../01-genomforande.md).
-Status: Draft #1580; bootstrap verifierad, produktfix #1581 integrerad, nytt flödesprov återstår.
+Status: Draft #1580; /builder 200 verifierad, code-only UI-fynd hos produktägaren, inget grönt persistensprov.
 Beroende: A1; separat paket efter levererad #1576.
 
 ## Verifierat hinder och nästa owner
@@ -82,6 +82,31 @@ båda verkliga klientingångarna browserbundlas utan tree-shaking. Produktkoden
 Färsk integration: fyra filer/83 PASS, 28 explicita OS-skip, E2E/config-typkontroll,
 workflowkontrakt och discovery 1 095/1 095 PASS. Detta rättar ett verkligt fel
 som harnessen hittade; endast ny native körning kan bevisa edit/save/reload.
+
+Senaste ready-körningen `37462490014` på `bb3e4519` nådde `/builder` med
+HTTP 200 men hittade inte Kod-knappen inom ordinarie 15 sekunder. Ingen
+edit/save/reload-acceptans nåddes. Övriga CI-jobb passerade; egen fixture-/
+session-/containercleanup verifierades. Skärmbild/trace skapades på runnern
+men körningen hade noll uppladdade artefakter. Diagnostiken kompletteras därför
+med begränsad failure-only sidtext, browserfel och faktiska hydreringssvar;
+disponibla DB-/sessionshemligheter redigeras bort, inga kunddata används.
+Observatörerna armeras före navigation; projekt-, chatt- och versions-GET måste
+ge HTTP 200 och rätt fixture-ID innan redigering respektive efter reload.
+Inga app-API-anrop ersätts eller utförs åt browsern och timeouten höjs inte.
+Review fann två luckor i den lokala diagnostikrundan, båda rättade: page-skapande
+stannar i cleanupens try/finally, och svar binds till den navigation där deras
+request startade. Ett sent pre-reload-svar får inte bevisa reload. Offlineprov
+av specens faktiska eventcallbacks avvisade gamla/främmande/icke-GET/oobserverade
+requests, accepterade nya GET och behöll första svaret. Borttagen generationsvakt
+återskapade felaktig acceptans. Detta är eventprov, inte browser-/DB-acceptans.
+
+Oberoende ownergranskning bekräftade korrekt Kod/Kodvy-selector. Den yttre
+`BuilderPreviewTools`-grinden döljer menyn vid tom preview trots att canonical
+`surface.canShowCode` och filvyn stöder code-only. Samordnaren äger separat
+minimal produktfix och komponentregression; TESTER seedar ingen falsk
+preview-URL och manipulerar inget React-state. Eventuellt ytterligare
+hydreringsfel är obevisat. Ny native körning samlas efter levererad fix och
+granskad integration, inte som blind omkörning. PR:n förblir draft under fyndet.
 
 Seedat gästprojekt och quick-edit-version testar verklig persistens, inte
 skapande/generation. Fil-PATCH ska invalidera tidigare verification; explicit
