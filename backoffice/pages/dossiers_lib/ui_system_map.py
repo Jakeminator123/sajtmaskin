@@ -49,6 +49,16 @@ def _join_or_dash(values: list[str]) -> str:
     return ", ".join(values) if values else "—"
 
 
+def verification_date_label(status: Any) -> str:
+    """Use verification wording only for accepted (including legacy) rows."""
+    normalized = str(status or "accepted").strip().lower()
+    return (
+        "Senast verifierad"
+        if normalized == "accepted"
+        else "Katalogdatum (ej acceptansbevis)"
+    )
+
+
 def _env_contract(row: dict[str, Any]) -> str:
     labels = {
         "build": "B",
@@ -141,7 +151,8 @@ def _render_system_map_row_detail(
         )
         st.markdown(
             f"**Verifiering:** {row['verification_status']} · "
-            f"**Senast verifierad:** {row['last_verified'] or '—'}"
+            f"**{verification_date_label(row['verification_status'])}:** "
+            f"{row['last_verified'] or '—'}"
         )
     st.markdown(f"**Env-kontrakt:** {_env_contract(row)}")
     st.markdown(f"**Filroller:** {_file_roles(row)}")
@@ -327,7 +338,7 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
                 "Filroller": _file_roles(row),
                 "Dependencies": _join_or_dash(row["dependencies"]),
                 "Verifiering": row["verification_status"],
-                "Senast verifierad": row["last_verified"],
+                "Katalogdatum": row["last_verified"],
                 "Livscykelnotis": row["summary_sv"],
             }
         )
@@ -337,7 +348,8 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
     st.markdown("**Rad → detalj → handling**")
     st.caption(
         "Öppna en rad för alla fält, filer, env-nycklar och verifieringsstatus "
-        "— och Redigera/Byt capability/Radera direkt härifrån via samma "
+        "— Katalogdatum är acceptansdatum bara för `accepted`, annars import-/kureringsdatum — "
+        "och Redigera/Byt capability/Radera direkt härifrån via samma "
         "validerade flöden som Redigera-tabben, med byggblocket redan valt."
     )
     groups_full = projection.get("groups") if isinstance(projection.get("groups"), dict) else {}

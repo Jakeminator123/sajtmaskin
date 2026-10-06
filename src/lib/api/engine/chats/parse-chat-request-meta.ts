@@ -15,6 +15,13 @@ import {
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import {
+  normalizeBuildIntent,
+  normalizeBuildMethod,
+  resolveBuildIntentWithScaffold,
+  type BuildIntent,
+  type BuildMethod,
+} from "@/lib/builder/build-intent";
 function metaString(meta: unknown, key: string): string | null {
   const obj = meta as Record<string, unknown> | null | undefined;
   return typeof obj?.[key] === "string" ? String(obj[key]) : null;
@@ -32,8 +39,9 @@ function metaBoolOrNull(meta: unknown, key: string): boolean | null {
 
 export interface ParsedChatRequestMeta {
   modelTier: string | null;
-  buildMethod: string | null;
-  buildIntent: string | null;
+  buildMethod: BuildMethod | null;
+  /** Effective intent for every request consumer, including early brief/prematch. */
+  buildIntent: BuildIntent;
   /**
    * Byggval: the user picked Hemsida/App themselves. Distinguishes a decision
    * from the intent inherited from the landing entry, which is what the
@@ -92,11 +100,17 @@ export interface ParsedChatRequestMeta {
  */
 export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
   const { scaffoldMode, scaffoldId } = extractScaffoldSettingsFromMeta(meta);
+  const buildMethod = normalizeBuildMethod(metaString(meta, "buildMethod"));
 
   return {
     modelTier: metaString(meta, "modelTier"),
-    buildMethod: metaString(meta, "buildMethod"),
-    buildIntent: metaString(meta, "buildIntent"),
+    buildMethod,
+    buildIntent: resolveBuildIntentWithScaffold(
+      buildMethod,
+      normalizeBuildIntent(metaString(meta, "buildIntent")),
+      scaffoldMode,
+      scaffoldId,
+    ),
     buildIntentExplicit: metaBool(meta, "buildIntentExplicit"),
     promptSourceKind: metaString(meta, "promptSourceKind"),
     promptSourceTechnical: metaBool(meta, "promptSourceTechnical"),

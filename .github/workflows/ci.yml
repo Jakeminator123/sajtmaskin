@@ -32,6 +32,7 @@ jobs:
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
       safe_docs_only: ${{ steps.classify.outputs.safe_docs_only }}
+      run_preview_host: ${{ steps.classify.outputs.run_preview_host }}
       high_risk: ${{ steps.classify.outputs.high_risk }}
       reason: ${{ steps.classify.outputs.reason }}
 
@@ -181,7 +182,7 @@ jobs:
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
       # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
       # den tunga profilen fångar det före merge.
-      # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
+      # Äger route-timeouts:check i heavy/fallback; light kör den i contracts.
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
@@ -277,10 +278,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run workflow:contract
 
-      # Scope-logiken får aldrig kunna hoppa över sina egna regressionstester.
-      # Denna lilla lane ligger därför i det alltid körande kontraktsjobbet.
-      - name: Validate workflow and CI scope decisions
+      - name: Verify every test file has an intentional runner (blocking)
         if: ${{ !cancelled() }}
+        run: npm run test:discovery:check
+
+      # Heavy/fallback kör dessa i hela test:ci via alla fyra shards. Endast
+      # ett lyckat, uttryckligt lightbeslut använder den riktade körningen.
+      - name: Validate workflow and CI scope decisions
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts
 
       - name: Verify generated contract docs
@@ -314,7 +319,8 @@ jobs:
         run: npm run compat:v0-chat-boundary:check
 
       - name: Verify route maxDuration ↔ manifest sync
-        if: ${{ !cancelled() }}
+        # Heavy/fallback täcks av quality-core:s oförändrade preflight:common.
+        if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
         run: npm run route-timeouts:check
 
       # Dessa är repo-/arbetsflödeskontrakt, inte produktionsbyggets ansvar.
@@ -601,43 +607,38 @@ jobs:
   # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
   # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
   preview-host-guards:
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    env:
+      RUN_PREVIEW_HOST: ${{ needs.scope.result != 'success' || needs.scope.outputs.run_preview_host != 'false' }}
 
     steps:
+      - name: Report skipped preview-host scope
+        if: ${{ env.RUN_PREVIEW_HOST == 'false' }}
+        run: echo "No preview-host, shared-config or unknown paths changed; skipping install and tests."
+
       - name: Checkout
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Detect preview-host-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            preview_host:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - 'preview-host/**'
-
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: Install preview-host dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm ci --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
+        if: ${{ env.RUN_PREVIEW_HOST == 'true' }}
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
-
-      - name: Skip preview-host guards (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.preview_host != 'true' }}
-        run: echo "No preview-host files changed; skipping install and tests."
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger

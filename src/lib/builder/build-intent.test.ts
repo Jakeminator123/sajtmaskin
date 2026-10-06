@@ -9,6 +9,11 @@ import {
 } from "./build-intent";
 
 describe("build-intent", () => {
+  it("trims intent and method metadata without accepting UI aliases", () => {
+    expect(normalizeBuildIntent(" APP ")).toBe("app");
+    expect(normalizeBuildMethod(" FREEFORM ")).toBe("freeform");
+    expect(normalizeBuildMethod(" fritext ")).toBeNull();
+  });
   it("normalizes supported build methods and rejects UI-only aliases", () => {
     expect(normalizeBuildMethod("freeform")).toBe("freeform");
     expect(normalizeBuildMethod("FREEFORM")).toBe("freeform");
@@ -44,23 +49,37 @@ describe("build-intent", () => {
   });
 
   it("coerces intent to app when manual dashboard scaffold is selected", () => {
-    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "dashboard")).toBe("app");
-    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "app-shell")).toBe("app");
+    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "dashboard")).toBe(
+      "app",
+    );
+    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "app-shell")).toBe(
+      "app",
+    );
   });
 
   it("does not coerce intent when scaffold mode is auto", () => {
-    expect(resolveBuildIntentWithScaffold("freeform", "website", "auto", "dashboard")).toBe("website");
+    expect(resolveBuildIntentWithScaffold("freeform", "website", "auto", "dashboard")).toBe(
+      "website",
+    );
   });
 
   it("does not coerce intent for non-app scaffolds", () => {
-    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "landing-page")).toBe("website");
+    expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "landing-page")).toBe(
+      "website",
+    );
     expect(resolveBuildIntentWithScaffold("freeform", "website", "manual", "blog")).toBe("website");
   });
 
   it("preserves method-level overrides even with manual app scaffold", () => {
-    expect(resolveBuildIntentWithScaffold("audit", "website", "manual", "dashboard")).toBe("website");
-    expect(resolveBuildIntentWithScaffold("kostnadsfri", "website", "manual", "dashboard")).toBe("website");
-    expect(resolveBuildIntentWithScaffold("category", "website", "manual", "dashboard")).toBe("template");
+    expect(resolveBuildIntentWithScaffold("audit", "website", "manual", "dashboard")).toBe(
+      "website",
+    );
+    expect(resolveBuildIntentWithScaffold("kostnadsfri", "website", "manual", "dashboard")).toBe(
+      "website",
+    );
+    expect(resolveBuildIntentWithScaffold("category", "website", "manual", "dashboard")).toBe(
+      "template",
+    );
   });
 
   it("preserves explicit app intent regardless of scaffold", () => {

@@ -172,9 +172,9 @@ describe("readF3StatusDetail", () => {
 });
 
 describe("describeF3SuccessTitle", () => {
-  it("names both live and demo counts together", () => {
+  it("names configured and demo counts without claiming provider acceptance", () => {
     expect(describeF3SuccessTitle({ builtLive: 2, builtDemo: 1 })).toBe(
-      "Byggblock — 2 Live, 1 Demo",
+      "Byggblock — 2 Konfigurerade, 1 Demo",
     );
   });
 
@@ -186,11 +186,13 @@ describe("describeF3SuccessTitle", () => {
         blockedBuild: 1,
         planned: 2,
       }),
-    ).toBe("Byggblock — 1 Live, 1 Demo, 1 Nyckel krävs, 2 Inte byggd än");
+    ).toBe("Byggblock — 1 Konfigurerad, 1 Demo, 1 Nyckel krävs, 2 Inte byggd än");
   });
 
   it("omits a zero bucket instead of naming it", () => {
-    expect(describeF3SuccessTitle({ builtLive: 1, builtDemo: 0 })).toBe("Byggblock — 1 Live");
+    expect(describeF3SuccessTitle({ builtLive: 1, builtDemo: 0 })).toBe(
+      "Byggblock — 1 Konfigurerad",
+    );
     expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 3 })).toBe("Byggblock — 3 Demo");
   });
 
@@ -233,7 +235,7 @@ describe("resolveF3StatusTitle", () => {
     };
     expect(resolveF3StatusTitle(status, { builtLive: 2, builtDemo: 1 })).toEqual({
       ...status,
-      title: "Byggblock — 2 Live, 1 Demo",
+      title: "Byggblock — 2 Konfigurerade, 1 Demo",
     });
   });
 });

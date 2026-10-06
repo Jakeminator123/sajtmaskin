@@ -16,7 +16,7 @@ export { getF2MutedIntegrationCapabilities } from "./f2-mute";
 export {
   selectDossiersForRequest,
   isExplicitDossierChoice,
-  expandDependentCapabilities,
+  normalizeDossierCapabilityIds,
   normalizeCapabilityId,
   isDossierConfigured,
 } from "./select";

@@ -5,7 +5,7 @@ export const authPagesManifest: ScaffoldManifest = {
   id: "auth-pages",
   label: "Auth Pages",
   description:
-    "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.",
+    "Login, signup, and recovery forms with native validation and pending/error states; authentication requires a connected provider.",
   siteKind: "app",
   complexity: "simple",
   structureProfile: "auth-surface",
@@ -27,12 +27,13 @@ export const authPagesManifest: ScaffoldManifest = {
   ],
   promptHints: [
     "Use this scaffold for authentication flows: login, signup, forgot password.",
-    "Keep the form layout, validation structure, and link flow between auth pages. Replace branding and copy.",
-    "Add OAuth buttons or additional fields as needed. Preserve the centered card layout.",
+    "Keep the shared AuthForm, native constraints, pending/error states, double-submit guard, and links between auth pages. Replace branding and copy.",
+    "The starter auth adapter is deliberately unconnected. Do not claim a session, account, recovery email, or OAuth success until a real provider confirms it. Keep server validation and session management in that provider; never store passwords or fake sessions in browser storage.",
   ],
   qualityChecklist: [
     "Login, signup, and recovery views should stay clearly linked and feel like one coherent auth flow.",
-    "Forms should look ready for real validation and integration, not like static placeholder cards.",
+    "Invalid fields and mismatched passwords must block submit. Pending requests disable fields and repeated submits; provider failures must remain visible and retryable.",
+    "Keep the unconnected provider boundary explicit. A local form preview is not working authentication, session management, OAuth, or password recovery.",
     "Branding, helper text, and CTA labels should match the actual product without losing auth clarity.",
   ],
   research: {

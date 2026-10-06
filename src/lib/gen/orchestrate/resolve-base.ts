@@ -4,7 +4,11 @@
  * from `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
-import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
+import {
+  resolveBuildIntentForMethod,
+  resolveBuildIntentWithScaffold,
+  type BuildIntent,
+} from "@/lib/builder/build-intent";
 import { buildScaffoldQueryContext } from "./scaffold-query-context";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
@@ -70,6 +74,7 @@ import {
   enforceFollowUpCapabilityFloor,
   enforceFollowUpRouteFreeze,
   enforceFollowUpScaffoldFreeze,
+  resolveFollowUpFrozenBuildIntent,
   scopeF3DossierCapabilities,
 } from "./follow-up-freeze";
 import type { OrchestrationBase, OrchestrationInput } from "./types";
@@ -102,7 +107,7 @@ export async function resolveOrchestrationBase(
     prompt,
     routePlanPrompt,
     buildSpecPrompt,
-    buildIntent,
+    buildIntent: requestedBuildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
     brief: inputBrief = null,
@@ -122,6 +127,7 @@ export async function resolveOrchestrationBase(
   // via the auto-match + updateChatScaffoldId path).
   const importedRepoMode = input.importedRepoMode === true;
   const effectiveScaffoldMode = importedRepoMode ? "off" : scaffoldMode;
+  const buildIntent = resolveBuildIntentForMethod(input.buildMethod, requestedBuildIntent);
 
   let resolvedScaffold: ScaffoldManifest | null = null;
   let scaffoldSelection: ScaffoldSelectionMeta = {
@@ -280,7 +286,7 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (effectiveScaffoldMode === "off") {
-    resolvedScaffold = getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
+    resolvedScaffold = buildIntent === "template" ? null : getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
     scaffoldSelection = {
       ...scaffoldSelection,
       selectedScaffold: resolvedScaffold?.id ?? null,
@@ -415,17 +421,27 @@ export async function resolveOrchestrationBase(
   });
   const intentPromotionBlockedForFollowUp =
     intentPromotionDecision.blockedForFollowUp;
-  const intentPromoted = intentPromotionDecision.promoted;
-  // Intentional Byggval exception documented in the glossary: a manually
-  // pinned app scaffold wins over a conflicting website target. Production
-  // callers already normalize this pair via `resolveBuildIntentWithScaffold`,
-  // but keep the orchestration boundary honest for direct/manipulated input.
+  const promotionCandidate = intentPromotionDecision.promoted ? "app" : buildIntent;
+  // Manual app selection has the existing Byggval exception, but entry-method
+  // precedence must survive both manual and implicit auto promotion. Production
+  // callers normalize before brief/prematch; direct calls use the same owner here.
+  const frozenBuildIntent = resolveFollowUpFrozenBuildIntent({
+    resolvedMode,
+    ignorePersistedScaffoldForMatch,
+    contractScaffoldId: importedRepoMode ? null : input.followUpContract?.scaffoldId ?? null,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+    contractBuildIntent: input.followUpContract?.buildIntent,
+    allowedBuildIntents: resolvedScaffold?.allowedBuildIntents ?? [],
+  });
+  const effectiveBuildIntent = frozenBuildIntent ?? resolveBuildIntentWithScaffold(
+    input.buildMethod,
+    promotionCandidate,
+    effectiveScaffoldMode,
+    resolvedScaffold?.id,
+  );
+  const intentPromoted = intentPromotionDecision.promoted && effectiveBuildIntent === "app";
   const intentPromotedByManualScaffold =
-    buildIntent === "website" &&
-    scaffoldMode === "manual" &&
-    isAppScaffold(resolvedScaffold?.id);
-  const effectiveBuildIntent: BuildIntent =
-    intentPromoted || intentPromotedByManualScaffold ? "app" : buildIntent;
+    !intentPromoted && buildIntent === "website" && effectiveBuildIntent === "app";
 
   // Final server-side truth: manual ids, persisted ids, follow-up freeze and
   // auto selection all converge here, after website→app promotion has resolved
@@ -769,9 +785,8 @@ export async function resolveOrchestrationBase(
       // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
       // the user explicitly APPROVED, and (c) integrations with real FILE
       // EVIDENCE in the parent/base version (already built — safe to keep). The
-      // allowed set is dependency-expanded via the same helper as selection
-      // (`DEPENDENT_CAPABILITIES` is empty since 2026-08-06; the expansion
-      // also alias-normalizes and dedupes overlapping picks). Speculative
+      // allowed set is alias-normalized and deduped via the same compatibility
+      // helper as selection; no implicit companion capabilities are added.
       // brief/floor capabilities with no evidence, ask, or approval are
       // dropped. F2/design rounds are untouched (can-only-grow stays). See
       // docs/architecture/llm-pipeline.md.
@@ -915,6 +930,7 @@ export async function resolveOrchestrationBase(
         ? Math.min(scaffoldBudgetChars, 10_000)
         : scaffoldBudgetChars;
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
+      generationMode: resolvedMode,
       maxChars: promptScaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,

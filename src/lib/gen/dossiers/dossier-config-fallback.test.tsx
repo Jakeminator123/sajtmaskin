@@ -14,6 +14,7 @@
  *     fel (proxy-503 utan kod, 500/502) → vanlig retry-bar felväg.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // clerk-auth's components import `@clerk/nextjs` at module top — a dependency
@@ -168,6 +169,41 @@ describe("AuthButtons — demo-mode fallback (clerk-auth, mock: visual)", () => 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+});
+
+describe("Clerk middleware — unconfigured pass-through", () => {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const secretKey = process.env.CLERK_SECRET_KEY;
+
+  afterEach(() => {
+    if (publishableKey === undefined) delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = publishableKey;
+    if (secretKey === undefined) delete process.env.CLERK_SECRET_KEY;
+    else process.env.CLERK_SECRET_KEY = secretKey;
+    vi.resetModules();
+  });
+
+  it.each([
+    [undefined, undefined],
+    ["pk_test_placeholder", "sk_test_placeholder_preview"],
+  ])("returns NextResponse.next for missing or placeholder keys", async (publishable, secret) => {
+    if (publishable === undefined) delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = publishable;
+    if (secret === undefined) delete process.env.CLERK_SECRET_KEY;
+    else process.env.CLERK_SECRET_KEY = secret;
+    vi.resetModules();
+
+    const { default: middleware } = await import(
+      "../../../../data/dossiers/hard/clerk-auth/components/middleware"
+    );
+    const response = middleware(
+      new NextRequest("http://localhost/dashboard"),
+      {} as Parameters<typeof middleware>[1],
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 });
 

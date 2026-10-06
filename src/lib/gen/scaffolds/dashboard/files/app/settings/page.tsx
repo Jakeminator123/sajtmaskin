@@ -8,7 +8,14 @@ export default function SettingsPage() {
     <div className="space-y-8 p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">Inställningar</h1>
-        <p className="text-muted-foreground">Basinställningar för dashboard, rapporter och notifieringar.</p>
+        <p className="text-muted-foreground">
+          Basinställningar för dashboard, rapporter och notifieringar.
+        </p>
+        <p className="text-sm font-medium">Demoformulär — sparas inte</p>
+        <p className="text-muted-foreground text-sm">
+          Fälten visar ett gränssnittsexempel. Lagring, rapporter och notifieringar är inte
+          anslutna.
+        </p>
       </div>
 
       <Card className="bg-card border-border">
@@ -24,7 +31,9 @@ export default function SettingsPage() {
             <Label htmlFor="timezone">Tidszon</Label>
             <Input id="timezone" placeholder="Europe/Stockholm" />
           </div>
-          <Button>Spara ändringar</Button>
+          <Button type="button" disabled>
+            Spara (inte anslutet)
+          </Button>
         </CardContent>
       </Card>
     </div>

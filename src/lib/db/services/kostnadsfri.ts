@@ -109,10 +109,10 @@ export async function createKostnadsfriPageWithMailEvent(
  * Register that the invite mail for `slug` went out — the write half of the
  * send register behind `/admin/kostnadsfri`.
  *
- * `contactEmail` is only written when it is a non-empty string: a caller that
- * re-registers a send without repeating the address must not blank the one
- * already stored. Returns null when the slug has no row (the caller decides
- * whether to create one).
+ * `industry` and `contactEmail` are only written when they are non-empty
+ * strings: a caller that re-registers a send without repeating the metadata
+ * must not blank what is already stored. Returns null when the slug has no row
+ * (the caller decides whether to create one).
  *
  * `extraDataPatch` slås ihop med `jsonb ||` i databasen i stället för att läsas
  * och skrivas tillbaka. Den ytliga sammanslagningen är avsiktlig här: patchen
@@ -122,19 +122,27 @@ export async function createKostnadsfriPageWithMailEvent(
 export type KostnadsfriPageSentInput = {
   sentAt: Date;
   source: string;
+  industry?: string | null;
   contactEmail?: string | null;
   extraDataPatch?: Record<string, unknown> | null;
 };
 
 /** Company metadata a registered send may refresh. Never the cohort fields. */
 export type KostnadsfriPageMetadataInput = {
+  industry?: string | null;
   contactEmail?: string | null;
   extraDataPatch?: Record<string, unknown> | null;
 };
 
 function kostnadsfriPageMetadataUpdates(data: KostnadsfriPageMetadataInput) {
-  const updates: { contact_email?: string; extra_data?: ReturnType<typeof sql> } = {};
+  const updates: {
+    industry?: string;
+    contact_email?: string;
+    extra_data?: ReturnType<typeof sql>;
+  } = {};
+  const industry = data.industry?.trim();
   const contactEmail = data.contactEmail?.trim();
+  if (industry) updates.industry = industry;
   if (contactEmail) updates.contact_email = contactEmail;
   if (data.extraDataPatch && Object.keys(data.extraDataPatch).length > 0) {
     updates.extra_data = sql`coalesce(${kostnadsfriPages.extra_data}, '{}'::jsonb) || ${JSON.stringify(
@@ -418,7 +426,7 @@ export async function recordKostnadsfriMailEventForSubscribedPage(
      */
     firstSend?: { sentAt: Date; source: string };
     /**
-     * Contact/profile refresh carried by an accepted send (first or follow).
+     * Industry/contact/profile refresh carried by an accepted send (first or follow).
      * Applied under the same lock and opt-out check, independently of the
      * protected cohort fields. Conflict or opt-out changes nothing.
      */

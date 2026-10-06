@@ -80,6 +80,7 @@ type KostnadsfriRow = {
   companyName: string | null;
   saved: boolean;
   status: string | null;
+  industry: string | null;
   contactEmail: string | null;
   sentAt: string | null;
   source: string | null;
@@ -263,6 +264,7 @@ export function KostnadsfriSection() {
         companyName: page.companyName,
         saved: true,
         status: page.status,
+        industry: page.industry?.trim() || null,
         contactEmail: page.contactEmail,
         sentAt: page.sentAt,
         source: page.source,
@@ -282,6 +284,7 @@ export function KostnadsfriSection() {
           companyName: null,
           saved: false,
           status: null,
+          industry: null,
           contactEmail: null,
           sentAt: null,
           source: null,
@@ -331,7 +334,7 @@ export function KostnadsfriSection() {
         if (!matchesCountFilter(row.stats?.started ?? 0, startedFilter)) return false;
       }
       if (!needle) return true;
-      return [row.companyName, row.slug, row.contactEmail].some((field) =>
+      return [row.companyName, row.industry, row.slug, row.contactEmail].some((field) =>
         field?.toLowerCase().includes(needle),
       );
     });
@@ -629,7 +632,7 @@ export function KostnadsfriSection() {
                       id="kostnadsfri-filter"
                       value={rowFilter}
                       onChange={(event) => setRowFilter(event.target.value)}
-                      placeholder="Sök företag, slug eller e-post"
+                      placeholder="Sök företag, bransch, slug eller e-post"
                       autoComplete="off"
                     />
                   </div>
@@ -717,6 +720,7 @@ export function KostnadsfriSection() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Företag / slug</TableHead>
+                      <TableHead>Bransch</TableHead>
                       <TableHead>Path</TableHead>
                       <TableHead>Skickat</TableHead>
                       <TableHead>Mejltyp</TableHead>
@@ -746,6 +750,7 @@ export function KostnadsfriSection() {
                           </p>
                           <p className="text-muted-foreground text-xs">{row.contactEmail || "—"}</p>
                         </TableCell>
+                        <TableCell>{row.industry || "Ej angiven"}</TableCell>
                         <TableCell>
                           <StatusBadge tone={KIND_TONE[row.kind]}>{KIND_LABEL[row.kind]}</StatusBadge>
                         </TableCell>
