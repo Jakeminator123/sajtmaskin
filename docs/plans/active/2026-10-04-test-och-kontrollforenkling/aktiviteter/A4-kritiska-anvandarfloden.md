@@ -129,6 +129,47 @@ och deras riktade tester/följdytor. De förkortade chat-pathsen hör till samma
 arkiverad enligt samordnaren; TESTER ändrar ändå inte dessa produktowners inom
 persistenspaketet. Provider/restore/promotion/preservation-kontrakten består.
 
+## Avgränsad förstudie för resterande flöden
+
+Read-only källgenomgång 2026-10-06, inte implementerad eller runtime-verifierad:
+återanvänd den disponibla nätisoleringen med riktig app, Postgres, browser och
+`preview-host`, samt en lokal kontrollerad extern AI-endpoint. Ingen delad DB,
+live provider, produktmock eller ny plan behövs för denna förstudie.
+
+- Skapa endast ett verifierat, oprivilegierat disponibelt användarkonto med
+  produktens lösenordshash och använd riktig `/api/auth/login`. `TEST_USER_*`
+  duger inte som vanlig användare: authkoden behandlar kontot som admin.
+  Projekt, chatt och version ska sedan skapas av det riktiga UI-flödet, inte seedas.
+- Hämta låsta `preview-host`-beroenden och materialisera paketmanifest från
+  verklig scaffold-owner före nätisoleringen. Förvärm jobbets egen npm-cache;
+  preview-hostens vanliga installation och beroendekontroll måste fortfarande
+  köras inne i isoleringen. `runtime/shared.js` tillåter HOME och placerar cache
+  under egen datakatalog, men släpper inte igenom `NPM_CONFIG_OFFLINE`.
+  En isolerad användares `.npmrc` med offline-läge är därför en kandidat;
+  både lyckad installation och avsiktlig cachemiss som hårdfel måste körbevisas.
+  Ingen falsk node_modules-/fingerprintmarkör eller alternativ bundler.
+- Den kontrollerade providergränsen måste tala installerad Responses-protokoll
+  via `OPENAI_BASE_URL`, validera samtliga faktiska brief-/generation-/follow-up-
+  och eventuella verifierings-/repair-anrop samt neka okända anrop. Exakta
+  SDK-svar/SSE-format och hela anropssekvensen är ännu inte körverifierade.
+  Framtida fixture ska hålla beroenden och externa font-/bildanrop avgränsade,
+  exempelvis med explicit genererad systemfontlayout som bevaras över turerna.
+  Det bevisar inte godtyckliga sajter eller canonical Inter-layout offline.
+- Beviskedjan ska omfatta synlig verklig preview, sparad version efter reload,
+  rätt tidigare filer i nästa providerrequest, bevarad lokal ändring och orelaterat
+  innehåll samt remove/replace utan återinförd A från äldre brief. Ett kontrollerat
+  fel/avbrott ska bevara tidigare data och ge ärlig status. Detta bevisar appens
+  samspel med kontrollerade providersvar, inte verklig AI-kvalitet.
+
+Separat blocker finns för full promotion: `product-postcheck.ts` accepterar en
+konfigurerad lokal preview-host på sin yttre URL-gräns, men capture-browserns
+`buildCaptureHostGate` nekar privata/loopback-adresser. Preview-ready får därför
+inte påstås bevisa godkänd capture/promotion. Om promotion krävs i samma flöde
+behövs separat ownerbeslut om en säker isolerad testbarhetsgräns; SSRF-skyddet
+får inte stängas av. Terminal failed/blocked låser inte ensamt composern enligt
+`pipeline-interaction-lock.ts`, men kvarvarande pipeline-/F3-arbete kan göra det.
+Faktisk UI-uppföljning efter postcheck-fel är därför fortfarande obevisad.
+
 ## Uppdrag
 
 Komplettera med ett litet antal verkligt användbara flödestester. Gå genom
