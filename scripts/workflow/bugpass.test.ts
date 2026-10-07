@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { assertVerifiedCliVersion, VERIFIED_CODEX_VERSION, codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview, validateSandboxProbeEvidence } from "./bugpass.mjs";
+import { assertPinnedCliVersion, PINNED_CODEX_VERSION, WINDOWS_SANDBOX_MODE, codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview, validateSandboxProbeEvidence } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared } from "./preview-push.mjs";
 
 const base = "a".repeat(40);
@@ -10,26 +10,25 @@ const review = { base, head, complete: true, summary: "Full diff reviewed; no cr
 const prepared = { version: 1, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", review };
 
 describe("IDE-neutral Buggpass", () => {
-  it("requires exact denied targets and a complete structured result for sandbox evidence", () => {
-    const marker = "C:\\temp\\canary.txt", url = "http://127.0.0.1:12345/sandbox-probe";
-    const prefix = "ERROR codex_core::tools::router: error=exec_command failed:";
-    const transcript = `${prefix} Set-Content '${marker}' blocked by policy\n${prefix} curl.exe ${url} blocked by policy`;
-    const evidence = { review, transcript, marker, url, code: 0, markerExists: false, requests: 0 };
+  it("requires successful reading plus actual write/network denial, not a broken sandbox", () => {
+    const evidence = { nonce: "canary", control: "canary", markerExists: false, requests: 0,
+      read: { code: 0, stdout: "canary\r\n" }, write: { code: 17, stderr: "PermissionDenied" },
+      network: { code: 7, stderr: "curl: (7) failed to connect" } };
     expect(() => validateSandboxProbeEvidence(evidence)).not.toThrow();
     for (const invalid of [
-      { ...evidence, transcript: transcript.replace("canary.txt", "wrong.txt") },
-      { ...evidence, transcript: transcript.replace("canary.txt", "canary.txt.bak") },
-      { ...evidence, transcript: transcript.replace("/sandbox-probe", "/sandbox-probe-evil") },
-      { ...evidence, transcript: `${prefix} Set-Content '${marker}'; curl.exe ${url} blocked by policy\n${prefix} unrelated blocked by policy` },
-      { ...evidence, transcript: transcript.replace(":12345", ":54321") },
-      { ...evidence, review: { ...review, complete: false } },
-      { ...evidence, review: { ...review, head: base } },
-      { ...evidence, markerExists: true }, { ...evidence, requests: 1 }, { ...evidence, code: 1 },
+      { ...evidence, read: { code: 1, stdout: "" } },
+      { ...evidence, read: { code: 0, stdout: "wrong" } },
+      { ...evidence, control: "wrong" }, { ...evidence, nonce: "" },
+      { ...evidence, write: { code: 17, stderr: "helper_unknown_error" } },
+      { ...evidence, write: { code: 0, stderr: "" } },
+      { ...evidence, network: { code: 1, stderr: "helper_unknown_error" } },
+      { ...evidence, network: { code: 0, stderr: "" } },
+      { ...evidence, markerExists: true }, { ...evidence, requests: 1 },
     ]) expect(() => validateSandboxProbeEvidence(invalid)).toThrow();
   });
   it("fails closed on a different CLI version until sandbox revalidation", () => {
-    expect(() => assertVerifiedCliVersion(VERIFIED_CODEX_VERSION)).not.toThrow();
-    expect(() => assertVerifiedCliVersion("codex-cli future")).toThrow(/Unverified/);
+    expect(() => assertPinnedCliVersion(PINNED_CODEX_VERSION)).not.toThrow();
+    expect(() => assertPinnedCliVersion("codex-cli future")).toThrow(/Unverified/);
   });
   it("passes only OS paths, never arbitrary provider secrets or Git/Node injection", () => {
     expect(reviewerEnv({ Path: "bin", USERPROFILE: "profile", CODEX_HOME: "auth-store",
@@ -59,6 +58,8 @@ describe("IDE-neutral Buggpass", () => {
     expect(args).toContain("read-only");
     expect(args).toContain('web_search="disabled"');
     expect(args).toContain('model_reasoning_effort="xhigh"');
+    expect(WINDOWS_SANDBOX_MODE).toBe("elevated");
+    if (process.platform === "win32") expect(args).toContain('windows.sandbox="elevated"');
     expect(args).toContain("chosen-model");
     for (const forbidden of ["resume", "fork", "--last", "danger-full-access", "--approve-for-me"])
       expect(args).not.toContain(forbidden);
@@ -87,5 +88,14 @@ describe("confirmed preview push", () => {
     expect(policy.directPreview).toMatchObject({ allowed: true, reviewName: "Buggpass", remoteChecks: "after-push" });
     expect(pkg.scripts[policy.directPreview.prepareCommand]).toContain("preview-push.mjs --prepare");
     expect(pkg.scripts[policy.directPreview.pushCommand]).toBe("node scripts/workflow/preview-push.mjs");
+  });
+  it("checks runtime capability before expensive verification or model work", () => {
+    const source = readFileSync("scripts/workflow/preview-push.mjs", "utf8");
+    const prepare = source.slice(source.indexOf('if (args[0] === "--prepare")'));
+    expect(prepare.indexOf("assertReviewRuntime();")).toBeGreaterThan(0);
+    expect(prepare.indexOf("assertReviewRuntime();")).toBeLessThan(prepare.indexOf("verify-pr.mjs"));
+    const probe = readFileSync("scripts/workflow/probe-bugpass-sandbox.mjs", "utf8");
+    expect(probe).not.toContain("codexArgs(");
+    expect(probe).not.toContain("--model");
   });
 });

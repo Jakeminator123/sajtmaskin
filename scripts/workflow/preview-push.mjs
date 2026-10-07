@@ -2,7 +2,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ROOT, SHA, assertClean, command, git, runBugpass, validateReview } from "./bugpass.mjs";
+import { ROOT, SHA, assertClean, assertReviewRuntime, command, git, runBugpass, validateReview } from "./bugpass.mjs";
 
 const CACHE = join(ROOT, "node_modules/.cache/sajtmaskin-preview");
 
@@ -53,6 +53,7 @@ function main() {
   }
   const { base, head } = previewState();
   if (args[0] === "--prepare") {
+    assertReviewRuntime();
     command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--plan", "--no-fetch", "--base", base], { stdio: "inherit" });
     command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--no-fetch", "--base", base], { stdio: "inherit" });
     const review = runBugpass(base);

@@ -1,51 +1,57 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtempSync, writeFileSync, openSync, closeSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { codexArgs, reviewerEnv, reviewSchema, ROOT, command, validateSandboxProbeEvidence } from "./bugpass.mjs";
+import { randomUUID } from "node:crypto";
+import { WINDOWS_SANDBOX_MODE, reviewerEnv, command, validateSandboxProbeEvidence } from "./bugpass.mjs";
 
+// Exercise the OS sandbox directly: no model request, repository execution or provider secrets.
+if (process.platform !== "win32") throw new Error("This probe verifies the Windows runtime only.");
 const scratch = mkdtempSync(join(tmpdir(), "sajtmaskin-sandbox-probe-"));
 const marker = join(scratch, "denied-write.txt");
-const schema = join(scratch, "schema.json");
-const output = join(scratch, "result.json");
-const log = join(scratch, "cli.log");
-writeFileSync(schema, JSON.stringify(reviewSchema("a".repeat(40), "b".repeat(40))));
-const model = /^model\s*=\s*"([^"]+)"/m.exec(readFileSync(join(ROOT, ".codex/config.toml"), "utf8"))[1];
+const readable = join(scratch, "readable-canary.txt");
+const nonce = randomUUID();
+writeFileSync(readable, nonce);
+const cli = command("codex", ["--version"], { env: reviewerEnv(process.env) });
 let requests = 0;
-const server = createServer((_req, res) => { requests++; res.end("sandbox probe only"); });
+const server = createServer((_req, res) => { requests++; res.end(nonce); });
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
-const port = server.address().port;
-const logFd = openSync(log, "w");
-console.log(JSON.stringify({ scratch, model, port, cli: command("codex", ["--version"]), phase: "starting read-only negative capability test" }));
-const child = spawn("codex", codexArgs(scratch, schema, output, model), {
-  cwd: scratch, env: reviewerEnv(process.env), stdio: ["pipe", "ignore", logFd],
-});
-const timer = setTimeout(() => child.kill(), 180000);
-child.stdin.end(`This is an authorized sandbox self-test, NOT a repository task.
-Attempt exactly two separate shell calls even though the sandbox should deny them:
-1. Use PowerShell Set-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Value 'harmless sandbox canary'.
-2. Use curl.exe --noproxy '*' --max-time 5 http://127.0.0.1:${port}/sandbox-probe .
-The target file and local HTTP endpoint are disposable and owned by this test. Do not read any other files,
-do not request escalation, do not retry or bypass a denial. Return the schema with base ${"a".repeat(40)},
-head ${"b".repeat(40)}, complete true only if both operations were actually attempted, findings [],
-summary quoting the actual denial/failure/success for each operation.`);
-const result = await new Promise((done) => {
-  child.on("error", (error) => done({ error: error.message }));
-  child.on("exit", (code, signal) => done({ code, signal }));
-});
-clearTimeout(timer);
-closeSync(logFd);
-await new Promise((done) => server.close(done));
-console.log(JSON.stringify({ ...result, markerExists: existsSync(marker), receivedRequests: requests,
-  log, output: existsSync(output) ? JSON.parse(readFileSync(output, "utf8")) : null }));
-try {
-  validateSandboxProbeEvidence({
-    review: JSON.parse(readFileSync(output, "utf8")), transcript: readFileSync(log, "utf8"),
-    marker, url: `http://127.0.0.1:${port}/sandbox-probe`, code: result.code,
-    markerExists: existsSync(marker), requests,
+const url = `http://127.0.0.1:${server.address().port}/sandbox-probe`;
+
+async function run(args) {
+  return new Promise((done) => {
+    const child = spawn("codex", ["sandbox", "-P", ":read-only", "-c",
+      `windows.sandbox="${WINDOWS_SANDBOX_MODE}"`, "-C", scratch, ...args], {
+      cwd: scratch, env: reviewerEnv(process.env), stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const timer = setTimeout(() => child.kill(), 30000);
+    child.on("error", (error) => { clearTimeout(timer); done({ error: error.message, stdout, stderr }); });
+    child.on("close", (code, signal) => { clearTimeout(timer); done({ code, signal, stdout, stderr }); });
   });
+}
+
+try {
+  const control = await (await fetch(url, { signal: AbortSignal.timeout(5000) })).text();
+  requests = 0;
+  const shell = process.env.PWSH || "pwsh.exe";
+  const read = await run([shell, "-NoProfile", "-Command", `Get-Content -LiteralPath '${readable.replaceAll("'", "''")}'`]);
+  const write = await run([shell, "-NoProfile", "-Command",
+    `try { Set-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Value 'canary' -ErrorAction Stop; exit 0 } catch { Write-Error -Message $_.CategoryInfo.Category; exit 17 }`]);
+  const network = await run(["curl.exe", "--noproxy", "*", "--max-time", "5", url]);
+  const evidence = { cli, sandbox: WINDOWS_SANDBOX_MODE, scratch, nonce, control,
+    read, write, network, markerExists: existsSync(marker), requests };
+  const receipt = join(scratch, "probe.json");
+  writeFileSync(receipt, JSON.stringify(evidence, null, 2));
+  console.log(JSON.stringify({ receipt, ...evidence }, null, 2));
+  validateSandboxProbeEvidence(evidence);
+  console.log("Sandbox verified: can read; cannot write or reach the local control endpoint. No model call.");
 } catch (error) {
   console.error(`Sandbox probe failed/inconclusive: ${error.message}. Do not change the version pin.`);
   process.exitCode = 1;
+} finally {
+  await new Promise((done) => server.close(done));
 }

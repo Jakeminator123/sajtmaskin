@@ -18,7 +18,8 @@ måste kontrolleras hos Cursor; de har inte ändrats av detta repoarbete.
 
 1. Commit:a exakt uppgiftens filer. Arbetskopian ska vara ren.
 2. `npm run preview:prepare` hämtar färsk preview, kräver fast-forward och kör
-   befintlig path-impactmotor: först plan, sedan dess diffvalda kontroller.
+   först ett modellfritt sandboxprov. Sedan används befintlig path-impactmotor:
+   först plan, sedan dess diffvalda kontroller.
    Därefter körs **ett** fristående Buggpass. Ingen extra API-review startas.
 3. Fråga Jakob **Är du säker på att du vill pusha?**, ange exakt head-SHA.
    Efter hans svar: `npm run preview:push -- --confirm <full SHA>`.
@@ -49,6 +50,10 @@ Körningen startar i en unik temporär katalog utan repo-/användarkonfiguration
 MCP-anslutningar eller projektets hemlighetsmiljö. Granskaren läser exakt Git-
 diff och nödvändiga callers/tester via SHA; den får inte exekvera repokod.
 Sandbox får aldrig stängas av för att få en review att fungera.
+Windows-provet kräver både lyckad läsning och nekad skrivning/nätverksåtkomst.
+Misslyckad sandbox stoppar före tester och modellstart; ingen automatisk
+fallback till svagare isolering görs. Se aktuell införandestatus i
+[Codex-lagret](../../.codex/README.md#avgränsat-undantag-fristående-buggpass).
 
 CLI-inloggningen återanvänds; kommandot kräver ingen extra API-nyckel.
 Det är inte gratis: valt kontos modellkvot gäller. Ingen tokenbesparing är
