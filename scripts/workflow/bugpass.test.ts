@@ -2,13 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { assertPinnedCliVersion, PINNED_CODEX_VERSION, WINDOWS_SANDBOX_MODE, codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview, validateSandboxProbeEvidence } from "./bugpass.mjs";
-import { requireConfirmation, validatePrepared, publishAndReview, selectPreviousReview } from "./preview-push.mjs";
+import { requireConfirmation, validatePrepared, preparePreview, publishAndReview, selectPreviousReview } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, canReuseAfterPublication, validateReviewChain } from "./bugpass-state.mjs";
 
 const base = "a".repeat(40);
 const head = "b".repeat(40);
 const review = { base, head, complete: true, summary: "Full diff reviewed; no credible findings.", findings: [] };
-const prepared = { version: 2, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", postPushReview: "required" };
+const prepared = { version: 3, base, head, verification: "verify:pr:plan", plannedAt: "2026-10-07T10:00:00Z", postPushReview: "required" };
 const finding = { id: "F1", priority: "P2", confidencePercent: 85, impactScore: 2, file: "a.ts", line: 1, description: "Concrete regression" };
 
 describe("IDE-neutral Buggpass", () => {
@@ -76,11 +76,11 @@ describe("IDE-neutral Buggpass", () => {
 });
 
 describe("confirmed preview push", () => {
-  it("rejects missing, stale, wrong-base and unverified receipts", () => {
+  it("rejects missing, stale, wrong-base and old full-verification receipts", () => {
     expect(() => validatePrepared(prepared, base, head)).not.toThrow();
     for (const invalid of [null, {}, { ...prepared, head: base }, { ...prepared, base: head },
-      { ...prepared, verification: "plan" }, { ...prepared, verifiedAt: null },
-      { ...prepared, version: 1 }, { ...prepared, postPushReview: undefined }]) {
+      { ...prepared, verification: "verify:pr" }, { ...prepared, plannedAt: undefined },
+      { ...prepared, plannedAt: "invalid" }, { ...prepared, version: 2 }, { ...prepared, postPushReview: undefined }]) {
       expect(() => validatePrepared(invalid, base, head)).toThrow();
     }
   });
@@ -96,11 +96,31 @@ describe("confirmed preview push", () => {
     expect(pkg.scripts[policy.directPreview.prepareCommand]).toContain("preview-push.mjs --prepare");
     expect(pkg.scripts[policy.directPreview.pushCommand]).toBe("node scripts/workflow/preview-push.mjs");
   });
-  it("checks runtime capability before expensive verification or model work", () => {
+  it("prepares exactly one plan without claiming test or review execution", () => {
+    const calls: string[] = [];
+    const result = preparePreview(base, head, null, {
+      plan: (value: string) => calls.push(`plan:${value}`),
+      readState: () => { calls.push("state"); return { base, head }; },
+    });
+    expect(calls).toEqual([`plan:${base}`, "state"]);
+    expect(() => validatePrepared(result, base, head)).not.toThrow();
+    expect(result.verification).toBe("verify:pr:plan");
+    expect(result).not.toHaveProperty("verifiedAt");
+    expect(() => preparePreview(base, head, null, {
+      plan: () => { throw new Error("plan failed"); }, readState: () => { throw new Error("must not run"); },
+    })).toThrow("plan failed");
+    for (const moved of [{ base: head, head }, { base, head: base }]) {
+      expect(() => preparePreview(base, head, null, { plan: () => {}, readState: () => moved })).toThrow(/moved/);
+    }
+  });
+  it("checks runtime once at push time, not again in preparation", () => {
     const source = readFileSync("scripts/workflow/preview-push.mjs", "utf8");
     const prepare = source.slice(source.indexOf('if (args[0] === "--prepare")'));
-    expect(prepare.indexOf("assertReviewRuntime();")).toBeGreaterThan(0);
-    expect(prepare.indexOf("assertReviewRuntime();")).toBeLessThan(prepare.indexOf("verify-pr.mjs"));
+    expect(prepare.match(/assertReviewRuntime\(\);/g)).toHaveLength(1);
+    expect(prepare.indexOf("assertReviewRuntime();")).toBeGreaterThan(prepare.indexOf("requireConfirmation(args[1], head)"));
+    expect(prepare.indexOf("assertReviewRuntime();")).toBeLessThan(prepare.indexOf("publishAndReview(base, head, prepared"));
+    expect(prepare.match(/"scripts\/workflow\/verify-pr.mjs"/g)).toHaveLength(1);
+    expect(prepare).toContain('["scripts/workflow/verify-pr.mjs", "--plan", "--no-fetch", "--base", base]');
     const probe = readFileSync("scripts/workflow/probe-bugpass-sandbox.mjs", "utf8");
     expect(probe).not.toContain("codexArgs(");
     expect(probe).not.toContain("--model");

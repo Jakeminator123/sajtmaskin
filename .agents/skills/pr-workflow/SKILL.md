@@ -41,8 +41,8 @@ rapportens `runtimeStatus`.
 ## 3. Synka och verifiera
 
 - `npm run sync:derived` när owners ändrats.
-- `npm run verify:pr -- --plan` när diffen fått form och före push; hooken
-  upprepar planen.
+- `npm run verify:pr -- --plan` när diffen fått form och före push; direktpreview
+  återanvänder `preview:prepare`-planen, övriga pushar planeras i hooken.
 - Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions
   publicerar required checks på varje head: tung profil för ready runtime,
   högrisk och `master`, explicit light-kvitto för safe docs och vanliga drafts.
@@ -55,11 +55,11 @@ rapportens `runtimeStatus`.
 
 ## 4. Leverera: direkt preview eller PR
 
-Direktpreview: commit:a exakta paths, kör `npm run preview:prepare` (plan,
-diffvald verifiering och kontroll att granskaren kan starta). Fråga sedan
+Direktpreview: kör riktade kontroller enligt § 3, commit:a exakta paths och kör
+`npm run preview:prepare` (endast plan; inget test- eller reviewkvitto). Fråga sedan
 Jakob **Är du säker på att du vill pusha?** med exakt SHA. Efter svaret:
 `npm run preview:push -- --confirm <full SHA>`. Kommandot återkontrollerar
-remote-bas/head och pushar utan force. **Efter lyckad push** startas ett
+remote-bas/head och granskarens sandbox, sedan pushas utan force. **Efter lyckad push** startas ett
 fristående readonly Buggpass; resultatet återgår till författaragenten.
 Agenten accepterar och fixar, avfärdar med konkret bevis eller skjuter upp
 låg-impact P2 med dokumenterad uppföljning. Fynd visar bedömd säkerhet i %,

@@ -120,7 +120,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(20);
+    expect(HOOK_VERSION).toBe(21);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -216,19 +216,26 @@ describe("renderHookScript", () => {
       const hook = join(root, "pre-push");
       writeFileSync(hook, renderHookScript("pre-push"));
       const env = { ...gitEnv, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: root,
-        CI: "true", SAJTMASKIN_SKIP_VERIFY_HOOKS: "1", SAJTMASKIN_PREVIEW_PUSH_CONFIRM: "" };
-      const run = (extra = {}, local = head, remote = base) => runHookSync(hook, {
-        cwd: root, input: `refs/heads/fix/x ${local} refs/heads/preview ${remote}\n`,
+        CI: "true", SAJTMASKIN_SKIP_VERIFY_HOOKS: "1", SAJTMASKIN_PREVIEW_WRAPPER_HEAD: "" };
+      const run = (extra = {}, local = head, remote = base, otherRef = "") => runHookSync(hook, {
+        cwd: root, input: `refs/heads/fix/x ${local} refs/heads/preview ${remote}\n${otherRef}`,
         env: { ...env, ...extra }, encoding: "utf8", testBin: bin,
       });
       expect(run().status).toBe(1);
-      const confirmed = { SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head };
+      const confirmed = { SAJTMASKIN_PREVIEW_WRAPPER_HEAD: head };
       expect(run(confirmed).status).toBe(1); // Missing receipt.
       writeFileSync(join(cache, `${head}.json`), JSON.stringify({
-        version: 2, base, head, verification: "verify:pr", verifiedAt: new Date().toISOString(), postPushReview: "required",
+        version: 3, base, head, verification: "verify:pr:plan", plannedAt: new Date().toISOString(), postPushReview: "required",
       }));
       const accepted = run(confirmed);
       expect(accepted.status, accepted.stderr).toBe(0);
+      expect(run({ SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head }).status).toBe(1); // Old raw-push signal is not the wrapper.
+      const withoutSkip = run({ ...confirmed, CI: "false", GITHUB_ACTIONS: "false", SAJTMASKIN_SKIP_VERIFY_HOOKS: "0" });
+      expect(withoutSkip.status, withoutSkip.stderr).toBe(0); // No generic npm plan rerun (fixture has no package.json).
+      const mixed = run({ ...confirmed, CI: "false", GITHUB_ACTIONS: "false", SAJTMASKIN_SKIP_VERIFY_HOOKS: "0" }, head, base,
+        `refs/heads/fix/x ${head} refs/heads/fix/x ${base}\n`);
+      expect(mixed.status).not.toBe(0);
+      expect(mixed.stdout).toContain("Planerar diffen"); // Other refs still require the generic plan.
       expect(run(confirmed, head, "c".repeat(40)).status).toBe(1);
       expect(run(confirmed, zero).status).toBe(1);
       expect(run(confirmed, head, zero).status).toBe(1);
@@ -626,11 +633,14 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("uppgraderar exakt känd v19, men bevarar äldre lokala tillägg", () => {
+  it("uppgraderar exakt känd v19/v20, men bevarar äldre lokala tillägg", () => {
+    const v20 = desired.replace(`v${HOOK_VERSION}`, "v20")
+      .replace("  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.", "  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.")
+      .replace("    # Exakt base/head-plan finns redan; kor inte samma plan igen nedan.\n    continue\n", "");
     // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
     const outdated = desired.replace(`v${HOOK_VERSION}`, "v19")
-      .replace(/\n  # Direkt preview:[\s\S]+? \|\| exit 1\n  fi\n/, "\n");
-    for (const body of [outdated, outdated.replace(/\n/g, "\r\n")]) {
+      .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
+    for (const body of [outdated, v20].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
       expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
       expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
     }
@@ -710,7 +720,7 @@ exit 0
 
   it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
     for (const hookName of RETIRED_DB_HOOKS) {
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18"), renderHookScript(hookName).replace("v20", "v19")]) {
+      for (const legacy of [oldHook(hookName), ...[18, 19, 20].map((version) => renderHookScript(hookName).replace(`v${HOOK_VERSION}`, `v${version}`))]) {
         for (const existing of [
           legacy + "echo local-custom-hook\n",
           "echo local-custom-hook\n" + legacy,
@@ -731,7 +741,7 @@ exit 0
         "skip",
       );
       expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18"), renderHookScript(hookName).replace("v20", "v19")]) {
+      for (const legacy of [oldHook(hookName), ...[18, 19, 20].map((version) => renderHookScript(hookName).replace(`v${HOOK_VERSION}`, `v${version}`))]) {
         expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
         expect(
           decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
@@ -797,7 +807,7 @@ exit 0
   it.each([
     "#!/bin/sh\necho foreign\n",
     oldHook("post-checkout") + "echo local-custom-hook\n",
-    renderHookScript("post-checkout").replace("v20", "v18") + "echo local-custom-hook\n",
+    renderHookScript("post-checkout").replace(`v${HOOK_VERSION}`, "v18") + "echo local-custom-hook\n",
   ])("främmande eller modifierad hook stoppar hela installationen (%#)", (foreign) => {
     const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-conflict-test-"));
     expect(spawnSync("git", ["init", fixture]).status).toBe(0);

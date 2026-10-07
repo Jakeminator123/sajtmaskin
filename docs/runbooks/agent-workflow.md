@@ -4,7 +4,9 @@ Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Mergekrav
 [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
 
 Jobba från färsk `origin/preview`. Direktleverans kan förberedas med
-`npm run preview:prepare`: diffvalda kontroller och granskarberedskap.
+`npm run preview:prepare`: endast plan, inte ett kvitto på körda tester.
+Kör och redovisa relevanta riktade kontroller enligt PR-workflow; ingen extra
+full lokal testslinga krävs enbart för direktpreview.
 Fråga därefter Jakob "Är du säker på att du vill pusha?" med exakt SHA;
 `npm run preview:push -- --confirm <SHA>` får bara förmedla hans faktiska svar.
 Efter lyckad push körs ett fristående **Buggpass** och resultatet återgår till

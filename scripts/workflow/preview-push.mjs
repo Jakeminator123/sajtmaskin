@@ -8,10 +8,24 @@ import { reviewStatus, nextRound, followUpDigest, validateReviewChain } from "./
 const CACHE = join(ROOT, "node_modules/.cache/sajtmaskin-preview");
 
 export function validatePrepared(receipt, base, head) {
-  if (!SHA.test(base) || !SHA.test(head) || receipt?.version !== 2 || receipt.base !== base ||
-      receipt.head !== head || receipt.verification !== "verify:pr" || !receipt.verifiedAt || receipt.postPushReview !== "required") {
+  if (!SHA.test(base) || !SHA.test(head) || receipt?.version !== 3 || receipt.base !== base ||
+      receipt.head !== head || receipt.verification !== "verify:pr:plan" ||
+      !Number.isFinite(Date.parse(receipt.plannedAt)) || receipt.postPushReview !== "required") {
     throw new Error("No current prepared preview receipt. Run npm run preview:prepare.");
   }
+}
+
+// Same local contract as PRs: plan here, targeted tests by the author, full CI remotely.
+// This receipt deliberately does not attest that any tests or model review ran.
+export function preparePreview(base, head, previous, actions) {
+  actions.plan(base);
+  const current = actions.readState();
+  if (current.base !== base || current.head !== head) throw new Error("Preview or HEAD moved during preparation; prepare again.");
+  return {
+    version: 3, base, head, verification: "verify:pr:plan", plannedAt: new Date().toISOString(),
+    postPushReview: "required", previous: previous ? { base: previous.base, head: previous.head } : null,
+    previousContext: followUpDigest(previous),
+  };
 }
 
 export function requireConfirmation(value, head) {
@@ -94,7 +108,7 @@ export function previewState() {
 function main() {
   const args = process.argv.slice(2);
   if (args[0] === "--hook" && args.length === 3) {
-    requireConfirmation(process.env.SAJTMASKIN_PREVIEW_PUSH_CONFIRM, args[2]);
+    if (process.env.SAJTMASKIN_PREVIEW_WRAPPER_HEAD !== args[2]) throw new Error("Use npm run preview:push after human confirmation; raw preview push is not supported.");
     checkPrepared(args[1], args[2]);
     return;
   }
@@ -112,18 +126,13 @@ function main() {
   if (args[0] === "--prepare") {
     const previousPair = args[2]?.split(":");
     const previous = selectPreviousReview(base, previousPair ? { base: previousPair[0], head: previousPair[1] } : null, previousPublication(base));
-    assertReviewRuntime();
-    command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--plan", "--no-fetch", "--base", base], { stdio: "inherit" });
-    command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--no-fetch", "--base", base], { stdio: "inherit" });
-    const current = previewState();
-    if (current.base !== base || current.head !== head) throw new Error("Preview or HEAD moved during preparation; prepare again.");
+    const prepared = preparePreview(base, head, previous, {
+      plan: () => command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--plan", "--no-fetch", "--base", base], { stdio: "inherit" }),
+      readState: previewState,
+    });
     mkdirSync(CACHE, { recursive: true });
-    writeFileSync(join(CACHE, `${head}.json`), JSON.stringify({
-      version: 2, base, head, verification: "verify:pr", verifiedAt: new Date().toISOString(),
-      postPushReview: "required", previous: previous ? { base: previous.base, head: previous.head } : null,
-      previousContext: followUpDigest(previous),
-    }, null, 2));
-    console.log(`[preview] Prepared ${head}. Nothing pushed. Ask Jakob: Är du säker på att du vill pusha till preview?`);
+    writeFileSync(join(CACHE, `${head}.json`), JSON.stringify(prepared, null, 2));
+    console.log(`[preview] Plan prepared for ${head}; no tests or model review run. Complete/report relevant targeted checks per workflow.mdc before asking Jakob: Är du säker på att du vill pusha till preview? Nothing pushed.`);
     return;
   }
   requireConfirmation(args[1], head);
@@ -133,7 +142,7 @@ function main() {
   assertReviewRuntime(); // Availability/safety only; the actual review starts AFTER successful push.
   publishAndReview(base, head, prepared, {
     push: () => command("git", ["push", "origin", `${head}:refs/heads/preview`], {
-      stdio: "inherit", env: { ...process.env, SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head },
+      stdio: "inherit", env: { ...process.env, SAJTMASKIN_PREVIEW_WRAPPER_HEAD: head },
     }),
     save: (publication) => writeFileSync(join(CACHE, `${head}.published.json`), JSON.stringify(publication, null, 2)),
     review: reviewPublished,

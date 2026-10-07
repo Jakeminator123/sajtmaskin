@@ -18,15 +18,18 @@ måste kontrolleras hos Cursor; de har inte ändrats av detta repoarbete.
 
 ## Direkt till preview
 
-1. Commit:a exakt uppgiftens filer. Arbetskopian ska vara ren.
+1. Kör/redovisa relevanta riktade kontroller enligt PR-workflow och commit:a
+   exakt uppgiftens filer. Arbetskopian ska vara ren.
 2. `npm run preview:prepare` hämtar färsk preview, kräver fast-forward och kör
-   först ett modellfritt sandboxprov. Sedan används befintlig path-impactmotor:
-   först plan, sedan dess diffvalda kontroller.
-   Ingen modellgranskning körs före publiceringen.
+   befintlig path-impactmotor i **planläge**. Inga tester, `git diff --check`,
+   sandboxprov eller modellgranskningar körs av prepare. Plankvittot attesterar
+   inte sådana körningar. Full lokal `verify:pr` behövs bara enligt samma
+   befintliga undantag som på PR-vägen (t.ex. ändrad CI-/verifieringsmotor).
 3. Fråga Jakob **Är du säker på att du vill pusha?**, ange exakt head-SHA.
    Efter hans svar: `npm run preview:push -- --confirm <full SHA>`.
-4. Kommandot och pre-push-hooken kräver aktuellt verifieringskvitto för base/head och
-   bekräftelse. Ny kod eller flyttad preview stoppar pushen. Ingen force/delete.
+4. Wrappern kontrollerar granskarens sandbox en gång före push. Hooken kräver
+   wrapper-signalen och aktuellt **plankvitto** för base/head; planen upprepas
+   inte för preview. Ny kod eller flyttad preview stoppar pushen. Ingen force/delete.
 5. **Efter lyckad push** sparas publiceringskvittot och ett fristående Buggpass
    startar automatiskt i samma kommandoflöde. Resultatet går tillbaka till
    författaragenten; huvudchattens innehåll skickas inte till granskaren.
@@ -42,7 +45,10 @@ Vid införandet är detta en plan tills live ruleset verifierats; använd aldrig
 admin-bypass för att låtsas att direktvägen redan är aktiverad.
 
 Hook/kvitto är lokala arbetsflödesskydd, inte manipulationssäkra attesteringar.
-En annan klient kan sakna hooken. Ingen garanti ges att en godtycklig
+`preview:push` är enda stödda direktvägen; sätt inte dess interna
+`SAJTMASKIN_PREVIEW_WRAPPER_HEAD` manuellt för rå `git push`. Signalen sätts
+efter sandboxprovet men är inte manipulationssäker. En annan klient kan sakna
+hooken. Ingen garanti ges att en godtycklig
 GitHub-API/UI-push startar denna lokala granskare. Flödet kräver att agenten
 använder wrappern och följer resultatet; det är ingen ny moln-webhook eller
 bakgrundsagent som fortsätter när datorn är avstängd. Använd PR-vägen om ett
@@ -58,7 +64,7 @@ MCP-anslutningar eller projektets hemlighetsmiljö. Granskaren läser exakt Git-
 diff och nödvändiga callers/tester via SHA; den får inte exekvera repokod.
 Sandbox får aldrig stängas av för att få en review att fungera.
 Windows-provet kräver både lyckad läsning och nekad skrivning/nätverksåtkomst.
-Misslyckad sandbox stoppar före tester och modellstart; ingen automatisk
+Misslyckad sandbox stoppar före push och modellstart; ingen automatisk
 fallback till svagare isolering görs. Se aktuell införandestatus i
 [Codex-lagret](../../.codex/README.md#avgränsat-undantag-fristående-buggpass).
 
@@ -67,7 +73,7 @@ Det är inte gratis: valt kontos modellkvot gäller. Ingen tokenbesparing är
 mätt. En körning per oförändrat base/head/kontrakt/publicering i samma checkout; en lockfil
 stoppar samtidig dubbelstart. Tidsgräns 20 minuter; fel/ofullständig review är
 inte godkänt. JSON och triage finns i `node_modules/.cache/sajtmaskin-bugpass/`;
-verifierings-/publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`.
+plan-/publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`.
 Dessa lokala filer innehåller kodfynd, inte chathistorik eller credentials.
 Efter avbruten process: verifiera att dess reviewer inte kör innan en kvarvarande
 lockfil tas bort. Ingen automatisk processdödning eller låsrensning.
