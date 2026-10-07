@@ -366,6 +366,15 @@ export function decideHookInstall({ existing, desired }) {
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
   }
+  // Canonical v19 pre-push at ab68d9ed; LF and CRLF. A version marker alone
+  // must never authorize deleting local additions or a third-party delegate.
+  const knownPriorHashes = [
+    "f0a367369244d9bee8f3159450d8f2f600cd362c99b77bed3e0affb795cde73a",
+    "320c7fd3524f6da46f2b856b0d000d8de1021babd7b850a1d5ad140f974a1306",
+  ];
+  if (!knownPriorHashes.includes(createHash("sha256").update(existing).digest("hex"))) {
+    return { action: "conflict", reason: "äldre hook har okänt/modifierat fullinnehåll; rörs inte" };
+  }
   return { action: "write", reason: `uppgradering v${existingVersion} → v${desiredVersion}` };
 }
 

@@ -627,9 +627,15 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("skriver om vår egen hook när den är inaktuell", () => {
-    const outdated = desired.replace(`v${HOOK_VERSION}`, "v0");
-    expect(decideHookInstall({ existing: outdated, desired }).action).toBe("write");
+  it("uppgraderar exakt känd v19, men bevarar äldre lokala tillägg", () => {
+    // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
+    const outdated = desired.replace(`v${HOOK_VERSION}`, "v19")
+      .replace(/\n  # Direkt preview:[\s\S]+? \|\| exit 1\n  fi\n/, "\n");
+    for (const body of [outdated, outdated.replace(/\n/g, "\r\n")]) {
+      expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
+      expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
+    }
+    expect(decideHookInstall({ existing: desired.replace(`v${HOOK_VERSION}`, "v0"), desired }).action).toBe("conflict");
   });
 
   it("låter inte en gammal worktree nedgradera en nyare delad hook", () => {
