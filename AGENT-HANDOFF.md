@@ -98,11 +98,12 @@ inte ombyggda.
    saas-landing, dashboard, auth-pages, ecommerce och app-shell. Förbättrad
    ranking är inte bevisad. Shared Blob-/API-refresh kräver separat beslut;
    cache saknar normal TTL/inputhash-enforcement och CLI-invalidation är lokal.
-4. Preview delar produktionsdatabas. Post-CI till och med #1577 visar samma
-   13 accepterade DEV/PROD-paritetsavvikelser, verifierat noll delta mellan dem.
-   Dessa körningar är röda på paritet, inte helgröna. Ingen DB-apply,
-   masterpromotion, envändring eller live-provideracceptans ingår. Behåll
-   befintlig OpenAI-nyckel; visa eller rotera den inte.
+4. 2026-10-07: Preview/Development delar DEV; Production behåller PROD.
+   Avgränsad DEV-synk gav 0 public-schema-avvikelser. Äldre CI-körningars 13
+   avvikelser är historiska, inte bevis på dagens tillstånd. Live kvitto och
+   säkerhetsgränser ägs av `docs/runbooks/db-migrations.md`. Kod/push-status
+   måste läsas live; ingen masterpromotion ingår. Behåll befintlig
+   OpenAI-nyckel; visa eller rotera den inte.
 
 ## Säkring och städning
 

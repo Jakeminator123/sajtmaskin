@@ -316,12 +316,14 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = `#!/bin/sh\n# ${HOOK_MARKER} v18 (${hookName}: retired)\nexit 0\n`;
+  const legacyPassive = [18, 19].flatMap((version) => {
+    const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
+    return [body, body.replace(/\n/g, "\r\n")];
+  });
   const hash = createHash("sha256").update(existing).digest("hex");
   if (
     !LEGACY_DB_HOOK_HASHES[hookName].includes(hash) &&
-    existing !== legacyPassive &&
-    existing !== legacyPassive.replace(/\n/g, "\r\n")
+    !legacyPassive.includes(existing)
   ) {
     return { action: "conflict", reason: "modifierad, okänd eller nyare hook; rörs inte" };
   }

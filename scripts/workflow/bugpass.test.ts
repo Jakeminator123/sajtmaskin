@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { codexArgs, reviewPrompt, reviewSchema, validateReview } from "./bugpass.mjs";
+import { codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared } from "./preview-push.mjs";
 
 const base = "a".repeat(40);
@@ -10,6 +10,12 @@ const review = { base, head, complete: true, summary: "Full diff reviewed; no cr
 const prepared = { version: 1, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", review };
 
 describe("IDE-neutral Buggpass", () => {
+  it("passes only OS paths, never arbitrary provider secrets or Git/Node injection", () => {
+    expect(reviewerEnv({ Path: "bin", USERPROFILE: "profile", CODEX_HOME: "auth-store",
+      OPENAI_API_KEY: "secret", REDIS_URL: "secret", UNFAMILIAR_CREDENTIAL: "secret",
+      NODE_OPTIONS: "--require bad.js", GIT_DIR: "wrong", CODEX_THREAD_ID: "author-chat" }))
+      .toEqual({ Path: "bin", USERPROFILE: "profile", CODEX_HOME: "auth-store" });
+  });
   it("accepts only a complete review for the exact base/head", () => {
     expect(() => validateReview(review, base, head)).not.toThrow();
     for (const invalid of [null, {}, { ...review, complete: false }, { ...review, base: head },

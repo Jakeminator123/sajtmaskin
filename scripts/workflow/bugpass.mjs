@@ -85,6 +85,13 @@ export function codexArgs(scratch, schema, output, model) {
     "--output-last-message", output, "--color", "never", "-"];
 }
 
+/** Only non-secret OS/runtime paths; authentication stays in the existing CLI auth store. */
+export function reviewerEnv(env) {
+  const allowed = new Set(["PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "PROGRAMDATA",
+    "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "VOLTA_HOME", "CODEX_HOME", "PWSH"]);
+  return Object.fromEntries(Object.entries(env).filter(([key]) => allowed.has(key.toUpperCase())));
+}
+
 export function runBugpass(base) {
   assertClean();
   const head = git(["rev-parse", "HEAD"]);
@@ -98,12 +105,16 @@ export function runBugpass(base) {
   writeFileSync(schema, JSON.stringify(reviewSchema(base, head)));
   console.log(`[bugpass] ${base.slice(0, 12)}..${head.slice(0, 12)} · ${model}/xhigh · fresh read-only process`);
   // Keep the existing auth store, but do not pass project/API/provider secrets or Git redirection.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-    !/(KEY|TOKEN|SECRET|PASSWORD|POSTGRES|DATABASE)/i.test(key) && !key.startsWith("GIT_")));
-  command("codex", codexArgs(scratch, schema, output, model), {
-    cwd: scratch, env, input: reviewPrompt(ROOT, base, head), timeout: 20 * 60 * 1000,
-    stdio: ["pipe", "ignore", "inherit"],
+  const result = spawnSync("codex", codexArgs(scratch, schema, output, model), {
+    cwd: scratch, env: reviewerEnv(process.env), input: reviewPrompt(ROOT, base, head),
+    timeout: 20 * 60 * 1000, encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
+    stdio: ["pipe", "ignore", "pipe"],
   });
+  const log = join(scratch, "cli.log");
+  writeFileSync(log, result.stderr ?? "");
+  if (result.error || result.signal || result.status !== 0) {
+    throw new Error(`Codex review failed (${result.error?.message || result.signal || result.status}). Diagnostic: ${log}`);
+  }
   const review = JSON.parse(readFileSync(output, "utf8"));
   console.log(`[bugpass] Review saved: ${output}`);
   console.log(JSON.stringify(review, null, 2));

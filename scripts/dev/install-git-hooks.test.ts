@@ -196,7 +196,8 @@ describe("renderHookScript", () => {
       for (const file of ["bugpass.mjs", "preview-push.mjs"])
         writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
       writeFileSync(join(root, ".gitignore"), "node_modules/\npre-push\n");
-      const gitEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+      const gitEnv: NodeJS.ProcessEnv = { ...process.env };
+      for (const key of Object.keys(gitEnv)) if (key.startsWith("GIT_")) delete gitEnv[key];
       const fixtureGit = (...args: string[]) => {
         const result = spawnSync("git", ["-c", `safe.directory=${root}`, "-c", "user.name=Test",
           "-c", "user.email=test@example.invalid", "-c", `core.hooksPath=${root}/no-hooks`, ...args],
@@ -704,7 +705,7 @@ exit 0
 
   it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
     for (const hookName of RETIRED_DB_HOOKS) {
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18")]) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18"), renderHookScript(hookName).replace("v20", "v19")]) {
         for (const existing of [
           legacy + "echo local-custom-hook\n",
           "echo local-custom-hook\n" + legacy,
@@ -725,7 +726,7 @@ exit 0
         "skip",
       );
       expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18")]) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18"), renderHookScript(hookName).replace("v20", "v19")]) {
         expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
         expect(
           decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
