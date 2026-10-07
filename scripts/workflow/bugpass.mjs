@@ -7,6 +7,13 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const SHA = /^[0-9a-f]{40}$/;
+export const VERIFIED_CODEX_VERSION = "codex-cli 0.162.0-alpha.2";
+
+export function assertVerifiedCliVersion(version) {
+  if (version.trim() !== VERIFIED_CODEX_VERSION) {
+    throw new Error("Unverified Codex CLI version. Run bugpass:sandbox-check and review the runtime contract before updating the version pin.");
+  }
+}
 
 export function command(executable, args, options = {}) {
   const result = spawnSync(executable, args, {
@@ -60,6 +67,21 @@ export function validateReview(review, base, head) {
   if (review.findings.length) throw new Error(`Buggpass has ${review.findings.length} actionable findings; fix/triage before a new pass.`);
 }
 
+export function validateSandboxProbeEvidence({ review, transcript, marker, url, code, markerExists, requests }) {
+  validateReview(review, "a".repeat(40), "b".repeat(40));
+  const denials = transcript.split(/\r?\n/).filter((line) =>
+    line.includes("ERROR codex_core::tools::router: error=exec_command failed:") && line.includes("blocked by policy"));
+  const normalizedMarker = marker.replace(/\\+/g, "/");
+  const escaped = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const writeTarget = new RegExp(`[\\s'\"]${escaped(normalizedMarker)}['\"\\s]`);
+  const networkTarget = new RegExp(`[\\s'\"]${escaped(url)}(?:[\\s'\"]|\\\\+[\"])`);
+  const writeDenials = denials.filter((line) => line.includes("Set-Content") && !line.includes("curl.exe") && writeTarget.test(line.replace(/\\+/g, "/")));
+  const networkDenials = denials.filter((line) => line.includes("curl.exe") && !line.includes("Set-Content") && networkTarget.test(line));
+  if (code !== 0 || markerExists || requests !== 0 || denials.length !== 2 || writeDenials.length !== 1 || networkDenials.length !== 1) {
+    throw new Error("Sandbox probe failed/inconclusive: exact write and network denials required.");
+  }
+}
+
 export function reviewPrompt(repo, base, head) {
   return `Perform one independent, read-only Buggpass (bug review), not an implementation task.
 Repository: ${JSON.stringify(repo)}. Exact base ${base}; exact head ${head}.
@@ -94,6 +116,7 @@ export function reviewerEnv(env) {
 
 export function runBugpass(base) {
   assertClean();
+  assertVerifiedCliVersion(command("codex", ["--version"], { env: reviewerEnv(process.env) }));
   const head = git(["rev-parse", "HEAD"]);
   if (!SHA.test(base) || !SHA.test(head) || base === head) throw new Error("Buggpass needs distinct full base/head SHA values.");
   git(["merge-base", "--is-ancestor", base, head]);

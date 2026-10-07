@@ -22,6 +22,7 @@
     "verify:pr": "node scripts/workflow/verify-pr.mjs",
     "verify:pr:plan": "node scripts/workflow/verify-pr.mjs --plan",
     "bugpass": "node scripts/workflow/bugpass.mjs",
+    "bugpass:sandbox-check": "node scripts/workflow/probe-bugpass-sandbox.mjs",
     "preview:prepare": "node scripts/workflow/preview-push.mjs --prepare",
     "preview:push": "node scripts/workflow/preview-push.mjs",
     "promote": "node scripts/workflow/promote.mjs",

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview } from "./bugpass.mjs";
+import { assertVerifiedCliVersion, VERIFIED_CODEX_VERSION, codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview, validateSandboxProbeEvidence } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared } from "./preview-push.mjs";
 
 const base = "a".repeat(40);
@@ -10,6 +10,27 @@ const review = { base, head, complete: true, summary: "Full diff reviewed; no cr
 const prepared = { version: 1, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", review };
 
 describe("IDE-neutral Buggpass", () => {
+  it("requires exact denied targets and a complete structured result for sandbox evidence", () => {
+    const marker = "C:\\temp\\canary.txt", url = "http://127.0.0.1:12345/sandbox-probe";
+    const prefix = "ERROR codex_core::tools::router: error=exec_command failed:";
+    const transcript = `${prefix} Set-Content '${marker}' blocked by policy\n${prefix} curl.exe ${url} blocked by policy`;
+    const evidence = { review, transcript, marker, url, code: 0, markerExists: false, requests: 0 };
+    expect(() => validateSandboxProbeEvidence(evidence)).not.toThrow();
+    for (const invalid of [
+      { ...evidence, transcript: transcript.replace("canary.txt", "wrong.txt") },
+      { ...evidence, transcript: transcript.replace("canary.txt", "canary.txt.bak") },
+      { ...evidence, transcript: transcript.replace("/sandbox-probe", "/sandbox-probe-evil") },
+      { ...evidence, transcript: `${prefix} Set-Content '${marker}'; curl.exe ${url} blocked by policy\n${prefix} unrelated blocked by policy` },
+      { ...evidence, transcript: transcript.replace(":12345", ":54321") },
+      { ...evidence, review: { ...review, complete: false } },
+      { ...evidence, review: { ...review, head: base } },
+      { ...evidence, markerExists: true }, { ...evidence, requests: 1 }, { ...evidence, code: 1 },
+    ]) expect(() => validateSandboxProbeEvidence(invalid)).toThrow();
+  });
+  it("fails closed on a different CLI version until sandbox revalidation", () => {
+    expect(() => assertVerifiedCliVersion(VERIFIED_CODEX_VERSION)).not.toThrow();
+    expect(() => assertVerifiedCliVersion("codex-cli future")).toThrow(/Unverified/);
+  });
   it("passes only OS paths, never arbitrary provider secrets or Git/Node injection", () => {
     expect(reviewerEnv({ Path: "bin", USERPROFILE: "profile", CODEX_HOME: "auth-store",
       OPENAI_API_KEY: "secret", REDIS_URL: "secret", UNFAMILIAR_CREDENTIAL: "secret",

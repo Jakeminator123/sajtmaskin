@@ -32,7 +32,22 @@ samma diff — `npm run workflow:contract` jämför filerna och blir röd annars
 - Branch-, worktree-, verifierings- och destructive-action-reglerna gäller
   alltid. Autentisering och tokens ligger utanför repot.
 
-## Så här ska projektet öppnas
+## Avgränsat undantag: fristående Buggpass
+
+Ovanstående `on-request` gäller vanliga projekt-/interaktiva sessioner och
+ändras inte. `scripts/workflow/bugpass.mjs` startar separat CLI utanför repot
+utan användar-/projektconfig, med `read-only`, `approval_policy="never"`
+(ingen eskalering), avstängt webbsök och endast tillåtna OS-miljövariabler.
+CLI-versionen är låst till `0.162.0-alpha.2`. Den 2026-10-07 nekades två
+separata verkliga shellanrop för kanarieskrivning och localhost-HTTP av policy;
+ingen fil skapades och testservern fick noll anrop. Detta bevisar de provade
+operationerna, inte generell fil-läsisolering eller all Windows-säkerhet.
+Ändrad CLI-version, `codexArgs` eller `reviewerEnv` kräver nytt
+`npm run bugpass:sandbox-check` och granskad uppdatering av kontraktet innan
+direktvägen används. Provet använder modellkvot; det är inte en automatisk
+extragranskare på varje push. Read-only får aldrig bytas mot full åtkomst.
+
+## Öppna projektet
 
 Repo-roten är samma mapp för båda verktygen; skriv inte ut en maskinspecifik
 sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder
