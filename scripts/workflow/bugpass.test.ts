@@ -2,12 +2,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { assertPinnedCliVersion, PINNED_CODEX_VERSION, WINDOWS_SANDBOX_MODE, codexArgs, reviewerEnv, reviewPrompt, reviewSchema, validateReview, validateSandboxProbeEvidence } from "./bugpass.mjs";
-import { requireConfirmation, validatePrepared } from "./preview-push.mjs";
+import { requireConfirmation, validatePrepared, publishAndReview, selectPreviousReview } from "./preview-push.mjs";
+import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, canReuseAfterPublication, validateReviewChain } from "./bugpass-state.mjs";
 
 const base = "a".repeat(40);
 const head = "b".repeat(40);
 const review = { base, head, complete: true, summary: "Full diff reviewed; no credible findings.", findings: [] };
-const prepared = { version: 1, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", review };
+const prepared = { version: 2, base, head, verification: "verify:pr", verifiedAt: "2026-10-07T10:00:00Z", postPushReview: "required" };
+const finding = { id: "F1", priority: "P2", confidencePercent: 85, impactScore: 2, file: "a.ts", line: 1, description: "Concrete regression" };
 
 describe("IDE-neutral Buggpass", () => {
   it("requires successful reading plus actual write/network denial, not a broken sandbox", () => {
@@ -44,17 +46,22 @@ describe("IDE-neutral Buggpass", () => {
     }
     expect(() => validateReview(review, "origin/preview", head)).toThrow();
   });
-  it("never treats actionable or malformed findings as green", () => {
-    for (const finding of [
-      { priority: "P1", file: "a.ts", line: 1, description: "Concrete regression" },
-      { priority: "nit", file: "a.ts", line: 1, description: "invalid" },
-      { priority: "P2", file: "a.ts", line: 0, description: "invalid" },
-    ]) expect(() => validateReview({ ...review, findings: [finding] }, base, head)).toThrow();
+  it("returns valid findings to the author without treating them as review failure or automatic approval", () => {
+    const report = { ...review, findings: [finding] };
+    expect(() => validateReview(report, base, head)).not.toThrow();
+    expect(reviewStatus(report)).toBe("needs-triage");
+    for (const invalid of [
+      { ...finding, priority: "nit" }, { ...finding, line: 0 }, { ...finding, confidencePercent: 101 },
+      { ...finding, confidencePercent: -1 }, { ...finding, impactScore: 0 }, { ...finding, impactScore: 6 },
+      { ...finding, id: "" }, { ...finding, confidencePercent: 0.9 },
+    ]) expect(() => validateReview({ ...review, findings: [invalid] }, base, head)).toThrow();
+    expect(() => validateReview({ ...review, findings: [finding, finding] }, base, head)).toThrow();
   });
   it("uses a fresh read-only CLI process without chat history or user config", () => {
     const args = codexArgs("scratch", "schema", "result", "chosen-model");
     expect(args).toContain("--ephemeral");
     expect(args).toContain("--ignore-user-config");
+    expect(args).toContain("multi_agent");
     expect(args).toContain("read-only");
     expect(args).toContain('web_search="disabled"');
     expect(args).toContain('model_reasoning_effort="xhigh"');
@@ -73,7 +80,7 @@ describe("confirmed preview push", () => {
     expect(() => validatePrepared(prepared, base, head)).not.toThrow();
     for (const invalid of [null, {}, { ...prepared, head: base }, { ...prepared, base: head },
       { ...prepared, verification: "plan" }, { ...prepared, verifiedAt: null },
-      { ...prepared, review: { ...review, complete: false } }]) {
+      { ...prepared, version: 1 }, { ...prepared, postPushReview: undefined }]) {
       expect(() => validatePrepared(invalid, base, head)).toThrow();
     }
   });
@@ -85,7 +92,7 @@ describe("confirmed preview push", () => {
   it("keeps the declared policy and executable command entrypoints aligned", () => {
     const policy = JSON.parse(readFileSync("config/agent-workflow.json", "utf8"));
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(policy.directPreview).toMatchObject({ allowed: true, reviewName: "Buggpass", remoteChecks: "after-push" });
+    expect(policy.directPreview).toMatchObject({ allowed: true, reviewName: "Buggpass", reviewTiming: "after-push", remoteChecks: "after-push" });
     expect(pkg.scripts[policy.directPreview.prepareCommand]).toContain("preview-push.mjs --prepare");
     expect(pkg.scripts[policy.directPreview.pushCommand]).toBe("node scripts/workflow/preview-push.mjs");
   });
@@ -97,5 +104,94 @@ describe("confirmed preview push", () => {
     const probe = readFileSync("scripts/workflow/probe-bugpass-sandbox.mjs", "utf8");
     expect(probe).not.toContain("codexArgs(");
     expect(probe).not.toContain("--model");
+  });
+  it("reviews only after a successful publication and durable publication receipt", () => {
+    const events: string[] = [];
+    publishAndReview(base, head, prepared, {
+      push: () => events.push("push"), save: () => events.push("save"), review: () => events.push("review"),
+    });
+    expect(events).toEqual(["push", "save", "review"]);
+    events.length = 0;
+    expect(() => publishAndReview(base, head, prepared, {
+      push: () => { throw new Error("push denied"); }, save: () => events.push("save"), review: () => events.push("review"),
+    })).toThrow("push denied");
+    expect(events).toEqual([]);
+    for (const failing of ["save", "review"]) {
+      expect(() => publishAndReview(base, head, prepared, {
+        push: () => {}, save: () => { if (failing === "save") throw new Error("disk full"); },
+        review: () => { throw new Error("model unavailable"); },
+      })).toThrow(/PUSH SUCCEEDED.*Do not push again/);
+    }
+  });
+  it("automatically carries unresolved findings across ordinary pushes and preserves the round limit", () => {
+    const publishedAt = "2026-10-07T12:00:00Z";
+    const previous = { base, head, rootBase: base, round: 1, publishedAt, review: { ...review, findings: [finding] }, decisions: [] };
+    const publication = { version: 2, base, head, publishedAt };
+    expect(selectPreviousReview(head, null, publication, () => previous)).toEqual(previous);
+    expect(() => selectPreviousReview(head, null, publication, () => ({ ...previous, round: 3 }))).toThrow();
+    expect(() => selectPreviousReview(head, null, publication, () => { throw new Error("missing review"); })).toThrow(/missing/);
+    expect(() => selectPreviousReview(head, null, publication, () => ({ ...previous, publishedAt: null }))).toThrow(/post-push/);
+    expect(selectPreviousReview(head, null, publication, () => ({ ...previous, review, decisions: [] }))).toBeNull();
+  });
+  it("does not present a pre-publication model pass as post-publication review", () => {
+    const publishedAt = "2026-10-07T12:00:00Z";
+    expect(canReuseAfterPublication({ publishedAt: null, reviewedAt: "2026-10-07T11:00:00Z" }, publishedAt)).toBe(false);
+    expect(canReuseAfterPublication({ publishedAt, reviewedAt: "2026-10-07T12:01:00Z" }, publishedAt)).toBe(true);
+    expect(canReuseAfterPublication({ publishedAt, reviewedAt: "2026-10-07T11:59:00Z" }, publishedAt)).toBe(false);
+    expect(() => canReuseAfterPublication({ publishedAt, reviewedAt: "2026-10-07T12:01:00Z" }, "bad")).toThrow();
+  });
+});
+
+describe("bounded author triage", () => {
+  const report = { ...review, findings: [finding] };
+  const decision = { findingId: "F1", action: "reject", reason: "Regression test proves this branch is unreachable.", reviewDigest: reviewDigest(report), followUp: "" };
+  it("requires an evidenced decision for every current finding", () => {
+    expect(reviewStatus(report, [decision])).toBe("clear");
+    expect(reviewStatus(report, [{ ...decision, action: "accept" }])).toBe("needs-fix");
+    for (const invalid of [
+      { ...decision, findingId: "F2" }, { ...decision, reason: "disagree" },
+      { ...decision, reviewDigest: "stale" }, { ...decision, action: "fixed" },
+    ]) expect(() => validateDecision(report, invalid)).toThrow();
+    expect(() => reviewStatus(report, [decision, decision])).toThrow(/Duplicate/);
+    expect(reviewStatus({ ...report, complete: false }, [decision])).toBe("incomplete");
+  });
+  it("allows documented low-impact debt, never silently defers serious findings", () => {
+    const deferred = { ...decision, action: "defer", followUp: "BUG-SWARM follow-up #example" };
+    expect(reviewStatus(report, [deferred])).toBe("acceptable-with-follow-up");
+    expect(() => validateDecision(report, { ...deferred, followUp: "" })).toThrow();
+    for (const high of [{ ...finding, impactScore: 3 }, { ...finding, priority: "P1" }]) {
+      const highReport = { ...report, findings: [high] };
+      expect(() => validateDecision(highReport, { ...deferred, reviewDigest: reviewDigest(highReport) })).toThrow();
+    }
+  });
+  it("bounds review loops and supplies previous findings, not author chat history", () => {
+    expect(nextRound(null)).toBe(1);
+    expect(nextRound({ round: 1 })).toBe(2);
+    expect(() => nextRound({ round: 3 })).toThrow(/Three/);
+    expect(() => nextRound({ round: "bad" })).toThrow();
+    const prompt = reviewPrompt("repo", base, head, { head: "c".repeat(40), rootBase: base, review: report, decisions: [decision] });
+    expect(prompt).toContain("Regression test proves");
+    expect(prompt).toContain("Recheck previously accepted/unresolved findings");
+    expect(prompt).toContain("not test coverage");
+  });
+  it("cannot reuse a delta-only clean review that never covered outstanding earlier findings", () => {
+    const previous = { base, head, rootBase: base, review: report, decisions: [decision] };
+    expect(() => validateCachedContext({ previousContext: null }, previous)).toThrow(/not a green cache hit/);
+    const cached = { previousContext: followUpDigest(previous) };
+    expect(() => validateCachedContext(cached, previous)).not.toThrow();
+    expect(() => validateCachedContext(cached, { ...previous, decisions: [{ ...decision, action: "accept" }] })).toThrow();
+  });
+  it("blocks a new publication when any ancestor decision changed after a linked clean review", () => {
+    const first = { base, head, rootBase: base, round: 1, review: report, decisions: [decision] };
+    const second = { base: head, head: "c".repeat(40), rootBase: base, round: 2, review, decisions: [],
+      previous: { base, head }, previousContext: followUpDigest(first), publishedAt: "2026-10-07T12:00:00Z" };
+    const third = { ...second, base: second.head, head: "d".repeat(40), round: 3,
+      previous: { base: second.base, head: second.head }, previousContext: followUpDigest(second) };
+    const read = (_base: string, sha: string) => sha === head ? first : second;
+    expect(() => validateReviewChain(third, read)).not.toThrow();
+    first.decisions = [{ ...decision, action: "accept" }];
+    expect(() => validateReviewChain(third, read)).toThrow(/fresh review required/);
+    const publication = { version: 2, base: third.base, head: third.head, publishedAt: third.publishedAt };
+    expect(() => selectPreviousReview(third.head, null, publication, (b: string, h: string) => h === third.head ? third : read(b, h))).toThrow(/fresh review required/);
   });
 });

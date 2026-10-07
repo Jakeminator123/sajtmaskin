@@ -1515,6 +1515,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
   const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
   if (
+    !prAiReviewer.includes("assertLegacyReviewEnabled();") ||
     !prAiReviewer.includes("writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result)") ||
     !prAiAutomation.includes('kind: "receipt-recovery"') ||
     !prAiAutomation.includes("verifiedCurrentReview") ||

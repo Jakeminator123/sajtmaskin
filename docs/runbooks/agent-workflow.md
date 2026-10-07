@@ -4,10 +4,12 @@ Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Mergekrav
 [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
 
 Jobba från färsk `origin/preview`. Direktleverans kan förberedas med
-`npm run preview:prepare`: diffvalda kontroller och ett fristående **Buggpass**.
+`npm run preview:prepare`: diffvalda kontroller och granskarberedskap.
 Fråga därefter Jakob "Är du säker på att du vill pusha?" med exakt SHA;
 `npm run preview:push -- --confirm <SHA>` får bara förmedla hans faktiska svar.
-GitHub-CI/deploy verifieras efter push. Se [Buggpass](github-pr-review-automation.md)
+Efter lyckad push körs ett fristående **Buggpass** och resultatet återgår till
+författaragenten för motiverad triage, fix och delta-review. CI/deploy verifieras
+separat efter push. Se [Buggpass](github-pr-review-automation.md)
 för lokal/server-side gräns och den kvarvarande PR-vägen.
 
 Vid PR: kör lokal plan och riktade kontroller; GitHub

@@ -32,13 +32,14 @@
     "directPreview": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["allowed", "prepareCommand", "pushCommand", "confirmation", "reviewName", "remoteChecks"],
+      "required": ["allowed", "prepareCommand", "pushCommand", "confirmation", "reviewName", "reviewTiming", "remoteChecks"],
       "properties": {
         "allowed": { "const": true },
         "prepareCommand": { "const": "preview:prepare" },
         "pushCommand": { "const": "preview:push" },
         "confirmation": { "const": "exact-head-after-human-confirmation" },
         "reviewName": { "const": "Buggpass" },
+        "reviewTiming": { "const": "after-push" },
         "remoteChecks": { "const": "after-push" }
       }
     },

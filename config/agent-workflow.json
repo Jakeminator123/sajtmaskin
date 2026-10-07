@@ -9,6 +9,7 @@
     "pushCommand": "preview:push",
     "confirmation": "exact-head-after-human-confirmation",
     "reviewName": "Buggpass",
+    "reviewTiming": "after-push",
     "remoteChecks": "after-push"
   },
   "allowedBranchPrefixes": [],

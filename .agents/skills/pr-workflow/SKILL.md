@@ -56,10 +56,20 @@ rapportens `runtimeStatus`.
 ## 4. Leverera: direkt preview eller PR
 
 Direktpreview: commit:a exakta paths, kör `npm run preview:prepare` (plan,
-diffvald verifiering och ett fristående readonly **Buggpass**). Fråga sedan
+diffvald verifiering och kontroll att granskaren kan starta). Fråga sedan
 Jakob **Är du säker på att du vill pusha?** med exakt SHA. Efter svaret:
 `npm run preview:push -- --confirm <full SHA>`. Kommandot återkontrollerar
-remote-bas/head och pushar utan force. Läs push-CI och Vercel READY efteråt.
+remote-bas/head och pushar utan force. **Efter lyckad push** startas ett
+fristående readonly Buggpass; resultatet återgår till författaragenten.
+Agenten accepterar och fixar, avfärdar med konkret bevis eller skjuter upp
+låg-impact P2 med dokumenterad uppföljning. Fynd visar bedömd säkerhet i %,
+impact 1–5 och kort kommentar; poängen är inte CI eller en mergegrind.
+Vid fix: använd `--previous <base:head>` enligt
+[runbooken](../../../docs/runbooks/github-pr-review-automation.md), kör riktat
+och återpublicera efter ny SHA-bunden pushbekräftelse. Granska delta/integration,
+återanvänd oförändrat kvitto och stoppa efter tre rundor för ägarbeslut.
+Läs push-CI och Vercel READY separat. Modellfel efter push betyder publicerad
+men ogranskad kod, aldrig att pushen misslyckades eller ska upprepas.
 Detta ger inte produktions-, DB- eller mergebehörighet. GitHubs live skydd
 måste tillåta direktvägen; kringgå aldrig ett kvarvarande PR-krav med admin.
 
@@ -72,6 +82,10 @@ PR-vägen finns kvar när spårbar diskussion/native mergegrind behövs:
    lokalt bara när ett fynd eller en ändring motiverar det.
 4. Läs checks, reviews och kommentarer. Varje konkret fynd ska vara fixat,
    loggat eller avfärdat.
+
+På PR-vägen återanvänds befintlig reviewer först. Starta inte Codex/API som
+parallellt obligatoriskt pass. Saknad/neutral review är okänd, inte grön;
+författaragenten väljer en ersättare om den ordinarie inte kan slutföra.
 
 Samla verifierade fynd i en review innan rättningsrundan. Efter rättningar
 granskas ändringsdeltat och dess integration; återanvänd tidigare review för

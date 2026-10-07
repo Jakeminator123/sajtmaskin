@@ -193,7 +193,7 @@ describe("renderHookScript", () => {
       mkdirSync(cache, { recursive: true });
       mkdirSync(bin);
       writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
-      for (const file of ["bugpass.mjs", "preview-push.mjs"])
+      for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs"])
         writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
       writeFileSync(join(root, ".gitignore"), "node_modules/\npre-push\n");
       const gitEnv: NodeJS.ProcessEnv = { ...process.env };
@@ -225,8 +225,7 @@ describe("renderHookScript", () => {
       const confirmed = { SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head };
       expect(run(confirmed).status).toBe(1); // Missing receipt.
       writeFileSync(join(cache, `${head}.json`), JSON.stringify({
-        version: 1, base, head, verification: "verify:pr", verifiedAt: new Date().toISOString(),
-        review: { base, head, complete: true, summary: "Reviewed", findings: [] },
+        version: 2, base, head, verification: "verify:pr", verifiedAt: new Date().toISOString(), postPushReview: "required",
       }));
       const accepted = run(confirmed);
       expect(accepted.status, accepted.stderr).toBe(0);
