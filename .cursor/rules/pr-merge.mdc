@@ -11,6 +11,11 @@ reviews och trådar som blockerar merge.
 
 ## Vanlig PR till preview
 
+Direktpush är en separat leveransväg, inte en PR-merge: följ
+`npm run preview:prepare` och den SHA-bundna mänskliga bekräftelsen i
+PR-skillen. Proceduren heter **Buggpass**; Codex, Cursor Bugbot eller annan
+oberoende granskare kan utföra den. Ett produktnamn är inget eget krav.
+
 1. Håll PR:n draft medan arbete eller kända fynd återstår. Draft→ready startar
    den fulla CI-profilen; lokalt körs plan och riktade kontroller, inte samma
    fulla profil en gång till.
@@ -43,6 +48,7 @@ inte. Ancestry-synk använder dedikerad preview-PR och kommandot
 `gh pr merge --merge --match-head-commit <granskad head>` så att både ancestry
 och exakt granskad head bevaras.
 
-Preview delar produktions-DB. Kodmerge, CI och deploy ger aldrig mandat att
+Preview och Development delar DEV; Production använder PROD enligt
+`config/db-targets.json`. Kodmerge, CI och deploy ger aldrig mandat att
 applicera schema, migrationer eller ändra produktionsdata. DB-apply kräver ett
 eget uttryckligt uppdrag. En kodrevert återställer inte dataeffekter.

@@ -3,6 +3,14 @@
   "schemaVersion": 1,
   "trunk": "master",
   "deliveryBranch": "preview",
+  "directPreview": {
+    "allowed": true,
+    "prepareCommand": "preview:prepare",
+    "pushCommand": "preview:push",
+    "confirmation": "exact-head-after-human-confirmation",
+    "reviewName": "Buggpass",
+    "remoteChecks": "after-push"
+  },
   "allowedBranchPrefixes": [],
   "branchPrefixExemptActors": ["dependabot[bot]"],
   "immutableRemoteBranchPatterns": ["*BRA*", "rescue/*"],

@@ -724,7 +724,7 @@ jobs:
 
   # Read-only dev↔prod-paritet. Jobbet jämför de två levande databaserna men
   # applicerar aldrig migrationer eller prestandaindex.
-  # Körs på preview och master: preview delar prod-DB, så drift måste synas
+  # Körs på preview och master: preview delar DEV, så DEV↔PROD-drift måste synas
   # när staging landar, inte först vid promote. Den schemalagda systern
   # (db-schema-parity.yml) fångar drift mellan pushar.
   db-schema-parity:

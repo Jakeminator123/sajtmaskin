@@ -193,12 +193,14 @@ describe("dossier acceptance workflow contract", () => {
     expect(workflow).toContain("EXPECT_MATRIX=true");
   });
 
-  it("keeps intentionally-red freshness evidence out of pull-request runs", () => {
+  it("runs acceptance on preview pushes but keeps freshness only on schedule/manual", () => {
     const start = workflow.indexOf("  verification-evidence:");
     const end = workflow.indexOf("  dependency-registry:", start);
 
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
-    expect(workflow.slice(start, end)).toContain("    if: github.event_name != 'pull_request'");
+    expect(workflow.slice(start, end)).toContain("    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'");
+    expect(workflow).toContain("  push:\n    branches: [preview]");
+    expect(workflow).toContain('if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then');
   });
 });

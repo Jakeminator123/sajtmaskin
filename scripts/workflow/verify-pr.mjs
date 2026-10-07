@@ -273,7 +273,7 @@ async function main() {
     resolveVerificationCommand(command, process.env),
   );
   if (executableCommands.includes("test:pr")) {
-    console.log("[verify:pr] lokal testprofil: test:ci → test:pr (50% workers, fail-fast)");
+    console.log("[verify:pr] lokal testprofil: test:ci → test:pr (4 workers, fail-fast)");
     printList("valfri lokal exekveringsprofil", executableCommands);
   }
   if (options.plan) return;

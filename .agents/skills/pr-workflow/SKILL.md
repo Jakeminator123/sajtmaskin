@@ -53,7 +53,17 @@ rapportens `runtimeStatus`.
   uttryckligt krav när själva CI-/verifieringsmotorn ändras.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
-## 4. PR
+## 4. Leverera: direkt preview eller PR
+
+Direktpreview: commit:a exakta paths, kör `npm run preview:prepare` (plan,
+diffvald verifiering och ett fristående readonly **Buggpass**). Fråga sedan
+Jakob **Är du säker på att du vill pusha?** med exakt SHA. Efter svaret:
+`npm run preview:push -- --confirm <full SHA>`. Kommandot återkontrollerar
+remote-bas/head och pushar utan force. Läs push-CI och Vercel READY efteråt.
+Detta ger inte produktions-, DB- eller mergebehörighet. GitHubs live skydd
+måste tillåta direktvägen; kringgå aldrig ett kvarvarande PR-krav med admin.
+
+PR-vägen finns kvar när spårbar diskussion/native mergegrind behövs:
 
 1. Commit:a exakta paths och push utan force. Nya PR:ar mot `preview`.
 2. Öppna PR med repots template när Jakob ber om det.

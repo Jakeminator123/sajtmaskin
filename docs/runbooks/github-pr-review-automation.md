@@ -1,4 +1,65 @@
-# PR-granskning: en aktiv väg, inga automatiska API-omtag
+# Buggpass: oberoende granskning, inte ett IDE-krav
+
+**Buggpass** (även kallat Bugbots-pass) är proceduren. Cursor Bugbot är en
+möjlig utförare, inte kravet. Codex kan köra samma typ av oberoende granskning.
+Behåll externa checknamn oförändrade som bevis; döp inte om en Codex-review
+till `Cursor Bugbot` och räkna inte en neutral/skippad körning som godkänd.
+
+## Automatik som faktiskt finns
+
+På PR #1586, head `40273c4524f84640fac26be1939a26d419f18fb1`, rapporterade
+GitHub 2026-10-07 `Cursor Bugbot: success`, `Cursor Automation: Find critical
+bugs: neutral` och ytterligare Cursor-automationer. Detta visar PR-automatik,
+inte att alla automationer utförde en full review. Inget aktivt GitHub Actions-
+workflow är en AI-granskare. Cloudinställningar/prompt och faktisk debitering
+måste kontrolleras hos Cursor; de har inte ändrats av detta repoarbete.
+
+## Direkt till preview
+
+1. Commit:a exakt uppgiftens filer. Arbetskopian ska vara ren.
+2. `npm run preview:prepare` hämtar färsk preview, kräver fast-forward och kör
+   befintlig path-impactmotor: först plan, sedan dess diffvalda kontroller.
+   Därefter körs **ett** fristående Buggpass. Ingen extra API-review startas.
+3. Fråga Jakob **Är du säker på att du vill pusha?**, ange exakt head-SHA.
+   Efter hans svar: `npm run preview:push -- --confirm <full SHA>`.
+4. Kommandot och pre-push-hooken kräver aktuellt base/head-kvitto och
+   bekräftelse. Ny kod eller flyttad preview stoppar pushen. Ingen force/delete.
+5. Kontrollera push-CI och Vercel READY. Dossier-acceptance körs även på
+   preview-push; fyra fulla testshards och DB-skydden är kvar. Deploy/CI kan
+   misslyckas **efter** push: lokala kontroller är inte ett server-side förhandslås.
+
+Den nya direktpolicyn kräver en separat ändring av GitHubs **preview**-ruleset:
+PR-kravet och statuskraven före push ersätts där av lokalt förberedelsekrav
+och CI efter push. Behåll server-side deletion/non-fast-forward-skydd.
+Masters ruleset, promote-PR och extra produktionsbekräftelse ändras inte.
+Vid införandet är detta en plan tills live ruleset verifierats; använd aldrig
+admin-bypass för att låtsas att direktvägen redan är aktiverad.
+
+Hook/kvitto är lokala arbetsflödesskydd, inte manipulationssäkra attesteringar.
+En annan klient kan sakna hooken. Ingen garanti ges att en godtycklig
+GitHub-API/UI-push har granskats före publicering. Använd PR-vägen om ett
+server-side förhandslås behövs. Native required checks för master är oförändrade.
+
+## Fristående Codex-pass
+
+`npm run bugpass -- --base <full SHA>` startar `codex exec` med ny kontext,
+`--ephemeral`, read-only-sandbox och explicit repo-modell/xhigh. Inget resume,
+ingen föräldrachatt, ingen tyst modellfallback eller automatisk retry.
+Körningen startar i en unik temporär katalog utan repo-/användarkonfiguration,
+MCP-anslutningar eller projektets hemlighetsmiljö. Granskaren läser exakt Git-
+diff och nödvändiga callers/tester via SHA; den får inte exekvera repokod.
+Sandbox får aldrig stängas av för att få en review att fungera.
+
+CLI-inloggningen återanvänds; kommandot kräver ingen extra API-nyckel.
+Det är inte gratis: valt kontos modellkvot gäller. Ingen tokenbesparing är
+mätt. Högst en körning per prepare; tidsgräns 20 minuter, fel/ofullständig
+review stoppar. JSON-resultatet finns i den utskrivna temporära katalogen;
+godkänt förberedelsekvitto i `node_modules/.cache/sajtmaskin-preview/`.
+Dessa lokala filer innehåller kodfynd, inte chathistorik eller credentials.
+Fynd måste rättas/triageras; ett nytt pass krävs efter ändringar. En befintlig
+PR-bot återanvänds på PR-vägen i stället för att också köra denna CLI automatiskt.
+
+## PR-vägen och pensionerad API-granskare
 
 Den separata API-granskaren är pensionerad. `pr-ai-review.yml` tas bort;
 workflowen var redan `disabled_manually` på GitHub vid kontroll 2026-10-02.

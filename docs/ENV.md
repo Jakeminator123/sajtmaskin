@@ -32,7 +32,7 @@ Utan dessa brukar kärnan inte vara användbar i **preview + production**:
 
 Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** för `development` / `preview` / `production` enligt behov.
 
-> **CI read-only DB-secret — `POSTGRES_URL_PROD`:** GitHub Actions läser prod-ledger och dev/prod-paritet, men push eller vanlig dispatch applicerar inte migrationer/index. På huvudrepot är saknad secret ett hårt fel, aldrig ett grönt live-kvitto. Preview och Production delar fortfarande samma databas. Live DDL är ett separat uppdrag och kräver verifierad direkt/session-mode-anslutning; anta inte att runtime-poolad URL är rätt för sessionslås. Detaljer: [`DB-runbook`](runbooks/db-migrations.md).
+> **CI read-only DB-secret — `POSTGRES_URL_PROD`:** GitHub Actions läser prod-ledger och dev/prod-paritet, men push eller vanlig dispatch applicerar inte migrationer/index. På huvudrepot är saknad secret ett hårt fel, aldrig ett grönt live-kvitto. Preview och Development delar DEV; Production använder PROD. Live DDL är ett separat uppdrag och kräver verifierad direkt/session-mode-anslutning; anta inte att runtime-poolad URL är rätt för sessionslås. Detaljer: [`DB-runbook`](runbooks/db-migrations.md).
 
 ---
 
@@ -125,7 +125,7 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Yta | Env-variabel | Supabase-projekt | Region |
 |---|---|---|---|
 | Vercel **Development** | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
-| Vercel **Preview** (`preview.sajtmaskin.se` / `preview`-branchen) | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
+| Vercel **Preview** (`preview.sajtmaskin.se` / `preview`-branchen) | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
 | Vercel **Production** | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
 | Lokal dev (**`.env.local`**) | `POSTGRES_URL` | dev (eller lokal throwaway-Postgres) | `eu-north-1` |
 | GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | Read-only ledger-/live-paritetskontroller. Ingen automatisk dev/prod-apply. Efemär CI-testdatabas är separat och behöver inga live-secrets. | resp. ovan |
@@ -133,6 +133,8 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Supabase-MCP (IDE-tooling) | — | scoped till **dev**-projektet, read-only | `eu-north-1` |
 
 - **Maskinläsbar sanning:** [`config/db-targets.json`](../config/db-targets.json).
+- **Deployment-grind:** `prebuild` kör guarden med `--vercel`. Den läser miljömappningen från `config/db-targets.json` och kontrollerar alla satta DB-URL:er, inklusive fallback-/non-pooling-alias. Vercel Preview med en PROD-URL stoppas; lokal/no-secret CI-build använder inte deployment-grinden.
+- Preview och Development delar testkonton och testdata. Produktionskonton, kundprojekt och credits kopieras inte till DEV. Byte av DB-pekare kräver en ny Preview-deploy; äldre deployment-URL:er behåller sin tidigare miljö. Gemensam Redis/Blob innebär inte full resursisolering.
 - **Guard:** `npm run db:check-target -- --expect=dev|prod` verifierar att processens `POSTGRES_URL` pekar på rätt projekt och skriver en **sanitiserad** identitet (miljö + host + db + project ref — aldrig lösenord eller hela connection-strängen). CI kör guarden mot `POSTGRES_URL_PROD` före read-only ledgerkontroll; live-paritet kontrollerar båda målen internt. Fel projekt ⇒ hårt rött.
 - Next.js-runtime läser **aldrig** `POSTGRES_URL_DEV`/`POSTGRES_URL_PROD` — de finns bara i CI.
 

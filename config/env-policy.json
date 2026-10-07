@@ -318,13 +318,13 @@
       "key": "POSTGRES_URL",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Primary database connection for the app."
+      "notes": "Primary database connection for the app. Target identity and Vercel environment mapping are owned by config/db-targets.json: Development and Preview use DEV; Production uses PROD."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Direct non-pooled database URL."
+      "notes": "Direct/session-mode database URL for the same project as POSTGRES_URL. Target mapping is owned by config/db-targets.json. Verify session mode on port 5432 before authorized DDL."
     },
     {
       "key": "POSTGRES_CONNECT_TIMEOUT_MS",

@@ -131,8 +131,8 @@ describe("D1-uppgraderingen når tabeller som redan finns", () => {
   });
 
   it("är additiv mot en databas som ännu inte har tabellerna", () => {
-    // Den automatiska preview-vägen träffar prod-Postgres, där ingen av de fyra
-    // tabellerna finns än: samma omgång skapar dem i filen före. Då kan en
+    // Ett tomt mål får bastabellerna i filen före; vanlig CI/deploy applicerar
+    // inte migrationer. I en uttryckligt initierad databas kan en
     // constraint varken ogiltigförklara en rad eller en INSERT från gammal kod.
     const findings = classifyPendingMigrations([MIGRATION_FILE, UPGRADE_FILE], {
       existingTables: ["users", "app_projects", "transactions"],
@@ -142,7 +142,7 @@ describe("D1-uppgraderingen når tabeller som redan finns", () => {
 
   it("klassas som brytande om tabellerna redan finns i måldatabasen", () => {
     // Grinden är inte avstängd — den vet bara skillnaden. En databas som redan
-    // har tabellerna får inte uppgraderas av den automatiska preview-vägen.
+    // har tabellerna kräver en separat granskad uppgraderingsplan.
     const findings = classifyPendingMigrations([MIGRATION_FILE, UPGRADE_FILE], {
       existingTables: ["users", "app_projects", "transactions", ...D1_TABLES],
     });

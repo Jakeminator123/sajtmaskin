@@ -31,7 +31,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 19;
+export const HOOK_VERSION = 20;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -132,6 +132,20 @@ is_published_label_create() {
 
 verify_needed=0
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # Direkt preview: aldrig delete/force, alltid exakt manniskobekraftad HEAD
+  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.
+  if [ "$remote_ref" = "refs/heads/preview" ]; then
+    if [ "$local_sha" = "$ZERO_SHA" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
+      echo "[hooks] STOPP: preview far inte raderas/aterskapas med vanlig direktpush." >&2
+      exit 1
+    fi
+    require_current_head "$local_sha"
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" >/dev/null 2>&1; then
+      echo "[hooks] STOPP: preview far aldrig force-pushas." >&2
+      exit 1
+    fi
+    node scripts/workflow/preview-push.mjs --hook "$remote_sha" "$local_sha" || exit 1
+  fi
   # Agarnas frysta aterstallningspunkter ar write-once i HOOKEN, inte
   # create-once: att SKAPA en ny backup ar hela poangen, medan varje andring
   # eller radering av en befintlig ar stangd har. GitHub-rulesetet

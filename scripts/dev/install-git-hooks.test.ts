@@ -120,7 +120,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(19);
+    expect(HOOK_VERSION).toBe(20);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -180,6 +180,63 @@ describe("renderHookScript", () => {
       script.indexOf("npm run verify:pr"),
     );
   });
+
+  itWithPosixShell(
+    "preview kräver aktuellt kvitto och bekräftelse även med CI/skip; stoppar delete/force",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "sajtmaskin-preview-hook-"));
+      const bin = join(root, "bin");
+      const scriptDir = join(root, "scripts/workflow");
+      const cache = join(root, "node_modules/.cache/sajtmaskin-preview");
+      mkdirSync(join(root, "scripts/dev"), { recursive: true });
+      mkdirSync(scriptDir, { recursive: true });
+      mkdirSync(cache, { recursive: true });
+      mkdirSync(bin);
+      writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
+      for (const file of ["bugpass.mjs", "preview-push.mjs"])
+        writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
+      writeFileSync(join(root, ".gitignore"), "node_modules/\npre-push\n");
+      const gitEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+      const fixtureGit = (...args: string[]) => {
+        const result = spawnSync("git", ["-c", `safe.directory=${root}`, "-c", "user.name=Test",
+          "-c", "user.email=test@example.invalid", "-c", `core.hooksPath=${root}/no-hooks`, ...args],
+        { cwd: root, env: gitEnv, encoding: "utf8" });
+        if (result.status !== 0) throw new Error(result.stderr);
+        return result.stdout.trim();
+      };
+      fixtureGit("init", "--quiet");
+      fixtureGit("add", ".");
+      fixtureGit("commit", "--quiet", "-m", "base");
+      const base = fixtureGit("rev-parse", "HEAD");
+      writeFileSync(join(root, "fixture.txt"), "change");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "head");
+      const head = fixtureGit("rev-parse", "HEAD"), zero = "0".repeat(40);
+      const hook = join(root, "pre-push");
+      writeFileSync(hook, renderHookScript("pre-push"));
+      const env = { ...gitEnv, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: root,
+        CI: "true", SAJTMASKIN_SKIP_VERIFY_HOOKS: "1", SAJTMASKIN_PREVIEW_PUSH_CONFIRM: "" };
+      const run = (extra = {}, local = head, remote = base) => runHookSync(hook, {
+        cwd: root, input: `refs/heads/fix/x ${local} refs/heads/preview ${remote}\n`,
+        env: { ...env, ...extra }, encoding: "utf8", testBin: bin,
+      });
+      expect(run().status).toBe(1);
+      const confirmed = { SAJTMASKIN_PREVIEW_PUSH_CONFIRM: head };
+      expect(run(confirmed).status).toBe(1); // Missing receipt.
+      writeFileSync(join(cache, `${head}.json`), JSON.stringify({
+        version: 1, base, head, verification: "verify:pr", verifiedAt: new Date().toISOString(),
+        review: { base, head, complete: true, summary: "Reviewed", findings: [] },
+      }));
+      const accepted = run(confirmed);
+      expect(accepted.status, accepted.stderr).toBe(0);
+      expect(run(confirmed, head, "c".repeat(40)).status).toBe(1);
+      expect(run(confirmed, zero).status).toBe(1);
+      expect(run(confirmed, head, zero).status).toBe(1);
+      expect(run({ ...confirmed, SAJTMASKIN_BREAK_GLASS: "1",
+        SAJTMASKIN_BREAK_GLASS_REASON: "must never allow force" }, head, "d".repeat(40)).status).toBe(1);
+    },
+    POSIX_HOOK_TEST_TIMEOUT_MS,
+  );
 
   itWithPosixShell(
     "avbryter en hängd hook-child med ett tydligt timeoutfel",
@@ -647,7 +704,7 @@ exit 0
 
   it("nekar modifierade äldre DB-hookkroppar även med korrekt managed header", () => {
     for (const hookName of RETIRED_DB_HOOKS) {
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18")]) {
         for (const existing of [
           legacy + "echo local-custom-hook\n",
           "echo local-custom-hook\n" + legacy,
@@ -668,7 +725,7 @@ exit 0
         "skip",
       );
       expect(decideHookRetirement({ hookName, existing: oldHook(hookName) }).action).toBe("retire");
-      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v19", "v18")]) {
+      for (const legacy of [oldHook(hookName), renderHookScript(hookName).replace("v20", "v18")]) {
         expect(decideHookRetirement({ hookName, existing: legacy }).action).toBe("retire");
         expect(
           decideHookRetirement({ hookName, existing: legacy.replace(/\n/g, "\r\n") }).action,
@@ -734,7 +791,7 @@ exit 0
   it.each([
     "#!/bin/sh\necho foreign\n",
     oldHook("post-checkout") + "echo local-custom-hook\n",
-    renderHookScript("post-checkout").replace("v19", "v18") + "echo local-custom-hook\n",
+    renderHookScript("post-checkout").replace("v20", "v18") + "echo local-custom-hook\n",
   ])("främmande eller modifierad hook stoppar hela installationen (%#)", (foreign) => {
     const fixture = mkdtempSync(join(tmpdir(), "sajtmaskin-hook-conflict-test-"));
     expect(spawnSync("git", ["init", fixture]).status).toBe(0);
