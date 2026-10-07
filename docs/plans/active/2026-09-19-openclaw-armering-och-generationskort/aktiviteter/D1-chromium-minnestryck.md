@@ -2,9 +2,9 @@
 
 ## Status
 
-**Oberoende kod-/metodgranskad kandidat för avgränsad preview-leverans
-2026-10-06; deployment finns på Vercel men live capture-/resursacceptans
-saknas. Fixen är inte släppt i produktion.**
+**Levererad till preview genom #1572 den 2026-10-06. Det avgränsade
+launch-/capture-/teardown-provet på Vercel är godkänt 2026-10-07;
+full produkt-/produktionsacceptans återstår. Fixen är inte släppt i produktion.**
 Känd residual av `SM-072`. Tidigare status var «Parkerat, inte löst».
 Beställ ingen ny generell prune-fix — `#1234` och `#1318` finns redan.
 Samordningens preview-disposition nedan ersätter inte Vercel-/produktionsacceptans.
@@ -186,14 +186,15 @@ inte Vercel-/produktionsacceptans eller fastställd incidentrotorsak:
 är orörd. Nya liveanrop, DB/provider/env/indexändringar eller en ny
 testdeployment ingår inte i denna disposition.
 
-### Kvarvarande prov för full liveacceptans
+### Acceptanskriterier inför det avgränsade liveprovet
 
-Det säkra fulla liveprovet kräver en uttryckligt godkänd isolerad Vercel-testyta
-som kör **den gemensamma launch-ownern**, utan DB/Redis/Blob/LLM-nycklar eller
-kund-URL:er. Testytan finns inte i denna kandidat; ingen ny offentlig
-diagnostikroute eller providerkonfiguration har lagts till som genväg.
-Den ska ta en fast inbäddad HTML-fixture, inte en URL från anroparen, och
-använda testägd temporärkatalog med städning endast av egna filer/processer.
+Inför liveprovet krävdes en uttryckligt godkänd isolerad Vercel-testyta som
+körde **den gemensamma launch-ownern**, utan DB/Redis/Blob/LLM-nycklar eller
+kund-URL:er. Den ursprungliga kandidaten #1572 innehöll inte testytan;
+ingen offentlig produktdiagnostikroute eller providerkonfiguration lades till
+som genväg. Provet skulle ta en fast inbäddad HTML-fixture, inte en URL från
+anroparen, och använda testägd temporärkatalog med städning endast av egna
+filer/processer. Matrisen nedan var kravlistan; det genomförda kvittot följer.
 
 | Prov | Körning och kvitto |
 | --- | --- |
@@ -203,19 +204,73 @@ använda testägd temporärkatalog med städning endast av egna filer/processer.
 | Resurser | Mät Node och testägd Chromium-processfamiljs topp-RSS/processantal samt verkligt ledigt `/tmp` före launch, efter bilder och efter close. `stat.size` får inte användas som RAM-/diskförbrukning. |
 | Native avslut | Bind invocation/capture-ID, browser-/Node-version, faser, close-fel, native exit/signal och dumpmetadata. Normal exit 0, ingen signal/dump och ingen kvarlevande testprocess krävs; HTTP 200 eller Playwright-disconnect räcker inte. |
 
-Observerade resursvärden måste jämföras med testdeploymentens faktiskt
-konfigurerade minne/deadline; de är inte kända från projektets Node-pin.
+Observerade resursvärden skulle jämföras med testdeploymentens faktiskt
+konfigurerade minne/deadline; dessa följer inte av projektets Node-pin.
 Detta verifierar launch-/capture-/teardown-ownern i Vercel, **inte** hela
 postcheckens DB-attestation/live-review-kedja. Den kedjan behöver i sin tur
 en isolerad datafixture innan någon write-route kan kallas inom nuvarande
 DB-readonly-mandat. Linux-reprot ovan är fortfarande bara lokal native-evidens.
 
-Fortsättningsmandatet tillåter ready-status när kod/review är färdiga så att
-GitHub kan köra aktuell required CI. Ready är inte liveacceptans eller
-mergemandat. Den avgränsade preview-dispositionen ovan ersätter det tidigare
+Fortsättningsmandatet för #1572 tillät ready-status när kod/review var färdiga
+så att GitHub kunde köra aktuell required CI. Ready är inte liveacceptans eller
+mergemandat. Den avgränsade preview-dispositionen ovan ersatte det tidigare
 kravet på nytt isolerat Vercel-prov före preview-kandidatur, inte kravet på
 korrekt CI/review eller den kvarvarande live-/produktionsacceptansen.
 `SM-072` och hela buggraden ska fortfarande inte markeras lösta.
+
+### Avgränsat livekvitto 2026-10-07
+
+Jakob godkände ett isolerat liveprov. Den gemensamma launch-ownern från
+preview `1a124b8305a859685491c32a6ef253a5de1b91af` kördes utan ändrad kod,
+DB/Redis/Blob/LLM-nycklar, kund-URL:er eller produktens write-routes. Ownerblobb:
+`1f4197c3d49a96d6d2d4d2aad46de7d62212ff44`. Alla beroendeversioner i testytans
+transitiva lock-closure hämtades från samma produktionslock; ingen ny resolution
+godtogs. Vercel Authentication behölls och oautentiserad åtkomst gick till login.
+
+Exakt testdeployment: `dpl_3DbX8d11ibiXuwd4Y5tB8S5ceh5o` (preview i ett separat
+testprojekt, inte Sajtmaskins produktion). Node `v22.23.2`, Chromium
+`149.0.7827.0`, region `arn1`. API-kvittot för projekt/deployment visar Node 22,
+Fluid/elastic concurrency, `functionDefaultMemoryType=performance`
+(4 GiB/2 vCPU enligt [Vercels minneskontrakt](https://vercel.com/docs/functions/configuring-functions/memory))
+och routens deadline 300 s. Cgroup-limitfiler och minnes-env saknades i runtime;
+konfigurationen är API-bevis, inte en OS-mätning av tilldelad CPU eller total RAM.
+
+| Prov/mätning | Faktiskt kvitto |
+| --- | --- |
+| Fasta matrisen | 5 seriella desktop/mobil-par + 2 owner-köade par + 3 WebGL-par: 10/10, 20 giltiga JPEG, 3 rätta `readPixels` och GL-error 0. Matrisen tog 5 775 ms. |
+| Native teardown | 12/12 browserliv inklusive två extra varma anrop: exit 0, signal null, ingen watchdog/retry/close-failure, dump, profil eller överlevande ägd process. Totalt 24 JPEG och 5 WebGL-prov. |
+| Owner-kö | Högst en browser-root; B:s native spawn 7 ms efter A:s native exit. Inte bara Playwright-disconnect eller HTTP 200. |
+| Separata HTTP-anrop | Båda godkända och samma instans, men serverintervallen överlappade **inte**. Därför två varma återkörningar, inte bevis för överlappande HTTP/Fluid eller cross-isolate-lås. |
+| Samplad RSS | Node högst 248,57 MiB; summerad Chromium-familj högst 352,37 MiB och 4 processer. Delat minne kan dubbelräknas; PSS, totala OS-toppar och korta samplingsmissar är inte bevisade. |
+| Verkligt `/tmp` | Minst 295,73 MiB fritt, slutligen 304,73 MiB av 525 MiB. Stabil allokerad extraktionscache 208,66 MiB efter closes; inga kvarvarande Playwright-profiler. `stat.blocks`, inte logisk filstorlek. |
+| Slutgrind | `retire` 200 i samma instans efter separat kontroll av native PID/start-identiteter, profiler och dumpfiler; endast testets egen tmp-katalog raderades. |
+
+Matrisens invocation-ID: `5f8b8a48-89be-4929-89a6-01ed7579ba10`.
+Runtime verifierade byteidentisk owner-bundle
+`5aa60feba60db1217f3ba21cf938b0989a715dbe19f0cf0d3db9d0ce5f77a69c` och hela
+semantiska låsobjektet
+`4240944eaec4fcb670bb6c761379696ce9b481c3f0a0eb4a237f3d9396e2d1fd`.
+Två tidigare testinvocations stoppades **före Chromium** av fail-closed
+paketeringsgrindar. Testownern bevarades som opaque asset; JSON-grinden jämför
+alla värden/arrayer med rekursivt sorterade objektnycklar. Den lyckade körningen
+visade att råhashskillnaden i JSON bara var formatering/nyckelordning.
+Oberoende metod-/delta-/resultatgranskning gav inget blockerande fynd för denna
+avgränsning.
+
+Återbyggbart keyless underlag och råa JSON-kvitton är sparade utanför checkouten:
+`C:/Users/jakem/Documents/Sajtmaskin-arkiv/capture-vercel-sm072-20261007.zip`, SHA256
+`4b7cf420d7a5b78a48875d357245a73f51ec7e579bc2d23590d208ee7a588a7d`.
+Arkivet innehåller inga `.vercel`-auth-/env-filer. Matris-JSON SHA256:
+`4d32fea439d788022a30aa240f60d376f00f7db02e5a8561ac400a3ea70d01b3`.
+Det egna testprojektet och dess fyra testdeployment raderades efter arkivering;
+Vercels API bekräftade 404 för just testprojektet. Produktprojektet är orört.
+
+Detta stänger endast behovet av ett **avgränsat inert Vercel-ownerprov**.
+Minimal Node-harness saknar full Next-/produktöverbyggnad. Historisk
+produktionsrotorsak, verklig överlappande HTTP/cross-isolate-samtidighet,
+kundinnehåll och postcheckens DB-attestation/live-review är fortfarande
+obevisade. `SM-072` ska därför fortsatt inte markeras helt löst. Ingen master-
+promotion, produktkonfigurationsändring eller DB-/provideråtgärd gjordes.
 
 ## Vad som observerades
 
