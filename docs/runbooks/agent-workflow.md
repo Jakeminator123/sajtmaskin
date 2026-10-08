@@ -13,6 +13,9 @@ Efter lyckad push körs ett fristående **Buggpass** och resultatet återgår ti
 författaragenten för motiverad triage, fix och delta-review. CI/deploy verifieras
 separat efter push. Se [Buggpass](github-pr-review-automation.md)
 för lokal/server-side gräns och den kvarvarande PR-vägen.
+För direktpreview får Jakobs befintliga adminundantag användas efter
+SHA-bekräftelsen. Om den lokala granskaren inte kan starta används PR-vägen;
+ingen sandbox-bypass, uppluckring för andra användare eller Master-ändring.
 
 Vid PR: kör lokal plan och riktade kontroller; GitHub
 Actions äger full verifiering. Safe docs och vanliga drafts får ett explicit

@@ -70,8 +70,12 @@ och återpublicera efter ny SHA-bunden pushbekräftelse. Granska delta/integrati
 återanvänd oförändrat kvitto och stoppa efter tre rundor för ägarbeslut.
 Läs push-CI och Vercel READY separat. Modellfel efter push betyder publicerad
 men ogranskad kod, aldrig att pushen misslyckades eller ska upprepas.
-Detta ger inte produktions-, DB- eller mergebehörighet. GitHubs live skydd
-måste tillåta direktvägen; kringgå aldrig ett kvarvarande PR-krav med admin.
+Detta ger inte produktions-, DB- eller mergebehörighet. För direktpreview får
+Jakobs befintliga GitHub-adminundantag användas efter SHA-bekräftelsen
+(ägarbeslut 2026-10-08). Kontrollera aktuell inloggning och att undantaget
+gäller preview; ändra inte ruleset, force/delete-skydd eller Master för detta.
+Om granskaren inte kan starta: använd PR-vägen nedan med fungerande oberoende
+review och native checks. En PR-merge reparerar inte granskarens lokala runtime.
 
 PR-vägen finns kvar när spårbar diskussion/native mergegrind behövs:
 

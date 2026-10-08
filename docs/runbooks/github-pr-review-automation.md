@@ -37,12 +37,21 @@ måste kontrolleras hos Cursor; de har inte ändrats av detta repoarbete.
    preview-push; fyra fulla testshards och DB-skydden är kvar. Deploy/CI kan
    misslyckas **efter** push: lokala kontroller är inte ett server-side förhandslås.
 
-Den nya direktpolicyn kräver en separat ändring av GitHubs **preview**-ruleset:
-PR-kravet och statuskraven före push ersätts där av lokalt förberedelsekrav
-och CI efter push. Behåll server-side deletion/non-fast-forward-skydd.
+Ägarbeslut 2026-10-08 tillåter Jakobs **befintliga adminundantag** för denna
+direkta preview-väg efter SHA-bekräftelsen. Livekontrollen samma dag visade
+`Protect preview` med `RepositoryRole: 5` (admin), `bypass_mode: always`, och
+inloggat konto med `permissions.admin: true`. Kontrollera dessa fakta före
+användning; ett gammalt kvitto ger inte aktuell behörighet. Det behövs ingen
+ruleset-ändring som öppnar direktpush för alla. Adminundantaget kan kringgå
+även serverns force/delete-skydd, så wrapperns/hookens fast-forward- och
+deleteförbud får inte kringgås. CI och Buggpass följs efter push.
 Masters ruleset, promote-PR och extra produktionsbekräftelse ändras inte.
-Vid införandet är detta en plan tills live ruleset verifierats; använd aldrig
-admin-bypass för att låtsas att direktvägen redan är aktiverad.
+Undantaget gäller inte `gh pr merge --admin`: vanlig PR-merge kräver native checks.
+
+Om lokal granskarberedskap fallerar används **PR-vägen** med en fungerande
+oberoende granskare och required checks, utan att stänga av sandboxen. Merge
+sprider policy/kod men ändrar varken GitHubs rulesets eller Windows-runtime.
+Direktpush räknas inte som driftverifierad förrän hela kedjan har körts.
 
 Hook/kvitto är lokala arbetsflödesskydd, inte manipulationssäkra attesteringar.
 `preview:push` är enda stödda direktvägen; sätt inte dess interna
