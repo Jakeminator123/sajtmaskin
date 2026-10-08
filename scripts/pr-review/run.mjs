@@ -277,7 +277,12 @@ export async function requestAccountFallback({ github, prNumber, reason }) {
   return { kind: "skip", reason, modelCalls: 0, writes: 0 };
 }
 
+export function assertLegacyReviewEnabled() {
+  throw new Error("Legacy API reviewer is retired and disabled. Use the existing PR reviewer or the IDE-neutral Buggpass; do not start a second paid review.");
+}
+
 export async function main(env = process.env) {
+  assertLegacyReviewEnabled(); // Unconditional: no env flag can accidentally revive paid automation.
   if (!env.GITHUB_TOKEN) throw new Error("GITHUB_TOKEN saknas");
   if (!env.GITHUB_REPOSITORY || !env.GITHUB_EVENT_PATH)
     throw new Error("GitHub Actions-kontext saknas");

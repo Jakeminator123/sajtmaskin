@@ -4,8 +4,13 @@ import {
   createOpenAIReviewer,
   isOpenAIAccountFallbackError,
   requestAccountFallback,
+  main,
 } from "./run.mjs";
 describe("OpenAI PR reviewer model policy", () => {
+  it("disables the retired entrypoint before reading credentials, events or calling providers", async () => {
+    const env = new Proxy<NodeJS.ProcessEnv>({ NODE_ENV: "test" }, { get() { throw new Error("must not inspect credentials"); } });
+    await expect(main(env)).rejects.toThrow(/retired and disabled/);
+  });
   it("reads canonical manifest models and keeps follow-up output finding-specific", async () => {
     const manifest = JSON.parse(readFileSync("config/ai_models/manifest.json", "utf8"));
     const workload = manifest.workloads.find(

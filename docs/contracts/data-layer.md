@@ -53,10 +53,10 @@ inte applicera migrationer eller perf-index. Vercel-deployen kör inte heller
 DB-DDL. CI får fortfarande initiera sin egen kortlivade testdatabas; det är inte
 en skrivning mot en managed dev-/preview-/produktionsdatabas.
 
-`preview` och produktion använder samma produktionsmål för Postgres. Det finns
-alltså ingen isolerad preview-databas som gör en automatisk apply riskfri. Efter
-att PR #1516:s säkra runner är integrerad ska produktionsapply ske separat och
-endast med uttryckligt ägarmandat. Apply är inte atomisk med deploy, och en
+Vercel Preview och Development delar DEV; Production använder PROD enligt
+`config/db-targets.json`. Databaserna är skilda, men Preview/Development är
+gemensamt tillstånd och automatisk apply är inte riskfri. Varje managed
+DB-apply kräver separat uttryckligt ägarmandat. Apply är inte atomisk med deploy, och en
 kodrevert återställer inte redan genomförda DB-ändringar. Se
 [`db-migrations.md`](../runbooks/db-migrations.md) för aktuell körordning.
 

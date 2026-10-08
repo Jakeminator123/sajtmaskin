@@ -1,6 +1,8 @@
 name: Dossier acceptance
 
 on:
+  push:
+    branches: [preview]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   schedule:
@@ -60,7 +62,7 @@ jobs:
   # red for an explicit `unverified` dossier. It must not false-red an otherwise
   # valid PR whose acceptance projects all build.
   verification-evidence:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -183,9 +185,9 @@ jobs:
             echo "::error::scope=${SCOPE_RESULT} (run_matrix=${RUN_MATRIX})"
             exit 1
           fi
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then
             if [ "$EVIDENCE_RESULT" != "skipped" ]; then
-              echo "::error::PR must skip freshness evidence, got ${EVIDENCE_RESULT}"
+              echo "::error::PR/push must skip freshness evidence, got ${EVIDENCE_RESULT}"
               exit 1
             fi
           elif [ "$EVIDENCE_RESULT" != "success" ]; then

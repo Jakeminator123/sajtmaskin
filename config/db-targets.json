@@ -1,13 +1,18 @@
 {
   "$comment": "Kanonisk dev/prod-identitet för Sajtmaskins Postgres (Supabase). Konsumeras av scripts/db/check-db-env-target.mjs (lokalt + CI-guard). Project refs är del av publika hostnames — inga credentials här.",
+  "vercelEnvironments": {
+    "development": "dev",
+    "preview": "dev",
+    "production": "prod"
+  },
   "dev": {
     "projectRef": "yubbckduwblyrbnlglwf",
     "region": "eu-north-1",
-    "role": "Dev-Supabase — Vercel Development + lokal .env.local + POSTGRES_URL_DEV (CI)"
+    "role": "Dev-Supabase — Vercel Development + Vercel Preview + lokal .env.local + POSTGRES_URL_DEV (CI)"
   },
   "prod": {
     "projectRef": "egcitvwgettkftkyzbvn",
     "region": "us-east-1",
-    "role": "Prod-Supabase — Vercel Production + Vercel Preview + POSTGRES_URL_PROD (CI) + .env.vercel.production.pulled (explicit lokal snapshot)"
+    "role": "Prod-Supabase — Vercel Production + POSTGRES_URL_PROD (CI) + .env.vercel.production.pulled (explicit lokal snapshot)"
   }
 }

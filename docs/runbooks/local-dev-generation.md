@@ -143,14 +143,14 @@ Scaffold-/template-embeddings läses via
 
 ## Behåll DEV ≈ PROD (schema)
 
-- Lokal + Vercel **Development** → DEV-ref.
-- `preview`-grenen och Vercel **Production** delar produktionsmålet; anta inte
-  att preview har en isolerad databas.
-- Synka en redan initialiserad DEV uttryckligt med `npm run db:ensure`; använd
-  `db:init` bara för ny throwaway/setup. `npm run db:schema-parity` jämför
-  read-only.
-- Produktionsapply är ett separat ägarauktoriserat steg via den säkra runnern
-  efter PR #1516-integrationen. Deploy och DB-apply är inte atomiska, och
+- Lokal + Vercel **Development/Preview** → DEV-ref enligt
+  [`config/db-targets.json`](../../config/db-targets.json); **Production** → PROD.
+  Preview delar testkonton och testdata med DEV, inte produktionskonton.
+- Synka använd DEV endast efter granskad plan och uttryckligt mandat; den
+  avgränsade Preview-synken ägs av `npm run db:align-dev-preview`. Använd `db:init`
+  bara för ny throwaway/setup. `npm run db:schema-parity` jämför read-only.
+- Produktionsapply är ett separat ägarauktoriserat steg efter granskning av
+  aktuell runner och pending-plan. Deploy och DB-apply är inte atomiska, och
   migrationer är inte automatiskt additiva eller reversibla. Se
   [`db-migrations.md`](db-migrations.md).
 - Dela gärna LLM-nycklar mellan miljöer.

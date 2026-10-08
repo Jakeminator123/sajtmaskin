@@ -431,7 +431,7 @@ function hasExactExpression(actual, expected) {
 
 const TRUSTED_MASTER_PUSH_OR_DISPATCH =
   "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
-/** Preview uses the same prod Postgres as Production (`config/db-targets.json`). */
+/** Trusted delivery pushes check PROD compatibility; runtime Preview targets DEV. */
 const TRUSTED_PROD_DB_PUSH_OR_DISPATCH =
   "${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/preview') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const REJECT_NON_MASTER_DISPATCH =
@@ -501,6 +501,10 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   } else if (pullRequest && typeof pullRequest === "object" && pullRequest.paths) {
     errors.push("dossier-acceptance must not path-filter the pull_request trigger");
   }
+  if (!hasExactStringSet(document?.on?.push?.branches, ["preview"]) ||
+      document?.on?.push?.paths || document?.on?.push?.["paths-ignore"]) {
+    errors.push("dossier-acceptance must run on every preview push");
+  }
   const requiredTypes = [
     "opened",
     "synchronize",
@@ -550,10 +554,10 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   if (
     !hasExactExpression(
       document?.jobs?.["verification-evidence"]?.if,
-      "github.event_name != 'pull_request'",
+      "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'",
     )
   ) {
-    errors.push("verification-evidence must stay off pull-request runs");
+    errors.push("verification-evidence must only run on schedule/workflow_dispatch, not PR/push");
   }
 
   const aggregate = document?.jobs?.["dossier-acceptance"];
@@ -1511,6 +1515,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
   const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
   if (
+    !prAiReviewer.includes("assertLegacyReviewEnabled();") ||
     !prAiReviewer.includes("writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result)") ||
     !prAiAutomation.includes('kind: "receipt-recovery"') ||
     !prAiAutomation.includes("verifiedCurrentReview") ||

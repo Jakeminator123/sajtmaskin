@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   checkDbEnvTarget,
+  checkVercelDbEnvTargets,
   describeDbTarget,
   extractSupabaseProjectRef,
   loadDbTargets,
@@ -9,6 +11,7 @@ import {
 } from "./check-db-env-target.mjs";
 
 const targets = {
+  vercelEnvironments: { development: "dev", preview: "dev", production: "prod" },
   dev: { projectRef: "yubbckduwblyrbnlglwf", region: "eu-north-1" },
   prod: { projectRef: "egcitvwgettkftkyzbvn", region: "us-east-1" },
 };
@@ -160,5 +163,55 @@ describe("loadDbTargets", () => {
     const loaded = loadDbTargets();
     expect(loaded.dev.projectRef).toBe("yubbckduwblyrbnlglwf");
     expect(loaded.prod.projectRef).toBe("egcitvwgettkftkyzbvn");
+    expect(loaded.vercelEnvironments).toEqual({
+      development: "dev",
+      preview: "dev",
+      production: "prod",
+    });
+  });
+});
+
+describe("Vercel database environment boundary", () => {
+  const vercel = (VERCEL_ENV: string, POSTGRES_URL: string) => ({
+    VERCEL: "1",
+    VERCEL_ENV,
+    POSTGRES_URL,
+  });
+
+  it("rejects production credentials in preview, including a fallback URL", () => {
+    expect(checkVercelDbEnvTargets(vercel("preview", PROD_POOLER), targets).ok).toBe(false);
+    expect(
+      checkVercelDbEnvTargets(
+        { ...vercel("preview", DEV_POOLER), POSTGRES_URL_NON_POOLING: PROD_DIRECT },
+        targets,
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("accepts the shared dev target in preview and development, and prod in production", () => {
+    for (const environment of ["preview", "development"]) {
+      expect(checkVercelDbEnvTargets(vercel(environment, DEV_POOLER), targets).ok).toBe(true);
+    }
+    expect(checkVercelDbEnvTargets(vercel("production", PROD_POOLER), targets).ok).toBe(true);
+  });
+
+  it("fails closed for missing URLs, unregistered environments and local Postgres on Vercel", () => {
+    expect(checkVercelDbEnvTargets({ VERCEL: "1", VERCEL_ENV: "preview" }, targets).ok).toBe(false);
+    expect(checkVercelDbEnvTargets(vercel("staging", DEV_POOLER), targets).ok).toBe(false);
+    expect(checkVercelDbEnvTargets(vercel("preview", LOCAL), targets).ok).toBe(false);
+    expect(checkVercelDbEnvTargets(vercel("production", DEV_POOLER), targets).ok).toBe(false);
+  });
+
+  it("keeps local and no-secret CI builds independent of live credentials", () => {
+    expect(checkVercelDbEnvTargets({}, targets).ok).toBe(true);
+  });
+
+  it("runs the deployment target guard before the existing prebuild checks", () => {
+    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+    expect(pkg.scripts.prebuild.split(" && ")[0]).toBe(
+      "node scripts/db/check-db-env-target.mjs --vercel",
+    );
+    expect(pkg.scripts.prebuild).toContain("npm run preflight:common");
+    expect(pkg.scripts.prebuild).toContain("npm run embeddings:ensure");
   });
 });

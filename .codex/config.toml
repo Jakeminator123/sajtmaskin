@@ -15,6 +15,8 @@ model_reasoning_effort = "high"
 # Ändras någon av raderna nedan måste `.codex/README.md` § Behörighet ändras i
 # samma diff; `npm run workflow:contract` jämför dem.
 approval_policy = "on-request"
+# Separat Buggpass-CLI laddar inte denna config: dess versionsbundna read-only
+# undantag och negativa säkerhetsprov dokumenteras i .codex/README.md.
 sandbox_mode = "danger-full-access"
 web_search = "live"
 

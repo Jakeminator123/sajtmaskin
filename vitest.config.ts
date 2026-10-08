@@ -76,7 +76,7 @@ export default defineConfig({
     // loggar och bail=0 för komplett feldiagnostik i GitHub Actions.
     ...(IS_LOCAL_PR
       ? {
-          maxWorkers: "50%",
+          maxWorkers: 4,
           silent: "passed-only" as const,
           bail: 1,
         }

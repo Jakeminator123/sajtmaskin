@@ -20,8 +20,10 @@ eller vanliga CI-pushar. Registrera i `MIGRATION_ORDER`, testa isolerat
 och ta fram en granskad DB-plan. DB-skrivningar är ett separat mandat,
 inte en följd av ett kod-/mergeuppdrag.
 
-Preview delar prod-DB med en produktion som kör **gammal** kod. Additiv
-DDL kan också låsa, påverka policies/triggers eller ändra beteende.
+Preview och Development delar DEV-DB; Production använder PROD.
+`config/db-targets.json` äger miljömappningen; Vercel-prebuild validerar den
+med `db:check-target --vercel`. DB-byte kräver redeploy och kontroll av aktiva
+deploymentens mål. Additiv DDL kan också låsa, påverka policies/triggers eller ändra beteende.
 `npm run promote` är en kodleverans, inte ett DB-mandat eller atomisk deploy.
 CI läser ledger och live-paritet; rött kräver inspektion, aldrig auto-reparation.
 Initiera tom dev-DB uttryckligt med `db:init`; använd `db:ensure` för pending
@@ -37,4 +39,7 @@ Preview-host (Fly) är egen miljö: `preview-host/fly.toml` / `fly secrets`.
 Vercel-env når inte Fly.
 
 Ingen live-apply, historisk checksum-backfill eller DB-reparation utan mandat.
+DEV-synken för Preview ägs av `scripts/db/align-dev-preview.mjs`: befintlig
+mejlmigration + återställbar arkivering av tomma pensionerade tabeller.
+Ingen automatisk apply; historiska ledgerposter och SQL-filer bevaras.
 En kodrevert återställer inte DB-data eller schema. Före merge: redovisa DB-effekt.

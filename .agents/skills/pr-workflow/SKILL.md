@@ -41,8 +41,8 @@ rapportens `runtimeStatus`.
 ## 3. Synka och verifiera
 
 - `npm run sync:derived` när owners ändrats.
-- `npm run verify:pr -- --plan` när diffen fått form och före push; hooken
-  upprepar planen.
+- `npm run verify:pr -- --plan` när diffen fått form och före push; direktpreview
+  återanvänder `preview:prepare`-planen, övriga pushar planeras i hooken.
 - Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions
   publicerar required checks på varje head: tung profil för ready runtime,
   högrisk och `master`, explicit light-kvitto för safe docs och vanliga drafts.
@@ -53,7 +53,31 @@ rapportens `runtimeStatus`.
   uttryckligt krav när själva CI-/verifieringsmotorn ändras.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
-## 4. PR
+## 4. Leverera: direkt preview eller PR
+
+Direktpreview: kör riktade kontroller enligt § 3, commit:a exakta paths och kör
+`npm run preview:prepare` (endast plan; inget test- eller reviewkvitto). Fråga sedan
+Jakob **Är du säker på att du vill pusha?** med exakt SHA. Efter svaret:
+`npm run preview:push -- --confirm <full SHA>`. Kommandot återkontrollerar
+remote-bas/head och granskarens sandbox, sedan pushas utan force. **Efter lyckad push** startas ett
+fristående readonly Buggpass; resultatet återgår till författaragenten.
+Agenten accepterar och fixar, avfärdar med konkret bevis eller skjuter upp
+låg-impact P2 med dokumenterad uppföljning. Fynd visar bedömd säkerhet i %,
+impact 1–5 och kort kommentar; poängen är inte CI eller en mergegrind.
+Vid fix: använd `--previous <base:head>` enligt
+[runbooken](../../../docs/runbooks/github-pr-review-automation.md), kör riktat
+och återpublicera efter ny SHA-bunden pushbekräftelse. Granska delta/integration,
+återanvänd oförändrat kvitto och stoppa efter tre rundor för ägarbeslut.
+Läs push-CI och Vercel READY separat. Modellfel efter push betyder publicerad
+men ogranskad kod, aldrig att pushen misslyckades eller ska upprepas.
+Detta ger inte produktions-, DB- eller mergebehörighet. För direktpreview får
+Jakobs befintliga GitHub-adminundantag användas efter SHA-bekräftelsen
+(ägarbeslut 2026-10-08). Kontrollera aktuell inloggning och att undantaget
+gäller preview; ändra inte ruleset, force/delete-skydd eller Master för detta.
+Om granskaren inte kan starta: använd PR-vägen nedan med fungerande oberoende
+review och native checks. En PR-merge reparerar inte granskarens lokala runtime.
+
+PR-vägen finns kvar när spårbar diskussion/native mergegrind behövs:
 
 1. Commit:a exakta paths och push utan force. Nya PR:ar mot `preview`.
 2. Öppna PR med repots template när Jakob ber om det.
@@ -62,6 +86,10 @@ rapportens `runtimeStatus`.
    lokalt bara när ett fynd eller en ändring motiverar det.
 4. Läs checks, reviews och kommentarer. Varje konkret fynd ska vara fixat,
    loggat eller avfärdat.
+
+På PR-vägen återanvänds befintlig reviewer först. Starta inte Codex/API som
+parallellt obligatoriskt pass. Saknad/neutral review är okänd, inte grön;
+författaragenten väljer en ersättare om den ordinarie inte kan slutföra.
 
 Samla verifierade fynd i en review innan rättningsrundan. Efter rättningar
 granskas ändringsdeltat och dess integration; återanvänd tidigare review för

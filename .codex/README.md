@@ -32,7 +32,33 @@ samma diff — `npm run workflow:contract` jämför filerna och blir röd annars
 - Branch-, worktree-, verifierings- och destructive-action-reglerna gäller
   alltid. Autentisering och tokens ligger utanför repot.
 
-## Så här ska projektet öppnas
+## Avgränsat undantag: fristående Buggpass
+
+Ovanstående `on-request` gäller vanliga projekt-/interaktiva sessioner och
+ändras inte. `scripts/workflow/bugpass.mjs` startar separat CLI utanför repot
+utan användar-/projektconfig, med `read-only`, `approval_policy="never"`
+(ingen eskalering), avstängt webbsök och endast tillåtna OS-miljövariabler.
+CLI-versionen är låst till `0.162.0-alpha.2`, med explicit Windows `elevated`
+sandbox. Före push/modellstart krävs `bugpass:sandbox-check`: en riktig
+läsning ska lyckas, medan skrivning och localhost-HTTP ska nekas. Provet kör
+sandboxen direkt utan modellkvot. Att alla kommandon nekas är inte godkänt.
+Windows är hittills enda målplattformen för detta driftprov; andra plattformar
+stoppar tills motsvarande prov har implementerats och verifierats.
+
+**Införandestatus 2026-10-08:** CLI-reviewn är inte driftgodkänd. Elevated
+sandbox stoppas av en låst Codex browser-körfil (`os error 32` under runtime
+ACL-validering). Unelevated provades men släppte igenom localhost-HTTP och
+används därför inte. Inga andra sessioner stoppades och inga säkerhetskrav
+sänktes. Ett nytt modellfritt prov efter omstart gav samma fel trots nystartade
+runtimeprocesser. Omstart är alltså ingen verifierad lösning. Windows runtime-
+låsningen behöver åtgärdas innan nytt prov och en riktig review på oförändrad SHA.
+
+Ändrad CLI-version, `codexArgs` eller `reviewerEnv` kräver nytt driftprov och
+granskad uppdatering av kontraktet. Provet bevisar endast de testade
+operationerna, inte generell fil-läsisolering eller all Windows-säkerhet.
+Read-only får aldrig bytas mot full åtkomst.
+
+## Öppna projektet
 
 Repo-roten är samma mapp för båda verktygen; skriv inte ut en maskinspecifik
 sökväg här, den ruttnar. Cursor öppnar den med File → Open Folder

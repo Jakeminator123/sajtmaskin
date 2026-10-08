@@ -31,7 +31,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 19;
+export const HOOK_VERSION = 21;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -132,6 +132,22 @@ is_published_label_create() {
 
 verify_needed=0
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # Direkt preview: aldrig delete/force, alltid exakt manniskobekraftad HEAD
+  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.
+  if [ "$remote_ref" = "refs/heads/preview" ]; then
+    if [ "$local_sha" = "$ZERO_SHA" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
+      echo "[hooks] STOPP: preview far inte raderas/aterskapas med vanlig direktpush." >&2
+      exit 1
+    fi
+    require_current_head "$local_sha"
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" >/dev/null 2>&1; then
+      echo "[hooks] STOPP: preview far aldrig force-pushas." >&2
+      exit 1
+    fi
+    node scripts/workflow/preview-push.mjs --hook "$remote_sha" "$local_sha" || exit 1
+    # Exakt base/head-plan finns redan; kor inte samma plan igen nedan.
+    continue
+  fi
   # Agarnas frysta aterstallningspunkter ar write-once i HOOKEN, inte
   # create-once: att SKAPA en ny backup ar hela poangen, medan varje andring
   # eller radering av en befintlig ar stangd har. GitHub-rulesetet
@@ -302,12 +318,14 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = `#!/bin/sh\n# ${HOOK_MARKER} v18 (${hookName}: retired)\nexit 0\n`;
+  const legacyPassive = [18, 19, 20].flatMap((version) => {
+    const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
+    return [body, body.replace(/\n/g, "\r\n")];
+  });
   const hash = createHash("sha256").update(existing).digest("hex");
   if (
     !LEGACY_DB_HOOK_HASHES[hookName].includes(hash) &&
-    existing !== legacyPassive &&
-    existing !== legacyPassive.replace(/\n/g, "\r\n")
+    !legacyPassive.includes(existing)
   ) {
     return { action: "conflict", reason: "modifierad, okänd eller nyare hook; rörs inte" };
   }
@@ -349,6 +367,17 @@ export function decideHookInstall({ existing, desired }) {
       action: "conflict",
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
+  }
+  // Canonical v19 (ab68d9ed) and v20 (7730a7cb); LF and CRLF. A version marker alone
+  // must never authorize deleting local additions or a third-party delegate.
+  const knownPriorHashes = [
+    "f0a367369244d9bee8f3159450d8f2f600cd362c99b77bed3e0affb795cde73a",
+    "320c7fd3524f6da46f2b856b0d000d8de1021babd7b850a1d5ad140f974a1306",
+    "953e4805382936b92211176f9773086957d5761b46c5b107f7db5d3c74c8dacd",
+    "1eaa3b856b81da27bc879661d35c54339bf37a62e9907972956f8d56adf0e8ee",
+  ];
+  if (!knownPriorHashes.includes(createHash("sha256").update(existing).digest("hex"))) {
+    return { action: "conflict", reason: "äldre hook har okänt/modifierat fullinnehåll; rörs inte" };
   }
   return { action: "write", reason: `uppgradering v${existingVersion} → v${desiredVersion}` };
 }

@@ -3,7 +3,21 @@
 Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Mergekrav:
 [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
 
-Jobba från färsk `origin/preview`. Kör lokal plan och riktade kontroller; GitHub
+Jobba från färsk `origin/preview`. Direktleverans kan förberedas med
+`npm run preview:prepare`: endast plan, inte ett kvitto på körda tester.
+Kör och redovisa relevanta riktade kontroller enligt PR-workflow; ingen extra
+full lokal testslinga krävs enbart för direktpreview.
+Fråga därefter Jakob "Är du säker på att du vill pusha?" med exakt SHA;
+`npm run preview:push -- --confirm <SHA>` får bara förmedla hans faktiska svar.
+Efter lyckad push körs ett fristående **Buggpass** och resultatet återgår till
+författaragenten för motiverad triage, fix och delta-review. CI/deploy verifieras
+separat efter push. Se [Buggpass](github-pr-review-automation.md)
+för lokal/server-side gräns och den kvarvarande PR-vägen.
+För direktpreview får Jakobs befintliga adminundantag användas efter
+SHA-bekräftelsen. Om den lokala granskaren inte kan starta används PR-vägen;
+ingen sandbox-bypass, uppluckring för andra användare eller Master-ändring.
+
+Vid PR: kör lokal plan och riktade kontroller; GitHub
 Actions äger full verifiering. Safe docs och vanliga drafts får ett explicit
 light-kvitto, medan ready kod, beroenden och osäker klassificering får full
 profil. Draft→ready och ny head startar rätt profil; stale körningar avbryts.
@@ -20,5 +34,6 @@ GitHubs vanliga manuella merge. Ingen PR-head-kod får skrivtoken eller
 produktionshemligheter.
 
 Produktion uppdateras via separat promote-PR till `master`, extra varning och ny
-bekräftelse. Preview delar produktions-DB, men merge/CI/deploy applicerar inget
+bekräftelse. Preview och Development delar DEV; Production använder PROD enligt
+[`config/db-targets.json`](../../config/db-targets.json). Merge/CI/deploy applicerar inget
 schema. DB-apply och produktionsdata kräver eget uttryckligt mandat.
