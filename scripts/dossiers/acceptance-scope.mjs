@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { changedFilesForEvent } from "../workflow/ci-scope.mjs";
 import { pathMatchesPattern } from "../workflow/path-impact.mjs";
+import { verifiedPushBaseline } from "../workflow/push-baseline.mjs";
 import { DOSSIER_ACCEPTANCE_PATHS } from "./acceptance-paths.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -22,6 +23,7 @@ export function matchesAcceptanceContract(path) {
  * @param {{
  *   eventName?: string,
  *   ref?: string,
+ *   baselineVerified?: boolean,
  *   baseSha?: string,
  *   headSha?: string,
  *   cwd?: string,
@@ -31,13 +33,14 @@ export function matchesAcceptanceContract(path) {
 export function decideAcceptanceScope({
   eventName,
   ref = "",
+  baselineVerified = false,
   baseSha,
   headSha,
   cwd = REPO_ROOT,
   gitCommand,
 } = {}) {
   const event = String(eventName ?? "").trim();
-  if (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview")) {
+  if (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview" && baselineVerified)) {
     return {
       runMatrix: true,
       reason: `trusted-${event || "unknown"}-full`,
@@ -81,8 +84,12 @@ function writeOutput(path, key, value) {
   appendFileSync(path, `${key}=${String(value)}\n`, "utf8");
 }
 
-function main() {
+async function main() {
+  const baselineVerified = process.env.GITHUB_EVENT_NAME === "push" &&
+    process.env.GITHUB_REF === "refs/heads/preview" &&
+    await verifiedPushBaseline({ workflow: "dossier-acceptance.yml" });
   const decision = decideAcceptanceScope({
+    baselineVerified,
     eventName: process.env.GITHUB_EVENT_NAME,
     ref: process.env.GITHUB_REF,
     baseSha:

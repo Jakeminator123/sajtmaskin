@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
+import { verifiedPushBaseline } from "./push-baseline.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -213,6 +214,7 @@ export function resolveCiScope({
   isDraft = false,
   ref = "",
   baseRef = "",
+  baselineVerified = false,
   baseSha,
   headSha,
   cwd = REPO_ROOT,
@@ -221,7 +223,7 @@ export function resolveCiScope({
 }) {
   const event = String(eventName ?? "").trim();
   if (
-    (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview")) ||
+    (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview" && baselineVerified)) ||
     (event === "pull_request" && baseRef === "master")
   ) {
     return {
@@ -272,8 +274,12 @@ function writeOutput(path, key, value) {
   appendFileSync(path, `${key}=${String(value)}\n`, "utf8");
 }
 
-function main() {
+async function main() {
+  const baselineVerified = process.env.GITHUB_EVENT_NAME === "push" &&
+    process.env.GITHUB_REF === "refs/heads/preview" &&
+    await verifiedPushBaseline({ workflow: "ci.yml" });
   const decision = resolveCiScope({
+    baselineVerified,
     eventName: process.env.GITHUB_EVENT_NAME,
     eventAction: process.env.SAJTMASKIN_PR_ACTION,
     isDraft: process.env.SAJTMASKIN_PR_DRAFT,

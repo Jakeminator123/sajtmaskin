@@ -31,6 +31,10 @@ export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
     reason: "Shared rename parsing and path matching control acceptance scope.",
   },
   {
+    pattern: "scripts/workflow/push-baseline.mjs",
+    reason: "Previous successful push evidence gates incremental acceptance scope.",
+  },
+  {
     pattern: "src/lib/gen/dossiers/**",
     reason: "Acceptance project builder, registry and output-path mapping assemble the site.",
   },

@@ -18,6 +18,13 @@ function decide(
 }
 
 describe("CI scope decision", () => {
+  it("does not green carried runtime failures without successful predecessor evidence", () => {
+    expect(resolveCiScope({
+      eventName: "push", ref: "refs/heads/preview",
+      baseSha: "a".repeat(40), headSha: "b".repeat(40), inputs,
+      gitCommand: (() => ({ status: 0, stdout: "M\0README.md\0" })) as never,
+    })).toMatchObject({ runHeavy: true, runPreviewHost: true });
+  });
   it("runs only contract checks for an exclusive ordinary docs diff", () => {
     const result = decide(["README.md", "docs/example-guide.md"]);
 
@@ -285,7 +292,7 @@ describe("CI scope decision", () => {
   });
 
   it("allows proven docs on preview pushes but never draft-runtime shortcuts", () => {
-    const preview = { eventName: "push", ref: "refs/heads/preview", isDraft: true };
+    const preview = { eventName: "push", ref: "refs/heads/preview", baselineVerified: true, isDraft: true };
     expect(decide(["README.md"], preview)).toMatchObject({
       runHeavy: false,
       safeDocsOnly: true,
@@ -317,7 +324,7 @@ describe("CI scope decision", () => {
   it("classifies both rename sides on a proven preview push", () => {
     const result = resolveCiScope({
       eventName: "push",
-      ref: "refs/heads/preview",
+      ref: "refs/heads/preview", baselineVerified: true,
       baseSha: "a".repeat(40),
       headSha: "b".repeat(40),
       inputs,
@@ -357,7 +364,7 @@ describe("CI scope decision", () => {
       expect(
         resolveCiScope({
           eventName: "push",
-          ref: "refs/heads/preview",
+          ref: "refs/heads/preview", baselineVerified: true,
           baseSha,
           headSha: "b".repeat(40),
           inputs,
@@ -371,7 +378,7 @@ describe("CI scope decision", () => {
       expect(
         resolveCiScope({
           eventName: "push",
-          ref: "refs/heads/preview",
+          ref: "refs/heads/preview", baselineVerified: true,
           baseSha: "a".repeat(40),
           headSha: "b".repeat(40),
           inputs,
@@ -398,10 +405,10 @@ describe("CI scope decision", () => {
       git("commit", "--quiet", "-m", "docs push");
       const headSha = git("rev-parse", "HEAD");
       expect(resolveCiScope({
-        eventName: "push", ref: "refs/heads/preview", baseSha, headSha, cwd, inputs,
+        eventName: "push", ref: "refs/heads/preview", baselineVerified: true, baseSha, headSha, cwd, inputs,
       })).toMatchObject({ files: ["README.md"], runHeavy: false, classificationError: null });
       expect(resolveCiScope({
-        eventName: "push", ref: "refs/heads/preview", baseSha: headSha, headSha: baseSha, cwd, inputs,
+        eventName: "push", ref: "refs/heads/preview", baselineVerified: true, baseSha: headSha, headSha: baseSha, cwd, inputs,
       })).toMatchObject({ runHeavy: true, reason: "classification-error" });
     } finally {
       rmSync(cwd, { recursive: true, force: true });

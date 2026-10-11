@@ -481,6 +481,12 @@ const DOSSIER_ACCEPTANCE_MATRIX_IF =
   "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}";
 const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
 
+function hasPushBaselineReader(scope) {
+  return isDeepStrictEqual(scope?.permissions, { contents: "read", actions: "read" }) &&
+    scope.steps?.some((step) =>
+      hasExactExpression(step.env?.GITHUB_TOKEN, "${{ github.token }}"));
+}
+
 export function evaluateDossierAcceptanceWorkflow(source) {
   const errors = [];
   let document;
@@ -525,6 +531,7 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
+    !hasPushBaselineReader(scope) ||
     !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
@@ -627,6 +634,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   if (
     !scope ||
     !hasExactExpression(scope.outputs?.run_heavy, "${{ steps.classify.outputs.run_heavy }}") ||
+    !hasPushBaselineReader(scope) ||
     !hasExactExpression(
       scope.outputs?.safe_docs_only,
       "${{ steps.classify.outputs.safe_docs_only }}",

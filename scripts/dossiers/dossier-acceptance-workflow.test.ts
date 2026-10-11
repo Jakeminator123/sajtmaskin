@@ -16,6 +16,7 @@ const IN_CONTRACT_EXAMPLES = [
   "scripts/dossiers/materialize-acceptance-project.ts",
   "scripts/workflow/ci-scope.mjs",
   "scripts/workflow/path-impact.mjs",
+  "scripts/workflow/push-baseline.mjs",
   "src/lib/gen/dossiers/acceptance-project.ts",
   "src/lib/gen/export/project-scaffold.ts",
   "src/lib/gen/scaffolds/landing-page/files/app/page.tsx",
@@ -50,6 +51,7 @@ describe("dossier acceptance path contract", () => {
       "scripts/dossiers/**",
       "scripts/workflow/ci-scope.mjs",
       "scripts/workflow/path-impact.mjs",
+      "scripts/workflow/push-baseline.mjs",
       "src/lib/gen/dossiers/**",
       "src/lib/gen/export/**",
       "src/lib/gen/scaffolds/landing-page/**",
@@ -161,6 +163,13 @@ describe("dossier acceptance scope", () => {
 });
 
 describe("preview push dossier scope", () => {
+  it("does not skip carried dossier changes without successful predecessor evidence", () => {
+    expect(decideAcceptanceScope({
+      eventName: "push", ref: "refs/heads/preview",
+      baseSha: "a".repeat(40), headSha: "b".repeat(40),
+      gitCommand: () => ({ status: 0, stdout: "M\0README.md\0" }),
+    })).toMatchObject({ runMatrix: true });
+  });
   it.each([
     ["src/app/builder/page.tsx", false],
     ["README.md", false],
@@ -172,7 +181,7 @@ describe("preview push dossier scope", () => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
-        ref: "refs/heads/preview",
+        ref: "refs/heads/preview", baselineVerified: true,
         baseSha: "a".repeat(40),
         headSha: "b".repeat(40),
         gitCommand: () => ({ status: 0, stdout: `M\0${path}\0` }),
@@ -185,7 +194,7 @@ describe("preview push dossier scope", () => {
       expect(
         decideAcceptanceScope({
           eventName: "push",
-          ref: "refs/heads/preview",
+          ref: "refs/heads/preview", baselineVerified: true,
           baseSha,
           headSha: "b".repeat(40),
           gitCommand: () => ({ status: 1, stdout: "" }),
@@ -201,7 +210,7 @@ describe("preview push dossier scope", () => {
     expect(
       decideAcceptanceScope({
         eventName: "push",
-        ref: "refs/heads/preview",
+        ref: "refs/heads/preview", baselineVerified: true,
         baseSha: "a".repeat(40),
         headSha: "b".repeat(40),
         gitCommand: () => ({

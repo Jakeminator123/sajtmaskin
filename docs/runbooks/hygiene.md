@@ -28,6 +28,9 @@ Full lokal körning finns kvar för felsökning eller ett uttryckligt fulltestup
 Preview-push använder samma safe-docs-profil som PR. Dossiermatrisen körs när
 dess beroenden ändras; veckokörning/manuell körning är full. Master, saknad
 pushhistorik och osäker klassificering behåller full kontroll.
+Preview-genvägar kräver att respektive workflow lyckats på föregående exakta
+push-SHA. Klassificeraren läser ett GitHub-kvitto med read-only-token; fel,
+saknat eller pågående kvitto kör full profil/matris. Ingen extra testsvit körs.
 Det kompletta agent→preview/PR-flödet finns i
 [`agent-workflow.md`](agent-workflow.md).
 

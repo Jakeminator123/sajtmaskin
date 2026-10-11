@@ -28,6 +28,9 @@ jobs:
   # lätta profilen. Den återanvänder samma path-impactmotor som lokal verify:pr.
   # Saknat/fallerat scope-resultat tolkas som FULL körning av alla konsumenter.
   scope:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
@@ -56,6 +59,7 @@ jobs:
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/workflow/ci-scope.mjs
 
   quality-core:

@@ -24,6 +24,9 @@ jobs:
   # expensive matrix can skip while the required aggregate stays green.
   # Classification errors fail closed to the matrix.
   scope:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     outputs:
       run_matrix: ${{ steps.classify.outputs.run_matrix }}
@@ -41,6 +44,7 @@ jobs:
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/dossiers/acceptance-scope.mjs
 
   discover:

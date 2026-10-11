@@ -48,6 +48,8 @@ rapportens `runtimeStatus`.
   högrisk och `master`, explicit light-kvitto för safe docs (även preview-push)
   och vanliga drafts. Dossiermatrisen väljs av beroendekontraktet på PR och
   preview-push; schemalagd/manuell körning är komplett.
+  Preview-genvägar kräver en grön föregående push för respektive workflow;
+  pågående/fallerad/okänd bas kör full profil utan att ärva falskt grönt.
   Hela `test:ci`-sviten fördelas över fyra parallella jobb; `quality` kräver alla
   fyra. Samla kända rättningar före push. Att återgå till draft startar ingen
   ny CI-körning; en ny head eller ready-status verifieras som vanligt.
