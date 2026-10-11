@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, w
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateFinding, validateDecision, reviewDigest, reviewStatus, nextRound, formatReview, followUpDigest, validateReviewChain } from "./bugpass-state.mjs";
+import { validateFinding, validateDecision, reviewDigest, reviewStatus, nextRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError } from "./bugpass-state.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const SHA = /^[0-9a-f]{40}$/;
@@ -22,8 +22,11 @@ export function assertClean() {
   if (git(["status", "--porcelain", "--untracked-files=normal"])) throw new Error("Commit exact task paths first: Buggpass requires clean, committed HEAD.");
 }
 export function reviewContract() {
-  return reviewDigest(["scripts/workflow/bugpass.mjs", "scripts/workflow/bugpass-state.mjs", "scripts/workflow/preview-push.mjs",
-    "config/agent-workflow.json"].map((path) => readFileSync(join(ROOT, path), "utf8")));
+  const policies = git(["ls-files", "-z", "--", "AGENTS.md", "**/AGENTS.md", ".cursor/rules/*.mdc",
+    ".agents/skills/pr-workflow/SKILL.md", ".codex/README.md", "docs/runbooks/agent-workflow.md",
+    "docs/runbooks/github-pr-review-automation.md"]).split("\0").filter(Boolean);
+  return reviewDigest([...new Set(["scripts/workflow/bugpass.mjs", "scripts/workflow/bugpass-state.mjs", "scripts/workflow/preview-push.mjs",
+    "config/agent-workflow.json", ...policies])].sort().map((path) => [path, readFileSync(join(ROOT, path), "utf8")]));
 }
 function pathFor(base, head, suffix = "review.json") {
   if (!SHA.test(base) || !SHA.test(head)) throw new Error("Full base/head SHA required.");
@@ -76,6 +79,7 @@ export function validateReviewer(reviewer) {
     typeof reviewer[key] !== "string" || !reviewer[key].trim())) throw new Error("Independent reviewer provider, run/chat reference, actual model and reasoning required.");
 }
 export function loadReview(base, head, currentContract = true) {
+  if (!existsSync(pathFor(base, head))) throw new Error(`No Buggpass result for this base/head. Run npm run bugpass -- --base ${base}, then import an independent review.`);
   const receipt = readJson(pathFor(base, head));
   if (receipt.version !== 3 || receipt.base !== base || receipt.head !== head || !SHA.test(receipt.rootBase) ||
       !/^[a-f0-9]{64}$/.test(receipt.contract ?? "") || (currentContract && receipt.contract !== reviewContract()) ||
@@ -109,16 +113,29 @@ function previousReview(base, head) {
   // original predecessor, not create a self-referencing chain.
   const previous = latest.head === head ? (latest.previous ? readPrior(latest.previous.base, latest.previous.head) : null) : latest;
   if (previous) {
-    validateReviewChain(previous, readPrior);
+    reviewHistory(previous, readPrior); // Reject broken structure, but allow fresh review of stale conclusions.
     git(["merge-base", "--is-ancestor", previous.head, head]);
   }
   return previous;
 }
 
+export function reviewContext(previous, contract, readReview) {
+  const history = reviewHistory(previous, readReview);
+  let fullReview = Boolean(previous && previous.contract !== contract);
+  if (previous) {
+    try { validateReviewChain(previous, readReview); }
+    catch (error) {
+      if (!(error instanceof StaleReviewContextError)) throw error;
+      fullReview = true;
+    }
+  }
+  return { fullReview, previousChainContext: previous ? reviewDigest(history) : null, history };
+}
+
 /** @param {{head: string, rootBase: string, contract: string, review: object, decisions: object[]} | null} [previous] */
-export function reviewPrompt(repo, request, previous = null) {
+export function reviewPrompt(repo, request, previous = null, history = []) {
   const { base, head, requestId } = request;
-  const from = previous && previous.contract === request.contract ? previous.head : base;
+  const from = previous && !request.fullReview && previous.contract === request.contract ? previous.head : base;
   return `Perform one independent read-only Buggpass. Repository: ${JSON.stringify(repo)}.
 Exact base ${base}; head ${head}; requestId ${requestId}.
 Start with fresh context: no author conversation. Review COMPLETE git diff ${from}..${head}, relevant callers/tests and integration into ${base}.
@@ -131,7 +148,7 @@ Include path/line, SHORT triggering scenario, confidencePercent (0-100 subjectiv
 (1 minor/local, 2 limited inconvenience, 3 broken core flow, 4 broad/security/data risk, 5 critical breach/data loss/outage).
 Inspect every changed file. Missing/truncated context must return complete=false. Report uncertain high-impact concerns with the evidence gap.
 ${previous ? `Recheck previously accepted/unresolved findings; carry remaining findings forward. Respect evidenced rejections unless new evidence invalidates them.
-Prior review/author decisions: ${JSON.stringify({ review: previous.review, decisions: previous.decisions })}` : ""}
+Prior review/author decisions: ${JSON.stringify(request.fullReview ? history : { review: previous.review, decisions: previous.decisions })}` : ""}
 Return JSON matching the supplied schema. Do not save files yourself; return the result to the author for import.
 Empty findings do not prove tests or deployment success.`;
 }
@@ -140,7 +157,9 @@ export function prepareReview(base) {
   const head = scope(base);
   return withLock(base, () => {
     const previous = previousReview(base, head);
-    const request = { version: 1, base, head, contract: reviewContract(), rootBase: base,
+    const contract = reviewContract();
+    const { history, ...context } = reviewContext(previous, contract, readPrior);
+    const request = { version: 1, base, head, contract, rootBase: base, ...context,
       round: nextRound(previous), previous: previous ? { base: previous.base, head: previous.head } : null,
       previousContext: followUpDigest(previous) };
     const requestId = reviewDigest(request);
@@ -155,7 +174,7 @@ export function prepareReview(base) {
     }
     const file = pathFor(base, head, "request.json");
     atomicJson(file, full);
-    writeFileSync(pathFor(base, head, "prompt.txt"), reviewPrompt(ROOT, full, previous));
+    writeFileSync(pathFor(base, head, "prompt.txt"), reviewPrompt(ROOT, full, previous, history));
     atomicJson(pathFor(base, head, "schema.json"), reviewSchema(base, head, requestId));
     console.log(`[bugpass] Review REQUEST prepared; no model started and no review approved.\nRequest: ${file}\nPrompt: ${pathFor(base, head, "prompt.txt")}\nSchema: ${pathFor(base, head, "schema.json")}\nStart one fresh independent reviewer, then import its actual result with --import <file> --reviewer <metadata.json>.`);
     return { request: full };
@@ -167,9 +186,11 @@ export function importReview(base, review, reviewer) {
   return withLock(base, () => {
     const request = readJson(pathFor(base, head, "request.json"));
     const previous = previousReview(base, head);
+    const context = reviewContext(previous, reviewContract(), readPrior);
     const { requestId, ...body } = request;
     if (request.version !== 1 || request.base !== base || request.head !== head || request.contract !== reviewContract() ||
-        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous))
+        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous) ||
+        request.fullReview !== context.fullReview || request.previousChainContext !== context.previousChainContext)
       throw new Error("Review request changed or is stale; prepare a new request.");
     validateReview(review, base, head, requestId);
     validateReviewer(reviewer);

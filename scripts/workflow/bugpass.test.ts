@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof } from "./bugpass.mjs";
+import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
@@ -126,5 +126,24 @@ describe("bounded author triage", () => {
     first.decisions = [{ ...decision, action: "accept" }];
     expect(() => validateReviewChain(second, () => first)).toThrow(/fresh review required/);
     expect(() => validateCachedContext({ previousContext: null }, first)).toThrow();
+  });
+  it("reconciles stale ancestors with a full review without resetting the round limit", () => {
+    const first = { base, head, rootBase: base, round: 1, contract, review: report, decisions: [decision] };
+    const second = { base, head: "f".repeat(40), rootBase: base, round: 2, contract, review, decisions: [],
+      previous: { base, head }, previousContext: followUpDigest(first) };
+    const readPrior = (_base: string, requested: string) => requested === first.head ? first : second;
+    first.decisions = [{ ...decision, action: "accept" }];
+    const context = reviewContext(second, contract, readPrior);
+    expect(context.fullReview).toBe(true);
+    expect(context.history).toHaveLength(2);
+    const third = { base, head: "9".repeat(40), rootBase: base, round: nextRound(second), contract, review, decisions: [],
+      previous: { base, head: second.head }, previousContext: followUpDigest(second),
+      fullReview: context.fullReview, previousChainContext: context.previousChainContext };
+    expect(reviewPrompt("repo", { ...third, requestId }, second, context.history)).toContain(`diff ${base}..${third.head}`);
+    expect(() => validateReviewChain(third, readPrior)).not.toThrow();
+    expect(() => nextRound(third)).toThrow(/Three/);
+    first.decisions = [{ ...decision, action: "accept", reason: "Different evidence now requires another review." }];
+    expect(() => validateReviewChain(third, readPrior)).toThrow(/fresh review required/);
+    expect(() => reviewContext({ ...second, round: 1 }, contract, readPrior)).toThrow(/round chain/);
   });
 });

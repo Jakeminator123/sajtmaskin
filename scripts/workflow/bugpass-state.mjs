@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export const MAX_REVIEW_ROUNDS = 3;
 export const MAX_DEFERRED_IMPACT = 2;
+export class StaleReviewContextError extends Error {}
 
 // Scores are reviewer estimates, not measured probabilities or a CI pass rate.
 export function validateFinding(finding) {
@@ -27,8 +28,26 @@ export function followUpDigest(previous) {
 
 export function validateCachedContext(receipt, previous) {
   if (previous && receipt.previousContext !== followUpDigest(previous)) {
-    throw new Error("Cached review did not cover these previous findings/decisions; fresh review required, not a green cache hit.");
+    throw new StaleReviewContextError("Cached review did not cover these previous findings/decisions; fresh review required, not a green cache hit.");
   }
+}
+
+// Current evidence from every round, without trusting an obsolete descendant's
+// conclusions. A full review can reconcile it without rewriting older receipts.
+export function reviewHistory(receipt, readReview, seen = new Set()) {
+  if (!receipt) return [];
+  const key = `${receipt.base}:${receipt.head}`;
+  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS) throw new Error("Invalid/cyclic review chain.");
+  seen.add(key);
+  let history = [];
+  if (receipt.previous) {
+    const previous = readReview(receipt.previous.base, receipt.previous.head);
+    if (previous.round + 1 !== receipt.round || previous.rootBase !== receipt.rootBase) throw new Error("Invalid review round chain.");
+    history = reviewHistory(previous, readReview, seen);
+  } else if (receipt.round !== 1) throw new Error("Missing previous review in follow-up chain.");
+  return [...history, { base: receipt.base, head: receipt.head, rootBase: receipt.rootBase, round: receipt.round,
+    review: receipt.review, decisions: receipt.decisions, previousContext: receipt.previousContext ?? null,
+    previousChainContext: receipt.previousChainContext ?? null, fullReview: receipt.fullReview ?? false }];
 }
 
 export function validateReviewChain(receipt, readReview, seen = new Set()) {
@@ -38,7 +57,10 @@ export function validateReviewChain(receipt, readReview, seen = new Set()) {
   if (receipt.previous) {
     const previous = readReview(receipt.previous.base, receipt.previous.head);
     if (previous.round + 1 !== receipt.round || previous.rootBase !== receipt.rootBase) throw new Error("Invalid review round chain.");
-    validateReviewChain(previous, readReview, seen);
+    if (receipt.fullReview === true && receipt.previousChainContext) {
+      if (receipt.previousChainContext !== reviewDigest(reviewHistory(previous, readReview, seen)))
+        throw new StaleReviewContextError("Earlier review evidence changed; fresh review required.");
+    } else validateReviewChain(previous, readReview, seen);
     validateCachedContext(receipt, previous);
   } else if (receipt.round !== 1) throw new Error("Missing previous review in follow-up chain.");
 }

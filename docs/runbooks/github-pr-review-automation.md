@@ -80,10 +80,12 @@ en ny commit måste granskas. `reject` kräver belägg; `defer` tillåts endast 
 P2/impact ≤2 med spårbar uppföljning. Alla fynd måste vara hanterade före push.
 
 Uppföljningen granskar delta och integration och bär kvarvarande fynd vidare.
-Ändrat granskningskontrakt kräver full diff igen. Högst tre länkade rundor;
+Ändrat granskningskontrakt (inklusive repo-/granskningsregler) kräver full diff igen. Högst tre länkade rundor;
 därefter ägarbeslut, inte en tyst nollställning. Ändrad triage i en äldre runda
-ogiltigförklarar beroende kvitton. Nya uppdrag på samma head kan då förnyas mot
-aktuell bakgrund; tidigare resultat bevaras som `supersededReview`.
+ogiltigförklarar beroende kvitton. Ett nytt uppdrag på aktuell head granskar då
+hela diffen med samtliga tidigare fynd och aktuella beslut, utan att äldre commits
+behöver checkas ut. Kedjan och gränsen på tre rundor behålls; ersatta resultat på
+samma head bevaras som `supersededReview`.
 
 Lokala underlag finns i `node_modules/.cache/sajtmaskin-bugpass/`; plan och
 publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`. De är lokala

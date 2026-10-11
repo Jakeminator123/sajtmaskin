@@ -193,6 +193,9 @@ describe("renderHookScript", () => {
       mkdirSync(cache, { recursive: true });
       mkdirSync(bin);
       mkdirSync(join(root, "config"));
+      mkdirSync(join(root, ".cursor/rules"), { recursive: true });
+      writeFileSync(join(root, "AGENTS.md"), "Review repository contracts.\n");
+      writeFileSync(join(root, ".cursor/rules/workflow.mdc"), "Original review policy.\n");
       writeFileSync(join(root, "config/agent-workflow.json"), "{}");
       writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
       for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs"])
@@ -231,6 +234,17 @@ describe("renderHookScript", () => {
         { cwd: root, env, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
       expect(cli().status).toBe(0);
       const request = JSON.parse(readFileSync(join(bugCache, `${base}-${head}.request.json`), "utf8"));
+      // Both entry instructions and review policies invalidate reusable proof.
+      const readContract = () => spawnSync(process.execPath, ["--input-type=module", "-e",
+        'import { reviewContract } from "./scripts/workflow/bugpass.mjs"; console.log(reviewContract());'],
+        { cwd: root, env, encoding: "utf8" }).stdout.trim();
+      for (const policy of ["AGENTS.md", ".cursor/rules/workflow.mdc"]) {
+        const path = join(root, policy), original = readFileSync(path, "utf8");
+        writeFileSync(path, `${original}Changed review criterion.\n`);
+        expect(readContract()).not.toBe(request.contract);
+        writeFileSync(path, original);
+      }
+      expect(readContract()).toBe(request.contract);
       const resultPath = join(bugCache, "fixture-result.json"), reviewerPath = join(bugCache, "fixture-reviewer.json");
       const finding = { id: "F1", priority: "P2", confidencePercent: 80, impactScore: 2, file: "fixture.txt", line: 1, description: "Fixture finding" };
       const result = { base, head, requestId: request.requestId, complete: true, summary: "Synthetic integration fixture only", findings: [finding] };
@@ -289,6 +303,27 @@ describe("renderHookScript", () => {
       const followUp = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
       expect(followUp).toMatchObject({ round: 2, previous: { base, head } });
       expect(readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8")).toContain("New evidence makes the accepted issue unresolved.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: followUp.requestId, findings: [] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      expect(cli("--triage", head, "F1", "accept", "Changed ancestor evidence must be rechecked on the current head.").status).toBe(2);
+      writeFileSync(join(root, "fixture.txt"), "third fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fix after changed ancestor triage");
+      const thirdHead = fixtureGit("rev-parse", "HEAD");
+      const recovered = cli();
+      expect(recovered.status, recovered.stderr).toBe(0); // No checkout/renewal of the old head required.
+      const fresh = JSON.parse(readFileSync(join(bugCache, `${base}-${thirdHead}.request.json`), "utf8"));
+      expect(fresh).toMatchObject({ round: 3, fullReview: true, previous: { base, head: nextHead } });
+      const fullPrompt = readFileSync(join(bugCache, `${base}-${thirdHead}.prompt.txt`), "utf8");
+      expect(fullPrompt).toContain(`diff ${base}..${thirdHead}`);
+      expect(fullPrompt).toContain("Changed ancestor evidence must be rechecked on the current head.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: thirdHead, requestId: fresh.requestId, findings: [] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      expect(cli().status).toBe(0); // Reuses the same reconciled review; no extra round.
+      writeFileSync(join(root, "fixture.txt"), "fourth fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fourth fix");
+      expect(cli().stderr).toContain("Three review rounds");
     },
     60_000,
   );
