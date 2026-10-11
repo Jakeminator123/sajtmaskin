@@ -543,6 +543,14 @@ describe("local base freshness", () => {
       "docs/agent-workflow.json",
     ]);
   });
+  it("plans the exact committed head without silently including working-tree changes", () => {
+    const calls: string[][] = [];
+    const git = (args: string[]) => { calls.push(args); return { stdout: "M\0scripts/workflow/bugpass.mjs\0" }; };
+    expect(trackedPathsForBase("a".repeat(40), git, "b".repeat(40))).toEqual(["scripts/workflow/bugpass.mjs"]);
+    expect(calls[0].slice(-2)).toEqual(["a".repeat(40), "b".repeat(40)]);
+    expect(parseArgs(["--plan", "--committed"]).committed).toBe(true);
+    expect(() => parseArgs(["--committed"])).toThrow(/plan-only/);
+  });
 });
 
 describe("verify:pr base resolution", () => {

@@ -10,7 +10,9 @@ krävs av repots verktyg. Granskarens vanliga modellkvot gäller; besparing är 
 
 1. Hämta preview, frys dess fulla SHA och kör relevanta riktade kontroller enligt
    [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Commit:a uppgiftens
-   exakta paths. Granskning gäller rena, committade ändringar.
+   exakta paths. Granskning gäller exakt committad HEAD. Orelaterade, ostageade
+   Markdown-planer i `docs/plans/active/` får ligga kvar men publiceras inte.
+   Staging, överlapp med leveransens filer och ocommittad kod/agentpolicy stoppar.
 2. Kör `npm run bugpass -- --base <preview-SHA>`. Detta skapar **ett uppdrag**,
    prompt och JSON-schema, inte en godkänd review. Sökvägarna skrivs i terminalen.
 3. Författaragenten startar en separat readonly-granskare med ny kontext i sin
@@ -38,7 +40,7 @@ krävs av repots verktyg. Granskarens vanliga modellkvot gäller; besparing är 
    `bugpass -- --base` igen. Föregående review och beslut länkas automatiskt;
    inget manuellt `--previous` behövs. Ett oförändrat resultat återanvänds.
 6. `npm run preview:prepare` kräver godtagbar review/triage och kör den befintliga
-   path-impactmotorn i **planläge** en gång. Den kör inga tester/modeller och
+   path-impactmotorn i **planläge för committad HEAD** en gång. Den kör inga tester/modeller och
    påstår inte att tester är gjorda. Redovisa faktiskt körda kontroller separat.
 7. `npm run preview:push -- --dry-run` kontrollerar aktuell fjärrbas, head,
    review/triage och plankvitto utan push. Fråga sedan Jakob **Är du säker på

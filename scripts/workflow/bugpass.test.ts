@@ -1,7 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory, validateRenewalFindings } from "./bugpass.mjs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { assertClean, reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory, validateRenewalFindings } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, reviewRound, reviewHistory, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
@@ -13,6 +16,47 @@ const finding = { id: "F1", priority: "P2", confidencePercent: 85, impactScore: 
 const reviewer = { provider: "test", reference: "fixture-review", model: "fixture", reasoning: "high", independent: true };
 
 describe("portable independent Buggpass", () => {
+  it("allows unrelated plan WIP but blocks staging, delivery overlap, code and agent instructions", () => {
+    const fixture = ({ staged = "", dirty = "", untracked = "", delivery = "" } = {}) =>
+      (args: string[]) => args.includes("--cached") ? staged : args[0] === "ls-files" ? untracked : args.at(-1) === "HEAD" && args.includes(base) ? delivery : dirty;
+    const plan = "docs/plans/active/other/00-plan.md";
+    expect(() => assertClean(base, fixture({ dirty: `M\0${plan}\0`, untracked: "docs/plans/active/other/notes.md\0" }))).not.toThrow();
+    for (const state of [{ staged: `A\0${plan}\0` }, { dirty: "M\0src/main.ts\0" },
+      { untracked: "docs/plans/active/other/AGENTS.md\0" }, { untracked: "docs/plans/active/other/SKILL.md\0" },
+      { untracked: "docs/plans/active/other/code.mjs\0" }, { dirty: `M\0${plan}\0`, delivery: `M\0${plan}\0` },
+      { dirty: `R100\0src/main.ts\0${plan}\0` }, { dirty: "M\0docs/runbooks/buggpass.md\0" }])
+      expect(() => assertClean(base, fixture(state))).toThrow();
+    expect(() => assertClean(undefined, fixture({ dirty: `M\0${plan}\0` }))).toThrow(/Full delivery base/);
+  });
+  it("keeps real Git plan WIP out of the committed delivery and catches staged or overlapping plans", () => {
+    const root = mkdtempSync(join(tmpdir(), "sajtmaskin-committed-scope-"));
+    const git = (args: string[]) => {
+      const result = spawnSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgSign=false", ...args], { cwd: root, encoding: "utf8" });
+      if (result.status !== 0) throw new Error(result.stderr);
+      return result.stdout.trim();
+    };
+    try {
+      git(["init", "--quiet"]);
+      git(["config", "user.name", "Fixture"]); git(["config", "user.email", "fixture@example.invalid"]);
+      mkdirSync(join(root, "docs/plans/active"), { recursive: true });
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Original plans\n");
+      writeFileSync(join(root, "owned.mjs"), "// base\n");
+      git(["add", "."]); git(["commit", "--quiet", "-m", "base"]);
+      const before = git(["rev-parse", "HEAD"]);
+      writeFileSync(join(root, "owned.mjs"), "// reviewed delivery\n");
+      git(["add", "owned.mjs"]); git(["commit", "--quiet", "-m", "delivery"]);
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Other agent WIP\n");
+      writeFileSync(join(root, "docs/plans/active/other plan.md"), "Untracked plan\n");
+      expect(() => assertClean(before, git)).not.toThrow();
+      expect(git(["diff", "--name-only", before, "HEAD"])).toBe("owned.mjs");
+      expect(git(["show", "HEAD:docs/plans/active/README.md"])).toBe("Original plans");
+      git(["add", "docs/plans/active/README.md"]);
+      expect(() => assertClean(before, git)).toThrow(/staged/);
+      git(["commit", "--quiet", "-m", "plan delivery"]);
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Later WIP on delivery path\n");
+      expect(() => assertClean(before, git)).toThrow(/uncommitted delivery/);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
   it("rejects incomplete results and mismatched request/base/head", () => {
     expect(() => validateReview(review, base, head, requestId)).not.toThrow();
     for (const invalid of [null, {}, { ...review, complete: false }, { ...review, base: head }, { ...review, head: base },

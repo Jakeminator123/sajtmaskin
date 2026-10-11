@@ -30,7 +30,7 @@ export function requireConfirmation(value, head) {
 
 // Invoked again by pre-push: local reads only, no model/test runner/network calls.
 export function checkPrepared(base, head) {
-  assertClean();
+  assertClean(base);
   if (git(["rev-parse", "HEAD"]) !== head) throw new Error("Prepared HEAD changed.");
   const proof = reviewProof(readyReview(base, head));
   const receipt = JSON.parse(readFileSync(join(CACHE, `${head}.json`), "utf8"));
@@ -54,7 +54,7 @@ export function previewState() {
     throw new Error("origin push URL is not the expected Sajtmaskin repository.");
   git(["fetch", "origin", "preview", "--quiet"]);
   const base = git(["rev-parse", "FETCH_HEAD"]), head = git(["rev-parse", "HEAD"]);
-  assertClean();
+  assertClean(base);
   if (!SHA.test(base) || !SHA.test(head) || base === head) throw new Error("No new preview change.");
   git(["merge-base", "--is-ancestor", base, head]);
   return { base, head };
@@ -75,7 +75,7 @@ function main() {
   if (prepare) {
     const prepared = preparePreview(base, head, {
       reviewProof: () => reviewProof(readyReview(base, head)),
-      plan: () => command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--plan", "--no-fetch", "--base", base], { stdio: "inherit" }),
+      plan: () => command(process.execPath, ["scripts/workflow/verify-pr.mjs", "--plan", "--committed", "--no-fetch", "--base", base], { stdio: "inherit" }),
       readState: previewState,
     });
     mkdirSync(CACHE, { recursive: true });

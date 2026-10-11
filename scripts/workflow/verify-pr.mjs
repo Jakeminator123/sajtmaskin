@@ -57,16 +57,18 @@ function lines(value) {
 export const DEFAULT_DELIVERY_BRANCH = "preview";
 
 export function parseArgs(argv) {
-  const options = { plan: false, full: false, fetch: true, keepGoing: false, base: null };
+  const options = { plan: false, committed: false, full: false, fetch: true, keepGoing: false, base: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--plan") options.plan = true;
+    else if (arg === "--committed") options.committed = true;
     else if (arg === "--full") options.full = true;
     else if (arg === "--no-fetch") options.fetch = false;
     else if (arg === "--keep-going") options.keepGoing = true;
     else if (arg === "--base") options.base = argv[++i] ?? null;
     else throw new Error(`unknown argument: ${arg}`);
   }
+  if (options.committed && !options.plan) throw new Error("--committed is plan-only; tests run against the working tree.");
   return options;
 }
 
@@ -217,9 +219,10 @@ export function formatImpactSummary({ branch, base, head, impact }) {
 /**
  * @param {string} base
  * @param {(args: string[], options?: Record<string, unknown>) => { stdout: string }} [gitCommand]
+ * @param {string | null} [head] Immutable delivery head for plan-only mode.
  */
-export function trackedPathsForBase(base, gitCommand = git) {
-  const result = gitCommand(["diff", "--name-status", "-z", "--diff-filter=ACDMRTUXB", base]);
+export function trackedPathsForBase(base, gitCommand = git, head = null) {
+  const result = gitCommand(["diff", "--name-status", "-z", "--diff-filter=ACDMRTUXB", base, ...(head ? [head] : [])]);
   return parseGitNameStatus(result.stdout);
 }
 
@@ -257,14 +260,15 @@ async function main() {
   }
   assertFreshVerificationBase({ branch, base });
 
-  const tracked = trackedPathsForBase(base);
-  const untracked = lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);
+  const tracked = trackedPathsForBase(base, git, options.committed ? head : null);
+  const untracked = options.committed ? [] : lines(git(["ls-files", "--others", "--exclude-standard"]).stdout);
   const impact = collectImpact({
     ...inputs,
     changedFiles: [...tracked, ...untracked],
     forceFull: options.full,
   });
   console.log(formatImpactSummary({ branch, base, head, impact }));
+  if (options.committed) console.log("[verify:pr] plan gäller endast committad HEAD; ocommittat arbete ingår inte i leveransen.");
   if (impact.files.length === 0) {
     console.log("[verify:pr] ingen diff mot base — klart.");
     return;

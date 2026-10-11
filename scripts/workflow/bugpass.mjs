@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, w
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseGitNameStatus } from "./path-impact.mjs";
 import { validateFinding, validateDecision, reviewDigest, reviewStatus, reviewRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError, validOwnerExtraRound } from "./bugpass-state.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -18,8 +19,19 @@ export function command(executable, args, options = {}) {
   return String(result.stdout ?? "").trim();
 }
 export function git(args) { return command("git", args); }
-export function assertClean() {
-  if (git(["status", "--porcelain", "--untracked-files=normal"])) throw new Error("Commit exact task paths first: Buggpass requires clean, committed HEAD.");
+export function assertClean(base, gitCommand = git) {
+  const staged = parseGitNameStatus(gitCommand(["diff", "--cached", "--name-status", "-z"]));
+  if (staged.length) throw new Error(`Commit exact task paths first; staged changes remain: ${staged.join(", ")}`);
+  const dirty = [...parseGitNameStatus(gitCommand(["diff", "--name-status", "-z", "HEAD"])),
+    ...gitCommand(["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean)];
+  if (!dirty.length) return;
+  if (!SHA.test(base ?? "")) throw new Error("Full delivery base required to distinguish unrelated plan WIP.");
+  const delivery = new Set(parseGitNameStatus(gitCommand(["diff", "--name-status", "-z", base, "HEAD"])).map((path) => path.toLowerCase()));
+  // Only unrelated active-plan Markdown may remain. No source, agent rules,
+  // delivery paths or staged changes are excluded from the committed review.
+  const blocked = dirty.filter((path) => !/^docs\/plans\/active\/.+\.md$/i.test(path) ||
+    /(?:^|\/)(?:AGENTS|SKILL)\.md$/i.test(path) || delivery.has(path.toLowerCase()));
+  if (blocked.length) throw new Error(`Commit exact task paths first; uncommitted delivery/code/policy changes: ${blocked.join(", ")}`);
 }
 export function reviewContract() {
   const policies = git(["ls-files", "-z", "--", "AGENTS.md", "**/AGENTS.md", ".cursor/rules/*.mdc",
@@ -45,7 +57,7 @@ function withLock(base, action) {
 }
 function readJson(path) { return JSON.parse(readFileSync(path, "utf8")); }
 function scope(base) {
-  assertClean();
+  assertClean(base);
   const head = git(["rev-parse", "HEAD"]);
   if (!SHA.test(base) || !SHA.test(head) || base === head) throw new Error("Buggpass needs distinct full base/head SHA values.");
   git(["merge-base", "--is-ancestor", base, head]);

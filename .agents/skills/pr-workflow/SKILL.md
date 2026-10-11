@@ -62,6 +62,8 @@ rapportens `runtimeStatus`.
 ## 4. Leverera: direkt preview eller PR
 
 Direktpreview: kör riktade kontroller enligt § 3 och commit:a exakta paths.
+Orelaterade ostageade Markdown-planer får ligga kvar enligt runbooken;
+granskning, leveransplan och push gäller committad HEAD, inte andras WIP.
 Kör `npm run bugpass -- --base <preview-SHA>` för prompt/schema. Starta en
 **separat readonly-granskare med ny kontext**, utan föräldrachatt, i värdens
 befintliga review-/subagentfunktion. Importera dess faktiska JSON och metadata

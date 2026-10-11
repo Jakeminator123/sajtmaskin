@@ -198,8 +198,10 @@ describe("renderHookScript", () => {
       writeFileSync(join(root, ".cursor/rules/workflow.mdc"), "Original review policy.\n");
       writeFileSync(join(root, "config/agent-workflow.json"), "{}");
       writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
-      for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs"])
+      for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs", "path-impact.mjs"])
         writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
+      mkdirSync(join(root, "docs/plans/active"), { recursive: true });
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Committed plan index\n");
       writeFileSync(join(root, ".gitignore"), "node_modules/\npre-push\n");
       const gitEnv: NodeJS.ProcessEnv = { ...process.env };
       for (const key of Object.keys(gitEnv)) if (key.startsWith("GIT_")) delete gitEnv[key];
@@ -281,6 +283,9 @@ describe("renderHookScript", () => {
       expect(run(confirmed, head, zero).status).toBe(1);
       expect(run({ ...confirmed, SAJTMASKIN_BREAK_GLASS: "1",
         SAJTMASKIN_BREAK_GLASS_REASON: "must never allow force" }, head, "d".repeat(40)).status).toBe(1);
+      writeFileSync(join(root, "docs/plans/active/README.md"), "Other agent's unfinished index\n");
+      writeFileSync(join(root, "docs/plans/active/other plan.md"), "Other agent's untracked plan\n");
+      expect(run(confirmed).status).toBe(0); // WIP is not part of the exact reviewed head.
 
       // Exercise Git's real pre-push invocation and publication to a disposable
       // LOCAL bare remote. No GitHub writes or model requests occur in this test.
@@ -292,6 +297,8 @@ describe("renderHookScript", () => {
         { cwd: root, env: { ...env, ...confirmed }, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
       expect(pushed.status, pushed.stderr).toBe(0);
       expect(fixtureGit("ls-remote", remote, "refs/heads/preview")).toContain(head);
+      expect(fixtureGit("show", `${head}:docs/plans/active/README.md`)).toBe("Committed plan index");
+      expect(fixtureGit("ls-tree", "-r", "--name-only", head)).not.toContain("other plan.md");
       expect(cli("--triage", head, "F1", "accept", "New evidence makes the accepted issue unresolved.").status).toBe(2);
       expect(run(confirmed).status).toBe(1); // Old preparation cannot bypass changed triage.
       writeFileSync(join(root, "fixture.txt"), "fixed");
