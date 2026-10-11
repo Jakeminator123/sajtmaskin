@@ -85,6 +85,8 @@ export function loadReview(base, head, currentContract = true) {
       !/^[a-f0-9]{64}$/.test(receipt.contract ?? "") || (currentContract && receipt.contract !== reviewContract()) ||
       !Number.isInteger(receipt.round) || receipt.round < 1 || receipt.round > 3 || !Array.isArray(receipt.decisions) ||
       !Number.isFinite(Date.parse(receipt.reviewedAt))) throw new Error("Stale or invalid Buggpass receipt; request a fresh review.");
+  if (receipt.renewalContext && receipt.renewalContext !== reviewDigest(receipt.supersededReview))
+    throw new Error("Superseded review evidence changed; request a fresh review.");
   validateReview(receipt.review, base, head, receipt.requestId);
   validateReviewer(receipt.reviewer);
   reviewStatus(receipt.review, receipt.decisions);
@@ -132,8 +134,15 @@ export function reviewContext(previous, contract, readReview) {
   return { fullReview, previousChainContext: previous ? reviewDigest(history) : null, history };
 }
 
+export function renewalHistory(receipt) {
+  const history = [];
+  for (let prior = receipt; prior; prior = prior.supersededReview)
+    history.push({ review: prior.review, decisions: prior.decisions });
+  return history;
+}
+
 /** @param {{head: string, rootBase: string, contract: string, review: object, decisions: object[]} | null} [previous] */
-export function reviewPrompt(repo, request, previous = null, history = []) {
+export function reviewPrompt(repo, request, previous = null, history = [], renewals = []) {
   const { base, head, requestId } = request;
   const from = previous && !request.fullReview && previous.contract === request.contract ? previous.head : base;
   return `Perform one independent read-only Buggpass. Repository: ${JSON.stringify(repo)}.
@@ -149,6 +158,8 @@ Include path/line, SHORT triggering scenario, confidencePercent (0-100 subjectiv
 Inspect every changed file. Missing/truncated context must return complete=false. Report uncertain high-impact concerns with the evidence gap.
 ${previous ? `Recheck previously accepted/unresolved findings; carry remaining findings forward. Respect evidenced rejections unless new evidence invalidates them.
 Prior review/author decisions: ${JSON.stringify(request.fullReview ? history : { review: previous.review, decisions: previous.decisions })}` : ""}
+${renewals.length ? `This replaces a stale review on the SAME head. Recheck all its accepted/unresolved findings as well; do not discard them because they are absent from earlier rounds.
+Superseded same-head findings/decisions: ${JSON.stringify(renewals)}` : ""}
 Return JSON matching the supplied schema. Do not save files yourself; return the result to the author for import.
 Empty findings do not prove tests or deployment success.`;
 }
@@ -156,25 +167,28 @@ Empty findings do not prove tests or deployment success.`;
 export function prepareReview(base) {
   const head = scope(base);
   return withLock(base, () => {
-    const previous = previousReview(base, head);
+    const cached = existsSync(pathFor(base, head)) ? readPrior(base, head) : null;
     const contract = reviewContract();
+    if (cached?.contract === contract) {
+      try {
+        validateReviewChain(cached, readPrior);
+        console.log(formatReview(cached));
+        return { receipt: cached };
+      } catch (error) {
+        if (!(error instanceof StaleReviewContextError)) throw error;
+      }
+    }
+    const previous = previousReview(base, head);
     const { history, ...context } = reviewContext(previous, contract, readPrior);
     const request = { version: 1, base, head, contract, rootBase: base, ...context,
+      fullReview: context.fullReview || Boolean(cached), renewalContext: cached ? reviewDigest(cached) : null,
       round: nextRound(previous), previous: previous ? { base: previous.base, head: previous.head } : null,
       previousContext: followUpDigest(previous) };
     const requestId = reviewDigest(request);
     const full = { ...request, requestId };
-    if (existsSync(pathFor(base, head))) {
-      const cached = readPrior(base, head);
-      if (cached.requestId === requestId && cached.contract === request.contract) {
-        validateReviewChain(cached, readPrior);
-        console.log(formatReview(cached));
-        return { receipt: cached };
-      }
-    }
     const file = pathFor(base, head, "request.json");
     atomicJson(file, full);
-    writeFileSync(pathFor(base, head, "prompt.txt"), reviewPrompt(ROOT, full, previous, history));
+    writeFileSync(pathFor(base, head, "prompt.txt"), reviewPrompt(ROOT, full, previous, history, renewalHistory(cached)));
     atomicJson(pathFor(base, head, "schema.json"), reviewSchema(base, head, requestId));
     console.log(`[bugpass] Review REQUEST prepared; no model started and no review approved.\nRequest: ${file}\nPrompt: ${pathFor(base, head, "prompt.txt")}\nSchema: ${pathFor(base, head, "schema.json")}\nStart one fresh independent reviewer, then import its actual result with --import <file> --reviewer <metadata.json>.`);
     return { request: full };
@@ -185,18 +199,19 @@ export function importReview(base, review, reviewer) {
   const head = scope(base);
   return withLock(base, () => {
     const request = readJson(pathFor(base, head, "request.json"));
+    const oldFile = pathFor(base, head);
+    const existing = existsSync(oldFile) ? readPrior(base, head) : null;
+    if (existing?.requestId === request.requestId) throw new Error("This request already has a result. Triage it; do not overwrite it or run a duplicate pass.");
     const previous = previousReview(base, head);
     const context = reviewContext(previous, reviewContract(), readPrior);
     const { requestId, ...body } = request;
     if (request.version !== 1 || request.base !== base || request.head !== head || request.contract !== reviewContract() ||
         requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous) ||
-        request.fullReview !== context.fullReview || request.previousChainContext !== context.previousChainContext)
+        request.fullReview !== (context.fullReview || Boolean(existing)) || request.previousChainContext !== context.previousChainContext ||
+        request.renewalContext !== (existing ? reviewDigest(existing) : null))
       throw new Error("Review request changed or is stale; prepare a new request.");
     validateReview(review, base, head, requestId);
     validateReviewer(reviewer);
-    const oldFile = pathFor(base, head);
-    const existing = existsSync(oldFile) ? readPrior(base, head) : null;
-    if (existing?.requestId === requestId) throw new Error("This request already has a result. Triage it; do not overwrite it or run a duplicate pass.");
     const receipt = { ...body, version: 3, requestId, review, reviewer, decisions: [], reviewedAt: new Date().toISOString(), supersededReview: existing };
     validateReviewChain(receipt, readPrior);
     atomicJson(oldFile, receipt);

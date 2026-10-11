@@ -303,8 +303,22 @@ describe("renderHookScript", () => {
       const followUp = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
       expect(followUp).toMatchObject({ round: 2, previous: { base, head } });
       expect(readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8")).toContain("New evidence makes the accepted issue unresolved.");
-      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: followUp.requestId, findings: [] }));
-      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      const latestFinding = { ...finding, description: "Unique finding from the review being superseded." };
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: followUp.requestId, findings: [latestFinding] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2);
+      expect(cli("--triage", nextHead, "F1", "accept", "This newer finding is confirmed and must survive renewal.").status).toBe(2);
+      expect(cli("--triage", head, "F1", "accept", "Ancestor decision changed while the latest head is still checked out.").status).toBe(2);
+      expect(cli().status).toBe(0);
+      const renewed = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
+      expect(renewed).toMatchObject({ round: 2, fullReview: true });
+      expect(renewed.renewalContext).toMatch(/^[a-f0-9]{64}$/);
+      const renewedPrompt = readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8");
+      expect(renewedPrompt).toContain(latestFinding.description);
+      expect(renewedPrompt).toContain("This newer finding is confirmed and must survive renewal.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: renewed.requestId, findings: [latestFinding] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2);
+      expect(cli("--triage", nextHead, "F1", "accept", "Still confirmed after renewing the same-head review.").status).toBe(2);
+      expect(cli().status).toBe(2); // Reuse must not start a duplicate renewal or erase the finding.
       expect(cli("--triage", head, "F1", "accept", "Changed ancestor evidence must be rechecked on the current head.").status).toBe(2);
       writeFileSync(join(root, "fixture.txt"), "third fix");
       fixtureGit("add", "fixture.txt");

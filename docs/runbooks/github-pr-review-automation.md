@@ -85,7 +85,8 @@ därefter ägarbeslut, inte en tyst nollställning. Ändrad triage i en äldre r
 ogiltigförklarar beroende kvitton. Ett nytt uppdrag på aktuell head granskar då
 hela diffen med samtliga tidigare fynd och aktuella beslut, utan att äldre commits
 behöver checkas ut. Kedjan och gränsen på tre rundor behålls; ersatta resultat på
-samma head bevaras som `supersededReview`.
+samma head bevaras som `supersededReview`. Deras fynd och beslut följer med
+förnyelseuppdraget; ett gammalt fynd försvinner inte när ett kvitto ersätts.
 
 Lokala underlag finns i `node_modules/.cache/sajtmaskin-bugpass/`; plan och
 publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`. De är lokala

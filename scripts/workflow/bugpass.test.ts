@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext } from "./bugpass.mjs";
+import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
@@ -40,6 +40,17 @@ describe("portable independent Buggpass", () => {
     expect(reviewPrompt("repo", request, previous)).toContain("Recheck previously accepted/unresolved findings");
     expect(reviewPrompt("repo", request)).toContain("no author conversation");
     expect(reviewSchema(base, head, requestId).properties.requestId.enum).toEqual([requestId]);
+  });
+  it("carries findings from every superseded same-head review into the renewal prompt", () => {
+    const old = { review: { ...review, findings: [finding] }, decisions: [{ action: "accept" }] };
+    const current = { review: { ...review, findings: [{ ...finding, id: "F2" }] }, decisions: [], supersededReview: old };
+    const renewals = renewalHistory(current);
+    expect(renewals).toHaveLength(2);
+    const prompt = reviewPrompt("repo", { base, head, requestId, contract, fullReview: true }, null, [], renewals);
+    expect(prompt).toContain("SAME head");
+    expect(prompt).toContain('"id":"F1"');
+    expect(prompt).toContain('"id":"F2"');
+    expect(prompt).toContain('"action":"accept"');
   });
 });
 
