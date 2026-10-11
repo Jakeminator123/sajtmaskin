@@ -1,16 +1,20 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { collectImpact, loadWorkflowInputs } from "./path-impact.mjs";
-import { decideCiScope, resolveCiScope } from "./ci-scope.mjs";
+import { changedFilesForEvent, decideCiScope, resolveCiScope } from "./ci-scope.mjs";
 
 const inputs = loadWorkflowInputs();
 
 function decide(
   changedFiles: string[],
-  { eventName = "pull_request", eventAction = "", isDraft = false } = {},
+  { eventName = "pull_request", eventAction = "", isDraft = false, ref = "", baseRef = "" } = {},
 ) {
   const impact = collectImpact({ ...inputs, changedFiles });
-  return decideCiScope({ eventName, eventAction, isDraft, impact });
+  return decideCiScope({ eventName, eventAction, isDraft, ref, baseRef, impact });
 }
 
 describe("CI scope decision", () => {
@@ -277,6 +281,130 @@ describe("CI scope decision", () => {
         runHeavy: true,
         safeDocsOnly: false,
       });
+    }
+  });
+
+  it("allows proven docs on preview pushes but never draft-runtime shortcuts", () => {
+    const preview = { eventName: "push", ref: "refs/heads/preview", isDraft: true };
+    expect(decide(["README.md"], preview)).toMatchObject({
+      runHeavy: false,
+      safeDocsOnly: true,
+      runPreviewHost: false,
+    });
+    for (const path of [
+      "src/components/ExampleCard.tsx",
+      ".github/workflows/ci.yml",
+      "unknown/file.xyz",
+    ]) {
+      expect(decide([path], preview), path).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    }
+    expect(decide(["README.md", "src/components/ExampleCard.tsx"], preview).runHeavy).toBe(true);
+  });
+
+  it("keeps Master pushes and Master-targeting PRs full even for docs", () => {
+    expect(decide(["README.md"], { eventName: "push", ref: "refs/heads/master" })).toMatchObject({
+      runHeavy: true,
+      safeDocsOnly: false,
+      runPreviewHost: true,
+    });
+    expect(decide(["README.md"], { baseRef: "master", isDraft: true })).toMatchObject({
+      runHeavy: true,
+      safeDocsOnly: false,
+      runPreviewHost: true,
+    });
+  });
+
+  it("classifies both rename sides on a proven preview push", () => {
+    const result = resolveCiScope({
+      eventName: "push",
+      ref: "refs/heads/preview",
+      baseSha: "a".repeat(40),
+      headSha: "b".repeat(40),
+      inputs,
+      gitCommand: (() => ({
+        status: 0,
+        stdout: "R100\0.github/workflows/ci.yml\0docs/ci.md\0",
+      })) as never,
+    });
+    expect(result.files).toEqual([".github/workflows/ci.yml", "docs/ci.md"]);
+    expect(result).toMatchObject({ runHeavy: true, highRisk: true });
+  });
+
+  it("compares push tips with two dots, while PRs use the merge base", () => {
+    for (const eventName of ["push", "pull_request"]) {
+      const calls: string[][] = [];
+      expect(
+        changedFilesForEvent({
+          eventName,
+          baseSha: "a".repeat(40),
+          headSha: "b".repeat(40),
+          gitCommand: ((_cmd: string, args: string[]) => {
+            calls.push(args);
+            return { status: 0, stdout: args[0] === "diff" ? "M\0README.md\0" : "" };
+          }) as never,
+        }),
+      ).toEqual(["README.md"]);
+      expect(calls.at(-1)?.at(-1)).toBe(
+        `${"a".repeat(40)}${eventName === "push" ? ".." : "..."}${"b".repeat(40)}`,
+      );
+      expect(calls.length).toBe(eventName === "push" ? 2 : 1);
+    }
+  });
+
+  it.each(["", "0".repeat(40), "a".repeat(41)])(
+    "falls back for an unprovable push base %s",
+    (baseSha) => {
+      expect(
+        resolveCiScope({
+          eventName: "push",
+          ref: "refs/heads/preview",
+          baseSha,
+          headSha: "b".repeat(40),
+          inputs,
+        }),
+      ).toMatchObject({ runHeavy: true, runPreviewHost: true, reason: "classification-error" });
+    },
+  );
+
+  it("does not scope non-fast-forward pushes or failed Git discovery", () => {
+    for (const status of [1, 128, null]) {
+      expect(
+        resolveCiScope({
+          eventName: "push",
+          ref: "refs/heads/preview",
+          baseSha: "a".repeat(40),
+          headSha: "b".repeat(40),
+          inputs,
+          gitCommand: (() => ({ status, stdout: "M\0README.md\0" })) as never,
+        }),
+      ).toMatchObject({ runHeavy: true, safeDocsOnly: false, reason: "classification-error" });
+    }
+  });
+
+  it("uses only the pushed delta with real Git history and rejects a backwards base", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "sajtmaskin-push-scope-"));
+    const git = (...args: string[]) => execFileSync("git", [
+      "-c", "user.name=Scope test", "-c", "user.email=scope@example.invalid",
+      "-c", "commit.gpgsign=false", "-c", `core.hooksPath=${join(cwd, "no-hooks")}`, ...args,
+    ], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    try {
+      git("init", "--quiet");
+      writeFileSync(join(cwd, "runtime.custom"), "older runtime change");
+      git("add", "runtime.custom");
+      git("commit", "--quiet", "-m", "older unrelated change");
+      const baseSha = git("rev-parse", "HEAD");
+      writeFileSync(join(cwd, "README.md"), "new documentation");
+      git("add", "README.md");
+      git("commit", "--quiet", "-m", "docs push");
+      const headSha = git("rev-parse", "HEAD");
+      expect(resolveCiScope({
+        eventName: "push", ref: "refs/heads/preview", baseSha, headSha, cwd, inputs,
+      })).toMatchObject({ files: ["README.md"], runHeavy: false, classificationError: null });
+      expect(resolveCiScope({
+        eventName: "push", ref: "refs/heads/preview", baseSha: headSha, headSha: baseSha, cwd, inputs,
+      })).toMatchObject({ runHeavy: true, reason: "classification-error" });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
     }
   });
 

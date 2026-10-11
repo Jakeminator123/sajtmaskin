@@ -23,6 +23,14 @@ export const DOSSIER_ACCEPTANCE_PATH_CONTRACT = Object.freeze([
     reason: "Materializer, matrix discovery and this path-scope contract drive the workflow.",
   },
   {
+    pattern: "scripts/workflow/ci-scope.mjs",
+    reason: "Shared PR/push diff discovery controls whether acceptance is executed.",
+  },
+  {
+    pattern: "scripts/workflow/path-impact.mjs",
+    reason: "Shared rename parsing and path matching control acceptance scope.",
+  },
+  {
     pattern: "src/lib/gen/dossiers/**",
     reason: "Acceptance project builder, registry and output-path mapping assemble the site.",
   },

@@ -478,7 +478,7 @@ function hasExactStringSet(actual, expected) {
 }
 
 const DOSSIER_ACCEPTANCE_MATRIX_IF =
-  "${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}";
+  "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}";
 const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
 
 export function evaluateDossierAcceptanceWorkflow(source) {
@@ -525,7 +525,10 @@ export function evaluateDossierAcceptanceWorkflow(source) {
   if (
     !scope ||
     !scope.outputs?.run_matrix ||
-    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs")
+    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs") ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
+    )
   ) {
     errors.push("dossier-acceptance scope must publish fail-closed run_matrix");
   }
@@ -637,6 +640,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     !scope.steps?.some((step) => step.run === "node scripts/workflow/ci-scope.mjs") ||
     !scope.steps?.some((step) =>
       hasExactExpression(step.env?.SAJTMASKIN_PR_ACTION, "${{ github.event.action }}"),
+    ) ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PUSH_BASE_SHA, "${{ github.event.before }}"),
     )
   ) {
     errors.push("CI scope job must publish fail-closed profile and draft-action outputs");
@@ -670,6 +676,9 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
     packageScripts?.["test:ci"] !== "vitest run"
   ) {
     errors.push("quality-tests must run all four blocking native Vitest shards on heavy scope");
+  }
+  if (packageScripts?.["test:workflow"] !== "vitest run scripts/workflow scripts/dev/install-git-hooks.test.ts scripts/dossiers/dossier-acceptance-workflow.test.ts --environment node --maxWorkers=4 --bail=1") {
+    errors.push("test:workflow must execute the complete targeted Node workflow lane with four workers");
   }
   if (qualityCore?.steps?.some((step) => step.run === "npm run test:ci")) {
     errors.push("quality-core must not duplicate the complete sharded test suite");
@@ -744,7 +753,7 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   const lightOnly =
     "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}";
   for (const command of [
-    "npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts",
+    "npm run test:workflow",
     "npm run route-timeouts:check",
     "npm run scaffolds:validate",
   ]) {

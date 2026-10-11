@@ -45,12 +45,16 @@ rapportens `runtimeStatus`.
   återanvänder `preview:prepare`-planen, övriga pushar planeras i hooken.
 - Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions
   publicerar required checks på varje head: tung profil för ready runtime,
-  högrisk och `master`, explicit light-kvitto för safe docs och vanliga drafts.
+  högrisk och `master`, explicit light-kvitto för safe docs (även preview-push)
+  och vanliga drafts. Dossiermatrisen väljs av beroendekontraktet på PR och
+  preview-push; schemalagd/manuell körning är komplett.
   Hela `test:ci`-sviten fördelas över fyra parallella jobb; `quality` kräver alla
   fyra. Samla kända rättningar före push. Att återgå till draft startar ingen
   ny CI-körning; en ny head eller ready-status verifieras som vanligt.
-  Bare `npm run verify:pr` är frivillig felsökning/reproduktion, eller ett
-  uttryckligt krav när själva CI-/verifieringsmotorn ändras.
+  Bare `npm run verify:pr` är frivillig felsökning/reproduktion, inte en extra
+  lokal fullsvit. För CI-/verifieringsmotorn: `npm run test:workflow`,
+  `npm run workflow:contract`, typecheck och berörda kontroller; fullsviten
+  körs i CI. Lägg till riktade integrationstester när ändringen berör runtime.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
 ## 4. Leverera: direkt preview eller PR

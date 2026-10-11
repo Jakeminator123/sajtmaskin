@@ -24,7 +24,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  # En enda fail-closed klassificerare äger vilka PR-diffar som får ta den
+  # En enda fail-closed klassificerare äger vilka PR-/preview-diffar som får ta den
   # lätta profilen. Den återanvänder samma path-impactmotor som lokal verify:pr.
   # Saknat/fallerat scope-resultat tolkas som FULL körning av alla konsumenter.
   scope:
@@ -55,6 +55,7 @@ jobs:
           SAJTMASKIN_PR_DRAFT: ${{ github.event.pull_request.draft }}
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
         run: node scripts/workflow/ci-scope.mjs
 
   quality-core:
@@ -291,7 +292,7 @@ jobs:
       # ett lyckat, uttryckligt lightbeslut använder den riktade körningen.
       - name: Validate workflow and CI scope decisions
         if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_heavy == 'false' }}
-        run: npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts
+        run: npm run test:workflow
 
       - name: Verify generated contract docs
         if: ${{ !cancelled() }}

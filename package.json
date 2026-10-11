@@ -79,6 +79,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "test:pr": "vitest run",
+    "test:workflow": "vitest run scripts/workflow scripts/dev/install-git-hooks.test.ts scripts/dossiers/dossier-acceptance-workflow.test.ts --environment node --maxWorkers=4 --bail=1",
     "test:godnatt-bugg": "node --test .agents/skills/godnatt-bugg/scripts/run-state.test.mjs .agents/skills/godnatt-bugg/scripts/repo-snapshot.test.mjs",
     "test:stability": "npm run db:schema-drift && vitest run --passWithNoTests -c vitest.stability.config.ts",
     "pretest:postgres": "node scripts/db/ensure-schema.mjs --check-only --quiet-ok",

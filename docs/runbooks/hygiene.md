@@ -21,7 +21,13 @@ Du behöver inte välja checklista ur minnet. `verify:pr` läser
 registren och Backoffice-kartan. Protected diff får full profil i GitHub
 Actions; lokalt väljer du relevanta kommandon från planen. Bare
 `npm run verify:pr` är till för felsökning/reproduktion, inte en generell
-push-grind; ändringar i själva verifieringsmotorn kräver full lokal kontroll.
+push-grind. Ändringar i verifieringsmotorn kontrolleras lokalt med
+`npm run test:workflow` (Node, fyra workers), `workflow:contract`, typecheck och
+berörda integrationstester; hela regressionen körs i CI, inte dubbelt lokalt.
+Full lokal körning finns kvar för felsökning eller ett uttryckligt fulltestuppdrag.
+Preview-push använder samma safe-docs-profil som PR. Dossiermatrisen körs när
+dess beroenden ändras; veckokörning/manuell körning är full. Master, saknad
+pushhistorik och osäker klassificering behåller full kontroll.
 Det kompletta agent→preview/PR-flödet finns i
 [`agent-workflow.md`](agent-workflow.md).
 

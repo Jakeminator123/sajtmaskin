@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { changedFilesForPullRequest } from "../workflow/ci-scope.mjs";
+import { changedFilesForEvent } from "../workflow/ci-scope.mjs";
 import { pathMatchesPattern } from "../workflow/path-impact.mjs";
 import { DOSSIER_ACCEPTANCE_PATHS } from "./acceptance-paths.mjs";
 
@@ -16,12 +16,12 @@ export function matchesAcceptanceContract(path) {
 /**
  * Decide whether this event must run the expensive dossier matrix.
  *
- * Non-PR events always run. PR classification errors fail closed to the
- * matrix so a broken diff never looks like a legitimate skip. An empty or
- * out-of-contract PR diff is a legitimate skip.
+ * PRs and proven fast-forward preview pushes use the same path contract.
+ * Other events and classification errors run the complete matrix.
  *
  * @param {{
  *   eventName?: string,
+ *   ref?: string,
  *   baseSha?: string,
  *   headSha?: string,
  *   cwd?: string,
@@ -30,13 +30,14 @@ export function matchesAcceptanceContract(path) {
  */
 export function decideAcceptanceScope({
   eventName,
+  ref = "",
   baseSha,
   headSha,
   cwd = REPO_ROOT,
   gitCommand,
 } = {}) {
   const event = String(eventName ?? "").trim();
-  if (event !== "pull_request") {
+  if (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview")) {
     return {
       runMatrix: true,
       reason: `trusted-${event || "unknown"}-full`,
@@ -47,7 +48,7 @@ export function decideAcceptanceScope({
   }
 
   try {
-    const files = changedFilesForPullRequest({ baseSha, headSha, cwd, gitCommand });
+    const files = changedFilesForEvent({ eventName: event, baseSha, headSha, cwd, gitCommand });
     const matched = files.filter((path) => matchesAcceptanceContract(path));
     if (matched.length === 0) {
       return {
@@ -83,8 +84,15 @@ function writeOutput(path, key, value) {
 function main() {
   const decision = decideAcceptanceScope({
     eventName: process.env.GITHUB_EVENT_NAME,
-    baseSha: process.env.SAJTMASKIN_PR_BASE_SHA,
-    headSha: process.env.SAJTMASKIN_PR_HEAD_SHA,
+    ref: process.env.GITHUB_REF,
+    baseSha:
+      process.env.GITHUB_EVENT_NAME === "push"
+        ? process.env.SAJTMASKIN_PUSH_BASE_SHA
+        : process.env.SAJTMASKIN_PR_BASE_SHA,
+    headSha:
+      process.env.GITHUB_EVENT_NAME === "push"
+        ? process.env.GITHUB_SHA
+        : process.env.SAJTMASKIN_PR_HEAD_SHA,
   });
 
   if (decision.classificationError) {

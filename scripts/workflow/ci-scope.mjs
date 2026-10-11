@@ -82,13 +82,24 @@ function collectSafeDocsBlockers({ impact, files, docs, highRisk }) {
  * Decide which CI profile is safe for one already-classified diff.
  *
  * Only an exclusive, non-protected documentation diff may skip heavy checks
- * after a PR is ready. Drafts may also defer ordinary runtime checks, because
+ * on ready PRs or proven preview pushes. Master stays full. Drafts may also
+ * defer ordinary runtime checks, because
  * GitHub cannot merge a draft and `ready_for_review` starts a fresh full run.
  * Protected, unknown and control-plane-like paths always stay fail-closed.
  */
-export function decideCiScope({ eventName, eventAction = "", isDraft = false, impact }) {
+export function decideCiScope({
+  eventName,
+  eventAction = "",
+  isDraft = false,
+  ref = "",
+  baseRef = "",
+  impact,
+}) {
   const event = String(eventName ?? "").trim();
   const action = String(eventAction ?? "").trim();
+  const scopedEvent =
+    (event === "pull_request" && baseRef !== "master") ||
+    (event === "push" && ref === "refs/heads/preview");
   const files = impact?.files ?? [];
   const docs = new Set(impact?.groups?.docs ?? []);
   const highRiskReasons = [];
@@ -105,15 +116,14 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
 
   const highRisk = highRiskReasons.length > 0;
   const runPreviewHost =
-    event !== "pull_request" ||
+    !scopedEvent ||
     files.length === 0 ||
     nonEmpty(impact?.unclassifiedFiles) ||
     nonEmpty(impact?.groups?.previewHost) ||
     nonEmpty(impact?.groups?.ci) ||
     nonEmpty(impact?.groups?.dependencies);
   const safeDocsBlockers = collectSafeDocsBlockers({ impact, files, docs, highRisk });
-  const safeDocsOnly =
-    event === "pull_request" && files.length > 0 && safeDocsBlockers.length === 0;
+  const safeDocsOnly = scopedEvent && files.length > 0 && safeDocsBlockers.length === 0;
 
   const effectiveDraft =
     action === "ready_for_review"
@@ -124,17 +134,17 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
 
   let runHeavy = true;
   let reason = `trusted-${event || "unknown"}-full`;
-  if (event === "pull_request") {
+  if (scopedEvent) {
     if (highRisk) {
       reason = `high-risk:${highRiskReasons.join(",")}`;
     } else if (safeDocsOnly) {
       runHeavy = false;
       reason = "safe-docs-only";
-    } else if (effectiveDraft) {
+    } else if (event === "pull_request" && effectiveDraft) {
       runHeavy = false;
       reason = "draft-low-risk";
     } else {
-      reason = "ready-runtime";
+      reason = event === "push" ? "preview-runtime" : "ready-runtime";
     }
   }
 
@@ -150,26 +160,39 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
   };
 }
 
-export function changedFilesForPullRequest({
+// PRs compare against the merge base; pushes compare the exact previous tip.
+// A new/recreated branch or non-fast-forward push is not a provable shortcut.
+export function changedFilesForEvent({
+  eventName,
   baseSha,
   headSha,
   cwd = REPO_ROOT,
   gitCommand = spawnSync,
 }) {
-  const validSha = /^[0-9a-f]{40,64}$/iu;
-  if (!validSha.test(String(baseSha ?? "")) || !validSha.test(String(headSha ?? ""))) {
-    throw new Error("pull-request scope requires valid base and head SHAs");
+  const validSha = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu;
+  if (![baseSha, headSha].every((sha) => validSha.test(String(sha ?? "")) && !/^0+$/u.test(sha))) {
+    throw new Error("changed-file scope requires valid nonzero base and head SHAs");
+  }
+  if (eventName !== "pull_request" && eventName !== "push") {
+    throw new Error("changed-file scope only supports PR and push events");
+  }
+  const options = { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024, shell: false };
+  if (eventName === "push") {
+    const ancestor = gitCommand("git", ["merge-base", "--is-ancestor", baseSha, headSha], options);
+    if (ancestor.error) throw ancestor.error;
+    if (ancestor.status !== 0) throw new Error("push base is missing or not an ancestor of head");
   }
 
   const result = gitCommand(
     "git",
-    ["diff", "--name-status", "-z", "--diff-filter=ACDMRTUXB", `${baseSha}...${headSha}`],
-    {
-      cwd,
-      encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024,
-      shell: false,
-    },
+    [
+      "diff",
+      "--name-status",
+      "-z",
+      "--diff-filter=ACDMRTUXB",
+      `${baseSha}${eventName === "push" ? ".." : "..."}${headSha}`,
+    ],
+    options,
   );
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -188,6 +211,8 @@ export function resolveCiScope({
   eventName,
   eventAction = "",
   isDraft = false,
+  ref = "",
+  baseRef = "",
   baseSha,
   headSha,
   cwd = REPO_ROOT,
@@ -195,7 +220,10 @@ export function resolveCiScope({
   inputs,
 }) {
   const event = String(eventName ?? "").trim();
-  if (event !== "pull_request") {
+  if (
+    (event !== "pull_request" && !(event === "push" && ref === "refs/heads/preview")) ||
+    (event === "pull_request" && baseRef === "master")
+  ) {
     return {
       runHeavy: true,
       safeDocsOnly: false,
@@ -210,13 +238,19 @@ export function resolveCiScope({
   }
 
   try {
-    const changedFiles = changedFilesForPullRequest({ baseSha, headSha, cwd, gitCommand });
+    const changedFiles = changedFilesForEvent({
+      eventName: event,
+      baseSha,
+      headSha,
+      cwd,
+      gitCommand,
+    });
     const impact = collectImpact({
       ...(inputs ?? loadWorkflowInputs(cwd)),
       changedFiles,
     });
     return {
-      ...decideCiScope({ eventName: event, eventAction, isDraft, impact }),
+      ...decideCiScope({ eventName: event, eventAction, isDraft, ref, baseRef, impact }),
       classificationError: null,
     };
   } catch (error) {
@@ -243,8 +277,16 @@ function main() {
     eventName: process.env.GITHUB_EVENT_NAME,
     eventAction: process.env.SAJTMASKIN_PR_ACTION,
     isDraft: process.env.SAJTMASKIN_PR_DRAFT,
-    baseSha: process.env.SAJTMASKIN_PR_BASE_SHA,
-    headSha: process.env.SAJTMASKIN_PR_HEAD_SHA,
+    ref: process.env.GITHUB_REF,
+    baseRef: process.env.GITHUB_BASE_REF,
+    baseSha:
+      process.env.GITHUB_EVENT_NAME === "push"
+        ? process.env.SAJTMASKIN_PUSH_BASE_SHA
+        : process.env.SAJTMASKIN_PR_BASE_SHA,
+    headSha:
+      process.env.GITHUB_EVENT_NAME === "push"
+        ? process.env.GITHUB_SHA
+        : process.env.SAJTMASKIN_PR_HEAD_SHA,
   });
 
   if (decision.classificationError) {

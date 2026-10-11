@@ -115,7 +115,8 @@ describe("agent workflow impact", () => {
     expect(scripts).not.toHaveProperty("test:agent-bridge");
     const ci = readFileSync(".github/workflows/ci.yml", "utf8");
     expect(ci).not.toContain("test:agent-bridge");
-    expect(ci).toContain("scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts");
+    expect(ci).toContain("npm run test:workflow");
+    expect(scripts["test:workflow"]).toContain("vitest run scripts/workflow");
     for (const pattern of [
       ".agent-bridge/**",
       "scripts/agent_bridge.py",

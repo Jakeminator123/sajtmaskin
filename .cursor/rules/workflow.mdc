@@ -32,15 +32,15 @@ path-impactmotorn läser control-plane, Backoffice-kartan och
 | Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                            |
 | Stor flytt               | referenssökning + typecheck                                                |
 
-Kommandon ägs av `package.json`. Före push körs alltid
-`npm run verify:pr -- --plan`; den rapporterar berörda ytor och vad den fulla
-profilen omfattar. Kör relevanta riktade kontroller lokalt och redovisa dem i
-PR:n. GitHub Actions publicerar required checks på varje PR-head: tung profil
-körs för ready runtime, högrisk och `master`, medan bevisat safe docs och vanliga
-drafts får ett explicit grönt light-kvitto. Bare `npm run verify:pr` är frivillig
-felsökning/reproduktion, utom när själva CI-/verifieringsmotorn ändras. Skrivande
-generatorer körs uttryckligt med `sync:derived` när deras owner ändrats.
-Validators kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
+Kommandon: `package.json`. Före push: `npm run verify:pr -- --plan` visar ytor
+och CI-profil, inte testresultat. Kör och redovisa riktade kontroller lokalt.
+Full regression ägs av CI för ready runtime, högrisk, `master` och okänd diff.
+Safe docs (även preview-push) och låg-risk-drafts får explicit light-kvitto.
+För verifieringsmotorn: `test:workflow` + `workflow:contract`, typecheck och
+berörda integrationstester. Full lokal `verify:pr` är valfri felsökning.
+Dossiermatrisen väljs av beroendekontraktet på PR/preview; schedule/manual är full.
+Kör `sync:derived` uttryckligt när generatorns owner ändrats. Validators får
+uppdatera gitignorerade cacheartefakter och lintcache.
 
 ## Pausa
 

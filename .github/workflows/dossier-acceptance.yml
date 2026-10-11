@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  # Always-on classifier. Irrelevant PR diffs publish run_matrix=false so the
+  # Always-on classifier. Irrelevant PR/preview diffs publish run_matrix=false so the
   # expensive matrix can skip while the required aggregate stays green.
   # Classification errors fail closed to the matrix.
   scope:
@@ -40,11 +40,12 @@ jobs:
         env:
           SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}
         run: node scripts/dossiers/acceptance-scope.mjs
 
   discover:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       dossiers: ${{ steps.matrix.outputs.dossiers }}
@@ -87,7 +88,7 @@ jobs:
 
   dependency-registry:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.run_matrix == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -178,7 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           EXPECT_MATRIX=true
-          if [ "$EVENT_NAME" = "pull_request" ] && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
+          if { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; } && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
             EXPECT_MATRIX=false
           fi
           if [ "$SCOPE_RESULT" != "success" ]; then
@@ -200,7 +201,7 @@ jobs:
               exit 1
             fi
           elif [ "$DISCOVER_RESULT" != "skipped" ] || [ "$REGISTRY_RESULT" != "skipped" ] || [ "$BUILD_RESULT" != "skipped" ]; then
-            echo "::error::irrelevant PR must skip matrix, got discover=${DISCOVER_RESULT} registry=${REGISTRY_RESULT} build=${BUILD_RESULT}"
+            echo "::error::irrelevant diff must skip matrix, got discover=${DISCOVER_RESULT} registry=${REGISTRY_RESULT} build=${BUILD_RESULT}"
             exit 1
           fi
           echo "✓ dossier-acceptance aggregate green (matrix=${EXPECT_MATRIX}, reason scope=${SCOPE_RESULT}/${RUN_MATRIX})"

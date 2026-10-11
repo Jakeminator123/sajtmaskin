@@ -98,7 +98,7 @@ describe.skipIf(process.platform === "win32")("required quality aggregate", () =
 });
 
 describe("single blocking owner for repeated quality checks", () => {
-  const scopeTests = "npx vitest run scripts/workflow/workflow.test.ts scripts/workflow/ci-scope.test.ts scripts/workflow/ci-quality.test.ts";
+  const scopeTests = "npm run test:workflow";
   const routeCheck = "npm run route-timeouts:check";
 
   // These workflow conditions use only boolean operators and string comparisons,
@@ -266,12 +266,26 @@ describe("complete native test sharding contract", () => {
   });
 
   it("does not let a filtered package script replace the full suite", () => {
+    expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:workflow": "echo skipped" }))
+      .not.toEqual([]);
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:ci": "vitest run src/components" }))
       .not.toEqual([]);
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:discovery:check": "echo skipped" }))
       .not.toEqual([]);
     expect(evaluateCiScopeWorkflow(source, { ...scripts, "test:e2e:project-persistence": "playwright test --list" }))
       .not.toEqual([]);
+  });
+
+  it("requires the exact pre-push tip in both scope jobs", () => {
+    expect(evaluateCiScopeWorkflow(source.replace(
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}",
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.sha }}",
+    ), scripts)).not.toEqual([]);
+    const dossier = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(evaluateDossierAcceptanceWorkflow(dossier.replace(
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.event.before }}",
+      "SAJTMASKIN_PUSH_BASE_SHA: ${{ github.sha }}",
+    ))).not.toEqual([]);
   });
 
   it("does not restart dossier builds when switching unchanged code back to draft", () => {
