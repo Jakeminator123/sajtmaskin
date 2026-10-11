@@ -119,19 +119,31 @@ describe("buildGenerationInputPackage — source receipt", () => {
       },
     ];
 
+    const dossierSelection = { selected: [], poolSize: 0, byCapability: {} };
+    const removedCapabilities = ["payments"];
+    const removedDossierIds = ["stripe-checkout"];
+    const requestedCapabilities = ["auth"];
+    const approvedCapabilities = ["auth"];
+    const presentCapabilities = ["payments"];
+    const routePlan = { routes: [] };
     const pkg = buildGenerationInputPackage(
       {
         resolvedScaffold: null,
         orchestrationContract: {},
         scaffoldContext: undefined,
         capabilityHints: undefined,
-        routePlan: { routes: [] },
+        routePlan,
         preGenerationContracts: {},
         capabilities: {},
         buildSpec: { buildIntent: "website" },
         serializeMode: null,
         uiRecipes: [],
-        dossierRequestedCapabilities: [],
+        dossierRequestedCapabilities: requestedCapabilities,
+        dossierSelection,
+        removedCapabilities,
+        removedDossierIds,
+        f3ApprovedCapabilities: approvedCapabilities,
+        fileEvidenceCapabilities: presentCapabilities,
         scaffoldVariantId: null,
         capabilityModifyHint: null,
       } as never,
@@ -165,5 +177,13 @@ describe("buildGenerationInputPackage — source receipt", () => {
     expect(pkg.sources).toEqual(sources);
     expect(pkg.sources[0]?.reachedPrompt).toBe(false);
     expect(pkg.variantSelection.source).toBe("hash");
+    expect(pkg.dossierSelection).toBe(dossierSelection);
+    expect(pkg.dossierSelection?.selected).toEqual([]);
+    expect(pkg.dossierRequestedCapabilities).toBe(requestedCapabilities);
+    expect(pkg.f3ApprovedCapabilities).toBe(approvedCapabilities);
+    expect(pkg.fileEvidenceCapabilities).toBe(presentCapabilities);
+    expect(pkg.removedCapabilities).toBe(removedCapabilities);
+    expect(pkg.removedDossierIds).toBe(removedDossierIds);
+    expect(pkg.routePlan).toBe(routePlan);
   });
 });

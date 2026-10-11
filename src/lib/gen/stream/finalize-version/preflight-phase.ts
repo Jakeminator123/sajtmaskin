@@ -1,8 +1,7 @@
 /**
  * Parse + merge + preflight phase for `runFinalizeFastPath`. Handles:
  *
- *  - CodeProject → files JSON parsing (via `parseFilesFromContent`)
- *  - `mergeGeneratedProjectFiles` against scaffold/previous
+ *  - `prepareGeneratedProjectCandidate` against scaffold/previous
  *  - OMTAG 1·05 scaffold-default block (missing emitted essentials)
  *  - `injectIntegrationManifestIntoFilesJson` + project env injection
  *  - `runFinalizePreflight`
@@ -26,7 +25,6 @@ import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware
 import { inferScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
-import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -35,7 +33,7 @@ import {
   injectProjectEnvFileIntoFilesJson,
   resolveDossierEnvScopeForFinalize,
 } from "@/lib/gen/preview/project-env-file";
-import { mergeGeneratedProjectFiles } from "../finalize-merge";
+import { prepareGeneratedProjectCandidate } from "../finalize-merge";
 import {
   assertPreservedDossierVerbatimFiles,
   capturePreservedDossierVerbatimSnapshot,
@@ -174,19 +172,9 @@ export async function runPreflightPhase(params: {
   const parseMergePreflightStartedAt = Date.now();
   onProgress?.("parse_merge_preflight", { phase: "start" });
 
-  let filesJson = parseFilesFromContent(contentForVersion);
-  const generatedFiles = (
-    JSON.parse(filesJson) as Array<{
-      path: string;
-      content: string;
-      language?: string;
-    }>
-  ).map((f) => ({ ...f, language: f.language || "tsx" }));
-
-  const mergeResult = mergeGeneratedProjectFiles({
+  const mergeResult = prepareGeneratedProjectCandidate({
     chatId,
-    originalFilesJson: filesJson,
-    generatedFiles,
+    contentForVersion,
     resolvedScaffold,
     previousFiles,
     selectedDossiers,
@@ -194,7 +182,8 @@ export async function runPreflightPhase(params: {
     removedDossiers,
     routePlan,
   });
-  filesJson = mergeResult.filesJson;
+  let filesJson = mergeResult.filesJson;
+  const { generatedFiles } = mergeResult;
   let rejectedShrinks = mergeResult.rejectedShrinks;
   let rejectedStructural = mergeResult.rejectedStructural;
   let crossFileStubs = mergeResult.crossFileStubs;
@@ -403,15 +392,9 @@ export async function runPreflightPhase(params: {
 
     if (repairedContent) {
       contentForVersion = repairedContent;
-      filesJson = parseFilesFromContent(contentForVersion);
-      const reGeneratedFiles = (
-        JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
-      ).map((f) => ({ ...f, language: f.language || "tsx" }));
-
-      const remergeResult = mergeGeneratedProjectFiles({
+      const remergeResult = prepareGeneratedProjectCandidate({
         chatId,
-        originalFilesJson: filesJson,
-        generatedFiles: reGeneratedFiles,
+        contentForVersion,
         resolvedScaffold,
         previousFiles,
         selectedDossiers,

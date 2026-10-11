@@ -91,6 +91,21 @@ export interface GenerationInputPackage extends OrchestrationBase {
   lineageHash: string;
 }
 
+/** The decided inputs needed after generation; no prompts or source receipts. */
+export type GenerationFinalizeInput = Pick<
+  GenerationInputPackage,
+  | "buildSpec"
+  | "routePlan"
+  | "orchestrationContract"
+  | "resolvedScaffold"
+  | "lineageHash"
+  | "variantId"
+  | "dossierSelection"
+  | "preGenerationContracts"
+  | "removedCapabilities"
+  | "removedDossierIds"
+>;
+
 /**
  * Compute a stable hash over the deterministic inputs that shaped generation.
  * Time-dependent or embedding-dependent fields are excluded so the same

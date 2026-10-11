@@ -3,6 +3,8 @@ import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
+import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
 const addMessageMock = vi.hoisted(() => vi.fn());
@@ -159,6 +161,40 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([
+    ["done", formatSSEEvent("done", {}), undefined],
+    ["fallback flush", "", "Done from fallback flush"],
+  ])("carries the same decided package through %s without emitting it in SSE", async (_name, ending, logNote) => {
+    const params = providerFaultParams("chat_decided", {});
+    const routePlan: GenerationFinalizeInput["routePlan"] = {
+      provenance: { primarySource: "prompt", sources: ["prompt"] },
+      siteType: "one-page",
+      reason: "decided empty routes",
+      routes: [],
+    };
+    const generationInput: GenerationFinalizeInput = {
+      buildSpec: params.buildSpec,
+      resolvedScaffold: null,
+      routePlan,
+      orchestrationContract: buildOrchestrationContract({ buildSpec: params.buildSpec, resolvedScaffold: null, routePlan }),
+      variantId: null,
+      lineageHash: "decided-lineage",
+      dossierSelection: { selected: [], poolSize: 0, byCapability: {} },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      removedCapabilities: [],
+      removedDossierIds: [],
+    };
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      generationInput,
+      pipelineStream: pipelineStreamFromSsePayload(formatSSEEvent("content", { text: "generated" }) + ending),
+    }));
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].generationInput).toBe(generationInput);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].logNote).toBe(logNote);
+    expect(events.find((event) => event.event === "meta")?.data).not.toHaveProperty("generationInput");
   });
 
   it("emits chatId, meta, forwarded content, then done with version after pipeline done", async () => {

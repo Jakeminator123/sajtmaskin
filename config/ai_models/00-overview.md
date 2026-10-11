@@ -31,7 +31,7 @@ För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga R
 
 Detta är **parallellt med** `config/codegen-core-manifest.json` + `prompt-core/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
 
-**Tier-2 preview / VM:** Både `startPreviewSession` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Merge-ordning: `harmless → tier3-stub → project-preview → user → generated` (senare lager vinner). I F3 (`lifecycleStage: "integrations"`) hoppas tier-3-stub-laget över helt. Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
+**Tier-2 preview / VM:** `startPreviewSession` (builder) mergar nycklarna in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Merge-ordning: `harmless → tier3-stub → project-preview → user → generated` (senare lager vinner). I F3 (`lifecycleStage: "integrations"`) hoppas tier-3-stub-laget över helt. Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
 ## Direkt provider-API vs SDK (viktigt)
 

@@ -8,6 +8,7 @@ import {
   type FinalizeResult,
 } from "@/lib/gen/stream/finalize-version";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { applyPostMergeF3DetailCardEvidence } from "@/lib/gen/stream/f3-detail-card";
@@ -146,6 +147,8 @@ export interface GenerationStreamParams {
   optimizedMessage: string;
   rawPrompt?: string;
   engineIntent: BuildIntent;
+  /** Modern callers carry the decided package; absent only on legacy calls. */
+  generationInput?: GenerationFinalizeInput;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
@@ -204,6 +207,7 @@ export function createOwnEngineGenerationStream(
     optimizedMessage,
     rawPrompt,
     engineIntent,
+    generationInput,
     buildSpec,
     routePlan,
     orchestrationContract,
@@ -675,6 +679,7 @@ export function createOwnEngineGenerationStream(
         resolvedTier,
         originalPrompt: rawPrompt ?? optimizedMessage,
         buildIntent: engineIntent,
+        generationInput,
         buildSpec,
         routePlan,
         orchestrationContract,

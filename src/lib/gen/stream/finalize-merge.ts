@@ -2,8 +2,8 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { isUnderRoutePath, resolveScaffoldRouteDelivery } from "@/lib/gen/scaffolds/route-delivery";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
-import type { CodeFile } from "@/lib/gen/parser";
-import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
+import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-file-merge";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
@@ -173,6 +173,28 @@ export interface MergeGeneratedProjectFilesResult {
     dossierId?: string;
     capability?: string;
   }>;
+}
+
+/** Shared preparation for production, partial-file retries and offline eval. */
+export function prepareGeneratedProjectCandidate({
+  contentForVersion,
+  ...mergeInput
+}: Omit<MergeGeneratedProjectFilesParams, "originalFilesJson" | "generatedFiles"> & {
+  contentForVersion: string;
+}): MergeGeneratedProjectFilesResult & { generatedFiles: CodeFile[] } {
+  const parsedFiles = parseCodeProject(contentForVersion).files;
+  const generatedFiles = parsedFiles.map((file) => ({
+    ...file,
+    language: file.language || "tsx",
+  }));
+  return {
+    ...mergeGeneratedProjectFiles({
+      ...mergeInput,
+      originalFilesJson: JSON.stringify(parsedFiles),
+      generatedFiles,
+    }),
+    generatedFiles,
+  };
 }
 
 function normalizeDossierPath(path: string): string {

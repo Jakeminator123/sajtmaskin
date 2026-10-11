@@ -6,26 +6,7 @@ import {
   serializePackageForDump,
 } from "../generation-input-package";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
-
-interface OrchestrationBaseLike {
-  resolvedScaffold: GenerationInputPackage["resolvedScaffold"];
-  scaffoldSelection?: GenerationInputPackage["scaffoldSelection"];
-  orchestrationContract: GenerationInputPackage["orchestrationContract"];
-  scaffoldContext: GenerationInputPackage["scaffoldContext"];
-  capabilityHints: GenerationInputPackage["capabilityHints"];
-  routePlan: GenerationInputPackage["routePlan"];
-  preGenerationContracts: GenerationInputPackage["preGenerationContracts"];
-  capabilities: GenerationInputPackage["capabilities"];
-  effectiveBrief?: Record<string, unknown> | null;
-  buildSpec: GenerationInputPackage["buildSpec"];
-  serializeMode: GenerationInputPackage["serializeMode"];
-  uiRecipes: GenerationInputPackage["uiRecipes"];
-  dossierRequestedCapabilities: GenerationInputPackage["dossierRequestedCapabilities"];
-  dossierSelection?: GenerationInputPackage["dossierSelection"];
-  requestedCapabilityTiers?: GenerationInputPackage["requestedCapabilityTiers"];
-  scaffoldVariantId: GenerationInputPackage["scaffoldVariantId"];
-  capabilityModifyHint: GenerationInputPackage["capabilityModifyHint"];
-}
+import type { OrchestrationBase } from "./types";
 
 interface OrchestrationInputLike {
   prompt: string;
@@ -53,7 +34,7 @@ interface FinalizedOrchestrationContextLike {
 }
 
 export function buildGenerationInputPackage(
-  base: OrchestrationBaseLike,
+  base: OrchestrationBase,
   input: OrchestrationInputLike,
   finalized: FinalizedOrchestrationContextLike,
 ): GenerationInputPackage {

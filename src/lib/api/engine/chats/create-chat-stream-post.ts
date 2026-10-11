@@ -966,7 +966,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             orchestrationInput,
             finalized,
           );
-          const lineageHash = generationInputPackage.lineageHash;
           writeOrchestrationDynamicDump(generationInputPackage);
           dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
             route: "POST /api/engine/chats/stream",
@@ -1119,11 +1118,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             optimizedMessage,
             rawPrompt: message,
             engineIntent,
-            buildSpec: orchestrationBase.buildSpec,
-            routePlan: routePlan ?? null,
-            orchestrationContract: orchestrationBase.orchestrationContract,
-            resolvedScaffold: resolvedScaffold ?? null,
-            lineageHash,
+            generationInput: generationInputPackage,
             urlMap,
             commitCredits: commitCreditsOnce,
           });

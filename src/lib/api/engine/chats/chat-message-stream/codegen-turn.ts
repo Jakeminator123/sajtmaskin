@@ -436,7 +436,6 @@ export async function runCodegenTurn(params: {
     orchestrationInput,
     finalized,
   );
-  const lineageHash = generationInputPackage.lineageHash;
   writeOrchestrationDynamicDump(generationInputPackage);
   dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
     route: "POST /api/engine/chats/[chatId]/stream",
@@ -524,10 +523,7 @@ export async function runCodegenTurn(params: {
     optimizedMessage,
     rawPrompt: followUpIntentMessage,
     engineIntent,
-    buildSpec: orchestrationBase.buildSpec,
-    routePlan: routePlan ?? null,
-    orchestrationContract: orchestrationBase.orchestrationContract,
-    resolvedScaffold: resolvedScaffold ?? null,
+    generationInput: generationInputPackage,
     urlMap,
     commitCredits: commitCreditsOnce,
     previousFiles: hasFollowUpBase ? previousFiles : undefined,
@@ -535,7 +531,6 @@ export async function runCodegenTurn(params: {
     previousSelectedDossierEnvKeys: hasFollowUpBase
       ? previousSelectedDossierEnvKeys
       : undefined,
-    lineageHash,
     targetVersionId:
       metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
         ? metaEngineBaseVersionId

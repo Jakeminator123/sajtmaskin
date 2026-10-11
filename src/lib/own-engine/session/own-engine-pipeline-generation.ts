@@ -3,13 +3,10 @@
  * Kept separate from `own-engine-build-session.ts` so unit tests can import meta/contract helpers without loading `generation-stream` → DB-backed finalize chain.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { BuildSpec } from "@/lib/gen/build-spec";
-import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
-import type { RoutePlan } from "@/lib/gen/route-plan";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
 import type { CodeFile } from "@/lib/gen/parser";
 import { createGenerationPipeline, type PipelineOptions } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
-import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import {
@@ -38,16 +35,12 @@ export type OwnEnginePipelineAndGenerationInput = {
   optimizedMessage: string;
   rawPrompt?: string;
   engineIntent: BuildIntent;
-  buildSpec: BuildSpec;
-  routePlan: RoutePlan | null;
-  orchestrationContract?: OrchestrationContract | null;
-  resolvedScaffold: ScaffoldManifest | null;
+  generationInput: GenerationFinalizeInput;
   urlMap: Record<string, string>;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
   previousVersionId?: string | null;
   previousSelectedDossierEnvKeys?: string[];
-  lineageHash?: string | null;
   targetVersionId?: string | null;
   includeIntegrationSignals?: boolean;
   /** F3 only: parent F2 version id (forwarded into `engine_versions.parent_version_id`). */
@@ -114,16 +107,17 @@ export function createOwnEnginePipelineAndGenerationStream(
     optimizedMessage: input.optimizedMessage,
     rawPrompt: input.rawPrompt,
     engineIntent: input.engineIntent,
-    buildSpec: input.buildSpec,
-    routePlan: input.routePlan,
-    orchestrationContract: input.orchestrationContract ?? null,
-    resolvedScaffold: input.resolvedScaffold,
+    generationInput: input.generationInput,
+    buildSpec: input.generationInput.buildSpec,
+    routePlan: input.generationInput.routePlan,
+    orchestrationContract: input.generationInput.orchestrationContract,
+    resolvedScaffold: input.generationInput.resolvedScaffold,
     urlMap: input.urlMap,
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
     previousVersionId: input.previousVersionId,
     previousSelectedDossierEnvKeys: input.previousSelectedDossierEnvKeys,
-    lineageHash: input.lineageHash,
+    lineageHash: input.generationInput.lineageHash,
     targetVersionId: input.targetVersionId,
     lifecycleParentVersionId: input.lifecycleParentVersionId,
     f3PriorToolOnlyRounds: input.f3PriorToolOnlyRounds,

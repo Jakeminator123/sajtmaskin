@@ -701,7 +701,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     });
     const response = await POST(request);
 
-    expect(response.status).toBe(200);
+    expect(response.status, await response.clone().text()).toBe(200);
 
     const events = await readSseEvents(response);
     const doneEvent = events.find((event) => event.event === "done");
@@ -753,6 +753,12 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       }),
     );
     expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+    const decidedPackage = buildGenerationInputPackage.mock.results[0]?.value;
+    const finalizeInput = finalizeOrHandleEmptyGeneration.mock.calls[0]?.[0].finalizeParams;
+    expect(finalizeInput.generationInput).toBe(decidedPackage);
+    expect(finalizeInput.routePlan).toBe(decidedPackage.routePlan);
+    expect(finalizeInput.buildSpec).toBe(decidedPackage.buildSpec);
+    expect(finalizeInput.lineageHash).toBe(decidedPackage.lineageHash);
     expect(writeOrchestrationDynamicDump).toHaveBeenCalledTimes(1);
     expect(createGenerationPipeline).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -782,15 +782,10 @@ async function evaluatePrompt(
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
   const rawProject = parseCodeProject(content);
-  const project = parseCodeProject(fixedContent);
-  // Dynamic import keeps runner.test.ts able to import pure helpers
-  // without pulling the finalize stack (and its database side imports)
-  // into the test process.
-  const { mergeGeneratedProjectFiles } = await import("../stream/finalize-merge");
-  const mergeResult = mergeGeneratedProjectFiles({
+  const { prepareGeneratedProjectCandidate } = await import("../stream/finalize-merge");
+  const mergeResult = prepareGeneratedProjectCandidate({
     chatId: `eval_${evalPrompt.id}`,
-    originalFilesJson: JSON.stringify(project.files),
-    generatedFiles: project.files,
+    contentForVersion: fixedContent,
     resolvedScaffold: generationInput.resolvedScaffold,
     // B05: scope refuseDossierStubs to the eval's selected dossiers so eval
     // green/red parity matches the production streaming finalize path.
@@ -838,7 +833,7 @@ async function evaluatePrompt(
   });
 
   const sources = deriveEvalCheckSources({
-    rawFiles: project.files,
+    rawFiles: mergeResult.generatedFiles,
     preflightFilesJson: preflight.filesJson,
   });
 
@@ -941,7 +936,7 @@ async function evaluatePrompt(
       rawContent: content,
       fixedContent,
       rawFiles: rawProject.files,
-      fixedFiles: project.files,
+      fixedFiles: mergeResult.generatedFiles,
       mergedFiles,
       completeProjectFiles,
       sources,
