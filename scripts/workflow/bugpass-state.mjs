@@ -43,12 +43,6 @@ export function validateReviewChain(receipt, readReview, seen = new Set()) {
   } else if (receipt.round !== 1) throw new Error("Missing previous review in follow-up chain.");
 }
 
-export function canReuseAfterPublication(receipt, publishedAt) {
-  if (!publishedAt) return true;
-  if (!Number.isFinite(Date.parse(publishedAt))) throw new Error("Invalid publication timestamp.");
-  return receipt.publishedAt === publishedAt && Date.parse(receipt.reviewedAt) >= Date.parse(publishedAt);
-}
-
 export function validateDecision(review, decision) {
   const finding = review.findings.find((item) => item.id === decision?.findingId);
   if (!finding || decision.reviewDigest !== reviewDigest(review) ||

@@ -31,7 +31,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 21;
+export const HOOK_VERSION = 22;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -133,7 +133,7 @@ is_published_label_create() {
 verify_needed=0
 while read -r local_ref local_sha remote_ref remote_sha; do
   # Direkt preview: aldrig delete/force, alltid exakt manniskobekraftad HEAD
-  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.
+  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.
   if [ "$remote_ref" = "refs/heads/preview" ]; then
     if [ "$local_sha" = "$ZERO_SHA" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
       echo "[hooks] STOPP: preview far inte raderas/aterskapas med vanlig direktpush." >&2
@@ -318,7 +318,7 @@ export function decideHookRetirement({ hookName, existing }) {
   if (existing === null || existing === undefined)
     return { action: "retire", reason: "saknas; installera passivt nedgraderingsskydd" };
   if (existing === renderHookScript(hookName)) return { action: "skip", reason: "redan passiv" };
-  const legacyPassive = [18, 19, 20].flatMap((version) => {
+  const legacyPassive = [18, 19, 20, 21].flatMap((version) => {
     const body = `#!/bin/sh\n# ${HOOK_MARKER} v${version} (${hookName}: retired)\nexit 0\n`;
     return [body, body.replace(/\n/g, "\r\n")];
   });
@@ -368,9 +368,11 @@ export function decideHookInstall({ existing, desired }) {
       reason: `managed hook v${existingVersion} har oväntat annat innehåll`,
     };
   }
-  // Canonical v19 (ab68d9ed) and v20 (7730a7cb); LF and CRLF. A version marker alone
+  // Canonical v19, v20 and v21 (74c788c7); LF and CRLF. A version marker alone
   // must never authorize deleting local additions or a third-party delegate.
   const knownPriorHashes = [
+    "e685af891d6563c8fd40eaf68b2fb42cdd899e59285bcac775492ac2e21fe35a",
+    "44950a176799c331ab03e77b06cd6c9096103471b53d8f4854a4246c8e4ed373",
     "f0a367369244d9bee8f3159450d8f2f600cd362c99b77bed3e0affb795cde73a",
     "320c7fd3524f6da46f2b856b0d000d8de1021babd7b850a1d5ad140f974a1306",
     "953e4805382936b92211176f9773086957d5761b46c5b107f7db5d3c74c8dacd",

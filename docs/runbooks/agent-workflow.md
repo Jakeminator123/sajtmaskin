@@ -3,14 +3,16 @@
 Körordning: [PR-workflow](../../.agents/skills/pr-workflow/SKILL.md). Mergekrav:
 [pr-merge.mdc](../../.cursor/rules/pr-merge.mdc).
 
-Jobba från färsk `origin/preview`. Direktleverans kan förberedas med
-`npm run preview:prepare`: endast plan, inte ett kvitto på körda tester.
-Kör och redovisa relevanta riktade kontroller enligt PR-workflow; ingen extra
-full lokal testslinga krävs enbart för direktpreview.
+Jobba från färsk `origin/preview`. Kör riktade kontroller och commit:a exakt
+uppgiftens paths. `npm run bugpass -- --base <preview-SHA>` förbereder ett uppdrag
+för en separat readonly-granskare med ny kontext. Importera dess verkliga
+resultat, triagera och fixa före push. Ingen WSL eller särskild CLI krävs.
+`npm run preview:prepare` kräver aktuell godtagbar review och kör endast plan,
+inte tester. Redovisa faktiskt körda riktade kontroller enligt PR-workflow.
 Fråga därefter Jakob "Är du säker på att du vill pusha?" med exakt SHA;
 `npm run preview:push -- --confirm <SHA>` får bara förmedla hans faktiska svar.
-Efter lyckad push körs ett fristående **Buggpass** och resultatet återgår till
-författaragenten för motiverad triage, fix och delta-review. CI/deploy verifieras
+Pre-push-hooken kontrollerar review-/plankvittot utan modellstart eller tester.
+Ingen extra AI-review körs efter push. CI/deploy verifieras
 separat efter push. Se [Buggpass](github-pr-review-automation.md)
 för lokal/server-side gräns och den kvarvarande PR-vägen.
 För direktpreview får Jakobs befintliga adminundantag användas efter

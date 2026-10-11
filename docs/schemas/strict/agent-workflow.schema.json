@@ -39,7 +39,7 @@
         "pushCommand": { "const": "preview:push" },
         "confirmation": { "const": "exact-head-after-human-confirmation" },
         "reviewName": { "const": "Buggpass" },
-        "reviewTiming": { "const": "after-push" },
+        "reviewTiming": { "const": "before-push" },
         "remoteChecks": { "const": "after-push" }
       }
     },

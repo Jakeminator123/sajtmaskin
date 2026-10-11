@@ -32,31 +32,28 @@ samma diff — `npm run workflow:contract` jämför filerna och blir röd annars
 - Branch-, worktree-, verifierings- och destructive-action-reglerna gäller
   alltid. Autentisering och tokens ligger utanför repot.
 
-## Avgränsat undantag: fristående Buggpass
+## Buggpass före push
 
-Ovanstående `on-request` gäller vanliga projekt-/interaktiva sessioner och
-ändras inte. `scripts/workflow/bugpass.mjs` startar separat CLI utanför repot
-utan användar-/projektconfig, med `read-only`, `approval_policy="never"`
-(ingen eskalering), avstängt webbsök och endast tillåtna OS-miljövariabler.
-CLI-versionen är låst till `0.162.0-alpha.2`, med explicit Windows `elevated`
-sandbox. Före push/modellstart krävs `bugpass:sandbox-check`: en riktig
-läsning ska lyckas, medan skrivning och localhost-HTTP ska nekas. Provet kör
-sandboxen direkt utan modellkvot. Att alla kommandon nekas är inte godkänt.
-Windows är hittills enda målplattformen för detta driftprov; andra plattformar
-stoppar tills motsvarande prov har implementerats och verifierats.
+`scripts/workflow/bugpass.mjs` förbereder ett granskningsuppdrag och importerar
+resultatet från en separat granskare. Författaragenten startar en ny readonly-
+review i den aktuella värden med endast prompt, schema, SHA:n och relevant kod;
+ingen föräldrachatt. Faktisk modell, reasoning och referens till körningen
+registreras vid import. Författaren får inte skriva ett eget godkänt resultat.
 
-**Införandestatus 2026-10-08:** CLI-reviewn är inte driftgodkänd. Elevated
-sandbox stoppas av en låst Codex browser-körfil (`os error 32` under runtime
-ACL-validering). Unelevated provades men släppte igenom localhost-HTTP och
-används därför inte. Inga andra sessioner stoppades och inga säkerhetskrav
-sänktes. Ett nytt modellfritt prov efter omstart gav samma fel trots nystartade
-runtimeprocesser. Omstart är alltså ingen verifierad lösning. Windows runtime-
-låsningen behöver åtgärdas innan nytt prov och en riktig review på oförändrad SHA.
+Värdens verktygsbehörigheter och godkännanden gäller. Instruktionen att bara
+läsa är inte en egen OS-sandbox. Granskaren får inte mutera, köra repokod eller
+läsa secrets. Saknas en lämplig granskningsväg stoppas publiceringen; ingen
+full-access-fallback införs. Ingen särskild CLI-version, WSL eller API-nyckel
+krävs av kvitto-/hookverktygen, som använder projektets Node och Git.
 
-Ändrad CLI-version, `codexArgs` eller `reviewerEnv` kräver nytt driftprov och
-granskad uppdatering av kontraktet. Provet bevisar endast de testade
-operationerna, inte generell fil-läsisolering eller all Windows-säkerhet.
-Read-only får aldrig bytas mot full åtkomst.
+Granskning och triage ska vara klara **före** `preview:prepare`. Den lätta
+pre-push-hooken verifierar aktuellt base/head, granskningskontrakt, triage och
+plankvitto. Den startar inga modeller, tester eller nätverksprov. Samma resultat
+återanvänds efter push. Native CI och Vercel följs separat.
+
+Kvittona är lokala arbetsflödesbevis, inte signerade säkerhetsattesteringar.
+Se [Buggpass-runbooken](../docs/runbooks/github-pr-review-automation.md) för
+kommandon, återanvändning och uppföljning. Granskarens vanliga modellkvot gäller.
 
 ## Öppna projektet
 

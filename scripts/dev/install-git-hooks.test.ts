@@ -120,7 +120,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(21);
+    expect(HOOK_VERSION).toBe(22);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -192,6 +192,8 @@ describe("renderHookScript", () => {
       mkdirSync(scriptDir, { recursive: true });
       mkdirSync(cache, { recursive: true });
       mkdirSync(bin);
+      mkdirSync(join(root, "config"));
+      writeFileSync(join(root, "config/agent-workflow.json"), "{}");
       writeFileSync(join(root, "scripts/dev/install-git-hooks.mjs"), "marker");
       for (const file of ["bugpass.mjs", "bugpass-state.mjs", "preview-push.mjs"])
         writeFileSync(join(scriptDir, file), readFileSync(`scripts/workflow/${file}`));
@@ -224,8 +226,32 @@ describe("renderHookScript", () => {
       expect(run().status).toBe(1);
       const confirmed = { SAJTMASKIN_PREVIEW_WRAPPER_HEAD: head };
       expect(run(confirmed).status).toBe(1); // Missing receipt.
+      const bugCache = join(root, "node_modules/.cache/sajtmaskin-bugpass");
+      const cli = (...args: string[]) => spawnSync(process.execPath, ["scripts/workflow/bugpass.mjs", "--base", base, ...args],
+        { cwd: root, env, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
+      expect(cli().status).toBe(0);
+      const request = JSON.parse(readFileSync(join(bugCache, `${base}-${head}.request.json`), "utf8"));
+      const resultPath = join(bugCache, "fixture-result.json"), reviewerPath = join(bugCache, "fixture-reviewer.json");
+      const finding = { id: "F1", priority: "P2", confidencePercent: 80, impactScore: 2, file: "fixture.txt", line: 1, description: "Fixture finding" };
+      const result = { base, head, requestId: request.requestId, complete: true, summary: "Synthetic integration fixture only", findings: [finding] };
+      writeFileSync(reviewerPath, JSON.stringify({ provider: "test", reference: "synthetic-fixture", model: "fixture", reasoning: "high", independent: true }));
+      for (const invalid of [{ ...result, head: base }, { ...result, complete: false }, { ...result, requestId: "a".repeat(64) }]) {
+        writeFileSync(resultPath, JSON.stringify(invalid));
+        expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(1);
+      }
+      writeFileSync(resultPath, JSON.stringify(result));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2); // Imported but needs triage.
+      expect(run(confirmed).status).toBe(1);
+      expect(cli("--triage", head, "F1", "accept", "Fixture reproduced; a fix is still necessary.").status).toBe(2);
+      expect(run(confirmed).status).toBe(1);
+      expect(cli("--triage", head, "F1", "reject", "Fixture evidence proves this scenario cannot occur.").status).toBe(0);
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(1); // Cannot erase triage by overwriting.
+      const proofResult = spawnSync(process.execPath, ["--input-type=module", "-e",
+        'import { readyReview, reviewProof } from "./scripts/workflow/bugpass.mjs"; console.log(reviewProof(readyReview(process.argv[1], process.argv[2])));', base, head],
+        { cwd: root, env, encoding: "utf8" });
+      expect(proofResult.status, proofResult.stderr).toBe(0);
       writeFileSync(join(cache, `${head}.json`), JSON.stringify({
-        version: 3, base, head, verification: "verify:pr:plan", plannedAt: new Date().toISOString(), postPushReview: "required",
+        version: 4, base, head, verification: "verify:pr:plan", plannedAt: new Date().toISOString(), reviewProof: proofResult.stdout.trim(),
       }));
       const accepted = run(confirmed);
       expect(accepted.status, accepted.stderr).toBe(0);
@@ -241,8 +267,30 @@ describe("renderHookScript", () => {
       expect(run(confirmed, head, zero).status).toBe(1);
       expect(run({ ...confirmed, SAJTMASKIN_BREAK_GLASS: "1",
         SAJTMASKIN_BREAK_GLASS_REASON: "must never allow force" }, head, "d".repeat(40)).status).toBe(1);
+
+      // Exercise Git's real pre-push invocation and publication to a disposable
+      // LOCAL bare remote. No GitHub writes or model requests occur in this test.
+      const remote = mkdtempSync(join(tmpdir(), "sajtmaskin-preview-remote-"));
+      fixtureGit("init", "--bare", "--quiet", remote);
+      fixtureGit("push", remote, `${base}:refs/heads/preview`);
+      chmodSync(hook, 0o755);
+      const pushed = spawnSync("git", ["-c", `core.hooksPath=${root.replaceAll("\\", "/")}`, "push", remote, `${head}:refs/heads/preview`],
+        { cwd: root, env: { ...env, ...confirmed }, encoding: "utf8", timeout: POSIX_HOOK_CHILD_TIMEOUT_MS });
+      expect(pushed.status, pushed.stderr).toBe(0);
+      expect(fixtureGit("ls-remote", remote, "refs/heads/preview")).toContain(head);
+      expect(cli("--triage", head, "F1", "accept", "New evidence makes the accepted issue unresolved.").status).toBe(2);
+      expect(run(confirmed).status).toBe(1); // Old preparation cannot bypass changed triage.
+      writeFileSync(join(root, "fixture.txt"), "fixed");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fix");
+      const nextHead = fixtureGit("rev-parse", "HEAD");
+      expect(run(confirmed).status).toBe(1); // Changed checkout invalidates old proof.
+      expect(cli().status).toBe(0);
+      const followUp = JSON.parse(readFileSync(join(bugCache, `${base}-${nextHead}.request.json`), "utf8"));
+      expect(followUp).toMatchObject({ round: 2, previous: { base, head } });
+      expect(readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8")).toContain("New evidence makes the accepted issue unresolved.");
     },
-    POSIX_HOOK_TEST_TIMEOUT_MS,
+    60_000,
   );
 
   itWithPosixShell(
@@ -633,14 +681,16 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
   });
 
-  it("uppgraderar exakt känd v19/v20, men bevarar äldre lokala tillägg", () => {
+  it("uppgraderar exakt känd v19/v20/v21, men bevarar äldre lokala tillägg", () => {
+    const v21 = desired.replace(`v${HOOK_VERSION}`, "v21")
+      .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.");
     const v20 = desired.replace(`v${HOOK_VERSION}`, "v20")
-      .replace("  # och plan-kvitto fran wrappern. CI/skip far inte kringga detta.", "  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.")
+      .replace("  # och aktuellt review-/plankvitto fran wrappern. CI/skip far inte kringga detta.", "  # och aktuellt lokalt Buggpass + verifiering. CI/skip far inte kringga detta.")
       .replace("    # Exakt base/head-plan finns redan; kor inte samma plan igen nedan.\n    continue\n", "");
     // Reconstruct v19; the installer's frozen SHA-256 proves full-file identity.
     const outdated = desired.replace(`v${HOOK_VERSION}`, "v19")
       .replace(/\n  # Direkt preview:[\s\S]+?\n  fi\n/, "\n");
-    for (const body of [outdated, v20].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
+    for (const body of [outdated, v20, v21].flatMap((value) => [value, value.replace(/\n/g, "\r\n")])) {
       expect(decideHookInstall({ existing: body, desired }).action).toBe("write");
       expect(decideHookInstall({ existing: body + "echo local-security-check\n", desired }).action).toBe("conflict");
     }

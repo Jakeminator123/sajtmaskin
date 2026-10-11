@@ -55,27 +55,33 @@ rapportens `runtimeStatus`.
 
 ## 4. Leverera: direkt preview eller PR
 
-Direktpreview: kör riktade kontroller enligt § 3, commit:a exakta paths och kör
-`npm run preview:prepare` (endast plan; inget test- eller reviewkvitto). Fråga sedan
-Jakob **Är du säker på att du vill pusha?** med exakt SHA. Efter svaret:
-`npm run preview:push -- --confirm <full SHA>`. Kommandot återkontrollerar
-remote-bas/head och granskarens sandbox, sedan pushas utan force. **Efter lyckad push** startas ett
-fristående readonly Buggpass; resultatet återgår till författaragenten.
-Agenten accepterar och fixar, avfärdar med konkret bevis eller skjuter upp
-låg-impact P2 med dokumenterad uppföljning. Fynd visar bedömd säkerhet i %,
-impact 1–5 och kort kommentar; poängen är inte CI eller en mergegrind.
-Vid fix: använd `--previous <base:head>` enligt
-[runbooken](../../../docs/runbooks/github-pr-review-automation.md), kör riktat
-och återpublicera efter ny SHA-bunden pushbekräftelse. Granska delta/integration,
-återanvänd oförändrat kvitto och stoppa efter tre rundor för ägarbeslut.
-Läs push-CI och Vercel READY separat. Modellfel efter push betyder publicerad
-men ogranskad kod, aldrig att pushen misslyckades eller ska upprepas.
+Direktpreview: kör riktade kontroller enligt § 3 och commit:a exakta paths.
+Kör `npm run bugpass -- --base <preview-SHA>` för prompt/schema. Starta en
+**separat readonly-granskare med ny kontext**, utan föräldrachatt, i värdens
+befintliga review-/subagentfunktion. Importera dess faktiska JSON och metadata
+enligt [runbooken](../../../docs/runbooks/github-pr-review-automation.md).
+Författaren får inte utgöra sitt eget oberoende pass eller fylla i ett påhittat
+tomt resultat. Granskarens befintliga behörigheter gäller; hooken ger ingen sandbox.
+
+Triagera: acceptera och fixa, avfärda med konkret bevis eller skjut upp låg-impact
+P2 med uppföljning. Fynd visar bedömd säkerhet i %, impact 1–5 och kort kommentar.
+Vid fix: ny commit och samma bugpass-kommando; tidigare fynd/beslut länkas
+automatiskt. Granska delta/integration, återanvänd oförändrat kvitto och stoppa
+efter tre rundor för ägarbeslut. Saknad/ofullständig review stoppar före push.
+
+När granskningen är klar: `npm run preview:prepare` verifierar kvittot och kör
+befintlig plan en gång (inga tester eller modeller). `npm run preview:push --
+--dry-run` kontrollerar beredskap utan push. Fråga sedan Jakob **Är du säker på
+att du vill pusha?** med exakt SHA. Efter svaret: `npm run preview:push --
+--confirm <full SHA>`. Wrappern och hooken kontrollerar aktuell bas, head,
+review/triage och plan. Ingen force/delete, ingen ny AI-körning efter push.
+Läs push-CI och Vercel READY separat; lokala kontroller ersätter inte dessa.
 Detta ger inte produktions-, DB- eller mergebehörighet. För direktpreview får
 Jakobs befintliga GitHub-adminundantag användas efter SHA-bekräftelsen
 (ägarbeslut 2026-10-08). Kontrollera aktuell inloggning och att undantaget
 gäller preview; ändra inte ruleset, force/delete-skydd eller Master för detta.
-Om granskaren inte kan starta: använd PR-vägen nedan med fungerande oberoende
-review och native checks. En PR-merge reparerar inte granskarens lokala runtime.
+Om värden saknar fungerande oberoende review: använd PR-vägen med en fungerande
+granskare och native checks. Fabricera aldrig ett lokalt kvitto för att komma förbi.
 
 PR-vägen finns kvar när spårbar diskussion/native mergegrind behövs:
 
