@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory } from "./bugpass.mjs";
+import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory, validateRenewalFindings } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
 import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
@@ -51,6 +51,16 @@ describe("portable independent Buggpass", () => {
     expect(prompt).toContain('"id":"F1"');
     expect(prompt).toContain('"id":"F2"');
     expect(prompt).toContain('"action":"accept"');
+  });
+  it("rejects silent omission of unresolved same-head findings until explicit author rejection", () => {
+    const known = { review: { ...review, findings: [finding] }, decisions: [] as { findingId: string; action: string }[] };
+    for (const decisions of [[], [{ findingId: "F1", action: "accept" }], [{ findingId: "F1", action: "defer" }]])
+      expect(() => validateRenewalFindings(review, { ...known, decisions })).toThrow(/cannot drop unresolved/);
+    expect(() => validateRenewalFindings({ ...review, findings: [{ ...finding, id: "F2" }] }, known)).not.toThrow();
+    expect(() => validateRenewalFindings({ ...review, findings: [{ ...finding, description: "Different issue" }] }, known)).toThrow();
+    expect(() => validateRenewalFindings(review, { ...known, decisions: [{ findingId: "F1", action: "reject" }], supersededReview: known })).not.toThrow();
+    expect(() => validateRenewalFindings(review, { review, decisions: [], supersededReview: known })).toThrow();
+    expect(() => validateRenewalFindings(review, null)).not.toThrow(); // Changed code may fix prior findings.
   });
 });
 
@@ -130,6 +140,9 @@ describe("bounded author triage", () => {
     expect(nextRound(null)).toBe(1);
     expect(nextRound({ round: 1 })).toBe(2);
     expect(() => nextRound({ round: 3 })).toThrow(/Three/);
+    expect(() => nextRound({ round: 3 }, "yes")).toThrow(/Three/);
+    expect(nextRound({ round: 3 }, "Owner explicitly approved one additional pass in this task.")).toBe(4);
+    expect(() => nextRound({ round: 4 }, "Owner explicitly approved one additional pass in this task.")).toThrow(/Three/);
     const first = { base, head, rootBase: base, round: 1, review: report, decisions: [decision] };
     const second = { base, head: "f".repeat(40), rootBase: base, round: 2, review, decisions: [],
       previous: { base, head }, previousContext: followUpDigest(first) };

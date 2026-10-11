@@ -80,13 +80,21 @@ en ny commit måste granskas. `reject` kräver belägg; `defer` tillåts endast 
 P2/impact ≤2 med spårbar uppföljning. Alla fynd måste vara hanterade före push.
 
 Uppföljningen granskar delta och integration och bär kvarvarande fynd vidare.
-Ändrat granskningskontrakt (inklusive repo-/granskningsregler) kräver full diff igen. Högst tre länkade rundor;
+Ändrat granskningskontrakt (inklusive repo-/granskningsregler) kräver full diff igen. Normalt högst tre länkade rundor;
 därefter ägarbeslut, inte en tyst nollställning. Ändrad triage i en äldre runda
 ogiltigförklarar beroende kvitton. Ett nytt uppdrag på aktuell head granskar då
 hela diffen med samtliga tidigare fynd och aktuella beslut, utan att äldre commits
-behöver checkas ut. Kedjan och gränsen på tre rundor behålls; ersatta resultat på
+behöver checkas ut. Kedjan och standardgränsen på tre rundor behålls; ersatta resultat på
 samma head bevaras som `supersededReview`. Deras fynd och beslut följer med
-förnyelseuppdraget; ett gammalt fynd försvinner inte när ett kvitto ersätts.
+förnyelseuppdraget. På oförändrad kod avvisar importen ett svar som utelämnar ett
+tidigare fynd utan uttryckligt avfärdande från författaren. Behåll exakt
+fil/rad/beskrivning; en ny bedömning lämnas i sammanfattningen för triage.
+
+Efter tre rundor krävs Jakobs beslut. Om han uttryckligen godkänner **ett extra
+pass**, skapa uppdraget med `bugpass -- --base <base> --owner-extra-round
+"Referens till Jakobs uttryckliga godkännande"`. Mandatet binds till uppdraget
+och medger endast runda fyra, utan att nollställa historiken eller ändra
+standardgränsen. Ingen femte runda eller push tillåts av detta mandat.
 
 Lokala underlag finns i `node_modules/.cache/sajtmaskin-bugpass/`; plan och
 publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`. De är lokala

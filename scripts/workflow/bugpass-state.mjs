@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 export const MAX_REVIEW_ROUNDS = 3;
 export const MAX_DEFERRED_IMPACT = 2;
 export class StaleReviewContextError extends Error {}
+export const validOwnerExtraRound = (reason) => typeof reason === "string" && reason.trim().length >= 20;
 
 // Scores are reviewer estimates, not measured probabilities or a CI pass rate.
 export function validateFinding(finding) {
@@ -37,7 +38,8 @@ export function validateCachedContext(receipt, previous) {
 export function reviewHistory(receipt, readReview, seen = new Set()) {
   if (!receipt) return [];
   const key = `${receipt.base}:${receipt.head}`;
-  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS) throw new Error("Invalid/cyclic review chain.");
+  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS + 1) throw new Error("Invalid/cyclic review chain.");
+  nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
   seen.add(key);
   let history = [];
   if (receipt.previous) {
@@ -52,7 +54,8 @@ export function reviewHistory(receipt, readReview, seen = new Set()) {
 
 export function validateReviewChain(receipt, readReview, seen = new Set()) {
   const key = `${receipt.base}:${receipt.head}`;
-  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS) throw new Error("Invalid/cyclic review chain.");
+  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS + 1) throw new Error("Invalid/cyclic review chain.");
+  nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
   seen.add(key);
   if (receipt.previous) {
     const previous = readReview(receipt.previous.base, receipt.previous.head);
@@ -91,9 +94,10 @@ export function reviewStatus(review, decisions = []) {
   return [...byId.values()].some((decision) => decision.action === "defer") ? "acceptable-with-follow-up" : "clear";
 }
 
-export function nextRound(previous) {
+export function nextRound(previous, ownerExtraRound = "") {
   const round = previous ? previous.round + 1 : 1;
-  if (!Number.isInteger(round) || round < 1 || round > MAX_REVIEW_ROUNDS) {
+  if (!Number.isInteger(round) || round < 1 ||
+      (round > MAX_REVIEW_ROUNDS && !(round === MAX_REVIEW_ROUNDS + 1 && validOwnerExtraRound(ownerExtraRound)))) {
     throw new Error("Three review rounds reached: return remaining findings to the owner; no endless model loop.");
   }
   return round;
@@ -101,7 +105,7 @@ export function nextRound(previous) {
 
 export function formatReview(receipt) {
   const review = receipt.review;
-  const lines = [`Buggpass ${receipt.base.slice(0, 12)}..${receipt.head.slice(0, 12)} · round ${receipt.round}/${MAX_REVIEW_ROUNDS}`,
+  const lines = [`Buggpass ${receipt.base.slice(0, 12)}..${receipt.head.slice(0, 12)} · round ${receipt.round}/${MAX_REVIEW_ROUNDS}${receipt.ownerExtraRound ? " + one owner-approved extra round" : ""}`,
     `Status: ${reviewStatus(review, receipt.decisions)}. ${review.summary}`];
   for (const finding of review.findings) {
     const decision = receipt.decisions.find((item) => item.findingId === finding.id);

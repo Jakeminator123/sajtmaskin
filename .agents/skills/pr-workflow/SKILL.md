@@ -67,7 +67,9 @@ Triagera: acceptera och fixa, avfärda med konkret bevis eller skjut upp låg-im
 P2 med uppföljning. Fynd visar bedömd säkerhet i %, impact 1–5 och kort kommentar.
 Vid fix: ny commit och samma bugpass-kommando; tidigare fynd/beslut länkas
 automatiskt. Granska delta/integration, återanvänd oförändrat kvitto och stoppa
-efter tre rundor för ägarbeslut. Saknad/ofullständig review stoppar före push.
+efter tre rundor för ägarbeslut. Ett uttryckligt godkännande från Jakob kan
+medge en fjärde runda enligt runbooken, aldrig ett automatiskt omtag.
+Saknad/ofullständig review stoppar före push.
 
 När granskningen är klar: `npm run preview:prepare` verifierar kvittot och kör
 befintlig plan en gång (inga tester eller modeller). `npm run preview:push --

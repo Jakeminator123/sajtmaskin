@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, w
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateFinding, validateDecision, reviewDigest, reviewStatus, nextRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError } from "./bugpass-state.mjs";
+import { validateFinding, validateDecision, reviewDigest, reviewStatus, nextRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError, validOwnerExtraRound } from "./bugpass-state.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const SHA = /^[0-9a-f]{40}$/;
@@ -83,7 +83,8 @@ export function loadReview(base, head, currentContract = true) {
   const receipt = readJson(pathFor(base, head));
   if (receipt.version !== 3 || receipt.base !== base || receipt.head !== head || !SHA.test(receipt.rootBase) ||
       !/^[a-f0-9]{64}$/.test(receipt.contract ?? "") || (currentContract && receipt.contract !== reviewContract()) ||
-      !Number.isInteger(receipt.round) || receipt.round < 1 || receipt.round > 3 || !Array.isArray(receipt.decisions) ||
+      !Number.isInteger(receipt.round) || receipt.round < 1 || receipt.round > 4 ||
+      (receipt.round === 4 && !validOwnerExtraRound(receipt.ownerExtraRound)) || !Array.isArray(receipt.decisions) ||
       !Number.isFinite(Date.parse(receipt.reviewedAt))) throw new Error("Stale or invalid Buggpass receipt; request a fresh review.");
   if (receipt.renewalContext && receipt.renewalContext !== reviewDigest(receipt.supersededReview))
     throw new Error("Superseded review evidence changed; request a fresh review.");
@@ -141,6 +142,21 @@ export function renewalHistory(receipt) {
   return history;
 }
 
+export function validateRenewalFindings(review, existing) {
+  const identity = (finding) => reviewDigest([finding.file, finding.line, finding.description]);
+  const returned = new Set(review.findings.map(identity)), seen = new Set();
+  for (const prior of renewalHistory(existing)) {
+    for (const finding of prior.review.findings) {
+      const key = identity(finding);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const decision = prior.decisions.find((item) => item.findingId === finding.id);
+      if (decision?.action !== "reject" && !returned.has(key))
+        throw new Error(`Same-head review cannot drop unresolved finding ${finding.id} (${finding.file}:${finding.line}). Carry its exact file/line/description forward, or explicitly reject it with evidence before renewal.`);
+    }
+  }
+}
+
 /** @param {{head: string, rootBase: string, contract: string, review: object, decisions: object[]} | null} [previous] */
 export function reviewPrompt(repo, request, previous = null, history = [], renewals = []) {
   const { base, head, requestId } = request;
@@ -159,12 +175,13 @@ Inspect every changed file. Missing/truncated context must return complete=false
 ${previous ? `Recheck previously accepted/unresolved findings; carry remaining findings forward. Respect evidenced rejections unless new evidence invalidates them.
 Prior review/author decisions: ${JSON.stringify(request.fullReview ? history : { review: previous.review, decisions: previous.decisions })}` : ""}
 ${renewals.length ? `This replaces a stale review on the SAME head. Recheck all its accepted/unresolved findings as well; do not discard them because they are absent from earlier rounds.
+Unchanged code cannot silently fix a known finding: retain exact file/line/description for every finding not explicitly rejected by the author. Report a possible reassessment in the summary for author triage.
 Superseded same-head findings/decisions: ${JSON.stringify(renewals)}` : ""}
 Return JSON matching the supplied schema. Do not save files yourself; return the result to the author for import.
 Empty findings do not prove tests or deployment success.`;
 }
 
-export function prepareReview(base) {
+export function prepareReview(base, ownerExtraRound = "") {
   const head = scope(base);
   return withLock(base, () => {
     const cached = existsSync(pathFor(base, head)) ? readPrior(base, head) : null;
@@ -179,10 +196,14 @@ export function prepareReview(base) {
       }
     }
     const previous = previousReview(base, head);
+    const ownerApproval = ownerExtraRound || cached?.ownerExtraRound || "";
+    if (ownerApproval && (!validOwnerExtraRound(ownerApproval) || previous?.round !== 3))
+      throw new Error("An explicit owner approval reference (20+ characters) is only valid for one fourth round.");
     const { history, ...context } = reviewContext(previous, contract, readPrior);
     const request = { version: 1, base, head, contract, rootBase: base, ...context,
       fullReview: context.fullReview || Boolean(cached), renewalContext: cached ? reviewDigest(cached) : null,
-      round: nextRound(previous), previous: previous ? { base: previous.base, head: previous.head } : null,
+      round: nextRound(previous, ownerApproval), ownerExtraRound: ownerApproval || null,
+      previous: previous ? { base: previous.base, head: previous.head } : null,
       previousContext: followUpDigest(previous) };
     const requestId = reviewDigest(request);
     const full = { ...request, requestId };
@@ -206,12 +227,14 @@ export function importReview(base, review, reviewer) {
     const context = reviewContext(previous, reviewContract(), readPrior);
     const { requestId, ...body } = request;
     if (request.version !== 1 || request.base !== base || request.head !== head || request.contract !== reviewContract() ||
-        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous) ||
+        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous, request.ownerExtraRound) ||
+        (request.ownerExtraRound && (!validOwnerExtraRound(request.ownerExtraRound) || previous?.round !== 3)) ||
         request.fullReview !== (context.fullReview || Boolean(existing)) || request.previousChainContext !== context.previousChainContext ||
         request.renewalContext !== (existing ? reviewDigest(existing) : null))
       throw new Error("Review request changed or is stale; prepare a new request.");
     validateReview(review, base, head, requestId);
     validateReviewer(reviewer);
+    validateRenewalFindings(review, existing);
     const receipt = { ...body, version: 3, requestId, review, reviewer, decisions: [], reviewedAt: new Date().toISOString(), supersededReview: existing };
     validateReviewChain(receipt, readPrior);
     atomicJson(oldFile, receipt);
@@ -234,9 +257,10 @@ export function recordDecision(base, head, findingId, action, reason, followUp =
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = process.argv.slice(2);
-    if (args[0] !== "--base" || !SHA.test(args[1] ?? "")) throw new Error("Use --base <SHA> [--import <result.json> --reviewer <metadata.json>] or --base <SHA> --triage <head> <F1> <accept|reject|defer> <reason> [follow-up].");
+    if (args[0] !== "--base" || !SHA.test(args[1] ?? "")) throw new Error("Use --base <SHA> [--import <result.json> --reviewer <metadata.json>] or --base <SHA> --triage <head> <F1> <accept|reject|defer> <reason> [follow-up]. One fourth round requires --owner-extra-round <explicit approval reference>.");
     let receipt;
     if (args.length === 2) receipt = prepareReview(args[1]).receipt;
+    else if (args.length === 4 && args[2] === "--owner-extra-round") receipt = prepareReview(args[1], args[3]).receipt;
     else if (args.length === 6 && args[2] === "--import" && args[4] === "--reviewer") receipt = importReview(args[1], readJson(resolve(args[3])), readJson(resolve(args[5])));
     else if (args[2] === "--triage" && [7, 8].includes(args.length)) receipt = recordDecision(args[1], args[3], args[4], args[5], args[6], args[7]);
     else throw new Error("Invalid Buggpass arguments.");

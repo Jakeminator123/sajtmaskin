@@ -315,6 +315,10 @@ describe("renderHookScript", () => {
       const renewedPrompt = readFileSync(join(bugCache, `${base}-${nextHead}.prompt.txt`), "utf8");
       expect(renewedPrompt).toContain(latestFinding.description);
       expect(renewedPrompt).toContain("This newer finding is confirmed and must survive renewal.");
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: renewed.requestId, findings: [] }));
+      const omitted = cli("--import", resultPath, "--reviewer", reviewerPath);
+      expect(omitted.status).toBe(1);
+      expect(omitted.stderr).toContain("cannot drop unresolved finding");
       writeFileSync(resultPath, JSON.stringify({ ...result, head: nextHead, requestId: renewed.requestId, findings: [latestFinding] }));
       expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(2);
       expect(cli("--triage", nextHead, "F1", "accept", "Still confirmed after renewing the same-head review.").status).toBe(2);
@@ -338,6 +342,20 @@ describe("renderHookScript", () => {
       fixtureGit("add", "fixture.txt");
       fixtureGit("commit", "--quiet", "-m", "fourth fix");
       expect(cli().stderr).toContain("Three review rounds");
+      expect(cli("--owner-extra-round", "yes").status).toBe(1);
+      const fourth = cli("--owner-extra-round", "Explicit owner approval in the integration test fixture, for one fourth round only.");
+      expect(fourth.status, fourth.stderr).toBe(0);
+      const fourthHead = fixtureGit("rev-parse", "HEAD");
+      const approved = JSON.parse(readFileSync(join(bugCache, `${base}-${fourthHead}.request.json`), "utf8"));
+      expect(approved).toMatchObject({ round: 4, previous: { base, head: thirdHead } });
+      writeFileSync(resultPath, JSON.stringify({ ...result, head: fourthHead, requestId: approved.requestId, findings: [] }));
+      expect(cli("--import", resultPath, "--reviewer", reviewerPath).status).toBe(0);
+      expect(cli().status).toBe(0);
+      writeFileSync(join(root, "fixture.txt"), "fifth fix");
+      fixtureGit("add", "fixture.txt");
+      fixtureGit("commit", "--quiet", "-m", "fifth fix");
+      expect(cli().status).toBe(1);
+      expect(cli("--owner-extra-round", approved.ownerExtraRound).status).toBe(1);
     },
     60_000,
   );
