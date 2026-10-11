@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, w
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateFinding, validateDecision, reviewDigest, reviewStatus, nextRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError, validOwnerExtraRound } from "./bugpass-state.mjs";
+import { validateFinding, validateDecision, reviewDigest, reviewStatus, reviewRound, formatReview, followUpDigest, validateReviewChain, reviewHistory, StaleReviewContextError, validOwnerExtraRound } from "./bugpass-state.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const SHA = /^[0-9a-f]{40}$/;
@@ -24,7 +24,7 @@ export function assertClean() {
 export function reviewContract() {
   const policies = git(["ls-files", "-z", "--", "AGENTS.md", "**/AGENTS.md", ".cursor/rules/*.mdc",
     ".agents/skills/pr-workflow/SKILL.md", ".codex/README.md", "docs/runbooks/agent-workflow.md",
-    "docs/runbooks/github-pr-review-automation.md"]).split("\0").filter(Boolean);
+    "docs/runbooks/buggpass.md"]).split("\0").filter(Boolean);
   return reviewDigest([...new Set(["scripts/workflow/bugpass.mjs", "scripts/workflow/bugpass-state.mjs", "scripts/workflow/preview-push.mjs",
     "config/agent-workflow.json", ...policies])].sort().map((path) => [path, readFileSync(join(ROOT, path), "utf8")]));
 }
@@ -181,10 +181,12 @@ Return JSON matching the supplied schema. Do not save files yourself; return the
 Empty findings do not prove tests or deployment success.`;
 }
 
-export function prepareReview(base, ownerExtraRound = "") {
+export function prepareReview(base, ownerExtraRound = "", newCycle = "") {
   const head = scope(base);
   return withLock(base, () => {
     const cached = existsSync(pathFor(base, head)) ? readPrior(base, head) : null;
+    if (newCycle && cached && newCycle !== cached.newCycle)
+      throw new Error("An already reviewed head cannot start a new cycle; preserve its existing findings and round.");
     const contract = reviewContract();
     if (cached?.contract === contract) {
       try {
@@ -197,12 +199,16 @@ export function prepareReview(base, ownerExtraRound = "") {
     }
     const previous = previousReview(base, head);
     const ownerApproval = ownerExtraRound || cached?.ownerExtraRound || "";
+    const cycle = newCycle || cached?.newCycle || null;
+    const round = reviewRound(previous, { head, newCycle: cycle, ownerExtraRound: ownerApproval });
+    if (newCycle && !cached) validateReviewChain(previous, readPrior);
     if (ownerApproval && (!validOwnerExtraRound(ownerApproval) || previous?.round !== 3))
       throw new Error("An explicit owner approval reference (20+ characters) is only valid for one fourth round.");
     const { history, ...context } = reviewContext(previous, contract, readPrior);
     const request = { version: 1, base, head, contract, rootBase: base, ...context,
-      fullReview: context.fullReview || Boolean(cached), renewalContext: cached ? reviewDigest(cached) : null,
-      round: nextRound(previous, ownerApproval), ownerExtraRound: ownerApproval || null,
+      fullReview: context.fullReview || Boolean(cached) || Boolean(cycle), renewalContext: cached ? reviewDigest(cached) : null,
+      round, ownerExtraRound: ownerApproval || null,
+      newCycle: cycle,
       previous: previous ? { base: previous.base, head: previous.head } : null,
       previousContext: followUpDigest(previous) };
     const requestId = reviewDigest(request);
@@ -224,12 +230,15 @@ export function importReview(base, review, reviewer) {
     const existing = existsSync(oldFile) ? readPrior(base, head) : null;
     if (existing?.requestId === request.requestId) throw new Error("This request already has a result. Triage it; do not overwrite it or run a duplicate pass.");
     const previous = previousReview(base, head);
+    if (request.newCycle && existing && request.newCycle !== existing.newCycle)
+      throw new Error("An already reviewed head cannot start a new cycle.");
+    if (request.newCycle && !existing) validateReviewChain(previous, readPrior);
     const context = reviewContext(previous, reviewContract(), readPrior);
     const { requestId, ...body } = request;
     if (request.version !== 1 || request.base !== base || request.head !== head || request.contract !== reviewContract() ||
-        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== nextRound(previous, request.ownerExtraRound) ||
+        requestId !== reviewDigest(body) || request.previousContext !== followUpDigest(previous) || request.round !== reviewRound(previous, request) ||
         (request.ownerExtraRound && (!validOwnerExtraRound(request.ownerExtraRound) || previous?.round !== 3)) ||
-        request.fullReview !== (context.fullReview || Boolean(existing)) || request.previousChainContext !== context.previousChainContext ||
+        request.fullReview !== (context.fullReview || Boolean(existing) || Boolean(request.newCycle)) || request.previousChainContext !== context.previousChainContext ||
         request.renewalContext !== (existing ? reviewDigest(existing) : null))
       throw new Error("Review request changed or is stale; prepare a new request.");
     validateReview(review, base, head, requestId);
@@ -257,10 +266,11 @@ export function recordDecision(base, head, findingId, action, reason, followUp =
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = process.argv.slice(2);
-    if (args[0] !== "--base" || !SHA.test(args[1] ?? "")) throw new Error("Use --base <SHA> [--import <result.json> --reviewer <metadata.json>] or --base <SHA> --triage <head> <F1> <accept|reject|defer> <reason> [follow-up]. One fourth round requires --owner-extra-round <explicit approval reference>.");
+    if (args[0] !== "--base" || !SHA.test(args[1] ?? "")) throw new Error("Use --base <SHA> [--import <result.json> --reviewer <metadata.json>] or --base <SHA> --triage <head> <F1> <accept|reject|defer> <reason> [follow-up]. One fourth round requires --owner-extra-round <explicit approval reference>. A new owner task after a clear review uses --new-cycle <new task reference>.");
     let receipt;
     if (args.length === 2) receipt = prepareReview(args[1]).receipt;
     else if (args.length === 4 && args[2] === "--owner-extra-round") receipt = prepareReview(args[1], args[3]).receipt;
+    else if (args.length === 4 && args[2] === "--new-cycle") receipt = prepareReview(args[1], "", args[3]).receipt;
     else if (args.length === 6 && args[2] === "--import" && args[4] === "--reviewer") receipt = importReview(args[1], readJson(resolve(args[3])), readJson(resolve(args[5])));
     else if (args[2] === "--triage" && [7, 8].includes(args.length)) receipt = recordDecision(args[1], args[3], args[4], args[5], args[6], args[7]);
     else throw new Error("Invalid Buggpass arguments.");

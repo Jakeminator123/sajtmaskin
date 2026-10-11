@@ -1,56 +1,31 @@
 # Dokumentation
 
-`docs/` beskriver stabila kontrakt, ansvar, policies och mentala modeller.
-Canonical owner avgörs per faktatyp; runtimekod, manifest, registries och
-policies kan äga olika beslut.
+Börja med uppgiften. Läs den relevanta modellen eller runbooken; ingen fast
+dokumentstack krävs. Kod, manifest och policies äger exekverbart beteende —
+handskrivna guider förklarar ansvar och stabila kontrakt.
 
-## Börja här
+## Hitta rätt
 
-| Fråga                                             | Dokument                                                                                                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Vilken produktvision styr arbetet?                | [`övergripande-vision-och-mål.md`](övergripande-vision-och-mål.md)                                                              |
-| Vad är huvudflödet?                               | [`architecture/system-overview.md`](architecture/system-overview.md)                                                            |
-| Hur hänger begreppen ihop?                        | [`concepts/mental-model.md`](concepts/mental-model.md)                                                                          |
-| Byggblock/dossiers på en sida                     | [`llm/dossier-cheatsheet.md`](llm/dossier-cheatsheet.md)                                                                        |
-| Var bor koden?                                    | [`architecture/code-map.md`](architecture/code-map.md)                                                                          |
-| Hur fungerar init och follow-up?                  | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)                                                              |
-| Hur skiljer sig designläge och integrationsbygge? | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                                                                                |
-| Vilka invariants gäller?                          | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md)                                                        |
-| Hur körs generationen?                            | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)                                                                  |
-| Hur räknas och debiteras AI-kostnaden?            | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md#generationskostnad-och-credit-debitering)                         |
-| När körs RenderGate/ReleaseGate?                  | [`architecture/quality-gate-flow.md`](architecture/quality-gate-flow.md)                                                        |
-| Vilka builder-URL-fält gäller?                    | [`schemas/builder-entry-contract.md`](schemas/builder-entry-contract.md)                                                        |
-| Vilket schema gäller?                             | [`schemas/README.md`](schemas/README.md)                                                                                        |
-| Vilka kontraktsindex genereras?                   | [`generated/README.md`](generated/README.md)                                                                                    |
-| Hur felsöker jag preview?                         | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)                                                          |
-| Vilka rader kräver live-koll i prod?              | [`runbooks/live-verifiering.md`](runbooks/live-verifiering.md)                                                                  |
-| Hur felsöker jag integrationer?                   | [`runbooks/generated-site-integrations.md`](runbooks/generated-site-integrations.md)                                            |
-| Hur driver/felsöker jag OpenClaw-gatewayn?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md)                                                                  |
-| Hur loggar jag in på OpenClaw-dashboarden?        | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md#dashboard-inloggning) — token + device pairing, inte lösenord     |
-| Varför strejkar lokal generation?                 | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)                                                          |
-| Kör jag i en Cursor Cloud-pod?                    | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                                                              |
-| Hur jobbar flera agenter samtidigt?               | [`../.cursor/rules/agent-roles.mdc`](../.cursor/rules/agent-roles.mdc) + [`runbooks/git-worktree.md`](runbooks/git-worktree.md) |
-| Hur går lokalt agentarbete säkert till preview och vidare till produktion? | [`runbooks/agent-workflow.md`](runbooks/agent-workflow.md) + [`../config/agent-workflow.json`](../config/agent-workflow.json) |
-| Hur provisionerar jag warm-cachen?                | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)                                                                  |
-| Varför ser merge-grinden ut så?                   | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                                                                        |
-| Hur körs automatisk PR-granskning?                | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md)                                            |
-| Hur hanteras dependency-uppdateringar?            | [`dependency-policy.md`](dependency-policy.md)                                                                                  |
-| Vad applicerar DB-migrationerna?                  | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                                                                        |
-| Hur aktiveras varumärkta användar-URL:er?         | [`runbooks/branded-user-urls.md`](runbooks/branded-user-urls.md)                                                                |
-| Var hamnar appens console-loggar?                 | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)                                                                  |
-| Vilka manuella underhållsknappar?                 | [`runbooks/hygiene.md`](runbooks/hygiene.md)                                                                                    |
-| Var bor de publika showcase-exemplen?             | Runtime-owner: [`../src/lib/exempel/showcase-sites.ts`](../src/lib/exempel/showcase-sites.ts). Publik yta: `/exempel`. Live-läge: [`runbooks/showcase-exempel.md`](runbooks/showcase-exempel.md). |
-| Vilka planer är aktiva?                           | [`plans/README.md`](plans/README.md)                                                                                            |
-| Vad har ägaren beslutat?                          | [`decisions/README.md`](decisions/README.md)                                                                                    |
-| Hur körs det lilla Search Ads-testet?             | [`runbooks/google-ads-search-test.md`](runbooks/google-ads-search-test.md)                                                      |
+| Behov | Ingång |
+| --- | --- |
+| Produktens riktning | [Vision och mål](övergripande-vision-och-mål.md) |
+| Huvudflöde och kodens placering | [Systemöversikt](architecture/system-overview.md) · [Kodkarta](architecture/code-map.md) |
+| Begrepp och arbetsmodell | [Mental modell](concepts/mental-model.md) · [Ordlista](architecture/glossary.md) |
+| Init, follow-up, design och integration | [Init/follow-up](concepts/init-and-follow-up.md) · [F2/F3](concepts/f2-and-f3.md) |
+| Byggblock och dossiers | [Kortguide](llm/dossier-cheatsheet.md) · [Dossierkontrakt](contracts/dossier-system.md) |
+| Generering och AI-debitering | [LLM-pipeline](architecture/llm-pipeline.md) |
+| Invariants och kvalitetsgrindar | [Runtime-kontrakt](architecture/runtime-contracts.md) · [Quality gate](architecture/quality-gate-flow.md) |
+| Schema och maskinägda referenser | [Schemaindex](schemas/README.md) · [Genererat index](generated/README.md) |
+| Utveckling, Buggpass, preview, PR och drift | [Runbook-index](runbooks/README.md) |
+| Miljövariabler och DB-identitet | [ENV](ENV.md) |
+| Beroendeuppdateringar | [Dependency-policy](dependency-policy.md) |
+| Pågående arbete | [Aktiva planer](plans/active/README.md) · [Buggbaklog](../BUG-SWARM-BACKLOG.md) |
+| Gällande ägarbeslut | [Beslutsindex](decisions/README.md) |
 
-Kanonisk, kort terminologi finns i
-[`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för
-dokumentationslivscykeln finns i
-[`documentation-lifecycle.md`](documentation-lifecycle.md).
+## Dokumentens ansvar
 
-## Canonical owners
-
-Ownerhierarki, dokumentnivåer och regler för genererade projektioner ägs av
-[`documentation-lifecycle.md`](documentation-lifecycle.md). Genererade
-kontraktsindex routeras via [`generated/README.md`](generated/README.md).
+[Dokumentationslivscykeln](documentation-lifecycle.md) äger placering,
+canonical-owner-ordning och regler för genererade filer. Runbooks beskriver
+hur en uppgift utförs, planer beskriver ännu återstående arbete och Git/GitHub
+bevarar leveranshistoriken. Kopiera inte körningsstatus till nya permanenta
+handoff-filer och behåll inte en gammal instruktion bredvid dess ersättare.

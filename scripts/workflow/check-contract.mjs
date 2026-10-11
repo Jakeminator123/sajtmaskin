@@ -64,7 +64,6 @@ export const POLICY_FLOORS = Object.freeze({
     ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
-    "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
@@ -1509,27 +1508,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const backlogValidator = read(root, "scripts/dev/check-bug-backlog.mjs");
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
-  // Historical receipt parsers remain fail-closed. There is no automatic
-  // API reviewer workflow; absence must not be mistaken for a green review.
-  const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
-  const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
-  const prAiReceipt = read(root, "scripts/pr-review/receipt.mjs");
-  if (
-    !prAiReviewer.includes("assertLegacyReviewEnabled();") ||
-    !prAiReviewer.includes("writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result)") ||
-    !prAiAutomation.includes('kind: "receipt-recovery"') ||
-    !prAiAutomation.includes("verifiedCurrentReview") ||
-    !prAiAutomation.includes("resolutionLedger") ||
-    !prAiAutomation.includes("snapshot?.headSha === review.commitId") ||
-    !prAiReceipt.includes('TRUSTED_REVIEW_CHECK_NAME = "trusted-pr-ai-review"') ||
-    !prAiReceipt.includes("publishedReview?.reviewId === reviewId") ||
-    !prAiReceipt.includes("runResult.review.headSha !== currentHeadSha") ||
-    !prAiReceipt.includes('path: "/check-runs"')
-  ) {
-    errors.push(
-      "trusted PR AI receipt must require a successful qualifying review of the live PR head",
-    );
-  }
+  // Historical reviews live in GitHub/Git, not a second executable reviewer.
+  const retiredReviewer = resolve(root, "scripts/pr-review");
+  if (existsSync(retiredReviewer) && readdirSync(retiredReviewer).some((name) => /\.(?:mjs|ts)$/u.test(name)))
+    errors.push("retired API reviewer source must not return; use independent Buggpass");
+  if (json(root, "config/ai_models/manifest.json").workloads.some((item) => item.id === "github_pr_reviewer"))
+    errors.push("retired github_pr_reviewer workload must not remain in the active model manifest");
 
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))

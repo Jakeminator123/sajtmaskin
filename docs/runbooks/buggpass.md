@@ -94,7 +94,15 @@ Efter tre rundor krävs Jakobs beslut. Om han uttryckligen godkänner **ett extr
 pass**, skapa uppdraget med `bugpass -- --base <base> --owner-extra-round
 "Referens till Jakobs uttryckliga godkännande"`. Mandatet binds till uppdraget
 och medger endast runda fyra, utan att nollställa historiken eller ändra
-standardgränsen. Ingen femte runda eller push tillåts av detta mandat.
+standardgränsen. Ingen femte rättningsrunda eller push tillåts av detta mandat.
+
+Ett **nytt ägaruppdrag efter avslutad, klar granskning** kan börja innan preview
+har flyttats. Använd då `bugpass -- --base <base> --new-cycle "Referens till det
+nya ägaruppdraget"` på en ny, ännu ogranskad head. Det kräver en giltig, helt
+klar föregående review (inga öppna eller uppskjutna fynd), bevarar hela kedjan
+och kräver full diff igen. Den nya uppgiften får en egen gräns på tre rundor.
+Flaggan är inte en väg runt kvarvarande fynd och får inte användas för att
+nollställa en pågående rättningsloop eller samma head.
 
 Lokala underlag finns i `node_modules/.cache/sajtmaskin-bugpass/`; plan och
 publiceringskvitton i `node_modules/.cache/sajtmaskin-preview/`. De är lokala
@@ -119,9 +127,9 @@ Det finns ingen ny automatisk moln-webhook. Befintlig agent behöver starta revi
 Git-hooken kan bara stoppa med instruktion om vad som saknas. Cursor-kontoautomationer
 och abonnemang styrs utanför repot; att ta bort repoåtkomst säger inget om debitering.
 
-Den tidigare API-workflowen `pr-ai-review.yml` är borttagen och dess runner
-ovillkorligt spärrad. `workflow:contract` avvisar återinkoppling. Äldre moduler i
-`scripts/pr-review/` bevarar historisk datakompatibilitet; de är ingen aktiv andra
-granskare. Gamla GitHub-reviewer/state-kommentarer raderas inte som städning.
+Den tidigare API-workflowen, runnern och modellposten är borttagna.
+`workflow:contract` avvisar återinkoppling. Historiska GitHub-reviewer och
+state-kommentarer finns kvar på GitHub; gammal implementation finns i Git.
+Reserverade gamla checknamn hindrar falska reviewkvitton, inte nya modellpass.
 Den lokala CLI-/sandbox-proben och WSL-adaptern är ersatta av uppdrag/import;
 gamla v2-reviewkvitton och v3-plankvitton kan inte godkänna det nya flödet.

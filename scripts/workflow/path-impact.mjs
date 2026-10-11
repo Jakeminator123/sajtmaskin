@@ -78,7 +78,7 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     "requirements*.txt",
     ".node-version",
   ]),
-  ci: Object.freeze([".github/**", "scripts/ci/**", "scripts/pr-review/**"]),
+  ci: Object.freeze([".github/**", "scripts/ci/**"]),
   previewHost: Object.freeze(["preview-host/**"]),
   observability: Object.freeze(["scripts/observability/**", "requirements.genlogs.txt"]),
   e2e: Object.freeze(["e2e/**", "playwright*.config.ts"]),

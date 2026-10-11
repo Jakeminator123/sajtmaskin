@@ -47,7 +47,6 @@
     ".cursor/rules/pr-merge.mdc",
     ".github/workflows/",
     "scripts/ci/",
-    "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
     "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
@@ -162,7 +161,7 @@
       "requirements*.txt",
       ".node-version"
     ],
-    "ci": [".github/**", "scripts/ci/**", "scripts/pr-review/**"],
+    "ci": [".github/**", "scripts/ci/**"],
     "previewHost": ["preview-host/**"],
     "observability": ["scripts/observability/**", "requirements.genlogs.txt"],
     "e2e": ["e2e/**", "playwright*.config.ts"]

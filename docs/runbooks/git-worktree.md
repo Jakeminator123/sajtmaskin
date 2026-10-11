@@ -31,14 +31,24 @@ vägrar ytor inuti checkouten (`.cursor/worktrees` inkluderat). Behöver du
 tester i worktreet:
 
 ```powershell
+Set-Location ..\sajtmaskin-<kort>
 npm ci
+npm run hooks:install
 ```
+
+Kör repokommandon i den nya checkouten med dess Node-pin. I Codex används
+appens worktree-funktion för apphanterade ytor; skapa inte en andra manuell
+worktree för samma uppdrag.
 
 `npm run worktree:link` junctionar mot huvudcheckoutens `node_modules`. Det
 är snabbare men **sabbar Vitest** (fork-workers och `chdir` på Windows).
 Använd det inte.
 
-## Ta bort
+## Ta bort och hantera Windows-lås
+
+Apphanterade Codex-worktrees arkiveras genom appens worktree-funktion efter
+terminal PR och verifierad remote-status. Kommandona nedan gäller manuella
+repo-worktrees. Rör inte en annan aktiv agents yta.
 
 Aldrig rå `git worktree remove` — den kan följa en gammal junction och tömma
 huvudcheckoutens `node_modules`.
@@ -54,3 +64,8 @@ Wrappern kopplar loss ev. länkar först. `--force` kräver
 En befintlig app-isolerad checkout följer samma arbetsregler. En långlivad
 worktree som behöver skyddas använder git-configen
 `sajtmaskin.protectedWorktree`.
+
+På Windows: om katalogen eller `.git` är låst, identifiera processen med
+exekverbarsökväg, kommando, parent och starttid. Stäng bara den terminal,
+dev-server eller editor som faktiskt håller den berörda ytan och som får
+stängas. Döda inte alla `node.exe` och flytta inte en aktiv checkout.

@@ -5,6 +5,23 @@ export const MAX_DEFERRED_IMPACT = 2;
 export class StaleReviewContextError extends Error {}
 export const validOwnerExtraRound = (reason) => typeof reason === "string" && reason.trim().length >= 20;
 
+// A new owner task may follow a completed review before preview moves. This is
+// explicit, preserves the chain and never resets an unresolved fix loop.
+export function reviewRound(previous, { newCycle, ownerExtraRound, head } = {}) {
+  if (!newCycle) return nextRound(previous, ownerExtraRound);
+  if (!validOwnerExtraRound(newCycle) || !previous || previous.head === head || ownerExtraRound ||
+      reviewStatus(previous.review, previous.decisions) !== "clear")
+    throw new Error("A new review cycle needs a distinct head, a completed clear review and an explicit new-task reference; unresolved/deferred findings cannot reset the limit.");
+  return 1;
+}
+
+function validateRoundLink(receipt, previous) {
+  if (previous.rootBase !== receipt.rootBase || reviewRound(previous, receipt) !== receipt.round)
+    throw new Error("Invalid review round chain.");
+  if (receipt.newCycle && (receipt.fullReview !== true || !receipt.previousChainContext))
+    throw new Error("A new review cycle requires full review with preserved history.");
+}
+
 // Scores are reviewer estimates, not measured probabilities or a CI pass rate.
 export function validateFinding(finding) {
   if (!finding || !/^F[1-9][0-9]*$/.test(finding.id) ||
@@ -38,34 +55,35 @@ export function validateCachedContext(receipt, previous) {
 export function reviewHistory(receipt, readReview, seen = new Set()) {
   if (!receipt) return [];
   const key = `${receipt.base}:${receipt.head}`;
-  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS + 1) throw new Error("Invalid/cyclic review chain.");
+  if (seen.has(key)) throw new Error("Invalid/cyclic review chain.");
   nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
   seen.add(key);
   let history = [];
   if (receipt.previous) {
     const previous = readReview(receipt.previous.base, receipt.previous.head);
-    if (previous.round + 1 !== receipt.round || previous.rootBase !== receipt.rootBase) throw new Error("Invalid review round chain.");
+    validateRoundLink(receipt, previous);
     history = reviewHistory(previous, readReview, seen);
-  } else if (receipt.round !== 1) throw new Error("Missing previous review in follow-up chain.");
+  } else if (receipt.round !== 1 || receipt.newCycle) throw new Error("Missing previous review in follow-up chain.");
   return [...history, { base: receipt.base, head: receipt.head, rootBase: receipt.rootBase, round: receipt.round,
     review: receipt.review, decisions: receipt.decisions, previousContext: receipt.previousContext ?? null,
-    previousChainContext: receipt.previousChainContext ?? null, fullReview: receipt.fullReview ?? false }];
+    previousChainContext: receipt.previousChainContext ?? null, fullReview: receipt.fullReview ?? false,
+    ...(receipt.newCycle ? { newCycle: receipt.newCycle } : {}) }];
 }
 
 export function validateReviewChain(receipt, readReview, seen = new Set()) {
   const key = `${receipt.base}:${receipt.head}`;
-  if (seen.has(key) || seen.size >= MAX_REVIEW_ROUNDS + 1) throw new Error("Invalid/cyclic review chain.");
+  if (seen.has(key)) throw new Error("Invalid/cyclic review chain.");
   nextRound({ round: receipt.round - 1 }, receipt.ownerExtraRound);
   seen.add(key);
   if (receipt.previous) {
     const previous = readReview(receipt.previous.base, receipt.previous.head);
-    if (previous.round + 1 !== receipt.round || previous.rootBase !== receipt.rootBase) throw new Error("Invalid review round chain.");
+    validateRoundLink(receipt, previous);
     if (receipt.fullReview === true && receipt.previousChainContext) {
       if (receipt.previousChainContext !== reviewDigest(reviewHistory(previous, readReview, seen)))
         throw new StaleReviewContextError("Earlier review evidence changed; fresh review required.");
     } else validateReviewChain(previous, readReview, seen);
     validateCachedContext(receipt, previous);
-  } else if (receipt.round !== 1) throw new Error("Missing previous review in follow-up chain.");
+  } else if (receipt.round !== 1 || receipt.newCycle) throw new Error("Missing previous review in follow-up chain.");
 }
 
 export function validateDecision(review, decision) {
@@ -105,7 +123,7 @@ export function nextRound(previous, ownerExtraRound = "") {
 
 export function formatReview(receipt) {
   const review = receipt.review;
-  const lines = [`Buggpass ${receipt.base.slice(0, 12)}..${receipt.head.slice(0, 12)} · round ${receipt.round}/${MAX_REVIEW_ROUNDS}${receipt.ownerExtraRound ? " + one owner-approved extra round" : ""}`,
+  const lines = [`Buggpass ${receipt.base.slice(0, 12)}..${receipt.head.slice(0, 12)} · round ${receipt.round}/${MAX_REVIEW_ROUNDS}${receipt.ownerExtraRound ? " + one owner-approved extra round" : ""}${receipt.newCycle ? " · new owner task (history preserved)" : ""}`,
     `Status: ${reviewStatus(review, receipt.decisions)}. ${review.summary}`];
   for (const finding of review.findings) {
     const decision = receipt.decisions.find((item) => item.findingId === finding.id);

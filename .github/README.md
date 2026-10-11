@@ -5,7 +5,7 @@
 | [`workflows/ci.yml`](workflows/ci.yml)                                             | Push/PR mot `preview` och `master`: build, typecheck, lint, tester, kontrakt, schema-drift och Backoffice. Live DB-jobb granskas separat; PR-kod får inga produktionshemligheter. |
 | [`workflows/db-blob-sync-check.yml`](workflows/db-blob-sync-check.yml)             | Read-only DB-/Blob-kontroll; PR-kod får inga produktionshemligheter.                                                                                                              |
 | [`workflows/db-schema-parity.yml`](workflows/db-schema-parity.yml)                 | Daglig read-only-jämförelse av LEVANDE dev↔prod-schema (`npm run db:schema-parity`); push-vägen täcks av `db-schema-parity`-jobbet i ci.yml.                                      |
-| [PR-granskning](../docs/runbooks/github-pr-review-automation.md)                    | Oberoende lokal review och befintliga externa botytor. Den separata automatiska API-review-workflowen är pensionerad. |
+| [Buggpass](../docs/runbooks/buggpass.md) | Oberoende granskning före direktpreview-push; PR-vägen återanvänder relevant extern review. Ingen separat betald API-review-workflow. |
 | [`workflows/dependabot-automerge.yml`](workflows/dependabot-automerge.yml)         | Betrodd default-branch-controller som innehållsvaliderar allowlistade npm-patchar och aktiverar GitHubs native auto-merge; PR-head-kod körs aldrig med skrivtoken.                 |
 | [`dependabot.yml`](dependabot.yml)                                                 | Veckovisa uppdateringar för npm och GitHub Actions.                                                                                                                               |
 

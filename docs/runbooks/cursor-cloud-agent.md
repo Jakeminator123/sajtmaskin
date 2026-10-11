@@ -1,67 +1,71 @@
-# Runbook: Cursor Cloud Agent
+# Cursor Cloud Agent — pod-specifika förutsättningar
 
-**Mål:** få en Cloud Agent-pod att köra Sajtmaskin end-to-end (landing → login → builder → generate → preview).
+Gäller Cloud-podar, inte lokal Windows-utveckling. För vanlig setup och
+lokal preview-host: [lokal generation](local-dev-generation.md).
+Denna guide beskriver skillnaderna; den kopierar inte det gemensamma receptet.
 
-**Gäller inte lokal utveckling på Windows.** Flyttad hit från `AGENTS.md` 2026-08-01 — innehållet gällde bara Cloud-podar men injicerades i varje agent-tur. För laptop/`npm run dev` (särskilt sällan-körning och hybrid Fly-preview): [`local-dev-generation.md`](local-dev-generation.md).
+## Runtime och installation
 
-Kanonisk ägare för schema/SSL-mekanik är [`docs/contracts/data-layer.md`](../contracts/data-layer.md); env-sanning är [`config/env-policy.json`](../../config/env-policy.json) + [`docs/ENV.md`](../ENV.md). Den här filen samlar bara pod-specifika fallgropar.
+Node-versionen ägs av [package.json](../../package.json) och snapshoten av
+[Dockerfile](../../.cursor/Dockerfile). Kontrollera faktisk `node --version`;
+en gammal eller just-in-time-pod kan sakna den förväntade installationen.
 
-## Environment
+Kör från repo-roten:
 
-- Node.js 22.23.1 (pinned via Volta in `package.json`). The `.cursor/Dockerfile` builds from `node:22.23.1-bookworm`.
-- Package manager: **npm** (lockfile: `package-lock.json`). Use `npm ci --no-audit --no-fund` to install.
-- `.env.local` is gitignored. Secrets are injected as environment variables by the Cloud Agent platform; write them to `.env.local` before running the app (Next.js reads from dotenv).
+```sh
+npm ci --no-audit --no-fund
+npm run hooks:install
+npm run verify:pr -- --plan
+```
 
-## Running services
+[environment.json](../../.cursor/environment.json) äger installation/start.
+En startad app bevisar inte att databas, provider eller preview-host fungerar.
+Preview-hosten har egna dependencies och startkommando; använd det
+[gemensamma receptet](local-dev-generation.md#isolerad-lokal-preview-valfritt-mer-setup).
 
-| Service      | Command                                                  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cloud start  | `.cursor/environment.json`                               | Runs `ensure-schema.mjs --check-only --soft --quiet-ok`. It may report drift but never applies SQL or indexes.                                                                                                                                                                                                                                                                                                                                  |
-| Next.js dev  | `npm run dev`                                            | Starts on port 3000 after setup/preflight. `predev` does not initialize or migrate a database. `next-runner.mjs` starts the same read-only schema guard in the background.                                                                                                                                                                                                                                                                       |
-| Preview host | from `preview-host/`: `npm start` (`node src/server.js`) | Separate service on port 8080; materializes generated snapshots into a live preview (F2 render + F3 verify). App points at it via `SAJTMASKIN_PREVIEW_HOST_BASE_URL=http://localhost:8080`. **Has its own `package.json`/lockfile** — the root `npm ci` does NOT install its deps; run `npm ci --prefix preview-host` (or `npm install` in `preview-host/`) once. Only needed for the live-preview step, which also requires a working LLM key. |
+## Injicerad miljö
 
-## Gotchas
+- Poden kan sakna secrets. Kontrollera att nödvändiga nycklar finns utan att
+  skriva ut värden. Kopiera inte en annan miljös hemligheter som standardåtgärd.
+- Processmiljön har företräde framför `.env.local`. En ändring i filen
+  ersätter inte en redan injicerad variabel; starta rätt process med avsedd
+  miljö och kontrollera vilket konto/DB-mål den faktiskt använder.
+- Kvot, modellåtkomst och hosthälsa måste verifieras för den aktuella körningen.
+  Ett gammalt kontos 429-fel innebär inte att en provider generellt är ur drift.
+  Aktuella modellval ägs av [modellmanifestet](../../config/ai_models/manifest.json).
+- Enhetstester ska använda sina avsedda fixtures/mocks. Om injicerade
+  provider-/Redis-variabler påverkar ett test, jämför riktat med endast dessa
+  variabler borttagna ur testprocessen. Tysta inte fel eller klassificera dem
+  som gamla miljöfel utan reproducerbart bevis.
 
-- **Some Cloud Agent pods start "just-in-time" with NO secrets injected at all** (`environment-info` reports `environment: null`; `env` has no `POSTGRES_URL`, no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`, no `ADMIN_EMAILS`). The app still boots (`npm run dev`), lint/typecheck/`test:ci` all pass, but any DB-backed or generation flow needs you to supply the pieces yourself: spin up a local Postgres (see the local-Postgres bullet below) and provide an LLM provider key (`ANTHROPIC_API_KEY` works end-to-end; `OPENAI_API_KEY` alone is out of quota — see the LLM-provider bullet below) as a secret. With those, register the `ADMIN_EMAILS` account to get credits and the full landing → login → builder → generate loop runs.
-- `npm run dev` performs setup and preflight only. Neither `predev` nor Cloud
-  start applies migrations or perf-indexes. Do not use Git operations or a pod
-  start as an implicit DB-write trigger.
-- The `db:init` script requires `POSTGRES_URL` and is an **explicit** setup
-  command for a new throwaway database. It is not a benign no-op on an existing
-  database: repair steps can run `UPDATE`/`DELETE`. The Next.js app itself can
-  start without it, although DB-backed features then degrade or fail.
-- **Not every flow degrades gracefully without a DB — the landing→builder entry flow needs Postgres:** the landing-page prompt submit calls `POST /api/projects`, which requires a DB. With no `POSTGRES_URL` set, that route returns an HTML `500` and the landing submit fails client-side with `SyntaxError: Unexpected token '<', "<!DOCTYPE"... is not valid JSON` (never navigating to `/builder`). If the Cloud Agent env has **no** injected Postgres at all, spin up a throwaway local Postgres (`apt-get install -y postgresql`, `pg_ctlcluster 16 main start`, create a DB) and point `POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/<db>?sslmode=disable` in `.env.local`, then run `npm run db:init` and restart the dev server so it picks up `.env.local`.
-- **Local Postgres SSL:** For local Postgres without SSL, add `?sslmode=disable` to `POSTGRES_URL`. Both `db-init.mjs` and the runtime client respect this parameter.
-- **Cloud Agent injected Postgres (self-signed cert):** The platform-injected Supabase `POSTGRES_URL` uses TLS with a **self-signed certificate chain**, so DB checks, explicit setup and runtime DB queries fail with `self-signed certificate in certificate chain` under the default strict verification. Set `DB_SSL_REJECT_UNAUTHORIZED=false` (e.g. add it to a gitignored `.env.local`) before DB-backed flows. This changes TLS verification; it does not authorize a DB write.
-- **Fresh throwaway DB:** Run `npm run db:init` explicitly only after checking
-  that the target really is the disposable database. It creates the base schema,
-  runs dependency migrations in order and may perform data repairs.
-- **Existing initialized DEV:** Cloud start and every dev start run
-  `scripts/db/ensure-schema.mjs --check-only --soft --quiet-ok`. The guard is
-  silent when current and warns when migrations are missing; it never runs DDL.
-  After verifying the target is DEV, fix pending files explicitly with
-  `npm run db:ensure`. See
-  [`docs/contracts/data-layer.md`](../contracts/data-layer.md) → "Lokal schema-vakt".
-- **Testing the generate flow (own-engine → preview):** Generation starts only after an explicit send in the builder chat input — the landing-page prompt just creates the project and pre-fills the input. Anonymous sessions cannot generate. A newly created account gets exactly one account-bound, completed own-engine generation without a coin debit; repeat generations require credits. For repeat E2E runs, set `ADMIN_EMAILS=<email>` for the dev process and register that email (auto-verified test account with a large credit grant), then log in and generate. Full generation streams files locally and then renders a live preview on the remote preview host (`SAJTMASKIN_PREVIEW_HOST_BASE_URL`, a Fly.dev VM) — confirm that host is reachable before relying on preview-based E2E tests; the full prompt → generate → preview loop takes ~2 min end-to-end.
-- **`.env.local` does NOT override Cloud-injected env vars (admin-email gotcha):** Next.js dotenv only fills vars that are _not already set_ in the real process env. The Cloud Agent platform injects `ADMIN_EMAILS`/`NEXT_PUBLIC_ADMIN_EMAILS` (a redacted real admin email) into the environment, so appending your own test email to `.env.local` is silently ignored — `isAdminEmail()`/`isTestUser()` read the injected value, the account is treated as a normal account (email verification, `0 credits`, one account-bound free generation), and `bootstrapAdminUser` never grants the test balance. To use a self-chosen admin test email, **export it in the dev process** so it wins, e.g. start the server with `ADMIN_EMAILS="$ADMIN_EMAILS,you@test.dev" NEXT_PUBLIC_ADMIN_EMAILS="$NEXT_PUBLIC_ADMIN_EMAILS,you@test.dev" node scripts/dev/next-runner.mjs dev`. Then registering + logging in that email auto-verifies it and grants 10 000 diamonds on login (`src/lib/auth/auth.ts` `bootstrapAdminUser`). (Alternatively, just grant diamonds directly via SQL: `UPDATE users SET diamonds=10000 WHERE email='<you>'`.)
-- **First request to a freshly-restarted dev server can 404 (Turbopack cold compile):** right after restarting the dev server, the very first hit to an on-demand-compiled API route (e.g. `/api/engine/chats/stream`) may briefly return `HTTP 404` / "Failed to create chat (HTTP 404)" before the route finishes compiling. Retry after a couple seconds; it resolves once the route is built.
-- **LLM provider keys in Cloud Agent env — OpenAI is out of quota:** The injected `OPENAI_API_KEY` authenticates (HTTP 200) but has **no billing quota** (every call returns `429 You exceeded your current quota`). So any build profile that routes codegen through OpenAI — **Låg (default) / Mellan / Hög** — fails the generation stream instantly with `Stream error` → `Model produced no text events (silent output). No code was emitted`. The injected `ANTHROPIC_API_KEY` **works** (its account exposes `claude-opus-4-8` etc.). To exercise end-to-end site generation in the builder, select the **"Anthropic"** build profile (header model selector "Modell: …"), which routes the `generator`/brief phases to `claude-opus-4.8` (normalized to `claude-opus-4-8`). The dependent OpenAI-only steps (server auto-brief, scaffold embeddings, post-gen verifier/autofix) soft-fail/degrade and do not block code generation. Anthropic-tier generation streams real files and starts a preview session on the configured preview host.
-- **Guest Deep Brief and generation return 401 by design:** `/api/ai/brief` and the own-engine generation routes reject guest/anonymous users. Create and verify an account to receive the single account-bound free generation.
-- **Forcing the Anthropic tier deterministically (when only `ANTHROPIC_API_KEY` works):** the top-level request `modelId` wins over `meta.modelTier` in `resolveModelSelection` (`src/lib/models/selection.ts`), and `modelId` defaults to `pro`. So selecting Anthropic only via `meta.modelTier="anthropic"` is silently overridden back to `pro`, whose generator is `gpt-5.6-sol` — so codegen goes to OpenAI and fails. Which failure you see depends on the key: with **no** `OPENAI_API_KEY` at all, `getOpenAIModel` (`src/lib/gen/models.ts`) throws "OPENAI_API_KEY is not configured…"; with the Cloud Agent's injected-but-quota-less key it is the `429 … exceeded your current quota` path described above instead. To force Claude, set the **top-level** `modelId: "anthropic"` in the create-chat body (`POST /api/engine/chats/stream`). The builder's "Anthropic" model-selector radio can also fail to persist in the wizard, so the API path is the reliable way to script a full generation. Also set `imageGenerations:false` (image-gen needs OpenAI) and, to keep the pre-generation brief/assist off OpenAI, override `SAJTMASKIN_ASSIST_MODEL` / `SAJTMASKIN_BRIEF_MODEL` / `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI` to `anthropic/claude-opus-4.8` in `.env.local`. Verified: a coffee-shop prompt produced 22 real files via `claude-opus-4.8` in ~120s.
-- **Running the preview-host locally for full generate→preview E2E (no Fly needed):** the generated site's live preview is served by the `preview-host/` service, not the Next app. Point the app at a local instance with `SAJTMASKIN_PREVIEW_HOST_BASE_URL=http://localhost:8080`, and start the host with **`HOST=127.0.0.1 PREVIEW_BASE_URL=http://localhost:8080 npm start`** from `preview-host/`. Both env vars matter: `HOST=127.0.0.1` makes `isLocalEnvironment()` true so it skips the `PREVIEW_HOST_API_KEY` requirement (default `HOST=0.0.0.0` is treated as non-local and 503s with "PREVIEW_HOST_API_KEY is required in non-local environments."); `PREVIEW_BASE_URL=http://localhost:8080` makes the returned preview URL (`<base>/<chatId>`) actually loadable — the host proxies `GET /:chatId/*` to the booted runtime (default base is a placeholder domain). A third var is needed for the app to treat the result as a live preview at all: `isTier2LivePreviewUrl()` (`src/lib/gen/preview/preview-url-classifier.ts`) only recognizes `fly.dev` by default, so a `localhost` preview URL is classified as _not_ tier-2 and the builder never shows it as live. Set `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=localhost,fly.dev` — the env value **replaces** the default, so list `fly.dev` yourself if you still want Fly hostnames recognized. The host boots the generated app with `next dev` on first hit, installing with whichever package manager `detectPackageManager()` finds a lockfile for (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, otherwise **npm** — generated sites normally land on npm, not pnpm). Boot is async: `POST .../preview-session` returns immediately, so poll the URL. Trigger a session for a draft/pending version with `POST /api/engine/chats/<chatId>/preview-session` body `{"versionId":"…","forceRestart":true}`.
-- **Python/pip on Cloud pods:** the snapshot image (`.cursor/Dockerfile`) installs `python3`, `python3-pip` and `python3-venv`. `.cursor/environment.json` `install` then runs `node scripts/dev/ensure-backoffice-python.mjs`, which installs `requirements.backoffice.dev.txt` when `python3 -m pip` works, tries `apt-get install python3-pip python3-venv` when it does not, and **skips** (exit 0) if pip is still missing so `npm ci` is not rolled back. Just-in-time / old snapshots can still lack `pip`/`ensurepip`. Manual fallback: (1) `python3 --version` (CI uses **3.13**); (2) if `pip` is missing, `apt-get install -y python3-pip python3-venv`; (3) `python3 -m pip install --user --break-system-packages -r requirements.backoffice.dev.txt`.
-- Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
-- **Injected `REDIS_URL` breaks `stream/route.test.ts` (and any generation-lock test) with mass 409 `generation_in_progress`:** the chat-generation lock (`src/lib/gen/stream/generation-lock.ts`) uses REAL Redis when `REDIS_URL` is set — `resetChatGenerationLocksForTests()` only clears the in-memory map, and SSE test cases never drain their bodies, so the first test's Redis lock (TTL 12 min) blocks every later test on the same `chat_1`. Not a regression: run with `env -u REDIS_URL npm run test:ci` (verified 2026-08-17: full suite green with the injected secrets unset).
-- All test files pass as of 2026-05. If a test fails, investigate — it is likely a real regression, not a pre-existing environment issue. **Exception in the Cloud Agent env:** `npm run test:ci` reports 4 negative-path failures (`src/lib/kostnadsfri/index.test.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.test.ts`, `src/app/api/admin/vercel/projects/[projectId]/route.test.ts`, and `src/lib/openclaw/debug/repo-context.test.ts`) that are caused purely by platform-injected secrets (`VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `KOSTNADSFRI_API_KEY`, `KOSTNADSFRI_PASSWORD_SEED` for the first three; `OC_REPO_SLUG` + `OC_REPO_READ_TOKEN` for `repo-context`) — these tests assume those vars are unset. They are not regressions; each passes when its vars are unset (e.g. `env -u VERCEL_PROJECT_ID -u VERCEL_TEAM_ID -u KOSTNADSFRI_API_KEY -u KOSTNADSFRI_PASSWORD_SEED npx vitest run <first three files>` and `env -u OC_REPO_SLUG -u OC_REPO_READ_TOKEN npx vitest run src/lib/openclaw/debug/repo-context.test.ts`). Other known pre-existing test failures are tracked in [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) (e.g. 2 `PreviewPanel.test.tsx` save-flow tests) — check there before assuming a regression.
+## Databas och konton
 
-## Useful commands
+Verifiera DB-identitet med `npm run db:check-target -- --expect=dev` före
+DB-beroende arbete. Cloud start och dev-start gör read-only schema-kontroller;
+de ger inget mandat till DDL, datareparation eller kreditändringar.
 
-Se `package.json` för full lista.
+En ny uttryckligen beställd throwaway-DB och en befintlig delad DEV är olika
+mål. Följ [DB-runbooken](db-migrations.md); kör inte `db:init` som
+felsökningsförsök mot en befintlig databas.
 
-- `npm run typecheck` — TypeScript check (0 errors expected)
-- `npm run lint` — ESLint (0 errors expected)
-- `npm run lint:py` — ruff over `backoffice/` (0 errors expected; needs `npm run lint:py:install` once)
-- `npm run backoffice:test` — Python unittest suite (needs `requirements.backoffice.txt` installed)
-- `npm run test:ci` — Vitest run all tests
-- `npm run dev` — Full dev startup with preflight/setup; no DB apply
-- `node scripts/dev/next-runner.mjs dev` — Dev server + read-only background schema guard
+TLS-fel ska diagnostiseras mot faktisk anslutning och certifikatkedja. Sänk
+inte verifiering slentrianmässigt. Tillåtna miljöval och deras begränsningar
+beskrivs i [datakontraktet](../contracts/data-layer.md) och [ENV](../ENV.md).
+
+Generation kräver rätt konto och explicit sändning från buildern.
+Testkonton och credits följer aktuella auth-/miljöregler; använd inte
+ad hoc-SQL eller ändrade adminlistor utan separat mandat.
+
+## Python och verifiering
+
+Podinstallationen använder
+[ensure-backoffice-python.mjs](../../scripts/dev/ensure-backoffice-python.mjs).
+Kontrollera dess faktiska resultat: saknad pip kan ge en rapporterad skip,
+vilket inte betyder att Python-tester har körts.
+[requirements.backoffice.dev.txt](../../requirements.backoffice.dev.txt)
+äger testberoendena. `npm run backoffice:test` kör testsviten.
+
+Kör relevanta kontroller enligt planen och redovisa utfört, skippat och
+blockerat separat. En historisk grön svit, lyckad serverstart eller genererade
+filer bevisar inte fungerande live-preview. Använd [liveverifiering](live-verifiering.md)
+för sådana påståenden.

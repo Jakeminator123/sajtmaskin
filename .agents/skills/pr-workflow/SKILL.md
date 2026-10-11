@@ -59,7 +59,7 @@ Direktpreview: kör riktade kontroller enligt § 3 och commit:a exakta paths.
 Kör `npm run bugpass -- --base <preview-SHA>` för prompt/schema. Starta en
 **separat readonly-granskare med ny kontext**, utan föräldrachatt, i värdens
 befintliga review-/subagentfunktion. Importera dess faktiska JSON och metadata
-enligt [runbooken](../../../docs/runbooks/github-pr-review-automation.md).
+enligt [runbooken](../../../docs/runbooks/buggpass.md).
 Författaren får inte utgöra sitt eget oberoende pass eller fylla i ett påhittat
 tomt resultat. Granskarens befintliga behörigheter gäller; hooken ger ingen sandbox.
 
@@ -69,6 +69,8 @@ Vid fix: ny commit och samma bugpass-kommando; tidigare fynd/beslut länkas
 automatiskt. Granska delta/integration, återanvänd oförändrat kvitto och stoppa
 efter tre rundor för ägarbeslut. Ett uttryckligt godkännande från Jakob kan
 medge en fjärde runda enligt runbooken, aldrig ett automatiskt omtag.
+Ett nytt ägaruppdrag efter en helt klar review får en uttrycklig ny cykel
+enligt runbooken; historiken behålls och hela diffen granskas igen.
 Saknad/ofullständig review stoppar före push.
 
 När granskningen är klar: `npm run preview:prepare` verifierar kvittot och kör

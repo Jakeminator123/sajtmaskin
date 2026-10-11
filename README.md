@@ -42,7 +42,8 @@ kodkartan när ett ansvar flyttar; skapa inte en parallell sökvägstabell här.
    begreppen i ett sammanhang.
 5. [`docs/architecture/runtime-contracts.md`](docs/architecture/runtime-contracts.md)
    — invariants och signalägare.
-6. [`.cursor/README.md`](.cursor/README.md) — agentregler och arbetsflöden.
+6. [`docs/runbooks/README.md`](docs/runbooks/README.md) — utveckling, leverans och felsökning efter uppgift.
+7. [`.codex/README.md`](.codex/README.md) / [`.cursor/README.md`](.cursor/README.md) — respektive agentvärd; gemensamt flöde ägs av [PR-workflow](.agents/skills/pr-workflow/SKILL.md).
 
 Canonical owner och dokumentationsnivåer definieras i
 [`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md).

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { reviewPrompt, reviewSchema, validateReview, validateReviewer, reviewProof, reviewContext, renewalHistory, validateRenewalFindings } from "./bugpass.mjs";
 import { requireConfirmation, validatePrepared, preparePreview, publishPrepared } from "./preview-push.mjs";
-import { validateDecision, reviewDigest, reviewStatus, nextRound, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
+import { validateDecision, reviewDigest, reviewStatus, nextRound, reviewRound, reviewHistory, followUpDigest, validateCachedContext, validateReviewChain } from "./bugpass-state.mjs";
 
 const base = "a".repeat(40), head = "b".repeat(40), requestId = "c".repeat(64), contract = "d".repeat(64);
 const review = { base, head, requestId, complete: true, summary: "Full diff reviewed; no credible findings.", findings: [] };
@@ -118,6 +118,41 @@ describe("light pre-push gate", () => {
 describe("bounded author triage", () => {
   const report = { ...review, findings: [finding] };
   const decision = { findingId: "F1", action: "reject", reason: "Regression test proves this branch is unreachable.", reviewDigest: reviewDigest(report), followUp: "" };
+  it("requires a new task, new head and clear predecessor to explicitly start a new cycle", () => {
+    const previous = { head, round: 4, review, decisions: [] };
+    const options = { head: "f".repeat(40), newCycle: "Owner requested a separate runbook cleanup after the completed review." };
+    expect(reviewRound(previous, options)).toBe(1);
+    expect(() => reviewRound(previous)).toThrow(/Three/);
+    for (const invalid of [null, { ...previous, review: report }, { ...previous, review: report, decisions: [{ ...decision, action: "accept" }] },
+      { ...previous, review: report, decisions: [{ ...decision, action: "defer", followUp: "issue-1" }] }])
+      expect(() => reviewRound(invalid, options)).toThrow(/new review cycle/);
+    expect(() => reviewRound(previous, { ...options, head })).toThrow();
+    expect(() => reviewRound(previous, { ...options, newCycle: "yes" })).toThrow();
+    expect(() => reviewRound(previous, { ...options, ownerExtraRound: options.newCycle })).toThrow();
+  });
+  it("preserves cross-cycle history and bounds each unresolved fix loop", () => {
+    const records: Array<Parameters<typeof validateReviewChain>[0]> = [];
+    const readPrior = (_base: string, requested: string) => records.find((item) => item.head === requested);
+    for (let index = 0; index < 7; index++) {
+      const previous = records.at(-1);
+      const newCycle = index === 4 ? "Owner requested a new task after a clean fourth round." : null;
+      const ownerExtraRound = index === 3 ? "Owner explicitly approved one additional pass in this task." : null;
+      const context = reviewContext(previous ?? null, contract, readPrior);
+      const receipt = { base, head: String(index + 1).repeat(40), rootBase: base, contract, review, decisions: [],
+        newCycle, ownerExtraRound, fullReview: Boolean(newCycle), previousChainContext: context.previousChainContext,
+        previous: previous ? { base, head: previous.head } : null, previousContext: followUpDigest(previous),
+        round: reviewRound(previous, { newCycle, ownerExtraRound, head: String(index + 1).repeat(40) }) };
+      expect(() => validateReviewChain(receipt, readPrior)).not.toThrow();
+      records.push(receipt);
+    }
+    expect(reviewHistory(records.at(-1), readPrior)).toHaveLength(7);
+    expect(() => reviewRound(records.at(-1))).toThrow(/Three/);
+    expect(() => validateReviewChain({ ...records[4], fullReview: false }, readPrior)).toThrow(/full review/);
+    expect(() => validateReviewChain({ ...records[4], previous: null }, readPrior)).toThrow(/Missing previous/);
+    records[0].review = report;
+    records[0].decisions = [decision];
+    expect(() => validateReviewChain(records.at(-1), readPrior)).toThrow(/fresh review required/);
+  });
   it("requires an evidenced decision for every finding and a fresh review after fixes", () => {
     expect(reviewStatus(report)).toBe("needs-triage");
     expect(reviewStatus(report, [decision])).toBe("clear");

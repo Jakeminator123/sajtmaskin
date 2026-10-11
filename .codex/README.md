@@ -52,7 +52,7 @@ plankvitto. Den startar inga modeller, tester eller nätverksprov. Samma resulta
 återanvänds efter push. Native CI och Vercel följs separat.
 
 Kvittona är lokala arbetsflödesbevis, inte signerade säkerhetsattesteringar.
-Se [Buggpass-runbooken](../docs/runbooks/github-pr-review-automation.md) för
+Se [Buggpass-runbooken](../docs/runbooks/buggpass.md) för
 kommandon, återanvändning och uppföljning. Granskarens vanliga modellkvot gäller.
 
 ## Öppna projektet
