@@ -235,7 +235,6 @@ export function useBuilderPageController() {
     resolvedPrompt: state.resolvedPrompt,
     currentPreviewUrl: state.currentPreviewUrl,
     activeVersionId: derived.activeVersionId,
-    mediaEnabled: derived.mediaEnabled,
     paletteState: state.paletteState,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
