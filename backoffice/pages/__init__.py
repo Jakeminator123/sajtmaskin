@@ -40,7 +40,6 @@ from . import (
     shadcn_audit,
     template_curator,
     templates_blob,
-    user_degraded_env,
 )
 
 # Sidlägen (mode) — styr badgen i sidomenyn och på Översikt:
@@ -208,13 +207,6 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         env_readiness.render,
         mode="read",
         blurb="Läsvy: env-lager, klassificering och readiness per nyckel (maskerade värden).",
-    ),
-    PageSpec(
-        "user_degraded_env",
-        "Miljö & policy",
-        user_degraded_env.render,
-        mode="edit",
-        blurb="Policytext för degraded/placeholder-miljö i användarprojekt.",
     ),
     PageSpec(
         "shadcn-audit",

@@ -44,6 +44,19 @@ export type CreateLlmUsageRecord = {
 
 export type LlmUsageRow = typeof llmUsage.$inferSelect;
 
+/** Confirms a fresh, owner-bound brief receipt; a drained best-effort write is not proof. */
+export async function hasRecordedBriefUsageClaim(userId: string, claimKey: string): Promise<boolean> {
+  assertDbConfigured();
+  const rows = await db.select({ id: llmUsage.id }).from(llmUsage).where(and(
+    eq(llmUsage.user_id, userId),
+    eq(llmUsage.phase, "brief"),
+    sql`${llmUsage.meta} ->> 'claimKey' = ${claimKey}`,
+    sql`${llmUsage.chat_id} IS NULL`,
+    sql`${llmUsage.version_id} IS NULL`,
+  )).limit(1);
+  return rows.length > 0;
+}
+
 export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promise<LlmUsageRow> {
   assertDbConfigured();
   const hasTokenUsage = [

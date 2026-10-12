@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { warnLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type {
-  AutoFixPayload,
   ChatMessagingParams,
   ChatMessagingReturn,
   MessageOptions,
@@ -31,7 +30,6 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
 
   const streamAbortRef = useRef<AbortController | null>(null);
   const lastSentSystemPromptRef = useRef<string | null>(null);
-  const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const activeStreamTimeoutMsRef = useRef<number>(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
   const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,7 +91,6 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
 
   const sharedDeps = {
     streamAbortRef,
-    autoFixHandlerRef,
     lastSentSystemPromptRef,
     startStreamSafetyTimer,
     touchStreamSafetyTimer: touchStreamSafetyTimer as () => void,
@@ -143,14 +140,11 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
 
   const isGenerationActive = useCallback(() => generationActiveRef.current, []);
 
-  const { autoFixHandlerRef: resolvedAutoFixRef, cancelPendingAutoFix } = useAutoFix(
+  const { cancelPendingAutoFix } = useAutoFix(
     sendMessage,
     getActiveChatId,
     isGenerationActive,
   );
-  useEffect(() => {
-    autoFixHandlerRef.current = resolvedAutoFixRef.current;
-  });
   useEffect(() => {
     cancelPendingAutoFixRef.current = cancelPendingAutoFix;
   }, [cancelPendingAutoFix]);

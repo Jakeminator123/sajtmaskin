@@ -64,9 +64,10 @@ export interface GenerateOptions {
  * Generates code from a prompt using AI SDK wrappers over direct
  * OpenAI/Anthropic provider calls.
  *
- * After this stream completes, `finalizeAndSaveVersion` runs the ordered
- * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →
- * images → syntax validate/fix → optional verifier LLM → merge/preflight/persist).
+ * After this stream completes, `finalizeAndSaveVersion` prepares the complete
+ * project before semantic verification and reprepares repairs before confirmation.
+ * Runtime order lives in `finalize-version/fast-path.ts`; UI/telemetry phase ids
+ * live in `finalize-pipeline-contract.ts`.
  *
  * Returns a ReadableStream of SSE events:
  *  `meta`     — chat/version metadata

@@ -5,7 +5,6 @@ import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
-import { materializeImagesInTextFiles } from "@/lib/images/image-assets";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -14,7 +13,6 @@ import {
   getLatestVersion as getLatestEngineVersion,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
-import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { versionBusyResponseIfLeaseHeld } from "@/lib/api/version-busy-response";
 
@@ -24,36 +22,6 @@ function engineErrorResponse(err: unknown, fallbackMessage: string) {
     { error: info.message || fallbackMessage, code: info.code },
     { status: info.status },
   );
-}
-
-type ImageMaterializationReport = {
-  attempted: boolean;
-  strategy: "blob";
-  replaced: number;
-  uploaded: number;
-  skipped: number;
-  warningCount: number;
-  /**
-   * Durable `files_json` write landed (new `files_revision`). Distinct from
-   * `replaced`, which only counts in-memory / planned URL swaps.
-   */
-  persisted: boolean;
-  filesRevision: string | null;
-  reason?: string;
-  error?: string | null;
-};
-
-function isRequestAborted(req: Request): boolean {
-  return req.signal.aborted;
-}
-
-async function readFilesRevision(
-  req: Request,
-  chatId: string,
-  versionId: string,
-): Promise<string | null> {
-  const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-  return scoped?.version.files_revision?.trim() || null;
 }
 
 const updateFilesSchema = z.object({
@@ -83,8 +51,8 @@ async function loadOwnEngineFilesForChat(req: Request, chatId: string, versionId
 }
 
 /**
- * Persist a MATERIAL user edit (PUT/PATCH/DELETE). Unlike the idempotent
- * heal/materialize persists in GET, an edited file set is new content — any
+ * Persist a MATERIAL user edit (PUT/PATCH/DELETE). GET only reads snapshots.
+ * An edited file set is new content — any
  * `promoted`/`passed` verdict on the row belonged to the previous contents,
  * so the write also resets the row to `draft`/`pending` (post-#351 P1:
  * a promoted F3 version must not stay deploy-green after an in-place edit).
@@ -101,7 +69,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
     const { searchParams } = new URL(req.url);
     const requestedVersionId = searchParams.get("versionId");
-    const shouldMaterialize = searchParams.get("materialize") === "1";
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
 
     if (!engineChat) {
@@ -129,141 +96,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     }
 
     if (files) {
-      let imageMaterializeError: string | null = null;
-      let imageMaterialization: ImageMaterializationReport | null = null;
-      const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
-
-      const repairResult = repairGeneratedFiles(files);
-      if (repairResult.fixes.length > 0) {
-        files = repairResult.files;
-        if (resolvedVersionId) {
-          // Best-effort, fail-fast heal-persist (M#files1). A files READ must
-          // never block on — or fail from — a ~120 KB `files_json` UPDATE under
-          // row-lock contention. `lockTimeoutMs` makes a contended write give up
-          // fast (so it can't starve concurrent reads → 429 / error-log INSERTs
-          // → 500), and the try/catch guarantees the read still returns the
-          // repaired files even if the persist is skipped. The repair is
-          // idempotent, so the next uncontended read commits the heal.
-          try {
-            await updateVersionFiles(resolvedVersionId, JSON.stringify(files), {
-              lockTimeoutMs: 2000,
-            });
-          } catch {
-            // never turn a files read into a 429/500 over a best-effort heal
-          }
-        }
-      }
-
-      if (shouldMaterialize) {
-        const currentFilesRevision = resolvedVersionId
-          ? await readFilesRevision(req, chatId, resolvedVersionId)
-          : null;
-        if (isRequestAborted(req)) {
-          imageMaterialization = {
-            attempted: false,
-            strategy: "blob",
-            replaced: 0,
-            uploaded: 0,
-            skipped: 0,
-            warningCount: 0,
-            persisted: true,
-            filesRevision: currentFilesRevision,
-            reason: "aborted",
-          };
-        } else if (!process.env.BLOB_READ_WRITE_TOKEN) {
-          imageMaterialization = {
-            attempted: false,
-            strategy: "blob",
-            replaced: 0,
-            uploaded: 0,
-            skipped: 0,
-            warningCount: 0,
-            persisted: true,
-            filesRevision: currentFilesRevision,
-            reason: "blob_not_configured",
-          };
-        } else {
-          try {
-            const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
-            const imageAssets = await materializeImagesInTextFiles({
-              files: textFiles,
-              strategy: "blob",
-              blobToken: process.env.BLOB_READ_WRITE_TOKEN,
-              namespace: { chatId, versionId: effectiveVersionId },
-            });
-            const report: ImageMaterializationReport = {
-              attempted: true,
-              strategy: "blob",
-              replaced: imageAssets.summary.replaced,
-              uploaded: imageAssets.summary.uploaded,
-              skipped: imageAssets.summary.skipped,
-              warningCount: imageAssets.warnings.length,
-              persisted: true,
-              filesRevision: currentFilesRevision,
-            };
-
-            if (imageAssets.summary.replaced > 0) {
-              const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
-              files = files.map((f) => ({
-                ...f,
-                content: blobFileMap.get(f.path) ?? f.content,
-              }));
-              report.persisted = false;
-              if (isRequestAborted(req)) {
-                report.error = "aborted";
-              } else if (resolvedVersionId) {
-                // Same fail-fast, best-effort pattern as the heal-persist above
-                // (M#files1) for the UPDATE itself: a files READ must never
-                // 429/500 on row-lock contention. The caller now *reads*
-                // `persisted` instead of inferring it from `replaced`.
-                try {
-                  const wrote = await updateVersionFiles(
-                    resolvedVersionId,
-                    JSON.stringify(files),
-                    { lockTimeoutMs: 2000 },
-                  );
-                  if (wrote) {
-                    const nextRevision = await readFilesRevision(
-                      req,
-                      chatId,
-                      resolvedVersionId,
-                    );
-                    if (nextRevision) {
-                      report.persisted = true;
-                      report.filesRevision = nextRevision;
-                    }
-                  }
-                } catch (persistErr) {
-                  console.warn(
-                    "[materialize] Skipped contended files_json persist (read still returns materialized files):",
-                    persistErr instanceof Error ? persistErr.message : persistErr,
-                  );
-                }
-              }
-              console.info(
-                `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references (persisted=${report.persisted})`,
-              );
-            }
-            imageMaterialization = report;
-          } catch (error) {
-            console.error("[materialize] Own engine image materialization failed:", error);
-            imageMaterializeError =
-              error instanceof Error ? error.message : "Image materialization failed";
-            imageMaterialization = {
-              attempted: true,
-              strategy: "blob",
-              replaced: 0,
-              uploaded: 0,
-              skipped: 0,
-              warningCount: 0,
-              persisted: true,
-              filesRevision: currentFilesRevision,
-              error: imageMaterializeError,
-            };
-          }
-        }
-      }
-
       // env.example (no leading dot) is canonical and is materialized into
       // version files by `injectProjectEnvFileIntoFilesJson` in the
       // finalize preflight phase. We deliberately do NOT inject a second
@@ -280,8 +112,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       return NextResponse.json({
         versionId: resolvedVersionId,
         files: formattedFiles,
-        ...(imageMaterialization ? { imageMaterialization } : {}),
-        ...(imageMaterializeError ? { imageMaterializeError } : {}),
       });
     }
 

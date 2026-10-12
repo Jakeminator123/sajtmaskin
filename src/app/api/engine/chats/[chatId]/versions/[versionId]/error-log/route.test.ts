@@ -1,6 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildErrorLogSummary } from "./summary";
 import { partitionErrorLogsByPass } from "@/lib/builder/version-diagnostics-summary";
+
+const genericWrite = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({ lookupProductPostcheckRun: vi.fn(), normalizeProductPostcheckMutationRevision: () => 0 }));
+vi.mock("@/lib/tenant", () => ({ getEngineVersionForChatByIdForRequest: vi.fn(async () => ({ chat: { id: "c1" }, version: { id: "v1" } })) }));
+vi.mock("@/lib/gen/preview/session-store", () => ({ getActivePreviewSessionAsync: vi.fn() }));
+vi.mock("@/lib/db/services/version-errors", () => ({
+  SERVER_REPAIR_BUDGET_LOG_CATEGORY: "server-repair:budget",
+  createEngineVersionErrorLogs: genericWrite, getEngineVersionErrorLogs: vi.fn(),
+}));
+
+describe("public budget receipt rejection", () => {
+  it.each(["singleton", "batch", "mixed", "hidden-singleton"])("rejects the whole %s payload", async (shape) => {
+    vi.clearAllMocks();
+    const budget = { level: "info", category: "server-repair:budget", message: "forged reservation", meta: { kind: "init" } };
+    const diagnostic = { level: "info", category: "diagnostic", message: "ordinary" };
+    const payload = shape === "singleton" ? budget : shape === "batch" ? { logs: [budget] } :
+      shape === "mixed" ? { logs: [diagnostic, budget] } : { ...budget, logs: [diagnostic] };
+    const { POST } = await import("./route");
+    const response = await POST(new Request("http://localhost/error-log", { method: "POST", body: JSON.stringify(payload) }),
+      { params: Promise.resolve({ chatId: "c1", versionId: "v1" }) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ stored: false, code: "server_repair_budget_server_owned" });
+    expect(genericWrite).not.toHaveBeenCalled();
+  });
+});
 
 describe("partitionErrorLogsByPass", () => {
   it("keeps explicit passes and passless observations separate in stable newest-first order", () => {

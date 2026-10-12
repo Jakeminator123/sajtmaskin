@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mirror the mocking strategy of repair-loop.preview-policy.test.ts: the LLM
 // fixer and the esbuild-backed syntax validator are stubbed so the test fully
@@ -7,6 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
 const appendErrorLogEvent = vi.hoisted(() => vi.fn());
+const reserveServerRepairBudget = vi.hoisted(() => vi.fn());
+const recordServerRepairBudgetOutcome = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ reserveServerRepairBudget, recordServerRepairBudgetOutcome }));
 const validateGeneratedCode = vi.hoisted(() =>
   vi.fn(async (content: string) => {
     const broken = content.includes("( {");
@@ -70,6 +73,87 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     runLlmFixer.mockReset();
     devLogAppend.mockReset();
     validateGeneratedCode.mockClear();
+    reserveServerRepairBudget.mockReset().mockResolvedValue({ status: "reserved" });
+    recordServerRepairBudgetOutcome.mockReset().mockResolvedValue({ status: "outcome_recorded" });
+  });
+
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  it.each(["primary", "retry"] as const)("real port stops after a slow %s reservation without inventing another invocation", async delayedSlot => {
+    vi.useFakeTimers(); vi.setSystemTime(100_000);
+    const target = { chatId: "c", versionId: "v", runId: "r", filesRevision: "rev", scopeId: "s" };
+    const ledger = new RepairLedger();
+    const reservations: Array<{ passIndex: number; slot: string }> = [];
+    reserveServerRepairBudget.mockImplementation(async (_target: unknown, slot: { passIndex: number; slot: string }) => {
+      reservations.push({ ...slot });
+      if (slot.slot === delayedSlot) await new Promise(resolve => setTimeout(resolve, 600_001));
+      return { status: "reserved" };
+    });
+    if (delayedSlot === "retry") runLlmFixer.mockResolvedValueOnce({ ...fixerSucceedsWithChange,
+      fixedContent: validPage, fixedFiles: [], success: false, aborted: true });
+    const promote = vi.fn(async (_projectContent: string, _method: RepairMethod) => ({ promoted: false }));
+    const pending = runRepairLoop({ initialContent: validPage, failedOutputs: [gateFailure], contextLines: [], maxLlmPasses: 2,
+      llmTimeoutMs: 1_000, llmRetryTimeoutMs: 500, repairDeadlineEpochMs: 700_000, enableTargetedRepair: false,
+      chatId: "c", repairScopeId: "s", repairLedger: ledger, serverRepairBudget: { target, consumed: [] },
+      onAttemptPromotion: promote });
+    await vi.waitFor(() => expect(reserveServerRepairBudget).toHaveBeenCalledTimes(delayedSlot === "primary" ? 1 : 2));
+    await vi.advanceTimersByTimeAsync(600_001);
+    expect(await pending).toMatchObject({ promoted: false, earlyStopReason: "time_budget_exceeded", llmPasses: delayedSlot === "primary" ? 0 : 1 });
+    expect(runLlmFixer).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
+    expect(recordServerRepairBudgetOutcome).toHaveBeenCalledTimes(delayedSlot === "primary" ? 0 : 1);
+    expect(reservations.at(-1)).toMatchObject({ passIndex: 0, slot: delayedSlot });
+    expect(ledger.exportInvocations("c", "s")).toHaveLength(delayedSlot === "primary" ? 0 : 1);
+    expect(promote.mock.calls.map(([candidate]) => candidate)).toEqual([validPage]); // Original deterministic candidate only; no post-STOP merge/promotion.
+    expect(appendErrorLogEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(["reserve", "outcome"])("never promotes fixer output after a durable %s write failure", async (stage) => {
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    if (stage === "reserve") reserveServerRepairBudget.mockResolvedValue({ status: "history_unknown" });
+    if (stage === "outcome") recordServerRepairBudgetOutcome.mockResolvedValue({ status: "unavailable" });
+    const promote = vi.fn(async () => ({ promoted: false }));
+    await expect(runRepairLoop({ initialContent: validPage, failedOutputs: [gateFailure], contextLines: [], maxLlmPasses: 2,
+      llmTimeoutMs: 1_000, enableTargetedRepair: false, chatId: "c", repairScopeId: "s", repairLedger: new RepairLedger(),
+      serverRepairBudget: { target: { chatId: "c", versionId: "v", runId: "r", filesRevision: "rev", scopeId: "s" }, consumed: [] },
+      onAttemptPromotion: promote })).rejects.toThrow(stage === "reserve" ? "reservation denied" : "outcome denied");
+    expect(runLlmFixer).toHaveBeenCalledTimes(stage === "reserve" ? 0 : 1);
+    expect(promote).toHaveBeenCalledTimes(1); // Only the unchanged deterministic candidate was checked.
+    expect(promote).not.toHaveBeenCalledWith(validPageEdited, "llm", expect.anything());
+  });
+
+  it("does not reopen exhausted capacity or recreate a lost partial candidate after restart", async () => {
+    const target = { chatId: "c", versionId: "v", runId: "r", filesRevision: "rev", scopeId: "s" };
+    const identity = { contentHash: "a".repeat(16), diagnosticFingerprint: "b".repeat(16), requiredFiles: [] };
+    const common = { initialContent: validPage, failedOutputs: [gateFailure], contextLines: [], maxLlmPasses: 1,
+      llmTimeoutMs: 1_000, enableTargetedRepair: false, chatId: "c", repairScopeId: "s", repairLedger: new RepairLedger(), onAttemptPromotion: async () => ({ promoted: false }) };
+    await runRepairLoop({ ...common, serverRepairBudget: { target, consumed: [{ ...identity, passIndex: 0, slot: "retry", outcome: "success" }] } });
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(reserveServerRepairBudget).not.toHaveBeenCalled();
+    await expect(runRepairLoop({ ...common, serverRepairBudget: { target, consumed: [{ ...identity, passIndex: 0, slot: "primary", outcome: "partial" }] } })).rejects.toThrow("partial repair candidate unavailable");
+    expect(runLlmFixer).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { primaryOutcome: "aborted", retryOutcome: "partial" },
+    { primaryOutcome: "partial", retryOutcome: "aborted" },
+  ] as const)("blocks restart payment after primary/$primaryOutcome -> retry/$retryOutcome even with changed diagnostics", async ({ primaryOutcome, retryOutcome }) => {
+    const target = { chatId: "c", versionId: "v", runId: "takeover", filesRevision: "rev", scopeId: "original:root" };
+    const original = new RepairLedger().begin({ chatId: "c", scopeId: target.scopeId, content: validPage,
+      errors: ["original TS2322 failure"], requiredFiles: ["app/page.tsx"] }).record;
+    const identity = { contentHash: original.contentHash, diagnosticFingerprint: original.diagnosticFingerprint, requiredFiles: original.requiredFiles };
+    const consumed = [{ ...identity, passIndex: 0, slot: "primary" as const, outcome: primaryOutcome },
+      { ...identity, passIndex: 0, slot: "retry" as const, outcome: retryOutcome }];
+    runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
+    const promote = vi.fn(async (_content: string, _method: RepairMethod) => ({ promoted: false }));
+    await expect(runRepairLoop({ initialContent: validPage,
+      failedOutputs: [{ ...gateFailure, output: "app/page.tsx(2,10): error TS9999: changed diagnostics after restart." }],
+      contextLines: [], maxLlmPasses: 2, llmTimeoutMs: 1_000, enableTargetedRepair: false,
+      chatId: "c", repairScopeId: target.scopeId, repairLedger: RepairLedger.hydrate("c", target.scopeId, consumed),
+      serverRepairBudget: { target, consumed }, onAttemptPromotion: promote })).rejects.toThrow("Durable partial repair candidate unavailable");
+    expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(reserveServerRepairBudget).not.toHaveBeenCalled();
+    expect(recordServerRepairBudgetOutcome).not.toHaveBeenCalled();
+    expect(promote.mock.calls.every((call) => call[1] !== "llm")).toBe(true);
   });
 
   it.each([

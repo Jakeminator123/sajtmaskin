@@ -1,4 +1,6 @@
 import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+import { ENGINE_ROUTE_MAX_DURATION_SECONDS } from "@/lib/gen/defaults";
 import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
@@ -191,6 +193,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           modelId = DEFAULT_MODEL_ID,
           thinking,
           imageGenerations,
+          materializeImages,
           chatPrivacy,
           meta,
         } = validationResult.data;
@@ -463,6 +466,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const creditUser = creditCheck.user;
         const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
           rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+          briefUsageClaimKey: typeof clientBriefFromMeta?.usageClaimKey === "string"
+            ? clientBriefFromMeta.usageClaimKey
+            : null,
         });
 
         let createChatPromptLogId: string | null = null;
@@ -922,7 +928,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             qualityTarget: orchestrationBase.buildSpec.qualityTarget,
             contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           });
-          const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
+          const { resolvedScaffold, preGenerationContracts } = orchestrationBase;
 
           debugLog("engine", "Own engine model resolved", {
             resolvedModelTier,
@@ -963,10 +969,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }
           const generationInputPackage = buildGenerationInputPackage(
             orchestrationBase,
-            orchestrationInput,
+            { ...orchestrationInput, materializeImages },
             finalized,
           );
-          const lineageHash = generationInputPackage.lineageHash;
           writeOrchestrationDynamicDump(generationInputPackage);
           dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
             route: "POST /api/engine/chats/stream",
@@ -1069,6 +1074,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
           const effectiveGeneratorThinking = resolvedThinking && generatorThinking.thinking;
           const engineStream = createOwnEnginePipelineAndGenerationStream({
+            requestDeadlineEpochMs: requestStartedAt + Math.min(
+              getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default,
+              ENGINE_ROUTE_MAX_DURATION_SECONDS,
+            ) * 1000,
             chatId: engineChat.id,
             resolvedTier: resolvedModelTier,
             // F2-init must NEVER surface env-var prompts in chat. Tier-3 env
@@ -1119,11 +1128,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             optimizedMessage,
             rawPrompt: message,
             engineIntent,
-            buildSpec: orchestrationBase.buildSpec,
-            routePlan: routePlan ?? null,
-            orchestrationContract: orchestrationBase.orchestrationContract,
-            resolvedScaffold: resolvedScaffold ?? null,
-            lineageHash,
+            generationInput: generationInputPackage,
             urlMap,
             commitCredits: commitCreditsOnce,
           });

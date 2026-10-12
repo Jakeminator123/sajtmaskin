@@ -120,6 +120,8 @@ export type GenerationBillingTarget = {
   userId?: string | null;
   isTest?: boolean;
   claimKey?: string | null;
+  /** Additional exact request receipts, persisted atomically with the completion marker. */
+  claimKeys?: string[];
   /**
    * Successful own-engine finalize defaults to eligible. Post-processing that
    * has to create a marker for an older/imported version must pass false so it
@@ -165,7 +167,7 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
     .limit(1);
   const settings = settingsRows[0];
   if (!settings) throw new Error("Generation billing settings missing");
-  const claimKey = input.claimKey?.trim() || null;
+  const claimKeys = normalizeGenerationBillingClaimKeys([input.claimKey, ...(input.claimKeys ?? [])]);
   const campaignEntitlementId = input.campaignEntitlementId?.trim() || null;
   const campaignPhase = campaignEntitlementId ? (input.campaignPhase ?? null) : null;
   if (campaignEntitlementId && !campaignPhase) {
@@ -184,7 +186,7 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
       free_generation_eligible: input.freeGenerationEligible ?? true,
       campaign_entitlement_id: campaignEntitlementId,
       campaign_phase: campaignPhase,
-      claim_keys: claimKey ? [claimKey] : [],
+      claim_keys: claimKeys,
       usage_started_at: input.usageStartsAtNow ? sql`NOW()` : null,
       markup_basis_points: settings.markup_basis_points,
       usd_to_sek_ore: settings.usd_to_sek_ore,
@@ -197,14 +199,14 @@ export async function establishGenerationBilling(input: GenerationBillingTarget)
         chat_id: input.chatId,
         user_id: sql`COALESCE(${generationBillings.user_id}, ${input.userId ?? null})`,
         status: "pending",
-        claim_keys: claimKey
-          ? sql`CASE
-              WHEN COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)
-                @> jsonb_build_array(${claimKey}::text)
-              THEN COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)
-              ELSE COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)
-                || jsonb_build_array(${claimKey}::text)
-            END`
+        claim_keys: claimKeys.length > 0
+          ? sql`(
+              SELECT jsonb_agg(DISTINCT receipt.value)
+              FROM jsonb_array_elements_text(
+                COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)
+                  || ${JSON.stringify(claimKeys)}::jsonb
+              ) AS receipt(value)
+            )`
           : sql`COALESCE(${generationBillings.claim_keys}, '[]'::jsonb)`,
         updated_at: now,
       },
@@ -812,8 +814,18 @@ export async function reattributeGenerationBillingUsage(input: {
 
   await db.execute(sql`
     UPDATE llm_usage
-    SET version_id = ${input.versionId}
-    WHERE chat_id = ${input.chatId}
+    SET chat_id = ${input.chatId}, version_id = ${input.versionId}
+    WHERE (
+      chat_id = ${input.chatId}
+      OR (
+        chat_id IS NULL
+        AND phase = 'brief'
+        AND user_id = (
+          SELECT user_id FROM generation_billings
+          WHERE version_id = ${input.versionId} AND chat_id = ${input.chatId}
+        )
+      )
+    )
       AND version_id IS NULL
       AND meta ->> 'claimKey' IN (
         SELECT jsonb_array_elements_text(${JSON.stringify(claimKeys)}::jsonb)
@@ -864,7 +876,14 @@ export async function reconcilePendingGenerationBillings(
       OR EXISTS (
         SELECT 1
         FROM llm_usage unattached
-        WHERE unattached.chat_id = gb.chat_id
+        WHERE (
+          unattached.chat_id = gb.chat_id
+          OR (
+            unattached.chat_id IS NULL
+            AND unattached.phase = 'brief'
+            AND unattached.user_id = gb.user_id
+          )
+        )
           AND unattached.version_id IS NULL
           AND unattached.meta ->> 'claimKey' IS NOT NULL
           AND COALESCE(gb.claim_keys, '[]'::jsonb)

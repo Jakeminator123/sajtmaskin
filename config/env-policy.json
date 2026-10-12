@@ -43,6 +43,7 @@
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -188,6 +189,8 @@
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_MODEL_ROUTING_ENABLED",
     "PEXELS_API_KEY",
+    "PIPELINE_TEST_ACCOUNT_EMAIL",
+    "PIPELINE_TEST_ACCOUNT_PASSWORD",
     "POSTGRES_CONNECT_TIMEOUT_MS",
     "POSTGRES_POOL_IDLE_TIMEOUT_MS",
     "POSTGRES_POOL_MAX",
@@ -203,6 +206,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_BRIEF_MODEL",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
@@ -525,6 +529,12 @@
       "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify/build-error-trigger.ts`. Default ON in every environment since 2026-09-11 (production was OFF until 40 days of prod showed 3/3 bounded repairs). Explicit `0`/`false`/`off`/`no` is the kill-switch; `1`/`true`/`on`/`yes` is a no-op. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
     },
     {
+      "key": "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-only opt-in for /api/engine/postchecks recovery work: exactly 1 enables it; unset, empty, 0 or any other value skips before candidate selection. Default OFF. Not a date, expiry, one-shot trigger or cron registration. Requires CRON_SECRET and separately approved scheduling/deployment; ordinary generation postchecks and existing cost/attempt caps are unchanged."
+    },
+    {
       "key": "SAJTMASKIN_METRICS_TOKEN",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -781,6 +791,18 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_EMAIL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only reusable pipeline-test login, stored encrypted in Vercel and in ignored local env files. Not consumed by app authentication or account bootstrap; grants no admin or free-billing privilege. Current account exists in DEV/Preview only; storing this key for Production does not provision a Production account. Separate from privileged TEST_USER_EMAIL."
+    },
+    {
+      "key": "PIPELINE_TEST_ACCOUNT_PASSWORD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Operator-only pipeline-test password; keep encrypted in Vercel and out of tracked files and NEXT_PUBLIC variables. Not consumed by app authentication or account bootstrap. Saving this secret does not create an account, change its password, grant privileges or activate scheduling. Separate from privileged TEST_USER_PASSWORD."
     },
     {
       "key": "TEST_USER_EMAIL",

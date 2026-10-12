@@ -189,6 +189,12 @@ blockera på det som verkligen kräver en riktig integration.
   deterministiska F3-rad; stub-vokabulären filtreras fortsatt ur
   integrationsbevis och är aldrig ett riktigt runtime-värde.
 
+Generated code that creates Redis, SQL or Auth0 clients at module scope and
+connects eagerly can still time out on placeholder URLs. Prefer lazy clients
+or skip initialization for a known preview sentinel. The Postgres-shaped URLs
+in `41-tier3-stub-placeholders.env.txt` are local-only so importing `postgres`
+does not crash `next dev`.
+
 ## Sources of truth at a glance
 
 | Question                                             | Look here                                                |

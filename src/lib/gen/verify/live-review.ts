@@ -741,7 +741,8 @@ async function reviewWithModel(
 
 export async function runLiveReview(
   bundle: ReviewBundle,
-  opts: { timeoutMs?: number; totalTimeoutMs?: number; modelId?: string } = {},
+  opts: { timeoutMs?: number; totalTimeoutMs?: number; modelId?: string;
+    deadlineAt?: number; isTargetCurrent?: () => Promise<boolean> } = {},
 ): Promise<LiveReviewResult> {
   const modelIds = resolveLiveReviewModelIds(opts.modelId);
   if (modelIds.length === 0) {
@@ -750,6 +751,7 @@ export async function runLiveReview(
 
   const chainStartedAt = Date.now();
   const totalTimeoutMs = opts.totalTimeoutMs ?? LIVE_REVIEW_TOTAL_TIMEOUT_MS;
+  const deadlineAt = Math.min(chainStartedAt + totalTimeoutMs, opts.deadlineAt ?? Infinity);
   const perAttemptMs = opts.timeoutMs ?? LIVE_REVIEW_ATTEMPT_TIMEOUT_MS;
   let last: LiveReviewResult = {
     status: "skipped",
@@ -758,8 +760,11 @@ export async function runLiveReview(
   };
 
   for (const modelId of modelIds) {
-    const remaining = totalTimeoutMs - (Date.now() - chainStartedAt);
-    if (remaining <= 0) {
+    if (opts.isTargetCurrent && !(await opts.isTargetCurrent().catch(() => false))) {
+      return { status: "skipped", reason: "preview_superseded" };
+    }
+    const remaining = deadlineAt - Date.now();
+    if (!Number.isFinite(remaining) || remaining <= 0) {
       return { status: "skipped", reason: "review_error", detail: "total review timeout" };
     }
     last = await reviewWithModel(bundle, modelId, Math.min(perAttemptMs, remaining));
@@ -817,6 +822,8 @@ export async function maybeAttachLiveReview(params: {
   briefSummary: string;
   enabled?: boolean;
   filesRevision?: string | null;
+  deadlineAt?: number;
+  isTargetCurrent?: () => Promise<boolean>;
 }): Promise<LiveReviewResult> {
   const isFollowUp =
     isChatFollowUpVersion(params.versionNumber) || Boolean(params.previousVersionId);
@@ -887,7 +894,7 @@ export async function maybeAttachLiveReview(params: {
   });
 
   try {
-    return await runLiveReview(bundle);
+    return await runLiveReview(bundle, { deadlineAt: params.deadlineAt, isTargetCurrent: params.isTargetCurrent });
   } catch (error) {
     return {
       status: "skipped",

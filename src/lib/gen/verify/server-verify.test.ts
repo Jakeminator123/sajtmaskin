@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const appendErrorLogEvent = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/logging/error-log-rag", () => ({ appendErrorLogEvent }));
@@ -39,6 +39,127 @@ import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
 } from "./repair-loop";
+import * as verificationLease from "./server-verify/lease";
+import * as versionManager from "@/lib/gen/version-manager";
+import * as versionRepo from "@/lib/db/chat-repository-pg";
+import * as repairBudget from "@/lib/db/services/server-repair-budget";
+import * as projectExport from "@/lib/gen/export/build-exportable-project";
+import * as previewGate from "./preview-quality-gate";
+import * as repairExecution from "./server-verify/repair-execution";
+import * as versionErrors from "@/lib/db/services/version-errors";
+import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
+import { triggerServerVerification, verifyVersionUnderLease, runVersionQualityGateUnderLease } from "./server-verify/verify-run";
+
+describe("server verification persisted bootstrap readback", () => {
+  afterEach(() => { vi.restoreAllMocks(); verificationLease.inflight.clear(); });
+
+  it("held core rejects missing ownership/revision without DB, gate, or wrapper lease actions", async () => {
+    const snapshotRead = vi.spyOn(versionManager, "getVersionFilesSnapshot");
+    const acquire = vi.spyOn(verificationLease, "acquireVerifyLease");
+    const release = vi.spyOn(verificationLease, "releaseVerifyLease");
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable");
+    expect(await verifyVersionUnderLease({ chatId: "chat", versionId: "version", holderRunId: " ",
+      snapshot: { files: [], filesJson: "[]", filesRevision: "actual" } as never })).toEqual({
+        kind: "stop", reason: "snapshot_unavailable", retryable: true,
+      });
+    for (const spy of [snapshotRead, acquire, release, gate]) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it.each(["known", "missing", "manual"])("awaits %s history under the actual lease before the deterministic gate", async (mode) => {
+    vi.spyOn(verificationLease, "isServerVerifyEligible").mockReturnValue(true);
+    vi.spyOn(verificationLease, "isLatestVersionForChat").mockResolvedValue(true);
+    vi.spyOn(verificationLease, "acquireVerifyLease").mockResolvedValue({ proceed: true, runId: "run" });
+    vi.spyOn(verificationLease, "releaseVerifyLease").mockResolvedValue(undefined);
+    const files = [{ path: "app/page.tsx", content: "export default function Page(){return null}", language: "tsx" as const }];
+    vi.spyOn(versionManager, "getVersionFilesSnapshot").mockResolvedValue({ files, filesJson: JSON.stringify(files), filesRevision: "actual-db-revision", lifecycleStage: "design", editKind: null } as never);
+    vi.spyOn(versionRepo, "markVersionVerifying").mockResolvedValue(null as never);
+    vi.spyOn(versionRepo, "failVersionVerification").mockResolvedValue(null as never);
+    const promotion = vi.spyOn(versionRepo, "promoteVersion").mockResolvedValue(null as never);
+    vi.spyOn(projectExport, "chatUsesVerbatimRepo").mockResolvedValue(false);
+    vi.spyOn(projectExport, "buildExportableProject").mockResolvedValue(files);
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable").mockResolvedValue(null);
+    const read = vi.spyOn(repairBudget, "readServerRepairBudget").mockResolvedValue(mode === "known"
+      ? { status: "ready", snapshot: { scopeId: "original:root", finalize: [], consumed: [],
+        startPolicy: { previewPolicy: "fidelity2", verificationPolicy: "standard",
+          serverVerify: { run: false, reason: "design_preview_skip_verify" },
+          preview: { canStartPreview: true, hasBuildBreakingFindings: false },
+          postChecks: { willRunQualityGate: true, qualityGatePlanned: true } } } }
+      : { status: "history_unknown" });
+    await triggerServerVerification({ chatId: "c", versionId: "v",
+      repairAuthority: mode === "manual" ? "manual" : "automatic" });
+    if (mode === "manual") expect(read).not.toHaveBeenCalled();
+    else {
+      expect(read).toHaveBeenCalledWith({ chatId: "c", versionId: "v", runId: "run", filesRevision: "actual-db-revision" });
+      expect(read.mock.invocationCallOrder[0]).toBeLessThan(gate.mock.invocationCallOrder[0]);
+    }
+    expect(gate).toHaveBeenCalledTimes(1);
+    expect(promotion).not.toHaveBeenCalled();
+  });
+});
+
+describe("original chain deadline under the held verification lease", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const files = [{ path: "app/page.tsx", content: "export default function Page(){return null}", language: "tsx" as const }];
+  const snapshot = { files, filesJson: JSON.stringify(files), filesRevision: "actual", lifecycleStage: "design", editKind: null };
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.spyOn(verificationLease, "isLatestVersionForChat").mockResolvedValue(true);
+    vi.spyOn(versionRepo, "markVersionVerifying").mockResolvedValue(null as never);
+    vi.spyOn(versionRepo, "resetVersionVerificationToPending").mockResolvedValue(null as never);
+    vi.spyOn(versionRepo, "failVersionVerification").mockResolvedValue(null as never);
+    vi.spyOn(versionRepo, "promoteVersion").mockResolvedValue(null as never);
+    vi.spyOn(versionErrors, "createEngineVersionErrorLogs").mockResolvedValue(undefined as never);
+    vi.spyOn(projectExport, "chatUsesVerbatimRepo").mockResolvedValue(false);
+    vi.spyOn(projectExport, "buildExportableProject").mockResolvedValue(files);
+  });
+
+  it.each([100, 10_000_000])( "gate consumption cannot reset or exceed the caller/repair phase ceiling (%i)", async (window) => {
+    const deadline = Date.now() + window;
+    const afterGate = Date.now() + 90;
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable").mockImplementation(async () => {
+      vi.mocked(Date.now).mockReturnValue(afterGate);
+      return { results: [{ check: "build", passed: false, repairable: true, exitCode: 1, output: "compile error", durationMs: 1 }],
+        verifyLaneDurationMs: 1, firstFailureCheck: "build", jobStartedAt: null, jobFinishedAt: null } as never;
+    });
+    const repair = vi.spyOn(repairExecution, "tryServerRepairLoop").mockResolvedValue({
+      stop: { reason: "time_budget_exceeded", retryable: true }, reverifyCurrent: false,
+      contextCasMiss: false, buildOriginated: true, integrationMigrationHoldApplied: false,
+    });
+    await verifyVersionUnderLease({ chatId: "c", versionId: "v", holderRunId: "run", snapshot: snapshot as never,
+      repairAuthority: "manual", forceBuildCheck: true, verifyDeadlineEpochMs: deadline });
+    expect(gate).toHaveBeenCalledWith(expect.objectContaining({ verifyDeadlineEpochMs: deadline }));
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({ repairDeadlineEpochMs:
+      Math.min(deadline, resolveBackgroundRepairDeadlineEpochMs({ nowMs: afterGate, budgetMs: REPAIR_LOOP_BUDGET_MS })) }));
+    expect(versionRepo.failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("expired gate completion is retryable, not promoted or terminally failed; wrapper still releases", async () => {
+    const deadline = Date.now() + 100;
+    vi.spyOn(verificationLease, "isServerVerifyEligible").mockReturnValue(true);
+    vi.spyOn(verificationLease, "acquireVerifyLease").mockResolvedValue({ proceed: true, runId: "run" });
+    const release = vi.spyOn(verificationLease, "releaseVerifyLease").mockResolvedValue(undefined);
+    vi.spyOn(versionManager, "getVersionFilesSnapshot").mockResolvedValue(snapshot as never);
+    vi.spyOn(previewGate, "runQualityGateOnExportable").mockImplementation(async () => {
+      vi.mocked(Date.now).mockReturnValue(deadline);
+      return { results: [] } as never;
+    });
+    expect(await triggerServerVerification({ chatId: "c", versionId: "v", repairAuthority: "manual",
+      verifyDeadlineEpochMs: deadline })).toMatchObject({ kind: "stop", reason: "time_budget_exceeded", retryable: true });
+    expect(release).toHaveBeenCalledWith("v", "run");
+    expect(versionRepo.failVersionVerification).not.toHaveBeenCalled();
+    expect(versionRepo.promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("shared QG rejects an exhausted caller window without gate or terminal failure", async () => {
+    const gate = vi.spyOn(previewGate, "runQualityGateOnExportable");
+    expect(await runVersionQualityGateUnderLease({ chatId: "c", versionId: "v", holderRunId: "run",
+      snapshot: snapshot as never, verifyDeadlineEpochMs: Date.now() })).toMatchObject({
+        kind: "stop", reason: "time_budget_exceeded", retryable: true, status: 503,
+      });
+    expect(gate).not.toHaveBeenCalled();
+    expect(versionRepo.failVersionVerification).not.toHaveBeenCalled();
+  });
+});
 
 describe("server-verify repairability partition", () => {
   const failed = (check: string, repairable: boolean) => ({

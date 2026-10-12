@@ -49,12 +49,15 @@ export {
   createDraftVersion,
   createAndPromoteDraftVersion,
   getLatestVersion,
+  getServerPostcheckTarget,
+  listServerPostcheckCandidates,
   getPreferredVersion,
   isPreferredHeadVersion,
   getVersionsByChat,
   getVersionById,
   chatHasImportedRepoVersion,
 } from "./chat-repository/versions";
+export type { ServerPostcheckTarget } from "./chat-repository/versions";
 
 export { updateVersionFiles } from "./chat-repository/version-files";
 

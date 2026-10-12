@@ -36,6 +36,8 @@ const runLlmRepairGate = vi.hoisted(() => vi.fn());
 const runAutoFix = vi.hoisted(() => vi.fn());
 const runDeterministicImportRepair = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
+const readServerRepairBudget = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db/services/server-repair-budget", () => ({ readServerRepairBudget }));
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -77,10 +79,14 @@ vi.mock("@/lib/gen/autofix/deterministic-import-repair", () => ({
   runDeterministicImportRepair,
 }));
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => {
-  class RepairLedger {}
+  class RepairLedger {
+    static hydrate() { return new RepairLedger(); }
+  }
   return { RepairLedger, runLlmRepairGate };
 });
 vi.mock("./preview-quality-gate", () => ({
+  QualityGateUnavailableError: class QualityGateUnavailableError extends Error {},
+  QualityGateNotConfiguredError: class QualityGateNotConfiguredError extends Error {},
   isQualityGateConfigured,
   runQualityGateOnExportable,
   qualityGateAllPassed,
@@ -104,7 +110,7 @@ vi.mock("./tier3-readiness", () => ({
 }));
 
 import { serializeCodeProject } from "@/lib/gen/parser";
-import { triggerServerVerification } from "./server-verify";
+import { triggerServerVerification, verifyVersionUnderLease } from "./server-verify";
 
 const chatId = "chat-l1";
 const versionId = "ver-f3";
@@ -167,6 +173,11 @@ function gateFailTypecheck() {
 }
 
 beforeEach(() => {
+  // A pre-existing trusted bootstrap is read under this run's real lease/revision.
+  readServerRepairBudget.mockReset().mockImplementation(async (target: { chatId: string; versionId: string; runId: string; filesRevision: string }) => {
+    expect(target).toMatchObject({ chatId, versionId, runId: "run-l1", filesRevision: expect.any(String) });
+    return { status: "ready", snapshot: { scopeId: `${versionId}:original`, finalize: [], consumed: [] } };
+  });
   promoteVersion.mockReset().mockResolvedValue({ id: versionId });
   failVersionVerification.mockReset().mockResolvedValue(null);
   resetVersionVerificationToPending.mockReset().mockResolvedValue({ id: versionId });
@@ -176,7 +187,7 @@ beforeEach(() => {
   markVersionRepairing.mockReset().mockResolvedValue(null);
   acquireVersionLease.mockReset().mockResolvedValue({ runId: "run-l1" });
   releaseVersionLease.mockReset().mockResolvedValue(undefined);
-  renewVersionLease.mockReset().mockResolvedValue(undefined);
+    renewVersionLease.mockReset().mockResolvedValue(true);
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
   getChat.mockReset().mockResolvedValue({
@@ -238,6 +249,32 @@ beforeEach(() => {
 });
 
 describe("triggerServerVerification F3 readiness (L1)", () => {
+  it("held verification uses the supplied raw snapshot without acquiring/releasing or re-reading it", async () => {
+    const heldSnapshot = await getVersionFilesSnapshot();
+    getVersionFilesSnapshot.mockClear();
+    const outcome = await verifyVersionUnderLease({ chatId, versionId, holderRunId: "run-l1", snapshot: heldSnapshot });
+    expect(outcome).toMatchObject({ kind: "continue", filesRevision: "rev_f3", vmGatePassed: true, promoted: true });
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(buildExportableProject).toHaveBeenCalledWith(heldSnapshot.files, expect.anything());
+    expect(promoteVersion).toHaveBeenCalledWith(versionId, expect.any(String), "run-l1");
+  });
+
+  it("held migration CAS miss reports bounded context supersession without a new gate or snapshot", async () => {
+    const heldSnapshot = await getVersionFilesSnapshot();
+    getVersionFilesSnapshot.mockClear();
+    checkTier3ReadinessForVersion.mockResolvedValue({ ready: false, ok: false,
+      reason: "integration_migration_required", retryable: false });
+    holdVersionForIntegrationMigration.mockResolvedValue("cas_miss");
+    expect(await verifyVersionUnderLease({ chatId, versionId, holderRunId: "run-l1", snapshot: heldSnapshot,
+      forceBuildCheck: true })).toEqual({ kind: "superseded", cause: "context", forceBuildCheck: true, contextRetryUsed: true });
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
   it("(a) missing env → ingen promotion", async () => {
     checkTier3ReadinessForVersion.mockResolvedValue({
       ready: false,
@@ -603,7 +640,7 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
     );
   });
 
-  it("re-evaluates a before-first-gate decision once after a full-context CAS miss", async () => {
+  it("returns context supersession to the chain without swapping its raw snapshot or reacquiring", async () => {
     checkTier3ReadinessForVersion
       .mockResolvedValueOnce({
         ready: false,
@@ -646,10 +683,11 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
 
     await triggerServerVerification({ chatId, versionId });
 
-    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(2);
-    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(3);
-    expect(runQualityGateOnExportable).toHaveBeenCalledTimes(1);
-    expect(promoteVersion).toHaveBeenCalledTimes(1);
+    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(1);
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(1);
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(acquireVersionLease).toHaveBeenCalledTimes(1);
     expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
@@ -675,7 +713,7 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
 
     await triggerServerVerification({ chatId, versionId });
 
-    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(2);
+    expect(getVersionFilesSnapshot).toHaveBeenCalledTimes(1);
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledTimes(1);
     expect(runQualityGateOnExportable).not.toHaveBeenCalled();
     expect(failVersionVerification).not.toHaveBeenCalled();

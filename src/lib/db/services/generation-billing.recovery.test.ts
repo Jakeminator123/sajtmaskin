@@ -107,9 +107,17 @@ describe("generation billing recovery", () => {
     expect(conflictSet).not.toHaveProperty("usage_started_at");
 
     const rendered = renderSql(conflictSet.claim_keys);
-    expect(rendered.sql).toContain("@> jsonb_build_array");
-    expect(rendered.sql).toContain("|| jsonb_build_array");
-    expect(rendered.params).toContain("claim-a");
+    expect(rendered.sql).toContain("jsonb_agg(distinct receipt.value)");
+    expect(rendered.sql).toContain("jsonb_array_elements_text");
+    expect(rendered.params).toContain(JSON.stringify(["claim-a"]));
+  });
+
+  it("atomically stores both the generation and brief receipts on insert and merges them on retry", async () => {
+    await establishGenerationBilling({ chatId: "chat-1", versionId: "version-1", userId: "user-1", claimKey: "generation-claim", claimKeys: ["brief-claim", "generation-claim"] });
+    expect(insertedValues[1]?.claim_keys).toEqual(["generation-claim", "brief-claim"]);
+    const conflict = renderSql((conflictConfigs[0]?.set as Record<string, unknown>).claim_keys);
+    expect(conflict.sql).toContain("jsonb_agg(distinct receipt.value)");
+    expect(conflict.params).toContain(JSON.stringify(["generation-claim", "brief-claim"]));
   });
 
   it("persists a non-free policy for markerless post-processing", async () => {
@@ -184,6 +192,20 @@ describe("generation billing recovery", () => {
     expect(pending.sql).toContain("set status = 'pending'");
   });
 
+  it("recovers a client's separate brief by exact receipt and persisted billing owner, never by session or age", async () => {
+    await reattributeGenerationBillingUsage({ chatId: "chat-1", versionId: "version-1", claimKeys: ["generation-claim", "brief-claim"] });
+    const attach = renderSql(execute.mock.calls[1]?.[0]);
+    expect(attach.sql).toContain("set chat_id =");
+    expect(attach.sql).toContain("chat_id is null");
+    expect(attach.sql).toContain("phase = 'brief'");
+    expect(attach.sql).toContain("user_id = (");
+    expect(attach.sql).toContain("select user_id from generation_billings");
+    expect(attach.sql).toContain("version_id is null");
+    expect(attach.params).toContain(JSON.stringify(["generation-claim", "brief-claim"]));
+    expect(attach.sql).not.toContain("session_id");
+    expect(attach.sql).not.toContain("minutes");
+  });
+
   it("selects every stored/count mismatch regardless of terminal status", async () => {
     await expect(reconcilePendingGenerationBillings(25)).resolves.toEqual({
       attempted: 0,
@@ -198,6 +220,9 @@ describe("generation billing recovery", () => {
     expect(candidateQuery.sql).toContain("counted.created_at >= gb.usage_started_at");
     expect(candidateQuery.sql).toContain("unattached.version_id is null");
     expect(candidateQuery.sql).toContain("gb.claim_keys");
+    expect(candidateQuery.sql).toContain("unattached.chat_id is null");
+    expect(candidateQuery.sql).toContain("unattached.phase = 'brief'");
+    expect(candidateQuery.sql).toContain("unattached.user_id = gb.user_id");
     expect(candidateQuery.sql).not.toMatch(/status in \([^)]*charged[^)]*\)/);
   });
 });

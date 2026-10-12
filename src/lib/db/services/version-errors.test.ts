@@ -1,4 +1,66 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SERVER_REPAIR_BUDGET_LOG_CATEGORY } from "./version-errors";
+describe("server-only policy skip and current-policy readers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks(); setF2ProductPostcheck(false); txOrder.length = 0;
+    lockedVersionRows.mockReturnValue([{ chatId: "c1", filesRevision: "rev_n" }]);
+    insertRows.mockReturnValue([{ id: "policy" }]); selectRows.mockReturnValue([]);
+  });
+  afterEach(() => { setF2ProductPostcheck(true); });
+  const store = () => storeProductPostcheckPolicySkip({ chatId: "c1", versionId: "v1", expectedFilesRevision: "rev_n" });
+  it("real OFF stores a revision-bound canonical skip under the version lock", async () => {
+    await expect(store()).resolves.toMatchObject({ status: "stored" });
+    expect(txOrder).toEqual(["version", "logs"]);
+    expect(insertValuesSpy.mock.calls[0][0]).toMatchObject({ id: "product-postcheck-policy:v1:rev_n", category: "product_postcheck.summary",
+      meta: { verdict: "allowed_skip", skippedReason: "feature_disabled", attestedFilesRevision: "rev_n" } });
+    expect(claimWhereSpy).not.toHaveBeenCalled();
+  });
+  it("ON cannot mint a policy skip even with a valid revision", async () => {
+    setF2ProductPostcheck(true);
+    await expect(store()).resolves.toMatchObject({ status: "superseded" });
+    expect(db.transaction).not.toHaveBeenCalled(); expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it.each(["chat", "revision"])("changed %s writes no policy receipt", async mismatch => {
+    lockedVersionRows.mockReturnValue([{ chatId: mismatch === "chat" ? "other" : "c1", filesRevision: mismatch === "revision" ? "forged" : "rev_n" }]);
+    await expect(store()).resolves.toMatchObject({ status: "superseded" }); expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it("a lost/empty insert result is not a storage acknowledgment", async () => {
+    insertRows.mockReturnValue([]);
+    await expect(store()).rejects.toThrow("not stored");
+  });
+  it.each(["allowed_skip", "pending", "blocked"])("generic writer denies all product %s payloads", async verdict => {
+    await expect(createEngineVersionErrorLogs([{ chatId: "c1", versionId: "v1", level: "info",
+      category: "product_postcheck.summary", message: "forged", meta: { verdict, skippedReason: "feature_disabled", filesRevision: "forged" } }]))
+      .rejects.toThrow("server owner");
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it("all four canonical readers apply the actual ON flag and both revision keys in SQL", async () => {
+    setF2ProductPostcheck(true);
+    await getEngineVersionErrorLogs("v1"); await getLatestEngineVersionErrorLogs("v1");
+    await getEngineVersionErrorLogsForCategories("v1", ["product_postcheck.summary"]);
+    await getLatestEngineVersionErrorLogForCategory("v1", "product_postcheck.summary");
+    expect(queryWhereSpy).toHaveBeenCalledTimes(4);
+    for (const [where] of queryWhereSpy.mock.calls) {
+      const sql = new PgDialect().sqlToQuery(where).sql;
+      expect(sql).toContain("IS DISTINCT FROM 'feature_disabled'");
+      expect(sql).toContain("->>'attestedFilesRevision'"); expect(sql).toContain("->>'filesRevision'");
+    }
+  });
+  it("OFF->ON invalidates policy skip while current canonical blockers remain visible", () => {
+    const disabled = { verdict: "allowed_skip", skippedReason: "feature_disabled", attestedFilesRevision: "rev_n" };
+    const blocked = { verdict: "blocked", attestedFilesRevision: "rev_n" };
+    expect(productPostcheckLogMatchesCurrentFilesRevision(disabled, "rev_n")).toBe(true);
+    setF2ProductPostcheck(true);
+    expect(productPostcheckLogMatchesCurrentFilesRevision(disabled, "rev_n")).toBe(false);
+    expect(productPostcheckLogMatchesCurrentFilesRevision(blocked, "rev_n")).toBe(true);
+    expect(productPostcheckLogMatchesCurrentFilesRevision({ filesRevision: "forged", verdict: "allowed_skip" }, "rev_n")).toBe(false);
+  });
+});
+
+import { FEATURES } from "@/lib/config";
+function setF2ProductPostcheck(value: boolean) {
+  Object.defineProperty(FEATURES, "f2ProductPostcheck", { value, configurable: true });
+}
 
 // ---------------------------------------------------------------------------
 // db/client mock — captures the chained .delete().where().returning() call.
@@ -9,7 +71,14 @@ const whereSpy = vi.fn();
 const returningSpy = vi.fn();
 const insertRows = vi.fn(() => [] as unknown[]);
 const selectRows = vi.fn(() => [] as unknown[]);
-const lockedVersionRows = vi.fn(() => [] as Array<{ filesRevision: string | null }>);
+const lockedVersionRows = vi.fn(() => [] as Array<{ filesRevision: string | null; chatId: string }>);
+const lockedJobRows = vi.fn(() => [] as Array<{ runId: string }>);
+const completedRows = vi.fn(() => [] as Array<{ runId: string }>);
+const txOrder: string[] = [];
+const claimWhereSpy = vi.fn();
+const jobWhereSpy = vi.fn();
+const claimSetSpy = vi.fn();
+const queryWhereSpy = vi.fn();
 /** Fångar raderna som faktiskt skulle skrivas, så metan går att granska. */
 const insertValuesSpy = vi.fn();
 
@@ -17,7 +86,8 @@ vi.mock("@/lib/db/client", () => {
   const insertChain = () => ({
     values: (values: unknown) => {
       insertValuesSpy(values);
-      return { returning: () => Promise.resolve(insertRows()) };
+      const returning = () => Promise.resolve(insertRows());
+      return { returning, onConflictDoUpdate: () => ({ returning }) };
     },
   });
   return {
@@ -34,16 +104,29 @@ vi.mock("@/lib/db/client", () => {
         },
       })),
       insert: vi.fn(() => insertChain()),
-      select: vi.fn(() => ({ from: () => ({ where: () => Promise.resolve(selectRows()) }) })),
+      select: vi.fn(() => ({ from: () => ({ where: (where: unknown) => {
+        queryWhereSpy(where);
+        const rows = () => Object.assign(Promise.resolve(selectRows()), { orderBy: () => rows(), limit: () => rows() });
+        return rows();
+      } }) })),
       execute: vi.fn(() => Promise.resolve([])),
       transaction: vi.fn(async (fn: (tx: unknown) => unknown) => {
         const tx = {
           execute: vi.fn(() => Promise.resolve([])),
-          insert: vi.fn(() => insertChain()),
+          insert: vi.fn(() => { txOrder.push("logs"); return insertChain(); }),
+          update: vi.fn(() => { txOrder.push("claim"); return { set: (value: unknown) => {
+            claimSetSpy(value); return { where: (where: unknown) => { claimWhereSpy(where); return {
+              returning: async () => completedRows(),
+            }; } };
+          } }; }),
           select: vi.fn(() => ({
-            from: () => ({
-              where: () => ({
-                for: () => Promise.resolve(lockedVersionRows()),
+            from: (table: unknown) => ({
+              where: (where: unknown) => ({
+                for: () => {
+                  txOrder.push(table === engineVersions ? "version" : "job");
+                  if (table !== engineVersions) jobWhereSpy(where);
+                  return Promise.resolve(table === engineVersions ? lockedVersionRows() : lockedJobRows());
+                },
               }),
             }),
           })),
@@ -67,20 +150,7 @@ vi.mock("@/lib/gen/scaffolds", () => ({
   getScaffoldById: vi.fn().mockReturnValue(null),
 }));
 
-vi.mock("@/lib/db/schema", () => ({
-  engineChats: { id: "engine_chats.id", scaffoldId: "engine_chats.scaffold_id" },
-  engineVersionErrorLogs: {
-    id: "engine_version_error_logs.id",
-    version_id: "engine_version_error_logs.version_id",
-    category: "engine_version_error_logs.category",
-    meta: "engine_version_error_logs.meta",
-    created_at: "engine_version_error_logs.created_at",
-  },
-  engineVersions: {
-    id: "engine_versions.id",
-    filesRevision: "engine_versions.files_revision",
-  },
-}));
+import { engineVersions } from "@/lib/db/schema";
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
@@ -89,7 +159,12 @@ import { db } from "@/lib/db/client";
 import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-missing-env";
 import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-error-report";
 import {
-  createAttestedProductPostcheckErrorLogs,
+  commitProductPostcheckResult,
+  storeProductPostcheckPolicySkip,
+  getEngineVersionErrorLogs,
+  getLatestEngineVersionErrorLogs,
+  getEngineVersionErrorLogsForCategories,
+  getLatestEngineVersionErrorLogForCategory,
   createEngineVersionErrorLogs,
   productPostcheckLogMatchesCurrentFilesRevision,
   PRUNE_EXEMPT_CATEGORIES,
@@ -119,6 +194,30 @@ describe("productPostcheckLogMatchesCurrentFilesRevision", () => {
         "rev_n_plus_1",
       ),
     ).toBe(false);
+  });
+});
+
+describe("budget receipt trust boundary", () => {
+  it("rejects an entire generic insert containing a reserved budget category", async () => {
+    vi.clearAllMocks();
+    const payload = [
+      { chatId: "c1", versionId: "v1", level: "info" as const, category: "diagnostic", message: "ordinary" },
+      { chatId: "c1", versionId: "v1", level: "info" as const, category: SERVER_REPAIR_BUDGET_LOG_CATEGORY, message: "forged init", meta: { kind: "init" } },
+    ];
+    await expect(createEngineVersionErrorLogs(payload)).rejects.toThrow("private owner");
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+
+  it("exempts the exact budget category from real prune SQL even without repairPassIndex", async () => {
+    whereSpy.mockClear();
+    deletedRows.mockReturnValue([]);
+    await pruneStaleVersionErrorLogs("v1", 2);
+    const query = new PgDialect().sqlToQuery(whereSpy.mock.calls[0][0] as never);
+    expect(query.sql.toLowerCase()).toContain("not in");
+    expect(query.params).toContain(SERVER_REPAIR_BUDGET_LOG_CATEGORY);
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain(SERVER_REPAIR_BUDGET_LOG_CATEGORY);
   });
 });
 
@@ -182,7 +281,7 @@ describe("pruneStaleVersionErrorLogs", () => {
     const { sql, params } = new PgDialect().sqlToQuery(where as never);
     // COALESCE runt category, inte ett naket NOT IN: `category` är nullable och
     // `NULL NOT IN (...)` är NULL, vilket skulle spara varje kategorilös rad.
-    expect(sql.toLowerCase()).toContain("coalesce($5, '') not in");
+    expect(sql.toLowerCase()).toContain('coalesce("engine_version_error_logs"."category", \'\') not in');
     expect(params).toContain(F3_READINESS_MISSING_ENV_CATEGORY);
   });
 
@@ -276,77 +375,68 @@ describe("createEngineVersionErrorLogs (lock-timeout degrade)", () => {
   });
 });
 
-describe("createAttestedProductPostcheckErrorLogs", () => {
-  const payloads = [
-    {
-      chatId: "c-1",
-      versionId: "v-1",
-      level: "info" as const,
-      category: "product_postcheck.summary",
-      message: "passed",
-      meta: { attestedFilesRevision: "rev_n" },
-    },
-    {
-      chatId: "c-1",
-      versionId: "v-1",
-      level: "warning" as const,
-      category: "product_postcheck.hydration_mismatch",
-      message: "warning",
-      meta: { attestedFilesRevision: "rev_n" },
-    },
-  ];
-
+describe("canonical server product result transaction", () => {
+  const held = { chatId: "c1", versionId: "v1", filesRevision: "rev_n", holderRunId: "holder_n" };
+  const key = { versionId: "v1", filesRevision: "rev_n", previewSession: "ps_n", lifecycleToken: "life_n", mutationRevision: 2 };
+  const claim = { runId: "product_n", claimGeneration: 3 };
+  const result = { ok: true as const, skipped: false, skippedReason: null, warnings: [], warningCount: 0,
+    productBlocked: false, routesChecked: 1, durationMs: 5, checkedUrl: "https://preview.example",
+    attestation: { previewSessionId: "ps_n", lifecycleToken: "life_n", filesRevision: "rev_n" } };
+  const commit = (overrides: Partial<Parameters<typeof commitProductPostcheckResult>[0]> = {}) =>
+    commitProductPostcheckResult({ held, key, claim, result, deadlineAt: Date.now() + 60_000, ...overrides });
   beforeEach(() => {
-    insertRows.mockReset();
-    insertRows.mockReturnValue([{ id: "log_1" }, { id: "log_2" }]);
-    selectRows.mockReset();
-    selectRows.mockReturnValue([]);
-    lockedVersionRows.mockReset();
-    lockedVersionRows.mockReturnValue([{ filesRevision: "rev_n" }]);
+    vi.clearAllMocks(); txOrder.length = 0;
+    selectRows.mockReturnValue([]); insertRows.mockReturnValue([]);
+    lockedVersionRows.mockReturnValue([{ chatId: "c1", filesRevision: "rev_n" }]);
+    lockedJobRows.mockReturnValue([{ runId: "holder_n" }]); completedRows.mockReturnValue([{ runId: "product_n" }]);
   });
-
-  afterEach(() => {
-    vi.clearAllMocks();
+  it("locks version -> job -> claim and saves canonical logs in that same transaction", async () => {
+    await expect(commit()).resolves.toMatchObject({ status: "stored" });
+    expect(txOrder).toEqual(["version", "job", "claim", "logs"]);
+    const guard = new PgDialect().sqlToQuery(claimWhereSpy.mock.calls[0][0]);
+    expect(guard.sql).toContain('"expires_at" > clock_timestamp()');
+    expect(guard.sql).toContain("clock_timestamp() <");
+    expect(guard.params).toEqual(expect.arrayContaining(["c1", "v1", "rev_n", "ps_n", "life_n", 2, "product_n", 3, "holder_n"]));
+    const job = new PgDialect().sqlToQuery(jobWhereSpy.mock.calls[0][0]);
+    expect(job.sql).toContain("clock_timestamp()");
+    expect(claimSetSpy.mock.calls[0][0].status).toBe("passed");
+    const logs = insertValuesSpy.mock.calls[0][0] as Array<{category:string; meta:Record<string,unknown>}>;
+    expect(logs[0].category).toBe("product_postcheck.summary");
+    expect(logs[0].meta).toMatchObject({ verificationRunId: "product_n", claimGeneration: 3, attestedFilesRevision: "rev_n", verdict: "passed" });
   });
-
-  it("locks and stores the whole batch only when the revision is current", async () => {
-    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
-      expectedFilesRevision: "rev_n",
-      lockTimeoutMs: 3000,
-    });
-
-    expect(result).toEqual({
-      status: "stored",
-      logs: [{ id: "log_1" }, { id: "log_2" }],
-    });
+  it.each(["revision", "chat", "lease", "claim"])("fence miss %s inserts nothing", async failure => {
+    if (failure === "revision") lockedVersionRows.mockReturnValue([{ chatId: "c1", filesRevision: "rev_new" }]);
+    if (failure === "chat") lockedVersionRows.mockReturnValue([{ chatId: "other", filesRevision: "rev_n" }]);
+    if (failure === "lease") lockedJobRows.mockReturnValue([]);
+    if (failure === "claim") completedRows.mockReturnValue([]);
+    await expect(commit()).resolves.toMatchObject({ status: "superseded" });
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it("insert failure rejects the transaction instead of independently completing a claim", async () => {
+    const error = new Error("offline insert failure");
+    insertRows.mockImplementationOnce(() => { throw error; });
+    await expect(commit()).rejects.toThrow(error);
     expect(db.transaction).toHaveBeenCalledTimes(1);
-    expect(insertValuesSpy).toHaveBeenCalledTimes(1);
-    expect((insertValuesSpy.mock.calls[0]?.[0] as unknown[])).toHaveLength(2);
+    expect(txOrder).toEqual(["version", "job", "claim", "logs"]);
   });
-
-  it("stores nothing when N became N+1 before the locked check", async () => {
-    lockedVersionRows.mockReturnValue([{ filesRevision: "rev_n_plus_1" }]);
-
-    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
-      expectedFilesRevision: "rev_n",
-      lockTimeoutMs: 3000,
-    });
-
-    expect(result).toEqual({ status: "superseded", logs: [] });
-    expect(insertValuesSpy).not.toHaveBeenCalled();
+  it("maps bounded lock contention to a retryable result", async () => {
+    vi.mocked(db.transaction).mockRejectedValueOnce({ code: "55P03" });
+    await expect(commit()).resolves.toEqual({ status: "contention", logs: [] });
   });
-
-  it("returns contention without a partial insert", async () => {
-    const lockError = Object.assign(new Error("lock timeout"), { code: "55P03" });
-    (db.transaction as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(lockError);
-
-    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
-      expectedFilesRevision: "rev_n",
-      lockTimeoutMs: 3000,
-    });
-
-    expect(result).toEqual({ status: "contention", logs: [] });
-    expect(insertValuesSpy).not.toHaveBeenCalled();
+  it.each([0, NaN])("exhausted/invalid deadline %s never completes or inserts", async deadlineAt => {
+    await expect(commit({ deadlineAt })).resolves.toMatchObject({ status: "superseded" });
+    expect(db.transaction).not.toHaveBeenCalled(); expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+  it("retains blockers and keeps preview-boot pending/reclaimable", async () => {
+    await commit({ result: { ...result, productBlocked: true } });
+    expect(claimSetSpy.mock.calls[0][0].status).toBe("blocked");
+    await commit({ result: { ...result, skipped: true, skippedReason: "preview_not_ready", attestation: null } });
+    expect(claimSetSpy.mock.calls[1][0].status).toBe("superseded");
+  });
+  it("rejects mismatched held/key/attestation without a transaction", async () => {
+    await expect(commit({ held: { ...held, filesRevision: "other" } })).resolves.toMatchObject({ status: "superseded" });
+    await expect(commit({ result: { ...result, attestation: { ...result.attestation, previewSessionId: "other" } } })).resolves.toMatchObject({ status: "superseded" });
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 });
 

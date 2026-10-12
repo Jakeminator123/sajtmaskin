@@ -5,7 +5,6 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type {
-  AutoFixPayload,
   MessageOptions,
   ChatMessagingParams,
   SendMessageOutcome,
@@ -19,7 +18,6 @@ import {
   isClientInitiatedAbort,
   isNetworkError,
 } from "./helpers";
-import { abortPostChecksForChat } from "./post-checks";
 import { handleSseStream } from "./stream-handlers";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
@@ -45,7 +43,6 @@ export function useSendMessage(
       systemPromptOverride?: string,
     ) => Promise<boolean>;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
-    autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
     lastSentSystemPromptRef: React.MutableRefObject<string | null>;
     startStreamSafetyTimer: (timeoutMs?: number) => void;
     touchStreamSafetyTimer: () => void;
@@ -92,7 +89,6 @@ export function useSendMessage(
   const {
     createNewChat,
     streamAbortRef,
-    autoFixHandlerRef,
     lastSentSystemPromptRef,
     startStreamSafetyTimer,
     touchStreamSafetyTimer,
@@ -375,6 +371,7 @@ export function useSendMessage(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          materializeImages: enableImageMaterialization,
           meta: promptMeta,
         };
         // OpenClaw prepared-prompt fast lane: top-level body tag (NOT meta —
@@ -399,7 +396,6 @@ export function useSendMessage(
           requestBody.attachments = options.attachments;
         }
 
-        abortPostChecksForChat(chatId);
         streamAbortRef.current?.abort();
         streamController = new AbortController();
         streamAbortRef.current = streamController;
@@ -669,8 +665,6 @@ export function useSendMessage(
             onGenerationComplete,
             onPreviewSessionMeta,
             mutateVersions,
-            enableImageMaterialization,
-            autoFixHandlerRef,
             promptAssistModel,
             promptAssistDeep,
           },
@@ -767,7 +761,6 @@ export function useSendMessage(
       touchStreamSafetyTimer,
       clearStreamSafetyTimer,
       streamAbortRef,
-      autoFixHandlerRef,
       lastSentSystemPromptRef,
       setPreviewPending,
       isAuthReady,

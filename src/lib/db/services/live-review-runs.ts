@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
-import { engineChats, engineVersions, liveReviewRuns } from "@/lib/db/schema";
+import { engineChats, engineVersionJobs, engineVersions, liveReviewRuns } from "@/lib/db/schema";
+import { LEASE_LOCK_TIMEOUT_MS, versionWriteWhere } from "@/lib/db/chat-repository/internal";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import {
   LIVE_REVIEW_CLAIM_LEASE_MS,
@@ -44,6 +45,21 @@ export type ClaimedLiveReview =
   | { kind: "cached"; result: LiveReviewResult; row: LiveReviewRunRow }
   | { kind: "in_flight"; row: LiveReviewRunRow }
   | { kind: "cost_capped"; result: LiveReviewResult; row: LiveReviewRunRow };
+
+/** Internal context from an existing versionslease, never a product/LR claim id. */
+export type LiveReviewHeldContext = {
+  chatId: string;
+  versionId: string;
+  filesRevision: string;
+  holderRunId: string;
+};
+
+export function isLiveReviewHeldContext(value: unknown): value is LiveReviewHeldContext {
+  if (!value || typeof value !== "object") return false;
+  const held = value as Partial<LiveReviewHeldContext>;
+  return [held.chatId, held.versionId, held.filesRevision, held.holderRunId]
+    .every((part) => typeof part === "string" && part.trim().length > 0);
+}
 
 async function selectRun(
   versionId: string,
@@ -202,7 +218,9 @@ export async function completeLiveReviewRun(input: {
         mobileUrl: input.screenshots?.mobileUrl ?? null,
         desktopBlobPath: input.desktopBlobPath ?? null,
         mobileBlobPath: input.mobileBlobPath ?? null,
-        modelAttempts: input.modelAttempts ?? 0,
+        // Reservation is durable before the critic starts. A late completion
+        // or an omitted count must never refund an already reserved attempt.
+        modelAttempts: sql`greatest(${liveReviewRuns.modelAttempts}, ${input.modelAttempts ?? 0})`,
         completedAt: now,
         expiresAt: liveReviewExpiresAt(now),
       })
@@ -228,6 +246,7 @@ export async function abandonLiveReviewRun(
       and(
         eq(liveReviewRuns.id, id),
         eq(liveReviewRuns.status, "running"),
+        eq(liveReviewRuns.modelAttempts, 0),
         ...(claimedAt ? [eq(liveReviewRuns.claimedAt, claimedAt)] : []),
       ),
     );
@@ -239,53 +258,42 @@ export async function abandonLiveReviewRun(
   }
 }
 
-/**
- * Reserve the paid critic slot only if this handler still owns the lease.
- * Returns null when another postcheck took over or the attempt cap is hit.
- */
+/** Reserve under the active versionsholder/revision and unchanged LR CAS/cap. */
 export async function beginPaidLiveReviewAttempt(input: {
   id: string;
   claimedAt: Date;
+  held: LiveReviewHeldContext;
+  deadlineAt: number;
 }): Promise<number | null> {
   if (!dbConfigured) return null;
   try {
-    const rows = await db
-      .update(liveReviewRuns)
-      .set({
-        modelAttempts: sql`${liveReviewRuns.modelAttempts} + 1`,
-      })
-      .where(
-        and(
-          eq(liveReviewRuns.id, input.id),
-          eq(liveReviewRuns.status, "running"),
-          eq(liveReviewRuns.claimedAt, input.claimedAt),
-          lt(liveReviewRuns.modelAttempts, LIVE_REVIEW_MAX_MODEL_ATTEMPTS),
-        ),
-      )
-      .returning({ modelAttempts: liveReviewRuns.modelAttempts });
-    return rows[0]?.modelAttempts ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function incrementLiveReviewModelAttempts(id: string): Promise<number> {
-  if (!dbConfigured) return LIVE_REVIEW_MAX_MODEL_ATTEMPTS;
-  try {
-    const rows = await db
-      .select({ modelAttempts: liveReviewRuns.modelAttempts })
-      .from(liveReviewRuns)
-      .where(eq(liveReviewRuns.id, id))
-      .limit(1);
-    const next = (rows[0]?.modelAttempts ?? 0) + 1;
-    await db
-      .update(liveReviewRuns)
-      .set({ modelAttempts: next })
-      .where(eq(liveReviewRuns.id, id));
-    return next;
-  } catch {
-    return LIVE_REVIEW_MAX_MODEL_ATTEMPTS;
-  }
+    if (!isLiveReviewHeldContext(input.held) || !Number.isFinite(input.deadlineAt) || Date.now() >= input.deadlineAt) return null;
+    const held = input.held;
+    const jobWhere = and(
+      eq(engineVersionJobs.versionId, held.versionId), eq(engineVersionJobs.runId, held.holderRunId),
+      eq(engineVersionJobs.status, "running"), gt(engineVersionJobs.leaseExpiresAt, sql`clock_timestamp()`),
+    );
+    return await db.transaction(async tx => {
+      await tx.execute(sql`SELECT set_config('lock_timeout', ${String(LEASE_LOCK_TIMEOUT_MS)}, true)`);
+      const versions = await tx.select({ chatId: engineVersions.chatId, filesRevision: engineVersions.filesRevision })
+        .from(engineVersions).where(eq(engineVersions.id, held.versionId)).for("update");
+      if (versions[0]?.chatId !== held.chatId || versions[0]?.filesRevision !== held.filesRevision) return null;
+      const jobs = await tx.select({ runId: engineVersionJobs.runId }).from(engineVersionJobs).where(jobWhere).for("update");
+      if (jobs.length !== 1) return null;
+      // Recheck clock expiry/deadline after waiting for the LR row.
+      const rows = await tx.update(liveReviewRuns)
+        .set({ modelAttempts: sql`${liveReviewRuns.modelAttempts} + 1` })
+        .where(and(eq(liveReviewRuns.id, input.id), eq(liveReviewRuns.status, "running"),
+          eq(liveReviewRuns.claimedAt, input.claimedAt), lt(liveReviewRuns.modelAttempts, LIVE_REVIEW_MAX_MODEL_ATTEMPTS),
+          eq(liveReviewRuns.chatId, held.chatId), eq(liveReviewRuns.versionId, held.versionId),
+          eq(liveReviewRuns.filesRevision, held.filesRevision), lt(sql`clock_timestamp()`, new Date(input.deadlineAt)),
+          sql`EXISTS (SELECT 1 FROM ${engineVersions} WHERE ${and(versionWriteWhere(held.versionId, held.holderRunId),
+            eq(engineVersions.chatId, held.chatId), eq(engineVersions.filesRevision, held.filesRevision))})`,
+          sql`EXISTS (SELECT 1 FROM ${engineVersionJobs} WHERE ${jobWhere})`,
+        )).returning({ modelAttempts: liveReviewRuns.modelAttempts });
+      return rows[0]?.modelAttempts ?? null;
+    });
+  } catch { return null; }
 }
 
 export async function getLiveReviewRunForVersion(

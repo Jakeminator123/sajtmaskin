@@ -435,6 +435,32 @@ describe("runLiveReview", () => {
     vi.mocked(recordLlmUsage).mockClear();
   });
 
+  it("expired absolute deadline makes no provider call", async () => {
+    const bundle = assembleReviewBundle({ versionId: "v1", parentVersionId: null, userRequest: "x", briefSummary: "",
+      changedFiles: [], screenshots: { desktopUrl: "https://blob.example/own.jpg", mobileUrl: null }, findings: [], domSummary: null });
+    const result = await runLiveReview(bundle, { deadlineAt: 0 });
+    expect(result.status).toBe("skipped");
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it.each(["false", "throw"])("holder check %s prevents every model call", async failure => {
+    const bundle = assembleReviewBundle({ versionId: "v1", parentVersionId: null, userRequest: "x", briefSummary: "",
+      changedFiles: [], screenshots: { desktopUrl: "https://blob.example/own.jpg", mobileUrl: null }, findings: [], domSummary: null });
+    const isTargetCurrent = vi.fn(async () => { if (failure === "throw") throw new Error("offline guard"); return false; });
+    await expect(runLiveReview(bundle, { deadlineAt: Date.now() + 1_000, isTargetCurrent })).resolves.toMatchObject({ reason: "preview_superseded" });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it("a fallback model cannot start after the holder was lost by the first attempt", async () => {
+    const bundle = assembleReviewBundle({ versionId: "v1", parentVersionId: null, userRequest: "x", briefSummary: "",
+      changedFiles: [], screenshots: { desktopUrl: "https://blob.example/own.jpg", mobileUrl: null }, findings: [], domSummary: null });
+    let current = true;
+    generateObject.mockImplementationOnce(async () => { current = false; throw new Error("first model unavailable"); });
+    const result = await runLiveReview(bundle, { deadlineAt: Date.now() + 1_000, isTargetCurrent: async () => current });
+    expect(result).toMatchObject({ reason: "preview_superseded" });
+    expect(generateObject).toHaveBeenCalledTimes(1);
+  });
+
   it("returnerar completed vid giltigt generateObject-svar", async () => {
     generateObject.mockResolvedValue({
       object: {

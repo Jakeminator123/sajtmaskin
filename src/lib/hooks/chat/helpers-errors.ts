@@ -59,6 +59,9 @@ export function isBuilderAuthRequiredError(error: unknown): error is BuilderAuth
   return error instanceof BuilderAuthRequiredError;
 }
 
+/** A paid preparation without a saved cost receipt must not silently trigger another paid fallback. */
+export class BriefUsageReceiptError extends Error {}
+
 const BRIEF_ROUTE_SESSION_ERROR = "unauthorized";
 
 function isErrorRecord(

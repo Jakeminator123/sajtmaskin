@@ -1,7 +1,5 @@
 import { after } from "next/server";
-import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 import { dbConfigured } from "@/lib/db/client";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
@@ -11,22 +9,19 @@ import "@/lib/logging/event-bus-subscribers";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
-import { startPreviewSession } from "@/lib/gen/preview/preview-session";
-import { pollAndApplyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp";
-import { getPreviewHostBaseUrl, isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
+import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   resolvePostFinalizePreviewBlockedState,
-  resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizePreview,
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { triggerBuildErrorRepair, triggerServerVerification } from "@/lib/gen/verify/server-verify";
+import { runVersionPostchecks } from "@/lib/gen/verify/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { debugLog, warnLog } from "@/lib/utils/debug";
+import { warnLog } from "@/lib/utils/debug";
 
 export type PostFinalizeSse = {
   enc: TextEncoder;
@@ -109,6 +104,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
   accumulatedContent: string;
   toolSignaledProviders: Set<string>;
   engineStartedAt: number;
+  /** Original request deadline; servercore consumes it, never a fresh finalize budget. */
+  requestDeadlineEpochMs: number;
   commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   buildSpec: BuildSpec;
   /** Called immediately after the persisted-version `done` SSE is enqueued. */
@@ -119,7 +116,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   repairPassIndex?: number;
 }): Promise<void> {
   const {
-    sse: { enc, safeEnqueue },
+    sse: { enc, safeEnqueue: deliverSse },
     chatId,
     finalized,
     accumulatedContent,
@@ -131,6 +128,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     recoveredAfterStreamAbort = false,
     repairPassIndex = 0,
   } = params;
+  const safeEnqueue = (data: Uint8Array) => { try { deliverSse(data); } catch { /* closed SSE never owns server progress */ } };
 
   // A persisted version is not reported as completed until its durable
   // billing work marker exists. Attribution/settlement failures remain
@@ -174,13 +172,11 @@ export async function runOwnEngineStreamPostFinalize(params: {
   }
 
   let parsedForPreview: CodeFile[] = [];
-  let parsedFromFinalizeFilesJson = false;
   if (finalized.filesJson?.trim()) {
     try {
       const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
       if (fromSaved && fromSaved.length > 0) {
         parsedForPreview = fromSaved;
-        parsedFromFinalizeFilesJson = true;
       }
     } catch {
       /* fallback below */
@@ -222,8 +218,6 @@ export async function runOwnEngineStreamPostFinalize(params: {
   //             finalize writer already left `null`, so no stamp is needed.
   // This replaces the old finalize-time `!hasPreviewBlockingPreflightErrors`
   // false-green, which claimed success before the runtime was ever attempted.
-  let previewRuntimeOutcome: boolean | null = previewBlocked ? false : null;
-  let bootedFilesRevision: string | null = finalized.version.files_revision;
 
   // Plain-language turn summary (turn-summary.ts). Its own event — not a
   // `content` delta — so the client appends it verbatim as a trailing
@@ -363,386 +357,49 @@ export async function runOwnEngineStreamPostFinalize(params: {
   });
   devLogFinalizeSite();
 
-  if (isTier2PreviewConfigured() && previewWillRun) {
-    safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "preview", phase: "starting" })));
-
-    try {
-      const chatRow = await chatRepo.getChat(chatId);
-      const appProjectId =
-        typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
-          ? chatRow.project_id.trim()
-          : null;
-      const previewSessionStartedAt = Date.now();
-      let previewSessionResult: Awaited<ReturnType<typeof startPreviewSession>>;
-      try {
-        previewSessionResult = await startPreviewSession(parsedForPreview, {
-          appProjectId,
-          chatId,
-          previewPolicy: buildSpec.previewPolicy,
-          verificationPolicy: buildSpec.verificationPolicy,
-          versionIdForSession: finalized.version.id,
-          filesRevisionForSession: finalized.version.files_revision,
-          // F3 previews must strip tier3-stub placeholders so missing real
-          // env vars surface as a runtime failure instead of being silently
-          // backfilled with `sk_test_...`-style stubs.
-          lifecycleStage: buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
-          // Våg 2: seed F2 preview `.env.local` with stubs for the selected
-          // dossiers' env keys so the dossier UI renders its demo/mock mode.
-          selectedDossierEnvKeys: finalized.selectedDossierEnvKeys,
-          skipRepair: parsedFromFinalizeFilesJson,
-          // filesJson from finalize is already scaffold-merged/repaired
-          // so preview bootstrap can skip project scaffold rebuild.
-          skipProjectScaffold: parsedFromFinalizeFilesJson,
-        });
-      } catch (previewStartError) {
-        debugLog("preview", "Preview session started", {
-          durationMs: Math.max(0, Date.now() - previewSessionStartedAt),
-          chatId,
-          versionId: finalized.version.id,
-          appProjectId,
-          ok: false,
-          stage: "preview-start",
-          message:
-            previewStartError instanceof Error ? previewStartError.message : "Preview start failed",
-        });
-        throw previewStartError;
-      }
-      debugLog("preview", "Preview session started", {
-        durationMs: Math.max(0, Date.now() - previewSessionStartedAt),
-        chatId,
-        versionId: finalized.version.id,
-        appProjectId,
-        ok: previewSessionResult.ok,
-        ...(previewSessionResult.ok
-          ? {
-              startOutcome: previewSessionResult.result.startOutcome,
-              previewTier: previewSessionResult.result.fidelityTier,
-            }
-          : {
-              stage: previewSessionResult.error.stage,
-              failureCode: previewSessionResult.error.failureCode,
-            }),
-      });
-      if (previewSessionResult.ok) {
-        const sr = previewSessionResult.result;
-        bootedFilesRevision = sr.filesRevision;
-        // Only a confirmed runtime-ready receipt (resume-verified `running:true`)
-        // counts as success. A freshly-created/updated session has only queued
-        // the boot, so it stays pending (null) until confirmed elsewhere.
-        previewRuntimeOutcome = sr.runtimeReady ? true : null;
-        // Fresh boot: host `waitForReady` finishes after this SSE handoff.
-        // Without a client preview-status poll the auth-eval dump kept
-        // `preview_success=null` and never wrote the host error. Attach the
-        // existing readiness stamp — do not start a long poller when `after()`
-        // is unavailable (scripts/tests).
-        if (!sr.runtimeReady && sr.previewSessionId) {
-          try {
-            after(() =>
-              pollAndApplyPreviewReadinessOutcome({
-                chatId,
-                versionId: finalized.version.id,
-                previewSessionId: sr.previewSessionId,
-                bootedFilesRevision: sr.filesRevision ?? bootedFilesRevision,
-                expectedLifecycleToken: sr.lifecycleToken ?? null,
-              }),
-            );
-          } catch {
-            /* no request scope — heartbeat/status remain the receipt path */
-          }
-        }
+  // One server-owned promise. SSE delivery is an observer, never a continuation trigger.
+  if (previewWillRun) safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "preview", phase: "starting" })));
+  const pending = runVersionPostchecks({
+    chatId, versionId: finalized.version.id, entry: "initial", deadlineEpochMs: params.requestDeadlineEpochMs,
+    notifications: {
+      policy: policy => {
+        const verificationPolicy = !policy.serverVerify.run && policy.serverVerify.reason === "design_preview_skip_verify"
+          ? "design_preview_skip_verify" : policy.verificationPolicy;
+        devLogAppend("in-progress", { type: "server-verify.policy", chatId, versionId: finalized.version.id,
+          run: policy.serverVerify.run, reason: policy.serverVerify.reason,
+          diagnosticOnly: policy.serverVerify.diagnosticOnly === true, verificationPolicy,
+          qualityTarget: buildSpec.qualityTarget, buildIntent: buildSpec.buildIntent, repairPassIndex });
+        if (!policy.serverVerify.run) emitBusEvent({ t: "version.verifier.done", chatId,
+          versionId: finalized.version.id, outcome: "skipped", blocked: false, reason: policy.serverVerify.reason });
+      },
+      previewReady: (receipt) => {
+        // A URL-only reuse is not a new host start/resume operation.
+        if (receipt.startOutcome !== "reused_url") {
         logPreviewLifecycleTelemetry({
-          kind: "preview_start_outcome",
-          chatId,
-          versionId: finalized.version.id,
-          outcome: sr.startOutcome,
-          previewPolicy: buildSpec.previewPolicy,
-          verificationPolicy: buildSpec.verificationPolicy,
-          tier2Provider: sr.tier2Meta?.tier2Provider,
-        });
-        // M#pv1 (PR #377 runda 4): `preview_ready` i lifecycle-telemetrin är
-        // runtime-up-signalen (incident-tooling läser den som "Runtime uppe").
-        // En fresh/updated session har bara KÖAT bootet — logga den som
-        // `preview_url_handoff` (samma fält, ärligt namn) och reservera
-        // `preview_ready` för det resume-verifierade kvittot (running:true).
-        const previewHandoffMs = Math.max(0, Date.now() - engineStartedAt);
-        logPreviewLifecycleTelemetry({
-          kind: sr.runtimeReady ? "preview_ready" : "preview_url_handoff",
-          chatId,
-          versionId: finalized.version.id,
-          previewSessionId: sr.previewSessionId,
-          previewMode: sr.previewMode,
-          fidelityTier: sr.fidelityTier,
-          prodBuildVerified: sr.prodBuildVerified,
-          startOutcome: sr.startOutcome,
-          previewPolicy: buildSpec.previewPolicy,
-          verificationPolicy: buildSpec.verificationPolicy,
-          msSinceEngineStart: previewHandoffMs,
-        });
-        // Spegla till timeline.ndjson (devLog är server-only och kan inte
-        // anropas från lifecycle-loggern, som även importeras av klienten) —
-        // backoffice-panelen "Preview-latens" läser dessa events härifrån.
-        // No-op i prod (generationslogg avstängd).
-        devLogAppend("in-progress", {
-          type: sr.runtimeReady ? "preview_ready" : "preview_url_handoff",
-          chatId,
-          versionId: finalized.version.id,
-          previewSessionId: sr.previewSessionId,
-          startOutcome: sr.startOutcome,
-          fidelityTier: sr.fidelityTier,
-          msSinceEngineStart: previewHandoffMs,
-        });
-        // The `preview-ready` SSE stays for BOTH cases — it is the client's
-        // URL handoff (stream-handlers.ts sets the iframe URL + binds session
-        // metadata on it, and the sync-JSON fallbacks read it for previewUrl).
-        // The additive `runtimeConfirmed` field carries the honest boot state
-        // so no consumer has to infer runtime-up from the event's existence.
-        safeEnqueue(
-          enc.encode(
-            formatSSEEvent("preview-ready", {
-              previewUrl: sr.previewUrl,
-              previewSessionId: sr.previewSessionId,
-              lifecycleToken: sr.lifecycleToken,
-              previewMode: sr.previewMode,
-              previewTier: sr.fidelityTier,
-              runtimeConfirmed: sr.runtimeReady,
-              ...(sr.prodBuildVerified !== undefined
-                ? { prodBuildVerified: sr.prodBuildVerified }
-                : {}),
-              ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
-            }),
-          ),
-        );
-        if (sr.previewUrl.trim()) {
-          // Awaited on purpose: this used to be fire-and-forget, but on
-          // serverless the function freezes right after the stream closes and
-          // the un-awaited write silently died — versions ended up with
-          // `preview_url = NULL` in prod despite a successful `preview-ready`
-          // (chat 4314362f, 2026-07-02). The write is a single UPDATE and the
-          // preview-ready SSE is already enqueued above, so awaiting costs
-          // nothing user-visible.
-          try {
-            await chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.previewUrl);
-          } catch (error) {
-            warnLog("engine", "Failed to persist previewUrl after preview-ready", {
-              chatId,
-              versionId: finalized.version.id,
-              previewUrl: sr.previewUrl,
-              message: error instanceof Error ? error.message : "Unknown error",
-            });
-          }
-        }
-      } else {
-        // Confirmed failure: the preview session did not start (host unreachable,
-        // disk full, invalid payload, …) so no runtime came up.
-        previewRuntimeOutcome = false;
-        logPreviewLifecycleTelemetry({
-          kind: "preview_failed",
-          chatId,
-          versionId: finalized.version.id,
-          stage: previewSessionResult.error.stage,
-          failureCode: previewSessionResult.error.failureCode,
-          detail: previewSessionResult.error.message,
-          previewPolicy: buildSpec.previewPolicy,
-          verificationPolicy: buildSpec.verificationPolicy,
+          kind: receipt.runtimeReady ? "preview_ready" : "preview_url_handoff",
+          chatId, versionId: finalized.version.id, previewSessionId: receipt.previewSessionId,
+          previewMode: receipt.previewMode, fidelityTier: receipt.fidelityTier,
+          prodBuildVerified: receipt.prodBuildVerified,
+          startOutcome: receipt.startOutcome,
+          previewPolicy: buildSpec.previewPolicy, verificationPolicy: buildSpec.verificationPolicy,
           msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
         });
-        warnLog("engine", "preview_failed", {
-          chatId,
-          versionId: finalized.version.id,
-          stage: previewSessionResult.error.stage,
-          message: previewSessionResult.error.message,
-        });
-        safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...previewSessionResult.error })));
-        // Opt-in (env-gated) auto-repair so VM build failures loop back
-        // through `runRepairLoop` automatically instead of waiting for
-        // a manual click on "Repair". See `triggerBuildErrorRepair`.
-        keepJobAlive(
-          triggerBuildErrorRepair({
-            chatId,
-            versionId: finalized.version.id,
-            buildError: {
-              stage: previewSessionResult.error.stage,
-              message: previewSessionResult.error.message,
-              failureCode: previewSessionResult.error.failureCode ?? null,
-            },
-            // Fas 3 (RepairGate): finalize's ledger — dedupes a server-repair of
-            // content+diagnostics already LLM-repaired during finalize.
-            repairLedger: finalized.repairLedger,
-            repairScopeId: finalized.repairScopeId,
-            onRepairAvailable: (payload) => {
-              safeEnqueue(
-                enc.encode(
-                  formatSSEEvent("version-repair-available", {
-                    versionId: payload.versionId,
-                    summary: payload.summary,
-                    repairAvailableAt: payload.repairAvailableAt,
-                  }),
-                ),
-              );
-            },
-          }).catch((repairErr) => {
-            warnLog("engine", "build_error_repair_trigger_failed", {
-              chatId,
-              versionId: finalized.version.id,
-              message: repairErr instanceof Error ? repairErr.message : "unknown",
-            });
-          }),
-        );
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Preview start failed";
-      // Confirmed failure: preview start threw before a runtime came up.
-      previewRuntimeOutcome = false;
-      logPreviewLifecycleTelemetry({
-        kind: "preview_failed",
-        chatId,
-        versionId: finalized.version.id,
-        stage: "preview-start",
-        detail: message,
-        previewPolicy: buildSpec.previewPolicy,
-        verificationPolicy: buildSpec.verificationPolicy,
-        msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
-      });
-      warnLog("engine", "preview_failed", {
-        chatId,
-        versionId: finalized.version.id,
-        stage: "preview-start",
-        message,
-      });
-      safeEnqueue(
-        enc.encode(
-          formatSSEEvent("build-error", {
-            stage: "preview-start" as const,
-            message,
-          }),
-        ),
-      );
-      keepJobAlive(
-        triggerBuildErrorRepair({
-          chatId,
-          versionId: finalized.version.id,
-          buildError: {
-            stage: "preview-start",
-            message,
-          },
-          repairLedger: finalized.repairLedger,
-          repairScopeId: finalized.repairScopeId,
-          onRepairAvailable: (payload) => {
-            safeEnqueue(
-              enc.encode(
-                formatSSEEvent("version-repair-available", {
-                  versionId: payload.versionId,
-                  summary: payload.summary,
-                  repairAvailableAt: payload.repairAvailableAt,
-                }),
-              ),
-            );
-          },
-        }).catch((repairErr) => {
-          warnLog("engine", "build_error_repair_trigger_failed", {
-            chatId,
-            versionId: finalized.version.id,
-            message: repairErr instanceof Error ? repairErr.message : "unknown",
-          });
-        }),
-      );
-    }
-  }
-
-  // M#pv1: persist the confirmed preview runtime outcome (best-effort; never
-  // throws). Pending (null) is left as the finalize writer wrote it, so the row
-  // honestly reads "unconfirmed" rather than a premature green.
-  if (previewRuntimeOutcome !== null && dbConfigured) {
-    if (bootedFilesRevision) {
-      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome, {
-        bootedFilesRevision,
-      });
-    } else {
-      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome);
-    }
-  }
-
-  const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({
-    buildSpec,
-    finalized,
-    repairPassIndex,
-  });
-  const resolvedVerificationPolicy =
-    !serverVerifyDecision.run && serverVerifyDecision.reason === "design_preview_skip_verify"
-      ? "design_preview_skip_verify"
-      : buildSpec.verificationPolicy;
-  // OMTAG-06: the server-verify **policy decision** (run-or-skip) is
-  // retained as a devLog entry — it's not a verifier result, and the
-  // projection only cares about actual verifier outcomes. The policy
-  // line also seeds a bus event with `outcome: "skipped"` when we
-  // elected NOT to run, so the projection knows the verifier won't
-  // produce a follow-up `version.verifier.done`.
-  if (!serverVerifyDecision.run) {
-    emitBusEvent({
-      t: "version.verifier.done",
-      versionId: finalized.version.id,
-      chatId,
-      outcome: "skipped",
-      blocked: false,
-      reason: serverVerifyDecision.reason,
-    });
-    // OMTAG-06 follow-up: also emit a degraded note so the UI knows
-    // server-verify never ran. Without this the version-status
-    // projection only sees `verifierOutcome: "skipped"`, which the
-    // existing UI maps to "no verifier needed" rather than "ran
-    // pipeline without verifier coverage". For design-preview skips
-    // this is intentional and harmless, but operators still want it
-    // surfaced so a wrongly-skipped F3 verify is visible in
-    // backoffice/llm_flode_telemetry.py.
-    emitBusEvent({
-      t: "version.degraded",
-      versionId: finalized.version.id,
-      chatId,
-      kind: "verifier_skipped_by_policy",
-      message: `Server-verify skipped (${serverVerifyDecision.reason}).`,
-      meta: {
-        reason: serverVerifyDecision.reason,
-        verificationPolicy: resolvedVerificationPolicy,
+        }
+        safeEnqueue(enc.encode(formatSSEEvent("preview-ready", {
+          previewUrl: receipt.previewUrl, previewSessionId: receipt.previewSessionId,
+          lifecycleToken: receipt.lifecycleToken, previewMode: receipt.previewMode,
+          previewTier: receipt.fidelityTier, runtimeConfirmed: receipt.runtimeReady,
+          ...(receipt.prodBuildVerified !== undefined ? { prodBuildVerified: receipt.prodBuildVerified } : {}),
+          ...(receipt.prodBuildLogSnippet ? { prodBuildLogSnippet: receipt.prodBuildLogSnippet } : {}),
+        })));
       },
-    });
-  }
-  devLogAppend("in-progress", {
-    type: "server-verify.policy",
-    chatId,
-    versionId: finalized.version.id,
-    run: serverVerifyDecision.run,
-    reason: serverVerifyDecision.reason,
-    diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
-    verificationPolicy: resolvedVerificationPolicy,
-    qualityTarget: buildSpec.qualityTarget,
-    buildIntent: buildSpec.buildIntent,
-    changeScope: buildSpec.changeScope,
-  });
-
-  if (serverVerifyDecision.run) {
-    keepJobAlive(
-      triggerServerVerification({
-        chatId,
-        versionId: finalized.version.id,
-        diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
-        // Fas 3 (RepairGate): finalize's ledger + scope so the server-repair
-        // lane dedupes against LLM repairs already attempted in finalize.
-        repairLedger: finalized.repairLedger,
-        repairScopeId: finalized.repairScopeId,
-        onRepairAvailable: (payload) => {
-          safeEnqueue(
-            enc.encode(
-              formatSSEEvent("version-repair-available", {
-                versionId: payload.versionId,
-                summary: payload.summary,
-                repairAvailableAt: payload.repairAvailableAt,
-              }),
-            ),
-          );
-        },
-      }).catch((err) => {
-        console.warn("[engine] Background server verification failed:", err);
-      }),
-    );
-  }
+      buildError: error => safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...error }))),
+      repairAvailable: payload => safeEnqueue(enc.encode(formatSSEEvent("version-repair-available", {
+        versionId: payload.versionId, summary: payload.summary, repairAvailableAt: payload.repairAvailableAt,
+      }))),
+    },
+  }).catch(error => warnLog("engine", "Server postchecks stopped", {
+    chatId, versionId: finalized.version.id, message: error instanceof Error ? error.message : "unknown",
+  }));
+  keepJobAlive(pending);
 }

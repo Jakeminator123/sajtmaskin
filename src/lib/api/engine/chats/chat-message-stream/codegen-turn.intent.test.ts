@@ -1,8 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getAiModelsManifest } from "@/lib/ai-models/load-manifest";
+
+const resolvedEngineBudget = vi.hoisted(() => ({ seconds: undefined as number | undefined }));
+vi.mock("@/lib/gen/defaults", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/defaults")>();
+  return { ...actual, get ENGINE_ROUTE_MAX_DURATION_SECONDS() {
+    return resolvedEngineBudget.seconds ?? actual.ENGINE_ROUTE_MAX_DURATION_SECONDS;
+  } };
+});
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({ addMessage: vi.fn() }));
-vi.mock("@/lib/gen/orchestrate", () => ({ resolveOrchestrationBase: vi.fn() }));
+vi.mock("@/lib/gen/orchestrate", () => ({ resolveOrchestrationBase: vi.fn(),
+  finalizeOrchestrationPrompts: vi.fn(), buildGenerationInputPackage: vi.fn(), writeOrchestrationDynamicDump: vi.fn() }));
 vi.mock("../configured-env-keys", () => ({
   resolveConfiguredEnvKeys: vi.fn(async () => new Set<string>()),
 }));
@@ -11,6 +21,7 @@ vi.mock("../request-kind-log", () => ({
 }));
 vi.mock("@/lib/models/phase-routing", () => ({
   resolvePhaseModel: vi.fn(() => ({ modelId: "gpt-5.4" })),
+  resolvePhaseThinking: vi.fn(() => ({ thinking: false })),
 }));
 vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
   createOwnEnginePipelineAndGenerationStream: vi.fn(),
@@ -20,7 +31,7 @@ vi.mock("./qa-short-circuit", () => ({
   buildQaShortCircuitStream: vi.fn(),
 }));
 
-import { resolveOrchestrationBase } from "@/lib/gen/orchestrate";
+import { resolveOrchestrationBase, finalizeOrchestrationPrompts, buildGenerationInputPackage } from "@/lib/gen/orchestrate";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import { parseChatRequestMeta } from "../parse-chat-request-meta";
 import { runCodegenTurn } from "./codegen-turn";
@@ -101,10 +112,44 @@ function params(
 }
 
 describe("codegen consumes the same effective metadata without late promotion", () => {
+  afterEach(() => { vi.restoreAllMocks(); resolvedEngineBudget.seconds = undefined; });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(resolveOrchestrationBase).mockRejectedValue(stopAtBoundary);
   });
+  it.each([120, 1800])("preserves the original followup deadline with resolved env budget %is", async (seconds) => {
+    resolvedEngineBudget.seconds = seconds;
+    vi.spyOn(Date, "now").mockReturnValue(120_000);
+    vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+    vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed prompt", variantId: null,
+      variantTemplateReferenceAttachments: [] } as never);
+    vi.mocked(buildGenerationInputPackage).mockReturnValue({} as never);
+    const boundary = new Error("deadline captured without provider work");
+    vi.mocked(createOwnEnginePipelineAndGenerationStream).mockImplementation(() => { throw boundary; });
+    await expect(runCodegenTurn({ ...params("audit"), promptStartedAt: 1_000, hasFollowUpBase: true })).rejects.toBe(boundary);
+    expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(expect.objectContaining({
+      requestDeadlineEpochMs: 1_000 + Math.min(seconds, getAiModelsManifest().routeTimeouts.engineRouteMaxDurationSeconds.default) * 1000,
+    }));
+  });
+  it.each([[true, false], [false, false], [undefined, false], [true, true]] as const)(
+    "passes typed image choice %s to the package factory (import=%s), never to prompt inputs", async (choice, imported) => {
+      const input = { ...params("audit", imported), materializeImages: choice };
+      const stop = new Error("keyless package boundary");
+      vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+        preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+        buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+      vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed prompt", variantId: null } as never);
+      vi.mocked(buildGenerationInputPackage).mockImplementation(() => { throw stop; });
+      await expect(runCodegenTurn(input)).rejects.toBe(stop);
+      expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: choice === true && !imported });
+      expect(vi.mocked(resolveOrchestrationBase).mock.calls[0][0]).not.toHaveProperty("materializeImages");
+      expect(vi.mocked(finalizeOrchestrationPrompts).mock.calls[0][1]).not.toHaveProperty("materializeImages");
+      expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     ["freeform", "app"],
     ["audit", "website"],
@@ -128,5 +173,16 @@ describe("codegen consumes the same effective metadata without late promotion", 
       scaffoldId: null,
       buildIntent: "website",
     });
+  });
+  it("does not materialize when the versions/provenance query was unavailable", async () => {
+    vi.mocked(resolveOrchestrationBase).mockResolvedValue({ resolvedScaffold: null, routePlan: { routes: [] },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      buildSpec: { qualityTarget: "standard", contextPolicy: "normal" } } as never);
+    vi.mocked(finalizeOrchestrationPrompts).mockResolvedValue({ engineSystemPrompt: "fixed", variantId: null } as never);
+    const stop = new Error("keyless package boundary");
+    vi.mocked(buildGenerationInputPackage).mockImplementation(() => { throw stop; });
+    await expect(runCodegenTurn({ ...params("audit"), materializeImages: true, versionsQuerySucceeded: false })).rejects.toBe(stop);
+    expect(vi.mocked(buildGenerationInputPackage).mock.calls[0][1]).toMatchObject({ materializeImages: false });
+    expect(createOwnEnginePipelineAndGenerationStream).not.toHaveBeenCalled();
   });
 });

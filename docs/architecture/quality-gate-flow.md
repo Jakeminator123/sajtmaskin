@@ -59,12 +59,13 @@ Aktuella checklistor per lane ägs av
 
 ## När gaten körs
 
-1. **Asynkt efter finalize** via `resolvePostFinalizeServerVerifyDecision` →
-   `triggerServerVerification`. Hoppas över bland annat vid
-   `verificationPolicy === "fast"`, `previewBlocked`, och F2-init utan
-   preflight-fel/verifier-Blocker. F2-ägaren är klienten
-   (`post-checks.ts` → `POST .../quality-gate`); server-verify skippas för F2
-   (`design_preview_skip_verify`).
+1. **Asynkt efter finalize** via
+   [`runVersionPostchecks`](../../src/lib/gen/verify/server-verify/verify-run.ts).
+   Lagrad startpolicy väljer server-verifiering eller den separata
+   kvalitetsgrinden under samma versionslås, aldrig båda som parallella
+   dispatcher. Bildförberedelse, revisionsomläsning, bekräftad preview och
+   produktresultat föregår gaten. Policy-skip och diagnostisk körning får
+   inte omtolkas till ett nytt promotionsmandat.
 2. **Explicit route** `POST /api/engine/chats/[chatId]/quality-gate`.
    `lifecycle_stage` väljer lanen; klient-body kan varken upp- eller
    nedgradera checks. För `integrationsBuild` kör routen först den
@@ -79,18 +80,20 @@ Aktuella checklistor per lane ägs av
    varje F3-promotion. Klientens skip av `/quality-gate` för
    integrationsversioner hoppar inte över grinden.
 3. **Efter repair** — både `server-verify` och `/repair` re-kör samma gate.
-4. **Browser-resume** (`useResumePendingVerification`): strandade F2-drafts
-   och **importerade basversioner** (`edit_kind="imported_repo"` —
-   template/ZIP/GitHub) körs genom den explicita routen vid nästa
-   builder-besök. Importlanen (2026-08-18) är importens enda
-   verifieringslivscykel: kortare åldersgrind (90 s), ingen
-   bildvalidering (verbatim-kontraktet) och gaten kör på verbatim-exporten
-   (`chatUsesVerbatimRepo`). Utfall: pass → promotad ("Verifierad"),
-   advisory-säkra typfel → promotad med varningar, render-risk/installfel →
-   `failed`.
+4. **Server-resume** använder samma core för berättigade F2-drafts och
+   **importerade basversioner** (template/ZIP/GitHub). Kandidaturvalet ägs av
+   [versions.ts](../../src/lib/db/chat-repository/versions.ts), bestående
+   återstartsbudget av
+   [server-repair-budget.ts](../../src/lib/db/services/server-repair-budget.ts).
+   Senaste version väljs före eligibility; körningen återvaliderar under lås.
+   Import behåller kortare åldersgrind, verbatim-export och ingen bildmutation
+   eller automatisk LiveReview. Utfallet följer samma gatepolicy som tidigare.
+   [Resume-routen](../../src/app/api/engine/postchecks/route.ts) är lokalt
+   förberedd men inte schemalagd; utan separat aktivering sker ingen periodisk
+   återstart. Ett builder-besök startar inte längre verifieringen.
 
-F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
-`triggerServerVerification`, utom den deterministiska F3-forken där klientens
+F3 (`previewPolicy: "fidelity3"`) ägs av serverns gemensamma post-finalize-kedja,
+utom den deterministiska F3-forken där klientens
 `runF3FinalizeAction` är enda gate-anropare.
 
 ## F2 vs F3
@@ -143,12 +146,14 @@ flowchart TD
     codegen[CodegenStream] --> normalize[Normalize]
     normalize --> syntax[SyntaxValidation]
     syntax --> mergedPkg[BaselinePackageJsonMerge]
-    mergedPkg --> verifier[VerifierPass]
-    verifier --> preflight[MergeAndPreflight]
-    preflight --> persist[VersionPersist]
-    persist --> preview[PreviewStart]
-    preview --> renderGate[RenderGate F2]
-    preview --> releaseGate[ReleaseGate F3]
+    mergedPkg --> preflight[MergeAndPreflight]
+    preflight --> verifier[VerifierPass]
+    verifier --> persist[VersionPersist]
+    persist --> prepare[Server: bildberedning och revisionsomlasning]
+    prepare --> preview[Previewpersistens och readiness]
+    preview --> product[Serveragt produktresultat]
+    product --> renderGate[RenderGate F2]
+    product --> releaseGate[ReleaseGate F3]
     renderGate -->|pass eller typecheck-only Advisory| promoted[PromoteVersion]
     renderGate -->|Blocker| repair[RepairGate]
     releaseGate -->|pass| promoted
@@ -181,10 +186,12 @@ Alla LLM-repair går genom `runLlmRepairGate`
 (`src/lib/gen/autofix/llm-repair-gate.ts`). Outcome-strängar ägs av
 `resolveServerRepairOutcome` i `server-verify-log-meta.ts`.
 
-Preview-VM:ens `build-error`-SSE startar repair-loopen automatiskt i **alla**
-miljöer sedan 2026-09-11 (`isAutoRepairBuildErrorEnabled` i
-`server-verify/build-error-trigger.ts`; production var av tills 40 dagars prod
-visade 3/3 budgetbundna reparationer). Kill-switch:
+Serverkedjans misslyckade preview-start kan anropa
+`repairBuildErrorUnderLease` under det befintliga versionslåset och samma
+deadline. `build-error`-SSE är en notifiering, inte en separat dispatcher.
+Import och diagnostisk policy får inte detta automatiska repair-mandat.
+`isAutoRepairBuildErrorEnabled` i `server-verify/build-error-trigger.ts`
+behåller befintlig miljöpolicy och kill-switch:
 `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0`. Vercels egna byggfel repareras
 fortfarande bara på knapptryck («Publicera om med fix», Ö3) — deploy-routen kan
 inte köra en bakgrundsreparation efter svaret på serverless, och

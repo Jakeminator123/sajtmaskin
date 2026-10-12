@@ -186,7 +186,7 @@ describe("contract docs source coverage", () => {
     expect(models).toContain("## Briefing");
     expect(deployRow).toMatch(/\| No\s*\|$/);
     expect(generatorRow).toContain("Yes (");
-    expect(generatorRow).toContain("src/lib/own-engine/generate-site-from-prompt.ts");
+    expect(generatorRow).toContain("src/lib/api/engine/chats/create-chat-stream-post.ts");
     expect(generatorRow).not.toContain("phase-routing.ts");
     expect(deployRow).not.toContain("phase-routing.ts");
     expect(models).not.toContain("phase-routing.test.ts");

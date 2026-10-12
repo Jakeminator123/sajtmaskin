@@ -19,6 +19,16 @@
 
 ---
 
+## Återanvändbart pipelinetestkonto
+
+Återanvändbart pipelinetestkonto: `PIPELINE_TEST_ACCOUNT_EMAIL` och
+`PIPELINE_TEST_ACCOUNT_PASSWORD` är operatörs-/testvariabler, inte appberoenden.
+De sparas i ignorerad `.env.local` och krypterat i Vercels tre miljöer, aldrig
+som `NEXT_PUBLIC_*` eller i Git. Kontot finns i DEV, som även används av Preview;
+env-värden i Production skapar inget konto där. Variablerna ger inga admin- eller
+gratisprivilegier och ska inte ersättas med de privilegierade `TEST_USER_*`.
+De aktiverar inte schemaläggning eller automatiska tester.
+
 ## Måste i praktiken (normal drift)
 
 Utan dessa brukar kärnan inte vara användbar i **preview + production**:
@@ -37,6 +47,26 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 ---
 
 ## Vanliga tillägg (funktioner ovanpå)
+
+### Automatisk återkoll av ofärdiga efterkontroller
+
+`SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är av; exakt `1` tillåter arbete i
+`/api/engine/postchecks`. Saknat eller annat värde är av. Det är inte ett datum
+eller en engångskörning. Vanlig generering och dess direkta efterkontroller
+fortsätter oberoende av denna flagga.
+
+Avsikten är en återkommande återkoll, inte att skapa nya sajter. Routen väljer
+högst två berättigade versioner per anrop och behåller befintliga försöks- och
+kostnadstak. Återupptagen LiveReview/reparation kan fortfarande vara betald.
+`CRON_SECRET` krävs även när funktionen är avstängd.
+
+Flaggan skapar inget schema: `vercel.json` saknar ännu en post för routen.
+Före aktivering krävs separat godkänd schemaläggning, konfigurerad autentisering,
+verifierad plattformstid och runtimeprov. Vercels env-ändringar gäller nya
+deployments, inte redan driftsatta versioner. Lokalt skapas inget cron-jobb.
+Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägaren.
+
+### Övriga tillägg
 
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
@@ -243,7 +273,7 @@ Varje genererad sajt får en egen `env.example`-fil i projektets filträd (syns 
 
 Filen tar bort behovet av att fråga användaren om env-variabler i chatten under F2:
 
-**Dossier-scopad:** `env.example` dumpar inte längre hela placeholder-katalogerna. Preflight skickar **alltid** in de valda dossiers env-nycklar (`dossierEnvScope`, även tom lista) i `injectProjectEnvFileIntoFilesJson` → `buildProjectEnvFileContents`, så filen bara listar (a) nycklar modellen själv skrev i `.env.local`, (b) projekt-preview-tokens och (c) env-nycklar för de **valda** dossiers. Sparade `projectEnvVars` laddas eller dekrypteras aldrig av den här byggaren. En sajt utan dossiers får alltså ingen katalogdump. Det F2-only "Upptäckta integrationer (kommenterade)"-blocket (redan projekt-scopat) behålls. Utan scope (äldre/okända callsites) faller det tillbaka på full dump av säkra placeholders — fortfarande utan sparade projektvärden.
+**Dossier-scopad:** `dossierEnvScope` är obligatoriskt i `injectProjectEnvFileIntoFilesJson` → `buildProjectEnvFileContents`; ett tomt scope ger ingen katalogdump. `env.example` listar modell-emitterade env-nycklar, projekt-preview-tokens och de valda dossiers env-nycklar. Sparade `projectEnvVars` laddas eller dekrypteras aldrig av byggaren. Det F2-only "Upptäckta integrationer (kommenterade)"-blocket behålls. Detta ändrar inte runtime-resolvern i `env-local.ts`: utelämnat `scopePlaceholdersToFiles` eller en tom fillista behåller där fulla placeholder-kataloger. `env.example` saknar däremot en scope-lös fallback.
 
 > **Provenance-vakt (2026-07-09):** "(b) modell-emitterad `.env.local`" gäller INTE den placeholder-`.env.local` som Sajtmaskins egen scaffold-merge injicerar i filträdet — den identifieras via markörraden `PIPELINE_ENV_LOCAL_MARKER` ([`env-local.ts`](../src/lib/gen/preview/env-local.ts)) och hoppas över både i `env.example`-byggaren och i preview-VM:ens `.env.local`-merge. Utan vakten läckte hela katalogen tillbaka som "generated"-lager vid varje regenerering och besegrade dossier-scopingen (och kunde skugga användarens env-panel-värden i preview:n).
 

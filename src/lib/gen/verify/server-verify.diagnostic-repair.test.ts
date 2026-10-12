@@ -76,6 +76,8 @@ vi.mock("@/lib/gen/autofix/llm-repair-gate", () => {
   return { RepairLedger, runLlmRepairGate };
 });
 vi.mock("./preview-quality-gate", () => ({
+  QualityGateUnavailableError: class QualityGateUnavailableError extends Error {},
+  QualityGateNotConfiguredError: class QualityGateNotConfiguredError extends Error {},
   isQualityGateConfigured,
   runQualityGateOnExportable,
   qualityGateAllPassed,
@@ -152,7 +154,7 @@ beforeEach(() => {
   markVersionRepairing.mockReset().mockResolvedValue(null);
   acquireVersionLease.mockReset().mockResolvedValue({ runId: "run-sm024" });
   releaseVersionLease.mockReset().mockResolvedValue(undefined);
-  renewVersionLease.mockReset().mockResolvedValue(undefined);
+    renewVersionLease.mockReset().mockResolvedValue(true);
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
@@ -318,6 +320,7 @@ describe("triggerServerVerification diagnostic persist — omitted protected pat
     getVersionFilesSnapshot.mockResolvedValue({
       files: [pageFile],
       filesJson: pageOnlyJson,
+      filesRevision: "rev-page-only",
       lifecycleStage: "integrations",
     });
     const initialSerialized = serializeCodeProject([pageFile]);

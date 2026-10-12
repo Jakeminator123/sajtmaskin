@@ -31,7 +31,6 @@ type Args = {
   resolvedPrompt: string | null;
   currentPreviewUrl: string | null;
   activeVersionId: string | null;
-  mediaEnabled: boolean;
   paletteState: PaletteState;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
@@ -79,7 +78,6 @@ export function useBuilderProjectActions({
   resolvedPrompt,
   currentPreviewUrl,
   activeVersionId,
-  mediaEnabled,
   paletteState,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
@@ -182,9 +180,8 @@ export function useBuilderProjectActions({
 
       let files: Array<{ name: string; content: string }> = [];
       if (activeVersionId) {
-        const materializeParam = mediaEnabled ? "&materialize=1" : "";
         const response = await fetch(
-          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}${materializeParam}`,
+          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
         );
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content: string }>;
@@ -213,7 +210,6 @@ export function useBuilderProjectActions({
     appProjectId,
     activeVersionId,
     currentPreviewUrl,
-    mediaEnabled,
     messages,
     paletteState,
     pendingProjectName,

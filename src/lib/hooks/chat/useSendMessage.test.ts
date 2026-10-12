@@ -6,7 +6,6 @@ import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
 import type {
-  AutoFixPayload,
   ChatMessagingParams,
   MessageOptions,
   SendMessageOutcome,
@@ -27,18 +26,6 @@ const toast = vi.hoisted(() => {
 
 vi.mock("sonner", () => ({ toast }));
 vi.mock("./stream-handlers", () => ({ handleSseStream }));
-vi.mock("./post-checks", () => ({
-  runPostGenerationChecks: vi.fn(),
-  abortPostChecksForChat: vi.fn(),
-}));
-vi.mock("./post-checks-fetch", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./post-checks-fetch")>();
-  return {
-    ...actual,
-    triggerImageMaterialization: vi.fn(),
-  };
-});
-vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
 vi.mock("@/lib/builder/project-env-events", () => ({
   dispatchF3Requirements,
   dispatchF3Status,
@@ -106,9 +93,6 @@ function createHarness(
   const deps = {
     createNewChat: vi.fn(depsOverrides?.createNewChat ?? (async () => true)),
     streamAbortRef: { current: null } as MutableRefObject<AbortController | null>,
-    autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<
-      (payload: AutoFixPayload) => void
-    >,
     lastSentSystemPromptRef: { current: null } as MutableRefObject<string | null>,
     startStreamSafetyTimer: vi.fn(),
     touchStreamSafetyTimer: vi.fn(),
@@ -150,6 +134,19 @@ afterEach(() => {
 });
 
 describe("useSendMessage 5-2 stale-base gate (client half)", () => {
+  it.each([[true, false], [false, true], [true, true], [undefined, false]] as const)(
+    "sends Blob materialization %s independently of image generations %s", async (materializeImages, imageGenerations) => {
+      fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(null, { status: 200 });
+      });
+      handleSseStream.mockResolvedValue(undefined);
+      const { result } = createHarness({ enableImageMaterialization: materializeImages, enableImageGenerations: imageGenerations });
+      await send(result, "Uppdatera hero copy");
+      expect(capturedBody).toMatchObject({ materializeImages: materializeImages === true, imageGenerations });
+      expect(capturedBody?.meta).not.toHaveProperty("materializeImages");
+    },
+  );
   // Fast-edit robustness (2026-07-23): the FIRST 409 stale_base_version is
   // auto-rebased — the send retries once against the server's latest version
   // so a quick follow-up prompt survives an autofix/repair that advanced the

@@ -3,11 +3,17 @@ import { runWithGenerationWork } from "@/lib/gen/stream/generation-work";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
+import type { GenerationFinalizeInput } from "@/lib/gen/generation-input-package";
+import { buildOrchestrationContract } from "@/lib/gen/orchestration-contract";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
 const addMessageMock = vi.hoisted(() => vi.fn());
 const failVersionVerificationMock = vi.hoisted(() => vi.fn());
 const logGenerationMock = vi.hoisted(() => vi.fn());
+vi.mock("./generation-stream-post-finalize", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./generation-stream-post-finalize")>();
+  return { ...actual, runOwnEngineStreamPostFinalize: vi.fn(actual.runOwnEngineStreamPostFinalize) };
+});
 
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
@@ -45,6 +51,7 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 import { createOwnEngineGenerationStream } from "./generation-stream";
+import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import { devLogAppend } from "@/lib/logging/dev-log";
 
 async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
@@ -159,6 +166,51 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["done", formatSSEEvent("done", {}), undefined],
+    ["fallback flush", "", "Done from fallback flush"],
+  ])("carries the same decided package through %s without emitting it in SSE", async (_name, ending, logNote) => {
+    const params = providerFaultParams("chat_decided", {});
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_800_000);
+    finalizeAndSaveVersionMock.mockImplementationOnce(async () => {
+      vi.mocked(Date.now).mockReturnValue(1_700_000_899_999);
+      return mockFinalizeResult;
+    });
+    const routePlan: GenerationFinalizeInput["routePlan"] = {
+      provenance: { primarySource: "prompt", sources: ["prompt"] },
+      siteType: "one-page",
+      reason: "decided empty routes",
+      routes: [],
+    };
+    const generationInput: GenerationFinalizeInput = {
+      buildSpec: params.buildSpec,
+      resolvedScaffold: null,
+      routePlan,
+      orchestrationContract: buildOrchestrationContract({ buildSpec: params.buildSpec, resolvedScaffold: null, routePlan }),
+      variantId: null,
+      lineageHash: "decided-lineage",
+      dossierSelection: { selected: [], poolSize: 0, byCapability: {} },
+      preGenerationContracts: { contracts: { dataMode: "none", integrations: [], envVars: [] }, unresolvedDecisions: [] },
+      removedCapabilities: [],
+      removedDossierIds: [],
+    };
+    const events = await collectSseEvents(createOwnEngineGenerationStream({
+      ...params,
+      generationInput,
+      pipelineStream: pipelineStreamFromSsePayload(formatSSEEvent("content", { text: "generated" }) + ending),
+    }));
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].generationInput).toBe(generationInput);
+    expect(finalizeAndSaveVersionMock.mock.calls[0]?.[0].logNote).toBe(logNote);
+    expect(events.find((event) => event.event === "meta")?.data).not.toHaveProperty("generationInput");
+    expect(runOwnEngineStreamPostFinalize).toHaveBeenCalledWith(expect.objectContaining({
+      requestDeadlineEpochMs: params.requestDeadlineEpochMs,
+      recoveredAfterStreamAbort: ending === "",
+    }));
+    expect(events.find((event) => event.event === "meta")?.data).not.toHaveProperty("requestDeadlineEpochMs");
   });
 
   it("emits chatId, meta, forwarded content, then done with version after pipeline done", async () => {
@@ -178,6 +230,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {
@@ -261,6 +314,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: true,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {
@@ -327,6 +381,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "bygg integrationer",
       engineIntent: "website",
       buildSpec: {
@@ -441,6 +496,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "uppdatera hero",
       engineIntent: "website",
       buildSpec: {
@@ -512,6 +568,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Bygg integrationer nu",
       engineIntent: "website",
       buildSpec: {
@@ -587,6 +644,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Bygg integrationer nu utifrån den finaliserade designversionen.",
       engineIntent: "website",
       buildSpec: {
@@ -672,6 +730,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "Godkänn förslag",
       engineIntent: "website",
       buildSpec: f3ToolOnlyBuildSpec,
@@ -915,6 +974,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         thinking: false,
       },
       engineModel: "gpt-5.4",
+      requestDeadlineEpochMs: 1_700_000_900_000,
       optimizedMessage: "build me a page",
       engineIntent: "website",
       buildSpec: {

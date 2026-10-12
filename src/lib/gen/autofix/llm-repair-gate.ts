@@ -41,8 +41,44 @@ export interface RepairLedgerRecord {
   lastOutcome?: "success" | "failed" | "partial" | "aborted" | "error";
 }
 
+export type RepairLedgerInvocation = Pick<RepairLedgerRecord, "contentHash" | "diagnosticFingerprint" | "requiredFiles"> & {
+  outcome: NonNullable<RepairLedgerRecord["lastOutcome"]> | "unknown";
+};
+export type RepairBudgetHooks = {
+  reserve: (identity: RepairLedgerInvocation) => Promise<void>;
+  complete: (identity: RepairLedgerInvocation) => Promise<void>;
+};
+
 export class RepairLedger {
   private records = new Map<string, RepairLedgerRecord>();
+  private invocations: Array<RepairLedgerInvocation & { scopeId: string; chatId: string }> = [];
+
+  observeInvocation(record: RepairLedgerRecord): RepairLedgerInvocation {
+    const observation = { contentHash: record.contentHash, diagnosticFingerprint: record.diagnosticFingerprint,
+      requiredFiles: [...record.requiredFiles], outcome: "unknown" as RepairLedgerInvocation["outcome"], scopeId: record.scopeId, chatId: record.chatId };
+    this.invocations.push(observation);
+    return observation;
+  }
+
+  /** Observations only. Exporting/hydrating a ledger grants no bootstrap authority. */
+  exportInvocations(chatId: string, scopeId: string): RepairLedgerInvocation[] {
+    return this.invocations.filter((call) => call.chatId === chatId && call.scopeId === scopeId)
+      .map(({ contentHash, diagnosticFingerprint, requiredFiles, outcome }) => ({ contentHash, diagnosticFingerprint, requiredFiles: [...requiredFiles], outcome }));
+  }
+
+  static hydrate(chatId: string, scopeId: string, calls: RepairLedgerInvocation[]): RepairLedger {
+    const ledger = new RepairLedger();
+    for (const call of calls) {
+      const key = [scopeId, chatId, call.contentHash, call.diagnosticFingerprint, call.requiredFiles.join(",")].join(":");
+      const previous = ledger.records.get(key);
+      const now = Date.now();
+      ledger.records.set(key, { key, scopeId, chatId, contentHash: call.contentHash, diagnosticFingerprint: call.diagnosticFingerprint,
+        requiredFiles: [...call.requiredFiles], attempts: (previous?.attempts ?? 0) + 1, firstSeenAt: previous?.firstSeenAt ?? now, lastSeenAt: now,
+        lastOutcome: call.outcome === "unknown" ? undefined : call.outcome });
+    }
+    // Hydration is not proof of a new finalize and must never authorize a fresh seed.
+    return ledger;
+  }
 
   keyFor(params: {
     scopeId: string;
@@ -126,6 +162,7 @@ export class RepairLedger {
 
   clear(): void {
     this.records.clear();
+    this.invocations = [];
   }
 }
 
@@ -162,6 +199,8 @@ export async function runLlmRepairGate(params: {
   errors: string[];
   chatId: string;
   timeoutMs: number;
+  /** Original absolute caller deadline, including time spent reserving payment. */
+  deadlineEpochMs?: number;
   requiredFiles?: string[];
   resolvedTier?: CanonicalModelId;
   config?: LlmRepairConfig;
@@ -176,13 +215,21 @@ export async function runLlmRepairGate(params: {
   phase?: string;
   scopeId?: string;
   ledger?: RepairLedger;
+  /** Server-loop only: strict durable writes, not best-effort phase telemetry. */
+  repairBudget?: RepairBudgetHooks;
 }): Promise<{
   result: Awaited<ReturnType<typeof runLlmFixer>>;
   fixerModel: string;
   /** True when the ledger dedupe-skipped this attempt (no LLM call made). */
   deduped: boolean;
+  stop?: { reason: "time_budget_exceeded"; retryable: true };
 }> {
   const config = params.config ?? resolveLlmRepairConfig(params.resolvedTier);
+  const deadlineExpired = () => params.deadlineEpochMs !== undefined &&
+    (!Number.isFinite(params.deadlineEpochMs) || Date.now() >= params.deadlineEpochMs);
+  const deadlineStop = () => ({ result: skippedResult(params.content), fixerModel: config.fixerModel, deduped: false,
+    stop: { reason: "time_budget_exceeded" as const, retryable: true as const } });
+  if (deadlineExpired()) return deadlineStop();
   const ledger = params.ledger;
   const scopeId = params.scopeId ?? params.chatId;
   const ledgerStart = ledger
@@ -215,24 +262,49 @@ export async function runLlmRepairGate(params: {
   }
   const ledgerKey = ledgerStart?.record.key ?? null;
 
+  if (params.repairBudget && !ledgerStart) throw new Error("Repair budget requires a hydrated ledger");
+  const identity = ledgerStart ? { contentHash: ledgerStart.record.contentHash, diagnosticFingerprint: ledgerStart.record.diagnosticFingerprint,
+    requiredFiles: [...ledgerStart.record.requiredFiles], outcome: "unknown" as const } : null;
+  // Dedupe has finished; reserve strictly before invoking the fixer.
+  if (identity) await params.repairBudget?.reserve(identity);
+  // A slow reservation cannot extend the original deadline. Keep any durable
+  // reservation; this STOP is neither a fixer invocation nor an aborted retry.
+  if (deadlineExpired()) return deadlineStop();
+  const timeoutMs = params.deadlineEpochMs === undefined
+    ? Math.max(1_000, params.timeoutMs)
+    : Math.min(params.timeoutMs, params.deadlineEpochMs - Date.now());
+  if (params.deadlineEpochMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) return deadlineStop();
+  let observation = params.deadlineEpochMs === undefined && ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
+
   const abort = new AbortController();
-  const timeoutHandle = setTimeout(() => abort.abort(), Math.max(1_000, params.timeoutMs));
+  const timeoutHandle = setTimeout(() => abort.abort(), timeoutMs);
   try {
-    const result = await runLlmFixer(params.content, params.errors, {
+    let result: FixerResult;
+    try {
+      const recurringPatterns = params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId);
+      if (deadlineExpired()) return deadlineStop();
+      observation ??= ledgerStart ? ledger?.observeInvocation(ledgerStart.record) : undefined;
+      result = await runLlmFixer(params.content, params.errors, {
       model: config.fixerModel,
       thinking: config.thinking,
       reasoningEffort: config.reasoningEffort,
       reasoningMode: config.reasoningMode,
       maxTokens: params.maxTokens,
       requiredFiles: params.requiredFiles,
-      recurringPatterns: params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId),
+      recurringPatterns,
       abortSignal: abort.signal,
-    });
+      });
+    } catch (err) {
+      if (ledger && ledgerKey) ledger.markError(ledgerKey);
+      if (observation) observation.outcome = "error";
+      if (identity) await params.repairBudget?.complete({ ...identity, outcome: "error" });
+      throw err;
+    }
     if (ledger && ledgerKey) ledger.complete(ledgerKey, result);
+    const outcome = result.aborted ? "aborted" : result.success ? "success" : result.partial ? "partial" : "failed";
+    if (observation) observation.outcome = outcome;
+    if (identity) await params.repairBudget?.complete({ ...identity, outcome });
     return { result, fixerModel: config.fixerModel, deduped: false };
-  } catch (err) {
-    if (ledger && ledgerKey) ledger.markError(ledgerKey);
-    throw err;
   } finally {
     clearTimeout(timeoutHandle);
   }

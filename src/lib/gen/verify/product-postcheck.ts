@@ -192,6 +192,8 @@ export type ProductPostcheckResult = {
   liveReview?: LiveReviewResult | null;
   /** Exact preview lifecycle/revision this result attests, set by the route. */
   attestation?: ProductPostcheckAttestation | null;
+  /** A server-confirmed durable write, not a client-supplied permission. */
+  storageReceipt?: { status: "stored"; versionId: string; filesRevision: string };
   /**
    * Unikt id för exakt DENNA verifieringskörning, myntat av API-routen.
    * Binder summary-, warning- och live-review-rader till samma körning så
@@ -746,6 +748,22 @@ function warning(
   extra: Omit<ProductPostcheckWarning, "code" | "message"> = {},
 ): ProductPostcheckWarning {
   return { code, message, ...extra };
+}
+
+/** HTML fragment resolution, including the browser's native document-top target. */
+export function hasHtmlFragmentTarget(href: string, doc: Document): boolean {
+  if (!href.startsWith("#")) return false;
+  const rawFragment = href.slice(1);
+  if (!rawFragment) return true;
+  let decodedFragment = rawFragment;
+  try { decodedFragment = decodeURIComponent(rawFragment); } catch { /* Retain literal fragment. */ }
+  for (const fragment of [rawFragment, decodedFragment]) {
+    if (doc.getElementById(fragment)) return true;
+    for (const element of doc.getElementsByName(fragment)) {
+      if (element.tagName === "A") return true;
+    }
+  }
+  return /^top$/i.test(decodedFragment);
 }
 
 export function evaluateProductDomSnapshot(
@@ -1621,11 +1639,14 @@ export async function runProductPostcheck(params: {
       });
     }
 
-    const snapshot = await page.evaluate<DomSnapshot, string>(
-      (meaningfulHrefSource) => {
+    const snapshot = await page.evaluate<DomSnapshot, { meaningfulHrefSource: string; fragmentTargetSource: string }>(
+      ({ meaningfulHrefSource, fragmentTargetSource }) => {
       const isMeaningfulCtaHref = new Function(
         `return (${meaningfulHrefSource});`,
       )() as (href: string | null | undefined) => boolean;
+      const hasHtmlFragmentTarget = new Function(
+        `return (${fragmentTargetSource});`,
+      )() as (href: string, doc: Document) => boolean;
       const visible = (el: Element): boolean => {
         const html = el as HTMLElement;
         const rect = html.getBoundingClientRect();
@@ -1706,8 +1727,7 @@ export async function runProductPostcheck(params: {
         anchors: Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'))
           .map((a) => {
             const href = a.getAttribute("href") || "";
-            const target = href.slice(1);
-            return { href, text: text(a), targetExists: href === "#" || Boolean(target && document.getElementById(target)) };
+            return { href, text: text(a), targetExists: hasHtmlFragmentTarget(href, document) };
           })
           .filter((a) => a.href !== "#"),
         images: Array.from(document.querySelectorAll<HTMLImageElement>("img"))
@@ -1767,7 +1787,7 @@ export async function runProductPostcheck(params: {
           })),
       };
     },
-      isMeaningfulCtaHref.toString(),
+      { meaningfulHrefSource: isMeaningfulCtaHref.toString(), fragmentTargetSource: hasHtmlFragmentTarget.toString() },
     );
     snapshot.hydrationCtaLabels = await page
       .evaluate(captureHydrationCtaLabelsInBrowser)

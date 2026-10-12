@@ -1,11 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { SetMessages } from "./types";
 
 const consumeSseResponse = vi.hoisted(() => vi.fn());
-const runPostGenerationChecks = vi.hoisted(() => vi.fn());
-const triggerImageMaterialization = vi.hoisted(() => vi.fn());
-const readPreviewPreflight = vi.hoisted(() => vi.fn(() => null));
+const fetchMock = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => {
   const fn = vi.fn();
   return Object.assign(fn, {
@@ -31,22 +29,6 @@ vi.mock("@/lib/builder/prompt-assist", async (importOriginal) => {
 
 vi.mock("sonner", () => ({
   toast,
-}));
-
-vi.mock("./post-checks", () => ({
-  runPostGenerationChecks,
-}));
-
-vi.mock("./post-checks-fetch", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./post-checks-fetch")>();
-  return {
-    ...actual,
-    triggerImageMaterialization,
-  };
-});
-
-vi.mock("./post-checks-preview", () => ({
-  readPreviewPreflight,
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -97,8 +79,6 @@ function createContext(setMessages: SetMessages) {
     setPreviewPending,
     onGenerationComplete,
     mutateVersions,
-    enableImageMaterialization: true,
-    autoFixHandlerRef: { current: vi.fn() },
     promptAssistModel: null,
     promptAssistDeep: false,
   };
@@ -117,19 +97,11 @@ function createContext(setMessages: SetMessages) {
 }
 
 describe("handleSseStream", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.clearAllMocks();
-    runPostGenerationChecks.mockResolvedValue(undefined);
-    triggerImageMaterialization.mockResolvedValue({
-      attempted: true,
-      strategy: "blob",
-      replaced: 0,
-      uploaded: 0,
-      skipped: 0,
-      warningCount: 0,
-      persisted: true,
-      filesRevision: "rev_n",
-    });
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockRejectedValue(new Error("Unexpected client orchestration request"));
   });
 
   it("recovers when an SSE error is followed by a rescued done event", async () => {
@@ -182,194 +154,33 @@ describe("handleSseStream", () => {
       previewUrl: "https://preview.example/chat_1/ver_1",
       onlySelectVersionIfWasLatest: false,
     });
-    expect(triggerImageMaterialization).toHaveBeenCalledWith({
-      chatId: "chat_1",
-      versionId: "ver_1",
-      enabled: true,
-      signal: expect.any(AbortSignal),
-    });
-    await vi.waitFor(() => {
-      expect(runPostGenerationChecks).toHaveBeenCalledWith(
-        expect.objectContaining({
-          chatId: "chat_1",
-          versionId: "ver_1",
-          assistantMessageId: "assistant_1",
-          streamQuality: expect.objectContaining({
-            hasCriticalAnomaly: false,
-            reasons: expect.arrayContaining(["error_event_recovered"]),
-          }),
-        }),
-      );
-    });
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(toast.warning).toHaveBeenCalledTimes(1);
     expect(toast.success).not.toHaveBeenCalled();
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
-  it("awaitar triggerImageMaterialization innan runPostGenerationChecks", async () => {
-    let releaseMaterialize!: () => void;
-    const blockedMaterialize = new Promise<{
-      attempted: true;
-      strategy: "blob";
-      replaced: number;
-      uploaded: number;
-      skipped: number;
-      warningCount: number;
-      persisted: boolean;
-      filesRevision: string;
-    }>((resolve) => {
-      releaseMaterialize = () =>
-        resolve({
-          attempted: true,
-          strategy: "blob",
-          replaced: 1,
-          uploaded: 1,
-          skipped: 0,
-          warningCount: 0,
-          persisted: true,
-          filesRevision: "rev_after_blob",
-        });
-    });
-    triggerImageMaterialization.mockImplementation(async () => blockedMaterialize);
-
-    consumeSseResponse.mockImplementation(
-      async (
-        _response: Response,
-        onEvent: (event: string, data: unknown, raw: string) => void,
-      ) => {
-        onEvent("chatId", { id: "chat_1" }, "");
-        onEvent(
-          "done",
-          {
-            chatId: "chat_1",
-            versionId: "ver_1",
-            messageId: "msg_1",
-            previewUrl: "https://preview.example/chat_1/ver_1",
-            preflight: {
-              previewBlocked: false,
-              verificationBlocked: false,
-              previewBlockingReason: null,
-            },
-          },
-          "",
-        );
-      },
-    );
-
+  it("observes a late server repair without starting client jobs", async () => {
     const store = createMessageStore();
-    const { ctx } = createContext(store.setMessages);
-
+    const { ctx, spies } = createContext(store.setMessages);
+    const refresh = vi.fn();
+    ctx.onVersionStatusRefresh = refresh;
+    consumeSseResponse.mockImplementation(async (_response, onEvent) => {
+      onEvent("chatId", { id: "chat_1" }, "");
+      onEvent("done", { chatId: "chat_1", versionId: "ver_1", demoUrl: "https://preview.example/v1" }, "");
+      onEvent("version-repair-available", { versionId: "repair_1", summary: "Server candidate" }, "");
+    });
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
-
-    expect(triggerImageMaterialization).toHaveBeenCalledWith({
-      chatId: "chat_1",
-      versionId: "ver_1",
-      enabled: true,
-      signal: expect.any(AbortSignal),
-    });
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
-
-    releaseMaterialize();
-    await vi.waitFor(() => {
-      expect(runPostGenerationChecks).toHaveBeenCalledWith(
-        expect.objectContaining({
-          chatId: "chat_1",
-          versionId: "ver_1",
-          priorFilesRevision: "rev_after_blob",
-          imageMutationPersisted: true,
-        }),
-      );
-    });
-    expect(triggerImageMaterialization.mock.invocationCallOrder[0]).toBeLessThan(
-      runPostGenerationChecks.mock.invocationCallOrder[0],
-    );
-  });
-
-  it("startar inte postcheck när materialiseringen timeoutar", async () => {
-    triggerImageMaterialization.mockResolvedValue({
-      attempted: true,
-      strategy: "blob",
-      replaced: 1,
-      uploaded: 1,
-      skipped: 0,
-      warningCount: 0,
-      persisted: false,
-      filesRevision: null,
-      error: "timeout",
-    });
-    consumeSseResponse.mockImplementation(
-      async (
-        _response: Response,
-        onEvent: (event: string, data: unknown, raw: string) => void,
-      ) => {
-        onEvent("chatId", { id: "chat_1" }, "");
-        onEvent(
-          "done",
-          {
-            chatId: "chat_1",
-            versionId: "ver_1",
-            messageId: "msg_1",
-            previewUrl: "https://preview.example/chat_1/ver_1",
-            preflight: {
-              previewBlocked: false,
-              verificationBlocked: false,
-              previewBlockingReason: null,
-            },
-          },
-          "",
-        );
-      },
-    );
-
-    const store = createMessageStore();
-    const { ctx } = createContext(store.setMessages);
-    await handleSseStream(new Response(null), ctx, new AbortController().signal);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(triggerImageMaterialization).toHaveBeenCalled();
-    expect(runPostGenerationChecks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chatId: "chat_1",
-        versionId: "ver_1",
-        holdBeforeChecks: expect.objectContaining({
-          category: "post-check.image-materialization-timeout",
-        }),
-      }),
-    );
-  });
-
-  it("kör post-checks när bildmaterialiseringen är en no-op", async () => {
-    consumeSseResponse.mockImplementation(
-      async (
-        _response: Response,
-        onEvent: (event: string, data: unknown, raw: string) => void,
-      ) => {
-        onEvent("chatId", { id: "chat_1" }, "");
-        onEvent(
-          "done",
-          {
-            chatId: "chat_1",
-            versionId: "ver_1",
-            messageId: "msg_1",
-            previewUrl: "https://preview.example/chat_1/ver_1",
-            preflight: {
-              previewBlocked: false,
-              verificationBlocked: false,
-              previewBlockingReason: null,
-            },
-          },
-          "",
-        );
-      },
-    );
-
-    const store = createMessageStore();
-    const { ctx } = createContext(store.setMessages);
-    await handleSseStream(new Response(null), ctx, new AbortController().signal);
-
-    await vi.waitFor(() => {
-      expect(runPostGenerationChecks).toHaveBeenCalled();
-    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(spies.mutateVersions).toHaveBeenCalled();
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+    expect(store.getMessages()[0]?.uiParts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "tool:quality-gate", output: expect.objectContaining({
+        status: "repair_available", newVersionId: "repair_1",
+      }) }),
+    ]));
+    expect(toast.message).toHaveBeenCalledWith("Serverreparation tillgänglig", expect.anything());
   });
 
   it("throws when an SSE error is followed by done without a recovered artifact", async () => {
@@ -390,8 +201,7 @@ describe("handleSseStream", () => {
     await expect(
       handleSseStream(new Response(null), ctx, new AbortController().signal),
     ).rejects.toThrow("Stream kaputt");
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
-    expect(triggerImageMaterialization).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(toast.warning).not.toHaveBeenCalled();
   });
 
@@ -418,8 +228,7 @@ describe("handleSseStream", () => {
     expect(result.chatIdFromStream).toBe("chat_1");
     expect(spies.onGenerationComplete).not.toHaveBeenCalled();
     expect(spies.mutateVersions).not.toHaveBeenCalled();
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
-    expect(triggerImageMaterialization).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(
       "Own-engine genererade ingen användbar kod i det här försöket.",
     );
@@ -461,7 +270,7 @@ describe("handleSseStream", () => {
     expect(result.hasRecoveredArtifact).toBe(false);
     expect(toast.error).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).not.toHaveBeenCalled();
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     // Den strömmade texten behålls som meddelandeinnehåll.
     expect(store.getMessages()[0]?.content).toContain("Här är sajten du bad om");
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
@@ -525,7 +334,7 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.content).not.toContain("Här är planen.");
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
     // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).toHaveBeenCalled();
   });
 

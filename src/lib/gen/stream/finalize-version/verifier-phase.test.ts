@@ -48,7 +48,8 @@ import { runVerifierPhase } from "./verifier-phase";
 import { resolveVerifierRerunTimeoutMs } from "./types";
 import { checkUndefinedJsxSymbols } from "@/lib/gen/verify/verifier-pass";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
-import { parseCodeProject } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
+import { applyBaselinePackageJsonMerge } from "@/lib/gen/export/project-scaffold";
 import { classifyVerifierFindingSeverity } from "@/lib/gen/preview/should-start-preview";
 
 function fencedFile(path: string, code: string): string {
@@ -85,6 +86,7 @@ function baseParams(contentForVersion: string) {
     resolvedScaffold: null,
     repairPassIndex: 0,
     contentForVersion,
+    prepareCandidate: vi.fn(async (content: string) => content),
     runAutoFix: vi.fn(async (content: string) => ({
       fixedContent: content,
       fixes: [],
@@ -96,10 +98,25 @@ function baseParams(contentForVersion: string) {
 
 describe("runVerifierPhase deterministic import pre-fix", () => {
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();
+  });
+
+  it.each(["unavailable", "throw"] as const)("does not mark a catalog repair verified when confirmation is %s", async (failure) => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [undefinedJsxFinding("app/page.tsx", "Link")], quality: [], llmAvailability: "completed",
+    });
+    if (failure === "throw") runVerifierPass.mockRejectedValueOnce(new Error("offline confirmation failed"));
+    else runVerifierPass.mockResolvedValueOnce({ blocking: [], quality: [], llmAvailability: "unavailable" });
+    const input = baseParams(PAGE_WITHOUT_IMPORTS);
+    const result = await runVerifierPhase(input);
+    expect(input.prepareCandidate).toHaveBeenCalledWith(expect.stringContaining('import Link from "next/link"'), "mechanical");
+    expect(runVerifierPass).toHaveBeenCalledTimes(2);
+    expect(String(runVerifierPass.mock.calls[1]?.[0])).toBe(result.contentForVersion);
+    expect(result.verifierBlockingFindings).toEqual([expect.objectContaining({ id: "verifier-llm-unavailable" })]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 
   it("resolves known missing imports (Link/Button/Badge) without the LLM gate", async () => {
@@ -586,7 +603,7 @@ export default function Page() {
 
 describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)", () => {
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();
@@ -957,7 +974,7 @@ describe("runVerifierPhase confirmation-rerun budget (prod AbortError on premium
   const RERUN_DELAY_MS = 45_000;
 
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();
@@ -1097,6 +1114,7 @@ describe("runVerifierPhase merged package.json", () => {
   );
   const GLOBALS = "```css file=\"app/globals.css\"\n@import \"tailwindcss\";\n```";
   const THIN_PROJECT = `${THIN_PKG}\n\n${LAYOUT}\n\n${PAGE}\n\n${GLOBALS}`;
+  const ASSEMBLED_PROJECT = serializeCodeProject(applyBaselinePackageJsonMerge(parseCodeProject(THIN_PROJECT).files));
 
   const PROD_MISSING_DEPS = {
     id: "missing-project-dependencies",
@@ -1105,7 +1123,7 @@ describe("runVerifierPhase merged package.json", () => {
   };
 
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();
@@ -1113,11 +1131,19 @@ describe("runVerifierPhase merged package.json", () => {
 
   it("hands the verifier the baseline-merged package.json, not the thin draft", async () => {
     runVerifierPass.mockResolvedValueOnce({ blocking: [], quality: [] });
-    await runVerifierPhase(baseParams(THIN_PROJECT));
+    await runVerifierPhase(baseParams(ASSEMBLED_PROJECT));
     const verifierContent = String(runVerifierPass.mock.calls[0]?.[0] ?? "");
     expect(verifierContent).toContain('"next"');
     expect(verifierContent).toContain("tailwindcss");
     expect(THIN_PKG).not.toContain('"next"');
+  });
+
+  it("does not add a display-only baseline to a thin imported manifest", async () => {
+    runVerifierPass.mockResolvedValueOnce({ blocking: [], quality: [], llmAvailability: "completed" });
+    await runVerifierPhase(baseParams(THIN_PROJECT));
+    expect(String(runVerifierPass.mock.calls[0]?.[0])).toBe(THIN_PROJECT);
+    expect(String(runVerifierPass.mock.calls[0]?.[0])).not.toContain('"next"');
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 
   it("does not send a thin-draft missing-dep finding to the LLM fixer after merge", async () => {
@@ -1125,7 +1151,7 @@ describe("runVerifierPhase merged package.json", () => {
       blocking: [PROD_MISSING_DEPS],
       quality: [],
     });
-    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    const result = await runVerifierPhase(baseParams(ASSEMBLED_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([]);
     expect(runLlmRepairGate).not.toHaveBeenCalled();
     expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
@@ -1150,7 +1176,7 @@ describe("runVerifierPhase merged package.json", () => {
       ],
       quality: [],
     });
-    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    const result = await runVerifierPhase(baseParams(ASSEMBLED_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([]);
     expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
@@ -1179,7 +1205,7 @@ describe("runVerifierPhase merged package.json", () => {
       fixerModel: "gpt-5.5",
       deduped: false,
     });
-    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    const result = await runVerifierPhase(baseParams(ASSEMBLED_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([
       expect.objectContaining({
         id: "missing-project-dependencies",
@@ -1199,7 +1225,7 @@ describe("runVerifierPhase merged package.json", () => {
       ],
       quality: [],
     });
-    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    const result = await runVerifierPhase(baseParams(ASSEMBLED_PROJECT));
     expect(result.verifierBlockingFindings).toEqual([]);
     expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
@@ -1207,7 +1233,7 @@ describe("runVerifierPhase merged package.json", () => {
 
 describe("runVerifierPhase first-pass LLM availability (C1 residual)", () => {
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();
@@ -1295,7 +1321,7 @@ describe("runVerifierPhase first-pass LLM availability (C1 residual)", () => {
 
 describe("runVerifierPhase keeps the full blocker list for gating (C2)", () => {
   beforeEach(() => {
-    runVerifierPass.mockReset();
+    runVerifierPass.mockReset().mockResolvedValue({ blocking: [], quality: [] });
     runLlmRepairGate.mockReset();
     appendErrorLogEvent.mockReset();
     devLogAppend.mockReset();

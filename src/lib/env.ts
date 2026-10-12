@@ -253,6 +253,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PROMPT_DUMP: z.string().optional(),
   SAJTMASKIN_SHIM_PREVIEW_DISABLED: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  /** Recovery route opt-in: only exactly 1 enables work; unset/0 stays off. Does not register cron. */
+  SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
   // Registry / remote component source (auth token for private registries)

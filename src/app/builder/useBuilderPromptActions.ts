@@ -23,7 +23,7 @@ import {
   savePendingBuilderDraft,
   serializeAttachmentUrls,
 } from "@/lib/builder/pending-builder-draft";
-import { isBuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
+import { BriefUsageReceiptError, isBuilderAuthRequiredError } from "@/lib/hooks/chat/helpers-errors";
 import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =
@@ -213,6 +213,10 @@ export function useBuilderPromptActions({
         pendingInstructionsOnceRef.current = false;
         return combined || null;
       } catch (error) {
+        if (error instanceof BriefUsageReceiptError) {
+          pendingBriefRef.current = null;
+          throw error;
+        }
         if (isBuilderAuthRequiredError(error)) throw error;
         debugLog("builder", "Dynamic instructions failed", error);
         return null;
@@ -281,6 +285,10 @@ export function useBuilderPromptActions({
         const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
         return await createNewChat(message, options, systemOverride);
       } catch (error) {
+        if (error instanceof BriefUsageReceiptError) {
+          toast.error(error.message);
+          return false;
+        }
         if (isBuilderAuthRequiredError(error)) {
           savePendingBuilderDraft({
             text: message,
