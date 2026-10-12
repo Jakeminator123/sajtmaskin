@@ -14,6 +14,10 @@ export async function GET(req: Request) {
       !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // This opt-in permits recovery work; it neither creates a schedule nor affects generation.
+  if (process.env.SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED !== "1") {
+    return NextResponse.json({ ok: true, skipped: "disabled" });
+  }
   const deadlineEpochMs = Date.now() + maxDuration * 1000 - 20_000;
   try {
     const candidates = await listServerPostcheckCandidates(2, deadlineEpochMs);

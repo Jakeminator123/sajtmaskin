@@ -43,6 +43,7 @@
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
     "SAJTMASKIN_PREVIEW_PREWARM",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -203,6 +204,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_BRIEF_MODEL",
+    "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_BRANDED_PILOT_ALLOWLIST",
@@ -523,6 +525,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify/build-error-trigger.ts`. Default ON in every environment since 2026-09-11 (production was OFF until 40 days of prod showed 3/3 bounded repairs). Explicit `0`/`false`/`off`/`no` is the kill-switch; `1`/`true`/`on`/`yes` is a no-op. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
+    },
+    {
+      "key": "SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-only opt-in for /api/engine/postchecks recovery work: exactly 1 enables it; unset, empty, 0 or any other value skips before candidate selection. Default OFF. Not a date, expiry, one-shot trigger or cron registration. Requires CRON_SECRET and separately approved scheduling/deployment; ordinary generation postchecks and existing cost/attempt caps are unchanged."
     },
     {
       "key": "SAJTMASKIN_METRICS_TOKEN",

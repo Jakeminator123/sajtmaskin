@@ -38,6 +38,26 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 ## Vanliga tillägg (funktioner ovanpå)
 
+### Automatisk återkoll av ofärdiga efterkontroller
+
+`SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är av; exakt `1` tillåter arbete i
+`/api/engine/postchecks`. Saknat eller annat värde är av. Det är inte ett datum
+eller en engångskörning. Vanlig generering och dess direkta efterkontroller
+fortsätter oberoende av denna flagga.
+
+Avsikten är en återkommande återkoll, inte att skapa nya sajter. Routen väljer
+högst två berättigade versioner per anrop och behåller befintliga försöks- och
+kostnadstak. Återupptagen LiveReview/reparation kan fortfarande vara betald.
+`CRON_SECRET` krävs även när funktionen är avstängd.
+
+Flaggan skapar inget schema: `vercel.json` saknar ännu en post för routen.
+Före aktivering krävs separat godkänd schemaläggning, konfigurerad autentisering,
+verifierad plattformstid och runtimeprov. Vercels env-ändringar gäller nya
+deployments, inte redan driftsatta versioner. Lokalt skapas inget cron-jobb.
+Se [pipelineöversikten](architecture/llm-pipeline.md) för den gemensamma ägaren.
+
+### Övriga tillägg
+
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
 | Cache / genereringslås / rate limit | `REDIS_URL` (alternativt `KV_URL`), `UPSTASH_REDIS_REST_URL` + token | Create/follow-up kräver fungerande Redis i preview/production och svarar 503 om kontolåset inte kan tas. Miljöer som delar användare och credits i samma databas måste använda samma Redis-backend för kontolåset; miljöprefixen för vanliga cache-/chatnycklar är fortsatt separata. Upstash REST används separat för rate limiting; `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` kringgår inte kontolåset. |

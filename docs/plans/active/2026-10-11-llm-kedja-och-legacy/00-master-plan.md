@@ -83,8 +83,17 @@ verifierad med READY och ACK för alla tre roller. Den befintliga chatten
 ## Körbord — samordnaren är enda redaktör
 
 **Lokalt implementerat och slutgranskat 2026-10-12. Inga arbetare har kvar
-skrivfönster. Samordnaren sparar den verifierade integrationen som lokal
-checkpoint; publicering, schemaläggning och liveacceptans ingår inte.**
+skrivfönster. Integrationen är sparad i lokal commit `b8df64b29`;
+publicering, schemaläggning och liveacceptans ingår inte.**
+
+Jakobs separat godkända env-uppföljning 2026-10-12:
+`SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED=0` är sparad i huvudcheckoutens och
+arbetscheckoutens ignorerade `.env.local` samt verifierat i Vercels Development,
+Preview och Production för `sajtmaskin`. Endast exakt `1` tillåter återstartsarbete;
+flaggan är inte ett datum eller ett schema och påverkar inte vanlig generering.
+Ingen cron-post, push, deploy eller aktivering har gjorts. Kontrakt och driftgräns
+finns i [ENV](../../../ENV.md#automatisk-återkoll-av-ofärdiga-efterkontroller).
+Uppföljningen har 50 riktade offlinetester samt cachefri typkontroll/lint gröna.
 
 Arbetsgren: `codex/llm-legacy-cleanup`. C1.4-integrationens föregående checkpoint:
 `24b9bc8ae17733765f5735fa6a9a8de28993d977` (C1.3t, nio filer).

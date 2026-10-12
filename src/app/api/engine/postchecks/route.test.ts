@@ -8,6 +8,7 @@ import { GET, maxDuration } from "./route";
 describe("unscheduled server postchecks entry", () => {
   beforeEach(() => {
     vi.stubEnv("CRON_SECRET", "secret");
+    vi.stubEnv("SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED", "1");
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     select.mockReset().mockResolvedValue([{ chatId: "c1", versionId: "v1" }, { chatId: "c2", versionId: "v2" }]);
     run.mockReset().mockResolvedValue({ kind: "stop", reason: "starting", retryable: true });
@@ -22,6 +23,18 @@ describe("unscheduled server postchecks entry", () => {
   });
   it.each(["", "secret", "Bearer wrong", "Bearer secret-extra"])("rejects unauthorized credentials (%j)", async auth => {
     expect((await GET(request(auth))).status).toBe(401); expect(select).not.toHaveBeenCalled();
+  });
+  it.each([undefined, "", "0", "false", "true", "2026-10-14", "1 "])("does no work unless explicitly enabled (%j)", async value => {
+    vi.stubEnv("SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED", value);
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, skipped: "disabled" });
+    expect(select).not.toHaveBeenCalled(); expect(run).not.toHaveBeenCalled();
+  });
+  it("still requires authentication when disabled", async () => {
+    vi.stubEnv("SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED", "0");
+    expect((await GET(request("Bearer wrong"))).status).toBe(401);
+    expect(select).not.toHaveBeenCalled(); expect(run).not.toHaveBeenCalled();
   });
   it("runs at most two candidates serially with the same ORIGINAL request deadline", async () => {
     let running = false;
