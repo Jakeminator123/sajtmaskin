@@ -20,6 +20,7 @@ const attachVersionToPendingUsageAsync = vi.hoisted(() => vi.fn());
 const getLlmUsageContext = vi.hoisted(() => vi.fn(() => ({ claimKey: "claim_stream_1" })));
 const establishGenerationBilling = vi.hoisted(() => vi.fn());
 const settleGenerationBilling = vi.hoisted(() => vi.fn());
+const reattributeGenerationBillingUsage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/engine/chats/create-chat-stream-post", () => ({
   handleCreateChatStreamPost,
@@ -34,6 +35,7 @@ vi.mock("@/lib/observability/llm-usage", async (importOriginal) => ({
 vi.mock("@/lib/db/services/generation-billing", () => ({
   establishGenerationBilling,
   settleGenerationBilling,
+  reattributeGenerationBillingUsage,
 }));
 
 // --- v0-side mocks (migrated) so the real create-chat-stream-post can run when
@@ -281,9 +283,9 @@ vi.mock("@/lib/gen/system-prompt", () => ({
   getSystemPromptLengths: () => ({ total: 10, static: 5, dynamic: 5 }),
 }));
 
-vi.mock("@/lib/gen/request-metadata", () => ({
+vi.mock("@/lib/gen/request-metadata", async (importOriginal) => ({
   extractAppProjectIdFromMeta: () => "app_proj_1",
-  extractBriefFromMeta: () => null,
+  extractBriefFromMeta: (await importOriginal<typeof import("@/lib/gen/request-metadata")>()).extractBriefFromMeta,
   extractComplexityHintFromMeta: () => null,
   extractDesignThemePresetFromMeta: () => null,
   extractPageCountHintFromMeta: () => null,
@@ -540,6 +542,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     attachVersionToPendingUsageAsync.mockResolvedValue(undefined);
     establishGenerationBilling.mockResolvedValue(undefined);
     settleGenerationBilling.mockResolvedValue(undefined);
+    reattributeGenerationBillingUsage.mockResolvedValue(undefined);
     bindKostnadsfriCampaignInitialChat.mockResolvedValue(true);
     prepareCredits.mockResolvedValue({
       ok: true,
@@ -817,6 +820,35 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         scaffoldId: "scaffold_1",
       }),
     );
+  });
+
+  it("passes the client's separate brief receipt through the real create handler to version billing", async () => {
+    const parse = createChatSchemaSafeParse.getMockImplementation()!;
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => {
+      const parsed = parse(body);
+      parsed.data.meta.brief = { projectTitle: "Testfika", usageClaimKey: "brief-claim-1" };
+      return parsed;
+    });
+    createGenerationPipeline.mockReturnValue(buildPipelineStream([
+      { event: "content", data: { text: "<main>Testfika</main>" } },
+      { event: "done", data: { promptTokens: 11, completionTokens: 22 } },
+    ]));
+    finalizeOrHandleEmptyGeneration.mockResolvedValue({
+      version: { id: "ver_brief" }, messageId: "msg_brief", previewUrl: null,
+      preflight: { previewBlocked: false, verificationBlocked: false, previewBlockingReason: null },
+      contentForVersion: "<main>Testfika</main>", rejectedShrinks: [], rejectedStructural: [], crossFileStubs: [],
+    });
+    const response = await POST(new Request("https://example.com/api/engine/chats/stream", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Testfika" }),
+    }));
+    expect(response.status).toBe(200);
+    const events = await readSseEvents(response);
+    expect(createChatSchemaSafeParse.mock.results[0]?.value.data.meta.brief).toMatchObject({ usageClaimKey: "brief-claim-1" });
+    const versionId = events.find(event => event.event === "done")?.data?.versionId;
+    expect(versionId).toBeTruthy();
+    expect(establishGenerationBilling).toHaveBeenCalledWith(expect.objectContaining({ versionId, claimKey: "claim_stream_1", claimKeys: ["brief-claim-1"] }));
+    expect(reattributeGenerationBillingUsage).toHaveBeenCalledWith({ chatId: "engine_chat_1", versionId, claimKeys: ["claim_stream_1", "brief-claim-1"] });
+    expect(reattributeGenerationBillingUsage.mock.invocationCallOrder[0]).toBeLessThan(settleGenerationBilling.mock.invocationCallOrder[0]!);
   });
 
   it("threads named section capabilities through the init orchestration input", async () => {

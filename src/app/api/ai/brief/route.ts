@@ -4,7 +4,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/dev-log";
-import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
+import { flushPendingUsageWrites, getLlmUsageContext, runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {
   buildBriefTrace,
@@ -25,6 +25,7 @@ import {
 import { omitBriefReasoningSummary } from "@/lib/builder/deep-brief-visibility";
 import { FEATURES } from "@/lib/config";
 import { incBriefCache } from "@/lib/observability/metrics";
+import { hasRecordedBriefUsageClaim } from "@/lib/db/services/llm-usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 750;
@@ -53,6 +54,7 @@ function buildBriefHeaders(
   cacheState: "hit" | "miss" | "skip",
   trace: ReturnType<typeof buildBriefTrace>,
 ): Record<string, string> {
+  const usageClaimKey = cacheState !== "hit" ? getLlmUsageContext().claimKey : null;
   return {
     "Cache-Control": "no-store",
     "X-Provider": payload.provider === "anthropic" ? "anthropic" : "openai",
@@ -63,6 +65,10 @@ function buildBriefHeaders(
     "X-Brief-Trace-Id": trace.traceId,
     "X-Brief-Prompt-Hash": trace.promptHash,
     "X-Brief-Source": trace.source,
+    // A cache hit incurs no new call and must not reuse another request's receipt.
+    ...(usageClaimKey
+      ? { "X-Brief-Usage-Claim-Key": usageClaimKey }
+      : {}),
   };
 }
 
@@ -230,6 +236,21 @@ export async function POST(req: Request) {
           ...(reasoningSummary ? { reasoningSummary } : {}),
         };
 
+        const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
+        // The next request can start immediately; its exact receipt must already
+        // exist before it can be attached to the version's billing marker.
+        await flushPendingUsageWrites();
+        let usageRecorded = false;
+        try {
+          const claimKey = getLlmUsageContext().claimKey;
+          usageRecorded = Boolean(claimKey && await hasRecordedBriefUsageClaim(userId, claimKey));
+        } catch { /* Return a visible failure, never a fabricated receipt. */ }
+        if (!usageRecorded) {
+          return NextResponse.json({
+            error: "Briefens kostnadskvitto kunde inte sparas. Sajtbygget har inte startats.",
+            code: "brief_usage_unavailable",
+          }, { status: 503 });
+        }
         if (FEATURES.useRedisCache) {
           incBriefCache("miss");
           devLogAppend("latest", {
@@ -240,10 +261,9 @@ export async function POST(req: Request) {
             traceId: result.trace.traceId,
             promptHash: result.trace.promptHash,
           });
+          // A failed receipt confirmation must not become a successful cache hit.
           await writeBriefCache(cacheKey, payload);
         }
-
-        const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
         return NextResponse.json(briefResponseBody(brief, reasoningSummary), {
           headers: buildBriefHeaders(payload, cacheState, result.trace),
         });

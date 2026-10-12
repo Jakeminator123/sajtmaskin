@@ -123,6 +123,18 @@ anropar denna ägare; klienten observerar status utan egen efterkontrollkö elle
 återstart vid återöppning. GET av filer läser bara sparad snapshot, och Spara
 startar inget extra bildarbete. SSE-done bevisar inte färdig versionslivscykel.
 
+Klientens separata Deep Brief skickar sitt befintliga usage-kvitto i
+`X-Brief-Usage-Claim-Key`; det följer med briefen till
+[versionsavräkningen](../../src/lib/api/engine/chats/credits-handler.ts).
+API:t bekräftar en faktiskt sparad kostnadsrad innan kvittot utfärdas eller
+briefen cacheas. Vid saknat kvitto stoppas sajtbygget utan automatisk betald
+fallback. Båda kvittonycklarna sparas atomiskt i den första billingmarkören,
+före attribuering och debitering. Den befintliga
+[billing-recovery-ägaren](../../src/lib/db/services/generation-billing.ts)
+binder även chatlösa brief-rader, men bara för samma billingägare och exakt
+kvitto, aldrig genom att gissa efter session/tid. Cacheträffar ger inget nytt
+betalt kvitto; en redan versionsbunden rad flyttas inte till en annan version.
+
 Serverns [resume-route](../../src/app/api/engine/postchecks/route.ts) använder
 samma kedja och bestående återstartsbudget. Routen är inte schemalagd i
 `vercel.json`; automatisk återstart efter avbruten serverkörning kräver separat

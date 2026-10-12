@@ -43,6 +43,15 @@ function usageRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("buildGenerationQuote", () => {
+  it("includes the attached client brief in the real test's four-call frozen-cost quote", () => {
+    const costs = [33172, 4, 3, 188282];
+    const phases = ["brief", "embeddings", "embeddings", "codegen"];
+    const quote = buildGenerationQuote(costs.map((cost, index) => usageRow({ id: `usage_${index}`, phase: phases[index], cost_microusd: cost, pricing_version: "frozen-test" })) as never);
+    expect(quote.llmCalls).toBe(4);
+    expect(quote.providerCostMicroUsd).toBe(221461);
+    expect(quote.breakdown.find(row => row.phase === "brief")?.costUsd).toBe(0.033172);
+  });
+
   it("uses the immutable per-call cost snapshot when present", () => {
     const frozen = calculateModelCost("gpt-5.6-luna", {
       inputTokens: 1_000,

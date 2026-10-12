@@ -466,6 +466,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const creditUser = creditCheck.user;
         const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
           rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+          briefUsageClaimKey: typeof clientBriefFromMeta?.usageClaimKey === "string"
+            ? clientBriefFromMeta.usageClaimKey
+            : null,
         });
 
         let createChatPromptLogId: string | null = null;

@@ -245,7 +245,8 @@ Kontots första gratisgenerering tillämpades: **0 credits**, saldo kvar **1 000
 Avstämningsavvikelse: brief-raden saknar chat/version-bindning; versionens
 billingrad omfattar bara övriga tre anrop, $0.188289 / 1,98 SEK. Totalen ovan
 inkluderar brief och är alltså inte den underräknade billingtotalen. Detta
-behöver rättas/verifieras separat innan full kostnadsavräkning kan accepteras.
+behövde en lokal kodfix; se uppföljningen nedan. Det historiska DB-kvittot är
+inte retroaktivt ändrat och full live-kostnadsavräkning är ännu inte accepterad.
 VM/hostingkostnad ingår inte i tokenkostnaden.
 
 Återanvändbara credentials sparades efter Jakobs mandat i båda ignorerade
@@ -262,3 +263,30 @@ Lokala bevis i uppgiftens visualiseringsmapp: `manual-pipeline-test-account-resu
 `manual-pipeline-save-reopen-result.json`, `manual-pipeline-normal-reopen-result.json`
 samt `manual-pipeline-preview-{desktop,mobile}.png`. Browserdrivrutinen har ett
 exklusivt engångskvitto som förhindrar återinskickning av samma modellprov.
+
+### Lokal uppföljning: brief-avräkning och ankarkontroll
+
+Briefens befintliga claimKey förs nu från API-header via klientbriefen till
+versionsavräkningen. API:t bekräftar en faktiskt sparad, ägarbunden brief-rad
+innan det utfärdar kvittot eller cachear briefen. Saknat kvitto/lookupfel ger
+synligt stopp genom båda klientlagren, utan automatisk extra betald fallback.
+Både generation- och briefnyckeln sparas atomiskt i första billingmarkören
+före väntad attribuering, inklusive marker-retries;
+både normal settlement och befintlig admin-recovery kan hitta den chatlösa
+briefen med exakt nyckel och billingägarens userId. Ingen ny tabell, tjänst,
+modellkörning eller pris-/budgetändring. Cacheträffar får inget betalt kvitto;
+versionerade rader flyttas inte och misslyckad attribuering lämnas pending.
+
+`#top`-varningen var falsk: HTML har en inbyggd destination för sidans början,
+även utan id. Browserproben följer nu detta samt avkodade id:n och äldre named
+anchors; verkligt saknade sektioner rapporteras fortfarande. Ingen genererad
+sajtkod behövde skrivas om. Tidigare sparade DEV-resultat har inte muterats;
+de rättas inte retroaktivt av en lokal kodändring. Schemaläggningen kvar på `0`.
+Den redan skapade sajtens verkliga footer-länk kontrollerades GET-only med
+Chromium och den faktiska kompilerade proben: id `top` saknas, proben godtar
+länken och klicket flyttar scrollY från 2333 till 0. Inga provideranrop.
+Slutlig förändrad testmängd: 82 offlinetester i åtta sviter PASS; oförändrade
+produkt-, kostnadsquote-, admin- och observability-resultat återanvänds från
+tidigare riktade körningar. Cachefri typecheck/lint PASS. Ny readonly-deltareview
+är CLEAN efter rättning av faktisk kvittobekräftelse, atomisk markerpersistens,
+cacheordning och genomgående klientstopp. Inga fullbyggen eller betalda omprov.

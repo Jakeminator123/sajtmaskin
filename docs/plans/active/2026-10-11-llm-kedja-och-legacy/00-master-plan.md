@@ -178,6 +178,8 @@ produktkontroll och Spara/återöppning utan nya anrop: $0.221461, cirka 2,33 SE
 0 debiterade credits. Kvalitetsgrind och LiveReview var av via befintlig env/grant;
 de är inte runtimeaccepterade. Brief-kostnaden saknar versionens billingbindning;
 avstämningsavvikelsen och exakta kvitton finns i [D1](aktiviteter/D1-integration-och-leverans.md).
+Efter provet är briefens kvittoöverföring/avräkning och den falska `#top`-varningen
+lokalt rättade; historiska DEV-rader är oförändrade och inget nytt betalt prov körs.
 Testcredentials är sparade som separata operatörs-env lokalt och krypterat i Vercels
 tre miljöer. Schemaläggningen förblir `0`; ingen push eller aktivering.
 

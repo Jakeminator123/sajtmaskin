@@ -9,6 +9,8 @@ export type GenerationChargeTarget = {
 };
 
 export type CommitCreditsOnceOptions = {
+  /** Exact receipt from the separate client brief request, not a session/time heuristic. */
+  briefUsageClaimKey?: string | null;
   /**
    * Targetless work such as plan mode has no version ledger to settle later.
    * Recheck the locked balance at commit time and reject a raced overdraft
@@ -32,9 +34,10 @@ export function createCommitCreditsOnce(
     if (target) {
       const { attachVersionToPendingUsageAsync, getLlmUsageContext } =
         await import("@/lib/observability/llm-usage");
-      const { establishGenerationBilling, settleGenerationBilling } =
+      const { establishGenerationBilling, reattributeGenerationBillingUsage, settleGenerationBilling } =
         await import("@/lib/db/services/generation-billing");
       const claimKey = getLlmUsageContext().claimKey;
+      const briefClaimKey = options.briefUsageClaimKey?.trim();
 
       // Finalize owns the first durable completion marker. It is the only
       // billing write that must succeed before the client may see `done`.
@@ -48,6 +51,7 @@ export function createCommitCreditsOnce(
             userId: creditCheck.user.id,
             isTest: creditCheck.isTest,
             claimKey,
+            ...(briefClaimKey ? { claimKeys: [briefClaimKey] } : {}),
             ...(creditCheck.campaignBenefit
               ? {
                   campaignEntitlementId: creditCheck.campaignBenefit.entitlementId,
@@ -69,6 +73,13 @@ export function createCommitCreditsOnce(
 
       try {
         await attachVersionToPendingUsageAsync(target.chatId, target.versionId, claimKey);
+        if (briefClaimKey) {
+          await reattributeGenerationBillingUsage({
+            chatId: target.chatId,
+            versionId: target.versionId,
+            claimKeys: [claimKey, briefClaimKey],
+          });
+        }
       } catch (attachmentError) {
         // Do not settle a partial snapshot. The pending marker retains the
         // claim key so admin reconciliation can retry exact attribution.
