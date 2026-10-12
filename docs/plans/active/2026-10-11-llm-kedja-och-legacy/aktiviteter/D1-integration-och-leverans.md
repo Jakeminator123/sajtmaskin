@@ -105,11 +105,12 @@ push; befintlig paketreview får inte presenteras som ett sådant kvitto.
 
 ## Förberett enda manuellt runtimeprov — 2026-10-12
 
-Status: förberett, inte startat. Kodkandidat `e5e5b7d7258dc8aa2a2d2876c75514149863b43c`.
+Status: ett faktiskt testanrop genomfört, stoppat före modellstart; se resultat nedan.
+Kodkandidat `e5e5b7d7258dc8aa2a2d2876c75514149863b43c`.
 Schemaläggningsflaggan ligger kvar på `0` lokalt och i Vercel; inget cron-anrop ingår.
 Provet kör den lokala kandidatens vanliga generationsväg och gemensamma servercore.
 Den lokala env-filens DB-adress har kontrollerats med den befintliga guarden:
-DEV `yubbckduwblyrbnlglwf`, utan DB-anslutning. Ingen server har startats.
+DEV `yubbckduwblyrbnlglwf`, utan DB-anslutning inför provet.
 
 I en ny terminal används Node/Volta 22.23.1, kandidatcheckouten och huvudcheckoutens
 befintliga env-fil utan att kopiera eller ändra dess värden. Budgetarna nedan gäller
@@ -118,6 +119,7 @@ bara testprocessen. Ingen ändring av Vercels modellval eller tokenbudgetar:
 ```powershell
 Set-Location 'C:\Users\jakem\.codex\worktrees\llm-legacy-cleanup\sajtmaskin'
 $env:SAJTMASKIN_POSTCHECKS_SCHEDULE_ENABLED = '0'
+$env:NEXT_PUBLIC_APP_URL = 'http://localhost:3100'
 $env:SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS = '16384'
 $env:SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS = '4096'
 $env:SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS = '4096'
@@ -158,8 +160,34 @@ Priserna kontrollerades 2026-10-12 mot
 Luna $0.20/$1.20 per miljon input/output-tokens. SEK använder repots uttryckliga
 approximativa kurs 10.5. Efter provet summeras `llm_usage.cost_microusd` för exakt
 chatt/version/körning och stäms av mot billing; saknade usage-kvitton betyder att
-kostnaden är ofullständig, inte noll. Inga kostnads-/saldoqueries har körts ännu.
+kostnaden är ofullständig, inte noll. Faktiskt utfall redovisas nedan.
 
 Detta prov ger runtimebevis för den vanliga F2-generationen och dess serverkontroller.
 Schemalagd återstart, avbrott/takeover, F3 och bildmaterialisering verifieras inte
-av detta enda prov. Resultat skrivs här först efter faktisk körning.
+av detta enda prov.
+
+### Faktiskt resultat — 2026-10-12 17:06:43 UTC
+
+En korrekt UI-beställning nådde `POST /api/engine/chats/stream`: `pro`,
+`imageGenerations=false`, `materializeImages=false`. Svar **403 origin_not_allowed**,
+innan route-handler eller någon modell startade. Testets port 3100 matchade inte
+huvudcheckoutens `NEXT_PUBLIC_APP_URL=http://localhost:3000`. Exact-Origin-guarden
+i `src/proxy.ts:326` avvisade den. Detta var en brist i testuppsättningen, inte
+ett påvisat fel i den nya LLM-kedjan. Startreceptet ovan har korrigerats med en
+processlokal app-URL; någon andra serverbeställning har inte gjorts.
+
+Faktisk AI-kostnad **$0 / 0 SEK**: inga provideranrop passerade proxygränsen,
+och readonly DEV-frågan hittade noll `llm_usage`-rader för testkontot efter
+starttiden samt noll testchattar. Ingen version skapades; preview, serverkontroller,
+Spara/återöppna och deras kostnadskvitton kunde därför inte runtimeverifieras.
+Tidigare knapp-/cookie-/bildinställningskontroller nådde aldrig serverns generation.
+
+Buildern och vanlig login fungerade; login använde ett redan verifierat konto
+med tillräckligt saldo, utan kontoskapande eller credit-bootstrap. Browserverktygets
+kernel kraschade, så repots installerade Playwright-browser användes. Inga
+produktkodändringar, migrationer, pushar eller deploys. Schemaläggningsflaggan
+verifierades som `0` lokalt och i Vercels tre mål. Nytt modellprov är inte utfört.
+
+Körkvitto och skärmbild ligger under den här uppgiftens lokala visualiseringsmapp:
+`manual-pipeline-result.json` och `manual-pipeline-generated.png`. Root har återställt
+Nexts automatiskt tillagda block i AGENTS.md; det ingår inte i produktändringen.
