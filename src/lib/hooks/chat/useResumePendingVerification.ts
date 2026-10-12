@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
-  buildProductPostcheckLogItems,
   hasActivePostCheck,
   imageValidationHoldCategory,
   imageValidationHoldMessage,
@@ -16,7 +15,7 @@ import {
 import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
-import { verdictFromProductPostcheckResult } from "@/lib/gen/verify/product-postcheck-verdict";
+import { buildProductPostcheckLogItems, verdictFromProductPostcheckResult } from "@/lib/gen/verify/product-postcheck-verdict";
 import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 
 /**

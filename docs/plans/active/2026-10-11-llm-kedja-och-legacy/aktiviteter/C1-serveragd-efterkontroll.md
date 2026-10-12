@@ -245,3 +245,51 @@ C1.3b slutreview utan konkreta fynd: 10/10 scopehashar stabila. Granskaren
 bekräftar import/followup/okänd-provenance-skydd, CAS/readback, previewidentitet,
 await/after-paritet och atomisk writer. Slutrapporten från 2 bekräftar 71 tester,
 typecheck utan cache, diff och plan PASS. Kod/testbevis, inte live konkurrens.
+
+C1.3a–b lokal checkpoint: 99bd32ad033a641807de04b3686a8a7a8f619090.
+29 exakta filer, +1379/−584 inklusive tester/planer. Indexets diff-check hittade
+en extra slutrad i nya version-image-validation.ts som inte syntes i unstaged
+diff-check när filen var untracked. Endast denna tomrad togs bort; jämförelse
+med --ignore-blank-lines var identisk. B:s produktnetto blir därför −2 rader.
+Samtliga 16 A-filer matchade reviewhasharna före commit; B:s slutreview 10/10
+stabila. Arbetsytan ren efter commit. Ingen push, runtime eller live-DB.
+
+C1.3c0 tilldelat 1 på denna checkpoint: endast db/services/live-review-runs.ts,
+gen/verify/live-review-session.ts och db/services/product-postcheck-runs.ts
+samt deras riktade tester. Befintlig betalreservation får explicit holder/
+revision-kontext med atomisk kontroll vid counter-ökning; sessionsadaptern
+stoppar före modell vid nekande. Lägg ren busy/settled-lookup utan att claim
+skrivs; återanvänd befintlig klassificering. Äldre direktcallers ska bete sig
+oförändrat tills nästa paket kopplar in held-core. Ingen route, ny typfil,
+koordinator, timeoutändring eller cron i grundpaketet; utökat ownerbehov frågas.
+
+C1.3c0 säkerhetsstopp: patchen nekades därför att granskaren inte ansåg att
+verifierat användarmandat tydligt täckte just ändringen av de tre produkt-/DB-
+ägarna och atomisk reservation för betalda modellförsök. Ingenting applicerades,
+inga tester kördes, skrivfönstret släppt. Ingen alternativ verktygsväg/retry.
+Direkt godkännandefråga finns nu i samordnarens chatt; äldre direktcallers och
+kostnadstak ska vara oförändrade. Ingen live-DB/push/aktivering/modellkörning.
+
+C1.3cf lokalt klar medan detta inväntas: fem befintliga filer, beteendeidentisk
+flytt av buildProductPostcheckLogItems och dess privata formatterberoende till
+gen/verify/product-postcheck-verdict.ts. Payloadtyp härleds type-only från
+DB-ägarens input, ingen ny typfil/kopia eller klientruntimeimport. Uppdatera
+hooks/chat/post-checks.ts och useResumePendingVerification.ts med direktimport,
+inga återexportalias. Flytta nio befintliga tester från post-checks.test.ts till
+product-postcheck-verdict.test.ts, oförändrade fixtures/assertions. Inga DB-/route-
+eller produktpolicyändringar. Runtime och koordinator kvarstår.
+
+C1.3cf slutresultat: 126 riktade tester, typecheck --incremental false,
+diff-check och verifieringsplan --no-fetch PASS. Resume-testet är oförändrat.
+Netto +1 produktrad och +6 testrader. 2 har släppt skrivfönstret. 3:s återupptagna
+slutreview efter Jakobs avbrott har inga fynd: funktionskroppar är identiska
+förutom typ-/exportanpassning, samtliga nio tester textidentiska, endast
+type-only-import från DB-owner, direkta konsumentimporter utan kopia/alias.
+Fem SHA-256 är oförändrade före/efter review och kontroll i samordnarchatten:
+verdict AE5EE2F9EE5452F4400710A17966C1CA4D7F11DE201082D87479F361CEDA0A2A;
+verdict-test 5666458FCE7FA82B17F3D98964B291DDD68B69CCA0710218A50F9E8387B7E58E;
+post-checks 2EACA28E61C3E2B3A686D8340B52FD7D8DECABAF69DD498B21AFD9B6C92F419F;
+post-checks-test 9A2B73C2BAEE9CA0B2F26D259AE9A30EA5FEF452A756CB017750F198053586AA;
+resume 232CD99D4FAFAA62D430D498AA6F4B16E4DC4459BBA6F38EC97672CB35CED425.
+Ingen ny runtimeacceptans. C1.3c0 är fortsatt oapplicerad i väntan på direkt
+godkännande; avbrottets "fortsätt" ändrar inte säkerhetsstoppets mandatgräns.

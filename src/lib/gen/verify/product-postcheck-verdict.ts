@@ -12,6 +12,7 @@
 import {
   isInfrastructureSkipReason,
 } from "@/lib/gen/verify/product-postcheck-skip";
+import type { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
@@ -430,4 +431,191 @@ export function productPostcheckResultFromVerdict(params: {
         attestation: null,
       };
   }
+}
+
+/** Readable live-review log line. Skip reasons must not claim screenshots were taken. */
+function formatLiveReviewLogMessage(result: ProductPostcheckResult): string | null {
+  if (result.liveReview?.status === "completed") {
+    return `Live review: ${result.liveReview.decision.verdict}.`;
+  }
+  if (result.liveReview?.status === "skipped") {
+    return `Live review skipped: ${result.liveReview.reason}.`;
+  }
+  if (result.screenshots) {
+    return "Live review screenshots captured.";
+  }
+  return null;
+}
+
+/** Exported for the resume-verify lane — see `persistVersionErrorLogs`. */
+export function buildProductPostcheckLogItems(
+  result: ProductPostcheckResult | null,
+): Omit<Parameters<typeof createEngineVersionErrorLogs>[0][number], "chatId" | "versionId" | "v0VersionId">[] {
+  // A transport failure has no server-owned tuple. Persist it under a separate
+  // non-product category so it remains visible without being mistaken for a
+  // Product Postcheck PASS/skip. The verify lane holds and retries below.
+  if (!result) {
+    return [
+      {
+        level: "warning",
+        category: "post-check.product-postcheck-transport",
+        message: "F2 Product Postcheck failed before an attested result was returned.",
+        meta: { skippedReason: "transport_error" },
+      },
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message:
+          "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
+        meta: {
+          verdict: "pending",
+          skippedReason: "transport_error",
+        },
+      },
+    ];
+  }
+  const verdict = verdictFromProductPostcheckResult(result);
+  // A superseded response persists an explicit non-release verdict so F3
+  // retries. L7 hold-reasons (preview not ready/running) still leave no
+  // durable skip — missing is already `pending` at read time. Other
+  // unattested skips persist `pending`, never `allowed_skip`.
+  if (result.skippedReason === "preview_superseded") {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck superseded — versionen lämnas pending.",
+        meta: {
+          verdict: "superseded",
+          skippedReason: "preview_superseded",
+        },
+      },
+    ];
+  }
+  if (
+    !result.attestation &&
+    (result.skippedReason === "preview_not_ready" ||
+      result.skippedReason === "preview_not_running")
+  ) {
+    return [];
+  }
+  if (!result.attestation && result.skippedReason !== "feature_disabled") {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message:
+          "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
+        meta: {
+          verdict: "pending",
+          skippedReason: result.skippedReason ?? "unknown",
+        },
+      },
+    ];
+  }
+  if (!result.attestation) {
+    return [
+      {
+        level: "info",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          verdict,
+          skippedReason: "feature_disabled",
+        },
+      },
+    ];
+  }
+  const attestationMeta = {
+    attestedPreviewSessionId: result.attestation.previewSessionId,
+    attestedLifecycleToken: result.attestation.lifecycleToken,
+    attestedFilesRevision: result.attestation.filesRevision,
+    // Binder alla rader i samma körning till routens run-id, så omkörningar
+    // och tappade fynd går att skilja åt i efterhand (OpenClaw 2026-09-01).
+    verificationRunId: result.verificationRunId ?? null,
+    verdict,
+  };
+  if (result.skipped) {
+    // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
+    // och ska synas i defect-aggregatet — prod-körningen 2026-08-11 visade sex
+    // "skipped"-rader i rad som i själva verket var en kraschad Chromium
+    // (/tmp-svält). `warning` påverkar inga gates: verdikt-läsarna ankrar på
+    // `preflight:quality-gate`/`quality-gate:*` och readiness-kortets
+    // preview-filter på `preview|render-telemetry|deploy`. Policy-skips
+    // (feature av, ingen URL, otillåten host) förblir `info`.
+    const crashReasons = new Set([
+      "playwright_unavailable",
+      "navigation_failed",
+      "timeout",
+      "runtime_error",
+    ]);
+    const skippedReason = result.skippedReason ?? "unknown";
+    // Skip is its own log type. A new summary here would become "newest" and
+    // could erase a previous `blocked` on the same filesRevision. The verdict
+    // reader takes the strictest domain per revision from skipped + summaries.
+    return [
+      {
+        level: crashReasons.has(skippedReason) ? "warning" : "info",
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          ...attestationMeta,
+          skippedReason,
+          durationMs: result.durationMs ?? null,
+          checkedUrl: result.checkedUrl ?? null,
+        },
+      },
+    ];
+  }
+
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const logs: ReturnType<typeof buildProductPostcheckLogItems> = warnings.map((warning) => ({
+    level: "warning" as const,
+    category: `product_postcheck.${warning.code || "warning"}`,
+    message: warning.message || "F2 Product Postcheck warning.",
+    meta: {
+      ...attestationMeta,
+      ...warning,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+    },
+  }));
+  logs.unshift({
+    level: warnings.length > 0 ? "warning" : "info",
+    category: "product_postcheck.summary",
+    message:
+      warnings.length > 0
+        ? `F2 Product Postcheck found ${warnings.length} warning(s).`
+        : "F2 Product Postcheck passed.",
+    meta: {
+      ...attestationMeta,
+      warningCount: warnings.length,
+      // Routens rapporterade antal vs vad som faktiskt persisteras här. En
+      // diff mellan talen pekar direkt på var fynd försvann (9-vs-7-klassen).
+      reportedWarningCount:
+        typeof result.warningCount === "number" ? result.warningCount : warnings.length,
+      persistedWarningCount: warnings.length,
+      productBlocked: result.productBlocked === true,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+      // Hur många routes crawlen hann med innan deadline. Underlaget för
+      // beslutet om kontrollen ska flyttas före preview-länken (masterplanens
+      // steg 4) — utan det i DB:n går täckningen inte att mäta i efterhand.
+      routesChecked: result.routesChecked ?? null,
+    },
+  });
+  const liveReviewMessage = formatLiveReviewLogMessage(result);
+  if (liveReviewMessage) {
+    logs.push({
+      level: "info",
+      category: "product_postcheck.live_review",
+      message: liveReviewMessage,
+      meta: {
+        ...attestationMeta,
+        screenshots: result.screenshots ?? null,
+        liveReview: result.liveReview ?? null,
+      },
+    });
+  }
+  return logs;
 }
